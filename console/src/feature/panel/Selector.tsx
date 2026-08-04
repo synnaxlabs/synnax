@@ -7,46 +7,58 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project } from "@synnaxlabs/client";
+import "@/feature/panel/Selector.css";
+
+import { panel, query } from "@synnaxlabs/client";
 import {
   Access,
   Button,
+  Component,
   CSS as PCSS,
+  Errors,
   type Flux,
+  Haul,
   Icon,
   Menu,
   Panel,
+  Synnax,
   Tabs,
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { createPillHaulItem } from "@/feature/panel/haul";
+import { useCreate } from "@/feature/panel/useCreate";
+import { useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
-interface ContextMenuProps extends Menu.ContextMenuMenuProps {
-  panels: panel.Panel[];
-}
-
-const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null => {
+const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const ids = panel.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const confirm = Tree.useConfirmDelete({ type: "Panel" });
+  const dispatch = useDispatch();
+  const client = Synnax.use();
+  const openWindow = useOpenWindow();
   const { update: del } = Panel.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
         const panelKeys = array.toArray(data);
         if (panelKeys.length === 0) return false;
-        const selected = panels.filter(({ key }) => panelKeys.includes(key));
-        if (!(await confirm(selected))) return false;
+        const items = panelKeys.map((key) => {
+          const cached = client?.panels.getCached(key);
+          return { name: query.isLive(cached) ? cached.name : "this panel" };
+        });
+        if (!(await confirm(items))) return false;
+        dispatch(Session.Panel.remove(panelKeys));
         return data;
       },
-      [panels, confirm],
+      [client, confirm, dispatch],
     ),
   });
   if (keys.length === 0) return null;
@@ -54,17 +66,18 @@ const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null =>
   return (
     <CMenu.Menu>
       {hasUpdatePermission && keys.length === 1 && (
-        <>
-          <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
-          <Menu.Divider />
-        </>
+        <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
       )}
-      {hasDeletePermission && (
-        <>
-          <CMenu.DeleteItem onClick={() => del(keys)} />
-          <Menu.Divider />
-        </>
+      <Menu.Divider />
+      {keys.length === 1 && (
+        <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
+          <Icon.OpenInNewWindow />
+          Open in new window
+        </Menu.Item>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <CMenu.DeleteItem onClick={() => del(keys)} />}
+      <Menu.Divider />
       <CMenu.ReloadConsoleItem />
     </CMenu.Menu>
   );
@@ -74,7 +87,19 @@ interface TabProps {
   tabKey: panel.Key;
 }
 
-const Tab = ({ tabKey }: TabProps): ReactElement => {
+// A pill whose panel vanished between the list answer and the retrieve
+// renders nothing; the by-project subscription evicts the key right after.
+const TabFallback = (): null => null;
+
+// The whole pill, chrome included, comes from the retrieve, so there is nothing
+// to put an indicator inside of until it lands.
+const Tab = ({ tabKey }: TabProps): ReactElement => (
+  <Errors.SuspenseBoundary loading={null} FallbackComponent={TabFallback}>
+    <TabContent tabKey={tabKey} />
+  </Errors.SuspenseBoundary>
+);
+
+const TabContent = ({ tabKey }: TabProps): ReactElement => {
   Panel.useEnsureRetrieved({ key: tabKey });
   const name = Panel.useSelectName({ key: tabKey });
   const { update: rename } = Panel.useRename();
@@ -82,8 +107,19 @@ const Tab = ({ tabKey }: TabProps): ReactElement => {
     (name: string) => rename({ key: tabKey, name }),
     [tabKey, rename],
   );
+  const { startDrag, onDragEnd } = Haul.useDrag({ type: "PanelSelector" });
+  const handleDragStart = useCallback(
+    () => startDrag([createPillHaulItem(tabKey)]),
+    [startDrag, tabKey],
+  );
   return (
-    <Tabs.Tab itemKey={tabKey}>
+    <Tabs.Tab
+      itemKey={tabKey}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+    >
+      <Icon.Panel />
       <Text.Editable
         id={PCSS.B(`tab-${tabKey}`)}
         value={name}
@@ -93,59 +129,58 @@ const Tab = ({ tabKey }: TabProps): ReactElement => {
   );
 };
 
-export const Selector = (): ReactElement | null => {
+const contextMenu = Component.renderProp(ContextMenu);
+
+const Internal = (): ReactElement => {
   const dispatch = useDispatch();
   const selected = Session.Panel.useSelectSelected();
   const projectKey = Session.Project.useSelectSelected();
-  const { data } = Panel.useRetrieveByProject({ project: projectKey });
-  const panels = useMemo(() => data ?? [], [data]);
-  const keys = useMemo(() => panels.map(({ key }) => key), [panels]);
+  const keys = Panel.useRetrieveKeysByProject({ project: projectKey });
 
   const handleSelect = useCallback(
     (key: string) => dispatch(Session.Panel.select({ key })),
     [dispatch],
   );
 
-  const { update: create } = Panel.useCreate();
-  const handleCreate = useCallback(
-    () => create({ name: "New Panel", parent: project.ontologyID(projectKey) }),
-    [create, projectKey],
-  );
-
-  // The session's selection outlives the project it was made in, so a panel outside the
-  // active project must never stay selected.
-  useEffect(() => {
-    if (selected != null && keys.includes(selected)) return;
-    if (keys.length === 0) {
-      if (selected != null) dispatch(Session.Panel.clearSelected({}));
-      return;
-    }
-    dispatch(Session.Panel.select({ key: keys[0] }));
-  }, [selected, keys, dispatch]);
-
-  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <ContextMenu {...props} panels={panels} />,
-    [panels],
-  );
+  const handleCreate = useCreate();
   const menuProps = Menu.useContextMenu();
 
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Tabs.Frame value={selected ?? ""} onChange={handleSelect}>
+      <Tabs.Frame
+        className={CSS.B("panel-selector")}
+        value={selected ?? ""}
+        onChange={handleSelect}
+        x
+        align="center"
+        empty={false}
+        gap="small"
+      >
         <Tabs.Selector
-          className={CSS.B("panel-selector")}
           size="medium"
           variant="pill"
+          overflow="fade"
           onContextMenu={menuProps.open}
         >
           {keys.map((key) => (
             <Tab key={key} tabKey={key} />
           ))}
-          <Button.Button variant="text" sharp onClick={handleCreate}>
-            <Icon.Add />
-          </Button.Button>
         </Tabs.Selector>
+        <Button.Button variant="text" onClick={handleCreate}>
+          <Icon.Add />
+          {selected == null && "New Panel"}
+        </Button.Button>
       </Tabs.Frame>
     </Menu.ContextMenu>
   );
 };
+
+// The strip is nav chrome with no room for a diagnostic, and a disconnected
+// client throws straight out of the query, so every failure shows no strip.
+const SelectorFallback = (): null => null;
+
+export const Selector = (): ReactElement => (
+  <Errors.SuspenseBoundary FallbackComponent={SelectorFallback}>
+    <Internal />
+  </Errors.SuspenseBoundary>
+);

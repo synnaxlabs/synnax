@@ -12,63 +12,24 @@
 package task
 
 import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Key is a unique identifier for a task.
-type Key = uuid.UUID
+type Key = versions.Key
+
+// StatusDetails contains task-specific status details including execution state.
+type StatusDetails = versions.StatusDetails
 
 // Status is task-specific status information including execution state and
 // task-specific data.
-type Status = status.Status[StatusDetails]
-
-// StatusDetails contains task-specific status details including execution state.
-type StatusDetails struct {
-	// Task is the key of the task this status pertains to.
-	Task Key `json:"task" msgpack:"task"`
-	// Running is true if the task is currently executing.
-	Running bool `json:"running" msgpack:"running"`
-	// Cmd is the last command executed on this task.
-	Cmd string `json:"cmd" msgpack:"cmd"`
-	// ConfigHash is the hash of the config the running task instance was built from. Empty
-	// when no instance exists.
-	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
-	// Rack is the key of the rack running the task instance.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Data contains task-specific status data.
-	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitzero"`
-}
+type Status = versions.Status
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
-type Task struct {
-	// Key is the unique identifier for this task.
-	Key Key `json:"key" msgpack:"key"`
-	// Rack is the key of the rack this task deploys to. Zero for a draft that has not been
-	// assigned a rack; required to start.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Name is a human-readable name for the task.
-	Name string `json:"name" msgpack:"name"`
-	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines
-	// which hardware integration handles the task.
-	Type string `json:"type" msgpack:"type"`
-	// Config is task-specific configuration stored as JSON. Structure varies by task type.
-	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitzero"`
-	// ConfigHash is the server-assigned hash of config, rewritten on every write and
-	// ignored on writes from clients. Compare against a status's config_hash to detect
-	// drift.
-	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
-	// Internal is true if this is an internal system task.
-	Internal bool `json:"internal" msgpack:"internal"`
-	// Snapshot indicates whether to persist this task's configuration.
-	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
-	// Status is the current execution status of the task.
-	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
-}
+type Task = versions.Task
 
 // Command is a command to execute on a task in the Driver system.
 type Command struct {

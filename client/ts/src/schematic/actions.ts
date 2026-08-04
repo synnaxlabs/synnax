@@ -11,6 +11,7 @@ import { color, type record } from "@synnaxlabs/x";
 
 import { actions } from "@/actions";
 import {
+  type Action,
   addEdge,
   createReduceAll,
   type Handlers,
@@ -23,6 +24,11 @@ import {
 } from "@/schematic/actions.gen";
 
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.schematic);
+    return { inverse: [], targets: [payload.schematic.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
@@ -143,3 +149,24 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.schematic : undefined;
+
+export const kindOf = (actions: Action[]): string => {
+  if (actions.length === 0) return "default";
+  // A drag dispatches a stream of `set_node_position` per frame, plus
+  // `set_config` companions synthesized by augmentWithEdgeSegments for any
+  // affected edges. Both shapes are part of one user gesture and must coalesce
+  // together; classify them all as "move" so the per-kind coalesce window
+  // collapses them into a single undoable.
+  const hasMove = actions.some((a) => a.type === "set_node_position");
+  const onlyMoveOrSegment = actions.every(
+    (a) => a.type === "set_node_position" || a.type === "set_config",
+  );
+  if (hasMove && onlyMoveOrSegment) return "move";
+  if (actions.length === 1) return actions[0].type;
+  return "transaction";
+};

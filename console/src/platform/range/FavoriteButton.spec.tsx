@@ -25,19 +25,17 @@ describe("Range.FavoriteButton", () => {
     const range = await createRange();
     const { wrapper, store } = await createConsoleWrapper({ client });
     render(<Range.FavoriteButton range={range} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("checkbox")).toBeTruthy());
     expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();
-    expect(screen.getByRole("button").className).not.toContain(
-      "favorite-button--favorite",
-    );
+    expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
   });
 
   it("should add the range to the slice when favorited", async () => {
     const range = await createRange();
     const { wrapper, store } = await createConsoleWrapper({ client });
     render(<Range.FavoriteButton range={range} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
-    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(screen.getByRole("checkbox")).toBeTruthy());
+    fireEvent.click(screen.getByRole("checkbox"));
     const state = Session.Range.selectState(store.getState(), range.key);
     expect(state).toBeDefined();
     expect(state?.name).toEqual(range.name);
@@ -57,9 +55,9 @@ describe("Range.FavoriteButton", () => {
       },
     });
     render(<Range.FavoriteButton range={range} />, { wrapper });
-    await waitFor(() => expect(screen.getByRole("button")).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("checkbox")).toBeTruthy());
     expect(Session.Range.selectState(store.getState(), range.key)).toBeDefined();
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(screen.getByRole("checkbox"));
     expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();
   });
 });

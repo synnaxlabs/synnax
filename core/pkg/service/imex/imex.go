@@ -195,7 +195,7 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 // unmarshal back through one of the UnmarshalX methods first.
 //
 // ctx is forwarded to the codec; xjson.Codec ignores it, but other in-tree codecs
-// (msgpack, future YAML/TOML) may use it for tracing or cancellation.
+// (MessagePack, future YAML/TOML) may use it for tracing or cancellation.
 //
 // Decode is a free function because Go does not support generic methods; it becomes (e
 // Envelope) Decode[T](ctx) when the language does.
@@ -216,13 +216,15 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 }
 
 // Encode is the symmetric inverse of Decode. The caller supplies an envelope carrying
-// the desired Version, Type, and (optionally) Name headers; Encode reduces the typed
-// value to a codec-independent map[string]any via structToMap and stamps the merged
-// body onto the envelope. For both Type and Name, Encode treats data as the source of
-// truth: if the body map carries a `type` (or `name`) entry, it must be a string and it
-// overwrites the corresponding header on the envelope; otherwise the envelope's
-// existing value is kept. At the end, Type and Name must both be non-empty. On any
-// error the envelope is left untouched.
+// the desired Version, Type, and (optionally) Name headers; Encode reduces data to a
+// codec-independent map[string]any and stamps the merged body onto the envelope. A
+// struct is reduced field-by-field via structToMap; a value that is already a
+// map[string]any is used directly, letting a caller whose portable body is an opaque
+// object (rather than a Go struct) merge it flat into the envelope. For both Type and
+// Name, Encode treats data as the source of truth: if the body map carries a `type` (or
+// `name`) entry, it must be a string and it overwrites the corresponding header on the
+// envelope; otherwise the envelope's existing value is kept. At the end, Type and Name
+// must both be non-empty. On any error the envelope is left untouched.
 //
 // Invariant: every imex-registered resource carries a non-empty top-level string `name`
 // field on the wire. Encode enforces this so that a resource without a name surfaces as
@@ -231,9 +233,15 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 // A top-level `key` field is always dropped from the body: envelopes do not carry
 // resource-local identity today, and importers mint a fresh key on the way in.
 func Encode[T any](env *Envelope, data T) error {
-	body, err := structToMap(data)
-	if err != nil {
-		return errors.Wrap(err, "encode envelope")
+	// The map branch exists only for the task exporter, whose config is an opaque
+	// object it merges flat rather than a Go struct. Once task configs are strongly
+	// typed, this assertion (and its test) can go: every caller passes a struct.
+	body, ok := any(data).(map[string]any)
+	if !ok {
+		var err error
+		if body, err = structToMap(data); err != nil {
+			return errors.Wrap(err, "encode envelope")
+		}
 	}
 	// Keys are resource-local identity, not part of the portable envelope: an imported
 	// resource is minted a fresh key on the way in, so a stale key on the wire is at

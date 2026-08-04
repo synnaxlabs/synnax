@@ -447,6 +447,9 @@ type idxWriter struct {
 		*index.Domain
 		// Key is the channel key of the index.
 		ch channel.Channel
+		// db is the unary database of the index channel. Consulted for the current
+		// write cursor when this group does not write the index itself.
+		db *unary.DB
 		// highWaterMark is the last timestamp written to the index — whether by
 		// auto-stamping or by a caller-provided series. Drives commit resolution
 		// (resolveCommitEnd). Only relevant when writingToIdx is true.
@@ -462,9 +465,15 @@ type idxWriter struct {
 	// sampleCount is the total number of samples written to the index as if it were a
 	// single logical channel. i.e. N channels with M samples will result in a sample
 	// count of M.
-	sampleCount     int64
-	start           telem.TimeStamp
-	domainAlignment uint32
+	sampleCount int64
+	start       telem.TimeStamp
+	// anchor is the index write cursor observed at this group's first write, valid only
+	// when writingToIdx is false. Every subsequent write is stamped at anchor plus the
+	// number of samples the group has already written, so a group that does not write
+	// the index still lands in the index's sample space.
+	anchor telem.Alignment
+	// anchorSet reports whether anchor has been resolved.
+	anchorSet bool
 	// writingToIdx is true when the Write is writing to the index channel. This is
 	// typically true, which allows us to avoid unnecessary lookups.
 	writingToIdx bool
@@ -554,6 +563,22 @@ func (w *idxWriter) maxDataAuth() xcontrol.Authority {
 	return max
 }
 
+// resolveAlignment returns the alignment for the current write when no index series is
+// available to establish it. A group that writes the index takes the index's cursor
+// directly. A group that does not anchors on the cursor covering its start timestamp,
+// resolved once, and offsets by the number of samples it has written since, so the
+// index is consulted once per writer rather than once per write.
+func (w *idxWriter) resolveAlignment() telem.Alignment {
+	if w.writingToIdx {
+		return w.idx.db.WriteCursor(w.start)
+	}
+	if !w.anchorSet {
+		w.anchor = w.idx.db.WriteCursor(w.start)
+		w.anchorSet = true
+	}
+	return w.anchor.AddSamples(uint32(w.sampleCount))
+}
+
 func (w *idxWriter) write(
 	excludeUnauthorized *[]ChannelKey,
 	fr Frame,
@@ -566,9 +591,49 @@ func (w *idxWriter) write(
 	var (
 		incrementedSampleCount bool
 		accumulatedErr         error
+		alignment              telem.Alignment
+		alignmentSet           bool
+		idxUnauthorized        bool
 	)
+	// Pass 1: the index channel establishes the alignment for the whole frame. Its
+	// sample position is the space every channel it indexes is expressed in, so it must
+	// be written before any of them.
+	if w.writingToIdx {
+		for i, key := range fr.RawKeys() {
+			if key != w.idx.ch.Key || fr.ShouldExcludeRaw(i) {
+				continue
+			}
+			series := fr.RawSeriesAt(i)
+			uWriter, ok := w.internal[key]
+			if series.Len() == 0 || !ok {
+				break
+			}
+			if err = w.updateHighWater(series); err != nil {
+				return fr, err
+			}
+			if alignment, err = uWriter.Write(series); err != nil {
+				accumulatedErr = err
+				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
+					return fr, accumulatedErr
+				}
+				*excludeUnauthorized = append(*excludeUnauthorized, key)
+				idxUnauthorized = true
+				break
+			}
+			alignmentSet = true
+			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
+			incrementedSampleCount = true
+			w.hasUncommittedData = true
+			series.Alignment = alignment
+			fr.SetRawSeriesAt(i, series)
+			break
+		}
+	}
+	// Pass 2: every data channel is stamped with the index's alignment rather than its
+	// own position in its own domain. The alignment is resolved lazily so a frame that
+	// touches none of this group's data channels costs nothing.
 	for i, key := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(i) {
+		if key == w.idx.ch.Key || fr.ShouldExcludeRaw(i) {
 			continue
 		}
 		series := fr.RawSeriesAt(i)
@@ -579,13 +644,18 @@ func (w *idxWriter) write(
 		if !ok {
 			continue
 		}
-		if w.writingToIdx && w.idx.ch.Key == key {
-			if err = w.updateHighWater(series); err != nil {
-				return fr, err
-			}
+		// Losing control of the index means there is no position to express these
+		// samples against. Writing them anyway would stamp them in a controlling
+		// writer's space, so the whole group is held back instead.
+		if idxUnauthorized {
+			*excludeUnauthorized = append(*excludeUnauthorized, key)
+			continue
 		}
-		alignment, err := uWriter.Write(series)
-		if err != nil {
+		if !alignmentSet {
+			alignment = w.resolveAlignment()
+			alignmentSet = true
+		}
+		if _, err := uWriter.WriteAt(series, alignment); err != nil {
 			accumulatedErr = err
 			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
 				return fr, accumulatedErr
@@ -594,7 +664,14 @@ func (w *idxWriter) write(
 			continue
 		}
 		if !incrementedSampleCount {
-			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
+			// A data channel's alignment is now expressed in its index's sample space,
+			// so it no longer reports a position measured from this writer's start.
+			// resolveCommitEnd needs that measurement, so the group counts its own.
+			if w.writingToIdx {
+				w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
+			} else {
+				w.sampleCount += series.Len()
+			}
 			incrementedSampleCount = true
 			w.hasUncommittedData = true
 		}
@@ -795,7 +872,17 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
-	return w.idx.Stamp(ctx, w.start, w.sampleCount-1, true)
+	approx, err := w.idx.Stamp(ctx, w.start, w.sampleCount-1, index.MustBeContinuous)
+	if err != nil {
+		return approx, err
+	}
+	// An inexact approximation means w.start is not an exact sample in the index, so
+	// there is no defined timestamp for the samples written by this writer. Committing
+	// anyway would use the approximation's zero-valued lower bound as the commit end.
+	if !approx.Exact() {
+		return approx, index.NewDiscontinuousStampError(w.start)
+	}
+	return approx, nil
 }
 
 type virtualWriter struct {

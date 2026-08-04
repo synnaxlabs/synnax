@@ -316,3 +316,19 @@ describe("useSelect", () => {
     });
   });
 });
+
+describe("hasModifier", () => {
+  it.each([
+    ["shift", { shiftKey: true, ctrlKey: false, metaKey: false }],
+    ["control", { shiftKey: false, ctrlKey: true, metaKey: false }],
+    ["command", { shiftKey: false, ctrlKey: false, metaKey: true }],
+  ])("should report a %s click as a selection gesture", (_, e) => {
+    expect(Select.hasModifier(e)).toBe(true);
+  });
+
+  it("should report an unmodified click as an activation", () => {
+    expect(
+      Select.hasModifier({ shiftKey: false, ctrlKey: false, metaKey: false }),
+    ).toBe(false);
+  });
+});

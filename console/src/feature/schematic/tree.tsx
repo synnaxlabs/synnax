@@ -22,7 +22,6 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { useExport } from "@/feature/schematic/export";
 import { Symbol } from "@/feature/schematic/symbol";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
@@ -126,28 +125,28 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
-  const handleExport = useExport();
+  const handleExport = Export.use();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
   const resources = getResource(ids);
   const first = resources[0];
+  const singleResource = ids.length === 1;
   return (
     <ContextMenu.Menu>
-      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       {hasUpdatePermission && (
         <>
-          <ContextMenu.RenameItem onClick={rename} />
+          {singleResource && <ContextMenu.RenameItem onClick={rename} />}
           <Group.ContextMenuItem
             ids={ids}
             shape={shape}
             rootID={rootID}
             onClick={() => group(props)}
           />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
       {resources.every((r) => r.data?.snapshot === false) && hasCreatePermission && (
         <>
           <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
@@ -155,14 +154,21 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             <Icon.Copy />
             Copy
           </Menu.Item>
-          <Menu.Divider />
         </>
       )}
-      <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
-      <Link.CopyContextMenuItem
-        onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
-      />
-      <Tree.CopyPropertiesContextMenuItem {...props} />
+      <Menu.Divider />
+      {singleResource && (
+        <>
+          <Export.ContextMenuItem onClick={() => handleExport(first.id)} />
+          <Link.CopyContextMenuItem
+            onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+          />
+          <Tree.CopyPropertiesContextMenuItem {...props} />
+        </>
+      )}
+      <Menu.Divider />
+      {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );

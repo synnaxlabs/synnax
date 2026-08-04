@@ -83,8 +83,9 @@ export interface BoxExtensionProps {
   borderColor?: Theming.Shade | color.Crude | false;
   /** Border width in pixels */
   borderWidth?: number;
-  /** Border radius. true for default rounding, number for specific rem value */
-  rounded?: boolean | number;
+  /** Border radius. true for the theme default, a Component.Size for a radius
+   * scale step, or a number for a specific rem value. Defaults to true when packed. */
+  rounded?: boolean | number | Component.Size;
   /** Whether to remove border radius (sharp corners) */
   sharp?: boolean;
 
@@ -208,6 +209,7 @@ export const Box = <E extends Generic.ElementType = "div">({
   ...rest
 }: BoxProps<E>): ReactElement => {
   const parsedDirection = parseDirection(crudeDirection, x, y, pack);
+  const resolvedRounded = rounded ?? pack;
   const computedStyle = useMemo(() => {
     const s: CSSProperties = { borderWidth, ...style };
     if (typeof color !== "number" && color != null && color !== false)
@@ -216,12 +218,22 @@ export const Box = <E extends Generic.ElementType = "div">({
       s.backgroundColor = CSS.colorVar(background);
     if (typeof borderColor !== "number" && borderColor != null)
       s.borderColor = CSS.colorVar(borderColor);
-    if (typeof rounded === "number") s.borderRadius = `${rounded}rem`;
+    if (typeof resolvedRounded === "number") s.borderRadius = `${resolvedRounded}rem`;
     if (typeof gap === "number") s.gap = `${gap}rem`;
     if (typeof grow === "number") s.flexGrow = grow;
     if (typeof shrink === "number") s.flexShrink = shrink;
     return s;
-  }, [borderWidth, style, color, background, borderColor, rounded, gap, grow, shrink]);
+  }, [
+    borderWidth,
+    style,
+    color,
+    background,
+    borderColor,
+    resolvedRounded,
+    gap,
+    grow,
+    shrink,
+  ]);
   return (
     <Generic.Element<E>
       className={CSS(
@@ -245,7 +257,8 @@ export const Box = <E extends Generic.ElementType = "div">({
         typeof background === "number" && CSS.M("bg", background.toString()),
         typeof borderColor === "number" &&
           CSS.M("border-color", borderColor.toString()),
-        rounded === true && CSS.M("rounded"),
+        resolvedRounded === true && CSS.M("rounded"),
+        typeof resolvedRounded === "string" && CSS.M("rounded", resolvedRounded),
         typeof gap !== "number" && gap != null && CSS.M("gap", gap),
         grow === true && CSS.M("grow"),
         shrink === true && CSS.M("shrink"),

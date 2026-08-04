@@ -301,8 +301,8 @@ class Controller:
         if not callable(cond):
             raise ValueError("First argument to wait_until must be a callable.")
         processor = WaitUntil(cond, reverse)
+        self._receiver.add_processor(processor)
         try:
-            self._receiver.add_processor(processor)
             timeout_seconds = (
                 TimeSpan.from_seconds(timeout).seconds if timeout else None
             )
@@ -369,14 +369,14 @@ class Controller:
         if not callable(cond):
             raise ValueError("First argument to remains_true_for must be a callable.")
         processor = RemainsTrueFor(cond, percentage)
+        self._receiver.add_processor(processor)
         try:
-            self._receiver.processors.add(processor)
             timeout_seconds = TimeSpan(duration).seconds
             # If the event is set, this means the target percentage was >= 1 and the
             # callback returned False, so we just exit immediately.
             ok = not processor.event.wait(timeout=timeout_seconds)
         finally:
-            self._receiver.processors.remove(processor)
+            self._receiver.remove_processor(processor)
         # If we executed the callback for the entire duration and the actual percentage
         # is still less than the target percentage, we return False.
         if ok:

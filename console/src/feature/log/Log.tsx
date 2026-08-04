@@ -11,6 +11,7 @@ import { Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
@@ -25,6 +26,7 @@ const Internal: Panel.Content = () => {
   const channelKeys = Base.useSelectChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
   const modals = Session.Modals.useStore("Log");
+  const hold = Session.Log.useSelectHold();
   const getTabIsFocused = Session.Panel.useGetTabIsFocused();
   const enableTriggers = useCallback(
     () => !modals.isAnyOpen() && getTabIsFocused(),
@@ -40,10 +42,17 @@ const Internal: Panel.Content = () => {
     handleDoubleClick();
   }, [dispatch, key, handleDoubleClick]);
 
+  const handleHold = useCallback(
+    (hold: boolean) => dispatch(Session.Log.setHold({ key, hold })),
+    [dispatch, key],
+  );
+
   return (
     <Base.Log
       onDoubleClick={handleDoubleClick}
       enableTriggers={enableTriggers}
+      hold={hold}
+      onHold={handleHold}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <Empty.Action
@@ -57,7 +66,9 @@ const Internal: Panel.Content = () => {
         />
       }
       visible={visible}
-    />
+    >
+      <Controls />
+    </Base.Log>
   );
 };
 

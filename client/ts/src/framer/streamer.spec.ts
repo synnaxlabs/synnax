@@ -28,7 +28,7 @@ import {
   type Streamer,
   streamerConfigZ,
 } from "@/framer/streamer";
-import { createTestClient, newVirtualChannel } from "@/testutil";
+import { createTestClient, newVirtualBoolChannel, newVirtualChannel } from "@/testutil";
 
 const client = createTestClient();
 
@@ -48,6 +48,26 @@ describe("Streamer", () => {
       }
       const d = await streamer.read();
       expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
+    });
+
+    test("bool stream round-trip", async () => {
+      const ch = await newVirtualBoolChannel(client);
+      const streamer = await client.openStreamer(ch.key);
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: ch.key,
+      });
+      const samples = [true, false, true, true, false, false, false, true, true];
+      try {
+        await writer.write(
+          ch.key,
+          new Series({ data: samples, dataType: DataType.BOOLEAN }),
+        );
+      } finally {
+        await writer.close();
+      }
+      const d = await streamer.read();
+      expect(Array.from(d.get(ch.key))).toEqual(samples);
     });
     test("should preserve non-zero time ranges through codec round-trip", async () => {
       const ch = await newVirtualChannel(client);
@@ -601,7 +621,7 @@ describe("Streamer", () => {
       expect(streamer.closeMock).toHaveBeenCalled();
     });
 
-    it("should correctly iterate over the streamer", async () => {
+    it("should correctly iterate over the streamer and end after close", async () => {
       const streamer = new MockStreamer();
       const fr = new Frame({ 1: new Series([1]) });
       const fr2 = new Frame({ 1: new Series([2]) });
@@ -616,9 +636,111 @@ describe("Streamer", () => {
       expect(first.value).toEqual(fr);
       const second = await hardened.next();
       expect(second.value).toEqual(fr2);
+      hardened.close();
       const third = await hardened.next();
       expect(third.done).toBe(true);
-      expect(streamer.readMock).toHaveBeenCalledTimes(3);
+      expect(streamer.readMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("should reconnect when the server ends the stream unexpectedly", async () => {
+      const streamer1 = new MockStreamer();
+      const streamer2 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr2 = new Frame({ 1: new Series([2]) });
+      // streamer1 EOFs after one frame without the client asking for it
+      streamer1.responses = [[fr1, null]];
+      streamer2.responses = [[fr2, null]];
+      const onDrop = vi.fn();
+      let count = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          count++;
+          if (count === 1) return streamer1;
+          return streamer2;
+        },
+        { channels: [1] },
+        undefined,
+        undefined,
+        onDrop,
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      expect(await hardened.read()).toEqual(fr2);
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      expect(count).toBe(2);
+    });
+
+    it("should back off when reopened streams die immediately", async () => {
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          // no responses: every stream EOFs on its first read
+          return new MockStreamer();
+        },
+        { channels: [1] },
+        { baseInterval: TimeSpan.milliseconds(30), jitter: 0 },
+      );
+      const pending = hardened.read().catch((e: unknown) => e);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      // a hot loop would dial hundreds of times in this window
+      expect(opens).toBeLessThan(6);
+      hardened.close();
+      expect(EOF.matches(await pending)).toBe(true);
+    });
+
+    it("should interrupt a pending reconnect backoff on close", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          throw new Unreachable({ message: "still down" });
+        },
+        { channels: [1] },
+        { baseInterval: TimeSpan.seconds(60) },
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      // drops, fails one reopen, then sleeps out the 60s backoff
+      const pending = hardened.read().catch((e: unknown) => e);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const start = performance.now();
+      hardened.close();
+      expect(EOF.matches(await pending)).toBe(true);
+      expect(performance.now() - start).toBeLessThan(1000);
+      const settled = opens;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(opens).toBe(settled);
+    });
+
+    it("should not throw when closed while reconnecting", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          throw new Unreachable({ message: "still down" });
+        },
+        { channels: [1] },
+        { baseInterval: TimeSpan.seconds(60) },
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      const pending = hardened.read().catch((e: unknown) => e);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(() => hardened.close()).not.toThrow();
+      expect(() => hardened.close()).not.toThrow();
+      expect(EOF.matches(await pending)).toBe(true);
     });
 
     it("should try to re-open the streamer when read fails", async () => {
@@ -698,6 +820,39 @@ describe("Streamer", () => {
           { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
         ),
       ).rejects.toThrow("very unreachable");
+    });
+
+    it("should fire onDrop when the stream fails and onReopen after recovery", async () => {
+      const streamer1 = new MockStreamer();
+      const streamer2 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr2 = new Frame({ 1: new Series([2]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr2, new Unreachable({ message: "cat" })],
+      ];
+      streamer2.responses = [[fr2, null]];
+      const onDrop = vi.fn();
+      const onReopen = vi.fn();
+      let count = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          count++;
+          if (count === 1) return streamer1;
+          return streamer2;
+        },
+        { channels: [1] },
+        undefined,
+        onReopen,
+        onDrop,
+      );
+      expect(onDrop).not.toHaveBeenCalled();
+      expect(onReopen).not.toHaveBeenCalled();
+      await hardened.read();
+      await hardened.read();
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      expect(onDrop.mock.calls[0][0]).toBeInstanceOf(Error);
+      expect(onReopen).toHaveBeenCalledTimes(1);
     });
 
     it("should retry update when the underlying streamer fails", async () => {

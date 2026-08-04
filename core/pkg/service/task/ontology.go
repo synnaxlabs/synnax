@@ -25,17 +25,20 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeTask, Key: k.String()}
+// OntologyID returns a unique ID for the task with the given key within the Synnax
+// ontology.
+func OntologyID(key Key) ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeTask, Key: key.String()}
 }
 
+// OntologyIDs returns the ontology IDs for the given keys.
 func OntologyIDs(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
 }
 
 func OntologyIDsFromTasks(tasks []Task) []ontology.ID {
 	return lo.Map(tasks, func(task Task, _ int) ontology.ID {
-		return OntologyID(task.Key)
+		return task.OntologyID()
 	})
 }
 
@@ -53,7 +56,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(t Task) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(t.Key), t.Name, t)
+	return ontology.NewResource(schema, t.OntologyID(), t.Name, t)
 }
 
 type change = xchange.Change[Key, Task]

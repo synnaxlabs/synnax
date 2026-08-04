@@ -52,21 +52,15 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
   return (
     <ContextMenu.Menu>
-      {isSingle && (
-        <>
-          {hasUpdatePermission && !isZeroDepth && (
-            <>
-              <ContextMenu.RenameItem onClick={rename} />
-              <Menu.Divider />
-            </>
-          )}
-          {hasUpdatePermission && (
-            <Menu.Item itemKey="newGroup" onClick={createEmptyGroup}>
-              <Icon.Group />
-              New group
-            </Menu.Item>
-          )}
-        </>
+      {isSingle && hasUpdatePermission && !isZeroDepth && (
+        <ContextMenu.RenameItem onClick={rename} />
+      )}
+      <Menu.Divider />
+      {isSingle && hasUpdatePermission && (
+        <Menu.Item itemKey="newGroup" onClick={createEmptyGroup}>
+          <Icon.Group />
+          New group
+        </Menu.Item>
       )}
       {hasUpdatePermission && (
         <PlatformGroup.ContextMenuItem
@@ -76,26 +70,25 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           onClick={() => createFromSelection(props)}
         />
       )}
-      {hasDeletePermission && !isZeroDepth && (
-        <>
-          <Menu.Item itemKey="ungroup" onClick={() => ungroup.update(props)}>
-            {ungroupIcon}
-            {isDelete ? "Delete" : "Ungroup"}
-          </Menu.Item>
-          <Menu.Divider />
-        </>
-      )}
+      <Menu.Divider />
       {isSingle && (
         <>
-          <Tree.CopyPropertiesContextMenuItem {...props} />
           <Link.CopyContextMenuItem
             onClick={() =>
               handleLink({ name: firstResource.name, ontologyID: firstID })
             }
           />
-          <Menu.Divider />
+          <Tree.CopyPropertiesContextMenuItem {...props} />
         </>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && !isZeroDepth && (
+        <Menu.Item itemKey="ungroup" onClick={() => ungroup.update(props)}>
+          {ungroupIcon}
+          {isDelete ? "Delete" : "Ungroup"}
+        </Menu.Item>
+      )}
+      <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
@@ -105,7 +98,7 @@ interface UngroupParams extends Tree.ContextMenuProps {
   prevNodes?: PTree.Node<string>[];
 }
 
-const baseUngroup = Flux.createUpdate<UngroupParams, Group.FluxSubStore>({
+const baseUngroup = Flux.createUpdate<UngroupParams>({
   name: Group.RESOURCE_NAME,
   verbs: {
     present: "ungroup",

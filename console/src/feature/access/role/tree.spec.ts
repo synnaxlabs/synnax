@@ -16,7 +16,8 @@ import { describe, expect, it } from "vitest";
 import { Access } from "@/feature/access";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import { createResource } from "@/platform/tree/testutil";
-import { assertDefined, uniqueName } from "@/testutil";
+import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+import { assertDefined, queryIcon, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -65,8 +66,8 @@ describe("role ontology service", () => {
     await screen.findByText(`Are you sure you want to delete ${role.name}?`);
     fireEvent.click(findModalButton("Delete"));
     await waitFor(async () => {
-      await expect(client.access.roles.retrieve({ key: role.key })).rejects.toSatisfy(
-        (e) => NotFoundError.matches(e),
+      await expect(client.access.roles.retrieve(role.key)).rejects.toSatisfy((e) =>
+        NotFoundError.matches(e),
       );
     });
   });
@@ -87,6 +88,28 @@ describe("role ontology service", () => {
     expect(canDrop({ source, items: [{ key: "channel:1", type: "channel" }] })).toBe(
       false,
     );
+  });
+
+  it("should render each built-in role's icon and fall back for custom roles", async () => {
+    const role = await createRole();
+    const [rolesGroup] = await client.ontology.parents.retrieve({
+      ids: access.role.ontologyID(role.key),
+    });
+    await renderOntologyTree({
+      client,
+      root: rolesGroup.id,
+      items: Access.Role.TREE_ITEMS,
+    });
+    const cases: [string, string][] = [
+      ["Owner", "settings"],
+      ["Engineer", "safety"],
+      ["Operator", "control"],
+      ["Viewer", "visible"],
+      ["Host", "terminal-outline"],
+      [role.name, "role"],
+    ];
+    for (const [name, icon] of cases)
+      expect(queryIcon(await findTreeRow(name), icon), name).toBeTruthy();
   });
 });
 

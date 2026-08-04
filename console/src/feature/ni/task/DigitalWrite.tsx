@@ -210,6 +210,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
 export const DigitalWrite = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.NI,
   schemas: DIGITAL_WRITE_SCHEMAS,
   getInitialValues,
   onConfigure,

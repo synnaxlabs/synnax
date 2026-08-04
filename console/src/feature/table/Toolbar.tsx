@@ -27,7 +27,6 @@ import {
 import { color, deep, record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { useExport } from "@/feature/table/export";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -38,7 +37,6 @@ import { Session } from "@/session";
 
 const Internal = (): ReactElement => {
   const key = Table.useKey();
-  const handleExport = useExport();
   const name = Table.useSelectName();
   const editable = Session.Table.useSelectEditable();
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
@@ -57,25 +55,25 @@ const Internal = (): ReactElement => {
               {name}
             </Breadcrumb.Segment>
             {selectedCellPos != null && (
-              <Breadcrumb.Segment color={8}>
+              <Breadcrumb.Segment color={9}>
                 {Table.getCellColumn(selectedCellPos.x)}
                 {selectedCellPos.y + 1}
               </Breadcrumb.Segment>
             )}
             {liveCellCount > 1 && (
-              <Breadcrumb.Segment color={8}>{liveCellCount} cells</Breadcrumb.Segment>
+              <Breadcrumb.Segment color={9}>{liveCellCount} cells</Breadcrumb.Segment>
             )}
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
-          <Export.ToolbarButton onExport={() => handleExport(key)} />
+          <Export.ToolbarButton getID={() => table.ontologyID(key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
             ontologyID={table.ontologyID(key)}
           />
         </Flex.Box>
       </Base.Header>
-      <Flex.Box full>
+      <Flex.Box full className={CSS.BE("table", "toolbar-content")}>
         {!editable ? (
           <NotEditableContent name={name} />
         ) : liveCellCount === 0 ? (

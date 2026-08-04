@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var resolver = []symbol.Symbol{
@@ -978,6 +978,32 @@ sequence main {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
+		It("Should analyze routing table with chained nodes via =>", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+
+			func multiplier{} (value f64) f64 {
+			    return value * 2.0
+			}
+
+			func alarm{} (value f64) {}
+			func logger{} (value f64) {}
+
+			sensor_chan -> demux{} -> {
+			    high: multiplier{} => alarm{},
+			    low: logger{}
+			}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
 		It("Should type-check multi-node case body via chain, not select output", func(bCtx SpecContext) {
 			customResolver := StaticResolver{
 				{Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
@@ -1002,6 +1028,30 @@ sequence main {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
+		It("Should type-check multi-node case body via => chain, not select output", func(bCtx SpecContext) {
+			customResolver := StaticResolver{
+				{Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+				{Name: "log_str", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
+				{Name: "log_num", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
+			}
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+
+			sensor_chan -> demux{} -> {
+			    high: "above" => log_str,
+			    low: 1 => log_num
+			}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
 		It("Should reject type mismatch in a chained case body node", func(bCtx SpecContext) {
 			customResolver := StaticResolver{
 				{Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
@@ -1019,6 +1069,30 @@ sequence main {
 			sensor_chan -> demux{} -> {
 			    high: 123 -> log_str,
 			    low: "below" -> log_str
+			}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+		})
+
+		It("Should reject type mismatch in a => chained case body node", func(bCtx SpecContext) {
+			customResolver := StaticResolver{
+				{Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+				{Name: "log_str", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
+			}
+			ast := MustSucceed(parser.Parse(`
+			func demux{} (value f64) (high f64, low f64) {
+			    if (value > 100.0) {
+			        high = value
+			    } else {
+			        low = value
+			    }
+			}
+
+			sensor_chan -> demux{} -> {
+			    high: 123 => log_str,
+			    low: "below" => log_str
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 			analyzer.AnalyzeProgram(ctx)
@@ -1059,6 +1133,21 @@ sequence main {
 			flag -> select{} -> {
 			    true: "high" -> log_str,
 			    false: "low" -> log_str
+			}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should accept select{} with => chain bodies", func(bCtx SpecContext) {
+			customResolver := StaticResolver{
+				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+				{Name: "log_str", Kind: symbol.KindChannel, Type: types.Chan(types.String())},
+			}
+			ast := MustSucceed(parser.Parse(`
+			flag -> select{} -> {
+			    true: "high" => log_str,
+			    false: "low" => log_str
 			}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
 			analyzer.AnalyzeProgram(ctx)
@@ -1846,7 +1935,7 @@ sequence main {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			// Should have warning about unassigned output
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityWarning))
+			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityWarning))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("never assigned"))
 		})
 
@@ -2328,7 +2417,7 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 
 	type mismatchCase struct {
 		source     string
-		line       int
+		line       uint32
 		substrings []string
 	}
 
@@ -2339,24 +2428,24 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse(), ctx.Diagnostics.String())
 			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Start.Line).To(Equal(tc.line))
+			Expect(diag.Range.Start.Line).To(Equal(tc.line))
 			for _, s := range tc.substrings {
 				Expect(diag.Message).To(ContainSubstring(s))
 			}
 		},
 		Entry("value variable source", mismatchCase{
 			source:     "z := 3\n\nz -> log_str",
-			line:       3,
+			line:       2,
 			substrings: []string{"z value type", "does not match channel log_str value type str"},
 		}),
 		Entry("channel source", mismatchCase{
 			source:     "num_f64 -> log_str",
-			line:       1,
+			line:       0,
 			substrings: []string{"num_f64 value type f64", "does not match channel log_str value type str"},
 		}),
 		Entry("expression source", mismatchCase{
 			source:     "num_f64 + 1.0 -> log_str",
-			line:       1,
+			line:       0,
 			substrings: []string{"expression type", "does not match channel log_str value type str"},
 		}),
 	)

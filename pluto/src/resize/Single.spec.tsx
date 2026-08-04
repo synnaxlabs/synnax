@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type xy } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -52,7 +52,11 @@ const handleOf = (c: ReturnType<typeof render>): HTMLElement => {
   return handle;
 };
 
-const drag = (c: ReturnType<typeof render>, from: xy.XY, to: xy.XY): void => {
+const drag = async (
+  c: ReturnType<typeof render>,
+  from: xy.XY,
+  to: xy.XY,
+): Promise<void> => {
   // Cursor.useDrag captures the pointer on the handle, then tracks moves/up on window
   // (capture bubbles them up). The from -> to distance must exceed the activation
   // threshold for the drag to begin.
@@ -64,6 +68,11 @@ const drag = (c: ReturnType<typeof render>, from: xy.XY, to: xy.XY): void => {
     clientY: from.y,
   });
   fireEvent.pointerMove(window, { pointerId: 1, clientX: to.x, clientY: to.y });
+  // Moves are coalesced onto the next animation frame; let one land before release.
+  await act(
+    async () =>
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+  );
   fireEvent.pointerUp(window, { pointerId: 1, clientX: to.x, clientY: to.y });
 };
 
@@ -146,19 +155,19 @@ describe("Resize.Single", () => {
       },
     ])(
       "should resize to $expected when dragged from a $location location",
-      ({ location, from, to, dimension, expected }) => {
+      async ({ location, from, to, dimension, expected }) => {
         const onResize = vi.fn();
         const c = renderSingle({ location, size: 200, onResize });
-        drag(c, from, to);
+        await drag(c, from, to);
         expect(lastSize(onResize)).toEqual(expected);
         expect(paneOf(c).style[dimension]).toEqual(`${expected}px`);
       },
     );
 
-    it("should pass the pane box and raw drag size as the second argument", () => {
+    it("should pass the pane box and raw drag size as the second argument", async () => {
       const onResize = vi.fn();
       const c = renderSingle({ location: "left", size: 200, onResize });
-      drag(c, { x: 500, y: 0 }, { x: 540, y: 0 });
+      await drag(c, { x: 500, y: 0 }, { x: 540, y: 0 });
       const extra = onResize.mock.lastCall?.[1] as Resize.HandlerExtra;
       expect(extra.box).toBeDefined();
       expect(extra.dragSize).toBe(240);

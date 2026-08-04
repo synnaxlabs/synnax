@@ -149,6 +149,11 @@ describe("Text", () => {
       expect(c.getByText("Hello").className).toContain("pluto-text--overflow-ellipsis");
     });
 
+    it("should add a overflow classname if the overflow is set to fade", () => {
+      const c = render(<Text.Text overflow="fade">Hello</Text.Text>);
+      expect(c.getByText("Hello").className).toContain("pluto-text--overflow-fade");
+    });
+
     it("should add a overflow classname if the overflow is set to clip", () => {
       const c = render(<Text.Text overflow="clip">Hello</Text.Text>);
       expect(c.getByText("Hello").className).toContain("pluto-text--overflow-clip");

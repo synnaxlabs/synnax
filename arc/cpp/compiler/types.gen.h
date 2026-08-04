@@ -14,13 +14,9 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
-#include <utility>
 #include <vector>
 
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-
-#include "arc/go/compiler/pb/compiler.pb.h"
 
 namespace arc::compiler {
 
@@ -37,11 +33,5 @@ struct Output {
 
     static Output parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::compiler::pb::Output;
-    [[nodiscard]] std::pair<::arc::compiler::pb::Output, x::errors::Error>
-    to_proto() const;
-    static std::pair<Output, x::errors::Error>
-    from_proto(const ::arc::compiler::pb::Output &pb);
 };
 }

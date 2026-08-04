@@ -9,8 +9,7 @@
 
 import "@/platform/docs/Docs.css";
 
-import { Logo } from "@synnaxlabs/media";
-import { Theming, Triggers } from "@synnaxlabs/pluto";
+import { Status, Theming, Triggers } from "@synnaxlabs/pluto";
 import { url } from "@synnaxlabs/x";
 import { memo, type ReactElement, useEffect, useState } from "react";
 
@@ -70,7 +69,11 @@ export const Docs = memo((): ReactElement | null => {
 
   return (
     <div className={CSS(CSS.B("docs"), hover.held && CSS.M("hover"))}>
-      {!loaded && <Logo.Watermark variant="loader" />}
+      {!loaded && (
+        <Status.Loading className={CSS.BE("docs", "loading")}>
+          <Status.Orbital />
+        </Status.Loading>
+      )}
       <iframe src={frameURL.toString()} onLoad={() => setLoaded(true)} />
     </div>
   );

@@ -403,7 +403,7 @@ var _ = Describe("WASM", func() {
 	})
 
 	Describe("Runtime Operations - ProgramState Persistence", func() {
-		It("Should persist stateful variables across function calls", func(ctx SpecContext) {
+		It("Should re-initialize stateful variables on reset", func(ctx SpecContext) {
 			g := singleFunctionGraph("counter", types.I64(), `{
 				count i64 $= 0
 				count = count + 1
@@ -419,11 +419,11 @@ var _ = Describe("WASM", func() {
 
 			n.Reset()
 			h.NextChanged(ctx, n, "counter")
-			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(2)))
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(1)))
 
 			n.Reset()
 			h.NextChanged(ctx, n, "counter")
-			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(3)))
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(1)))
 		})
 
 		It("Should isolate stateful variables between different functions", func(ctx SpecContext) {
@@ -472,11 +472,11 @@ var _ = Describe("WASM", func() {
 
 			n1.Reset()
 			n1.Next(nCtx)
-			Expect(telem.UnmarshalSeries[int64](h.Output("c1", 0))[0]).To(Equal(int64(2)))
+			Expect(telem.UnmarshalSeries[int64](h.Output("c1", 0))[0]).To(Equal(int64(1)))
 
 			n2.Reset()
 			n2.Next(nCtx)
-			Expect(telem.UnmarshalSeries[int64](h.Output("c2", 0))[0]).To(Equal(int64(20)))
+			Expect(telem.UnmarshalSeries[int64](h.Output("c2", 0))[0]).To(Equal(int64(10)))
 		})
 
 		It("Should isolate stateful variables between nodes of the same function", func(ctx SpecContext) {
@@ -519,23 +519,21 @@ var _ = Describe("WASM", func() {
 			n2.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(1)))
 
-			// Second execution of counter_a should return 2
+			// Reset re-initializes counter_a's own state, leaving counter_b's intact
 			n1.Reset()
 			n1.Next(nCtx)
-			Expect(telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0]).To(Equal(int64(2)))
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0]).To(Equal(int64(1)))
 
-			// Second execution of counter_b should return 2 (its own count)
 			n2.Reset()
 			n2.Next(nCtx)
-			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(2)))
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(1)))
 
-			// Third execution of counter_a should return 3
 			n1.Reset()
 			n1.Next(nCtx)
-			Expect(telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0]).To(Equal(int64(3)))
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_a", 0))[0]).To(Equal(int64(1)))
 
-			// counter_b should still be at 2 (we didn't call it again)
-			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(2)))
+			// counter_b was not reset or re-executed, so its output stands
+			Expect(telem.UnmarshalSeries[int64](h.Output("counter_b", 0))[0]).To(Equal(int64(1)))
 		})
 	})
 
@@ -1658,8 +1656,8 @@ trigger_ch -> emit_period{period=1s}
 			// Third call - should execute again after reset
 			changed = h.NextChanged(ctx, n, "init_counter")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			// Counter persists so it should be 2 now
-			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(2)))
+			// Stage re-entry re-initializes the counter
+			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(1)))
 		})
 
 		It("Should execute every time for non-entry nodes with inputs", func(ctx SpecContext) {
@@ -2330,18 +2328,22 @@ trigger_ch -> emit_period{period=1s}
 			defer h.Close(ctx)
 
 			n := h.CreateNode(ctx, "expression_0")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+			var executions int
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) { executions++ }}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
+			Expect(executions).To(Equal(1))
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
+			Expect(executions).To(Equal(1))
 
 			n.Reset()
 
 			n.Next(nCtx)
-			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(2)))
+			Expect(executions).To(Equal(2))
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
 		})
 
 		It("Should not treat non-expression nodes as expressions", func(ctx SpecContext) {
@@ -3722,7 +3724,7 @@ input_ch -> count_local{} -> sink_ch
 		})
 
 		Describe("Stateful across calls", func() {
-			It("Should accumulate across reactive executions", func(ctx SpecContext) {
+			It("Should re-initialize across resets", func(ctx SpecContext) {
 				g := singleFunctionGraph("loop_state", types.I64(), `{
 					total i64 $= 0
 					for i := range(3) {
@@ -3741,11 +3743,11 @@ input_ch -> count_local{} -> sink_ch
 
 				n.Reset()
 				n.Next(nCtx)
-				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(6)))
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(3)))
 
 				n.Reset()
 				n.Next(nCtx)
-				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(9)))
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(3)))
 			})
 		})
 	})
@@ -3792,7 +3794,7 @@ var _ = Describe("Graph function variable parity", func() {
 		Expect(telem.UnmarshalSeries[string](h.Output("greet", 0))[0]).To(Equal("hello"))
 	})
 
-	It("Should accumulate a stateful local from a := local", func(ctx SpecContext) {
+	It("Should reset a stateful local seeded from a := local on reset", func(ctx SpecContext) {
 		g := singleFunctionGraph("acc", types.I64(), `{
 			x := 1 + 2
 			y i64 $= 0
@@ -3806,7 +3808,7 @@ var _ = Describe("Graph function variable parity", func() {
 		Expect(telem.UnmarshalSeries[int64](h.Output("acc", 0))[0]).To(Equal(int64(3)))
 		n.Reset()
 		h.NextChanged(ctx, n, "acc")
-		Expect(telem.UnmarshalSeries[int64](h.Output("acc", 0))[0]).To(Equal(int64(6)))
+		Expect(telem.UnmarshalSeries[int64](h.Output("acc", 0))[0]).To(Equal(int64(3)))
 	})
 
 	It("Should reject a body reading an undeclared name", func(ctx SpecContext) {

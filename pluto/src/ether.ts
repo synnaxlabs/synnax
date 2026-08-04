@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export { aether } from "@/aether/aether";
-export { flux } from "@/flux/aether";
 export { lineplot } from "@/lineplot/aether";
 export { pluto } from "@/pluto/aether";
 export { status } from "@/status/aether";

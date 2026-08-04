@@ -50,6 +50,11 @@ func expandTemplate(template Cell, count int) []Cell {
 	return cells
 }
 
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(Table) (Table, error) {
+	return p.Table, nil
+}
+
 // Handle replaces the table's name.
 func (p RenamePayload) Handle(state Table) (Table, error) {
 	state.Name = p.Name

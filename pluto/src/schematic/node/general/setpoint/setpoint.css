@@ -10,14 +10,78 @@
  */
 
 .pluto-setpoint {
-    --pluto-border-color: var(--pluto-symbol-display);
-
-    .pluto-input {
+    /* The input chrome is an outlined Button that assigns border/bg vars on
+       itself, so overrides must land on the element, not an ancestor. */
+    .pluto-input.pluto-btn {
         width: min-content;
+        background: var(--pluto-gray-l1);
+        --pluto-border-color: var(--pluto-gray-l6);
+        --pluto-hover-border-color: var(--pluto-gray-l6);
+        --pluto-active-border-color: var(--pluto-gray-l6);
     }
 
     input {
         min-width: 12rem;
+        font-family: var(--pluto-code-font-family);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* SET stays a quiet gray chip when no symbol color is set. */
+    .pluto-btn.pluto-btn--filled.pluto-symbol-button {
+        border-width: 1px;
+        --pluto-bg: var(--pluto-gray-l3);
+        --pluto-hover-bg: var(--pluto-gray-l4);
+        --pluto-active-bg: var(--pluto-gray-l5);
+        --pluto-border-color: var(--pluto-gray-l6);
+        --pluto-hover-border-color: var(--pluto-gray-l6);
+        --pluto-active-border-color: var(--pluto-gray-l6);
+        --pluto-btn-text-color: var(--pluto-gray-l10);
+    }
+
+    /* Colored: the value's chassis recipe, SET muted to a tint of the color. */
+    &.pluto--colored {
+        /* Focus deepens the fill a step; the border var pin below keeps the
+           ring in the symbol's hue. */
+        .pluto-input.pluto-btn:focus-within {
+            background: color-mix(
+                in oklab,
+                var(--pluto-symbol-display) 16%,
+                var(--pluto-gray-l1)
+            );
+        }
+
+        .pluto-input.pluto-btn {
+            background: color-mix(
+                in oklab,
+                var(--pluto-symbol-display) 8%,
+                var(--pluto-gray-l1)
+            );
+            --pluto-border-color: var(--pluto-symbol-display);
+            --pluto-hover-border-color: var(--pluto-symbol-display);
+            --pluto-active-border-color: var(--pluto-symbol-display);
+        }
+
+        .pluto-btn.pluto-btn--filled.pluto-symbol-button {
+            --pluto-bg: color-mix(
+                in oklab,
+                var(--pluto-symbol-display) 20%,
+                var(--pluto-gray-l1)
+            );
+            --pluto-hover-bg: color-mix(
+                in oklab,
+                var(--pluto-symbol-display) 30%,
+                var(--pluto-gray-l1)
+            );
+            --pluto-active-bg: color-mix(
+                in oklab,
+                var(--pluto-symbol-display) 40%,
+                var(--pluto-gray-l1)
+            );
+            --pluto-border-color: var(--pluto-symbol-display);
+            --pluto-hover-border-color: var(--pluto-symbol-display);
+            --pluto-active-border-color: var(--pluto-symbol-display);
+            --pluto-btn-text-color: var(--pluto-gray-l11);
+        }
     }
 
     .pluto-handle__2 {
@@ -33,4 +97,14 @@
         width: 120px;
         transform: scale(0.95);
     }
+}
+
+/* Editing focus on a colored setpoint keeps the symbol's hue instead of
+   swapping to primary; the input's own focus rule (six class units of
+   specificity) would repaint the border blue, so this doubles classes to
+   outrank it. The inset focus shadow reads the same var, so the thickened
+   ring stays in-hue too. */
+.pluto-setpoint.pluto-setpoint.pluto--colored
+    .pluto-input.pluto-input.pluto-btn:focus-within {
+    --pluto-border-color: var(--pluto-symbol-display);
 }

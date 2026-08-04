@@ -221,6 +221,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
 export const AnalogWrite = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.NI,
   schemas: ANALOG_WRITE_SCHEMAS,
   type: "ni_analog_write",
   getInitialValues,

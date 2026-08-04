@@ -20,7 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -106,10 +108,11 @@ func (s *Service) SetLayout(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm string        `json:"search_term" msgpack:"search_term"`
-		Keys       []project.Key `json:"keys" msgpack:"keys"`
-		Limit      int           `json:"limit" msgpack:"limit"`
-		Offset     int           `json:"offset" msgpack:"offset"`
+		SearchTerm          string        `json:"search_term" msgpack:"search_term"`
+		Keys                []project.Key `json:"keys" msgpack:"keys"`
+		Limit               int           `json:"limit" msgpack:"limit"`
+		Offset              int           `json:"offset" msgpack:"offset"`
+		IgnoreNotFoundError bool          `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
 		Projects []project.Project `json:"projects,omitzero" msgpack:"projects,omitzero"`
@@ -119,7 +122,7 @@ type (
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
-) (RetrieveResponse, error) {
+) (res RetrieveResponse, err error) {
 	q := s.internal.NewRetrieve().Search(req.SearchTerm)
 	if len(req.Keys) > 0 {
 		q = q.Where(project.MatchKeys(req.Keys...))
@@ -130,18 +133,18 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	var res RetrieveResponse
-	if err := q.Entries(&res.Projects).Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
+	err = q.Entries(&res.Projects).Exec(ctx, nil)
+	if req.IgnoreNotFoundError && err != nil {
+		err = errors.Skip(err, query.ErrNotFound)
 	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	if eErr := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: project.OntologyIDsFromProjects(res.Projects),
-	}); err != nil {
-		return RetrieveResponse{}, err
+	}); eErr != nil {
+		return RetrieveResponse{}, eErr
 	}
-	return res, nil
+	return res, err
 }
 
 type DeleteRequest struct {

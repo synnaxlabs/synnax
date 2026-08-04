@@ -9,9 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-tag {
-    border: var(--pluto-border-l5);
+.pluto-btn.pluto-tag {
+    border: var(--pluto-border-l6);
     border-width: 0.5px;
+    border-radius: var(--pluto-border-radius-small);
     width: fit-content;
     will-change: transform;
     background: var(--pluto-gray-l0);
@@ -19,28 +20,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    box-shadow: var(--pluto-shadow-v1);
+    box-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.06),
+        0 1px 2px rgba(0, 0, 0, 0.05);
     position: relative;
 
-    .pluto-tag__close {
-        position: absolute;
-        left: 0;
-        transition:
-            min-width 0.1s ease-out,
-            opacity 0.1s ease-out;
-    }
-
-    &:not(:hover) .pluto-tag__close {
-        min-width: 0;
-        min-height: 0;
-        width: 0;
-        height: 0;
-        overflow: hidden;
-        transition:
-            min-width 0.1s ease-in,
-            opacity 0.1s ease-in;
-        & svg {
-            transform: scale(0.9);
-        }
+    /* The close overlays the leading icon, so it paints the tag's face to mask
+       it, outranking the glyph default's transparent fill. */
+    .pluto-btn.pluto-tag__close {
+        --pluto-bg: var(--pluto-gray-l0);
+        --pluto-hover-bg: var(--pluto-gray-l0);
+        --pluto-active-bg: var(--pluto-gray-l0);
     }
 }

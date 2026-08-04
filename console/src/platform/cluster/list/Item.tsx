@@ -9,17 +9,8 @@
 
 import "@/platform/cluster/list/List.css";
 
-import {
-  Flex,
-  List,
-  Node,
-  Select,
-  Status,
-  Synnax,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { type connection } from "@synnaxlabs/client";
+import { Flex, List, Select, Status, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -30,6 +21,15 @@ interface ListItemProps extends List.ItemProps<string> {
   item: Session.Cluster.Cluster;
   loading: boolean;
 }
+
+const LABELS: Record<connection.Status["variant"], string> = {
+  success: "Connected",
+  info: "Connected",
+  loading: "Connecting",
+  warning: "Reconnecting",
+  error: "Failed",
+  disabled: "Disconnected",
+};
 
 const Base = ({
   validateName,
@@ -43,12 +43,16 @@ const Base = ({
     if (!validateName(value) || item == null) return;
     dispatch(Session.Cluster.rename({ key: item.key, name: value }));
   };
-  const { data } = Node.useConnectionState(item);
-  const status = data?.status ?? "disconnected";
-  let statusVariant = Synnax.CONNECTION_STATE_VARIANTS[status];
-  let statusMessage: string = status;
+  const status = Synnax.useCheckConnection({
+    host: item.host,
+    port: item.port,
+    secure: item.secure,
+    retry: { maxRetries: 0 },
+  });
+  let statusVariant = status?.variant ?? "disabled";
+  let statusMessage = LABELS[statusVariant];
   if (loading) {
-    statusMessage = "connecting";
+    statusMessage = "Connecting";
     statusVariant = "loading";
   }
   return (
@@ -73,9 +77,9 @@ const Base = ({
           className={CSS.BE("cluster-list-item", "name")}
         />
         <Flex.Box x>
-          {data?.nodeVersion != null && (
+          {status?.details.nodeVersion != null && (
             <Text.Text size="tiny" color={9}>
-              v{data.nodeVersion}
+              v{status.details.nodeVersion}
             </Text.Text>
           )}
           <Text.Text size="tiny" color={9}>
@@ -84,11 +88,8 @@ const Base = ({
         </Flex.Box>
       </Flex.Box>
       <Tooltip.Dialog>
-        <Text.Text level="h5">{data?.message}</Text.Text>
-        <Status.Summary
-          variant={statusVariant}
-          message={caseconv.capitalize(statusMessage)}
-        />
+        <Text.Text level="h5">{status?.message}</Text.Text>
+        <Status.Summary variant={statusVariant} message={statusMessage} />
       </Tooltip.Dialog>
     </List.Item>
   );

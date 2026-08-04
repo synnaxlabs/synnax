@@ -41,7 +41,7 @@ describe("arc useRename", () => {
     });
 
     await waitFor(async () => {
-      const retrieved = await client.arcs.retrieve({ key: original.key });
+      const retrieved = await client.arcs.retrieve(original.key);
       expect(retrieved.name).toBe(newName);
     });
   });

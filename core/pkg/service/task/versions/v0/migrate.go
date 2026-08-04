@@ -1,0 +1,106 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v0
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
+)
+
+// MigrationConfig is the configuration for newMigration.
+type MigrationConfig struct {
+	// Status is the status service used to backfill unknown statuses for tasks missing
+	// them.
+	Status *status.Service
+}
+
+type v0Status = status.Status[StatusDetails]
+
+// newMigration returns the v0 migration, which backfills an unknown status for every
+// task missing one.
+func newMigration(cfg MigrationConfig) migrate.Migration {
+	return gorp.NewMigration(
+		"v0.status_backfill",
+		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
+			reader := gorp.WrapReader[Key, Task](tx)
+			iter, err := reader.OpenIterator(gorp.IterOptions{})
+			if err != nil {
+				return err
+			}
+			defer func() {
+				err = errors.Combine(err, iter.Close())
+			}()
+			var tasks []Task
+			for iter.First(); iter.Valid(); iter.Next() {
+				t := iter.Value(ctx)
+				if err = iter.Error(); err != nil {
+					return err
+				}
+				tasks = append(tasks, *t)
+			}
+			if len(tasks) == 0 {
+				return nil
+			}
+
+			statusKeys := make([]string, len(tasks))
+			for i, t := range tasks {
+				statusKeys[i] = t.OntologyID().String()
+			}
+			var existingStatuses []v0Status
+			if err = status.NewRetrieve[StatusDetails](cfg.Status).
+				Where(status.MatchKeys[StatusDetails](statusKeys...)).
+				Entries(&existingStatuses).
+				Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+				return err
+			}
+			existingKeys := make(set.Set[string])
+			for _, stat := range existingStatuses {
+				existingKeys.Add(stat.Key)
+			}
+			var missingStatuses []v0Status
+			for _, t := range tasks {
+				key := t.OntologyID().String()
+				if !existingKeys.Contains(key) {
+					missingStatuses = append(missingStatuses, v0Status{
+						Key:     key,
+						Name:    t.Name,
+						Time:    telem.Now(),
+						Variant: status.VariantWarning,
+						Message: fmt.Sprintf("%s status unknown", t.Name),
+						Details: StatusDetails{Task: t.Key},
+					})
+				}
+			}
+			if len(missingStatuses) == 0 {
+				return nil
+			}
+			ins.L.Info("creating unknown statuses for existing tasks", zap.Int("count", len(missingStatuses)))
+			return status.NewWriter[StatusDetails](cfg.Status, tx).SetMany(ctx, &missingStatuses)
+		},
+	)
+}
+
+// codecMigration re-encodes stored tasks from MessagePack to Orc.
+var codecMigration = gorp.CodecMigration[Key, Task]("msgpack_to_orc")
+
+// NewMigrations returns the ordered set of migrations introduced at this version.
+func NewMigrations(cfg MigrationConfig) []migrate.Migration {
+	return []migrate.Migration{newMigration(cfg), codecMigration}
+}

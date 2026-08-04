@@ -1,0 +1,81 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-connection__body {
+    width: 100%;
+    height: 100%;
+    padding: 8rem 4rem 4rem;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.console-connection__body.console--revealed {
+    opacity: 1;
+}
+
+/* Holds the countdown's text-line height when only the loading icon renders,
+   so the swap doesn't shift the attempt count below it. */
+.console-connection__countdown {
+    height: 1lh;
+}
+
+/* A long name or address wraps whole items onto a new centered line; an item
+   too long even for its own line truncates with an ellipsis. */
+.console-connection__target {
+    flex-wrap: wrap;
+
+    & > .pluto-text--overflow-ellipsis {
+        min-width: 0;
+    }
+}
+
+.console-connection__status {
+    flex-shrink: 0;
+    display: inline-grid;
+    justify-items: start;
+
+    & > * {
+        grid-area: 1 / 1;
+    }
+
+    & > .console--ghost {
+        visibility: hidden;
+    }
+}
+
+/* .pluto-icon pins icons to 1em, so the status dot is sized here instead of
+   via the size prop. */
+.console-connection__target > .pluto-icon {
+    width: 2rem;
+    height: 2rem;
+}
+
+/* Equal basis so the growing buttons split the row evenly regardless of
+   label length. */
+.console-connection__actions > * {
+    flex-basis: 0;
+}
+
+/* ---------- orbital loader ---------- */
+
+/* The splash wears the orbital at full size; the delay is carried by the
+   card's own reveal, so the figure must not hold itself back a second time. */
+.console-connection .pluto-orbital {
+    --pluto-orbital-size: 45rem;
+    --pluto-loading-delay: 0ms;
+}
+
+/* Opaque core so ring arcs passing behind the planet are occluded instead of
+   shining through the countdown. */
+.pluto-orbital__stage .console-shell__mark-ring {
+    margin: 0;
+    background: var(--pluto-gray-l0);
+}

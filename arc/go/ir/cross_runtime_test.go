@@ -22,7 +22,7 @@ import (
 
 // cppIRHeaderPath is the C++ runtime's IR header, relative to this package
 // directory. It holds param-name constants that must mirror the Go ones in
-// edge.go. The two are hand-maintained in separate languages; commit d7a8a9b666
+// ir.go. The two are hand-maintained in separate languages; commit d7a8a9b666
 // fixed a regression where they drifted ("lhs_input" vs "a") and binary math ops
 // failed to load on the driver's C++ runtime.
 const cppIRHeaderPath = "../../cpp/ir/ir.h"

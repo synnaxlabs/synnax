@@ -47,7 +47,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(s Status[any]) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(s.Key), s.Name, s)
+	return ontology.NewResource(schema, s.OntologyID(), s.Name, s)
 }
 
 var (

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/pluto";
+import { Icon, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { type ContextMenuProps } from "@/platform/tree/types";
@@ -29,6 +29,7 @@ export const CopyPropertiesContextMenuItem = (
       text={getText}
       successMessage={`Copied properties for ${name} to clipboard`}
     >
+      <Icon.JSON />
       Copy properties
     </Menu.CopyItem>
   );

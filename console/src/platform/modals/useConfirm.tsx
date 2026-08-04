@@ -63,13 +63,7 @@ const CancelButton = ({
   delay,
   ...rest
 }: InternalButtonProps) => (
-  <Button.Button
-    variant="outlined"
-    status={variant}
-    trigger={Triggers.SAVE}
-    onClickDelay={delay}
-    {...rest}
-  >
+  <Button.Button variant="outlined" status={variant} onClickDelay={delay} {...rest}>
     {label}
   </Button.Button>
 );

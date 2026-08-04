@@ -13,20 +13,19 @@ import { type dataTransferItem } from "@/platform/import/dataTransferItem";
 import { type FileIngesterContext } from "@/platform/import/ingester";
 import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
-import { createTestFluxStore, createTestStore } from "@/testutil";
+import { createTestStore } from "@/testutil";
 
 export type DataTransferItemContext = Parameters<typeof dataTransferItem>[1];
 
 /**
- * Builds a real FileIngesterContext: a live flux store, a spy tab opener injected via
- * DI, and a null client. Merge overrides over it for spec-specific fields.
+ * Builds a real FileIngesterContext: a spy tab opener injected via DI and a
+ * null client. Merge overrides over it for spec-specific fields.
  */
 export const createFileIngesterContext = (
   overrides: Partial<FileIngesterContext> = {},
 ): FileIngesterContext => ({
   name: "test",
   openTab: vi.fn<Panel.OpenTab>(),
-  store: createTestFluxStore(),
   client: null,
   projectKey: "project-1",
   fileName: "test.json",
@@ -34,8 +33,8 @@ export const createFileIngesterContext = (
 });
 
 /**
- * Builds a real DataTransferItemContext: the full console redux store, a live flux
- * store, spy ingest callbacks injected via DI, and a null client.
+ * Builds a real DataTransferItemContext: the full console redux store, spy
+ * ingest callbacks injected via DI, and a null client.
  */
 export const createDataTransferItemContext = async (
   overrides: Partial<DataTransferItemContext> = {},
@@ -52,7 +51,6 @@ export const createDataTransferItemContext = async (
       },
     },
   }),
-  fluxStore: createTestFluxStore(),
   ...overrides,
 });
 

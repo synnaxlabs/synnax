@@ -21,6 +21,13 @@ export class NoopRuntime<
   S extends StoreState,
   A extends Action = UnknownAction,
 > implements Runtime<S, A> {
+  private readonly winLabel: string;
+
+  /** @param label - The window label the runtime reports; defaults to main. */
+  constructor(label: string = MAIN_WINDOW) {
+    this.winLabel = label;
+  }
+
   async emit(): Promise<void> {}
 
   async subscribe(): Promise<void> {}
@@ -30,7 +37,7 @@ export class NoopRuntime<
   }
 
   label(): string {
-    return MAIN_WINDOW;
+    return this.winLabel;
   }
 
   onCloseRequested(): void {}

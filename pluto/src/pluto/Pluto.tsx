@@ -9,41 +9,21 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { access } from "@/access/aether";
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
-import { Channel } from "@/channel";
 import { Code } from "@/code";
 import { Color } from "@/color";
-import { Device } from "@/device";
-import { Flux } from "@/flux";
-import { Group } from "@/group";
 import { Haul } from "@/haul";
-import { Label } from "@/label";
-import { LinePlot } from "@/lineplot";
-import { Log } from "@/log";
-import { Ontology } from "@/ontology";
-import { Panel } from "@/panel";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
-import { Project } from "@/project";
-import { Rack } from "@/rack";
-import { Ranger } from "@/ranger";
-import { ranger } from "@/ranger/aether";
-import { Schematic } from "@/schematic";
-import { Status } from "@/status";
 import { Status as StatusBase } from "@/status/base";
 import { Synnax } from "@/synnax";
-import { Table } from "@/table";
-import { Task } from "@/task";
 import { Telem } from "@/telem";
 import { Control } from "@/telem/control";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
-import { User } from "@/user";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
-import { View } from "@/view";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
@@ -61,60 +41,6 @@ export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   telem?: CanDisabledProps<Telem.ProviderProps>;
   color?: Color.ProviderProps;
 }
-
-export interface FluxStore extends Flux.Store {
-  [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
-  [Label.FLUX_STORE_KEY]: Label.FluxStore;
-  [Rack.FLUX_STORE_KEY]: Rack.FluxStore;
-  [Device.FLUX_STORE_KEY]: Device.FluxStore;
-  [Task.FLUX_STORE_KEY]: Task.FluxStore;
-  [Project.FLUX_STORE_KEY]: Project.FluxStore;
-  [Panel.FLUX_STORE_KEY]: Panel.FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KVFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-  [Channel.FLUX_STORE_KEY]: Channel.FluxStore;
-  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
-  [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.FluxStore;
-  [Group.FLUX_STORE_KEY]: Group.FluxStore;
-  [Status.FLUX_STORE_KEY]: Status.FluxStore;
-  [Arc.FLUX_STORE_KEY]: Arc.FluxStore;
-  [LinePlot.FLUX_STORE_KEY]: LinePlot.FluxStore;
-  [Log.FLUX_STORE_KEY]: Log.FluxStore;
-  [Table.FLUX_STORE_KEY]: Table.FluxStore;
-  [Schematic.FLUX_STORE_KEY]: Schematic.FluxStore;
-  [User.FLUX_STORE_KEY]: User.FluxStore;
-  [View.FLUX_STORE_KEY]: View.FluxStore;
-  [access.policy.FLUX_STORE_KEY]: access.policy.FluxStore;
-  [access.role.FLUX_STORE_KEY]: access.role.FluxStore;
-}
-
-export const FLUX_STORE_CONFIG: Flux.StoreConfig<FluxStore> = {
-  [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
-  [Label.FLUX_STORE_KEY]: Label.FLUX_STORE_CONFIG,
-  [Rack.FLUX_STORE_KEY]: Rack.FLUX_STORE_CONFIG,
-  [Device.FLUX_STORE_KEY]: Device.FLUX_STORE_CONFIG,
-  [Task.FLUX_STORE_KEY]: Task.FLUX_STORE_CONFIG,
-  [Project.FLUX_STORE_KEY]: Project.FLUX_STORE_CONFIG,
-  [Panel.FLUX_STORE_KEY]: Panel.FLUX_STORE_CONFIG,
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.RESOURCE_FLUX_STORE_CONFIG,
-  [Ranger.RANGE_KV_FLUX_STORE_KEY]: Ranger.KV_FLUX_STORE_CONFIG,
-  [Channel.FLUX_STORE_KEY]: Channel.FLUX_STORE_CONFIG,
-  [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.ALIAS_FLUX_STORE_CONFIG,
-  [Schematic.Symbol.FLUX_STORE_KEY]: Schematic.Symbol.STORE_CONFIG,
-  [Group.FLUX_STORE_KEY]: Group.FLUX_STORE_CONFIG,
-  [Status.FLUX_STORE_KEY]: Status.FLUX_STORE_CONFIG,
-  [LinePlot.FLUX_STORE_KEY]: LinePlot.FLUX_STORE_CONFIG,
-  [Log.FLUX_STORE_KEY]: Log.FLUX_STORE_CONFIG,
-  [Table.FLUX_STORE_KEY]: Table.FLUX_STORE_CONFIG,
-  [Schematic.FLUX_STORE_KEY]: Schematic.FLUX_STORE_CONFIG,
-  [User.FLUX_STORE_KEY]: User.FLUX_STORE_CONFIG,
-  [Arc.FLUX_STORE_KEY]: Arc.FLUX_STORE_CONFIG,
-  [View.FLUX_STORE_KEY]: View.FLUX_STORE_CONFIG,
-  [access.policy.FLUX_STORE_KEY]: access.policy.FLUX_STORE_CONFIG,
-  [access.role.FLUX_STORE_KEY]: access.role.FLUX_STORE_CONFIG,
-};
 
 export const Provider = ({
   children,
@@ -139,17 +65,15 @@ export const Provider = ({
           <Alamos.Provider {...alamos}>
             <StatusBase.Aggregator>
               <Synnax.Provider connParams={connParams}>
-                <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
-                  <Color.Provider {...color}>
-                    <Theming.Provider {...theming}>
-                      <Code.Provider languages={ARC_LANGUAGES}>
-                        <CanDisableTelem {...telem}>
-                          <Control.StateProvider>{children}</Control.StateProvider>
-                        </CanDisableTelem>
-                      </Code.Provider>
-                    </Theming.Provider>
-                  </Color.Provider>
-                </Flux.Provider>
+                <Color.Provider {...color}>
+                  <Theming.Provider {...theming}>
+                    <Code.Provider languages={ARC_LANGUAGES}>
+                      <CanDisableTelem {...telem}>
+                        <Control.StateProvider>{children}</Control.StateProvider>
+                      </CanDisableTelem>
+                    </Code.Provider>
+                  </Theming.Provider>
+                </Color.Provider>
               </Synnax.Provider>
             </StatusBase.Aggregator>
           </Alamos.Provider>

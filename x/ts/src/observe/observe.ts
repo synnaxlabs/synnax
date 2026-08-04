@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type destructor } from "@/destructor";
+import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
 /** Handler is called when the value of an Observable changes. */
 export type Handler<T> = (value: T) => void;
@@ -24,6 +25,41 @@ export interface Observable<T> {
    */
   onChange: (handler: Handler<T>) => destructor.Destructor;
 }
+
+/**
+ * Resolves with the first observed value satisfying the predicate. The current
+ * value is evaluated first, so an already-satisfied observable resolves without
+ * waiting.
+ * @param current - Reads the observable's present value, which `onChange` alone
+ * cannot supply.
+ * @param timeout - How long to wait before rejecting. Omit to wait forever.
+ * @throws {Error} if the timeout elapses first.
+ */
+export const until = async <V>(
+  observable: Observable<V>,
+  current: () => V,
+  predicate: (value: V) => boolean,
+  timeout?: CrudeTimeSpan,
+): Promise<V> => {
+  const value = current();
+  if (predicate(value)) return value;
+  return await new Promise<V>((resolve, reject) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const detach = observable.onChange((value) => {
+      if (!predicate(value)) return;
+      if (timer != null) clearTimeout(timer);
+      detach();
+      resolve(value);
+    });
+    if (timeout != null) {
+      const span = new TimeSpan(timeout);
+      timer = setTimeout(() => {
+        detach();
+        reject(new Error(`timed out after ${span.toString()}`));
+      }, span.milliseconds);
+    }
+  });
+};
 
 /** An Observable that can be closed using an async function. */
 export interface ObservableAsyncCloseable<T> extends Observable<T> {

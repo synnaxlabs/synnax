@@ -26,7 +26,11 @@ import { CSS } from "@/platform/css";
 export const Axes = (): ReactElement => {
   const axisKeys = LinePlot.useSelectAxisKeys();
   return (
-    <Tabs.Frame initialValue={axisKeys[0]} grow>
+    <Tabs.Frame
+      className={CSS.BE("line-plot", "toolbar", "axes-tabs")}
+      initialValue={axisKeys[0]}
+      grow
+    >
       <Tabs.Selector size="small">
         {axisKeys.map((key) => (
           <Tabs.Tab key={key} itemKey={key}>

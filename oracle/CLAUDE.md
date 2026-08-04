@@ -25,6 +25,47 @@ or generator logic and schemas disagree.
 - Confirm with the user before `oracle migrate` / `oracle snapshot`
   (schema-version-affecting).
 
+## Versioning Rules
+
+- **Version a schema (`@go version`) iff its data is gorp-persisted** — directly, via
+  ImEx, or by being embedded in a versioned schema. Nothing else needs migrations: wire
+  peers are never version-skewed, and there are no unvalidated caches.
+- **Never version derived artifacts** (compiled output like arc `Program`). On mismatch
+  they are recomputed from their versioned sources, not migrated.
+- `@go version` is type-granular and must be declared per type; the analyzer rejects
+  file-level declarations. Declare it struct-level on persisted types (channel-style).
+  Unversioned siblings are transient — they generate real declarations at the package
+  root (merged into `types.gen.go` beside the version aliases) instead of riding the
+  versions/vN layout, and their shape changes never force a version bump.
+- Two classes must stay versioned despite being unpersisted: types referenced by a
+  versioned sibling (even via `@go marshal omit` fields — their Go home cannot leave the
+  package without an import cycle; the persistence gate exempts these automatically),
+  and types whose hand-written Go methods entangle with versioned siblings (telem's
+  Size/Rate). Mark the latter `@go version N pinned` — the gate skips pinned types and
+  warns if a pinned type is actually persisted; the analyzer rejects any other version
+  argument.
+- `oracle check` runs a non-blocking persistence gate warning on versioned types outside
+  the persisted closure and on persisted types missing @go version at a versioned path.
+  Use `--verbose` to see warnings on passing gates.
+- Migrate wrapper visibility follows consumption (see `plugin/go/migrate`): exported
+  when another versioned schema embeds the type; unexported when only the package's own
+  gorp wiring or auto-copies call it.
+
+## Tag Minimization
+
+Prefer the tagging that minimizes total tag count. When only a few types in a file need
+a domain (@pb on control.Subject), tag those types and omit the file-level declaration;
+when most types need it, declare it file-level and omit the exceptions.
+
+## Omit vs Hand
+
+- `@<lang> omit`: the type does not exist in that language. References to it from
+  generating types are analyzer errors; a language output whose types are all omitted is
+  an analyzer error (remove the output).
+- `@<lang> hand`: the type exists, hand-written at the declared output path. No
+  declaration is generated, but references resolve to it, pb translators generate
+  against it, and it anchors the language output.
+
 ## Rules
 
 - Never hand-edit generated output — edit the schema, then sync (see Sync Workflow).

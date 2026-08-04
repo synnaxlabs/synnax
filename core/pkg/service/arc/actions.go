@@ -21,6 +21,11 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(Arc) (Arc, error) {
+	return p.Arc, nil
+}
+
 // Handle replaces the Arc module's name.
 func (p RenamePayload) Handle(state Arc) (Arc, error) {
 	state.Name = p.Name
@@ -174,15 +179,6 @@ func (p ForgetCharsPayload) Handle(state Arc) (Arc, error) {
 	state.Text.Doc.Deletes = keptDeletes
 	return state, nil
 }
-
-const (
-	// defaultTextSweepQuiescence is how long an arc's text must go unedited before its
-	// tombstoned characters become eligible to be forgotten.
-	defaultTextSweepQuiescence = 5 * telem.Second
-	// defaultTextSweepThreshold is the number of tombstoned characters that must
-	// accumulate before a sweep is worth broadcasting.
-	defaultTextSweepThreshold = 128
-)
 
 // lastEdits records the cluster time of each arc's most recent character edit. The
 // timestamp only gates the text sweeper's quiescence check; it never replicates and

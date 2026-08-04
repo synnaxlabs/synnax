@@ -65,6 +65,10 @@ struct Config {
     /// and using client authentication. This is not required when in insecure mode
     /// or using username/password authentication.
     std::string client_key_file;
+    /// @brief use TLS encryption. When true without a ca_cert_file, the system trust
+    /// store verifies the server. Defaults to true when overridden from config that
+    /// predates this field but names a certificate.
+    bool secure = false;
     /// @brief sets the clock skew threshold at which a warning will be logged.
     x::telem::TimeSpan clock_skew_threshold = x::telem::SECOND * 1;
     /// @brief sets the maximum number of login retries before giving up.
@@ -82,6 +86,11 @@ struct Config {
         );
         this->client_key_file = parser.field("client_key_file", this->client_key_file);
         this->ca_cert_file = parser.field("ca_cert_file", this->ca_cert_file);
+        this->secure = parser.field(
+            "secure",
+            !this->ca_cert_file.empty() ||
+                (!this->client_cert_file.empty() && !this->client_key_file.empty())
+        );
         this->clock_skew_threshold = x::telem::TimeSpan(parser.field(
             "clock_skew_threshold",
             this->clock_skew_threshold.nanoseconds()
@@ -97,8 +106,8 @@ struct Config {
            << "  " << x::log::SHALE() << "password" << x::log::RESET() << ": "
            << x::log::sensitive_string(cfg.password) << "\n"
            << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
-           << x::log::bool_to_str(cfg.is_secure()) << "\n";
-        if (!cfg.is_secure()) return os;
+           << x::log::bool_to_str(cfg.secure) << "\n";
+        if (!cfg.secure) return os;
         os << "  " << x::log::SHALE() << "ca_cert_file" << x::log::RESET() << ": "
            << x::path::resolve_relative(cfg.ca_cert_file) << "\n"
            << "  " << x::log::SHALE() << "client_cert_file" << x::log::RESET() << ": "
@@ -107,10 +116,6 @@ struct Config {
            << x::path::resolve_relative(cfg.client_key_file) << "\n";
         return os;
     }
-
-    /// @brief returns true if the configuration uses TLS encryption to secure
-    /// communications with the cluster.
-    [[nodiscard]] bool is_secure() const { return !this->ca_cert_file.empty(); }
 
     /// @brief returns the address of the cluster in the form "host:port".
     [[nodiscard]]
@@ -127,6 +132,7 @@ struct Config {
             {"ca_cert_file", this->ca_cert_file},
             {"client_cert_file", this->client_cert_file},
             {"client_key_file", this->client_key_file},
+            {"secure", this->secure},
             {"clock_skew_threshold", this->clock_skew_threshold.nanoseconds()},
             {"max_retries", this->max_retries}
         };
@@ -166,7 +172,8 @@ public:
           cfg.host,
           cfg.ca_cert_file,
           cfg.client_cert_file,
-          cfg.client_key_file),
+          cfg.client_key_file,
+          cfg.secure),
         channels(this->t.chan_retrieve, this->t.chan_create),
         auth([&]() -> std::shared_ptr<auth::Middleware> {
             auto mw = std::make_shared<auth::Middleware>(

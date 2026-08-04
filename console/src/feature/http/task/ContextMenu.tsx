@@ -40,6 +40,7 @@ export const ContextMenu = ({
               Duplicate
             </Menu.Item>
           )}
+          <Menu.Divider />
           <Base.DeleteItem onClick={() => onDelete(keys)} />
           <Menu.Divider />
         </>

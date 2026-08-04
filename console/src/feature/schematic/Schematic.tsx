@@ -22,8 +22,27 @@ import { Controls } from "@/feature/schematic/Controls";
 import { Legend } from "@/feature/schematic/Legend";
 import { useHandleNodeClickAction } from "@/feature/schematic/navigate";
 import { ContextMenu } from "@/platform/context-menu";
+import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
+
+const EmptyContent = (): ReactElement => {
+  const key = Base.useKey();
+  const dispatch = Session.useDispatch();
+  const { canEdit } = Session.Schematic.useSelectEditable();
+  const handleStartEditing = useCallback(() => {
+    dispatch(Session.Schematic.setEditable({ key, editable: true }));
+    dispatch(Session.Schematic.selectToolbarTab({ key, tab: "symbols" }));
+    dispatch(Session.Nav.showBottom({}));
+  }, [dispatch, key]);
+  return (
+    <Empty.Action
+      message="No symbols in this schematic."
+      action={canEdit ? "Start editing" : ""}
+      onClick={handleStartEditing}
+    />
+  );
+};
 
 const Internal = (): ReactElement => {
   const key = Base.useKey();
@@ -124,6 +143,7 @@ const Internal = (): ReactElement => {
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         visible={visible}
+        emptyContent={isCurrentlyEditable ? undefined : <EmptyContent />}
       >
         {isCurrentlyEditable && <Diagram.Background />}
         <Controls />

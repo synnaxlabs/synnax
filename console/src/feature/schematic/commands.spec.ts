@@ -44,7 +44,7 @@ describe("Schematic Commands", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource")
       throw new Error("focused tab is not a schematic resource");
-    const created = await client.schematics.retrieve({ key: tab.resource.key });
+    const created = await client.schematics.retrieve(tab.resource.key);
     expect(created.name).toBe("Schematic");
   });
 });

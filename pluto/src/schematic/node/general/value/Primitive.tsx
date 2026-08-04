@@ -40,12 +40,13 @@ export const Value = ({
   children,
   inlineSize = 80,
 }: RenderProps): ReactElement => {
+  const symbolColor = symbolColorVar(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.var("symbol-color")]: symbolColor,
       height: dimensions?.height,
     }),
-    [colorVal, dimensions?.height],
+    [symbolColor, dimensions?.height],
   );
   const contentStyle = useMemo<CSSProperties>(
     () => ({
@@ -57,7 +58,12 @@ export const Value = ({
   );
   return (
     <Primitive.Div
-      className={CSS(CSS.B("value"), CSS.B("symbol-colored"), className)}
+      className={CSS(
+        CSS.B("value"),
+        CSS.B("symbol-colored"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       style={style}
     >
       <div className={CSS.BE("value", "content")} style={contentStyle}>

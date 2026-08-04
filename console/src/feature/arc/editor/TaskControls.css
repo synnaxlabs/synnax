@@ -12,7 +12,7 @@
 .console-arc {
     container-type: inline-size;
 
-    .console-editor {
+    .pluto-editor {
         padding-bottom: 11rem;
 
         &::after {
@@ -22,7 +22,7 @@
             left: 0;
             right: 0;
             height: 5rem;
-            background: linear-gradient(to bottom, transparent, var(--pluto-gray-l1));
+            background: linear-gradient(to bottom, transparent, var(--pluto-gray-l0));
         }
     }
 
@@ -52,13 +52,13 @@
 }
 
 @container (max-width: 600px) {
-    .console-arc .console-editor {
+    .console-arc .pluto-editor {
         padding-bottom: 21rem;
     }
 }
 
 .console-arc:has(.console-task-controls--expanded) {
-    .console-editor {
+    .pluto-editor {
         padding-bottom: 19rem;
     }
 }

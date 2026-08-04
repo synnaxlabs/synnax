@@ -28,12 +28,13 @@ import {
 
 import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
+import { createResourceTab } from "@/platform/panel/testutil";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
+  assertDefined,
   type ConsolePreloadedState,
   createConsoleWrapper,
-  createResourceTab,
   uniqueName,
 } from "@/testutil";
 
@@ -120,8 +121,8 @@ export const renderSchematic = async (
     additionalRegistry,
   });
   await loadSchematic(Wrapper, created.key);
-  const { panelKey, tabKey } = createResourceTab(
-    Wrapper,
+  const { panelKey, tabKey } = await createResourceTab(
+    client,
     schematic.ontologyID(created.key),
   );
   const result = render(
@@ -175,7 +176,7 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
 export const getEditSectionHeaderButton = (title: string): HTMLButtonElement => {
   const header = screen.getByText(title).closest("header");
   const button = header?.querySelector("button");
-  if (button == null) throw new Error(`no button in section header ${title}`);
+  assertDefined(button, `no button in section header ${title}`);
   return button;
 };
 
@@ -194,7 +195,7 @@ export const getOverlayHandles = (
  */
 export const getPreviewTransformWrapper = (container: ParentNode): HTMLElement => {
   const el = container.querySelector<HTMLElement>("[style*='transform']");
-  if (el == null) throw new Error("preview transform wrapper not found");
+  assertDefined(el, "preview transform wrapper not found");
   return el;
 };
 

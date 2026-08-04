@@ -58,7 +58,7 @@ func (w Writer[D]) SetWithParent(
 	if err = gorp.NewCreate[string, Status[D]]().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := OntologyID(s.Key)
+	otgID := s.OntologyID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

@@ -65,6 +65,7 @@ enum class ChanDirection : std::uint8_t {
     None = 0,
     Read = 1,
     Write = 2,
+    ReadWrite = 3,
 };
 
 /// @brief Channels contains channel declarations for reading from and writing to Synnax

@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, status } from "@synnaxlabs/client";
+import { group, ontology, query, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { Flux } from "@/flux";
-import { Ontology } from "@/ontology";
 import { Status } from "@/status";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -24,10 +22,7 @@ const client = createTestClient();
 describe("Status queries", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
   describe("useList", () => {
@@ -409,9 +404,7 @@ describe("Status queries", () => {
         await result.current.updateAsync(statusToDelete.key);
       });
 
-      await expect(
-        client.statuses.retrieve({ key: statusToDelete.key }),
-      ).rejects.toThrow();
+      await expect(client.statuses.retrieve(statusToDelete.key)).rejects.toThrow();
     });
   });
 
@@ -431,7 +424,7 @@ describe("Status queries", () => {
         });
       });
 
-      const created = await client.statuses.retrieve({ key: "set-hook-test" });
+      const created = await client.statuses.retrieve("set-hook-test");
       expect(created.name).toEqual("Set Hook Test");
       expect(created.variant).toEqual("loading");
     });
@@ -488,7 +481,9 @@ describe("Status queries", () => {
         });
       });
 
-      const resources = await client.ontology.retrieveChildren(parentOntologyID);
+      const resources = await client.ontology.children.retrieve({
+        ids: parentOntologyID,
+      });
 
       const statusResource = resources.find((r) => r.id.key === "child-hook-test");
       expect(statusResource).toBeDefined();
@@ -999,7 +994,7 @@ describe("Status queries", () => {
     });
   });
 
-  describe("retrieveMultiple", () => {
+  describe("keyed multi-retrieve", () => {
     it("should retrieve multiple statuses from the server when none are cached", async () => {
       const status1 = await client.statuses.set({
         name: "Retrieve Multiple Direct 1",
@@ -1016,14 +1011,8 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {
-        wrapper,
-      });
-
-      const statuses = await Status.retrieveMultiple({
-        client,
-        store: result.current,
-        query: { keys: [status1.key, status2.key] },
+      const statuses = await client.statuses.retrieve({
+        keys: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);
@@ -1047,26 +1036,20 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {
-        wrapper,
-      });
+      await client.statuses.retrieve(status1.key);
 
-      result.current.statuses.set(status1);
-
-      const statuses = await Status.retrieveMultiple({
-        client,
-        store: result.current,
-        query: { keys: [status1.key, status2.key] },
+      const statuses = await client.statuses.retrieve({
+        keys: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);
       expect(statuses.map((s) => s.key)).toContain(status1.key);
       expect(statuses.map((s) => s.key)).toContain(status2.key);
-      expect(result.current.statuses.get(status1.key)).toBeDefined();
-      expect(result.current.statuses.get(status2.key)).toBeDefined();
+      const cached = client.statuses.getCached({ keys: [status1.key, status2.key] });
+      expect(query.isLive(cached)).toBe(true);
     });
 
-    it("should return all cached statuses when all are in the store", async () => {
+    it("should return all cached statuses when all are cached", async () => {
       const status1 = await client.statuses.set({
         name: "All Cached 1",
         key: `all-cached-${id.create()}`,
@@ -1082,36 +1065,15 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {
-        wrapper,
-      });
+      await client.statuses.retrieve({ keys: [status1.key, status2.key] });
 
-      result.current.statuses.set(status1);
-      result.current.statuses.set(status2);
-
-      const statuses = await Status.retrieveMultiple({
-        client,
-        store: result.current,
-        query: { keys: [status1.key, status2.key] },
+      const statuses = await client.statuses.retrieve({
+        keys: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);
       expect(statuses.map((s) => s.key)).toContain(status1.key);
       expect(statuses.map((s) => s.key)).toContain(status2.key);
-    });
-
-    it("should return an empty array when given empty keys", async () => {
-      const { result } = renderHook(() => Flux.useStore<Status.FluxSubStore>(), {
-        wrapper,
-      });
-
-      const statuses = await Status.retrieveMultiple({
-        client,
-        store: result.current,
-        query: { keys: [] },
-      });
-
-      expect(statuses).toHaveLength(0);
     });
   });
 });

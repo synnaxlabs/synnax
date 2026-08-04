@@ -52,22 +52,27 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 	if err = w.tbl.NewCreate().Entry(t).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if exists {
-		return nil
+	if !exists {
+		otgID := t.OntologyID()
+		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
+			return err
+		}
+		if projectKey != uuid.Nil {
+			if err = w.otgWriter.DefineRelationships(
+				ctx,
+				project.OntologyID(projectKey),
+				ontology.RelationshipTypeParentOf,
+				otgID,
+			); err != nil {
+				return err
+			}
+		}
 	}
-	otgID := OntologyID(t.Key)
-	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-		return err
-	}
-	if projectKey == uuid.Nil {
-		return nil
-	}
-	return w.otgWriter.DefineRelationships(
-		ctx,
-		project.OntologyID(projectKey),
-		ontology.RelationshipTypeParentOf,
-		otgID,
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, t.Key, "", []Action{NewCreateAction(CreatePayload{Table: *t})},
 	)
+	return nil
 }
 
 // CreateMany creates the given tables within the project provided. If tables with the

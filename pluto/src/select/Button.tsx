@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/select/Button.css";
-
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -77,7 +75,13 @@ export const Button = <K extends record.Key = record.Key>({
       id={itemKey.toString()}
       onChange={onSelect}
       value={selected}
-      className={CSS(className, selected && CONTEXT_SELECTED, CONTEXT_TARGET)}
+      className={CSS(
+        className,
+        CSS.B("select-btn"),
+        CSS.selected(selected),
+        selected && CONTEXT_SELECTED,
+        CONTEXT_TARGET,
+      )}
     />
   );
 };

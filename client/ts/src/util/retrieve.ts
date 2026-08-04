@@ -15,14 +15,14 @@ export type SingleParamAnalysisResult<
   T extends primitive.Value,
   K extends PartialTypeNameRecord<T>,
 > = T extends unknown
-  ? { single: true; variant: K[keyof K]; normalized: T[]; actual: T }
+  ? { single: true; variant: K[TypeName<T>]; normalized: T[]; actual: T }
   : never;
 
 export type MultiParamAnalysisResult<
   T extends primitive.Value,
   K extends PartialTypeNameRecord<T>,
 > = T extends unknown
-  ? { single: false; variant: K[keyof K]; normalized: T[]; actual: T[] }
+  ? { single: false; variant: K[TypeName<T>]; normalized: T[]; actual: T[] }
   : never;
 
 type TypeName<T> = T extends string
@@ -62,10 +62,10 @@ export const analyzeParams = <
   let normal = array.toArray(args);
   const first = normal[0];
   const t = typeof first;
-  let variant: K[keyof K];
+  let variant: K[TypeName<T>];
   if (t === "string" && convertNumericStrings)
     if (!isNaN(parseInt(first as string, 10)) && "number" in variantMap) {
-      variant = variantMap.number as K[keyof K];
+      variant = variantMap.number as K[TypeName<T>];
       normal = normal.map((n) => parseInt(n as string, 10));
     } else variant = variantMap[t as TypeName<T>];
   else variant = variantMap[t as TypeName<T>];

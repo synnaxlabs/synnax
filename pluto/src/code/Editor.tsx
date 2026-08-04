@@ -394,6 +394,7 @@ const EditorInternal = ({
   isBlock,
   scrollBeyondLastLine,
   extensions,
+  background = 1,
   ...rest
 }: Omit<EditorProps, "loading">) => {
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
@@ -489,7 +490,13 @@ const EditorInternal = ({
   }, [createMenuAction, cursorRenameable]);
 
   return (
-    <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>
+    <Flex.Box
+      y
+      grow
+      background={background}
+      {...rest}
+      className={CSS(className, CSS.B("editor"))}
+    >
       <Menu.ContextMenu
         className={CSS(CSS.BE("editor", "context-menu"), className)}
         menu={menuContent}

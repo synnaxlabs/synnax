@@ -31,7 +31,7 @@ export const Tags = ({
     onClick={onClick}
     align="center"
     gap="small"
-    rounded
+    rounded="small"
     {...rest}
   >
     {children}

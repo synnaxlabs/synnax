@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
+import { arc, query } from "@synnaxlabs/client";
 import { Arc, Icon } from "@synnaxlabs/pluto";
 
 import { Editor } from "@/feature/arc/editor/Editor";
@@ -18,7 +18,12 @@ export * from "@/feature/arc/editor/toolbar/Toolbar";
 
 const TAB: Panel.Tab = {
   Content: Editor,
+  Icon: Icon.Arc,
   Name: Panel.createEditableTabName(Arc, <Icon.Arc />),
+  restore: async ({ client, resource }) => {
+    const corpse = query.requireCorpse(client.arcs.getCached(resource.key));
+    await client.arcs.create(corpse);
+  },
 };
 
 export const TABS: Panel.Tabs = {

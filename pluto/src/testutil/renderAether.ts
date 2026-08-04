@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
+import { state } from "@synnaxlabs/x";
 import { afterEach } from "vitest";
 import { type z } from "zod";
 
 import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
-import { state } from "@/state";
 import {
   buildStack,
   type MountedProviders,

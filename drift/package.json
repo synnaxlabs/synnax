@@ -35,6 +35,7 @@
   "devDependencies": {
     "@testing-library/react": "catalog:",
     "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/madge": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@synnaxlabs/vite-plugin": "workspace:^",
     "@types/node": "catalog:",
@@ -43,7 +44,6 @@
     "@vitest/coverage-v8": "catalog:",
     "jsdom": "catalog:",
     "eslint": "catalog:",
-    "madge": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-redux": "catalog:",
@@ -54,24 +54,18 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/drift.cjs",
-  "module": "./dist/drift.js",
-  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/drift.js",
-      "require": "./dist/drift.cjs"
+      "default": "./dist/drift.js"
     },
     "./react": {
       "types": "./dist/src/react/index.d.ts",
-      "import": "./dist/react.js",
-      "require": "./dist/react.cjs"
+      "default": "./dist/react.js"
     },
     "./tauri": {
       "types": "./dist/src/tauri/index.d.ts",
-      "import": "./dist/tauri.js",
-      "require": "./dist/tauri.cjs"
+      "default": "./dist/tauri.js"
     }
   }
 }

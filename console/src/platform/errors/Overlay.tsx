@@ -46,14 +46,14 @@ const useExtraErrorInfo = (): ExtraErrorInfo => {
   // If they throw, the error bubbles to OverlayWithoutStore which is fine.
   // We use optional chaining when building extraInfo to handle undefined values.
   const consoleVersion = Session.Version.use();
-  const connectionState = Synnax.useConnectionState();
+  const connectionStatus = Synnax.useConnectionStatus();
   const extraInfo: ExtraErrorInfo = {
     consoleVersion: "unknown",
     coreVersion: "unknown",
   };
   if (consoleVersion != null) extraInfo.consoleVersion = consoleVersion;
-  if (connectionState?.nodeVersion != null)
-    extraInfo.coreVersion = connectionState.nodeVersion;
+  if (connectionStatus?.details.nodeVersion != null)
+    extraInfo.coreVersion = connectionStatus.details.nodeVersion;
   return extraInfo;
 };
 
@@ -137,7 +137,7 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
     <Flex.Box y className={CSS.B("error-overlay")}>
       <Nav.Bar
         location="top"
-        size="6.5rem"
+        size="7rem"
         bordered
         data-tauri-drag-region
         background={2}
@@ -166,7 +166,6 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
           <OS.Controls
             visibleIfOS="Windows"
             forceOS={os}
-            contrast={0}
             onClose={() => {
               if (Session.Runtime.ENGINE === "tauri") void getCurrentWindow().close();
             }}

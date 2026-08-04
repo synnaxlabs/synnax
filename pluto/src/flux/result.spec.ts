@@ -23,7 +23,7 @@ interface TestState {
 }
 
 describe("result", () => {
-  describe("pendingResult", () => {
+  describe("loadingResult", () => {
     it("should create a loading result with correct structure", () => {
       const result = loadingResult<TestState>("fetch user", undefined);
 
@@ -111,7 +111,7 @@ describe("result", () => {
   });
 
   describe("nullClientResult", () => {
-    it("should create an error result with DisconnectedError", () => {
+    it("should create a disabled result when no client is connected", () => {
       const result = nullClientResult<TestState>("fetch user");
 
       expect(result.variant).toBe("disabled");

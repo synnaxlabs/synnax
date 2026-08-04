@@ -179,7 +179,7 @@ routingTable
     ;
 
 routingEntry
-    : IDENTIFIER COLON flowNode (ARROW flowNode)* (COLON IDENTIFIER)?
+    : IDENTIFIER COLON flowNode (flowOperator flowNode)* (COLON IDENTIFIER)?
     ;
 
 flowNode

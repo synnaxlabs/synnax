@@ -17,9 +17,9 @@ import { type Import } from "@/platform/import";
 // created under the project in a single network call.
 export const ingest: Import.FileIngester = async (
   data,
-  { openTab, store, client, projectKey, fileName },
+  { openTab, client, projectKey, fileName },
 ) => {
-  if (!Access.createGranted({ id: log.TYPE_ONTOLOGY_ID, store, client }))
+  if (!Access.createGranted({ id: log.TYPE_ONTOLOGY_ID, client }))
     throw new Error("You do not have permission to import logs");
   if (client == null) throw new DisconnectedError();
   const id = await client.imex.import(JSON.stringify(data), {

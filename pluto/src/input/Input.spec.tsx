@@ -417,9 +417,7 @@ describe("Input", () => {
       });
 
       it("should hide drag handle when variant is preview", () => {
-        const c = render(
-          <Input.Numeric value={0} onChange={vi.fn()} variant="preview" />,
-        );
+        const c = render(<Input.Numeric value={0} onChange={vi.fn()} preview />);
         const dragButton = c.container.querySelector(".pluto-input__drag-btn");
         expect(dragButton).not.toBeTruthy();
       });

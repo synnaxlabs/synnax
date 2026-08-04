@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Dialog, Icon, Label } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Dialog, Label } from "@synnaxlabs/pluto";
 
-import { Empty } from "@/platform/empty";
+import { Button } from "@/platform/button";
 import { useEditModal } from "@/platform/label/useEditModal";
 
 export interface SelectSingleProps extends Label.SelectSingleProps {}
@@ -24,34 +23,19 @@ const useAdd = (): (() => void) => {
   };
 };
 
-const SelectEmptyContent = (): ReactElement => {
-  const add = useAdd();
+const CreateButton = () => {
+  const onClick = useAdd();
   return (
-    <Empty.Action message="No labels created." action="Create a label" onClick={add} />
+    <Button.Create size="small" onClick={onClick}>
+      New Label
+    </Button.Create>
   );
 };
 
 export const SelectSingle = (props: SelectSingleProps) => (
-  <Label.SelectSingle
-    emptyContent={<SelectEmptyContent />}
-    {...props}
-    actions={<AddButton />}
-  />
+  <Label.SelectSingle {...props} footer={<CreateButton />} />
 );
 
-const AddButton = () => {
-  const onClick = useAdd();
-  return (
-    <Button.Button onClick={onClick} variant="outlined" contrast={3}>
-      <Icon.Add />
-    </Button.Button>
-  );
-};
-
 export const SelectMultiple = (props: Label.SelectMultipleProps) => (
-  <Label.SelectMultiple
-    emptyContent={<SelectEmptyContent />}
-    {...props}
-    actions={<AddButton />}
-  />
+  <Label.SelectMultiple {...props} footer={<CreateButton />} />
 );

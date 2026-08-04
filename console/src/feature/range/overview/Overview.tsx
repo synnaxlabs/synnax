@@ -9,7 +9,7 @@
 
 import "@/feature/range/overview/Overview.css";
 
-import { Flex, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { Flex, Panel as PlutoPanel, Ranger } from "@synnaxlabs/pluto";
 
 import { ChildRanges } from "@/feature/range/overview/ChildRanges";
 import { Snapshots } from "@/feature/range/overview/Snapshots";
@@ -19,12 +19,17 @@ import { Range } from "@/platform/range";
 
 export const Overview: Panel.Content = () => {
   const { key } = PlutoPanel.useSelectTabResource();
+  // A subscribed read, so a delete throws to the tab's boundary instead of
+  // leaving the stale form on screen. Also warms the cache the sections share.
+  Ranger.useRetrieveSuspense({ key });
   return (
-    <Flex.Box key={key} y className={CSS.BE("range", "overview")} gap="large">
-      <Range.Details rangeKey={key} />
-      <ChildRanges rangeKey={key} />
-      <Range.MetaData rangeKey={key} />
-      <Snapshots rangeKey={key} />
+    <Flex.Box key={key} y className={CSS.BE("range", "overview")} empty>
+      <Flex.Box y grow gap="large">
+        <Range.Details rangeKey={key} />
+        <ChildRanges rangeKey={key} />
+        <Range.MetaData rangeKey={key} />
+        <Snapshots rangeKey={key} />
+      </Flex.Box>
     </Flex.Box>
   );
 };

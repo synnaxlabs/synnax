@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel, type project, type Synnax } from "@synnaxlabs/client";
+import {
+  type ontology,
+  type panel,
+  type project,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -27,6 +32,27 @@ export const createServerPanel = async (
   root: panel.New["root"],
 ): Promise<panel.Panel> =>
   await client.panels.create({ key: uuid.create(), name: uniqueName("panel"), root });
+
+export interface ResourceTab {
+  panelKey: panel.Key;
+  tabKey: panel.TabKey;
+}
+
+/**
+ * Creates a single-leaf panel holding one resource tab for the given resource, so the
+ * panel scope hooks a mounted tab content reads (useSelectTabResource) resolve to it.
+ */
+export const createResourceTab = async (
+  client: Synnax,
+  resource: ontology.ID,
+): Promise<ResourceTab> => {
+  const tabKey = uuid.create();
+  const { key: panelKey } = await client.panels.create({
+    name: uniqueName("panel"),
+    root: { variant: "leaf", tabs: [{ variant: "resource", key: tabKey, resource }] },
+  });
+  return { panelKey, tabKey };
+};
 
 export interface PanelWrapperParams {
   client: Synnax;
@@ -49,7 +75,10 @@ export const createPanelWrapper = async ({
   panelKey,
   tabKey,
   project,
-}: PanelWrapperParams): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
+}: PanelWrapperParams): Promise<{
+  wrapper: FC<PropsWithChildren>;
+  store: TestStore;
+}> => {
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
     store,
@@ -58,6 +87,9 @@ export const createPanelWrapper = async ({
     project ??
     (await client.projects.create({ name: uniqueName("project"), layout: {} })).key;
   resolvedStore.dispatch(Session.Project.select(projectKey));
+  // A scoped panel renders because it is the window's selected panel; tab
+  // focus/visibility selectors require that term.
+  if (panelKey != null) resolvedStore.dispatch(Session.Panel.select({ key: panelKey }));
   const wrapper = ({ children }: PropsWithChildren): ReactElement => {
     let inner: ReactNode = children;
     if (tabKey != null)

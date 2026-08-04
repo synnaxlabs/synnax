@@ -10,12 +10,14 @@
  */
 
 .console-palette__content {
-    width: 100%;
-    max-width: 1200px;
     max-height: 500px;
-    width: 95vw;
-    max-width: 1200px;
     overflow: visible !important;
+    /* Outmuscles the modal surface's min-width floor (110rem) and max-width 100%. */
+    &.pluto-dialog__dialog.pluto--modal.pluto--visible {
+        width: 95vw;
+        min-width: 0;
+        max-width: 1200px;
+    }
     & .pluto-list__items--empty {
         min-height: 20rem;
     }

@@ -46,7 +46,7 @@ var _ = Describe("Constant", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"const": {"type": "constant"},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "constant",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.I64()},
@@ -126,7 +126,7 @@ var _ = Describe("Constant", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"const": {"type": "constant"},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "constant",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.I64()},
@@ -236,7 +236,7 @@ var _ = Describe("Constant", func() {
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "constant",
 						Outputs: types.Params{
@@ -480,7 +480,7 @@ var _ = Describe("Constant", func() {
 		It("Should emit the live string after a write", func(ctx SpecContext) {
 			cfg, state := build(types.String(), "hello")
 			n := MustSucceed(factory.Create(ctx, cfg))
-			*state.Node("v").Output(0) = telem.NewSeriesV[string]("goodbye")
+			*state.Node("v").Output(0) = telem.NewSeriesV("goodbye")
 			next(ctx, n)
 			out := state.Node("n").Output(0)
 			Expect(out.Len()).To(Equal(int64(1)))
@@ -491,7 +491,7 @@ var _ = Describe("Constant", func() {
 		It("Should emit only the latest string sample", func(ctx SpecContext) {
 			cfg, state := build(types.String(), "hello")
 			n := MustSucceed(factory.Create(ctx, cfg))
-			*state.Node("v").Output(0) = telem.NewSeriesV[string]("a", "b")
+			*state.Node("v").Output(0) = telem.NewSeriesV("a", "b")
 			next(ctx, n)
 			out := state.Node("n").Output(0)
 			Expect(out.Len()).To(Equal(int64(1)))
@@ -501,7 +501,7 @@ var _ = Describe("Constant", func() {
 		It("Should emit a live float value from raw sample bytes", func(ctx SpecContext) {
 			cfg, state := build(types.F64(), 1.5)
 			n := MustSucceed(factory.Create(ctx, cfg))
-			*state.Node("v").Output(0) = telem.NewSeriesV[float64](2.5)
+			*state.Node("v").Output(0) = telem.NewSeriesV(2.5)
 			next(ctx, n)
 			out := state.Node("n").Output(0)
 			Expect(telem.ValueAt[float64](*out, 0)).To(Equal(2.5))

@@ -21,11 +21,7 @@ import {
 } from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import {
-  getCompositeIconButton,
-  getInputByNodePlaceholder,
-  uniqueName,
-} from "@/testutil";
+import { getCompositeIconButton, uniqueName } from "@/testutil";
 
 const renderSymbolsToolbar = async () =>
   await renderSchematic(Schematic.Toolbar, {
@@ -57,7 +53,7 @@ describe("Schematic toolbar Symbols", () => {
     const { key } = await renderSymbolsToolbar();
     fireEvent.click(await screen.findByText("Gauge"));
     await waitFor(async () => {
-      const retrieved = await client.schematics.retrieve({ key });
+      const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
       const nodeKey = retrieved.nodes[0].key;
       expect(retrieved.configs[nodeKey]).toMatchObject({ variant: "gauge" });
@@ -80,9 +76,9 @@ describe("Schematic toolbar Symbols", () => {
   });
 
   it("searches static symbols across groups", async () => {
-    const { result } = await renderSymbolsToolbar();
+    await renderSymbolsToolbar();
     await screen.findByText("Gauge");
-    const search = getInputByNodePlaceholder(result.container, "Search symbols");
+    const search = screen.getByPlaceholderText("Search symbols...");
     fireEvent.change(search, { target: { value: "tank" } });
     expect(await screen.findByText("Tank")).toBeDefined();
   });
@@ -94,7 +90,7 @@ describe("Schematic toolbar Symbols", () => {
     fireEvent.click(await screen.findByText(grp.name));
     fireEvent.click(await screen.findByText(name));
     await waitFor(async () => {
-      const retrieved = await client.schematics.retrieve({ key });
+      const retrieved = await client.schematics.retrieve(key);
       expect(retrieved.nodes).toHaveLength(1);
       const nodeKey = retrieved.nodes[0].key;
       expect(retrieved.configs[nodeKey]).toMatchObject({ specKey: symbols[0].key });
@@ -121,7 +117,7 @@ describe("Schematic toolbar Symbols", () => {
     fireEvent.click(findButton("Delete"));
     await waitFor(async () => {
       await expect(
-        client.schematics.symbols.retrieve({ key: symbols[0].key }),
+        client.schematics.symbols.retrieve(symbols[0].key),
       ).rejects.toSatisfy((e) => NotFoundError.matches(e));
     });
   });
@@ -164,9 +160,9 @@ describe("Schematic toolbar Symbols", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     const root = await client.schematics.symbols.retrieveGroup();
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(
-        group.ontologyID(root.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(root.key),
+      });
       expect(children.map((c) => c.name)).toContain(name);
     });
   });

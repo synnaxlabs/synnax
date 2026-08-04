@@ -9,8 +9,8 @@
 
 import { type ReactElement } from "react";
 
-import { Selector } from "@/app/selector";
 import { Panel } from "@/feature/panel";
+import { Selector } from "@/platform/selector";
 
 export const Mosaic = (): ReactElement => (
   <Panel.Mosaic onCreateTab={Selector.createEmptyTab} />

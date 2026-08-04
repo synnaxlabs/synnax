@@ -57,7 +57,7 @@ export const Summary = ({
   );
   if (!hasDescription) return baseText;
   const descriptionText = (
-    <BaseText.Text level="small" color={8}>
+    <BaseText.Text level="small" color={9}>
       {description}
     </BaseText.Text>
   );

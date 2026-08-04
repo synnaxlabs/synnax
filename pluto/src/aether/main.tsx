@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, deep, type destructor } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, deep, type destructor, type state } from "@synnaxlabs/x";
 import {
   memo,
   type PropsWithChildren,
@@ -31,7 +31,6 @@ import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoArray } from "@/memo";
-import { type state } from "@/state";
 
 /** Value supplied by the Aether context to descendants of {@link Provider}. */
 export interface ContextValue {
@@ -164,9 +163,12 @@ export const useLifecycle = <
   });
   const { methods } = handleRef.current;
 
+  // Delete via the handle, not by path: on a single-commit re-parent the
+  // successor registers at this path during render, before this cleanup runs,
+  // and a path-based unregister would tear it down.
   useLayoutEffect(
     () => () => {
-      ctx.store.unregister(path);
+      handleRef.current?.delete();
       handleRef.current = null;
     },
     [ctx.store, path],

@@ -19,6 +19,7 @@ import {
   downsampleModeZ,
   keyZ,
   type LinePlot,
+  linePlotZ,
   lineZ,
   manualBoundsZ,
   ruleZ,
@@ -26,6 +27,16 @@ import {
   xAxisKeyZ,
   yAxisKeyZ,
 } from "@/lineplot/types.gen";
+
+/**
+ * Create replaces the document with the given created state. Emitted by the server on
+ * create so remote caches ingest new documents; clients never dispatch it.
+ */
+export const createPayloadZ = z.object({
+  linePlot: linePlotZ,
+});
+
+export type CreatePayload = z.infer<typeof createPayloadZ>;
 
 /** Rename renames the line plot. */
 export const renamePayloadZ = z.object({
@@ -344,6 +355,7 @@ export const removeRulePayloadZ = z.object({
 export type RemoveRulePayload = z.infer<typeof removeRulePayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({
     type: z.literal("set_title_visible"),
@@ -422,6 +434,11 @@ export const actionZ = z.discriminatedUnion("type", [
 ]);
 
 export type Action = z.infer<typeof actionZ>;
+
+export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
+  type: "create",
+  create: createPayloadZ.parse(payload),
+});
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
@@ -635,6 +652,7 @@ export type HandlerResult = actions.HandlerResult<Action>;
 export type ReduceAllResult = actions.ReduceAllResult<LinePlot, Action>;
 
 export interface Handlers {
+  create: (state: Draft<LinePlot>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<LinePlot>, payload: RenamePayload) => HandlerResult;
   setTitleVisible: (
     state: Draft<LinePlot>,
@@ -718,6 +736,8 @@ export interface Handlers {
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<LinePlot, Action>((state, action) => {
     switch (action.type) {
+      case "create":
+        return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
       case "set_title_visible":

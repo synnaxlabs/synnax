@@ -15,10 +15,5 @@
         max-width: 400px;
         overflow: hidden;
         text-align: start;
-
-        &.pluto--selected {
-            background-color: var(--pluto-primary-z-20);
-            border-color: var(--pluto-primary-z);
-        }
     }
 }

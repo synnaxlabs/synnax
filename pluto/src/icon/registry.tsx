@@ -19,18 +19,21 @@ import {
   AiFillWarning,
   AiOutlineBorder,
   AiOutlineCheck,
-  AiOutlineClose,
-  AiOutlineLoading,
   AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
-import { BiCollapseAlt, BiExpandAlt, BiLinkExternal, BiRename } from "react-icons/bi";
+import {
+  BiCollapseAlt,
+  BiExpandAlt,
+  BiLinkExternal,
+  BiRename,
+  BiSolidComponent,
+} from "react-icons/bi";
 import {
   BsBorderWidth,
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShiftFill,
-  BsWindowStack,
 } from "react-icons/bs";
 import {
   FaAlignCenter,
@@ -55,14 +58,15 @@ import {
   FaGaugeHigh,
   FaGear,
   FaHelmetSafety,
+  FaPlus,
   FaXmark,
 } from "react-icons/fa6";
 import { FiTable } from "react-icons/fi";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { GoNumber } from "react-icons/go";
 import { GrAttachment, GrDrag, GrPan, GrRotateRight } from "react-icons/gr";
-import { HiCursorClick, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
-import { HiSquare3Stack3D } from "react-icons/hi2";
+import { HiCursorClick, HiLightningBolt } from "react-icons/hi";
+import { HiSquare2Stack, HiSquare3Stack3D } from "react-icons/hi2";
 import {
   IoIosArrowRoundForward,
   IoMdColorFill,
@@ -76,6 +80,7 @@ import {
   IoNotificationsOff,
   IoShapes,
   IoTerminal,
+  IoTerminalOutline,
   IoTime,
   IoTvOutline,
 } from "react-icons/io5";
@@ -261,14 +266,14 @@ export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
 export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
 export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
-export const Add = wrapSVGIcon(HiOutlinePlus, "add");
+export const Add = wrapSVGIcon(FaPlus, "add");
 export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
 export const Cut = wrapSVGIcon(MdContentCut, "cut");
 export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Undo = wrapSVGIcon(MdUndo, "undo");
 export const Redo = wrapSVGIcon(MdRedo, "redo");
-export const Close = wrapSVGIcon(AiOutlineClose, "close");
+export const Close = wrapSVGIcon(FaXmark, "close");
 export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
@@ -285,14 +290,37 @@ export const Acquire = wrapSVGIcon(FaStream, "acquire");
 export const Analyze = wrapSVGIcon(FaBezierCurve, "analyze");
 export const Concepts = wrapSVGIcon(BsLightbulbFill, "concepts");
 export const Visualize = wrapSVGIcon(MdAreaChart, "visualize");
-export const Panel = wrapSVGIcon(BsWindowStack, "panel");
+export const Panel = wrapSVGIcon(HiSquare2Stack, "panel");
 export const LinePlot = wrapSVGIcon(MdAreaChart, "line-plot");
 export const Expand = wrapSVGIcon(BiExpandAlt, "expand");
 export const Collapse = wrapSVGIcon(BiCollapseAlt, "collapse");
 export const Cluster = wrapSVGIcon(HiSquare3Stack3D, "cluster");
-export const Loading = wrapSVGIcon(AiOutlineLoading, "loading", {
-  className: CSS.M("spin"),
-});
+export const Component = wrapSVGIcon(BiSolidComponent, "component");
+// Binary counter-rotation: a bright and a dim star orbiting the center in
+// opposite directions at different periods, so their passes drift.
+export const Loading = wrapSVGIcon(
+  (props) => (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <g className={CSS.BE("loading", "orbit")}>
+        <circle cx="3.6" cy="12" r="2.4" />
+      </g>
+      <g
+        className={CSS(
+          CSS.BE("loading", "orbit"),
+          CSS.BEM("loading", "orbit", "reverse"),
+        )}
+      >
+        <circle cx="20.4" cy="12" r="1.8" opacity="0.65" />
+      </g>
+    </svg>
+  ),
+  "loading",
+);
 export const Schematic = wrapSVGIcon(IoShapes, "schematic");
 export const Caret = {
   Right: wrapSVGIcon(PiCaretRight, "caret-right"),
@@ -493,6 +521,7 @@ export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
+export const TerminalOutline = wrapSVGIcon(IoTerminalOutline, "terminal-outline");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
@@ -562,6 +591,7 @@ const icons = {
   Expand,
   Collapse,
   Cluster,
+  Component,
   Loading,
   Schematic,
   Caret,
@@ -671,6 +701,7 @@ const icons = {
   None,
   Constant,
   Terminal,
+  TerminalOutline,
   Arc,
   ArcFlow,
   ArcFunc,

@@ -9,21 +9,19 @@
 
 import { type task } from "@synnaxlabs/client";
 import { Flux, Task } from "@synnaxlabs/pluto";
+import { verbs } from "@synnaxlabs/x";
 
 export interface SetDataSavingParams {
   key: task.Key;
   dataSaving: boolean;
 }
 
-export const { useUpdate: useSetDataSaving } = Flux.createUpdate<
-  SetDataSavingParams,
-  Task.FluxSubStore
->({
+export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingParams>({
   name: Task.RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
-  update: async ({ client, data, store }) => {
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
     const { key, dataSaving } = data;
-    const t = await Task.retrieveSingle({ client, store, query: { key } });
+    const t = await client.tasks.retrieve({ key, includeStatus: true });
     const config = t.payload.config;
     // Only tasks with a dataSaving field in their config (primarily read tasks)
     // are eligible. Write tasks without this field are skipped.

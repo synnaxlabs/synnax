@@ -30,13 +30,11 @@
     color: var(--pluto-secondary-m1) !important;
 }
 
-.monaco-editor,
-.monaco-editor-background {
-    background: var(--pluto-gray-l1) !important;
-}
-
-.monaco-editor .margin {
-    background: var(--pluto-gray-l1) !important;
+/* Only .pluto-editor paints, so callers pick the surface with `background`. */
+.pluto-editor .monaco-editor,
+.pluto-editor .monaco-editor-background,
+.pluto-editor .monaco-editor .margin {
+    background: transparent !important;
 }
 
 .monaco-editor .line-numbers {
@@ -45,7 +43,6 @@
 
 .pluto-editor {
     height: 100%;
-    background: var(--pluto-gray-l1);
     padding: 2rem 1px;
     border-color: var(--pluto-gray-l6);
     &.pluto--bordered:has(.focused) {
@@ -78,8 +75,8 @@
 .monaco-editor .monaco-hover {
     font-family: var(--pluto-font-family) !important;
     background: var(--pluto-gray-l2) !important;
-    border: var(--pluto-border-width) solid var(--pluto-gray-l5) !important;
-    border-radius: calc(var(--pluto-border-radius) * 2) !important;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6) !important;
+    border-radius: var(--pluto-border-radius-small) !important;
     box-shadow: var(--pluto-shadow-v1) !important;
     overflow: hidden !important;
     height: auto !important;
@@ -106,7 +103,7 @@
        overflow:hidden; rows themselves should be square. */
     border-radius: 0 !important;
     padding: 0 1.5rem 1.5rem !important;
-    border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l4) !important;
+    border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6) !important;
     /* A markdown row needs top padding when nothing above it provides one:
        when it's the first row of the popup, and when it follows a marker
        row (which butts its own box up against the row boundary). We
@@ -136,7 +133,7 @@
     padding: 1.5rem 2rem !important;
     background: var(--pluto-error-z-10) !important;
     border: 1px solid var(--pluto-error-z-70) !important;
-    border-radius: 1rem !important;
+    border-radius: var(--pluto-border-radius-small) !important;
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
     font-family: var(--pluto-font-family) !important;
@@ -236,7 +233,7 @@
     font-family: var(--pluto-font-family) !important;
     font-size: calc(var(--pluto-p-size) * 0.85) !important;
     font-weight: 500 !important;
-    color: var(--pluto-gray-l8) !important;
+    color: var(--pluto-gray-l9) !important;
     margin: 0 0 1rem 0 !important;
     line-height: 1.3 !important;
     text-transform: uppercase !important;
@@ -264,7 +261,7 @@
 /* Horizontal rules */
 .monaco-editor .monaco-hover hr {
     border: none !important;
-    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4) !important;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l6) !important;
     margin: 1rem 0 !important;
 }
 
@@ -281,8 +278,8 @@
 .monaco-editor .monaco-hover pre,
 .monaco-editor .monaco-hover .monaco-tokenized-source {
     background: var(--pluto-gray-l1) !important;
-    border: var(--pluto-border-width) solid var(--pluto-gray-l4) !important;
-    border-radius: calc(var(--pluto-border-radius) * 2) !important;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6) !important;
+    border-radius: var(--pluto-border-radius-small) !important;
     padding: 1rem 1.5rem !important;
     margin: 0 !important;
     overflow-x: auto !important;
@@ -307,7 +304,7 @@
     z-index: 100;
     background: var(--pluto-gray-l2);
     padding: 0 !important;
-    border: var(--pluto-border-l5);
+    border: var(--pluto-border-l6);
 }
 
 /* Actions container in status bar */
@@ -353,11 +350,11 @@
 
 .monaco-editor .monaco-hover .monaco-scrollable-element > .scrollbar {
     & > .slider {
-        background: var(--pluto-gray-l5) !important;
+        background: var(--pluto-gray-l6) !important;
         border-radius: var(--pluto-border-radius) !important;
     }
     &:hover > .slider {
-        background: var(--pluto-gray-l6) !important;
+        background: var(--pluto-gray-l7) !important;
     }
 }
 
@@ -391,7 +388,7 @@
         border: none !important;
 
         &::placeholder {
-            color: var(--pluto-gray-l7) !important;
+            color: var(--pluto-text-placeholder) !important;
         }
 
         &::selection {
@@ -400,7 +397,7 @@
     }
 
     & .rename-label {
-        color: var(--pluto-gray-l8) !important;
+        color: var(--pluto-gray-l9) !important;
         font-family: var(--pluto-font-family) !important;
         font-size: var(--pluto-p-size) !important;
         padding: 0.25rem 0.5rem !important;

@@ -11,10 +11,14 @@ import { type ComponentType, type ReactElement, type ReactNode, Suspense } from 
 
 import { Boundary } from "@/errors/Boundary";
 import { type FallbackProps } from "@/errors/Fallback";
+import { Loading } from "@/status/base/Loading";
 
 export interface SuspenseBoundaryProps {
-  /// Rendered while children are suspended. Defaults to nothing (blank space).
-  /// Pass a skeleton, spinner, or layout placeholder for better UX.
+  /// Rendered while children are suspended. Defaults to a delayed
+  /// {@link Status.Loading}, which stays invisible for a short wait and fades in
+  /// for a long one. Pass a skeleton or layout placeholder to do better, an
+  /// inline indicator where a centered one would not fit, or null for a region
+  /// that must stay empty.
   loading?: ReactNode;
   /// Custom fallback component rendered when a child throws. Defaults to the diagnostic
   /// `<Errors.Fallback>` page. Flux retrieve errors throw an Error whose `cause` is the
@@ -29,7 +33,7 @@ export interface SuspenseBoundaryProps {
 /// the panel is loading, `loading` shows; when a child throws, the fallback
 /// shows.
 export const SuspenseBoundary = ({
-  loading,
+  loading = <Loading />,
   FallbackComponent,
   children,
 }: SuspenseBoundaryProps): ReactElement => (

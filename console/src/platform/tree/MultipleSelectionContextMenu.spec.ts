@@ -68,13 +68,15 @@ describe("Tree.MultipleSelectionContextMenu", () => {
     });
     let newKey = "";
     await waitFor(async () => {
-      const siblings = await client.ontology.retrieveChildren(parentID);
+      const siblings = await client.ontology.children.retrieve({ ids: parentID });
       const created = siblings.find((c) => c.name === name);
       expect(created).toBeDefined();
       newKey = created?.id.key ?? "";
     });
     await waitFor(async () => {
-      const grouped = await client.ontology.retrieveChildren(group.ontologyID(newKey));
+      const grouped = await client.ontology.children.retrieve({
+        ids: group.ontologyID(newKey),
+      });
       const keys = grouped.map((c) => c.id.key);
       expect(keys).toContain(child.key);
       expect(keys).toContain(range.key);

@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <atomic>
-#include <cstdlib>
 #include <memory>
-#include <new>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "x/cpp/bench/bench.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
@@ -25,66 +23,9 @@
 #include "arc/cpp/runtime/scheduler/scheduler.h"
 #include "benchmark/benchmark.h"
 
-namespace {
-// Atomic counters incremented by the global operator new/new[] overrides
-// defined below. Benchmarks snapshot these before and after the
-// measurement loop to derive per-iteration allocation stats that surface
-// in state.counters, matching Go's testing.B.ReportAllocs format.
-std::atomic<int64_t> g_alloc_count{0};
-std::atomic<int64_t> g_alloc_bytes{0};
-}
-
-void *operator new(const std::size_t n) {
-    g_alloc_count.fetch_add(1, std::memory_order_relaxed);
-    g_alloc_bytes.fetch_add(static_cast<int64_t>(n), std::memory_order_relaxed);
-    if (auto *p = std::malloc(n)) return p;
-    throw std::bad_alloc();
-}
-
-void *operator new[](const std::size_t n) {
-    g_alloc_count.fetch_add(1, std::memory_order_relaxed);
-    g_alloc_bytes.fetch_add(static_cast<int64_t>(n), std::memory_order_relaxed);
-    if (auto *p = std::malloc(n)) return p;
-    throw std::bad_alloc();
-}
-
-void operator delete(void *p) noexcept {
-    std::free(p);
-}
-void operator delete[](void *p) noexcept {
-    std::free(p);
-}
-void operator delete(void *p, std::size_t) noexcept {
-    std::free(p);
-}
-void operator delete[](void *p, std::size_t) noexcept {
-    std::free(p);
-}
-
 namespace arc::runtime::scheduler { namespace {
 
-/// @brief records allocations attributed to the benchmark loop body and
-/// publishes them as state.counters so the default console reporter
-/// displays per-iteration allocs and bytes alongside time/op.
-template<typename F>
-void run_with_alloc_tracking(benchmark::State &state, F &&body) {
-    const auto start_count = g_alloc_count.load(std::memory_order_relaxed);
-    const auto start_bytes = g_alloc_bytes.load(std::memory_order_relaxed);
-    for (auto _: state)
-        body();
-    state.counters["allocs/op"] = benchmark::Counter(
-        static_cast<double>(
-            g_alloc_count.load(std::memory_order_relaxed) - start_count
-        ),
-        benchmark::Counter::kAvgIterations
-    );
-    state.counters["bytes/op"] = benchmark::Counter(
-        static_cast<double>(
-            g_alloc_bytes.load(std::memory_order_relaxed) - start_bytes
-        ),
-        benchmark::Counter::kAvgIterations
-    );
-}
+using x::bench::run_with_alloc_tracking;
 
 /// @brief minimal node implementation for benchmarks. Avoids the tracking
 /// overhead of the test MockNode so measurements reflect scheduler cost.
@@ -243,6 +184,107 @@ Program build_sequential_chain(size_t n) {
     return p;
 }
 
+/// @brief builds an n-node chain, one node per stratum, wired forward and then
+/// closed with a backward edge from the last node to the first. Every node
+/// marks every cycle, so each pass lands a change on the already-visited head
+/// and the cycle runs to the settle bound of n+1 passes.
+///
+/// This is the bound, not a workload: no compiled Arc program re-fires
+/// unconditionally like BenchNode does, and measured Arc counter chains stay
+/// linear. Read the result as a guard on the bound logic, not as a cost real
+/// programs pay.
+Program build_settle_chain(size_t n) {
+    if (n < 2) n = 2;
+    Program p;
+    p.ir.root.mode = ir::ScopeMode::Parallel;
+    p.ir.root.liveness = ir::Liveness::Always;
+    for (size_t i = 0; i < n; ++i) {
+        const auto k = "s" + std::to_string(i);
+        p.ir.nodes.push_back(ir_node(k, {"out"}));
+        p.nodes[k] = std::make_unique<BenchNode>(std::vector<bool>{true});
+        p.ir.root.strata.push_back(ir::Members{ir::node_member(k)});
+        if (i > 0)
+            p.ir.edges.push_back(
+                continuous_edge("s" + std::to_string(i - 1), "out", k, "in")
+            );
+    }
+    p.ir.edges.push_back(
+        continuous_edge("s" + std::to_string(n - 1), "out", "s0", "in")
+    );
+    return p;
+}
+
+/// @brief the settle-chain shape without its backward edge, so every change
+/// lands on an unvisited node and the cycle settles in one pass. Differs from
+/// build_settle_chain by exactly one edge, isolating the cost of re-walking
+/// from the per-pass visited-flag clear.
+Program build_settle_noop(size_t n) {
+    if (n < 2) n = 2;
+    Program p;
+    p.ir.root.mode = ir::ScopeMode::Parallel;
+    p.ir.root.liveness = ir::Liveness::Always;
+    for (size_t i = 0; i < n; ++i) {
+        const auto k = "s" + std::to_string(i);
+        p.ir.nodes.push_back(ir_node(k, {"out"}));
+        p.nodes[k] = std::make_unique<BenchNode>(std::vector<bool>{true});
+        p.ir.root.strata.push_back(ir::Members{ir::node_member(k)});
+        if (i > 0)
+            p.ir.edges.push_back(
+                continuous_edge("s" + std::to_string(i - 1), "out", k, "in")
+            );
+    }
+    return p;
+}
+
+/// @brief a sequential chain of n steps carrying n variable nodes as trailing
+/// strata members. Those members run once per settle pass, so their cost
+/// multiplies with the number of passes the cascade needs.
+Program build_sequential_with_vars(size_t n) {
+    Program p;
+    p.ir.nodes.push_back(ir_node("trigger", {"go"}));
+    p.nodes["trigger"] = std::make_unique<BenchNode>(std::vector<bool>{true});
+
+    ir::Members steps;
+    std::vector<ir::Transition> transitions;
+    steps.reserve(n);
+    transitions.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        const auto k = "m" + std::to_string(i);
+        p.ir.nodes.push_back(ir_node(k, {"next"}));
+        steps.push_back(ir::node_member(k));
+        p.nodes[k] = std::make_unique<BenchNode>(std::vector<bool>{true});
+        ir::Transition t;
+        t.on = ir::Handle{k, "next"};
+        if (i + 1 < n) t.target_key = "m" + std::to_string(i + 1);
+        transitions.push_back(std::move(t));
+    }
+
+    ir::Members vars;
+    vars.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        const auto k = "v" + std::to_string(i);
+        p.ir.nodes.push_back(ir_node(k));
+        vars.push_back(ir::node_member(k));
+        p.nodes[k] = std::make_unique<BenchNode>();
+    }
+
+    ir::Scope seq;
+    seq.key = "seq";
+    seq.mode = ir::ScopeMode::Sequential;
+    seq.liveness = ir::Liveness::Gated;
+    seq.steps = std::move(steps);
+    seq.transitions = std::move(transitions);
+    seq.strata.push_back(std::move(vars));
+    seq.activation = ir::Handle{"trigger", "go"};
+
+    p.ir.root.mode = ir::ScopeMode::Parallel;
+    p.ir.root.liveness = ir::Liveness::Always;
+    p.ir.root.strata.push_back(
+        ir::Members{ir::node_member("trigger"), ir::scope_member(std::move(seq))}
+    );
+    return p;
+}
+
 void run_tick_bench(benchmark::State &state, Program p) {
     Scheduler sched(std::move(p.ir), p.nodes, x::telem::TimeSpan(0));
     run_with_alloc_tracking(state, [&] {
@@ -285,5 +327,20 @@ void BM_MarkChangedTruthy(benchmark::State &state) {
     run_tick_bench(state, build_fanout_chain(65));
 }
 BENCHMARK(BM_MarkChangedTruthy);
+
+void BM_TickSettlePasses(benchmark::State &state) {
+    run_tick_bench(state, build_settle_chain(state.range(0)));
+}
+BENCHMARK(BM_TickSettlePasses)->Arg(2)->Arg(8)->Arg(32)->Arg(128);
+
+void BM_TickSettleNoop(benchmark::State &state) {
+    run_tick_bench(state, build_settle_noop(state.range(0)));
+}
+BENCHMARK(BM_TickSettleNoop)->Arg(2)->Arg(8)->Arg(32)->Arg(128);
+
+void BM_TickSequentialWithVars(benchmark::State &state) {
+    run_tick_bench(state, build_sequential_with_vars(state.range(0)));
+}
+BENCHMARK(BM_TickSequentialWithVars)->Arg(4)->Arg(16)->Arg(64)->Arg(256);
 
 }}

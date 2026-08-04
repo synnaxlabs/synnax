@@ -10,7 +10,15 @@
 import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type MouseEventHandler, type ReactElement, useEffect, useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi,
+} from "vitest";
 
 import { Haul } from "@/haul";
 import { Select } from "@/select";
@@ -103,6 +111,28 @@ describe("Tabs", () => {
       expect(screen.queryByText("Content A")).toBeNull();
       fireEvent.click(tab("Tab A"));
       expect(onSelect).toHaveBeenCalledWith("a");
+    });
+
+    it("should select a tab that does not head an ordered selection", () => {
+      const onSelect = vi.fn();
+      render(
+        <Select.Context value={["b", "a"]} onSelect={onSelect}>
+          <BasicTabs />
+        </Select.Context>,
+      );
+      fireEvent.click(tab("Tab A"));
+      expect(onSelect).toHaveBeenCalledWith("a");
+    });
+
+    it("should not select the tab heading an ordered selection", () => {
+      const onSelect = vi.fn();
+      render(
+        <Select.Context value={["b", "a"]} onSelect={onSelect}>
+          <BasicTabs />
+        </Select.Context>,
+      );
+      fireEvent.click(tab("Tab B"));
+      expect(onSelect).not.toHaveBeenCalled();
     });
 
     it("should shadow an enclosing selection when it owns one", () => {
@@ -414,6 +444,101 @@ describe("Tabs", () => {
           </Tabs.Selector>,
         ),
       ).toThrow("Tabs.Tab must be used within Tabs.Frame");
+    });
+  });
+
+  describe("style knobs", () => {
+    const strip = (props: Tabs.SelectorProps = {}): HTMLElement => {
+      render(
+        <Tabs.Frame initialValue="a">
+          <Tabs.Selector {...props}>
+            <Tabs.Tab itemKey="a">Tab A</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>,
+      );
+      return screen.getByRole("tablist");
+    };
+
+    it.each([
+      ["default", "align-center", "sizing-elastic"],
+      ["pill", "align-start", "sizing-fixed"],
+    ] as const)("should default %s to %s and %s", (variant, align, sizing) => {
+      const el = strip({ variant });
+      expect(el.classList.contains(`pluto-tabs__selector--${align}`)).toBe(true);
+      expect(el.classList.contains(`pluto-tabs__selector--${sizing}`)).toBe(true);
+    });
+
+    it("should let explicit knobs override the variant defaults", () => {
+      const el = strip({ variant: "pill", align: "center", sizing: "elastic" });
+      expect(el.classList.contains("pluto-tabs__selector--align-center")).toBe(true);
+      expect(el.classList.contains("pluto-tabs__selector--sizing-elastic")).toBe(true);
+    });
+
+    it("should start-align a vertical strip whose variant centers when horizontal", () => {
+      const el = strip({ variant: "default", y: true });
+      expect(el.classList.contains("pluto-tabs__selector--align-start")).toBe(true);
+    });
+
+    it("should still honor an explicit align on a vertical strip", () => {
+      const el = strip({ variant: "default", y: true, align: "center" });
+      expect(el.classList.contains("pluto-tabs__selector--align-center")).toBe(true);
+    });
+
+    it.each(["scroll", "fade"] as const)("should apply the %s overflow", (overflow) => {
+      const el = strip(overflow === "scroll" ? {} : { overflow });
+      expect(el.classList.contains(`pluto-tabs__selector--overflow-${overflow}`)).toBe(
+        true,
+      );
+    });
+  });
+
+  describe("selected tab visibility", () => {
+    let scrollIntoView: MockInstance<Element["scrollIntoView"]>;
+
+    beforeEach(() => {
+      scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+    });
+
+    afterEach(() => {
+      scrollIntoView.mockRestore();
+    });
+
+    // The element each call scrolled, in order.
+    const scrolled = (): Element[] => scrollIntoView.mock.contexts as Element[];
+
+    // Two strips sharing one selection, the shape Panel.Mosaic renders.
+    const SplitTabs = ({ value }: { value: string }): ReactElement => (
+      <Select.Context value={value}>
+        <Tabs.Frame>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="a">Tab A</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>
+        <Tabs.Frame>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="b">Tab B</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>
+      </Select.Context>
+    );
+
+    it("should scroll the selected tab into view when the selection changes", () => {
+      const { rerender } = render(<BasicTabs value="a" onChange={vi.fn()} />);
+      scrollIntoView.mockClear();
+      rerender(<BasicTabs value="c" onChange={vi.fn()} />);
+      expect(scrolled()).toEqual([tab("Tab C")]);
+    });
+
+    it("should scroll the already selected tab into view on mount", () => {
+      render(<BasicTabs initialValue="b" />);
+      expect(scrolled()).toEqual([tab("Tab B")]);
+    });
+
+    it("should not scroll when the selected tab belongs to another strip", () => {
+      const { rerender } = render(<SplitTabs value="a" />);
+      scrollIntoView.mockClear();
+      rerender(<SplitTabs value="b" />);
+      expect(scrolled()).toEqual([tab("Tab B")]);
     });
   });
 

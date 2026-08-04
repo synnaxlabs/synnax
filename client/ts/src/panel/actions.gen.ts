@@ -14,7 +14,17 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { ontology } from "@/ontology";
-import { keyZ, type Panel, tabKeyZ, tabZ, viewZ } from "@/panel/types.gen";
+import { keyZ, type Panel, panelZ, tabKeyZ, tabZ, viewZ } from "@/panel/types.gen";
+
+/**
+ * Create replaces the document with the given created state. Emitted by the server on
+ * create so remote caches ingest new documents; clients never dispatch it.
+ */
+export const createPayloadZ = z.object({
+  panel: panelZ,
+});
+
+export type CreatePayload = z.infer<typeof createPayloadZ>;
 
 /**
  * Rename renames the panel. When the panel is owned by a user (draft), the writer
@@ -125,6 +135,7 @@ export const setTabViewPayloadZ = z.object({
 export type SetTabViewPayload = z.infer<typeof setTabViewPayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("insert_tab"), insertTab: insertTabPayloadZ }),
   z.object({ type: z.literal("remove_tab"), removeTab: removeTabPayloadZ }),
@@ -139,6 +150,11 @@ export const actionZ = z.discriminatedUnion("type", [
 ]);
 
 export type Action = z.infer<typeof actionZ>;
+
+export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
+  type: "create",
+  create: createPayloadZ.parse(payload),
+});
 
 export const rename = (payload: z.input<typeof renamePayloadZ>): Action => ({
   type: "rename",
@@ -187,6 +203,7 @@ export type HandlerResult = actions.HandlerResult<Action>;
 export type ReduceAllResult = actions.ReduceAllResult<Panel, Action>;
 
 export interface Handlers {
+  create: (state: Draft<Panel>, payload: CreatePayload) => HandlerResult;
   rename: (state: Draft<Panel>, payload: RenamePayload) => HandlerResult;
   insertTab: (state: Draft<Panel>, payload: InsertTabPayload) => HandlerResult;
   removeTab: (state: Draft<Panel>, payload: RemoveTabPayload) => HandlerResult;
@@ -203,6 +220,8 @@ export interface Handlers {
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Panel, Action>((state, action) => {
     switch (action.type) {
+      case "create":
+        return handlers.create(state, action.create);
       case "rename":
         return handlers.rename(state, action.rename);
       case "insert_tab":

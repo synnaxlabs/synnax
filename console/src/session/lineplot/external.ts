@@ -9,3 +9,4 @@
 
 export * from "@/session/lineplot/selectors";
 export * from "@/session/lineplot/slice";
+export * from "@/session/lineplot/synchronizer";

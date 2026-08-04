@@ -510,11 +510,11 @@ var _ = Describe("C++ JSON Plugin", func() {
 					@cpp output "x/cpp/telem"
 
 					TimeSpan int64 {
-						@cpp omit
+						@cpp hand
 					}
 
 					Rate float64 {
-						@cpp omit
+						@cpp hand
 					}
 				`)
 				source := `
@@ -692,7 +692,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						start uint64
 						end   uint64
 
-						@cpp omit
+						@cpp hand
 					}
 				`
 				resp := MustGenerate(ctx, source, "telem", loader, jsonPlugin)
@@ -894,7 +894,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					TimeRange struct {
 						start uint64
 
-						@cpp omit
+						@cpp hand
 					}
 				`)
 				source := `
@@ -1115,7 +1115,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			@cpp output "x/cpp/telem"
 
 			TimeSpan int64 {
-				@cpp omit
+				@cpp hand
 			}
 		`)
 		source := `

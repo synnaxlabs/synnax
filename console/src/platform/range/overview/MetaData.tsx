@@ -9,7 +9,7 @@
 
 import "@/platform/range/overview/MetaData.css";
 
-import { type ranger } from "@synnaxlabs/client";
+import { type query, type ranger } from "@synnaxlabs/client";
 import {
   Button,
   CSS as PCSS,
@@ -95,11 +95,7 @@ const MetaDataListItem = ({
     afterSave: useCallback(
       ({
         reset,
-      }: Flux.AfterSaveParams<
-        Flux.Query,
-        typeof Ranger.kvPairFormSchema,
-        Ranger.FluxSubStore
-      >) => {
+      }: Flux.AfterSaveParams<query.Params, typeof Ranger.kvPairFormSchema>) => {
         onClose?.();
         if (isCreate) reset({ key: "", value: "", range: rangeKey });
       },
@@ -145,7 +141,7 @@ const MetaDataListItem = ({
         )}
         <Divider.Divider y />
         <Form.Field<string> path="value" showLabel={false} hideIfNull>
-          {({ variant: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
+          {({ preview: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (
           <Flex.Box pack>
@@ -165,7 +161,7 @@ const MetaDataListItem = ({
           <Button.Button
             className={CSS.BE("metadata", "delete")}
             size="small"
-            variant="shadow"
+            variant="text"
             onClick={() => handleDelete({ key: itemKey, rangeKey })}
           >
             <Icon.Delete color={10} />
@@ -192,7 +188,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   if (status.variant === "error") return null;
   return (
     <Flex.Box y empty className={CSS.BE("range", "metadata")}>
-      <Header.Header level="h4" borderColor={5}>
+      <Header.Header level="h4" borderColor={6}>
         <Header.Title>Metadata</Header.Title>
         <Header.Actions>
           <Button.Button variant="text" onClick={() => setNewFormVisible(true)}>

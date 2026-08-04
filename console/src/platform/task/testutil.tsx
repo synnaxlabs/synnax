@@ -7,31 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type framer, panel, type Synnax as Client, task } from "@synnaxlabs/client";
-import { Drift } from "@synnaxlabs/drift";
 import {
-  Flux,
-  Form as PForm,
-  Panel as PlutoPanel,
-  type Status,
-} from "@synnaxlabs/pluto";
+  type framer,
+  panel,
+  query,
+  type Synnax as Client,
+  task,
+} from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Drift } from "@synnaxlabs/drift";
+import { Form as PForm, Panel as PlutoPanel, type Status } from "@synnaxlabs/pluto";
 import { id, type record, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   fireEvent,
   render,
-  renderHook,
   type RenderResult,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
 import { act, type FC, type PropsWithChildren, type ReactElement } from "react";
+import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
 import { type Panel } from "@/platform/panel";
 import { type FormViewParams } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
+  assertDefined,
   CaptureStatuses,
   createConsoleWrapper,
   createTestStore,
@@ -41,6 +44,8 @@ import {
   type TestStore,
   uniqueName,
 } from "@/testutil";
+
+const defaultClient = createTestClient();
 
 export type TaskFormValues = Record<string, unknown>;
 
@@ -97,23 +102,21 @@ export const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
 };
 
 export interface CreatedPanel {
-  /** The flux store the panel doc was seeded into. */
-  fluxStore: PlutoPanel.FluxSubStore;
+  /** The client whose cache holds the created panel doc. */
+  client: Client;
   panelKey: panel.Key;
   /** Keys of the tabs seeded into the panel's single leaf, in order. */
   tabKeys: panel.TabKey[];
 }
 
 /**
- * Seeds a single-leaf panel doc holding the given tabs into the wrapper's flux store
- * and selects it in the session store, so Panel.useOpenTab and the tab-scoped panel
- * hooks resolve against it. When a client is given, the panel is also created on the
- * cluster so panel dispatches persist instead of rolling back.
+ * Creates a single-leaf panel doc holding the given tabs on the cluster and selects it
+ * in the session store, so Panel.useOpenTab and the tab-scoped panel hooks resolve
+ * against it through the client's cache.
  */
 export const createSelectedPanel = async (
-  wrapper: FC<PropsWithChildren>,
   store: TestStore,
-  client: Client | null,
+  client: Client,
   tabs: panel.Tab[] = [],
   key: panel.Key = uuid.create(),
 ): Promise<CreatedPanel> => {
@@ -122,31 +125,27 @@ export const createSelectedPanel = async (
     name: uniqueName("panel"),
     root: { variant: "leaf", tabs },
   });
-  if (client != null) await client.panels.create(doc);
-  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
-    wrapper,
-  });
+  await client.panels.create(doc);
+  // Prime the query cache the way the mosaic's retrieve does, and keep the
+  // answer live for the test: unsubscribed answers go stale by design.
+  onTestFinished(client.panels.onChange(doc.key, () => {}));
+  await client.panels.retrieve(doc.key);
   act(() => {
-    result.current.panels.set(doc);
     store.dispatch(
       Session.Panel.select({ key: doc.key, windowKey: Drift.MAIN_WINDOW }),
     );
   });
-  return {
-    fluxStore: result.current,
-    panelKey: doc.key,
-    tabKeys: tabs.map((t) => t.key),
-  };
+  return { client, panelKey: doc.key, tabKeys: tabs.map((t) => t.key) };
 };
 
-/** Reads the current view args of the seeded tab from the panel doc. */
+/** Reads the current view args of the seeded tab from the cached panel doc. */
 export const selectViewArgs = (
-  { fluxStore, panelKey, tabKeys }: CreatedPanel,
+  { client, panelKey, tabKeys }: CreatedPanel,
   tabKey: panel.TabKey = tabKeys[0],
 ): record.Unknown | null => {
-  const doc = fluxStore.panels.get(panelKey);
-  if (doc == null) return null;
-  const tab = panel.findTab(doc.root, tabKey);
+  const cached = client.panels.getCached(panelKey);
+  if (!query.isLive(cached)) return null;
+  const tab = panel.findTab(cached.root, tabKey);
   return tab?.variant === "view" ? tab.args : null;
 };
 
@@ -255,7 +254,7 @@ export const renderInTaskFormWithClient = async (
 };
 
 export interface RenderTaskFormViewOptions {
-  /** Client backing the console wrapper; null (default) for cluster-free specs. */
+  /** Client backing the console wrapper; falls back to a shared test client. */
   client?: Client | null;
   /** View params the wrapped form reads (deviceKey, taskKey, rackKey, config). */
   params?: FormViewParams;
@@ -281,7 +280,8 @@ export const renderTaskFormTab = async (
   type: string,
   options: RenderTaskFormViewOptions = {},
 ): Promise<RenderTaskFormViewResult> => {
-  const { client = null, params = {}, onStatuses } = options;
+  const { params = {}, onStatuses } = options;
+  const client = options.client ?? defaultClient;
   const store = await createTestStore();
   const { wrapper } = await createConsoleWrapper({ client, store });
   const tab: panel.Tab = {
@@ -290,7 +290,7 @@ export const renderTaskFormTab = async (
     type,
     args: params,
   };
-  const created = await createSelectedPanel(wrapper, store, client, [tab]);
+  const created = await createSelectedPanel(store, client, [tab]);
   const result = render(
     <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
       <Tab.Content />
@@ -339,7 +339,7 @@ export const findDialogTriggerByText = async (text: string): Promise<HTMLElement
       document.querySelectorAll<HTMLElement>(".pluto-dialog__trigger"),
     );
     const match = triggers.find((t) => t.textContent?.includes(text));
-    if (match == null) throw new Error(`dialog trigger showing "${text}" not found`);
+    assertDefined(match, `dialog trigger showing "${text}" not found`);
     return match;
   });
 
@@ -412,7 +412,7 @@ export const findFieldInput = (): HTMLInputElement => {
   const input = document.body.querySelector<HTMLInputElement>(
     "input:not([type='checkbox'])",
   );
-  if (input == null) throw new Error("form field input not found");
+  assertDefined(input, "form field input not found");
   return input;
 };
 

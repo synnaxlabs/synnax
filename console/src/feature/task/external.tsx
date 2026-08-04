@@ -21,7 +21,6 @@ import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
 import { retrieveAndOpenTab } from "@/feature/task/tabs";
 import { getIcon, parseType } from "@/feature/task/types";
 import { type Command } from "@/platform/command";
-import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
@@ -48,16 +47,6 @@ export const COMMANDS: Command.Command[] = [
   ...OPC.Task.COMMANDS,
   ...PagerDuty.Task.COMMANDS,
 ];
-
-export const EXTRACTORS: Export.Extractors = {
-  ...EtherCAT.Task.EXTRACTORS,
-  ...HTTP.Task.EXTRACTORS,
-  ...LabJack.Task.EXTRACTORS,
-  ...Modbus.Task.EXTRACTORS,
-  ...NI.Task.EXTRACTORS,
-  ...OPC.Task.EXTRACTORS,
-  ...PagerDuty.Task.EXTRACTORS,
-};
 
 export const FILE_INGESTERS: Import.FileIngesters = {
   ...EtherCAT.Task.FILE_INGESTERS,

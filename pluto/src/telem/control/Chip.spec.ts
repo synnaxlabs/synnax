@@ -62,7 +62,7 @@ describe("tooltipMessage", () => {
     const result = tooltipMessage(makeStatus("disabled", { valid: true }));
     expect(result).toEqual({
       message: "Uncontrolled. Click to take control.",
-      chipColor: "var(--pluto-gray-l12)",
+      chipColor: "var(--pluto-gray-l11)",
       chipIcon: Icon.Circle,
     });
   });
@@ -71,7 +71,7 @@ describe("tooltipMessage", () => {
     const result = tooltipMessage(makeStatus("disabled", { valid: false }));
     expect(result).toEqual({
       message: "No channel connected. This element cannot be controlled.",
-      chipColor: "var(--pluto-gray-l7)",
+      chipColor: "var(--pluto-text-disabled)",
       chipIcon: Icon.Circle,
       disabled: true,
     });

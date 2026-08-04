@@ -26,6 +26,10 @@ export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
   displayItems?: number;
 }
 
+/* The container's 1rem top and bottom padding (Items.css); the sized box is
+   border-box, so omitting it leaves short lists scrolling by exactly this amount. */
+const VERTICAL_PADDING = 12;
+
 const BaseItems = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K>,
@@ -67,7 +71,8 @@ const BaseItems = <
 
   let minHeight: number | undefined;
   if (itemHeight != null && displayItems != null && isFinite(displayItems) && hasItems)
-    minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
+    minHeight =
+      Math.min(displayItems, visibleData.length) * itemHeight + VERTICAL_PADDING + 1;
 
   const boxStyle = useMemo(() => ({ height: minHeight, ...style }), [minHeight, style]);
 

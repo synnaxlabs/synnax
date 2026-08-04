@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/pluto";
 
 import { Explorer } from "@/feature/status/explorer/Explorer";
 import { Panel } from "@/platform/panel";
@@ -18,7 +18,11 @@ export const TAB_TYPE = "status_explorer";
 
 const TAB: Panel.Tab = {
   Content: Explorer,
-  Name: Panel.createStaticTabName({ name: "Status Explorer", icon: <Icon.Status /> }),
+  Icon: Status.ExplorerIcon,
+  Name: Panel.createStaticTabName({
+    name: "Status Explorer",
+    icon: <Status.ExplorerIcon />,
+  }),
 };
 
 export const TABS: Panel.Tabs = {

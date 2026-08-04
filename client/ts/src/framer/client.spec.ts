@@ -48,7 +48,7 @@ describe("Client", () => {
         index: time.key,
       });
       const start = TimeStamp.now();
-      await client.write(start, time.key, TimeStamp.now());
+      await client.write(start, time.key, start);
       await client.write(start, data.key, 1);
     });
   });

@@ -238,7 +238,7 @@ export class Draw2D {
     const ctx = this.canvas;
     ctx.strokeStyle = color.hex(this.resolveColor(colorVal, this.theme.colors.border));
     ctx.lineWidth = width ?? this.theme.sizes.border.width;
-    radius ??= this.theme.sizes.border.radius;
+    radius ??= Math.round(this.theme.sizes.border.radius.tiny * this.theme.sizes.base);
     if (location == null || location === true)
       if (radius > 0) {
         ctx.roundRect(
@@ -271,7 +271,9 @@ export class Draw2D {
     borderWidth,
     backgroundColor,
   }: Draw2DContainerProps): void {
-    borderRadius ??= this.theme.sizes.border.radius;
+    borderRadius ??= Math.round(
+      this.theme.sizes.border.radius.tiny * this.theme.sizes.base,
+    );
     borderWidth ??= 1;
     const ctx = this.canvas;
     ctx.fillStyle = color.hex(
@@ -384,6 +386,19 @@ export class Draw2D {
       );
       draw(i, itemBox);
     }
+  }
+
+  /**
+   * Vertical offset that centers text ink within a rowHeight-tall band when the
+   * text is drawn at the band's top with align "top". Canvas positions the em
+   * box, not the ink, which sits a few pixels lower.
+   */
+  measureInkOffsetY(level: text.Level, rowHeight: number): number {
+    this.canvas.font = fontString(this.theme, { level, code: true });
+    const m = this.canvas.measureText("0M[]g_");
+    const inkTop = m.fontBoundingBoxAscent - m.actualBoundingBoxAscent;
+    const inkHeight = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+    return inkTop - (rowHeight - inkHeight) / 2;
   }
 
   measureCharWidth(level: text.Level): number {
