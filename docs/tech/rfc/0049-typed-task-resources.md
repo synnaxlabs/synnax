@@ -14,10 +14,10 @@
 
 Today, a task is one record with an opaque `config` field. The field is a
 `map[string]any` in Go, a `json::object_t` in C++, a `dict[str, Any]` in Python, and a
-`record.Unknown` in TS. On the wire, it is a `google.protobuf.Struct`. The Core does not
-parse it. Each integration defines its config shape three times by hand: in Console Zod,
-in Python Pydantic, and in C++ `parser.field<T>()` calls. The three copies do not stay
-identical.
+`record.Unknown` in TypeScript. On the wire, it is a `google.protobuf.Struct`. The Core
+does not parse it. Each integration defines its config shape three times by hand: in
+Console Zod, in Python Pydantic, and in C++ `parser.field<T>()` calls. The three copies
+do not stay identical.
 
 This RFC inverts the model. Each task type becomes a first-class resource with a strong
 type. Each resource has its own Oracle schema, ontology type, Protobuf message, and
@@ -52,9 +52,9 @@ Five problems add up. All of them come from config opacity:
    `console/src/feature/ni/task/types/v0.ts`. The Python client reads old shapes
    incorrectly and does not report it. The Driver fails to parse them.
 3. **Wire case-conversion corrupts semantic keys.** The task config does not have a
-   `preserveCase` wrapper. Thus the TS codec (`x/ts/src/binary/codec.ts`) converts
-   record keys that are data, not identifiers. Examples: OPC NodeIds and EtherCAT
-   `manual_<index>_<subindex>` map keys. The `??` fallback lookups in
+   `preserveCase` wrapper. Thus the TypeScript codec (`x/ts/src/binary/codec.ts`)
+   converts record keys that are data, not identifiers. Examples: OPC NodeIds and
+   EtherCAT `manual_<index>_<subindex>` map keys. The `??` fallback lookups in
    `console/src/feature/opc/task/Read.tsx` and
    `console/src/feature/ethercat/task/types.ts` exist only to hide this corrupted
    persisted data.
@@ -93,9 +93,9 @@ Five problems add up. All of them come from config opacity:
 
 1. **The Core owns persisted data and its migrations.** Config shapes are persisted
    data. Their schema and version chain belong to the Core, not to each client.
-2. **Write the shape one time.** One Oracle schema generates the Go, TS, Python, C++,
-   and Protobuf code. The clients and the Driver consume generated code. Hand parsing is
-   a defect.
+2. **Write the shape one time.** One Oracle schema generates the Go, TypeScript, Python,
+   C++, and Protobuf code. The clients and the Driver consume generated code. Hand
+   parsing is a defect.
 3. **The specific depends on the generic.** Integration services compose the task
    service. The task service never learns integration names. The `config` reference is
    opaque data to it: an ontology ID that it stores and indexes, and that only per-type
@@ -131,7 +131,7 @@ Five problems add up. All of them come from config opacity:
 The task stores a `config` field: the ontology ID of its parent resource
 (`http_read:<uuid>`). This heterogeneous reference is the only stored link between the
 two records, and it is never null. The resource's `task` field is not stored. The server
-resolves it at retrieve time from a gorp index on `config` (RFC 0034) — the pattern that
+resolves it at retrieve time from a Gorp index on `config` (RFC 0034) — the pattern that
 PR #2496 established for `Arc.Task`. The ontology keeps a `parent_of` edge from the
 resource to the task for the Console tree. The server stamps the edge in the same
 transaction that makes the task.
@@ -188,7 +188,7 @@ Each resource has the standard tags: `@ontology type "<task type>"`, `@retrieve`
 
 **Go services are per-integration packages**: `core/pkg/service/ni`,
 `core/pkg/service/opc`, and so on, with the standard service anatomy, adjacent to the
-current `arc` and `pagerduty` packages. Each package owns the gorp tables, the writers,
+current `arc` and `pagerduty` packages. Each package owns the Gorp tables, the writers,
 the retrieve builders, the ontology registration, and the imex of its resources.
 
 **Structural rules for the new schemas:**
@@ -227,7 +227,7 @@ drafts are resources without tasks, not tasks without racks (§6.6).
 
 **Edit while deployed.** A write to the resource updates `config_hash` on its task row
 in the same transaction. The service finds the task row through the `config` index. The
-write fires the current gorp-observe / `sy_task_set` path as a metadata refresh. Active
+write fires the current Gorp-observe / `sy_task_set` path as a metadata refresh. Active
 tasks do not restart. The Console shows the drift until the user deploys again with
 `start`.
 
@@ -259,10 +259,10 @@ Configs have strong types on each wire. `google.protobuf.Struct` and `Any` are g
   is exact.
 - **C++** consumes the generated proto types directly. We delete the `x::json::Parser`
   config layer in `driver/*/` for each integration when it cuts over.
-- **TS and Python** use the HTTP JSON/msgpack transports with generated Zod schemas and
-  Pydantic models against the per-type endpoints. The schema controls the wire field
-  names, so the TS case conversion is exact. The maps with semantic keys became arrays
-  (§4.2), so the task schemas do not need `preserveCase` exits.
+- **TypeScript and Python** use the HTTP JSON/MessagePack transports with generated Zod
+  schemas and Pydantic models against the per-type endpoints. The schema controls the
+  wire field names, so the TypeScript case conversion is exact. The maps with semantic
+  keys became arrays (§4.2), so the task schemas do not need `preserveCase` exits.
 
 ### 4.5 The stored link and the resolved `task` field
 
@@ -270,7 +270,7 @@ The task service stays unaware of integrations. The `config` field is opaque dat
 an ontology ID that the service stores, indexes, and never dereferences. No registry and
 no composed payload exist at the API layer. A consumer that holds a task goes to the
 per-type endpoint that the `config` type names. A consumer that holds a resource reads
-its `task` field, which the resource service resolves from the gorp index on `config` —
+its `task` field, which the resource service resolves from the Gorp index on `config` —
 the pattern that PR #2496 proved for `Arc.Task`.
 
 The flow of the Driver: `sy_task_set` and the task row give it the slim task. On `start`
@@ -344,15 +344,15 @@ builds, the tests pass, and the product can ship.
 
 1. **Oracle groundwork.** Cross-file extension of a common shape for the shared task
    config bases. Per-type endpoint generation. Support for an `ontology.ID` field with a
-   gorp index, and for a resolved `task` field on resources. This is pure generator work
+   Gorp index, and for a resolved `task` field on resources. This is pure generator work
    with generator tests. No schema consumes it yet.
 2. **Schema authorship.** The per-integration `.oracle` files and their generated
-   Go/TS/Py/C++/pb artifacts, not yet wired (the NI file adapted from #2433). One PR per
-   integration or per small group. Each PR is a reviewable schema plus inert generated
-   code.
+   Go/TypeScript/Python/C++/Protobuf artifacts, not yet wired (the NI file adapted from
+   #2433). One PR per integration or per small group. Each PR is a reviewable schema
+   plus inert generated code.
 3. **Core services, additive.** The per-integration service packages, the `empty`
    resource, the per-type endpoints, the deploy verb, and the resolved `task` field on
-   the gorp `config` index. All of it exists adjacent to the untouched task shape.
+   the Gorp `config` index. All of it exists adjacent to the untouched task shape.
    Production does not consume it yet. Ginkgo suites exercise it directly. The tree
    stays green because the change is additive.
 4. **Core cutover.** The atomic PR. It makes the task row slim (it drops `type`, `name`,
@@ -459,8 +459,8 @@ Phase 4. This is the standard position for storage migrations in this codebase.
 - **Typed device `properties`.** The channel maps with NodeId keys inside device
   properties are the same corruption class as §4.2. They must get the same
   array-of-structs treatment in an adjacent effort.
-- **Protobuf as the TS and Python wire.** Those clients stay on HTTP JSON/msgpack. The
-  snake↔camel removal effort tracks the larger proto migration.
+- **Protobuf as the TypeScript and Python wire.** Those clients stay on HTTP
+  JSON/MessagePack. The snake↔camel removal effort tracks the larger proto migration.
 - **Multi-deploy fan-out** (Resolved Decision 11).
 
 ---
