@@ -41,8 +41,6 @@ var (
 type Metrics struct {
 	// DiskSize is the total disk space used by all channel data.
 	DiskSize telem.Size
-	// ChannelCount is the number of channels in the database.
-	ChannelCount int
 }
 
 // LeadingAlignment returns an Alignment whose array index is the maximum possible value
@@ -140,10 +138,7 @@ func (db *DB) Metrics() Metrics {
 	for _, u := range db.mu.dbs.unary {
 		size += u.Size()
 	}
-	return Metrics{
-		DiskSize:     size,
-		ChannelCount: len(db.mu.dbs.unary) + len(db.mu.dbs.virtual),
-	}
+	return Metrics{DiskSize: size}
 }
 
 // Close closes the database.

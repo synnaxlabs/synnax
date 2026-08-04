@@ -45,7 +45,7 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/loop",
         "//x/cpp/strings",
-        "@glog",
+        "@abseil-cpp//absl/log",
         "@nlohmann_json//:json",
     ],
 )

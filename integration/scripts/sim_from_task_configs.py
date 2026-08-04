@@ -70,7 +70,7 @@ class SimDAQ:
         print(f"Found {len(json_files)} config files\n")
 
         for json_file in json_files:
-            with open(json_file) as f:
+            with open(json_file, encoding="utf-8") as f:
                 config = json.load(f)
 
             # Handle two formats: {"channels": [...]} or just [...]
@@ -290,7 +290,7 @@ class SimDAQ:
     def _save_channel_mapping(self) -> None:
         """Save channel mapping to JSON file."""
         mapping_file = self.config_dir / "channel_mapping.json"
-        with open(mapping_file, "w") as f:
+        with open(mapping_file, "w", encoding="utf-8") as f:
             json.dump(self.channel_mapping, f, indent=2)
         print(f"✓ Saved channel mapping to: {mapping_file}")
         print(f"  Total mappings: {len(self.channel_mapping)}\n")

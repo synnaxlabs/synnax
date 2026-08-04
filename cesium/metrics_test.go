@@ -38,68 +38,6 @@ var _ = Describe("Metrics", Ordered, func() {
 
 						m := emptyDB.Metrics()
 						Expect(m.DiskSize).To(Equal(telem.Size(0)))
-						Expect(m.ChannelCount).To(Equal(0))
-					},
-				)
-
-				It(
-					"Should return correct channel count for unary channels",
-					func(ctx SpecContext) {
-						sub := MustSucceed(fs.Sub("unary-metrics"))
-						subDB := openDBOnFS(ctx, sub)
-						defer func() { Expect(subDB.Close()).To(Succeed()) }()
-
-						indexKey := GenerateChannelKey()
-						dataKey := GenerateChannelKey()
-
-						Expect(subDB.CreateChannel(ctx, cesium.Channel{
-							Key:      indexKey,
-							Name:     "index",
-							IsIndex:  true,
-							DataType: telem.TimeStampT,
-						})).To(Succeed())
-
-						m := subDB.Metrics()
-						Expect(m.ChannelCount).To(Equal(1))
-
-						Expect(subDB.CreateChannel(ctx, cesium.Channel{
-							Key:      dataKey,
-							Name:     "data",
-							Index:    indexKey,
-							DataType: telem.Float64T,
-						})).To(Succeed())
-
-						m = subDB.Metrics()
-						Expect(m.ChannelCount).To(Equal(2))
-					},
-				)
-
-				It(
-					"Should return correct channel count including virtual channels",
-					func(ctx SpecContext) {
-						sub := MustSucceed(fs.Sub("virtual-metrics"))
-						subDB := openDBOnFS(ctx, sub)
-						defer func() { Expect(subDB.Close()).To(Succeed()) }()
-
-						indexKey := GenerateChannelKey()
-						virtualKey := GenerateChannelKey()
-
-						Expect(subDB.CreateChannel(ctx, cesium.Channel{
-							Key:      indexKey,
-							Name:     "index",
-							IsIndex:  true,
-							DataType: telem.TimeStampT,
-						})).To(Succeed())
-
-						Expect(subDB.CreateChannel(ctx, cesium.Channel{
-							Key:      virtualKey,
-							Name:     "virtual",
-							Virtual:  true,
-							DataType: telem.Float64T,
-						})).To(Succeed())
-
-						m := subDB.Metrics()
-						Expect(m.ChannelCount).To(Equal(2))
 					},
 				)
 

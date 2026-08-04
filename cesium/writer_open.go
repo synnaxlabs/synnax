@@ -121,19 +121,6 @@ const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 var _ config.Config[WriterConfig] = WriterConfig{}
 
-func DefaultWriterConfig() WriterConfig {
-	return WriterConfig{
-		ControlSubject:           xcontrol.Subject{Key: uuid.New().String()},
-		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
-		ErrOnUnauthorized:        new(false),
-		Mode:                     WriterModePersistStream,
-		EnableAutoCommit:         new(true),
-		AutoIndexPersistInterval: 1 * telem.Second,
-		Sync:                     new(false),
-		AutoIndex:                new(false),
-	}
-}
-
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.writer_config")
@@ -206,7 +193,16 @@ func (db *DB) newStreamWriter(
 	ctx context.Context,
 	cfgs ...WriterConfig,
 ) (w *streamWriter, err error) {
-	cfg, err := config.New(DefaultWriterConfig(), cfgs...)
+	cfg, err := config.New(WriterConfig{
+		ControlSubject:           xcontrol.Subject{Key: uuid.New().String()},
+		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
+		ErrOnUnauthorized:        new(false),
+		Mode:                     WriterModePersistStream,
+		EnableAutoCommit:         new(true),
+		AutoIndexPersistInterval: 1 * telem.Second,
+		Sync:                     new(false),
+		AutoIndex:                new(false),
+	}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

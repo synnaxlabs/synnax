@@ -2113,12 +2113,12 @@ export class DataType
     DataType.INT64,
     DataType.FLOAT32,
     DataType.FLOAT64,
+    DataType.BOOLEAN,
     DataType.TIMESTAMP,
     DataType.UUID,
     DataType.STRING,
     DataType.JSON,
     DataType.BYTES,
-    DataType.BOOLEAN,
   ];
 
   private static readonly SHORT_STRINGS = new Map<string, string>([
@@ -2132,12 +2132,12 @@ export class DataType
     [DataType.INT64.toString(), "i64"],
     [DataType.FLOAT32.toString(), "f32"],
     [DataType.FLOAT64.toString(), "f64"],
+    [DataType.BOOLEAN.toString(), "bool"],
     [DataType.TIMESTAMP.toString(), "ts"],
     [DataType.UUID.toString(), "uuid"],
     [DataType.STRING.toString(), "str"],
     [DataType.JSON.toString(), "json"],
     [DataType.BYTES.toString(), "bytes"],
-    [DataType.BOOLEAN.toString(), "bool"],
   ]);
 
   static readonly BIG_INT_TYPES = [DataType.INT64, DataType.UINT64, DataType.TIMESTAMP];

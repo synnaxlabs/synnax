@@ -24,7 +24,7 @@ cc_library(
         "//x/cpp/log",
         "//x/cpp/os",
         "//x/cpp/thread/rt",
-        "@glog",
+        "@abseil-cpp//absl/log",
         "@nlohmann_json//:json",
     ],
 )
