@@ -37,10 +37,13 @@ var _ = Describe("storage", func() {
 			cfg = storage.LayerConfig{Dirname: filepath.Join(tempDir, "storage")}
 		})
 		Describe("Acquiring a lock", func() {
-			It("Should return an error if the lock is already acquired", func(ctx SpecContext) {
-				MustOpen(storage.OpenLayer(ctx, cfg))
-				Expect(storage.OpenLayer(ctx, cfg)).Error().To(HaveOccurred())
-			})
+			It(
+				"Should return an error if the lock is already acquired",
+				func(ctx SpecContext) {
+					MustOpen(storage.OpenLayer(ctx, cfg))
+					Expect(storage.OpenLayer(ctx, cfg)).Error().To(HaveOccurred())
+				},
+			)
 		})
 		Describe("Permissions", func() {
 			// These two tests are failing on Windows because VFS cannot create a
@@ -48,12 +51,15 @@ var _ = Describe("storage", func() {
 			// created with 777.
 			if !strings.HasPrefix(runtime.GOOS, "windows") {
 				Describe("Name Directory", func() {
-					It("Should set the correct permissions on the storage directory", func(ctx SpecContext) {
-						cfg.Perm = storage.DefaultLayerConfig.Perm
-						MustOpen(storage.OpenLayer(ctx, cfg))
-						stat := MustSucceed(os.Stat(cfg.Dirname))
-						Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
-					})
+					It(
+						"Should set the correct permissions on the storage directory",
+						func(ctx SpecContext) {
+							cfg.Perm = storage.DefaultLayerConfig.Perm
+							MustOpen(storage.OpenLayer(ctx, cfg))
+							stat := MustSucceed(os.Stat(cfg.Dirname))
+							Expect(stat.Mode().Perm()).To(Equal(cfg.Perm))
+						},
+					)
 				})
 				Describe("Existing Directory", func() {
 					var p string
@@ -63,11 +69,17 @@ var _ = Describe("storage", func() {
 						cfg.Dirname = p
 					})
 					AfterEach(func() { Expect(os.RemoveAll(p)).To(Succeed()) })
-					It("Should return an error if the directory exists but has insufficient permissions", func(ctx SpecContext) {
-						// use os.Stat to check the dir permissions
-						cfg.Perm = xfs.UserRWX
-						Expect(storage.OpenLayer(ctx, cfg)).Error().To(HaveOccurred())
-					})
+					It(
+						"Should return an error if the directory exists but has insufficient permissions",
+						func(ctx SpecContext) {
+							// use os.Stat to check the dir permissions
+							cfg.Perm = xfs.UserRWX
+							Expect(
+								storage.OpenLayer(ctx, cfg),
+							).Error().
+								To(HaveOccurred())
+						},
+					)
 				})
 			}
 		})

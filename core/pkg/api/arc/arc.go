@@ -107,9 +107,9 @@ func (s *Service) Delete(
 // edits.
 type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
 
-// Dispatch relays the action sequence to the other clients editing the arc, broadcasting
-// it on the arc collaborative-edit signals channel. The caller must hold update access
-// to the arc. The server does not interpret or persist the actions.
+// Dispatch relays the action sequence to the other clients editing the arc,
+// broadcasting it on the arc collaborative-edit signals channel. The caller must hold
+// update access to the arc. The server does not interpret or persist the actions.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -128,13 +128,13 @@ func (s *Service) Dispatch(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm          string    `json:"search_term" msgpack:"search_term"`
-		Keys                []arc.Key `json:"keys" msgpack:"keys"`
-		Names               []string  `json:"names" msgpack:"names"`
-		Limit               int       `json:"limit" msgpack:"limit"`
-		Offset              int       `json:"offset" msgpack:"offset"`
-		IncludeStatus       bool      `json:"include_status" msgpack:"include_status"`
-		Compile             bool      `json:"compile" msgpack:"compile"`
+		SearchTerm          string    `json:"search_term"            msgpack:"search_term"`
+		Keys                []arc.Key `json:"keys"                   msgpack:"keys"`
+		Names               []string  `json:"names"                  msgpack:"names"`
+		Limit               int       `json:"limit"                  msgpack:"limit"`
+		Offset              int       `json:"offset"                 msgpack:"offset"`
+		IncludeStatus       bool      `json:"include_status"         msgpack:"include_status"`
+		Compile             bool      `json:"compile"                msgpack:"compile"`
 		IgnoreNotFoundError bool      `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
@@ -178,8 +178,8 @@ func (s *Service) Retrieve(
 
 	res := RetrieveResponse{Arcs: arcs}
 
-	// Raw is derived from the replicated document and not stored, so materialize it before
-	// compilation and for clients that read the source text directly rather than
+	// Raw is derived from the replicated document and not stored, so materialize it
+	// before compilation and for clients that read the source text directly rather than
 	// reconstructing the document.
 	for i := range res.Arcs {
 		res.Arcs[i].Text = res.Arcs[i].Text.Materialize()

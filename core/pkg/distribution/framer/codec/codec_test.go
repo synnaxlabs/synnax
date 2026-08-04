@@ -263,126 +263,216 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
+		Entry("Bool Single Sample",
+			channel.Keys{1},
+			[]telem.DataType{telem.BoolT},
+			frame.NewMulti(
+				channel.Keys{1},
+				[]telem.Series{telem.NewSeriesV(true)},
+			),
+		),
+		Entry("Bool Exact Byte Boundary",
+			channel.Keys{1},
+			[]telem.DataType{telem.BoolT},
+			frame.NewMulti(
+				channel.Keys{1},
+				[]telem.Series{
+					telem.NewSeriesV(
+						true,
+						false,
+						true,
+						false,
+						true,
+						false,
+						true,
+						false,
+					),
+				},
+			),
+		),
+		Entry("Bool One Past Byte Boundary",
+			channel.Keys{1},
+			[]telem.DataType{telem.BoolT},
+			frame.NewMulti(
+				channel.Keys{1},
+				[]telem.Series{
+					telem.NewSeriesV(
+						true,
+						false,
+						true,
+						false,
+						true,
+						false,
+						true,
+						false,
+						true,
+					),
+				},
+			),
+		),
+		Entry("Bool Seven Samples (Partial Last Byte)",
+			channel.Keys{1},
+			[]telem.DataType{telem.BoolT},
+			frame.NewMulti(
+				channel.Keys{1},
+				[]telem.Series{
+					telem.NewSeriesV(true, false, true, true, false, false, true),
+				},
+			),
+		),
+		Entry("Bool Mixed With Other Types",
+			channel.Keys{1, 2, 3},
+			[]telem.DataType{telem.BoolT, telem.Float32T, telem.Uint8T},
+			frame.NewMulti(
+				channel.Keys{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV(true, false, true),
+					telem.NewSeriesV[float32](1.5, 2.5, 3.5),
+					telem.NewSeriesV[uint8](7, 8, 9),
+				},
+			),
+		),
 	)
 
 	Describe("Complex Frames", func() {
-		It("Should correctly serialize and deserialize a complex frame", func(ctx SpecContext) {
-			keys := channel.Keys{1, 2, 3, 4}
-			dataTypes := []telem.DataType{"int32", "float32", "string", "uint8"}
-			s1 := telem.NewSeriesV[int32](1, 2, 3)
-			s1.TimeRange = telem.NewRangeSeconds(1, 12)
-			s1.Alignment = 7
-			float32Data := make([]float32, 5000)
-			for i := range float32Data {
-				float32Data[i] = 1.234 + float32(i)*rand.Float32()
-			}
-			s2 := telem.NewSeries(float32Data)
-			s2.TimeRange = telem.NewRangeSeconds(3, 5)
-			s2.Alignment = 10
-			s3 := telem.NewSeriesV("cat", "dog", "rabbit", "frog")
-			s3.TimeRange = telem.NewRangeSeconds(1, 5)
-			s3.Alignment = 5
-			s4 := telem.MakeSeries(telem.Uint8T, 5000)
-			s4.Alignment = cesium.LeadingAlignment(5000, 5)
-			s4.TimeRange = telem.NewRangeSeconds(9999999, 999999999)
-			originalFrame := frame.NewMulti(
-				keys,
-				[]telem.Series{s1, s2, s3, s4},
-			)
+		It(
+			"Should correctly serialize and deserialize a complex frame",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1, 2, 3, 4}
+				dataTypes := []telem.DataType{"int32", "float32", "string", "uint8"}
+				s1 := telem.NewSeriesV[int32](1, 2, 3)
+				s1.TimeRange = telem.NewRangeSeconds(1, 12)
+				s1.Alignment = 7
+				float32Data := make([]float32, 5000)
+				for i := range float32Data {
+					float32Data[i] = 1.234 + float32(i)*rand.Float32()
+				}
+				s2 := telem.NewSeries(float32Data)
+				s2.TimeRange = telem.NewRangeSeconds(3, 5)
+				s2.Alignment = 10
+				s3 := telem.NewSeriesV("cat", "dog", "rabbit", "frog")
+				s3.TimeRange = telem.NewRangeSeconds(1, 5)
+				s3.Alignment = 5
+				s4 := telem.MakeSeries(telem.Uint8T, 5000)
+				s4.Alignment = cesium.LeadingAlignment(5000, 5)
+				s4.TimeRange = telem.NewRangeSeconds(9999999, 999999999)
+				originalFrame := frame.NewMulti(
+					keys,
+					[]telem.Series{s1, s2, s3, s4},
+				)
 
-			cdc := codec.NewStatic(keys, dataTypes)
-			encoded := MustSucceed(cdc.Encode(ctx, originalFrame))
-			decoded := MustSucceed(cdc.Decode(encoded))
-			Expect(originalFrame.Frame).To(telem.MatchFrame(decoded.Frame))
-		})
+				cdc := codec.NewStatic(keys, dataTypes)
+				encoded := MustSucceed(cdc.Encode(ctx, originalFrame))
+				decoded := MustSucceed(cdc.Decode(encoded))
+				Expect(originalFrame.Frame).To(telem.MatchFrame(decoded.Frame))
+			},
+		)
 	})
 
 	Describe("Multiple Contiguous Series Per Channel (throttle pattern)", func() {
-		It("Should preserve alignment when a channel has multiple contiguous series", func(ctx SpecContext) {
-			keys := channel.Keys{1, 2}
-			dataTypes := []telem.DataType{telem.Int64T, telem.Int64T}
-			// Channel 1 carries two contiguous series in the same leading domain, which
-			// is what the accumulation throttle produces when it batches several writes
-			// into one streamed frame.
-			s1a := telem.NewSeriesV[int64](1, 2)
-			s1a.Alignment = cesium.LeadingAlignment(4, 100) // [100, 102)
-			s1b := telem.NewSeriesV[int64](3, 4)
-			s1b.Alignment = cesium.LeadingAlignment(4, 102) // [102, 104)
-			s2 := telem.NewSeriesV[int64](5, 6)
-			s2.Alignment = cesium.LeadingAlignment(4, 100)
-			fr := frame.NewMulti(channel.Keys{1, 1, 2}, []telem.Series{s1a, s1b, s2})
+		It(
+			"Should preserve alignment when a channel has multiple contiguous series",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1, 2}
+				dataTypes := []telem.DataType{telem.Int64T, telem.Int64T}
+				// Channel 1 carries two contiguous series in the same leading domain,
+				// which is what the accumulation throttle produces when it batches
+				// several writes into one streamed frame.
+				s1a := telem.NewSeriesV[int64](1, 2)
+				s1a.Alignment = cesium.LeadingAlignment(4, 100) // [100, 102)
+				s1b := telem.NewSeriesV[int64](3, 4)
+				s1b.Alignment = cesium.LeadingAlignment(4, 102) // [102, 104)
+				s2 := telem.NewSeriesV[int64](5, 6)
+				s2.Alignment = cesium.LeadingAlignment(4, 100)
+				fr := frame.NewMulti(
+					channel.Keys{1, 1, 2},
+					[]telem.Series{s1a, s1b, s2},
+				)
 
-			cdc := codec.NewStatic(keys, dataTypes)
-			decoded := MustSucceed(cdc.Decode(MustSucceed(cdc.Encode(ctx, fr))))
+				cdc := codec.NewStatic(keys, dataTypes)
+				decoded := MustSucceed(cdc.Decode(MustSucceed(cdc.Encode(ctx, fr))))
 
-			var ch1 []telem.Series
-			for k, s := range decoded.Entries() {
-				if k == 1 {
-					ch1 = append(ch1, s)
+				var ch1 []telem.Series
+				for k, s := range decoded.Entries() {
+					if k == 1 {
+						ch1 = append(ch1, s)
+					}
 				}
-			}
-			slices.SortFunc(ch1, func(a, b telem.Series) int {
-				switch {
-				case a.Alignment < b.Alignment:
-					return -1
-				case a.Alignment > b.Alignment:
-					return 1
-				default:
-					return 0
+				slices.SortFunc(ch1, func(a, b telem.Series) int {
+					switch {
+					case a.Alignment < b.Alignment:
+						return -1
+					case a.Alignment > b.Alignment:
+						return 1
+					default:
+						return 0
+					}
+				})
+				// The decoded series for channel 1 must cover [100, 104) with no
+				// overlap and no gap. A backward-overlap bug shows up as prev.Upper >
+				// next.Lower.
+				Expect(
+					ch1[0].AlignmentBounds().Lower,
+				).To(Equal(cesium.LeadingAlignment(4, 100)))
+				var total int64
+				for i, s := range ch1 {
+					total += s.Len()
+					if i > 0 {
+						Expect(ch1[i-1].AlignmentBounds().Upper).To(
+							Equal(s.AlignmentBounds().Lower),
+						)
+					}
 				}
-			})
-			// The decoded series for channel 1 must cover [100, 104) with no overlap
-			// and no gap. A backward-overlap bug shows up as prev.Upper > next.Lower.
-			Expect(ch1[0].AlignmentBounds().Lower).To(Equal(cesium.LeadingAlignment(4, 100)))
-			var total int64
-			for i, s := range ch1 {
-				total += s.Len()
-				if i > 0 {
-					Expect(ch1[i-1].AlignmentBounds().Upper).To(
-						Equal(s.AlignmentBounds().Lower),
-					)
-				}
-			}
-			Expect(total).To(Equal(int64(4)))
-			Expect(ch1[len(ch1)-1].AlignmentBounds().Upper).To(
-				Equal(cesium.LeadingAlignment(4, 104)),
-			)
-		})
+				Expect(total).To(Equal(int64(4)))
+				Expect(ch1[len(ch1)-1].AlignmentBounds().Upper).To(
+					Equal(cesium.LeadingAlignment(4, 104)),
+				)
+			},
+		)
 	})
 
 	Describe("Error Handling", func() {
-		It("Should return a validation error when a series has the wrong data type", func(ctx SpecContext) {
-			c := codec.NewStatic(
-				[]channel.Key{1},
-				[]telem.DataType{telem.Uint8T},
-			)
-			fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
-			encoded, err := c.Encode(ctx, fr)
-			Expect(encoded).To(BeEmpty())
-			Expect(err).To(MatchError(validate.ErrValidation))
-		})
+		It(
+			"Should return a validation error when a series has the wrong data type",
+			func(ctx SpecContext) {
+				c := codec.NewStatic(
+					[]channel.Key{1},
+					[]telem.DataType{telem.Uint8T},
+				)
+				fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
+				encoded, err := c.Encode(ctx, fr)
+				Expect(encoded).To(BeEmpty())
+				Expect(err).To(MatchError(validate.ErrValidation))
+			},
+		)
 	})
 
 	Describe("Int64 / TimeStamp Equivalence", func() {
-		It("Should accept an int64 series for a timestamp channel", func(ctx SpecContext) {
-			c := codec.NewStatic(
-				[]channel.Key{1},
-				[]telem.DataType{telem.TimeStampT},
-			)
-			fr := frame.NewUnary(1, telem.NewSeriesV[int64](1778020940471336961))
-			encoded := MustSucceed(c.Encode(ctx, fr))
-			Expect(encoded).ToNot(BeEmpty())
-		})
+		It(
+			"Should accept an int64 series for a timestamp channel",
+			func(ctx SpecContext) {
+				c := codec.NewStatic(
+					[]channel.Key{1},
+					[]telem.DataType{telem.TimeStampT},
+				)
+				fr := frame.NewUnary(1, telem.NewSeriesV[int64](1778020940471336961))
+				encoded := MustSucceed(c.Encode(ctx, fr))
+				Expect(encoded).ToNot(BeEmpty())
+			},
+		)
 
-		It("Should accept a timestamp series for an int64 channel", func(ctx SpecContext) {
-			c := codec.NewStatic(
-				[]channel.Key{1},
-				[]telem.DataType{telem.Int64T},
-			)
-			fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
-			encoded := MustSucceed(c.Encode(ctx, fr))
-			Expect(encoded).ToNot(BeEmpty())
-		})
+		It(
+			"Should accept a timestamp series for an int64 channel",
+			func(ctx SpecContext) {
+				c := codec.NewStatic(
+					[]channel.Key{1},
+					[]telem.DataType{telem.Int64T},
+				)
+				fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
+				encoded := MustSucceed(c.Encode(ctx, fr))
+				Expect(encoded).ToNot(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Dynamic Codec", Ordered, func() {
@@ -393,42 +483,56 @@ var _ = Describe("Codec", func() {
 		)
 		resolver := mapResolver{idxCh: telem.TimeStampT, dataCh: telem.Float32T}
 
-		It("Should allow the caller to update the list of channels", func(ctx SpecContext) {
-			codec := codec.NewDynamic(resolver)
-			Expect(codec.Update(ctx, []channel.Key{dataCh, idxCh})).To(Succeed())
-			fr := frame.NewMulti(
-				channel.Keys{dataCh, idxCh},
-				[]telem.Series{
-					telem.NewSeriesV[float32](1, 2, 3, 4),
-					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
-				},
-			)
-			encoded := MustSucceed(codec.Encode(ctx, fr))
-			decoded := MustSucceed(codec.Decode(encoded))
-			Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
-		})
-
-		Describe("Initialized", func() {
-			It("Should return false if update has not been called on the codec at least once", func() {
-				codec := codec.NewDynamic(resolver)
-				Expect(codec.Initialized()).To(BeFalse())
-			})
-
-			It("Should return true if update has been called on the codec at least once", func(ctx SpecContext) {
+		It(
+			"Should allow the caller to update the list of channels",
+			func(ctx SpecContext) {
 				codec := codec.NewDynamic(resolver)
 				Expect(codec.Update(ctx, []channel.Key{dataCh, idxCh})).To(Succeed())
-				Expect(codec.Initialized()).To(BeTrue())
-			})
+				fr := frame.NewMulti(
+					channel.Keys{dataCh, idxCh},
+					[]telem.Series{
+						telem.NewSeriesV[float32](1, 2, 3, 4),
+						telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+					},
+				)
+				encoded := MustSucceed(codec.Encode(ctx, fr))
+				decoded := MustSucceed(codec.Decode(encoded))
+				Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
+			},
+		)
+
+		Describe("Initialized", func() {
+			It(
+				"Should return false if update has not been called on the codec at least once",
+				func() {
+					codec := codec.NewDynamic(resolver)
+					Expect(codec.Initialized()).To(BeFalse())
+				},
+			)
+
+			It(
+				"Should return true if update has been called on the codec at least once",
+				func(ctx SpecContext) {
+					codec := codec.NewDynamic(resolver)
+					Expect(
+						codec.Update(ctx, []channel.Key{dataCh, idxCh}),
+					).To(Succeed())
+					Expect(codec.Initialized()).To(BeTrue())
+				},
+			)
 		})
 
-		It("Should not mutate the caller's keys slice when updating", func(ctx SpecContext) {
-			c := codec.NewDynamic(resolver)
-			keys := []channel.Key{dataCh, idxCh}
-			original := make([]channel.Key, len(keys))
-			copy(original, keys)
-			Expect(c.Update(ctx, keys)).To(Succeed())
-			Expect(keys).To(Equal(original))
-		})
+		It(
+			"Should not mutate the caller's keys slice when updating",
+			func(ctx SpecContext) {
+				c := codec.NewDynamic(resolver)
+				keys := []channel.Key{dataCh, idxCh}
+				original := make([]channel.Key, len(keys))
+				copy(original, keys)
+				Expect(c.Update(ctx, keys)).To(Succeed())
+				Expect(keys).To(Equal(original))
+			},
+		)
 
 		It("Should panic if the codec is not initialized", func(ctx SpecContext) {
 			codec := codec.NewDynamic(nil)
@@ -438,81 +542,91 @@ var _ = Describe("Codec", func() {
 			}).To(Panic())
 		})
 
-		It("Should use the correct encode/decode state even if the codecs are out of sync", func(ctx SpecContext) {
-			encoder := codec.NewDynamic(resolver)
-			decoder := codec.NewDynamic(resolver)
-			By("Correctly encoding and decoding when the two codecs are in sync")
-			Expect(decoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
-			Expect(encoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
+		It(
+			"Should use the correct encode/decode state even if the codecs are out of sync",
+			func(ctx SpecContext) {
+				encoder := codec.NewDynamic(resolver)
+				decoder := codec.NewDynamic(resolver)
+				By("Correctly encoding and decoding when the two codecs are in sync")
+				Expect(decoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
+				Expect(encoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
 
-			frame1 := frame.NewUnary(idxCh, telem.NewSeriesSecondsTSV(1, 2, 3))
-			encoded := MustSucceed(encoder.Encode(ctx, frame1))
-			decoded := MustSucceed(decoder.Decode(encoded))
-			Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
+				frame1 := frame.NewUnary(idxCh, telem.NewSeriesSecondsTSV(1, 2, 3))
+				encoded := MustSucceed(encoder.Encode(ctx, frame1))
+				decoded := MustSucceed(decoder.Decode(encoded))
+				Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
-			By("Correctly using the previous encoding state when the two codecs are out of sync")
-			Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
+				By(
+					"Correctly using the previous encoding state when the two codecs are out of sync",
+				)
+				Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
 
-			encoded = MustSucceed(encoder.Encode(ctx, frame1))
-			decoded = MustSucceed(decoder.Decode(encoded))
-			Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
+				encoded = MustSucceed(encoder.Encode(ctx, frame1))
+				decoded = MustSucceed(decoder.Decode(encoded))
+				Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
-			By("Correctly using he most up to date state after the codec are in sync again")
-			Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
-			encoded = MustSucceed(encoder.Encode(ctx, frame1))
-			decoded = MustSucceed(decoder.Decode(encoded))
-			Expect(decoded.Frame.SeriesSlice()).To(BeEmpty())
+				By(
+					"Correctly using he most up to date state after the codec are in sync again",
+				)
+				Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
+				encoded = MustSucceed(encoder.Encode(ctx, frame1))
+				decoded = MustSucceed(decoder.Decode(encoded))
+				Expect(decoded.Frame.SeriesSlice()).To(BeEmpty())
 
-			frame2 := frame.NewUnary(dataCh, telem.NewSeriesV[float32](1, 2, 3, 4))
-			encoded = MustSucceed(encoder.Encode(ctx, frame2))
-			decoded = MustSucceed(decoder.Decode(encoded))
-			Expect(decoded.Frame).To(telem.MatchFrame(frame2.Frame))
-		})
+				frame2 := frame.NewUnary(dataCh, telem.NewSeriesV[float32](1, 2, 3, 4))
+				encoded = MustSucceed(encoder.Encode(ctx, frame2))
+				decoded = MustSucceed(decoder.Decode(encoded))
+				Expect(decoded.Frame).To(telem.MatchFrame(frame2.Frame))
+			},
+		)
 
-		It("Should preserve alignment across rapid key churn (schematic pattern)", func(ctx SpecContext) {
-			enc := codec.NewDynamic(resolver)
-			dec := codec.NewDynamic(resolver)
-			only := channel.Keys{dataCh}
-			both := channel.Keys{dataCh, idxCh}
-			Expect(enc.Update(ctx, only)).To(Succeed())
-			Expect(dec.Update(ctx, only)).To(Succeed())
+		It(
+			"Should preserve alignment across rapid key churn (schematic pattern)",
+			func(ctx SpecContext) {
+				enc := codec.NewDynamic(resolver)
+				dec := codec.NewDynamic(resolver)
+				only := channel.Keys{dataCh}
+				both := channel.Keys{dataCh, idxCh}
+				Expect(enc.Update(ctx, only)).To(Succeed())
+				Expect(dec.Update(ctx, only)).To(Succeed())
 
-			var (
-				prevEnd telem.Alignment
-				hasPrev bool
-				sample  uint32
-			)
-			for i := range 60 {
-				// Churn the streamed key set the way mounting/unmounting schematic
-				// symbols does. The decoder is updated a beat before the encoder so a
-				// frame is sometimes encoded under a key set the decoder has already
-				// moved past (the seqNum-backlog path).
-				switch i % 4 {
-				case 0:
-					Expect(dec.Update(ctx, both)).To(Succeed())
-					Expect(enc.Update(ctx, both)).To(Succeed())
-				case 2:
-					Expect(dec.Update(ctx, only)).To(Succeed())
-				case 3:
-					Expect(enc.Update(ctx, only)).To(Succeed())
-				}
-				s := telem.NewSeriesV(float32(i))
-				s.Alignment = cesium.LeadingAlignment(1, sample)
-				fr := frame.NewUnary(dataCh, s)
-				decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
-				for k, ds := range decoded.Entries() {
-					if k != dataCh {
-						continue
+				var (
+					prevEnd telem.Alignment
+					hasPrev bool
+					sample  uint32
+				)
+				for i := range 60 {
+					// Churn the streamed key set the way mounting/unmounting schematic
+					// symbols does. The decoder is updated a beat before the encoder so
+					// a frame is sometimes encoded under a key set the decoder has
+					// already moved past (the seqNum-backlog path).
+					switch i % 4 {
+					case 0:
+						Expect(dec.Update(ctx, both)).To(Succeed())
+						Expect(enc.Update(ctx, both)).To(Succeed())
+					case 2:
+						Expect(dec.Update(ctx, only)).To(Succeed())
+					case 3:
+						Expect(enc.Update(ctx, only)).To(Succeed())
 					}
-					if hasPrev {
-						Expect(ds.AlignmentBounds().Lower).To(Equal(prevEnd))
+					s := telem.NewSeriesV(float32(i))
+					s.Alignment = cesium.LeadingAlignment(1, sample)
+					fr := frame.NewUnary(dataCh, s)
+					decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
+					for k, ds := range decoded.Entries() {
+						if k != dataCh {
+							continue
+						}
+						if hasPrev {
+							Expect(ds.AlignmentBounds().Lower).To(Equal(prevEnd))
+						}
+						prevEnd = ds.AlignmentBounds().Upper
+						hasPrev = true
 					}
-					prevEnd = ds.AlignmentBounds().Upper
-					hasPrev = true
+					sample++
 				}
-				sample++
-			}
-		})
+			},
+		)
 
 		// This test is a regression that ensures the codec is designed to handle
 		// race conditions between the encoding side and an upstream go-routines
@@ -521,402 +635,473 @@ var _ = Describe("Codec", func() {
 		// ignored.
 		Describe("Delayed Frames", func() {
 			Context("Empty Result", func() {
-				It("Should work correctly when a 'delayed' frame is provided ot the codec", func(ctx SpecContext) {
-					encoder := codec.NewDynamic(resolver)
-					decoder := codec.NewDynamic(resolver)
-					By("Correctly encoding and decoding when the two codecs are in sync")
-					Expect(decoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
-					Expect(encoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
+				It(
+					"Should work correctly when a 'delayed' frame is provided ot the codec",
+					func(ctx SpecContext) {
+						encoder := codec.NewDynamic(resolver)
+						decoder := codec.NewDynamic(resolver)
+						By(
+							"Correctly encoding and decoding when the two codecs are in sync",
+						)
+						Expect(decoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
+						Expect(encoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
 
-					frame1 := frame.NewUnary(
-						idxCh,
-						telem.NewSeriesSecondsTSV(1, 2, 3),
-					)
-					encoded := MustSucceed(encoder.Encode(ctx, frame1))
-					decoded := MustSucceed(decoder.Decode(encoded))
-					Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
+						frame1 := frame.NewUnary(
+							idxCh,
+							telem.NewSeriesSecondsTSV(1, 2, 3),
+						)
+						encoded := MustSucceed(encoder.Encode(ctx, frame1))
+						decoded := MustSucceed(decoder.Decode(encoded))
+						Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
-					Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
-					Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
-					delayedFrame1 := frame.NewUnary(
-						idxCh,
-						telem.NewSeriesV[float32](1, 2, 3, 4),
-					)
-					encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
-					decoded = MustSucceed(decoder.Decode(encoded))
-					Expect(decoded.Frame.KeysSlice()).To(BeEmpty())
-				})
+						Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
+						Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
+						delayedFrame1 := frame.NewUnary(
+							idxCh,
+							telem.NewSeriesV[float32](1, 2, 3, 4),
+						)
+						encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
+						decoded = MustSucceed(decoder.Decode(encoded))
+						Expect(decoded.Frame.KeysSlice()).To(BeEmpty())
+					},
+				)
 			})
 
 			Context("Non-Empty Result", func() {
-				It("Should work correctly when a 'delayed' frame is provided ot the codec", func(ctx SpecContext) {
-					encoder := codec.NewDynamic(resolver)
-					decoder := codec.NewDynamic(resolver)
-					By("Correctly encoding and decoding when the two codecs are in sync")
-					keys := []channel.Key{idxCh, dataCh}
-					Expect(decoder.Update(ctx, keys)).To(Succeed())
-					Expect(encoder.Update(ctx, keys)).To(Succeed())
+				It(
+					"Should work correctly when a 'delayed' frame is provided ot the codec",
+					func(ctx SpecContext) {
+						encoder := codec.NewDynamic(resolver)
+						decoder := codec.NewDynamic(resolver)
+						By(
+							"Correctly encoding and decoding when the two codecs are in sync",
+						)
+						keys := []channel.Key{idxCh, dataCh}
+						Expect(decoder.Update(ctx, keys)).To(Succeed())
+						Expect(encoder.Update(ctx, keys)).To(Succeed())
 
-					frame1 := frame.NewMulti(
-						keys,
-						[]telem.Series{
-							telem.NewSeriesSecondsTSV(1, 2, 3),
-							telem.NewSeriesV[float32](1, 2, 3),
-						},
-					)
-					encoded := MustSucceed(encoder.Encode(ctx, frame1))
-					decoded := MustSucceed(decoder.Decode(encoded))
-					Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
+						frame1 := frame.NewMulti(
+							keys,
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(1, 2, 3),
+								telem.NewSeriesV[float32](1, 2, 3),
+							},
+						)
+						encoded := MustSucceed(encoder.Encode(ctx, frame1))
+						decoded := MustSucceed(decoder.Decode(encoded))
+						Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
-					Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
-					Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
-					delayedFrame1 := frame.NewMulti(
-						keys,
-						[]telem.Series{
-							telem.NewSeriesSecondsTSV(1, 2, 3),
-							telem.NewSeriesV[float32](1, 2, 3),
-						},
-					)
-					encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
-					decoded = MustSucceed(decoder.Decode(encoded))
-					Expect(decoded.Frame.KeysSlice()).To(HaveLen(1))
-				})
+						Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
+						Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
+						delayedFrame1 := frame.NewMulti(
+							keys,
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(1, 2, 3),
+								telem.NewSeriesV[float32](1, 2, 3),
+							},
+						)
+						encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
+						decoded = MustSucceed(decoder.Decode(encoded))
+						Expect(decoded.Frame.KeysSlice()).To(HaveLen(1))
+					},
+				)
 			})
 		})
 	})
 
 	Describe("Sorter Reuse", func() {
-		It("Should correctly handle encoding frames of varying sizes sequentially", func(ctx SpecContext) {
-			keys := channel.Keys{1, 2, 3, 4, 5}
-			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Int64T, telem.Uint8T, telem.Float64T}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should correctly handle encoding frames of varying sizes sequentially",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1, 2, 3, 4, 5}
+				dataTypes := []telem.DataType{
+					telem.Int32T,
+					telem.Float32T,
+					telem.Int64T,
+					telem.Uint8T,
+					telem.Float64T,
+				}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			largeFrame := frame.NewMulti(
-				channel.Keys{5, 3, 1, 4, 2},
-				[]telem.Series{
-					telem.NewSeriesV(1.1, 2.2, 3.3),
-					telem.NewSeriesV[int64](100, 200, 300),
-					telem.NewSeriesV[int32](1, 2, 3),
-					telem.NewSeriesV[uint8](10, 20, 30),
-					telem.NewSeriesV[float32](4.4, 5.5, 6.6),
-				},
-			)
-			encoded1 := MustSucceed(codec.Encode(ctx, largeFrame))
-			decoded1 := MustSucceed(codec.Decode(encoded1))
-			Expect(largeFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
+				largeFrame := frame.NewMulti(
+					channel.Keys{5, 3, 1, 4, 2},
+					[]telem.Series{
+						telem.NewSeriesV(1.1, 2.2, 3.3),
+						telem.NewSeriesV[int64](100, 200, 300),
+						telem.NewSeriesV[int32](1, 2, 3),
+						telem.NewSeriesV[uint8](10, 20, 30),
+						telem.NewSeriesV[float32](4.4, 5.5, 6.6),
+					},
+				)
+				encoded1 := MustSucceed(codec.Encode(ctx, largeFrame))
+				decoded1 := MustSucceed(codec.Decode(encoded1))
+				Expect(largeFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
 
-			smallFrame := frame.NewMulti(
-				channel.Keys{2, 4},
-				[]telem.Series{
-					telem.NewSeriesV[float32](7.7, 8.8),
-					telem.NewSeriesV[uint8](40, 50),
-				},
-			)
-			encoded2 := MustSucceed(codec.Encode(ctx, smallFrame))
-			decoded2 := MustSucceed(codec.Decode(encoded2))
-			Expect(smallFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
+				smallFrame := frame.NewMulti(
+					channel.Keys{2, 4},
+					[]telem.Series{
+						telem.NewSeriesV[float32](7.7, 8.8),
+						telem.NewSeriesV[uint8](40, 50),
+					},
+				)
+				encoded2 := MustSucceed(codec.Encode(ctx, smallFrame))
+				decoded2 := MustSucceed(codec.Decode(encoded2))
+				Expect(smallFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
 
-			anotherLargeFrame := frame.NewMulti(
-				channel.Keys{4, 2, 1, 3},
-				[]telem.Series{
-					telem.NewSeriesV[uint8](60, 70, 80, 90),
-					telem.NewSeriesV[float32](9.9, 10.10),
-					telem.NewSeriesV[int32](4, 5, 6, 7, 8),
-					telem.NewSeriesV[int64](400, 500),
-				},
-			)
-			encoded3 := MustSucceed(codec.Encode(ctx, anotherLargeFrame))
-			decoded3 := MustSucceed(codec.Decode(encoded3))
-			Expect(anotherLargeFrame.Frame).To(telem.MatchFrame(decoded3.Frame))
+				anotherLargeFrame := frame.NewMulti(
+					channel.Keys{4, 2, 1, 3},
+					[]telem.Series{
+						telem.NewSeriesV[uint8](60, 70, 80, 90),
+						telem.NewSeriesV[float32](9.9, 10.10),
+						telem.NewSeriesV[int32](4, 5, 6, 7, 8),
+						telem.NewSeriesV[int64](400, 500),
+					},
+				)
+				encoded3 := MustSucceed(codec.Encode(ctx, anotherLargeFrame))
+				decoded3 := MustSucceed(codec.Decode(encoded3))
+				Expect(anotherLargeFrame.Frame).To(telem.MatchFrame(decoded3.Frame))
 
-			emptyFrame := frame.Frame{}
-			encoded4 := MustSucceed(codec.Encode(ctx, emptyFrame))
-			decoded4 := MustSucceed(codec.Decode(encoded4))
-			Expect(emptyFrame.Frame).To(telem.MatchFrame(decoded4.Frame))
-		})
+				emptyFrame := frame.Frame{}
+				encoded4 := MustSucceed(codec.Encode(ctx, emptyFrame))
+				decoded4 := MustSucceed(codec.Decode(encoded4))
+				Expect(emptyFrame.Frame).To(telem.MatchFrame(decoded4.Frame))
+			},
+		)
 	})
 
 	Describe("Duplicate Channel Keys Sorting", func() {
-		It("Should correctly sort and encode frames with duplicate channel keys", func(ctx SpecContext) {
-			keys := channel.Keys{10, 20, 30}
-			dataTypes := []telem.DataType{telem.Int32T, telem.Float64T, telem.Uint8T}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should correctly sort and encode frames with duplicate channel keys",
+			func(ctx SpecContext) {
+				keys := channel.Keys{10, 20, 30}
+				dataTypes := []telem.DataType{
+					telem.Int32T,
+					telem.Float64T,
+					telem.Uint8T,
+				}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			// Create frame with multiple series for the same channels in random order
-			frame := frame.NewMulti(
-				channel.Keys{20, 10, 30, 10, 20, 30, 10},
-				[]telem.Series{
-					telem.NewSeriesV(1.1, 2.2),                  // channel 20
-					telem.NewSeriesV[int32](100, 200, 300),      // channel 10
-					telem.NewSeriesV[uint8](5, 6, 7),            // channel 30
-					telem.NewSeriesV[int32](400, 500),           // channel 10
-					telem.NewSeriesV(3.3, 4.4, 5.5),             // channel 20
-					telem.NewSeriesV[uint8](8, 9),               // channel 30
-					telem.NewSeriesV[int32](600, 700, 800, 900), // channel 10
-				},
-			)
+				// Create frame with multiple series for the same channels in random
+				// order
+				frame := frame.NewMulti(
+					channel.Keys{20, 10, 30, 10, 20, 30, 10},
+					[]telem.Series{
+						telem.NewSeriesV(1.1, 2.2),                  // channel 20
+						telem.NewSeriesV[int32](100, 200, 300),      // channel 10
+						telem.NewSeriesV[uint8](5, 6, 7),            // channel 30
+						telem.NewSeriesV[int32](400, 500),           // channel 10
+						telem.NewSeriesV(3.3, 4.4, 5.5),             // channel 20
+						telem.NewSeriesV[uint8](8, 9),               // channel 30
+						telem.NewSeriesV[int32](600, 700, 800, 900), // channel 10
+					},
+				)
 
-			encoded := MustSucceed(codec.Encode(ctx, frame))
-			decoded := MustSucceed(codec.Decode(encoded))
+				encoded := MustSucceed(codec.Encode(ctx, frame))
+				decoded := MustSucceed(codec.Decode(encoded))
 
-			Expect(decoded.Count()).To(Equal(7))
+				Expect(decoded.Count()).To(Equal(7))
 
-			ch10Series := decoded.Get(10)
-			Expect(ch10Series.Series).To(HaveLen(3))
-			ch20Series := decoded.Get(20)
-			Expect(ch20Series.Series).To(HaveLen(2))
-			ch30Series := decoded.Get(30)
-			Expect(ch30Series.Series).To(HaveLen(2))
+				ch10Series := decoded.Get(10)
+				Expect(ch10Series.Series).To(HaveLen(3))
+				ch20Series := decoded.Get(20)
+				Expect(ch20Series.Series).To(HaveLen(2))
+				ch30Series := decoded.Get(30)
+				Expect(ch30Series.Series).To(HaveLen(2))
 
-			Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
-		})
+				Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
+			},
+		)
 	})
 
 	Describe("Edge Cases", func() {
-		It("Should handle frames with very large channel key values", func(ctx SpecContext) {
-			keys := channel.Keys{channel.Key(^uint32(0)), channel.Key(^uint32(0) - 1), channel.Key(1)}
-			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint64T}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should handle frames with very large channel key values",
+			func(ctx SpecContext) {
+				keys := channel.Keys{
+					channel.Key(^uint32(0)),
+					channel.Key(^uint32(0) - 1),
+					channel.Key(1),
+				}
+				dataTypes := []telem.DataType{
+					telem.Int32T,
+					telem.Float32T,
+					telem.Uint64T,
+				}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			frame := frame.NewMulti(
-				channel.Keys{channel.Key(^uint32(0) - 1), channel.Key(^uint32(0)), channel.Key(1)},
-				[]telem.Series{
-					telem.NewSeriesV[float32](1.1, 2.2, 3.3),
-					telem.NewSeriesV[int32](10, 20, 30),
-					telem.NewSeriesV[uint64](100, 200, 300),
-				},
-			)
+				frame := frame.NewMulti(
+					channel.Keys{
+						channel.Key(^uint32(0) - 1),
+						channel.Key(^uint32(0)),
+						channel.Key(1),
+					},
+					[]telem.Series{
+						telem.NewSeriesV[float32](1.1, 2.2, 3.3),
+						telem.NewSeriesV[int32](10, 20, 30),
+						telem.NewSeriesV[uint64](100, 200, 300),
+					},
+				)
 
-			encoded := MustSucceed(codec.Encode(ctx, frame))
-			decoded := MustSucceed(codec.Decode(encoded))
-			Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
-		})
+				encoded := MustSucceed(codec.Encode(ctx, frame))
+				decoded := MustSucceed(codec.Decode(encoded))
+				Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
+			},
+		)
 
-		It("Should handle encoding after an empty frame (sorter reset edge case)", func(ctx SpecContext) {
-			keys := channel.Keys{5, 10, 15}
-			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T, telem.Uint8T}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should handle encoding after an empty frame (sorter reset edge case)",
+			func(ctx SpecContext) {
+				keys := channel.Keys{5, 10, 15}
+				dataTypes := []telem.DataType{
+					telem.Int32T,
+					telem.Float32T,
+					telem.Uint8T,
+				}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			frame1 := frame.NewMulti(
-				channel.Keys{15, 5, 10},
-				[]telem.Series{
-					telem.NewSeriesV[uint8](1, 2, 3),
-					telem.NewSeriesV[int32](10, 20),
-					telem.NewSeriesV[float32](1.5, 2.5, 3.5),
-				},
-			)
-			encoded1 := MustSucceed(codec.Encode(ctx, frame1))
-			decoded1 := MustSucceed(codec.Decode(encoded1))
-			Expect(frame1.Frame).To(telem.MatchFrame(decoded1.Frame))
+				frame1 := frame.NewMulti(
+					channel.Keys{15, 5, 10},
+					[]telem.Series{
+						telem.NewSeriesV[uint8](1, 2, 3),
+						telem.NewSeriesV[int32](10, 20),
+						telem.NewSeriesV[float32](1.5, 2.5, 3.5),
+					},
+				)
+				encoded1 := MustSucceed(codec.Encode(ctx, frame1))
+				decoded1 := MustSucceed(codec.Decode(encoded1))
+				Expect(frame1.Frame).To(telem.MatchFrame(decoded1.Frame))
 
-			emptyFrame := frame.Frame{}
-			encoded2 := MustSucceed(codec.Encode(ctx, emptyFrame))
-			decoded2 := MustSucceed(codec.Decode(encoded2))
-			Expect(decoded2.Empty()).To(BeTrue())
+				emptyFrame := frame.Frame{}
+				encoded2 := MustSucceed(codec.Encode(ctx, emptyFrame))
+				decoded2 := MustSucceed(codec.Decode(encoded2))
+				Expect(decoded2.Empty()).To(BeTrue())
 
-			frame3 := frame.NewMulti(
-				channel.Keys{10, 5},
-				[]telem.Series{
-					telem.NewSeriesV[float32](4.5, 5.5),
-					telem.NewSeriesV[int32](30, 40, 50),
-				},
-			)
-			encoded3 := MustSucceed(codec.Encode(ctx, frame3))
-			decoded3 := MustSucceed(codec.Decode(encoded3))
-			Expect(frame3.Frame).To(telem.MatchFrame(decoded3.Frame))
-		})
+				frame3 := frame.NewMulti(
+					channel.Keys{10, 5},
+					[]telem.Series{
+						telem.NewSeriesV[float32](4.5, 5.5),
+						telem.NewSeriesV[int32](30, 40, 50),
+					},
+				)
+				encoded3 := MustSucceed(codec.Encode(ctx, frame3))
+				decoded3 := MustSucceed(codec.Decode(encoded3))
+				Expect(frame3.Frame).To(telem.MatchFrame(decoded3.Frame))
+			},
+		)
 
-		It("Should handle single channel frame after multi-channel frame", func(ctx SpecContext) {
-			keys := channel.Keys{100, 200, 300}
-			dataTypes := []telem.DataType{telem.Int64T, telem.Float64T, telem.StringT}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should handle single channel frame after multi-channel frame",
+			func(ctx SpecContext) {
+				keys := channel.Keys{100, 200, 300}
+				dataTypes := []telem.DataType{
+					telem.Int64T,
+					telem.Float64T,
+					telem.StringT,
+				}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			multiFrame := frame.NewMulti(
-				channel.Keys{300, 100, 200},
-				[]telem.Series{
-					telem.NewSeriesV("hello", "world"),
-					telem.NewSeriesV[int64](1000, 2000, 3000),
-					telem.NewSeriesV(1.111, 2.222),
-				},
-			)
-			encoded1 := MustSucceed(codec.Encode(ctx, multiFrame))
-			decoded1 := MustSucceed(codec.Decode(encoded1))
-			Expect(multiFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
+				multiFrame := frame.NewMulti(
+					channel.Keys{300, 100, 200},
+					[]telem.Series{
+						telem.NewSeriesV("hello", "world"),
+						telem.NewSeriesV[int64](1000, 2000, 3000),
+						telem.NewSeriesV(1.111, 2.222),
+					},
+				)
+				encoded1 := MustSucceed(codec.Encode(ctx, multiFrame))
+				decoded1 := MustSucceed(codec.Decode(encoded1))
+				Expect(multiFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
 
-			singleFrame := frame.NewUnary(200, telem.NewSeriesV(9.999))
-			encoded2 := MustSucceed(codec.Encode(ctx, singleFrame))
-			decoded2 := MustSucceed(codec.Decode(encoded2))
-			Expect(singleFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
-		})
+				singleFrame := frame.NewUnary(200, telem.NewSeriesV(9.999))
+				encoded2 := MustSucceed(codec.Encode(ctx, singleFrame))
+				decoded2 := MustSucceed(codec.Decode(encoded2))
+				Expect(singleFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
+			},
+		)
 	})
 
 	Describe("Alignment Compression", func() {
-		It("Should merge two contiguous series for the same channel", func(ctx SpecContext) {
-			keys := channel.Keys{1}
-			dataTypes := []telem.DataType{telem.Int32T}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should merge two contiguous series for the same channel",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1}
+				dataTypes := []telem.DataType{telem.Int32T}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			// Create two series with contiguous alignments
-			// Series 1: alignment 0, length 3 -> bounds [0, 3)
-			// Series 2: alignment 3, length 2 -> bounds [3, 5)
-			// These should merge into one series
-			s1 := telem.NewSeriesV[int32](1, 2, 3)
-			s1.Alignment = 0
-			s2 := telem.NewSeriesV[int32](4, 5)
-			s2.Alignment = 3
+				// Create two series with contiguous alignments
+				// Series 1: alignment 0, length 3 -> bounds [0, 3)
+				// Series 2: alignment 3, length 2 -> bounds [3, 5)
+				// These should merge into one series
+				s1 := telem.NewSeriesV[int32](1, 2, 3)
+				s1.Alignment = 0
+				s2 := telem.NewSeriesV[int32](4, 5)
+				s2.Alignment = 3
 
-			frame := frame.NewMulti(
-				channel.Keys{1, 1},
-				[]telem.Series{s1, s2},
-			)
+				frame := frame.NewMulti(
+					channel.Keys{1, 1},
+					[]telem.Series{s1, s2},
+				)
 
-			encoded := MustSucceed(codec.Encode(ctx, frame))
-			decoded := MustSucceed(codec.Decode(encoded))
+				encoded := MustSucceed(codec.Encode(ctx, frame))
+				decoded := MustSucceed(codec.Decode(encoded))
 
-			// After merging, we should have only one series
-			Expect(decoded.Count()).To(Equal(1))
+				// After merging, we should have only one series
+				Expect(decoded.Count()).To(Equal(1))
 
-			// Verify the data is correct (concatenated)
-			series := decoded.Get(1)
-			Expect(series.Series).To(HaveLen(1))
-			mergedData := telem.UnmarshalSeries[int32](series.Series[0])
-			Expect(mergedData).To(Equal([]int32{1, 2, 3, 4, 5}))
+				// Verify the data is correct (concatenated)
+				series := decoded.Get(1)
+				Expect(series.Series).To(HaveLen(1))
+				mergedData := telem.UnmarshalSeries[int32](series.Series[0])
+				Expect(mergedData).To(Equal([]int32{1, 2, 3, 4, 5}))
 
-			// Verify alignment is from the first series
-			Expect(series.Series[0].Alignment).To(Equal(telem.Alignment(0)))
-		})
+				// Verify alignment is from the first series
+				Expect(series.Series[0].Alignment).To(Equal(telem.Alignment(0)))
+			},
+		)
 
-		It("Should merge three contiguous series for the same channel", func(ctx SpecContext) {
-			keys := channel.Keys{1}
-			dataTypes := []telem.DataType{telem.Uint8T}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should merge three contiguous series for the same channel",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1}
+				dataTypes := []telem.DataType{telem.Uint8T}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			s1 := telem.NewSeriesV[uint8](1, 2)
-			s1.Alignment = 0
-			s2 := telem.NewSeriesV[uint8](3, 4, 5)
-			s2.Alignment = 2
-			s3 := telem.NewSeriesV[uint8](6)
-			s3.Alignment = 5
+				s1 := telem.NewSeriesV[uint8](1, 2)
+				s1.Alignment = 0
+				s2 := telem.NewSeriesV[uint8](3, 4, 5)
+				s2.Alignment = 2
+				s3 := telem.NewSeriesV[uint8](6)
+				s3.Alignment = 5
 
-			frame := frame.NewMulti(
-				channel.Keys{1, 1, 1},
-				[]telem.Series{s1, s2, s3},
-			)
+				frame := frame.NewMulti(
+					channel.Keys{1, 1, 1},
+					[]telem.Series{s1, s2, s3},
+				)
 
-			encoded := MustSucceed(codec.Encode(ctx, frame))
-			decoded := MustSucceed(codec.Decode(encoded))
+				encoded := MustSucceed(codec.Encode(ctx, frame))
+				decoded := MustSucceed(codec.Decode(encoded))
 
-			Expect(decoded.Count()).To(Equal(1))
-			series := decoded.Get(1)
-			Expect(series.Series).To(HaveLen(1))
-			mergedData := telem.UnmarshalSeries[uint8](series.Series[0])
-			Expect(mergedData).To(Equal([]uint8{1, 2, 3, 4, 5, 6}))
-		})
+				Expect(decoded.Count()).To(Equal(1))
+				series := decoded.Get(1)
+				Expect(series.Series).To(HaveLen(1))
+				mergedData := telem.UnmarshalSeries[uint8](series.Series[0])
+				Expect(mergedData).To(Equal([]uint8{1, 2, 3, 4, 5, 6}))
+			},
+		)
 
-		It("Should not merge non-contiguous series for the same channel", func(ctx SpecContext) {
-			keys := channel.Keys{1}
-			dataTypes := []telem.DataType{telem.Int32T}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should not merge non-contiguous series for the same channel",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1}
+				dataTypes := []telem.DataType{telem.Int32T}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			// Gap between series: s1 ends at 3, s2 starts at 5
-			s1 := telem.NewSeriesV[int32](1, 2, 3)
-			s1.Alignment = 0
-			s2 := telem.NewSeriesV[int32](4, 5)
-			s2.Alignment = 5 // Gap! Previous ends at 3
+				// Gap between series: s1 ends at 3, s2 starts at 5
+				s1 := telem.NewSeriesV[int32](1, 2, 3)
+				s1.Alignment = 0
+				s2 := telem.NewSeriesV[int32](4, 5)
+				s2.Alignment = 5 // Gap! Previous ends at 3
 
-			frame := frame.NewMulti(
-				channel.Keys{1, 1},
-				[]telem.Series{s1, s2},
-			)
+				frame := frame.NewMulti(
+					channel.Keys{1, 1},
+					[]telem.Series{s1, s2},
+				)
 
-			encoded := MustSucceed(codec.Encode(ctx, frame))
-			decoded := MustSucceed(codec.Decode(encoded))
+				encoded := MustSucceed(codec.Encode(ctx, frame))
+				decoded := MustSucceed(codec.Decode(encoded))
 
-			// Should have two separate series
-			Expect(decoded.Count()).To(Equal(2))
-			series := decoded.Get(1)
-			Expect(series.Series).To(HaveLen(2))
-		})
+				// Should have two separate series
+				Expect(decoded.Count()).To(Equal(2))
+				series := decoded.Get(1)
+				Expect(series.Series).To(HaveLen(2))
+			},
+		)
 
-		It("Should handle mixed contiguous and non-contiguous series", func(ctx SpecContext) {
-			keys := channel.Keys{1}
-			dataTypes := []telem.DataType{telem.Int32T}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should handle mixed contiguous and non-contiguous series",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1}
+				dataTypes := []telem.DataType{telem.Int32T}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			// s1 and s2 are contiguous (merge)
-			// s3 has gap (don't merge)
-			// s4 continues s3 (don't merge with s1+s2, but keep separate)
-			s1 := telem.NewSeriesV[int32](1, 2)
-			s1.Alignment = 0
-			s2 := telem.NewSeriesV[int32](3, 4)
-			s2.Alignment = 2
-			s3 := telem.NewSeriesV[int32](5)
-			s3.Alignment = 10 // Gap!
-			s4 := telem.NewSeriesV[int32](6)
-			s4.Alignment = 11 // Contiguous with s3
+				// s1 and s2 are contiguous (merge)
+				// s3 has gap (don't merge)
+				// s4 continues s3 (don't merge with s1+s2, but keep separate)
+				s1 := telem.NewSeriesV[int32](1, 2)
+				s1.Alignment = 0
+				s2 := telem.NewSeriesV[int32](3, 4)
+				s2.Alignment = 2
+				s3 := telem.NewSeriesV[int32](5)
+				s3.Alignment = 10 // Gap!
+				s4 := telem.NewSeriesV[int32](6)
+				s4.Alignment = 11 // Contiguous with s3
 
-			frame := frame.NewMulti(
-				channel.Keys{1, 1, 1, 1},
-				[]telem.Series{s1, s2, s3, s4},
-			)
+				frame := frame.NewMulti(
+					channel.Keys{1, 1, 1, 1},
+					[]telem.Series{s1, s2, s3, s4},
+				)
 
-			encoded := MustSucceed(codec.Encode(ctx, frame))
-			decoded := MustSucceed(codec.Decode(encoded))
+				encoded := MustSucceed(codec.Encode(ctx, frame))
+				decoded := MustSucceed(codec.Decode(encoded))
 
-			// Should have 2 merged series: [s1+s2] and [s3+s4]
-			Expect(decoded.Count()).To(Equal(2))
-			series := decoded.Get(1)
-			Expect(series.Series).To(HaveLen(2))
+				// Should have 2 merged series: [s1+s2] and [s3+s4]
+				Expect(decoded.Count()).To(Equal(2))
+				series := decoded.Get(1)
+				Expect(series.Series).To(HaveLen(2))
 
-			// First merged series should be [1, 2, 3, 4]
-			firstData := telem.UnmarshalSeries[int32](series.Series[0])
-			Expect(firstData).To(Equal([]int32{1, 2, 3, 4}))
+				// First merged series should be [1, 2, 3, 4]
+				firstData := telem.UnmarshalSeries[int32](series.Series[0])
+				Expect(firstData).To(Equal([]int32{1, 2, 3, 4}))
 
-			// Second merged series should be [5, 6]
-			secondData := telem.UnmarshalSeries[int32](series.Series[1])
-			Expect(secondData).To(Equal([]int32{5, 6}))
-		})
+				// Second merged series should be [5, 6]
+				secondData := telem.UnmarshalSeries[int32](series.Series[1])
+				Expect(secondData).To(Equal([]int32{5, 6}))
+			},
+		)
 
-		It("Should merge series for multiple channels independently", func(ctx SpecContext) {
-			keys := channel.Keys{1, 2}
-			dataTypes := []telem.DataType{telem.Int32T, telem.Float32T}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should merge series for multiple channels independently",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1, 2}
+				dataTypes := []telem.DataType{telem.Int32T, telem.Float32T}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			// Channel 1: two contiguous series
-			s1Ch1 := telem.NewSeriesV[int32](1, 2)
-			s1Ch1.Alignment = 0
-			s2Ch1 := telem.NewSeriesV[int32](3, 4)
-			s2Ch1.Alignment = 2
+				// Channel 1: two contiguous series
+				s1Ch1 := telem.NewSeriesV[int32](1, 2)
+				s1Ch1.Alignment = 0
+				s2Ch1 := telem.NewSeriesV[int32](3, 4)
+				s2Ch1.Alignment = 2
 
-			// Channel 2: two contiguous series
-			s1Ch2 := telem.NewSeriesV[float32](1.1, 2.2, 3.3)
-			s1Ch2.Alignment = 5
-			s2Ch2 := telem.NewSeriesV[float32](4.4)
-			s2Ch2.Alignment = 8
+				// Channel 2: two contiguous series
+				s1Ch2 := telem.NewSeriesV[float32](1.1, 2.2, 3.3)
+				s1Ch2.Alignment = 5
+				s2Ch2 := telem.NewSeriesV[float32](4.4)
+				s2Ch2.Alignment = 8
 
-			frame := frame.NewMulti(
-				channel.Keys{1, 1, 2, 2},
-				[]telem.Series{s1Ch1, s2Ch1, s1Ch2, s2Ch2},
-			)
+				frame := frame.NewMulti(
+					channel.Keys{1, 1, 2, 2},
+					[]telem.Series{s1Ch1, s2Ch1, s1Ch2, s2Ch2},
+				)
 
-			encoded := MustSucceed(codec.Encode(ctx, frame))
-			decoded := MustSucceed(codec.Decode(encoded))
+				encoded := MustSucceed(codec.Encode(ctx, frame))
+				decoded := MustSucceed(codec.Decode(encoded))
 
-			// Should have 2 series total (one per channel)
-			Expect(decoded.Count()).To(Equal(2))
+				// Should have 2 series total (one per channel)
+				Expect(decoded.Count()).To(Equal(2))
 
-			// Channel 1 should have merged series
-			ch1Series := decoded.Get(1)
-			Expect(ch1Series.Series).To(HaveLen(1))
-			ch1Data := telem.UnmarshalSeries[int32](ch1Series.Series[0])
-			Expect(ch1Data).To(Equal([]int32{1, 2, 3, 4}))
+				// Channel 1 should have merged series
+				ch1Series := decoded.Get(1)
+				Expect(ch1Series.Series).To(HaveLen(1))
+				ch1Data := telem.UnmarshalSeries[int32](ch1Series.Series[0])
+				Expect(ch1Data).To(Equal([]int32{1, 2, 3, 4}))
 
-			// Channel 2 should have merged series
-			ch2Series := decoded.Get(2)
-			Expect(ch2Series.Series).To(HaveLen(1))
-			ch2Data := telem.UnmarshalSeries[float32](ch2Series.Series[0])
-			Expect(ch2Data).To(Equal([]float32{1.1, 2.2, 3.3, 4.4}))
-		})
+				// Channel 2 should have merged series
+				ch2Series := decoded.Get(2)
+				Expect(ch2Series.Series).To(HaveLen(1))
+				ch2Data := telem.UnmarshalSeries[float32](ch2Series.Series[0])
+				Expect(ch2Data).To(Equal([]float32{1.1, 2.2, 3.3, 4.4}))
+			},
+		)
 
 		It("Should merge series with zero alignments", func(ctx SpecContext) {
 			keys := channel.Keys{1}
@@ -980,146 +1165,173 @@ var _ = Describe("Codec", func() {
 			Expect(mergedSeries.TimeRange.End).To(Equal(telem.TimeStamp(300)))
 		})
 
-		It("Should preserve variable-density types when merging", func(ctx SpecContext) {
-			keys := channel.Keys{1}
-			dataTypes := []telem.DataType{telem.StringT}
-			codec := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should preserve variable-density types when merging",
+			func(ctx SpecContext) {
+				keys := channel.Keys{1}
+				dataTypes := []telem.DataType{telem.StringT}
+				codec := codec.NewStatic(keys, dataTypes)
 
-			s1 := telem.NewSeriesV("hello", "world")
-			s1.Alignment = 0
+				s1 := telem.NewSeriesV("hello", "world")
+				s1.Alignment = 0
 
-			s2 := telem.NewSeriesV("foo")
-			s2.Alignment = 2
+				s2 := telem.NewSeriesV("foo")
+				s2.Alignment = 2
 
-			frame := frame.NewMulti(
-				channel.Keys{1, 1},
-				[]telem.Series{s1, s2},
-			)
+				frame := frame.NewMulti(
+					channel.Keys{1, 1},
+					[]telem.Series{s1, s2},
+				)
 
-			encoded := MustSucceed(codec.Encode(ctx, frame))
-			decoded := MustSucceed(codec.Decode(encoded))
+				encoded := MustSucceed(codec.Encode(ctx, frame))
+				decoded := MustSucceed(codec.Decode(encoded))
 
-			Expect(decoded.Count()).To(Equal(1))
-			series := decoded.Get(1)
-			Expect(series.Series).To(HaveLen(1))
+				Expect(decoded.Count()).To(Equal(1))
+				series := decoded.Get(1)
+				Expect(series.Series).To(HaveLen(1))
 
-			// Data should be concatenated correctly
-			mergedStrings := telem.UnmarshalSeries[string](series.Series[0])
-			Expect(mergedStrings).To(Equal([]string{"hello", "world", "foo"}))
-		})
+				// Data should be concatenated correctly
+				mergedStrings := telem.UnmarshalSeries[string](series.Series[0])
+				Expect(mergedStrings).To(Equal([]string{"hello", "world", "foo"}))
+			},
+		)
 	})
 
 	Describe("All Channels Present Flag", func() {
-		It("Should not set the flag when the merged series count matches the state but the keys do not correspond 1-to-1", func(ctx SpecContext) {
-			// Regression for SY-3556: multi-domain iterator frames produce multiple
-			// series for a single channel. When that count happens to equal the number
-			// of channels in the codec state, the encoder used to set
-			// allChannelsPresent=true and skip per-series keys, causing the decoder to
-			// read each series under the wrong state key.
-			keys := channel.Keys{1, 2}
-			dataTypes := []telem.DataType{telem.Int32T, telem.Float64T}
-			cd := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should not set the flag when the merged series count matches the state but the keys do not correspond 1-to-1",
+			func(ctx SpecContext) {
+				// Regression for SY-3556: multi-domain iterator frames produce multiple
+				// series for a single channel. When that count happens to equal the
+				// number of channels in the codec state, the encoder used to set
+				// allChannelsPresent=true and skip per-series keys, causing the decoder
+				// to read each series under the wrong state key.
+				keys := channel.Keys{1, 2}
+				dataTypes := []telem.DataType{telem.Int32T, telem.Float64T}
+				cd := codec.NewStatic(keys, dataTypes)
 
-			// Two series but BOTH for channel 2 (channel 1 has no data in this frame).
-			// len(merged) == len(state.keys) == 2, but the keys don't match the state
-			// ordering.
-			s1 := telem.NewSeriesV[float64](10)
-			s1.Alignment = 0
-			s2 := telem.NewSeriesV[float64](20, 21)
-			s2.Alignment = 100 // gap forces non-merged
-			fr := frame.NewMulti(channel.Keys{2, 2}, []telem.Series{s1, s2})
+				// Two series but BOTH for channel 2 (channel 1 has no data in this
+				// frame). len(merged) == len(state.keys) == 2, but the keys don't match
+				// the state ordering.
+				s1 := telem.NewSeriesV[float64](10)
+				s1.Alignment = 0
+				s2 := telem.NewSeriesV[float64](20, 21)
+				s2.Alignment = 100 // gap forces non-merged
+				fr := frame.NewMulti(channel.Keys{2, 2}, []telem.Series{s1, s2})
 
-			encoded := MustSucceed(cd.Encode(ctx, fr))
-			decoded := MustSucceed(cd.Decode(encoded))
+				encoded := MustSucceed(cd.Encode(ctx, fr))
+				decoded := MustSucceed(cd.Decode(encoded))
 
-			Expect(decoded.KeysSlice()).To(Equal([]channel.Key{2, 2}))
-			Expect(decoded.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[float64](10)))
-			Expect(decoded.SeriesAt(1)).To(telem.MatchSeriesData(telem.NewSeriesV[float64](20, 21)))
-		})
+				Expect(decoded.KeysSlice()).To(Equal([]channel.Key{2, 2}))
+				Expect(
+					decoded.SeriesAt(0),
+				).To(telem.MatchSeriesData(telem.NewSeriesV[float64](10)))
+				Expect(
+					decoded.SeriesAt(1),
+				).To(telem.MatchSeriesData(telem.NewSeriesV[float64](20, 21)))
+			},
+		)
 
-		It("Should round-trip a multi-domain frame that spans every state channel", func(ctx SpecContext) {
-			// The iterator's typical "across-domains" shape: each channel appears twice
-			// (one series per domain). len(merged) = 4 != 2 so allChannelsPresent must
-			// be false even before this fix, but the decoder still has to walk
-			// per-series keys correctly.
-			keys := channel.Keys{1, 2}
-			dataTypes := []telem.DataType{telem.TimeStampT, telem.Float64T}
-			cd := codec.NewStatic(keys, dataTypes)
+		It(
+			"Should round-trip a multi-domain frame that spans every state channel",
+			func(ctx SpecContext) {
+				// The iterator's typical "across-domains" shape: each channel appears
+				// twice (one series per domain). len(merged) = 4 != 2 so
+				// allChannelsPresent must be false even before this fix, but the
+				// decoder still has to walk per-series keys correctly.
+				keys := channel.Keys{1, 2}
+				dataTypes := []telem.DataType{telem.TimeStampT, telem.Float64T}
+				cd := codec.NewStatic(keys, dataTypes)
 
-			idxA := telem.NewSeriesSecondsTSV(3)
-			idxA.Alignment = 1
-			datA := telem.NewSeriesV[float64](3)
-			datA.Alignment = 1
-			idxB := telem.NewSeriesSecondsTSV(101, 102)
-			idxB.Alignment = 100
-			datB := telem.NewSeriesV[float64](10, 11)
-			datB.Alignment = 100
+				idxA := telem.NewSeriesSecondsTSV(3)
+				idxA.Alignment = 1
+				datA := telem.NewSeriesV[float64](3)
+				datA.Alignment = 1
+				idxB := telem.NewSeriesSecondsTSV(101, 102)
+				idxB.Alignment = 100
+				datB := telem.NewSeriesV[float64](10, 11)
+				datB.Alignment = 100
 
-			fr := frame.NewMulti(
-				channel.Keys{1, 2, 1, 2},
-				[]telem.Series{idxA, datA, idxB, datB},
-			)
-			encoded := MustSucceed(cd.Encode(ctx, fr))
-			decoded := MustSucceed(cd.Decode(encoded))
+				fr := frame.NewMulti(
+					channel.Keys{1, 2, 1, 2},
+					[]telem.Series{idxA, datA, idxB, datB},
+				)
+				encoded := MustSucceed(cd.Encode(ctx, fr))
+				decoded := MustSucceed(cd.Decode(encoded))
 
-			Expect(decoded.Count()).To(Equal(4))
-			idx := decoded.Get(1)
-			Expect(idx.Series).To(HaveLen(2))
-			Expect(idx.Series[0]).To(telem.MatchSeriesData(idxA))
-			Expect(idx.Series[1]).To(telem.MatchSeriesData(idxB))
-			dat := decoded.Get(2)
-			Expect(dat.Series).To(HaveLen(2))
-			Expect(dat.Series[0]).To(telem.MatchSeriesData(datA))
-			Expect(dat.Series[1]).To(telem.MatchSeriesData(datB))
-		})
+				Expect(decoded.Count()).To(Equal(4))
+				idx := decoded.Get(1)
+				Expect(idx.Series).To(HaveLen(2))
+				Expect(idx.Series[0]).To(telem.MatchSeriesData(idxA))
+				Expect(idx.Series[1]).To(telem.MatchSeriesData(idxB))
+				dat := decoded.Get(2)
+				Expect(dat.Series).To(HaveLen(2))
+				Expect(dat.Series[0]).To(telem.MatchSeriesData(datA))
+				Expect(dat.Series[1]).To(telem.MatchSeriesData(datB))
+			},
+		)
 	})
 
 	Describe("Resolver", Ordered, func() {
 		ShouldNotLeakGoroutinesPerSpec()
 
-		It("Should return the error when the resolver fails to retrieve data types", func(ctx SpecContext) {
-			resolveErr := errors.New("failed to resolve data types")
-			c := codec.NewDynamic(configResolver{dataTypesErr: resolveErr})
-			Expect(c.Update(ctx, []channel.Key{1})).To(MatchError(resolveErr))
-		})
+		It(
+			"Should return the error when the resolver fails to retrieve data types",
+			func(ctx SpecContext) {
+				resolveErr := errors.New("failed to resolve data types")
+				c := codec.NewDynamic(configResolver{dataTypesErr: resolveErr})
+				Expect(c.Update(ctx, []channel.Key{1})).To(MatchError(resolveErr))
+			},
+		)
 
-		It("Should return an error when the resolver returns the wrong number of data types", func(ctx SpecContext) {
-			// Key 1 resolves but key 2 does not, so the resolver returns one data type
-			// for two keys.
-			c := codec.NewDynamic(configResolver{
-				dataTypes: map[channel.Key]telem.DataType{1: telem.TimeStampT},
-			})
-			Expect(c.Update(ctx, []channel.Key{1, 2})).To(MatchError(
-				ContainSubstring("resolver returned 1 data types for 2 channel keys"),
-			))
-		})
+		It(
+			"Should return an error when the resolver returns the wrong number of data types",
+			func(ctx SpecContext) {
+				// Key 1 resolves but key 2 does not, so the resolver returns one data
+				// type for two keys.
+				c := codec.NewDynamic(configResolver{
+					dataTypes: map[channel.Key]telem.DataType{1: telem.TimeStampT},
+				})
+				Expect(c.Update(ctx, []channel.Key{1, 2})).To(MatchError(
+					ContainSubstring(
+						"resolver returned 1 data types for 2 channel keys",
+					),
+				))
+			},
+		)
 
 		Describe("Name Resolution", func() {
-			It("Should include the resolved channel name in a data type mismatch error", func(ctx SpecContext) {
-				c := codec.NewDynamic(configResolver{
-					dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
-					name:      "my-channel",
-				})
-				Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
-				fr := frame.NewUnary(777, telem.NewSeriesSecondsTSV(1, 2, 3))
-				Expect(c.Encode(ctx, fr)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("my-channel")),
-				))
-			})
+			It(
+				"Should include the resolved channel name in a data type mismatch error",
+				func(ctx SpecContext) {
+					c := codec.NewDynamic(configResolver{
+						dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
+						name:      "my-channel",
+					})
+					Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
+					fr := frame.NewUnary(777, telem.NewSeriesSecondsTSV(1, 2, 3))
+					Expect(c.Encode(ctx, fr)).Error().To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("my-channel")),
+					))
+				},
+			)
 
-			It("Should fall back to the key string when the resolver returns an empty name", func(ctx SpecContext) {
-				c := codec.NewDynamic(configResolver{
-					dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
-					name:      "",
-				})
-				Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
-				fr := frame.NewUnary(777, telem.NewSeriesSecondsTSV(1, 2, 3))
-				Expect(c.Encode(ctx, fr)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(channel.Key(777).String())),
-				))
-			})
+			It(
+				"Should fall back to the key string when the resolver returns an empty name",
+				func(ctx SpecContext) {
+					c := codec.NewDynamic(configResolver{
+						dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
+						name:      "",
+					})
+					Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
+					fr := frame.NewUnary(777, telem.NewSeriesSecondsTSV(1, 2, 3))
+					Expect(c.Encode(ctx, fr)).Error().To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(channel.Key(777).String())),
+					))
+				},
+			)
 		})
 	})
 })
@@ -1560,7 +1772,12 @@ func BenchmarkIteratorFrame_Encode(b *testing.B) {
 		{8, 1, 10000},
 	}
 	for _, c := range cases {
-		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", c.channels, c.domains, c.samples)
+		name := fmt.Sprintf(
+			"channels=%d/domains=%d/samples=%d",
+			c.channels,
+			c.domains,
+			c.samples,
+		)
 		b.Run(name, func(b *testing.B) {
 			keys, dataTypes, fr := makeIteratorFrame(c.channels, c.domains, c.samples)
 			cd := codec.NewStatic(keys, dataTypes)
@@ -1590,7 +1807,12 @@ func BenchmarkIteratorFrame_Decode(b *testing.B) {
 		{64, 10, 100},
 	}
 	for _, c := range cases {
-		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", c.channels, c.domains, c.samples)
+		name := fmt.Sprintf(
+			"channels=%d/domains=%d/samples=%d",
+			c.channels,
+			c.domains,
+			c.samples,
+		)
 		b.Run(name, func(b *testing.B) {
 			keys, dataTypes, fr := makeIteratorFrame(c.channels, c.domains, c.samples)
 			cd := codec.NewStatic(keys, dataTypes)

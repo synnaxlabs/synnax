@@ -82,7 +82,10 @@ func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 		)
 	}
 	slice := yAxisSlice(&state.Channels, p.AxisKey)
-	*slice = slices.DeleteFunc(*slice, func(c channel.Key) bool { return c == p.Channel })
+	*slice = slices.DeleteFunc(
+		*slice,
+		func(c channel.Key) bool { return c == p.Channel },
+	)
 	state.Lines = reconcileLines(state)
 	return state, nil
 }
@@ -341,7 +344,10 @@ func (p SetRulePayload) Handle(state LinePlot) (LinePlot, error) {
 
 // Handle removes the rule with the given key. No-op when not present.
 func (p RemoveRulePayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Rules = slices.DeleteFunc(state.Rules, func(r Rule) bool { return r.Key == p.Key })
+	state.Rules = slices.DeleteFunc(
+		state.Rules,
+		func(r Rule) bool { return r.Key == p.Key },
+	)
 	return state, nil
 }
 

@@ -57,7 +57,11 @@ type flexTemplateData struct {
 func generateFlexMethods(fc FlexCodec) (string, error) {
 	cfg, ok := flexConfigMap[fc.BaseType]
 	if !ok {
-		return "", errors.Newf("unsupported flex base type %q for %s", fc.BaseType, fc.GoName)
+		return "", errors.Newf(
+			"unsupported flex base type %q for %s",
+			fc.BaseType,
+			fc.GoName,
+		)
 	}
 	data := flexTemplateData{
 		GoName:        fc.GoName,

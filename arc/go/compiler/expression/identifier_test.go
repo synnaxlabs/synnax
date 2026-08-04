@@ -40,49 +40,118 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I32()))
 		})
 
-		It("Should compile expressions using multiple local variables", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			scopeA := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "a", Kind: symbol.KindVariable, Type: types.I32()}))
-			Expect(scopeA).ToNot(BeNil())
-			scopeB := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "b", Kind: symbol.KindVariable, Type: types.I32()}))
-			Expect(scopeB).ToNot(BeNil())
-			// Compile expression using both variables
-			expr := MustSucceed(parser.ParseExpression("a + b"))
-			exprType := MustSucceed(expression.Compile(ccontext.Child(ctx, expr)))
-			bytecode := ctx.Writer.Bytes()
-			Expect(bytecode).To(MatchOpcodes(
-				OpLocalGet, 0, // Resolve 'a'
-				OpLocalGet, 1, // Resolve 'b'
-				OpI32Add, // Add them
-			))
-			Expect(exprType).To(Equal(types.I32()))
-		})
+		It(
+			"Should compile expressions using multiple local variables",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				scopeA := MustSucceed(
+					ctx.Scope.Add(
+						ctx,
+						symbol.Symbol{
+							Name: "a",
+							Kind: symbol.KindVariable,
+							Type: types.I32(),
+						},
+					),
+				)
+				Expect(scopeA).ToNot(BeNil())
+				scopeB := MustSucceed(
+					ctx.Scope.Add(
+						ctx,
+						symbol.Symbol{
+							Name: "b",
+							Kind: symbol.KindVariable,
+							Type: types.I32(),
+						},
+					),
+				)
+				Expect(scopeB).ToNot(BeNil())
+				// Compile expression using both variables
+				expr := MustSucceed(parser.ParseExpression("a + b"))
+				exprType := MustSucceed(expression.Compile(ccontext.Child(ctx, expr)))
+				bytecode := ctx.Writer.Bytes()
+				Expect(bytecode).To(MatchOpcodes(
+					OpLocalGet, 0, // Resolve 'a'
+					OpLocalGet, 1, // Resolve 'b'
+					OpI32Add, // Add them
+				))
+				Expect(exprType).To(Equal(types.I32()))
+			},
+		)
 
-		It("Should compile complex expressions with local variables", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			// Add variables with different types
-			scopeX := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.F64()}))
-			Expect(scopeX).ToNot(BeNil())
-			scopeY := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "y", Kind: symbol.KindVariable, Type: types.F64()}))
-			Expect(scopeY).ToNot(BeNil())
-			scopeZ := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "z", Kind: symbol.KindVariable, Type: types.F64()}))
-			Expect(scopeZ).ToNot(BeNil())
-			bytecode, exprType := compileWithCtx(ctx, "(x + y) * z")
-			Expect(bytecode).To(MatchOpcodes(
-				OpLocalGet, 0, // Resolve 'x'
-				OpLocalGet, 1, // Resolve 'y'
-				OpF64Add,      // x + y
-				OpLocalGet, 2, // Resolve 'z'
-				OpF64Mul, // (x + y) * z
-			))
-			Expect(exprType).To(Equal(types.F64()))
-		})
+		It(
+			"Should compile complex expressions with local variables",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				// Add variables with different types
+				scopeX := MustSucceed(
+					ctx.Scope.Add(
+						ctx,
+						symbol.Symbol{
+							Name: "x",
+							Kind: symbol.KindVariable,
+							Type: types.F64(),
+						},
+					),
+				)
+				Expect(scopeX).ToNot(BeNil())
+				scopeY := MustSucceed(
+					ctx.Scope.Add(
+						ctx,
+						symbol.Symbol{
+							Name: "y",
+							Kind: symbol.KindVariable,
+							Type: types.F64(),
+						},
+					),
+				)
+				Expect(scopeY).ToNot(BeNil())
+				scopeZ := MustSucceed(
+					ctx.Scope.Add(
+						ctx,
+						symbol.Symbol{
+							Name: "z",
+							Kind: symbol.KindVariable,
+							Type: types.F64(),
+						},
+					),
+				)
+				Expect(scopeZ).ToNot(BeNil())
+				bytecode, exprType := compileWithCtx(ctx, "(x + y) * z")
+				Expect(bytecode).To(MatchOpcodes(
+					OpLocalGet, 0, // Resolve 'x'
+					OpLocalGet, 1, // Resolve 'y'
+					OpF64Add,      // x + y
+					OpLocalGet, 2, // Resolve 'z'
+					OpF64Mul, // (x + y) * z
+				))
+				Expect(exprType).To(Equal(types.F64()))
+			},
+		)
 
 		It("Should compile comparisons using local variables", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
-			scopeLimit := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "limit", Kind: symbol.KindVariable, Type: types.I32()}))
+			scopeLimit := MustSucceed(
+				ctx.Scope.Add(
+					ctx,
+					symbol.Symbol{
+						Name: "limit",
+						Kind: symbol.KindVariable,
+						Type: types.I32(),
+					},
+				),
+			)
 			Expect(scopeLimit).ToNot(BeNil())
-			scopeValue := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "value", Kind: symbol.KindVariable, Type: types.I32()}))
+			scopeValue := MustSucceed(
+				ctx.Scope.Add(
+					ctx,
+					symbol.Symbol{
+						Name: "value",
+						Kind: symbol.KindVariable,
+						Type: types.I32(),
+					},
+				),
+			)
 			Expect(scopeValue).ToNot(BeNil())
 			bytecode, exprType := compileWithCtx(ctx, "value > limit")
 			Expect(bytecode).To(MatchOpcodes(
@@ -93,39 +162,69 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.U8())) // Comparisons return boolean
 		})
 
-		It("Should compile logical operations with local variables", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			scopeEnabled := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "enabled", Kind: symbol.KindVariable, Type: types.U8()}))
-			Expect(scopeEnabled).ToNot(BeNil())
-			scopeReady := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "ready", Kind: symbol.KindVariable, Type: types.U8()}))
-			Expect(scopeReady).ToNot(BeNil())
-			bytecode, exprType := compileWithCtx(ctx, "enabled and ready")
-			Expect(bytecode).To(MatchOpcodes(
-				// Load 'enabled'
-				OpLocalGet, 0,
-				// Normalize to boolean (0 or 1)
-				OpI32Const, int32(0),
-				OpI32Ne,
-				// Check if zero for short-circuit
-				OpI32Eqz,
-				OpIf, byte(I32), // If enabled is false (0)
-				OpI32Const, int32(0), // Result is 0
-				OpElse,
-				// enabled was true, evaluate 'ready'
-				OpLocalGet, 1,
-				// Normalize to boolean
-				OpI32Const, int32(0),
-				OpI32Ne,
-				OpEnd,
-			))
-			Expect(exprType).To(Equal(types.U8()))
-		})
+		It(
+			"Should compile logical operations with local variables",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				scopeEnabled := MustSucceed(
+					ctx.Scope.Add(
+						ctx,
+						symbol.Symbol{
+							Name: "enabled",
+							Kind: symbol.KindVariable,
+							Type: types.U8(),
+						},
+					),
+				)
+				Expect(scopeEnabled).ToNot(BeNil())
+				scopeReady := MustSucceed(
+					ctx.Scope.Add(
+						ctx,
+						symbol.Symbol{
+							Name: "ready",
+							Kind: symbol.KindVariable,
+							Type: types.U8(),
+						},
+					),
+				)
+				Expect(scopeReady).ToNot(BeNil())
+				bytecode, exprType := compileWithCtx(ctx, "enabled and ready")
+				Expect(bytecode).To(MatchOpcodes(
+					// Load 'enabled'
+					OpLocalGet, 0,
+					// Normalize to boolean (0 or 1)
+					OpI32Const, int32(0),
+					OpI32Ne,
+					// Check if zero for short-circuit
+					OpI32Eqz,
+					OpIf, byte(I32), // If enabled is false (0)
+					OpI32Const, int32(0), // Result is 0
+					OpElse,
+					// enabled was true, evaluate 'ready'
+					OpLocalGet, 1,
+					// Normalize to boolean
+					OpI32Const, int32(0),
+					OpI32Ne,
+					OpEnd,
+				))
+				Expect(exprType).To(Equal(types.U8()))
+			},
+		)
 	})
 
 	Context("Channel Reads", func() {
 		It("Should compile a channel read", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
-			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
+			scope := MustSucceed(
+				ctx.Scope.Add(
+					ctx,
+					symbol.Symbol{
+						Name: "x",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+					},
+				),
+			)
 			Expect(scope).ToNot(BeNil())
 			byteCode, exprType := compileWithCtx(ctx, "x")
 			Expect(exprType).To(Equal(types.I32()))
@@ -135,93 +234,144 @@ var _ = Describe("Identifier Compilation", func() {
 			))
 		})
 
-		It("Should correctly compile a channel read inside of an addition expression", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
-			Expect(scope).ToNot(BeNil())
-			byteCode, exprType := compileWithCtx(ctx, "x + 1")
-			Expect(exprType).To(Equal(types.I32()))
-			Expect(byteCode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpCall, uint32(0),
-				OpI32Const, int32(1),
-				OpI32Add,
-			))
-		})
+		It(
+			"Should correctly compile a channel read inside of an addition expression",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				scope := MustSucceed(
+					ctx.Scope.Add(
+						ctx,
+						symbol.Symbol{
+							Name: "x",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.I32()),
+						},
+					),
+				)
+				Expect(scope).ToNot(BeNil())
+				byteCode, exprType := compileWithCtx(ctx, "x + 1")
+				Expect(exprType).To(Equal(types.I32()))
+				Expect(byteCode).To(MatchOpcodes(
+					OpI32Const, int32(0),
+					OpCall, uint32(0),
+					OpI32Const, int32(1),
+					OpI32Add,
+				))
+			},
+		)
 
-		It("Should correctly compile a channel read inside of a comparison expression", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
-			byteCode, exprType := compileWithCtx(ctx, "press_pt > 1")
-			Expect(exprType).To(Equal(types.U8()))
-			Expect(byteCode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpCall, uint32(0),
-				OpI32Const, int32(1),
-				OpI32GtS,
-			))
-		})
+		It(
+			"Should correctly compile a channel read inside of a comparison expression",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				MustSucceed(
+					ctx.Scope.Add(
+						ctx,
+						symbol.Symbol{
+							Name: "press_pt",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.I32()),
+						},
+					),
+				)
+				byteCode, exprType := compileWithCtx(ctx, "press_pt > 1")
+				Expect(exprType).To(Equal(types.U8()))
+				Expect(byteCode).To(MatchOpcodes(
+					OpI32Const, int32(0),
+					OpCall, uint32(0),
+					OpI32Const, int32(1),
+					OpI32GtS,
+				))
+			},
+		)
 
-		It("Should compile a reactive variable as a channel read", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I32()),
-			}))
-			byteCode, exprType := compileWithCtx(ctx, "r")
-			Expect(exprType).To(Equal(types.I32()))
-			Expect(byteCode).ToNot(BeEmpty())
-		})
+		It(
+			"Should compile a reactive variable as a channel read",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "r",
+					Kind: symbol.KindVariable,
+					Type: types.ReadChan(types.I32()),
+				}))
+				byteCode, exprType := compileWithCtx(ctx, "r")
+				Expect(exprType).To(Equal(types.I32()))
+				Expect(byteCode).ToNot(BeEmpty())
+			},
+		)
 
-		It("Should fold a never-reassigned enclosing-scope variable to its initial value", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
-				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
-				DefaultValue: int32(7),
-			}))
-			byteCode, exprType := compileWithCtx(ctx, "shared")
-			Expect(exprType).To(Equal(types.I32()))
-			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(7)))
-		})
+		It(
+			"Should fold a never-reassigned enclosing-scope variable to its initial value",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
+					DefaultValue: int32(7),
+				}))
+				byteCode, exprType := compileWithCtx(ctx, "shared")
+				Expect(exprType).To(Equal(types.I32()))
+				Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(7)))
+			},
+		)
 
-		It("Should reject a variable whose initializer did not fold", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
-				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
-			}))
-			expr := MustSucceed(parser.ParseExpression("shared"))
-			Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
-				To(MatchError(ContainSubstring("not a compile-time constant")))
-		})
+		It(
+			"Should reject a variable whose initializer did not fold",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
+				}))
+				expr := MustSucceed(parser.ParseExpression("shared"))
+				Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+					To(MatchError(ContainSubstring("not a compile-time constant")))
+			},
+		)
 
-		It("Should read a channel read/write alias from another unit by its source key", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			src := 77
-			aliasType := types.Chan(types.I32())
-			aliasType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
-			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
-				Name: "cpu", Kind: symbol.KindVariable, Type: aliasType, SourceID: &src,
-			}))
-			byteCode, exprType := compileWithCtx(ctx, "cpu")
-			Expect(exprType).To(Equal(types.I32()))
-			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(77), OpCall, 0))
-		})
+		It(
+			"Should read a channel read/write alias from another unit by its source key",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				src := 77
+				aliasType := types.Chan(types.I32())
+				aliasType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name:     "cpu",
+					Kind:     symbol.KindVariable,
+					Type:     aliasType,
+					SourceID: &src,
+				}))
+				byteCode, exprType := compileWithCtx(ctx, "cpu")
+				Expect(exprType).To(Equal(types.I32()))
+				Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(77), OpCall, 0))
+			},
+		)
 
-		It("Should keep an inherited channel alias as a channel under a channel hint", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			src := 88
-			aliasType := types.Chan(types.I32())
-			aliasType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
-			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
-				Name: "cpu", Kind: symbol.KindVariable, Type: aliasType, SourceID: &src,
-			}))
-			byteCode, exprType := compileWithCtx(ctx.WithHint(types.Chan(types.I32())), "cpu")
-			Expect(exprType.Kind).To(Equal(types.KindChan))
-			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(88)))
-		})
+		It(
+			"Should keep an inherited channel alias as a channel under a channel hint",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				src := 88
+				aliasType := types.Chan(types.I32())
+				aliasType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name:     "cpu",
+					Kind:     symbol.KindVariable,
+					Type:     aliasType,
+					SourceID: &src,
+				}))
+				byteCode, exprType := compileWithCtx(
+					ctx.WithHint(types.Chan(types.I32())),
+					"cpu",
+				)
+				Expect(exprType.Kind).To(Equal(types.KindChan))
+				Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(88)))
+			},
+		)
 	})
 
 	Context("Constant Folding", func() {
-		DescribeTable("Should fold a never-reassigned enclosing-scope initial value by type",
+		DescribeTable(
+			"Should fold a never-reassigned enclosing-scope initial value by type",
 			func(bCtx SpecContext, varType types.Type, value any, expected []any) {
 				ctx := NewContext(bCtx)
 				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
@@ -242,10 +392,16 @@ var _ = Describe("Identifier Compilation", func() {
 			Entry("u64", types.U64(), uint64(43), []any{OpI64Const, int64(43)}),
 			Entry("f32", types.F32(), float32(1.5), []any{OpF32Const, float32(1.5)}),
 			Entry("f64", types.F64(), 2.5, []any{OpF64Const, 2.5}),
-			Entry("f32 from an integer", types.F32(), int64(3), []any{OpF32Const, float32(3)}),
+			Entry(
+				"f32 from an integer",
+				types.F32(),
+				int64(3),
+				[]any{OpF32Const, float32(3)},
+			),
 		)
 
-		DescribeTable("Should reject an initial value that cannot fold",
+		DescribeTable(
+			"Should reject an initial value that cannot fold",
 			func(bCtx SpecContext, varType types.Type, value any, msg string) {
 				ctx := NewContext(bCtx)
 				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
@@ -261,40 +417,60 @@ var _ = Describe("Identifier Compilation", func() {
 			Entry("i64 type, string value", types.I64(), "x", "cannot fold"),
 			Entry("f32 type, string value", types.F32(), "x", "cannot fold"),
 			Entry("f64 type, string value", types.F64(), "x", "cannot fold"),
-			Entry("unfoldable series type", types.Series(types.F64()), 5, "cannot fold"),
+			Entry(
+				"unfoldable series type",
+				types.Series(types.F64()),
+				5,
+				"cannot fold",
+			),
 		)
 
-		It("Should fold a never-reassigned string variable to its initial value", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
-				Name: "greeting", Kind: symbol.KindVariable, Type: types.String(),
-				DefaultValue: "hi",
-			}))
-			byteCode, exprType := compileWithCtx(ctx, "greeting")
-			Expect(exprType).To(Equal(types.String()))
-			Expect(byteCode).ToNot(BeEmpty())
-		})
+		It(
+			"Should fold a never-reassigned string variable to its initial value",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name: "greeting", Kind: symbol.KindVariable, Type: types.String(),
+					DefaultValue: "hi",
+				}))
+				byteCode, exprType := compileWithCtx(ctx, "greeting")
+				Expect(exprType).To(Equal(types.String()))
+				Expect(byteCode).ToNot(BeEmpty())
+			},
+		)
 
-		It("Should fold a never-written flow-level stateful variable to its initial value", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
-				Name: "counter", Kind: symbol.KindStatefulVariable, Type: types.I32(),
-				DefaultValue: int32(3),
-			}))
-			byteCode, exprType := compileWithCtx(ctx, "counter")
-			Expect(exprType).To(Equal(types.I32()))
-			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(3)))
-		})
+		It(
+			"Should fold a never-written flow-level stateful variable to its initial value",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name:         "counter",
+					Kind:         symbol.KindStatefulVariable,
+					Type:         types.I32(),
+					DefaultValue: int32(3),
+				}))
+				byteCode, exprType := compileWithCtx(ctx, "counter")
+				Expect(exprType).To(Equal(types.I32()))
+				Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(3)))
+			},
+		)
 
-		It("Should read an inherited channel-read variable by its own key", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			sc := MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
-				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I32()),
-			}))
-			byteCode, exprType := compileWithCtx(ctx, "r")
-			Expect(exprType).To(Equal(types.I32()))
-			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(sc.ID), OpCall, uint32(0)))
-		})
+		It(
+			"Should read an inherited channel-read variable by its own key",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				sc := MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name: "r",
+					Kind: symbol.KindVariable,
+					Type: types.ReadChan(types.I32()),
+				}))
+				byteCode, exprType := compileWithCtx(ctx, "r")
+				Expect(exprType).To(Equal(types.I32()))
+				Expect(
+					byteCode,
+				).To(MatchOpcodes(OpI32Const, int32(sc.ID), OpCall, uint32(0)))
+			},
+		)
 	})
 
 	Context("Function Parameters", func() {
@@ -311,21 +487,24 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.F64()))
 		})
 
-		It("Should compile chan-typed input parameter read as channel_read", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "ch",
-				Kind: symbol.KindInput,
-				Type: types.Chan(types.F32()),
-			}))
-			Expect(scope).ToNot(BeNil())
-			bytecode, exprType := compileWithCtx(ctx, "ch")
-			Expect(exprType).To(Equal(types.F32()))
-			Expect(bytecode).To(MatchOpcodes(
-				OpLocalGet, 0,
-				OpCall, uint32(0),
-			))
-		})
+		It(
+			"Should compile chan-typed input parameter read as channel_read",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				scope := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "ch",
+					Kind: symbol.KindInput,
+					Type: types.Chan(types.F32()),
+				}))
+				Expect(scope).ToNot(BeNil())
+				bytecode, exprType := compileWithCtx(ctx, "ch")
+				Expect(exprType).To(Equal(types.F32()))
+				Expect(bytecode).To(MatchOpcodes(
+					OpLocalGet, 0,
+					OpCall, uint32(0),
+				))
+			},
+		)
 	})
 
 	Context("Stateful Variables", func() {
@@ -393,48 +572,54 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.F64()))
 		})
 
-		It("Should compile stateful variable in binary expression", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "count",
-				Kind: symbol.KindStatefulVariable,
-				Type: types.I64(),
-			}))
-			bytecode, exprType := compileWithCtx(ctx, "count + 1")
-			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpI64Const, int64(0),
-				OpCall, uint32(0),
-				OpI64Const, int64(1),
-				OpI64Add,
-			))
-			Expect(exprType).To(Equal(types.I64()))
-		})
+		It(
+			"Should compile stateful variable in binary expression",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "count",
+					Kind: symbol.KindStatefulVariable,
+					Type: types.I64(),
+				}))
+				bytecode, exprType := compileWithCtx(ctx, "count + 1")
+				Expect(bytecode).To(MatchOpcodes(
+					OpI32Const, int32(0),
+					OpI64Const, int64(0),
+					OpCall, uint32(0),
+					OpI64Const, int64(1),
+					OpI64Add,
+				))
+				Expect(exprType).To(Equal(types.I64()))
+			},
+		)
 
-		It("Should compile multiple stateful variables with correct IDs", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "first",
-				Kind: symbol.KindStatefulVariable,
-				Type: types.I64(),
-			}))
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "second",
-				Kind: symbol.KindStatefulVariable,
-				Type: types.I64(),
-			}))
-			bytecode, exprType := compileWithCtx(ctx, "first + second")
-			Expect(bytecode).To(MatchOpcodes(
-				OpI32Const, int32(0),
-				OpI64Const, int64(0),
-				OpCall, uint32(0),
-				OpI32Const, int32(1),
-				OpI64Const, int64(0),
-				OpCall, uint32(0),
-				OpI64Add,
-			))
-			Expect(exprType).To(Equal(types.I64()))
-		})
+		It(
+			"Should compile multiple stateful variables with correct IDs",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "first",
+					Kind: symbol.KindStatefulVariable,
+					Type: types.I64(),
+				}))
+				MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "second",
+					Kind: symbol.KindStatefulVariable,
+					Type: types.I64(),
+				}))
+				bytecode, exprType := compileWithCtx(ctx, "first + second")
+				Expect(bytecode).To(MatchOpcodes(
+					OpI32Const, int32(0),
+					OpI64Const, int64(0),
+					OpCall, uint32(0),
+					OpI32Const, int32(1),
+					OpI64Const, int64(0),
+					OpCall, uint32(0),
+					OpI64Add,
+				))
+				Expect(exprType).To(Equal(types.I64()))
+			},
+		)
 
 		It("Should compile stateful variable in comparison", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
@@ -456,30 +641,38 @@ var _ = Describe("Identifier Compilation", func() {
 	})
 
 	Context("User-Defined Function Calls", func() {
-		It("Should compile a simple function call with no arguments", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			ctx.Resolver.RegisterLocal("getVal", 5)
+		It(
+			"Should compile a simple function call with no arguments",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				ctx.Resolver.RegisterLocal("getVal", 5)
 
-			funcType := types.Function(types.FunctionProperties{
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-			})
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "getVal",
-				Kind: symbol.KindFunction,
-				Type: funcType,
-			}))
+				funcType := types.Function(types.FunctionProperties{
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.I64()},
+					},
+				})
+				MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "getVal",
+					Kind: symbol.KindFunction,
+					Type: funcType,
+				}))
 
-			byteCode, exprType := compileWithCtx(ctx, "getVal()")
-			Expect(byteCode).To(MatchOpcodes(OpCall, uint32(5)))
-			Expect(exprType).To(Equal(types.I64()))
-		})
+				byteCode, exprType := compileWithCtx(ctx, "getVal()")
+				Expect(byteCode).To(MatchOpcodes(OpCall, uint32(5)))
+				Expect(exprType).To(Equal(types.I64()))
+			},
+		)
 
 		It("Should compile a function call with arguments", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			ctx.Resolver.RegisterLocal("add", 3)
 
 			funcType := types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "a", Type: types.I64()}, {Name: "b", Type: types.I64()}},
+				Inputs: types.Params{
+					{Name: "a", Type: types.I64()},
+					{Name: "b", Type: types.I64()},
+				},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 			})
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
@@ -509,8 +702,26 @@ var _ = Describe("Identifier Compilation", func() {
 				Inputs:  types.Params{{Name: "x", Type: types.I64()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 			})
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "inner", Kind: symbol.KindFunction, Type: innerType}))
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "outer", Kind: symbol.KindFunction, Type: outerType}))
+			MustSucceed(
+				ctx.Scope.Add(
+					ctx,
+					symbol.Symbol{
+						Name: "inner",
+						Kind: symbol.KindFunction,
+						Type: innerType,
+					},
+				),
+			)
+			MustSucceed(
+				ctx.Scope.Add(
+					ctx,
+					symbol.Symbol{
+						Name: "outer",
+						Kind: symbol.KindFunction,
+						Type: outerType,
+					},
+				),
+			)
 
 			byteCode, exprType := compileWithCtx(ctx, "outer(inner())")
 			Expect(byteCode).To(MatchOpcodes(
@@ -568,31 +779,43 @@ var _ = Describe("Identifier Compilation", func() {
 			))
 		})
 
-		It("Should rewrite aliased calls to canonical module names", func(bCtx SpecContext) {
-			expr := MustSucceed(parser.ParseExpression("t.now()"))
-			analyzerCtx := acontext.NewRoot(bCtx, expr, NewRoot(nil))
-			timeMod := analyzerCtx.Scope.Parent.FindChild("time")
-			MustSucceed(analyzerCtx.Scope.Add(bCtx, symbol.Symbol{
-				Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
-			}))
-			aexpression.Analyze(analyzerCtx)
-			Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
+		It(
+			"Should rewrite aliased calls to canonical module names",
+			func(bCtx SpecContext) {
+				expr := MustSucceed(parser.ParseExpression("t.now()"))
+				analyzerCtx := acontext.NewRoot(bCtx, expr, NewRoot(nil))
+				timeMod := analyzerCtx.Scope.Parent.FindChild("time")
+				MustSucceed(analyzerCtx.Scope.Add(bCtx, symbol.Symbol{
+					Name: "t", Kind: symbol.KindModuleAlias, Target: timeMod,
+				}))
+				aexpression.Analyze(analyzerCtx)
+				Expect(
+					analyzerCtx.Diagnostics.Ok(),
+				).To(BeTrue(), analyzerCtx.Diagnostics.String())
 
-			compilerCtx := ccontext.NewRoot(
-				bCtx,
-				analyzerCtx.Scope,
-				analyzerCtx.TypeMap,
-				resolve.NewResolver(),
-			)
-			exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, expr)))
-			Expect(exprType).To(Equal(types.TimeStamp()))
-			Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(OpCall, uint32(0)))
-		})
+				compilerCtx := ccontext.NewRoot(
+					bCtx,
+					analyzerCtx.Scope,
+					analyzerCtx.TypeMap,
+					resolve.NewResolver(),
+				)
+				exprType := MustSucceed(
+					expression.Compile(ccontext.Child(compilerCtx, expr)),
+				)
+				Expect(exprType).To(Equal(types.TimeStamp()))
+				Expect(FinalizeContext(compilerCtx)).To(MatchOpcodes(OpCall, uint32(0)))
+			},
+		)
 
-		It("Should compile ^ operator with type variable resolution", func(ctx SpecContext) {
-			channels := []symbol.Symbol{{Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0}}
-			_, exprType := compileWithAnalyzer(ctx, "x ^ 2.0", channels)
-			Expect(exprType).To(Equal(types.F64()))
-		})
+		It(
+			"Should compile ^ operator with type variable resolution",
+			func(ctx SpecContext) {
+				channels := []symbol.Symbol{
+					{Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0},
+				}
+				_, exprType := compileWithAnalyzer(ctx, "x ^ 2.0", channels)
+				Expect(exprType).To(Equal(types.F64()))
+			},
+		)
 	})
 })

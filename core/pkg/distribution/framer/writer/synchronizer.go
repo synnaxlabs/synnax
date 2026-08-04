@@ -30,7 +30,10 @@ type synchronizer struct {
 	nodeCount int
 }
 
-func newSynchronizer(nodeCount int, ins alamos.Instrumentation) confluence.Segment[Response, Response] {
+func newSynchronizer(
+	nodeCount int,
+	ins alamos.Instrumentation,
+) confluence.Segment[Response, Response] {
 	s := &synchronizer{}
 	s.nodeCount = nodeCount
 	s.Instrumentation = ins

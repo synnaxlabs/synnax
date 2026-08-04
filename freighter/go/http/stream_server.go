@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"os"
 	"sync"
 	"syscall"
 	"time"
@@ -113,7 +114,9 @@ func (s *streamServer[RQ, RS]) Report() alamos.Report {
 	}
 }
 
-func (s *streamServer[RQ, RS]) resolveStreamCodec(contentType string) (encoding.Codec, bool) {
+func (s *streamServer[RQ, RS]) resolveStreamCodec(
+	contentType string,
+) (encoding.Codec, bool) {
 	for _, ac := range s.additionalCodecs {
 		if ac.contentType == contentType {
 			return ac.new(), true
@@ -240,7 +243,8 @@ func (s *serverStream[RQ, RS]) close(err error) (closeErr error) {
 	// Wait until the client acknowledges the closure.
 	for {
 		if _, err = s.receiveRaw(); err != nil {
-			if !ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) {
+			if !ws.IsCloseError(err, ws.CloseNormalClosure, ws.CloseGoingAway) &&
+				!errors.Is(err, os.ErrDeadlineExceeded) {
 				s.L.Error(
 					"expected normal closure, received error instead",
 					zap.Error(err),

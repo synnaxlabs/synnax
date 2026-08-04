@@ -14,7 +14,7 @@
 #include <thread>
 #include <unordered_set>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"

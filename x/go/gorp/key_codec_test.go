@@ -109,7 +109,8 @@ var _ = Describe("KeyCodec", func() {
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
 					var res int8Entry
 					Expect(gorp.NewRetrieve[int8, int8Entry]().
-						Where(gorp.MatchKeys[int8, int8Entry](id)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+						Where(gorp.MatchKeys[int8, int8Entry](id)).
+						Entry(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(Equal(e))
 				},
 				Entry("zero", int8(0)),
@@ -128,7 +129,8 @@ var _ = Describe("KeyCodec", func() {
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
 					var res int16Entry
 					Expect(gorp.NewRetrieve[int16, int16Entry]().
-						Where(gorp.MatchKeys[int16, int16Entry](id)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+						Where(gorp.MatchKeys[int16, int16Entry](id)).
+						Entry(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(Equal(e))
 				},
 				Entry("zero", int16(0)),
@@ -147,7 +149,8 @@ var _ = Describe("KeyCodec", func() {
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
 					var res entry
 					Expect(gorp.NewRetrieve[int32, entry]().
-						Where(gorp.MatchKeys[int32, entry](id)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+						Where(gorp.MatchKeys[int32, entry](id)).
+						Entry(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(Equal(e))
 				},
 				Entry("zero", int32(0)),
@@ -166,7 +169,8 @@ var _ = Describe("KeyCodec", func() {
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
 					var res int64Entry
 					Expect(gorp.NewRetrieve[int64, int64Entry]().
-						Where(gorp.MatchKeys[int64, int64Entry](id)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+						Where(gorp.MatchKeys[int64, int64Entry](id)).
+						Entry(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(Equal(e))
 				},
 				Entry("zero", int64(0)),
@@ -185,7 +189,8 @@ var _ = Describe("KeyCodec", func() {
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
 					var res uint8Entry
 					Expect(gorp.NewRetrieve[uint8, uint8Entry]().
-						Where(gorp.MatchKeys[uint8, uint8Entry](id)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+						Where(gorp.MatchKeys[uint8, uint8Entry](id)).
+						Entry(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(Equal(e))
 				},
 				Entry("zero", uint8(0)),
@@ -202,7 +207,8 @@ var _ = Describe("KeyCodec", func() {
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
 					var res uint16Entry
 					Expect(gorp.NewRetrieve[uint16, uint16Entry]().
-						Where(gorp.MatchKeys[uint16, uint16Entry](id)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+						Where(gorp.MatchKeys[uint16, uint16Entry](id)).
+						Entry(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(Equal(e))
 				},
 				Entry("zero", uint16(0)),
@@ -219,7 +225,8 @@ var _ = Describe("KeyCodec", func() {
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
 					var res uint32Entry
 					Expect(gorp.NewRetrieve[uint32, uint32Entry]().
-						Where(gorp.MatchKeys[uint32, uint32Entry](id)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+						Where(gorp.MatchKeys[uint32, uint32Entry](id)).
+						Entry(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(Equal(e))
 				},
 				Entry("zero", uint32(0)),
@@ -236,7 +243,8 @@ var _ = Describe("KeyCodec", func() {
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
 					var res uint64Entry
 					Expect(gorp.NewRetrieve[uint64, uint64Entry]().
-						Where(gorp.MatchKeys[uint64, uint64Entry](id)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+						Where(gorp.MatchKeys[uint64, uint64Entry](id)).
+						Entry(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(Equal(e))
 				},
 				Entry("zero", uint64(0)),
@@ -253,7 +261,8 @@ var _ = Describe("KeyCodec", func() {
 						Entry(&e).Exec(ctx, tx)).To(Succeed())
 					var res stringEntry
 					Expect(gorp.NewRetrieve[string, stringEntry]().
-						Where(gorp.MatchKeys[string, stringEntry](id)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+						Where(gorp.MatchKeys[string, stringEntry](id)).
+						Entry(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(Equal(e))
 				},
 				Entry("empty", ""),
@@ -269,7 +278,8 @@ var _ = Describe("KeyCodec", func() {
 					Entry(&e).Exec(ctx, tx)).To(Succeed())
 				var res prefixEntry
 				Expect(gorp.NewRetrieve[string, prefixEntry]().
-					Where(gorp.MatchKeys[string, prefixEntry](e.GorpKey())).Entry(&res).Exec(ctx, tx)).To(Succeed())
+					Where(gorp.MatchKeys[string, prefixEntry](e.GorpKey())).
+					Entry(&res).Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(Equal(e))
 			})
 		})
@@ -290,9 +300,11 @@ var _ = Describe("KeyCodec", func() {
 				Entries(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(HaveLen(3))
 			Expect(gorp.NewDelete[uint16, uint16Entry]().
-				Where(gorp.MatchKeys[uint16, uint16Entry](100)).Exec(ctx, tx)).To(Succeed())
+				Where(gorp.MatchKeys[uint16, uint16Entry](100)).
+				Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.NewRetrieve[uint16, uint16Entry]().
-				Where(gorp.MatchKeys[uint16, uint16Entry](100)).Exists(ctx, tx)).To(BeFalse())
+				Where(gorp.MatchKeys[uint16, uint16Entry](100)).
+				Exists(ctx, tx)).To(BeFalse())
 		})
 
 		It("Should create, retrieve, and delete int64 entries", func(ctx SpecContext) {
@@ -312,68 +324,79 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("Key ordering", func() {
-		It("Should iterate uint32 entries in big-endian byte order", func(ctx SpecContext) {
-			entries := []uint32Entry{
-				{ID: 300, Data: "three"},
-				{ID: 1, Data: "one"},
-				{ID: 200, Data: "two"},
-			}
-			Expect(gorp.NewCreate[uint32, uint32Entry]().
-				Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		It(
+			"Should iterate uint32 entries in big-endian byte order",
+			func(ctx SpecContext) {
+				entries := []uint32Entry{
+					{ID: 300, Data: "three"},
+					{ID: 1, Data: "one"},
+					{ID: 200, Data: "two"},
+				}
+				Expect(gorp.NewCreate[uint32, uint32Entry]().
+					Entries(&entries).Exec(ctx, tx)).To(Succeed())
 
-			reader := gorp.WrapReader[uint32, uint32Entry](tx)
-			iter := MustSucceed(reader.OpenIterator(gorp.IterOptions{}))
-			defer func() { Expect(iter.Close()).To(Succeed()) }()
+				reader := gorp.WrapReader[uint32, uint32Entry](tx)
+				iter := MustSucceed(reader.OpenIterator(gorp.IterOptions{}))
+				defer func() { Expect(iter.Close()).To(Succeed()) }()
 
-			var ids []uint32
-			for iter.First(); iter.Valid(); iter.Next() {
-				ids = append(ids, iter.Value(ctx).GorpKey())
-			}
-			Expect(iter.Error()).ToNot(HaveOccurred())
-			Expect(ids).To(Equal([]uint32{1, 200, 300}))
-		})
+				var ids []uint32
+				for iter.First(); iter.Valid(); iter.Next() {
+					ids = append(ids, iter.Value(ctx).GorpKey())
+				}
+				Expect(iter.Error()).ToNot(HaveOccurred())
+				Expect(ids).To(Equal([]uint32{1, 200, 300}))
+			},
+		)
 
-		It("Should iterate int16 entries in big-endian byte order", func(ctx SpecContext) {
-			entries := []int16Entry{
-				{ID: 300, Data: "three"},
-				{ID: -1, Data: "neg"},
-				{ID: 1, Data: "one"},
-			}
-			Expect(gorp.NewCreate[int16, int16Entry]().
-				Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		It(
+			"Should iterate int16 entries in big-endian byte order",
+			func(ctx SpecContext) {
+				entries := []int16Entry{
+					{ID: 300, Data: "three"},
+					{ID: -1, Data: "neg"},
+					{ID: 1, Data: "one"},
+				}
+				Expect(gorp.NewCreate[int16, int16Entry]().
+					Entries(&entries).Exec(ctx, tx)).To(Succeed())
 
-			reader := gorp.WrapReader[int16, int16Entry](tx)
-			iter := MustSucceed(reader.OpenIterator(gorp.IterOptions{}))
-			defer func() { Expect(iter.Close()).To(Succeed()) }()
+				reader := gorp.WrapReader[int16, int16Entry](tx)
+				iter := MustSucceed(reader.OpenIterator(gorp.IterOptions{}))
+				defer func() { Expect(iter.Close()).To(Succeed()) }()
 
-			var ids []int16
-			for iter.First(); iter.Valid(); iter.Next() {
-				ids = append(ids, iter.Value(ctx).GorpKey())
-			}
-			Expect(iter.Error()).ToNot(HaveOccurred())
-			Expect(ids).To(HaveLen(3))
-		})
+				var ids []int16
+				for iter.First(); iter.Valid(); iter.Next() {
+					ids = append(ids, iter.Value(ctx).GorpKey())
+				}
+				Expect(iter.Error()).ToNot(HaveOccurred())
+				Expect(ids).To(HaveLen(3))
+			},
+		)
 	})
 
 	Describe("Type isolation", func() {
-		It("Should not mix entries of different types with the same key value", func(ctx SpecContext) {
-			e1 := uint32Entry{ID: 42, Data: "uint32"}
-			e2 := int64Entry{ID: 42, Data: "int64"}
-			Expect(gorp.NewCreate[uint32, uint32Entry]().
-				Entry(&e1).Exec(ctx, tx)).To(Succeed())
-			Expect(gorp.NewCreate[int64, int64Entry]().
-				Entry(&e2).Exec(ctx, tx)).To(Succeed())
+		It(
+			"Should not mix entries of different types with the same key value",
+			func(ctx SpecContext) {
+				e1 := uint32Entry{ID: 42, Data: "uint32"}
+				e2 := int64Entry{ID: 42, Data: "int64"}
+				Expect(gorp.NewCreate[uint32, uint32Entry]().
+					Entry(&e1).Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewCreate[int64, int64Entry]().
+					Entry(&e2).Exec(ctx, tx)).To(Succeed())
 
-			var res1 uint32Entry
-			Expect(gorp.NewRetrieve[uint32, uint32Entry]().
-				Where(gorp.MatchKeys[uint32, uint32Entry](42)).Entry(&res1).Exec(ctx, tx)).To(Succeed())
-			Expect(res1.Data).To(Equal("uint32"))
+				var res1 uint32Entry
+				Expect(gorp.NewRetrieve[uint32, uint32Entry]().
+					Where(gorp.MatchKeys[uint32, uint32Entry](42)).
+					Entry(&res1).Exec(ctx, tx)).To(Succeed())
+				Expect(res1.Data).To(Equal("uint32"))
 
-			var res2 int64Entry
-			Expect(gorp.NewRetrieve[int64, int64Entry]().
-				Where(gorp.MatchKeys[int64, int64Entry](42)).Entry(&res2).Exec(ctx, tx)).To(Succeed())
-			Expect(res2.Data).To(Equal("int64"))
-		})
+				var res2 int64Entry
+				Expect(gorp.NewRetrieve[int64, int64Entry]().
+					Where(gorp.MatchKeys[int64, int64Entry](42)).
+					Entry(&res2).Exec(ctx, tx)).To(Succeed())
+				Expect(res2.Data).To(Equal("int64"))
+			},
+		)
 	})
 
 	Describe("Observe with non-int32 keys", func() {
@@ -384,7 +407,12 @@ var _ = Describe("KeyCodec", func() {
 		})
 
 		It("Should decode uint64 keys on delete notifications", func(ctx SpecContext) {
-			uint64Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint64, uint64Entry]{DB: notifyDB}))
+			uint64Table := MustSucceed(
+				gorp.OpenTable(
+					ctx,
+					gorp.TableConfig[uint64, uint64Entry]{DB: notifyDB},
+				),
+			)
 			defer func() { Expect(uint64Table.Close()).To(Succeed()) }()
 
 			Expect(gorp.NewCreate[uint64, uint64Entry]().
@@ -392,7 +420,8 @@ var _ = Describe("KeyCodec", func() {
 				Exec(ctx, notifyDB)).To(Succeed())
 
 			Expect(gorp.NewDelete[uint64, uint64Entry]().
-				Where(gorp.MatchKeys[uint64, uint64Entry](math.MaxUint64)).Exec(ctx, tx)).To(Succeed())
+				Where(gorp.MatchKeys[uint64, uint64Entry](math.MaxUint64)).
+				Exec(ctx, tx)).To(Succeed())
 
 			var deletedKey uint64
 			uint64Table.Observe().OnChange(
@@ -408,7 +437,9 @@ var _ = Describe("KeyCodec", func() {
 		})
 
 		It("Should decode int16 keys on set notifications", func(ctx SpecContext) {
-			int16Table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int16, int16Entry]{DB: notifyDB}))
+			int16Table := MustSucceed(
+				gorp.OpenTable(ctx, gorp.TableConfig[int16, int16Entry]{DB: notifyDB}),
+			)
 			defer func() { Expect(int16Table.Close()).To(Succeed()) }()
 
 			Expect(gorp.NewCreate[int16, int16Entry]().
@@ -430,51 +461,57 @@ var _ = Describe("KeyCodec", func() {
 	})
 
 	Describe("Named string key types", func() {
-		It("Should create, retrieve, and delete entries with a named string key", func(ctx SpecContext) {
-			entries := []namedStringEntry{
-				{ID: "alpha", Data: "first"},
-				{ID: "beta", Data: "second"},
-			}
-			Expect(gorp.NewCreate[namedStringKey, namedStringEntry]().
-				Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		It(
+			"Should create, retrieve, and delete entries with a named string key",
+			func(ctx SpecContext) {
+				entries := []namedStringEntry{
+					{ID: "alpha", Data: "first"},
+					{ID: "beta", Data: "second"},
+				}
+				Expect(gorp.NewCreate[namedStringKey, namedStringEntry]().
+					Entries(&entries).Exec(ctx, tx)).To(Succeed())
 
-			var res []namedStringEntry
-			Expect(gorp.NewRetrieve[namedStringKey, namedStringEntry]().
-				Where(gorp.MatchKeys[namedStringKey, namedStringEntry](namedStringKey("alpha"))).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(HaveLen(1))
-			Expect(res[0].Data).To(Equal("first"))
+				var res []namedStringEntry
+				Expect(gorp.NewRetrieve[namedStringKey, namedStringEntry]().
+					Where(gorp.MatchKeys[namedStringKey, namedStringEntry](namedStringKey("alpha"))).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].Data).To(Equal("first"))
 
-			Expect(gorp.NewDelete[namedStringKey, namedStringEntry]().
-				Where(gorp.MatchKeys[namedStringKey, namedStringEntry](namedStringKey("alpha"))).
-				Exec(ctx, tx)).To(Succeed())
+				Expect(gorp.NewDelete[namedStringKey, namedStringEntry]().
+					Where(gorp.MatchKeys[namedStringKey, namedStringEntry](namedStringKey("alpha"))).
+					Exec(ctx, tx)).To(Succeed())
 
-			var res2 []namedStringEntry
-			Expect(gorp.NewRetrieve[namedStringKey, namedStringEntry]().
-				Entries(&res2).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res2).To(HaveLen(1))
-			Expect(res2[0].ID).To(Equal(namedStringKey("beta")))
-		})
+				var res2 []namedStringEntry
+				Expect(gorp.NewRetrieve[namedStringKey, namedStringEntry]().
+					Entries(&res2).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res2).To(HaveLen(1))
+				Expect(res2[0].ID).To(Equal(namedStringKey("beta")))
+			},
+		)
 	})
 
 	Describe("WherePrefix with numeric keys", func() {
-		It("Should retrieve entries matching a byte prefix for uint32 keys", func(ctx SpecContext) {
-			entries := []uint32Entry{
-				{ID: 0x01000000, Data: "a"},
-				{ID: 0x01000001, Data: "b"},
-				{ID: 0x02000000, Data: "c"},
-			}
-			Expect(gorp.NewCreate[uint32, uint32Entry]().
-				Entries(&entries).Exec(ctx, tx)).To(Succeed())
+		It(
+			"Should retrieve entries matching a byte prefix for uint32 keys",
+			func(ctx SpecContext) {
+				entries := []uint32Entry{
+					{ID: 0x01000000, Data: "a"},
+					{ID: 0x01000001, Data: "b"},
+					{ID: 0x02000000, Data: "c"},
+				}
+				Expect(gorp.NewCreate[uint32, uint32Entry]().
+					Entries(&entries).Exec(ctx, tx)).To(Succeed())
 
-			var res []uint32Entry
-			Expect(gorp.NewRetrieve[uint32, uint32Entry]().
-				WherePrefix([]byte{0x01}).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(HaveLen(2))
-		})
+				var res []uint32Entry
+				Expect(gorp.NewRetrieve[uint32, uint32Entry]().
+					WherePrefix([]byte{0x01}).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(HaveLen(2))
+			},
+		)
 	})
 })

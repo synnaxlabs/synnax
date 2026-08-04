@@ -27,7 +27,9 @@ var _ = Describe("Retrieve", func() {
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
 		var res table.Table
-		Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+		Expect(
+			svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx),
+		).To(Succeed())
 		Expect(res).To(Equal(s))
 	})
 })

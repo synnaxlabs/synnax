@@ -177,7 +177,7 @@ class Project(ConsoleCase):
         """
         self.log("Testing import log prefers the JSON name key over the file name")
         json_path = get_fixture_path("ImportSpace/Metrics Log.json")
-        with open(json_path) as f:
+        with open(json_path, encoding="utf-8") as f:
             data = json.load(f)
         body_name = "Body Name Log"
         file_name = "File Name Log"
@@ -185,7 +185,7 @@ class Project(ConsoleCase):
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, f"{file_name}.json")
-            with open(tmp_path, "w") as f:
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(data, f)
             with self.console.layout.page.expect_file_chooser() as fc_info:
                 self.console.layout.command_palette("Import component(s)")
@@ -257,7 +257,9 @@ class Project(ConsoleCase):
         # PANELS.json holds the project's panel documents. Page names live on the
         # resources themselves, so the panel trees are checked for the resource types
         # and the per-page component files carry the names.
-        with open(os.path.join(self._export_dir, "PANELS.json"), "r") as f:
+        with open(
+            os.path.join(self._export_dir, "PANELS.json"), "r", encoding="utf-8"
+        ) as f:
             panels = json.load(f)
 
         def collect_types(node: dict[str, Any], out: list[str]) -> None:

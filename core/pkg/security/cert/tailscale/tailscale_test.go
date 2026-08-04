@@ -27,7 +27,9 @@ func (c *stubClient) GetCertificate(hi *tls.ClientHelloInfo) (*tls.Certificate, 
 
 var _ = Describe("Tailscale", func() {
 	It("Should build a source with a host", func() {
-		Expect(MustSucceed(tailscale.NewSource(&stubClient{}, "node01.tailnet.ts.net"))).ToNot(BeNil())
+		Expect(
+			MustSucceed(tailscale.NewSource(&stubClient{}, "node01.tailnet.ts.net")),
+		).ToNot(BeNil())
 	})
 
 	It("Should reject a listener with no host", func() {
@@ -45,7 +47,11 @@ var _ = Describe("Tailscale", func() {
 	It("Should preserve the client's SNI when present", func() {
 		c := &stubClient{}
 		src := MustSucceed(tailscale.NewSource(c, "node.tailnet.ts.net"))
-		MustSucceed(src.GetCertificate(&tls.ClientHelloInfo{ServerName: "explicit.example.com"}))
+		MustSucceed(
+			src.GetCertificate(
+				&tls.ClientHelloInfo{ServerName: "explicit.example.com"},
+			),
+		)
 		Expect(c.serverName).To(Equal("explicit.example.com"))
 	})
 })

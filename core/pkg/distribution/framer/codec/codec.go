@@ -36,6 +36,47 @@ type state struct {
 	hasVariableDataTypes bool
 }
 
+const bitsPerByte = 8
+
+// bitPackedByteCount returns the number of wire bytes needed to bit-pack nSamples
+// boolean samples (one bit each, LSB-first).
+func bitPackedByteCount[T int | int64 | uint32](nSamples T) T {
+	return (nSamples + bitsPerByte - 1) / bitsPerByte
+}
+
+// wireSize returns the number of bytes a series occupies on the wire after
+// per-type encoding. BoolT samples are bit-packed at one bit each; variable-length
+// types carry their length-prefixed in-memory representation directly; other fixed
+// types use their in-memory byte count.
+func wireSize(s telem.Series) int {
+	if s.DataType == telem.BoolT {
+		return int(bitPackedByteCount(s.Len()))
+	}
+	return int(s.Size())
+}
+
+// packBoolBits packs byte-packed canonical bool data (one sample per byte) into
+// bit-packed wire bytes (LSB-first within each byte).
+func packBoolBits(src []byte) []byte {
+	dst := make([]byte, bitPackedByteCount(len(src)))
+	for i, b := range src {
+		if b != 0 {
+			dst[i/bitsPerByte] |= 1 << (i % bitsPerByte)
+		}
+	}
+	return dst
+}
+
+// unpackBoolBits unpacks bit-packed wire bytes into byte-packed canonical bool
+// data. n is the number of samples (not bytes).
+func unpackBoolBits(src []byte, n int) []byte {
+	dst := make([]byte, n)
+	for i := range n {
+		dst[i] = (src[i/bitsPerByte] >> (i % bitsPerByte)) & 1
+	}
+	return dst
+}
+
 func writeTimeRange(w *binary.Writer, tr telem.TimeRange) {
 	w.Uint64(uint64(tr.Start))
 	w.Uint64(uint64(tr.End))
@@ -162,7 +203,11 @@ var byteOrder = telem.ByteOrder
 // NewStatic creates a new codec that uses the given channel keys and data types as
 // its encoding state with default configuration (alignment compression enabled).
 // It is not safe to call Update on a codec instantiated using NewStatic.
-func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType, opts ...Option) *Codec {
+func NewStatic(
+	channelKeys channel.Keys,
+	dataTypes []telem.DataType,
+	opts ...Option,
+) *Codec {
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
 	}
@@ -351,7 +396,12 @@ func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 
 func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
-		panic(fmt.Sprintf("[framer.codec] - dynamic codec was not updated for first call to %s", opName))
+		panic(
+			fmt.Sprintf(
+				"[framer.codec] - dynamic codec was not updated for first call to %s",
+				opName,
+			),
+		)
 	}
 }
 
@@ -544,8 +594,11 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			(s.DataType == telem.Int64T || s.DataType == telem.TimeStampT)
 		if dt != s.DataType && !isEquivalent {
 			return errors.Wrapf(
-				validate.ErrValidation, "data type %s for channel %s does not match series data type %s",
-				dt, c.retrieveName(ctx, key), s.DataType,
+				validate.ErrValidation,
+				"data type %s for channel %s does not match series data type %s",
+				dt,
+				c.retrieveName(ctx, key),
+				s.DataType,
 			)
 		}
 	}
@@ -564,7 +617,8 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			c.encodeSorter.offset,
 		)
 	} else {
-		// No merging - create series info directly from sorted data using reusable slice
+		// No merging - create series info directly from sorted data using reusable
+		// slice
 		count := c.encodeSorter.offset
 		if cap(c.mergedSeriesResult) < count {
 			c.mergedSeriesResult = make([]mergedSeriesInfo, 0, count)
@@ -615,7 +669,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	for _, msi := range mergedSeries {
 		s := msi.series
 		sLen := int(s.Len())
-		byteArraySize += int(s.Size())
+		byteArraySize += wireSize(s)
 
 		if curDataSize == -1 {
 			curDataSize = sLen
@@ -634,7 +688,8 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		}
 	}
 
-	fgs.timeRangesZero = fgs.equalTimeRanges && refTr.Start.IsZero() && refTr.End.IsZero()
+	fgs.timeRangesZero = fgs.equalTimeRanges && refTr.Start.IsZero() &&
+		refTr.End.IsZero()
 	fgs.zeroAlignments = fgs.equalAlignments && refAlignment == 0
 
 	// Calculate metadata size based on merged series count
@@ -686,7 +741,11 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 				c.buf.Uint32(uint32(s.Len()))
 			}
 		}
-		c.buf.Write(s.Data)
+		if s.DataType == telem.BoolT {
+			c.buf.Write(packBoolBits(s.Data))
+		} else {
+			c.buf.Write(s.Data)
+		}
 		if !fgs.equalTimeRanges {
 			writeTimeRange(c.buf, s.TimeRange)
 		}
@@ -728,7 +787,12 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
 		states := lo.Keys(c.mu.states)
-		err = errors.Wrapf(validate.ErrValidation, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
+		err = errors.Wrapf(
+			validate.ErrValidation,
+			"[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v",
+			seqNum,
+			states,
+		)
 		return framer.Frame{}, err
 	}
 	fgs := decodeFlags(flagB)
@@ -763,13 +827,21 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 			return errors.Newf("unknown channel key: %v", key)
 		}
 		s.DataType = dataType
-		if dataType.IsVariable() {
-			s.Data = make([]byte, dataLenOrSize)
+		if dataType == telem.BoolT {
+			packed := make([]byte, bitPackedByteCount(dataLenOrSize))
+			if _, err = c.reader.Read(packed); err != nil {
+				return err
+			}
+			s.Data = unpackBoolBits(packed, int(dataLenOrSize))
 		} else {
-			s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
-		}
-		if _, err = c.reader.Read(s.Data); err != nil {
-			return err
+			if dataType.IsVariable() {
+				s.Data = make([]byte, dataLenOrSize)
+			} else {
+				s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
+			}
+			if _, err = c.reader.Read(s.Data); err != nil {
+				return err
+			}
 		}
 		if !fgs.equalTimeRanges {
 			if s.TimeRange, err = c.readTimeRange(); err != nil {
@@ -821,5 +893,8 @@ func (c *Codec) readTimeRange() (telem.TimeRange, error) {
 	if err != nil {
 		return telem.TimeRange{}, err
 	}
-	return telem.TimeRange{Start: telem.TimeStamp(start), End: telem.TimeStamp(end)}, nil
+	return telem.TimeRange{
+		Start: telem.TimeStamp(start),
+		End:   telem.TimeStamp(end),
+	}, nil
 }

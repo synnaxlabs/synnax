@@ -44,7 +44,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	GetRequest struct {
-		Keys  []string   `json:"keys" msgpack:"keys"`
+		Keys  []string   `json:"keys"  msgpack:"keys"`
 		Range ranger.Key `json:"range" msgpack:"range"`
 	}
 	GetResponse struct {
@@ -97,7 +97,7 @@ func (s *Service) Set(
 }
 
 type DeleteRequest struct {
-	Keys  []string   `json:"keys" msgpack:"keys"`
+	Keys  []string   `json:"keys"  msgpack:"keys"`
 	Range ranger.Key `json:"range" msgpack:"range"`
 }
 

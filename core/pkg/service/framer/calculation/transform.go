@@ -25,7 +25,9 @@ type transform struct {
 	calculators      calculator.Group
 }
 
-var _ confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = (*transform)(nil)
+var _ confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = (*transform)(
+	nil,
+)
 
 func (g *transform) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	opts = append(opts, confluence.DeferErr(g.calculators.Close))
@@ -48,10 +50,14 @@ func (g *transform) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !changed {
 					continue
 				}
-				if err := signal.SendUnderContext(ctx, g.Out.Inlet(), framer.WriterRequest{
-					Command: framer.WriterCommandWrite,
-					Frame:   output.KeepKeys(writeTo),
-				}); err != nil {
+				if err := signal.SendUnderContext(
+					ctx,
+					g.Out.Inlet(),
+					framer.WriterRequest{
+						Command: framer.WriterCommandWrite,
+						Frame:   output.KeepKeys(writeTo),
+					},
+				); err != nil {
 					return err
 				}
 			}

@@ -21,16 +21,24 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// chResolver is the most common resolver used across tests: a single float32 channel "ch".
+// chResolver is the most common resolver used across tests: a single float32 channel
+// "ch".
 var chResolver = []symbol.Symbol{
 	{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 }
 
-func analyzeAndExpect(bCtx SpecContext, source string) context.Context[parser.IProgramContext] {
+func analyzeAndExpect(
+	bCtx SpecContext,
+	source string,
+) context.Context[parser.IProgramContext] {
 	return analyzeAndExpectWithResolver(bCtx, source, nil)
 }
 
-func analyzeAndExpectWithResolver(bCtx SpecContext, source string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
+func analyzeAndExpectWithResolver(
+	bCtx SpecContext,
+	source string,
+	resolver []symbol.Symbol,
+) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
 	ctx := context.NewRoot(bCtx, prog, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
@@ -38,7 +46,11 @@ func analyzeAndExpectWithResolver(bCtx SpecContext, source string, resolver []sy
 	return ctx
 }
 
-func analyzeAndExpectErrorWithResolver(bCtx SpecContext, source string, resolver []symbol.Symbol) context.Context[parser.IProgramContext] {
+func analyzeAndExpectErrorWithResolver(
+	bCtx SpecContext,
+	source string,
+	resolver []symbol.Symbol,
+) context.Context[parser.IProgramContext] {
 	prog := MustSucceed(parser.Parse(source))
 	ctx := context.NewRoot(bCtx, prog, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
@@ -47,29 +59,36 @@ func analyzeAndExpectErrorWithResolver(bCtx SpecContext, source string, resolver
 }
 
 var _ = Describe("Analyzer Integration", func() {
-
 	Describe("Cross-Scope Symbol Resolution", func() {
-		It("Should diagnose a variable declaration that shadows a function name", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`
+		It(
+			"Should diagnose a variable declaration that shadows a function name",
+			func(bCtx SpecContext) {
+				prog := MustSucceed(parser.Parse(`
 				func dog() {
 					dog := 1
 				}
 			`))
-			ctx := context.NewRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			diagnostic := (*ctx.Diagnostics)[0]
-			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing function at line 2, col 4"))
-		})
+				ctx := context.NewRoot(bCtx, prog, nil)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				diagnostic := (*ctx.Diagnostics)[0]
+				Expect(
+					diagnostic.Message,
+				).To(Equal("name dog conflicts with existing function at line 2, col 4"))
+			},
+		)
 
-		It("Should allow variable declaration from a function parameter", func(bCtx SpecContext) {
-			_ = analyzeAndExpect(bCtx, `
+		It(
+			"Should allow variable declaration from a function parameter",
+			func(bCtx SpecContext) {
+				_ = analyzeAndExpect(bCtx, `
 				func testFunc(a i64) {
 					b := a
 				}
 			`)
-		})
+			},
+		)
 
 		It("Should resolve variables across nested scopes", func(bCtx SpecContext) {
 			_ = analyzeAndExpect(bCtx, `
@@ -101,24 +120,27 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 		})
 
-		It("Should resolve to local variable when shadowing global", func(bCtx SpecContext) {
-			globalResolver := []symbol.Symbol{
-				{Name: "value", Kind: symbol.KindInput, Type: types.F64()},
-			}
-			prog := MustSucceed(parser.Parse(`
+		It(
+			"Should resolve to local variable when shadowing global",
+			func(bCtx SpecContext) {
+				globalResolver := []symbol.Symbol{
+					{Name: "value", Kind: symbol.KindInput, Type: types.F64()},
+				}
+				prog := MustSucceed(parser.Parse(`
 				func test() i32 {
 					value i32 := 42
 					return value
 				}
 			`))
-			ctx := context.NewRoot(bCtx, prog, NewRoot(nil, globalResolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
-			blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
-			varScope := MustSucceed(blockScope.Resolve(ctx, "value"))
-			Expect(varScope.Type).To(Equal(types.I32()))
-		})
+				ctx := context.NewRoot(bCtx, prog, NewRoot(nil, globalResolver...))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "test"))
+				blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
+				varScope := MustSucceed(blockScope.Resolve(ctx, "value"))
+				Expect(varScope.Type).To(Equal(types.I32()))
+			},
+		)
 
 		It("Should use shadowed local in expressions", func(bCtx SpecContext) {
 			globalResolver := []symbol.Symbol{
@@ -194,8 +216,10 @@ var _ = Describe("Analyzer Integration", func() {
 	})
 
 	Describe("Symbol Table Structure", func() {
-		It("Should build correct symbol table for if-else statement", func(bCtx SpecContext) {
-			ctx := analyzeAndExpect(bCtx, `
+		It(
+			"Should build correct symbol table for if-else statement",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpect(bCtx, `
 				func dog() i64 {
 					if 3 > 5 {
 						return 1
@@ -205,17 +229,20 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`)
 
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
-			Expect(funcScope.Name).To(Equal("dog"))
-			blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
-			blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
-			Expect(blocks).To(HaveLen(2))
-			Expect(blocks[0].Children()).To(BeEmpty())
-			Expect(blocks[1].Children()).To(BeEmpty())
-		})
+				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
+				Expect(funcScope.Name).To(Equal("dog"))
+				blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
+				blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
+				Expect(blocks).To(HaveLen(2))
+				Expect(blocks[0].Children()).To(BeEmpty())
+				Expect(blocks[1].Children()).To(BeEmpty())
+			},
+		)
 
-		It("Should build correct symbol table for variables in nested blocks", func(bCtx SpecContext) {
-			ctx := analyzeAndExpect(bCtx, `
+		It(
+			"Should build correct symbol table for variables in nested blocks",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpect(bCtx, `
 				func dog() i64 {
 					a f32 := 2.0
 					if (a > 5) {
@@ -226,16 +253,19 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`)
 
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
-			blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
-			blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
-			Expect(blocks).To(HaveLen(1))
-			Expect(blocks[0].Children()).To(HaveLen(1))
-			Expect(blocks[0].Children()[0].Name).To(Equal("b"))
-		})
+				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
+				blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
+				blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
+				Expect(blocks).To(HaveLen(1))
+				Expect(blocks[0].Children()).To(HaveLen(1))
+				Expect(blocks[0].Children()[0].Name).To(Equal("b"))
+			},
+		)
 
-		It("Should build correct symbol table for if-else-if chain", func(bCtx SpecContext) {
-			ctx := analyzeAndExpect(bCtx, `
+		It(
+			"Should build correct symbol table for if-else-if chain",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpect(bCtx, `
 				func dog(b i64) i64 {
 					a i64 := 2
 					if b == a {
@@ -249,15 +279,16 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`)
 
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
-			blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
-			blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
-			Expect(blocks).To(HaveLen(3))
-			Expect(blocks[0].Children()).To(BeEmpty())
-			Expect(blocks[1].Children()).To(HaveLen(1))
-			Expect(blocks[1].Children()[0].Name).To(Equal("c"))
-			Expect(blocks[2].Children()).To(BeEmpty())
-		})
+				funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "dog"))
+				blockScope := MustSucceed(FirstChildOfKind(funcScope, symbol.KindBlock))
+				blocks := blockScope.FilterChildrenByKind(symbol.KindBlock)
+				Expect(blocks).To(HaveLen(3))
+				Expect(blocks[0].Children()).To(BeEmpty())
+				Expect(blocks[1].Children()).To(HaveLen(1))
+				Expect(blocks[1].Children()[0].Name).To(Equal("c"))
+				Expect(blocks[2].Children()).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Multi-Function Programs", func() {
@@ -278,30 +309,38 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(mulFunc.Name).To(Equal("multiply"))
 		})
 
-		It("Should detect undefined function in call expression", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`
+		It(
+			"Should detect undefined function in call expression",
+			func(bCtx SpecContext) {
+				prog := MustSucceed(parser.Parse(`
 				func caller() i64 {
 					return unknownFunc(5)
 				}
 			`))
-			ctx := context.NewRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknownFunc"))
-		})
+				ctx := context.NewRoot(bCtx, prog, nil)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect(
+					(*ctx.Diagnostics)[0].Message,
+				).To(ContainSubstring("undefined symbol: unknownFunc"))
+			},
+		)
 	})
 
 	Describe("AnalyzeStatement", func() {
-		It("Should analyze a valid variable declaration statement", func(bCtx SpecContext) {
-			stmt := MustSucceed(parser.ParseStatement("x := 42"))
-			ctx := context.NewRoot(bCtx, stmt, nil)
-			analyzer.AnalyzeStatement(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+		It(
+			"Should analyze a valid variable declaration statement",
+			func(bCtx SpecContext) {
+				stmt := MustSucceed(parser.ParseStatement("x := 42"))
+				ctx := context.NewRoot(bCtx, stmt, nil)
+				analyzer.AnalyzeStatement(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 
-			varScope := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
-			Expect(varScope.Type).To(Equal(types.I64()))
-		})
+				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
+				Expect(varScope.Type).To(Equal(types.I64()))
+			},
+		)
 
 		It("Should diagnose undefined symbol in statement", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("x := undefined_var"))
@@ -309,38 +348,46 @@ var _ = Describe("Analyzer Integration", func() {
 			analyzer.AnalyzeStatement(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefined_var"))
+			Expect(
+				(*ctx.Diagnostics)[0].Message,
+			).To(ContainSubstring("undefined symbol: undefined_var"))
 		})
 
-		It("Should handle type unification in statement analysis", func(bCtx SpecContext) {
-			stmt := MustSucceed(parser.ParseStatement("x f32 := 100"))
-			ctx := context.NewRoot(bCtx, stmt, nil)
-			analyzer.AnalyzeStatement(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+		It(
+			"Should handle type unification in statement analysis",
+			func(bCtx SpecContext) {
+				stmt := MustSucceed(parser.ParseStatement("x f32 := 100"))
+				ctx := context.NewRoot(bCtx, stmt, nil)
+				analyzer.AnalyzeStatement(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 
-			varScope := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
-			Expect(varScope.Type).To(Equal(types.F32()))
-		})
+				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
+				Expect(varScope.Type).To(Equal(types.F32()))
+			},
+		)
 	})
 
 	Describe("AnalyzeBlock", func() {
-		It("Should analyze a valid block without return statements", func(bCtx SpecContext) {
-			// Note: AnalyzeBlock analyzes blocks in isolation without function context,
-			// so return statements may fail without proper scope setup.
-			prog := MustSucceed(parser.Parse(`
+		It(
+			"Should analyze a valid block without return statements",
+			func(bCtx SpecContext) {
+				// Note: AnalyzeBlock analyzes blocks in isolation without function
+				// context, so return statements may fail without proper scope setup.
+				prog := MustSucceed(parser.Parse(`
 				func test() {
 					x := 1
 					y := 2
 					z := x + y
 				}
 			`))
-			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
-			block := funcDecl.Block()
-			progCtx := context.NewRoot(bCtx, prog, nil)
-			blockCtx := context.Child(progCtx, block)
-			analyzer.AnalyzeBlock(blockCtx)
-			Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
-		})
+				funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+				block := funcDecl.Block()
+				progCtx := context.NewRoot(bCtx, prog, nil)
+				blockCtx := context.Child(progCtx, block)
+				analyzer.AnalyzeBlock(blockCtx)
+				Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
+			},
+		)
 
 		It("Should diagnose error in block and stop analysis", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`
@@ -356,56 +403,70 @@ var _ = Describe("Analyzer Integration", func() {
 			analyzer.AnalyzeBlock(blockCtx)
 			Expect(blockCtx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*blockCtx.Diagnostics).To(HaveLen(1))
-			Expect((*blockCtx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefined_var"))
+			Expect(
+				(*blockCtx.Diagnostics)[0].Message,
+			).To(ContainSubstring("undefined symbol: undefined_var"))
 		})
 
-		It("Should handle type unification across block statements", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`
+		It(
+			"Should handle type unification across block statements",
+			func(bCtx SpecContext) {
+				prog := MustSucceed(parser.Parse(`
 				func test() {
 					x f64 := 1
 					y := x + 2.0
 				}
 			`))
-			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
-			block := funcDecl.Block()
-			progCtx := context.NewRoot(bCtx, prog, nil)
-			blockCtx := context.Child(progCtx, block)
-			analyzer.AnalyzeBlock(blockCtx)
-			Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
-		})
+				funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+				block := funcDecl.Block()
+				progCtx := context.NewRoot(bCtx, prog, nil)
+				blockCtx := context.Child(progCtx, block)
+				analyzer.AnalyzeBlock(blockCtx)
+				Expect(blockCtx.Diagnostics.Ok()).To(BeTrue())
+			},
+		)
 	})
 
 	Describe("Top-Level Variables", func() {
-		It("Should analyze a top-level variable with inferred type", func(bCtx SpecContext) {
-			ctx := analyzeAndExpect(bCtx, `
+		It(
+			"Should analyze a top-level variable with inferred type",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpect(bCtx, `
 				MAX_VALUE := 100
 			`)
-			varScope := MustSucceed(ctx.Scope.Resolve(ctx, "MAX_VALUE"))
-			Expect(varScope.Kind).To(Equal(symbol.KindVariable))
-			Expect(varScope.Type).To(Equal(types.I64()))
-		})
+				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "MAX_VALUE"))
+				Expect(varScope.Kind).To(Equal(symbol.KindVariable))
+				Expect(varScope.Type).To(Equal(types.I64()))
+			},
+		)
 
-		It("Should analyze a top-level variable with explicit type", func(bCtx SpecContext) {
-			ctx := analyzeAndExpect(bCtx, `
+		It(
+			"Should analyze a top-level variable with explicit type",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpect(bCtx, `
 				THRESHOLD f32 := 50.5
 			`)
-			varScope := MustSucceed(ctx.Scope.Resolve(ctx, "THRESHOLD"))
-			Expect(varScope.Kind).To(Equal(symbol.KindVariable))
-			Expect(varScope.Type).To(Equal(types.F32()))
-		})
+				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "THRESHOLD"))
+				Expect(varScope.Kind).To(Equal(symbol.KindVariable))
+				Expect(varScope.Type).To(Equal(types.F32()))
+			},
+		)
 
-		It("Should allow using a top-level variable inside a function", func(bCtx SpecContext) {
-			ctx := analyzeAndExpect(bCtx, `
+		It(
+			"Should allow using a top-level variable inside a function",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpect(bCtx, `
 				LIMIT := 10
 
 				func check(x i64) i64 {
 					return x + LIMIT
 				}
 			`)
-			varScope := MustSucceed(ctx.Scope.Resolve(ctx, "LIMIT"))
-			Expect(varScope.Kind).To(Equal(symbol.KindVariable))
-			Expect(varScope.Type).To(Equal(types.I64()))
-		})
+				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "LIMIT"))
+				Expect(varScope.Kind).To(Equal(symbol.KindVariable))
+				Expect(varScope.Type).To(Equal(types.I64()))
+			},
+		)
 
 		It("Should reject reassigning a top-level variable", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`
@@ -421,8 +482,10 @@ var _ = Describe("Analyzer Integration", func() {
 	})
 
 	Describe("Channel Propagation Through Function Calls", func() {
-		It("Should propagate callee channels to caller when callee is declared first", func(bCtx SpecContext) {
-			ctx := analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should propagate callee channels to caller when callee is declared first",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectWithResolver(bCtx, `
 				func callee() {
 					ch = 1.0
 				}
@@ -430,12 +493,15 @@ var _ = Describe("Analyzer Integration", func() {
 					callee()
 				}
 			`, chResolver)
-			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
-			Expect(caller.Channels.Write[10]).To(Equal("ch"))
-		})
+				caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+				Expect(caller.Channels.Write[10]).To(Equal("ch"))
+			},
+		)
 
-		It("Should propagate callee channels to caller for forward references", func(bCtx SpecContext) {
-			ctx := analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should propagate callee channels to caller for forward references",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectWithResolver(bCtx, `
 				func caller() {
 					callee()
 				}
@@ -443,12 +509,15 @@ var _ = Describe("Analyzer Integration", func() {
 					ch = 1.0
 				}
 			`, chResolver)
-			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
-			Expect(caller.Channels.Write[10]).To(Equal("ch"))
-		})
+				caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+				Expect(caller.Channels.Write[10]).To(Equal("ch"))
+			},
+		)
 
-		It("Should propagate channels through multi-level forward reference chains", func(bCtx SpecContext) {
-			ctx := analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should propagate channels through multi-level forward reference chains",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					b()
 				}
@@ -459,16 +528,27 @@ var _ = Describe("Analyzer Integration", func() {
 					ch = 1.0
 				}
 			`, chResolver)
-			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
-			Expect(a.Channels.Write[10]).To(Equal("ch"))
-			b := MustSucceed(ctx.Scope.Resolve(ctx, "b"))
-			Expect(b.Channels.Write[10]).To(Equal("ch"))
-		})
+				a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+				Expect(a.Channels.Write[10]).To(Equal("ch"))
+				b := MustSucceed(ctx.Scope.Resolve(ctx, "b"))
+				Expect(b.Channels.Write[10]).To(Equal("ch"))
+			},
+		)
 
 		It("Should propagate both read and write channels", func(bCtx SpecContext) {
 			resolver := []symbol.Symbol{
-				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-				{Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+				{
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10,
+				},
+				{
+					Name: "valve",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   20,
+				},
 			}
 			ctx := analyzeAndExpectWithResolver(bCtx, `
 				func caller() {
@@ -485,8 +565,18 @@ var _ = Describe("Analyzer Integration", func() {
 
 		It("Should error on mutual recursion", func(bCtx SpecContext) {
 			resolver := []symbol.Symbol{
-				{Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-				{Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+				{
+					Name: "ch1",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10,
+				},
+				{
+					Name: "ch2",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   20,
+				},
 			}
 			ctx := analyzeAndExpectErrorWithResolver(bCtx, `
 				func a() {
@@ -518,8 +608,18 @@ var _ = Describe("Analyzer Integration", func() {
 
 		It("Should error on circular dependency chain", func(bCtx SpecContext) {
 			resolver := []symbol.Symbol{
-				{Name: "ch_a", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-				{Name: "ch_d", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 40},
+				{
+					Name: "ch_a",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10,
+				},
+				{
+					Name: "ch_d",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   40,
+				},
 			}
 			ctx := analyzeAndExpectErrorWithResolver(bCtx, `
 				func a() {
@@ -561,13 +661,30 @@ var _ = Describe("Analyzer Integration", func() {
 			`, chResolver)
 		})
 
-		It("Should error on cycle buried in a larger call tree", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-				{Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
-				{Name: "ch3", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 30},
-			}
-			ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error on cycle buried in a larger call tree",
+			func(bCtx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "ch1",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   10,
+					},
+					{
+						Name: "ch2",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   20,
+					},
+					{
+						Name: "ch3",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   30,
+					},
+				}
+				ctx := analyzeAndExpectErrorWithResolver(bCtx, `
 				func leaf1() { ch1 = 1.0 }
 				func leaf2() { ch2 = 2.0 }
 				func leaf3() { ch3 = 3.0 }
@@ -588,14 +705,25 @@ var _ = Describe("Analyzer Integration", func() {
 					cycle_a()
 				}
 			`, resolver)
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cycle_a"))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cycle_b"))
-		})
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cycle_a"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("cycle_b"))
+			},
+		)
 
 		It("Should error on multiple independent cycles", func(bCtx SpecContext) {
 			resolver := []symbol.Symbol{
-				{Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-				{Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+				{
+					Name: "ch1",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10,
+				},
+				{
+					Name: "ch2",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   20,
+				},
 			}
 			ctx := analyzeAndExpectErrorWithResolver(bCtx, `
 				func ping() {
@@ -616,19 +744,24 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 2))
 		})
 
-		It("Should not false-positive on a deep acyclic call tree", func(bCtx SpecContext) {
-			ctx := analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should not false-positive on a deep acyclic call tree",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectWithResolver(bCtx, `
 				func d() { ch = 1.0 }
 				func c() { d() }
 				func b() { c() }
 				func a() { b() }
 			`, chResolver)
-			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
-			Expect(a.Channels.Write[10]).To(Equal("ch"))
-		})
+				a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+				Expect(a.Channels.Write[10]).To(Equal("ch"))
+			},
+		)
 
-		It("Should error when a function both self-recurses and participates in a mutual cycle", func(bCtx SpecContext) {
-			analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error when a function both self-recurses and participates in a mutual cycle",
+			func(bCtx SpecContext) {
+				analyzeAndExpectErrorWithResolver(bCtx, `
 				func a() {
 					ch = 1.0
 					a()
@@ -638,10 +771,13 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should not false-positive on a non-cyclic caller that reaches a cycle", func(bCtx SpecContext) {
-			ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should not false-positive on a non-cyclic caller that reaches a cycle",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectErrorWithResolver(bCtx, `
 				func cycle_a() {
 					ch = 1.0
 					cycle_b()
@@ -653,10 +789,11 @@ var _ = Describe("Analyzer Integration", func() {
 					cycle_a()
 				}
 			`, chResolver)
-			for _, d := range *ctx.Diagnostics {
-				Expect(d.Message).ToNot(ContainSubstring("wrapper"))
-			}
-		})
+				for _, d := range *ctx.Diagnostics {
+					Expect(d.Message).ToNot(ContainSubstring("wrapper"))
+				}
+			},
+		)
 
 		It("Should allow self-recursion with if guard", func(bCtx SpecContext) {
 			analyzeAndExpectWithResolver(bCtx, `
@@ -669,8 +806,10 @@ var _ = Describe("Analyzer Integration", func() {
 			`, chResolver)
 		})
 
-		It("Should allow mutual recursion when one edge is guarded", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow mutual recursion when one edge is guarded",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					ch = 1.0
 					if ch > 0 {
@@ -681,7 +820,8 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
 		It("Should allow self-recursion in else-if block", func(bCtx SpecContext) {
 			analyzeAndExpectWithResolver(bCtx, `
@@ -695,8 +835,10 @@ var _ = Describe("Analyzer Integration", func() {
 			`, chResolver)
 		})
 
-		It("Should allow self-recursion when else branch is safe in if/else-if/else", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow self-recursion when else branch is safe in if/else-if/else",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					if ch > 10 {
 						a()
@@ -707,10 +849,13 @@ var _ = Describe("Analyzer Integration", func() {
 					}
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should allow self-recursion when else-if branch is safe in if/else-if/else", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow self-recursion when else-if branch is safe in if/else-if/else",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					if ch > 10 {
 						a()
@@ -721,10 +866,13 @@ var _ = Describe("Analyzer Integration", func() {
 					}
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should allow self-recursion when if branch is safe in if/else-if/else", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow self-recursion when if branch is safe in if/else-if/else",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					if ch > 10 {
 						ch = 1.0
@@ -735,10 +883,13 @@ var _ = Describe("Analyzer Integration", func() {
 					}
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should error when call is in all branches of if-else", func(bCtx SpecContext) {
-			analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error when call is in all branches of if-else",
+			func(bCtx SpecContext) {
+				analyzeAndExpectErrorWithResolver(bCtx, `
 				func ping() {
 					ch = 1.0
 					if ch > 0 {
@@ -751,10 +902,13 @@ var _ = Describe("Analyzer Integration", func() {
 					ping()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should allow recursion when nested if has outer guard without else", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow recursion when nested if has outer guard without else",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					if ch > 0 {
 						if ch > 10 {
@@ -765,10 +919,13 @@ var _ = Describe("Analyzer Integration", func() {
 					}
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should error when all paths through nested ifs call callee", func(bCtx SpecContext) {
-			analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error when all paths through nested ifs call callee",
+			func(bCtx SpecContext) {
+				analyzeAndExpectErrorWithResolver(bCtx, `
 				func a() {
 					ch = 1.0
 					if ch > 0 {
@@ -782,10 +939,13 @@ var _ = Describe("Analyzer Integration", func() {
 					}
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should error on tangled web of 5 functions with no exit path", func(bCtx SpecContext) {
-			analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error on tangled web of 5 functions with no exit path",
+			func(bCtx SpecContext) {
+				analyzeAndExpectErrorWithResolver(bCtx, `
 				func init_seq() {
 					ch = 1.0
 					if ch > 50 {
@@ -825,10 +985,13 @@ var _ = Describe("Analyzer Integration", func() {
 					init_seq()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should allow tangled web when route_beta has a single exit condition", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow tangled web when route_beta has a single exit condition",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func init_seq() {
 					ch = 1.0
 					if ch > 50 {
@@ -870,13 +1033,21 @@ var _ = Describe("Analyzer Integration", func() {
 					init_seq()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should error when a guarded call coexists with an unconditional recursive cycle", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-			}
-			ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error when a guarded call coexists with an unconditional recursive cycle",
+			func(bCtx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "ch1",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   10,
+					},
+				}
+				ctx := analyzeAndExpectErrorWithResolver(bCtx, `
 				func a() {
 					if ch1 > 0 {
 						b()
@@ -892,15 +1063,18 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, resolver)
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			msg := (*ctx.Diagnostics)[0].Message
-			Expect(msg).To(ContainSubstring("circular function call"))
-			Expect(msg).To(ContainSubstring("a"))
-			Expect(msg).To(ContainSubstring("c"))
-		})
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				msg := (*ctx.Diagnostics)[0].Message
+				Expect(msg).To(ContainSubstring("circular function call"))
+				Expect(msg).To(ContainSubstring("a"))
+				Expect(msg).To(ContainSubstring("c"))
+			},
+		)
 
-		It("Should error when guard only covers one of two recursive paths from the same function", func(bCtx SpecContext) {
-			analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error when guard only covers one of two recursive paths from the same function",
+			func(bCtx SpecContext) {
+				analyzeAndExpectErrorWithResolver(bCtx, `
 				func a() {
 					if ch > 100 {
 						b()
@@ -916,10 +1090,13 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should error when every branch calls a different function but all lead back", func(bCtx SpecContext) {
-			analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error when every branch calls a different function but all lead back",
+			func(bCtx SpecContext) {
+				analyzeAndExpectErrorWithResolver(bCtx, `
 				func a() {
 					if ch > 0 {
 						b()
@@ -936,10 +1113,13 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should error when deep chain has one guarded link but another path bypasses it", func(bCtx SpecContext) {
-			analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error when deep chain has one guarded link but another path bypasses it",
+			func(bCtx SpecContext) {
+				analyzeAndExpectErrorWithResolver(bCtx, `
 				func a() {
 					if ch > 50 {
 						b()
@@ -959,10 +1139,13 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should error on self-recursion hidden after a guarded call to another function", func(bCtx SpecContext) {
-			ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error on self-recursion hidden after a guarded call to another function",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectErrorWithResolver(bCtx, `
 				func a() {
 					if ch > 0 {
 						helper()
@@ -973,12 +1156,15 @@ var _ = Describe("Analyzer Integration", func() {
 					ch = 0
 				}
 			`, chResolver)
-			msg := (*ctx.Diagnostics)[0].Message
-			Expect(msg).To(ContainSubstring("a"))
-		})
+				msg := (*ctx.Diagnostics)[0].Message
+				Expect(msg).To(ContainSubstring("a"))
+			},
+		)
 
-		It("Should allow self-recursion guarded by early return", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow self-recursion guarded by early return",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					if ch <= 0 {
 						return
@@ -986,10 +1172,13 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should allow recursion guarded by early return with value", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow recursion guarded by early return with value",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func factorial(n i64) i64 {
 					if n <= 1 {
 						return 1
@@ -1000,10 +1189,13 @@ var _ = Describe("Analyzer Integration", func() {
 					return factorial(5)
 				}
 			`, nil)
-		})
+			},
+		)
 
-		It("Should allow recursion when if/else always returns before call", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow recursion when if/else always returns before call",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					if ch > 0 {
 						ch = 1.0
@@ -1015,10 +1207,13 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should allow recursion when if/else-if/else always returns before call", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow recursion when if/else-if/else always returns before call",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					if ch > 10 {
 						return
@@ -1030,10 +1225,13 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should allow mutual recursion guarded by early return", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow mutual recursion guarded by early return",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					if ch <= 0 {
 						return
@@ -1044,10 +1242,13 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should allow recursion when nested if/else always returns before call", func(bCtx SpecContext) {
-			analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should allow recursion when nested if/else always returns before call",
+			func(bCtx SpecContext) {
+				analyzeAndExpectWithResolver(bCtx, `
 				func a() {
 					if ch > 100 {
 						if ch > 200 {
@@ -1061,21 +1262,27 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, chResolver)
-		})
+			},
+		)
 
-		It("Should error when return comes after recursive call", func(bCtx SpecContext) {
-			ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+		It(
+			"Should error when return comes after recursive call",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectErrorWithResolver(bCtx, `
 				func a() {
 					a()
 					return
 				}
 			`, chResolver)
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Range.Start.Line).To(Equal(uint32(2)))
-		})
+				diag := (*ctx.Diagnostics)[0]
+				Expect(diag.Range.Start.Line).To(Equal(uint32(2)))
+			},
+		)
 
-		It("Should handle diamond dependency without duplication", func(bCtx SpecContext) {
-			ctx := analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should handle diamond dependency without duplication",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectWithResolver(bCtx, `
 				func d() {
 					ch = 1.0
 				}
@@ -1090,15 +1297,26 @@ var _ = Describe("Analyzer Integration", func() {
 					c()
 				}
 			`, chResolver)
-			a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
-			Expect(a.Channels.Write).To(HaveLen(1))
-			Expect(a.Channels.Write[10]).To(Equal("ch"))
-		})
+				a := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+				Expect(a.Channels.Write).To(HaveLen(1))
+				Expect(a.Channels.Write[10]).To(Equal("ch"))
+			},
+		)
 
 		It("Should merge channels from multiple callees", func(bCtx SpecContext) {
 			resolver := []symbol.Symbol{
-				{Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-				{Name: "ch2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 20},
+				{
+					Name: "ch1",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   10,
+				},
+				{
+					Name: "ch2",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   20,
+				},
 			}
 			ctx := analyzeAndExpectWithResolver(bCtx, `
 				func helper1() {
@@ -1118,11 +1336,18 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(caller.Channels.Write[20]).To(Equal("ch2"))
 		})
 
-		It("Should deduplicate when multiple callees write the same channel", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "ch1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-			}
-			ctx := analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should deduplicate when multiple callees write the same channel",
+			func(bCtx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "ch1",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   10,
+					},
+				}
+				ctx := analyzeAndExpectWithResolver(bCtx, `
 				func helper1() {
 					ch1 = 1.0
 				}
@@ -1134,16 +1359,24 @@ var _ = Describe("Analyzer Integration", func() {
 					helper2()
 				}
 			`, resolver)
-			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
-			Expect(caller.Channels.Write).To(HaveLen(1))
-			Expect(caller.Channels.Write[10]).To(Equal("ch1"))
-		})
+				caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+				Expect(caller.Channels.Write).To(HaveLen(1))
+				Expect(caller.Channels.Write[10]).To(Equal("ch1"))
+			},
+		)
 
-		It("Should propagate when callee both reads and writes the same channel", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
-			}
-			ctx := analyzeAndExpectWithResolver(bCtx, `
+		It(
+			"Should propagate when callee both reads and writes the same channel",
+			func(bCtx SpecContext) {
+				resolver := []symbol.Symbol{
+					{
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   10,
+					},
+				}
+				ctx := analyzeAndExpectWithResolver(bCtx, `
 				func callee() {
 					sensor = sensor + 1
 				}
@@ -1151,55 +1384,69 @@ var _ = Describe("Analyzer Integration", func() {
 					callee()
 				}
 			`, resolver)
-			caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
-			Expect(caller.Channels.Read[10]).To(Equal("sensor"))
-			Expect(caller.Channels.Write[10]).To(Equal("sensor"))
-		})
+				caller := MustSucceed(ctx.Scope.Resolve(ctx, "caller"))
+				Expect(caller.Channels.Read[10]).To(Equal("sensor"))
+				Expect(caller.Channels.Write[10]).To(Equal("sensor"))
+			},
+		)
 	})
 
 	Describe("Complete Analysis", func() {
-		It("Should report multiple independent errors in different functions", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`
+		It(
+			"Should report multiple independent errors in different functions",
+			func(bCtx SpecContext) {
+				prog := MustSucceed(parser.Parse(`
 				func a() { x := undefined1 }
 				func b() { y := undefined2 }
 			`))
-			ctx := context.NewRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(2))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined1"))
-			Expect((*ctx.Diagnostics)[1].Message).To(ContainSubstring("undefined2"))
-		})
+				ctx := context.NewRoot(bCtx, prog, nil)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(2))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined1"))
+				Expect((*ctx.Diagnostics)[1].Message).To(ContainSubstring("undefined2"))
+			},
+		)
 
-		It("Should not cascade undefined errors for poisoned symbols", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`
+		It(
+			"Should not cascade undefined errors for poisoned symbols",
+			func(bCtx SpecContext) {
+				prog := MustSucceed(parser.Parse(`
 				func test() {
 					x := undefined_var
 					y := x + 1
 				}
 			`))
-			ctx := context.NewRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			// Only the original error - no "undefined x" cascade
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined_var"))
-		})
+				ctx := context.NewRoot(bCtx, prog, nil)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				// Only the original error - no "undefined x" cascade
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect(
+					(*ctx.Diagnostics)[0].Message,
+				).To(ContainSubstring("undefined_var"))
+			},
+		)
 
-		It("Should not cascade type errors when operands are Invalid", func(bCtx SpecContext) {
-			prog := MustSucceed(parser.Parse(`
+		It(
+			"Should not cascade type errors when operands are Invalid",
+			func(bCtx SpecContext) {
+				prog := MustSucceed(parser.Parse(`
 				func test() {
 					x := undefined_var
 					y := x + "string"
 				}
 			`))
-			ctx := context.NewRoot(bCtx, prog, nil)
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			// Only the original error - no type mismatch cascade
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined_var"))
-		})
+				ctx := context.NewRoot(bCtx, prog, nil)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				// Only the original error - no type mismatch cascade
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect(
+					(*ctx.Diagnostics)[0].Message,
+				).To(ContainSubstring("undefined_var"))
+			},
+		)
 
 		It("Should report all errors in if/else branches", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`

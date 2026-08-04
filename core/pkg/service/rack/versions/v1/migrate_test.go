@@ -86,28 +86,35 @@ var _ = Describe("MigrateRack", func() {
 		Expect(got.Status).To(BeNil())
 	})
 
-	It("drops Status and preserves core wire fields when v1 entries carry a populated Status", func(ctx SpecContext) {
-		key := v0.Key(0x0001_0002)
-		seed := v0.Rack{
-			Key:      key,
-			Name:     "Loaded Rack",
-			Embedded: false,
-			Status: &v0.Status{
-				Key:         "rack:" + uuid.NewString(),
-				Name:        "healthy",
-				Variant:     "success",
-				Message:     "rack heartbeat received",
-				Description: "all integrations responding",
-				Time:        telem.Now(),
-				Details:     v0.StatusDetails{Rack: key},
-				Labels: []label.Label{
-					{Key: uuid.New(), Name: "primary", Color: color.Color{R: 64, G: 128, B: 255, A: 1}},
+	It(
+		"drops Status and preserves core wire fields when v1 entries carry a populated Status",
+		func(ctx SpecContext) {
+			key := v0.Key(0x0001_0002)
+			seed := v0.Rack{
+				Key:      key,
+				Name:     "Loaded Rack",
+				Embedded: false,
+				Status: &v0.Status{
+					Key:         "rack:" + uuid.NewString(),
+					Name:        "healthy",
+					Variant:     "success",
+					Message:     "rack heartbeat received",
+					Description: "all integrations responding",
+					Time:        telem.Now(),
+					Details:     v0.StatusDetails{Rack: key},
+					Labels: []label.Label{
+						{
+							Key:   uuid.New(),
+							Name:  "primary",
+							Color: color.Color{R: 64, G: 128, B: 255, A: 1},
+						},
+					},
 				},
-			},
-		}
-		got := migrateSeed(ctx, seed)
-		Expect(got.Key).To(Equal(seed.Key))
-		Expect(got.Name).To(Equal(seed.Name))
-		Expect(got.Status).To(BeNil())
-	})
+			}
+			got := migrateSeed(ctx, seed)
+			Expect(got.Key).To(Equal(seed.Key))
+			Expect(got.Name).To(Equal(seed.Name))
+			Expect(got.Status).To(BeNil())
+		},
+	)
 })

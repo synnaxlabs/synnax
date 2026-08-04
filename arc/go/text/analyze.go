@@ -129,7 +129,9 @@ func (e varEntry) readNode(sym *symbol.Symbol) *ir.Node {
 	return nil
 }
 
-func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *shellBuilder {
+func newShellBuilder(
+	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol,
+) *shellBuilder {
 	return &shellBuilder{
 		activations: map[string]ir.Handle{},
 		synthByAST:  synthByAST,
@@ -242,7 +244,10 @@ func (s *shellBuilder) applyTransitionIntent(on ir.Handle, intent transitionInte
 		if frame == nil {
 			frame = s.top()
 		}
-		s.addTransitionTo(frame, ir.Transition{On: on, TargetKey: new(intent.memberKey)})
+		s.addTransitionTo(
+			frame,
+			ir.Transition{On: on, TargetKey: new(intent.memberKey)},
+		)
 	case intent.activateKey != "":
 		s.registerActivation(intent.activateKey, on)
 		if s.top() != nil && !intent.suppressExit {
@@ -351,7 +356,13 @@ func analyzeFlowNode(
 	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
 	if id := ctx.AST.Identifier(); id != nil {
-		return analyzeIdentifierByRole(acontext.Child(ctx, id), kg, shell, isFirst, isSink)
+		return analyzeIdentifierByRole(
+			acontext.Child(ctx, id),
+			kg,
+			shell,
+			isFirst,
+			isSink,
+		)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		r, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg, shell)
@@ -634,7 +645,10 @@ func collectBranch[T antlr.ParserRuleContext](
 	if bfn, ok := kg.synthFuncs.Find(res.node.Type); ok {
 		for _, p := range bfn.Inputs {
 			if _, exists := d.node.Inputs.Get(p.Name); !exists {
-				d.node.Inputs = append(d.node.Inputs, types.Param{Name: p.Name, Type: p.Type})
+				d.node.Inputs = append(
+					d.node.Inputs,
+					types.Param{Name: p.Name, Type: p.Type},
+				)
 			}
 		}
 	}
@@ -850,7 +864,9 @@ func buildDispatcher(
 		Type:     ir.DispatcherSyntheticPrefix + nodeKey,
 		Channels: types.NewChannels(),
 		Inputs:   types.Params{{Name: "$sel", Type: types.U32()}},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: e.deref.Outputs[0].Type}},
+		Outputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: e.deref.Outputs[0].Type},
+		},
 	}
 	e.deref.Inputs = append(e.deref.Inputs, types.Param{Name: "sel", Type: types.U32()})
 	shell.edges = append(shell.edges,
@@ -900,7 +916,10 @@ func buildDispatcherTriggers[T antlr.ParserRuleContext](
 			bindReadToAlias(shell, e.register, &result.node, chanSym)
 		}
 		param := fmt.Sprintf("$t%d", ti)
-		params = append(params, types.Param{Name: param, Type: result.node.Outputs[0].Type})
+		params = append(
+			params,
+			types.Param{Name: param, Type: result.node.Outputs[0].Type},
+		)
 		shell.rootNodes = append(shell.rootNodes, &result.node)
 		shell.edges = append(shell.edges, ir.Edge{
 			Source: result.output,
@@ -1038,7 +1057,11 @@ func channelKey(sym *symbol.Symbol) uint32 {
 	return uint32(sym.ID)
 }
 
-func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
+func buildChannelReadNode(
+	name string,
+	sym *symbol.Symbol,
+	kg *keyGenerator,
+) (nodeResult, bool) {
 	nodeKey := kg.generate("on", name)
 	chKey := channelKey(sym)
 	n := ir.Node{
@@ -1052,7 +1075,11 @@ func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (no
 	return newNodeResult(n, "", ir.DefaultOutputParam), true
 }
 
-func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
+func buildChannelWriteNode(
+	name string,
+	sym *symbol.Symbol,
+	kg *keyGenerator,
+) (nodeResult, bool) {
 	nodeKey := kg.generate("write", name)
 	chKey := channelKey(sym)
 	n := ir.Node{
@@ -1083,7 +1110,9 @@ func analyzeNextToken(
 	}
 	frame := shell.top()
 	if frame == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "'next' used outside of a sequence"))
+		ctx.Diagnostics.Add(
+			diagnostics.Errorf(ctx.AST, "'next' used outside of a sequence"),
+		)
 		return flowNodeResult{}, false
 	}
 	if frame.nextMember() == "" {
@@ -1118,7 +1147,8 @@ func analyzeFunctionNode(
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"function '%s' cannot be used as a flow statement. Call it inside a func block instead: %s()",
-			name, name,
+			name,
+			name,
 		))
 		return nodeResult{}, false
 	}
@@ -1232,7 +1262,13 @@ func analyzeExpression(
 	}
 
 	if sym.Kind == symbol.KindFunction && parser.IsLiteral(ctx.AST) {
-		if n, handled, ok := tryAnalyzeFmtStrLiteral(ctx, sym, kg, shell, triggered); handled {
+		if n, handled, ok := tryAnalyzeFmtStrLiteral(
+			ctx,
+			sym,
+			kg,
+			shell,
+			triggered,
+		); handled {
 			return n, ok
 		}
 	}
@@ -1291,7 +1327,8 @@ func wireVarEdges(
 		e := shell.varNodes[vsym]
 		// An alias lifts behind a register-bound read node, so the param
 		// follows rebinds and gates on data arrival.
-		if vsym.Type.Kind == types.KindChan && vsym.SourceID != nil && e.register != nil {
+		if vsym.Type.Kind == types.KindChan && vsym.SourceID != nil &&
+			e.register != nil {
 			r, ok := buildChannelReadNode(p.Name, vsym, kg)
 			if !ok {
 				continue
@@ -1393,7 +1430,11 @@ func Analyze(
 				return i, aCtx.Diagnostics
 			}
 		} else if flow := item.FlowStatement(); flow != nil {
-			nodes, edges, inlineMembers, _, ok := analyzeFlow(acontext.Child(aCtx, flow), kg, shell)
+			nodes, edges, inlineMembers, _, ok := analyzeFlow(
+				acontext.Child(aCtx, flow),
+				kg,
+				shell,
+			)
 			if !ok {
 				return i, aCtx.Diagnostics
 			}
@@ -1511,7 +1552,12 @@ func Analyze(
 	}
 
 	if len(i.Nodes) > 0 {
-		if !analyzer.ResolveNodeTypes(i.Nodes, i.Edges, aCtx.Constraints, aCtx.Diagnostics) {
+		if !analyzer.ResolveNodeTypes(
+			i.Nodes,
+			i.Edges,
+			aCtx.Constraints,
+			aCtx.Diagnostics,
+		) {
 			return i, aCtx.Diagnostics
 		}
 		if d := stratifier.Stratify(ctx, &i, aCtx.Diagnostics); d != nil && !d.Ok() {
@@ -1569,7 +1615,9 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 // in an expression when that expression is the first node in a flow statement.
 // This enables the shorthand syntax: `ox_pt_1 > 20 => do_something{}`
 // which expands to: `ox_pt_1 -> ox_pt_1 > 20 => do_something{}`
-func (p *flowChainProcessor) injectImplicitTriggers(expr parser.IExpressionContext) bool {
+func (p *flowChainProcessor) injectImplicitTriggers(
+	expr parser.IExpressionContext,
+) bool {
 	sym, err := p.ctx.Scope.Root().GetChildByParserRule(expr)
 	if err != nil || sym.Kind == symbol.KindConstant {
 		return true // Constants don't need triggers
@@ -1742,7 +1790,7 @@ func analyzeFlow(
 	ctx acontext.Context[parser.IFlowStatementContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
-) (nodes []ir.Node, edges []ir.Edge, inlineMembers []ir.Member, transitionEmitted bool, ok bool) {
+) (nodes []ir.Node, edges []ir.Edge, inlineMembers []ir.Member, transitionEmitted, ok bool) {
 	p := newFlowChainProcessor(ctx, kg, shell)
 	for i, child := range ctx.AST.GetChildren() {
 		switch c := child.(type) {
@@ -1799,7 +1847,9 @@ func extractInputValues(
 				))
 				return nil, paramType, false
 			}
-			if err := paramType.ChanDirection.CheckCompatibility(sym.Type.ChanDirection); err != nil {
+			if err := paramType.ChanDirection.CheckCompatibility(
+				sym.Type.ChanDirection,
+			); err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 				return nil, paramType, false
 			}
@@ -1809,7 +1859,10 @@ func extractInputValues(
 			if e := shell.varNodes[sym]; e.register != nil && sym.IsValueVariable() &&
 				sym.Type.Kind == types.KindChan {
 				shell.edges = append(shell.edges, ir.Edge{
-					Source: ir.Handle{Node: e.register.Key, Param: ir.DefaultOutputParam},
+					Source: ir.Handle{
+						Node:  e.register.Key,
+						Param: ir.DefaultOutputParam,
+					},
 					Target: ir.Handle{Node: node.Key, Param: paramName},
 					Kind:   ir.EdgeKindContinuous,
 				})
@@ -1817,10 +1870,22 @@ func extractInputValues(
 					&node.Channels, fnSym, paramName, channelKey(sym), sym.Name,
 				)
 				for key, name := range sym.Channels.Read {
-					symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, key, name)
+					symbol.ResolveInputChannel(
+						&node.Channels,
+						fnSym,
+						paramName,
+						key,
+						name,
+					)
 				}
 				for key, name := range sym.Channels.Write {
-					symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, key, name)
+					symbol.ResolveInputChannel(
+						&node.Channels,
+						fnSym,
+						paramName,
+						key,
+						name,
+					)
 				}
 				return nil, paramType, true
 			}
@@ -2023,7 +2088,10 @@ func analyzeOutputRoutingTable(
 			}
 
 			if result.inlineScope != nil {
-				inlineMembers = append(inlineMembers, ir.Member{Scope: result.inlineScope})
+				inlineMembers = append(
+					inlineMembers,
+					ir.Member{Scope: result.inlineScope},
+				)
 			}
 
 			if result.transition != nil {
@@ -2389,7 +2457,11 @@ func analyzeStage(
 			continue
 		}
 		if assign := item.Assignment(); assign != nil {
-			aNodes, aEdges, ok := lowerAssignment(acontext.Child(ctx, assign), kg, shell)
+			aNodes, aEdges, ok := lowerAssignment(
+				acontext.Child(ctx, assign),
+				kg,
+				shell,
+			)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}

@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <algorithm>
-#include <sstream>
-#include <unordered_map>
+#include "absl/log/log.h"
 
-#include "glog/logging.h"
-
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/soem/master.h"
+#include "driver/ethercat/soem/util.h"
 #include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::soem {
