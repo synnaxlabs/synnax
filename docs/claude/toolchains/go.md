@@ -268,3 +268,13 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 ```
+
+### Rule 11: Every exported symbol gets its own specs
+
+Adding an exported function, method, or type means adding specs for it in that package,
+in the same change. Cover the success path and every documented failure condition — for
+a validating helper, one entry per rejection it can produce.
+
+Coverage through a caller in another package does not count. A helper exercised only by
+its consumers has no spec that names it, so a regression surfaces as an unrelated
+failure elsewhere, and deleting the last consumer silently drops the coverage.
