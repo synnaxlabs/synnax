@@ -47,12 +47,15 @@ Rules for writing and editing RFCs in this directory.
   bytes — em dashes and µ are multi-byte. A link or URL that cannot be broken is allowed
   to overflow; do not contort the prose around it.
 - Put a space between a number and its unit, with correct unit casing: `1 Hz`, `25 kHz`,
-  `10 ms`, `100 µs`, `200 KB`. Use the micro sign µ (U+00B5), never Greek mu (μ).
+  `10 ms`, `100 µs`, `200 kB`. Kilo is a lowercase `k`; mega and giga are `M` and `G`.
+  Use the micro sign µ (U+00B5), never Greek mu (μ).
 - Backtick type names and code identifiers in prose: `uint8`, `float64`, `domain.DB`,
   channel names like `sy_task_set`. CLI commands too: `oracle migrate`.
 - Capitalize Synnax component names in prose: Arc, Cesium, Aspen, Core, Console, Pluto,
   Freighter, Alamos, Gorp, Drift, Driver, Oracle. Package and import paths stay
   lowercase in backticks.
+- Third-party names are proper nouns too: Git, Go, gRPC, HashiCorp, Zod. The tool is
+  Git; the command stays lowercase in backticks (`git log`).
 - Version references are lowercase: `v1`, `v2`, `v0.2`.
 - When citing another RFC's section or heading, match its real number and casing —
   renumbering a section breaks references elsewhere; check for them.

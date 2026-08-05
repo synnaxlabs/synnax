@@ -761,7 +761,7 @@ via libcurl multi).
 **Guidance:**
 
 - Request body construction (JSON Pointer set operations) should be fast since the body
-  is typically small (<1 KB).
+  is typically small (<1 kB).
 - Last-value caching (`on_empty: "last"`) should store converted JSON values, not raw
   Synnax samples, to avoid re-converting on every iteration.
 

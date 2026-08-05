@@ -671,7 +671,7 @@ is allocated on first probe via `sync.Once`. This matters heavily for large inde
 sets that compose with smaller filters: when `intersectKeys` walks the larger side
 directly (no membership probe on that side), the larger filter's membership map never
 allocates. On a 12500-key filter intersected with a 1-key filter, this saves roughly 150
-KB per query.
+kB per query.
 
 #### 2.5.1 Composing indexed and non-indexed filters
 
@@ -781,7 +781,7 @@ For sorted indexes, similar math applies with the addition of the sorted slice o
 
 The per-tx delta overlay adds transient cost proportional to staged write volume. A tx
 that creates 1000 channels with two indexes registered carries roughly 2000 delta
-entries of ~80 bytes each (state map plus forward map slot), or roughly 160 KB for the
+entries of ~80 bytes each (state map plus forward map slot), or roughly 160 kB for the
 duration of the tx. The delta is freed in the cleanup hook after commit or rollback.
 
 The lazy membership pattern means the membership hash maps for index-backed filters are

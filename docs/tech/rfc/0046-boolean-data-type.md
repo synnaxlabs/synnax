@@ -191,7 +191,7 @@ only when the frame codec deserializes a `Series` off the wire. The `Series` typ
 does not grow a new marshaling contract.
 
 Network impact: a deployment with 1000 digital channels sampling at 1 kHz drops from 1
-MB/s to 125 KB/s of digital traffic before any further compression is applied.
+MB/s to 125 kB/s of digital traffic before any further compression is applied.
 
 ### 3.3 On disk: byte-packed
 
