@@ -59,13 +59,13 @@ the `testing` tool's benchmark tool cannot help us too much in this task: its fo
 that it can run a test multiple times to stabilize timing, but each one of our tests
 takes a long time, so the benefit of repeatedly running tests may not outweigh the harm
 of extra-long testing time. In addition, we have multiple frameworks in multiple
-languages, which makes it hard to use one package to run all tests and manage timing –
+languages, which makes it hard to use one package to run all tests and manage timing —
 as we must be careful to not include times such as starting processes, installing
 dependencies, etc.
 
 Existing integration testing tools mostly focus on browser testing (i.e. simulating HTTP
-requests) – while the Synnax server does run on HTTP requests, this completely bypasses
-the client – which is a crucial part of the system. In addition, it is very possible
+requests) — while the Synnax server does run on HTTP requests, this completely bypasses
+the client — which is a crucial part of the system. In addition, it is very possible
 that the slowest part of the Synnax data pipeline is serializing the data to be
 transported over HTTP, so it is absolutely necessary to initiate operations from our
 clients.
@@ -158,19 +158,19 @@ option is run after the test steps (the only current clean up operation is to de
 channels).
 
 Consider the scenario where we want to assert that opening a delete on a channel
-currently being written to does indeed produce an `unauthorized` error – simply creating
+currently being written to does indeed produce an `unauthorized` error — simply creating
 two parallel nodes of `write` and `delete` will not work, as it is indeterminate which
-one runs first – if `delete` runs first, no errors will occur and the test would fail.
+one runs first — if `delete` runs first, no errors will occur and the test would fail.
 
 Our first attempt at resolving this problem is by creating a property named
-`starts_after` – we implemented this using channels that close when a process starts
+`starts_after` — we implemented this using channels that close when a process starts
 running and other dependent nodes listening to this channel. However, this did not work
 as the order that the commands are started is not necessarily the order that the
-operations get run – for example, setting up writers and reading input for writers may
+operations get run — for example, setting up writers and reading input for writers may
 take a longer time than for deletes, resulting in `delete` running before `write` gets
 run.
 
-For this reason, we implemented a much less elegant and idiomatic approach – to manually
+For this reason, we implemented a much less elegant and idiomatic approach — to manually
 introduce a time interval after which a command is run to assert the order of execution.
 Although unsophisticated, this approach works better than the previous one, as most
 operations take at least 10 seconds to run, making timing delays easy. However, one must
@@ -192,7 +192,7 @@ the system:
 
 1. Load / "Everything" test
 
-This is a test that comprises everything – writing giant amounts of data while trying to
+This is a test that comprises everything — writing giant amounts of data while trying to
 delete, open errant writers on channels in use, etc. The test asserts on disallowing
 creating writers on channels already being written to, deleting from channels being
 written to, the correctness of streaming, and the correctness of deletes and reads.
@@ -243,7 +243,7 @@ allows for comparison.
 #### Smart-closing streamers
 
 Currently, stream operations are only runnable at the same time as write operations, and
-they cannot quit autonomously – the tester must manually configure the number of samples
+they cannot quit autonomously — the tester must manually configure the number of samples
 read for the streamer to be closed. Eventually, it would be helpful to close the
 streamer once no more data is coming in. Doing so may be challenging, though. We can
 neither simply close the streamer once all writers are finished writing, as writers are
@@ -259,7 +259,7 @@ i.e. delete the time range from all channels just written to, read from channels
 deleted from, etc.
 
 One way to do this, for example, is to write the test configuration file in a format
-"smarter" than JSON – for example, a Python list or a JavaScript array. This way, one
+"smarter" than JSON — for example, a Python list or a JavaScript array. This way, one
 can easily refer to the resulting channels of a step. This does not need to abandon all
 the code used to parse JSON test configurations, though: to borrow an analogy from the
 land of compilers, the tester could write "source code" that gets compiled into the

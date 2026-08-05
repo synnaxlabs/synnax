@@ -15,7 +15,7 @@ file. In Cesium, **domains must not overlap each other**: the same moment in tim
 have two different data points. These properties render the domain a powerful concept
 because it allows us to make statements about an entire group of samples: if we know
 that the time range 10:00 - 12:00 is stored in file 1 from offset 10 with length 10, and
-we want to find the sample at 11:00, we know exactly where to look for it – this
+we want to find the sample at 11:00, we know exactly where to look for it — this
 prevents us from searching the entire database!
 
 **Pointer**: A pointer is the implementation of a domain: a pointer is a `struct` that

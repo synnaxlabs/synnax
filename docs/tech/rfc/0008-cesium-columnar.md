@@ -19,9 +19,9 @@ users.
 ## 2 Design
 
 This design extends and modifies the existing Cesium architecture presented in this
-[rfc](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/0001-cesium-segment-storage.md).
-The new architecture (v0.2) introduces the concept of 'indexes' which provide alignment
-between timestamp values and data stored in a segment.
+[RFC](./0001-cesium-segment-storage.md). The new architecture (v0.2) introduces the
+concept of 'indexes' which provide alignment between timestamp values and data stored in
+a segment.
 
 ### 2.0 Indexes
 
