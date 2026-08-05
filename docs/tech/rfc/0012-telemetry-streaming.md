@@ -31,7 +31,7 @@ of Cesium's storage architecture. As we extend our storage and distribution syst
 need to keep leveraging these fundamentals to our advantage.
 
 I've decided these are so important that they deserve a page of their own,
-[here](/docs/tech/telemetry.md).
+[here](../telemetry.md).
 
 ## 2 Design
 
@@ -39,9 +39,9 @@ I've decided these are so important that they deserve a page of their own,
 
 Event channels are built for two workloads: highly irregular, low volume telemetry and
 multi-writer scenarios. The former allows us to support
-[supervisory](/docs/tech/telemetry.md#33---supervisory-commands) control, and the latter
-enables [real-time](/docs/tech/telemetry.md#32---real-time-commands) control by multiple
-clients. Supporting this use case is critical for allowing human and auto-sequence
+[supervisory](../telemetry.md#33---supervisory-commands) control, and the latter enables
+[real-time](../telemetry.md#32---real-time-commands) control by multiple clients.
+Supporting this use case is critical for allowing human and auto-sequence
 interoperability.
 
 Event channels manage their own, independent index. As opposed to sensor data,
@@ -76,8 +76,8 @@ They're used for two purposes: software signals and calculated values.
 
 Aside from the channel definition, virtual channels completely bypass the storage layer,
 and instead pass frames directly into the distribution layer
-[relay](#531-distribution-layer), where they're propagated to any subscribers before
-being garbage collected.
+[relay](#24-relay---distribution-layer), where they're propagated to any subscribers
+before being garbage collected.
 
 #### 2.1.0 Non-leased virtual channels
 

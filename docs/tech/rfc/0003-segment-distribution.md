@@ -144,7 +144,7 @@ or more
 database(s) for reading and writing time-series data from disk. Because the distribution
 layer uses multiple storage engines, there's a certain amount of overlap and data
 reconciliation that must be performed in order to ensure that information stays
-consistent (this is particularly relevant for [channels](#Channels)).
+consistent (this is particularly relevant for [channels](#32-channels)).
 
 <p align="middle">
     <img
@@ -211,8 +211,8 @@ values. Channels have a few important fields:
   fixed, and cannot be changed without deleting and recreating a channel. All data
   written to the channel will have the same data type.
 - **Key**: A unique identifier for the channel across the entire cluster. This key is
-  automatically assigned and cannot be changed. See [Keys](#Keys) for more information
-  on how this value is selected.
+  automatically assigned and cannot be changed. See [Keys](#320-keys) for more
+  information on how this value is selected.
 - **Node ID**: The ID of the node that owns the channel. This node is known as the
   leaseholder, and is the only node that can write _new_ channel data to disk. The
   leaseholder is typically kept in proximity (physically) to the source generating the

@@ -69,11 +69,11 @@ mirrored to `Config` in every `ExecBoth` symbol. Replace both with a single
 
 **Collapse the two analyzer hook surfaces.** A symbol that wants to validate its
 arguments (e.g. `status.set` constraining the `variant` literal; see
-[RFC 0037 §5.0.1](./0037-arc-status-updates.md#501---literal-value-constraints))
-registers `AnalyzeCall` for the parens form AND `AnalyzeFlowConfig` for the brace form.
-The two hooks walk different AST shapes to find the same argument and run the same
-literal check. Replace both with a single `AnalyzeArguments` hook that receives a
-unified `[]Argument` view.
+[RFC 0037 §5.0.1](./0037-arc-status-updates.md#501-literal-value-constraints)) registers
+`AnalyzeCall` for the parens form AND `AnalyzeFlowConfig` for the brace form. The two
+hooks walk different AST shapes to find the same argument and run the same literal
+check. Replace both with a single `AnalyzeArguments` hook that receives a unified
+`[]Argument` view.
 
 ## 2 Non-goals
 
@@ -585,7 +585,7 @@ deserialize identically.
 
 **Scope: Go is assumed to be the deserialization boundary for persisted IR.** The
 existing migrations all live on the Go side
-([core/pkg/service/arc/migrations/v54/migrate_test.go](../../../core/pkg/service/arc/migrations/v54/migrate_test.go),
+([core/pkg/service/arc/versions/v1/migrate_test.go](../../../core/pkg/service/arc/versions/v1/migrate_test.go),
 with no TS or C++ counterpart), which suggests the Go server deserializes persisted Arc
 programs and hands post-migration data to the C++ and TS bindings. If that holds, those
 bindings never see pre-vN bytes and no hand-written C++ or TS migration is required.

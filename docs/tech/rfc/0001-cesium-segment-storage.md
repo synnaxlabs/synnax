@@ -79,7 +79,7 @@ towards irregular time-series data. Its benchmarks show a maximum write throughp
 about 3,000,000 samples per second.
 
 Delta is unique in that almost all of its uses involve storing regular time-series data
-(see [Restrictions on Time-Series](#restrictions-on-time-series)). This is a huge
+(see [Restrictions on Time-Series](#40-restrictions-on-time-series)). This is a huge
 advantage in terms of database simplicity and performance. `tstorage` doesn't take
 advantage of data regularity, and is missing out on the benefits it provides.
 
@@ -211,8 +211,8 @@ A segment places no restrictions on the amount of samples it can store. This has
 important implications for both durability and write throughput. Larger segments are
 less durable (written less frequently) but can achieve a higher throughput for both
 reads and writes, as segment data is written contiguously on disk. See
-[Data Layout](#data-layout) and
-[Providing Elastic Throughput](#providing-elastic-throughput) for more details.
+[Data Layout](#44-data-layout--operations) and
+[Providing Elastic Throughput](#45-providing-elastic-throughput) for more details.
 
 ### 4.1 Handling arbitrary data types
 
@@ -360,13 +360,13 @@ use the following pipe:
   validates them, does KV operations for metadata context, and passes a set of parsed
   operations to the next stage.
 - **Stage 2**: Debounced Queue - Same behavior as for
-  [Retrieve](#retrieve-query-execution).
+  [Retrieve](#430-retrieve-query-execution).
 - **Stage 3**: Shared - Batcher - Receives a set of disk operations and batches them
   into more efficient groups. Groups disk operations belonging to the same file, then
   groups them by channel, and finally sorts them in time-order.
 - **Stage 4**: Shared - Persist - Same behavior as for
-  [Retrieve](#retrieve-query-execution). This stage is shared with the retrieve query
-  pipe.
+  [Retrieve](#430-retrieve-query-execution). This stage is shared with the retrieve
+  query pipe.
 
 <p align="middle">
     <img src="img/0001-cesium-segment-storage/create-pipe.png" width="50%" />
@@ -387,7 +387,7 @@ to the caller.
 :::info It's also relevant to note that Cesium uses a large number of goroutines for a
 single query. This is (kind of) intentional, as the database is optimized for high
 throughput on fewer, large queries. See
-[Channel Counts and Segment Merging](#7-channel-counts-and-segment-merging) for more
+[Channel Counts and Segment Merging](#46-channel-counts-and-segment-merging) for more
 information how the number of open queries affects performance. :::
 
 ### 4.4 Data layout + operations
@@ -476,8 +476,8 @@ run benchmarks to determine if it's necessary.
 
 OLTP databases are designed for high request throughput of small transactions. This
 means latency is an extremely important factor. Cesium follows a different pattern. In
-section [Segments](#segments), we placed no restriction on the size of the data slice
-for a Segment. At its lowest capacity, a Segment holds only a single sample. When
+section [Segments](#401-segments), we placed no restriction on the size of the data
+slice for a Segment. At its lowest capacity, a Segment holds only a single sample. When
 writing single sample segments, Cesium will perform worse than a standard key-value
 store (as it needs to do writes to both KV and disk). This is less of an issue than it
 seems. A single sample segment is most likely channelled with a low data rate (i.e. a

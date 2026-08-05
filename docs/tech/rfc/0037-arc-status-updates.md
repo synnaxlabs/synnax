@@ -215,10 +215,11 @@ arguments, but cannot skip a middle one, and cannot use `name = value` syntax in
 `(...)`. This is a pre-existing language-wide property, not something this RFC
 introduces. It is enforced at three layers:
 
-- Parser ([arc/parser/ArcParser.g4](../../../arc/parser/ArcParser.g4)): `argumentList`
-  accepts bare expressions only; `name = value` is reserved for Flow-form curly-brace
-  config (`namedConfigValues`).
-- Analyzer ([arc/go/analyzer/expression.go](../../../arc/go/analyzer/expression.go)):
+- Parser ([arc/go/parser/ArcParser.g4](../../../arc/go/parser/ArcParser.g4)):
+  `argumentList` accepts bare expressions only; `name = value` is reserved for Flow-form
+  curly-brace config (`namedConfigValues`).
+- Analyzer
+  ([arc/go/analyzer/expression/expression.go](../../../arc/go/analyzer/expression/expression.go)):
   `validateFunctionCall` matches arguments by positional index, with no name lookup.
 - Compiler ([arc/go/compiler/compiler.go](../../../arc/go/compiler/compiler.go)):
   `compileFunctionCallExpr` only fills trailing defaults (positions `actualCount`
@@ -335,8 +336,8 @@ trigger -> status.delete{key_or_name="Pressure Check"}
 ### 4.2 Variant values
 
 `variant` is a `string` parameter, but the set of meaningful values is fixed by
-[`schemas/status.oracle`](../../../schemas/status.oracle) — the same schema that
-generates `xstatus.Variant` (Go), `Variant = Literal[...]` (Python),
+[`schemas/synnax/status.oracle`](../../../schemas/synnax/status.oracle) — the same
+schema that generates `xstatus.Variant` (Go), `Variant = Literal[...]` (Python),
 `status.variant.Variant` (TypeScript union), and `x::status::Variant` (C++). The Arc
 binding reuses those constants directly rather than redeclaring its own list, so adding,
 renaming, or removing a variant in the schema propagates to Arc on the next
@@ -487,8 +488,8 @@ type Param struct {
 ```
 
 **Analyzer behavior.** `validateFunctionCall` (in
-[arc/go/analyzer/expression.go](../../../arc/go/analyzer/expression.go)) is extended so
-that when a param has a non-nil `AllowedLiterals` slice:
+[arc/go/analyzer/expression/expression.go](../../../arc/go/analyzer/expression/expression.go))
+is extended so that when a param has a non-nil `AllowedLiterals` slice:
 
 - If the call-site argument is a **string literal expression**, the analyzer checks its
   value against `AllowedLiterals`. A mismatch emits an analyzer error at the literal's
@@ -512,7 +513,8 @@ standard error formatting. The diagnostic fires on every keystroke once the anal
 debounce window elapses, matching how existing analyzer errors behave today.
 
 **Sourcing the allowed values.** The status module populates `AllowedLiterals` from the
-constants exported by [x/go/status](../../../x/go/status/types.gen.go)
+constants exported by
+[core/pkg/service/status](../../../core/pkg/service/status/types.gen.go)
 (`VariantSuccess`, `VariantInfo`, …), which are themselves generated from
 `schemas/status.oracle`. The Arc binding never hard-codes the list; if a future schema
 edit adds a `"pending"` variant, the next `oracle sync` regenerates the Go constants,
@@ -744,7 +746,7 @@ branch on each invocation.
 
 I think the right resolution here follows the established pattern the channel service
 already uses for the analogous name-uniqueness check on create
-([`validateChannelNames` in core/pkg/distribution/channel/lease_proxy.go](../../../core/pkg/distribution/channel/lease_proxy.go)):
+([`validateChannelNames` in core/pkg/service/channel/writer.go](../../../core/pkg/service/channel/writer.go)):
 wrap the by-name retrieve and the subsequent update or create in a single Gorp
 transaction, so the two operations are atomic with respect to other callers on the same
 node. Section 5.5 introduces an `UpsertByName` method on `Writer[D]` that encapsulates
