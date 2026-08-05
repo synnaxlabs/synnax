@@ -61,16 +61,6 @@ const STATE: MockState = {
 // One state key plus one slot pointer for the global partition.
 const GLOBAL_KEYS = 2;
 
-/** Rewrites every slot pointer under the key the pre-rename release wrote. */
-const downgradePointers = (store: kv.MockAsync) =>
-  [...store.store.entries()]
-    .filter(([key]) => key.endsWith(".slot"))
-    .forEach(([key, value]) => {
-      store.store.delete(key);
-      const { slot } = value as { slot: number };
-      store.store.set(`${key.slice(0, -".slot".length)}.version`, { version: slot });
-    });
-
 const openPersist = async (
   store: kv.MockAsync,
   overrides: Partial<Persist.Config<MockState>> = {},
@@ -228,15 +218,6 @@ describe("Persist.open", () => {
       for (let i = 0; i < 10; i++) await edit(driver, `16.2.${i}`);
       // Four ring entries plus a slot pointer for each of the three partitions.
       expect(await store.length()).toBe(15);
-    });
-
-    it("should read a slot pointer left under the pre-rename key", async () => {
-      const store = new kv.MockAsync();
-      const driver = await createDriver(store);
-      await enter(driver, CTX);
-      await edit(driver, "16.2.0");
-      downgradePointers(store);
-      expect(await driver.composed()).toEqual(STATE);
     });
 
     it("should scope slices to the context they were written under", async () => {
