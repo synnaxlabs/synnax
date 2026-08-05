@@ -86,7 +86,7 @@ But they can also be:
 - Sending messages over arbitrary protocols (Modbus, MQTT, Kafka, etc.)
 - Performing jobs such as removing stale telemetry
 
-### 2.1 Automation execution context & runtimes
+### 2.1 Automation execution context and runtimes
 
 The `action -> event` flow does not provide a complete picture for the requirements of
 an automation in the context of Synnax. It's also critical to understand the environment
@@ -150,7 +150,7 @@ lend themselves to running directly on real-time controllers in memory-predictab
 languages like C or C++. Other automations, such as events or supervisory procedures,
 benefit from flexible, event oriented languages like Go.
 
-#### 2.1.3 Concurrency & distribution
+#### 2.1.3 Concurrency and distribution
 
 Larger scale automations, such as launch control systems or factories, contain dozens or
 more concurrent processes across networked devices that need to be coordinated. Tightly
@@ -205,7 +205,7 @@ Where and how the automation is executed.
 In the next sections, I'll propose multiple interfaces for defining automations, a
 single specification format for storing them, and multiple runtimes for executing them.
 
-### 2.4 A single specification & source of truth
+### 2.4 A single specification and source of truth
 
 If there is a limited set of possible events and actions, then it's natural to define a
 single specification that can encapsulate every automated flow a user may want to run.

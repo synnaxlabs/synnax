@@ -68,7 +68,7 @@ The domain index supporting data structure must:
 2. allow searching (by time range and their overlaps)
 3. allow an iterator to move forward AND backward
 4. allow ranged-deletion of many consecutive pointers (used in deletion)
-5. be able to be persisted in a compact format & restored from persistence
+5. be able to be persisted in a compact format and restored from persistence
 
 In terms of complexity, we first consider the data structure's workload:
 

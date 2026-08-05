@@ -106,6 +106,8 @@ Prefer referencing the Core as "the Core" / "a Core", instead of "server", "node
 "cluster", unless you are specifically writing about behavior of multi-node clusters. If
 you are referring to code paths, then put those in backticks `x/go/gorp`.
 
+Prefer using the word "and" instead of an ampersand (&) in prose.
+
 ## Comments (all languages)
 
 **Wrap comment prose at 88 columns by hand, filling each line to the limit.** Prettier,
