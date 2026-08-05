@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, query, Synnax } from "@synnaxlabs/client";
-import { TimeStamp } from "@synnaxlabs/x";
+import { type destructor, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { flux } from "@/flux/aether";
@@ -39,12 +39,12 @@ interface Harness {
   retrieve: RetrieveMock;
   handlers: query.ChangeHandler<Data>[];
   cache: Map<string, query.Cached<Data>>;
-  disconnects: ReturnType<typeof vi.fn<() => void>>[];
+  disconnects: ReturnType<typeof vi.fn<destructor.Destructor>>[];
 }
 
 const createHarness = (): Harness => {
   const handlers: query.ChangeHandler<Data>[] = [];
-  const disconnects: ReturnType<typeof vi.fn>[] = [];
+  const disconnects: ReturnType<typeof vi.fn<destructor.Destructor>>[] = [];
   const cache = new Map<string, query.Cached<Data>>();
   const retrieve = vi.fn(
     async ({ query: q }: flux.RetrieveParams<Query>): Promise<Data> => ({
