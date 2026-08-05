@@ -9,19 +9,19 @@
 
 import "@/schematic/node/common/custom/Overrides.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import { query, type schematic } from "@synnaxlabs/client";
 import { caseconv, color, deep } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/button";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { type Flux } from "@/flux";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
-import { useRetrieveEffect } from "@/schematic/symbol/queries";
 import { Select } from "@/select";
+import { Status } from "@/status";
+import { Synnax } from "@/synnax";
 import { Text } from "@/text";
 
 interface RegionControlsProps {
@@ -166,29 +166,36 @@ export const StateOverrideForm = (): ReactElement => {
   );
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
-  useRetrieveEffect({
-    query: { key: specKey },
-    addStatusOnFailure: false,
-    onChange: useCallback(
-      (res: Flux.Result<schematic.symbol.Symbol>) => {
-        if (res.data?.data == null) return;
-        const symbolSpec = res.data.data;
-        setOriginalStates(deep.copy(symbolSpec.states));
-        const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
-        if (currentOverrides.value?.length === 0) {
-          form.set("stateOverrides", deep.copy(symbolSpec.states));
-          setSelectedState(symbolSpec.states[0].key);
-        } else {
-          const syncedStates = syncStateOverrides(
-            currentOverrides.value,
-            symbolSpec.states,
-          );
-          form.set("stateOverrides", syncedStates);
-        }
-      },
-      [form],
-    ),
-  });
+  const client = Synnax.use();
+  const applySymbol = useCallback(
+    (symbol: schematic.symbol.Symbol) => {
+      if (symbol.data == null) return;
+      const symbolSpec = symbol.data;
+      setOriginalStates(deep.copy(symbolSpec.states));
+      const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
+      if (currentOverrides.value?.length === 0) {
+        form.set("stateOverrides", deep.copy(symbolSpec.states));
+        setSelectedState(symbolSpec.states[0].key);
+      } else {
+        const syncedStates = syncStateOverrides(
+          currentOverrides.value,
+          symbolSpec.states,
+        );
+        form.set("stateOverrides", syncedStates);
+      }
+    },
+    [form],
+  );
+  const handleError = Status.useErrorHandler();
+  useEffect(() => {
+    if (client == null) return;
+    handleError(async () => {
+      applySymbol(await client.schematics.symbols.retrieve({ key: specKey }));
+    }, "Failed to retrieve symbol");
+    return client.schematics.symbols.onChange({ key: specKey }, (res) => {
+      if (query.isLive(res)) applySymbol(res);
+    });
+  }, [client, specKey, applySymbol, handleError]);
 
   const resetRegion = useCallback(
     (path: string) => {
