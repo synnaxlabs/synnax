@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type channel,
-  type log,
-  NotFoundError,
-  type project,
-  query,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { type channel, type log, type project } from "@synnaxlabs/client";
 import { compare, uuid, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -32,6 +25,7 @@ export const {
   useRetrieveSuspended,
   useEnsureRetrieved,
   useTombstone,
+  createSelector,
 } = Flux.createRetrieve<RetrieveQuery, log.Log>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.logs.retrieve(query),
@@ -43,44 +37,21 @@ export interface SelectKeyParams {
   key: log.Key;
 }
 
-const requireLog = (client: Client | null, key: log.Key): log.Log => {
-  const cached = client?.logs.getCached(key);
-  if (cached == null) throw new NotFoundError(`Log with key ${key} not found`);
-  if (query.Deleted.matches(cached))
-    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
-  return cached;
-};
+export const useSelectName = Scope.bindHook(createSelector(({ name }) => name));
 
-const subscribe = (
-  { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
-  notify: () => void,
-) => (client == null ? () => {} : client.logs.onChange(key, notify));
-
-export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, string>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireLog(client, key).name,
-  }),
-);
-
-export const [useSelectChannels, useGetChannels] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, log.ChannelEntry[]>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireLog(client, key).channels,
-  }),
+export const useSelectChannels = Scope.bindHook(
+  createSelector(({ channels }) => channels),
 );
 
 // useSelectChannelKeys returns the ordered channel keys, re-rendering only
 // when the set or order of channels changes, not when an entry's display
 // config is edited. Iterate the toolbar list off this and read each row via
 // useSelectChannelEntry.
-export const [useSelectChannelKeys, useGetChannelKeys] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, channel.Key[]>({
-    subscribe,
-    select: ({ client, args: { key } }) =>
-      requireLog(client, key).channels.map((e) => e.channel),
-    equal: compare.arraysEqual,
-  }),
+export const useSelectChannelKeys = Scope.bindHook(
+  createSelector(
+    ({ channels }) => channels.map((e) => e.channel),
+    (a, b) => compare.arraysEqual(a, b),
+  ),
 );
 
 export interface SelectChannelEntryParams extends SelectKeyParams {
@@ -91,37 +62,23 @@ export interface SelectChannelEntryParams extends SelectKeyParams {
 // the channel has no entry. Structural sharing keeps the entry reference
 // stable across dispatches that don't touch it, so editing one channel does
 // not re-render the rows of the others.
-export const [useSelectChannelEntry, useGetChannelEntry] = Scope.bindSelector(
-  Flux.createSelector<SelectChannelEntryParams, log.ChannelEntry | null>({
-    subscribe,
-    select: ({ client, args: { key, channel } }) =>
-      requireLog(client, key).channels.find((e) => e.channel === channel) ?? null,
-  }),
+export const useSelectChannelEntry = Scope.bindHook(
+  createSelector<log.ChannelEntry | null, SelectChannelEntryParams>(
+    ({ channels }, { channel }) => channels.find((e) => e.channel === channel) ?? null,
+  ),
 );
 
-export const [useSelectTimestampPrecision, useGetTimestampPrecision] =
-  Scope.bindSelector(
-    Flux.createSelector<SelectKeyParams, number>({
-      subscribe,
-      select: ({ client, args: { key } }) => requireLog(client, key).timestampPrecision,
-    }),
-  );
-
-export const [useSelectHideChannelNames, useGetHideChannelNames] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, boolean>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireLog(client, key).hideChannelNames,
-  }),
+export const useSelectTimestampPrecision = Scope.bindHook(
+  createSelector(({ timestampPrecision }) => timestampPrecision),
 );
 
-export const [useSelectHideReceiptTimestamp, useGetHideReceiptTimestamp] =
-  Scope.bindSelector(
-    Flux.createSelector<SelectKeyParams, boolean>({
-      subscribe,
-      select: ({ client, args: { key } }) =>
-        requireLog(client, key).hideReceiptTimestamp,
-    }),
-  );
+export const useSelectHideChannelNames = Scope.bindHook(
+  createSelector(({ hideChannelNames }) => hideChannelNames),
+);
+
+export const useSelectHideReceiptTimestamp = Scope.bindHook(
+  createSelector(({ hideReceiptTimestamp }) => hideReceiptTimestamp),
+);
 
 export const {
   useDispatch,
