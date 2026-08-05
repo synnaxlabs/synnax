@@ -82,7 +82,9 @@ var _ = Describe("ImEx", func() {
 
 		It("Should import a current snake_case envelope", func(ctx SpecContext) {
 			res := importAndRetrieve(
-				ctx, "versions/testdata/import_v7.json", imex.ImportOptions{},
+				ctx,
+				"versions/testdata/import_v7.json",
+				imex.ImportOptions{Parent: proj.OntologyID()},
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
 			Expect(res.Snapshot).To(BeTrue())
@@ -100,7 +102,7 @@ var _ = Describe("ImEx", func() {
 				res := importAndRetrieve(
 					ctx,
 					"versions/testdata/import_typed_console.json",
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: proj.OntologyID()},
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
@@ -114,7 +116,7 @@ var _ = Describe("ImEx", func() {
 		It("Should import a versionless Console typed export", func(ctx SpecContext) {
 			res := importAndRetrieve(
 				ctx, "versions/testdata/import_typed_versionless.json",
-				imex.ImportOptions{},
+				imex.ImportOptions{Parent: proj.OntologyID()},
 			)
 			Expect(res.Name).To(Equal("Old Typed"))
 			Expect(res.Nodes[0].ZIndex).To(Equal(int16(1)))
@@ -123,9 +125,14 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should reject a v6 Console state (local-only, never exported)",
 			func(ctx SpecContext) {
-				Expect(imexSvc.Import(ctx, db,
+				Expect(imexSvc.Import(
+					ctx,
+					db,
 					loadEnvelope("versions/testdata/import_v6_state.json"),
-					imex.ImportOptions{FileName: "My Schematic.json"},
+					imex.ImportOptions{
+						FileName: "My Schematic.json",
+						Parent:   proj.OntologyID(),
+					},
 				)).Error().To(
 					MatchError(ContainSubstring("unknown schematic data version 6")),
 				)
@@ -136,8 +143,12 @@ var _ = Describe("ImEx", func() {
 			"Should import a v3 Console state through the legacy chain",
 			func(ctx SpecContext) {
 				res := importAndRetrieve(
-					ctx, "versions/testdata/import_v3_state.json",
-					imex.ImportOptions{FileName: "Legacy Schematic.json"},
+					ctx,
+					"versions/testdata/import_v3_state.json",
+					imex.ImportOptions{
+						FileName: "Legacy Schematic.json",
+						Parent:   proj.OntologyID(),
+					},
 				)
 				Expect(res.Name).To(Equal("Legacy Schematic"))
 				Expect(res.Nodes[0].ZIndex).To(Equal(int16(3)))
@@ -154,12 +165,22 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
+		It("Should reject a zero parent", func(ctx SpecContext) {
+			Expect(imexSvc.Import(ctx, db,
+				loadEnvelope("versions/testdata/import_v7.json"),
+				imex.ImportOptions{},
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("parent")),
+				MatchError(ContainSubstring("required")),
+			))
+		})
+
 		It(
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
 					loadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: proj.OntologyID()},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("schematic version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
@@ -176,7 +197,7 @@ var _ = Describe("ImEx", func() {
 					loadEnvelope(
 						"versions/testdata/import_v7.json",
 					),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: proj.OntologyID()},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
@@ -201,7 +222,10 @@ var _ = Describe("ImEx", func() {
 				).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, schematic.OntologyID(original.Key)))
 				id := MustSucceed(imexSvc.Import(
-					ctx, db, WireRoundTrip(env), imex.ImportOptions{},
+					ctx,
+					db,
+					WireRoundTrip(env),
+					imex.ImportOptions{Parent: proj.OntologyID()},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))

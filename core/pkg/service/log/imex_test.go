@@ -105,7 +105,12 @@ var _ = Describe("ImEx", func() {
 
 		importAndRetrieve := func(ctx SpecContext, path string) (ontology.ID, log.Log) {
 			id := MustSucceed(
-				imexSvc.Import(ctx, db, loadEnvelope(path), imex.ImportOptions{}),
+				imexSvc.Import(
+					ctx,
+					db,
+					loadEnvelope(path),
+					imex.ImportOptions{Parent: proj.OntologyID()},
+				),
 			)
 			Expect(id.Type).To(Equal(ontology.ResourceTypeLog))
 			key := MustSucceed(uuid.Parse(id.Key))
@@ -134,8 +139,13 @@ var _ = Describe("ImEx", func() {
 			"Should import a typeless v0 state through the body matcher",
 			func(ctx SpecContext) {
 				id := MustSucceed(imexSvc.Import(
-					ctx, db, loadEnvelope("versions/testdata/import_v0_state.json"),
-					imex.ImportOptions{FileName: "Legacy Log.json"},
+					ctx,
+					db,
+					loadEnvelope("versions/testdata/import_v0_state.json"),
+					imex.ImportOptions{
+						FileName: "Legacy Log.json",
+						Parent:   proj.OntologyID(),
+					},
 				))
 				Expect(id.Type).To(Equal(ontology.ResourceTypeLog))
 				key := MustSucceed(uuid.Parse(id.Key))
@@ -245,7 +255,13 @@ var _ = Describe("ImEx", func() {
 					json.Unmarshal(MustSucceed(json.Marshal(body)), &env),
 				).To(Succeed())
 				id := MustSucceed(imexSvc.Import(
-					ctx, db, env, imex.ImportOptions{FileName: "From File.json"},
+					ctx,
+					db,
+					env,
+					imex.ImportOptions{
+						FileName: "From File.json",
+						Parent:   proj.OntologyID(),
+					},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
 				var res log.Log
@@ -268,7 +284,7 @@ var _ = Describe("ImEx", func() {
 						ctx,
 						db,
 						loadEnvelope(v3Fixture),
-						imex.ImportOptions{},
+						imex.ImportOptions{Parent: proj.OntologyID()},
 					),
 				)
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
@@ -283,17 +299,34 @@ var _ = Describe("ImEx", func() {
 					[]byte(`{"version":2,"type":"log","name":"RC Era","channels":[]}`),
 					&env,
 				)).To(Succeed())
-				Expect(imexSvc.Import(ctx, db, env, imex.ImportOptions{})).Error().
+				Expect(
+					imexSvc.Import(
+						ctx,
+						db,
+						env,
+						imex.ImportOptions{Parent: proj.OntologyID()},
+					),
+				).Error().
 					To(MatchError(ContainSubstring("unknown log data version 2")))
 			},
 		)
+
+		It("Should reject a zero parent", func(ctx SpecContext) {
+			Expect(imexSvc.Import(ctx, db,
+				loadEnvelope(v3Fixture),
+				imex.ImportOptions{},
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("parent")),
+				MatchError(ContainSubstring("required")),
+			))
+		})
 
 		It(
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
 					loadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: proj.OntologyID()},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("log version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
@@ -306,7 +339,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
 					loadEnvelope("versions/testdata/import_bad_v3.json"),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: proj.OntologyID()},
 				)).Error().To(MatchError(ContainSubstring("decode")))
 			},
 		)
@@ -327,7 +360,12 @@ var _ = Describe("ImEx", func() {
 				})
 				env := MustSucceed(imexSvc.Export(ctx, original.OntologyID()))
 				id := MustSucceed(
-					imexSvc.Import(ctx, db, WireRoundTrip(env), imex.ImportOptions{}),
+					imexSvc.Import(
+						ctx,
+						db,
+						WireRoundTrip(env),
+						imex.ImportOptions{Parent: proj.OntologyID()},
+					),
 				)
 
 				key := MustSucceed(uuid.Parse(id.Key))

@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -62,40 +61,40 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 }
 
 // Import decodes the envelope into a Table and persists it on tx, returning the
-// ontology.ID of the newly-created table. The exported key is discarded and a fresh
-// one is generated so that importing always materializes a new resource. Tables are
-// project children, so a non-zero opts.Parent must be a project; the table is then
-// created within it exactly as a regular create would be. Envelopes older than
-// versions.Latest are Console-era files — camelCase typed exports or Console states —
-// and are lifted forward; an envelope newer than versions.Latest is rejected with a
-// path-scoped validation error.
+// ontology.ID of the newly-created table. The exported key is discarded and a fresh one
+// is generated so that importing always materializes a new resource. Tables are project
+// children, so opts.Parent is required and must be a project; the table is then created
+// within it exactly as a regular create would be. Envelopes older than versions.Latest
+// are Console-era files — camelCase typed exports or Console states — and are lifted
+// forward; an envelope newer than versions.Latest is rejected with a path-scoped
+// validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	var proj project.Key
-	if !opts.Parent.IsZero() {
-		if opts.Parent.Type != ontology.ResourceTypeProject {
-			return ontology.ID{}, validate.PathedError(
-				errors.Wrapf(
-					validate.ErrValidation,
-					"parent must be a project, got %q",
-					opts.Parent.Type,
-				),
-				"parent",
-			)
-		}
-		var err error
-		if proj, err = uuid.Parse(opts.Parent.Key); err != nil {
-			return ontology.ID{}, validate.PathedError(
-				errors.Wrapf(
-					validate.ErrValidation, "invalid project key %q", opts.Parent.Key,
-				),
-				"parent",
-			)
-		}
+	if opts.Parent.IsZero() {
+		return ontology.ID{}, validate.PathedError(validate.ErrRequired, "parent")
+	}
+	if opts.Parent.Type != ontology.ResourceTypeProject {
+		return ontology.ID{}, validate.PathedError(
+			errors.Wrapf(
+				validate.ErrValidation,
+				"parent must be a project, got %q",
+				opts.Parent.Type,
+			),
+			"parent",
+		)
+	}
+	proj, err := uuid.Parse(opts.Parent.Key)
+	if err != nil {
+		return ontology.ID{}, validate.PathedError(
+			errors.Wrapf(
+				validate.ErrValidation, "invalid project key %q", opts.Parent.Key,
+			),
+			"parent",
+		)
 	}
 	t, err := versions.DecodeImport(ctx, env)
 	if err != nil {

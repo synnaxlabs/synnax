@@ -76,7 +76,9 @@ var _ = Describe("ImEx", func() {
 
 		It("Should import a current snake_case envelope", func(ctx SpecContext) {
 			res := importAndRetrieve(
-				ctx, "versions/testdata/import_v2.json", imex.ImportOptions{},
+				ctx,
+				"versions/testdata/import_v2.json",
+				imex.ImportOptions{Parent: proj.OntologyID()},
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
 			Expect(res.Rows).To(Equal([]table.Row{{Size: 30, Cells: []string{"c1"}}}))
@@ -91,7 +93,7 @@ var _ = Describe("ImEx", func() {
 				res := importAndRetrieve(
 					ctx,
 					"versions/testdata/import_typed_console.json",
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: proj.OntologyID()},
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Rows).To(HaveLen(1))
@@ -104,9 +106,14 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should reject a v1 Console state (local-only, never exported)",
 			func(ctx SpecContext) {
-				Expect(imexSvc.Import(ctx, db,
+				Expect(imexSvc.Import(
+					ctx,
+					db,
 					loadEnvelope("versions/testdata/import_v1_state.json"),
-					imex.ImportOptions{FileName: "My Table.json"},
+					imex.ImportOptions{
+						FileName: "My Table.json",
+						Parent:   proj.OntologyID(),
+					},
 				)).Error().To(
 					MatchError(ContainSubstring("unknown table data version 1")),
 				)
@@ -117,8 +124,12 @@ var _ = Describe("ImEx", func() {
 			"Should import a v0 Console state through the legacy chain",
 			func(ctx SpecContext) {
 				res := importAndRetrieve(
-					ctx, "versions/testdata/import_v0_state.json",
-					imex.ImportOptions{FileName: "Legacy Table.json"},
+					ctx,
+					"versions/testdata/import_v0_state.json",
+					imex.ImportOptions{
+						FileName: "Legacy Table.json",
+						Parent:   proj.OntologyID(),
+					},
 				)
 				Expect(res.Name).To(Equal("Legacy Table"))
 				Expect(res.Rows).To(
@@ -133,12 +144,22 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
+		It("Should reject a zero parent", func(ctx SpecContext) {
+			Expect(imexSvc.Import(ctx, db,
+				loadEnvelope("versions/testdata/import_v2.json"),
+				imex.ImportOptions{},
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("parent")),
+				MatchError(ContainSubstring("required")),
+			))
+		})
+
 		It(
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
 					loadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: proj.OntologyID()},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("table version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
@@ -155,7 +176,7 @@ var _ = Describe("ImEx", func() {
 					loadEnvelope(
 						"versions/testdata/import_v2.json",
 					),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: proj.OntologyID()},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
@@ -176,7 +197,10 @@ var _ = Describe("ImEx", func() {
 				).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, table.OntologyID(original.Key)))
 				id := MustSucceed(imexSvc.Import(
-					ctx, db, WireRoundTrip(env), imex.ImportOptions{},
+					ctx,
+					db,
+					WireRoundTrip(env),
+					imex.ImportOptions{Parent: proj.OntologyID()},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))
