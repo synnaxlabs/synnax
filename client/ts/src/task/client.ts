@@ -384,21 +384,20 @@ export class Client extends query.Retriever<
       equal: (a, b) => deep.equal(a.payload, b.payload),
       fetch: async (keys) => await this.fetchThrough({ keys }),
       listen: [
-        // The set signal carries task metadata without config or status. Merge it
-        // into the cached row in place: config reaches the store only through this
-        // client's own saves or a cache-miss fetch.
         {
           bind: (table) => ({
             channel: SET_CHANNEL_NAME,
             schema: setSignalZ,
+            // The set signal omits config: a changed hash means the cached one is stale.
             onChange: async (changed: SetSignal) => {
-              if (table.has(changed.key))
-                table.set(changed.key, (prev) =>
-                  prev == null
-                    ? undefined
-                    : this.sugar({ ...prev.payload, ...changed }),
-                );
-              else await table.retrieve([changed.key], { refresh: true });
+              const cached = table.get(changed.key);
+              if (cached == null || cached.configHash !== changed.configHash) {
+                await table.retrieve([changed.key], { refresh: true });
+                return;
+              }
+              table.set(changed.key, (prev) =>
+                prev == null ? undefined : this.sugar({ ...prev.payload, ...changed }),
+              );
             },
           }),
         },

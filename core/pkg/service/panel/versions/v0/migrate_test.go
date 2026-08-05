@@ -433,65 +433,68 @@ var _ = Describe("Project layout to panel migration", func() {
 			To(MatchError(query.ErrNotFound))
 	})
 
-	It("Should convert legacy-keyed task view tabs into resource tabs", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		legacy := "4294967395"
-		taskKey := uuid.New()
-		viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
-			return v0.Tab{Variant: v0.TabView{
-				TabBase: v0.TabBase{Key: uuid.New()},
-				View:    v0.View{Type: viewType, Args: args},
-			}}
-		}
-		preTable := openPreTaskKeyTable(ctx, db)
-		p := v0.Panel{
-			Key:  uuid.New(),
-			Name: "Ops",
-			Root: v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
-				Direction: spatial.DirectionX,
-				Size:      0.5,
-				First: *leaf(viewTab(
-					"ni_analog_read",
-					msgpack.EncodedJSON{"taskKey": legacy},
-				)),
-				Last: *leaf(
-					viewTab("docs", nil),
-					viewTab("opc_read", msgpack.EncodedJSON{"taskKey": "12345"}),
-				),
-			}}},
-		}
-		Expect(preTable.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
-		stageTaskKey(ctx, db, legacy, taskKey)
+	It(
+		"Should convert legacy-keyed task view tabs into resource tabs",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			legacy := "4294967395"
+			taskKey := uuid.New()
+			viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
+				return v0.Tab{Variant: v0.TabView{
+					TabBase: v0.TabBase{Key: uuid.New()},
+					View:    v0.View{Type: viewType, Args: args},
+				}}
+			}
+			preTable := openPreTaskKeyTable(ctx, db)
+			p := v0.Panel{
+				Key:  uuid.New(),
+				Name: "Ops",
+				Root: v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
+					Direction: spatial.DirectionX,
+					Size:      0.5,
+					First: *leaf(viewTab(
+						"ni_analog_read",
+						msgpack.EncodedJSON{"taskKey": legacy},
+					)),
+					Last: *leaf(
+						viewTab("docs", nil),
+						viewTab("opc_read", msgpack.EncodedJSON{"taskKey": "12345"}),
+					),
+				}}},
+			}
+			Expect(preTable.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
+			stageTaskKey(ctx, db, legacy, taskKey)
 
-		openPanelTable(ctx, db)
-		var got v0.Panel
-		Expect(gorp.NewRetrieve[v0.Key, v0.Panel]().
-			Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
-			Entry(&got).
-			Exec(ctx, db)).To(Succeed())
-		split, ok := got.Root.Variant.(v0.NodeSplit)
-		Expect(ok).To(BeTrue())
-		first, ok := split.First.Variant.(v0.NodeLeaf)
-		Expect(ok).To(BeTrue())
-		converted, ok := first.Tabs[0].Variant.(v0.TabResource)
-		Expect(ok).To(BeTrue())
-		Expect(converted.Resource).To(Equal(ontology.ID{
-			Type: ontology.ResourceTypeTask,
-			Key:  taskKey.String(),
-		}))
+			openPanelTable(ctx, db)
+			var got v0.Panel
+			Expect(gorp.NewRetrieve[v0.Key, v0.Panel]().
+				Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
+				Entry(&got).
+				Exec(ctx, db)).To(Succeed())
+			split, ok := got.Root.Variant.(v0.NodeSplit)
+			Expect(ok).To(BeTrue())
+			first, ok := split.First.Variant.(v0.NodeLeaf)
+			Expect(ok).To(BeTrue())
+			converted, ok := first.Tabs[0].Variant.(v0.TabResource)
+			Expect(ok).To(BeTrue())
+			Expect(converted.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeTask,
+				Key:  taskKey.String(),
+			}))
 
-		By("Leaving view tabs without staged task keys untouched")
-		last, ok := split.Last.Variant.(v0.NodeLeaf)
-		Expect(ok).To(BeTrue())
-		docs, ok := last.Tabs[0].Variant.(v0.TabView)
-		Expect(ok).To(BeTrue())
-		Expect(docs.Args).To(BeNil())
-		other, ok := last.Tabs[1].Variant.(v0.TabView)
-		Expect(ok).To(BeTrue())
-		Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))
+			By("Leaving view tabs without staged task keys untouched")
+			last, ok := split.Last.Variant.(v0.NodeLeaf)
+			Expect(ok).To(BeTrue())
+			docs, ok := last.Tabs[0].Variant.(v0.TabView)
+			Expect(ok).To(BeTrue())
+			Expect(docs.Args).To(BeNil())
+			other, ok := last.Tabs[1].Variant.(v0.TabView)
+			Expect(ok).To(BeTrue())
+			Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))
 
-		By("Draining the staging entry")
-		Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
-			To(MatchError(query.ErrNotFound))
-	})
+			By("Draining the staging entry")
+			Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
+				To(MatchError(query.ErrNotFound))
+		},
+	)
 })

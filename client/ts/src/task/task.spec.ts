@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -768,6 +768,85 @@ describe("Task", async () => {
         if (!query.isLive(cached)) throw new Error("expected live cached task");
         expect(cached.status?.details.configHash).toBe("deadbeef");
         expect(cached.status?.details.rack).toBe(testRack.key);
+      } finally {
+        off();
+      }
+    });
+
+    it("refetches a cached task whose config was changed by another client", async () => {
+      const t = await testRack.createTask({
+        name: `set-config-${id.create()}`,
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const remote = createTestClient();
+      await remote.connect();
+      const params = { key: t.key };
+      const off = remote.tasks.onChange(params, vi.fn());
+      try {
+        expect((await remote.tasks.retrieve(params)).config).toStrictEqual({ a: "dog" });
+        await client.tasks.create({ ...t.payload, config: { a: "cat" } });
+        await expect
+          .poll(() => {
+            const cached = remote.tasks.getCached(params);
+            return query.isLive(cached) ? cached.config : undefined;
+          })
+          .toStrictEqual({ a: "cat" });
+      } finally {
+        off();
+      }
+    });
+
+    it("merges a metadata-only set signal into a cached task", async () => {
+      const remote = createTestClient();
+      await remote.connect();
+      const t = await testRack.createTask({
+        name: `set-merge-${id.create()}`,
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const params = { key: t.key };
+      const off = remote.tasks.onChange(params, vi.fn());
+      try {
+        await remote.tasks.retrieve(params);
+        const name = `set-merge-renamed-${id.create()}`;
+        await client.tasks.create({ ...t.payload, name });
+        await expect
+          .poll(() => {
+            const cached = remote.tasks.getCached(params);
+            return query.isLive(cached) ? cached.name : undefined;
+          })
+          .toBe(name);
+        const cached = remote.tasks.getCached(params);
+        assert(query.isLive(cached));
+        expect(cached.config).toStrictEqual({ a: "dog" });
+      } finally {
+        off();
+      }
+    });
+
+    it("fetches an uncached task moved onto a subscribed rack", async () => {
+      const remote = createTestClient();
+      await remote.connect();
+      const source = await client.racks.create({ name: `set-move-src-${id.create()}` });
+      const dest = await client.racks.create({ name: `set-move-dest-${id.create()}` });
+      const t = await source.createTask({
+        name: `set-move-${id.create()}`,
+        config: { a: "dog" },
+        type: "ni",
+      });
+      const params = { rack: dest.key };
+      const off = remote.tasks.onChange(params, vi.fn());
+      try {
+        expect(await remote.tasks.retrieve(params)).toHaveLength(0);
+        await client.tasks.create({ ...t.payload, rack: dest.key });
+        await expect
+          .poll(() => {
+            const cached = remote.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.find((v) => v.key === t.key)?.config;
+          })
+          .toStrictEqual({ a: "dog" });
       } finally {
         off();
       }

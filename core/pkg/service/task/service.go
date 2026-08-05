@@ -177,22 +177,13 @@ func OpenService(
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
+		pubCfg := signals.GorpPublisherConfigUUID[Task](s.table.Observe())
+		pubCfg.MarshalSet = func(t Task) ([]byte, error) {
+			t.Config, t.Status = nil, nil
+			return signals.MarshalJSON[Key, Task](t)
+		}
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(
-			ctx,
-			cfg.Signals,
-			signals.GorpPublisherConfig[Key, Task]{
-				Observable:     s.table.Observe(),
-				SetDataType:    telem.JSONT,
-				DeleteDataType: telem.UUIDT,
-				MarshalDelete:  func(k Key) ([]byte, error) { return k[:], nil },
-				MarshalSet: func(t Task) ([]byte, error) {
-					t.Config = nil
-					t.Status = nil
-					return signals.MarshalJSON[Key, Task](t)
-				},
-			},
-		); !ok(err, sig) {
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, pubCfg); !ok(err, sig) {
 			return nil, err
 		}
 	}
