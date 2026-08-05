@@ -244,6 +244,14 @@ the type string the envelope carries.
 An envelope naming an unknown type fails the import with a clear error, because no
 importer is registered under that string.
 
+The registration keys then converge. `imex` keys exporters by ontology resource type but
+importers by a plain string, and the two differ only because a task type is not an
+ontology type today. This RFC makes every task type an ontology type, so importers key
+on `ontology.ResourceType` as well, and the asymmetric-registration indirection retires
+with it: `Importer.Type` and the `ImporterType` lookup behind it exist to map a
+fine-grained string onto a coarse type, and the enforcer can read the registration key
+instead.
+
 Envelope versions follow the unified numbering, one chain per config type. The coarse
 `task` ontology type carries no version of its own. The service that encodes the config
 stamps its `@go version` on the envelope, so `ni_analog_read` and `opc_read` files
@@ -291,12 +299,15 @@ Each new member is a nameable RBAC object, and a policy that grants `task` today
 nothing on `ni_analog_read`. The task endpoints keep checking `task` alone: a config
 record reached through its task inherits the decision made for that task.
 
-Import is the one place the finer type reaches the enforcer. The import API resolves the
-envelope's type string to the resource type its importer reports, then checks create on
-that type, so a per-type importer (§4.6) is enforced under its own name. The built-in
-role policies list their objects by type, so every role that can create a task gains the
-§4.10 inventory beside `task`. Without that, `task` create no longer permits a task
-import.
+Import is the one place the finer type reaches the enforcer. The import API checks
+create on the resource type behind the envelope's type, so a per-type importer (§4.6) is
+enforced under its own name. Three built-in policies name `task` today, and each gains
+the §4.10 inventory beside it: the Owner object list, `Engineer Edit Access`, and
+`Host Edit Access`. Without that, `task` create no longer permits a task import.
+
+Three hand-written lists that must grow with every new task type invite drift, so the
+config types ship as one exported slice that each policy splices in. A new task type
+then joins all three roles as a consequence of its schema.
 
 ### 4.10 Integration inventory
 
@@ -338,9 +349,10 @@ builds, the tests pass, and the product can ship. No phase changes the task payl
    startup migration runs. `type` and `config` become resolved. The task payload keeps
    its shape, so no client needs a new field, but the parent readers of §4.2 gain their
    type filter in the same phase.
-5. **Import and export**: each config type registers an `imex.ImportExporter`, the task
-   service delegates its export body to them, and the built-in role policies gain the
-   config types (§4.6, §4.9). This unblocks SY-4524.
+5. **Import and export**: each config type registers an `imex.ImportExporter`, `imex`
+   keys importers by ontology resource type, the task service delegates its export body,
+   and the built-in role policies gain the config types (§4.6, §4.9). This unblocks
+   SY-4524.
 6. **Client compat deletion**: one PR per client, no wire change. The Console loses its
    NI version chain, the Python client loses its old-shape readers, and the Driver loses
    its legacy parse tolerance.
