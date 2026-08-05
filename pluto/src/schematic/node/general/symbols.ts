@@ -20,6 +20,7 @@ import { Polygon } from "@/schematic/node/general/polygon";
 import { Select } from "@/schematic/node/general/select";
 import { Setpoint } from "@/schematic/node/general/setpoint";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
+import { StringDisplay } from "@/schematic/node/general/stringDisplay";
 import { Switch } from "@/schematic/node/general/switch";
 import { TextBox } from "@/schematic/node/general/textBox";
 import { Value } from "@/schematic/node/general/value";
@@ -36,6 +37,7 @@ export const REGISTRY = {
   select: Select.spec,
   setpoint: Setpoint.spec,
   stateIndicator: StateIndicator.spec,
+  stringDisplay: StringDisplay.spec,
   switch: Switch.spec,
   textBox: TextBox.spec,
   value: Value.spec,
@@ -53,6 +55,7 @@ export const configZ = z.discriminatedUnion("variant", [
   Select.configZ,
   Setpoint.configZ,
   StateIndicator.configZ,
+  StringDisplay.configZ,
   Switch.configZ,
   TextBox.configZ,
   Value.configZ,
