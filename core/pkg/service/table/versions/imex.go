@@ -12,22 +12,26 @@ package versions
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// DecodeImport materializes the envelope's body as a current-version Table named after
-// the envelope. Envelopes stamped at or above Floor decode through the generated
-// migration chain; older ones are Console-era files — camelCase typed exports or
-// Console states — and are lifted forward. An envelope newer than Latest is rejected
+// DecodeImport materializes the envelope's body as a current-version Table, keyless and
+// named after the envelope. Envelopes stamped at or above Floor decode through the
+// generated migration chain; older ones are Console-era files — camelCase typed exports
+// or Console states — and are lifted forward. An envelope newer than Latest is rejected
 // with a path-scoped validation error.
 func DecodeImport(ctx context.Context, env imex.Envelope) (Table, error) {
 	t, err := decodeBody(ctx, env)
 	if err != nil {
 		return Table{}, err
 	}
+	// Importing always materializes a new resource, so any key on the wire is dropped
+	// and the importer mints a fresh one.
+	t.Key = uuid.Nil
 	// The header is the resolved name: the body's name when present, or the file-name
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.

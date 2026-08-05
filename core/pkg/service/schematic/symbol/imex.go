@@ -13,10 +13,10 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -72,20 +72,13 @@ func (s *Service) Import(
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	if opts.Parent.Type != ontology.ResourceTypeGroup {
-		return ontology.ID{}, validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation,
-				"symbol parent must be a group, got %q", opts.Parent.Type,
-			),
-			"parent",
-		)
+	if _, err := group.KeyFromOntologyID(opts.Parent); err != nil {
+		return ontology.ID{}, validate.PathedError(err, "parent")
 	}
 	sym, err := versions.DecodeImport(ctx, env)
 	if err != nil {
 		return ontology.ID{}, err
 	}
-	sym.Key = uuid.Nil
 	if err = s.NewWriter(tx).Create(ctx, &sym, opts.Parent); err != nil {
 		return ontology.ID{}, err
 	}

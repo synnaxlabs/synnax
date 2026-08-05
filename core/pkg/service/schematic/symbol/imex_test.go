@@ -167,7 +167,7 @@ var _ = Describe("ImEx", func() {
 				LoadEnvelope("versions/testdata/import_v2.json"),
 				imex.ImportOptions{Parent: ontology.ID{Type: "project", Key: "p1"}},
 			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("symbol parent must be a group")),
+				MatchError(ContainSubstring("parent: must be a group")),
 				MatchError(ContainSubstring("validation error")),
 			))
 		})

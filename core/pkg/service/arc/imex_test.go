@@ -24,8 +24,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// testParent satisfies the registry's required-parent check; the Arc importer does
-// not parent imported resources, so the ID only has to be non-zero.
+// testParent satisfies the registry's required-parent check; the Arc importer does not
+// parent imported resources, so the ID only has to be non-zero.
 var testParent = ontology.ID{Type: ontology.ResourceTypeProject, Key: "imex-parent"}
 
 var _ = Describe("ImEx", func() {

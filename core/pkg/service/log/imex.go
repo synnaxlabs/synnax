@@ -75,7 +75,6 @@ func (s *Service) Import(
 	if err != nil {
 		return ontology.ID{}, err
 	}
-	l.Key = uuid.Nil
 	if err = s.NewWriter(tx).Create(ctx, proj, &l); err != nil {
 		return ontology.ID{}, err
 	}
