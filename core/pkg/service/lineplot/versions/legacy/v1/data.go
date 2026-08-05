@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package v1 holds the frozen wire format for Console line plot per-plot state at
-// version 1.0.0. v1 introduces the legend overlay position.
+// version 1. v1 introduces the legend overlay position.
 package v1
 
 import (
@@ -55,8 +55,8 @@ type Legend struct {
 	Position LegendPosition `json:"position"`
 }
 
-// Data is the wire shape of a per-plot line plot state at v1.0.0. All fields
-// other than Legend are unchanged from v0.
+// Data is the wire shape of a per-plot line plot state at version 1. All fields other
+// than Legend are unchanged from v0.
 type Data struct {
 	// Version is the version stamped inside the blob.
 	Version imex.Version `json:"version"`

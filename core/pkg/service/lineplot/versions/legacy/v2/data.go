@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // Package v2 holds the frozen wire format for Console line plot per-plot state at
-// version 2.0.0. v2 introduces the optional axis tick Type (linear/time) and flips
-// y-axis labelDirection to "y" on migration.
+// version 2. v2 introduces the optional axis tick Type (linear/time) and flips y-axis
+// labelDirection to "y" on migration.
 package v2
 
 import (
@@ -69,7 +69,7 @@ type AxesContainer struct {
 	Axes Axes `json:"axes"`
 }
 
-// Data is the wire shape of a per-plot line plot state at v2.0.0.
+// Data is the wire shape of a per-plot line plot state at version 2.
 type Data struct {
 	// Version is the version stamped inside the blob.
 	Version imex.Version `json:"version"`

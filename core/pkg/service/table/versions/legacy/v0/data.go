@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package v0 holds the frozen wire format for Console table per-table state at version
-// 0.0.0. Per-version Data structs in this directory tree are immutable snapshots of
-// what Consoles actually persisted at that version. They are the JSON-decode targets
-// for the storage migration chain that lifts older blobs forward into the typed
-// table.Table.
+// 0. Per-version Data structs in this directory tree are immutable snapshots of what
+// Consoles actually persisted at that version. They are the JSON-decode targets for the
+// storage migration chain that lifts older blobs forward into the typed table.Table.
 package v0
 
 import "github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -19,7 +18,7 @@ import "github.com/synnaxlabs/synnax/pkg/service/imex"
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 0
 
-// Data is the persisted per-table Console state at version 0.0.0. Only the structural
+// Data is the persisted per-table Console state at version 0. Only the structural
 // fields (layout, cells) are decoded; UI-only fields the Console ships in the blob are
 // ignored and never materialize on the typed Table.
 type Data struct {

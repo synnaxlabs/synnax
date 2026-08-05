@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v0 holds the frozen wire format for Console schematic state at version 0.0.0.
+// Package v0 holds the frozen wire format for Console schematic state at version 0.
 // Per-version Data structs in this directory tree are immutable snapshots of what
 // Consoles actually persisted at that version. They are the JSON-decode targets for the
 // storage migration chain that lifts older blobs forward into the typed
@@ -23,8 +23,8 @@ import (
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 0
 
-// XY is the planar coordinate shape Consoles persisted from version 0.0.0 onward.
-// Identical to spatial.XY at the wire level.
+// XY is the planar coordinate shape Consoles persisted from version 0 onward. Identical
+// to spatial.XY at the wire level.
 type XY struct {
 	// X is the horizontal coordinate.
 	X float64 `json:"x"`
@@ -41,7 +41,7 @@ type Measured struct {
 	Height *float64 `json:"height,omitempty"`
 }
 
-// Node is the wire shape of a schematic node at version 0.0.0.
+// Node is the wire shape of a schematic node at version 0.
 type Node struct {
 	// Key is the node's unique key.
 	Key string `json:"key"`
@@ -55,9 +55,9 @@ type Node struct {
 	Measured *Measured `json:"measured,omitempty"`
 }
 
-// Edge is the wire shape of a schematic edge at version 0.0.0. Shipped Console
-// persisted edges in ReactFlow's flat form: source and target are node-key strings,
-// with sourceHandle and targetHandle as optional sibling fields. Data is ReactFlow's
+// Edge is the wire shape of a schematic edge at version 0. Shipped Console persisted
+// edges in ReactFlow's flat form: source and target are node-key strings, with
+// sourceHandle and targetHandle as optional sibling fields. Data is ReactFlow's
 // per-edge data bag; Consoles have written it on every shipped version including v0..v2
 // even though the v3 schema is the first to declare it explicitly. Preserving it here
 // is what lets the v5 to v6 migration lift segments / color / variant out of older
@@ -95,8 +95,8 @@ type ToolbarState struct {
 	SelectedSymbolGroup string `json:"selectedSymbolGroup"`
 }
 
-// Data is the persisted per-schematic state at version 0.0.0. Props values are kept as
-// raw JSON because their shape is per-symbol-variant and opaque to the server.
+// Data is the persisted per-schematic state at version 0. Props values are kept as raw
+// JSON because their shape is per-symbol-variant and opaque to the server.
 type Data struct {
 	// Version is the version stamped inside the blob.
 	Version imex.Version `json:"version"`

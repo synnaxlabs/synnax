@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v1 holds the frozen wire format for Console schematic state at version 1.0.0.
-// v1 introduces the legend overlay configuration.
+// Package v1 holds the frozen wire format for Console schematic state at version 1. v1
+// introduces the legend overlay configuration.
 package v1
 
 import (
@@ -60,8 +60,7 @@ type Legend struct {
 	Colors map[string]string `json:"colors"`
 }
 
-// Data is the persisted per-schematic state at version 1.0.0. Adds the legend field to
-// v0.
+// Data is the persisted per-schematic state at version 1. Adds the legend field to v0.
 type Data struct {
 	// Version is the version stamped inside the blob.
 	Version imex.Version `json:"version"`

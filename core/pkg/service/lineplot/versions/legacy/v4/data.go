@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package v4 holds the frozen wire format for Console line plot per-plot state at
-// version 4.0.0. v4 adds measure mode and annotation visibility flags alongside the
+// version 4. v4 adds measure mode and annotation visibility flags alongside the
 // per-plot UI state introduced at v3. Both additions are UI-only and silently discarded
 // on decode; the on-the-wire model is structurally identical to v3.
 package v4
@@ -21,6 +21,6 @@ import (
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 4
 
-// Data is the wire shape of a per-plot line plot state at v4.0.0. UI-only fields added
-// at this version are ignored on decode.
+// Data is the wire shape of a per-plot line plot state at version 4. UI-only fields
+// added at this version are ignored on decode.
 type Data v3.Data

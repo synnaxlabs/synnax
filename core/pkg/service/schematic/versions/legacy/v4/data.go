@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v4 holds the frozen wire format for Console schematic state at version 4.0.0.
-// v4 added the per-schematic authority field.
+// Package v4 holds the frozen wire format for Console schematic state at version 4. v4
+// added the per-schematic authority field.
 package v4
 
 import (
@@ -23,7 +23,7 @@ import (
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 4
 
-// Data is the persisted per-schematic state at version 4.0.0. Adds authority to v3.
+// Data is the persisted per-schematic state at version 4. Adds authority to v3.
 type Data struct {
 	// Version is the version stamped inside the blob.
 	Version imex.Version `json:"version"`

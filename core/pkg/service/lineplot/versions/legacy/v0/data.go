@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 // Package v0 holds the frozen wire format for Console line plot per-plot state at
-// version 0.0.0. Per-version Data structs in this directory tree are immutable
-// snapshots of what Consoles actually persisted at that version. They are the
-// JSON-decode targets for the storage migration chain that lifts older blobs forward
-// into the typed lineplot.LinePlot.
+// version 0. Per-version Data structs in this directory tree are immutable snapshots of
+// what Consoles actually persisted at that version. They are the JSON-decode targets
+// for the storage migration chain that lifts older blobs forward into the typed
+// lineplot.LinePlot.
 package v0
 
 import (
@@ -23,8 +23,8 @@ import (
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 0
 
-// XY is the planar coordinate shape Consoles persisted from version 0.0.0 onward.
-// Identical to spatial.XY at the wire level.
+// XY is the planar coordinate shape Consoles persisted from version 0 onward. Identical
+// to spatial.XY at the wire level.
 type XY struct {
 	// X is the horizontal coordinate.
 	X float64 `json:"x"`
@@ -180,7 +180,7 @@ type Rule struct {
 	Position float64 `json:"position"`
 }
 
-// Data is the wire shape of a per-plot line plot state at v0.0.0. UI-only fields
+// Data is the wire shape of a per-plot line plot state at version 0. UI-only fields
 // persisted alongside the model fields (viewport, selection) are silently ignored on
 // decode since they do not survive the lift to the typed body.
 type Data struct {

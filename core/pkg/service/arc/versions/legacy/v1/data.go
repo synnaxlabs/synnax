@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v1 holds the frozen wire format for Console arc state at version 1.0.0.
-// v1 replaced the flat ReactFlow edge form with nested Handle objects; nodes,
-// props, text, and mode are unchanged from v0.
+// Package v1 holds the frozen wire format for Console arc state at version 1. v1
+// replaced the flat ReactFlow edge form with nested Handle objects; nodes, props, text,
+// and mode are unchanged from v0.
 package v1
 
 import (
@@ -21,7 +21,7 @@ import (
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 1
 
-// Data is the wire shape of a Console arc state at version 1.0.0.
+// Data is the wire shape of a Console arc state at version 1.
 type Data struct {
 	// Graph is the graph-mode program body.
 	Graph Graph `json:"graph"`
