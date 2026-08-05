@@ -92,7 +92,7 @@ topology-aware:
 - `signals` is a CDC bridge publishing Gorp changes as telemetry via `channel`+`framer`.
 
 RFC 0026 §1.0 names `distribution/signals` as the home for signal propagation but never
-justifies the layer choice. RFC 0005 §3.4 establishes the load-bearing principle —
+justifies the layer choice. RFC 0005 §2.3.3 establishes the load-bearing principle —
 _"resources should not be defined in the ontology, but in the services that interact
 with it"_ — which argues for the substrate alongside services, not beneath topology.
 
@@ -1052,7 +1052,7 @@ surface the bug.
 
 `ontology`, `group`, and `search` become service-layer packages rather than a new named
 layer between distribution and service — they are peers of the entity services that
-register with them, consistent with RFC 0005 §3.4.
+register with them, consistent with RFC 0005 §2.3.3.
 
 ### 5.1 Distribution owns keys + Cesium; service owns channel metadata
 

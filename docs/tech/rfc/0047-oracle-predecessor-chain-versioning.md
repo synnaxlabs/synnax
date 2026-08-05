@@ -195,11 +195,12 @@ the norm. The consequence is that historical version directories cannot be indiv
 deleted while newer versions alias into them (§6.4).
 
 Two mechanical pieces of RFC 0042 are superseded with the freeze-flow deletion (§4.2):
-§4.6.0's bump steps that re-emit the outgoing package and move the method file forward,
-and §5.3's Oracle-automated `helpers.go` move — method files stay with their definer,
-and the version package's method file is named for the resource (`status.go`), not
-`helpers.go`. RFC 0042's layout sections also predate the Phase 2 rename of the version
-directory from `types/` to `versions/`; this RFC uses the landed naming.
+RFC 0042 §4.6.0's bump steps that re-emit the outgoing package and move the method file
+forward, and RFC 0042 §5.3's Oracle-automated `helpers.go` move — method files stay with
+their definer, and the version package's method file is named for the resource
+(`status.go`), not `helpers.go`. RFC 0042's layout sections also predate the Phase 2
+rename of the version directory from `types/` to `versions/`; this RFC uses the landed
+naming.
 
 ---
 
