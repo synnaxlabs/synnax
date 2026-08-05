@@ -35,7 +35,7 @@ const Actions = (): ReactElement | null => {
 };
 
 const Content = (): ReactElement => {
-  const { data: groupID } = Project.useRetrieveGroupID({});
+  const groupID = Project.useCachedGroupID({});
   return (
     <Toolbar.Content>
       <Toolbar.Header>

@@ -571,14 +571,14 @@ export const Symbols = (): ReactElement => {
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
 
   const [searchTerm, setSearchTerm] = useState("");
-  const symbolGroup = Schematic.Symbol.useRetrieveGroup({ query: {} });
+  const symbolGroup = Schematic.Symbol.useCachedGroup({});
   const searchMode = searchTerm.length > 0;
   let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
   if (isRemoteGroup)
     symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
   else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
   const symbolGroupID =
-    symbolGroup.data?.key != null ? group.ontologyID(symbolGroup.data.key) : undefined;
+    symbolGroup != null ? group.ontologyID(symbolGroup.key) : undefined;
   return (
     <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>
       <Flex.Box x sharp className={CSS.BE("schematic", "symbols", "group", "list")}>

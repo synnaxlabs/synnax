@@ -34,8 +34,7 @@ const useRename = Tree.createUseRename({
 
 const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const res = Rack.useRetrieve({ key: Number(resource.id.key) });
-  const status = res.data?.status;
+  const status = Rack.useCached({ key: Number(resource.id.key) })?.status;
 
   return (
     <PTree.Item {...rest}>
@@ -80,9 +79,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const create = Arc.useCreate();
   const isSingle = ids.length === 1;
   const rackKey = Number(ids[0]?.key ?? 0);
-  const rackRes = Rack.useRetrieve({ key: rackKey });
-  const hasNIIntegration =
-    rackRes.data?.integrations.includes(NI_INTEGRATION_NAME) ?? false;
+  const integrations = Rack.useCached(
+    rackKey > 0 ? { key: rackKey } : null,
+  )?.integrations;
+  const hasNIIntegration = integrations?.includes(NI_INTEGRATION_NAME) ?? false;
   const toggleNIScanner = NI.Task.useToggleScanner(rackKey);
   const handleCreate = useCallback(() => create(), [create]);
   return (

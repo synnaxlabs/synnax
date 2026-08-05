@@ -38,10 +38,9 @@ interface ParentRangeButtonProps {
 const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
-  const res = Ranger.useRetrieveParent({ id: ranger.ontologyID(rangeKey) });
+  const parent = Ranger.useCachedParent({ id: ranger.ontologyID(rangeKey) });
   const openTab = Panel.useOpenTab();
-  if (res.variant !== "success" || res.data == null) return null;
-  const parent = res.data;
+  if (parent == null) return null;
   const Icon = Ranger.STAGE_ICONS[Ranger.getStage(parent.timeRange)];
   return (
     <Flex.Box x gap="small" align="center">
@@ -70,7 +69,7 @@ export interface DetailsProps {
 }
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const { data: range } = Ranger.useRetrieve({ key: rangeKey });
+  const range = Ranger.useCached({ key: rangeKey });
   const now = TimeStamp.now().nanoseconds;
   const { form, status } = Ranger.useForm({
     query: { key: rangeKey },

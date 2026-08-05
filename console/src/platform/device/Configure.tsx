@@ -18,7 +18,6 @@ import {
   Form,
   Icon,
   Nav,
-  Status,
   Text,
 } from "@synnaxlabs/pluto";
 import { deep, type record, strings } from "@synnaxlabs/x";
@@ -185,7 +184,6 @@ export const Configure = <
   deviceKey,
   ...rest
 }: ConfigureProps<Properties, Make, Model>) => {
-  const { data, status, variant } = Device.useRetrieve({ key: deviceKey });
-  if (variant !== "success") return <Status.Summary status={status} />;
-  return <Internal device={data} {...rest} />;
+  const device = Device.useRetrieveSuspended({ key: deviceKey });
+  return <Internal device={device} {...rest} />;
 };

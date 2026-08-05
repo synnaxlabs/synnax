@@ -71,9 +71,7 @@ const List = (): ReactElement => {
 
 const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
-  const q = Status.useRetrieve({ key: itemKey });
-  if (q.variant !== "success") return null;
-  const item = q.data;
+  const item = Status.useCached({ key: itemKey });
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
   return (

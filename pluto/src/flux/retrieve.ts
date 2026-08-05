@@ -245,9 +245,9 @@ export interface UseSelect<Query extends query.Params, Selected> {
  * deduped background fetch on a cold miss. Never suspends and never throws: a
  * miss, a deleted record, a failed fetch, and a disconnected client all read as
  * undefined. A null query skips the read entirely: pass null when the caller
- * holds an empty reference (a zero channel key) instead of a dud query. A
- * definition without getCached serves its answer once fetched but never
- * updates it. Reach for `useRetrieve` wherever the caller may suspend.
+ * holds an empty reference (a zero channel key) instead of a dud query. A query
+ * whose answer never reaches the domain cache is served once, from the fetch,
+ * and never updated. Reach for `useRetrieve` wherever the caller may suspend.
  */
 export interface UseCached<Query extends query.Params, Data extends state.State> {
   (query: Query | null): Data | undefined;
@@ -572,9 +572,9 @@ const ensureFetch = <Query extends query.Params, Data extends query.Data>(
     const epoch = local.epoch;
     promise = retrieve(params).then(
       (data) => {
-        // Domain-cached queries are served by getCached on the next render;
-        // everything else keeps its settled answer locally.
-        if (getCached == null) local.settled.set(hash, { data });
+        // An answer the domain cache serves is read from there on the next
+        // render; one that never reaches it is kept locally instead.
+        if (getCached?.(params) === undefined) local.settled.set(hash, { data });
         local.inFlight.delete(hash);
         return data;
       },
@@ -683,8 +683,8 @@ const useCachedValue = <Query extends query.Params, Data extends query.Data>({
 }: Omit<UseSuspendedParams<Query, Data>, "query"> &
   CreateRetrieveParams<Query, Data> & { query: Query | null }): Data | undefined => {
   const memoQuery = useMemoDeepEqual(q);
-  // Definitions without getCached serve the locally settled answer instead of
-  // the domain cache, so settling must re-render by hand.
+  // A retrieve whose answer never reaches the domain cache is served from the local
+  // settled entry, which no subscription announces, so settling re-renders by hand.
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const client = Synnax.use();
   const held = useRef<{ query: Query; value: Data } | null>(null);
@@ -720,9 +720,7 @@ const useCachedValue = <Query extends query.Params, Data extends query.Data>({
   const settled = local.settled.get(query.hash(memoQuery));
   if (settled != null) return "data" in settled ? settled.data : undefined;
   ensureFetch(params, { name, retrieve, subscribe, getCached, local }).then(
-    () => {
-      if (getCached == null) bump();
-    },
+    () => bump(),
     (exc: unknown) => {
       bump();
       const cause = exc instanceof Error && exc.cause != null ? exc.cause : exc;

@@ -72,8 +72,7 @@ interface HasLabelsFilterProps {
 }
 
 const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
-  const labels =
-    PLabel.useRetrieveMultiple({ keys: request.hasLabels ?? [] }).data ?? [];
+  const labels = PLabel.useCachedMultiple({ keys: request.hasLabels ?? [] }) ?? [];
   if (request.hasLabels == null || request.hasLabels.length === 0) return null;
   return (
     <Flex.Box x pack background={0}>

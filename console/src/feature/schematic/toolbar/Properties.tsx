@@ -136,11 +136,8 @@ const CustomVariantForm = ({
   VariantForm,
 }: CustomVariantFormProps): ReactElement => {
   const schematicKey = Schematic.useKey();
-  const result = Schematic.Symbol.useRetrieve(
-    { key: specKey },
-    { addStatusOnFailure: false },
-  );
-  if (Schematic.Symbol.isMissing(result)) return <Symbol.MissingForm />;
+  const { missing } = Schematic.Symbol.useResolved(specKey);
+  if (missing) return <Symbol.MissingForm />;
   return <VariantForm key={elKey} actions={actions} schematicKey={schematicKey} />;
 };
 

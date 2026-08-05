@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, query } from "@synnaxlabs/client";
+import { device, query } from "@synnaxlabs/client";
 import { Form, Status, Synnax } from "@synnaxlabs/pluto";
 import { primitive, type record } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
@@ -37,34 +37,25 @@ export const use = <
 >(
   schemas?: device.DeviceSchemas<Properties, Make, Model>,
 ): device.Device<Properties, Make, Model> | null => {
-  type Device = device.Device<Properties, Make, Model>;
   const devKey = Form.useFieldValue<string>("config.device");
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
+  type Device = device.Device<Properties, Make, Model>;
   const [dev, setDev] = useState<Device | null>(null);
   const [frozenSchemas] = useState(() => schemas);
   useEffect(() => {
     setDev(null);
     if (primitive.isZero(devKey) || client == null) return;
+    // The client answers with generically parsed properties, so the caller's schemas
+    // are applied here, on the retrieve and on every update alike. deviceZ widens make
+    // and model to a union with its own defaults, hence the narrowing.
+    const schema = device.deviceZ(frozenSchemas) as unknown as z.ZodType<Device>;
     handleError(async () => {
-      if (frozenSchemas != null)
-        setDev(
-          await client.devices.retrieve({
-            key: devKey,
-            includeStatus: true,
-            schemas: frozenSchemas,
-          }),
-        );
-      else {
-        const res = await client.devices.retrieve({
-          key: devKey,
-          includeStatus: true,
-        });
-        setDev(res);
-      }
+      const res = await client.devices.retrieve({ key: devKey, includeStatus: true });
+      setDev(schema.parse(res));
     }, "Failed to retrieve device");
     return client.devices.onChange({ key: devKey, includeStatus: true }, (res) => {
-      if (query.isLive(res)) setDev(res);
+      if (query.isLive(res)) setDev(schema.parse(res));
     });
   }, [client, devKey, frozenSchemas, handleError]);
   return dev;

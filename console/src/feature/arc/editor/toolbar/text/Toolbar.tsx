@@ -20,7 +20,7 @@ import { Toolbar as Base } from "@/platform/toolbar";
 
 export const Toolbar = (): ReactElement => {
   const key = Arc.useKey();
-  const name = Arc.useSelectName(key);
+  const name = Arc.useSelectName({ key });
   return (
     <>
       <Base.Header>

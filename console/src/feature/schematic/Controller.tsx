@@ -19,8 +19,7 @@ export const Controller = memo(({ children }: ControllerProps): ReactElement => 
   const authority = Session.Schematic.useSelectAuthority();
   const name = Schematic.useSelectName();
   const dispatch = Session.useDispatch();
-  const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
-  const username = user?.username ?? "";
+  const username = User.useCached({})?.username ?? "";
   const controlName = username.length > 0 ? `${name} (${username})` : name;
   const handleStatusChange = useCallback(
     (status: Control.Status) =>

@@ -43,7 +43,7 @@ const Actions = (): ReactElement | null => {
 };
 
 const Content = (): ReactElement => {
-  const { data: g } = Channel.useRetrieveGroup({});
+  const g = Channel.useCachedGroup({});
   const root = useMemo(() => (g == null ? null : group.ontologyID(g.key)), [g?.key]);
   return (
     <Toolbar.Content>

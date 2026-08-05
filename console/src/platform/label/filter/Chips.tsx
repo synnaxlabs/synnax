@@ -19,7 +19,7 @@ export const Chips = (): ReactElement | null => {
     optional: true,
   });
   const hasLabels = field?.value;
-  const labels = Label.useRetrieveMultiple({ keys: hasLabels ?? [] }).data ?? [];
+  const labels = Label.useCachedMultiple({ keys: hasLabels ?? [] }) ?? [];
   if (labels.length === 0 || field == null || hasLabels == null) return null;
   const handleClose = (key: label.Key) =>
     field.onChange(hasLabels.filter((l) => l !== key));

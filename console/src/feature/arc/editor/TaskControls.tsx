@@ -32,7 +32,7 @@ export const TaskControls = () => {
     if (taskKeyDefined) setSelectedRack(task.rackKey(taskKey));
   }, [taskKey, taskKeyDefined]);
   const { update } = Arc.useCreate();
-  const { data: remote } = Arc.useRetrieve({ key }, { addStatusOnFailure: false });
+  const remote = Arc.useCached({ key });
 
   const handleConfigure = useCallback(() => {
     if (remote == null) return;

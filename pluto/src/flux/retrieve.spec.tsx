@@ -1706,4 +1706,19 @@ describe("useCached", () => {
     await waitFor(() => expect(result.current).toEqual({ name: "one-shot", value: 4 }));
     expect(retrieve).toHaveBeenCalledTimes(1);
   });
+
+  it("serves a settled answer when the retrieve never reaches the cache", async () => {
+    const harness = createHarness(undefined, async () => ({
+      name: "off-cache",
+      value: 5,
+    }));
+    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current).toBeUndefined();
+    await waitFor(() =>
+      expect(result.current).toEqual({ name: "off-cache", value: 5 }),
+    );
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+  });
 });

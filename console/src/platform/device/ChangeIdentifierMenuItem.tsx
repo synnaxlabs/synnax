@@ -31,7 +31,7 @@ export const ChangeIdentifierMenuItem = ({
   const rename = Modals.useRename();
   const { updateAsync } = useChangeIdentifier();
   const first = getResource(ids[0]);
-  const { data: deviceData } = Device.useRetrieve({ key: first.id.key });
+  const deviceData = Device.useCached({ key: first.id.key });
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
   if (ids.length !== 1 || first.data?.configured !== true || !hasUpdatePermission)
     return null;

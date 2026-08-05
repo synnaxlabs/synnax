@@ -16,7 +16,7 @@ import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
 const Content = (): ReactElement => {
-  const { data: groupID } = Device.useRetrieveGroupID({});
+  const groupID = Device.useCachedGroupID({});
   return (
     <Toolbar.Content>
       <Toolbar.Header>

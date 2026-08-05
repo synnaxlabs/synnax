@@ -145,11 +145,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
-  const channels = PChannel.useRetrieveMultiple({
+  const channels = PChannel.useCachedMultiple({
     rangeKey: activeRange?.key,
     keys: channelKeys,
   });
-  const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
+  const showDeleteAlias = channels?.some((c) => c.alias != null) ?? false;
   const first = resources[0];
   const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
@@ -233,10 +233,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const activeRange = Session.Range.useSelectState();
-  const res = PChannel.useRetrieve({
+  const res = PChannel.useCached({
     key: Number(resource.id.key),
     rangeKey: activeRange?.key,
-  }).data;
+  });
   let name = resource.name;
   if (primitive.isNonZero(res?.alias)) name = res?.alias;
   const data = resource.data as channel.Payload;
