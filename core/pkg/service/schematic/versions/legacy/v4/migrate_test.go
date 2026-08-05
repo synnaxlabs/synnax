@@ -25,11 +25,8 @@ import (
 func createV3() v3.Data {
 	srcH, tgtH := "out", "in"
 	return v3.Data{
-		Version:         v3.Version,
-		Editable:        true,
-		FitViewOnResize: true,
-		Snapshot:        true,
-		RemoteCreated:   true,
+		Version:  v3.Version,
+		Snapshot: true,
 		Viewport: v0.Viewport{
 			Position: v0.XY{X: 12, Y: 34},
 			Zoom:     1.5,

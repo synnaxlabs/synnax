@@ -23,11 +23,8 @@ import (
 func createV0() v0.Data {
 	srcH, tgtH := "out", "in"
 	return v0.Data{
-		Version:         v0.Version,
-		Editable:        true,
-		FitViewOnResize: true,
-		Snapshot:        true,
-		RemoteCreated:   true,
+		Version:  v0.Version,
+		Snapshot: true,
 		Viewport: v0.Viewport{
 			Position: v0.XY{X: 12, Y: 34},
 			Zoom:     1.5,
@@ -63,10 +60,7 @@ var _ = Describe("Migrate", func() {
 	It("Should pass every v0 field through unchanged", func() {
 		in := createV0()
 		out := v1.Migrate(in)
-		Expect(out.Editable).To(Equal(in.Editable))
-		Expect(out.FitViewOnResize).To(Equal(in.FitViewOnResize))
 		Expect(out.Snapshot).To(Equal(in.Snapshot))
-		Expect(out.RemoteCreated).To(Equal(in.RemoteCreated))
 		Expect(out.Viewport).To(Equal(in.Viewport))
 		Expect(out.Nodes).To(Equal(in.Nodes))
 		Expect(out.Edges).To(Equal(in.Edges))

@@ -24,11 +24,10 @@ import (
 func nonZeroV1() v1.Data {
 	label := "pressure"
 	return v1.Data{
-		Version:       v1.Version,
-		Key:           "plot-1",
-		RemoteCreated: true,
-		Title:         v0.Title{Level: "h4", Visible: true},
-		Legend:        v1.ZeroLegend,
+		Version: v1.Version,
+		Key:     "plot-1",
+		Title:   v0.Title{Level: "h4", Visible: true},
+		Legend:  v1.ZeroLegend,
 		Channels: v0.Channels{
 			X1: 1,
 			X2: 2,
@@ -41,8 +40,6 @@ func nonZeroV1() v1.Data {
 		},
 		Ranges: v0.Ranges{X1: []string{"00000000-0000-0000-0000-000000000010"}},
 		Axes: v0.AxesContainer{
-			RenderTrigger:    7,
-			HasHadChannelSet: true,
 			Axes: v0.Axes{
 				X1: v0.Axis{
 					Key:            "x1",
@@ -154,7 +151,6 @@ var _ = Describe("Migrate", func() {
 		in := nonZeroV1()
 		out := v2.Migrate(in)
 		Expect(out.Key).To(Equal(in.Key))
-		Expect(out.RemoteCreated).To(Equal(in.RemoteCreated))
 		Expect(out.Title).To(Equal(in.Title))
 		Expect(out.Legend).To(Equal(in.Legend))
 		Expect(out.Channels).To(Equal(in.Channels))

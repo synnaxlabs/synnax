@@ -100,13 +100,8 @@ type Axes struct {
 	Y4 Axis `json:"y4"`
 }
 
-// AxesContainer mirrors the Console's AxesState wrapper. RenderTrigger and
-// HasHadChannelSet are UI bookkeeping; only Axes survives into the typed body.
+// AxesContainer mirrors the Console's AxesState wrapper.
 type AxesContainer struct {
-	// RenderTrigger is UI-only render bookkeeping; dropped on lift.
-	RenderTrigger int `json:"renderTrigger"`
-	// HasHadChannelSet is UI-only bookkeeping; dropped on lift.
-	HasHadChannelSet bool `json:"hasHadChannelSet"`
 	// Axes bundles every axis configuration.
 	Axes Axes `json:"axes"`
 }
@@ -156,12 +151,10 @@ type Line struct {
 	DownsampleMode string `json:"downsampleMode"`
 }
 
-// Rule is the annotation-line configuration at v0. Selected is UI-only and dropped at
-// the final lift. Color was persisted as a hex string at v0; color.Color's
-// UnmarshalJSON parses that on decode so the in-memory shape matches v5.
+// Rule is the annotation-line configuration at v0. Color was persisted as a hex
+// string at v0; color.Color's UnmarshalJSON parses that on decode so the in-memory
+// shape matches v5.
 type Rule struct {
-	// Selected is UI-only selection state; dropped on lift.
-	Selected *bool `json:"selected,omitempty"`
 	// Key is the rule's unique key.
 	Key string `json:"key"`
 	// Label is the rule label text.
@@ -181,15 +174,13 @@ type Rule struct {
 }
 
 // Data is the wire shape of a per-plot line plot state at version 0. UI-only fields
-// persisted alongside the model fields (viewport, selection) are silently ignored on
-// decode since they do not survive the lift to the typed body.
+// persisted alongside the model are not declared: they never survive the lift to the
+// typed body.
 type Data struct {
 	// Version is the version stamped inside the blob.
 	Version imex.Version `json:"version"`
 	// Key is the Console-local plot key.
 	Key string `json:"key"`
-	// RemoteCreated is UI-only sync bookkeeping; dropped on lift.
-	RemoteCreated bool `json:"remoteCreated"`
 	// Title is the plot title configuration.
 	Title Title `json:"title"`
 	// Legend is the plot legend configuration.

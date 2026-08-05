@@ -26,16 +26,13 @@ var ZeroLegend = Legend{
 // Migrate transforms v0 schematic data into v1 by attaching the default legend.
 func Migrate(old v0.Data) Data {
 	return Data{
-		Version:         Version,
-		Editable:        old.Editable,
-		FitViewOnResize: old.FitViewOnResize,
-		Snapshot:        old.Snapshot,
-		RemoteCreated:   old.RemoteCreated,
-		Viewport:        old.Viewport,
-		Nodes:           old.Nodes,
-		Edges:           old.Edges,
-		Props:           old.Props,
-		Control:         old.Control,
-		Legend:          ZeroLegend,
+		Version:  Version,
+		Snapshot: old.Snapshot,
+		Viewport: old.Viewport,
+		Nodes:    old.Nodes,
+		Edges:    old.Edges,
+		Props:    old.Props,
+		Control:  old.Control,
+		Legend:   ZeroLegend,
 	}
 }

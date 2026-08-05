@@ -57,32 +57,10 @@ type ChannelEntry struct {
 type Data struct {
 	// Channels are the displayed channels with display options.
 	Channels []ChannelEntry `json:"channels"`
-	// RemoteCreated is UI-only sync bookkeeping; dropped on lift.
-	RemoteCreated bool `json:"remoteCreated"`
 	// TimestampPrecision is the timestamp display precision.
 	TimestampPrecision int32 `json:"timestampPrecision"`
 	// ShowChannelNames toggles channel name display.
 	ShowChannelNames bool `json:"showChannelNames"`
 	// ShowReceiptTimestamp toggles receipt timestamp display.
 	ShowReceiptTimestamp bool `json:"showReceiptTimestamp"`
-}
-
-// Normalize replaces every per-channel enum that fails its Validate with the standard
-// default (NotationStandard, TimestampFormatPreciseDate, TimeZoneLocal), so a value
-// outside the closed set that slipped through the lenient decode never reaches the
-// lifted Log. The channel entries are normalized in place and d is returned.
-func (d Data) Normalize() Data {
-	for i := range d.Channels {
-		c := &d.Channels[i]
-		if !c.Notation.IsValid() {
-			c.Notation = notation.NotationStandard
-		}
-		if !c.Timestamp.Format.IsValid() {
-			c.Timestamp.Format = telem.TimestampFormatPreciseDate
-		}
-		if !c.Timestamp.Tz.IsValid() {
-			c.Timestamp.Tz = telem.TimeZoneLocal
-		}
-	}
-	return d
 }

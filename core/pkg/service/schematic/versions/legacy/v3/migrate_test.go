@@ -25,11 +25,8 @@ import (
 func createV2() v2.Data {
 	srcH, tgtH := "out", "in"
 	return v2.Data{
-		Version:         v2.Version,
-		Editable:        true,
-		FitViewOnResize: true,
-		Snapshot:        true,
-		RemoteCreated:   true,
+		Version:  v2.Version,
+		Snapshot: true,
 		Viewport: v0.Viewport{
 			Position: v0.XY{X: 12, Y: 34},
 			Zoom:     1.5,

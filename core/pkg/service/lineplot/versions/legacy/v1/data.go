@@ -62,8 +62,6 @@ type Data struct {
 	Version imex.Version `json:"version"`
 	// Key is the Console-local plot key.
 	Key string `json:"key"`
-	// RemoteCreated is UI-only sync bookkeeping; dropped on lift.
-	RemoteCreated bool `json:"remoteCreated"`
 	// Title is the plot title configuration.
 	Title v0.Title `json:"title"`
 	// Legend is the plot legend configuration.

@@ -16,13 +16,14 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // MigrateLog lifts the previous log snapshot (v2, {Key, Name, Data}) into the v3
 // strongly-typed Log. autoMigrateLog copies the gorp-entry fields (Key, Name); the body
-// is decoded from the per-log JSON blob via legacy.MigrateData and lifted by
-// logFromV1, which normalizes out-of-set enums to their documented defaults. If
-// legacy.MigrateData
+// is decoded from the per-log JSON blob via legacy.MigrateData and lifted by logFromV1,
+// which normalizes out-of-set enums to their documented defaults. If legacy.MigrateData
 // fails (e.g. a channel key that cannot coerce to uint32), the body is dropped and only
 // Key+Name are returned, so the Gorp boot migration never fails on a single corrupt
 // row. UI-only fields (toolbar, version) are dropped because they are not declared in
@@ -46,21 +47,23 @@ func MigrateLog(ctx context.Context, old v0.Log) (Log, error) {
 	return body, nil
 }
 
-// logFromV1 lifts the latest legacy Data into the runtime Log shape. Data.Normalize
-// first replaces any out-of-set enum with its standard default, and the lift parses the
-// raw color string into the typed color.Color (defaulting a malformed or empty value to
-// the zero color).
+// logFromV1 lifts the latest legacy Data into the runtime Log shape. The lenient
+// legacy decode admits enum strings outside their closed sets, so each is replaced with
+// its standard default here, and the raw color string is parsed into the typed
+// color.Color (defaulting a malformed or empty value to the zero color).
 func logFromV1(d legacy.Data) Log {
-	d = d.Normalize()
 	channels := make([]ChannelEntry, len(d.Channels))
 	for i, c := range d.Channels {
 		channels[i] = ChannelEntry{
 			Channel:   c.Channel,
 			Color:     parseColor(c.Color),
-			Notation:  c.Notation,
+			Notation:  orDefault(c.Notation, notation.NotationStandard),
 			Precision: c.Precision,
 			Alias:     c.Alias,
-			Timestamp: TimestampConfig{Format: c.Timestamp.Format, Tz: c.Timestamp.Tz},
+			Timestamp: TimestampConfig{
+				Format: orDefault(c.Timestamp.Format, telem.TimestampFormatPreciseDate),
+				Tz:     orDefault(c.Timestamp.Tz, telem.TimeZoneLocal),
+			},
 		}
 	}
 	return Log{
@@ -69,6 +72,17 @@ func logFromV1(d legacy.Data) Log {
 		HideChannelNames:     !d.ShowChannelNames,
 		HideReceiptTimestamp: !d.ShowReceiptTimestamp,
 	}
+}
+
+// validator is an enum that can report whether it holds one of its defined values.
+type validator interface{ IsValid() bool }
+
+// orDefault returns v when it holds a defined enum value, and def otherwise.
+func orDefault[T validator](v, def T) T {
+	if v.IsValid() {
+		return v
+	}
+	return def
 }
 
 // parseColor parses the raw wire-format hex color string into the typed color.Color,

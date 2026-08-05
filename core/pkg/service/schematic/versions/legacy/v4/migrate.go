@@ -15,20 +15,17 @@ import v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3
 // Mirrors the Console's v3 -> v4 step.
 func Migrate(old v3.Data) Data {
 	return Data{
-		Version:         Version,
-		Editable:        old.Editable,
-		FitViewOnResize: old.FitViewOnResize,
-		Snapshot:        old.Snapshot,
-		RemoteCreated:   old.RemoteCreated,
-		Viewport:        old.Viewport,
-		Nodes:           old.Nodes,
-		Edges:           old.Edges,
-		Props:           old.Props,
-		Control:         old.Control,
-		Legend:          old.Legend,
-		Key:             old.Key,
-		Type:            old.Type,
-		ViewportMode:    old.ViewportMode,
-		Authority:       1,
+		Version:      Version,
+		Snapshot:     old.Snapshot,
+		Viewport:     old.Viewport,
+		Nodes:        old.Nodes,
+		Edges:        old.Edges,
+		Props:        old.Props,
+		Control:      old.Control,
+		Legend:       old.Legend,
+		Key:          old.Key,
+		Type:         old.Type,
+		ViewportMode: old.ViewportMode,
+		Authority:    1,
 	}
 }

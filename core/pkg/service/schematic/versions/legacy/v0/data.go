@@ -100,14 +100,8 @@ type ToolbarState struct {
 type Data struct {
 	// Version is the version stamped inside the blob.
 	Version imex.Version `json:"version"`
-	// Editable is UI-only edit-mode state; dropped on lift.
-	Editable bool `json:"editable"`
-	// FitViewOnResize is UI-only viewport behavior; dropped on lift.
-	FitViewOnResize bool `json:"fitViewOnResize"`
 	// Snapshot marks the schematic as a range snapshot.
 	Snapshot bool `json:"snapshot"`
-	// RemoteCreated is UI-only sync bookkeeping; dropped on lift.
-	RemoteCreated bool `json:"remoteCreated"`
 	// Viewport is the editor viewport position and zoom.
 	Viewport Viewport `json:"viewport"`
 	// Nodes are the schematic nodes.

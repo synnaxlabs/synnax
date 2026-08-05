@@ -28,15 +28,14 @@ var ZeroLegend = Legend{
 // Migrate transforms v0 line plot data into v1 by attaching the default legend.
 func Migrate(old v0.Data) Data {
 	return Data{
-		Version:       Version,
-		Key:           old.Key,
-		RemoteCreated: old.RemoteCreated,
-		Title:         old.Title,
-		Legend:        ZeroLegend,
-		Channels:      old.Channels,
-		Ranges:        old.Ranges,
-		Axes:          old.Axes,
-		Lines:         old.Lines,
-		Rules:         old.Rules,
+		Version:  Version,
+		Key:      old.Key,
+		Title:    old.Title,
+		Legend:   ZeroLegend,
+		Channels: old.Channels,
+		Ranges:   old.Ranges,
+		Axes:     old.Axes,
+		Lines:    old.Lines,
+		Rules:    old.Rules,
 	}
 }

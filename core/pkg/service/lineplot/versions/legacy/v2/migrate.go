@@ -19,16 +19,13 @@ import (
 // v1 to v2 stateMigration.
 func Migrate(old v1.Data) Data {
 	return Data{
-		Version:       Version,
-		Key:           old.Key,
-		RemoteCreated: old.RemoteCreated,
-		Title:         old.Title,
-		Legend:        old.Legend,
-		Channels:      old.Channels,
-		Ranges:        old.Ranges,
+		Version:  Version,
+		Key:      old.Key,
+		Title:    old.Title,
+		Legend:   old.Legend,
+		Channels: old.Channels,
+		Ranges:   old.Ranges,
 		Axes: AxesContainer{
-			RenderTrigger:    old.Axes.RenderTrigger,
-			HasHadChannelSet: old.Axes.HasHadChannelSet,
 			Axes: Axes{
 				X1: upgradeXAxis(old.Axes.Axes.X1),
 				X2: upgradeXAxis(old.Axes.Axes.X2),

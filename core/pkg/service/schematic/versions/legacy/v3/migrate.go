@@ -25,20 +25,17 @@ func Migrate(old v2.Data) Data {
 		edges[i] = upgradeEdge(e)
 	}
 	return Data{
-		Version:         Version,
-		Editable:        old.Editable,
-		FitViewOnResize: old.FitViewOnResize,
-		Snapshot:        old.Snapshot,
-		RemoteCreated:   old.RemoteCreated,
-		Viewport:        old.Viewport,
-		Nodes:           old.Nodes,
-		Edges:           edges,
-		Props:           old.Props,
-		Control:         old.Control,
-		Legend:          old.Legend,
-		Key:             old.Key,
-		Type:            old.Type,
-		ViewportMode:    old.ViewportMode,
+		Version:      Version,
+		Snapshot:     old.Snapshot,
+		Viewport:     old.Viewport,
+		Nodes:        old.Nodes,
+		Edges:        edges,
+		Props:        old.Props,
+		Control:      old.Control,
+		Legend:       old.Legend,
+		Key:          old.Key,
+		Type:         old.Type,
+		ViewportMode: old.ViewportMode,
 	}
 }
 

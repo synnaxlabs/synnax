@@ -20,19 +20,16 @@ import (
 // blob into the typed schematic.
 func Migrate(old v1.Data) Data {
 	return Data{
-		Version:         Version,
-		Editable:        old.Editable,
-		FitViewOnResize: old.FitViewOnResize,
-		Snapshot:        old.Snapshot,
-		RemoteCreated:   old.RemoteCreated,
-		Viewport:        old.Viewport,
-		Nodes:           old.Nodes,
-		Edges:           old.Edges,
-		Props:           old.Props,
-		Control:         old.Control,
-		Legend:          old.Legend,
-		Key:             uuid.New().String(),
-		Type:            "schematic",
-		ViewportMode:    "select",
+		Version:      Version,
+		Snapshot:     old.Snapshot,
+		Viewport:     old.Viewport,
+		Nodes:        old.Nodes,
+		Edges:        old.Edges,
+		Props:        old.Props,
+		Control:      old.Control,
+		Legend:       old.Legend,
+		Key:          uuid.New().String(),
+		Type:         "schematic",
+		ViewportMode: "select",
 	}
 }

@@ -60,7 +60,6 @@ var _ = Describe("MigrateData", func() {
 		result := MustSucceed(legacy.MigrateData(blob))
 		Expect(result.Channels).To(HaveLen(3))
 		Expect(result.Channels[0].Channel).To(BeEquivalentTo(1))
-		Expect(result.RemoteCreated).To(BeTrue())
 	})
 
 	It("Should fall back to v0 when the blob carries no version field", func() {

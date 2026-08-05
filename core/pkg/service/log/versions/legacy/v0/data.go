@@ -18,11 +18,8 @@ import (
 const Version imex.Version = 0
 
 // Data is the frozen type for log data at version 0. Channels are stored as bare
-// channel keys. Key, Name, Type, and Version are envelope-level fields and are not part
-// of Data.
+// channel keys.
 type Data struct {
 	// Channels are the keys of the channels the log displays.
 	Channels []channel.Key `json:"channels"`
-	// RemoteCreated is UI-only sync bookkeeping; dropped on lift.
-	RemoteCreated bool `json:"remoteCreated"`
 }

@@ -62,10 +62,6 @@ type Axes struct {
 
 // AxesContainer mirrors the Console's AxesState wrapper.
 type AxesContainer struct {
-	// RenderTrigger is UI-only render bookkeeping; dropped on lift.
-	RenderTrigger int `json:"renderTrigger"`
-	// HasHadChannelSet is UI-only bookkeeping; dropped on lift.
-	HasHadChannelSet bool `json:"hasHadChannelSet"`
 	// Axes bundles every axis configuration.
 	Axes Axes `json:"axes"`
 }
@@ -76,8 +72,6 @@ type Data struct {
 	Version imex.Version `json:"version"`
 	// Key is the Console-local plot key.
 	Key string `json:"key"`
-	// RemoteCreated is UI-only sync bookkeeping; dropped on lift.
-	RemoteCreated bool `json:"remoteCreated"`
 	// Title is the plot title configuration.
 	Title v0.Title `json:"title"`
 	// Legend is the plot legend configuration.

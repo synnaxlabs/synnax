@@ -33,7 +33,6 @@ func Migrate(old v0.Data) Data {
 	}
 	return Data{
 		Channels:             channels,
-		RemoteCreated:        old.RemoteCreated,
 		TimestampPrecision:   0,
 		ShowChannelNames:     true,
 		ShowReceiptTimestamp: true,
