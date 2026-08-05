@@ -163,6 +163,12 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     name: RESOURCE_NAME,
     schema,
     initialValues: actualInitialValues,
+    retrieveCached: ({ client, query: { key } }) => {
+      if (key == null) return undefined;
+      const cached = client.tasks.getCached(key);
+      if (!query.isLive(cached) || cached.status == null) return undefined;
+      return taskToFormValues(cached.payload as task.Payload<S>);
+    },
     retrieve: async ({ client, query: { key }, reset }): Promise<void> => {
       if (key == null) return;
       const tsk = await client.tasks.retrieve({ ...BASE_QUERY, key, schemas });

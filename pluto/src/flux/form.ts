@@ -22,7 +22,7 @@ import {
 } from "@/flux/result";
 import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
-import { useAsyncEffect, useDestructors } from "@/hooks";
+import { useAsyncEffect, useDestructors, useInitializerRef } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
@@ -51,6 +51,7 @@ export interface CreateFormParams<
   name: string;
   schema: Schema;
   initialValues: z.infer<Schema>;
+  retrieveCached?: (params: FormClientParams<Query>) => z.infer<Schema> | undefined;
   update: (params: FormUpdateParams<Schema>) => Promise<void>;
   retrieve: (params: FormRetrieveParams<Query, Schema>) => Promise<void>;
   mountListeners?: (
@@ -122,6 +123,7 @@ export const createForm =
     mountListeners,
     update,
     initialValues: baseInitialValues,
+    retrieveCached,
   }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> =>
   ({
     query,
@@ -141,9 +143,13 @@ export const createForm =
     const listeners = useDestructors();
     const addStatus = Status.useAdder();
 
+    const cached = useInitializerRef(() =>
+      client == null ? undefined : retrieveCached?.({ client, query }),
+    );
+
     const form = Form.use<Schema>({
       schema,
-      values: initialValues ?? baseInitialValues,
+      values: initialValues ?? cached.current ?? baseInitialValues,
       onChange: ({ path }) => {
         // Don't save if the path is empty to prevent infinite save loops.
         if (autoSave && path !== "") save();
