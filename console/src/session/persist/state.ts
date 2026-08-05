@@ -40,11 +40,6 @@ interface SlotPointer {
   slot: number;
 }
 
-/** The pre-rename pointer shape, still read from stores written before it. */
-interface LegacySlotPointer {
-  version: number;
-}
-
 export interface KVOpener {
   (base: string): SugaredKV;
 }
@@ -178,19 +173,9 @@ class Partition<S extends object> {
     return `${this.base}.slot`;
   }
 
-  // Stores written before the pointer was renamed off `version`. Drop once no
-  // install can still be on the old key.
-  private legacySlotKey(): string {
-    return `${this.base}.version`;
-  }
-
   private async readSlot(): Promise<number> {
     const stored = (await this.db.get(this.slotKey())) as SlotPointer | null;
-    if (stored != null) return stored.slot;
-    const legacy = (await this.db.get(
-      this.legacySlotKey(),
-    )) as LegacySlotPointer | null;
-    return legacy?.version ?? 0;
+    return stored?.slot ?? 0;
   }
 
   private async setSlot(slot: number): Promise<void> {

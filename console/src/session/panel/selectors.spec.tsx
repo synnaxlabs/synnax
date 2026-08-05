@@ -25,12 +25,8 @@ import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/session/panel";
 import { Synchronizer } from "@/session/synchronizer";
-import {
-  assertDefined,
-  createConsoleWrapper,
-  pickSynchronizer,
-  type TestStore,
-} from "@/testutil";
+import { pickSynchronizer } from "@/session/synchronizer/testutil";
+import { assertDefined, createConsoleWrapper, type TestStore } from "@/testutil";
 
 const rootReducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
