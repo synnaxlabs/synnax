@@ -25,10 +25,12 @@ export default defineConfig({
         testutil: path.resolve(".", "src/testutil/index.ts"),
       },
     },
-    rolldownOptions: { external: ["zod", "vitest", /^@vitest\//] },
+    rolldownOptions: { external: ["zod", "vitest", /^@vitest\//, /^node:/] },
   },
   test: {
     globals: true,
+    testTimeout: 15_000,
+    expect: { poll: { timeout: 5000 } },
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

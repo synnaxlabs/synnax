@@ -23,7 +23,7 @@ export const ReloadConsoleItem = (): ReactElement => {
   return (
     <Menu.Item onClick={handleClick} itemKey="hardReload">
       <Icon.Refresh />
-      Reload Console
+      Reload console
     </Menu.Item>
   );
 };

@@ -36,9 +36,9 @@ describe("device", () => {
         model: "test",
         properties: {},
       });
-      await expect(
-        userClient.devices.retrieve({ key: randomDevice.key }),
-      ).rejects.toThrow(AuthError);
+      await expect(userClient.devices.retrieve(randomDevice.key)).rejects.toThrow(
+        AuthError,
+      );
     });
 
     it("should allow the caller to retrieve devices with the correct policy", async () => {
@@ -59,9 +59,7 @@ describe("device", () => {
         model: "test",
         properties: {},
       });
-      const retrieved = await userClient.devices.retrieve({
-        key: randomDevice.key,
-      });
+      const retrieved = await userClient.devices.retrieve(randomDevice.key);
       expect(retrieved.key).toBe(randomDevice.key);
       expect(retrieved.name).toBe(randomDevice.name);
     });
@@ -127,9 +125,9 @@ describe("device", () => {
         properties: {},
       });
       await userClient.devices.delete(randomDevice.key);
-      await expect(
-        userClient.devices.retrieve({ key: randomDevice.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(userClient.devices.retrieve(randomDevice.key)).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should deny access when no delete policy exists", async () => {

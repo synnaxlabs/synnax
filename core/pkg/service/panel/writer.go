@@ -67,6 +67,10 @@ func (w Writer) Create(
 			return err
 		}
 	}
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, p.Key, "", []Action{NewCreateAction(CreatePayload{Panel: *p})},
+	)
 	return nil
 }
 

@@ -20,6 +20,8 @@ export const use = (): string | undefined => {
     const version = await getVersion();
     if (!signal.aborted) setTauriVersion(version);
   }, []);
-  const connectionState = Synnax.useConnectionState();
-  return Runtime.ENGINE === "tauri" ? tauriVersion : connectionState?.nodeVersion;
+  const connectionStatus = Synnax.useConnectionStatus();
+  return Runtime.ENGINE === "tauri"
+    ? tauriVersion
+    : connectionStatus?.details.nodeVersion;
 };

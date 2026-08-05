@@ -281,6 +281,7 @@
     --pluto-gray-l10-10: #dadada1a;
     --pluto-gray-l10-5: #dadada0d;
     --pluto-gray-l11: #fafafa;
+    --pluto-gray-l11-rgb: 250, 250, 250;
     --pluto-gray-l11-95: #fafafaf2;
     --pluto-gray-l11-90: #fafafae6;
     --pluto-gray-l11-85: #fafafad9;
@@ -379,6 +380,7 @@
     --pluto-text-color: #fafafa;
     --pluto-text-color-rgb: 250, 250, 250;
     --pluto-text-on-primary: #fafafa;
+    --pluto-text-on-warning: #020202;
     --pluto-primary-text: #93c5fd;
     --pluto-error-text: #fca5a5;
     --pluto-warning-text: #fcd34d;
@@ -682,6 +684,7 @@
     --pluto-dark-gray-l10-10: #dadada1a;
     --pluto-dark-gray-l10-5: #dadada0d;
     --pluto-dark-gray-l11: #fafafa;
+    --pluto-dark-gray-l11-rgb: 250, 250, 250;
     --pluto-dark-gray-l11-95: #fafafaf2;
     --pluto-dark-gray-l11-90: #fafafae6;
     --pluto-dark-gray-l11-85: #fafafad9;
@@ -780,6 +783,7 @@
     --pluto-dark-text-color: #fafafa;
     --pluto-dark-text-color-rgb: 250, 250, 250;
     --pluto-dark-text-on-primary: #fafafa;
+    --pluto-dark-text-on-warning: #020202;
     --pluto-dark-primary-text: #93c5fd;
     --pluto-dark-error-text: #fca5a5;
     --pluto-dark-warning-text: #fcd34d;

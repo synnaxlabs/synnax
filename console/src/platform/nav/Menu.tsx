@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { CSS as PCSS, Menu as PMenu, Triggers, useSyncedRef } from "@synnaxlabs/pluto";
-import { array, xy } from "@synnaxlabs/x";
+import { array, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type MouseEvent as ReactMouseEvent,
   type ReactElement,
@@ -19,6 +19,97 @@ import {
 
 import { CSS } from "@/platform/css";
 import { type Toolbar } from "@/platform/nav/toolbar";
+
+export interface UseItemProps {
+  trigger?: Triggers.Trigger;
+  /** Edge the hosting bar sits on; orients the hover-dismiss axis. */
+  bar?: location.Outer;
+  visible?: boolean;
+  onStartHover: () => void;
+  onStopHover: () => void;
+  onToggle: () => void;
+  onPin: () => void;
+}
+
+export interface UseItemReturn {
+  onClick: () => void;
+  onMouseEnter: (e: ReactMouseEvent) => void;
+  onMouseLeave: () => void;
+}
+
+/**
+ * Implements the interaction mechanics of a toolbar item that opens a drawer:
+ * dwelling on the item starts a hover preview, moving along the bar dismisses it,
+ * the trigger toggles the drawer, and a double-tap trigger pins it. Returns handlers
+ * to spread onto the item element; onClick only cancels a pending hover preview, so
+ * compose it with the item's own select handler.
+ */
+export const useItem = ({
+  trigger,
+  bar = "left",
+  visible = true,
+  onStartHover,
+  onStopHover,
+  onToggle,
+  onPin,
+}: UseItemProps): UseItemReturn => {
+  const positionRef = useRef<xy.XY>({ ...xy.ZERO });
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const visibleRef = useSyncedRef(visible);
+
+  const triggers = useMemo(() => {
+    if (!trigger?.length) return [];
+    return [trigger, [trigger[0], trigger[0]]];
+  }, [trigger]);
+
+  Triggers.use({
+    triggers,
+    loose: false,
+    callback: useCallback(
+      (e: Triggers.UseEvent) => {
+        if (
+          !visibleRef.current ||
+          e.stage !== "start" ||
+          (e.prevTriggers.length > 0 && e.prevTriggers[0].length > 1)
+        )
+          return;
+        const isDouble = e.triggers.some((t) => t.length === 2);
+        if (isDouble) onPin();
+        else onToggle();
+      },
+      [onToggle, onPin, visibleRef],
+    ),
+  });
+
+  const cancelPending = useCallback(() => {
+    if (timeoutRef.current == null) return;
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  }, []);
+
+  const onMouseEnter = useCallback(
+    (e: ReactMouseEvent) => {
+      const alongAxis = direction.swap(bar);
+      const crossAxis = direction.construct(bar);
+      timeoutRef.current = setTimeout(() => {
+        timeoutRef.current = null;
+        onStartHover();
+        positionRef.current = xy.construct(e);
+        const lis = (e: MouseEvent) => {
+          const delta = xy.translation(xy.construct(e), positionRef.current);
+          if (Math.abs(delta[alongAxis]) > 75 && Math.abs(delta[crossAxis]) < 30) {
+            onStopHover();
+            window.removeEventListener("mousemove", lis);
+          }
+        };
+        window.addEventListener("mousemove", lis);
+      }, 350);
+    },
+    [onStartHover, onStopHover, bar],
+  );
+
+  return { onClick: cancelPending, onMouseEnter, onMouseLeave: cancelPending };
+};
 
 interface MenuItemProps {
   item: Toolbar;
@@ -37,69 +128,23 @@ const MenuItem = ({
   onToggle,
   onPin,
 }: MenuItemProps): ReactElement | null => {
-  const positionRef = useRef<xy.XY>({ ...xy.ZERO });
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { key, icon, trigger, useVisible } = item;
   const isVisible = useVisible?.() ?? true;
-  const isVisibleRef = useSyncedRef(isVisible);
-
-  const triggers = useMemo(() => {
-    if (!trigger?.length) return [];
-    return [trigger, [trigger[0], trigger[0]]];
-  }, [trigger]);
-
-  Triggers.use({
-    triggers,
-    loose: false,
-    callback: useCallback(
-      (e: Triggers.UseEvent) => {
-        if (
-          !isVisibleRef.current ||
-          e.stage !== "start" ||
-          (e.prevTriggers.length > 0 && e.prevTriggers[0].length > 1)
-        )
-          return;
-        const isDouble = e.triggers.some((t) => t.length === 2);
-        if (isDouble) onPin(key);
-        else onToggle(key);
-      },
-      [key, onToggle, onPin, isVisibleRef],
-    ),
+  const itemProps = useItem({
+    trigger,
+    visible: isVisible,
+    onStartHover: useCallback(() => onStartHover(key), [onStartHover, key]),
+    onStopHover,
+    onToggle: useCallback(() => onToggle(key), [onToggle, key]),
+    onPin: useCallback(() => onPin(key), [onPin, key]),
   });
-
-  const resetTimeout = useCallback(() => {
-    if (timeoutRef.current == null) return;
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = null;
-  }, []);
-
-  const handleMouseEnter = useCallback(
-    (e: ReactMouseEvent) => {
-      timeoutRef.current = setTimeout(() => {
-        timeoutRef.current = null;
-        onStartHover(key);
-        positionRef.current = xy.construct(e);
-        const lis = (e: MouseEvent) => {
-          const delta = xy.translation(xy.construct(e), positionRef.current);
-          if (Math.abs(delta.y) > 75 && Math.abs(delta.x) < 30) {
-            onStopHover();
-            window.removeEventListener("mousemove", lis);
-          }
-        };
-        window.addEventListener("mousemove", lis);
-      }, 350);
-    },
-    [onStartHover, onStopHover],
-  );
 
   if (!isVisible) return null;
 
   return (
     <PMenu.Item
       className={CSS(CSS.BE("main-nav", "item"), PCSS.selected(selected))}
-      onClick={resetTimeout}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={resetTimeout}
+      {...itemProps}
       key={key}
       itemKey={key}
       size="large"

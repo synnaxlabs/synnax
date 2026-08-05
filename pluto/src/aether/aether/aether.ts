@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { deep, errors, type record, shallow, zod } from "@synnaxlabs/x";
+import { deep, errors, type record, shallow, state, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -30,7 +30,6 @@ export {
   wrapWorker,
   wrapWorkerScope,
 } from "@/aether/aether/message";
-import { state } from "@/state";
 
 const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
   if (e instanceof Error) {

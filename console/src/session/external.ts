@@ -25,6 +25,7 @@ export * from "@/session/runtime";
 export * from "@/session/schematic";
 export * from "@/session/status";
 export * from "@/session/store";
+export * from "@/session/synchronizer";
 export * from "@/session/table";
 export * from "@/session/theme";
 export * from "@/session/useLogout";

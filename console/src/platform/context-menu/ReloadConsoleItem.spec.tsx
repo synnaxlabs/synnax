@@ -25,7 +25,7 @@ describe("ContextMenu.ReloadConsoleItem", () => {
       </Menu.Menu>,
     );
     expect(localStorage.getItem(Link.SHOULD_IGNORE_KEY)).toBeNull();
-    fireEvent.click(screen.getByText("Reload Console"));
+    fireEvent.click(screen.getByText("Reload console"));
     expect(localStorage.getItem(Link.SHOULD_IGNORE_KEY)).toBe("true");
   });
 });

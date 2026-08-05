@@ -34,6 +34,11 @@ const sameEndpoints = (a: ir.Edge, source: ir.Handle, target: ir.Handle): boolea
   a.target.param === target.param;
 
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.arc);
+    return { inverse: [], targets: [payload.arc.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
@@ -161,6 +166,11 @@ const handlers: Handlers = {
 
 export const reduceAll = createReduceAll(handlers);
 
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.arc : undefined;
+
 // isUndoable reports whether an action should push onto the undo stack. Graph mutations
 // are user-driven and undoable; collaborative text edits are not (they carry no inverse
 // and belong to the CRDT, not the graph undo stack), nor is the server's tombstone
@@ -169,3 +179,15 @@ export const isUndoable = (action: Action): boolean =>
   action.type !== "insert_char" &&
   action.type !== "delete_char" &&
   action.type !== "forget_chars";
+
+// kindOf classifies an action batch for the undo coalesce window. A
+// node drag dispatches a stream of set_node_position actions for a single
+// gesture; classifying them all as "move" collapses them into one undoable.
+export const kindOf = (actions: Action[]): string => {
+  if (actions.length === 0) return "default";
+  const hasMove = actions.some((a) => a.type === "set_node_position");
+  const onlyMove = actions.every((a) => a.type === "set_node_position");
+  if (hasMove && onlyMove) return "move";
+  if (actions.length === 1) return actions[0].type;
+  return "transaction";
+};

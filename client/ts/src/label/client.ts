@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 import z from "zod";
 
+import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
+import { matchLabeledBy } from "@/label/store";
 import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
 import { ontology } from "@/ontology";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
@@ -40,77 +42,203 @@ const retrieveRequestZ = z.object({
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
+const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
-const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
-
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
-
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
+export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
-const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) });
+interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
-export class Client {
+export interface ClientConfig {
+  unary: UnaryClient;
+  cache: query.Cache;
+  ontology: ontology.Client;
+}
+
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Label> {
   readonly type: string = "label";
-  private readonly client: UnaryClient;
+  /** The label record table; injected into sibling clients at wiring. */
+  readonly store: query.Table<Key, Label>;
+  private readonly cfg: ClientConfig;
 
-  constructor(client: UnaryClient) {
-    this.client = client;
+  constructor(cfg: ClientConfig) {
+    const { cache, ontology: ontologyClient } = cfg;
+    const { relationships } = ontologyClient.cache;
+    const store = cache.createTable<Key, Label>({
+      name: "labels",
+      fetch: async (keys) =>
+        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      listen: [
+        query.createSetListener(SET_CHANNEL_NAME, labelZ),
+        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
+      ],
+    });
+    super(cache, {
+      name: "label",
+      table: store,
+      request: {
+        schema: retrieveMultiParamsZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (label, req) => this.requestFilter(req)(label),
+        watch: [
+          query.watch(relationships, (event, req: RetrieveRequest) => {
+            if (req.for == null) return null;
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (!matchLabeledBy(rel, req.for)) return null;
+            return [rel.to.key];
+          }),
+        ],
+      },
+    });
+    this.cfg = cfg;
+    this.store = store;
   }
 
-  async retrieve(params: RetrieveSingleParams): Promise<Label>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Label[]>;
-  async retrieve(params: RetrieveParams): Promise<Label | Label[]> {
-    const isSingle = "key" in params;
-    const res = await this.client.send(
-      "/label/retrieve",
-      params,
-      retrieveParamsZ,
-      retrieveResponseZ,
-    );
-    checkForMultipleOrNoResults("Label", params, res.labels, isSingle);
-    return isSingle ? res.labels[0] : res.labels;
+  async label(
+    id: ontology.ID,
+    labels: Key[],
+    opts: SetOptions & query.WriteOptions = {},
+  ): Promise<void> {
+    await query.optimistic({
+      rollbacks: [
+        ...(opts.replace === true
+          ? [this.cfg.ontology.cache.relationships.delete((r) => matchLabeledBy(r, id))]
+          : []),
+        ...labels.map((key) => {
+          const rel = labeledByRel(id, key);
+          return this.cfg.ontology.cache.relationships.set(
+            ontology.relationshipToString(rel),
+            rel,
+          );
+        }),
+      ],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/label/set",
+          { id, labels, replace: opts.replace },
+          setReqZ,
+          emptyResZ,
+        ),
+    });
   }
 
-  async label(id: ontology.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
-    await this.client.send(
-      "/label/set",
-      { id, labels, replace: opts.replace },
-      setReqZ,
-      emptyResZ,
-    );
+  async remove(
+    id: ontology.ID,
+    labels: Key[],
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    await query.optimistic({
+      rollbacks: [
+        this.cfg.ontology.cache.relationships.delete(
+          (r) => matchLabeledBy(r, id) && labels.includes(r.to.key),
+        ),
+      ],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/label/remove",
+          { id, labels },
+          removeReqZ,
+          emptyResZ,
+        ),
+    });
   }
 
-  async remove(id: ontology.ID, labels: Key[]): Promise<void> {
-    await this.client.send("/label/remove", { id, labels }, removeReqZ, emptyResZ);
-  }
-
-  async create(label: New): Promise<Label>;
-  async create(labels: New[]): Promise<Label[]>;
-  async create(labels: New | New[]): Promise<Label | Label[]> {
+  async create(label: New, opts?: query.WriteOptions<Label[]>): Promise<Label>;
+  async create(labels: New[], opts?: query.WriteOptions<Label[]>): Promise<Label[]>;
+  async create(
+    labels: New | New[],
+    opts: query.WriteOptions<Label[]> = {},
+  ): Promise<Label | Label[]> {
     const isMany = Array.isArray(labels);
-    const res = await this.client.send(
-      "/label/create",
-      { labels: array.toArray(labels) },
-      createReqZ,
-      createResZ,
-    );
+    const optimistic = array.toArray(labels).map((l) => labelZ.parse(l));
+    const res = await query.optimistic({
+      rollbacks: [this.store.set(optimistic)],
+      onOptimistic: () => opts.onOptimistic?.(optimistic),
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/label/create",
+          { labels: optimistic },
+          createReqZ,
+          createResZ,
+        ),
+    });
+    this.store.set(res.labels);
     return isMany ? res.labels : res.labels[0];
   }
 
-  async delete(keys: Key | Key[]): Promise<void> {
-    await this.client.send(
-      "/label/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      emptyResZ,
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const drop = () => [
+      this.store.delete(keysArr),
+      this.cfg.ontology.cache.relationships.delete(
+        (r) =>
+          r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
+          r.to.type === "label" &&
+          keysArr.includes(r.to.key),
+      ),
+    ];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/label/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          emptyResZ,
+        ),
+    });
+    drop();
+  }
+
+  private async execRetrieve(params: RetrieveMultipleParams): Promise<Label[]> {
+    const res = await this.cfg.unary.send(
+      "/label/retrieve",
+      params,
+      retrieveRequestZ,
+      retrieveResponseZ,
+    );
+    return res.labels;
+  }
+
+  /**
+   * Client-side matching for a request: key sets, names, and labeled-entity
+   * membership via the relationship table. Server-computed shapes (search,
+   * limit/offset) never reach this filter; they refetch instead.
+   */
+  private requestFilter(req: RetrieveRequest): (l: Label) => boolean {
+    const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+    const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
+    return (l) => {
+      if (keySet != null && !keySet.has(l.key)) return false;
+      if (nameSet != null && !nameSet.has(l.name)) return false;
+      if (req.for != null && !this.isLabelOf(req.for, l.key)) return false;
+      return true;
+    };
+  }
+
+  private isLabelOf(id: ontology.ID, key: Key): boolean {
+    return this.cfg.ontology.cache.relationships.has(
+      ontology.relationshipToString(labeledByRel(id, key)),
     );
   }
 }
+
+const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) });
+
+const labeledByRel = (id: ontology.ID, key: Key): ontology.Relationship => ({
+  from: id,
+  type: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+  to: ontologyID(key),
+});
 
 export const ontologyID = ontology.createIDFactory<Key>("label");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

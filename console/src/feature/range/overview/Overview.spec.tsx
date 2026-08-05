@@ -15,21 +15,15 @@ import {
   schematic,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import {
-  act,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
+import { createResourceTab } from "@/platform/panel/testutil";
 import { Range as PlatformRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import {
@@ -46,7 +40,7 @@ stubGeometry();
 interface RenderOverviewResult {
   onSnapshotClick: ReturnType<typeof vi.fn>;
   onSnapshotDelete: ReturnType<typeof vi.fn>;
-  setTabResource: (rangeKey: string) => void;
+  setTabResource: (rangeKey: string) => Promise<void>;
 }
 
 const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> => {
@@ -60,29 +54,12 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
     },
   };
   const { wrapper } = await createConsoleWrapper({ client });
-  const tabKey = uuid.create();
-  const doc = panel.panelZ.parse({
-    key: uuid.create(),
-    name: uniqueName("panel"),
-    root: {
-      variant: "leaf",
-      tabs: [
-        {
-          variant: "resource",
-          key: tabKey,
-          resource: rangerClient.ontologyID(rangeKey),
-        },
-      ],
-    },
-  });
-  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
-    wrapper,
-  });
-  act(() => {
-    result.current.panels.set(doc);
-  });
+  const { panelKey, tabKey } = await createResourceTab(
+    client,
+    rangerClient.ontologyID(rangeKey),
+  );
   render(
-    <PlutoPanel.Scope.Provider value={doc.key}>
+    <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <PlatformRange.SnapshotServicesProvider services={services}>
           <Range.Overview.Overview />
@@ -92,16 +69,14 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
     </PlutoPanel.Scope.Provider>,
     { wrapper },
   );
-  const setTabResource = (nextKey: string) =>
-    act(() => {
-      result.current.panels.set(
-        panel.reduceAll(doc, [
-          panel.setTabResource({
-            key: tabKey,
-            resource: rangerClient.ontologyID(nextKey),
-          }),
-        ]).next,
-      );
+  const setTabResource = async (nextKey: string) =>
+    await act(async () => {
+      await client.panels.dispatch(panelKey, [
+        panel.setTabResource({
+          key: tabKey,
+          resource: rangerClient.ontologyID(nextKey),
+        }),
+      ]);
     });
   return { onSnapshotClick, onSnapshotDelete, setTabResource };
 };
@@ -154,7 +129,7 @@ describe("range/overview/Overview", () => {
     const child = await createChildRange(parent);
     const { setTabResource } = await renderOverview(child.key);
     expect(await screen.findByDisplayValue(child.name)).toBeTruthy();
-    setTabResource(parent.key);
+    await setTabResource(parent.key);
     expect(await screen.findByDisplayValue(parent.name)).toBeTruthy();
     expect(await screen.findByText(child.name)).toBeTruthy();
   });
@@ -164,7 +139,7 @@ describe("range/overview/Overview", () => {
     await renderOverview(rng.key);
     await screen.findByText("Child Ranges");
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 
   it("lists snapshots and routes selection to the snapshot service", async () => {
