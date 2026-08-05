@@ -7,8 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/feature/panel/commands";
 export * from "@/feature/panel/ContextMenu";
+export * from "@/feature/panel/haul";
 export * from "@/feature/panel/Mosaic";
 export * from "@/feature/panel/Selector";
 export * from "@/feature/panel/Toolbar";
 export * from "@/feature/panel/tree";
+export * from "@/feature/panel/useCreate";
+export * from "@/feature/panel/useOpenWindow";
+export * from "@/feature/panel/useTearOff";

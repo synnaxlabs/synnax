@@ -37,21 +37,33 @@ export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
     getCached: ({ client, query }) => client.panels.getCached(query),
   });
 
-export type RetrieveByProjectQuery = { project: project.Key };
+export type RetrieveKeysByProjectQuery = { project: project.Key };
+
+const childrenOf = (projectKey: project.Key): panel.RetrieveRequest => ({
+  parent: project.ontologyID(projectKey),
+});
+
+const keysOf = (panels: panel.Panel[]): panel.Key[] => panels.map(({ key }) => key);
 
 // A panel's parent lives in the ontology graph and is absent from the panel record, so
-// membership is resolved through the project's children.
-export const { useRetrieve: useRetrieveByProject } = Flux.createRetrieve<
-  RetrieveByProjectQuery,
-  panel.Panel[]
+// membership is resolved through the project's children. The answer carries keys alone:
+// consumers read each panel's own fields, so a rename must not re-answer the query.
+export const { useRetrieveSuspended: useRetrieveKeysByProject } = Flux.createRetrieve<
+  RetrieveKeysByProjectQuery,
+  panel.Key[]
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { project: projectKey } }) =>
-    await client.panels.retrieve({ parent: project.ontologyID(projectKey) }),
+    keysOf(await client.panels.retrieve(childrenOf(projectKey))),
   subscribe: ({ client, query: { project: projectKey } }, handler) =>
-    client.panels.onChange({ parent: project.ontologyID(projectKey) }, handler),
-  getCached: ({ client, query: { project: projectKey } }) =>
-    client.panels.getCached({ parent: project.ontologyID(projectKey) }),
+    client.panels.onChange(childrenOf(projectKey), (result) =>
+      handler(query.isLive(result) ? keysOf(result) : undefined),
+    ),
+  getCached: ({ client, query: { project: projectKey } }) => {
+    const cached = client.panels.getCached(childrenOf(projectKey));
+    return query.isLive(cached) ? keysOf(cached) : undefined;
+  },
+  equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
 });
 
 export interface SelectKeyParams {

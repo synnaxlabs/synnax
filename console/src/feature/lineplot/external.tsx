@@ -25,7 +25,6 @@ export * from "@/feature/lineplot/link";
 export * from "@/feature/lineplot/search";
 export * from "@/feature/lineplot/toolbar";
 export * from "@/feature/lineplot/tree";
-export * from "@/feature/lineplot/useTriggerHold";
 export * from "@/platform/lineplot/external";
 
 const TAB_TYPE = lineplot.TYPE_ONTOLOGY_ID.type;

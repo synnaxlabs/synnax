@@ -101,7 +101,9 @@ export const middleware =
     // runtime is updating its own props, no need to sync.
     const shouldSync = prevS !== nextS && !EXCLUDE_SYNC_ACTIONS.includes(action.type);
 
-    const shouldEmit_ = shouldEmit(emitted, action.type);
+    // A middleware that swallows the action (next never ran) vetoes it for every
+    // window: broadcasting it would apply it remotely but not locally.
+    const shouldEmit_ = shouldEmit(emitted, action.type) && res != null;
 
     // Run everything within a mutex locked closure to ensure that we correctly sync
     // and then propagate actions to other windows.

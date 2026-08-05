@@ -14,6 +14,7 @@ import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
+import { createTestStore, type TestStore } from "@/testutil";
 
 const HAULED: Haul.DraggingState = {
   source: { key: "file", type: "file" },
@@ -118,6 +119,42 @@ describe("createStore", () => {
     readPersisted().forEach((p) => {
       if (p.haul != null) expect(p.haul).toStrictEqual(Session.Haul.ZERO_SLICE_STATE);
     });
+  });
+});
+
+// A pre-render webview's label never resolves a window key, so window-scoped
+// dispatches from it must die locally instead of mutating state or leaking to
+// other windows.
+describe("pre-rendered windows", () => {
+  const PRERENDER_LABEL = "prerender-label";
+
+  const createPrerenderStore = async (): Promise<TestStore> =>
+    await createTestStore({ windowLabel: PRERENDER_LABEL });
+
+  it("never becomes visible from the shell's self-show dispatch", async () => {
+    const store = await createPrerenderStore();
+    store.dispatch(
+      Drift.setWindowProps({ visible: true, minimized: false, decorations: true }),
+    );
+    expect(
+      Drift.selectSliceState(store.getState()).windows[PRERENDER_LABEL],
+    ).toBeUndefined();
+  });
+
+  it("drops window-scoped actions instead of applying them elsewhere", async () => {
+    const store = await createPrerenderStore();
+    store.dispatch(Session.Panel.select({ key: "some-panel" }));
+    expect(store.getState().panels.windows).toEqual({});
+  });
+
+  it("still shows a claimed window from the same dispatch", async () => {
+    const store = await createTestStore();
+    store.dispatch(
+      Drift.setWindowProps({ visible: true, minimized: false, decorations: true }),
+    );
+    expect(
+      Drift.selectSliceState(store.getState()).windows[MAIN_WINDOW].visible,
+    ).toEqual(true);
   });
 });
 

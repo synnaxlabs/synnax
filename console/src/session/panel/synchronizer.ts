@@ -49,7 +49,12 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers<
   }),
 ];
 
-const applySelection = (store: RequiredStore, keys: panel.Key[]): void => {
+const applySelection = ({ client, store }: Params, candidates: panel.Key[]): void => {
+  // A retrieve can race a delete and return an already-deleted panel; the
+  // local tombstone is authoritative.
+  const keys = candidates.filter(
+    (key) => !query.Deleted.matches(client.panels.getCached(key)),
+  );
   const win = selectActiveWindow(store.getState());
   if (win == null) return;
   const { selected } = win.state;
@@ -61,7 +66,8 @@ const applySelection = (store: RequiredStore, keys: panel.Key[]): void => {
   store.dispatch(select({ key: keys[0], windowKey: win.key }));
 };
 
-const repairSelection = async ({ client, store }: Params): Promise<void> => {
+const repairSelection = async (params: Params): Promise<void> => {
+  const { client, store } = params;
   const projectKey = store.getState().project.selected;
   if (projectKey == null) return;
   const panels = await client.panels.retrieve({
@@ -69,7 +75,7 @@ const repairSelection = async ({ client, store }: Params): Promise<void> => {
   });
   if (store.getState().project.selected !== projectKey) return;
   applySelection(
-    store,
+    params,
     panels.map(({ key }) => key),
   );
 };
@@ -95,7 +101,7 @@ const selection: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
         (result) => {
           if (!query.isLive(result)) return repair();
           applySelection(
-            store,
+            params,
             result.map(({ key }) => key),
           );
         },
@@ -117,13 +123,25 @@ const selection: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
   },
 };
 
-// The OS window list identifies a window by what it shows.
+// The OS window list identifies a window by a stable identity plus what it
+// shows: "Main - Ops", "2 - Ops". With nothing selected the identity stands
+// alone as "Synnax" for the main window and "Window N" elsewhere.
 const syncTitle = ({ client, store }: Params): void => {
-  const selected = selectSelected(store.getState());
-  if (selected == null) return;
-  const cached = client.panels.getCached(selected);
-  if (!query.isLive(cached)) return;
-  store.dispatch(Drift.setWindowTitle({ title: cached.name }));
+  const state = store.getState();
+  const win = Drift.selectWindow(state);
+  // Pre-rendered windows run the app too; they are invisible and unnumbered.
+  if (win == null || !win.reserved || win.ordinal == null) return;
+  const isMain = win.key === Drift.MAIN_WINDOW;
+  let name: string | undefined;
+  const selected = selectSelected(state);
+  if (selected != null) {
+    const cached = client.panels.getCached(selected);
+    if (query.isLive(cached)) name = cached.name;
+  }
+  let title: string;
+  if (name != null) title = `${isMain ? "Main" : win.ordinal} - ${name}`;
+  else title = isMain ? "Synnax" : `Window ${win.ordinal}`;
+  store.dispatch(Drift.setWindowTitle({ title }));
 };
 
 const windowTitle: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
@@ -131,8 +149,7 @@ const windowTitle: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = 
   listen: (params) => {
     const { client, store } = params;
     const removeOnSet = client.panels.onSet((pan) => {
-      if (selectSelected(store.getState()) === pan.key)
-        store.dispatch(Drift.setWindowTitle({ title: pan.name }));
+      if (selectSelected(store.getState()) === pan.key) syncTitle(params);
     });
     const unwatchSelected = Synchronizer.watch(store, selectSelected, () =>
       syncTitle(params),

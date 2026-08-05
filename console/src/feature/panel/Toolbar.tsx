@@ -10,6 +10,7 @@
 import { Errors, type Flux, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { isNotFound } from "@/feature/panel/Mosaic";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
 import { ResourceGuard, useTab } from "@/platform/panel/tab";
@@ -38,11 +39,18 @@ const DeletedContent = ({ name }: Flux.Tombstone): ReactElement => (
   <EmptyContent message={`${name ?? "This resource"} was deleted.`} />
 );
 
+// The toolbar reads the same queries as the tab's content, so a missing
+// resource throws here too. Deletion is handled by the ResourceGuard.
+const NotFoundFallback = (props: Errors.FallbackProps): ReactElement => {
+  if (!isNotFound(props.error)) return <Errors.Fallback {...props} />;
+  return <EmptyContent message="This resource could not be found." />;
+};
+
 const LiveContent = (): ReactElement => {
   const { Toolbar } = useTab();
   if (Toolbar == null) return <EmptyContent />;
   return (
-    <Errors.SuspenseBoundary>
+    <Errors.SuspenseBoundary FallbackComponent={NotFoundFallback}>
       <Toolbar />
     </Errors.SuspenseBoundary>
   );

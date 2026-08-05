@@ -28,10 +28,15 @@ import { Session } from "@/session";
 
 export interface AppProps extends Pick<Pluto.ContextProps, "workerURL"> {}
 
-export const App = ({ workerURL }: AppProps): ReactElement => {
+const SideEffect = (): null => {
   Haul.useBlockDefaultDropBehavior();
   Runtime.useExternalLinkHandler();
-  return (
+  return null;
+};
+
+export const App = ({ workerURL }: AppProps): ReactElement => (
+  <>
+    <SideEffect />
     <Errors.OverlayWithoutStore>
       <Session.Context>
         <Pluto.Context workerURL={workerURL}>
@@ -55,5 +60,5 @@ export const App = ({ workerURL }: AppProps): ReactElement => {
         </Pluto.Context>
       </Session.Context>
     </Errors.OverlayWithoutStore>
-  );
-};
+  </>
+);

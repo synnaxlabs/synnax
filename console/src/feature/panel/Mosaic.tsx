@@ -9,7 +9,7 @@
 
 import "@/feature/panel/Mosaic.css";
 
-import { ontology, type panel } from "@synnaxlabs/client";
+import { NotFoundError, ontology, type panel } from "@synnaxlabs/client";
 import {
   Breadcrumb,
   Button,
@@ -54,8 +54,9 @@ interface TombstoneProps extends PropsWithChildren {
   description: string;
 }
 
-// Shared shell for a terminal tab state (deleted): a dimmed glyph, a short
-// heading, one muted line, and an actions row, optically centered in the tab.
+// Shared shell for terminal tab states (deleted, not found): a dimmed glyph,
+// a short heading, one muted line, and an actions row, optically centered in
+// the tab.
 const Tombstone = ({
   icon,
   message,
@@ -127,6 +128,34 @@ const DeletedContent = ({ name: corpseName }: Flux.Tombstone): ReactElement => {
   );
 };
 
+// A reference can permanently outrun its document: the retrieve's not-found
+// wait expired without a create broadcast. Offer to close the tab.
+const NotFoundContent = (): ReactElement => {
+  const resource = Panel.useSelectTabResource({});
+  const closeTabs = Panel.useCloseResourceTabs();
+  const { Icon: TabIcon } = useTab();
+  return (
+    <Tombstone
+      icon={<TabIcon />}
+      message="Resource not found"
+      description="This tab references a document that no longer exists."
+    >
+      <Button.Button onClick={() => closeTabs(resource)}>Close</Button.Button>
+    </Tombstone>
+  );
+};
+
+// The not-found wait rejects with a wrapper whose cause carries the typed
+// error, so the cause is matched alongside the error itself.
+export const isNotFound = (error: Error): boolean =>
+  NotFoundError.matches(error) || NotFoundError.matches(error.cause);
+
+// Deletion is handled by the ResourceGuard, so only the not-found race lands here.
+const ContentFallback = (props: Errors.FallbackProps): ReactElement => {
+  if (!isNotFound(props.error)) return <Errors.Fallback {...props} />;
+  return <NotFoundContent />;
+};
+
 // Tab names render in the selector strip, outside the content's suspense
 // boundary. A view tab's name service throws when the resource it reads has
 // been deleted, so an unguarded name would crash the app on a single stale tab.
@@ -151,7 +180,7 @@ const LiveContent = (): ReactElement => {
     [dispatch],
   );
   return (
-    <Errors.SuspenseBoundary>
+    <Errors.SuspenseBoundary FallbackComponent={ContentFallback}>
       <Dialog.Frame
         onVisibleChange={handleDialogClose}
         visible={isOverlaid}
@@ -159,6 +188,7 @@ const LiveContent = (): ReactElement => {
         modalPosition="slammed"
         variant="modal"
         background={isOverlaid ? 0 : undefined}
+        className={CSS.BE("panel", "tab-frame")}
       >
         <Dialog.Dialog
           passthrough
@@ -247,6 +277,31 @@ const EmptyContent = (): ReactElement => (
   </Flex.Box>
 );
 
+// Last resort for a panel document that failed to load: the reconcile pass
+// should have pruned dead references before the mosaic rendered. Close
+// removes the reference the way the prune would have.
+const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
+  const { error } = props;
+  const selected = Session.Panel.useSelectSelected();
+  const dispatch = useDispatch();
+  if (!Flux.DeletedError.matches(error) && !isNotFound(error))
+    return <Errors.Fallback {...props} />;
+  const name = Flux.DeletedError.matches(error) ? error.corpseName : undefined;
+  return (
+    <Tombstone
+      icon={<Icon.Warning />}
+      message={`${name ?? "This panel"} could not be found`}
+      description="This window references a panel that no longer exists."
+    >
+      {selected != null && (
+        <Button.Button onClick={() => dispatch(Session.Panel.remove(selected))}>
+          Close
+        </Button.Button>
+      )}
+    </Tombstone>
+  );
+};
+
 export interface MosaicProps {
   onCreateTab: () => panel.NewTab;
 }
@@ -255,8 +310,10 @@ export const Mosaic = ({ onCreateTab }: MosaicProps): ReactElement => {
   const selected = Session.Panel.useSelectSelected();
   if (selected == null) return <EmptyContent />;
   return (
-    <Panel.Suspended panelKey={selected}>
-      <Internal onCreateTab={onCreateTab} />
-    </Panel.Suspended>
+    <Errors.SuspenseBoundary key={selected} FallbackComponent={PanelFallback}>
+      <Panel.Suspended panelKey={selected}>
+        <Internal onCreateTab={onCreateTab} />
+      </Panel.Suspended>
+    </Errors.SuspenseBoundary>
   );
 };

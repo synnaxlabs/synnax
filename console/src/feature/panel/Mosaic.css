@@ -13,6 +13,11 @@
     animation: none !important;
 }
 
+/* Single-child pass-through: block spares WebKit a level of per-frame flex
+   re-measurement while a pane or drawer resizes. */
+.console-panel__tab-frame {
+    display: block;
+}
 .console-panel__tab-content {
     position: relative;
     min-height: 0;
