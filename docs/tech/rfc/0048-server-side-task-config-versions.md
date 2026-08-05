@@ -241,9 +241,13 @@ registration the imex interface already documents: the service registers per tas
 and accounts under one resource type. An envelope naming an unknown type fails the
 import with a clear error.
 
-Envelope versions follow the unified numbering: the version stamped on an exported task
-is the config type's `@go version`, so an envelope is self-describing under the same
-number the schema carries.
+Envelope versions follow the unified numbering, one chain per config type. The coarse
+`task` ontology type carries no version of its own. The service that encodes the config
+stamps its `@go version` on the envelope, so `ni_analog_read` and `opc_read` files
+version independently and the single `task.Version` constant stamped on every task file
+today is deleted. The task row contributes only `type` and `name` to the body, and the
+envelope already carries both as its routing key and its identity, so nothing outside
+the config needs a version.
 
 ### 4.7 Lifecycle
 
@@ -372,6 +376,9 @@ code, not new behavior.
 10. **The task service encoding configs for export — rejected**: each per-integration
     service encodes and decodes its own configs, and the task service only dispatches on
     type (§4.6). A central encoder would relearn every config shape.
+11. **One envelope version for every task — rejected**: the `task` ontology type is a
+    routing key, not a schema, so it carries no version. Each config type stamps its own
+    (§4.6), which replaces the single `task.Version` constant used today.
 
 ---
 
@@ -397,9 +404,6 @@ code, not new behavior.
    `type` resolved raises the stakes: a caller that filters by type always needs it.
 2. Whether the config registry is injected into the task service at construction or
    assembled by the per-integration packages at wiring time.
-3. Which version an exported task envelope carries (§4.6). The body merges task row
-   fields with config fields, the envelope holds one number, and the task type has a
-   `@go version` of its own.
-4. The surface for a quarantined row (§4.8): whether it carries an error status, and
+3. The surface for a quarantined row (§4.8): whether it carries an error status, and
    whether the Console lists it.
-5. The order of integrations across Phases 2 and 6.
+4. The order of integrations across Phases 2 and 6.
