@@ -71,7 +71,7 @@
 /* Focus mode reads as a lamp over the pane, matching the exit chip. */
 .console-mosaic.pluto-panel-mosaic--overlaid {
     border-color: var(--pluto-gray-l11-35);
-    --edge: inset 0 0 0 0.5px var(--pluto-gray-l11-20);
+    --edge: inset 0 0 0 var(--pluto-border-width) var(--pluto-gray-l11-20);
     --glow: inset 0 0 18px var(--pluto-gray-l11-15);
     box-shadow: var(--edge), var(--glow);
     transition:

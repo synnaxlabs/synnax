@@ -32,7 +32,7 @@
             max-width: 100%;
             overflow: hidden;
             box-shadow:
-                0 0 0 0.5px var(--pluto-gray-l7),
+                0 0 0 var(--pluto-border-width) var(--pluto-gray-l7),
                 var(--pluto-shadow-v1);
             border-radius: var(--pluto-border-radius-large);
             background: color-mix(in srgb, var(--pluto-gray-l0) 70%, transparent);
