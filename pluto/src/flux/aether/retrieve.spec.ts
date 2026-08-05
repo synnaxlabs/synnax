@@ -30,12 +30,16 @@ const CLIENT = new Synnax({
   cache: false,
 });
 
+type RetrieveMock = ReturnType<
+  typeof vi.fn<(params: flux.RetrieveParams<Query>) => Promise<Data>>
+>;
+
 interface Harness {
   definition: flux.Definition<Query, Data>;
-  retrieve: ReturnType<typeof vi.fn>;
+  retrieve: RetrieveMock;
   handlers: query.ChangeHandler<Data>[];
   cache: Map<string, query.Cached<Data>>;
-  disconnects: ReturnType<typeof vi.fn>[];
+  disconnects: ReturnType<typeof vi.fn<() => void>>[];
 }
 
 const createHarness = (): Harness => {
