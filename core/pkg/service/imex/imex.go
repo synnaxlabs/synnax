@@ -99,6 +99,9 @@ type Envelope struct {
 	codec encoding.Codec
 	raw   []byte
 	body  map[string]any
+	// versioned records whether the wire carried a version header, which a zero
+	// Version cannot express on its own.
+	versioned bool
 }
 
 // MarshalJSON emits the body built by Encode. It returns an error when the envelope has
@@ -140,6 +143,7 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 			return err
 		}
 		e.Version = ver
+		e.versioned = true
 	}
 	if v, ok := m["type"]; ok {
 		s, ok := v.(string)
@@ -161,17 +165,10 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 	return nil
 }
 
-// Body returns the envelope body as the flat map parsed from the wire (or built by
-// Encode). It is nil on hand-constructed envelopes. Callers must not mutate it.
-func (e Envelope) Body() map[string]any { return e.body }
-
-// BodyNamed reports whether the body carries a top-level `name` field. Every typed
-// export does; legacy Console-state files never do. Distinct from Envelope.Name, which
-// the registry may have filled from the file name.
-func (e Envelope) BodyNamed() bool {
-	_, ok := e.body["name"]
-	return ok
-}
+// Versioned reports whether the wire carried a version header. Version alone cannot
+// answer this: an absent header and a stamped 0 both read as 0, and importers whose
+// oldest Console format is version 0 need to tell them apart.
+func (e Envelope) Versioned() bool { return e.versioned }
 
 // Decode materializes the envelope body as T using the codec bound when the envelope
 // was unmarshaled. T may name only the fields it needs. Envelopes built by Encode have
@@ -348,10 +345,10 @@ type ImportOptions struct {
 	// stripped — becomes the envelope's name. A `name` in the body always wins. The
 	// fallback is applied by the registry before the envelope reaches an Importer.
 	FileName string
-	// Parent is the ontology resource to create the imported resource under — a
-	// project for workspace items, a group for symbols. Required: Service.Import
-	// rejects a zero Parent. The registry passes it through untouched; each Importer
-	// decides how the parent applies to its resource type.
+	// Parent is the ontology resource to create the imported resource under — a project
+	// for workspace items, a group for symbols. Required: Service.Import rejects a zero
+	// Parent. The registry passes it through untouched; each Importer decides how the
+	// parent applies to its resource type.
 	Parent ontology.ID
 }
 
@@ -365,12 +362,12 @@ type Importer interface {
 	// re-deriving one from the body. The importer owns all ontology writes for the
 	// resource, including attaching it under opts.Parent when one is given.
 	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (ontology.ID, error)
-	// Match reports whether body, the envelope body decoded as a flat map, is this
-	// importer's resource. It routes envelopes carrying no `type` header: legacy
-	// Console state files never carried one, so Service.ResolveType offers the body to
-	// every registered importer's Match. Markers tested by Match are frozen — they
-	// describe historical file shapes — and must be mutually exclusive across
-	// importers. Importers with no typeless legacy formats return false.
+	// Match reports whether the envelope body decoded as a flat map, is this importer's
+	// resource. It routes envelopes carrying no `type` header: some legacy Console
+	// state files never carried one, so Service.ResolveType offers the body to every
+	// registered importer's Match. Markers tested by Match are frozen — they describe
+	// historical file shapes — and must be mutually exclusive across importers.
+	// Importers with no typeless legacy formats return false.
 	Match(map[string]any) bool
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under

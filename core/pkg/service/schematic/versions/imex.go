@@ -49,9 +49,9 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	switch {
 	case env.Version >= Floor:
 		sch, err = decodeMigrate(ctx, env)
-	case env.BodyNamed():
-		// Console-era typed exports ("6.0.0"-stamped or versionless) carry the current
-		// shape with camelCase keys; Console states never carry a name.
+	case env.Version == legacyv6.Version:
+		// The v0.56 Console export: the typed schematic it retrieved from the Core,
+		// written back out in camelCase under the Console's own version stamp.
 		var doc legacyv6.Data
 		if doc, err = imex.Decode[legacyv6.Data](ctx, env); err == nil {
 			sch = schematicFromConsole(doc)
@@ -59,9 +59,9 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	default:
 		// Console states embed the document inline: ride the storage lift, which
 		// dispatches on the version stamped inside the body.
-		snapshot, _ := env.Body()["snapshot"].(bool)
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+			snapshot, _ := body["snapshot"].(bool)
 			sch, err = v7.MigrateSchematic(ctx, v0.Schematic{
 				Name: env.Name, Snapshot: snapshot, Data: body,
 			})

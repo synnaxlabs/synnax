@@ -151,10 +151,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	switch {
 	case env.Version >= Floor:
 		a, err = decodeMigrate(ctx, env)
-	case env.BodyNamed():
-		// Typed exports always carry a top-level name; Console states never do. Console
-		// typed exports are versionless with camelCase keys and the pre-lift v0 graph
-		// shape.
+	case !env.Versioned():
+		// The v0.56 Console export taken from a closed Arc: the typed Arc it retrieved
+		// from the Core, spread into the file with no version stamp. Console states
+		// always carry one, so an absent header is the discriminator.
 		var ct consoleTyped
 		if ct, err = imex.Decode[consoleTyped](ctx, env); err == nil {
 			a.Mode, a.Text = ct.Mode, ct.Text

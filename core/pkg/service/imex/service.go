@@ -96,7 +96,7 @@ func (s *Service) ResolveType(ctx context.Context, envelope Envelope) (string, e
 	if envelope.Type != "" {
 		return envelope.Type, nil
 	}
-	body := envelope.Body()
+	body := envelope.body
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, t := range slices.Sorted(maps.Keys(s.importers)) {

@@ -45,20 +45,20 @@ var _ = Describe("ImEx", func() {
 				},
 			)
 
-			It("Should expose the parsed body without a second decode", func() {
+			It("Should report a stamped version header as versioned", func() {
 				var env imex.Envelope
-				Expect(json.Unmarshal(
-					[]byte(`{"version":1,"type":"log","name":"n","foo":1}`), &env,
-				)).To(Succeed())
-				Expect(env.Body()).To(HaveKey("foo"))
-				Expect(env.BodyNamed()).To(BeTrue())
+				Expect(json.Unmarshal([]byte(`{"version":0,"foo":1}`), &env)).
+					To(Succeed())
+				Expect(env.Version).To(Equal(imex.Version(0)))
+				Expect(env.Versioned()).To(BeTrue())
 			})
 
-			It("Should report an unnamed body", func() {
+			It("Should report an absent version header as unversioned", func() {
 				var env imex.Envelope
-				Expect(json.Unmarshal([]byte(`{"version":1,"foo":1}`), &env)).
+				Expect(json.Unmarshal([]byte(`{"type":"arc","name":"n"}`), &env)).
 					To(Succeed())
-				Expect(env.BodyNamed()).To(BeFalse())
+				Expect(env.Version).To(Equal(imex.Version(0)))
+				Expect(env.Versioned()).To(BeFalse())
 			})
 
 			It("Should accept a legacy N.0.0 version string", func() {
