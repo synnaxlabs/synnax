@@ -22,17 +22,18 @@ config shape and its own version chain.
 This RFC gives the Core a typed copy of every task configuration without changing what
 clients send or receive. Each task type gets an Oracle schema and its own Gorp table.
 The stored configuration moves out of the task row into that table, and an ontology
-relationship links a task to its config record. The task service decomposes an incoming
-config into that record on write and composes it back into `Task.Config` on retrieve, so
-the task payload keeps its current shape on every wire.
+relationship links a task to its config record. Both `type` and `config` become resolved
+fields on the task: the task row stores neither, and the task service composes them from
+the config record on retrieve and decomposes them on write. The task payload keeps its
+current shape on every wire.
 
 Two capabilities follow. The Core owns the version chain for every config type, so
 stored configs migrate server-side and clients only ever see the latest shape. The task
 service implements `imex.Importer`, which unblocks server-side task import (SY-4524) and
 lets export encode a typed struct instead of flattening a blob.
 
-The task keeps its `config` field, its `type` field, and its current key. This RFC is
-independent of the SY-4488 UUID re-key and composes with it in either order.
+The task keeps its current key, so this RFC is independent of the SY-4488 UUID re-key
+and composes with it in either order.
 
 ---
 
@@ -59,10 +60,12 @@ independent of the SY-4488 UUID re-key and composes with it in either order.
   Gorp table specific to the task type and has its own UUID key.
 - **Config relationship**: the ontology relationship from a task to its config record.
   It is the only stored link between the two rows.
+- **Resolved field**: a field the API returns but no row stores. The service computes it
+  on retrieve. `type` and `config` both become resolved fields on the task.
 - **Decompose**: to split an incoming task payload into a task row and a config record.
-- **Compose**: to rebuild `Task.Config` from a config record on retrieve.
-- **Legacy passthrough**: a stored config whose type has no schema. It stays an opaque
-  blob on the task row and keeps working.
+- **Compose**: to rebuild the resolved fields from a config record on retrieve.
+- **Legacy passthrough**: a stored config whose type has no schema. It keeps its blob in
+  a single untyped table and keeps working.
 
 ---
 
@@ -74,9 +77,9 @@ independent of the SY-4488 UUID re-key and composes with it in either order.
    TypeScript, Python, C++, and Protobuf code. Hand parsing is a defect.
 3. **The client contract does not move**: this RFC changes storage and adds server-side
    behavior. The task payload on the wire keeps its shape, field for field.
-4. **An unknown type passes through**: the task keeps its config field, so a type
-   without a schema stores its blob and keeps working. Typing is incremental, and an
-   integration that has not been schematized yet costs nothing.
+4. **An unknown type passes through**: a type without a schema stores its blob and keeps
+   working. Typing is incremental, and an integration that is not schematized yet costs
+   nothing.
 
 ---
 
@@ -89,21 +92,21 @@ independent of the SY-4488 UUID re-key and composes with it in either order.
 │ task                     │    ontology       │ ni_analog_read           │
 │  key      uint64         │    relationship   │  key         uuid        │
 │  name     string         │ ────────────────► │  sample_rate telem.Rate  │
-│  type     string         │   "configured by" │  channels    AIChannel[] │
-│  internal bool           │                   │  ...                     │
-│  snapshot bool           │                   │  @go version 1           │
+│  internal bool           │   "configured by" │  channels    AIChannel[] │
+│  snapshot bool           │                   │  ...                     │
+│                          │                   │  @go version 1           │
 └──────────────────────────┘                   └──────────────────────────┘
               │                                            │
               └──────── compose on retrieve ───────────────┘
                         decompose on write
                                  │
                                  ▼
-                   Task.Config — unchanged on the wire
+              Task.Type + Task.Config — unchanged on the wire
 ```
 
-The task row no longer stores the config blob for a schematized type. The config record
-holds it, and the ontology relationship carries the link. The task keeps `type`: it is
-the dispatch key that selects the schema, the table, and the migration chain.
+The task row stores neither `type` nor `config`. The config record holds the
+configuration, the ontology relationship carries the link, and the type is a property of
+the relationship's target rather than a column the task repeats.
 
 ### 4.1 Schemas and services
 
@@ -149,28 +152,47 @@ survives export and import, and an ontology presence that per-type endpoints and
 policies can name later. Storing the link as a field on the task instead would work for
 composition but would give the config record no independent standing.
 
-### 4.3 Composition and decomposition
+### 4.3 Resolving `type` and `config`
+
+The relationship's target is an `ontology.ID` of the form `ni_analog_read:<uuid>`, so it
+already carries the task type. Resolving `type` reads the target's type part; resolving
+`config` reads the record and encodes it. A legacy passthrough resolves `type` from the
+`type` column of its untyped row instead. One resolver, two sources.
+
+Three call sites must resolve, not just the retrieve builder:
+
+- **Retrieve** composes both fields into every returned task.
+- **`OnChange` and `OpenNexter`** compose before emitting, so the ontology resource and
+  the search index carry the type. `SearchableFields` still reports `type`, and search
+  by type keeps working because the indexed resource is built from the composed payload.
+- **The `sy_task_set` metadata path** composes, so the Driver still reads a type it can
+  dispatch on.
+
+Resolution is batched per operation, not per task: a retrieve resolves the relationships
+for the whole result set in one ontology query. The Driver's `sy_task_set` path and the
+Console's task list both read many tasks at a time, and a per-task lookup would put a
+query per task on a hot path.
+
+**Retrieving by type** queries the relationship index for targets whose ontology type is
+the requested task type, rather than filtering a task column. The relationship key
+encodes `From`, type, and `To`, so this is an index scan, not a table walk.
+
+### 4.4 Composition and decomposition
 
 The task service is the only place that splits and rejoins a payload.
 
-**Decompose (write).** `Create` and `Update` take a task payload with an embedded
-config, exactly as they do today. The writer looks up the type in its config registry.
-On a hit it decodes the blob into the generated Go struct, validates it, writes the
-config record, and defines the relationship. On a miss it stores the blob on the task
-row as a legacy passthrough. Both paths run in the caller's transaction.
-
-**Compose (retrieve).** The retrieve builder resolves the relationships for the whole
-result set in one ontology query, reads the config records, encodes each one back into
-`Task.Config`, and returns the task payload unchanged. Resolution is batched per
-retrieve, not per task: the Driver's `sy_task_set` path and the Console's task list both
-read many tasks at a time, and a per-task ontology lookup would put a query per task on
-a hot path.
+**Decompose (write).** `Create` and `Update` take a task payload with an embedded config
+and a `type`, exactly as they do today. The writer looks up the type in its config
+registry. On a hit it decodes the blob into the generated Go struct, validates it,
+writes the config record, and defines the relationship. On a miss it writes an untyped
+row carrying the type string and the raw blob. Both paths run in the caller's
+transaction.
 
 A decode failure on a known type is a validation error on the write. A decode failure on
-retrieve is not possible: the record was validated before it was stored, and the
-migration chain covers older stored versions.
+retrieve is not possible: the record was validated before storage, and the migration
+chain covers older stored versions.
 
-### 4.4 Versions and migrations
+### 4.5 Versions and migrations
 
 Each config type carries its own `@go version` and its own `versions/vN` chain, the
 standard Oracle mechanism (RFC 0033, RFC 0047). Nothing about the chain is
@@ -186,7 +208,7 @@ client loses its old-shape readers, and the Driver loses the tolerance it carrie
 configs it cannot parse. None of this is a wire change: the field is the same field,
 carrying a shape the client already understands.
 
-### 4.5 Import and export
+### 4.6 Import and export
 
 The task service today implements `imex.Exporter` and nothing else, and its `Export`
 flattens `map[string]any` into the envelope body with `type` and `name` stamped on top.
@@ -205,7 +227,7 @@ is the config type's `@go version`, so an envelope is self-describing under the 
 number the schema carries. A legacy passthrough exports its blob with the task's own
 schema version, as it does now.
 
-### 4.6 Lifecycle
+### 4.7 Lifecycle
 
 Every operation stays where it is; only the transaction contents grow.
 
@@ -220,22 +242,23 @@ Every operation stays where it is; only the transaction contents grow.
   a record with a live task.
 - **Rename**: task row only. The name is not part of the config.
 
-### 4.7 Migration of stored tasks
+### 4.8 Migration of stored tasks
 
 A one-time startup migration walks every stored task:
 
 1. A task whose type has a schema is decomposed. The migration decodes the blob through
-   the legacy chain, writes the config record, defines the relationship, and clears the
-   blob from the task row.
-2. A task whose type has no schema is left exactly as it is. It keeps its blob and reads
-   back byte-identical, and the log names it once so the gap is visible.
+   the legacy chain, writes the config record, defines the relationship, and clears
+   `type` and `config` from the task row.
+2. A task whose type has no schema gets an untyped row holding its type string and its
+   blob, plus the same relationship. It reads back byte-identical, and the log names it
+   once so the gap is visible.
 3. A decode failure on a known type leaves the row untouched and logs an error. The
    migration never drops a config and never writes a partial record.
 
 Because the passthrough path is real, the migration is not a cutover. Integrations
 convert one at a time, and an unconverted one is indistinguishable from the outside.
 
-### 4.8 Integration inventory
+### 4.9 Integration inventory
 
 `ni_analog_read`, `ni_analog_write`, `ni_digital_read`, `ni_digital_write`,
 `ni_counter_read`, `opc_read`, `opc_write`, `labjack_read`, `labjack_write`,
@@ -244,7 +267,7 @@ convert one at a time, and an unconverted one is indistinguishable from the outs
 
 The scanner types (`opc_scan`, `modbus_scan`, `ni_scanner`, …) and the rack status task
 have no meaningful configuration. Each stays a legacy passthrough, which costs nothing
-under §4.7 and needs no schema.
+under §4.8 and needs no schema.
 
 Per-type `StatusData` — the `errors[]` of NI, the read status of EtherCAT — gets a type
 in each integration schema and threads through the status details generic. The Console
@@ -266,10 +289,10 @@ builds, the tests pass, and the product can ship. No phase changes the task payl
 3. **Tables and services**: the per-integration service packages, the Gorp tables, the
    ontology registration, and the config registry the task writer will consult. Additive
    and unconsumed; Ginkgo suites exercise the packages directly.
-4. **Decompose and compose**: the storage cutover. The task writer decomposes on write,
-   the retrieve builder composes on read, the relationship type lands, and the §4.7
-   startup migration runs. The task payload does not change, so every client keeps
-   working untouched.
+4. **Decompose and compose**: the storage cutover. The task writer decomposes on write;
+   retrieve, `OnChange`, and `sy_task_set` compose on read; the relationship type lands;
+   and the §4.8 startup migration runs. `type` and `config` become resolved. The task
+   payload does not change, so every client keeps working untouched.
 5. **Import and export**: the task service implements `imex.Importer`, and `Export`
    encodes the typed struct. This unblocks SY-4524.
 6. **Client compat deletion**: one PR per client, no wire change. The Console loses its
@@ -292,36 +315,37 @@ code, not new behavior.
 2. **A typed config union on the wire — rejected**: it solves the hand-written parser
    problem, and that trade is real. It also breaks the Console, the Python client, and
    the Driver at once, which is the cost this RFC exists to avoid.
-3. **A `config` ontology ID field on the task — rejected** in favor of the relationship.
+3. **`type` stored on the task row — rejected**: the relationship target is an
+   `ontology.ID` that already names the type, and a stored column would be a second
+   source of truth that can drift from the record it describes.
+4. **A `config` ontology ID field on the task — rejected** in favor of the relationship.
    The relationship gives the config record ontology standing for later per-type
    endpoints and policies; a field would only serve composition.
-4. **Keying the config record by the task key — rejected**: a shared key makes the
+5. **Keying the config record by the task key — rejected**: a shared key makes the
    relationship redundant, but it denies the config a portable identity across export
    and import and couples the record to the SY-4488 re-key.
-5. **Quarantining unknown types — replaced by passthrough**: the config field still
-   exists, so a type without a schema keeps working at no cost. This buys incremental
-   adoption, which a closed set would forbid.
-6. **Rewriting stored records at migration time — rejected**: records migrate on decode,
+6. **Quarantining unknown types — replaced by passthrough**: the untyped row keeps a
+   type without a schema working at no cost. This buys incremental adoption, which a
+   closed set would forbid.
+7. **Rewriting stored records at migration time — rejected**: records migrate on decode,
    so the startup migration only decomposes. No rewrite pass, no version sweep.
-7. **Per-type schema files — rejected** in favor of per-integration files, which keep
+8. **Per-type schema files — rejected** in favor of per-integration files, which keep
    the shared channel and scale unions adjacent to their users (§4.1).
 
 ---
 
 ## 7 What this RFC does not cover
 
-- **Restructuring semantic map keys**: the EtherCAT `manual_<index>_<subindex>` and OPC
-  NodeId maps still corrupt under camelCase conversion, and the `??` fallback lookups in
-  the Console stay. Once the Core owns the shape, a Core-owned migration can restructure
-  them into arrays of structs without client coordination. That is the natural follow-up
-  and is much cheaper after this RFC than before it.
 - **Typed configs on the client wire**: the Console, the Python client, and the C++
   Driver keep their hand-written config parsers. This RFC removes the version chains,
   not the parsers.
+- **Device properties, in any form**: `device.properties` stays an opaque blob, with no
+  typing and no migration. The EtherCAT `manual_<index>_<subindex>` keys and the OPC
+  NodeIds that camelCase conversion corrupts live there, so the `getChannelByMapKey`
+  fallback in the Console stays. Repairing that class is its own effort, and the pattern
+  here transfers to it directly.
 - **Drafts, deploy, and the resource lifecycle**: Resolved Decision 1.
 - **Typed command args**: `Command.args` stays opaque.
-- **Typed device `properties`**: the same corruption class as the map keys, in an
-  adjacent effort.
 
 ---
 
@@ -330,7 +354,8 @@ code, not new behavior.
 1. The relationship name and direction (`configured_by` from the task, or `config_of`
    from the record), and whether the ontology tree should hide config records.
 2. Whether composition belongs in the retrieve builder or behind an explicit
-   `.WithConfigs()` option, so that callers who only need task metadata skip the join.
+   `.WithConfigs()` option, so callers who only need a task name skip the join. Making
+   `type` resolved raises the stakes: a caller that filters by type always needs it.
 3. Whether the config registry is injected into the task service at construction or
    assembled by the per-integration packages at wiring time.
 4. The order of integrations across Phases 2 and 6.
