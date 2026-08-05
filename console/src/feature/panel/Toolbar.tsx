@@ -7,33 +7,60 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, Icon, Panel } from "@synnaxlabs/pluto";
+import { Errors, type Flux, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { isNotFound } from "@/feature/panel/Mosaic";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { useTab } from "@/platform/panel/tab";
+import { ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
-const EmptyContent = (): ReactElement => (
+interface EmptyContentProps {
+  message?: string;
+}
+
+const EmptyContent = ({
+  message = "No tab selected.",
+}: EmptyContentProps): ReactElement => (
   <Toolbar.Content>
     <Toolbar.Header>
       <Toolbar.Title icon={<Icon.Visualize />}>Tab</Toolbar.Title>
     </Toolbar.Header>
-    <Empty.Action x message="No tab selected." />
+    <Empty.Action x message={message} />
   </Toolbar.Content>
 );
 
-const Content = (): ReactElement => {
+// The toolbar reads the same queries as the tab's content, so a deleted
+// resource empties it too. Show a quiet placeholder; the tombstone with Close
+// and Restore lives in the mosaic.
+const DeletedContent = ({ name }: Flux.Tombstone): ReactElement => (
+  <EmptyContent message={`${name ?? "This resource"} was deleted.`} />
+);
+
+// The toolbar reads the same queries as the tab's content, so a missing
+// resource throws here too. Deletion is handled by the ResourceGuard.
+const NotFoundFallback = (props: Errors.FallbackProps): ReactElement => {
+  if (!isNotFound(props.error)) return <Errors.Fallback {...props} />;
+  return <EmptyContent message="This resource could not be found." />;
+};
+
+const LiveContent = (): ReactElement => {
   const { Toolbar } = useTab();
   if (Toolbar == null) return <EmptyContent />;
   return (
-    <Errors.SuspenseBoundary>
+    <Errors.SuspenseBoundary FallbackComponent={NotFoundFallback}>
       <Toolbar />
     </Errors.SuspenseBoundary>
   );
 };
+
+const Content = (): ReactElement => (
+  <ResourceGuard FallbackComponent={DeletedContent}>
+    <LiveContent />
+  </ResourceGuard>
+);
 
 const Wrapper = () => {
   const panelKey = Session.Panel.useSelectSelected();
@@ -42,7 +69,8 @@ const Wrapper = () => {
   return (
     <Panel.Scope.Provider value={panelKey}>
       <Panel.TabScope.Provider value={tabKey}>
-        <Content />
+        {/* Keyed so a latched error boundary never survives a tab switch. */}
+        <Content key={`${panelKey}:${tabKey}`} />
       </Panel.TabScope.Provider>
     </Panel.Scope.Provider>
   );

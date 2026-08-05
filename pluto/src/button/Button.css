@@ -105,7 +105,10 @@
         }
 
         &.pluto--status-warning {
-            color: var(--pluto-text-color);
+            color: var(--pluto-text-on-warning);
+            .pluto-text {
+                color: var(--pluto-text-on-warning);
+            }
             --pluto-bg: var(--pluto-warning-z);
             --pluto-hover-bg: var(--pluto-warning-p1);
             --pluto-active-bg: var(--pluto-warning-m1);

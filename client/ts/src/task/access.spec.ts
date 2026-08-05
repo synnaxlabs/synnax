@@ -32,7 +32,7 @@ describe("task", () => {
         type: "ni",
         config: {},
       });
-      await expect(userClient.tasks.retrieve({ key: randomTask.key })).rejects.toThrow(
+      await expect(userClient.tasks.retrieve(randomTask.key)).rejects.toThrow(
         AuthError,
       );
     });
@@ -51,9 +51,7 @@ describe("task", () => {
         type: "ni",
         config: {},
       });
-      const retrieved = await userClient.tasks.retrieve({
-        key: randomTask.key,
-      });
+      const retrieved = await userClient.tasks.retrieve(randomTask.key);
       expect(retrieved.key).toBe(randomTask.key);
       expect(retrieved.name).toBe(randomTask.name);
     });
@@ -67,7 +65,7 @@ describe("task", () => {
       const rck = await client.racks.create({
         name: "test",
       });
-      const userRack = await userClient.racks.retrieve({ key: rck.key });
+      const userRack = await userClient.racks.retrieve(rck.key);
       await userRack.createTask({
         name: "test",
         type: "ni",
@@ -105,7 +103,7 @@ describe("task", () => {
         config: {},
       });
       await userClient.tasks.delete(randomTask.key);
-      await expect(userClient.tasks.retrieve({ key: randomTask.key })).rejects.toThrow(
+      await expect(userClient.tasks.retrieve(randomTask.key)).rejects.toThrow(
         NotFoundError,
       );
     });

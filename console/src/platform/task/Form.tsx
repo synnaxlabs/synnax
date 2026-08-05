@@ -199,8 +199,12 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         setView(panel.viewZ.parse({ type, args: { taskKey: key } }));
       },
     });
+    // The effect fires for loading and error results too, which carry no device. Only
+    // a real device answers what rack the task belongs on.
     Device.useRetrieveEffect({
-      onChange: (d) => form.set("rackKey", d.data?.rack),
+      onChange: ({ data }) => {
+        if (data != null) form.set("rackKey", data.rack);
+      },
       query: deviceKey == null ? undefined : { key: deviceKey },
     });
 
@@ -290,5 +294,5 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     if (taskKey != null) return <RemoteName taskKey={taskKey} />;
     return <LocalName />;
   };
-  return { Content, Name };
+  return { Content, Name, Icon: Icon.Task };
 };

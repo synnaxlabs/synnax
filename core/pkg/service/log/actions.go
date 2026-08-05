@@ -46,6 +46,11 @@ const (
 	maxChannelPrecision int32 = 17
 )
 
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(Log) (Log, error) {
+	return p.Log, nil
+}
+
 // Handle replaces the log's name.
 func (p RenamePayload) Handle(state Log) (Log, error) {
 	state.Name = p.Name

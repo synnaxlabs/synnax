@@ -82,7 +82,7 @@ describe("Errors.Overlay", () => {
       expect(screen.queryByText("all good")).toBeNull();
     });
 
-    it("should dispatch revertState when Reload Console is clicked", async () => {
+    it("should dispatch revertState when Reload console is clicked", async () => {
       const store = await createTestStore();
       const dispatch = vi.spyOn(store, "dispatch");
       await renderWithConsole(
@@ -91,7 +91,7 @@ describe("Errors.Overlay", () => {
         </Errors.OverlayWithStore>,
         { store },
       );
-      const button = await screen.findByRole("button", { name: "Reload Console" });
+      const button = await screen.findByRole("button", { name: "Reload console" });
       fireEvent.click(button);
       await waitFor(() =>
         expect(dispatch).toHaveBeenCalledWith(Session.Persist.revertState()),
@@ -155,7 +155,7 @@ describe("Errors.Overlay", () => {
       expect(
         screen.getByRole("button", { name: /Clear storage and reload Console/ }),
       ).toBeTruthy();
-      expect(screen.queryByRole("button", { name: "Reload Console" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Reload console" })).toBeNull();
     });
 
     it("should show the window and load the console version under tauri", async () => {

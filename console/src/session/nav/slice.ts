@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice } from "@reduxjs/toolkit";
+import { type Drift } from "@synnaxlabs/drift";
 import z from "zod";
 
 import { Window } from "@/session/window";
@@ -42,7 +43,7 @@ export interface SliceState extends z.output<typeof sliceStateZ> {}
 
 export const SLICE_NAME = "nav";
 
-export interface StoreState {
+export interface StoreState extends Drift.StoreState {
   [SLICE_NAME]: SliceState;
 }
 
@@ -122,12 +123,8 @@ const { actions, reducer } = createSlice({
       bottom.hover = false;
     }),
     toggleBottom: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
-      if (bottom.visible && !bottom.hover) bottom.visible = false;
-      else if (bottom.visible && bottom.hover) bottom.hover = false;
-      else {
-        bottom.visible = true;
-        bottom.hover = true;
-      }
+      bottom.visible = !bottom.visible;
+      bottom.hover = bottom.visible;
     }),
     startBottomHover: withKey<Window.OptionalKeyParams, SliceState>(({ bottom }) => {
       if (bottom.visible && !bottom.hover) return;

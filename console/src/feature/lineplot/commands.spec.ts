@@ -33,7 +33,7 @@ describe("LinePlot Commands", () => {
     if (tab.variant !== "resource")
       throw new Error("focused tab is not a line plot resource");
     expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
-    const created = await client.lineplots.retrieve({ key: tab.resource.key });
+    const created = await client.lineplots.retrieve(tab.resource.key);
     expect(created.name).toBe("Line Plot");
   });
 });

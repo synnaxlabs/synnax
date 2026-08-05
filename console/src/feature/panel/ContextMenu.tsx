@@ -9,8 +9,8 @@
 
 import { Icon, Menu, Panel, type Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
+import { useTearOffTab } from "@/feature/panel/useTearOff";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { editTabName } from "@/platform/panel/tab";
 import { Session } from "@/session";
@@ -32,17 +32,33 @@ const RenameItem = (): ReactElement | null => {
 };
 
 const FocusItem = (): ReactElement => {
-  const dispatch = useDispatch();
-  const panelKey = Panel.useKey();
   const tabKey = Panel.useTabKey();
+  const startOverlaying = Session.Panel.useStartOverlaying();
   const handleFocus = useCallback(
-    () => dispatch(Session.Panel.startOverlaying({ key: panelKey, tabKey })),
-    [dispatch, panelKey, tabKey],
+    () => startOverlaying(tabKey),
+    [startOverlaying, tabKey],
   );
   return (
     <Menu.Item itemKey="focus" onClick={handleFocus} trigger={FOCUS_TRIGGER}>
       <Icon.Focus />
       Focus
+    </Menu.Item>
+  );
+};
+
+const MoveToNewWindowItem = (): ReactElement => {
+  const key = Panel.useKey();
+  const tabKey = Panel.useTabKey();
+  const getTab = Panel.useGetTab();
+  const tearOff = useTearOffTab();
+  const handleMove = useCallback(
+    () => tearOff({ panel: key, tab: getTab({ key, tabKey }) }),
+    [tearOff, key, tabKey, getTab],
+  );
+  return (
+    <Menu.Item itemKey="move-to-new-window" onClick={handleMove}>
+      <Icon.OpenInNewWindow />
+      Move to new window
     </Menu.Item>
   );
 };
@@ -53,6 +69,7 @@ export const TabMenuItems = ({ keys }: Menu.ContextMenuMenuProps): ReactElement 
     <>
       <RenameItem />
       <FocusItem />
+      <MoveToNewWindowItem />
       <Menu.Divider />
       <CMenu.ReloadConsoleItem />
     </>

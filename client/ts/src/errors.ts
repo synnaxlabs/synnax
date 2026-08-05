@@ -112,6 +112,13 @@ export class DisconnectedError extends SynnaxError.sub("disconnected") {
 }
 
 /**
+ * Whether the error means the Core could not be reached: a request that failed on
+ * the wire, or one short-circuited while the connection is known unreachable.
+ */
+export const isConnectionError = (err: unknown): boolean =>
+  Unreachable.matches(err) || DisconnectedError.matches(err);
+
+/**
  * Raised when time-series data is not contiguous.
  */
 export class ContiguityError extends SynnaxError.sub("contiguity") {}

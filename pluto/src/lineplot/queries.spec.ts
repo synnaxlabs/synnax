@@ -95,7 +95,7 @@ describe("lineplot queries", () => {
       expect(result.current.data?.name).toEqual("created_plot");
       expect(result.current.data?.project).toEqual(project.key);
 
-      const retrieved = await client.lineplots.retrieve({ key });
+      const retrieved = await client.lineplots.retrieve(key);
       expect(retrieved.name).toEqual("created_plot");
     });
 
@@ -159,7 +159,7 @@ describe("lineplot queries", () => {
       await waitFor(() =>
         expect(result.current.retrieve.data?.name).toEqual("renamed_plot"),
       );
-      const retrieved = await client.lineplots.retrieve({ key: plot.key });
+      const retrieved = await client.lineplots.retrieve(plot.key);
       expect(retrieved.name).toEqual("renamed_plot");
     });
 
@@ -210,9 +210,7 @@ describe("lineplot queries", () => {
         await result.current.updateAsync(plot.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(client.lineplots.retrieve({ key: plot.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.lineplots.retrieve(plot.key)).rejects.toThrow(NotFoundError);
     });
 
     it("should delete multiple line plots", async () => {
@@ -235,12 +233,8 @@ describe("lineplot queries", () => {
 
       expect(result.current.variant).toEqual("success");
 
-      await expect(client.lineplots.retrieve({ key: plot1.key })).rejects.toThrow(
-        NotFoundError,
-      );
-      await expect(client.lineplots.retrieve({ key: plot2.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.lineplots.retrieve(plot1.key)).rejects.toThrow(NotFoundError);
+      await expect(client.lineplots.retrieve(plot2.key)).rejects.toThrow(NotFoundError);
     });
   });
 

@@ -8,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { project } from "@synnaxlabs/client";
-import {
-  Access,
-  Flux,
-  type Pluto,
-  Project as PProject,
-  Status,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { Access, Project as PProject, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { useExport } from "@/feature/project/export";
@@ -42,11 +35,10 @@ const useImportProject = () => {
   const handleError = Status.useErrorHandler();
   const store = Session.useStore();
   const client = Synnax.use();
-  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const fileIngesters = Import.useFileIngesters();
   return useCallback(
-    () => import_({ openTab, handleError, store, client, fluxStore, fileIngesters }),
-    [openTab, handleError, store, client, fluxStore, fileIngesters],
+    () => import_({ openTab, handleError, store, client, fileIngesters }),
+    [openTab, handleError, store, client, fileIngesters],
   );
 };
 

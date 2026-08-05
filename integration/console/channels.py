@@ -302,14 +302,14 @@ class ChannelClient:
     def hard_reload(self) -> None:
         """Trigger hard reload from channel context menu.
 
-        Right-clicks any visible channel and selects "Reload Console" option.
+        Right-clicks any visible channel and selects "Reload console" option.
         This will reload the entire console.
         """
         self.show_channels()
         items = self.tree.find_by_prefix(self.ITEM_PREFIX)
         if not items:
             raise ValueError("No channels found to trigger reload")
-        self.ctx_menu.action(items[0], "Reload Console")
+        self.ctx_menu.action(items[0], "Reload console")
         # Unique 30s timeouts for full page reload
         self.layout.page.wait_for_load_state("load", timeout=30000)
         self.layout.page.wait_for_selector(

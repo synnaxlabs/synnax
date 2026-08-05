@@ -55,7 +55,7 @@ describe("Tree.MultipleSelectionContextMenu", () => {
   it("should offer grouping and reload for a mixed-type selection", async () => {
     await setupMixedSelection();
     await screen.findByText("Group selection");
-    await screen.findByText("Reload Console");
+    await screen.findByText("Reload console");
   });
 
   it("should group the mixed selection under a new group when the group item is clicked", async () => {
@@ -68,13 +68,15 @@ describe("Tree.MultipleSelectionContextMenu", () => {
     });
     let newKey = "";
     await waitFor(async () => {
-      const siblings = await client.ontology.retrieveChildren(parentID);
+      const siblings = await client.ontology.children.retrieve({ ids: parentID });
       const created = siblings.find((c) => c.name === name);
       expect(created).toBeDefined();
       newKey = created?.id.key ?? "";
     });
     await waitFor(async () => {
-      const grouped = await client.ontology.retrieveChildren(group.ontologyID(newKey));
+      const grouped = await client.ontology.children.retrieve({
+        ids: group.ontologyID(newKey),
+      });
       const keys = grouped.map((c) => c.id.key);
       expect(keys).toContain(child.key);
       expect(keys).toContain(range.key);

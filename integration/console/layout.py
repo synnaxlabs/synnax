@@ -550,6 +550,35 @@ class LayoutClient:
             .first
         )
 
+    def get_tombstone(self, name: str) -> Locator:
+        """Get the tombstone a deleted resource's tab shows in place of content.
+
+        Args:
+            name: The name the resource had when it was deleted
+
+        Returns:
+            Locator for the tombstone element
+        """
+        return self.page.get_by_role("group", name=f"{name} was deleted", exact=True)
+
+    def restore_tombstone(self, name: str) -> None:
+        """Click Restore on a deleted resource's tombstone.
+
+        Args:
+            name: The name the resource had when it was deleted
+        """
+        tombstone = self.get_tombstone(name)
+        tombstone.get_by_role("button", name="Restore", exact=True).click()
+
+    def close_tombstone(self, name: str) -> None:
+        """Click Close on a deleted resource's tombstone.
+
+        Args:
+            name: The name the resource had when it was deleted
+        """
+        tombstone = self.get_tombstone(name)
+        tombstone.get_by_role("button", name="Close", exact=True).click()
+
     def tab_names(self) -> list[str]:
         """Return the names of every open tab in the mosaic."""
         tabs = self.page.locator(self.TAB_SELECTOR)

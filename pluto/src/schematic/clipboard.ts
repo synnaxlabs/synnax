@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { query, schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
-import { Flux } from "@/flux";
-import { type FluxSubStore, useSingleDispatch } from "@/schematic/queries";
+import { useSingleDispatch } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
+import { Synnax } from "@/synnax";
 import { Diagram } from "@/vis/diagram";
 
 // The "web " prefix is required: Chrome silently drops custom MIME types from
@@ -30,14 +30,15 @@ export const useClipboard = ({
 }: UseClipboardParams): Diagram.UseClipboardReturn => {
   const key = useKey();
   const dispatch = useSingleDispatch();
-  const store = Flux.useStore<FluxSubStore>();
+  const client = Synnax.use();
   const adapter: Diagram.ClipboardAdapter<schematic.Node, schematic.Edge> = {
     mime: MIME,
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
-      const schem = store.schematics.get(key);
-      if (schem == null) return null;
-      return { nodes: schem.nodes, edges: schem.edges, configs: schem.configs };
+      const cached = client?.schematics.getCached(key);
+      if (!query.isLive(cached)) return null;
+      const { nodes, edges, configs } = cached;
+      return { nodes, edges, configs };
     },
     apply: ({ nodes, edges, newKeys }) => {
       const actions: schematic.Action[] = [];
