@@ -140,6 +140,8 @@ const mainAxisSize = (el: HTMLElement, horizontal: boolean): number =>
 /** Class marking the source tab whose slot is lifted out during a reorder drag. */
 const HAULED_CLASS = CSS.BEM("tabs", "tab", "hauled");
 
+const LINE_SCROLL = 16;
+
 /**
  * applyReorderPreview shifts the strip's tabs to open a gap for a same-strip drag,
  * mirroring the reorder a drop at index would produce, and lifts the source tab out.
@@ -276,7 +278,26 @@ export const Selector = ({
   ...rest
 }: SelectorProps): ReactElement => {
   const internalRef = useRef<HTMLDivElement | null>(null);
-  const combinedRef = useCombinedRefs(ref, internalRef);
+  // React registers wheel passively, so onWheel would drop the preventDefault.
+  const attachWheel = useCallback((el: HTMLDivElement | null): void => {
+    el?.addEventListener(
+      "wheel",
+      (e) => {
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+        const max = Math.max(el.scrollWidth - el.clientWidth, 0);
+        const delta =
+          e.deltaMode === WheelEvent.DOM_DELTA_PIXEL
+            ? e.deltaY
+            : e.deltaY * LINE_SCROLL;
+        const next = Math.min(Math.max(el.scrollLeft + delta, 0), max);
+        if (next === el.scrollLeft) return;
+        e.preventDefault();
+        el.scrollLeft = next;
+      },
+      { passive: false },
+    );
+  }, []);
+  const combinedRef = useCombinedRefs(ref, internalRef, attachWheel);
   const dir: direction.Direction = Flex.parseDirection(direction, x, y) ?? "x";
   const horizontal = dir === "x";
   const defaults = VARIANT_DEFAULTS[variant];
