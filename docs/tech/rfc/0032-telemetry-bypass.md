@@ -1005,7 +1005,7 @@ The fix adds a move overload `filter(Frame&&, Subject)` that:
 `bus::Streamer::read()` now calls `filter(std::move(local), subject)` instead of
 `filter(local, subject)`.
 
-#### Results (`large_acq`, 480 kB)
+#### 5.4.0 Results (`large_acq`, 480 kB)
 
 Authority filter comparison:
 
@@ -1032,7 +1032,7 @@ eliminating one `deep_copy`. The `small_cmd` improvement is proportionally large
 because the filter's per-channel overhead (hash map lookups, frame construction) was a
 larger fraction of the total cost at small sizes.
 
-#### Updated cost breakdown (`large_acq`, 480 kB, after move filter)
+#### 5.4.1 Updated cost breakdown (`large_acq`, 480 kB, after move filter)
 
 | Component                                    | Cost      | % of total     |
 | -------------------------------------------- | --------- | -------------- |
@@ -1060,7 +1060,7 @@ copy before mutating. Since mutations only happen in the transform chain (before
 frame reaches the bus), the copy-on-write check is always a no-op in the hot path (one
 atomic load returning 1).
 
-#### Changes
+#### 5.5.0 Changes
 
 - `Series::data_`: `unique_ptr<byte[]>` -> `shared_ptr<byte[]>` (mutable for
   copy-on-write)
@@ -1071,7 +1071,7 @@ atomic load returning 1).
 - All mutation methods (`set`, `write`, `write_casted`, `resize`, `fill_from`,
   `apply_numeric_op`) call `ensure_exclusive()` for correctness
 
-#### Results
+#### 5.5.1 Results
 
 Series copy comparison:
 
@@ -1107,7 +1107,7 @@ End-to-end comparison (all optimizations combined):
 | `medium` (40 kB)     | 8,009         | 5,379      | **-33%**    |
 | `large_acq` (480 kB) | 72,093        | 48,168     | **-33%**    |
 
-#### Final cost breakdown (`large_acq`, 480 kB)
+#### 5.5.2 Final cost breakdown (`large_acq`, 480 kB)
 
 | Component                                 | Cost      | % of total     |
 | ----------------------------------------- | --------- | -------------- |
@@ -1206,7 +1206,7 @@ Override runs in Console on a separate machine.
 
 The authority hierarchy is: Abort (255) > Manual Override (200) > Nominal Hotfire (100).
 
-##### Scenario A: abort during nominal operation
+##### 6.0.1.0 Scenario A: abort during nominal operation
 
 The most safety-critical scenario. The hotfire sequence is running at 1 kHz. The abort
 listener detects an overpressure condition and must close all valves within a bounded
@@ -1241,7 +1241,7 @@ Between T=1 and T=5 (1-5 ms on loopback):
 For a rocket engine test stand, 1-5 ms of continued fuel flow during an overpressure
 event can mean the difference between a controlled shutdown and a catastrophic failure.
 
-##### Scenario B: operator takeover during nominal operation
+##### 6.0.1.1 Scenario B: operator takeover during nominal operation
 
 The operator grabs control from Console to manually safe the system.
 
@@ -1272,7 +1272,7 @@ This is less dangerous than Scenario A (the operator's commands do get through),
 conflicting commands create unpredictable actuator behavior during the transition. This
 is a serious problem for a safety-critical system.
 
-##### Scenario C: abort while operator has manual control
+##### 6.0.1.2 Scenario C: abort while operator has manual control
 
 The operator is manually controlling valves (authority=200). The abort listener detects
 a hazard.

@@ -597,7 +597,7 @@ types.gen.go                 query.gen.go    index.gen.go    (in types)    schem
 Each plugin handles specific domains and can depend on other plugins. The orchestrator
 runs plugins in topological order based on their dependencies.
 
-#### Go plugins
+#### 4.1.0 Go plugins
 
 | Plugin        | Domains    | Requires   | Output                       |
 | ------------- | ---------- | ---------- | ---------------------------- |
@@ -606,7 +606,7 @@ runs plugins in topological order based on their dependencies.
 | `go/index`    | `index`    | `go/types` | `index.gen.go`               |
 | `go/validate` | `validate` | `go/types` | validation in `types.gen.go` |
 
-#### TypeScript plugins
+#### 4.1.1 TypeScript plugins
 
 | Plugin     | Domains          | Requires   | Output          |
 | ---------- | ---------------- | ---------- | --------------- |
@@ -614,7 +614,7 @@ runs plugins in topological order based on their dependencies.
 | `zod`      | `ts`, `validate` | -          | `schema.gen.ts` |
 | `ts/query` | `query`          | `ts/types` | `query.gen.ts`  |
 
-#### Python plugins
+#### 4.1.2 Python plugins
 
 | Plugin        | Domains              | Requires   | Output          |
 | ------------- | -------------------- | ---------- | --------------- |
@@ -622,7 +622,7 @@ runs plugins in topological order based on their dependencies.
 | `py/pydantic` | `python`, `validate` | -          | Pydantic models |
 | `py/query`    | `query`              | `py/types` | `query.gen.py`  |
 
-#### Output configuration
+#### 4.1.3 Output configuration
 
 The `output` expression within each language domain specifies where generated files go:
 
@@ -636,7 +636,7 @@ domain ts {
 }
 ```
 
-#### Dependency resolution
+#### 4.1.4 Dependency resolution
 
 When plugins declare dependencies via `Requires()`, the orchestrator:
 
@@ -716,7 +716,7 @@ type Resolutions struct {
 
 ### 5.0 Go
 
-#### Types
+#### 5.0.0 Types
 
 ```go
 // core/pkg/service/ranger/types.gen.go
@@ -756,7 +756,7 @@ func (r Range) Validate() error {
 }
 ```
 
-#### Query builders
+#### 5.0.1 Query builders
 
 ```go
 // core/pkg/service/ranger/query.gen.go
@@ -848,7 +848,7 @@ const (
 )
 ```
 
-#### Index configuration
+#### 5.0.2 Index configuration
 
 ```go
 // core/pkg/service/ranger/index.gen.go
@@ -881,7 +881,7 @@ func ConfigureIndexes(mgr *gorp.IndexManager[uuid.UUID, Range]) {
 
 ### 5.1 TypeScript
 
-#### Types + Zod
+#### 5.1.0 Types + Zod
 
 ```typescript
 // client/ts/src/ranger/types.gen.ts
@@ -906,7 +906,7 @@ export const rangeZ = z.object({
 export type Range = z.infer<typeof rangeZ>;
 ```
 
-#### Query builders
+#### 5.1.1 Query builders
 
 ```typescript
 // client/ts/src/ranger/query.gen.ts
@@ -994,7 +994,7 @@ export interface RangeRetrieveParams {
 
 ### 5.2 Python
 
-#### Types + Pydantic
+#### 5.2.0 Types + Pydantic
 
 ```python
 # client/py/synnax/ranger/types.gen.py
@@ -1240,7 +1240,7 @@ enum_value
 
 ## 8 Implementation plan
 
-### Phase 1: Core + parser
+### 8.0 Phase 1: Core + parser
 
 1. Create `oracle/` module structure
 2. Write ANTLR grammar files
@@ -1251,11 +1251,11 @@ enum_value
 
 **Deliverable**: Can parse `.oracle` files and report errors
 
-### Phase 2: Go plugins
+### 8.1 Phase 2: Go plugins
 
 Each Go plugin is implemented independently with clear separation of concerns:
 
-#### 2.1: go/types plugin
+#### 8.1.0 go/types plugin
 
 1. Implement struct type generation
 2. Handle `go` domain for output path
@@ -1265,7 +1265,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 **Deliverable**: `types.gen.go` with struct definitions
 
-#### 2.2: go/validate plugin
+#### 8.1.1 go/validate plugin
 
 1. Implement validation code generation
 2. Handle `validate` domain expressions (`required`, `max_length`, etc.)
@@ -1274,7 +1274,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 **Deliverable**: Validation methods in `types.gen.go`
 
-#### 2.3: go/query plugin
+#### 8.1.2 go/query plugin
 
 1. Implement filter type generation per field
 2. Handle `query` domain expressions (`eq`, `contains`, `has_any`, etc.)
@@ -1284,7 +1284,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 **Deliverable**: `query.gen.go` with type-safe query builders
 
-#### 2.4: go/index plugin
+#### 8.1.3 go/index plugin
 
 1. Implement index configuration generation
 2. Handle `index` domain expressions (`lookup`, `sorted`, `range`)
@@ -1294,9 +1294,9 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 **Deliverable**: `index.gen.go` with Gorp index configuration
 
-### Phase 3: TypeScript plugins
+### 8.2 Phase 3: TypeScript plugins
 
-#### 3.1: ts/types plugin
+#### 8.2.0 ts/types plugin
 
 1. Implement TypeScript type generation
 2. Handle `ts` domain for output path
@@ -1304,14 +1304,14 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 **Deliverable**: `types.gen.ts`
 
-#### 3.2: zod plugin (existing)
+#### 8.2.1 zod plugin (existing)
 
 1. Already implemented
 2. Generates Zod validation schemas
 
 **Deliverable**: `schema.gen.ts`
 
-#### 3.3: ts/query plugin
+#### 8.2.2 ts/query plugin
 
 1. Implement TypeScript query builder generation
 2. Generate filter interfaces and builder classes
@@ -1319,30 +1319,30 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 **Deliverable**: `query.gen.ts`
 
-### Phase 4: Python plugins
+### 8.3 Phase 4: Python plugins
 
-#### 4.1: py/types plugin
+#### 8.3.0 py/types plugin
 
 1. Implement Python type generation
 2. Handle `python` domain for output path
 
 **Deliverable**: `types.gen.py`
 
-#### 4.2: py/pydantic plugin
+#### 8.3.1 py/pydantic plugin
 
 1. Implement Pydantic model generation
 2. Handle `validate` domain for Field constraints
 
 **Deliverable**: Pydantic models
 
-#### 4.3: py/query plugin
+#### 8.3.2 py/query plugin
 
 1. Implement Python query builder generation
 2. Requires: `py/types`
 
 **Deliverable**: `query.gen.py`
 
-### Phase 5: Integration
+### 8.4 Phase 5: Integration
 
 1. Write schemas for all existing structs
 2. Replace hand-written types with generated code
@@ -1352,7 +1352,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 **Deliverable**: Full adoption across codebase
 
-### Phase 6: Migrations (future)
+### 8.5 Phase 6: Migrations (future)
 
 1. Design migration schema syntax
 2. Implement migration diffing

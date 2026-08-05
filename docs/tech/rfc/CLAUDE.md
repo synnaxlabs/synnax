@@ -9,14 +9,15 @@ Rules for writing and editing RFCs in this directory.
 - Front matter is a bullet list directly under the H1, in this order:
   `- **Author**: Name`, `- **Date**: YYYY-MM-DD`,
   `- **Related**: [RFC NNNN - Title](./NNNN-slug.md)` (Related is optional).
-- Headings are numbered hierarchically from zero: `## 0 Summary`, `### 0.0 ...`.
+- Headings are numbered hierarchically from zero: `## 0 Summary`, `### 0.0 ...`. Every
+  heading below the H1 carries a number — appendix and working-notes sections too.
 - Implementation stages are labeled `Phase N` — never `Part N`.
 
 ## Headings
 
 - Sentence case: capitalize only the first word, proper nouns, and acronyms.
-- A heading word that names a code identifier goes in backticks with its real casing
-  (`### 4.0 Parallel offset` `` `domain.DB` ``), not title case.
+- A heading word that names a code identifier goes in backticks with its real casing,
+  not title case: `` ### 4.0 The `domain.DB` write path ``.
 
 ## Definition lists
 

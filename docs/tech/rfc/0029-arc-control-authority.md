@@ -73,7 +73,7 @@ patterns in compiled sequences.
 
 The four primary use cases driving this feature:
 
-#### Emergency override (abort pattern)
+#### 2.2.0 Emergency override (abort pattern)
 
 ```
 Nominal sequence (authority 200) controls pressure valve
@@ -87,7 +87,7 @@ Abort sequence takes control, closes valve
 Nominal sequence's writes silently fail
 ```
 
-#### Cooperative handoff
+#### 2.2.1 Cooperative handoff
 
 ```
 Sequence A (authority 200) completes pressurization
@@ -99,7 +99,7 @@ Sequence B (authority 100) automatically gains control
 Sequence B proceeds with ignition
 ```
 
-#### Operator intervention
+#### 2.2.2 Operator intervention
 
 ```
 Arc sequence (authority 200) running nominal control
@@ -117,7 +117,7 @@ Operator releases control
 Arc sequence automatically resumes writing
 ```
 
-#### Multi-sequence coordination
+#### 2.2.3 Multi-sequence coordination
 
 ```
 Safety monitor (authority 255) always watching

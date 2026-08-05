@@ -4,46 +4,6 @@
 - **Date**: 2026-04-27
 - **Related**: [RFC 0030 - Arc Module System](./0030-arc-modules.md)
 
-## Contents
-
-- [0 Summary](#0-summary)
-  - [0.0 Function overview](#00-function-overview)
-- [1 Vocabulary](#1-vocabulary)
-- [2 Motivation](#2-motivation)
-- [3 Prerequisite: empty string as non-truthy](#3-prerequisite-empty-string-as-non-truthy)
-- [4 Arc syntax](#4-arc-syntax)
-  - [4.0 `status.set`](#40-statusset)
-  - [4.1 `status.delete`](#41-statusdelete)
-  - [4.2 Variant values](#42-variant-values)
-  - [4.3 Client interface comparison](#43-client-interface-comparison)
-- [5 Detailed design](#5-detailed-design)
-  - [5.0 Type system prerequisites](#50-type-system-prerequisites)
-    - [5.0.0 Preserve-on-omit parameters](#500-preserve-on-omit-parameters)
-    - [5.0.1 Literal-value constraints](#501-literal-value-constraints)
-  - [5.1 Symbol registration](#51-symbol-registration)
-  - [5.2 WASM host functions](#52-wasm-host-functions)
-    - [5.2.0 Host function reporting helpers](#520-host-function-reporting-helpers)
-    - [5.2.1 Set host function](#521-set-host-function)
-    - [5.2.2 Delete host function](#522-delete-host-function)
-  - [5.3 Flow node implementation](#53-flow-node-implementation)
-    - [5.3.0 Runtime outcomes](#530-runtime-outcomes)
-  - [5.4 Name resolution](#54-name-resolution)
-  - [5.5 Status service methods for upsert](#55-status-service-methods-for-upsert)
-  - [5.6 Service injection](#56-service-injection)
-  - [5.7 Architectural boundaries](#57-architectural-boundaries)
-- [6 Implementation plan](#6-implementation-plan)
-  - [6.0 Modified files](#60-modified-files)
-  - [6.1 Implementation sequence](#61-implementation-sequence)
-- [7 Trade study: upsert API shape and update expression syntax](#7-trade-study-upsert-api-shape-and-update-expression-syntax)
-  - [7.0 Context](#70-context)
-  - [7.1 Background: first-class records](#71-background-first-class-records)
-  - [7.2 Axis 1: upsert API shape](#72-axis-1-upsert-api-shape)
-  - [7.3 Axis 2: update expression syntax](#73-axis-2-update-expression-syntax)
-  - [7.4 Natural pairings](#74-natural-pairings)
-  - [7.5 Evaluation](#75-evaluation)
-  - [7.6 Conclusion](#76-conclusion)
-  - [7.7 Recommendation](#77-recommendation)
-
 ## 0 Summary
 
 > **v1 scope note (2026-05-11):** For the v1 implementation, **all `status.set`
@@ -1134,7 +1094,7 @@ hypothetical Arc that has records.
 
 ### 7.2 Axis 1: upsert API shape
 
-#### Shape 1: shared payload, preserve-on-omit (current RFC)
+#### 7.2.0 Shape 1: shared payload, preserve-on-omit (current RFC)
 
 One field set, applied as overrides on update or as defaults on create. Used by MongoDB
 (`{$set: {...}}` with `upsert: true`) and by Synnax's existing Python and TS clients
@@ -1186,7 +1146,7 @@ update doesn't clobber existing state, which Section 4.0 already specifies. Matc
 API shape of the Synnax Python and TS clients, so callers crossing language boundaries
 see one mental model.
 
-#### Shape 2: split payloads (Prisma)
+#### 7.2.1 Shape 2: split payloads (Prisma)
 
 Caller writes two distinct field sets, one applied on update and one on create. Lets
 them diverge: create-time defaults can differ from what an update touches.
@@ -1218,7 +1178,7 @@ shapes. Most flexible, most verbose. Useful when create and update genuinely div
 which is rare for status updates, where the same fields are meaningful in both
 directions.
 
-#### Shape 3: lookup + defaults (Django, Postgres `ON CONFLICT`)
+#### 7.2.2 Shape 3: lookup + defaults (Django, Postgres `ON CONFLICT`)
 
 Identity args are syntactically distinct from content args; content acts as
 defaults-on-create and as overrides-on-update. Django writes
@@ -1259,7 +1219,7 @@ in one flat cluster-global namespace, identified by a single `name` (or its deri
 axis (e.g., per-rack statuses where two racks can each have their own "Pressure Alert"),
 Shape 3 becomes the right answer.
 
-#### Shape 4: whole-object merge (SQLAlchemy, TypeORM)
+#### 7.2.3 Shape 4: whole-object merge (SQLAlchemy, TypeORM)
 
 Caller builds a status value, hands it to a `merge` or `save` primitive, and the
 persistence layer figures out create-vs-update from primary-key presence.
@@ -1297,7 +1257,7 @@ _how to express a partial change to a record value_ (e.g.,
 `Status{my_status | message="High"}`); Shape 4 is _what API call persists that value_.
 They compose, but each is an independent decision.
 
-#### Shape 5: find-then-modify (Rails ActiveRecord)
+#### 7.2.4 Shape 5: find-then-modify (Rails ActiveRecord)
 
 Caller fetches an existing-or-fresh value, mutates it, then saves. Rails exposes this as
 `find_or_initialize_by(...)` plus block-style mutation plus `save`.
@@ -1326,7 +1286,7 @@ doesn't compose with pipe-style (C1, C2) without extra machinery.
 
 ### 7.3 Axis 2: update expression syntax
 
-#### Option A: polymorphism (current RFC, with `set`-as-upsert)
+#### 7.3.0 Option A: polymorphism (current RFC, with `set`-as-upsert)
 
 `set` takes a name (or key) plus named optional fields. Supplied fields overwrite,
 omitted fields preserve. If the name doesn't exist, create.
@@ -1350,7 +1310,7 @@ One symbol, several call shapes, all reading the same at the surface.
 **Natural shape pairing:** Shape 1 (shared payload). The polymorphism on field presence
 _is_ the preserve-on-omit semantics; pairing with any other shape strips the benefit.
 
-#### Option B: functional options (Go)
+#### 7.3.1 Option B: functional options (Go)
 
 Each "option" is a function that mutates a config value. `set` takes a name plus a
 variadic list of options. Idiomatic Go; used by gRPC, the standard `http` server,
@@ -1381,7 +1341,7 @@ case.
 **Natural shape pairing:** Shape 1 (shared payload). Each option mutates one shared
 config; the upsert API surface is unchanged from Option A's, only the call form differs.
 
-#### Option C1: Clojure-style threading (family of macros)
+#### 7.3.2 Option C1: Clojure-style threading (family of macros)
 
 Status becomes a value type. Updates are pure functions chained through one of several
 threading operators, typically `->` for the common case, plus `cond->` for conditional
@@ -1422,7 +1382,7 @@ steps whose predicates are nil. The cost is a family of operators (`->`, `cond->
 through the chain; that value is a status record built up by pure transforms and
 persisted by a terminal `save`. Forces first-class records.
 
-#### Option C2: Elixir-style pipe (single operator)
+#### 7.3.3 Option C2: Elixir-style pipe (single operator)
 
 Same first-class value model as C1, but with a **single** pipe operator (`|>`). Partial
 updates are expressed by simply omitting the step from the chain. There is no
@@ -1467,7 +1427,7 @@ the pipeline.
 **Natural shape pairing:** Shape 4 (whole-object merge), same as C1. The pipe carries a
 status record; partial-update branching wraps the pipeline rather than living inside it.
 
-#### Option D: object-oriented method chaining (Java, Ruby, JavaScript, Rust builders)
+#### 7.3.4 Option D: method chaining (Java, Ruby, JavaScript, Rust builders)
 
 Status is an object with methods. Each setter returns the receiver (or a new value),
 enabling top-down chains via the dot operator. No new operator; the dot already exists.
@@ -1498,7 +1458,7 @@ language commitment than it sounds; "just methods" is rarely just methods.
 mutate, save". Shape 4 also fits if methods are pure (return a new value); the choice
 depends on whether Arc's records are mutable or persistent.
 
-#### Option E: scope functions (Kotlin: `apply` / `with` / `let`)
+#### 7.3.5 Option E: scope functions (Kotlin: `apply` / `with` / `let`)
 
 A block scoped to one object, where field assignments inside the block bind to that
 object implicitly. Familiar to anyone who's written Kotlin or Groovy. Pairs naturally
@@ -1529,7 +1489,7 @@ system, since the body has to type-check against the receiver's fields.
 **Natural shape pairing:** Shape 5 (find-then-modify). The `apply` block needs a held
 receiver, and the receiver originates from a `find_or_init`-style call.
 
-#### Option F: cascade operator (Smalltalk, Dart)
+#### 7.3.6 Option F: cascade operator (Smalltalk, Dart)
 
 A new operator (`..` in Dart) sends each call to the same receiver, instead of relying
 on each method returning `self`. Reads like a block of mutations on one object.
@@ -1559,7 +1519,7 @@ loses the value-transformation semantics that make pipes composable.
 Flow the cascade collapses back onto Shape 1 because edges don't carry an implicit
 receiver across nodes.
 
-#### Option G: record-update syntax (Haskell, F#, OCaml, Elixir)
+#### 7.3.7 Option G: record-update syntax (Haskell, F#, OCaml, Elixir)
 
 Status is a record value, and a literal-update form produces a new record with a subset
 of fields replaced. No pipe, no methods, just one expression that says "this status, but
@@ -1596,7 +1556,7 @@ flow node configs).
 **Natural shape pairing:** Shape 4 (whole-object merge). The record-update literal
 produces a status value; that value is persisted by a terminal `save`/`merge` primitive.
 
-#### Option H: lenses / optics (Haskell, Scala Monocle)
+#### 7.3.8 Option H: lenses / optics (Haskell, Scala Monocle)
 
 First-class field accessors that compose. A lens is a value that knows how to focus on
 one field of a structure; setting via a lens produces a new structure with that field

@@ -63,7 +63,7 @@ Luckily, there are many great open-source key-value databases available. Synnax 
 go-embedded [pebble](https://github.com/cockroachdb/pebble) which is the backing store
 for [cockroachdb](https://www.cockroachlabs.com/). On startup, Synnax opens the database
 and lets pebble handle the rest. We'll return to this topic in the
-[distribution layer](#12---layer-2---distribution).
+[distribution layer](#13---layer-2---distribution).
 
 #### 1.2.2 - Cesium - Time-Series Engine
 

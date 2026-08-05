@@ -240,7 +240,7 @@ allows for comparison.
 
 ### 2.3 Future work
 
-#### Smart-closing streamers
+#### 2.3.0 Smart-closing streamers
 
 Currently, stream operations are only runnable at the same time as write operations, and
 they cannot quit autonomously — the tester must manually configure the number of samples
@@ -250,7 +250,7 @@ neither simply close the streamer once all writers are finished writing, as writ
 faster than streamers, nor can we require streaming exactly the number of samples
 written by the writer to close, as streamers may have losses of frames.
 
-#### Channel groups
+#### 2.3.1 Channel groups
 
 Currently, individual channels must be specified by their names to be operated on. This
 is painful as writing to 1,000 channels must involve typing 1,000 names in the test
@@ -265,13 +265,13 @@ the code used to parse JSON test configurations, though: to borrow an analogy fr
 land of compilers, the tester could write "source code" that gets compiled into the
 "machine code" that is the JSON configuration file.
 
-#### Correctness testing
+#### 2.3.2 Correctness testing
 
 Currently, the testing framework only asserts that no errors occur when running the
 operations. Eventually, it will be equally important to assert that data written and
 read are indeed correct.
 
-#### Orphan processes
+#### 2.3.3 Orphan processes
 
 When running the cluster with integration tests, we cannot interrupt the cluster process
 as Go does not implement interrupting a Windows process (see

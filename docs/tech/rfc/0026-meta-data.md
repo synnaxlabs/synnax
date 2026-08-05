@@ -275,7 +275,7 @@ The `gorp.Table[K, E]` owns and maintains indexes for a particular entry type. I
 are **local materialized views** — they are not replicated through Aspen and are rebuilt
 on Core startup from primary data.
 
-##### One-way decisions (Commitments)
+##### 2.1.0.0 One-way decisions (commitments)
 
 1. **Indexes are derived, not source-of-truth**: Indexes rebuild from primary data. No
    index-only fields or denormalized aggregates stored in indexes.
@@ -289,7 +289,7 @@ on Core startup from primary data.
 4. **Replication hook is the sync mechanism**: Index maintenance couples to Aspen's
    replication observer.
 
-##### Two-way decisions (Reversible)
+##### 2.1.0.1 Two-way decisions (reversible)
 
 Implementation details that can change without breaking the architecture:
 
@@ -298,7 +298,7 @@ Implementation details that can change without breaking the architecture:
 - Sync vs. async index updates
 - Full rebuild vs. incremental startup
 
-##### Index types
+##### 2.1.0.2 Index types
 
 Two categories of indexes serve different access patterns:
 
@@ -307,7 +307,7 @@ Two categories of indexes serve different access patterns:
 | Lookup | `map[string][]K`        | Exact match (`WHERE email = ?`)             | O(1) lookup         |
 | Sorted | `[]indexEntry` or btree | Ordering/pagination (`ORDER BY created_at`) | O(log n) + O(limit) |
 
-##### Index maintenance
+##### 2.1.0.3 Index maintenance
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -337,7 +337,7 @@ Two categories of indexes serve different access patterns:
 If startup performance becomes an issue, we should consider building indexes
 asynchronously.
 
-##### Pagination strategies
+##### 2.1.0.4 Pagination strategies
 
 | Strategy     | Cost              | Use when                        |
 | ------------ | ----------------- | ------------------------------- |
@@ -347,7 +347,7 @@ asynchronously.
 Cursor-based pagination uses the last seen sort value to binary search directly to the
 next page, avoiding the cost of skipping entries.
 
-##### GC considerations
+##### 2.1.0.5 GC considerations
 
 For most deployments (< 1M entries), standard Go maps and slices are sufficient. The GC
 sees slice/map headers (constant pointers) not their contents.
