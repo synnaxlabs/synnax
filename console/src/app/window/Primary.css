@@ -21,10 +21,6 @@
     --bottom-drawer-inset-left: calc(8rem - 2px);
     --bottom-drawer-inset-right: 0.5rem;
     --bottom-drawer-inset-bottom: 1rem;
-
-    &:has(.console-nav__drawer.pluto--location-left.pluto--hidden) {
-        padding-left: 0;
-    }
 }
 
 .console-main__column {
@@ -33,4 +29,7 @@
 
 .console-main__row {
     height: 0;
+    &:has(.console-nav__drawer.pluto--location-left.pluto--hidden) {
+        gap: 0;
+    }
 }
