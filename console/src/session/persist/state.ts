@@ -36,7 +36,12 @@ export interface Context {
 const contextsEqual = (a: Context, b: Context): boolean =>
   a.cluster === b.cluster && a.project === b.project;
 
-interface StateVersionValue {
+interface SlotPointer {
+  slot: number;
+}
+
+/** The pre-rename pointer shape, still read from stores written before it. */
+interface LegacySlotPointer {
   version: number;
 }
 
@@ -104,16 +109,17 @@ export type Action = ReturnType<
   | typeof endSwap
 >;
 
-/** Versions kept per partition before the ring wraps. */
+/** Slots kept per partition before the ring wraps. */
 const HISTORY_LENGTH = 4;
 
-const nextVersion = (v: number): number => (v + 1) % HISTORY_LENGTH;
-const prevVersion = (v: number): number => (v - 1 + HISTORY_LENGTH) % HISTORY_LENGTH;
+const nextSlot = (s: number): number => (s + 1) % HISTORY_LENGTH;
+const prevSlot = (s: number): number => (s - 1 + HISTORY_LENGTH) % HISTORY_LENGTH;
 
 /**
- * A group of slices stored under one key prefix, with a bounded ring of versions
+ * A group of slices stored under one key prefix, with a bounded ring of slots
  * behind a pointer key. Owns how the group's bytes round-trip: ring advancement,
- * migration on read, and stepping the pointer back on revert.
+ * migration on read, and stepping the pointer back on revert. The slot pointer is
+ * unrelated to the schema version each slice carries in its own value.
  */
 class Partition<S extends object> {
   private readonly db: SugaredKV;
@@ -133,10 +139,10 @@ class Partition<S extends object> {
     this.migrators = migrators;
   }
 
-  /** Read the slices at the current ring version, migrated. */
+  /** Read the slices at the current ring slot, migrated. */
   async read(): Promise<Partial<S>> {
-    const version = await this.readVersion();
-    const data = (await this.db.get(this.stateKey(version))) as Partial<S> | null;
+    const slot = await this.readSlot();
+    const data = (await this.db.get(this.stateKey(slot))) as Partial<S> | null;
     const out: Partial<S> = {};
     if (data == null) return out;
     this.slices.forEach((key) => {
@@ -148,41 +154,48 @@ class Partition<S extends object> {
 
   /** Write the state's slices into the next ring slot and advance the pointer. */
   async write(state: S): Promise<void> {
-    const version = nextVersion(await this.readVersion());
+    const slot = nextSlot(await this.readSlot());
     const data: Partial<S> = {};
     this.slices.forEach((key) => {
       data[key] = state[key];
     });
-    await this.db.set(this.stateKey(version), data).catch((err: unknown) => {
-      console.error(
-        `failed to write partition ${this.base} at version ${version}`,
-        err,
-      );
+    await this.db.set(this.stateKey(slot), data).catch((err: unknown) => {
+      console.error(`failed to write partition ${this.base} at slot ${slot}`, err);
     });
-    await this.setVersion(version);
+    await this.setSlot(slot);
   }
 
-  /** Step the ring pointer back one version. */
+  /** Step the ring pointer back one slot. */
   async revert(): Promise<void> {
-    await this.setVersion(prevVersion(await this.readVersion()));
+    await this.setSlot(prevSlot(await this.readSlot()));
   }
 
-  private stateKey(version: number): string {
-    return `${this.base}.${version}`;
+  private stateKey(slot: number): string {
+    return `${this.base}.${slot}`;
   }
 
-  private versionKey(): string {
+  private slotKey(): string {
+    return `${this.base}.slot`;
+  }
+
+  // Stores written before the pointer was renamed off `version`. Drop once no
+  // install can still be on the old key.
+  private legacySlotKey(): string {
     return `${this.base}.version`;
   }
 
-  private async readVersion(): Promise<number> {
-    const stored = (await this.db.get(this.versionKey())) as StateVersionValue | null;
-    return stored?.version ?? 0;
+  private async readSlot(): Promise<number> {
+    const stored = (await this.db.get(this.slotKey())) as SlotPointer | null;
+    if (stored != null) return stored.slot;
+    const legacy = (await this.db.get(
+      this.legacySlotKey(),
+    )) as LegacySlotPointer | null;
+    return legacy?.version ?? 0;
   }
 
-  private async setVersion(version: number): Promise<void> {
-    await this.db.set(this.versionKey(), { version }).catch((err: unknown) => {
-      console.error(`failed to bump version of partition ${this.base}`, err);
+  private async setSlot(slot: number): Promise<void> {
+    await this.db.set(this.slotKey(), { slot }).catch((err: unknown) => {
+      console.error(`failed to bump slot pointer of partition ${this.base}`, err);
     });
   }
 
