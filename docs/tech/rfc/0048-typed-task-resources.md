@@ -29,11 +29,12 @@ a small execution record: `{key, rack, config, internal, auto_start, config_hash
 task exists only while the resource is deployed to a rack. The task points to its
 resource through a `config` ontology ID. A resource without a task is a draft.
 
-Task types become a closed set. The Core validates each configuration at the create and
-update entry points with Oracle-generated validation. The Core owns the config migration
-chain. The Driver reads each config from a per-type endpoint as a typed Protobuf
-message, never as an `Any`. The Driver and the Console do not parse configs by hand. The
-only parsers are the Oracle-generated Zod, Pydantic, and proto code.
+Task types become a closed set. Users edit a resource through action dispatch, the same
+synchronous path as schematics. The Core validates the shape of every dispatch, reports
+semantic diagnostics live, and gates deploy and `start` on them. The Core owns the
+config migration chain. The Driver reads each config from a per-type endpoint as a typed
+Protobuf message, never as an `Any`. The Driver and the Console do not parse configs by
+hand. The only parsers are the Oracle-generated Zod, Pydantic, and proto code.
 
 ---
 
@@ -83,6 +84,9 @@ Five problems add up. All of them come from config opacity:
   editable undeployed state.
 - **Deploy / undeploy**: to deploy is to make a task on a rack for a resource. To
   undeploy is to delete that task. Undeploy never deletes the resource.
+- **Action dispatch**: the shared update path for stateful resources: a batch of
+  schema-declared actions reduced atomically in one transaction and broadcast over
+  signals. It is the machinery behind schematic editing.
 - **`config` reference**: the one stored link between the two records: an ontology ID
   (`<type>:<uuid>`) on the task that points to its parent resource. It is never null.
 - **`empty` resource**: the minimal resource type. It has a name and nothing more. It is
@@ -184,8 +188,10 @@ Oracle must first support the extension of a common shape across schema files. T
 groundwork for this RFC.
 
 Each resource has the standard tags: `@ontology type "<task type>"`, `@retrieve`,
-`@search`, `@create`, `@go migrate`, `@pb`. The outputs go to
-`core/pkg/service/<integration>`, `client/ts`, `client/py`, and `client/cpp`.
+`@search`, `@create`, `@go migrate`, `@pb`. Each resource also declares an action set
+for its edits — per-field and per-channel actions in the schematic and log shape. The
+outputs go to `core/pkg/service/<integration>`, `client/ts`, `client/py`, and
+`client/cpp`.
 
 **Go services are per-integration packages**: `core/pkg/service/ni`,
 `core/pkg/service/opc`, and so on, with the standard service anatomy, adjacent to the
@@ -198,39 +204,52 @@ the retrieve builders, the ontology registration, and the imex of its resources.
   EtherCAT `auto_<pdo>` / `manual_<index>_<subindex>` channel maps are the canonical
   case. This change removes the caseconv corruption class at the root. We then delete
   the `??` fallback lookups.
-- Validation that Oracle can express (bounds, discriminants, required fields) lives in
-  the schema. Rules outside its reach (stream rate ≤ sample rate, port uniqueness) live
-  in the validation of the Go service, at the same entry point. Clients can state them
-  again as UI-side refinements.
+- Validation splits into two tiers (§4.3). The shape tier is the decode into the
+  generated types. The semantic tier covers required fields, bounds, and discriminants —
+  expressed in the schema and generated — plus rules outside Oracle's reach (stream rate
+  ≤ sample rate, port uniqueness), written in the Go service. Both tiers run on the
+  dispatch path. Clients can state the semantic rules again as UI-side refinements.
 
 ### 4.3 Lifecycle
 
 **Create.** `POST /<type>/create` makes a draft: a resource with no task. The resource
 does not have and does not accept a rack.
 
-**Deploy.** A deploy operation on the per-type endpoint receives the resource key and a
-rack key. In one transaction, the service validates the config, examines the
-`integrations` list of the rack, mints the task with its `config` reference, and stamps
-the ontology edge. A rack without `ni` causes a hard error for an `ni_analog_read`
-deploy, because that deploy can never succeed. A deploy to a different rack writes the
-new value into the `rack` field of the task. The old Driver then tears down, as the task
-draft/deploy design (SY-4488) specifies for a rack move.
+**Edit.** Every edit is an action dispatch. The per-type writer reduces a dispatched
+batch atomically in one transaction, then broadcasts it over signals — the shared
+machinery behind schematics. Editing is thus synchronous across clients, and the Console
+gets autosave and undo/redo from the standard action path. Validation has two tiers. The
+shape tier runs on every dispatch and rejects it on failure: a dispatch that does not
+decode into the generated types never commits, so the stored config is always
+well-typed. The semantic tier also runs on every dispatch, but it reports diagnostics
+and never rejects: an incomplete draft always commits, so a user can edit through
+invalid intermediate states. The diagnostics gate deploy and `start` only. A dispatch to
+a deployed resource behaves the same. It also updates `config_hash` on the task row in
+the same transaction (found through the `config` index) and fires the `sy_task_set`
+metadata refresh. Active tasks do not restart; the Console shows the drift until the
+user deploys again with `start`.
+
+**Deploy.** Deploy is an execution transition, not an edit, so it stays outside the
+action set. The per-type deploy operation receives the resource key and a rack key. In
+one transaction, it verifies that the resource has no outstanding semantic diagnostics,
+examines the `integrations` list of the rack, mints the task with its `config`
+reference, and stamps the ontology edge. It contains no validation logic of its own: it
+gates on the diagnostics that the dispatch path computed. A rack without `ni` causes a
+hard error for an `ni_analog_read` deploy, because that deploy can never succeed. A
+deploy to a different rack writes the new value into the `rack` field of the task. The
+old Driver then tears down, as the task draft/deploy design (SY-4488) specifies for a
+rack move.
 
 **Start / stop, deploy-on-start.** This RFC builds on the draft/deploy design and keeps
 its behavior: `sy_task_set` is metadata-only, and the `start` command absorbs
-configuration. The Core computes `config_hash` (xxhash64 over canonical bytes) when it
-writes the resource, and stores the hash on the task row. On `start`, the Driver
-compares the hash with its active instance. Only on a mismatch does it fetch the typed
-resource again. Drivers report the active hash in the status details. Drift is the
-difference between the two hashes. Two points change relative to that design: the input
-of the hash is the typed resource, and drafts are resources without tasks, not tasks
-without racks (Resolved Decision 6).
-
-**Edit while deployed.** A write to the resource updates `config_hash` on its task row
-in the same transaction. The service finds the task row through the `config` index. The
-write fires the current Gorp-observe / `sy_task_set` path as a metadata refresh. Active
-tasks do not restart. The Console shows the drift until the user deploys again with
-`start`.
+configuration. `start` refuses a resource with outstanding semantic diagnostics. The
+Core computes `config_hash` (xxhash64 over canonical bytes) when it writes the resource,
+and stores the hash on the task row. On `start`, the Driver compares the hash with its
+active instance. Only on a mismatch does it fetch the typed resource again. Drivers
+report the active hash in the status details. Drift is the difference between the two
+hashes. Two points change relative to that design: the input of the hash is the typed
+resource, and drafts are resources without tasks, not tasks without racks (Resolved
+Decision 6).
 
 **Undeploy / delete.** To delete the task is to undeploy. The execution record and its
 status go away. The resource stays as a draft, and its resolved `task` field becomes
@@ -240,9 +259,10 @@ Console tree deletes the resource, because the resource is the object that the u
 sees.
 
 **Snapshot.** A snapshot is a copy of the resource: a new UUID, `snapshot: true`. The
-copy is immutable through the same guard that protects snapshots today. Ranges refer to
-it exactly as they refer to task snapshots now. A snapshot does not get a task row. A
-frozen config has no execution, so no part of it belongs in the task table.
+copy is immutable: the dispatch path rejects every action except `Rename` on a snapshot,
+the same guard the schematic writer applies. Ranges refer to it exactly as they refer to
+task snapshots now. A snapshot does not get a task row. A frozen config has no
+execution, so no part of it belongs in the task table.
 
 **Copy.** A copy of a resource is a per-type create from the fields of a current
 resource. The `Copy` method of the task writer goes away with the config that it existed
@@ -337,18 +357,20 @@ Each numbered phase is a PR, or a short series where noted. At each boundary the
 builds, the tests pass, and the product can ship.
 
 1. **Oracle groundwork.** Cross-file extension of a common shape for the shared task
-   config bases. Per-type endpoint generation. Support for an `ontology.ID` field with a
-   Gorp index, and for a resolved `task` field on resources. This is pure generator work
-   with generator tests. No schema consumes it yet.
+   config bases. Per-type endpoint generation, including the action dispatch endpoints.
+   Support for an `ontology.ID` field with a Gorp index, and for a resolved `task` field
+   on resources. This is pure generator work with generator tests. No schema consumes it
+   yet.
 2. **Schema authorship.** The per-integration `.oracle` files and their generated
    Go/TypeScript/Python/C++/Protobuf artifacts, not yet wired (the NI file adapted from
    the draft). One PR per integration or per small group. Each PR is a reviewable schema
    plus inert generated code.
 3. **Core services, additive.** The per-integration service packages, the `empty`
-   resource, the per-type endpoints, the deploy verb, and the resolved `task` field on
-   the Gorp `config` index. All of it exists adjacent to the untouched task shape.
-   Production does not consume it yet. Ginkgo suites exercise it directly. The tree
-   stays green because the change is additive.
+   resource, the per-type endpoints, the action reducers with two-tier validation, the
+   deploy verb, and the resolved `task` field on the Gorp `config` index. All of it
+   exists adjacent to the untouched task shape. Production does not consume it yet.
+   Ginkgo suites exercise it directly. The tree stays green because the change is
+   additive.
 4. **Core cutover.** The atomic PR. It makes the task row slim (it drops `type`, `name`,
    `snapshot`, and the embedded config object, and adds the `config` reference and
    `auto_start`). It runs the §4.6 startup migration. It routes the Go driver factories
@@ -361,11 +383,11 @@ builds, the tests pass, and the product can ship.
    proto configs, deletes the `parser.field` config structs, and switches dispatch to
    the `config` ontology ID with a per-type retrieve for each fetch. The scanner startup
    moves to `empty`-resource deploys in the first wave.
-6. **Console migration.** Its own phase, one PR per integration. The forms bind to typed
-   resources through generated Zod (the UI-only refinements stay). The tabs key on
-   resource UUIDs. Autosave targets the resource. The drift and deploy UX follows the
-   draft/deploy design. We delete the `??` fallback lookups and the client-side NI
-   version chain.
+6. **Console migration.** Its own phase, one PR per integration. The forms edit typed
+   resources through action dispatch with generated Zod (the UI-only refinements stay),
+   which carries autosave and undo/redo. The tabs key on resource UUIDs. The drift and
+   deploy UX follows the draft/deploy design. We delete the `??` fallback lookups and
+   the client-side NI version chain.
 7. **Python rewiring.** The generated Pydantic resource models replace the hand-written
    config models. The wrappers in the style of `StarterStopperMixin` stay as sugar over
    create, deploy, and start.
@@ -439,6 +461,17 @@ Phase 4. This is the standard position for storage migrations in this codebase.
     mutual stored references (a stored `task` field on the resource): two stored links
     can drift apart. The `config` reference is the single source of truth, and the
     server resolves the resource's `task` field from it.
+13. **Config validation inside the deploy operation — replaced.** The first draft
+    validated the config in the deploy transaction. That shape makes deploy heavyweight
+    and leaves editing asynchronous. Validation moved to the dispatch path with two
+    tiers (§4.3): shape rejects a dispatch, semantic diagnostics report live and gate
+    deploy and `start`. We also rejected a hard semantic gate on updates: it would
+    reject every incomplete intermediate state and make drafts uneditable in practice.
+14. **Deploy inside the action union — rejected.** Reducers are pure maps from resource
+    state to resource state; no existing reducer writes another table. Deploy mints a
+    task row and stamps an edge, and its siblings (`start`, `stop`, undeploy) already
+    live outside the action stream. Execution transitions stay out of the action set,
+    and undo history never contains a deployment.
 
 ---
 
@@ -461,9 +494,8 @@ Phase 4. This is the standard position for storage migrations in this codebase.
 ## 8 Open questions
 
 1. The final name of the `empty` resource (`empty`, `plain`, or `internal`).
-2. The endpoint shape of the deploy verb: `POST /<type>/deploy`, or a `rack` parameter
-   on create and update. This is a parameter-level choice. The transaction behavior in
-   §4.3 holds in both shapes.
+2. The reporting surface for semantic diagnostics: the dispatch response, a status on
+   the resource, or client-side recompute from the generated validation code.
 3. The quarantine surface for unknown-type rows at migration (§4.6): the status variant,
    and whether the Console lists them.
 4. The wave order of the Driver and Console cutovers across integrations in Phases 5–6.
