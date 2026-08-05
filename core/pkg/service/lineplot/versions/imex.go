@@ -25,14 +25,22 @@ import (
 // consoleAxis mirrors Axis as Console-written files serialize it: camelCase
 // keys. Frozen; Console files no longer evolve.
 type consoleAxis struct {
-	Key            AxisKey           `json:"key"            msgpack:"key"`
-	Label          string            `json:"label"          msgpack:"label"`
+	// Key identifies the axis (e.g. "x1", "y1").
+	Key AxisKey `json:"key" msgpack:"key"`
+	// Label is the axis label text.
+	Label string `json:"label" msgpack:"label"`
+	// LabelDirection is the label orientation.
 	LabelDirection spatial.Direction `json:"labelDirection" msgpack:"labelDirection"`
-	LabelLevel     text.Level        `json:"labelLevel"     msgpack:"labelLevel"`
-	Bounds         spatial.Bounds    `json:"bounds"         msgpack:"bounds"`
-	ManualBounds   ManualBounds      `json:"manualBounds"   msgpack:"manualBounds"`
-	TickSpacing    float64           `json:"tickSpacing"    msgpack:"tickSpacing"`
-	Type           *TickType         `json:"type,omitempty" msgpack:"type,omitempty"`
+	// LabelLevel is the typography level of the label.
+	LabelLevel text.Level `json:"labelLevel" msgpack:"labelLevel"`
+	// Bounds are the manual axis bounds.
+	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	// ManualBounds reports which bounds are manually set.
+	ManualBounds ManualBounds `json:"manualBounds" msgpack:"manualBounds"`
+	// TickSpacing is the spacing between axis ticks in pixels.
+	TickSpacing float64 `json:"tickSpacing" msgpack:"tickSpacing"`
+	// Type is the optional tick type; empty means linear.
+	Type *TickType `json:"type,omitempty" msgpack:"type,omitempty"`
 }
 
 func (a consoleAxis) axis() Axis {
@@ -45,11 +53,17 @@ func (a consoleAxis) axis() Axis {
 
 // consoleAxes mirrors Axes as Console-written files serialize it.
 type consoleAxes struct {
+	// X1 is the primary x-axis configuration.
 	X1 consoleAxis `json:"x1" msgpack:"x1"`
+	// X2 is the secondary x-axis configuration.
 	X2 consoleAxis `json:"x2" msgpack:"x2"`
+	// Y1 is the first y-axis configuration.
 	Y1 consoleAxis `json:"y1" msgpack:"y1"`
+	// Y2 is the second y-axis configuration.
 	Y2 consoleAxis `json:"y2" msgpack:"y2"`
+	// Y3 is the third y-axis configuration.
 	Y3 consoleAxis `json:"y3" msgpack:"y3"`
+	// Y4 is the fourth y-axis configuration.
 	Y4 consoleAxis `json:"y4" msgpack:"y4"`
 }
 
@@ -62,12 +76,18 @@ func (a consoleAxes) axes() Axes {
 
 // consoleLine mirrors Line as Console-written files serialize it.
 type consoleLine struct {
-	Key            string         `json:"key"             msgpack:"key"`
-	Label          *string        `json:"label,omitempty" msgpack:"label,omitempty"`
-	Color          *color.Color   `json:"color,omitempty" msgpack:"color,omitempty"`
-	StrokeWidth    float64        `json:"strokeWidth"     msgpack:"strokeWidth"`
-	Downsample     uint32         `json:"downsample"      msgpack:"downsample"`
-	DownsampleMode DownsampleMode `json:"downsampleMode"  msgpack:"downsampleMode"`
+	// Key is the line's unique key.
+	Key string `json:"key" msgpack:"key"`
+	// Label overrides the derived line label; absent derives it.
+	Label *string `json:"label,omitempty" msgpack:"label,omitempty"`
+	// Color is the line color.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// StrokeWidth is the line width in pixels.
+	StrokeWidth float64 `json:"strokeWidth" msgpack:"strokeWidth"`
+	// Downsample is the downsampling factor.
+	Downsample uint32 `json:"downsample" msgpack:"downsample"`
+	// DownsampleMode selects the downsampling strategy.
+	DownsampleMode DownsampleMode `json:"downsampleMode" msgpack:"downsampleMode"`
 }
 
 func (l consoleLine) line() Line {
@@ -79,14 +99,22 @@ func (l consoleLine) line() Line {
 
 // consoleRule mirrors Rule as Console-written files serialize it.
 type consoleRule struct {
-	Key       string       `json:"key"             msgpack:"key"`
-	Label     string       `json:"label"           msgpack:"label"`
-	Color     *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	Axis      AxisKey      `json:"axis"            msgpack:"axis"`
-	LineWidth float64      `json:"lineWidth"       msgpack:"lineWidth"`
-	LineDash  float64      `json:"lineDash"        msgpack:"lineDash"`
-	Units     string       `json:"units"           msgpack:"units"`
-	Position  float64      `json:"position"        msgpack:"position"`
+	// Key is the rule's unique key.
+	Key string `json:"key" msgpack:"key"`
+	// Label is the rule label text.
+	Label string `json:"label" msgpack:"label"`
+	// Color is the rule line color.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Axis is the key of the axis the rule is bound to.
+	Axis AxisKey `json:"axis" msgpack:"axis"`
+	// LineWidth is the rule line width in pixels.
+	LineWidth float64 `json:"lineWidth" msgpack:"lineWidth"`
+	// LineDash is the rule dash spacing.
+	LineDash float64 `json:"lineDash" msgpack:"lineDash"`
+	// Units is the unit label displayed with the position.
+	Units string `json:"units" msgpack:"units"`
+	// Position is the rule position in axis units.
+	Position float64 `json:"position" msgpack:"position"`
 }
 
 func (r consoleRule) rule() Rule {
@@ -100,13 +128,20 @@ func (r consoleRule) rule() Rule {
 // consoleDocument mirrors the typed LinePlot body fields as Console-written
 // files serialize them at the typed export's top level.
 type consoleDocument struct {
-	Title    Title         `json:"title"    msgpack:"title"`
-	Legend   Legend        `json:"legend"   msgpack:"legend"`
-	Channels Channels      `json:"channels" msgpack:"channels"`
-	Ranges   Ranges        `json:"ranges"   msgpack:"ranges"`
-	Axes     consoleAxes   `json:"axes"     msgpack:"axes"`
-	Lines    []consoleLine `json:"lines"    msgpack:"lines"`
-	Rules    []consoleRule `json:"rules"    msgpack:"rules"`
+	// Title is the plot title configuration.
+	Title Title `json:"title" msgpack:"title"`
+	// Legend is the plot legend configuration.
+	Legend Legend `json:"legend" msgpack:"legend"`
+	// Channels binds channel keys to each axis.
+	Channels Channels `json:"channels" msgpack:"channels"`
+	// Ranges binds range keys to each x-axis.
+	Ranges Ranges `json:"ranges" msgpack:"ranges"`
+	// Axes is the per-axis configuration container.
+	Axes consoleAxes `json:"axes" msgpack:"axes"`
+	// Lines are the per-line styling configurations.
+	Lines []consoleLine `json:"lines" msgpack:"lines"`
+	// Rules are the annotation-line configurations.
+	Rules []consoleRule `json:"rules" msgpack:"rules"`
 }
 
 // linePlot lifts the Console document into the current LinePlot shape.

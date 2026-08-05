@@ -26,8 +26,10 @@ const Version imex.Version = 1
 // persisted through the types/v0 gorp blob without bumping the wire-format version, so
 // v1 captures it here for round-trip fidelity.
 type TimestampConfig struct {
+	// Format is the timestamp display format.
 	Format telem.TimestampFormat `json:"format"`
-	Tz     telem.TimeZone        `json:"tz"`
+	// Tz is the timestamp display time zone.
+	Tz telem.TimeZone `json:"tz"`
 }
 
 // ChannelEntry is a channel reference with display configuration. Color is the raw
@@ -37,23 +39,34 @@ type TimestampConfig struct {
 // format, timezone) are named string types that accept any string on decode; the lift
 // substitutes defaults for values outside their closed sets.
 type ChannelEntry struct {
-	Channel   channel.Key       `json:"channel"`
-	Color     string            `json:"color"`
-	Notation  notation.Notation `json:"notation"`
-	Precision int32             `json:"precision"`
-	Alias     string            `json:"alias"`
-	Timestamp TimestampConfig   `json:"timestamp"`
+	// Channel is the key of the channel this entry displays.
+	Channel channel.Key `json:"channel"`
+	// Color is the raw hex color string; empty for none.
+	Color string `json:"color"`
+	// Notation is the numeric display notation.
+	Notation notation.Notation `json:"notation"`
+	// Precision is the number of decimal places displayed.
+	Precision int32 `json:"precision"`
+	// Alias overrides the channel name; empty for none.
+	Alias string `json:"alias"`
+	// Timestamp is the timestamp display configuration.
+	Timestamp TimestampConfig `json:"timestamp"`
 }
 
 // Data is the frozen type for log data at version 1. Channels are stored as config
 // entries with display options. Key, Name, Type, and Version are envelope-level fields
 // and are not part of Data.
 type Data struct {
-	Channels             []ChannelEntry `json:"channels"`
-	RemoteCreated        bool           `json:"remoteCreated"`
-	TimestampPrecision   int32          `json:"timestampPrecision"`
-	ShowChannelNames     bool           `json:"showChannelNames"`
-	ShowReceiptTimestamp bool           `json:"showReceiptTimestamp"`
+	// Channels are the displayed channels with display options.
+	Channels []ChannelEntry `json:"channels"`
+	// RemoteCreated is UI-only sync bookkeeping; dropped on lift.
+	RemoteCreated bool `json:"remoteCreated"`
+	// TimestampPrecision is the timestamp display precision.
+	TimestampPrecision int32 `json:"timestampPrecision"`
+	// ShowChannelNames toggles channel name display.
+	ShowChannelNames bool `json:"showChannelNames"`
+	// ShowReceiptTimestamp toggles receipt timestamp display.
+	ShowReceiptTimestamp bool `json:"showReceiptTimestamp"`
 }
 
 // Normalize replaces every per-channel enum that fails its Validate with the standard

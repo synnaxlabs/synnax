@@ -27,14 +27,23 @@ import (
 // camelCase keys, recursing through elem, constraint, and function params.
 // Frozen; Console files no longer evolve.
 type consoleType struct {
-	Inputs        consoleParams         `json:"inputs"        msgpack:"inputs"`
-	Outputs       consoleParams         `json:"outputs"       msgpack:"outputs"`
-	Config        consoleParams         `json:"config"        msgpack:"config"`
-	Kind          typesv0.Kind          `json:"kind"          msgpack:"kind"`
-	Name          string                `json:"name"          msgpack:"name"`
-	Elem          *consoleType          `json:"elem"          msgpack:"elem"`
-	Unit          *typesv0.Unit         `json:"unit"          msgpack:"unit"`
-	Constraint    *consoleType          `json:"constraint"    msgpack:"constraint"`
+	// Inputs are the input params.
+	Inputs consoleParams `json:"inputs" msgpack:"inputs"`
+	// Outputs are the output params.
+	Outputs consoleParams `json:"outputs" msgpack:"outputs"`
+	// Config is the config params.
+	Config consoleParams `json:"config" msgpack:"config"`
+	// Kind is the type kind.
+	Kind typesv0.Kind `json:"kind" msgpack:"kind"`
+	// Name is the type name.
+	Name string `json:"name" msgpack:"name"`
+	// Elem is the element type for containers; nil otherwise.
+	Elem *consoleType `json:"elem" msgpack:"elem"`
+	// Unit is the optional physical unit.
+	Unit *typesv0.Unit `json:"unit" msgpack:"unit"`
+	// Constraint is the optional type constraint.
+	Constraint *consoleType `json:"constraint" msgpack:"constraint"`
+	// ChanDirection is the channel direction for channel kinds.
 	ChanDirection typesv0.ChanDirection `json:"chanDirection" msgpack:"chanDirection"`
 }
 
@@ -58,9 +67,12 @@ func (t consoleType) lift() typesv0.Type {
 
 // consoleParam mirrors typesv0.Param as Console-written files serialize it.
 type consoleParam struct {
-	Name  string      `json:"name"  msgpack:"name"`
-	Type  consoleType `json:"type"  msgpack:"type"`
-	Value any         `json:"value" msgpack:"value"`
+	// Name is the param name.
+	Name string `json:"name" msgpack:"name"`
+	// Type is the param type.
+	Type consoleType `json:"type" msgpack:"type"`
+	// Value is the configured param value.
+	Value any `json:"value" msgpack:"value"`
 }
 
 type consoleParams []consoleParam
@@ -73,11 +85,17 @@ func (p consoleParams) lift() typesv0.Params {
 
 // consoleFunction mirrors irv0.Function as Console-written files serialize it.
 type consoleFunction struct {
-	Key      string           `json:"key"      msgpack:"key"`
-	Body     irv0.Body        `json:"body"     msgpack:"body"`
-	Config   consoleParams    `json:"config"   msgpack:"config"`
-	Inputs   consoleParams    `json:"inputs"   msgpack:"inputs"`
-	Outputs  consoleParams    `json:"outputs"  msgpack:"outputs"`
+	// Key is the function's unique key.
+	Key string `json:"key" msgpack:"key"`
+	// Body is the function body.
+	Body irv0.Body `json:"body" msgpack:"body"`
+	// Config is the config params.
+	Config consoleParams `json:"config" msgpack:"config"`
+	// Inputs are the input params.
+	Inputs consoleParams `json:"inputs" msgpack:"inputs"`
+	// Outputs are the output params.
+	Outputs consoleParams `json:"outputs" msgpack:"outputs"`
+	// Channels are the channels the function reads and writes.
 	Channels typesv0.Channels `json:"channels" msgpack:"channels"`
 }
 
@@ -91,10 +109,14 @@ func (f consoleFunction) lift() irv0.Function {
 // consoleGraph mirrors graphv0.Graph, the pre-lift shape Console files carry:
 // keyless edges and per-node config records that MigrateGraph folds into Inputs.
 type consoleGraph struct {
-	Viewport  graphv0.Viewport  `json:"viewport"  msgpack:"viewport"`
+	// Viewport is the editor viewport.
+	Viewport graphv0.Viewport `json:"viewport" msgpack:"viewport"`
+	// Functions are the graph's functions.
 	Functions []consoleFunction `json:"functions" msgpack:"functions"`
-	Edges     irv0.Edges        `json:"edges"     msgpack:"edges"`
-	Nodes     graphv0.Nodes     `json:"nodes"     msgpack:"nodes"`
+	// Edges are the graph edges.
+	Edges irv0.Edges `json:"edges" msgpack:"edges"`
+	// Nodes are the graph nodes.
+	Nodes graphv0.Nodes `json:"nodes" msgpack:"nodes"`
 }
 
 func (g consoleGraph) lift() graphv0.Graph {
@@ -110,9 +132,12 @@ func (g consoleGraph) lift() graphv0.Graph {
 
 // consoleTyped mirrors the typed Arc export written by the Console.
 type consoleTyped struct {
-	Mode  Mode         `json:"mode"  msgpack:"mode"`
+	// Mode is the raw mode string ("graph" or "text").
+	Mode Mode `json:"mode" msgpack:"mode"`
+	// Graph is the graph-mode document.
 	Graph consoleGraph `json:"graph" msgpack:"graph"`
-	Text  text.Text    `json:"text"  msgpack:"text"`
+	// Text is the text-mode document.
+	Text text.Text `json:"text" msgpack:"text"`
 }
 
 // DecodeImport materializes the envelope's body as a current-version Arc. Envelopes

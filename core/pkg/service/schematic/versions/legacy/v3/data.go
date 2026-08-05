@@ -26,8 +26,10 @@ const Version imex.Version = 3
 
 // Segment is one orthogonal hop on an edge connector path.
 type Segment struct {
-	Direction string  `json:"direction"`
-	Length    float64 `json:"length"`
+	// Direction is the hop direction.
+	Direction string `json:"direction"`
+	// Length is the hop length in pixels.
+	Length float64 `json:"length"`
 }
 
 // Edge is the wire shape of a schematic edge at version 3.0.0. Inherits the flat
@@ -36,29 +38,50 @@ type Segment struct {
 // migration reads segments, color, and variant out of either location and lifts them
 // into the props map.
 type Edge struct {
-	Key          string          `json:"key"`
-	Source       string          `json:"source"`
-	Target       string          `json:"target"`
-	SourceHandle *string         `json:"sourceHandle,omitempty"`
-	TargetHandle *string         `json:"targetHandle,omitempty"`
-	Segments     []Segment       `json:"segments,omitempty"`
-	Data         json.RawMessage `json:"data,omitempty"`
+	// Key is the edge's unique key.
+	Key string `json:"key"`
+	// Source is the source node key.
+	Source string `json:"source"`
+	// Target is the target node key.
+	Target string `json:"target"`
+	// SourceHandle is the optional source handle identifier.
+	SourceHandle *string `json:"sourceHandle,omitempty"`
+	// TargetHandle is the optional target handle identifier.
+	TargetHandle *string `json:"targetHandle,omitempty"`
+	// Segments is the orthogonal connector path; empty for direct.
+	Segments []Segment `json:"segments,omitempty"`
+	// Data is ReactFlow's opaque per-edge data bag.
+	Data json.RawMessage `json:"data,omitempty"`
 }
 
 // Data is the persisted per-schematic state at version 3.0.0.
 type Data struct {
-	Version         imex.Version               `json:"version"`
-	Editable        bool                       `json:"editable"`
-	FitViewOnResize bool                       `json:"fitViewOnResize"`
-	Snapshot        bool                       `json:"snapshot"`
-	RemoteCreated   bool                       `json:"remoteCreated"`
-	Viewport        v0.Viewport                `json:"viewport"`
-	Nodes           []v0.Node                  `json:"nodes"`
-	Edges           []Edge                     `json:"edges"`
-	Props           map[string]json.RawMessage `json:"props"`
-	Control         string                     `json:"control"`
-	Legend          v1.Legend                  `json:"legend"`
-	Key             string                     `json:"key"`
-	Type            string                     `json:"type"`
-	ViewportMode    string                     `json:"viewportMode"`
+	// Version is the version stamped inside the blob.
+	Version imex.Version `json:"version"`
+	// Editable is UI-only edit-mode state; dropped on lift.
+	Editable bool `json:"editable"`
+	// FitViewOnResize is UI-only viewport behavior; dropped on lift.
+	FitViewOnResize bool `json:"fitViewOnResize"`
+	// Snapshot marks the schematic as a range snapshot.
+	Snapshot bool `json:"snapshot"`
+	// RemoteCreated is UI-only sync bookkeeping; dropped on lift.
+	RemoteCreated bool `json:"remoteCreated"`
+	// Viewport is the editor viewport position and zoom.
+	Viewport v0.Viewport `json:"viewport"`
+	// Nodes are the schematic nodes.
+	Nodes []v0.Node `json:"nodes"`
+	// Edges are the schematic edges.
+	Edges []Edge `json:"edges"`
+	// Props holds per-symbol configuration keyed by node key.
+	Props map[string]json.RawMessage `json:"props"`
+	// Control is UI-only control-mode state; dropped on lift.
+	Control string `json:"control"`
+	// Legend is the control legend overlay configuration.
+	Legend v1.Legend `json:"legend"`
+	// Key is the Console-local schematic key.
+	Key string `json:"key"`
+	// Type is the literal "schematic" type marker.
+	Type string `json:"type"`
+	// ViewportMode is UI-only viewport interaction mode; dropped on lift.
+	ViewportMode string `json:"viewportMode"`
 }

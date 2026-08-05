@@ -22,19 +22,26 @@ import (
 // consoleNode mirrors Node as Console-written files serialize it: camelCase
 // keys. Frozen; Console files no longer evolve.
 type consoleNode struct {
-	Key      string     `json:"key"      msgpack:"key"`
+	// Key is the node's unique key.
+	Key string `json:"key" msgpack:"key"`
+	// Position is the node position on the canvas.
 	Position spatial.XY `json:"position" msgpack:"position"`
-	ZIndex   int16      `json:"zIndex"   msgpack:"zIndex"`
+	// ZIndex is the node stacking order.
+	ZIndex int16 `json:"zIndex" msgpack:"zIndex"`
 }
 
 // consoleDocument mirrors the typed Schematic body fields as Console-written
 // files serialize them at the typed export's top level. Configs values are
 // opaque user JSON and pass through as-is.
 type consoleDocument struct {
-	Snapshot bool                           `json:"snapshot" msgpack:"snapshot"`
-	Nodes    []consoleNode                  `json:"nodes"    msgpack:"nodes"`
-	Edges    []Edge                         `json:"edges"    msgpack:"edges"`
-	Configs  map[string]msgpack.EncodedJSON `json:"configs"  msgpack:"configs"`
+	// Snapshot marks the schematic as a range snapshot.
+	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
+	// Nodes are the schematic nodes.
+	Nodes []consoleNode `json:"nodes" msgpack:"nodes"`
+	// Edges are the schematic edges.
+	Edges []Edge `json:"edges" msgpack:"edges"`
+	// Configs holds per-symbol configuration keyed by node key.
+	Configs map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
 }
 
 // schematic lifts the Console document into the current Schematic shape.

@@ -25,35 +25,49 @@ const Version imex.Version = 0
 // Data is the wire shape of a Console arc state at version 0.0.0. Mode is the raw
 // wire string ("graph" or "text"); the importer converts it to the typed enum.
 type Data struct {
-	Graph Graph  `json:"graph"`
-	Text  Text   `json:"text"`
-	Mode  string `json:"mode"`
+	// Graph is the graph-mode program body.
+	Graph Graph `json:"graph"`
+	// Text is the text-mode program body.
+	Text Text `json:"text"`
+	// Mode selects graph or text mode.
+	Mode string `json:"mode"`
 }
 
 // Text is the raw text-mode program body.
 type Text struct {
+	// Raw is the raw program source.
 	Raw string `json:"raw"`
 }
 
 // Graph is the graph-mode program body: nodes, edges, and per-node props.
 type Graph struct {
-	Nodes []Node                    `json:"nodes"`
-	Edges []Edge                    `json:"edges"`
+	// Nodes are the graph nodes.
+	Nodes []Node `json:"nodes"`
+	// Edges are the graph edges.
+	Edges []Edge `json:"edges"`
+	// Props holds per-node function props keyed by node key.
 	Props map[string]map[string]any `json:"props"`
 }
 
 // Node is the wire shape of a graph node.
 type Node struct {
-	Key      string     `json:"key"`
+	// Key is the node's unique key.
+	Key string `json:"key"`
+	// Position is the node position on the canvas.
 	Position spatial.XY `json:"position"`
 }
 
 // Edge is the v0 edge form: ReactFlow's node-key strings with optional sibling
 // handle fields.
 type Edge struct {
-	Key          string  `json:"key"`
-	Source       string  `json:"source"`
-	Target       string  `json:"target"`
+	// Key is the edge's unique key.
+	Key string `json:"key"`
+	// Source is the source node key.
+	Source string `json:"source"`
+	// Target is the target node key.
+	Target string `json:"target"`
+	// SourceHandle is the optional source param name.
 	SourceHandle *string `json:"sourceHandle"`
+	// TargetHandle is the optional target param name.
 	TargetHandle *string `json:"targetHandle"`
 }

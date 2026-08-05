@@ -25,21 +25,30 @@ const Version imex.Version = 1
 
 // Data is the wire shape of a Console arc state at version 1.0.0.
 type Data struct {
-	Graph Graph   `json:"graph"`
-	Text  v0.Text `json:"text"`
-	Mode  string  `json:"mode"`
+	// Graph is the graph-mode program body.
+	Graph Graph `json:"graph"`
+	// Text is the text-mode program body.
+	Text v0.Text `json:"text"`
+	// Mode selects graph or text mode.
+	Mode string `json:"mode"`
 }
 
 // Graph is the graph-mode program body with v1's nested-handle edges.
 type Graph struct {
-	Nodes []v0.Node                 `json:"nodes"`
-	Edges []Edge                    `json:"edges"`
+	// Nodes are the graph nodes.
+	Nodes []v0.Node `json:"nodes"`
+	// Edges are the graph edges.
+	Edges []Edge `json:"edges"`
+	// Props holds per-node function props keyed by node key.
 	Props map[string]map[string]any `json:"props"`
 }
 
 // Edge is the v1 edge form with nested Handle objects.
 type Edge struct {
-	Key    string    `json:"key"`
+	// Key is the edge's unique key.
+	Key string `json:"key"`
+	// Source is the source handle (node and param).
 	Source ir.Handle `json:"source"`
+	// Target is the target handle (node and param).
 	Target ir.Handle `json:"target"`
 }

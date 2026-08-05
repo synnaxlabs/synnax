@@ -23,6 +23,8 @@ const Version imex.Version = 0
 // channel keys. Key, Name, Type, and Version are envelope-level fields and are not part
 // of Data.
 type Data struct {
-	Channels      []channel.Key `json:"channels"`
-	RemoteCreated bool          `json:"remoteCreated"`
+	// Channels are the keys of the channels the log displays.
+	Channels []channel.Key `json:"channels"`
+	// RemoteCreated is UI-only sync bookkeeping; dropped on lift.
+	RemoteCreated bool `json:"remoteCreated"`
 }

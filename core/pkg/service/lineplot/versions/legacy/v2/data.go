@@ -27,43 +27,70 @@ const Version imex.Version = 2
 // decode) means the default (linear). Legacy JSON blobs that store "type": null or omit
 // the field both decode to "".
 type Axis struct {
-	Key            string        `json:"key"`
-	Label          string        `json:"label"`
-	LabelDirection string        `json:"labelDirection"`
-	LabelLevel     string        `json:"labelLevel"`
-	Bounds         v0.Bounds     `json:"bounds"`
-	AutoBounds     v0.AutoBounds `json:"autoBounds"`
-	TickSpacing    float64       `json:"tickSpacing"`
-	Type           string        `json:"type,omitempty"`
+	// Key identifies the axis (e.g. "x1", "y1").
+	Key string `json:"key"`
+	// Label is the axis label text.
+	Label string `json:"label"`
+	// LabelDirection is the label orientation.
+	LabelDirection string `json:"labelDirection"`
+	// LabelLevel is the typography level of the label.
+	LabelLevel string `json:"labelLevel"`
+	// Bounds are the manual axis bounds.
+	Bounds v0.Bounds `json:"bounds"`
+	// AutoBounds reports which bounds derive from data.
+	AutoBounds v0.AutoBounds `json:"autoBounds"`
+	// TickSpacing is the spacing between axis ticks in pixels.
+	TickSpacing float64 `json:"tickSpacing"`
+	// Type is the optional tick type; empty means linear.
+	Type string `json:"type,omitempty"`
 }
 
 // Axes bundles every axis configuration at v2.
 type Axes struct {
+	// X1 is the primary x-axis configuration.
 	X1 Axis `json:"x1"`
+	// X2 is the secondary x-axis configuration.
 	X2 Axis `json:"x2"`
+	// Y1 is the first y-axis configuration.
 	Y1 Axis `json:"y1"`
+	// Y2 is the second y-axis configuration.
 	Y2 Axis `json:"y2"`
+	// Y3 is the third y-axis configuration.
 	Y3 Axis `json:"y3"`
+	// Y4 is the fourth y-axis configuration.
 	Y4 Axis `json:"y4"`
 }
 
 // AxesContainer mirrors the console's AxesState wrapper.
 type AxesContainer struct {
-	RenderTrigger    int  `json:"renderTrigger"`
+	// RenderTrigger is UI-only render bookkeeping; dropped on lift.
+	RenderTrigger int `json:"renderTrigger"`
+	// HasHadChannelSet is UI-only bookkeeping; dropped on lift.
 	HasHadChannelSet bool `json:"hasHadChannelSet"`
-	Axes             Axes `json:"axes"`
+	// Axes bundles every axis configuration.
+	Axes Axes `json:"axes"`
 }
 
 // Data is the wire shape of a per-plot line plot state at v2.0.0.
 type Data struct {
-	Version       imex.Version  `json:"version"`
-	Key           string        `json:"key"`
-	RemoteCreated bool          `json:"remoteCreated"`
-	Title         v0.Title      `json:"title"`
-	Legend        v1.Legend     `json:"legend"`
-	Channels      v0.Channels   `json:"channels"`
-	Ranges        v0.Ranges     `json:"ranges"`
-	Axes          AxesContainer `json:"axes"`
-	Lines         []v0.Line     `json:"lines"`
-	Rules         []v0.Rule     `json:"rules"`
+	// Version is the version stamped inside the blob.
+	Version imex.Version `json:"version"`
+	// Key is the Console-local plot key.
+	Key string `json:"key"`
+	// RemoteCreated is UI-only sync bookkeeping; dropped on lift.
+	RemoteCreated bool `json:"remoteCreated"`
+	// Title is the plot title configuration.
+	Title v0.Title `json:"title"`
+	// Legend is the plot legend configuration.
+	Legend v1.Legend `json:"legend"`
+	// Channels binds channel keys to each axis.
+	Channels v0.Channels `json:"channels"`
+	// Ranges binds range keys to each x-axis.
+	Ranges v0.Ranges `json:"ranges"`
+	// Axes is the per-axis configuration container.
+	Axes AxesContainer `json:"axes"`
+	// Lines are the per-line styling configurations.
+	Lines []v0.Line `json:"lines"`
+	// Rules are the annotation-line configurations.
+	Rules []v0.Rule `json:"rules"`
 }
