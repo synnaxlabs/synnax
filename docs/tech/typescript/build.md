@@ -1,19 +1,19 @@
-# The Synnax front end build system - pnpm and Turbo Repo
+# The Synnax front end build system - pnpm and Turborepo
 
 ## 0 How the build system works
 
 Synnax is organized as a monorepo. Our front end software consists of five different
 libraries:
 
-- `@synnaxlabs/x` - path `x/ts` - Common utilities and types used by all other packages.
-- `@synnaxlabs/media` - path `x/media` - Synnax specific media, including logos and
-  icons - smallest library.
-- `@synnaxlabs/freighter` - path `freighter/ts` - A transport adapter protocol for
+- `@synnaxlabs/x` (`x/ts`): Common utilities and types used by all other packages.
+- `@synnaxlabs/media` (`x/media`): Synnax specific media, including logos and icons. The
+  smallest library.
+- `@synnaxlabs/freighter` (`freighter/ts`): A transport adapter protocol for
   communicating with Synnax server.
-- `@synnaxlabs/client` - path `client/ts` - The client library for communicating with a
-  Synnax cluster.
-- `@synnaxlabs/pluto` - path `pluto` - The Synnax component library.
-- `@synnaxlabs/drift` - path `drift` - A cross window state synchronization library for
+- `@synnaxlabs/client` (`client/ts`): The client library for communicating with a Synnax
+  cluster.
+- `@synnaxlabs/pluto` (`pluto`): The Synnax component library.
+- `@synnaxlabs/drift` (`drift`): A cross window state synchronization library for
   [Tauri](https://tauri.studio/).
 
 We have two main applications:
@@ -65,7 +65,7 @@ team and handled with care.
 As we'll see in a moment, we also use `pnpm` to run the commands that build packages,
 run tests, and start development servers.
 
-## 2 Turbo Repo
+## 2 Turborepo
 
 If we refer back to the dependency graph above, we can see that `@synnaxlabs/console`
 depends on `@synnaxlabs/pluto` and `@synnaxlabs/pluto` depends on `@synnaxlabs/x` and

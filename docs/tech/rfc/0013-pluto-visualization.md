@@ -314,4 +314,4 @@ remain in the same position with respect to the screen.
 Storing a stateful value in value space should be used when an entity should remain in
 the same position with respect to the data.
 
-Measure - store the value in decimal space.
+Measure: store the value in decimal space.

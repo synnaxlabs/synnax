@@ -340,8 +340,8 @@ Exactly one listener is **advertised**:
 
 1. **Scalar `listen`** or **a list with no `advertise: true`**: the sole (or first)
    listener.
-2. **A list with one `advertise: true`**: that listener.
-3. **A list with more than one `advertise: true`**: startup error.
+2. **A list with one `advertise: true`**: That listener.
+3. **A list with more than one `advertise: true`**: Startup error.
 
 Defaulting to the first keeps the simple case terse; erroring on multiple prevents a
 misconfiguration that could split the cluster by advertising an unreachable listener.
@@ -406,17 +406,17 @@ migration.
 
 Staged so the first phase is a pure refactor.
 
-**Phase 1 - Listener abstraction (no new behavior).** Introduce the listener above
+**Phase 1: Listener abstraction (no new behavior).** Introduce the listener above
 `Branch`; refactor `Server.start` to loop over a listener set, each with its own
 `net.Listen`, `cmux` tree, and `*tls.Config`. Extract the `cert.Source` interface,
 backed by `file` and `auto` sources factored out of `secureProvider`. `--listen` builds
 one default listener; single-listener deployments are unchanged.
 
-**Phase 2 - Multi-listener configuration.** Add the polymorphic `listen` parsing,
+**Phase 2: Multi-listener configuration.** Add the polymorphic `listen` parsing,
 per-listener `cert` blocks, the `advertise` marker and its resolution, and startup
 validation (§5). Route the advertised address into the cluster join config.
 
-**Phase 3 - Tailscale source and `file` hot-reload.** Add the `tailscale` source and
+**Phase 3: Tailscale source and `file` hot-reload.** Add the `tailscale` source and
 `file` hot-reload (§4.1). The `file` source loads once in Phases 1 and 2, matching
 today; live swapping is a deliberate behavior change and lands only here. Completes the
 motivating requirement.

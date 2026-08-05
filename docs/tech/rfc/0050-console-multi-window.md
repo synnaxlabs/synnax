@@ -184,14 +184,14 @@ hook, and the move-to-new-window menu flow.
 
 ## 7 What this RFC does not cover
 
-- **Per-monitor assignment.** Perspective-style "this display always shows this page" is
+- **Per-monitor assignment**: Perspective-style "this display always shows this page" is
   a configuration model on top of this one; window arrangement persisting per project is
   as far as we go.
-- **Detaching a single tab into a chrome-less window.** Every window is a panel
+- **Detaching a single tab into a chrome-less window**: Every window is a panel
   viewport.
-- **Cross-project windows.** A window shows a panel of the active project; project
+- **Cross-project windows**: A window shows a panel of the active project; project
   switch swaps every window's context through the scoped persistence swap (RFC 0048).
-- **Undo across a cross-panel move.** See open questions.
+- **Undo across a cross-panel move**: See open questions.
 
 ## 8 Resolved decisions
 

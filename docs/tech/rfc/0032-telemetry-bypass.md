@@ -909,13 +909,13 @@ These isolate the cost of telem data operations with zero threading or bus overh
 
 Key observations:
 
-- **`deep_copy` is `memcpy`-dominated.** Cost scales linearly with data size. At 480 kB
+- **`deep_copy` is `memcpy`-dominated**: Cost scales linearly with data size. At 480 kB
   (large acquisition frame), a single `deep_copy` costs ~13 µs.
 - **`move` is constant time** regardless of data size (~1 µs, dominated by `unique_ptr`
   transfer and `PauseTiming` overhead in the benchmark harness).
-- **Frame construction cost equals `deep_copy` cost.** Both allocate heap storage and
+- **Frame construction cost equals `deep_copy` cost**: Both allocate heap storage and
   `memcpy` data. There is no "free" way to build a frame.
-- **Frame iteration is negligible.** 13 ns for 30 channels. The iteration overhead in
+- **Frame iteration is negligible**: 13 ns for 30 channels. The iteration overhead in
   `publish()` and `filter()` is not a bottleneck.
 
 ### 5.1 Bus component operations
@@ -943,18 +943,18 @@ Cross-thread subscription (`large_acq`): 3,424 ns CPU / 14,804 ns wall.
 
 Key observations:
 
-- **No subscribers publish is 11 ns constant.** The `routes.empty()` early exit under
+- **No subscribers publish is 11 ns constant**: The `routes.empty()` early exit under
   shared_lock is effectively free regardless of frame size.
-- **Publish with subscribers is dominated by `deep_copy`.** 12.9 µs for `large_acq`
+- **Publish with subscribers is dominated by `deep_copy`**: 12.9 µs for `large_acq`
   matches the 12.8 µs frame `deep_copy` from the primitives benchmark. The
   `shared_mutex`, hash map lookup, and `unordered_set` dedup add less than 200 ns
   combined.
-- **Subscriber scaling is linear in N.** Each additional subscriber adds one
+- **Subscriber scaling is linear in N**: Each additional subscriber adds one
   `deep_copy`. No surprise, but confirms no hidden overhead in the routing logic.
-- **Authority filter cost equals `deep_copy` when all channels pass.** The
+- **Authority filter cost equals `deep_copy` when all channels pass**: The
   `shared_lock` + hash map lookups add ~600 ns on top of the copy for small frames,
   negligible for large frames.
-- **Authority filter with no passing channels is 49-121 ns.** This is just the hash map
+- **Authority filter with no passing channels is 49-121 ns**: This is just the hash map
   lookup cost with no copies. Confirms that copies dominate.
 - **Cross-thread CV wake-up adds ~11 µs wall time** beyond the CPU cost. This is OS
   thread scheduling latency, not something we can optimize in the bus code.
@@ -997,10 +997,10 @@ since the subscriber already owns the frame exclusively.
 
 The fix adds a move overload `filter(Frame&&, Subject)` that:
 
-- **All pass (common case):** Returns the input frame by move. Zero copies.
-- **Partial pass:** Builds a new frame, moving (not copying) passing series from the
+- **All pass (common case)**: Returns the input frame by move. Zero copies.
+- **Partial pass**: Builds a new frame, moving (not copying) passing series from the
   input.
-- **None pass:** Returns empty. No copies.
+- **None pass**: Returns empty. No copies.
 
 `bus::Streamer::read()` now calls `filter(std::move(local), subject)` instead of
 `filter(local, subject)`.

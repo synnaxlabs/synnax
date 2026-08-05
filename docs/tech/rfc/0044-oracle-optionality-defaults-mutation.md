@@ -86,9 +86,9 @@ color color.Color?                // nullable; the renderer picks a color
 
 There are two kinds of default, one for each field shape.
 
-- **Static:** a fixed value on a required field, like `precision = 2`. It is stored as
+- **Static**: A fixed value on a required field, like `precision = 2`. It is stored as
   written and is the same in every language.
-- **Derived:** a nullable field whose value the consumer computes when needed. A cell's
+- **Derived**: A nullable field whose value the consumer computes when needed. A cell's
   text color is the clearest case: we store null and the renderer resolves it against
   the current theme, so switching from light to dark re-colors everything with no stored
   data to change. A derived default is not a new language feature; it is just what a
@@ -161,7 +161,7 @@ keep it.
   before saving. A nice result is that adding a field with a default needs no
   hand-written migration code: the migration leaves the field zero and default-filling
   handles it.
-- **Read:** the server decodes and returns. Since storage is already complete, filling
+- **Read**: The server decodes and returns. Since storage is already complete, filling
   defaults on the way out normally does nothing. It only acts on a record older than a
   field, during a rolling upgrade, where it supplies the default as a safety net. It
   never overwrites a present value, so a stored `precision` of `0` always reads back as

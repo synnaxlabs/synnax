@@ -195,20 +195,20 @@ inputs. Callers pass primitives, plain objects, and arrays. This matches what
 
 ## 4 What this RFC does not cover
 
-- **Atomic migration of existing call sites.** The substrate is additive. Consumers
+- **Atomic migration of existing call sites**: The substrate is additive. Consumers
   migrate per call site as the suspense-shaped read becomes a clear improvement;
   observable hooks remain available for mutation pending states and inline loading
   indicators.
-- **List API.** `createList` was not modified. A list-shaped suspended hook is a
+- **List API**: `createList` was not modified. A list-shaped suspended hook is a
   follow-up; the current `QueryCache` accommodates arbitrary query shapes, so it can be
   added without changing the cache contract.
-- **Mutations.** `createUpdate` is unchanged. Mutations continue to write through the
+- **Mutations**: `createUpdate` is unchanged. Mutations continue to write through the
   per-record store with the existing optimistic-update + rollback pattern. The suspended
   read path observes whatever the store currently holds via its `mountListeners` wiring.
-- **Cache eviction.** Entries live for the life of the client. No LRU, no TTL. If
+- **Cache eviction**: Entries live for the life of the client. No LRU, no TTL. If
   long-session memory growth becomes a problem, an eviction policy can be added behind
   the existing `cache.invalidate(hash)` method without touching the read API.
-- **Dev-mode boundary detection.** A consumer that calls `useRetrieveSuspended` without
+- **Dev-mode boundary detection**: A consumer that calls `useRetrieveSuspended` without
   a `<Suspense>` ancestor produces React's default suspended-without-boundary warning. A
   Synnax-specific dev warning that points at the `SuspenseBoundary` primitive is a
   follow-up.

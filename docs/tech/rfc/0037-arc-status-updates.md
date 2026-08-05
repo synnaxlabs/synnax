@@ -962,9 +962,9 @@ package, in `set.go` and `delete.go` respectively.
 ### 6.1 Implementation sequence
 
 1. Land the type-system prerequisites from §5.0:
-   - **5.0.0:** edit the schema in `/schemas/` to add `Optional bool` to `types.Param`,
+   - **5.0.0**: Edit the schema in `/schemas/` to add `Optional bool` to `types.Param`,
      run `oracle sync`, and confirm the regenerated `types.gen.go` compiles
-   - **5.0.1:** add `AllowedLiterals []string` to `types.Param` in the same schema pass;
+   - **5.0.1**: Add `AllowedLiterals []string` to `types.Param` in the same schema pass;
      extend `validateFunctionCall` in `arc/go/analyzer/expression.go` to check
      string-literal arguments against the slice when present (leaving non-literal
      arguments untouched); confirm analyzer errors surface as LSP diagnostics end-to-end
@@ -1075,16 +1075,16 @@ scalars.
 **What adding first-class records would require.** This is the cost line in the
 conclusion:
 
-- **Type system.** A new kind of type, with field names and field types known to the
+- **Type system**: A new kind of type, with field names and field types known to the
   analyzer.
-- **Literal syntax.** Some way to write a record value
+- **Literal syntax**: Some way to write a record value
   (`Status{name="...", message="..."}`). Parser and grammar work.
-- **Field access.** `my_status.message` has to typecheck and compile.
-- **WASM layout.** A record needs a memory representation: packed fields, pointer-boxed,
+- **Field access**: `my_status.message` has to typecheck and compile.
+- **WASM layout**: A record needs a memory representation: packed fields, pointer-boxed,
   garbage-collected. Each choice has runtime cost.
-- **Flow edges.** Today Flow channels carry scalars or series. Carrying a record means
+- **Flow edges**: Today Flow channels carry scalars or series. Carrying a record means
   edges typed by record schemas, with serialization across the host boundary.
-- **Mutability and equality.** Value-typed (copied) or reference-typed (shared)? Mutable
+- **Mutability and equality**: Value-typed (copied) or reference-typed (shared)? Mutable
   or immutable? Decisions that propagate through the entire compiler.
 
 A multi-week, RFC-sized undertaking. **Shapes 4 and 5** on Axis 1, and **Options C1, C2,

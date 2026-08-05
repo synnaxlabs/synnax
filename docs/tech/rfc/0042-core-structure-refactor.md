@@ -316,12 +316,12 @@ This RFC's resolved-field design is **deliberately minimal** — only the pieces
 to collapse the duplicate service/API types without introducing schema-level
 relationship management:
 
-- **In scope.** Each entity is a single Go type owned by its service. Fields that are
+- **In scope**: Each entity is a single Go type owned by its service. Fields that are
   not stored (`Labels`, `Parent`, `Status`) live on that type. Oracle is told, per
   field, that the field is not part of the storage codec, so `EncodeOrc`/`DecodeOrc`
   skip it. The API layer fills those fields after `Retrieve`, in hand-written handlers,
   gated by the existing `Include<Field>` flags.
-- **Out of scope.** A `.oracle` syntax for naming a resolution source (label service,
+- **Out of scope**: A `.oracle` syntax for naming a resolution source (label service,
   status service, ontology parent, cascading-delete semantics, etc.) and a generated
   batched resolver.
 
@@ -680,10 +680,10 @@ Import replaces RFC 0039's decode-to-`map[string]any` with a peek followed by a 
 typed decode. The flat wire shape `{version, type, name, ...fields}` (RFC 0039 §4.1) is
 retained. One `imex.Envelope` type serves both directions, with two private body shapes:
 
-- **Import:** `UnmarshalJSON` / `UnmarshalYAML` / `UnmarshalTOML` parse the wire shape,
+- **Import**: `UnmarshalJSON` / `UnmarshalYAML` / `UnmarshalTOML` parse the wire shape,
   peek `{Version, Type, Name}`, and store the codec and opaque raw bytes on the
   envelope. The typed body is materialized later, once, by `imex.Decode[T](env)`.
-- **Export:** `imex.Encode(data, version, type)` reduces `data` to a codec-independent
+- **Export**: `imex.Encode(data, version, type)` reduces `data` to a codec-independent
   `map[string]any`, merges in the headers, and returns the envelope. The `MarshalX`
   methods then re-encode that map in the requested codec.
 
@@ -1029,10 +1029,10 @@ may not exist until the first time a developer needs method-receiver syntax.
 **Non-trivial bumps require a hand-written `Migrate` body, with a uniform scaffold.**
 Two cases produce a `migrate.go` Oracle cannot fully synthesize:
 
-- **Tightened-constraint bumps.** The `vN → v(N+1)` diff includes a tighter `validate`
+- **Tightened-constraint bumps**: The `vN → v(N+1)` diff includes a tighter `validate`
   constraint (new or lowered `min`/`max`, narrowed enum, newly-required field). Stored
   records that passed the old constraint may not pass the new one.
-- **Non-passthrough auto-bumps.** A dep change in `current/` (§4.3.3) caused this
+- **Non-passthrough auto-bumps**: A dep change in `current/` (§4.3.3) caused this
   resource's codec to diverge from its prior frozen version, but the dep migration is
   not a pure delegation — e.g., the dep dropped a field this resource reads from the
   embedded value.
@@ -1146,11 +1146,11 @@ two snapshot folders.
 
 Sequenced so that the lowest-risk, dependency-unblocking work lands first.
 
-- **Phase 1a — Substrate relocation (§4.1).** Move `ontology`/`group`/`search`/`signals`
+- **Phase 1a: Substrate relocation (§4.1).** Move `ontology`/`group`/`search`/`signals`
   to the service layer, rewire the layer aggregates, codemod import paths. Mechanical,
   no behavior change. Unblocks Phase 4 (the service layer must hold `ontology`/`label`/
   `status` to resolve).
-- **Phase 1b — Channel split (§4.1.1).** Slim `distribution/channel` to key allocation +
+- **Phase 1b: Channel split (§4.1.1).** Slim `distribution/channel` to key allocation +
   Cesium lifecycle; move the channel metadata table, name validation,
   ontology/group/search/CDC, and calc inference to `service/channel`; re-source
   `framer`'s storage-shape reads from the storage layer; add `service/node`. Behavioral;
@@ -1161,7 +1161,7 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   with no metadata record. This matches the existing weakness in
   `lease_proxy.go::deleteGateway` and unblocks the phase without a full distributed
   transaction. A stronger atomicity contract is left to a follow-up — see §7.
-- **Phase 2 — `versions/vN/` layout + schema-source snapshots (§4.3, §4.6.0).**
+- **Phase 2: `versions/vN/` layout + schema-source snapshots (§4.3, §4.6.0).**
   _(Implemented on SY-4232, amended scope.)_ Per-resource `@go version N` in every
   storable schema; `schemas/.snapshots/` made visible as `schemas/snapshots/`; every
   resource with a keyed struct emits its current version into `versions/v<N>/` with a
@@ -1177,19 +1177,19 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   along with making the advisory Oracle CI check required), and stored-but-keyless
   packages with hand-computed composite Gorp keys (`ranger/alias`, `ranger/kv`), which
   keep root emission.
-- **Phase 3 — Peek import (§4.4).** Peek front door (the `imex.Envelope` peek already
+- **Phase 3: Peek import (§4.4).** Peek front door (the `imex.Envelope` peek already
   exists and `log` imports through it); generate `versions/decode.go` version dispatch
   and `versions/types.gen.go` selectors, port `log`'s hand-written switch onto them,
   register the remaining resources with imex, and move the Console off client-side Zod
   migration imports onto `/imex/import`.
-- **Phase 4 — Single-type collapse + storage-exclusion marker (§4.2, §4.6).** Add the
+- **Phase 4: Single-type collapse + storage-exclusion marker (§4.2, §4.6).** Add the
   per-field "skip from storage codec" marker to Oracle; mark `Labels`/`Parent`/`Status`
   on `range`/`task`/`device`/`rack`; drop the duplicate API types and serialize the
   service type directly. Existing hand-written API-layer resolvers keep their current
   shape and `Include<Field>` flags — no generator changes. Schema-driven resolution and
   the resolution-source syntax are deferred to the follow-up relationship-management RFC
   (§7).
-- **Phase 5 — Validation chokepoint (§4.5, §4.6).** Add a `Validate` method to every
+- **Phase 5: Validation chokepoint (§4.5, §4.6).** Add a `Validate` method to every
   entity type, call it at the Gorp write seam, and extend the Oracle `validate` domain
   (numeric bounds, enum variants). Migration write-back validates stored data through
   the same seam; any failure aborts boot with a structured error per §4.5.3 / §5.4 — no
@@ -1197,7 +1197,7 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
 
 ## 7 Open questions
 
-- **Resolution-source syntax and schema-driven resolution (follow-up RFC).** This RFC
+- **Resolution-source syntax and schema-driven resolution (follow-up RFC)**: This RFC
   commits only to the storage-exclusion marker (§4.6) and the single-type collapse
   (§4.2). The richer questions — naming the resolution source per field (label service
   vs. status service vs. ontology parent), expressing a self-referential
@@ -1210,7 +1210,7 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   here would constrain it prematurely. Until that RFC lands, resolvers stay hand-written
   in the API layer (§4.2.3) and the resolution-source field marker is whatever the
   storage-exclusion marker turns out to be.
-- **Cross-layer create atomicity.** Channel create now spans layers: distribution
+- **Cross-layer create atomicity**: Channel create now spans layers: distribution
   creates the Cesium storage, then service writes the metadata record. Phase 1b ships
   with an interim **storage-first, orphan-tolerant** contract (see §6, Phase 1b):
   metadata-write failure leaves Cesium storage orphaned and a startup sweep reclaims it
