@@ -254,6 +254,7 @@ const useStateful = <Query extends query.Params, Data extends query.Data>(
 const useObservableBase = <Query extends query.Params, Data extends query.Data>({
   retrieve,
   subscribe,
+  getCached,
   name,
   onChange,
   beforeRetrieve,
@@ -305,16 +306,27 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
         if (signal?.aborted) return;
         const params = { client, query };
         listeners.cleanup();
+        const mountListener = () => {
+          if (subscribe != null && queryRef.current === query)
+            listeners.set(
+              subscribe(params, (result) => handleCacheChange(result, query)),
+            );
+        };
+        // A record already known to be deleted is answered from its tombstone: the
+        // fetch could only fail, and deletion is a state, not a failure.
+        const cached = getCached?.(params);
+        if (Deleted.matches<Data>(cached)) {
+          mountListener();
+          handleCacheChange(cached, query);
+          return;
+        }
         const value = await retrieve(params);
         if (signal?.aborted) return;
         // Subscribing after the fetch keeps mount-time reads fresh: an
         // unsubscribed retrieve always refetches, a subscribed one is served
         // from the cache. A newer retrieve started while this one was in flight
         // is the one whose subscription stays mounted.
-        if (subscribe != null && queryRef.current === query)
-          listeners.set(
-            subscribe(params, (result) => handleCacheChange(result, query)),
-          );
+        mountListener();
         onChange(successResult<Data>(`retrieved ${name}`, value), query);
       } catch (error) {
         if (signal?.aborted) return;
@@ -325,7 +337,7 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
         onChange(res, query);
       }
     },
-    [client, name, beforeRetrieve, addStatusOnFailure, onChange],
+    [client, name, beforeRetrieve, addStatusOnFailure, onChange, handleCacheChange],
   );
   const retrieveSync = useCallback(
     (query: state.SetArg<Query, Partial<Query>>, options?: query.FetchOptions) =>

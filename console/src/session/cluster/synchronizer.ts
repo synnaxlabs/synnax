@@ -31,7 +31,7 @@ const repair = (
 
 // Adopts the cluster key the connection reports: connecting to a different
 // cluster at the same address, or the predefined local/demo clusters.
-const syncKey: Synchronizer.Synchronizer<StoreState, Action> = {
+const syncKey: Synchronizer.Callbacks<StoreState, Action> = {
   reconcile: ({ client, store }) => repair(store, client.connection.status),
   listen: ({ client, store }) =>
     client.connection.onChange((status) => repair(store, status)),
@@ -49,7 +49,7 @@ const discard = (
 
 // Torn-off windows and open modals hold resources from the cluster that is no
 // longer connected. Main window only: a closed window takes its modals with it.
-const useCloseOnClusterChange = (): Synchronizer.Synchronizer<
+const useCloseOnClusterChange = (): Synchronizer.Callbacks<
   Drift.StoreState,
   Drift.Action
 > => {
@@ -71,7 +71,7 @@ const useCloseOnClusterChange = (): Synchronizer.Synchronizer<
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<
   RequiredStoreState,
   RequiredAction
-> = {
-  useSyncClusterKey: () => syncKey,
-  useCloseOnClusterChange,
-};
+> = [
+  { name: "sync cluster key", use: () => syncKey },
+  { name: "close windows on cluster change", use: useCloseOnClusterChange },
+];

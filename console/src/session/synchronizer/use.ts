@@ -8,19 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { type Action } from "@reduxjs/toolkit";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "react-redux";
 
 import {
+  type Callbacks,
   type Params,
-  type Synchronizer,
   type Synchronizers,
 } from "@/session/synchronizer/create";
 
+interface Mounted<S, A extends Action> extends Callbacks<S, A> {
+  name: string;
+}
+
 /**
  * Mounts the given synchronizers in a single effect. Listeners mount before
- * the first reconcile; reconciles run sequentially in declaration order at
+ * the first reconcile; reconciles run sequentially in array order at
  * client-ready and on every epoch bump. Remounts only on client change.
  * @returns whether a full reconcile pass has completed since the last
  * return-to-cold: false until the first pass finishes, reset on client change
@@ -31,10 +35,12 @@ export const use = <S, A extends Action>(
 ): boolean => {
   const store = useStore<S, A>();
   const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   const [verified, setVerified] = useState(false);
-  const entries: [string, Synchronizer<S, A>][] = Object.entries(synchronizers).map(
-    ([key, useSynchronizer]) => [key, useSynchronizer()],
-  );
+  const entries: Mounted<S, A>[] = synchronizers.map(({ name, use }) => ({
+    name,
+    ...use(),
+  }));
   // Epoch-triggered reconciles read the ref so they always see the latest
   // hook closures.
   const entriesRef = useRef(entries);
@@ -47,19 +53,19 @@ export const use = <S, A extends Action>(
     // against a cluster the client no longer mirrors.
     let generation = 0;
     const destructors = entriesRef.current.flatMap(
-      ([, { listen }]) => listen?.(params) ?? [],
+      ({ listen }) => listen?.(params) ?? [],
     );
     const reconcile = (): void => {
       const gen = generation;
-      void (async () => {
-        for (const [key, synchronizer] of entriesRef.current)
+      handleError(async () => {
+        for (const synchronizer of entriesRef.current)
           try {
             await synchronizer.reconcile(params);
           } catch (err) {
-            console.error(`${key} reconcile failed`, err);
+            console.error(`${synchronizer.name} reconcile failed`, err);
           }
         if (gen === generation) setVerified(true);
-      })();
+      });
     };
     // The connection machine demands the change stream itself; the host only
     // reacts to the continuity epochs it publishes. Epoch 0 means cold: the

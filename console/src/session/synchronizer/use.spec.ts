@@ -25,20 +25,26 @@ describe("Synchronizer.use", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     renderHook(
       () =>
-        Synchronizer.use({
-          useFirst: () => ({
-            reconcile: async () => {
-              calls.push("first:start");
-              await gate;
-              calls.push("first:end");
-            },
-          }),
-          useSecond: () => ({
-            reconcile: () => {
-              calls.push("second");
-            },
-          }),
-        }),
+        Synchronizer.use([
+          {
+            name: "first",
+            use: () => ({
+              reconcile: async () => {
+                calls.push("first:start");
+                await gate;
+                calls.push("first:end");
+              },
+            }),
+          },
+          {
+            name: "second",
+            use: () => ({
+              reconcile: () => {
+                calls.push("second");
+              },
+            }),
+          },
+        ]),
       { wrapper },
     );
     await waitFor(() => expect(calls).toContain("first:start"));
@@ -55,25 +61,28 @@ describe("Synchronizer.use", () => {
       const { wrapper } = await createConsoleWrapper({ client });
       renderHook(
         () =>
-          Synchronizer.use({
-            useBroken: () => ({
-              reconcile: () => {
-                throw new Error("broken");
-              },
-            }),
-            useHealthy: () => ({
-              reconcile: () => {
-                calls.push("healthy");
-              },
-            }),
-          }),
+          Synchronizer.use([
+            {
+              name: "broken",
+              use: () => ({
+                reconcile: () => {
+                  throw new Error("broken");
+                },
+              }),
+            },
+            {
+              name: "healthy",
+              use: () => ({
+                reconcile: () => {
+                  calls.push("healthy");
+                },
+              }),
+            },
+          ]),
         { wrapper },
       );
       await waitFor(() => expect(calls).toContain("healthy"));
-      expect(error).toHaveBeenCalledWith(
-        "useBroken reconcile failed",
-        expect.any(Error),
-      );
+      expect(error).toHaveBeenCalledWith("broken reconcile failed", expect.any(Error));
     } finally {
       error.mockRestore();
     }
@@ -85,19 +94,22 @@ describe("Synchronizer.use", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     const { unmount } = renderHook(
       () =>
-        Synchronizer.use({
-          useListener: () => ({
-            reconcile: () => {
-              calls.push("reconcile");
-            },
-            listen: () => {
-              calls.push("listen");
-              return () => {
-                destroyed = true;
-              };
-            },
-          }),
-        }),
+        Synchronizer.use([
+          {
+            name: "listener",
+            use: () => ({
+              reconcile: () => {
+                calls.push("reconcile");
+              },
+              listen: () => {
+                calls.push("listen");
+                return () => {
+                  destroyed = true;
+                };
+              },
+            }),
+          },
+        ]),
       { wrapper },
     );
     await waitFor(() => expect(calls).toContain("reconcile"));
@@ -112,13 +124,16 @@ describe("Synchronizer.use", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     const { result } = renderHook(
       () =>
-        Synchronizer.use({
-          useSlow: () => ({
-            reconcile: async () => {
-              await gate;
-            },
-          }),
-        }),
+        Synchronizer.use([
+          {
+            name: "slow",
+            use: () => ({
+              reconcile: async () => {
+                await gate;
+              },
+            }),
+          },
+        ]),
       { wrapper },
     );
     expect(result.current).toBe(false);
@@ -139,13 +154,16 @@ describe("Synchronizer.use", () => {
       const { wrapper } = await createConsoleWrapper({ client: local });
       const { result } = renderHook(
         () =>
-          Synchronizer.use({
-            useCounter: () => ({
-              reconcile: () => {
-                reconciles++;
-              },
-            }),
-          }),
+          Synchronizer.use([
+            {
+              name: "counter",
+              use: () => ({
+                reconcile: () => {
+                  reconciles++;
+                },
+              }),
+            },
+          ]),
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBe(true));
@@ -166,17 +184,20 @@ describe("Synchronizer.use", () => {
     const { wrapper } = await createConsoleWrapper({ client: null });
     renderHook(
       () =>
-        Synchronizer.use({
-          useIdle: () => ({
-            reconcile: () => {
-              calls.push("reconcile");
-            },
-            listen: () => {
-              calls.push("listen");
-              return () => {};
-            },
-          }),
-        }),
+        Synchronizer.use([
+          {
+            name: "idle",
+            use: () => ({
+              reconcile: () => {
+                calls.push("reconcile");
+              },
+              listen: () => {
+                calls.push("listen");
+                return () => {};
+              },
+            }),
+          },
+        ]),
       { wrapper },
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
