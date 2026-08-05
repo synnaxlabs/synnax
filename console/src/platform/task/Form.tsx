@@ -9,14 +9,22 @@
 
 import "@/platform/task/Form.css";
 
-import { type device, panel, type rack, type Synnax, task } from "@synnaxlabs/client";
 import {
-  Device,
+  type device,
+  panel,
+  query,
+  type rack,
+  type Synnax,
+  task,
+} from "@synnaxlabs/client";
+import {
   Flex,
   type Flux,
   Form as PForm,
   Input,
   Panel as PlutoPanel,
+  Status,
+  Synnax as PSynnax,
   Task as PTask,
   Text,
 } from "@synnaxlabs/pluto";
@@ -201,14 +209,18 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         setView(panel.viewZ.parse({ type, args: { taskKey: key } }));
       },
     });
-    // The effect fires for loading and error results too, which carry no device. Only
-    // a real device answers what rack the task belongs on.
-    Device.useRetrieveEffect({
-      onChange: ({ data }) => {
-        if (data != null) form.set("rackKey", data.rack);
-      },
-      query: deviceKey == null ? undefined : { key: deviceKey },
-    });
+    const client = PSynnax.use();
+    const handleError = Status.useErrorHandler();
+    useEffect(() => {
+      if (deviceKey == null || client == null) return;
+      handleError(async () => {
+        const device = await client.devices.retrieve({ key: deviceKey });
+        form.set("rackKey", device.rack);
+      }, "Failed to retrieve device");
+      return client.devices.onChange({ key: deviceKey }, (res) => {
+        if (query.isLive(res)) form.set("rackKey", res.rack);
+      });
+    }, [client, deviceKey, handleError]);
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
     useSyncName(form, { deviceKey, taskKey, rackKey, config, name });

@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  NotFoundError,
+  ontology,
+  query,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import {
   Component,
   context,
@@ -23,12 +28,13 @@ import {
   useInitializerRef,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { array, type observe } from "@synnaxlabs/x";
+import { array, type destructor, type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type ReactElement,
   type ReactNode,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -171,38 +177,33 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [client],
   );
 
-  const retrieveChildren = Ontology.useRetrieveObservableChildren({
-    onChange: useCallback(
-      ({ data: resources, variant }, { id }) => {
-        if (variant == "success") {
-          const filtered = resources.filter((r) => {
-            const svc = resolveItem(r.id.type);
-            return svc.visible == null || svc.visible(r);
-          });
-          const converted = filtered.map((r) => ({
-            key: ontology.idToString(r.id),
-            children: resolveItem(r.id.type).hasChildren ? [] : undefined,
-          }));
-          const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
-          setNodes((prevNodes) => [
-            // Children subscriptions can outlive the parent's presence in the
-            // tree; a missing parent means the update is stale.
-            ...Base.updateNodeChildren({
-              tree: prevNodes,
-              parent: ontology.idToString(id),
-              throwOnMissing: false,
-              updater: (prevChildren) => [
-                ...prevChildren.filter(({ key }) => !ids.has(key)),
-                ...keepLoadedChildren(prevChildren, converted),
-              ],
-            }),
-          ]);
-        }
-        if (variant !== "loading") setLoading(false);
-      },
-      [resolveItem],
-    ),
-  });
+  const applyChildren = useCallback(
+    (id: ontology.ID, resources: ontology.Resource[]) => {
+      const filtered = resources.filter((r) => {
+        const svc = resolveItem(r.id.type);
+        return svc.visible == null || svc.visible(r);
+      });
+      const converted = filtered.map((r) => ({
+        key: ontology.idToString(r.id),
+        children: resolveItem(r.id.type).hasChildren ? [] : undefined,
+      }));
+      const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
+      setNodes((prevNodes) => [
+        // The children subscription can outlive the parent's presence in the
+        // tree; a missing parent means the update is stale.
+        ...Base.updateNodeChildren({
+          tree: prevNodes,
+          parent: ontology.idToString(id),
+          throwOnMissing: false,
+          updater: (prevChildren) => [
+            ...prevChildren.filter(({ key }) => !ids.has(key)),
+            ...keepLoadedChildren(prevChildren, converted),
+          ],
+        }),
+      ]);
+    },
+    [resolveItem],
+  );
 
   const useLoading = useCallback(
     (key: string) =>
@@ -313,13 +314,37 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
   Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
-  const { retrieve: retrieveChildrenOf } = retrieveChildren;
+  // One live children subscription follows the most recently expanded node; a
+  // new expand swaps it, matching the fetch that just answered.
+  const childListenerRef = useRef<destructor.Destructor | null>(null);
+  useEffect(() => () => childListenerRef.current?.(), []);
+  const retrieveChildrenOf = useCallback(
+    (id: ontology.ID) => {
+      if (client == null) return;
+      handleError(async () => {
+        try {
+          const resources = await client.ontology.children.retrieve({ ids: id });
+          childListenerRef.current?.();
+          childListenerRef.current = client.ontology.children.onChange(
+            { ids: id },
+            (res) => {
+              if (query.isLive(res)) applyChildren(id, res);
+            },
+          );
+          applyChildren(id, resources);
+        } finally {
+          setLoading(false);
+        }
+      }, "Failed to retrieve resources");
+    },
+    [client, applyChildren, handleError, setLoading],
+  );
   const handleExpand = useCallback(
     ({ action, clicked }: Base.HandleExpandProps) => {
       if (action !== "expand") return;
       const clickedID = ontology.idZ.parse(clicked);
       setLoading(clicked);
-      retrieveChildrenOf({ id: clickedID });
+      retrieveChildrenOf(clickedID);
     },
     [retrieveChildrenOf, setLoading],
   );

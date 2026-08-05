@@ -11,7 +11,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { createSlaveDevice as createSlave } from "@/feature/ethercat/testutil";
@@ -142,75 +142,6 @@ describe("EtherCAT Device queries", () => {
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
-    });
-  });
-
-  describe("useRetrieveObservable", () => {
-    it("should call onChange when device is retrieved", async () => {
-      const dev = await createSlaveDevice(rack.key, {
-        name: "Observable Test",
-        network: "eth1",
-      });
-
-      const onChange = vi.fn();
-
-      const { result } = renderHook(
-        () => EtherCAT.Device.useRetrieveObservable({ onChange }),
-        {
-          wrapper,
-        },
-      );
-
-      await act(async () => {
-        result.current.retrieve({ key: dev.key });
-      });
-
-      await waitFor(() =>
-        expect(onChange).toHaveBeenCalledWith(
-          expect.objectContaining({
-            data: expect.objectContaining({ key: dev.key }),
-          }),
-          expect.objectContaining({ key: dev.key }),
-        ),
-      );
-    });
-
-    it("should notify on subsequent device updates", async () => {
-      const dev = await createSlaveDevice(rack.key, {
-        name: "Observable Update Test",
-        network: "eth2",
-      });
-
-      const onChange = vi.fn();
-
-      const { result } = renderHook(
-        () => EtherCAT.Device.useRetrieveObservable({ onChange }),
-        {
-          wrapper,
-        },
-      );
-
-      await act(async () => {
-        result.current.retrieve({ key: dev.key });
-      });
-
-      await waitFor(() => {
-        const lastCall = onChange.mock.calls.at(-1);
-        expect(lastCall?.[0]?.variant).toEqual("success");
-      });
-
-      const callCountAfterInitial = onChange.mock.calls.length;
-
-      await act(async () => {
-        await client.devices.create({
-          ...dev,
-          name: "Updated Observable Device",
-        });
-      });
-
-      await waitFor(() =>
-        expect(onChange.mock.calls.length).toBeGreaterThan(callCountAfterInitial),
-      );
     });
   });
 

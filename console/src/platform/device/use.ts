@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
-import { Device, Form } from "@synnaxlabs/pluto";
+import { type device, query } from "@synnaxlabs/client";
+import { Form, Status, Synnax } from "@synnaxlabs/pluto";
 import { primitive, type record } from "@synnaxlabs/x";
-import { useEffect, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { type z } from "zod";
 
 /**
@@ -37,15 +37,35 @@ export const use = <
 >(
   schemas?: device.DeviceSchemas<Properties, Make, Model>,
 ): device.Device<Properties, Make, Model> | null => {
+  type Device = device.Device<Properties, Make, Model>;
   const devKey = Form.useFieldValue<string>("config.device");
-  const { useRetrieveStateful } = useMemo(
-    () => Device.createRetrieve<Properties, Make, Model>(schemas),
-    [],
-  );
-  const { retrieve, data } = useRetrieveStateful();
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const [dev, setDev] = useState<Device | null>(null);
+  const [frozenSchemas] = useState(() => schemas);
   useEffect(() => {
-    if (primitive.isZero(devKey)) return;
-    retrieve({ key: devKey });
-  }, [devKey, retrieve]);
-  return data ?? null;
+    setDev(null);
+    if (primitive.isZero(devKey) || client == null) return;
+    handleError(async () => {
+      if (frozenSchemas != null)
+        setDev(
+          await client.devices.retrieve({
+            key: devKey,
+            includeStatus: true,
+            schemas: frozenSchemas,
+          }),
+        );
+      else {
+        const res = await client.devices.retrieve({
+          key: devKey,
+          includeStatus: true,
+        });
+        setDev(res);
+      }
+    }, "Failed to retrieve device");
+    return client.devices.onChange({ key: devKey, includeStatus: true }, (res) => {
+      if (query.isLive(res)) setDev(res);
+    });
+  }, [client, devKey, frozenSchemas, handleError]);
+  return dev;
 };

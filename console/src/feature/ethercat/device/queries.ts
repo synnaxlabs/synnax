@@ -8,16 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type device, query } from "@synnaxlabs/client";
-import { Device, Flux } from "@synnaxlabs/pluto";
+import { Device, Flux, Status, Synnax } from "@synnaxlabs/pluto";
 import { array, primitive, verbs } from "@synnaxlabs/x";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
 export const {
   useRetrieve: useRetrieveSlave,
-  useRetrieveObservable,
   useRetrieveStateful: useRetrieveSlaveStateful,
 } = Device.createRetrieve(SLAVE_SCHEMAS);
 
@@ -64,13 +63,23 @@ export const useCommonNetwork = (channels: Channel[]) => {
     return keys.length > 0 ? keys[0] : "";
   }, [channels]);
   const [network, setNetwork] = useState<string>("");
-  const { retrieve } = useRetrieveObservable({
-    onChange: useCallback((res) => setNetwork(res.data?.properties?.network ?? ""), []),
-  });
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   useEffect(() => {
-    if (primitive.isZero(firstDeviceKey)) return;
-    retrieve({ key: firstDeviceKey });
-  }, [firstDeviceKey, retrieve]);
+    setNetwork("");
+    if (primitive.isZero(firstDeviceKey) || client == null) return;
+    handleError(async () => {
+      const slave = await client.devices.retrieve({
+        key: firstDeviceKey,
+        schemas: SLAVE_SCHEMAS,
+      });
+      setNetwork(slave.properties.network ?? "");
+    }, "Failed to retrieve device");
+    return client.devices.onChange({ key: firstDeviceKey }, (res) => {
+      if (query.isLive(res))
+        setNetwork((res as unknown as SlaveDevice).properties?.network ?? "");
+    });
+  }, [client, firstDeviceKey, handleError]);
   return network;
 };
 

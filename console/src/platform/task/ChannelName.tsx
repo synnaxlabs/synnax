@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError, status } from "@synnaxlabs/client";
-import { Channel, Flex, Form, Text, Tooltip } from "@synnaxlabs/pluto";
-import { location, type optional, primitive } from "@synnaxlabs/x";
-import { useCallback, useEffect, useMemo } from "react";
+import { type channel, NotFoundError, query, status } from "@synnaxlabs/client";
+import { Channel, Flex, Form, Synnax, Text, Tooltip } from "@synnaxlabs/pluto";
+import { errors, location, type optional, primitive } from "@synnaxlabs/x";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
@@ -38,11 +38,37 @@ export const ChannelName = ({
   const onChange = fieldCtx?.onChange;
   const formName = Form.useFieldValue<string>(namePath, { optional: true });
   const range = Session.Range.useSelectSelectedKey();
-  const { data, retrieve, ...restResult } = Channel.useRetrieveStateful();
+  const client = Synnax.use();
+  const [data, setData] = useState<channel.Channel | undefined>(undefined);
+  const [error, setError] = useState<Error | null>(null);
   useEffect(() => {
-    if (channel === 0) return;
-    retrieve({ key: channel, rangeKey: range ?? undefined });
-  }, [channel, range]);
+    setData(undefined);
+    setError(null);
+    if (channel === 0 || client == null) return;
+    let cancelled = false;
+    const fetchChannel = async () => {
+      try {
+        const ch = await client.channels.retrieve({
+          key: channel,
+          rangeKey: range ?? undefined,
+        });
+        if (!cancelled) setData(ch);
+      } catch (e) {
+        if (!cancelled) setError(errors.fromUnknown(e));
+      }
+    };
+    void fetchChannel();
+    const disconnect = client.channels.onChange(
+      { key: channel, rangeKey: range ?? undefined },
+      (res) => {
+        if (query.isLive(res)) setData(res);
+      },
+    );
+    return () => {
+      cancelled = true;
+      disconnect();
+    };
+  }, [client, channel, range]);
   const { update } = Channel.useRename();
   const name = getName(data, formName, defaultName);
   const handleRename = useCallback(
@@ -61,19 +87,28 @@ export const ChannelName = ({
   > => {
     if (channel === 0)
       return { variant: "warning", message: "No channel selected", description: "" };
-    if (
-      restResult.status.variant === "error" &&
-      NotFoundError.matches(restResult.status.details.error) &&
-      restResult.status.details.error.message.includes("Channel")
-    )
+    if (error != null) {
+      if (NotFoundError.matches(error) && error.message.includes("Channel"))
+        return {
+          variant: "error",
+          message: "Channel not found. Was it deleted?",
+          description:
+            "If it was deleted, a new channel will be created when the task is configured.",
+        };
       return {
         variant: "error",
-        message: "Channel not found. Was it deleted?",
-        description:
-          "If it was deleted, a new channel will be created when the task is configured.",
+        message: "Failed to retrieve channel",
+        description: error.message,
       };
-    return restResult.status;
-  }, [restResult.status, channel, range]);
+    }
+    if (data == null)
+      return { variant: "loading", message: "Retrieving channel", description: "" };
+    return {
+      variant: "success",
+      message: "Successfully retrieved channel",
+      description: "",
+    };
+  }, [error, data, channel]);
 
   const variant = status.removeVariants(stat.variant, ["success"]);
   const text = (

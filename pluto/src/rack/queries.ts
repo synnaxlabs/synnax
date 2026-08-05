@@ -35,10 +35,8 @@ export const useList = Flux.createList<ListQuery, rack.Key, rack.Rack>({
   getCached: ({ client, query }) => client.racks.getCached({ ...BASE_QUERY, ...query }),
 });
 
-export const { useRetrieve, useRetrieveStateful } = Flux.createRetrieve<
-  RetrieveQuery,
-  rack.Rack
->({
+export const { useRetrieve, useRetrieveStateful, useRetrieveSuspended } =
+  Flux.createRetrieve<RetrieveQuery, rack.Rack>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) =>
     await client.racks.retrieve({ ...BASE_QUERY, ...query }),
