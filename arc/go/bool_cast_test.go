@@ -46,10 +46,7 @@ var _ = Describe("bool() typecast end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			ingestFn(h)
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastBool(out, 101)).To(Equal(expected))
 		},
@@ -134,10 +131,7 @@ var _ = Describe("bool() typecast end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			ch := out.Get(101)
 			Expect(ch.Series).ToNot(BeEmpty(), "channel 101 not written")
@@ -193,10 +187,7 @@ var _ = Describe("bool() typecast end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastString(out, 101)).To(Equal(expected))
 		},
@@ -234,10 +225,7 @@ var _ = Describe("bool() typecast end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			ingestFn(h)
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
+			h.Tick(ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastString(out, 101)).To(Equal(expected))
 		},
