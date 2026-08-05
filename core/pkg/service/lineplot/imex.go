@@ -23,16 +23,14 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
-// Match reports whether body is a legacy Console line plot state: v0-v4 files persist
-// the plot body inline (axes/channels), v5 carries selectedRules/hiddenLines alongside
-// an optional pendingUpload. The markers are frozen — they describe historical file
+// Match reports whether body is a legacy Console line plot state, which persists the
+// plot body inline under axes and channels. v0-v4 are the state versions any released
+// Console wrote to a file. The markers are frozen — they describe historical file
 // shapes.
 func (*Service) Match(body map[string]any) bool {
 	_, hasAxes := body["axes"]
 	_, hasChannels := body["channels"]
-	_, hasSelectedRules := body["selectedRules"]
-	_, hasHiddenLines := body["hiddenLines"]
-	return (hasAxes && hasChannels) || hasSelectedRules || hasHiddenLines
+	return hasAxes && hasChannels
 }
 
 // Export retrieves the line plot identified by id and serializes it as an imex.Envelope

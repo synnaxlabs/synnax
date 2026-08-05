@@ -23,16 +23,14 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
-// Match reports whether body is a legacy Console table state: v0 files persist the
-// structural model inline (layout/cells), v1 carries selectedCells/hideIndicators
-// alongside an optional pendingUpload. The markers are frozen — they describe
-// historical file shapes.
+// Match reports whether body is a legacy Console table state, which persists the
+// structural model inline under layout and cells. v0 is the only state version any
+// released Console wrote to a file. The markers are frozen — they describe historical
+// file shapes.
 func (*Service) Match(body map[string]any) bool {
 	_, hasLayout := body["layout"]
 	_, hasCells := body["cells"]
-	_, hasSelectedCells := body["selectedCells"]
-	_, hasHideIndicators := body["hideIndicators"]
-	return (hasLayout && hasCells) || hasSelectedCells || hasHideIndicators
+	return hasLayout && hasCells
 }
 
 // Export retrieves the table identified by id and serializes it as an imex.Envelope

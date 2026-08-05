@@ -23,15 +23,15 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
-// Match reports whether body is a legacy Console schematic state: v0-v5 files persist
-// the document inline (nodes/edges/props), v6 carries controlStatus alongside an
-// optional pendingUpload. The markers are frozen — they describe historical file
-// shapes.
+// Match reports whether body is a legacy Console schematic state, which persists the
+// document inline under nodes and props. v0-v5 are the state versions any released
+// Console wrote to a file; v6 renamed props to configs but shipped alongside the typed
+// export, so it never reaches matching. The markers are frozen — they describe
+// historical file shapes.
 func (*Service) Match(body map[string]any) bool {
 	_, hasNodes := body["nodes"]
 	_, hasProps := body["props"]
-	_, hasControlStatus := body["controlStatus"]
-	return (hasNodes && hasProps) || hasControlStatus
+	return hasNodes && hasProps
 }
 
 // Export retrieves the schematic identified by id and serializes it as an imex.Envelope

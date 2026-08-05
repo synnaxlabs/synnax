@@ -29,8 +29,7 @@ var _ = Describe("ImEx", func() {
 			Expect(svc.Match(body)).To(Equal(expected))
 		},
 		Entry("axes and channels", map[string]any{"axes": nil, "channels": nil}, true),
-		Entry("selectedRules alone", map[string]any{"selectedRules": nil}, true),
-		Entry("hiddenLines alone", map[string]any{"hiddenLines": nil}, true),
+		Entry("channels without axes", map[string]any{"channels": nil}, false),
 		Entry("axes without channels", map[string]any{"axes": nil}, false),
 		Entry("empty body", map[string]any{}, false),
 		Entry("table markers", map[string]any{"layout": nil, "cells": nil}, false),
@@ -107,23 +106,6 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Axes.Y1.Label).To(Equal("speed"))
 				Expect(res.Axes.Y1.ManualBounds).To(
 					Equal(lineplot.ManualBounds{Lower: true, Upper: false}),
-				)
-			},
-		)
-
-		It(
-			"Should reject a v5 Console state (rc-era, never released)",
-			func(ctx SpecContext) {
-				Expect(imexSvc.Import(
-					ctx,
-					db,
-					LoadEnvelope("versions/testdata/import_v5_state.json"),
-					imex.ImportOptions{
-						FileName: "My Plot.json",
-						Parent:   proj.OntologyID(),
-					},
-				)).Error().To(
-					MatchError(ContainSubstring("unknown line plot data version 5")),
 				)
 			},
 		)

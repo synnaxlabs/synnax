@@ -298,7 +298,7 @@ var _ = Describe("ImEx", func() {
 		)
 
 		It(
-			"Should reject a version 2 typed envelope (rc-era, never released)",
+			"Should reject a typed envelope stamped an unsupported data version",
 			func(ctx SpecContext) {
 				var env imex.Envelope
 				Expect(json.Unmarshal(

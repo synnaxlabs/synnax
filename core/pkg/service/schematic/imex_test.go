@@ -28,8 +28,8 @@ var _ = Describe("ImEx", func() {
 			Expect(svc.Match(body)).To(Equal(expected))
 		},
 		Entry("nodes and props", map[string]any{"nodes": nil, "props": nil}, true),
-		Entry("controlStatus alone", map[string]any{"controlStatus": nil}, true),
 		Entry("nodes without props", map[string]any{"nodes": nil}, false),
+		Entry("props without nodes", map[string]any{"props": nil}, false),
 		Entry("empty body", map[string]any{}, false),
 		Entry("table markers", map[string]any{"layout": nil, "cells": nil}, false),
 	)
@@ -97,7 +97,7 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
-			"Should import a Console typed export carrying camelCase keys",
+			"Should import a v6 Console typed export carrying camelCase keys",
 			func(ctx SpecContext) {
 				res := importAndRetrieve(
 					ctx,
@@ -121,23 +121,6 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Name).To(Equal("Old Typed"))
 			Expect(res.Nodes[0].ZIndex).To(Equal(int16(1)))
 		})
-
-		It(
-			"Should reject a v6 Console state (local-only, never exported)",
-			func(ctx SpecContext) {
-				Expect(imexSvc.Import(
-					ctx,
-					db,
-					LoadEnvelope("versions/testdata/import_v6_state.json"),
-					imex.ImportOptions{
-						FileName: "My Schematic.json",
-						Parent:   proj.OntologyID(),
-					},
-				)).Error().To(
-					MatchError(ContainSubstring("unknown schematic data version 6")),
-				)
-			},
-		)
 
 		It(
 			"Should import a v3 Console state through the legacy chain",

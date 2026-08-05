@@ -28,9 +28,8 @@ var _ = Describe("ImEx", func() {
 			Expect(svc.Match(body)).To(Equal(expected))
 		},
 		Entry("layout and cells", map[string]any{"layout": nil, "cells": nil}, true),
-		Entry("selectedCells alone", map[string]any{"selectedCells": nil}, true),
-		Entry("hideIndicators alone", map[string]any{"hideIndicators": nil}, true),
 		Entry("layout without cells", map[string]any{"layout": nil}, false),
+		Entry("cells without layout", map[string]any{"cells": nil}, false),
 		Entry("empty body", map[string]any{}, false),
 		Entry("log markers", map[string]any{"channels": []any{}}, false),
 	)
@@ -89,7 +88,7 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
-			"Should import a Console typed export carrying camelCase keys",
+			"Should import a v1 Console typed export carrying camelCase keys",
 			func(ctx SpecContext) {
 				res := importAndRetrieve(
 					ctx,
@@ -101,23 +100,6 @@ var _ = Describe("ImEx", func() {
 				var props map[string]any
 				Expect(res.Cells["c1"].Props.Unmarshal(&props)).To(Succeed())
 				Expect(props).To(HaveKeyWithValue("fooBar", 1.0))
-			},
-		)
-
-		It(
-			"Should reject a v1 Console state (local-only, never exported)",
-			func(ctx SpecContext) {
-				Expect(imexSvc.Import(
-					ctx,
-					db,
-					LoadEnvelope("versions/testdata/import_v1_state.json"),
-					imex.ImportOptions{
-						FileName: "My Table.json",
-						Parent:   proj.OntologyID(),
-					},
-				)).Error().To(
-					MatchError(ContainSubstring("unknown table data version 1")),
-				)
 			},
 		)
 
