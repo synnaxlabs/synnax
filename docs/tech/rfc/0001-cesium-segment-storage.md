@@ -79,7 +79,7 @@ towards irregular time-series data. Its benchmarks show a maximum write throughp
 about 3,000,000 samples per second.
 
 Delta is unique in that almost all of its uses involve storing regular time-series data
-(see [Restrictions on Time-Series](#40-restrictions-on-time-series)). This is a huge
+(see [Restrictions on time-series](#40-restrictions-on-time-series)). This is a huge
 advantage in terms of database simplicity and performance. `tstorage` doesn't take
 advantage of data regularity, and is missing out on the benefits it provides.
 
@@ -211,8 +211,8 @@ A segment places no restrictions on the amount of samples it can store. This has
 important implications for both durability and write throughput. Larger segments are
 less durable (written less frequently) but can achieve a higher throughput for both
 reads and writes, as segment data is written contiguously on disk. See
-[Data Layout](#44-data-layout--operations) and
-[Providing Elastic Throughput](#45-providing-elastic-throughput) for more details.
+[Data layout](#44-data-layout--operations) and
+[Providing elastic throughput](#45-providing-elastic-throughput) for more details.
 
 ### 4.1 Handling arbitrary data types
 
@@ -387,7 +387,7 @@ to the caller.
 :::info It's also relevant to note that Cesium uses a large number of goroutines for a
 single query. This is (kind of) intentional, as the database is optimized for high
 throughput on fewer, large queries. See
-[Channel Counts and Segment Merging](#46-channel-counts-and-segment-merging) for more
+[Channel counts and segment merging](#46-channel-counts-and-segment-merging) for more
 information how the number of open queries affects performance. :::
 
 ### 4.4 Data layout + operations

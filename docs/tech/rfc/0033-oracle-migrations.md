@@ -1000,8 +1000,7 @@ Arc (gorp entry, stored in KV)
 
 The developer touches exactly one file: the leaf transform (`v1/migrate.go`). Everything
 else is generated. The parent auto-migrate calls both `graphv1.AutoMigrateV1ToV2` and
-`graphv1.PostMigrateV1ToV2` for each node. See Section 4.6.1 for the full generated
-code.
+`graphv1.PostMigrateV1ToV2` for each node. See §4.6.1 for the full generated code.
 
 ### 5.8 Shared nested type change (`ir.Edge` used by multiple entries)
 

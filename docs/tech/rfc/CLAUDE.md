@@ -1,4 +1,4 @@
-# RFC Conventions
+# RFC conventions
 
 Rules for writing and editing RFCs in this directory.
 
@@ -35,7 +35,9 @@ Rules for writing and editing RFCs in this directory.
 - Principle and resolved-decision entries take the same colon form:
   `1. **One Go type per entity**: Owned by its service.` When the bold label leads with
   a section number, it carries no separator, matching headings:
-  `**6.1 Predecessor chain, not direct-to-definer.**`
+  `**6.1 Predecessor chain, not direct-to-definer.**` These numbers are cited elsewhere,
+  so an entry added between two others takes a letter suffix (`6.2a`) instead of
+  renumbering its successors.
 
 ## Prose
 
@@ -44,11 +46,10 @@ Rules for writing and editing RFCs in this directory.
   Use the micro sign µ (U+00B5), never Greek mu (μ).
 - Backtick type names and code identifiers in prose: `uint8`, `float64`, `domain.DB`,
   channel names like `sy_task_set`. CLI commands too: `oracle migrate`.
-- Capitalize Synnax component names in prose: Arc, Cesium, Aspen, Core, Console, Pluto,
-  Freighter, Alamos, Gorp, Drift, Driver, Oracle. Package and import paths stay
-  lowercase in backticks.
-- Third-party names are proper nouns too: Git, Go, gRPC, HashiCorp, Zod. The tool is
-  Git; the command stays lowercase in backticks (`git log`).
+- Proper nouns follow the root `CLAUDE.md` Prose rules. Package and import paths stay
+  lowercase in backticks, and so do commands (`git log`) even when the tool is a proper
+  noun (Git).
 - Version references are lowercase: `v1`, `v2`, `v0.2`.
-- When citing another RFC's section or heading, match its real number and casing —
-  renumbering a section breaks references elsewhere; check for them.
+- Cite a section with the section sign and no space: `§4.2` within the same RFC,
+  `RFC 0033 §4.2` across RFCs. Never spell out `Section 4.2`. Match the target's real
+  number — renumbering a section breaks references elsewhere; check for them.

@@ -1,6 +1,6 @@
-# Windows Tooling Setup Guide
+# Windows tooling setup guide
 
-# 0 - Summary
+## 0 Summary
 
 The following guide walks you through the setup process for developing Synnax on
 Windows. The setup guide for macOS is available [here](setup-macos.md). This guide is
@@ -17,7 +17,7 @@ commands as an administrator.
 As a final note, this guide does not need to be followed verbatim. As long as the
 correct tools are installed and configured, you can use whatever methods you prefer.
 
-# 1 - Install Git
+## 1 Install Git
 
 The first step is to install Git. The best way of doing so is using the
 [installer](https://git-scm.com/download/win). Validate your installation by running
@@ -32,7 +32,7 @@ You should see something like
 git version 2.x.x.windows.x
 ```
 
-# 2 - Clone the Repository
+## 2 Clone the repository
 
 The next step is to clone the Git repository. We recommend cloning it into
 `~/Desktop/synnaxlabs` as it makes it easier to follow the commands in other guides.
@@ -41,7 +41,7 @@ The next step is to clone the Git repository. We recommend cloning it into
 mkdir ~/Desktop/synnaxlabs && cd ~/Desktop/synnaxlabs && git clone https://github.com/synnaxlabs/synnax
 ```
 
-# 3 - Setup Go
+## 3 Setup Go
 
 To install Go, use the instructions from the [Go website](https://go.dev/doc/install).
 To verify your installation, run:
@@ -68,7 +68,7 @@ might take a while when you run it for the first time, as Go needs to download m
 packages. Future runs will be much faster. Eventually, you **should see a bunch of green
 output and no red output.**
 
-# 4 - Python
+## 4 Python
 
 Getting Python setup correctly can be tricky, but luckily you'll only need to do it
 once. To get started, use the installer available
@@ -85,7 +85,7 @@ You should see something like
 Python 3.12.x
 ```
 
-## 4.0 - Install uv
+### 4.0 Install uv
 
 uv is a fast Python package manager that we use to manage our Python dependencies for
 the various projects in Synnax. To install uv, run:
@@ -109,7 +109,7 @@ uv 0.5.x
 If you run into trouble, check out the [uv docs](https://docs.astral.sh/uv/) for more
 information.
 
-## 4.1 - Install Dependencies
+### 4.1 Install dependencies
 
 Synnax uses a uv workspace with four Python projects: `alamos/py`, `freighter/py`,
 `client/py`, and `integration`. To install the dependencies for all projects, run from
@@ -119,9 +119,9 @@ the repository root:
 uv sync
 ```
 
-# 5 - Front End Build System
+## 5 Front end build system
 
-# 5.0 - Install Node.js
+### 5.0 Install Node.js
 
 I recommend using nvm to manage Node.js versions. Install nvm using the instructions
 [here](https://github.com/coreybutler/nvm-windows/releases). You want to install and run
@@ -144,7 +144,7 @@ Make sure your installation is working by running
 node --version
 ```
 
-# 5.1 - Install pnpm
+### 5.1 Install pnpm
 
 We use pnpm as our package manager of choice. It's a drop-in replacement for npm that
 has a few nice features. To install pnpm, run
@@ -159,7 +159,7 @@ Then, prepare npm by running
 corepack prepare pnpm@latest --activate
 ```
 
-# 5.1 - Install Dependencies
+### 5.2 Install dependencies
 
 In the root directory of the repository, run
 
@@ -167,7 +167,7 @@ In the root directory of the repository, run
 pnpm install
 ```
 
-# 5.2 - Build the Pluto Component Library
+### 5.3 Build the Pluto component library
 
 We use [Turborepo](https://turbo.build/repo) to build our various typescript projects.
 It has great monorepo support, and intelligently caches builds to speed up development.
@@ -178,7 +178,7 @@ library, [Pluto](../../pluto) by running
 pnpm build:pluto
 ```
 
-# 5.3 - Start a Pluto Dev Server
+### 5.4 Start a Pluto dev server
 
 As another test, we'll start a development server for Pluto. We use this server to
 develop components in isolation before integrating them into the main Synnax

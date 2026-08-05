@@ -1,6 +1,6 @@
-# The Synnax Front End Build System - pnpm and Turbo Repo
+# The Synnax front end build system - pnpm and Turbo Repo
 
-## How the Build System Works
+## 0 How the build system works
 
 Synnax is organized as a monorepo. Our front end software consists of five different
 libraries:
@@ -48,7 +48,7 @@ as follows:
 **Understanding/referencing this dependency graph is critical when developing Synnax
 front end software.** We'll revisit this graph in a moment.
 
-## pnpm
+## 1 pnpm
 
 We use [pnpm](https://pnpm.js.org/) to manage all of our front end dependencies. This
 includes both internal dependencies and those from external sources (e.g. npm).
@@ -65,7 +65,7 @@ team and handled with care.
 As we'll see in a moment, we also use `pnpm` to run the commands that build packages,
 run tests, and start development servers.
 
-## Turbo Repo
+## 2 Turbo Repo
 
 If we refer back to the dependency graph above, we can see that `@synnaxlabs/console`
 depends on `@synnaxlabs/pluto` and `@synnaxlabs/pluto` depends on `@synnaxlabs/x` and
@@ -86,7 +86,7 @@ dependency. This is a huge time saver.
 Turbo is configured in the [`turbo.json`](../../../turbo.json) file in the root
 directory of the repository.
 
-## Building Packages
+## 3 Building packages
 
 Building a package is as simple as running
 
@@ -107,7 +107,7 @@ Generally speaking, you'll be building `pluto` and `x` most often. We almost nev
 `console` or `docs` locally, and instead rely on the CI/CD pipeline to build and publish
 these applications for us.
 
-## Important Caveats - Running Tests and Development Servers
+## 4 Important caveats - running tests and development servers
 
 While turbo is great for managing all of our build tooling, it's not designed for
 running tests or development servers. In those situations, we need to make sure we
@@ -133,14 +133,14 @@ that there's no need to refresh the page.
 The same principle applies to running tests. We need to make sure we build any upstream
 dependencies whose changes we want reflected in our tests.
 
-## Vite
+## 5 Vite
 
 There's one more very important, yet less seen and/or modified tool we use to build
 Synnax front end software: [vite](https://vitejs.dev/). Vite is the underlying engine
 that turbo uses to build our packages. You'll never need to run vite directly, but it's
 important to know that it's there.
 
-## Generating Libraries with Multiple Entrypoints
+## 6 Generating libraries with multiple entrypoints
 
 Make sure your `tsconfig.json` has 'composite' set to true. This is necessary for
 building libraries with multiple entrypoints.

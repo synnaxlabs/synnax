@@ -1,6 +1,6 @@
-# macOS Tooling Setup Guide
+# macOS tooling setup guide
 
-# 0 - Summary
+## 0 Summary
 
 The following guide walks you through the setup process for developing Synnax on macOS.
 The setup guide for Windows is available [here](setup-windows.md). This guide is
@@ -15,7 +15,7 @@ Certain tools may require running commands using `sudo` privileges.
 As a final note, this guide does not need to be followed verbatim. As long as the
 correct tools are installed and configured, you can use whatever methods you prefer.
 
-# 1 - Install Homebrew
+## 1 Install Homebrew
 
 We recommend using [Homebrew](https://brew.sh/) to install and manage tooling for Synnax
 development.
@@ -24,7 +24,7 @@ development.
 /bin/cmd -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-# 2 - Install Git
+## 2 Install Git
 
 We use Git for all our version control.
 
@@ -32,7 +32,7 @@ We use Git for all our version control.
 brew install git
 ```
 
-# 3 - Clone the Repository
+## 3 Clone the repository
 
 The next step is to clone the Git repository. We recommend cloning it into
 `~/Desktop/synnaxlabs` as it makes it easier to follow the commands in other guides.
@@ -41,7 +41,7 @@ The next step is to clone the Git repository. We recommend cloning it into
 mkdir ~/Desktop/synnaxlabs && cd ~/Desktop/synnaxlabs && git clone https://github.com/synnaxlabs/synnax
 ```
 
-# 4 - Setup Go
+## 4 Setup Go
 
 The next step is to install [Go](https://golang.org/). We use the latest version of go
 for all our development.
@@ -74,9 +74,9 @@ might take a while when you run it for the first time, as go needs to download m
 packages. Future runs will be much faster. Eventually, you **should see a bunch of green
 output and no red output.**
 
-# 5 - Install Python
+## 5 Install Python
 
-## 5.0 - Install Python
+### 5.0 Install Python
 
 Getting Python setup correctly can be tricky, but luckily you'll only need to do it
 once.
@@ -161,7 +161,7 @@ You should see something like:
 pip: aliased to pip3.12
 ```
 
-## 5.1 - Install uv
+### 5.1 Install uv
 
 We use [uv](https://docs.astral.sh/uv/) to manage Python dependencies. To install uv,
 run:
@@ -182,7 +182,7 @@ The output should look something like:
 uv 0.5.x
 ```
 
-## 5.2 - Install Python Dependencies
+### 5.2 Install Python dependencies
 
 Synnax uses a uv workspace with four Python projects: `alamos/py`, `freighter/py`,
 `client/py`, and `integration`. To install the dependencies for all projects, run from
@@ -192,9 +192,9 @@ the repository root:
 uv sync
 ```
 
-# 6 - Front End Build System
+## 6 Front end build system
 
-## 6.0 - Install Node.js
+### 6.0 Install Node.js
 
 We recommend using nvm to manage node versions.
 
@@ -232,7 +232,7 @@ Then, prepare npm by running
 corepack prepare pnpm@latest --activate
 ```
 
-## 6.1 - Install Dependencies
+### 6.1 Install dependencies
 
 In the root directory of the repository, run
 
@@ -240,7 +240,7 @@ In the root directory of the repository, run
 pnpm install
 ```
 
-## 6.2 - Build the Pluto Component Library
+### 6.2 Build the Pluto component library
 
 We use [Turborepo](https://turbo.build/repo) to build our various typescript projects.
 It has great monorepo support, and intelligently caches builds to speed up to
@@ -251,7 +251,7 @@ component library, [pluto](../../pluto) by running
 pnpm build:pluto
 ```
 
-## 6.3 - Start a Pluto Dev Server
+### 6.3 Start a Pluto dev server
 
 As another test, we'll start a development server for Pluto. We use this server to
 develop components in isolation before integrating them into the main Synnax
@@ -263,7 +263,7 @@ pnpm dev:pluto
 
 You can now view the Pluto dev server in storybook format at http://localhost:6006.
 
-# 7 - Rust
+## 7 Rust
 
 We use [Rust](https://www.rust-lang.org/) for the backend of our user interface built
 using [tauri](https://tauri.app/). To install Rust, run

@@ -238,9 +238,9 @@ the implementation of Arc.
 
 #### 2.5.0 Multiple runtime approach
 
-The runtime is the final piece of the puzzle. As detailed in Section 2.1, different
-runtimes perform better for different automations. As a result, we propose multiple
-runtimes for executing Arc specifications depending on the automation type.
+The runtime is the final piece of the puzzle. As detailed in §2.1, different runtimes
+perform better for different automations. As a result, we propose multiple runtimes for
+executing Arc specifications depending on the automation type.
 
 While runtimes will be implemented over time, the following three execution models will
 cover all envisioned use cases for automations within Synnax:

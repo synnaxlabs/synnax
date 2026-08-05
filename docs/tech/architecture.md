@@ -84,9 +84,9 @@ without loading them all into memory at once.
 
 If you're interested in reading more about Cesium, check out the following RFCs:
 
-- [0001 - Cesium Segment Storage](rfc/0001-cesium-segment-storage.md)
-- [0008 - Cesium Columnar Storage](rfc/0008-cesium-columnar.md)
-- [0010 - Frame Specifications](rfc/0010-frame-spec.md)
+- [RFC 0001 - Cesium - Channel segment storage engine](rfc/0001-cesium-segment-storage.md)
+- [RFC 0008 - Columnar storage for irregular data](rfc/0008-cesium-columnar.md)
+- [RFC 0010 - Telemetry frame specification](rfc/0010-frame-spec.md)
 
 ### 2.3 Layer 2 - Distribution
 
@@ -126,7 +126,7 @@ underlying key-value store.
 
 If you're interested in reading more about Aspen, check out the following RFCs:
 
-- [0002 - Aspen Distributed Storage](rfc/0002-aspen-distributed-storage.md)
+- [RFC 0002 - Aspen - Gossip based key-value store](rfc/0002-aspen-distributed-storage.md)
 
 #### 2.3.1 Framer - Distributed time-series storage
 
@@ -141,7 +141,7 @@ accordingly.
 If you're interested in reading more about distributed frame reads and writes, check out
 the following RFCs:
 
-- [0003 - Segment Distribution](rfc/0003-segment-distribution.md)
+- [RFC 0003 - Delta - Segment distribution](rfc/0003-segment-distribution.md)
 
 ### 2.4 Layer 3 - Service
 

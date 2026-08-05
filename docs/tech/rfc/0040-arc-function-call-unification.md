@@ -28,7 +28,7 @@ selects which parameter array a symbol reads and feeds the trigger heuristic. Af
 RFC a symbol's composition is just its `Inputs` list plus its `Trigger`. `Exec` survives
 only as a thin permission flag describing where a symbol may be called, decoupled from
 how it is built; every symbol is treated as usable in any context by default, and the
-superficial gate is consulted in two places only (Section 4.1).
+superficial gate is consulted in two places only (§4.1).
 
 User-facing Arc syntax does not change. `name(...)`, `name{...}`, and
 `wire -> name{...}` continue to parse, analyze, compile, and run exactly as they do
@@ -59,8 +59,8 @@ symbol today because of the mirror trick, but the rule is implicit. Replace it w
 its `Trigger`. `Exec` no longer selects a parameter array or participates in trigger
 detection; it is reduced to a thin permission flag, consulted only where the analyzer
 and the expression compiler decide whether a symbol may be called in the context it
-appears in (Section 4.1). This RFC strips `Exec` of structural meaning and keeps it only
-as that superficial gate.
+appears in (§4.1). This RFC strips `Exec` of structural meaning and keeps it only as
+that superficial gate.
 
 **Collapse the two analyzer call-validation paths.** `validateFunctionCall` (parens
 form) and `validateFuncConfig` (brace form) silently agree only because `Inputs` is
@@ -84,7 +84,7 @@ check. Replace both with a single `AnalyzeArguments` hook that receives a unifie
   refactor itself rather than a grammar migration layered on top of an already large
   diff. Which bracket should mean what in the long term is the natural next decision,
   explored but deliberately not taken in
-  [Section 8.2](#82-higher-order-functions-and-the-syntax-question).
+  [§8.2](#82-higher-order-functions-and-the-syntax-question).
 - **The trigger-as-argument feature.** `{message: incoming_ch} -> status.set(...)` is
   out of scope. This RFC only lands the structural foundation it will sit on. A
   follow-on RFC will specify the grammar and analyzer for the override.
@@ -101,7 +101,7 @@ check. Replace both with a single `AnalyzeArguments` hook that receives a unifie
   `Optional` field, and changes nothing about how defaults are substituted or
   dispatched. Completing optional semantics (an explicit field, reliable call-site
   default substitution, preserve-on-omit dispatch) is future work that the unification
-  makes easier; see [Section 8.1](#81-optional-parameters).
+  makes easier; see [§8.1](#81-optional-parameters).
 
 ## 3 The problem
 
@@ -124,8 +124,7 @@ function** became `ExecBoth` as well
 ([`arc/go/analyzer/function/function.go`](../../../arc/go/analyzer/function/function.go)),
 so that a user function with inputs is callable from both the parens and brace forms;
 this is the change that first exercised `ExecBoth` on a symbol carrying actual params,
-and it is what forced the trigger heuristic to grow a second discriminator (Section
-3.2).
+and it is what forced the trigger heuristic to grow a second discriminator (§3.2).
 
 Once parity made symbols cross-context, the `Config`/`Inputs` split stopped being
 load-bearing. In the pre-parity world it carried real semantic weight: a symbol could
@@ -152,8 +151,8 @@ scaffolding.
 `Exec` is demoted in the same motion. With composition reduced to `Inputs` plus
 `Trigger`, the `ExecWASM` / `ExecFlow` / `ExecBoth` enum no longer selects a param array
 or feeds the trigger decision. It is kept only as a superficial gate, a thin permission
-flag the analyzer consults to decide where a symbol may be called (Section 4.1); every
-symbol is otherwise treated as usable in any context.
+flag the analyzer consults to decide where a symbol may be called (§4.1); every symbol
+is otherwise treated as usable in any context.
 
 ### 3.1 The mirror trick
 
@@ -210,15 +209,15 @@ agree on the discriminator:
 
 The `sym.AST == nil` clause in the third site exists because `AST` presence has become a
 load-bearing discriminator in its own right. Its immediate cause is user-defined
-functions becoming `ExecBoth` (Section 3.0): a user function carries a non-nil `AST` and
-must keep its `Inputs`, whereas a stdlib `ExecBoth` symbol (`AST == nil`) drops them in
-flow form. But the clause fences off more than user functions — `AST != nil` covers
-**every synthetic or user-authored node that carries a source AST**: user functions,
-inline flow expressions, and format-string (`f"..."`) nodes. Format strings are callable
-in both contexts too, but on a separate path: in flow form, `f"x: {ch}" -> log`
-registers a synthetic `KindFunction` (Exec is the zero value, _not_ `ExecBoth`) whose
-interpolated channel reads happen via host calls and whose activation is stratum
-membership rather than a trigger edge
+functions becoming `ExecBoth` (§3.0): a user function carries a non-nil `AST` and must
+keep its `Inputs`, whereas a stdlib `ExecBoth` symbol (`AST == nil`) drops them in flow
+form. But the clause fences off more than user functions — `AST != nil` covers **every
+synthetic or user-authored node that carries a source AST**: user functions, inline flow
+expressions, and format-string (`f"..."`) nodes. Format strings are callable in both
+contexts too, but on a separate path: in flow form, `f"x: {ch}" -> log` registers a
+synthetic `KindFunction` (Exec is the zero value, _not_ `ExecBoth`) whose interpolated
+channel reads happen via host calls and whose activation is stratum membership rather
+than a trigger edge
 ([arc/go/analyzer/flow/expression.go](../../../arc/go/analyzer/flow/expression.go)). So
 the rule that decides "is this wire a trigger" is now expressed two incompatible ways
 across the codebase, and the `AST` half of it is entangled with cross-context mechanisms
@@ -293,8 +292,8 @@ capabilities make the duplication worse than pure repetition:
 
 Any future divergence beyond these would be a quiet bug class: a function whose parens
 form accepts an arg the brace form rejects, or vice versa, with no test that would catch
-it. `call.Analyze` (Section 4.2) merges both paths into one routine that does the union
-of their checks against the unified `Inputs` list.
+it. `call.Analyze` (§4.2) merges both paths into one routine that does the union of
+their checks against the unified `Inputs` list.
 
 ### 3.4 The two-hook duplication
 
@@ -343,12 +342,12 @@ No `BindMode` field, no `Captures()` / `Arguments()` helpers, no per-param tag. 
 "config" vs "input" was trying to encode at the type level is gone. A function has
 params; each param has a name, a type, and an optional default value. This RFC adds no
 new optionality mechanism: the existing default-value optionality is preserved and no
-`Optional` field is introduced (see [Section 2](#2-non-goals)).
+`Optional` field is introduced (see [§2](#2-non-goals)).
 
 Param ordering is preserved as the user declared it. The compiler already produces a
 deterministic order at the WASM ABI layer (`slices.Concat(Config, Inputs)`); the
 migration appends the old `Config` list before the old `Inputs` list to preserve that
-order byte-for-byte (Section 5).
+order byte-for-byte (§5).
 
 ### 4.1 Explicit trigger binding
 
@@ -606,7 +605,7 @@ migration.
 `Config` freshen. `ir/types.gen.go` (regenerated): drop `Config` from `Function` and
 `Node`. `ir/function.go` and `ir/node.go`: drop the `Config` rendering branch from
 `Type()` and string output. Both `migrations/vN/` directories snapshot the pre-refactor
-shape; the IR side additionally gains a hand-written `migrate.go` (Section 5).
+shape; the IR side additionally gains a hand-written `migrate.go` (§5).
 
 ### 6.1 Symbol table
 
@@ -703,11 +702,11 @@ IR rendering (covered in 6.0) emits the unified `Inputs` list.
 `arc/go/stl/{time,stable,channel,authority,math,constant,op,series,selector,strings,stateful,errors,wasm}/*.go`,
 `arc/go/stl/stl_test.go`
 
-Every stdlib symbol gains an explicit `Trigger:` (per Section 4.1's audit table).
-Symbols that previously declared `Config:` rename the field to `Inputs:`. Symbols that
-previously declared both `Config:` and `Inputs:` (the mirror-trick `ExecBoth` symbols)
-collapse to a single `Inputs:` list. Factory call sites that read
-`cfg.Node.Config.ValueMap()` become `cfg.Node.Inputs.ValueMap()`.
+Every stdlib symbol gains an explicit `Trigger:` (per §4.1's audit table). Symbols that
+previously declared `Config:` rename the field to `Inputs:`. Symbols that previously
+declared both `Config:` and `Inputs:` (the mirror-trick `ExecBoth` symbols) collapse to
+a single `Inputs:` list. Factory call sites that read `cfg.Node.Config.ValueMap()`
+become `cfg.Node.Inputs.ValueMap()`.
 
 `stl_test.go` deletes the "ExecBoth structural contract" test (the
 `Inputs`-mirrors-`Config` invariant is no longer expressible) and adds:
@@ -748,8 +747,7 @@ Mechanical fixture sweep. Every test that constructs a `types.FunctionProperties
 `ir.Function`, or `ir.Node` literal with a `Config:` (or `config:`) field folds it into
 `Inputs:` (or `inputs:`). Symbols that previously declared both `Config:` and `Inputs:`
 deduplicate to a single list. New fixtures cover `call.Analyze` validation, `Trigger`
-consult, the `Trigger` registration invariant, and the `status.set` hook collapse
-(Section 10).
+consult, the `Trigger` registration invariant, and the `status.set` hook collapse (§10).
 
 ## 7 Implementation plan
 
@@ -785,9 +783,9 @@ construct `ir.Node` / `ir.Function` payloads with a `config:` literal.
 ## 8 Future work
 
 This RFC lands the structural foundation. Two features become substantially easier to
-implement on top of it, and a separate RFC will specify each (Sections 8.0 and 8.1).
-Section 8.2 addresses where higher-order functions fit, and Section 8.3 records the
-long-term topics this refactor deliberately leaves untouched, and why.
+implement on top of it, and a separate RFC will specify each (§8.0 and §8.1). §8.2
+addresses where higher-order functions fit, and §8.3 records the long-term topics this
+refactor deliberately leaves untouched, and why.
 
 ### 8.0 `Trigger`-as-argument syntax
 
@@ -981,12 +979,12 @@ is one-time boilerplate (the Oracle-generated pre-refactor snapshot plus a mecha
 ## 10 Test coverage
 
 Most coverage moves rather than appearing fresh. The mirroring contract test in
-`stl_test.go` is deleted; in its place sit the two new structural invariants from
-Section 6.5. End-to-end coverage of "ExecBoth callable in both forms" moves from
-`stl_test.go` (where it was a symbol-table invariant) into `expression_test.go`,
-`flow_test.go`, and `flow_upstream_trigger_test.go` (where it is a call-site property).
-Fixture updates across `arc/go/`, `core/pkg/service/arc/`, and `arc/cpp/` fold `Config:`
-declarations into `Inputs:`.
+`stl_test.go` is deleted; in its place sit the two new structural invariants from §6.5.
+End-to-end coverage of "ExecBoth callable in both forms" moves from `stl_test.go` (where
+it was a symbol-table invariant) into `expression_test.go`, `flow_test.go`, and
+`flow_upstream_trigger_test.go` (where it is a call-site property). Fixture updates
+across `arc/go/`, `core/pkg/service/arc/`, and `arc/cpp/` fold `Config:` declarations
+into `Inputs:`.
 
 New tests required by this change:
 
@@ -1001,8 +999,8 @@ New tests required by this change:
   the `x` param's type and rejects type mismatches.
 - **`Trigger` invariant**: The `stl_test.go` symbol walker fails when a registered
   symbol declares `Trigger.Target = "missing_param"`.
-- **Surface-syntax preservation**: The smoke program in Section 11 parses, analyzes,
-  compiles, and runs identically to the pre-refactor branch.
+- **Surface-syntax preservation**: The smoke program in §11 parses, analyzes, compiles,
+  and runs identically to the pre-refactor branch.
 - **`status.set` collapse**: The literal-validation `AnalyzeArguments` hook fires
   correctly for both `status.set(..., "errpr")` and `status.set{variant="errpr"}`,
   emitting one diagnostic per call site (today's hooks would each fire once).
