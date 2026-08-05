@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, schematic } from "@synnaxlabs/client";
+import { DisconnectedError, query, schematic } from "@synnaxlabs/client";
 import { Icon, Schematic as Base } from "@synnaxlabs/pluto";
 
 import { Schematic } from "@/feature/schematic/Schematic";
@@ -32,7 +32,13 @@ export const SELECTABLES: Selector.Selectable[] = [Selectable];
 const TAB: Panel.Tab = {
   Content: Schematic,
   Toolbar,
+  Icon: Icon.Schematic,
   Name: Panel.createEditableTabName(Base, <Icon.Schematic />),
+  restore: async ({ client, project, resource }) => {
+    const corpse = query.requireCorpse(client.schematics.getCached(resource.key));
+    await client.schematics.create(project, corpse);
+  },
+  useTombstone: Panel.createTombstoneReader(Base),
 };
 
 export const TABS: Panel.Tabs = {
@@ -44,7 +50,7 @@ export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
     icon: <Icon.Schematic />,
     onClick: async ({ id }, { client, openTab }) => {
       if (client == null) throw new DisconnectedError();
-      await client.schematics.retrieve({ key: id.key });
+      await client.schematics.retrieve(id.key);
       openTab({ variant: "resource", resource: id });
     },
     onDelete: async ({ id: { key } }, { client }) => {

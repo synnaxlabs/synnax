@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log } from "@synnaxlabs/client";
+import { log, query } from "@synnaxlabs/client";
 import { Icon, Log as Base } from "@synnaxlabs/pluto";
 
 import { Log } from "@/feature/log/Log";
@@ -31,7 +31,13 @@ export const SELECTABLES: Selector.Selectable[] = [Selectable];
 const TAB: Panel.Tab = {
   Content: Log,
   Toolbar,
+  Icon: Icon.Log,
   Name: Panel.createEditableTabName(Base, <Icon.Log />),
+  restore: async ({ client, project, resource }) => {
+    const corpse = query.requireCorpse(client.logs.getCached(resource.key));
+    await client.logs.create(project, corpse);
+  },
+  useTombstone: Panel.createTombstoneReader(Base),
 };
 
 export const TABS: Panel.Tabs = {

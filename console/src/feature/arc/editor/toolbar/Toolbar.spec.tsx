@@ -15,10 +15,10 @@ import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
+import { createResourceTab } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
-  createResourceTab,
   getIconButton,
   type TestStore,
   uniqueName,
@@ -35,7 +35,7 @@ const createGraphArc = async (graph: Partial<arc.Arc["graph"]> = {}) =>
 
 const renderToolbar = async (arcKey: string): Promise<{ store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  const { panelKey, tabKey } = createResourceTab(wrapper, arc.ontologyID(arcKey));
+  const { panelKey, tabKey } = await createResourceTab(client, arc.ontologyID(arcKey));
   await act(async () => {
     render(
       <PlutoPanel.Scope.Provider value={panelKey}>

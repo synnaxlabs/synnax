@@ -65,7 +65,7 @@ describe("Tree.Tree", () => {
       const tree = container.querySelector(".pluto-tree");
       expect(tree).not.toBeNull();
       fireEvent.contextMenu(tree as Element);
-      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Reload console")).toBeTruthy());
       await waitFor(() => expect(screen.getByText("New group")).toBeTruthy());
     });
 
@@ -147,15 +147,15 @@ describe("Tree.Tree", () => {
     fireEvent.dragStart(getTreeRow(moved.name));
     fireEvent.drop(getTreeRow(destination.name));
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(
-        group.ontologyID(destination.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(destination.key),
+      });
       expect(children.map((c) => c.id.key)).toContain(moved.key);
     });
     await waitFor(async () => {
-      const children = await client.ontology.retrieveChildren(
-        group.ontologyID(source.key),
-      );
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(source.key),
+      });
       expect(children.map((c) => c.id.key)).not.toContain(moved.key);
     });
   });

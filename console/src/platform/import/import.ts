@@ -9,7 +9,7 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { DisconnectedError, project, type Synnax as Client } from "@synnaxlabs/client";
-import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { ZodError } from "zod";
@@ -87,7 +87,6 @@ interface ImportComponentParams {
   openTab: Panel.OpenTab;
   store: Store;
   projectKey?: string;
-  fluxStore: Pluto.FluxStore;
   fileIngesters: FileIngesters;
 }
 
@@ -97,7 +96,6 @@ const importComponent = ({
   openTab,
   handleError,
   projectKey,
-  fluxStore,
   fileIngesters,
 }: ImportComponentParams): void => {
   handleError(async () => {
@@ -122,7 +120,6 @@ const importComponent = ({
         await ingestComponent(JSON.parse(data), fileIngesters, {
           name,
           openTab,
-          store: fluxStore,
           client,
           projectKey: activeProjectKeyAfter,
           fileName: file.name,
@@ -137,7 +134,6 @@ export const useImport = (): ((projectKey?: string) => void) => {
   const store = Session.useStore();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const fileIngesters = useFileIngesters();
   return useCallback(
     (projectKey?: string) =>
@@ -147,9 +143,8 @@ export const useImport = (): ((projectKey?: string) => void) => {
         client,
         handleError,
         projectKey,
-        fluxStore,
         fileIngesters,
       }),
-    [store, openTab, client, handleError, fluxStore, fileIngesters],
+    [store, openTab, client, handleError, fileIngesters],
   );
 };

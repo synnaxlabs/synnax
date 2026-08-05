@@ -9,3 +9,4 @@
 
 export * from "@/session/schematic/selectors";
 export * from "@/session/schematic/slice";
+export * from "@/session/schematic/synchronizer";

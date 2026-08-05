@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { render } from "@testing-library/react";
+import { act, render, type RenderResult } from "@testing-library/react";
 import { type ReactElement } from "react";
 
 import { Session } from "@/session";
@@ -36,10 +36,18 @@ export const withActiveProject = (
 // renderBar mounts ui against a real client so access-gated nav items and the user/
 // connection badges resolve through the production query path, and returns the render
 // result plus the Redux store for asserting dispatched navigation actions.
+//
+// React holds a commit's passive effects while a sibling subtree is suspended, and the
+// panel selector suspends. A synchronous mount returns before they flush, so no bar
+// item's effects run. Browsers pump the scheduler on their own; a test has to.
 export const renderBar = async (
   ui: ReactElement,
   preloadedState?: ConsolePreloadedState,
 ) => {
   const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
-  return { ...render(ui, { wrapper }), store };
+  let rendered!: RenderResult;
+  await act(async () => {
+    rendered = render(ui, { wrapper });
+  });
+  return { ...rendered, store };
 };

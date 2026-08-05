@@ -7,7 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+
+/**
+ * Right-clicks the element with the given text and waits for the context menu to
+ * open. Retries with a fresh query: async flux resolutions (permissions, labels) can
+ * replace the target node between lookup and dispatch, detaching the first match.
+ */
+export const openContextMenu = async (text: string): Promise<void> => {
+  await waitFor(() => {
+    fireEvent.contextMenu(screen.getByText(text));
+    if (document.querySelector(".pluto-menu-context") == null)
+      throw new Error(`context menu did not open for ${text}`);
+  });
+};
 
 /** Queries container for a rendered pluto icon by its name, or null. */
 export const queryIcon = (container: ParentNode, icon: string): Element | null =>

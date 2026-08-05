@@ -19,34 +19,30 @@ import {
 } from "@/session/nav/slice";
 import { Select } from "@/session/select";
 
-interface RequiredStoreState extends StoreState, Drift.StoreState {}
+const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-const selectSliceState = (state: RequiredStoreState): SliceState => state[SLICE_NAME];
-
-export const selectWindowState = (state: RequiredStoreState) => {
+export const selectWindowState = (state: StoreState) => {
   const windowKey = Drift.selectWindowKey(state);
   if (windowKey == null) return ZERO_WINDOW_STATE;
   return selectSliceState(state).windows[windowKey] ?? ZERO_WINDOW_STATE;
 };
 
-const selectLeft = (state: RequiredStoreState): LeftState =>
-  selectWindowState(state).left;
+const selectLeft = (state: StoreState): LeftState => selectWindowState(state).left;
 
 export const useSelectLeft = (): LeftState => Select.useMemo(selectLeft, []);
 
-export const selectLeftSelected = (state: RequiredStoreState): string | undefined =>
+export const selectLeftSelected = (state: StoreState): string | undefined =>
   selectLeft(state).selected;
 
 export const useSelectLeftSelected = (): string | undefined =>
   Select.useMemo(selectLeftSelected, []);
 
-const selectBottom = (state: RequiredStoreState): BottomState =>
+const selectBottom = (state: StoreState): BottomState =>
   selectWindowState(state).bottom;
 
 export const useSelectBottom = (): BottomState => Select.useMemo(selectBottom, []);
 
-const selectBottomVisible = (state: RequiredStoreState): boolean =>
-  selectBottom(state).visible;
+const selectBottomVisible = (state: StoreState): boolean => selectBottom(state).visible;
 
 export const useSelectBottomVisible = (): boolean =>
   Select.useMemo(selectBottomVisible, []);

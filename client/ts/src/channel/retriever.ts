@@ -21,7 +21,7 @@ import {
   type ParamAnalysisResult,
 } from "@/util/retrieve";
 
-const reqZ = z.object({
+export const retrieveRequestZ = z.object({
   nodeKey: zod.uint12.optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
@@ -36,7 +36,7 @@ const reqZ = z.object({
   internal: z.boolean().optional(),
   legacyCalculated: z.boolean().optional(),
 });
-export type RetrieveRequest = z.input<typeof reqZ>;
+export type RetrieveRequest = z.input<typeof retrieveRequestZ>;
 
 export type RetrieveOptions = Omit<RetrieveRequest, "keys" | "names" | "search">;
 export type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;
@@ -83,103 +83,13 @@ export class ClusterRetriever implements Retriever {
   }
 
   private async execute(request: RetrieveRequest): Promise<Payload[]> {
-    const res = await this.client.send("/channel/retrieve", request, reqZ, resZ);
+    const res = await this.client.send(
+      "/channel/retrieve",
+      request,
+      retrieveRequestZ,
+      resZ,
+    );
     return res.channels;
-  }
-}
-
-export class CacheRetriever implements Retriever {
-  private readonly cache: Map<number, Payload>;
-  private readonly namesToKeys: Map<string, Set<number>>;
-  private readonly wrapped: Retriever;
-
-  constructor(wrapped: Retriever) {
-    this.cache = new Map();
-    this.namesToKeys = new Map();
-    this.wrapped = wrapped;
-  }
-
-  async retrieve(
-    channels: Params | RetrieveRequest,
-    options?: RetrieveOptions,
-  ): Promise<Payload[]> {
-    if (!Array.isArray(channels) && typeof channels === "object")
-      return await this.wrapped.retrieve(channels);
-    const { normalized } = analyzeParams(channels);
-    const results: Payload[] = [];
-    const toFetch: Key[] | Name[] = [];
-    normalized.forEach((keyOrName) => {
-      const c = this.get(keyOrName);
-      if (c != null) results.push(...c);
-      else toFetch.push(keyOrName as never);
-    });
-    if (toFetch.length === 0) return results;
-    const fetched = await this.wrapped.retrieve(toFetch, options);
-    this.set(fetched);
-    return results.concat(fetched);
-  }
-
-  delete(channels: Params): void {
-    const { variant, normalized } = analyzeParams(channels);
-    if (variant === "names")
-      (normalized as string[]).forEach((name) => {
-        const keys = this.namesToKeys.get(name);
-        if (keys == null) return;
-        keys.forEach((k) => this.cache.delete(k));
-        this.namesToKeys.delete(name);
-      });
-    else
-      (normalized as number[]).forEach((key) => {
-        const channel = this.cache.get(key);
-        if (channel == null) return;
-        this.cache.delete(key);
-        this.namesToKeys.delete(channel.name);
-      });
-  }
-
-  rename(keys: Key[], names: string[]): void {
-    keys.forEach((key, i) => {
-      const name = names[i];
-      const ch = this.cache.get(key);
-      if (ch == null) return;
-      this.cache.delete(key);
-      const keys = this.namesToKeys.get(ch.name);
-      if (keys != null) {
-        keys.delete(key);
-        if (keys.size === 0) this.namesToKeys.delete(ch.name);
-      }
-      ch.name = name;
-      this.cache.set(key, ch);
-      const newKeys = this.namesToKeys.get(name);
-      if (newKeys == null) this.namesToKeys.set(name, new Set([key]));
-      else newKeys.add(key);
-    });
-  }
-
-  set(channels: Payload[]): void {
-    channels.forEach((channel) => {
-      this.cache.set(channel.key, channel);
-      const keys = this.namesToKeys.get(channel.name);
-      if (keys == null) this.namesToKeys.set(channel.name, new Set([channel.key]));
-      else keys.add(channel.key);
-    });
-  }
-
-  private get(channel: Key | Name): Payload[] | undefined {
-    if (typeof channel === "number") {
-      const ch = this.cache.get(channel);
-      if (ch == null) return undefined;
-      return [ch];
-    }
-    const keys = this.namesToKeys.get(channel);
-    if (keys == null) return undefined;
-    const channels: Payload[] = [];
-    keys.forEach((key) => {
-      const ch = this.cache.get(key);
-      if (ch != null) channels.push(ch);
-    });
-    if (channels.length === 0) return undefined;
-    return channels;
   }
 }
 
@@ -211,7 +121,7 @@ export class DebouncedBatchRetriever implements Retriever {
 
     const a = new Promise<Payload[]>((resolve, reject) => {
       void this.mu.runExclusive(() => {
-        this.requests.set(normalized as Key[], { resolve, reject });
+        this.requests.set(normalized, { resolve, reject });
         this.debouncedRun();
       });
     });

@@ -65,6 +65,10 @@ const pointerInit = ({ x, y, ...rest }: PointerInit) => ({
   clientY: y,
 });
 
+// Moves are coalesced and delivered on the next animation frame.
+const frame = async (): Promise<void> =>
+  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
 describe("Cursor.useDrag", () => {
   let pointerCapture: ReturnType<typeof installPointerCapture>;
 
@@ -152,11 +156,12 @@ describe("Cursor.useDrag", () => {
   });
 
   describe("movement", () => {
-    it("should report a box spanning the press to the current location", () => {
+    it("should report a box spanning the press to the current location", async () => {
       const onMove = vi.fn();
       const el = renderTarget({ onMove });
       down(el, { x: 100, y: 100 });
       move({ x: 150, y: 130 });
+      await frame();
       const b = onMove.mock.lastCall?.[0] as box.Box;
       expect(box.left(b)).toEqual(100);
       expect(box.top(b)).toEqual(100);
@@ -164,14 +169,49 @@ describe("Cursor.useDrag", () => {
       expect(box.height(b)).toEqual(30);
     });
 
-    it("should report every move once the drag is active", () => {
+    it("should coalesce moves in the same frame to the latest position", async () => {
       const onMove = vi.fn();
       const el = renderTarget({ onMove });
       down(el, { x: 0, y: 0 });
       move({ x: 10, y: 0 });
       move({ x: 20, y: 0 });
       move({ x: 30, y: 0 });
-      expect(onMove).toHaveBeenCalledTimes(3);
+      await frame();
+      expect(onMove).toHaveBeenCalledTimes(1);
+      const b = onMove.mock.lastCall?.[0] as box.Box;
+      expect(box.width(b)).toEqual(30);
+    });
+
+    it("should report the latest move once per frame", async () => {
+      const onMove = vi.fn();
+      const el = renderTarget({ onMove });
+      down(el, { x: 0, y: 0 });
+      move({ x: 10, y: 0 });
+      await frame();
+      move({ x: 20, y: 0 });
+      await frame();
+      expect(onMove).toHaveBeenCalledTimes(2);
+    });
+
+    it("should flush a pending move before the drag ends", async () => {
+      const calls: string[] = [];
+      const onMove = vi.fn((_: box.Box) => {
+        calls.push("move");
+      });
+      const onEnd = vi.fn(() => {
+        calls.push("end");
+      });
+      const el = renderTarget({ onMove, onEnd });
+      down(el, { x: 0, y: 0 });
+      move({ x: 50, y: 0 });
+      up({ x: 50, y: 0 });
+      expect(onMove).toHaveBeenCalledTimes(1);
+      const b = onMove.mock.lastCall?.[0];
+      if (b == null) throw new Error("expected a flushed move");
+      expect(box.width(b)).toEqual(50);
+      expect(calls).toEqual(["move", "end"]);
+      await frame();
+      expect(onMove).toHaveBeenCalledTimes(1);
     });
   });
 

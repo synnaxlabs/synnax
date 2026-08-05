@@ -35,6 +35,11 @@ export interface WindowStateExtensionProps {
   focusCount: number;
   /** Incremented to center the window */
   centerCount: number;
+  /**
+   * Creation ordinal, assigned once when the window is reserved and never
+   * reused. The main window is 1; pre-render windows have none until claimed.
+   */
+  ordinal?: number;
 }
 
 export const INITIAL_WINDOW_STATE: WindowStateExtensionProps = {

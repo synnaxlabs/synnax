@@ -57,7 +57,7 @@ describe("View", () => {
         type: "table",
         query: { channels: ["test"] },
       });
-      const retrieved = await client.views.retrieve({ key: created.key });
+      const retrieved = await client.views.retrieve(created.key);
       expect(retrieved.key).toEqual(created.key);
       expect(retrieved.name).toEqual("Retrieve Test");
       expect(retrieved.query).toEqual({ channels: ["test"] });
@@ -138,9 +138,7 @@ describe("View", () => {
         query: { channels: ["delete"] },
       });
       await client.views.delete(v.key);
-      await expect(client.views.retrieve({ key: v.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.views.retrieve(v.key)).rejects.toThrow(NotFoundError);
     });
 
     it("should delete multiple views", async () => {

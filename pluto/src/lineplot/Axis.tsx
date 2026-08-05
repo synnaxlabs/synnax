@@ -63,7 +63,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     bounds,
     className,
     tickSpacing,
-    autoBounds,
+    manualBounds,
     axisKey,
     autoBoundUpdateInterval,
     style,
@@ -81,7 +81,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
       label,
       labelDirection,
       tickSpacing,
-      autoBounds,
+      manualBounds,
       autoBoundUpdateInterval,
     });
 

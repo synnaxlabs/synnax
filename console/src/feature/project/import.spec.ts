@@ -16,16 +16,16 @@ import {
   table,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Access, Flux, type Pluto } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { type Import } from "@/platform/import";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import { assertDefined, createConsoleWrapper, type TestStore } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -100,20 +100,19 @@ const legacyLayoutSlice = (): unknown => ({
 
 interface HarnessValue {
   openTab: Panel.OpenTab;
-  fluxStore: Pluto.FluxStore;
   granted: boolean;
 }
 
 const selectImportedProject = (store: TestStore): project.Key => {
   const key = Session.Project.selectOptionalSelected(store.getState());
-  if (key == null) throw new Error("no project selected after import");
+  assertDefined(key, "no project selected after import");
   return key;
 };
 
 const retrieveProjectChildren = async (
   key: project.Key,
 ): Promise<ontology.Resource[]> =>
-  await client.ontology.retrieveChildren(project.ontologyID(key));
+  await client.ontology.children.retrieve({ ids: project.ontologyID(key) });
 
 describe("project import", () => {
   const runImport = async (fileList: Import.File[]): Promise<TestStore> => {
@@ -121,7 +120,6 @@ describe("project import", () => {
     const { result } = renderHook<HarnessValue, unknown>(
       () => ({
         openTab: Panel.useOpenTab(),
-        fluxStore: Flux.useStore<Pluto.FluxStore>(),
         granted: Access.useUpdateGranted(project.TYPE_ONTOLOGY_ID),
       }),
       { wrapper },
@@ -133,7 +131,6 @@ describe("project import", () => {
         fileIngesters: {},
         openTab: result.current.openTab,
         store,
-        fluxStore: result.current.fluxStore,
       });
     });
     return store;
@@ -157,20 +154,18 @@ describe("project import", () => {
       .filter(({ id }) => id.type === "panel")
       .map(({ id }) => id.key);
     expect(panelKeys).toHaveLength(1);
-    const [imported] = await client.panels.retrieve(panelKeys);
+    const [imported] = await client.panels.retrieve({ keys: panelKeys });
     expect(imported.name).toBe("Main");
-    if (imported.root.variant !== "leaf") throw new Error("expected a leaf root");
+    assert(imported.root.variant === "leaf", "expected a leaf root");
     const resources = imported.root.tabs.map((tab) => {
-      if (tab.variant !== "resource") throw new Error("expected resource tabs");
+      assert(tab.variant === "resource", "expected resource tabs");
       return tab.resource;
     });
     expect(resources.map(({ type }) => type)).toEqual([SCHEMATIC_TYPE, TABLE_TYPE]);
     const [schematicID, tableID] = resources;
-    const importedSchematic = await client.schematics.retrieve({
-      key: schematicID.key,
-    });
+    const importedSchematic = await client.schematics.retrieve(schematicID.key);
     expect(importedSchematic.name).toBe("Operator");
-    const importedTable = await client.tables.retrieve({ key: tableID.key });
+    const importedTable = await client.tables.retrieve(tableID.key);
     expect(importedTable.name).toBe("Thermocouples");
   });
 

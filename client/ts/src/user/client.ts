@@ -8,17 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/types.gen";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
   usernames: z.string().array().optional(),
 });
+const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
 const keyRetrieveRequestZ = z
   .object({
@@ -32,20 +34,13 @@ const usernameRetrieveRequestZ = z
   })
   .transform(({ username }) => ({ usernames: [username] }));
 
-const usernamesRetrieveRequestZ = z
-  .object({
-    usernames: z.string().array(),
-  })
-  .transform(({ usernames }) => ({ usernames }));
-
 export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
 export type UsernameRetrieveRequest = z.input<typeof usernameRetrieveRequestZ>;
-export type UsernamesRetrieveRequest = z.input<typeof usernamesRetrieveRequestZ>;
+export type UsernamesRetrieveRequest = { usernames: string[] };
 
 const retrieveParamsZ = z.union([
   keyRetrieveRequestZ,
   usernameRetrieveRequestZ,
-  usernamesRetrieveRequestZ,
   retrieveRequestZ,
 ]);
 
@@ -71,82 +66,188 @@ const deleteResZ = z.object({});
 export const SET_CHANNEL_NAME = "sy_user_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
-export class Client {
-  private readonly client: UnaryClient;
+type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
 
-  constructor(client: UnaryClient) {
-    this.client = client;
+const singleParamsZ = z.union([
+  z.strictObject({ key: keyZ }),
+  z.strictObject({ username: z.string() }),
+  keyZ.transform((key) => ({ key })),
+]);
+
+const singleIdentifier = (params: SingleParams): string =>
+  "key" in params ? `key ${params.key}` : `username ${params.username}`;
+
+const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
+  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
+  const usernameSet = primitive.isNonZero(req.usernames)
+    ? new Set(req.usernames)
+    : undefined;
+  return (u) => {
+    if (keySet != null && !keySet.has(u.key)) return false;
+    if (usernameSet != null && !usernameSet.has(u.username)) return false;
+    return true;
+  };
+};
+
+export interface ClientConfig {
+  unary: UnaryClient;
+  cache: query.Cache;
+  ontology: ontology.Client;
+}
+
+export class Client extends query.Retriever<
+  typeof retrieveMultiParamsZ,
+  Key,
+  User,
+  User,
+  SingleParams,
+  SingleParams
+> {
+  private readonly cfg: ClientConfig;
+  private readonly store: query.Table<Key, User>;
+
+  constructor(cfg: ClientConfig) {
+    const { cache } = cfg;
+    const store = cache.createTable<Key, User>({
+      name: "users",
+      fetch: async (keys) => await this.execRetrieve({ keys }),
+    });
+    const single = cache.queries<SingleParams, User, Key, User>({
+      name: "user",
+      table: store,
+      fetch: async (params) => {
+        if (!("key" in params)) {
+          const [cached] = store.get((u) => u.username === params.username);
+          if (cached != null) return [cached.key];
+        }
+        const users = await this.execRetrieve(params);
+        checkSingle(params, users);
+        store.ingest(users);
+        return users.map((u) => u.key);
+      },
+      compose: (records) => records[0],
+      keyOf: (params) => ("key" in params ? params.key : null),
+      matches: (u, params) =>
+        "key" in params ? u.key === params.key : u.username === params.username,
+      single: true,
+    });
+    super(cache, {
+      name: "user",
+      table: store,
+      request: {
+        schema: retrieveMultiParamsZ,
+        fetch: async (req) => await this.execRetrieve(req),
+        matches: (u, req) => requestFilter(req)(u),
+      },
+      single: { schema: singleParamsZ, space: single },
+    });
+    this.cfg = cfg;
+    this.store = store;
   }
 
   async create(user: New): Promise<User>;
   async create(users: New[]): Promise<User[]>;
   async create(users: New | New[]): Promise<User | User[]> {
     const isMany = Array.isArray(users);
-    const res = await this.client.send(
+    const res = await this.cfg.unary.send(
       "/user/create",
       { users: array.toArray(users) },
       createReqZ,
       createResZ,
     );
+    this.store.set(res.users);
     return isMany ? res.users : res.users[0];
   }
 
-  async changeUsername(key: Key, newUsername: string): Promise<void> {
-    await this.client.send(
-      "/user/change-username",
-      { key, username: newUsername },
-      changeUsernameReqZ,
-      changeUsernameResZ,
-    );
+  async changeUsername(
+    key: Key,
+    newUsername: string,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    const update = () => [
+      query.partialUpdate(this.store, key, { username: newUsername }),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), newUsername),
+    ];
+    await query.optimistic({
+      rollbacks: update(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/user/change-username",
+          { key, username: newUsername },
+          changeUsernameReqZ,
+          changeUsernameResZ,
+        ),
+    });
+    update();
   }
 
-  async retrieve(params: KeyRetrieveRequest): Promise<User>;
-  async retrieve(params: UsernameRetrieveRequest): Promise<User>;
-  async retrieve(params: RetrieveParams): Promise<User[]>;
-  async retrieve(params: RetrieveParams): Promise<User | User[]> {
-    const isSingle = "key" in params || "username" in params;
-    const res = await this.client.send(
+  async rename(
+    key: Key,
+    firstName?: string,
+    lastName?: string,
+    opts: query.WriteOptions = {},
+  ): Promise<void> {
+    await query.optimistic({
+      rollbacks: [
+        query.partialUpdate(
+          this.store,
+          key,
+          record.purgeUndefined({ firstName, lastName }),
+        ),
+      ],
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/user/rename",
+          { key, firstName, lastName },
+          renameReqZ,
+          renameResZ,
+        ),
+    });
+  }
+
+  async delete(key: Key, opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key[], opts?: query.WriteOptions): Promise<void>;
+  async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
+    const keysArr = array.toArray(keys);
+    const drop = () => [
+      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
+      this.store.delete(keysArr),
+    ];
+    await query.optimistic({
+      rollbacks: drop(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.cfg.unary.send(
+          "/user/delete",
+          { keys: keysArr },
+          deleteReqZ,
+          deleteResZ,
+        ),
+    });
+    drop();
+  }
+
+  private async execRetrieve(params: RetrieveParams): Promise<User[]> {
+    const res = await this.cfg.unary.send(
       "/user/retrieve",
       params,
       retrieveParamsZ,
       retrieveResZ,
     );
-
-    if (!isSingle) return res.users;
-
-    if (res.users.length === 0) {
-      const identifier =
-        "key" in params ? `key ${params.key}` : `username ${params.username}`;
-      throw new NotFoundError(`No user with ${identifier} found`);
-    }
-    if (res.users.length > 1) {
-      const identifier =
-        "key" in params ? `key ${params.key}` : `username ${params.username}`;
-      throw new MultipleFoundError(`Multiple users found with ${identifier}`);
-    }
-    return res.users[0];
-  }
-
-  async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {
-    await this.client.send(
-      "/user/rename",
-      { key, firstName, lastName },
-      renameReqZ,
-      renameResZ,
-    );
-  }
-
-  async delete(key: Key): Promise<void>;
-  async delete(keys: Key[]): Promise<void>;
-  async delete(keys: Key | Key[]): Promise<void> {
-    await this.client.send(
-      "/user/delete",
-      { keys: array.toArray(keys) },
-      deleteReqZ,
-      deleteResZ,
-    );
+    return res.users;
   }
 }
+
+const checkSingle = (params: SingleParams, users: User[]): void => {
+  if (users.length === 0)
+    throw new NotFoundError(`No user with ${singleIdentifier(params)} found`);
+  if (users.length > 1)
+    throw new MultipleFoundError(
+      `Multiple users found with ${singleIdentifier(params)}`,
+    );
+};
 
 export const ontologyID = ontology.createIDFactory<Key>("user");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

@@ -105,7 +105,7 @@ interface UngroupParams extends Tree.ContextMenuProps {
   prevNodes?: PTree.Node<string>[];
 }
 
-const baseUngroup = Flux.createUpdate<UngroupParams, Group.FluxSubStore>({
+const baseUngroup = Flux.createUpdate<UngroupParams>({
   name: Group.RESOURCE_NAME,
   verbs: {
     present: "ungroup",

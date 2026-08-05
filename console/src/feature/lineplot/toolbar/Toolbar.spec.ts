@@ -65,7 +65,7 @@ describe("lineplot/toolbar/Toolbar", () => {
     fireEvent.change(input, { target: { value: newName } });
     expect(await screen.findByText(newName)).toBeDefined();
     await waitFor(async () => {
-      const remote = await client.lineplots.retrieve({ key });
+      const remote = await client.lineplots.retrieve(key);
       expect(remote.name).toBe(newName);
     });
   });
@@ -78,7 +78,7 @@ describe("lineplot/toolbar/Toolbar", () => {
     expect(titleSwitch.checked).toBe(false);
     fireEvent.click(titleSwitch);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.title.visible).toBe(true);
     });
     expect(titleSwitch.checked).toBe(true);
@@ -92,7 +92,7 @@ describe("lineplot/toolbar/Toolbar", () => {
     expect(legendSwitch.checked).toBe(true);
     fireEvent.click(legendSwitch);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.legend.hidden).toBe(true);
     });
   });

@@ -9,7 +9,6 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Session } from "@/session";
@@ -34,7 +33,6 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
           () =>
             client.lineplots.dispatch(
               active,
-              id.create(),
               data.map((range) =>
                 lineplot.addRange({ axisKey: "x1", range: range.key }),
               ),

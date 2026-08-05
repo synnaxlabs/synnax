@@ -20,7 +20,7 @@ import {
   type Synnax,
   table,
 } from "@synnaxlabs/client";
-import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
+import { Access, type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -136,9 +136,9 @@ const ingestLegacy = async (
 export const ingest: Import.DirectoryIngester = async (
   name,
   files,
-  { client, fileIngesters, store, fluxStore },
+  { client, fileIngesters, store },
 ) => {
-  if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, store: fluxStore, client }))
+  if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, client }))
     throw new Error("You do not have permission to import projects");
   if (client == null) throw new DisconnectedError();
   const panelsFile = files.find((file) => file.name === PANELS_FILE_NAME);
@@ -149,12 +149,7 @@ export const ingest: Import.DirectoryIngester = async (
   // Create the project first so imported components can be parented to it; its
   // panels are created below once the components' real keys are known.
   await client.projects.create({ key: projectKey, name, layout: {} });
-  const ctx: ComponentContext = {
-    openTab: noopOpenTab,
-    store: fluxStore,
-    client,
-    projectKey,
-  };
+  const ctx: ComponentContext = { openTab: noopOpenTab, client, projectKey };
   if (panelsFile != null) {
     const panels = panel.panelZ.array().parse(panelsFile.data);
     const remap = await ingestComponents(
@@ -182,7 +177,6 @@ export interface IngestContext {
   fileIngesters: Import.FileIngesters;
   openTab: Panel.OpenTab;
   store: Store;
-  fluxStore: Pluto.FluxStore;
 }
 
 export const import_ = ({
@@ -191,7 +185,6 @@ export const import_ = ({
   fileIngesters,
   openTab,
   store,
-  fluxStore,
 }: IngestContext) => {
   let name: string | undefined = "project";
   handleError(async () => {
@@ -204,12 +197,6 @@ export const import_ = ({
         data: JSON.parse(await file.read()),
       })),
     );
-    await ingest(name, fileData, {
-      client,
-      fileIngesters,
-      openTab,
-      store,
-      fluxStore,
-    });
+    await ingest(name, fileData, { client, fileIngesters, openTab, store });
   }, `Failed to import ${name}`);
 };
