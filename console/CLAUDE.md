@@ -11,8 +11,9 @@ Drag-and-drop mosaic dashboards.
 Four strictly-ordered layers; every domain (schematic, range, task, ...) is split across
 them. A layer imports only layers below it — never above:
 
-1. **`session/`** (lowest) — pure Redux: slices, selectors, persistence, migrations. No
-   React.
+1. **`session/`** (lowest) — Redux state: slices, selectors, persistence, migrations,
+   plus the synchronizer hooks that keep session state consistent with the cluster. No
+   components or rendering.
 2. **`platform/`** — substrate: high fan-in capabilities other domains depend on.
    Frameworks (ontology, layout, palette, link, export/import, modals) and
    cross-domain-shared widgets/hooks. Never imports `feature/`.

@@ -197,7 +197,7 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
           </Button.Button>
           {onTryAgain != null && (
             <Button.Button variant="filled" onClick={onTryAgain}>
-              Reload Console
+              Reload console
             </Button.Button>
           )}
         </Flex.Box>

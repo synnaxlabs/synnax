@@ -130,8 +130,7 @@ const formMountListeners: Flux.CreateFormParams<
 >["mountListeners"] = ({ client, query: { key, rangeKey }, reset }) => {
   if (key == null) return [];
   return client.channels.onChange({ key, rangeKey }, (result) => {
-    if (result !== undefined && !query.Deleted.matches(result))
-      reset(channelToFormValues(result));
+    if (query.isLive(result)) reset(channelToFormValues(result));
   });
 };
 

@@ -9,7 +9,6 @@
 
 import { Icon, Menu, Panel, type Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { editTabName } from "@/platform/panel/tab";
@@ -32,12 +31,11 @@ const RenameItem = (): ReactElement | null => {
 };
 
 const FocusItem = (): ReactElement => {
-  const dispatch = useDispatch();
-  const panelKey = Panel.useKey();
   const tabKey = Panel.useTabKey();
+  const startOverlaying = Session.Panel.useStartOverlaying();
   const handleFocus = useCallback(
-    () => dispatch(Session.Panel.startOverlaying({ key: panelKey, tabKey })),
-    [dispatch, panelKey, tabKey],
+    () => startOverlaying(tabKey),
+    [startOverlaying, tabKey],
   );
   return (
     <Menu.Item itemKey="focus" onClick={handleFocus} trigger={FOCUS_TRIGGER}>

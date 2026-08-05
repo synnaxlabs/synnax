@@ -9,16 +9,7 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { lineplot, ranger, type Synnax as Client } from "@synnaxlabs/client";
-import {
-  Access,
-  type Flux,
-  Icon,
-  Menu,
-  Panel as PPanel,
-  Ranger,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Access, type Flux, Icon, Menu, Ranger, Synnax, Text } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -66,7 +57,6 @@ const useDelete = () => {
     type: "Range",
     description: "Deleting this range will also delete all child ranges.",
   });
-  const closeTabs = PPanel.useCloseResourceTabs();
   const { update } = Ranger.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<Ranger.DeleteParams>) => {
@@ -74,10 +64,9 @@ const useDelete = () => {
         const rng = ranges.filter((r) => keys.includes(r.key));
         if (!(await confirm(rng))) return false;
         handleRemove(keys);
-        closeTabs(ranger.ontologyID(keys));
         return true;
       },
-      [closeTabs],
+      [confirm, ranges],
     ),
   });
   return update;

@@ -50,7 +50,7 @@ const renderNavigateHook = async ({
   );
   hook.store.dispatch(Session.Project.select(await testProjectKey()));
   await act(async () => {
-    await client.schematics.retrieve({ key: source.key });
+    await client.schematics.retrieve(source.key);
   });
   return { source, ...hook };
 };

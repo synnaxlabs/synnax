@@ -186,7 +186,7 @@ describe("task/Toolbar", () => {
       await openContextMenuUntil(t.name, "Enable data saving");
       fireEvent.click(screen.getByText("Enable data saving"));
       await waitFor(async () => {
-        const updated = await client.tasks.retrieve({ key: t.key });
+        const updated = await client.tasks.retrieve(t.key);
         expect(updated.config).toEqual({ dataSaving: true });
       });
     });
@@ -197,7 +197,7 @@ describe("task/Toolbar", () => {
       await openContextMenuUntil(t.name, "Disable data saving");
       fireEvent.click(screen.getByText("Disable data saving"));
       await waitFor(async () => {
-        const updated = await client.tasks.retrieve({ key: t.key });
+        const updated = await client.tasks.retrieve(t.key);
         expect(updated.config).toEqual({ dataSaving: false });
       });
     });
@@ -220,7 +220,7 @@ describe("task/Toolbar", () => {
       const renamed = uniqueName("renamed");
       commitTextEdit(editor, renamed);
       await waitFor(async () =>
-        expect((await client.tasks.retrieve({ key: t.key })).name).toBe(renamed),
+        expect((await client.tasks.retrieve(t.key)).name).toBe(renamed),
       );
     });
 
@@ -237,7 +237,7 @@ describe("task/Toolbar", () => {
       );
       fireEvent.click(findButton("Rename"));
       await waitFor(async () =>
-        expect((await client.tasks.retrieve({ key: t.key })).name).toBe(renamed),
+        expect((await client.tasks.retrieve(t.key)).name).toBe(renamed),
       );
     });
 
@@ -249,7 +249,7 @@ describe("task/Toolbar", () => {
       await screen.findByText(`Are you sure you want to delete ${t.name}?`);
       fireEvent.click(findButton("Delete"));
       await waitFor(async () => {
-        await expect(client.tasks.retrieve({ key: t.key })).rejects.toSatisfy((e) =>
+        await expect(client.tasks.retrieve(t.key)).rejects.toSatisfy((e) =>
           NotFoundError.matches(e),
         );
       });
@@ -268,7 +268,9 @@ describe("task/Toolbar", () => {
       await openContextMenu(t.name);
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
-        const children = await client.ontology.retrieveChildren(rng.ontologyID);
+        const children = await client.ontology.children.retrieve({
+          ids: rng.ontologyID,
+        });
         expect(children.some((c) => c.id.type === "task")).toBe(true);
       });
     });

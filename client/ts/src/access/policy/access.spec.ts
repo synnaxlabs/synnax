@@ -18,7 +18,6 @@ import {
   createTestClientWithPolicy,
   expectDeleted,
   expectLive,
-  isLive,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -211,7 +210,7 @@ describe("cached reads", () => {
         await expect
           .poll(() => {
             const cached = client.access.policies.getCached(p.key);
-            return isLive(cached) && cached.name === renamed;
+            return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
         expect(handler).toHaveBeenCalled();

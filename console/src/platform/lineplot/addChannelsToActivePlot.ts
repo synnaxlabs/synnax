@@ -19,7 +19,7 @@ export const addChannelsToActivePlot = async (
   key: lineplot.Key,
   channels: channel.Key[],
 ): Promise<void> => {
-  const existing = await client.lineplots.retrieve({ key });
+  const existing = await client.lineplots.retrieve(key);
   const present = new Set(existing.channels.y1);
   const additions = channels.filter((c) => !present.has(c));
   if (additions.length === 0) return;

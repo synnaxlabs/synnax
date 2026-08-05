@@ -47,7 +47,7 @@ describe("Modbus.Read", () => {
     await clickConfigure();
     const taskKey = await awaitTaskKey(rendered);
 
-    const tsk = await client.tasks.retrieve({ key: taskKey });
+    const tsk = await client.tasks.retrieve(taskKey);
     expect(task.rackKey(tsk.key)).toBe(dev.rack);
     const config = Modbus.Task.READ_SCHEMAS.config.parse(tsk.config);
     expect(config.device).toBe(dev.key);

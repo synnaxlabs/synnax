@@ -30,6 +30,7 @@ const retrieveReqZ = z.object({
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
+  ignoreNotFoundError: z.boolean().optional(),
 });
 const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}

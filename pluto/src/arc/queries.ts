@@ -42,14 +42,15 @@ export interface SelectKeyParams {
 
 const requireArc = (client: Synnax | null, key: arc.Key): arc.Arc => {
   const cached = client?.arcs.getCached(key);
-  if (cached == null || query.Deleted.matches(cached))
-    throw new NotFoundError(`Arc with key ${key} not found`);
+  if (cached == null) throw new NotFoundError(`Arc with key ${key} not found`);
+  if (query.Deleted.matches(cached))
+    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
   return cached;
 };
 
 const getArc = (client: Synnax | null, key: arc.Key): arc.Arc | undefined => {
   const cached = client?.arcs.getCached(key);
-  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  if (!query.isLive(cached)) return undefined;
   return cached;
 };
 
@@ -241,7 +242,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>
     }),
 });
 
-export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
+export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved, useTombstone } =
   Flux.createRetrieve<RetrieveQuery, arc.Arc>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.arcs.retrieve(query),

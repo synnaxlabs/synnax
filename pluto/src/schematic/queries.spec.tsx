@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type project, schematic } from "@synnaxlabs/client";
+import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
+import { Flux } from "@/flux";
 import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -135,11 +136,67 @@ describe("schematic queries", () => {
     });
   });
 
+  describe("useTombstone", () => {
+    it("reports the corpse on delete and clears it when the schematic is restored", async () => {
+      const doomed = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, doomed.key);
+
+      const { result } = renderHook(() => Schematic.useTombstone({ key: doomed.key }), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toBeNull();
+
+      await client.schematics.delete(doomed.key);
+      await waitFor(() => expect(result.current?.name).toBe("test_schematic"));
+
+      // Restoring re-creates from the corpse, which keeps the original key.
+      // The read heals off the cache alone: no boundary reset, no refetch.
+      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
+      await client.schematics.create(proj.key, corpse);
+      await waitFor(() => expect(result.current).toBeNull());
+    });
+  });
+
   describe("selectors", () => {
     let schem: schematic.Schematic;
     beforeAll(async () => {
       schem = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, schem.key);
+    });
+
+    it("throws a DeletedError naming the corpse once the schematic is deleted", async () => {
+      const doomed = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, doomed.key);
+      await client.schematics.delete(doomed.key);
+      await waitFor(() =>
+        expect(query.Deleted.matches(client.schematics.getCached(doomed.key))).toBe(
+          true,
+        ),
+      );
+
+      const caught: Error[] = [];
+      const Fallback = ({ error }: Errors.FallbackProps): null => {
+        caught.push(error);
+        return null;
+      };
+      const BoundaryWrapper = ({ children }: PropsWithChildren): ReactElement => (
+        <Wrapper>
+          <Errors.SuspenseBoundary loading={null} FallbackComponent={Fallback}>
+            {children}
+          </Errors.SuspenseBoundary>
+        </Wrapper>
+      );
+      BoundaryWrapper.displayName = "BoundaryWrapper";
+
+      renderHook(() => Schematic.useSelectName({ key: doomed.key }), {
+        wrapper: BoundaryWrapper,
+      });
+      await waitFor(() => expect(caught.length).toBeGreaterThan(0));
+      const error = caught[0];
+      assert(Flux.DeletedError.matches(error));
+      expect(error.corpseName).toBe("test_schematic");
+      const corpse = query.requireCorpse(client.schematics.getCached(doomed.key));
+      expect(corpse.key).toBe(doomed.key);
     });
 
     it("useSelectAllEdges returns the schematic's edges", () => {

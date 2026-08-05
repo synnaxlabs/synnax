@@ -32,14 +32,17 @@ export type RetrieveQuery = schematic.RetrieveSingleParams;
 
 // Prefers the cached copy: it may hold locally replayed edits ahead of the
 // server.
-export const { useRetrieveSuspended, useRetrieveObservable, useEnsureRetrieved } =
-  Flux.createRetrieve<RetrieveQuery, schematic.Schematic>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
-    subscribe: ({ client, query }, handler) =>
-      client.schematics.onChange(query, handler),
-    getCached: ({ client, query }) => client.schematics.getCached(query),
-  });
+export const {
+  useRetrieveSuspended,
+  useRetrieveObservable,
+  useEnsureRetrieved,
+  useTombstone,
+} = Flux.createRetrieve<RetrieveQuery, schematic.Schematic>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
+  subscribe: ({ client, query }, handler) => client.schematics.onChange(query, handler),
+  getCached: ({ client, query }) => client.schematics.getCached(query),
+});
 
 export interface SelectKeyParams {
   key: schematic.Key;
@@ -50,8 +53,9 @@ const requireSchematic = (
   key: schematic.Key,
 ): schematic.Schematic => {
   const cached = client?.schematics.getCached(key);
-  if (cached == null || query.Deleted.matches(cached))
-    throw new NotFoundError(`Schematic with key ${key} not found`);
+  if (cached == null) throw new NotFoundError(`Schematic with key ${key} not found`);
+  if (query.Deleted.matches(cached))
+    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
   return cached;
 };
 
@@ -60,7 +64,7 @@ const getSchematic = (
   key: schematic.Key,
 ): schematic.Schematic | undefined => {
   const cached = client?.schematics.getCached(key);
-  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  if (!query.isLive(cached)) return undefined;
   return cached;
 };
 
@@ -293,8 +297,7 @@ export const useAddNode = () => {
       if (Node.isCustomConfig(config) && specKey != null) {
         config.specKey = specKey;
         const sym = client?.schematics.symbols.getCached(specKey);
-        if (config.label != null && sym != null && !query.Deleted.matches(sym))
-          config.label.label = sym.name;
+        if (config.label != null && query.isLive(sym)) config.label.label = sym.name;
       }
       dispatch(
         schematic.setNode({

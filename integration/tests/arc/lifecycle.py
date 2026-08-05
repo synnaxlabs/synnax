@@ -231,7 +231,7 @@ class Lifecycle(ArcCase, ConsoleCase):
         # Re-deploy auto-starts the task (auto_start is set in the task config
         # by load_arc), so the Arc is already running with the new name here.
 
-        # --- 6. Stop, then delete and verify tab removal ---
+        # --- 6. Stop, then delete and verify the tab tombstones ---
         self.log("Stopping Arc")
         self.console.arc.stop()
 
@@ -244,6 +244,8 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.console.arc.delete(self.new_name)
         self.remove_arc(old_name)
 
-        self.log("Verifying tab removed from mosaic")
-        tab = self.console.layout.get_tab(self.new_name)
-        tab.wait_for(state="hidden", timeout=5000)
+        # A deleted resource's tab stays open and tombstones; it is not closed
+        # out from under the user. The tombstone renders inside that tab.
+        self.log("Verifying tab tombstones in place")
+        tombstone = self.console.layout.get_tombstone(self.new_name)
+        tombstone.wait_for(state="visible", timeout=5000)

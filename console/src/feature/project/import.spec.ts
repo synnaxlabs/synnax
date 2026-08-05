@@ -121,7 +121,7 @@ const selectImportedProject = (store: TestStore): project.Key => {
 const retrieveProjectChildren = async (
   key: project.Key,
 ): Promise<ontology.Resource[]> =>
-  await client.ontology.retrieveChildren(project.ontologyID(key));
+  await client.ontology.children.retrieve({ ids: project.ontologyID(key) });
 
 describe("project import", () => {
   const runImport = async (fileList: Import.File[]): Promise<TestStore> => {
@@ -163,7 +163,7 @@ describe("project import", () => {
       .filter(({ id }) => id.type === "panel")
       .map(({ id }) => id.key);
     expect(panelKeys).toHaveLength(1);
-    const [imported] = await client.panels.retrieve(panelKeys);
+    const [imported] = await client.panels.retrieve({ keys: panelKeys });
     expect(imported.name).toBe("Main");
     assert(imported.root.variant === "leaf", "expected a leaf root");
     const resources = imported.root.tabs.map((tab) => {
@@ -172,11 +172,9 @@ describe("project import", () => {
     });
     expect(resources.map(({ type }) => type)).toEqual([SCHEMATIC_TYPE, TABLE_TYPE]);
     const [schematicID, tableID] = resources;
-    const importedSchematic = await client.schematics.retrieve({
-      key: schematicID.key,
-    });
+    const importedSchematic = await client.schematics.retrieve(schematicID.key);
     expect(importedSchematic.name).toBe("Operator");
-    const importedTable = await client.tables.retrieve({ key: tableID.key });
+    const importedTable = await client.tables.retrieve(tableID.key);
     expect(importedTable.name).toBe("Thermocouples");
   });
 

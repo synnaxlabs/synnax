@@ -36,7 +36,7 @@ import {
 import { Synnax } from "@/synnax";
 
 // Bound at module scope: hooks bind `query` to the caller's params object.
-const { Deleted } = query;
+const { Deleted, isLive } = query;
 
 export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (key: K): E | undefined;
@@ -165,7 +165,7 @@ export const createList =
         client,
         query,
       });
-      if (cached === undefined || Deleted.matches(cached)) return undefined;
+      if (!isLive(cached)) return undefined;
       let items = cached.filter(filterRef.current);
       if (sortRef.current != null) items = [...items].sort(sortRef.current);
       if (items.length === 0) return undefined;
@@ -283,7 +283,7 @@ export const createList =
               query: q,
             },
             (cached: query.Cached<Data[]> | undefined) => {
-              if (cached === undefined || Deleted.matches(cached)) return;
+              if (!isLive(cached)) return;
               applyPageAnswer(page, cached);
             },
           );

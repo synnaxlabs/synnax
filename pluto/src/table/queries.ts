@@ -30,7 +30,7 @@ const RESOURCE_NAME = "table";
 
 export type RetrieveQuery = table.RetrieveSingleParams;
 
-export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
+export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved, useTombstone } =
   Flux.createRetrieve<RetrieveQuery, table.Table>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.tables.retrieve(query),
@@ -44,14 +44,15 @@ export interface SelectKeyParams {
 
 const requireTable = (client: Client | null, key: table.Key): table.Table => {
   const cached = client?.tables.getCached(key);
-  if (cached == null || query.Deleted.matches(cached))
-    throw new NotFoundError(`Table with key ${key} not found`);
+  if (cached == null) throw new NotFoundError(`Table with key ${key} not found`);
+  if (query.Deleted.matches(cached))
+    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
   return cached;
 };
 
 const getTable = (client: Client | null, key: table.Key): table.Table | undefined => {
   const cached = client?.tables.getCached(key);
-  if (cached == null || query.Deleted.matches(cached)) return undefined;
+  if (!query.isLive(cached)) return undefined;
   return cached;
 };
 

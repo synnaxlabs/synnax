@@ -17,20 +17,13 @@ import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";
 import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
-import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
 import { Project } from "@/feature/project";
 import { CSS } from "@/platform/css";
-import { Range } from "@/platform/range";
-import { Status } from "@/platform/status";
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});
-  Cluster.useSyncClusterKey();
   Device.useListenForChanges();
-  Range.useListenForChanges();
-  Project.useCheckCore();
-  Status.useListenForChanges();
   Link.useDeep();
   Triggers.use();
   return null;

@@ -10,10 +10,11 @@
 import { id, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { query } from "@/query";
 import { type rack } from "@/rack";
 import { statusKey } from "@/rack/client";
 import { status } from "@/status";
-import { createTestClient, isLive } from "@/testutil";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
@@ -171,11 +172,11 @@ describe("Rack", () => {
     });
     it("should compose streamed statuses onto a single query answer", async () => {
       const r = await client.racks.create({ name: "status-compose-single" });
-      const query = { key: r.key, includeStatus: true };
-      await client.racks.retrieve(query);
+      const params = { key: r.key, includeStatus: true };
+      await client.racks.retrieve(params);
       const seen: rack.Rack[] = [];
-      const stop = client.racks.onChange(query, (cached) => {
-        if (isLive(cached)) seen.push(cached);
+      const stop = client.racks.onChange(params, (cached) => {
+        if (query.isLive(cached)) seen.push(cached);
       });
       try {
         await client.statuses.set(
@@ -196,11 +197,11 @@ describe("Rack", () => {
     });
     it("should compose streamed statuses onto a request query answer", async () => {
       const r = await client.racks.create({ name: "status-compose-request" });
-      const query = { keys: [r.key], includeStatus: true };
-      await client.racks.retrieve(query);
+      const params = { keys: [r.key], includeStatus: true };
+      await client.racks.retrieve(params);
       const seen: rack.Rack[][] = [];
-      const stop = client.racks.onChange(query, (cached) => {
-        if (isLive(cached)) seen.push(cached);
+      const stop = client.racks.onChange(params, (cached) => {
+        if (query.isLive(cached)) seen.push(cached);
       });
       try {
         await client.statuses.set(

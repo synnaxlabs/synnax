@@ -42,7 +42,7 @@ describe("useSetDataSaving", () => {
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-    const updated = await client.tasks.retrieve({ key: t.key });
+    const updated = await client.tasks.retrieve(t.key);
     expect(updated.config).toEqual({ dataSaving: true, sampleRate: 100 });
   });
 
@@ -61,7 +61,7 @@ describe("useSetDataSaving", () => {
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-    const updated = await client.tasks.retrieve({ key: t.key });
+    const updated = await client.tasks.retrieve(t.key);
     expect(updated.config).toEqual({ dataSaving: false, sampleRate: 100 });
   });
 
@@ -80,7 +80,7 @@ describe("useSetDataSaving", () => {
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-    const updated = await client.tasks.retrieve({ key: writeTask.key });
+    const updated = await client.tasks.retrieve(writeTask.key);
     expect(updated.config).toEqual({ outputChannel: 42 });
   });
 
@@ -99,7 +99,7 @@ describe("useSetDataSaving", () => {
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-    const updated = await client.tasks.retrieve({ key: t.key });
+    const updated = await client.tasks.retrieve(t.key);
     expect(updated.config).toEqual({ dataSaving: true });
   });
 });

@@ -18,7 +18,6 @@ import {
   Icon,
   List,
   Menu,
-  Panel as PPanel,
   Select,
   Status,
   stopPropagation,
@@ -102,7 +101,6 @@ const Content = () => {
     ),
   });
 
-  const closeTabs = PPanel.useCloseResourceTabs();
   const { update: handleDelete } = Task.useDelete({
     beforeUpdate: useCallback(
       async ({ data: keys }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
@@ -119,10 +117,9 @@ const Content = () => {
           confirm: { label: "Delete", variant: "error" },
         });
         if (!confirmed) return false;
-        closeTabs(task.ontologyID(array.toArray(keys)));
         return keys;
       },
-      [client, getItem, closeTabs],
+      [client, getItem],
     ),
     afterFailure: ({ status }) => addStatus(status),
   });

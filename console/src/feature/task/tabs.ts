@@ -17,6 +17,6 @@ export const retrieveAndOpenTab = async (
   openTab: Panel.OpenTab,
 ) => {
   if (client == null) throw new DisconnectedError();
-  const t = await client.tasks.retrieve({ key });
+  const t = await client.tasks.retrieve(key);
   openTab({ variant: "view", type: t.type, args: { taskKey: key } });
 };

@@ -20,7 +20,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/platform/context-menu";
@@ -37,6 +37,7 @@ const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null =>
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const confirm = Tree.useConfirmDelete({ type: "Panel" });
+  const dispatch = useDispatch();
   const { update: del } = Panel.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
@@ -44,9 +45,10 @@ const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null =>
         if (panelKeys.length === 0) return false;
         const selected = panels.filter(({ key }) => panelKeys.includes(key));
         if (!(await confirm(selected))) return false;
+        dispatch(Session.Panel.remove(panelKeys));
         return data;
       },
-      [panels, confirm],
+      [panels, confirm, dispatch],
     ),
   });
   if (keys.length === 0) return null;
@@ -111,17 +113,6 @@ export const Selector = (): ReactElement | null => {
     () => create({ name: "New Panel", parent: project.ontologyID(projectKey) }),
     [create, projectKey],
   );
-
-  // The session's selection outlives the project it was made in, so a panel outside the
-  // active project must never stay selected.
-  useEffect(() => {
-    if (selected != null && keys.includes(selected)) return;
-    if (keys.length === 0) {
-      if (selected != null) dispatch(Session.Panel.clearSelected({}));
-      return;
-    }
-    dispatch(Session.Panel.select({ key: keys[0] }));
-  }, [selected, keys, dispatch]);
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} panels={panels} />,

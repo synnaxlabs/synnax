@@ -12,8 +12,9 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
+import { query } from "@/query";
 import { task } from "@/task";
-import { createTestClient, isLive } from "@/testutil";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
@@ -661,10 +662,10 @@ describe("Task", async () => {
         config: {},
         type: "ni",
       });
-      const query = { key: t.key };
-      const off = client.tasks.onChange(query, vi.fn());
+      const params = { key: t.key };
+      const off = client.tasks.onChange(params, vi.fn());
       try {
-        await client.tasks.retrieve(query);
+        await client.tasks.retrieve(params);
         await client.statuses.set({
           key: id.create(),
           name: "Task Status",
@@ -675,8 +676,8 @@ describe("Task", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(query);
-            if (!isLive(cached)) return undefined;
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
             return cached.status?.message;
           })
           .toBe("task failed");
@@ -691,10 +692,10 @@ describe("Task", async () => {
         config: {},
         type: "ni",
       });
-      const query = { keys: [t.key] };
-      const off = client.tasks.onChange(query, vi.fn());
+      const params = { keys: [t.key] };
+      const off = client.tasks.onChange(params, vi.fn());
       try {
-        await client.tasks.retrieve(query);
+        await client.tasks.retrieve(params);
         await client.statuses.set({
           key: id.create(),
           name: "Task Status",
@@ -705,8 +706,8 @@ describe("Task", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(query);
-            if (!isLive(cached)) return undefined;
+            const cached = client.tasks.getCached(params);
+            if (!query.isLive(cached)) return undefined;
             return cached.find((v) => v.key === t.key)?.status?.message;
           })
           .toBe("task degraded");
