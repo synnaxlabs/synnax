@@ -685,11 +685,17 @@ func isValidCast(source, target basetypes.Type) bool {
 	if source.Kind == target.Kind {
 		return true
 	}
-	if target.Kind == basetypes.KindString && source.IsNumeric() {
+	if target.Kind == basetypes.KindString &&
+		(source.IsNumeric() || source.Kind == basetypes.KindBool) {
 		return true
 	}
 	if source.Kind == basetypes.KindString || target.Kind == basetypes.KindString {
 		return false
+	}
+	// bool converts to and from numeric types: bool(x) normalizes to 0/1, and a
+	// numeric cast widens a bool's 0/1 value.
+	if source.Kind == basetypes.KindBool || target.Kind == basetypes.KindBool {
+		return source.IsNumeric() || target.IsNumeric()
 	}
 	return source.IsNumeric() && target.IsNumeric()
 }

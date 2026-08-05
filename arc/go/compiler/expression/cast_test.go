@@ -352,10 +352,26 @@ var _ = Describe("Type Cast Compilation", func() {
 			OpI32Const, int32(5),
 			OpCall, uint32(0),
 		),
+
+		// Bool to String — dispatches via strings.from_bool.
+		Entry(
+			"true to str",
+			"str(true)",
+			types.String(),
+			OpI32Const, int32(1),
+			OpCall, uint32(0),
+		),
+		Entry(
+			"false to str",
+			"str(false)",
+			types.String(),
+			OpI32Const, int32(0),
+			OpCall, uint32(0),
+		),
 	)
 
 	DescribeTable(
-		"should reject str to numeric casts (analyzer-gated)",
+		"should reject str to numeric and bool casts (analyzer-gated)",
 		func(bCtx SpecContext, source string) {
 			expr := MustSucceed(parser.ParseExpression(source))
 			analyzerCtx := acontext.NewRoot(bCtx, expr, NewRoot(nil))
@@ -373,6 +389,7 @@ var _ = Describe("Type Cast Compilation", func() {
 		Entry("str to u64", `u64("hello")`),
 		Entry("str to f32", `f32("hello")`),
 		Entry("str to f64", `f64("hello")`),
+		Entry("str to bool", `bool("hello")`),
 	)
 
 	It("Should propagate literal parsing errors", func(bCtx SpecContext) {
