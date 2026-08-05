@@ -551,11 +551,11 @@ flushed via the per-tx delta are filtered out of the observer stream.
 Each index maintains a reverse map (`map[K]V`) that maps every primary key to its
 current indexed value. This serves two purposes:
 
-1. **Updates:** When a channel's name changes from "sensor_1" to "sensor_2", we need to
+1. **Updates**: When a channel's name changes from "sensor_1" to "sensor_2", we need to
    remove the old `"sensor_1" -> key` mapping before inserting the new one. The reverse
    map gives us the old value in O(1).
 
-2. **Deletes:** The observe pipeline provides the deleted key but not the deleted entry.
+2. **Deletes**: The observe pipeline provides the deleted key but not the deleted entry.
    The reverse map tells us what indexed value to remove from the forward map.
 
 The alternative is scanning the forward map's value slices looking for the key. For a
@@ -798,24 +798,24 @@ for index data.
 
 ## 3 What this RFC does not cover
 
-- **Detailed Oracle generation logic.** The `@index lookup` / `@index sorted`
+- **Detailed Oracle generation logic**: The `@index lookup` / `@index sorted`
   annotations and the generated shape are described above; the specifics of the
   resolver, the import manager, and the template engine live in
   `/oracle/plugin/go/query/`.
-- **Composite indexes.** Deferred until measured need. The current API does not preclude
+- **Composite indexes**: Deferred until measured need. The current API does not preclude
   them: a `Lookup[K, E, V]` where `V` is a struct value already works for fixed
   composites, but Oracle does not yet generate the extract function.
-- **Async index population.** Deferred until startup time becomes a measured problem.
-- **Sorted-index ordered iteration with the per-tx delta overlay.** The equality
+- **Async index population**: Deferred until startup time becomes a measured problem.
+- **Sorted-index ordered iteration with the per-tx delta overlay**: The equality
   `Filter` path on `Sorted` merges the overlay; ordered cursor iteration via `OrderBy`
   reads only committed state. Extending the merge to produce a sorted view is a v2
   follow-up.
-- **Full-text search indexes.** A different problem with different solutions (inverted
+- **Full-text search indexes**: A different problem with different solutions (inverted
   indexes, trigram indexes). Not needed for our current access patterns.
-- **Cross-node index coordination.** Indexes are node-local. If we ever need globally
+- **Cross-node index coordination**: Indexes are node-local. If we ever need globally
   consistent secondary indexes, that's a distributed systems problem that belongs in
   Aspen, not Gorp.
-- **Index intersection at registration time.** `intersectKeys` runs per query and walks
+- **Index intersection at registration time**: `intersectKeys` runs per query and walks
   the larger side. A pre-computed multi-index intersection (e.g. Bloom filters per index
   pair) is a future optimization if profiling shows the per-query cost matters.
 
@@ -826,15 +826,15 @@ The MVP has shipped on `sy-4056-gorp-indexes`. The implementation lives in `x/go
 `order_by.go`, plus updates to `retrieve.go`, `table.go`, `writer.go`, `gorp.go`,
 `observe.go`, `options.go`) and `oracle/plugin/go/query/`. Coverage:
 
-- **Phase 1 (Gorp primitives):** `Lookup`, `Sorted`, `BytesLookup` with their backing
+- **Phase 1 (Gorp primitives)**: `Lookup`, `Sorted`, `BytesLookup` with their backing
   structures, RWMutex, populate/set/delete, reverse map, per-tx delta overlay with
   commit-time flush. Bool specialization for `Lookup`; small-int dense-array
   specialization is not implemented.
-- **Phase 2 (query integration):** `Filter.resolve` deferred resolution, `Retrieve`
+- **Phase 2 (query integration)**: `Filter.resolve` deferred resolution, `Retrieve`
   dispatch through `resolveFilter`, lazy membership, `OrderBy` / `OrderQuery` /
   `SortedQuery.After`, composition via `And` / `Or` / `Not` with `intersectKeys` /
   `unionKeys`, single-filter fast path on `Retrieve.Where`.
-- **Phase 3 (Oracle generation):** `@index lookup` and `@index sorted` schema
+- **Phase 3 (Oracle generation)**: `@index lookup` and `@index sorted` schema
   annotations, per-Service `indexes` struct, `MatchX` / `MatchXs` filter constructors
   (index-routed when the field also has `@index`), per-service `Filter` alias over
   `gorp.BoundFilter`, sorted-index `Order` closures with `OrderByX` constructors.

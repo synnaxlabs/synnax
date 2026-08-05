@@ -130,12 +130,12 @@ domain client's read behavior.
 **Freshness: three rules, written once.** A space classifies each query when it gains
 its first subscriber:
 
-1. **Exact-key**: the query addresses one key. The entry seeds from the table's row or
+1. **Exact-key**: The query addresses one key. The entry seeds from the table's row or
    tombstone and follows key-scoped table events.
-2. **Client-checkable**: the space declares a pure `matches(record, query)`. Table
+2. **Client-checkable**: The space declares a pure `matches(record, query)`. Table
    events admit and evict rows exactly, and unknown keys backfill through the fetch
    primitive. No network.
-3. **Server-computed**: the query sets a server field (`searchTerm`, `limit`, `offset`
+3. **Server-computed**: The query sets a server field (`searchTerm`, `limit`, `offset`
    by default, declarable per space). Any relevant event schedules a debounced wholesale
    refetch, since only the server can answer.
 
@@ -316,20 +316,20 @@ selection it flushes is already cleared.
   `cluster.<key>`, `project.<cluster>.<project>`), each with a four-slot history ring
   backing revert and a `.slot` pointer naming the live slot. The pointer is unrelated to
   the schema version each slice carries in its own value.
-- **Switch = flush and swap, reload-free.** The persist middleware detects the
+- **Switch = flush and swap, reload-free**: The persist middleware detects the
   context-key change, flushes the outgoing partitions, loads the target's (zero state on
   first visit), and dispatches a hydrate action that replaces the swapped slices
   wholesale. A generation guard makes concurrent swaps safe, and a `swapping` flag folds
   into the settled gate so the workspace never renders mid-swap.
   `window.location.reload` survives only in the revert and clear escape hatches.
-- **Drift merges rather than replaces.** `Drift.restoreWindows` keeps the running
+- **Drift merges rather than replaces**: `Drift.restoreWindows` keeps the running
   process's own bookkeeping (main window, config, unreserved pre-renders) and adopts the
   stored project windows with their runtime counters zeroed. The sync middleware then
   reopens them from the state diff, preserving window ordinals.
-- **Reconciliation simplifies.** The live store only ever contains keys from the
+- **Reconciliation simplifies**: The live store only ever contains keys from the
   connected context, so the epoch sweep judges everything it sees. No reconciler is
   cluster-aware.
-- **Migrations are per-slice.** Loaded partitions pass each slice through its declared
+- **Migrations are per-slice**: Loaded partitions pass each slice through its declared
   migrator before hydration, and a failed migration falls back to that slice's initial
   state instead of aborting the swap. Only the main window persists.
 
@@ -339,13 +339,13 @@ Landed as the SY-4493 stacked PR chain, ordered so the substrate landed first an
 boundary stayed green:
 
 1. **The query package**, additive, with nothing consuming it.
-2. **The 21-domain rebind**: every domain client onto `query.Retriever`, declarations
+2. **The 21-domain rebind**: Every domain client onto `query.Retriever`, declarations
    replacing hand-written listener closures, derived tables for the composing domains.
 3. **The connection lifecycle** (RFC 0049), whose epochs the reconciliation rides.
 4. **The Flux cutover**: Flux stores, streamer adapter, and query lifecycle deleted;
    both read idioms rebased on the domain read surface; typed deletion and disconnection
    errors.
-5. **Session robustness**: synchronizers and the settled gate, tombstone and restore UX,
+5. **Session robustness**: Synchronizers and the settled gate, tombstone and restore UX,
    and scoped persistence with the reload-free swap.
 
 Testing follows two existing tiers: pure specs driving the cache with scripted stream
@@ -361,9 +361,9 @@ program once the session program has soaked.
 
 ## 7 What this RFC does not cover
 
-- **Server-side soft delete and trash.** Restore-from-corpse is designed so a core trash
+- **Server-side soft delete and trash**: Restore-from-corpse is designed so a core trash
   can later back it without rework.
-- **Cache parity in the Python, Go, or C++ clients.**
+- **Cache parity in the Python, Go, or C++ clients**:
 - **Aether-worker reads**, which live outside the React read path.
 - **Multiplayer presence, conflict resolution, operational transformation** (RFC 0041
   remains the seam).

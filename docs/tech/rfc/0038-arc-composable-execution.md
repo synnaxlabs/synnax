@@ -672,12 +672,12 @@ first one whose handle was freshly marked truthy during the current cycle.
 
 Two gates apply before firing:
 
-- **Ownership.** If `transitionOwner[i] >= 0 && transitionOwner[i] != activeMember`, the
+- **Ownership**: If `transitionOwner[i] >= 0 && transitionOwner[i] != activeMember`, the
   transition is skipped. Its source node is owned by a sibling member that is not
   currently active, so its output is stale. A transition whose source sits outside the
   scope (for example, a module-scope channel read driving a cross-scope activation) has
   owner `-1` and fires regardless of which member is active.
-- **Fresh mark.** The transition fires only when `markedFlags[transitionOnIdx[i]]` is
+- **Fresh mark**: The transition fires only when `markedFlags[transitionOnIdx[i]]` is
   non-zero. A stale-truthy source that did not re-mark this cycle does not fire. This
   mirrors the conditional-edge firing semantic of the pre-RFC scheduler and prevents
   one-shot nodes (wait, interval, latched comparisons) from driving spurious repeated

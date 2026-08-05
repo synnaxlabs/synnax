@@ -26,6 +26,10 @@ Rules for writing and editing RFCs in this directory.
 
 - Vocabulary and definition entries use a colon after the term:
   `- **Term**: Definition.` Never `-` or `—` after the term.
+- The colon sits outside the bold: `**Term**:`, never `**Term:**`.
+- A label that states a claim rather than naming a term takes the same form:
+  `- **Subscriber scaling is linear in N**: 3 subscribers cost 3x one.` Never a period
+  inside the bold.
 - The same applies when the term is a code span: `` `send(payload)`: Sends... ``
 - Parentheticals attach to the term, before the colon: `- **Term** (scope): ...`.
 - Use unordered bullets unless the order itself carries meaning.
@@ -38,6 +42,9 @@ Rules for writing and editing RFCs in this directory.
   `**6.1 Predecessor chain, not direct-to-definer.**` These numbers stay gapless like
   headings: an entry added between two others renumbers its successors. Fix the
   references that point at them.
+- A label led by an enumerator (`Phase N`, `Axis N`) follows the same rule as a section
+  number: the separator is a colon inside the bold, with none after it:
+  `- **Phase 3: Peek import.** Peek front door...`
 
 ## Prose
 

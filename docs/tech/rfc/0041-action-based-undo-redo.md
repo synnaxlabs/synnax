@@ -315,12 +315,12 @@ Implementing inverses against the current schematic action set surfaced two limi
 in the schema. Both ride along on top of the v1 implementation as documented
 imperfections; both are tracked as schema follow-ups.
 
-- **`SetConfig` is a merge, not a replace.** The inverse can restore values for keys
+- **`SetConfig` is a merge, not a replace**: The inverse can restore values for keys
   that existed before the action, but it cannot remove keys the forward action newly
   introduced — those keys persist as phantom fields on undo. Closing the gap requires a
   `ReplaceConfig` action (wholesale replace, including remove when the payload is
   absent).
-- **`SetNode` and `RemoveNode` lack an explicit slice index.** The inverse of
+- **`SetNode` and `RemoveNode` lack an explicit slice index**: The inverse of
   `RemoveNode` reinserts at the end of the slice, so a remove + undo cycle restores
   contents but not the original position. Closing the gap requires an
   `InsertNode(node, idx)` action.
@@ -352,17 +352,17 @@ or the stack is exhausted.
 
 ### 3.9 Bounds and lifecycle
 
-- **Cap.** Each stack is capped at 200 entries. Older entries fall off the bottom.
-- **Cache-lifetime.** Stacks live with the Flux cache entry, not with the on-screen
+- **Cap**: Each stack is capped at 200 entries. Older entries fall off the bottom.
+- **Cache-lifetime**: Stacks live with the Flux cache entry, not with the on-screen
   component. Navigating away from a document to another layout in the same window does
   not clear the stack; navigating back resumes where the user left off. This follows
   from the one-way hydration rule in RFC 0036.
-- **Two panes on one document share one stack.** Multiple mounts of the same document in
+- **Two panes on one document share one stack**: Multiple mounts of the same document in
   the same window resolve to the same Flux cache entry, so they share `undo` and `redo`.
   ⌘Z works the same regardless of which pane has focus.
-- **Cascade delete.** Deleting a document key drops both its doc state and its undo
+- **Cascade delete**: Deleting a document key drops both its doc state and its undo
   state in one rollback-aware operation.
-- **Listeners must keep running while the document is off-screen.** Stale detection
+- **Listeners must keep running while the document is off-screen**: Stale detection
   depends on the cache entry receiving remote actions even when the user is on a
   different layout. The existing action listeners are registered at provider mount and
   run for the life of the app; called out so future refactors do not regress it.
@@ -390,23 +390,23 @@ without an extra abstraction.
 
 ## 4 What this RFC does not cover
 
-- **Server-side stack or history.** The server has no `Undo` action, no per-user history
+- **Server-side stack or history**: The server has no `Undo` action, no per-user history
   table, no new endpoints. The dispatch endpoint is the same one introduced by PR #2290.
-- **Durable version history.** Out of scope. A separate feature on the same action
+- **Durable version history**: Out of scope. A separate feature on the same action
   substrate; see §2.3.
-- **Server-side inverse computation.** The Go reducer is unchanged. The server applies
+- **Server-side inverse computation**: The Go reducer is unchanged. The server applies
   actions in order inside a single transaction and broadcasts the original forward; the
   client carries inverses for stack bookkeeping.
-- **Schema-level `undoable: bool` annotation.** The v1 surface uses a per-store
+- **Schema-level `undoable: bool` annotation**: The v1 surface uses a per-store
   callback. Promoting it to a generated `UndoableActions` set is a follow-up if a second
   document type wants the same exclusion behavior.
-- **Operational transformation.** Stale handling is detection-and-skip, not transform.
+- **Operational transformation**: Stale handling is detection-and-skip, not transform.
   The remote-touched map is where OT slots in if the use case materializes.
-- **Snapshot affordance.** Read-only schematics (`snapshot == true`) reject dispatch at
+- **Snapshot affordance**: Read-only schematics (`snapshot == true`) reject dispatch at
   the server. The substrate does not currently hide the undo/redo affordance for
   read-only docs; the user can press ⌘Z and the dispatch rolls back. A consumer-side
   gate is a follow-up.
-- **Branching redo.** Linear redo only; new dispatches clear the redo stack.
+- **Branching redo**: Linear redo only; new dispatches clear the redo stack.
 
 ## 5 Implementation status
 

@@ -77,7 +77,7 @@ check. Replace both with a single `AnalyzeArguments` hook that receives a unifie
 
 ## 2 Non-goals
 
-- **User-facing Arc syntax.** `name(...)`, `name{...}`, and `wire -> name{...}` parse,
+- **User-facing Arc syntax**: `name(...)`, `name{...}`, and `wire -> name{...}` parse,
   analyze, and run identically; the grammar is untouched. This is a deliberate scope
   limit, not a punt: the goal here is parity at the type level, and holding the surface
   fixed keeps the change non-breaking for customers and bounds the test churn to the
@@ -85,17 +85,17 @@ check. Replace both with a single `AnalyzeArguments` hook that receives a unifie
   diff. Which bracket should mean what in the long term is the natural next decision,
   explored but deliberately not taken in
   [§8.2](#82-higher-order-functions-and-the-syntax-question).
-- **The trigger-as-argument feature.** `{message: incoming_ch} -> status.set(...)` is
+- **The trigger-as-argument feature**: `{message: incoming_ch} -> status.set(...)` is
   out of scope. This RFC only lands the structural foundation it will sit on. A
   follow-on RFC will specify the grammar and analyzer for the override.
-- **Firing semantics with multiple bound wires.** Any / All / user-specified: the policy
+- **Firing semantics with multiple bound wires**: Any / All / user-specified: the policy
   decision is deferred to the trigger-as-argument RFC. Nothing in this RFC precludes any
   choice.
-- **Renaming the unified field to `Params`.** The grammar already calls the parens form
+- **Renaming the unified field to `Params`**: The grammar already calls the parens form
   `inputList`, the compiler already concatenates the two arrays into an "Inputs"-named
   local, and the slice type is `types.Params`. Renaming the field creates a
   `Params Params` redundancy. `Inputs` stays.
-- **Optional parameter semantics.** Arc already has partial default-value optionality
+- **Optional parameter semantics**: Arc already has partial default-value optionality
   (`name type = literal`; a defaulted param may be omitted, with the "required cannot
   follow optional" ordering rule). This RFC preserves that behavior unchanged, adds no
   `Optional` field, and changes nothing about how defaults are substituted or
@@ -950,19 +950,19 @@ leaves each exactly as it found it, so each is the concern of a different RFC, i
 They are listed here only to answer why a function-call refactor does not reach them,
 not for any lack of merit:
 
-- **Removing stateful variables.** An execution-model concern (persistence of values
+- **Removing stateful variables**: An execution-model concern (persistence of values
   across reactive firings), orthogonal to how a call's parameters are bound. A
   non-trigger param is "held" across firings today and stays held after the refactor;
   the mechanism is untouched.
-- **For-loops and other statement-level control flow.** This lives in the grammar above
+- **For-loops and other statement-level control flow**: This lives in the grammar above
   the call expression, where the parameter-binding collapse never reaches.
-- **Global variables.** A scoping and lifetime question, independent of function
+- **Global variables**: A scoping and lifetime question, independent of function
   signatures.
-- **Error handling and propagation.** Whether a function can fail, and how that failure
+- **Error handling and propagation**: Whether a function can fail, and how that failure
   surfaces (a panic, a `Result`-style return, propagation up the flow graph), is an
   execution-and-return concern. It is decided after arguments are bound, so the shape of
   the parameter list never reaches it.
-- **Generic, type-parameterized functions.** Abstracting a function over the types of
+- **Generic, type-parameterized functions**: Abstracting a function over the types of
   its params is a type-system feature. The unification changes how many lists a
   signature carries, not how the types within it are resolved; type-variable inference
   is neither simplified nor obstructed by the collapse.

@@ -23,7 +23,7 @@ and discuss its design in detail.
   event or reading of a sensor or actuator.
 - **Channel**: A logical collection of samples across a time range. Most often emitted
   by a single source.
-- **Virtual**: Not persisted to disk - usually a channel.
+- **Virtual**: Not persisted to disk, usually a channel.
 - **Leaseholder**: The node in a Synnax cluster responsible for accepting writes for a
   specific channel.
 

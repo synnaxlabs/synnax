@@ -85,9 +85,9 @@ Discriminated unions appear in every hardware integration:
 
 Two cross-cutting structural patterns must be handled:
 
-- **Shared base fields.** All NI AI channels share `port`, `enabled`, `channel`, `key`,
+- **Shared base fields**: All NI AI channels share `port`, `enabled`, `channel`, `key`,
   `name` via a `BaseAIChannel` base.
-- **Mixin composition.** Variants compose reusable field groups (`Terminal`,
+- **Mixin composition**: Variants compose reusable field groups (`Terminal`,
   `MinMaxVal`, `Bridge`, ...); a single variant like `ai_accel` pulls in 5 mixins.
 
 Oracle's existing `struct extends`, generics, and enums cover inheritance, narrowing,
@@ -205,12 +205,12 @@ self-documenting.
 
 Details:
 
-- **Discriminator field.** A bare identifier (`type`, `arrayMode`, `method`), always
+- **Discriminator field**: A bare identifier (`type`, `arrayMode`, `method`), always
   string-valued, matching the internally-tagged strategy.
-- **Variant values.** The left side of each entry is an identifier that doubles as the
+- **Variant values**: The left side of each entry is an identifier that doubles as the
   string value of the discriminator. The grammar admits Oracle keywords in variant
   position (NI's Scale union has a `map` variant) so these need no quoting.
-- **Variant types.** The right side references a struct. The variant struct must NOT
+- **Variant types**: The right side references a struct. The variant struct must NOT
   define the discriminator field itself; the union declaration owns it, avoiding the
   OpenAPI problem where each variant redundantly declares the discriminator property.
 
@@ -407,19 +407,19 @@ Oracle, starting with the simplest (Modbus) and working up to NI.
 
 **Landed:**
 
-- **Language + resolution + analyzer + formatter.** `UnionForm` / `UnionVariant` in the
+- **Language + resolution + analyzer + formatter**: `UnionForm` / `UnionVariant` in the
   resolution table, `UnifiedVariantFields` flattening, `Table.UnionTypes`, dependency
   collection for the topological sort, and analyzer validation (at least one variant,
   unique values, struct-only variant types, discriminator ownership).
-- **Union-extends-union composition.** The analyzer expands base unions' variants into
+- **Union-extends-union composition**: The analyzer expands base unions' variants into
   the extending union before validation, with zero plugin changes (section 4.1).
-- **All five type-layer codegens.** TypeScript (`z.discriminatedUnion` + per-variant
+- **All five type-layer codegens**: TypeScript (`z.discriminatedUnion` + per-variant
   schemas + `<UNION>_TYPES` enum + self-narrowing `<UNION>_SCHEMAS` map), Go (sealed
   variant interface + per-variant structs + wrapper with two-pass internally-tagged JSON
   codec; see section 5.1), Python, C++, and Protobuf (including pb translators for union
   fields, record arrays, and union map values). Union-typed fields resolve to the union
   in every target.
-- **Storage + wire integration.** Unions encode fully binary in the ORC codec: a
+- **Storage + wire integration**: Unions encode fully binary in the ORC codec: a
   length-prefixed discriminator string followed by the active variant's base and payload
   structs encoded positionally through their own codecs. The string tag keeps stored
   bytes stable under variant addition and reordering; variant field changes version
@@ -429,10 +429,10 @@ Oracle, starting with the simplest (Modbus) and working up to NI.
 
 **Deferred:**
 
-- **Zero-value constants.** Oracle fields carry no defaults, so generated zero values
+- **Zero-value constants**: Oracle fields carry no defaults, so generated zero values
   would be type-zeros (`slope: 0`) that silently diverge from the semantic defaults
   consumers rely on (`slope: 1`). Blocked on the field-defaults feature.
-- **Go msgpack dispatch.** The Go wrapper implements JSON marshaling; msgpack needs the
+- **Go msgpack dispatch**: The Go wrapper implements JSON marshaling; msgpack needs the
   analogous two-pass codec. Nothing exercises it until a hardware schema adopts `union`;
   lands alongside Phase 5.
 

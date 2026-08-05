@@ -206,7 +206,7 @@ naming.
 
 ## 5 Implementation phases
 
-**Phase 1 — generator.** Teach `go/types` the emission rule (baseline resolution,
+**Phase 1: generator.** Teach `go/types` the emission rule (baseline resolution,
 define-vs-alias split, alias + const emission for version packages); restrict codec and
 stringer emission to defined types; delete `freezePath` re-emission, `closureForPath`'s
 package expansion, `generateGorpEntryMethods`, and `moveHelpers`; move value-type
@@ -214,7 +214,7 @@ migration scaffolding to the incoming package. Oracle's own test suite covers th
 (unchanged → alias, own-change → define, descendant-change → define, new type → define
 at current, pre-versioning baseline → define all).
 
-**Phase 2 — retrofit cutover.** The pre-versioning snapshots no longer parse under the
+**Phase 2: retrofit cutover.** The pre-versioning snapshots no longer parse under the
 current grammar, so the frozen-source fallback drives the retrofit: one sync regenerated
 every current version package against its frozen predecessor, collapsing byte-identical
 declarations into aliases. Reconciliation moved hand-written methods whose receiver

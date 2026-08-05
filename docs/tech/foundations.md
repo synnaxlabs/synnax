@@ -44,7 +44,7 @@ provided a general 'roadmap' for different platform components below.
 1. [Programming core in TypeScript](#202-programming-core-in-javascript-and-typescript)
 2. [Package management - pnpm](#81-pnpm)
 3. [Build systems and infrastructure - Monorepo](#90-monorepo)
-4. [Build systems and infrastructure - Turbo Repo](#91-turbo-repo)
+4. [Build systems and infrastructure - Turborepo](#91-turborepo)
 5. [User interfaces](#10-user-interfaces)
 6. [Essential abstractions](#21-essential-abstractions)
 7. [Web services](#6-web-services)
@@ -239,9 +239,9 @@ its own repository. If you're unfamiliar with what monorepos are and/or what the
 benefits they provide, check out
 [this video](https://www.youtube.com/watch?v=9iU_IE6vnJ8&t=364s&ab_channel=Fireship).
 
-### 9.1 Turbo Repo
+### 9.1 Turborepo
 
-We use Turbo Repo as our monorepo build system tool for our front end code. It improves
+We use Turborepo as our monorepo build system tool for our front end code. It improves
 the developer experience by allowing us to build and test multiple packages at once, all
 while caching dependencies and build artifacts. Here's a good introduction video called
 [turbo repo in 2 minutes](https://www.youtube.com/watch?v=vE3LOHU0OV8&ab_channel=Vercel).

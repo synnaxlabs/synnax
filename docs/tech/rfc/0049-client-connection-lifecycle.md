@@ -22,13 +22,13 @@ and credential re-entry on auth failure, with zero session mutation in every cas
 Before this work, connection health lived in three places that never referenced each
 other:
 
-1. **Auth**: a lazy login middleware. Whether the client was authenticated was a private
+1. **Auth**: A lazy login middleware. Whether the client was authenticated was a private
    boolean nobody observed.
-2. **The connectivity checker**: a poll loop with a four-state enum, one state defined
+2. **The connectivity checker**: A poll loop with a four-state enum, one state defined
    but never assigned, every failure collapsed into a bare error string, and an
    `onChange` with no unsubscribe.
 3. **Stream health**: `HardenedStreamer` reconnected silently on a hard-coded budget of
-   5000 retries at 1s. The client's `retry` param was never threaded into it, so a cold
+   5000 retries at 1 s. The client's `retry` param was never threaded into it, so a cold
    `await ensureStreaming()` could block for ~83 minutes before throwing.
 
 Consumers papered over the gaps. Pluto's provider optimistically invented a "connecting"
@@ -160,16 +160,16 @@ values. The transitions:
 
 Three cases deserve a note:
 
-- **Cluster replacement.** A check answered by a non-empty cluster key different from
+- **Cluster replacement**: A check answered by a non-empty cluster key different from
   the one previously contacted means the address now leads somewhere new. Everything
   learned from the old cluster is void, so the reducer returns to first contact:
   loading, epoch 0, dark stream. Detection lives in the reducer's check-success case,
   not in any caller, so no event pre-filtering can bypass it.
-- **The dark-stream lift.** When a stream is required and a check succeeds while the
+- **The dark-stream lift**: When a stream is required and a check succeeds while the
   stream is down, a parked `error(unreachable)` lifts to `loading` rather than
   `success`. It must lift: the short circuit the error variant drives would otherwise
   starve the very stream reopen the state is waiting on.
-- **Rest states.** `retry.requested` clears only `error(unreachable)`; an auth error
+- **Rest states**: `retry.requested` clears only `error(unreachable)`; an auth error
   rests until the user supplies something new (`credentials.replaced`).
 
 Observers are notified only on material changes. Materiality is a whole-status deep
@@ -189,9 +189,9 @@ levers. Its construction parameters are its entire contact with the world:
 - **`stream`**: Two levers, `{ reset, ensure }`. The connection package never imports
   the cache; it only knows something must be reset on cluster replacement and nudged
   when the stream should be up.
-- Policy: `retry` (breaker config, default 1s base, 5s cap, scale 2, jitter 0.25,
-  infinite retries), `heartbeatInterval` (default 30s), `escalateAfter` (default 4),
-  `clockSkewThreshold` (default 1s), `requiresStream`.
+- Policy: `retry` (breaker config, default 1 s base, 5 s cap, scale 2, jitter 0.25,
+  infinite retries), `heartbeatInterval` (default 30 s), `escalateAfter` (default 4),
+  `clockSkewThreshold` (default 1 s), `requiresStream`.
 
 The check loop runs in one of three modes derived from the current variant: `checking`
 (degraded, breaker-paced), `heartbeat` (healthy, slow cadence), `idle` (resting error or
@@ -217,11 +217,11 @@ budget exhausted.
 
 Two determinism guarantees fall out of single ownership:
 
-- **Stale checks are discarded.** Every mode change and manual retry bumps a generation;
+- **Stale checks are discarded**: Every mode change and manual retry bumps a generation;
   a check issued before the bump cannot land its result. Previously a hung probe from
   before a stream-driven recovery could land late and flip a healthy connection back to
   reconnecting.
-- **One retry counter.** The degradation count has a single owner; the status's
+- **One retry counter**: The degradation count has a single owner; the status's
   `retry.attempt` is a projection of it, never a second copy.
 
 `middleware()` returns the unreachable short circuit: while the status is
@@ -261,19 +261,19 @@ client; the Console's connect modal and cluster list use it.
 Fail fast everywhere; no offline queues. Flux and the Console stay connection-blind:
 degradation arrives only as typed errors through the queries they already use.
 
-- **Reads, warm path**: subscribed cached reads keep serving through reconnects and
+- **Reads, warm path**: Subscribed cached reads keep serving through reconnects and
   `error(unreachable)`; the epoch pass repairs them on reconnect (RFC 0048).
-- **Reads, miss path**: a fetch that must hit the network while unreachable is
+- **Reads, miss path**: A fetch that must hit the network while unreachable is
   short-circuited by the middleware: immediate `DisconnectedError`, because the client
   already knows the answer.
 - **While reconnecting** (`loading`) requests are not short-circuited; they race the
   reconnect normally. Short-circuiting begins only once the client concludes the cluster
   is genuinely gone.
-- **Writes**: fail fast with the same typed error, surfaced through the existing
+- **Writes**: Fail fast with the same typed error, surfaced through the existing
   status-toast path. No offline write queue, ever: replaying stale mutations against
   hardware-adjacent state after a gap is the local-first pattern applied exactly where
   it is wrong.
-- **Recovery**: on re-entering `success` the cache reconciles and maintained queries
+- **Recovery**: On re-entering `success` the cache reconciles and maintained queries
   refetch (RFC 0048).
 
 ### 5.4 Pluto
@@ -332,13 +332,13 @@ and replace them.
 
 ## 7 What this RFC does not cover
 
-- **Hard-blocking on version incompatibility.** Today incompatibility is a warning; the
+- **Hard-blocking on version incompatibility**: Today incompatibility is a warning; the
   `incompatible` reason is reserved for a future block.
 - **Per-widget telemetry staleness** (Ignition-style quality overlays). The global
   status must never be the source of per-datum staleness; that design is its own effort.
 - **Record-cache persistence** (Linear-style local bootstrap). The settled gate is
   designed so persistence slots in without UX redesign.
-- **Python/C++ client parity.** Python's eager-auth constructor already matches the
+- **Python/C++ client parity**: Python's eager-auth constructor already matches the
   intent semantics; unifying its connection surface is follow-on work.
 
 ## 8 Resolved decisions
