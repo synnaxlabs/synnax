@@ -100,7 +100,7 @@ Dependencies are explicit, injected inputs — never reached for ambiently. All 
 
 ## Prose
 
-Whenver you are writing prose (documentation, comments, RFCs, commit messages, etc.),
+Whenever you are writing prose (documentation, comments, RFCs, commit messages, etc.),
 use ASD-STE100 Simplified Technical English. Always write in sentence case instead of
 title case for headings, titles, and menu options unless explicitly directed otherwise.
 Capitalize proper nouns and acronyms, including Synnax component names like the Driver,
