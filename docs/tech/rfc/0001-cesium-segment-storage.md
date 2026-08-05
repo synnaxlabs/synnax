@@ -20,13 +20,13 @@ continuous iteration as Delta's demands evolve.
 - **Segment**: A partitioned region of a channel's data.
 - **Regular** (in relation to time-series): A 'regular' Channel is one whose samples are
   recorded at regular intervals (1 Hz, 5 Hz, 10 Hz, etc.)
-- **Samples/Second**: A basic measure of write throughput. The size of a regular sample
+- **Samples/second**: A basic measure of write throughput. The size of a regular sample
   should be assumed as 8 bytes (i.e. a `float64` value) unless otherwise specified,
   whereas an irregular sample is assumed to contain an additional 64-bit timestamp.
   Write throughput can also be expressed in terms of a frequency (1 Hz, 5 Hz, 25 kHz, 1
   MHz, etc.)
 - **DAQ**: Data acquisition computer.
-- **Channel Cardinality**: The number of unique channel keys for a set of segments in a
+- **Channel cardinality**: The number of unique channel keys for a set of segments in a
   file.
 
 This RFC expands on these definitions by asserting specific properties of a Channel,
@@ -276,8 +276,8 @@ Core vocabulary for the following technical specification:
   operation on those samples, and pipes the results to one or more output streams. In a
   [Sawzall](https://research.google/pubs/pub61/) style processing engine, a stage would
   be comparable to an aggregator.
-- **Individual Stage**: A stage that is involved in serving only one request.
-- **Shared Stage**: A stage that is involved in serving multiple requests (i.e. several
+- **Individual stage**: A stage that is involved in serving only one request.
+- **Shared stage**: A stage that is involved in serving multiple requests (i.e. several
   input streams from different processes).
 - **Pipe**: A pipe is an ordered sequence of stages, where the output stream(s) of each
   stage is the input stream(s) for the next stage. In Cesium's case, the ends of the

@@ -571,8 +571,8 @@ export, a single task exporter registered under `"task"` handles all subtypes. I
 the task's `Type` field from the database and sets it on the envelope so the exported
 JSON carries the specific subtype (e.g., `"modbus_read"`), not the generic `"task"`.
 
-Handlers are registered statically during service initialization, following the driver
-factory pattern. Task configs can be imported even when the target driver is offline.
+Handlers are registered statically during service initialization, following the Driver
+factory pattern. Task configs can be imported even when the target Driver is offline.
 
 ### 4.8 Oracle code generation extensions
 

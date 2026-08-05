@@ -119,7 +119,7 @@ entity. RFC 0026 §1.1.12 names the persisted-vs-derived split as unsolved.
 
 ### 2.2 Inconsistent versioned type layouts
 
-RFC 0033 (Oracle Migration System) and RFC 0039 (Server-Side Metadata Import/Export)
+RFC 0033 (Oracle migration system) and RFC 0039 (Server-side metadata import/export)
 established `<resource>/migrations/vN/` with per-type dense integer versions. But
 adoption is partial and the historical reality is messier:
 

@@ -7,10 +7,10 @@
 
 Add an HTTP driver integration to the Synnax Driver system that enables:
 
-- **Read Tasks**: Poll REST API endpoints and write response data to Synnax channels
-- **Write Tasks**: Receive data from Synnax channels and send HTTP requests to control
+- **Read tasks**: Poll REST API endpoints and write response data to Synnax channels
+- **Write tasks**: Receive data from Synnax channels and send HTTP requests to control
   devices
-- **Scan Tasks**: Proactive health monitoring of HTTP endpoints
+- **Scan tasks**: Proactive health monitoring of HTTP endpoints
 
 Integration name: `http` (task types: `http_read`, `http_write`, `http_scan`)
 
@@ -101,7 +101,7 @@ docs/site/src/pages/reference/device-drivers/http/  # Documentation (NEW)
 - **libcurl**: HTTP client library (add via Bazel Central Registry in MODULE.bazel)
 - **nlohmann/json**: Already in codebase for JSON parsing
 - **cpp-httplib**: For mock HTTP server in tests (add to MODULE.bazel or vendor)
-- **Existing driver infrastructure**:
+- **Existing Driver infrastructure**:
   - `driver/task/`: Task, Factory, Context interfaces
   - `driver/pipeline/`: Acquisition/Control pipelines
   - `driver/task/common/`: Base task implementations
@@ -195,7 +195,7 @@ fields. All endpoints are polled at the same rate on each cycle.
 
 - `device`: Device key to retrieve connection config
 - `data_saving`: Whether to persist data to disk
-- `auto_start`: Whether to start the task automatically when the driver starts
+- `auto_start`: Whether to start the task automatically when the Driver starts
 - `rate`: Polling frequency in Hz (e.g., 1.0 = once per second). All endpoints are
   polled on each cycle.
 - `strict`: Task-level setting. If true, lossy numeric conversions (e.g., float 3.7 →
@@ -223,7 +223,7 @@ fields. All endpoints are polled at the same rate on each cycle.
 - `"unix_us"`: Unix timestamp in microseconds
 - `"unix_ns"`: Unix timestamp in nanoseconds
 
-If no `time_pointer` is configured for a field, the driver uses software timing:
+If no `time_pointer` is configured for a field, the Driver uses software timing:
 midpoint of `(request_start + response_received) / 2` for that channel's index.
 
 **Type Conversion for Read Tasks (JSON → Synnax):**
@@ -261,14 +261,14 @@ midpoint of `(request_start + response_received) / 2` for that channel's index.
 
 **Configuration-time validation:**
 
-When configuring a read task, the driver validates:
+When configuring a read task, the Driver validates:
 
 1. **Channel type**: Each channel's Synnax DataType must be a numeric type or String.
    Unsupported types (UUID, Bytes, JSON) are rejected at configuration time.
 2. **Channel uniqueness**: No Synnax channel key may appear more than once across all
    endpoints in the task.
-3. **Index resolution**: The driver determines which index channels need to be written
-   and where their timestamps come from. For each field, the driver looks up the
+3. **Index resolution**: The Driver determines which index channels need to be written
+   and where their timestamps come from. For each field, the Driver looks up the
    channel's index key. An index channel's timestamp source can be specified in multiple
    ways:
    - A field whose `channel` **is** the index channel directly (the field's `pointer`
@@ -385,7 +385,7 @@ fields have identical pointers within the same endpoint.
 
 - `device`: Device key for connection config
 - `data_saving`: Whether to persist data to disk
-- `auto_start`: Whether to start the task automatically when the driver starts
+- `auto_start`: Whether to start the task automatically when the Driver starts
 - `throttle_rate`: Maximum iterations per second of the main write task loop. Each
   iteration processes all pending channel values and sends requests to all endpoints.
   The task is event-driven (triggered by new channel values) but will not iterate faster
@@ -462,7 +462,7 @@ Only used when `on_empty: "last"` and no value has ever been received:
 
 **Configuration-time validation:**
 
-When configuring a write task, the driver validates:
+When configuring a write task, the Driver validates:
 
 1. **Type compatibility**: For each channel field, look up the Synnax DataType and check
    against the specified `format` using the conversion table. If the conversion is ❌
@@ -520,7 +520,7 @@ Health requires HTTP 2xx AND response field matches expected value.
 **Scan Task Fields:**
 
 - `device`: Device key for connection config
-- `auto_start`: Whether to start the task automatically when the driver starts
+- `auto_start`: Whether to start the task automatically when the Driver starts
 - `rate`: Health check frequency in Hz
 - `path`: Endpoint path for health check (e.g., `/health`)
 - `method`: HTTP method (default: `"GET"`)
@@ -532,7 +532,7 @@ Health requires HTTP 2xx AND response field matches expected value.
 
 For other drivers (Modbus, OPC UA, LabJack, NI), scan tasks are:
 
-- Automatically created and managed by the driver
+- Automatically created and managed by the Driver
 - Not configurable by users in the Console
 - Used for device discovery and automatic health monitoring
 
@@ -554,8 +554,8 @@ users.
 
 ### 3.0 JSON pointer handling
 
-JSON Pointer (RFC 6901) is used throughout the driver for field extraction and request
-body construction. Rather than a custom utility, the driver uses
+JSON Pointer (RFC 6901) is used throughout the Driver for field extraction and request
+body construction. Rather than a custom utility, the Driver uses
 `nlohmann::json_pointer` directly, which is built into the nlohmann/json library already
 in the codebase.
 
@@ -948,7 +948,7 @@ used by Modbus and OPC UA. The mock HTTP server is registered as a simulator in
   task-specific configuration.
 - **Test classes**: `HTTPRead`, `HTTPReadMultiEndpoint`, `HTTPWrite`, `HTTPScan`, etc.
   Each creates channels, configures endpoints/fields, and validates data flow through
-  the driver.
+  the Driver.
 
 ---
 
@@ -992,7 +992,7 @@ configure_http(*this, factories);
 PRs are organized by feature: **Utilities → Device → Read Task → Write Task → Scan
 Task**
 
-The first PR establishes the reusable `x::json` conversion utility that the driver
+The first PR establishes the reusable `x::json` conversion utility that the Driver
 depends on. JSON Pointer functionality is handled by `nlohmann::json_pointer` (built
 into nlohmann/json, already in the codebase) and does not need a separate PR. Then each
 feature goes through all layers: C++ → Console → Python → Tests → Docs.
@@ -1232,14 +1232,14 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 ## 12 Open questions / future enhancements
 
 1. **Array-to-Series**: Support mapping JSON arrays to multiple samples in a series
-2. **Per-Endpoint Headers**: Allow header overrides per endpoint
-3. **Write Response Parsing**: Optionally parse write responses for state feedback
-4. **Webhook Support**: HTTP server mode for receiving push notifications
-5. **WebSocket Support**: Streaming data over WebSocket connections
-6. **Certificate Configuration**: Custom CA certs, client certs for mTLS
-7. **More Granular Timeouts**: Separate connect, read, total timeouts
-8. **JSON/UUID/Bytes Synnax Types**: Support additional Synnax channel types
-9. **String-to-Number Parsing**: Parse numeric strings if demand warrants the complexity
+2. **Per-endpoint headers**: Allow header overrides per endpoint
+3. **Write response parsing**: Optionally parse write responses for state feedback
+4. **Webhook support**: HTTP server mode for receiving push notifications
+5. **WebSocket support**: Streaming data over WebSocket connections
+6. **Certificate configuration**: Custom CA certs, client certs for mTLS
+7. **More granular timeouts**: Separate connect, read, total timeouts
+8. **JSON/UUID/Bytes Synnax types**: Support additional Synnax channel types
+9. **String-to-number parsing**: Parse numeric strings if demand warrants the complexity
 
 ---
 

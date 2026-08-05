@@ -866,9 +866,9 @@ When an operator takes control of a channel via Console with higher authority:
 
 - **Bus routing**: Publish to bus, verify subscribers receive correct frames by key.
 - **Authority mirror**: Feed mock control state updates, verify filter behavior.
-- **Bypass Writer**: Verify frames reach both bus and Core writer, authority filtering
+- **Bypass writer**: Verify frames reach both bus and Core writer, authority filtering
   at publish time works.
-- **Bypass Streamer**: Verify local frames are preferred, Core frames are fallback,
+- **Bypass streamer**: Verify local frames are preferred, Core frames are fallback,
   group exclusion prevents duplicate delivery.
 - **Fast-path**: Verify zero overhead when no subscribers exist.
 
@@ -1190,13 +1190,13 @@ an authority transition.
 A realistic test stand deployment has three controllers competing for the same actuator
 channels (e.g., `main_fuel_valve`, `main_ox_valve`, `igniter`):
 
-1. **Nominal Hotfire** (Arc task, local, authority=100): Runs the ignition sequence,
+1. **Nominal hotfire** (Arc task, local, authority=100): Runs the ignition sequence,
    opening valves in timed order, holding steady state, then executing a nominal
    shutdown.
-2. **Abort Listener** (Arc task, local, authority=255): Monitors overpressure,
+2. **Abort listener** (Arc task, local, authority=255): Monitors overpressure,
    temperature, and leak sensors. If any threshold is exceeded, slams all valves shut
    immediately. Must always win authority because it is the safety backstop.
-3. **Manual Override** (Console schematic, remote, authority=200): Allows an operator to
+3. **Manual override** (Console schematic, remote, authority=200): Allows an operator to
    take direct control of any valve for pre-test checkout, manual safing, or overriding
    a stuck sequence.
 

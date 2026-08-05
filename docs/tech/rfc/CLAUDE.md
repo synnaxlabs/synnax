@@ -36,6 +36,9 @@ Rules for writing and editing RFCs in this directory.
 - The same applies when the term is a code span: `` `send(payload)`: Sends... ``
 - Parentheticals attach to the term, before the colon: `- **Term** (scope): ...`.
 - Use unordered bullets unless the order itself carries meaning.
+- Terms are sentence-cased, like headings: `**Control transfer**`, never
+  `**Control Transfer**`. Proper nouns, acronyms, and code identifiers keep their real
+  casing: `**WASM import contract**`, `**x86_64 Linux**`.
 - Definitions are sentence-cased: capitalize the first word, then normal prose rules.
   Acronym expansions are not title-cased: `**DAQ**: Data acquisition computer.` Proper
   nouns inside an expansion keep their capitals.
@@ -59,6 +62,9 @@ Rules for writing and editing RFCs in this directory.
 - Proper nouns follow the root `CLAUDE.md` Prose rules. Package and import paths stay
   lowercase in backticks, and so do commands (`git log`) even when the tool is a proper
   noun (Git).
+- "Driver" is the Synnax program that runs tasks: `the Driver validates the task`. A
+  hardware driver, a vendor driver, or a driver as an abstract data structure stays
+  lowercase. When both readings fit, name the integration instead: `the HTTP driver`.
 - Version references are lowercase: `v1`, `v2`, `v0.2`.
 - Cite a section with the section sign and no space: `§4.2` within the same RFC,
   `RFC 0033 §4.2` across RFCs. Never spell out `Section 4.2`. Match the target's real

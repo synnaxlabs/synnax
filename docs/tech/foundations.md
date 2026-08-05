@@ -244,7 +244,7 @@ benefits they provide, check out
 We use Turborepo as our monorepo build system tool for our front end code. It improves
 the developer experience by allowing us to build and test multiple packages at once, all
 while caching dependencies and build artifacts. Here's a good introduction video called
-[turbo repo in 2 minutes](https://www.youtube.com/watch?v=vE3LOHU0OV8&ab_channel=Vercel).
+[Turborepo in 2 minutes](https://www.youtube.com/watch?v=vE3LOHU0OV8&ab_channel=Vercel).
 Also, make sure you've familiarized yourself with some of the basic commands.
 Documentation is available [here](https://turbo.fyi/).
 

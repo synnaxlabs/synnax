@@ -18,7 +18,7 @@ starts and stops tasks, and deletes them when they are no longer needed.
 
 A driver represents a set of data acquisition and control tasks running within a single
 program. A driver can interact with one or more devices. For example, a running instance
-of the Synnax driver program would be represented by a driver data structure in the
+of the Synnax Driver program would be represented by a driver data structure in the
 cluster. A custom flight computer that communicates directly with Synnax over the
 network could also register itself as a driver.
 

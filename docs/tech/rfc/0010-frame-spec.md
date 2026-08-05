@@ -23,7 +23,7 @@ has been changed to 'Series'.
 - **Sample**: An arbitrary byte array recorded at a specific point in time.
 - **Channel**: A named collection of samples across a time range.
 - **Density**: The number of bytes per sample.
-- **(Sample/Data) Rate**: The number of samples per second.
+- **(Sample/data) rate**: The number of samples per second.
 
 ## 2 Array specification
 

@@ -37,9 +37,9 @@ removing a status by key or name. Both functions support both WASM and Flow exec
   state across the platform.
 - **Variant**: The severity level of a status. One of `success`, `info`, `warning`,
   `error`, `loading`, or `disabled`.
-- **WASM Form**: An Arc symbol invoked inside a `func` block; compiled to WebAssembly
+- **WASM form**: An Arc symbol invoked inside a `func` block; compiled to WebAssembly
   and called as a host function with positional arguments.
-- **Flow Form**: An Arc symbol invoked as a graph node with named curly-brace config
+- **Flow form**: An Arc symbol invoked as a graph node with named curly-brace config
   (e.g., `trigger -> status.set{key_or_name=..., ...}`).
 - **`ExecBoth`**: A symbol exec mode where the same function is exposed in both WASM and
   Flow form, sharing one parameter list. Parameters are declared as `Config` (the
@@ -48,7 +48,7 @@ removing a status by key or name. Both functions support both WASM and Flow exec
   fires the node, it does not feed parameter values. This mirrors how `time.wait` is
   used (`trigger -> time.wait{duration=3s} -> next`): `duration` is config, the wire
   just fires the node.
-- **String Handle**: A `u32` handle returned by host functions that allocate strings on
+- **String handle**: A `u32` handle returned by host functions that allocate strings on
   the WASM side. Handle 0 is the error sentinel.
 
 ## 2 Motivation
