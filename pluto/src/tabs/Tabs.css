@@ -152,7 +152,7 @@
 /* Tab children arrive as bare strings that Button wraps, so Text's fade-out (see
    Text.css) is applied by descent rather than through its overflow prop. */
 .pluto-tabs__tab .pluto-text {
-    overflow-x: hidden;
+    overflow: hidden;
     white-space: nowrap;
     animation: text-fade linear;
     animation-timeline: scroll(self x);

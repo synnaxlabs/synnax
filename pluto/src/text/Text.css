@@ -71,9 +71,11 @@ span.pluto-text {
         }
     }
 
+    /* Both axes, since a lone overflow-x computes the unmentioned overflow-y to auto
+       and a crushed line-height then grows a scrollbar on a one-line label. */
     &.pluto-text--overflow-ellipsis {
         white-space: nowrap;
-        overflow-x: hidden;
+        overflow: hidden;
         text-overflow: ellipsis;
         display: block;
     }
@@ -84,7 +86,7 @@ span.pluto-text {
        animation shorthand, which resets it. */
     &.pluto-text--overflow-fade {
         white-space: nowrap;
-        overflow-x: hidden;
+        overflow: hidden;
         display: block;
         animation: text-fade linear;
         animation-timeline: scroll(self x);

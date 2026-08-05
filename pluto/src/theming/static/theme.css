@@ -395,7 +395,6 @@
     --pluto-border-radius-medium: round(1.5rem, 1px);
     --pluto-border-radius-large: round(2rem, 1px);
     --pluto-border-radius-huge: round(3rem, 1px);
-    --pluto-border-width: 1px;
     --pluto-border-thick-width: 1px;
     --pluto-schematic-element-stroke-width: 2px;
     --pluto-font-family: "Inter Variable", sans-serif;
@@ -806,7 +805,6 @@
     --pluto-dark-border-radius-medium: round(1.5rem, 1px);
     --pluto-dark-border-radius-large: round(2rem, 1px);
     --pluto-dark-border-radius-huge: round(3rem, 1px);
-    --pluto-dark-border-width: 1px;
     --pluto-dark-border-thick-width: 1px;
     --pluto-dark-schematic-element-stroke-width: 2px;
     --pluto-dark-font-family: "Inter Variable", sans-serif;
@@ -1221,7 +1219,6 @@
         --pluto-border-radius-medium: round(1.5rem, 1px);
         --pluto-border-radius-large: round(2rem, 1px);
         --pluto-border-radius-huge: round(3rem, 1px);
-        --pluto-border-width: 1px;
         --pluto-border-thick-width: 1px;
         --pluto-schematic-element-stroke-width: 2px;
         --pluto-font-family: "Inter Variable", sans-serif;
@@ -1632,7 +1629,6 @@
         --pluto-dark-border-radius-medium: round(1.5rem, 1px);
         --pluto-dark-border-radius-large: round(2rem, 1px);
         --pluto-dark-border-radius-huge: round(3rem, 1px);
-        --pluto-dark-border-width: 1px;
         --pluto-dark-border-thick-width: 1px;
         --pluto-dark-schematic-element-stroke-width: 2px;
         --pluto-dark-font-family: "Inter Variable", sans-serif;
