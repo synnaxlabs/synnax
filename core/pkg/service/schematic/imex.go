@@ -81,9 +81,6 @@ func (s *Service) Import(
 		return ontology.ID{}, err
 	}
 	sch.Key = uuid.Nil
-	// env.Name is the resolved resource name: the body's name when present, or the
-	// caller-supplied file name fallback applied by the imex service.
-	sch.Name = env.Name
 	if err = s.NewWriter(tx).Create(ctx, proj, &sch); err != nil {
 		return ontology.ID{}, err
 	}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package legacy is the single entry point for migrating an opaque Console arc state
+// Package legacy is the single entry point for migrating an opaque Console Arc state
 // blob ("0.0.0".."2.0.0" files) through the chain of historical wire formats and
 // lifting the result into the typed document parts of an Arc. Each subpackage v0..v2
 // owns a frozen Data shape and a single Migrate function that lifts the previous
@@ -37,7 +37,7 @@ type Document struct {
 	Mode  string
 }
 
-// MigrateData decodes the opaque arc state blob, dispatches on its declared version,
+// MigrateData decodes the opaque Arc state blob, dispatches on its declared version,
 // walks the per-step Migrate functions forward to v2.Data, and lifts the result into
 // a Document. A nil blob and a blob without a version field both fall through to v0
 // and walk the full chain.

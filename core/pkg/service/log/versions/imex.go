@@ -20,11 +20,24 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// DecodeImport materializes the envelope's body as a current-version Log. Envelopes
-// stamped at or above Floor decode through the generated migration chain; older
-// ones are legacy camelCase Console exports and are lifted forward. An envelope
-// newer than Latest is rejected with a path-scoped validation error.
+// DecodeImport materializes the envelope's body as a current-version Log named after
+// the envelope. Envelopes stamped at or above Floor decode through the generated
+// migration chain; older ones are legacy camelCase Console exports and are lifted
+// forward. An envelope newer than Latest is rejected with a path-scoped validation
+// error.
 func DecodeImport(ctx context.Context, env imex.Envelope) (Log, error) {
+	l, err := decodeBody(ctx, env)
+	if err != nil {
+		return Log{}, err
+	}
+	// The header is the resolved name: the body's name when present, or the file-name
+	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
+	// here for every path.
+	l.Name = env.Name
+	return l, nil
+}
+
+func decodeBody(ctx context.Context, env imex.Envelope) (Log, error) {
 	if env.Version >= Floor {
 		return decodeMigrate(ctx, env)
 	}

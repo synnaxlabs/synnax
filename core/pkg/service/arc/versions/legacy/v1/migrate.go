@@ -14,7 +14,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v0"
 )
 
-// Migrate transforms v0 arc state into v1 by lifting the flat ReactFlow edge form
+// Migrate transforms v0 Arc state into v1 by lifting the flat ReactFlow edge form
 // into nested Handle objects. An absent handle field becomes an empty Param.
 func Migrate(old v0.Data) Data {
 	edges := make([]Edge, len(old.Graph.Edges))

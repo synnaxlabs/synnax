@@ -36,7 +36,7 @@ func loadEnvelope(path string) imex.Envelope {
 	return env
 }
 
-// testParent satisfies the registry's required-parent check; the arc importer does
+// testParent satisfies the registry's required-parent check; the Arc importer does
 // not parent imported resources, so the ID only has to be non-zero.
 var testParent = ontology.ID{Type: ontology.ResourceTypeProject, Key: "imex-parent"}
 

@@ -93,11 +93,23 @@ type consoleSymbol struct {
 	Data consoleSpec `json:"data" msgpack:"data"`
 }
 
-// DecodeImport materializes the envelope's body as a current-version Symbol.
-// Envelopes stamped at or above Floor decode through the generated migration
-// chain; envelopes below Floor are Console-written camelCase files. An envelope
-// newer than Latest is rejected with a path-scoped validation error.
+// DecodeImport materializes the envelope's body as a current-version Symbol named
+// after the envelope. Envelopes stamped at or above Floor decode through the generated
+// migration chain; envelopes below Floor are Console-written camelCase files. An
+// envelope newer than Latest is rejected with a path-scoped validation error.
 func DecodeImport(ctx context.Context, env imex.Envelope) (Symbol, error) {
+	sym, err := decodeBody(ctx, env)
+	if err != nil {
+		return Symbol{}, err
+	}
+	// The header is the resolved name: the body's name when present, or the file-name
+	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
+	// here for every path.
+	sym.Name = env.Name
+	return sym, nil
+}
+
+func decodeBody(ctx context.Context, env imex.Envelope) (Symbol, error) {
 	if env.Version >= Floor {
 		return decodeMigrate(ctx, env)
 	}

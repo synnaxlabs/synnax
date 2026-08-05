@@ -11,7 +11,7 @@ package v2
 
 import v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v1"
 
-// Migrate transforms v1 arc state into v2 by renaming the deprecated set_status
+// Migrate transforms v1 Arc state into v2 by renaming the deprecated set_status
 // node props to status.set. The bare set_status STL symbol was removed; saved
 // graphs must remap the props.
 func Migrate(old v1.Data) Data {

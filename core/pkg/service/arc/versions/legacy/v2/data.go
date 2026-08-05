@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v2 holds the frozen wire format for Console arc state at version 2. The wire
+// Package v2 holds the frozen wire format for Console Arc state at version 2. The wire
 // model is structurally identical to v1; v2 marks the removal of the deprecated
 // set_status STL symbol, whose props Migrate renames to status.set.
 package v2
@@ -20,6 +20,6 @@ import (
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 2
 
-// Data is the wire shape of a Console arc state at version 2, structurally identical to
+// Data is the wire shape of a Console Arc state at version 2, structurally identical to
 // v1.
 type Data = v1.Data

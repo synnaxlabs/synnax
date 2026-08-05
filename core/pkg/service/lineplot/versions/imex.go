@@ -154,12 +154,24 @@ func (d consoleDocument) linePlot() LinePlot {
 	}
 }
 
-// DecodeImport materializes the envelope's body as a current-version LinePlot.
-// Envelopes stamped at or above Floor decode through the generated migration
-// chain; older ones are Console-era files — camelCase typed exports or Console
-// states — and are lifted forward. An envelope newer than Latest is rejected
+// DecodeImport materializes the envelope's body as a current-version LinePlot named
+// after the envelope. Envelopes stamped at or above Floor decode through the generated
+// migration chain; older ones are Console-era files — camelCase typed exports or
+// Console states — and are lifted forward. An envelope newer than Latest is rejected
 // with a path-scoped validation error.
 func DecodeImport(ctx context.Context, env imex.Envelope) (LinePlot, error) {
+	lp, err := decodeBody(ctx, env)
+	if err != nil {
+		return LinePlot{}, err
+	}
+	// The header is the resolved name: the body's name when present, or the file-name
+	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
+	// here for every path.
+	lp.Name = env.Name
+	return lp, nil
+}
+
+func decodeBody(ctx context.Context, env imex.Envelope) (LinePlot, error) {
 	if env.Version >= Floor {
 		return decodeMigrate(ctx, env)
 	}

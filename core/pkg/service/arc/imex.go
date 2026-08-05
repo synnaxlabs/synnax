@@ -21,7 +21,7 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
-// Match reports whether body is a legacy Console arc state: v0-v2 files persist the
+// Match reports whether body is a legacy Console Arc state: v0-v2 files persist the
 // graph inline alongside text and mode. The markers are frozen — they describe
 // historical file shapes.
 func (*Service) Match(body map[string]any) bool {
@@ -31,8 +31,8 @@ func (*Service) Match(body map[string]any) bool {
 	return hasGraph && (hasMode || hasText)
 }
 
-// Export retrieves the arc identified by id and serializes it as an imex.Envelope
-// stamped with versions.Latest. It returns query.ErrNotFound if no arc exists for
+// Export retrieves the Arc identified by id and serializes it as an imex.Envelope
+// stamped with versions.Latest. It returns query.ErrNotFound if no Arc exists for
 // id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
@@ -56,9 +56,9 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 }
 
 // Import decodes the envelope into an Arc and persists it on tx, returning the
-// ontology.ID of the newly-created arc. The exported key is discarded and a fresh
-// one is generated so that importing always materializes a new resource. Arcs are
-// not parented on import, so opts.Parent does not apply. Envelopes older than
+// ontology.ID of the newly-created Arc. The exported key is discarded and a fresh one
+// is generated so that importing always materializes a new resource. Arcs are not
+// parented on import, so opts.Parent does not apply. Envelopes older than
 // versions.Latest are Console-era files — camelCase typed exports or Console states —
 // and are lifted forward; an envelope newer than versions.Latest is rejected with a
 // path-scoped validation error.
@@ -73,9 +73,6 @@ func (s *Service) Import(
 		return ontology.ID{}, err
 	}
 	a.Key = uuid.Nil
-	// env.Name is the resolved resource name: the body's name when present, or the
-	// caller-supplied file name fallback applied by the imex service.
-	a.Name = env.Name
 	if err = s.NewWriter(tx).Create(ctx, &a); err != nil {
 		return ontology.ID{}, err
 	}

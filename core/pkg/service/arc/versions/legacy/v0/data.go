@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v0 holds the frozen wire format for Console arc state at version 0. v0
+// Package v0 holds the frozen wire format for Console Arc state at version 0. v0
 // persists edges in ReactFlow's flat form: node-key strings with optional sibling
 // handle fields.
 package v0
@@ -20,7 +20,7 @@ import (
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 0
 
-// Data is the wire shape of a Console arc state at version 0. Mode is the raw wire
+// Data is the wire shape of a Console Arc state at version 0. Mode is the raw wire
 // string ("graph" or "text"); the importer converts it to the typed enum.
 type Data struct {
 	// Graph is the graph-mode program body.
