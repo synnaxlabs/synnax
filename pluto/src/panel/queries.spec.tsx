@@ -1083,13 +1083,12 @@ describe("Panel queries", () => {
         );
       };
 
-      // useSelectTabResource throws on a view tab, so the resource is read through
-      // the on-demand getter only after the variant has flipped, the same way a
-      // resource renderer only mounts once its tab is a resource tab.
+      // useSelectTabResource throws on a view tab, so the resource is read from the
+      // client cache only after the variant has flipped, the same way a resource
+      // renderer only mounts once its tab is a resource tab.
       const { result } = renderHook(
         () => ({
           setResource: Panel.useSetCurrentTabResource(),
-          getResource: Panel.useGetTabResource(),
           variant: Panel.useSelectTabVariant({}),
         }),
         { wrapper: composed },
@@ -1100,7 +1099,13 @@ describe("Panel queries", () => {
         result.current.setResource(resource);
       });
       await waitFor(() => expect(result.current.variant).toEqual("resource"));
-      expect(result.current.getResource()).toEqual(resource);
+      const cached = client.panels.getCached(created.key);
+      expect(query.isLive(cached)).toBe(true);
+      if (!query.isLive(cached)) return;
+      const updated = panel.findTab(cached.root, tab.key);
+      expect(updated?.variant).toEqual("resource");
+      if (updated?.variant !== "resource") return;
+      expect(updated.resource).toEqual(resource);
     });
   });
 

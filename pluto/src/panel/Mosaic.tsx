@@ -9,7 +9,7 @@
 
 import "@/panel/Mosaic.css";
 
-import { panel } from "@synnaxlabs/client";
+import { panel, query } from "@synnaxlabs/client";
 import { type direction } from "@synnaxlabs/x";
 import {
   type DragEventHandler,
@@ -30,7 +30,6 @@ import { Mosaic as Base } from "@/mosaic";
 import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
 import {
   useDispatch,
-  useGetTab,
   useSelectLeafNode,
   useSelectNodeVariant,
   useSelectRoot,
@@ -41,6 +40,7 @@ import {
 import { Scope, TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
 import { Select } from "@/select";
+import { Synnax } from "@/synnax";
 import { Tabs } from "@/tabs";
 import { Triggers } from "@/triggers";
 
@@ -82,10 +82,16 @@ interface TabProps extends Pick<MosaicProps, "tabName"> {
 const Tab = ({ tabKey, tabName, onClose }: TabProps): ReactElement => {
   const { startDrag, onDragEnd } = Base.useDragTab();
   const key = Scope.use();
-  const getTab = useGetTab();
+  const client = Synnax.use();
   const handleDragStart = useCallback<DragEventHandler<HTMLDivElement>>(
-    (e) => startDrag(e, tabKey, createTabDragPayload(key, getTab({ tabKey }))),
-    [tabKey, startDrag, key, getTab],
+    (e) => {
+      const cached = client?.panels.getCached(key);
+      if (!query.isLive(cached)) return;
+      const tab = panel.findTab(cached.root, tabKey);
+      if (tab == null) return;
+      startDrag(e, tabKey, createTabDragPayload(key, tab));
+    },
+    [tabKey, startDrag, key, client],
   );
   const handleClose = useCallback(() => onClose(tabKey), [tabKey, onClose]);
   return (
