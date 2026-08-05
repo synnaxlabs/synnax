@@ -58,8 +58,18 @@ const STATE: MockState = {
   work: { value: "16.2.0", transient: "drag" },
 };
 
-// One state key plus one version key for the global partition.
+// One state key plus one slot pointer for the global partition.
 const GLOBAL_KEYS = 2;
+
+/** Rewrites every slot pointer under the key the pre-rename release wrote. */
+const downgradePointers = (store: kv.MockAsync) =>
+  [...store.store.entries()]
+    .filter(([key]) => key.endsWith(".slot"))
+    .forEach(([key, value]) => {
+      store.store.delete(key);
+      const { slot } = value as { slot: number };
+      store.store.set(`${key.slice(0, -".slot".length)}.version`, { version: slot });
+    });
 
 const openPersist = async (
   store: kv.MockAsync,
@@ -211,13 +221,22 @@ describe("Persist.open", () => {
       expect((await driver.composed())?.work).toEqual(ZERO_MOCK_STATE.work);
     });
 
-    it("should bound each partition to four versions", async () => {
+    it("should bound each partition to four slots", async () => {
       const store = new kv.MockAsync();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       for (let i = 0; i < 10; i++) await edit(driver, `16.2.${i}`);
-      // Four ring entries plus a version pointer for each of the three partitions.
+      // Four ring entries plus a slot pointer for each of the three partitions.
       expect(await store.length()).toBe(15);
+    });
+
+    it("should read a slot pointer left under the pre-rename key", async () => {
+      const store = new kv.MockAsync();
+      const driver = await createDriver(store);
+      await enter(driver, CTX);
+      await edit(driver, "16.2.0");
+      downgradePointers(store);
+      expect(await driver.composed()).toEqual(STATE);
     });
 
     it("should scope slices to the context they were written under", async () => {
@@ -423,10 +442,10 @@ describe("Persist.middleware", () => {
     const gateHit = vi.fn();
     const gateDone = vi.fn();
     // Holds the slow cluster's state read so its swap is still in flight when the next
-    // switch starts and finishes. The version pointer stays readable so persists pass.
+    // switch starts and finishes. Its slot pointer stays readable so persists pass.
     const gated: Persist.SugaredKV = {
       get: async <V>(key: string): Promise<V | null> => {
-        if (key.startsWith("cluster.slow") && !key.endsWith("version")) {
+        if (/^cluster\.slow\.\d+$/.test(key)) {
           gateHit();
           await staleGate;
           const value = await store.get<V>(key);
@@ -499,13 +518,11 @@ describe("Persist.hardClearAndReload", () => {
   });
 
   it("should clear the persisted store scoped to the store path", async () => {
-    await Persist.openSugaredKV(Persist.STORE_PATH).set("global.version", {
-      version: 1,
-    });
+    await Persist.openSugaredKV(Persist.STORE_PATH).set("global.slot", { slot: 1 });
     localStorage.setItem("unrelated:key", "keep-me");
     Persist.hardClearAndReload();
     await vi.waitFor(() => {
-      expect(localStorage.getItem(`${PREFIX}global.version`)).toBeNull();
+      expect(localStorage.getItem(`${PREFIX}global.slot`)).toBeNull();
     });
     expect(localStorage.getItem("unrelated:key")).toBe("keep-me");
   });
