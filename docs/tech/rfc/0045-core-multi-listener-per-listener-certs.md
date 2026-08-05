@@ -2,7 +2,7 @@
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-07-13
-- **Related**: [RFC 0042 - Core Structure Refactor](./0042-core-structure-refactor.md),
+- **Related**: [RFC 0042 - Core Structure Refactor](0042-core-structure-refactor.md),
   [SY-4456 - Serve Core on Multiple Ports with Unique Certs](https://linear.app/synnax/issue/SY-4456)
 
 ## 0 Summary
@@ -192,7 +192,7 @@ Sources are chosen per listener and freely mixed; the motivating deployment runs
 on the driver listener and `tailscale` on the Console listener. `auto` and `tailscale`
 manage their own renewal, so `file` is the only source needing explicit hot-reload.
 
-#### The source space, and why `tailscale` is first-class
+#### 4.1.0 The source space, and why `tailscale` is first-class
 
 `Source` is an open extension point, so the built-in set is a choice, not a limit.
 Nearly every enterprise certificate mechanism reduces to one of four shapes:

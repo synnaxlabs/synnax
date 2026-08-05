@@ -41,12 +41,11 @@ type enumCheckData struct {
 	FieldName string
 }
 
-// goDefaultFills returns the fills for a field's static default (RFC 0044 section 5). A
-// scalar default yields a single fill; a struct-literal default (e.g. `x1 Axis = { key
-// = AxisKeyX1 }`) yields one fill per non-zero leaf component, keyed by a nested
-// selector (X1.Key). It returns nil for fields with no default, nullable/optional
-// fields, defaults that equal the zero value (nothing to fill), and non-static defaults
-// such as create/now.
+// goDefaultFills returns the fills for a field's static default. A scalar default
+// yields a single fill; a struct-literal default (e.g. `x1 Axis = { key = AxisKeyX1 }`)
+// yields one fill per non-zero leaf component, keyed by a nested selector (X1.Key). It
+// returns nil for fields with no default, nullable/optional fields, defaults that equal
+// the zero value (nothing to fill), and non-static defaults such as create/now.
 func goDefaultFills(field resolution.Field, data *templateData) []defaultFillData {
 	if field.Default == nil || field.Optional {
 		return nil
@@ -241,8 +240,8 @@ func numberLiteral(n *validation.Number) string {
 }
 
 // goEnumCheck returns an enum-membership validation for a required field whose type is
-// an enum (RFC 0044 section 5.2). Nullable and optional fields are skipped: their
-// pointer may be nil, and absence is legitimate.
+// an enum. Nullable and optional fields are skipped: their pointer may be nil, and
+// absence is legitimate.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
 	if field.Optional {
 		return enumCheckData{}, false

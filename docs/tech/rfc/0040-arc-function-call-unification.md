@@ -2,9 +2,9 @@
 
 - **Author**: Nico Alba
 - **Date**: 2026-05-13
-- **Related**: [RFC 0030 - Arc Module System](./0030-arc-modules.md),
-  [RFC 0031 - Arc Scheduler Semantics](./0031-arc-scheduler-semantics.md),
-  [RFC 0037 - Arc Status Module Updates](./0037-arc-status-updates.md)
+- **Related**: [RFC 0030 - Arc Module System](0030-arc-modules.md),
+  [RFC 0031 - Arc Scheduler Semantics](0031-arc-scheduler-semantics.md),
+  [RFC 0037 - Arc Status Module Updates](0037-arc-status-updates.md)
 
 ## 0 Summary
 
@@ -69,7 +69,7 @@ mirrored to `Config` in every `ExecBoth` symbol. Replace both with a single
 
 **Collapse the two analyzer hook surfaces.** A symbol that wants to validate its
 arguments (e.g. `status.set` constraining the `variant` literal; see
-[RFC 0037 §5.0.1](./0037-arc-status-updates.md#501-literal-value-constraints)) registers
+[RFC 0037 §5.0.1](0037-arc-status-updates.md#501-literal-value-constraints)) registers
 `AnalyzeCall` for the parens form AND `AnalyzeFlowConfig` for the brace form. The two
 hooks walk different AST shapes to find the same argument and run the same literal
 check. Replace both with a single `AnalyzeArguments` hook that receives a unified
@@ -1066,7 +1066,7 @@ part of the major release this refactor ships with, skipping the next sequential
 The exact target version is fixed once the release is named; this RFC uses `vN` as a
 placeholder throughout.
 
-## Appendix A - Running notes
+## 13 Running notes
 
 An append-only log of decisions, observations, and deferred ideas surfaced while
 implementing this RFC. Add new entries at the bottom; do not edit or reorder existing
@@ -1074,9 +1074,9 @@ ones. Strict append-only keeps this section free of merge conflicts across the s
 phase branches and leaves the numbered sections above untouched. When a note hardens
 into a real design decision, promote it into the relevant section above (or §8 Future
 work) and leave the note here as a record. Entry heading:
-`### <phase or date> - <short title>`.
+`### 13.<n> <phase or date>: <short title>`.
 
-#### Phase 3 - Brace/parens surface convention may invert
+### 13.0 Phase 3: Brace/parens surface convention may invert
 
 Today a user-defined function's brace block holds the non-trigger inputs and the parens
 block holds the trigger (its first param is the edge-fed one):
@@ -1104,7 +1104,7 @@ This is surface syntax only. The unified `Inputs` list and explicit `Trigger` bi
 from this RFC are unaffected either way, which is exactly why the foundation was kept
 policy-free (see §8.0). Deferred; no decision yet.
 
-#### Phase 3 - Grammar still uses "config" terminology
+### 13.1 Phase 3: Grammar still uses "config" terminology
 
 Phase 1 removed the `Config` field from the type/IR model (Oracle schema). The ANTLR
 grammar, a separate generator, still names its productions `config`: the parser exposes
@@ -1128,7 +1128,7 @@ it lands.
 Open question for that phase: what the rules rename to (e.g. `braceBlock` / `parenBlock`
 by surface form). Not just find-and-replace.
 
-#### Phase 4 - `symbol.KindConfig` should be deprecated
+### 13.2 Phase 4: `symbol.KindConfig` should be deprecated
 
 Distinct from both the type-level `Config` collapse (this RFC) and the grammar `config`
 rename (above): the symbol-table scope `Kind` still carries a `KindConfig` / `KindInput`
@@ -1156,7 +1156,7 @@ mechanical `Kind` collapse on a compiling tree lets the compiler and tests catch
 missed reader, whereas mid-stack on the broken-by-design tree there is no safety net.
 Independent of the grammar rename; neither blocks the other.
 
-#### Phase 5 - Runtime inputs are addressed by name, retiring the config/input split
+### 13.3 Phase 5: Runtime inputs are addressed by name, retiring the config/input split
 
 The plan scoped the runtime touch as a one-liner (`len(Config)` to `len(Inputs)`), but
 the merge broke more than that: the runtime read inputs by position and split params via

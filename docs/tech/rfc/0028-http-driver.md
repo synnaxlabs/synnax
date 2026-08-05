@@ -3,7 +3,7 @@
 - **Author**: Patrick Dotson
 - **Date**: 2026-02-13
 
-## Overview
+## 0 Overview
 
 Add an HTTP driver integration to the Synnax Driver system that enables:
 
@@ -14,7 +14,7 @@ Add an HTTP driver integration to the Synnax Driver system that enables:
 
 Integration name: `http` (task types: `http_read`, `http_write`, `http_scan`)
 
-### Supported types
+### 0.0 Supported types
 
 **JSON types per endpoint:** `number`, `string`, `boolean`
 
@@ -28,9 +28,9 @@ UUID, Bytes, and JSON Synnax types are not supported by this driver.
 
 ---
 
-## Architecture
+## 1 Architecture
 
-### Directory structure
+### 1.0 Directory structure
 
 ```
 x/cpp/json/
@@ -96,7 +96,7 @@ docs/site/src/pages/reference/device-drivers/http/  # Documentation (NEW)
 └── scan-task.mdx
 ```
 
-### Dependencies
+### 1.1 Dependencies
 
 - **libcurl**: HTTP client library (add via Bazel Central Registry in MODULE.bazel)
 - **nlohmann/json**: Already in codebase for JSON parsing
@@ -111,9 +111,9 @@ docs/site/src/pages/reference/device-drivers/http/  # Documentation (NEW)
 
 ---
 
-## Configuration schemas
+## 2 Configuration schemas
 
-### Device properties (stored in `synnax::Device.properties`)
+### 2.0 Device properties (stored in `synnax::Device.properties`)
 
 ```json
 {
@@ -139,7 +139,7 @@ docs/site/src/pages/reference/device-drivers/http/  # Documentation (NEW)
 - `"basic"`: `{"type": "basic", "username": "user", "password": "pass"}`
 - `"bearer"`: `{"type": "bearer", "token": "jwt-token"}`
 
-### Read task configuration (`synnax::Task.config`)
+### 2.1 Read task configuration (`synnax::Task.config`)
 
 A single read task can poll **multiple endpoints**. Each endpoint has its own set of
 fields. All endpoints are polled at the same rate on each cycle.
@@ -280,7 +280,7 @@ When configuring a read task, the driver validates:
      timestamp source for a given index channel, software timing (request midpoint) is
      used for that index.
 
-### Write task configuration
+### 2.2 Write task configuration
 
 A single write task can send to **multiple endpoints**. Each endpoint has its own set of
 fields that define the request body. The task is event-driven: when new values arrive on
@@ -483,7 +483,7 @@ When configuring a write task, the driver validates:
   - `"unix_us"`: Unix timestamp in microseconds (written as a JSON number)
   - `"unix_ns"`: Unix timestamp in nanoseconds (written as a JSON number)
 
-### Scan task configuration
+### 2.3 Scan task configuration
 
 **Example: HTTP Status Only**
 
@@ -550,9 +550,9 @@ users.
 
 ---
 
-## Implementation details
+## 3 Implementation details
 
-### JSON pointer handling
+### 3.0 JSON pointer handling
 
 JSON Pointer (RFC 6901) is used throughout the driver for field extraction and request
 body construction. Rather than a custom utility, the driver uses
@@ -573,13 +573,13 @@ re-parsing on the hot path.
 - `/foo/bar/baz`: nested path
 - `~0` escapes `~`, `~1` escapes `/`
 
-### JSON ↔ Synnax conversion (`x/cpp/json/convert.h`)
+### 3.1 JSON ↔ Synnax conversion (`x/cpp/json/convert.h`)
 
 Reusable utilities for converting between JSON and Synnax telemetry types. Supports
 three JSON types (number, string, boolean), Synnax numeric types, strings, and
 timestamps.
 
-#### Read side: `to_sample_value`
+#### 3.1.0 Read side: `to_sample_value`
 
 `to_sample_value(json, DataType, ReadOptions)` inspects the JSON value's type at runtime
 and converts to the target DataType. The caller doesn't need to specify the JSON type —
@@ -617,7 +617,7 @@ to_sample_value(
 );
 ```
 
-#### Write side: `from_sample_value`
+#### 3.1.1 Write side: `from_sample_value`
 
 `from_sample_value(SampleValue, Type)` converts a Synnax sample value to the specified
 JSON type using `std::visit` dispatch on the variant.
@@ -644,7 +644,7 @@ nlohmann::json zero_value(Type format);
 }
 ```
 
-### HTTP client (`driver/http/device/`)
+### 3.2 HTTP client (`driver/http/device/`)
 
 - **`Client`**: Wraps libcurl's multi interface. Supports single requests
   (`request(Request)`) and parallel requests (`request_parallel(vector<Request>)`).
@@ -657,12 +657,12 @@ nlohmann::json zero_value(Type format);
 - **`Request`/`Response`**: Simple structs carrying method, path, body, query params,
   status code, and request/response timestamps.
 
-### Mock HTTP server (`driver/http/mock/`)
+### 3.3 Mock HTTP server (`driver/http/mock/`)
 
 cpp-httplib based mock server for unit and integration testing. Supports configurable
 responses per path/method and request logging for assertions.
 
-### Error types
+### 3.4 Error types
 
 | Error          | Category  | Meaning                             |
 | -------------- | --------- | ----------------------------------- |
@@ -677,9 +677,9 @@ breaker pattern for automatic retry with exponential backoff.
 
 ---
 
-## Timestamp handling
+## 4 Timestamp handling
 
-### Read task index resolution
+### 4.0 Read task index resolution
 
 During configuration, the read task resolves which Synnax index channels need to be
 written and how their values are sourced. For each field in the task:
@@ -695,7 +695,7 @@ written and how their values are sourced. For each field in the task:
 3. If multiple fields reference the same index channel, all their timestamp sources must
    resolve to the **same JSON pointer and format**. A mismatch is a configuration error.
 
-### Timestamp extraction at runtime
+### 4.1 Timestamp extraction at runtime
 
 For each index channel that has a resolved JSON pointer:
 
@@ -716,9 +716,9 @@ For index channels using software timing (no `time_pointer` configured):
 
 ---
 
-## Performance considerations
+## 5 Performance considerations
 
-### Read task main loop
+### 5.0 Read task main loop
 
 Each poll cycle:
 
@@ -742,7 +742,7 @@ Each poll cycle:
   `base_url` reuse keep-alive connections. Results are collected before writing to
   Synnax.
 
-### Write task main loop
+### 5.1 Write task main loop
 
 The write task main loop is the rate-limited component. `throttle_rate` controls how
 often this loop iterates, not the rate of individual HTTP requests. Each iteration of
@@ -767,12 +767,12 @@ via libcurl multi).
 
 ---
 
-## Python client API
+## 6 Python client API
 
 The Python client provides a high-level API for configuring HTTP devices and tasks via
 `synnax.http`:
 
-### Device creation
+### 6.0 Device creation
 
 ```python
 import synnax as sy
@@ -799,7 +799,7 @@ device = sy.http.create_device(
 )
 ```
 
-### Read task configuration
+### 6.1 Read task configuration
 
 ```python
 # Create channels
@@ -862,7 +862,7 @@ read_task = sy.http.create_read_task(
 read_task.start()
 ```
 
-### Write task configuration
+### 6.2 Write task configuration
 
 ```python
 setpoint_ch = client.channels.create(
@@ -917,7 +917,7 @@ write_task = sy.http.create_write_task(
 write_task.start()
 ```
 
-### Scan task configuration
+### 6.3 Scan task configuration
 
 ```python
 scan_task = sy.http.create_scan_task(
@@ -937,7 +937,7 @@ scan_task = sy.http.create_scan_task(
 
 ---
 
-## Integration testing
+## 7 Integration testing
 
 Integration tests follow the existing `TaskCase` → `SimulatorTaskCase` class hierarchy
 used by Modbus and OPC UA. The mock HTTP server is registered as a simulator in
@@ -952,7 +952,7 @@ used by Modbus and OPC UA. The mock HTTP server is registered as a simulator in
 
 ---
 
-## Platform support
+## 8 Platform support
 
 All platforms: Windows, Linux, macOS, NI Linux Real-Time
 
@@ -968,7 +968,7 @@ linkopts = select({
 
 ---
 
-## Factory registration
+## 9 Factory registration
 
 Add to `driver/rack/factories.cpp`:
 
@@ -987,7 +987,7 @@ configure_http(*this, factories);
 
 ---
 
-## Recommended PR order
+## 10 Recommended PR order
 
 PRs are organized by feature: **Utilities → Device → Read Task → Write Task → Scan
 Task**
@@ -999,9 +999,9 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 ---
 
-### Reusable utilities
+### 10.0 Reusable utilities
 
-#### PR 1: JSON ↔ Synnax conversion utility
+#### 10.0.0 PR 1: JSON ↔ Synnax conversion utility
 
 **Scope:** Type conversion between JSON values and Synnax telemetry types
 
@@ -1014,9 +1014,9 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 ---
 
-### Device connection feature
+### 10.1 Device connection feature
 
-#### PR 2: C++ device foundation
+#### 10.1.0 PR 2: C++ device foundation
 
 **Scope:** HTTP client infrastructure and driver skeleton
 
@@ -1026,7 +1026,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - `driver/http/device/`: Client, Manager + tests
 - `driver/http/mock/`: Mock HTTP server for C++ unit tests
 
-#### PR 3: Console device connection
+#### 10.1.1 PR 3: Console device connection
 
 **Scope:** Console UI for connecting to HTTP devices
 
@@ -1034,7 +1034,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - Device properties form (base URL, auth, headers)
 - Connection testing UI
 
-#### PR 4: Python client - device
+#### 10.1.2 PR 4: Python client - device
 
 **Scope:** Python client support for HTTP devices
 
@@ -1044,7 +1044,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - `client/py/examples/http/server.py`: Mock server for examples
 - `client/py/tests/test_http.py`: Device unit tests
 
-#### PR 5: Documentation - get started
+#### 10.1.3 PR 5: Documentation - get started
 
 **Scope:** HTTP driver overview and device connection docs
 
@@ -1053,9 +1053,9 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 ---
 
-### Read task feature
+### 10.2 Read task feature
 
-#### PR 6: C++ read task
+#### 10.2.0 PR 6: C++ read task
 
 **Scope:** Read task implementation with multi-endpoint support
 
@@ -1064,7 +1064,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - Integration with `driver/rack/factories.cpp`
 - `driver/http/read_task_test.cpp`
 
-#### PR 7: Console read task
+#### 10.2.1 PR 7: Console read task
 
 **Scope:** Console UI for read task configuration
 
@@ -1073,7 +1073,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - Channel mapping UI with JSON Pointer input
 - Poll rate and strict mode configuration
 
-#### PR 8: Python client - read task
+#### 10.2.2 PR 8: Python client - read task
 
 **Scope:** Python client support for HTTP read tasks
 
@@ -1081,7 +1081,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - `client/py/examples/http/read_task.py`: Read task example
 - Unit tests for read task configuration
 
-#### PR 9: Integration tests - read task
+#### 10.2.3 PR 9: Integration tests - read task
 
 **Scope:** End-to-end read task testing
 
@@ -1097,7 +1097,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
     unix_ns)
   - Configuration-time validation errors (incompatible types, duplicate channels)
 
-#### PR 10: Documentation - read task
+#### 10.2.4 PR 10: Documentation - read task
 
 **Scope:** Read task documentation
 
@@ -1107,9 +1107,9 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 ---
 
-### Write task feature
+### 10.3 Write task feature
 
-#### PR 11: C++ write task
+#### 10.3.0 PR 11: C++ write task
 
 **Scope:** Write task implementation with multi-endpoint support
 
@@ -1118,7 +1118,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - Update factory for write task
 - `driver/http/write_task_test.cpp`
 
-#### PR 12: Console write task
+#### 10.3.1 PR 12: Console write task
 
 **Scope:** Console UI for write task configuration
 
@@ -1127,7 +1127,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - Request body builder UI (static, channel, generated fields)
 - Throttle rate and missing value behavior configuration
 
-#### PR 13: Python client - write task
+#### 10.3.2 PR 13: Python client - write task
 
 **Scope:** Python client support for HTTP write tasks
 
@@ -1135,7 +1135,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - `client/py/examples/http/write_task.py`: Write task example
 - Unit tests for write task configuration
 
-#### PR 14: Integration tests - write task
+#### 10.3.3 PR 14: Integration tests - write task
 
 **Scope:** End-to-end write task testing
 
@@ -1149,7 +1149,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
   - `on_initial` behavior (zero vs omit)
   - Configuration-time validation errors (incompatible types, duplicate pointers)
 
-#### PR 15: Documentation - write task
+#### 10.3.4 PR 15: Documentation - write task
 
 **Scope:** Write task documentation
 
@@ -1158,9 +1158,9 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 ---
 
-### Scan task feature
+### 10.4 Scan task feature
 
-#### PR 16: C++ scan task
+#### 10.4.0 PR 16: C++ scan task
 
 **Scope:** Health monitoring scan task
 
@@ -1168,7 +1168,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - Update factory for scan task
 - `driver/http/scan_task_test.cpp`
 
-#### PR 17: Console scan task
+#### 10.4.1 PR 17: Console scan task
 
 **Scope:** Console UI for scan task configuration
 
@@ -1176,7 +1176,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - Health endpoint configuration UI
 - Expected response validation UI
 
-#### PR 18: Python client - scan task
+#### 10.4.2 PR 18: Python client - scan task
 
 **Scope:** Python client support for HTTP scan tasks
 
@@ -1184,7 +1184,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - `client/py/examples/http/scan_task.py`: Scan task example
 - Unit tests for scan task configuration
 
-#### PR 19: Integration tests - scan task
+#### 10.4.3 PR 19: Integration tests - scan task
 
 **Scope:** End-to-end scan task testing
 
@@ -1193,7 +1193,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
   - Health checks with response validation
   - Device status updates on success/failure
 
-#### PR 20: Documentation - scan task
+#### 10.4.4 PR 20: Documentation - scan task
 
 **Scope:** Scan task documentation
 
@@ -1202,9 +1202,9 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 ---
 
-## Key files to reference
+## 11 Key files to reference
 
-### Driver patterns
+### 11.0 Driver patterns
 
 - `/driver/modbus/`: Modbus TCP/IP (similar network protocol)
 - `/driver/opc/`: OPC UA (connection pooling pattern)
@@ -1216,20 +1216,20 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - `/driver/errors/errors.h`: Error hierarchy
 - `/x/cpp/json/json.h`: JSON configuration parsing
 
-### Console patterns
+### 11.1 Console patterns
 
 - `/console/src/hardware/opc/`: OPC UA device/task UI
 - `/console/src/hardware/modbus/`: Modbus device/task UI
 - `/console/src/hardware/ni/`: National Instruments UI patterns
 
-### Documentation patterns
+### 11.2 Documentation patterns
 
 - `/docs/site/src/pages/reference/device-drivers/opc-ua/`: OPC UA docs structure
 - `/docs/site/src/pages/reference/device-drivers/`: Other driver docs
 
 ---
 
-## Open questions / future enhancements
+## 12 Open questions / future enhancements
 
 1. **Array-to-Series**: Support mapping JSON arrays to multiple samples in a series
 2. **Per-Endpoint Headers**: Allow header overrides per endpoint
@@ -1243,7 +1243,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 ---
 
-## Summary of design decisions
+## 13 Summary of design decisions
 
 | Decision              | Choice                                               | Rationale                                                          |
 | --------------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |

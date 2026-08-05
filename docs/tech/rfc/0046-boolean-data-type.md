@@ -2,8 +2,8 @@
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-04-16
-- **Related**: [RFC 0007 - Data Types](./0007-data-type.md),
-  [RFC 0035 - Cesium Variable-Length Storage](./0035-cesium-variable-length-storage.md)
+- **Related**: [RFC 0007 - Data Types](0007-data-type.md),
+  [RFC 0035 - Cesium Variable-Length Storage](0035-cesium-variable-length-storage.md)
 
 ## 0 Summary
 

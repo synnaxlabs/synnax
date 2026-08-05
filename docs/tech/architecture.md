@@ -63,18 +63,18 @@ Luckily, there are many great open-source key-value databases available. Synnax 
 go-embedded [pebble](https://github.com/cockroachdb/pebble) which is the backing store
 for [cockroachdb](https://www.cockroachlabs.com/). On startup, Synnax opens the database
 and lets pebble handle the rest. We'll return to this topic in the
-[distribution layer](#12---layer-2---distribution).
+[distribution layer](#13---layer-2---distribution).
 
 #### 1.2.2 - Cesium - Time-Series Engine
 
-Synnax's custom time-series engine, [cesium](../../cesium) is responsible for reading
+Synnax's custom time-series engine, [Cesium](../../cesium) is responsible for reading
 and writing _frames_ of telemetry to and from disk. A frame is a map of channel names to
 arrays of time-ordered values. Cesium ensures that frames are valid, separates them into
 component arrays, and finds the optimal location to store them on disk. To retrieve
-frames as quickly as possible, cesium builds several indexing structures to reduce the
+frames as quickly as possible, Cesium builds several indexing structures to reduce the
 amount of disk seeks required to locate a specific data set.
 
-As its interface, cesium exposes two essential types: `Writer` and `Iterator`. A
+As its interface, Cesium exposes two essential types: `Writer` and `Iterator`. A
 `Writer` is a transactional object that accepts frames and writes them to disk, only
 committing them when explicitly told to do so. If multiple frames are written that have
 overlapping time ranges, the `Writer` will fail to commit. This ensures that data
@@ -82,10 +82,10 @@ integrity is never corrupted by concurrent writes. An `Iterator` iterates over a
 frames in time-ordered fashion, allowing the caller to process very large data sets
 without loading them all into memory at once.
 
-If you're interested in reading more about cesium, check out the following RFC's:
+If you're interested in reading more about Cesium, check out the following RFCs:
 
-- [001 - Cesium Segment Storage](rfc/0001-cesium-segment-storage.md)
-- [008 - Cesium Columnar Storage](rfc/0008-cesium-columnar.md)
+- [0001 - Cesium Segment Storage](rfc/0001-cesium-segment-storage.md)
+- [0008 - Cesium Columnar Storage](rfc/0008-cesium-columnar.md)
 - [0010 - Frame Specifications](rfc/0010-frame-spec.md)
 
 ### 1.3 - Layer 2 - Distribution
@@ -124,7 +124,7 @@ as the key-value database is used primarily for metadata storage that is read mu
 often than it is written. Aspen uses [pebble](#121---pebble---key-value-engine) as the
 underlying key-value store.
 
-If you're interested in reading more about Aspen, check out the following RFC's:
+If you're interested in reading more about Aspen, check out the following RFCs:
 
 - [0002 - Aspen Distributed Storage](rfc/0002-aspen-distributed-storage.md)
 
@@ -139,7 +139,7 @@ address of the nodes that own particular pieces of data, and routes requests to 
 accordingly.
 
 If you're interested in reading more about distributed frame reads and writes, check out
-the following RFC's:
+the following RFCs:
 
 - [0003 - Segment Distribution](rfc/0003-segment-distribution.md)
 

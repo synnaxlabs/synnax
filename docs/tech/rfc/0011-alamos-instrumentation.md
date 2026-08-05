@@ -54,7 +54,7 @@ horizontal perspectives. For the sake of brevity, I've chosen to contract these
 directions into `X` and `Y`.
 
 It's relevant to note that approaching a design problem from this perspective is not
-new. The design of the Signal package in [RFC 0004](./0004-signal-gr.md) also discusses
+new. The design of the Signal package in [RFC 0004](0004-signal-gr.md) also discusses
 issues between application and request-scoped goroutine management, especially in regard
 to error handling.
 

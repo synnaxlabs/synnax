@@ -1098,7 +1098,7 @@ types are strongly typed via Oracle. The sequence is:
 
 ### 8.0 Completed work
 
-#### Phase 1: Gorp infrastructure
+#### 8.0.0 Phase 1: Gorp infrastructure
 
 Branch `sy-3823-gorp-tables`. Merged.
 
@@ -1112,7 +1112,7 @@ Branch `sy-3823-gorp-tables`. Merged.
 - Codec threaded through DB, Tx, and all builders via `gorp.WithCodec`
 - All ~17 services migrated from standalone builders to `table` methods
 
-#### Phase 2: Oracle codec generation
+#### 8.0.1 Phase 2: Oracle codec generation
 
 Branch `sy-3816-oracle-migrations`.
 
@@ -1121,7 +1121,7 @@ Branch `sy-3816-oracle-migrations`.
 - 15 `.oracle` schemas annotated, 15 `codec.gen.go` files generated
 - Types implement `orc.SelfEncoder`/`orc.SelfDecoder` for automatic dispatch
 
-#### Phase 2.5: ORC codec wiring
+#### 8.0.2 Phase 2.5: ORC codec wiring
 
 Branch `sy-3816-oracle-migrations`.
 
@@ -1132,7 +1132,7 @@ Branch `sy-3816-oracle-migrations`.
 - Signal publishers migrated to codec-aware observables
 - All core tests pass
 
-#### Phase 3: Codec transition
+#### 8.0.3 Phase 3: Codec transition
 
 The ORC fallback codec makes explicit codec transition migrations unnecessary for the
 initial msgpack-to-binary switch. Types that implement `SelfEncoder`/`SelfDecoder`
@@ -1140,7 +1140,7 @@ automatically get binary encoding on the next write. Old msgpack data is read
 transparently via the fallback path. A full re-encode of all entries (to eliminate
 msgpack data from disk) can be done via a no-op `EntryMigration` if needed.
 
-#### Phase 4: Oracle migration plugin
+#### 8.0.4 Phase 4: Oracle migration plugin
 
 Branch `sy-3824-oracle-auto-migration-plugin`.
 
@@ -1153,16 +1153,16 @@ Branch `sy-3824-oracle-auto-migration-plugin`.
 
 ### 8.1 Remaining work
 
-#### Phase 5: Schema snapshots and CI check
+#### 8.1.0 Phase 5: Schema snapshots and CI check
 
 Implement schema snapshot storage and `oracle migrate check` for CI enforcement.
 
-#### Phase 6: Schema diff engine
+#### 8.1.1 Phase 6: Schema diff engine
 
 Build the schema diff engine that compares two `resolution.Table`s field-by-field and
 generates skeleton mode and propagation mode migrations.
 
-#### Phase 7: Test infrastructure
+#### 8.1.2 Phase 7: Test infrastructure
 
 Build migration test helpers. Can start anytime after Phase 1.
 
