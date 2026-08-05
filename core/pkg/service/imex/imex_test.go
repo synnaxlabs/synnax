@@ -128,7 +128,7 @@ var _ = Describe("ImEx", func() {
 			It("Should reject a null payload", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal([]byte(`null`), &env)).To(
-					MatchError(ContainSubstring("envelope must be a JSON object")),
+					MatchError(ContainSubstring("envelope must be an object")),
 				)
 			})
 

@@ -132,7 +132,7 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 // state files carry neither.
 func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec) error {
 	if m == nil {
-		return errors.Wrap(validate.ErrValidation, "envelope must be a JSON object")
+		return errors.Wrap(validate.ErrValidation, "envelope must be an object")
 	}
 	if v, ok := m["version"]; ok {
 		ver, err := versionFromAny(v)
