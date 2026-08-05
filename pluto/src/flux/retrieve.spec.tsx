@@ -183,6 +183,34 @@ describe("retrieve", () => {
         await waitFor(() => expect(result.current.retrieve.variant).toEqual("error"));
         expect(result.current.notifications.statuses).toHaveLength(0);
       });
+
+      it("should read a deleted record from its tombstone instead of fetching", async () => {
+        const corpse = { key: "1", name: "Corpse" };
+        const retrieve = vi.fn(async () => {
+          throw new NotFoundError("Resource was deleted");
+        });
+        const { useRetrieve } = Flux.createRetrieve<{ key: string }, typeof corpse>({
+          name: "Resource",
+          retrieve,
+          subscribe: () => () => {},
+          getCached: () => new query.Deleted(corpse, TimeStamp.now()),
+        });
+        const { result } = renderHook(
+          () => ({
+            retrieve: useRetrieve({ key: "1" }),
+            notifications: Status.useNotifications(),
+          }),
+          { wrapper: Wrapper },
+        );
+        await waitFor(() => {
+          expect(result.current.retrieve.variant).toEqual("error");
+          expect(result.current.retrieve.status.description).toEqual(
+            "Resource was deleted",
+          );
+        });
+        expect(result.current.notifications.statuses).toHaveLength(0);
+        expect(retrieve).not.toHaveBeenCalled();
+      });
     });
 
     describe("subscriptions", () => {
@@ -251,6 +279,37 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
           expect(result.current.status.description).toEqual("Resource was deleted");
+        });
+      });
+
+      it("should still subscribe when the record is already deleted", async () => {
+        const corpse = { key: "1", name: "Corpse" };
+        let handler: query.ChangeHandler<typeof corpse> | null = null;
+        const { useRetrieve } = Flux.createRetrieve<{ key: string }, typeof corpse>({
+          name: "Resource",
+          retrieve: async () => {
+            throw new NotFoundError("Resource was deleted");
+          },
+          subscribe: (_, h) => {
+            handler = h;
+            return () => {};
+          },
+          getCached: () => new query.Deleted(corpse, TimeStamp.now()),
+        });
+
+        const { result } = renderHook(() => useRetrieve({ key: "1" }), {
+          wrapper: Wrapper,
+        });
+        await waitFor(() => {
+          expect(result.current.variant).toEqual("error");
+          expect(handler).not.toBeNull();
+        });
+        act(() => {
+          handler?.({ ...corpse, name: "Resurrected" });
+        });
+        await waitFor(() => {
+          expect(result.current.variant).toEqual("success");
+          expect(result.current.data?.name).toEqual("Resurrected");
         });
       });
     });
