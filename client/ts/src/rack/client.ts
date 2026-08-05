@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, deep, primitive, TimeStamp } from "@synnaxlabs/x";
+import { array, deep, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -24,7 +24,7 @@ import {
   type Status,
   statusZ,
 } from "@/rack/types.gen";
-import { status } from "@/status";
+import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -121,15 +121,10 @@ const requestFilter = (
   };
 };
 
-// Rack statuses live in the status table under the "rack:<key>" status key,
-// carrying the rack key in their details.
+// Rack statuses live in the status table under the "rack:<key>" status key.
 const affectedRackKeys = (
   event: query.TableEvent<status.Key, status.Status>,
 ): Key[] | null => {
-  if (event.variant === "set") {
-    const parsed = statusZ.safeParse(event.value);
-    return parsed.success ? [parsed.data.details.rack] : null;
-  }
   const [type, key] = event.key.split(":");
   if (type !== "rack") return null;
   const parsed = keyZ.safeParse(Number(key));
@@ -274,24 +269,16 @@ export class Client extends query.Retriever<
   /** Rebuilds a cached rack, attaching its cached status when requested. */
   private compose(cached: Omit<Payload, "status">, includeStatus: boolean): Rack {
     if (!includeStatus) return this.sugar(cached);
-    const st = this.latestStatusOf(cached.key);
+    const st = this.statusOf(cached.key);
     if (st == null) return this.sugar(cached);
     return this.sugar({ ...cached, status: st });
   }
 
-  // A rack's status may live under the "rack:<key>" row or under any status
-  // whose details reference the rack; the freshest wins.
-  private latestStatusOf(key: Key): Status | undefined {
-    const rackKey = statusKey(key);
-    const candidates = this.cfg.statusStore
-      .get((s) => s.key === rackKey || status.detailsOf(s)?.rack === key)
-      .map((s) => statusZ.safeParse(s))
-      .filter((p) => p.success)
-      .map((p) => p.data);
-    if (candidates.length === 0) return undefined;
-    return candidates.reduce((latest, s) =>
-      new TimeStamp(s.time).afterEq(new TimeStamp(latest.time)) ? s : latest,
-    );
+  // Only the "rack:<key>" row is the rack's status. Task statuses name their rack in
+  // their details, and matching on that would let them take the rack's status over.
+  private statusOf(key: Key): Status | undefined {
+    const parsed = statusZ.safeParse(this.cfg.statusStore.get(statusKey(key)));
+    return parsed.success ? parsed.data : undefined;
   }
 
   /** Writes fetched racks and their included statuses. */
