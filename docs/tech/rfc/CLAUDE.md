@@ -25,7 +25,8 @@ Rules for writing and editing RFCs in this directory.
 - The same applies when the term is a code span: `` `send(payload)`: Sends... ``
 - Parentheticals attach to the term, before the colon: `- **Term** (scope): ...`.
 - Use unordered bullets unless the order itself carries meaning.
-- Acronym expansions are not title-cased: `**DAQ**: data acquisition computer.` Proper
+- Definitions are sentence-cased: capitalize the first word, then normal prose rules.
+  Acronym expansions are not title-cased: `**DAQ**: Data acquisition computer.` Proper
   nouns inside an expansion keep their capitals.
 
 ## Prose

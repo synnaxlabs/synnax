@@ -41,7 +41,7 @@ context if the caller wants to perform network optimization themselves.
   and business intelligence purposes. Data warehouses typically involve long-running
   queries on much larger data sets than typical OLTP systems. Data warehouse queries
   fall into the OLAP category of workloads.
-- **OTN**: over the network.
+- **OTN**: Over the network.
 
 ## 2 Motivation
 

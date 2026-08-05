@@ -936,7 +936,7 @@ method covers the gaps from §2.4:
 
 - **Numeric bounds**: `@validate min 1` on numeric fields, generating a
   `validate.InBounds` check.
-- **Enum variants**: enum-typed fields call the generated `IsValid()` (SY-4236), so an
+- **Enum variants**: Enum-typed fields call the generated `IsValid()` (SY-4236), so an
   out-of-set variant fails validation rather than only an empty one.
 
 Resolved fields are skipped — they are validated by their owning services.

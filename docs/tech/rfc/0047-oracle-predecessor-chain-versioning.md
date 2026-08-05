@@ -54,15 +54,15 @@ cutover:
 
 ## 2 Vocabulary
 
-- **Definer**: the version package where a type's current shape is defined as a real
+- **Definer**: The version package where a type's current shape is defined as a real
   declaration. A type's definer is the version at which its shape last changed (or v0,
   where everything is defined).
-- **Alias surface**: the `T = vPrev.T` declarations (plus enum/union const
+- **Alias surface**: The `T = vPrev.T` declarations (plus enum/union const
   re-declarations) that complete a version package's namespace.
-- **Predecessor chain**: each version package imports only `v(N-1)`. An alias may
+- **Predecessor chain**: Each version package imports only `v(N-1)`. An alias may
   resolve through several hops to its definer; the Go compiler and gopls pierce the
   chain, and `grep "type T struct"` finds definers directly.
-- **Changed**: structurally unequal per `schemadiff.SchemasEqual`
+- **Changed**: Structurally unequal per `schemadiff.SchemasEqual`
   (`oracle/plugin/go/internal/schemadiff`), which is transitive: a type whose own
   declaration is untouched but whose referenced types changed shape is changed.
 
@@ -92,12 +92,12 @@ cutover:
 
 When `go/types` generates a version-laid-out current package `vM`:
 
-- **Baseline**: the latest snapshot in `schemas/snapshots/` whose resolution declares
+- **Baseline**: The latest snapshot in `schemas/snapshots/` whose resolution declares
   version `M-1` for the path. Bumps are validated against the latest snapshot
   (`detectBumps`, `oracle/plugin/go/migrate/migrate.go`), so once per-resource versions
   appear in snapshots this baseline always exists; snapshots are append-only and checked
   in, so the rule is stateless and deterministic across syncs.
-- **Frozen-source fallback**: when no snapshot declares `M-1` (all history predates
+- **Frozen-source fallback**: When no snapshot declares `M-1` (all history predates
   `@go version`, and the pre-versioning snapshots no longer parse under the current
   grammar), the frozen predecessor package itself is the baseline: the generator renders
   the would-be define-all file, parses it and the frozen `types.gen.go` with comments
@@ -178,9 +178,9 @@ names denote the same Go type, and the generated copy is direct assignment. Only
 Current packages keep referencing their dependencies' current versions via
 `versioning.RewriteCurrent`. Two cases:
 
-- **Dep change reaches this path's types**: transitivity marks them changed, this path
+- **Dep change reaches this path's types**: Transitivity marks them changed, this path
   must bump, and the redefined types point at the dep's new version.
-- **Dep change does not reach them**: this path's regenerated current package repoints
+- **Dep change does not reach them**: This path's regenerated current package repoints
   imports at the dep's new version directory, but every referenced dep type is unchanged
   there and therefore an alias; type identity is preserved through the chain and the
   emitted code is byte-stable.

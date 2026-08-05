@@ -1701,13 +1701,13 @@ Every Axis 2 alternative is also substantially more expensive to build: weeks of
 language-wide work versus a few days for Option A. The cost falls into three families of
 infrastructure Arc doesn't currently have:
 
-- **First-class records** (C1, C2, G, H): a new kind in the type system, literal syntax,
+- **First-class records** (C1, C2, G, H): A new kind in the type system, literal syntax,
   WASM struct layout, and Flow edges that carry typed values. H additionally requires
   lens primitives, raising the bar further for an audience that doesn't write functional
   code.
-- **Method dispatch / implicit receiver** (D, E, F): receiver semantics, dispatch rules,
+- **Method dispatch / implicit receiver** (D, E, F): Receiver semantics, dispatch rules,
   and (for E) closures that type-check against an enclosing receiver.
-- **First-class functions** (B): function values and a higher-order calling convention.
+- **First-class functions** (B): Function values and a higher-order calling convention.
 
 Each family is generic infrastructure that should land for its own reasons in a separate
 RFC, not as a prerequisite for status updates. Note that the same first-class-records

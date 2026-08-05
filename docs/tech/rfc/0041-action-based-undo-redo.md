@@ -168,10 +168,10 @@ follow-up if a second document type accumulates more than a handful of exclusion
 
 Pluto's Flux substrate exposes two parallel mutation factories:
 
-- **`Flux.createUpdate`** (existing): free-form path. The user provides an arbitrary
+- **`Flux.createUpdate`** (existing): Free-form path. The user provides an arbitrary
   `update` callback that does optimistic apply, server send, and rollback on its own. No
   undo. Used for non-action-based mutations like create, rename, delete, copy.
-- **`Flux.createDispatch`** (new): action-based path. The substrate owns the local apply
+- **`Flux.createDispatch`** (new): Action-based path. The substrate owns the local apply
   via the reducer, owns the stack, and owns the undo machinery. The user provides only
   the reducer, the channel and schema for remote broadcasts, and a send function.
 

@@ -197,13 +197,13 @@ manage their own renewal, so `file` is the only source needing explicit hot-relo
 `Source` is an open extension point, so the built-in set is a choice, not a limit.
 Nearly every enterprise certificate mechanism reduces to one of four shapes:
 
-- **static** (`file`): any agent that writes a PEM to disk: cert-manager, a Vault agent,
+- **static** (`file`): Any agent that writes a PEM to disk: cert-manager, a Vault agent,
   a `tailscale cert` cron, a cloud secret-store sync. With hot-reload, `file` absorbs
   this whole class.
 - **self-signed** (`auto`): Synnax's own CA.
-- **an authority the node talks to**: public or private ACME, Vault PKI, SPIFFE SVIDs,
+- **an authority the node talks to**: Public or private ACME, Vault PKI, SPIFFE SVIDs,
   EST/SCEP/CMP; a native source buys automatic renewal inside Core.
-- **a hardware-held key** (`pkcs11`/HSM/TPM): the one shape that cannot collapse to
+- **a hardware-held key** (`pkcs11`/HSM/TPM): The one shape that cannot collapse to
   `file`, because the key must never exist as a file.
 
 So only a hardware-key source _requires_ being native; everything else, `tailscale`

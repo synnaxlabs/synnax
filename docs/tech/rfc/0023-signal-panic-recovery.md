@@ -10,7 +10,7 @@ manager to handle panics in its goroutines.
 
 ## 1 Vocabulary and abbreviations
 
-- **GR**: goroutine
+- **GR**: Goroutine
 
 ## 2 Motivation
 

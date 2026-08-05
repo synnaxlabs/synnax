@@ -166,7 +166,7 @@ From this one list, the system derives:
 
 - **Symbol resolver**: `stl.CompoundResolver(modules...)` chains all modules
 - **Node factory**: `stl.MultiFactory(modules...)` chains all factories
-- **WASM host binding**: iterate modules, call `BindTo(ctx, rt)` on each
+- **WASM host binding**: Iterate modules, call `BindTo(ctx, rt)` on each
 
 ### 4.1 Symbol resolution
 

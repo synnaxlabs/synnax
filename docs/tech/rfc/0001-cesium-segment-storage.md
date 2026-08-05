@@ -25,7 +25,7 @@ continuous iteration as Delta's demands evolve.
   whereas an irregular sample is assumed to contain an additional 64-bit timestamp.
   Write throughput can also be expressed in terms of a frequency (1 Hz, 5 Hz, 25 kHz, 1
   MHz, etc.)
-- **DAQ**: data acquisition computer.
+- **DAQ**: Data acquisition computer.
 - **Channel Cardinality**: The number of unique channel keys for a set of segments in a
   file.
 

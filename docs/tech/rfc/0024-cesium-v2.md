@@ -98,7 +98,7 @@ Linked-list-based structure (skip list):
 - Probabilistically `O(log n)` insert, update, delete (worst case `O(n)`).
 - `O(n)` range delete.
 - **`O(1)` insertion to leading edge**.
-- **Can be locked in a fine-grained manner**: every operation needs to only lock the
+- **Can be locked in a fine-grained manner**: Every operation needs to only lock the
   operating node and its two neighbors, not the entire list.
 
 Obviously, a skip list is a better choice than a tree-based structure. Nevertheless,

@@ -105,13 +105,13 @@ Rust's serde framework identifies
 [four tagging strategies](https://serde.rs/enum-representations.html) for serializing
 enums to JSON, which name the whole design space:
 
-- **Externally tagged**: the variant name wraps the content —
+- **Externally tagged**: The variant name wraps the content —
   `{ "Request": { "id": ... } }`.
 - **Internally tagged** (`#[serde(tag = "type")]`): the discriminator is a field mixed
   in with the content — `{ "type": "Request", "id": ... }`.
-- **Adjacently tagged**: discriminator and content are sibling fields —
+- **Adjacently tagged**: Discriminator and content are sibling fields —
   `{ "t": "Request", "c": { ... } }`.
-- **Untagged**: no discriminator; deserialization tries each variant in order.
+- **Untagged**: No discriminator; deserialization tries each variant in order.
 
 Our use case is exclusively **internally tagged**. The discriminator (`type`,
 `arrayMode`, `method`) lives at the same level as all other fields in a flat JSON
@@ -354,13 +354,13 @@ codec.
 
 ### 5.2 Protobuf, Python, C++
 
-- **Protobuf**: a wrapper message with shared base fields outside a `oneof` of variant
+- **Protobuf**: A wrapper message with shared base fields outside a `oneof` of variant
   messages. `oneof` cannot carry an internally tagged discriminator, so the pb plugin
   translates between Oracle's internally tagged model and protobuf's externally tagged
   representation.
-- **Python**: one Pydantic model per variant with a `Literal` discriminator field,
+- **Python**: One Pydantic model per variant with a `Literal` discriminator field,
   combined via `Annotated[Union[...], Field(discriminator="type")]`.
-- **C++**: a `std::variant<ScaleLinear, ScaleMap, ...>` alias with generated
+- **C++**: A `std::variant<ScaleLinear, ScaleMap, ...>` alias with generated
   `parse`/`to_json` free functions; base fields are repeated into each variant struct.
 
 ---
