@@ -52,8 +52,8 @@ export const grammar: Grammar = {
 };
 
 /**
- * Raw JSON string of the Arc grammar.
- * Use for Monaco/VS Code extension registration that requires string input.
+ * Raw JSON string of the Arc grammar. Use for Monaco/VS Code extension registration
+ * that requires string input.
  *
  * @example
  * ```typescript
