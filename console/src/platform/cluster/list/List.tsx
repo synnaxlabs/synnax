@@ -9,7 +9,7 @@
 
 import "@/platform/cluster/list/List.css";
 
-import { checkConnection } from "@synnaxlabs/client";
+import { connection } from "@synnaxlabs/client";
 import {
   Button,
   Flex,
@@ -79,26 +79,29 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     handleError(async () => {
       try {
         setTesting(key);
-        const state = await checkConnection({
+        const status = await connection.check({
           host: cluster.host,
           port: cluster.port,
           secure: cluster.secure,
           name: cluster.name,
         });
-        if (state.status === "connected") {
+        if (status.variant === "success") {
           addStatus({
             variant: "success",
             message: `Connected to ${cluster.name}`,
           });
-          if (state.clusterKey && state.clusterKey !== key)
+          if (status.details.clusterKey && status.details.clusterKey !== key)
             dispatch(
-              Session.Cluster.changeKey({ oldKey: key, newKey: state.clusterKey }),
+              Session.Cluster.changeKey({
+                oldKey: key,
+                newKey: status.details.clusterKey,
+              }),
             );
         } else
           addStatus({
             variant: "error",
             message: `Failed to connect to ${cluster.name}`,
-            description: state.message,
+            description: status.message,
           });
       } finally {
         setTesting(null);

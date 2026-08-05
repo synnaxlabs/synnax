@@ -39,7 +39,7 @@ export const Controls = memo((): ReactElement => {
   const isAcquired = Session.Schematic.useSelectControlIsAcquired();
   const { canEdit } = Session.Schematic.useSelectEditable();
   return (
-    <Vis.Controls>
+    <Vis.Controls x>
       <Diagram.Controls.SelectViewportMode />
       <Diagram.Controls.FitView />
       <Flex.Box x pack>

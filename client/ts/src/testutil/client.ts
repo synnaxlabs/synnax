@@ -24,6 +24,12 @@ export const TEST_CLIENT_PARAMS: SynnaxParams = {
   },
 };
 
+// A hook registered mid-test is silently dropped by vitest, so per-client afterAll
+// calls leak clients created inside test bodies. This module-level hook registers
+// during spec collection (import time) and covers every call site.
+const openClients: Synnax[] = [];
+afterAll(() => openClients.forEach((client) => client.close()));
+
 /**
  * Creates a client connected to the local test cluster. The client is closed
  * automatically once every test in the current spec file has finished, so callers do
@@ -31,6 +37,6 @@ export const TEST_CLIENT_PARAMS: SynnaxParams = {
  */
 export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
   const client = new Synnax({ ...TEST_CLIENT_PARAMS, ...params });
-  afterAll(() => client.close());
+  openClients.push(client);
   return client;
 };

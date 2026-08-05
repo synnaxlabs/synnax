@@ -32,7 +32,7 @@ describe("table/Selectable", () => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(table.TYPE_ONTOLOGY_ID.type);
     const key = tab.resource.key;
-    const created = await client.tables.retrieve({ key });
+    const created = await client.tables.retrieve(key);
     expect(created.name).toBe("Table");
     await waitFor(() =>
       expect(Session.Table.selectEditable({ state: store.getState(), key })).toBe(true),

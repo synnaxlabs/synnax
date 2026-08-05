@@ -269,7 +269,7 @@ Now, accept the fact that for better or wore, we chose React.
 
 We use [React](https://react.dev) as our primary UI framework. It's the most popular
 framework available, and is essential to all the frontend work we do. The best way to
-get started is to go through the [learn react](https://react.dev/learn) section of the
+get started is to go through the [learn React](https://react.dev/learn) section of the
 documentation. We highly recommend going through every section in its entirety, as we
 leverage a lot of advanced React patterns in our codebase.
 

@@ -9,3 +9,4 @@
 
 export * from "@/session/cluster/selectors";
 export * from "@/session/cluster/slice";
+export * from "@/session/cluster/synchronizer";

@@ -9,7 +9,7 @@
 
 import { type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Access, Flux, type Pluto } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -22,45 +22,34 @@ const client: Synnax = createTestClient();
 const configSchema = z.object({ device: z.string(), sampleRate: z.number() });
 const TYPE = "myTask";
 
-const getGrantedFluxStore = async (): Promise<Pluto.FluxStore> => {
+const awaitCreateGranted = async (): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  const { result } = renderHook(
-    () => ({
-      store: Flux.useStore<Pluto.FluxStore>(),
-      granted: Access.useCreateGranted(task.TYPE_ONTOLOGY_ID),
-    }),
-    { wrapper },
-  );
-  await waitFor(() => expect(result.current.granted).toBe(true));
-  return result.current.store;
+  const { result } = renderHook(() => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID), {
+    wrapper,
+  });
+  await waitFor(() => expect(result.current).toBe(true));
 };
 
 describe("createIngester", () => {
   it("should throw on invalid config without opening a tab", async () => {
-    const store = await getGrantedFluxStore();
+    await awaitCreateGranted();
     const ingest = Task.createIngester(configSchema, TYPE);
     const openTab = vi.fn();
     expect(() =>
       ingest(
         { device: "dev-1" },
-        { openTab, store, client, projectKey: "", fileName: "test.json" },
+        { openTab, client, projectKey: "", fileName: "test.json" },
       ),
     ).toThrow();
     expect(openTab).not.toHaveBeenCalled();
   });
 
   it("should open a tab carrying the parsed config when creation is granted", async () => {
-    const store = await getGrantedFluxStore();
+    await awaitCreateGranted();
     const ingest = Task.createIngester(configSchema, TYPE);
     const openTab = vi.fn();
     const data = { device: "dev-1", sampleRate: 100 };
-    void ingest(data, {
-      openTab,
-      store,
-      client,
-      projectKey: "",
-      fileName: "test.json",
-    });
+    void ingest(data, { openTab, client, projectKey: "", fileName: "test.json" });
     expect(openTab).toHaveBeenCalledTimes(1);
     const opened = openTab.mock.calls[0][0];
     expect(opened.variant).toBe("view");

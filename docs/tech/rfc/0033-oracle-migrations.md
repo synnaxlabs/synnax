@@ -487,7 +487,7 @@ Oracle-generated rather than manually written per-type.
 
 #### 4.4.1 Field ordering stability
 
-Binary encoding is positional. Unlike protobuf (where field numbers provide tagged
+Binary encoding is positional. Unlike Protobuf (where field numbers provide tagged
 access), reordering fields in a binary-encoded schema changes the wire format and makes
 existing data unreadable.
 
@@ -1185,7 +1185,7 @@ Build migration test helpers. Can start anytime after Phase 1.
 | 14  | Migrations sub-package, self-contained           | Never imports parent. Each version has own codec.                             |
 | 15  | Snapshot: full .oracle file copy per migration   | Human-readable, Git-diffable, cheap storage.                                  |
 | 16  | DB-level codec, not per-service                  | Single WithCodec call. ORC dispatch eliminates per-service wiring.            |
-| 17  | Direct binary encoding over protobuf             | Eliminates ToPB/FromPB layer. pb/ retained for transport.                     |
+| 17  | Direct binary encoding over Protobuf             | Eliminates ToPB/FromPB layer. pb/ retained for transport.                     |
 | 18  | encoding.Codec as universal interface            | Platform-wide. No Gorp-specific abstraction.                                  |
 | 19  | Name-based migration tracking over version ints  | Dependency graph is more flexible than sequential numbering.                  |
 

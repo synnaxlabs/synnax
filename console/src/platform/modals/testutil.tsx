@@ -9,6 +9,7 @@
 
 import { configureStore } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
+import { Triggers } from "@synnaxlabs/pluto";
 import { type aether } from "@synnaxlabs/pluto/ether";
 import { deep } from "@synnaxlabs/x";
 import {
@@ -139,10 +140,10 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   };
   Harness.displayName = "ModalOpenerHarness";
   const rendered = render(
-    <>
+    <Triggers.Provider>
       <Harness />
       <Modals.Stack />
-    </>,
+    </Triggers.Provider>,
     { wrapper },
   );
   const reopen = () =>

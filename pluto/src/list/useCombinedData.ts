@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { destructor, type record } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
@@ -46,10 +46,7 @@ export const useCombinedData = <
     (callback: () => void, key: K) => {
       const firstUnsub = first.subscribe?.(callback, key);
       const secondUnsub = second.subscribe?.(callback, key);
-      return () => {
-        firstUnsub?.();
-        secondUnsub?.();
-      };
+      return () => destructor.unwind(firstUnsub, secondUnsub);
     },
     [first.subscribe, second.subscribe],
   );

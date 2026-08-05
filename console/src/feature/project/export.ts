@@ -41,12 +41,12 @@ const retrievePanels = async (
   client: Client,
   projectKey: project.Key,
 ): Promise<panel.Panel[]> => {
-  const children = await client.ontology.retrieveChildren(
-    project.ontologyID(projectKey),
-  );
+  const children = await client.ontology.children.retrieve({
+    ids: project.ontologyID(projectKey),
+  });
   const keys = children.filter(({ id }) => id.type === "panel").map(({ id }) => id.key);
   if (keys.length === 0) return [];
-  return await client.panels.retrieve(keys);
+  return await client.panels.retrieve({ keys });
 };
 
 // HACK: a client-side mirror of the resource types the Core registers exporters for. A

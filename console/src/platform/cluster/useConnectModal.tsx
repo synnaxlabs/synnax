@@ -7,18 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { checkConnection, type connection } from "@synnaxlabs/client";
-import {
-  Button,
-  Flex,
-  Form,
-  Icon,
-  type Input,
-  Nav,
-  Status,
-  Synnax,
-} from "@synnaxlabs/pluto";
-import { caseconv, uuid } from "@synnaxlabs/x";
+import { connection } from "@synnaxlabs/client";
+import { Button, Flex, Form, Icon, type Input, Nav, Status } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { useState } from "react";
 import { type z } from "zod";
 
@@ -58,7 +49,7 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
     const dispatch = Session.useDispatch();
     const isEdit = clusterKey != null;
     const existing = Session.Cluster.useSelectState(clusterKey);
-    const [connState, setConnState] = useState<connection.State | null>(null);
+    const [connStatus, setConnStatus] = useState<connection.Status | null>(null);
     const [loading, setLoading] = useState<"test" | "submit" | null>(null);
     const names = Session.Cluster.useSelectAllNames();
     const formSchema = baseFormSchema.check(({ value: { name }, issues }) => {
@@ -91,11 +82,11 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
       handleError(async () => {
         if (!methods.validate()) return;
         const data = methods.value();
-        setConnState(null);
+        setConnStatus(null);
         setLoading("submit");
-        const state = await checkConnection(data);
+        const status = await connection.check(data);
         setLoading(null);
-        setConnState(state);
+        setConnStatus(status);
         if (isEdit && existing != null && clusterKey != null) {
           dispatch(
             Session.Cluster.set({
@@ -105,15 +96,15 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
               password: existing.password,
             }),
           );
-          if (state.clusterKey && state.clusterKey !== clusterKey)
+          if (status.details.clusterKey && status.details.clusterKey !== clusterKey)
             dispatch(
               Session.Cluster.changeKey({
                 oldKey: clusterKey,
-                newKey: state.clusterKey,
+                newKey: status.details.clusterKey,
               }),
             );
         } else {
-          const key = state.clusterKey || uuid.create();
+          const key = status.details.clusterKey || uuid.create();
           dispatch(Session.Cluster.set({ ...data, key, username: "", password: "" }));
         }
         close();
@@ -143,13 +134,9 @@ export const useConnectModal = Modals.create<ConnectModalParams>(
         </Form.Form>
         <Modals.Footer>
           <Nav.Bar.Start gap="small">
-            {connState != null ? (
-              <Status.Summary
-                variant={Synnax.CONNECTION_STATE_VARIANTS[connState.status]}
-              >
-                {connState.status === "connected"
-                  ? caseconv.capitalize(connState.status)
-                  : connState.message}
+            {connStatus != null ? (
+              <Status.Summary variant={connStatus.variant}>
+                {connStatus.variant === "success" ? "Connected" : connStatus.message}
               </Status.Summary>
             ) : (
               <Triggers.SaveHelpText action={isEdit ? "Save" : "Connect"} noBar />

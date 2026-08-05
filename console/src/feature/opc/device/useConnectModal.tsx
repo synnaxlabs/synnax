@@ -59,23 +59,15 @@ const INITIAL_VALUES: Device = {
 const beforeValidate = ({
   get,
   set,
-}: Flux.BeforeValidateParams<
-  PDevice.RetrieveQuery,
-  typeof PDevice.formSchema,
-  PDevice.FluxSubStore
->) => set("location", get("properties.connection.endpoint").value);
+}: Flux.BeforeValidateParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) =>
+  set("location", get("properties.connection.endpoint").value);
 
 const beforeSave = async ({
   client,
   get,
-  store,
   set,
-}: Flux.FormBeforeSaveParams<
-  PDevice.RetrieveQuery,
-  typeof PDevice.formSchema,
-  PDevice.FluxSubStore
->) => {
-  const scanTask = await retrieveScanTask(client, store, get<rack.Key>("rack").value);
+}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+  const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
   const scanStatus = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
     timeout: TimeSpan.seconds(10),

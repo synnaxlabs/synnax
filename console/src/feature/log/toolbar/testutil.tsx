@@ -20,11 +20,8 @@ import {
   Suspense,
 } from "react";
 
-import {
-  type ConsolePreloadedState,
-  createConsoleWrapper,
-  createResourceTab,
-} from "@/testutil";
+import { createResourceTab } from "@/platform/panel/testutil";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
 
@@ -75,8 +72,8 @@ export const renderLog = async (
     preloadedState: preloadedState?.(created.key),
   });
   await loadLog(Wrapper, created.key);
-  const { panelKey, tabKey } = createResourceTab(
-    Wrapper,
+  const { panelKey, tabKey } = await createResourceTab(
+    client,
     clientLog.ontologyID(created.key),
   );
   const result = render(

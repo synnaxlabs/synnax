@@ -115,4 +115,57 @@ describe("Boundary", () => {
     fireEvent.click(c.getByText("Reload"));
     expect(c.getByText("Recovered")).toBeTruthy();
   });
+
+  describe("ResetProvider", () => {
+    it("should reset when the surrounding reset value changes", () => {
+      let shouldThrow = true;
+      const TestComponent = () => {
+        if (shouldThrow) throw new Error("Test error");
+        return <div>Recovered</div>;
+      };
+      const renderAt = (value: number) => (
+        <Errors.ResetProvider value={value}>
+          <Errors.Boundary>
+            <TestComponent />
+          </Errors.Boundary>
+        </Errors.ResetProvider>
+      );
+      const c = render(renderAt(0));
+      expect(c.getByText("Test error")).toBeTruthy();
+      shouldThrow = false;
+      c.rerender(renderAt(1));
+      expect(c.getByText("Recovered")).toBeTruthy();
+    });
+
+    it("should re-catch an error that outlives the reset", () => {
+      const TestComponent = () => {
+        throw new Error("Test error");
+      };
+      const renderAt = (value: number) => (
+        <Errors.ResetProvider value={value}>
+          <Errors.Boundary>
+            <TestComponent />
+          </Errors.Boundary>
+        </Errors.ResetProvider>
+      );
+      const c = render(renderAt(0));
+      c.rerender(renderAt(1));
+      expect(c.getByText("Test error")).toBeTruthy();
+    });
+
+    it("should not reset a boundary that never caught", () => {
+      const onReset = vi.fn();
+      const renderAt = (value: number) => (
+        <Errors.ResetProvider value={value}>
+          <Errors.Boundary onReset={onReset}>
+            <ThrowingComponent shouldThrow={false} />
+          </Errors.Boundary>
+        </Errors.ResetProvider>
+      );
+      const c = render(renderAt(0));
+      c.rerender(renderAt(1));
+      expect(onReset).not.toHaveBeenCalled();
+      expect(c.getByText("Content rendered successfully")).toBeTruthy();
+    });
+  });
 });

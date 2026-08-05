@@ -814,7 +814,7 @@ for index data.
   indexes, trigram indexes). Not needed for our current access patterns.
 - **Cross-node index coordination.** Indexes are node-local. If we ever need globally
   consistent secondary indexes, that's a distributed systems problem that belongs in
-  Aspen, not gorp.
+  Aspen, not Gorp.
 - **Index intersection at registration time.** `intersectKeys` runs per query and walks
   the larger side. A pre-computed multi-index intersection (e.g. Bloom filters per index
   pair) is a future optimization if profiling shows the per-query cost matters.

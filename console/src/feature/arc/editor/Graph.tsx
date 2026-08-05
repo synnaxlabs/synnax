@@ -57,6 +57,14 @@ export const Graph = (): ReactElement => {
     [dispatch],
   );
 
+  const modals = Session.Modals.useStore("Arc");
+  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
+
+  const enableTriggers = useCallback(
+    () => !modals.isAnyOpen() && getTabIsFocused() && isCurrentlyEditable,
+    [getTabIsFocused, isCurrentlyEditable, modals],
+  );
+
   const renderExtraMenuItems = useCallback(
     (): ReactElement => (
       <>
@@ -71,6 +79,7 @@ export const Graph = (): ReactElement => {
   return (
     <>
       <Base.Graph.Editor
+        enableTriggers={enableTriggers}
         extraMenuItems={renderExtraMenuItems}
         viewport={viewport}
         viewportMode={viewportMode}

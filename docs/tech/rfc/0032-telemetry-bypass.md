@@ -695,7 +695,7 @@ w.relay.Inlet() <- relayResponse{
 }
 ```
 
-The group field propagates through the relay's `Response` type and into the protobuf
+The group field propagates through the relay's `Response` type and into the Protobuf
 wire format (`RelayResponse.group`).
 
 #### 2.3.1 Streamer exclusion

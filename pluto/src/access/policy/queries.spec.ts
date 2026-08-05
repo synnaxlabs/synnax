@@ -210,9 +210,9 @@ describe("queries", () => {
         await result.current.updateAsync(policy.key);
       });
       await waitFor(async () => {
-        await expect(
-          client.access.policies.retrieve({ key: policy.key }),
-        ).rejects.toThrow(NotFoundError);
+        await expect(client.access.policies.retrieve(policy.key)).rejects.toThrow(
+          NotFoundError,
+        );
       });
     });
 
@@ -233,12 +233,12 @@ describe("queries", () => {
         await result.current.updateAsync([policy1.key, policy2.key]);
       });
       await waitFor(async () => {
-        await expect(
-          client.access.policies.retrieve({ key: policy1.key }),
-        ).rejects.toThrow(NotFoundError);
-        await expect(
-          client.access.policies.retrieve({ key: policy2.key }),
-        ).rejects.toThrow(NotFoundError);
+        await expect(client.access.policies.retrieve(policy1.key)).rejects.toThrow(
+          NotFoundError,
+        );
+        await expect(client.access.policies.retrieve(policy2.key)).rejects.toThrow(
+          NotFoundError,
+        );
       });
     });
   });
@@ -263,7 +263,7 @@ describe("queries", () => {
       });
 
       const createdKey = result.current.form.get<string>("key").value;
-      const retrieved = await client.access.policies.retrieve({ key: createdKey });
+      const retrieved = await client.access.policies.retrieve(createdKey);
       expect(retrieved.name).toEqual("formPolicy");
     });
 

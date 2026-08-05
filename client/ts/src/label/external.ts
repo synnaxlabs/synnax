@@ -9,4 +9,5 @@
 
 export * from "@/label/client";
 export * from "@/label/payload";
+export { cachedLabelsOf, matchLabeledBy } from "@/label/store";
 export * from "@/label/types.gen";

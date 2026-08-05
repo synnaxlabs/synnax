@@ -11,7 +11,7 @@ import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
@@ -29,15 +29,17 @@ describe("Task.useLink", () => {
       config: {},
     });
     const { wrapper, store } = await createConsoleWrapper({ client });
-    const created = await createSelectedPanel(wrapper, store, client);
+    const created = await createSelectedPanel(store, client);
+    // useOpenTab reads the panel query cache; warm it and keep it subscribed
+    // so dispatches stay visible.
+    await client.panels.retrieve(created.panelKey);
     const { result } = renderHook(() => Task.useLink(), { wrapper });
     await act(async () => {
       await result.current({ client, key: String(task.key) });
     });
-    await waitFor(() => {
-      const doc = created.fluxStore.panels.get(created.panelKey);
-      assertDefined(doc, "panel doc missing from flux store");
-      if (doc.root.variant !== "leaf") throw new Error("panel root is not a leaf");
+    await waitFor(async () => {
+      const doc = await client.panels.retrieve(created.panelKey);
+      assert(doc.root.variant === "leaf", "panel root is not a leaf");
       const tab = doc.root.tabs.find(
         (t): t is panel.TabView =>
           t.variant === "view" && t.type === NI.Task.ANALOG_READ_TYPE,

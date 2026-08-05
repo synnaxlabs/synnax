@@ -64,7 +64,7 @@ The consequences:
 3. **No validation generation.** Zod schemas are manually maintained across 1,000+ lines
    of TypeScript for NI alone.
 
-4. **No protobuf support.** Task configs are opaque bytes over the wire because the
+4. **No Protobuf support.** Task configs are opaque bytes over the wire because the
    schema system cannot represent their structure.
 
 ### 1.1 Scope of the problem
@@ -135,7 +135,7 @@ Key takeaways:
 
 1. **Internally tagged is rare in schema languages** but common in real-world JSON APIs.
    Most schema languages default to external or envelope tagging because it is simpler
-   for binary formats (protobuf `oneof`, Smithy, FlatBuffers, Avro). Avro's JSON
+   for binary formats (Protobuf `oneof`, Smithy, FlatBuffers, Avro). Avro's JSON
    type-wrapping is a
    [well-documented interop pain point](https://vasters.com/clemens/2024/11/13/plain-json-encoding-for-apache-avro).
    Since Synnax's data is JSON-native and all existing unions are internally tagged, we
@@ -356,7 +356,7 @@ codec.
 
 - **Protobuf**: A wrapper message with shared base fields outside a `oneof` of variant
   messages. `oneof` cannot carry an internally tagged discriminator, so the pb plugin
-  translates between Oracle's internally tagged model and protobuf's externally tagged
+  translates between Oracle's internally tagged model and Protobuf's externally tagged
   representation.
 - **Python**: One Pydantic model per variant with a `Literal` discriminator field,
   combined via `Annotated[Union[...], Field(discriminator="type")]`.

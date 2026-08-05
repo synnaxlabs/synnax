@@ -86,8 +86,10 @@ describe("View", () => {
       screen.getByPlaceholderText<HTMLInputElement>("Search channels..."),
     );
     fireEvent.change(input, { target: { value: alpha.name } });
-    await waitFor(() => expect(screen.getByText(String(alpha.key))).toBeTruthy());
-    expect(screen.queryByText(String(bravo.key))).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText(String(alpha.key))).toBeTruthy();
+      expect(screen.queryByText(String(bravo.key))).toBeNull();
+    });
   });
 
   it("shows the empty state when the search matches no channels", async () => {
@@ -96,7 +98,9 @@ describe("View", () => {
     const input = await waitFor(() =>
       screen.getByPlaceholderText<HTMLInputElement>("Search channels..."),
     );
-    fireEvent.change(input, { target: { value: uniqueName("no_such_channel") } });
+    // Core search fuzzy-matches per token: dictionary-ish words ("no", "channel")
+    // hit real channels, so the term must be pure gibberish.
+    fireEvent.change(input, { target: { value: uniqueName("zzqjxvwq") } });
     await waitFor(() => expect(screen.getByText("No channels found.")).toBeTruthy());
   });
 

@@ -18,8 +18,11 @@ class MockIntersectionObserver {
   unobserve = vi.fn();
 }
 
+// Installed at module scope: an async describe body can open a socket at
+// collection time, before any beforeAll runs.
+installTestWebSocket();
+
 beforeAll(() => {
-  installTestWebSocket();
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
