@@ -17,6 +17,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { Session } from "@/session";
 import {
   createTestStore,
+  pickSynchronizer,
   renderHookWithConsole,
   type TestStore,
   uniqueName,
@@ -46,10 +47,12 @@ const selectTab = (store: TestStore, key: panel.Key, tabKey: panel.TabKey): void
 const mount = async () =>
   await renderHookWithConsole(
     () =>
-      Session.Synchronizer.use({
-        useReconcileTabSelections:
-          Session.Panel.WINDOW_SYNCHRONIZERS.useReconcileTabSelections,
-      }),
+      Session.Synchronizer.use(
+        pickSynchronizer(
+          Session.Panel.WINDOW_SYNCHRONIZERS,
+          "reconcile tab selections",
+        ),
+      ),
     { client },
   );
 
@@ -129,10 +132,12 @@ describe("useReconcileSelection", () => {
   const mountSelection = async (store: TestStore) =>
     await renderHookWithConsole(
       () =>
-        Session.Synchronizer.use({
-          useReconcileSelection:
-            Session.Panel.WINDOW_SYNCHRONIZERS.useReconcileSelection,
-        }),
+        Session.Synchronizer.use(
+          pickSynchronizer(
+            Session.Panel.WINDOW_SYNCHRONIZERS,
+            "reconcile panel selection",
+          ),
+        ),
       { client, store },
     );
 
@@ -201,9 +206,9 @@ describe("useSyncWindowTitle", () => {
   const mountTitle = async () =>
     await renderHookWithConsole(
       () =>
-        Session.Synchronizer.use({
-          useSyncWindowTitle: Session.Panel.WINDOW_SYNCHRONIZERS.useSyncWindowTitle,
-        }),
+        Session.Synchronizer.use(
+          pickSynchronizer(Session.Panel.WINDOW_SYNCHRONIZERS, "sync window title"),
+        ),
       { client },
     );
 

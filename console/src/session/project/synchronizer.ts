@@ -10,11 +10,12 @@
 import { type Action, clearSelected, type StoreState } from "@/session/project/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = {
-  useClearDeletedProject: Synchronizer.createRemover<StoreState, Action>({
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
+  Synchronizer.createRemover<StoreState, Action>({
+    name: "clear deleted project",
     domain: (client) => client.projects,
     selectKeys: ({ project: { selected } }: StoreState) =>
       selected == null ? [] : [selected],
     remove: () => clearSelected(),
   }),
-};
+];

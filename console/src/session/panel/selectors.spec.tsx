@@ -25,7 +25,12 @@ import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/session/panel";
 import { Synchronizer } from "@/session/synchronizer";
-import { assertDefined, createConsoleWrapper, type TestStore } from "@/testutil";
+import {
+  assertDefined,
+  createConsoleWrapper,
+  pickSynchronizer,
+  type TestStore,
+} from "@/testutil";
 
 const rootReducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
@@ -533,10 +538,9 @@ describe("panel selectors", () => {
       const { Wrapper, store } = await setup({ client });
       const { result } = renderHook(
         () => {
-          Synchronizer.use({
-            useReconcileTabSelections:
-              Panel.WINDOW_SYNCHRONIZERS.useReconcileTabSelections,
-          });
+          Synchronizer.use(
+            pickSynchronizer(Panel.WINDOW_SYNCHRONIZERS, "reconcile tab selections"),
+          );
           return Panel.useSelectIsTabVisible(PANEL, TAB);
         },
         { wrapper: Wrapper },
