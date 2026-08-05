@@ -7,13 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package versions
+package v1_test
 
 import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
-	"github.com/synnaxlabs/x/migrate"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-// Migrations is the ordered migration chain for stored tables.
-var Migrations = []migrate.Migration{v0.Migration, v1.Migration}
+func TestTableV1(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Table v2 Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -7,33 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package v1_test
 
 import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 )
 
 var _ = Describe("Table", func() {
 	Describe("GorpKey", func() {
 		It("Should return the table's key", func() {
 			k := uuid.New()
-			Expect(v2.Table{Key: k}.GorpKey()).To(Equal(k))
+			Expect(v1.Table{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
 
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
-			Expect(v2.Table{}.SetOptions()).To(BeNil())
+			Expect(v1.Table{}.SetOptions()).To(BeNil())
 		})
 	})
 	Describe("OntologyID", func() {
 		It("Should return the table ontology identifier", func() {
 			k := uuid.New()
-			Expect(v2.Table{Key: k}.OntologyID()).To(Equal(ontology.ID{
+			Expect(v1.Table{Key: k}.OntologyID()).To(Equal(ontology.ID{
 				Type: ontology.ResourceTypeTable, Key: k.String(),
 			}))
 		})

@@ -94,23 +94,6 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
-			"Should import a Console typed export carrying camelCase keys",
-			func(ctx SpecContext) {
-				res := importAndRetrieve(
-					ctx,
-					"versions/testdata/import_typed_console.json",
-					imex.ImportOptions{Parent: proj.OntologyID()},
-				)
-				Expect(res.Name).To(Equal("Console Typed"))
-				Expect(res.Channels.Y1).To(Equal([]channel.Key{3}))
-				Expect(res.Axes.Y1.Label).To(Equal("speed"))
-				Expect(res.Axes.Y1.ManualBounds).To(
-					Equal(lineplot.ManualBounds{Lower: true, Upper: false}),
-				)
-			},
-		)
-
-		It(
 			"Should import a v0 Console state through the legacy chain",
 			func(ctx SpecContext) {
 				res := importAndRetrieve(

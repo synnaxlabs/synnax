@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package v6_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestTableV1(t *testing.T) {
+func TestV6(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Table v2 Suite")
+	RunSpecs(t, "Service Schematic v6 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

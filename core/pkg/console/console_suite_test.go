@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestLegacy(t *testing.T) {
+func TestConsole(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Console Suite")
 }

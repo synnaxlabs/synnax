@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package v1_test
 
 import (
 	"embed"
@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -55,16 +55,16 @@ func seedV1(ctx SpecContext, seed *v0.Table) *gorp.DB {
 
 // migrateSeed runs the v2 migration chain over a seeded v1 table and returns the
 // migrated typed Table.
-func migrateSeed(ctx SpecContext, seed v0.Table) v2.Table {
+func migrateSeed(ctx SpecContext, seed v0.Table) v1.Table {
 	db := seedV1(ctx, &seed)
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Table",
-		Migrations: []migrate.Migration{v0.Migration, v2.Migration},
+		Migrations: []migrate.Migration{v0.Migration, v1.Migration},
 	})).To(Succeed())
-	var got v2.Table
-	Expect(gorp.NewRetrieve[v2.Key, v2.Table]().
-		Where(gorp.MatchKeys[v2.Key, v2.Table](seed.Key)).
+	var got v1.Table
+	Expect(gorp.NewRetrieve[v1.Key, v1.Table]().
+		Where(gorp.MatchKeys[v1.Key, v1.Table](seed.Key)).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
 	return got
 }
@@ -72,7 +72,7 @@ func migrateSeed(ctx SpecContext, seed v0.Table) v2.Table {
 // assertMigrated compares got against the canonical .migrated.json file for fixture, or
 // rewrites it if UPDATE_MIGRATED=1 is set. Outputs are canonicalized via
 // json.MarshalIndent (which sorts map keys) so diffs are deterministic.
-func assertMigrated(fixture string, got v2.Table) {
+func assertMigrated(fixture string, got v1.Table) {
 	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
@@ -117,7 +117,7 @@ var _ = Describe("MigrateTable", func() {
 	})
 
 	Describe("v0 reshape semantics", func() {
-		migrateBody := func(ctx SpecContext, body string) v2.Table {
+		migrateBody := func(ctx SpecContext, body string) v1.Table {
 			return migrateSeed(ctx, v0.Table{Key: uuid.New(), Data: jsonMap(body)})
 		}
 
@@ -270,7 +270,7 @@ var _ = Describe("MigrateTable", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "Table",
-				Migrations: []migrate.Migration{v0.Migration, v2.Migration},
+				Migrations: []migrate.Migration{v0.Migration, v1.Migration},
 			})).To(MatchError(ContainSubstring("table data")))
 		})
 	})
