@@ -261,22 +261,20 @@ describe("Arc queries", () => {
         name: `hydrate-${id.create()}`,
         mode: "text",
       });
-      const { result } = renderHook(
-        () => ({
-          list: Arc.useList({}),
-          hasText: Arc.useSelectHasText({ key: a.key }),
-        }),
-        { wrapper },
-      );
+      const { result } = renderHook(() => Arc.useList({}), { wrapper });
 
       act(() => {
-        result.current.list.retrieve({});
+        result.current.retrieve({});
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
       });
 
-      await waitFor(() => {
-        expect(result.current.list.variant).toEqual("success");
-        expect(result.current.hasText).toBe(true);
-      });
+      const { result: hasText } = renderHook(
+        () => Arc.useSelectHasText({ key: a.key }),
+        { wrapper },
+      );
+      expect(hasText.current).toBe(true);
     });
 
     it("reflects a live rename on an arc only loaded via the list", async () => {
