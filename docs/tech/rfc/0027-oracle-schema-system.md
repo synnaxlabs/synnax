@@ -2,7 +2,7 @@
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-03-21
-- **Related**: [RFC 0026 - Meta data structures](./0026-meta-data.md)
+- **Related**: [RFC 0026 - Meta data structures](0026-meta-data.md)
 
 ## 0 Summary
 
@@ -1414,7 +1414,7 @@ struct Range {
 
 ## 10 References
 
-- [RFC 0026 - Meta data structures](./0026-meta-data.md)
+- [RFC 0026 - Meta data structures](0026-meta-data.md)
 - [Prisma Schema Language](https://www.prisma.io/docs/orm/prisma-schema)
 - [ANTLR 4](https://www.antlr.org/)
 - [Arc Grammar (internal)](../../../arc/go/parser/)

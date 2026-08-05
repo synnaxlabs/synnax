@@ -2,9 +2,9 @@
 
 - **Author**: Nico Alba
 - **Date**: 2026-05-13
-- **Related**: [RFC 0030 - Arc Module System](./0030-arc-modules.md),
-  [RFC 0031 - Arc Scheduler Semantics](./0031-arc-scheduler-semantics.md),
-  [RFC 0037 - Arc Status Module Updates](./0037-arc-status-updates.md)
+- **Related**: [RFC 0030 - Arc Module System](0030-arc-modules.md),
+  [RFC 0031 - Arc Scheduler Semantics](0031-arc-scheduler-semantics.md),
+  [RFC 0037 - Arc Status Module Updates](0037-arc-status-updates.md)
 
 ## 0 Summary
 
@@ -69,7 +69,7 @@ mirrored to `Config` in every `ExecBoth` symbol. Replace both with a single
 
 **Collapse the two analyzer hook surfaces.** A symbol that wants to validate its
 arguments (e.g. `status.set` constraining the `variant` literal; see
-[RFC 0037 §5.0.1](./0037-arc-status-updates.md#501-literal-value-constraints)) registers
+[RFC 0037 §5.0.1](0037-arc-status-updates.md#501-literal-value-constraints)) registers
 `AnalyzeCall` for the parens form AND `AnalyzeFlowConfig` for the brace form. The two
 hooks walk different AST shapes to find the same argument and run the same literal
 check. Replace both with a single `AnalyzeArguments` hook that receives a unified

@@ -7,8 +7,8 @@
 
 A key performance bottleneck in the Synnax read and write pipeline is the overhead of
 inefficient encoding and decoding when transporting telemetry over the network. The goal
-is to transfer [Frames](./0010-frame-spec.md) over the system, which are currently
-encoded in JSON, causing unnecessary metadata to be sent over the network. The proposed
+is to transfer [Frames](0010-frame-spec.md) over the system, which are currently encoded
+in JSON, causing unnecessary metadata to be sent over the network. The proposed
 improvement is to take advantage of known traits of the frame to reduce the amount of
 data sent over the network. The final result will be a byte array that can be unpacked
 at the receiver, and thus recreate the frame.

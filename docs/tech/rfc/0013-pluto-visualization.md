@@ -6,7 +6,7 @@
 ## 0 Summary
 
 Usable, high performance data visualization is at the core of what Synnax is offering.
-The implementation of [telemetry streaming](./0012-telemetry-streaming.md) demands a
+The implementation of [telemetry streaming](0012-telemetry-streaming.md) demands a
 significant change to how we approach the data fetching and rendering process. The
 current design is also highly monolithic and tightly coupled. In this RFC I propose a
 new architecture for Synnax's visualization system, implementing a modular component

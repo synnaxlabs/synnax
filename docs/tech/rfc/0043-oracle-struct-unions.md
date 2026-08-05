@@ -2,7 +2,7 @@
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-06-12
-- **Related**: [RFC 0027 - Oracle Schema System](./0027-oracle-schema-system.md)
+- **Related**: [RFC 0027 - Oracle Schema System](0027-oracle-schema-system.md)
 
 ## 0 Summary
 

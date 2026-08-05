@@ -4,7 +4,7 @@
 - **Date**: 2026-05-08
 - **Related**:
   [PR #2290 - Schematic Action Codec and Dispatch Endpoint](https://github.com/synnaxlabs/synnax/pull/2290),
-  [RFC 0036 - Flux Suspense](./0036-flux-suspense.md)
+  [RFC 0036 - Flux Suspense](0036-flux-suspense.md)
 
 ## 0 Summary
 

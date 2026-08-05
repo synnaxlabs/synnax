@@ -131,13 +131,13 @@ while laying the groundwork for distributed query processing.
 ### 3.1 Storage engine integration
 
 Delta's distribution layer directly interacts with two storage engines: Cesium and
-Aspen. DL uses [Aspen](./0002-aspen-distributed-storage.md) for querying cluster
-topology as well as storing distributed key-value data. It uses one or more
-[Cesium](./0001-cesium-segment-storage.md) database(s) for reading and writing
-time-series data from disk. Because the distribution layer uses multiple storage
-engines, there's a certain amount of overlap and data reconciliation that must be
-performed in order to ensure that information stays consistent (this is particularly
-relevant for [channels](#32-channels)).
+Aspen. DL uses [Aspen](0002-aspen-distributed-storage.md) for querying cluster topology
+as well as storing distributed key-value data. It uses one or more
+[Cesium](0001-cesium-segment-storage.md) database(s) for reading and writing time-series
+data from disk. Because the distribution layer uses multiple storage engines, there's a
+certain amount of overlap and data reconciliation that must be performed in order to
+ensure that information stays consistent (this is particularly relevant for
+[channels](#32-channels)).
 
 <p align="middle">
     <img
@@ -222,7 +222,7 @@ solve a lot of complicated distributed systems problems (we don't need to implem
 and transaction retries, for example).
 
 For more information on channels and segments, see the
-[Cesium RFC](./0001-cesium-segment-storage.md).
+[Cesium RFC](0001-cesium-segment-storage.md).
 
 #### 3.2.0 Keys
 

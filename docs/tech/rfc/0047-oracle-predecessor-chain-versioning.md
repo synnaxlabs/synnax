@@ -2,9 +2,9 @@
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-07-27
-- **Related**: [RFC 0033](./0033-oracle-migrations.md),
-  [RFC 0042](./0042-core-structure-refactor.md),
-  [RFC 0044](./0044-oracle-optionality-defaults-mutation.md)
+- **Related**: [RFC 0033](0033-oracle-migrations.md),
+  [RFC 0042](0042-core-structure-refactor.md),
+  [RFC 0044](0044-oracle-optionality-defaults-mutation.md)
 
 ## 0 Summary
 

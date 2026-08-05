@@ -8,7 +8,7 @@ Rules for writing and editing RFCs in this directory.
 - The H1 is `# NN Title` in sentence case, using the unpadded number.
 - Front matter is a bullet list directly under the H1, in this order:
   `- **Author**: Name`, `- **Date**: YYYY-MM-DD`,
-  `- **Related**: [RFC NNNN - Title](./NNNN-slug.md)` (Related is optional).
+  `- **Related**: [RFC NNNN - Title](NNNN-slug.md)` (Related is optional).
 - Headings are numbered hierarchically from zero: `## 0 Summary`, `### 0.0 ...`. Every
   heading below the H1 carries a number — appendix and working-notes sections too.
 - Implementation stages are labeled `Phase N` — never `Part N`.

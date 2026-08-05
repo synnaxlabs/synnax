@@ -557,7 +557,7 @@ package; per RFC 0033 §3.6, each `vN/` still imports nothing from the parent.
 
 #### 4.3.1 Each version is self-contained
 
-_(Amended by [RFC 0047](./0047-oracle-predecessor-chain-versioning.md) §4.5: a version
+_(Amended by [RFC 0047](0047-oracle-predecessor-chain-versioning.md) §4.5: a version
 package presents a complete namespace, not a self-contained copy — types unchanged at a
 version are Go aliases into its predecessor.)_
 
@@ -1007,7 +1007,7 @@ immutable. Within a release, the WIP version of a given resource is whatever
 A version bump (whether hand-authored in `current/` or auto-triggered by codec
 divergence under a dep change, §4.3.3) is a single pass:
 
-_(Superseded by [RFC 0047](./0047-oracle-predecessor-chain-versioning.md) §4.2: the
+_(Superseded by [RFC 0047](0047-oracle-predecessor-chain-versioning.md) §4.2: the
 outgoing package freezes in place with no re-emission, the incoming package aliases
 unchanged types into it, and hand-written method files stay with their definer instead
 of moving forward.)_
@@ -1073,7 +1073,7 @@ instead of a duplicate API type that embeds the service type to bolt them on (§
 
 ### 5.3 Uniform `versions/vN/` for every version, with Oracle-moved `helpers.go`
 
-_(Amended by [RFC 0047](./0047-oracle-predecessor-chain-versioning.md): method files no
+_(Amended by [RFC 0047](0047-oracle-predecessor-chain-versioning.md): method files no
 longer move at a bump — they stay in the version package that defines their receiver
 type, named for the resource rather than `helpers.go`.)_
 
