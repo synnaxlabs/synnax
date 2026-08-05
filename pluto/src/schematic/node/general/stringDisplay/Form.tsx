@@ -23,11 +23,6 @@ import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 
-const STRING_DISPLAY_FORM_TABS: Tabs.Tab[] = [
-  { tabKey: "style", name: "Style" },
-  { tabKey: "telemetry", name: "Telemetry" },
-];
-
 const TelemForm = (): ReactElement => {
   const { set } = Base.useContext();
   const { value, onChange } = Base.useField<telem.StringSourceSpec>("telem");
@@ -107,19 +102,19 @@ const StyleForm = (): ReactElement => (
   </Form.Wrapper>
 );
 
-export const StringDisplayForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "telemetry":
-        return (
-          <Form.Wrapper y empty>
-            <TelemForm />
-          </Form.Wrapper>
-        );
-      default:
-        return <StyleForm />;
-    }
-  }, []);
-  const props = Tabs.useStatic({ tabs: STRING_DISPLAY_FORM_TABS, content });
-  return <Tabs.Tabs {...props} />;
-};
+export const StringDisplayForm = (): ReactElement => (
+  <Tabs.Frame initialValue="style">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <StyleForm />
+    </Tabs.Content>
+    <Tabs.Content itemKey="telemetry">
+      <Form.Wrapper y empty>
+        <TelemForm />
+      </Form.Wrapper>
+    </Tabs.Content>
+  </Tabs.Frame>
+);

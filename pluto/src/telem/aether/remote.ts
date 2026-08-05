@@ -407,7 +407,7 @@ export class StreamChannelStringValue
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(
-        xstatus.fromException(e, "failed to stream channel string value"),
+        cstatus.fromException(e, "failed to stream channel string value"),
       );
     }
   }
