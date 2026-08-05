@@ -40,7 +40,7 @@ our current plans of being on-site largely focus on the initial deployment.
 
 ## 2 Proposed changes
 
-### 2.0 Maintenance & software stability vs. feature development
+### 2.0 Maintenance and software stability vs. feature development
 
 It's important before pursuing new feature development, we evaluate our set of
 outstanding maintenance and stability work. The idea is to handle the higher priority

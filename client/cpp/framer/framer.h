@@ -98,7 +98,6 @@ struct CodecFlags {
 };
 
 /// @brief Codec for encoding and decoding frames efficiently.
-/// This implements the Frame Flight Protocol (RFC 0016)
 class Codec {
     struct State {
         /// @brief the ordered set of channel keys for the codec.

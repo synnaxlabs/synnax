@@ -1,6 +1,6 @@
-# Technical Foundations
+# Technical foundations
 
-# 0 - Summary
+## 0 Summary
 
 Building real-time distributed systems is no easy task. This document outlines the
 software engineering foundations necessary to effectively develop different components
@@ -11,50 +11,50 @@ all of these areas require common foundational knowledge. This guide is organize
 software engineering concept, and, as a way to navigate the subsequent sections, we've
 provided a general 'roadmap' for different platform components below.
 
-## 0.0 - Roadmap
+### 0.0 Roadmap
 
-### 0.0.0 - Storage Engine
+#### 0.0.0 Storage engine
 
-1. [Programming Core in Go](#100---programming-core-in-go)
-2. [Essential Abstractions](#11---essential-abstractions)
-3. [Building Large Software Systems](#2---building-large-software-systems)
-4. [Database Engineering](#4---database-engineering)
+1. [Programming core in Go](#200-programming-core-in-go)
+2. [Essential abstractions](#21-essential-abstractions)
+3. [Building large software systems](#3-building-large-software-systems)
+4. [Database engineering](#5-database-engineering)
 
-### 0.0.1 - Distribution and Networking
+#### 0.0.1 Distribution and networking
 
-1. [Programming Core in Go](#100---programming-core-in-go)
-2. [Essential Abstractions](#11---essential-abstractions)
-3. [Building Large Software Systems](#2---building-large-software-systems)
-4. [Web Services](#5---web-services)
-5. [Distributed Systems](#3---distributed-systems)
+1. [Programming core in Go](#200-programming-core-in-go)
+2. [Essential abstractions](#21-essential-abstractions)
+3. [Building large software systems](#3-building-large-software-systems)
+4. [Web services](#6-web-services)
+5. [Distributed systems](#4-distributed-systems)
 
-### 0.0.2 - Core Services
+#### 0.0.2 Core services
 
-1. [Programming Core in Go](#100---programming-core-in-go)
-2. [Essential Abstractions](#11---essential-abstractions)
-3. [Web Services](#5---web-services)
+1. [Programming core in Go](#200-programming-core-in-go)
+2. [Essential abstractions](#21-essential-abstractions)
+3. [Web services](#6-web-services)
 
-### 0.0.3 - Analysis Tooling
+#### 0.0.3 Analysis tooling
 
-1. [Programming Core in Python](#102---programming-core-in-python)
-2. [Essential Abstractions](#11---essential-abstractions)
+1. [Programming core in Python](#201-programming-core-in-python)
+2. [Essential abstractions](#21-essential-abstractions)
 
-### 0.0.4 - User Interfaces
+#### 0.0.4 User interfaces
 
-1. [Programming Core in TypeScript](#103---programming-core-in-javascript-and-typescript)
-2. [Package Management - pnpm](#71---pnpm)
-3. [Build Systems and Infrastructure - Mono Repo](#80---monorepo)
-4. [Build Systems and Infrastructure - Turbo Repo](#81---turbo-repo)
-5. [User Interfaces](#9---user-interfaces)
-6. [Essential Abstractions](#11---essential-abstractions)
-7. [Web Services](#5---web-services)
-8. [Building Large Software Systems](#2---building-large-software-systems)
+1. [Programming core in TypeScript](#202-programming-core-in-javascript-and-typescript)
+2. [Package management - pnpm](#81-pnpm)
+3. [Build systems and infrastructure - Monorepo](#90-monorepo)
+4. [Build systems and infrastructure - Turbo Repo](#91-turbo-repo)
+5. [User interfaces](#10-user-interfaces)
+6. [Essential abstractions](#21-essential-abstractions)
+7. [Web services](#6-web-services)
+8. [Building large software systems](#3-building-large-software-systems)
 
-### 0.0.5 - Build Systems and Infrastructure
+#### 0.0.5 Build systems and infrastructure
 
-1. Programming Core in a Language of Choice
+1. Programming core in a language of choice
 
-# 1 - Philosophy
+## 1 Philosophy
 
 This guide is **practical**, meaning that it bares little resemblance to a traditional,
 theoretical computer science curriculum. Instead, it focuses on the skills that allow
@@ -72,64 +72,64 @@ Finally, **we strongly believe that the only way to learn is by doing, and doing
 lot.** Get your hands dirty, make mistakes, and put in the time. A few thousand hours
 from now, everything in this guide will seem basic.
 
-# 1 - Programming Core
+## 2 Programming core
 
 The first, and most critical, step is to become proficient in the core programming
 skills that underlie all work that we do here.
 
-## 1.0 - The Basics
+### 2.0 The basics
 
 Any free, online programming course should get you quickly through the basics of
 programming. Here are the courses we recommend for different programming languages:
 
-### 1.0.0 - Programming Core in Go
+#### 2.0.0 Programming core in Go
 
-#### 1.0.0.0 - Recommended Beginner's Course
+##### 2.0.0.0 Recommended beginner's course
 
 If you're new to programming, we recommend starting with the following course:
 
 [Learn Go Programming](https://www.youtube.com/watch?v=YS4e4q9oBaU&ab_channel=freeCodeCamp.org)
 
-#### 1.0.0.1 - Programming in Go for Experienced Programmers
+##### 2.0.0.1 Programming in Go for experienced programmers
 
 If you're already proficient in another language, we recommend quickly going through the
-official go tour:
+official Go tour:
 
 [A tour of Go](https://go.dev/learn/)
 
-#### 1.0.0.2 - Important Supplements
+##### 2.0.0.2 Important supplements
 
 - The Stack, Heap, and Pointers -
   [Golang pointers explained, once and for all](https://www.youtube.com/watch?v=sTFJtxJXkaY&ab_channel=JunminLee)
 - Effective Go - [Effective Go](https://go.dev/doc/effective_go)
 
-### 1.0.2 - Programming Core in Python
+#### 2.0.1 Programming core in Python
 
-#### 1.0.0.0 - Recommended Beginner's Course
+##### 2.0.1.0 Recommended beginner's course
 
 If you're new to programming, we recommend starting with
 [Learn Python - Full Course for Beginner's](https://www.youtube.com/watch?v=rfscVS0vtbw).
 
-### 1.0.3 - Programming Core in Javascript and TypeScript
+#### 2.0.2 Programming core in JavaScript and TypeScript
 
-#### 1.0.3.0 - Recommended Beginner's Course
+##### 2.0.2.0 Recommended beginner's course
 
 If you're new to programming, we recommend starting with
 [Learn JavaScript](https://www.youtube.com/watch?v=PkZNo7MFNFg&ab_channel=freeCodeCamp.org)
 and supplementing it with
 [Learn TypeScript](https://www.youtube.com/watch?v=30LWjhZzg50&ab_channel=freeCodeCamp.org).
 
-#### 1.0.3.1 - Experienced JavaScript Programmer, New to TypeScript
+##### 2.0.2.1 Experienced JavaScript programmer, new to TypeScript
 
 If you're already proficient in JavaScript, we recommend going through the
 [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html).
 
-## 1.1 - Essential Abstractions
+### 2.1 Essential abstractions
 
 After learning the basics, it's time to step into what programming is really about:
 abstracting complexity to solve a problem.
 
-### 1.1.0 - Interfaces and Polymorphism
+#### 2.1.0 Interfaces and polymorphism
 
 Understanding that software components should be built to satisfy an interface, rather
 than provide an implementation, is perhaps the most important realization that enables
@@ -138,15 +138,15 @@ engineers to build large, complex systems.
 - Implementing interfaces in Python -
   [Protocol or ABC in Python - When to use which one?](https://www.youtube.com/watch?v=xvb5hGLoK0A&t=1s&ab_channel=ArjanCodes).
 
-### 1.1.1 - Classes, Object-Oriented Programming, and Inheritance
+#### 2.1.1 Classes, object-oriented programming, and inheritance
 
-### 1.1.2 - Composition
+#### 2.1.2 Composition
 
 - [The flaws of Inheritance](https://www.youtube.com/watch?v=hxGOiiR9ZKg&t=89s&ab_channel=CodeAesthetic)
 
 - [Python - Why Composition is better than Inheritance](https://www.youtube.com/watch?v=0mcP8ZpUR38&ab_channel=ArjanCodes)
 
-### 1.1.4 - Dependency Injection
+#### 2.1.3 Dependency injection
 
 After composition, dependency injection and dependency inversion are the most used
 structural patterns in the Synnax codebase. Interfaces are foundational in understanding
@@ -156,7 +156,7 @@ a modular fashion.
 [This](https://www.youtube.com/watch?v=J1f5b4vcxCQ&t=148s&ab_channel=CodeAesthetic)
 video is a great introduction to dependency injection.
 
-### 1.1.3 - Design Patterns
+#### 2.1.4 Design patterns
 
 As software engineering evolved from making computations and algorithms work to building
 large scale systems, engineers realized that they often encountered problems with
@@ -176,7 +176,7 @@ Another very useful resource is
 [Refactoring Guru - Design Patterns](https://refactoring.guru/design-patterns), which
 provides simple, practical examples of design patterns in various programming languages.
 
-### 1.1.4 - The Problems with Abstraction
+#### 2.1.5 The problems with abstraction
 
 One of the pitfalls of new/intermediate programmers is to over-abstract. One you become
 familiar with a set of patterns, it becomes enticing to apply them in situations where
@@ -185,7 +185,7 @@ more problems than it solves.
 [This](https://www.youtube.com/watch?v=rQlMtztiAoA&t=93s&ab_channel=CodeAesthetic) is a
 great video explaining how excessive abstraction can be dangerous.
 
-# 2 - Building Large Software Systems
+## 3 Building large software systems
 
 - John Ousterhout's
   [A Philosophy of Software Design](https://www.amazon.com/Philosophy-Software-Design-John-Ousterhout/dp/1732102201)
@@ -193,15 +193,15 @@ great video explaining how excessive abstraction can be dangerous.
   [A Philosophy of Software Design (Lecture)](https://www.youtube.com/watch?v=bmSAYlu0NcY&ab_channel=StanfordUniversitySchoolofEngineering)
 - Martin Kleppmann's [Designing Data-Intensive Applications](https://a.co/d/4rHgKH3)
 
-# 3 - Distributed Systems
+## 4 Distributed systems
 
-- Martin Van Steen, [Distributed Systems](https://a.co/d/017uaCQ)
+- Martin Van Steen, [Distributed systems](https://a.co/d/017uaCQ)
 
-# 4 - Database Engineering
+## 5 Database engineering
 
 - Alex Petrov, [Database Internals](https://a.co/d/jfIHa0D)
 
-# 5 - Web Services
+## 6 Web services
 
 - The IP Suite
 - HTTP
@@ -209,29 +209,29 @@ great video explaining how excessive abstraction can be dangerous.
 - TLS
 - Mutual TLS
 
-# 6 - Data Analysis
+## 7 Data analysis
 
 - [Data Analysis with Python](https://www.youtube.com/watch?v=r-uOLxNrNk8&ab_channel=freeCodeCamp.org)
 
-# 7 - Package Management
+## 8 Package management
 
-## 7.0 - uv
+### 8.0 uv
 
 We use uv for managing packages and virtual environments in our Python code. Make sure
 you've familiarized yourself with some of the basic commands. Documentation is available
 [here](https://docs.astral.sh/uv/). As a supplement to this, make sure you've read our
 [Python build system guide](./python/python.md).
 
-## 7.1 - pnpm
+### 8.1 pnpm
 
 pnpm is the package manager we use for all of our TypeScript code. Make sure you've
 familiarized yourself with some of the basic commands. Documentation is available
 [here](https://pnpm.io/). As a supplement to this, make sure you've read our
 [frontend build system guide](./typescript/build.md).
 
-# 8 - Build Systems and Infrastructure
+## 9 Build systems and infrastructure
 
-## 8.0 - Monorepo
+### 9.0 Monorepo
 
 Synnax is organized as a monorepo, meaning that almost all of our code is stored in a
 single repository. This is in contrast to a polyrepo, where each package is stored in
@@ -239,7 +239,7 @@ its own repository. If you're unfamiliar with what monorepos are and/or what the
 benefits they provide, check out
 [this video](https://www.youtube.com/watch?v=9iU_IE6vnJ8&t=364s&ab_channel=Fireship).
 
-## 8.1 - Turbo Repo
+### 9.1 Turbo Repo
 
 We use Turbo Repo as our monorepo build system tool for our front end code. It improves
 the developer experience by allowing us to build and test multiple packages at once, all
@@ -252,9 +252,9 @@ Documentation is available [here](https://turbo.fyi/).
 - Docker
 - Kubernetes
 
-# 9 - User Interfaces
+## 10 User interfaces
 
-# 9.0 - An Introduction to Javascript Frameworks
+### 10.0 An introduction to JavaScript frameworks
 
 The world of JavaScript UI frameworks is one of the most chaotic in software
 engineering. Here are two good videos introducing what JavaScript frameworks are, how to
@@ -265,7 +265,7 @@ choose one, and what the current landscape looks like:
 
 Now, accept the fact that for better or wore, we chose React.
 
-# 9.1 - React
+### 10.1 React
 
 We use [React](https://react.dev) as our primary UI framework. It's the most popular
 framework available, and is essential to all the frontend work we do. The best way to
@@ -283,17 +283,17 @@ as you start to work your first issues.
 - GPU Programming
 - Tauri
 
-# 9 - Concurrent Programming
+## 11 Concurrent programming
 
 - Rob Pike,
   [Concurrency is not Parallelism](https://www.youtube.com/watch?v=oV9rvDllKEg&ab_channel=gnbitcom)
 - The Go Blog,
   [Go Concurrency Patterns: Pipelines and cancellation](https://go.dev/blog/pipelines)
 
-# 10 - Profiling
+## 12 Profiling
 
 - Profiling in Go
 
-# Useful References
+## 13 Useful references
 
 Code Aesthetic - https://www.youtube.com/@CodeAesthetic/videos

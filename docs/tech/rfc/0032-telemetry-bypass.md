@@ -203,9 +203,9 @@ the normal streamer path), while the bypass must enforce this guarantee locally 
 Driver.
 
 Note: The interaction between this propagation window and the Core-side group exclusion
-mechanism (Section 2.3) creates a more severe problem than the window alone suggests.
-See Section 6.0 for a detailed analysis of the dual-filter authority gap and Section 6.1
-for the proposed solution.
+mechanism (§2.3) creates a more severe problem than the window alone suggests. See §6.0
+for a detailed analysis of the dual-filter authority gap and §6.1 for the proposed
+solution.
 
 #### 0.3.4 Per-channel authority granularity
 
@@ -393,7 +393,7 @@ public:
     x::errors::Error
     set_authority(const pipeline::Authorities &authorities) override {
         // Short-circuit: apply authority increases directly to the mirror
-        // before forwarding to the Core (see Section 6.1).
+        // before forwarding to the Core (see §6.1).
         for (size_t i = 0; i < keys.size(); i++)
             this->states->apply_increase(this->cfg.subject, keys[i], auth);
         return this->server->set_authority(authorities);
@@ -402,7 +402,7 @@ public:
 ```
 
 The `WriterFactory` wraps a Core `WriterFactory`, injects the rack's group identity into
-the writer config for Core-side deduplication (Section 2.3), and registers the writer's
+the writer config for Core-side deduplication (§2.3), and registers the writer's
 channels for alignment tracking:
 
 ```cpp
@@ -471,11 +471,11 @@ prioritized: the subscription is polled first on every `read()` call. Core frame
 checked only when no local frame is available.
 
 No authority filtering happens in the `Streamer`. The bypass `Writer` is responsible for
-filtering unauthorized channels before publishing to the bus (Section 2.1.0), matching
-Cesium's behavior of stripping unauthorized channels before relaying.
+filtering unauthorized channels before publishing to the bus (§2.1.0), matching Cesium's
+behavior of stripping unauthorized channels before relaying.
 
 The `StreamerFactory` wraps a Core `StreamerFactory` and injects the subject's group
-into `ExcludeGroups` for Core-side deduplication (Section 2.3):
+into `ExcludeGroups` for Core-side deduplication (§2.3):
 
 ```cpp
 class StreamerFactory final : public pipeline::StreamerFactory {
@@ -502,7 +502,7 @@ When the streamer opens, it subscribes to the bus for the command channel keys a
 injects its group into `ExcludeGroups` on the Core streamer. On each `read()`, it checks
 the bus subscription first (non-blocking). If a locally routed frame is available, it is
 returned immediately without waiting for the Core. If no local frame is available, the
-streamer falls back to the Core path. Core-side group exclusion (Section 2.3) prevents
+streamer falls back to the Core path. Core-side group exclusion (§2.3) prevents
 duplicate delivery of frames that were already routed via the bus. This is the short
 circuit: locally routed commands skip the Core round-trip.
 
@@ -579,7 +579,7 @@ public:
     /// Parse and apply a JSON-encoded control update from a series.
     void apply(const x::telem::Series &series);
 
-    /// Optimistically apply an authority increase (see Section 6.1).
+    /// Optimistically apply an authority increase (see §6.1).
     void apply_increase(
         const x::control::Subject &subject,
         synnax::channel::Key channel,
@@ -612,7 +612,7 @@ The `States` instance receives control updates through two paths:
 2. **Short-circuit path**: When the bypass `Writer` calls `set_authority` with an
    authority strictly greater than the current holder's, it calls
    `States::apply_increase` directly, updating the mirror before the request reaches the
-   Core (see Section 6.1).
+   Core (see §6.1).
 
 Readers (`filter`, `all_authorized`) acquire a shared lock, so filtering does not block
 on updates and updates do not block on filtering.
@@ -648,8 +648,8 @@ the Driver's Bazel dependencies.
 
 The bypass `Writer` calls `states->filter(frame, subject)` or
 `states->all_authorized(frame, subject)` before publishing each frame to the bus
-(Section 2.1.0). The filter iterates over the frame's channel keys. For each key, it
-checks whether the given subject currently holds authority on that channel or whether no
+(§2.1.0). The filter iterates over the frame's channel keys. For each key, it checks
+whether the given subject currently holds authority on that channel or whether no
 authority state exists (uncontrolled channel). Channels where a different subject holds
 authority are removed from the frame. If all channels are removed, no frame is published
 to the bus.
@@ -662,9 +662,9 @@ authorized, which is the common case during normal operation.
 
 This is the local equivalent of Cesium's gate check. The guarantee is the same: commands
 only reach local subscribers for channels where the subject holds authority. The
-difference is that the authority state may be up to one relay cycle stale (Section
-2.3.2). Authority filtering happens at publish time in the `Writer`, not at read time in
-the `Streamer`, matching Cesium's behavior of stripping unauthorized channels before
+difference is that the authority state may be up to one relay cycle stale (§2.3.2).
+Authority filtering happens at publish time in the `Writer`, not at read time in the
+`Streamer`, matching Cesium's behavior of stripping unauthorized channels before
 relaying frames.
 
 ### 2.3 Deduplication via Core-side group exclusion
@@ -763,8 +763,8 @@ owning `shared_ptr` (when the streamer closes) is sufficient to remove the route
 
 When no subscriptions exist, `publish()` acquires a shared lock, finds the subscriber
 list empty, and returns. This costs 11 ns regardless of frame size (benchmarked in
-Section 5.1). No alignment computation or frame copying occurs. The common case (tasks
-with no local consumers) pays effectively zero per-frame cost.
+§5.1). No alignment computation or frame copying occurs. The common case (tasks with no
+local consumers) pays effectively zero per-frame cost.
 
 ### 2.5 Data flow
 
@@ -1359,9 +1359,9 @@ is authoritative for same-rack frames. But the bus path relies on the authority 
 which lags the Core. The combination creates a window where the bus path is wrong and
 the Core path is blocked.
 
-The asymmetry between local and remote controllers (Section 6.0.2) is a direct
-consequence of this design: `ExcludeGroups` only penalizes same-rack traffic, so only
-local controllers suffer the dual-filter blockout.
+The asymmetry between local and remote controllers (§6.0.2) is a direct consequence of
+this design: `ExcludeGroups` only penalizes same-rack traffic, so only local controllers
+suffer the dual-filter blockout.
 
 #### 6.0.5 Comparison with current pipeline
 
@@ -1448,7 +1448,7 @@ correct command.
 originates from outside the Driver. The mirror updates via the relay path with 1-5 ms
 staleness. During this window, the hotfire's commands may still pass through the bus.
 This scenario is unchanged from the baseline and requires Core-initiated mirror
-notifications to fully address (see Section 6.1.5).
+notifications to fully address (see §6.1.5).
 
 **Scenario C (Abort while operator has control):** Same as Scenario A. The abort
 listener is local and calls `set_authority` with authority 255. The mirror updates
@@ -1497,9 +1497,9 @@ relay-bounded latency (sub-millisecond on loopback, low single-digit millisecond
 nodes). The 1-5 ms staleness for remote-initiated transitions comes from the relay path,
 not from missing notification infrastructure.
 
-The short-circuit `apply_increase` (Section 6.1.1) eliminates staleness for the critical
-case: locally initiated authority increases (abort). Remote-initiated transitions are
-less time-sensitive because the remote controller's commands arrive via the Core path
+The short-circuit `apply_increase` (§6.1.1) eliminates staleness for the critical case:
+locally initiated authority increases (abort). Remote-initiated transitions are less
+time-sensitive because the remote controller's commands arrive via the Core path
 (unaffected by `ExcludeGroups`), so hardware receives the correct commands even while
 the local mirror is stale. The only consequence is a brief window of conflicting
 commands from the old local controller, which resolves when the mirror catches up.

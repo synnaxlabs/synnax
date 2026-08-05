@@ -192,14 +192,15 @@ presents a complete _namespace_, not a self-contained copy. `vN` imports `v(N-1)
 design — the RFC 0033 §3.6 rule that a version imports nothing outside itself already
 bent when incoming-package migrations imported their predecessor; the chain makes that
 the norm. The consequence is that historical version directories cannot be individually
-deleted while newer versions alias into them (§6.4).
+deleted while newer versions alias into them (§6.5).
 
 Two mechanical pieces of RFC 0042 are superseded with the freeze-flow deletion (§4.2):
-§4.6.0's bump steps that re-emit the outgoing package and move the method file forward,
-and §5.3's Oracle-automated `helpers.go` move — method files stay with their definer,
-and the version package's method file is named for the resource (`status.go`), not
-`helpers.go`. RFC 0042's layout sections also predate the Phase 2 rename of the version
-directory from `types/` to `versions/`; this RFC uses the landed naming.
+RFC 0042 §4.6.0's bump steps that re-emit the outgoing package and move the method file
+forward, and RFC 0042 §5.3's Oracle-automated `helpers.go` move — method files stay with
+their definer, and the version package's method file is named for the resource
+(`status.go`), not `helpers.go`. RFC 0042's layout sections also predate the Phase 2
+rename of the version directory from `types/` to `versions/`; this RFC uses the landed
+naming.
 
 ---
 
@@ -252,7 +253,7 @@ as they are; an alias-form current version chains into them exactly as it would 
 alias-form history. Rewriting history for uniformity was rejected as pure churn against
 immutable packages.
 
-**6.2a Frozen-source baseline over transcribed or annotated history.** Two retrofit
+**6.3 Frozen-source baseline over transcribed or annotated history.** Two retrofit
 alternatives were rejected: transcribing the pre-versioning snapshots into current
 grammar (hand-authoring ~30 schemas of history, and the frozen snapshots are frozen),
 and a per-type `@go changed` annotation (relies on humans reconstructing which types
@@ -263,11 +264,11 @@ future generator-style change makes affected types fall back to definitions rath
 aliases — safe, but churny; the snapshot-declared baseline takes over from the first
 post-versioning snapshot onward.
 
-**6.3 Migrations live in the incoming package for all paths.** The generator already
+**6.4 Migrations live in the incoming package for all paths.** The generator already
 scaffolds this way; the RFC ratifies it, and the retrofit moved the legacy
 reverse-direction files that would otherwise cycle (§4.3).
 
-**6.4 Version directories become permanently pinned.** Full copies allowed, in
+**6.5 Version directories become permanently pinned.** Full copies allowed, in
 principle, deleting ancient version packages wholesale. The chain gives that up: every
 version is reachable from current through aliases. Accepted — nothing prunes these
 directories today, and a future compaction mechanism (§7) can restore the ability if it

@@ -18,7 +18,7 @@ types, Zyn schemas, and migration functions. Import decodes the request body int
 runs the migration chain to the current version, and persists through the existing
 service `Writer` path. Export reads from the database and serializes the current version
 to the portable format. JSON is the only portable codec wired into the initial release;
-YAML and TOML are accommodated by the design (Section 4.6).
+YAML and TOML are accommodated by the design (§4.6).
 
 ## 1 Vocabulary
 
@@ -95,16 +95,15 @@ Synnax represents the same logical metadata in three formats:
   and entering Synnax." JSON is the first concrete codec; YAML and TOML can be added
   later without changes to the registry, handlers, or migration chains, because Zyn
   validation and migration both operate on already-decoded `map[string]any` payloads.
-  Format selection happens at the HTTP boundary via standard content negotiation
-  (Section 4.6).
+  Format selection happens at the HTTP boundary via standard content negotiation (§4.6).
 - **MessagePack** is the over-the-wire format for backend↔client communication —
   compact, fast, and supports binary types like UUIDs without the string-coercion of
   JSON.
 
 Oracle is the single source of truth: schemas are defined once in `.oracle` files, and
 Oracle generates the typed Go structs, ORC codec, MessagePack codec, Zyn validation
-schema, and (per Section 4.8) JSON import/export helpers. A schema change propagates to
-all three encoders.
+schema, and (per §4.8) JSON import/export helpers. A schema change propagates to all
+three encoders.
 
 In a v1 release we may replace MessagePack with Protocol Buffers for stronger versioning
 (explicit field numbers, wire-compatible additions, deprecation semantics). The portable
@@ -144,8 +143,8 @@ search indexing, and signal emission happen automatically.
 
 Single-resource import and export only. One envelope in, one resource out. JSON is the
 only portable codec implemented in the initial release; YAML and TOML are accommodated
-in the design (Section 4.6) but ship later. Bundle/multi-resource export (workspaces
-with child visualizations), directory structures, and zip archives are out of scope.
+in the design (§4.6) but ship later. Bundle/multi-resource export (workspaces with child
+visualizations), directory structures, and zip archives are out of scope.
 
 Workspace-level and project-level import/export — exporting a workspace with all its
 child visualizations as a unit, or importing a project that bundles multiple resources
@@ -492,8 +491,8 @@ representation of the resource, which must match the bytes a user would write to
 from a file. Forcing a MessagePack↔portable transcode would be wasteful and would mean
 the bytes on the wire don't match what users see in the file.
 
-The portable format may be any of JSON, YAML, or TOML (Section 3.1). Format selection is
-driven by standard HTTP content negotiation:
+The portable format may be any of JSON, YAML, or TOML (§3.1). Format selection is driven
+by standard HTTP content negotiation:
 
 - **Import** uses `Content-Type` on the request to declare the format of the envelope in
   the body (`application/json` is the only codec supported in the initial release;
@@ -730,9 +729,9 @@ follows the log shape:
 
 ### 7.2 Oracle Zyn schema generation
 
-Section 4.8.0 introduces a `@zyn` attribute that emits a `zyn.ObjectZ` schema from an
-Oracle struct. Not yet implemented. Once landed, it removes the hand-written Zyn schemas
-for any version covered by Oracle, leaving only the typed lift functions hand-written.
+§4.8.0 introduces a `@zyn` attribute that emits a `zyn.ObjectZ` schema from an Oracle
+struct. Not yet implemented. Once landed, it removes the hand-written Zyn schemas for
+any version covered by Oracle, leaving only the typed lift functions hand-written.
 
 ### 7.3 Strongly-typed resource `Data` via Oracle
 
@@ -746,8 +745,8 @@ unaffected; only per-service `Export` and `migrations/vN/` simplify.
 
 After the Core stably handles import for all resource types, delete the parallel
 TypeScript migration chains in `console/src/*/types/v*.ts` and the per-feature
-extractors and ingesters listed in Section 5. Until then, both systems coexist to
-support older Core deployments.
+extractors and ingesters listed in §5. Until then, both systems coexist to support older
+Core deployments.
 
 ### 7.5 Workspace and project bundle import/export
 

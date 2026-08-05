@@ -16,10 +16,6 @@ telemetry. Monorepo:
 - **Oracle** (`/oracle/`, Go) generates Go/TS/Python/C++/proto bindings from `.oracle`
   schemas in `/schemas/`. Never hand-edit generated code. See `oracle/CLAUDE.md`.
 
-Arc, Cesium, Aspen, Core, Console, Pluto, Freighter, Alamos, Gorp, Drift, Driver,
-Oracle, and X are proper nouns — capitalize them in prose (comments, docs, commit
-messages, PRs).
-
 ## Documentation
 
 Language and component rules auto-load from package-root `CLAUDE.md` stubs when you
@@ -97,6 +93,20 @@ Dependencies are explicit, injected inputs — never reached for ambiently. All 
 - **Unknown dispatch key**: fail loud (throw/error/panic) when the key is internal and
   the table should cover it — a missing handler is a composition bug. Handle gracefully
   as normal validation when the key is user-provided. Never a silent no-op.
+
+## Prose
+
+Whenever you are writing prose (documentation, comments, RFCs, commit messages, PRs,
+etc.), use ASD-STE100 Simplified Technical English. Always write in sentence case
+instead of title case for headings, titles, and menu options unless explicitly directed
+otherwise. Capitalize proper nouns and acronyms, including Synnax component names: Arc,
+Cesium, Aspen, Oracle, Pluto, Freighter, Alamos, Gorp, Drift, X, the Driver, the Core,
+and the Console. Third-party names are proper nouns too: Git, Go, gRPC, HashiCorp, Zod.
+Prefer referencing the Core as "the Core" / "a Core", instead of "server", "node", or
+"cluster", unless you are specifically writing about behavior of multi-node clusters. If
+you are referring to code paths, then put those in backticks `x/go/gorp`.
+
+Prefer using the word "and" instead of an ampersand (&) in prose.
 
 ## Comments (all languages)
 

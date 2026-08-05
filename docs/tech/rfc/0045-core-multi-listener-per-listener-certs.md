@@ -102,7 +102,7 @@ combined-port position today.
    services a listener exposes (the CockroachDB RPC/SQL/HTTP split) is deferred.
 2. **Client-certificate mTLS.** The server proves its identity per listener; clients
    keep authenticating with the existing token mechanism. The type design reserves a
-   seam for it (Section 4.6).
+   seam for it (§4.6).
 3. **The `acme` certificate source** (direct Let's Encrypt for a public DNS name,
    without Tailscale).
 4. **Per-listener insecure/plaintext.** `insecure` stays a whole-server mode.
@@ -148,14 +148,14 @@ A **listener** sits one level above `Branch` and owns:
 - one bind **address** (`host:port`), where `host` may be `0.0.0.0`, a specific
   interface IP, or the node's Tailscale IP (binding to an interface is itself an access
   control),
-- one **certificate source** (Section 4.1) backing its own `*tls.Config`,
+- one **certificate source** (§4.1) backing its own `*tls.Config`,
 - its own `cmux` tree, reusing the existing secure/insecure multiplexing,
-- optionally a **name** (for logs) and an **advertise** marker (Section 4.4).
+- optionally a **name** (for logs) and an **advertise** marker (§4.4).
 
 `Server.start` changes from "listen once, build one `cmux` tree" to "for each listener:
 listen, build its own `cmux` tree." Branches are instantiated per listener. Since every
-listener serves the full surface (Section 2.1), the branch set is identical; only the
-address and `*tls.Config` differ.
+listener serves the full surface (§2.1), the branch set is identical; only the address
+and `*tls.Config` differ.
 
 Per-listener certificates need no special mechanism: each listener's
 `tls.Config.GetCertificate` points at its own source. SNI selection still works within a
@@ -232,8 +232,8 @@ this: responsibility 2 must vary per listener while the policy in 1 and 3 stays
 node-wide. The refactor splits the three along that seam.
 
 **`cert.Source` isolates certificate selection.** It is responsibility 2, lifted out of
-`secureProvider` and named (Section 4.1); `getCert` becomes the `file` source.
-Implementations live in `security/cert`, with `tailscale` in its own subpackage
+`secureProvider` and named (§4.1); `getCert` becomes the `file` source. Implementations
+live in `security/cert`, with `tailscale` in its own subpackage
 (`security/cert/tailscale`) so its dependency never enters the base package. A factory
 maps the `source` string to a constructor, so adding a source is a registration, not a
 server edit.
@@ -245,7 +245,7 @@ helper.
 
 **`Provider` narrows.** It stops owning the cert and becomes the policy holder and the
 factory that turns a source into a `*tls.Config`. The secure/insecure switch
-(`newSecureProvider` / `newInsecureProvider`) stays node-wide (Section 4.5).
+(`newSecureProvider` / `newInsecureProvider`) stays node-wide (§4.5).
 
 **`ProviderConfig` splits by scope.** The node-wide fields (`Insecure`, `KeySize`,
 CA/policy config) stay; the per-certificate paths move into the `file` source's config,
@@ -335,8 +335,8 @@ Mapping from today's flags:
 
 ### 4.4 Cluster advertise address
 
-Gossip is served on every listener (Section 2.1), but peers must dial one agreed
-address. Exactly one listener is **advertised**:
+Gossip is served on every listener (§2.1), but peers must dial one agreed address.
+Exactly one listener is **advertised**:
 
 1. **Scalar `listen`** or **a list with no `advertise: true`**: the sole (or first)
    listener.
@@ -388,7 +388,7 @@ Enforced at startup, failing fast with a clear message:
    ignored, so reject them to avoid confusion.
 5. Listener addresses must be unique.
 6. A `listen` list must be non-empty and must not be combined with any global
-   certificate flag (Section 4.3).
+   certificate flag (§4.3).
 
 ---
 
@@ -414,12 +414,12 @@ one default listener; single-listener deployments are unchanged.
 
 **Phase 2 - Multi-listener configuration.** Add the polymorphic `listen` parsing,
 per-listener `cert` blocks, the `advertise` marker and its resolution, and startup
-validation (Section 5). Route the advertised address into the cluster join config.
+validation (§5). Route the advertised address into the cluster join config.
 
 **Phase 3 - Tailscale source and `file` hot-reload.** Add the `tailscale` source and
-`file` hot-reload (Section 4.1). The `file` source loads once in Phases 1 and 2,
-matching today; live swapping is a deliberate behavior change and lands only here.
-Completes the motivating requirement.
+`file` hot-reload (§4.1). The `file` source loads once in Phases 1 and 2, matching
+today; live swapping is a deliberate behavior change and lands only here. Completes the
+motivating requirement.
 
 Later, out of scope: `acme` source, per-listener `clientAuth`, per-listener service
 exposure, per-listener plaintext.
@@ -437,7 +437,7 @@ exposure, per-listener plaintext.
 4. **`auto` SANs.** Each `auto` listener's certificate must carry SANs for its own
    address, not a global host list.
 5. **Polymorphic parsing.** The scalar-or-list `listen` needs a hand-written unmarshaler
-   with clear validation errors, bounded by the single polymorphic axis (Section 4.3).
+   with clear validation errors, bounded by the single polymorphic axis (§4.3).
 
 ---
 
@@ -446,8 +446,7 @@ exposure, per-listener plaintext.
 1. **Per-listener service exposure.** Let a listener choose which services it exposes
    (client API, Console assets, gossip), mirroring the CockroachDB split; keeps gossip
    off client-facing listeners.
-2. **Client mTLS.** Per-listener `clientAuth` with a per-listener client CA (Section
-   4.6).
+2. **Client mTLS.** Per-listener `clientAuth` with a per-listener client CA (§4.6).
 3. **`acme` source.** Direct Let's Encrypt for public DNS names without Tailscale.
 4. **Per-listener plaintext.** A listener behind a terminating proxy while the node
    otherwise runs secure.

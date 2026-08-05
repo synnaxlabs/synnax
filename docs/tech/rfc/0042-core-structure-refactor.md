@@ -46,8 +46,8 @@ This RFC restructures `core/pkg` along five axes:
    `gorp.Writer.set`, before every write — no path stores unvalidated data. Oracle's
    `validate` domain gains numeric bounds and enum-variant enforcement.
 
-Oracle code-generation changes are in scope. Work is phased (Section 6), starting with
-the layer realignment, which unblocks the rest.
+Oracle code-generation changes are in scope. Work is phased (§6), starting with the
+layer realignment, which unblocks the rest.
 
 ## 1 Vocabulary
 
@@ -77,7 +77,7 @@ the layer realignment, which unblocks the rest.
 The Core's interface layer was recently split into `pkg/api` (transport-agnostic) and
 `pkg/transport` (RFC for the transport split, SY-4222). That clarified the top of the
 stack. This RFC clarifies the layers below it and the type machinery that cuts across
-all of them. Each subsection states a problem; Section 4 states the design.
+all of them. Each subsection states a problem; §4 states the design.
 
 ### 2.0 The distribution layer holds non-topology concerns
 
@@ -92,7 +92,7 @@ topology-aware:
 - `signals` is a CDC bridge publishing Gorp changes as telemetry via `channel`+`framer`.
 
 RFC 0026 §1.0 names `distribution/signals` as the home for signal propagation but never
-justifies the layer choice. RFC 0005 §3.4 establishes the load-bearing principle —
+justifies the layer choice. RFC 0005 §2.3.3 establishes the load-bearing principle —
 _"resources should not be defined in the ontology, but in the services that interact
 with it"_ — which argues for the substrate alongside services, not beneath topology.
 
@@ -192,7 +192,7 @@ entirely. There is no single guaranteed pre-store check.
 
 ### 4.0 Scope
 
-In scope: the package moves and dependency inversions of Section 4.1; the resolved-field
+In scope: the package moves and dependency inversions of §4.1; the resolved-field
 mechanism of 4.2; the `versions/vN/` layout of 4.3; the import peek of 4.4; the
 validation chokepoint of 4.5; and the Oracle generator changes those require,
 consolidated in 4.6.
@@ -306,7 +306,7 @@ The substrate relocation is a large but mechanical import-path rewrite (~140 fil
 import `ontology` alone) — suitable for a codemod, with no behavior change. The channel
 split is behavioral: `framer` re-sources storage-shape from the storage layer, the
 metadata table moves to `service/channel`, and existing records migrate. The relocation
-lands first; the channel split is its own phase (Section 6).
+lands first; the channel split is its own phase (§6).
 
 ### 4.2 One type per entity, with resolved fields
 
@@ -1052,7 +1052,7 @@ surface the bug.
 
 `ontology`, `group`, and `search` become service-layer packages rather than a new named
 layer between distribution and service — they are peers of the entity services that
-register with them, consistent with RFC 0005 §3.4.
+register with them, consistent with RFC 0005 §2.3.3.
 
 ### 5.1 Distribution owns keys + Cesium; service owns channel metadata
 

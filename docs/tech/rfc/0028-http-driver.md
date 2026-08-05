@@ -1,4 +1,4 @@
-# 28 HTTP Driver specification
+# 28 HTTP driver specification
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-02-13
