@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package v3_test
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -35,7 +35,7 @@ import (
 )
 
 var _ = Describe("MigrateArc", func() {
-	Describe("v1 -> v2", func() {
+	Describe("v1 -> v3", func() {
 		It(
 			"Should lift a v1 Arc, seeding the document from the raw text",
 			func(ctx SpecContext) {
@@ -54,7 +54,7 @@ var _ = Describe("MigrateArc", func() {
 		)
 	})
 
-	Describe("v0 -> v2", func() {
+	Describe("v0 -> v3", func() {
 		It(
 			"Should seed the document from the previously persisted raw text",
 			func(ctx SpecContext) {
@@ -109,7 +109,7 @@ var _ = Describe("MigrateArc", func() {
 			got := migrateFromV0(ctx, seed)
 			Expect(got.Key).To(Equal(seed.Key))
 			Expect(got.Name).To(Equal(seed.Name))
-			Expect(got.Mode).To(Equal(v2.Mode(seed.Mode)))
+			Expect(got.Mode).To(Equal(v3.Mode(seed.Mode)))
 			Expect(got.Text.Materialize().Raw).To(Equal(seed.Text.Raw))
 			Expect(got.Graph.Functions).To(HaveLen(1))
 			Expect(got.Graph.Functions[0].Key).To(Equal("scale"))
@@ -219,7 +219,7 @@ var _ = Describe("MigrateArc", func() {
 				got := migrateFromV0(ctx, seed)
 				Expect(got.Key).To(Equal(seed.Key))
 				Expect(got.Name).To(Equal(seed.Name))
-				Expect(got.Mode).To(Equal(v2.Mode(seed.Mode)))
+				Expect(got.Mode).To(Equal(v3.Mode(seed.Mode)))
 				Expect(got.Status).To(BeNil())
 				Expect(got.Program).To(BeNil())
 			},
@@ -227,10 +227,10 @@ var _ = Describe("MigrateArc", func() {
 	})
 })
 
-// migrateFromV1 runs the v2 migration over a gorp-seeded v1 Arc and returns the
+// migrateFromV1 runs the v3 migration over a gorp-seeded v1 Arc and returns the
 // migrated current Arc. The v1 chain is marked applied with no-op migrations so only
-// the v2 migration runs.
-func migrateFromV1(ctx SpecContext, seed v1.Arc) v2.Arc {
+// the v3 migration runs.
+func migrateFromV1(ctx SpecContext, seed v1.Arc) v3.Arc {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v1.Key, v1.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
@@ -245,18 +245,18 @@ func migrateFromV1(ctx SpecContext, seed v1.Arc) v2.Arc {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Arc",
-		Migrations: append(applied, v2.Migration),
+		Migrations: append(applied, v3.Migration),
 	})).To(Succeed())
-	var got v2.Arc
-	Expect(gorp.NewRetrieve[v2.Key, v2.Arc]().
-		Where(gorp.MatchKeys[v2.Key, v2.Arc](seed.Key)).
+	var got v3.Arc
+	Expect(gorp.NewRetrieve[v3.Key, v3.Arc]().
+		Where(gorp.MatchKeys[v3.Key, v3.Arc](seed.Key)).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
 	return got
 }
 
 // migrateFromV0 runs the full Arc migration chain over a gorp-seeded v0 Arc and returns
 // the migrated current Arc.
-func migrateFromV0(ctx SpecContext, seed v0.Arc) v2.Arc {
+func migrateFromV0(ctx SpecContext, seed v0.Arc) v3.Arc {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))
 	Expect(gorp.NewCreate[v0.Key, v0.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
@@ -265,12 +265,12 @@ func migrateFromV0(ctx SpecContext, seed v0.Arc) v2.Arc {
 		Namespace: "Arc",
 		Migrations: slices.Concat(
 			[]migrate.Migration{v0.Migration}, v1.Migrations,
-			[]migrate.Migration{v2.Migration},
+			[]migrate.Migration{v3.Migration},
 		),
 	})).To(Succeed())
-	var got v2.Arc
-	Expect(gorp.NewRetrieve[v2.Key, v2.Arc]().
-		Where(gorp.MatchKeys[v2.Key, v2.Arc](seed.Key)).
+	var got v3.Arc
+	Expect(gorp.NewRetrieve[v3.Key, v3.Arc]().
+		Where(gorp.MatchKeys[v3.Key, v3.Arc](seed.Key)).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
 	return got
 }

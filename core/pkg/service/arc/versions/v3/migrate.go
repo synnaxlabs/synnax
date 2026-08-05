@@ -11,7 +11,7 @@
 //
 // autoMigrate handles field copying. Customize non-zero defaults below.
 
-package v2
+package v3
 
 import (
 	"context"
@@ -20,11 +20,11 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// migrateArc lifts a v1 Arc into the v2 shape.
+// migrateArc lifts a v1 Arc into the v3 shape.
 func migrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
 	return autoMigrateArc(ctx, old)
 }
 
-// Migration lifts stored arcs from v1 to v2, converting deploy state to the live
+// Migration lifts stored arcs from v1 to v3, converting deploy state to the live
 // representation.
 var Migration = gorp.NewEntryMigration("v56_to_live", migrateArc)

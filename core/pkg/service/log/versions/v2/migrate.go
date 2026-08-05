@@ -20,16 +20,15 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// MigrateLog lifts the previous log snapshot (v2, {Key, Name, Data}) into the v3
-// strongly-typed Log. autoMigrateLog copies the gorp-entry fields (Key, Name); the body
-// is decoded from the per-log JSON blob via legacy.MigrateData and lifted by logFromV1,
-// which normalizes out-of-set enums to their documented defaults. If legacy.MigrateData
-// fails (e.g. a channel key that cannot coerce to uint32), the body is dropped and only
-// Key+Name are returned, so the Gorp boot migration never fails on a single corrupt
-// row. UI-only fields (toolbar, version) are dropped because they are not declared in
-// the v1 schema. v0 is the last snapshot in which Log.Data is untyped; future
-// migrations transform one typed snapshot into another and never need this blob
-// handling.
+// MigrateLog lifts the previous log snapshot (v0, {Key, Name, Data}) into the typed
+// Log. autoMigrateLog copies the gorp-entry fields (Key, Name); the rest is decoded
+// from the per-log JSON blob by legacy.MigrateData. The lenient legacy decode admits
+// enum strings outside their closed sets, so each is replaced with its standard default
+// here, and the raw color string is parsed into the typed color.Color. A blob that
+// fails to decode (e.g. a channel key that cannot coerce to uint32) is dropped, leaving
+// Key and Name alone, so the Gorp boot migration never fails on a single corrupt row.
+// v0 is the last snapshot in which Log.Data is untyped; future migrations transform one
+// typed snapshot into another and never need this blob handling.
 func MigrateLog(ctx context.Context, old v0.Log) (Log, error) {
 	out, err := autoMigrateLog(ctx, old)
 	if err != nil {
@@ -42,19 +41,9 @@ func MigrateLog(ctx context.Context, old v0.Log) (Log, error) {
 	if err != nil {
 		return out, nil
 	}
-	body := logFromV1(d)
-	body.Key, body.Name = out.Key, out.Name
-	return body, nil
-}
-
-// logFromV1 lifts the latest legacy Data into the runtime Log shape. The lenient
-// legacy decode admits enum strings outside their closed sets, so each is replaced with
-// its standard default here, and the raw color string is parsed into the typed
-// color.Color (defaulting a malformed or empty value to the zero color).
-func logFromV1(d legacy.Data) Log {
-	channels := make([]ChannelEntry, len(d.Channels))
+	out.Channels = make([]ChannelEntry, len(d.Channels))
 	for i, c := range d.Channels {
-		channels[i] = ChannelEntry{
+		out.Channels[i] = ChannelEntry{
 			Channel:   c.Channel,
 			Color:     parseColor(c.Color),
 			Notation:  orDefault(c.Notation, notation.NotationStandard),
@@ -62,16 +51,14 @@ func logFromV1(d legacy.Data) Log {
 			Alias:     c.Alias,
 			Timestamp: TimestampConfig{
 				Format: orDefault(c.Timestamp.Format, telem.TimestampFormatPreciseDate),
-				Tz:     orDefault(c.Timestamp.Tz, telem.TimeZoneLocal),
+				Tz:     orDefault(c.Timestamp.TimeZone, telem.TimeZoneLocal),
 			},
 		}
 	}
-	return Log{
-		Channels:             channels,
-		TimestampPrecision:   d.TimestampPrecision,
-		HideChannelNames:     !d.ShowChannelNames,
-		HideReceiptTimestamp: !d.ShowReceiptTimestamp,
-	}
+	out.TimestampPrecision = d.TimestampPrecision
+	out.HideChannelNames = !d.ShowChannelNames
+	out.HideReceiptTimestamp = !d.ShowReceiptTimestamp
+	return out, nil
 }
 
 // validator is an enum that can report whether it holds one of its defined values.

@@ -47,21 +47,15 @@ type Data = v5.Data
 // Core rather than a stored state.
 type Export = v6.Data
 
-// The model Data is built from, each name taken from the version that last redefined
-// it. v6 is excluded: it is the Console's own export format, not a chain step, and
-// redefines Edge and Node incompatibly.
 type (
-	Edge           = v3.Edge
-	Legend         = v1.Legend
-	LegendPosition = v1.LegendPosition
-	LegendRoot     = v1.LegendRoot
-	LegendUnits    = v1.LegendUnits
-	Measured       = v0.Measured
-	Node           = v0.Node
-	Segment        = v3.Segment
-	ToolbarState   = v0.ToolbarState
-	Viewport       = v0.Viewport
-	XY             = v0.XY
+	// Edge connects two nodes, carrying the routing segments added at v3.
+	Edge = v3.Edge
+	// Node is a schematic node with its canvas position and stacking order.
+	Node = v0.Node
+	// Segment is one leg of an edge's routed path.
+	Segment = v3.Segment
+	// XY is a position on the canvas.
+	XY = v0.XY
 )
 
 // MigrateData decodes the opaque schematic data blob, dispatches on its declared

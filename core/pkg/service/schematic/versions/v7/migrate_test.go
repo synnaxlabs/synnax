@@ -445,9 +445,9 @@ var _ = Describe("MigrateData", func() {
 				"props": {"n1": {"key": "valve"}}
 			}`)))
 			Expect(out.Version).To(Equal(legacy.DataVersion))
-			Expect(out.Authority).To(BeEquivalentTo(1))
-			Expect(out.Mode).To(Equal("select"))
-			Expect(out.Legend.Visible).To(BeTrue())
+			Expect(out.Nodes).To(HaveLen(1))
+			Expect(out.Edges).To(HaveLen(1))
+			Expect(out.Props).To(HaveKey("n1"))
 		})
 
 		It("Should fall back to v0 when the blob has no version field", func() {

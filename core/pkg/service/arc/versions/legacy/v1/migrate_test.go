@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
+	textv0 "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v1"
 	"github.com/synnaxlabs/x/spatial"
@@ -33,7 +34,7 @@ func nonZeroV0() v0.Data {
 			}},
 			Props: map[string]map[string]any{"n1": {"key": "stl.on"}},
 		},
-		Text: v0.Text{Raw: "chan a = 1"},
+		Text: textv0.Text{Raw: "chan a = 1"},
 		Mode: "graph",
 	}
 }

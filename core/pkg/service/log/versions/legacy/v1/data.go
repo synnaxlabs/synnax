@@ -26,8 +26,8 @@ const Version imex.Version = 1
 type TimestampConfig struct {
 	// Format is the timestamp display format.
 	Format telem.TimestampFormat `json:"format"`
-	// Tz is the timestamp display time zone.
-	Tz telem.TimeZone `json:"tz"`
+	// TimeZone is the timestamp display time zone.
+	TimeZone telem.TimeZone `json:"tz"`
 }
 
 // ChannelEntry is a channel reference with display configuration. Color is the raw

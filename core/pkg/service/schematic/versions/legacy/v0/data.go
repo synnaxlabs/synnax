@@ -32,15 +32,6 @@ type XY struct {
 	Y float64 `json:"y"`
 }
 
-// Measured holds the optional rendered dimensions of a node. Both fields are optional
-// in the wire format and may be absent.
-type Measured struct {
-	// Width is the rendered width in pixels; absent when unmeasured.
-	Width *float64 `json:"width,omitempty"`
-	// Height is the rendered height in pixels; absent when unmeasured.
-	Height *float64 `json:"height,omitempty"`
-}
-
 // Node is the wire shape of a schematic node at version 0.
 type Node struct {
 	// Key is the node's unique key.
@@ -49,10 +40,6 @@ type Node struct {
 	Position XY `json:"position"`
 	// ZIndex is the node stacking order.
 	ZIndex *int `json:"zIndex,omitempty"`
-	// Type is the ReactFlow node type; empty for default.
-	Type string `json:"type,omitempty"`
-	// Measured is the optional rendered size.
-	Measured *Measured `json:"measured,omitempty"`
 }
 
 // Edge is the wire shape of a schematic edge at version 0. Shipped Console persisted
@@ -78,23 +65,6 @@ type Edge struct {
 	Data json.RawMessage `json:"data,omitempty"`
 }
 
-// Viewport is the schematic editor's viewport position and zoom.
-type Viewport struct {
-	// Position is the viewport pan offset.
-	Position XY `json:"position"`
-	// Zoom is the viewport zoom factor.
-	Zoom float64 `json:"zoom"`
-}
-
-// ToolbarState is the per-schematic toolbar UI state introduced at v5 in the Console.
-// The field is declared at v0 because it is referenced unchanged by later versions.
-type ToolbarState struct {
-	// ActiveTab is the selected toolbar tab.
-	ActiveTab string `json:"activeTab"`
-	// SelectedSymbolGroup is the selected symbol group.
-	SelectedSymbolGroup string `json:"selectedSymbolGroup"`
-}
-
 // Data is the persisted per-schematic state at version 0. Props values are kept as raw
 // JSON because their shape is per-symbol-variant and opaque to the server.
 type Data struct {
@@ -102,14 +72,10 @@ type Data struct {
 	Version imex.Version `json:"version"`
 	// Snapshot marks the schematic as a range snapshot.
 	Snapshot bool `json:"snapshot"`
-	// Viewport is the editor viewport position and zoom.
-	Viewport Viewport `json:"viewport"`
 	// Nodes are the schematic nodes.
 	Nodes []Node `json:"nodes"`
 	// Edges are the schematic edges.
 	Edges []Edge `json:"edges"`
 	// Props holds per-symbol configuration keyed by node key.
 	Props map[string]json.RawMessage `json:"props"`
-	// Control is UI-only control-mode state; dropped on lift.
-	Control string `json:"control"`
 }

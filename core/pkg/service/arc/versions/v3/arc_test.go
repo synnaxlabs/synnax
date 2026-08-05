@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package v3_test
 
 import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
@@ -23,19 +23,19 @@ var _ = Describe("Arc", func() {
 	Describe("GorpKey", func() {
 		It("Should return the Arc's key", func() {
 			k := uuid.New()
-			Expect(v2.Arc{Key: k}.GorpKey()).To(Equal(k))
+			Expect(v3.Arc{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
 
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
-			Expect(v2.Arc{}.SetOptions()).To(BeNil())
+			Expect(v3.Arc{}.SetOptions()).To(BeNil())
 		})
 	})
 	Describe("OntologyID", func() {
 		It("Should return the Arc ontology identifier", func() {
 			k := uuid.New()
-			Expect(v2.Arc{Key: k}.OntologyID()).To(Equal(ontology.ID{
+			Expect(v3.Arc{Key: k}.OntologyID()).To(Equal(ontology.ID{
 				Type: ontology.ResourceTypeArc, Key: k.String(),
 			}))
 		})
@@ -45,23 +45,23 @@ var _ = Describe("Arc", func() {
 var _ = Describe("StatusDetails", func() {
 	Describe("DecodeMsgpack", func() {
 		It("Should decode new lowercase msgpack fields", func() {
-			original := v2.StatusDetails{Running: true}
+			original := v3.StatusDetails{Running: true}
 			data := MustSucceed(msgpack.Marshal(original))
-			var decoded v2.StatusDetails
+			var decoded v3.StatusDetails
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Running).To(BeTrue())
 		})
 		It("Should decode legacy uppercase Go field name", func() {
 			legacy := struct{ Running bool }{Running: true}
 			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v2.StatusDetails
+			var decoded v3.StatusDetails
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Running).To(BeTrue())
 		})
 		It("Should handle false value correctly for both formats", func() {
-			original := v2.StatusDetails{Running: false}
+			original := v3.StatusDetails{Running: false}
 			data := MustSucceed(msgpack.Marshal(original))
-			var decoded v2.StatusDetails
+			var decoded v3.StatusDetails
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Running).To(BeFalse())
 		})

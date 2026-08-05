@@ -13,6 +13,7 @@
 package v0
 
 import (
+	textv0 "github.com/synnaxlabs/arc/text/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -26,15 +27,9 @@ type Data struct {
 	// Graph is the graph-mode program body.
 	Graph Graph `json:"graph"`
 	// Text is the text-mode program body.
-	Text Text `json:"text"`
+	Text textv0.Text `json:"text"`
 	// Mode selects graph or text mode.
 	Mode string `json:"mode"`
-}
-
-// Text is the raw text-mode program body.
-type Text struct {
-	// Raw is the raw program source.
-	Raw string `json:"raw"`
 }
 
 // Graph is the graph-mode program body: nodes, edges, and per-node props.

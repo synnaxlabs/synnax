@@ -24,10 +24,13 @@ const LastVersion = v1.Version
 // Data is the latest legacy snapshot: the only Console format.
 type Data = v1.Data
 
-// The model Data is built from.
 type (
+	// Handle is a connection point on the symbol.
 	Handle = v1.Handle
+	// Region is a styled area within a state.
 	Region = v1.Region
-	Spec   = v1.Spec
-	State  = v1.State
+	// Spec is the symbol specification.
+	Spec = v1.Spec
+	// State is a named visual state of the symbol.
+	State = v1.State
 )

@@ -14,6 +14,7 @@ package v1
 
 import (
 	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
+	textv0 "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
@@ -26,7 +27,7 @@ type Data struct {
 	// Graph is the graph-mode program body.
 	Graph Graph `json:"graph"`
 	// Text is the text-mode program body.
-	Text v0.Text `json:"text"`
+	Text textv0.Text `json:"text"`
 	// Mode selects graph or text mode.
 	Mode string `json:"mode"`
 }

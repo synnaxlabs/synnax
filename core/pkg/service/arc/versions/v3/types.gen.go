@@ -11,25 +11,57 @@
 
 package v3
 
-import v2 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v2"
+import (
+	graph "github.com/synnaxlabs/arc/graph/versions/v1"
+	"github.com/synnaxlabs/arc/program"
+	text "github.com/synnaxlabs/arc/text/versions/v1"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // Key is a unique identifier for an Arc module.
-type Key = v2.Key
+type Key = v1.Key
 
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
-type Mode = v2.Mode
+type Mode = v1.Mode
 
 const (
-	ModeText  Mode = v2.ModeText
-	ModeGraph Mode = v2.ModeGraph
+	ModeText  Mode = v1.ModeText
+	ModeGraph Mode = v1.ModeGraph
 )
 
 // StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails = v2.StatusDetails
+type StatusDetails = v1.StatusDetails
 
 // Status is the status of an Arc module including execution state.
-type Status = v2.Status
+type Status = v1.Status
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-type Arc = v2.Arc
+type Arc struct {
+	// Key is the unique identifier for this module.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the module.
+	Name string `json:"name" msgpack:"name"`
+	// Mode specifies the representation mode for this module. Either "text" for
+	// text-based Arc code or "graph" for visual dataflow.
+	Mode Mode `json:"mode" msgpack:"mode"`
+	// Graph is the visual dataflow graph representation of the module.
+	Graph graph.Graph `json:"graph" msgpack:"graph"`
+	// Text is the text-based Arc source code.
+	Text text.Text `json:"text" msgpack:"text"`
+	// Program is the compiled module output including IR and WebAssembly bytecode.
+	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
+	// Status is the current execution status of the module.
+	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a Arc) Validate() error {
+	v := validate.New("Arc")
+	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
+	validate.NotEmptyString(v, "name", a.Name)
+	v.Exec(func() error { return validate.PathedError(a.Text.Validate(), "text") })
+	return v.Error()
+}

@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v2 holds the frozen wire format for Console schematic state at version 2. v2
-// added per-schematic key, type literal, and viewportMode fields.
+// Package v2 holds the frozen wire format for Console schematic state at version 2.
+// v2 added the per-schematic key, a type literal, and a viewport mode. All three are
+// UI-only or Console-local and not modeled here; the on-the-wire model is structurally
+// identical to v1.
 package v2
 
 import (
-	"encoding/json"
-
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
 )
 
@@ -23,27 +22,4 @@ import (
 const Version imex.Version = 2
 
 // Data is the persisted per-schematic state at version 2.
-type Data struct {
-	// Version is the version stamped inside the blob.
-	Version imex.Version `json:"version"`
-	// Snapshot marks the schematic as a range snapshot.
-	Snapshot bool `json:"snapshot"`
-	// Viewport is the editor viewport position and zoom.
-	Viewport v0.Viewport `json:"viewport"`
-	// Nodes are the schematic nodes.
-	Nodes []v0.Node `json:"nodes"`
-	// Edges are the schematic edges.
-	Edges []v0.Edge `json:"edges"`
-	// Props holds per-symbol configuration keyed by node key.
-	Props map[string]json.RawMessage `json:"props"`
-	// Control is UI-only control-mode state; dropped on lift.
-	Control string `json:"control"`
-	// Legend is the control legend overlay configuration.
-	Legend v1.Legend `json:"legend"`
-	// Key is the Console-local schematic key.
-	Key string `json:"key"`
-	// Type is the literal "schematic" type marker.
-	Type string `json:"type"`
-	// ViewportMode is UI-only viewport interaction mode; dropped on lift.
-	ViewportMode string `json:"viewportMode"`
-}
+type Data v1.Data

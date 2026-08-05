@@ -34,7 +34,7 @@ var _ = Describe("Migrate", func() {
 		Expect(
 			result.Channels[0].Timestamp.Format,
 		).To(Equal(telem.TimestampFormatPreciseDate))
-		Expect(result.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneLocal))
+		Expect(result.Channels[0].Timestamp.TimeZone).To(Equal(telem.TimeZoneLocal))
 		Expect(result.Channels[2].Channel).To(Equal(channel.Key(3)))
 	})
 

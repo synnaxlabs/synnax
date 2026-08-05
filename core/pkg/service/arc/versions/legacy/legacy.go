@@ -36,13 +36,13 @@ const LastVersion = v2.Version
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v2.Data
 
-// The model Data is built from, each name taken from the version that last redefined
-// it.
 type (
-	Edge  = v1.Edge
+	// Edge connects two node handles, nested since v1.
+	Edge = v1.Edge
+	// Graph is the graph-mode body: nodes, edges, and per-node props.
 	Graph = v1.Graph
-	Node  = v0.Node
-	Text  = v0.Text
+	// Node is a graph node and its canvas position.
+	Node = v0.Node
 )
 
 // Document is the typed body a Console state lifts into. Mode is the raw wire

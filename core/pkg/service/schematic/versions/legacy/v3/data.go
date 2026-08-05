@@ -16,7 +16,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
 )
 
 // Version is the version the Console stamped on this format.
@@ -58,22 +57,12 @@ type Data struct {
 	Version imex.Version `json:"version"`
 	// Snapshot marks the schematic as a range snapshot.
 	Snapshot bool `json:"snapshot"`
-	// Viewport is the editor viewport position and zoom.
-	Viewport v0.Viewport `json:"viewport"`
 	// Nodes are the schematic nodes.
 	Nodes []v0.Node `json:"nodes"`
 	// Edges are the schematic edges.
 	Edges []Edge `json:"edges"`
 	// Props holds per-symbol configuration keyed by node key.
 	Props map[string]json.RawMessage `json:"props"`
-	// Control is UI-only control-mode state; dropped on lift.
-	Control string `json:"control"`
-	// Legend is the control legend overlay configuration.
-	Legend v1.Legend `json:"legend"`
-	// Key is the Console-local schematic key.
-	Key string `json:"key"`
 	// Type is the literal "schematic" type marker.
 	Type string `json:"type"`
-	// ViewportMode is UI-only viewport interaction mode; dropped on lift.
-	ViewportMode string `json:"viewportMode"`
 }

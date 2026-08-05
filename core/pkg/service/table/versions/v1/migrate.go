@@ -12,6 +12,7 @@ package v1
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -23,8 +24,8 @@ import (
 // the structural fields (Rows, Columns, Cells) are sourced from the opaque blob the
 // Console used to persist alongside those fields, after legacy.MigrateData decodes it
 // as legacy.Data. v0 is the last snapshot in which Table.Data is untyped; future
-// migrations
-// transform one typed snapshot into another and never need this blob handling.
+// migrations transform one typed snapshot into another and never need this blob
+// handling.
 func MigrateTable(ctx context.Context, old v0.Table) (Table, error) {
 	out, err := autoMigrateTable(ctx, old)
 	if err != nil {
@@ -34,42 +35,25 @@ func MigrateTable(ctx context.Context, old v0.Table) (Table, error) {
 	if err != nil {
 		return Table{}, err
 	}
-	out.Rows = migrateRows(d.Layout.Rows)
-	out.Columns = migrateColumns(d.Layout.Columns)
-	out.Cells = migrateCells(d.Cells)
-	return out, nil
-}
-
-func migrateRows(in []legacy.Row) []Row {
-	out := make([]Row, len(in))
-	for i, r := range in {
-		cells := make([]string, len(r.Cells))
-		for j, c := range r.Cells {
-			cells[j] = c.Key
+	out.Rows = lo.Map(d.Layout.Rows, func(r legacy.Row, _ int) Row {
+		return Row{
+			Size: r.Size,
+			Cells: lo.Map(r.Cells, func(c legacy.CellRef, _ int) string {
+				return c.Key
+			}),
 		}
-		out[i] = Row{Size: r.Size, Cells: cells}
-	}
-	return out
-}
-
-func migrateColumns(in []legacy.Column) []Column {
-	out := make([]Column, len(in))
-	for i, c := range in {
-		out[i] = Column{Size: c.Size}
-	}
-	return out
-}
-
-func migrateCells(in map[string]legacy.Cell) map[string]Cell {
-	out := make(map[string]Cell, len(in))
-	for k, c := range in {
-		out[k] = Cell{
+	})
+	out.Columns = lo.Map(d.Layout.Columns, func(c legacy.Column, _ int) Column {
+		return Column{Size: c.Size}
+	})
+	out.Cells = lo.MapValues(d.Cells, func(c legacy.Cell, _ string) Cell {
+		return Cell{
 			Key:     c.Key,
 			Variant: c.Variant,
 			Props:   msgpack.EncodedJSON(c.Props),
 		}
-	}
-	return out
+	})
+	return out, nil
 }
 
 // Migration lifts stored tables from the v1 blob layout to the typed v2 shape.

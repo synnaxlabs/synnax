@@ -11,28 +11,10 @@ package v1
 
 import v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 
-// ZeroLegend is the default legend used when a v0 payload is migrated forward. Mirrors
-// the Console's ZERO_LEGEND_STATE at v1.
-var ZeroLegend = Legend{
-	Visible: true,
-	Position: LegendPosition{
-		X:     50,
-		Y:     50,
-		Units: &LegendUnits{X: "px", Y: "px"},
-	},
-	Colors: map[string]string{},
-}
-
-// Migrate transforms v0 schematic data into v1 by attaching the default legend.
+// Migrate transforms v0 schematic data into v1 by restamping the version. The
+// fields added at v1 are UI-only and are not modeled on the wire here.
 func Migrate(old v0.Data) Data {
-	return Data{
-		Version:  Version,
-		Snapshot: old.Snapshot,
-		Viewport: old.Viewport,
-		Nodes:    old.Nodes,
-		Edges:    old.Edges,
-		Props:    old.Props,
-		Control:  old.Control,
-		Legend:   ZeroLegend,
-	}
+	d := Data(old)
+	d.Version = Version
+	return d
 }

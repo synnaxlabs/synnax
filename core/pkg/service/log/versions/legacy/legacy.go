@@ -30,10 +30,10 @@ const LastVersion = v1.Version
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v1.Data
 
-// The model Data is built from, each name taken from the version that last redefined
-// it.
 type (
-	ChannelEntry    = v1.ChannelEntry
+	// ChannelEntry is one displayed channel and its display options.
+	ChannelEntry = v1.ChannelEntry
+	// TimestampConfig is a channel's timestamp format and time zone.
 	TimestampConfig = v1.TimestampConfig
 )
 

@@ -33,24 +33,37 @@ const LastVersion = v4.Version
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v4.Data
 
-// The model Data is built from, each name taken from the version that last redefined
-// it.
 type (
-	AutoBounds     = v0.AutoBounds
-	Axes           = v2.Axes
-	AxesContainer  = v2.AxesContainer
-	Axis           = v2.Axis
-	Bounds         = v0.Bounds
-	Channels       = v0.Channels
-	Legend         = v1.Legend
+	// AutoBounds marks each end of an axis range as automatic.
+	AutoBounds = v0.AutoBounds
+	// Axes bundles the six axis configurations.
+	Axes = v2.Axes
+	// AxesContainer wraps Axes as the Console's AxesState.
+	AxesContainer = v2.AxesContainer
+	// Axis is one axis's label, range, and tick configuration.
+	Axis = v2.Axis
+	// Bounds is an axis's lower and upper range.
+	Bounds = v0.Bounds
+	// Channels binds channel keys to each axis.
+	Channels = v0.Channels
+	// Legend is the plot legend's placement and visibility.
+	Legend = v1.Legend
+	// LegendPosition is the legend's sticky canvas position.
 	LegendPosition = v1.LegendPosition
-	Line           = v0.Line
-	Ranges         = v0.Ranges
-	Rule           = v0.Rule
-	StickyRoot     = v1.StickyRoot
-	StickyUnits    = v1.StickyUnits
-	Title          = v0.Title
-	XY             = v0.XY
+	// Line is one plotted series' styling.
+	Line = v0.Line
+	// Ranges binds time ranges to each x-axis.
+	Ranges = v0.Ranges
+	// Rule is an annotation line drawn across the plot.
+	Rule = v0.Rule
+	// StickyRoot is the corner a sticky position anchors to.
+	StickyRoot = v1.StickyRoot
+	// StickyUnits are the units a sticky position is measured in.
+	StickyUnits = v1.StickyUnits
+	// Title is the plot title's text level and visibility.
+	Title = v0.Title
+	// XY is a position on the canvas.
+	XY = v0.XY
 )
 
 // MigrateData decodes the opaque line plot data blob, dispatches on its declared

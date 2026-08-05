@@ -31,14 +31,17 @@ const LastVersion = v0.Version
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v0.Data
 
-// The model Data is built from, each name taken from the version that last redefined
-// it.
 type (
-	Cell    = v0.Cell
+	// Cell is one table cell's variant and opaque configuration.
+	Cell = v0.Cell
+	// CellRef names a cell from within a row.
 	CellRef = v0.CellRef
-	Column  = v0.Column
-	Layout  = v0.Layout
-	Row     = v0.Row
+	// Column is a table column and its size.
+	Column = v0.Column
+	// Layout holds the table's rows and columns.
+	Layout = v0.Layout
+	// Row is a table row, its size, and the cells it holds.
+	Row = v0.Row
 )
 
 // MigrateData decodes the opaque table data blob, dispatches on its declared version,

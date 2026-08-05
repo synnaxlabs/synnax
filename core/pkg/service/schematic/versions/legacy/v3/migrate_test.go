@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
 )
@@ -27,10 +26,6 @@ func createV2() v2.Data {
 	return v2.Data{
 		Version:  v2.Version,
 		Snapshot: true,
-		Viewport: v0.Viewport{
-			Position: v0.XY{X: 12, Y: 34},
-			Zoom:     1.5,
-		},
 		Nodes: []v0.Node{
 			{Key: "n1", Position: v0.XY{X: 1, Y: 2}},
 			{Key: "n2", Position: v0.XY{X: 3, Y: 4}},
@@ -50,11 +45,6 @@ func createV2() v2.Data {
 		Props: map[string]json.RawMessage{
 			"n1": json.RawMessage(`{"key":"valve"}`),
 		},
-		Control:      "released",
-		Legend:       v1.ZeroLegend,
-		Key:          "3e8f9a52-2c1d-4a6b-9f27-c05561f7f2a4",
-		Type:         "schematic",
-		ViewportMode: "select",
 	}
 }
 
@@ -80,11 +70,8 @@ var _ = Describe("Migrate", func() {
 	It("Should pass non-edge fields through unchanged", func() {
 		in := createV2()
 		out := v3.Migrate(in)
+		Expect(out.Snapshot).To(Equal(in.Snapshot))
 		Expect(out.Nodes).To(Equal(in.Nodes))
 		Expect(out.Props).To(Equal(in.Props))
-		Expect(out.Key).To(Equal(in.Key))
-		Expect(out.Type).To(Equal(in.Type))
-		Expect(out.ViewportMode).To(Equal(in.ViewportMode))
-		Expect(out.Legend).To(Equal(in.Legend))
 	})
 })

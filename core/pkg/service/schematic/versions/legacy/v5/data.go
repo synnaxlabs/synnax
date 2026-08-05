@@ -7,49 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v5 holds the frozen wire format for Console schematic state at version 5. v5
-// dropped the type literal and introduced the per-schematic mode and toolbar UI fields.
+// Package v5 holds the frozen wire format for Console schematic state at version 5.
+// v5 dropped the type literal and seeded the per-schematic mode and toolbar state.
+// None are modeled here; the on-the-wire model is structurally identical to v4.
 package v5
 
 import (
-	"encoding/json"
-
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
-	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v4"
 )
 
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 5
 
-// Data is the persisted per-schematic state at version 5. Drops the type literal and
-// adds mode and toolbar (UI-only fields that the typed Schematic does not carry).
-type Data struct {
-	// Version is the version stamped inside the blob.
-	Version imex.Version `json:"version"`
-	// Snapshot marks the schematic as a range snapshot.
-	Snapshot bool `json:"snapshot"`
-	// Viewport is the editor viewport position and zoom.
-	Viewport v0.Viewport `json:"viewport"`
-	// Nodes are the schematic nodes.
-	Nodes []v0.Node `json:"nodes"`
-	// Edges are the schematic edges.
-	Edges []v3.Edge `json:"edges"`
-	// Props holds per-symbol configuration keyed by node key.
-	Props map[string]json.RawMessage `json:"props"`
-	// Control is UI-only control-mode state; dropped on lift.
-	Control string `json:"control"`
-	// Legend is the control legend overlay configuration.
-	Legend v1.Legend `json:"legend"`
-	// Key is the Console-local schematic key.
-	Key string `json:"key"`
-	// ViewportMode is UI-only viewport interaction mode; dropped on lift.
-	ViewportMode string `json:"viewportMode"`
-	// Authority is the default control authority.
-	Authority float64 `json:"authority"`
-	// Mode is UI-only editor mode; dropped on lift.
-	Mode string `json:"mode"`
-	// Toolbar is UI-only toolbar state; dropped on lift.
-	Toolbar v0.ToolbarState `json:"toolbar"`
-}
+// Data is the persisted per-schematic state at version 5.
+type Data v4.Data

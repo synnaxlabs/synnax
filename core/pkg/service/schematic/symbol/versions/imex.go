@@ -28,8 +28,11 @@ func specFromConsole(s legacy.Spec) Spec {
 				Key: st.Key, Name: st.Name,
 				Regions: lo.Map(st.Regions, func(r legacy.Region, _ int) Region {
 					return Region{
-						Key: r.Key, Name: r.Name, Selectors: r.Selectors,
-						StrokeColor: r.StrokeColor, FillColor: r.FillColor,
+						Key:         r.Key,
+						Name:        r.Name,
+						Selectors:   r.Selectors,
+						StrokeColor: r.StrokeColor,
+						FillColor:   r.FillColor,
 					}
 				}),
 			}
