@@ -76,8 +76,8 @@ var _ = Describe("ImEx", func() {
 	})
 
 	Describe("Import", func() {
-		// Imports run on the per-spec tx so created rows roll back and the shared
-		// DB's symbol counts stay intact for the other specs.
+		// Imports run on the per-spec tx so created rows roll back and the shared DB's
+		// symbol counts stay intact for the other specs.
 		importAndRetrieve := func(ctx SpecContext, path string) symbol.Symbol {
 			GinkgoHelper()
 			id := MustSucceed(imexSvc.Import(

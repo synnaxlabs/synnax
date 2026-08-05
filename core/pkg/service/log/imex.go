@@ -71,7 +71,7 @@ func (s *Service) Import(
 	if err != nil {
 		return ontology.ID{}, validate.PathedError(err, "parent")
 	}
-	l, err := versions.DecodeImport(ctx, env)
+	l, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
 		return ontology.ID{}, err
 	}

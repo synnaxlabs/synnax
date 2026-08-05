@@ -56,13 +56,37 @@ func (d consoleDocument) schematic() Schematic {
 	}
 }
 
-// DecodeImport materializes the envelope's body as a current-version Schematic, keyless
-// and named after the envelope. Envelopes stamped at or above Floor decode through the
-// generated migration chain; older ones are Console-era files — camelCase typed exports
-// or Console states — and are lifted forward. An envelope newer than Latest is rejected
-// with a path-scoped validation error.
-func DecodeImport(ctx context.Context, env imex.Envelope) (Schematic, error) {
-	sch, err := decodeBody(ctx, env)
+// DecodeImExEnvelope materializes the envelope's body as a current-version Schematic,
+// keyless and named after the envelope. Envelopes stamped at or above Floor decode
+// through the generated migration chain; older ones are Console-era files — camelCase
+// typed exports or Console states — and are lifted forward. An envelope newer than
+// Latest is rejected with a path-scoped validation error.
+func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, error) {
+	var (
+		sch Schematic
+		err error
+	)
+	switch {
+	case env.Version >= Floor:
+		sch, err = decodeMigrate(ctx, env)
+	case env.BodyNamed():
+		// Console-era typed exports ("6.0.0"-stamped or versionless) carry the current
+		// shape with camelCase keys; Console states never carry a name.
+		var doc consoleDocument
+		if doc, err = imex.Decode[consoleDocument](ctx, env); err == nil {
+			sch = doc.schematic()
+		}
+	default:
+		// Console states embed the document inline: ride the storage lift, which
+		// dispatches on the version stamped inside the body.
+		snapshot, _ := env.Body()["snapshot"].(bool)
+		var body msgpack.EncodedJSON
+		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+			sch, err = v7.MigrateSchematic(ctx, v6.Schematic{
+				Name: env.Name, Snapshot: snapshot, Data: body,
+			})
+		}
+	}
 	if err != nil {
 		return Schematic{}, err
 	}
@@ -74,29 +98,4 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Schematic, error) {
 	// here for every path.
 	sch.Name = env.Name
 	return sch, nil
-}
-
-func decodeBody(ctx context.Context, env imex.Envelope) (Schematic, error) {
-	if env.Version >= Floor {
-		return decodeMigrate(ctx, env)
-	}
-	// Console-era typed exports ("6.0.0"-stamped or versionless) carry the current
-	// shape with camelCase keys; Console states never carry a name.
-	if env.BodyNamed() {
-		doc, err := imex.Decode[consoleDocument](ctx, env)
-		if err != nil {
-			return Schematic{}, err
-		}
-		return doc.schematic(), nil
-	}
-	// Console states embed the document inline: ride the storage lift, which
-	// dispatches on the version stamped inside the body.
-	snapshot, _ := env.Body()["snapshot"].(bool)
-	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
-	if err != nil {
-		return Schematic{}, err
-	}
-	return v7.MigrateSchematic(ctx, v6.Schematic{
-		Name: env.Name, Snapshot: snapshot, Data: body,
-	})
 }

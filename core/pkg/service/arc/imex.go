@@ -68,7 +68,7 @@ func (s *Service) Import(
 	env imex.Envelope,
 	_ imex.ImportOptions,
 ) (ontology.ID, error) {
-	a, err := versions.DecodeImport(ctx, env)
+	a, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
 		return ontology.ID{}, err
 	}

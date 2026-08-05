@@ -19,13 +19,35 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// DecodeImport materializes the envelope's body as a current-version Table, keyless and
-// named after the envelope. Envelopes stamped at or above Floor decode through the
-// generated migration chain; older ones are Console-era files — camelCase typed exports
-// or Console states — and are lifted forward. An envelope newer than Latest is rejected
-// with a path-scoped validation error.
-func DecodeImport(ctx context.Context, env imex.Envelope) (Table, error) {
-	t, err := decodeBody(ctx, env)
+// DecodeImExEnvelope materializes the envelope's body as a current-version Table,
+// keyless and named after the envelope. Envelopes stamped at or above Floor decode
+// through the generated migration chain; older ones are Console-era files — camelCase
+// typed exports or Console states — and are lifted forward. An envelope newer than
+// Latest is rejected with a path-scoped validation error.
+func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
+	var (
+		t   Table
+		err error
+	)
+	switch {
+	case env.Version >= Floor:
+		t, err = decodeMigrate(ctx, env)
+	case env.BodyNamed():
+		// Console-era typed exports ("1.0.0"-stamped or versionless) carry the current
+		// shape with camelCase keys; every Table field key is a single word, so the
+		// standard decoder's case-insensitive matching covers them. Console states
+		// never
+		// carry a name.
+		t, err = imex.Decode[Table](ctx, env)
+	default:
+		// Console states embed the structural model inline: ride the storage lift,
+		// which
+		// decodes the body through the legacy chain.
+		var body msgpack.EncodedJSON
+		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+			t, err = v2.MigrateTable(ctx, v1.Table{Name: env.Name, Data: body})
+		}
+	}
 	if err != nil {
 		return Table{}, err
 	}
@@ -37,24 +59,4 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Table, error) {
 	// here for every path.
 	t.Name = env.Name
 	return t, nil
-}
-
-func decodeBody(ctx context.Context, env imex.Envelope) (Table, error) {
-	if env.Version >= Floor {
-		return decodeMigrate(ctx, env)
-	}
-	// Console-era typed exports ("1.0.0"-stamped or versionless) carry the current
-	// shape with camelCase keys; every Table field key is a single word, so the
-	// standard decoder's case-insensitive matching covers them. Console states
-	// never carry a name.
-	if env.BodyNamed() {
-		return imex.Decode[Table](ctx, env)
-	}
-	// Console states embed the structural model inline: ride the storage lift,
-	// which decodes the body through the legacy chain.
-	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
-	if err != nil {
-		return Table{}, err
-	}
-	return v2.MigrateTable(ctx, v1.Table{Name: env.Name, Data: body})
 }

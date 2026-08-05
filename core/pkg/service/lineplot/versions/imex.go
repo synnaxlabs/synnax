@@ -155,13 +155,35 @@ func (d consoleDocument) linePlot() LinePlot {
 	}
 }
 
-// DecodeImport materializes the envelope's body as a current-version LinePlot, keyless
-// and named after the envelope. Envelopes stamped at or above Floor decode through the
-// generated migration chain; older ones are Console-era files — camelCase typed exports
-// or Console states — and are lifted forward. An envelope newer than Latest is rejected
-// with a path-scoped validation error.
-func DecodeImport(ctx context.Context, env imex.Envelope) (LinePlot, error) {
-	lp, err := decodeBody(ctx, env)
+// DecodeImExEnvelope materializes the envelope's body as a current-version LinePlot,
+// keyless and named after the envelope. Envelopes stamped at or above Floor decode
+// through the generated migration chain; older ones are Console-era files — camelCase
+// typed exports or Console states — and are lifted forward. An envelope newer than
+// Latest is rejected with a path-scoped validation error.
+func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error) {
+	var (
+		lp  LinePlot
+		err error
+	)
+	switch {
+	case env.Version >= Floor:
+		lp, err = decodeMigrate(ctx, env)
+	case env.BodyNamed():
+		// Console-era typed exports (versionless) carry the current shape with
+		// camelCase
+		// keys; Console states never carry a name.
+		var doc consoleDocument
+		if doc, err = imex.Decode[consoleDocument](ctx, env); err == nil {
+			lp = doc.linePlot()
+		}
+	default:
+		// Console states embed the body inline: ride the storage lift, which dispatches
+		// on the version stamped inside the body.
+		var body msgpack.EncodedJSON
+		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+			lp, err = v6.MigrateLinePlot(ctx, v5.LinePlot{Name: env.Name, Data: body})
+		}
+	}
 	if err != nil {
 		return LinePlot{}, err
 	}
@@ -173,26 +195,4 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (LinePlot, error) {
 	// here for every path.
 	lp.Name = env.Name
 	return lp, nil
-}
-
-func decodeBody(ctx context.Context, env imex.Envelope) (LinePlot, error) {
-	if env.Version >= Floor {
-		return decodeMigrate(ctx, env)
-	}
-	// Console-era typed exports (versionless) carry the current shape with
-	// camelCase keys; Console states never carry a name.
-	if env.BodyNamed() {
-		doc, err := imex.Decode[consoleDocument](ctx, env)
-		if err != nil {
-			return LinePlot{}, err
-		}
-		return doc.linePlot(), nil
-	}
-	// Console states embed the body inline: ride the storage lift, which
-	// dispatches on the version stamped inside the body.
-	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
-	if err != nil {
-		return LinePlot{}, err
-	}
-	return v6.MigrateLinePlot(ctx, v5.LinePlot{Name: env.Name, Data: body})
 }

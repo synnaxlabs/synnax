@@ -141,15 +141,46 @@ type consoleTyped struct {
 	Text text.Text `json:"text" msgpack:"text"`
 }
 
-// DecodeImport materializes the envelope's body as a current-version Arc, keyless and
-// named after the envelope. Envelopes stamped at or above Floor decode through the
+// DecodeImExEnvelope materializes the envelope's body as a current-version Arc, keyless
+// and named after the envelope. Envelopes stamped at or above Floor decode through the
 // generated migration chain; older ones are Console-era files — camelCase typed exports
 // or Console states — and are lifted forward. An envelope newer than Latest is rejected
 // with a path-scoped validation error.
-func DecodeImport(ctx context.Context, env imex.Envelope) (Arc, error) {
-	a, err := decodeBody(ctx, env)
+func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
+	var (
+		a   Arc
+		err error
+	)
+	switch {
+	case env.Version >= Floor:
+		a, err = decodeMigrate(ctx, env)
+	case env.BodyNamed():
+		// Typed exports always carry a top-level name; Console states never do. Console
+		// typed exports are versionless with camelCase keys and the pre-lift v0 graph
+		// shape.
+		var ct consoleTyped
+		if ct, err = imex.Decode[consoleTyped](ctx, env); err == nil {
+			a.Mode, a.Text = ct.Mode, ct.Text
+			a.Graph, err = graphv1.MigrateGraph(ctx, ct.Graph.lift())
+		}
+	default:
+		// "0.0.0".."2.0.0" Console states embed the graph inline. Nothing newer exists:
+		// the shipped Console never wrote a later state format.
+		var body msgpack.EncodedJSON
+		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+			var doc legacy.Document
+			if doc, err = legacy.MigrateData(body); err == nil {
+				a.Mode, a.Graph, a.Text = Mode(doc.Mode), doc.Graph, doc.Text
+			}
+		}
+	}
 	if err != nil {
 		return Arc{}, err
+	}
+	// Console-era files leave the mode blank when the Arc was never switched out of the
+	// graph editor.
+	if a.Mode == "" {
+		a.Mode = ModeGraph
 	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
@@ -159,43 +190,4 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Arc, error) {
 	// here for every path.
 	a.Name = env.Name
 	return a, nil
-}
-
-func decodeBody(ctx context.Context, env imex.Envelope) (Arc, error) {
-	if env.Version >= Floor {
-		return decodeMigrate(ctx, env)
-	}
-	// Typed exports always carry a top-level name; Console states never do.
-	// Console typed exports are versionless with camelCase keys and the
-	// pre-lift v0 graph shape.
-	if env.BodyNamed() {
-		ct, err := imex.Decode[consoleTyped](ctx, env)
-		if err != nil {
-			return Arc{}, err
-		}
-		g, err := graphv1.MigrateGraph(ctx, ct.Graph.lift())
-		if err != nil {
-			return Arc{}, err
-		}
-		mode := ct.Mode
-		if mode == "" {
-			mode = ModeGraph
-		}
-		return Arc{Mode: mode, Graph: g, Text: ct.Text}, nil
-	}
-	// "0.0.0".."2.0.0" Console states embed the graph inline. Nothing newer
-	// exists: the shipped Console never wrote a later state format.
-	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
-	if err != nil {
-		return Arc{}, err
-	}
-	doc, err := legacy.MigrateData(body)
-	if err != nil {
-		return Arc{}, err
-	}
-	mode := Mode(doc.Mode)
-	if mode == "" {
-		mode = ModeGraph
-	}
-	return Arc{Mode: mode, Graph: doc.Graph, Text: doc.Text}, nil
 }

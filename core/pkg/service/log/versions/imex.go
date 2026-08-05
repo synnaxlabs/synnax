@@ -21,13 +21,30 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// DecodeImport materializes the envelope's body as a current-version Log, keyless and
-// named after the envelope. Envelopes stamped at or above Floor decode through the
+// DecodeImExEnvelope materializes the envelope's body as a current-version Log, keyless
+// and named after the envelope. Envelopes stamped at or above Floor decode through the
 // generated migration chain; older ones are legacy camelCase Console exports and are
 // lifted forward. An envelope newer than Latest is rejected with a path-scoped
 // validation error.
-func DecodeImport(ctx context.Context, env imex.Envelope) (Log, error) {
-	l, err := decodeBody(ctx, env)
+func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
+	var (
+		l   Log
+		err error
+	)
+	switch {
+	case env.Version >= Floor:
+		l, err = decodeMigrate(ctx, env)
+	// Console-era log wire formats cap at data version 1; versions between that and
+	// Floor never shipped. The guard lives here because MigrateLog swallows chain
+	// errors for boot-migration resilience.
+	case env.Version > v1.Version:
+		err = errors.Newf("unknown log data version %d", env.Version)
+	default:
+		var body msgpack.EncodedJSON
+		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+			l, err = v3.MigrateLog(ctx, v2.Log{Name: env.Name, Data: body})
+		}
+	}
 	if err != nil {
 		return Log{}, err
 	}
@@ -39,21 +56,4 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Log, error) {
 	// here for every path.
 	l.Name = env.Name
 	return l, nil
-}
-
-func decodeBody(ctx context.Context, env imex.Envelope) (Log, error) {
-	if env.Version >= Floor {
-		return decodeMigrate(ctx, env)
-	}
-	// Console-era log wire formats cap at data version 1; versions between that and
-	// Floor are rc-era formats that never shipped. The guard lives here because
-	// MigrateLog swallows chain errors for boot-migration resilience.
-	if env.Version > v1.Version {
-		return Log{}, errors.Newf("unknown log data version %d", env.Version)
-	}
-	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
-	if err != nil {
-		return Log{}, err
-	}
-	return v3.MigrateLog(ctx, v2.Log{Name: env.Name, Data: body})
 }

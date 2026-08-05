@@ -83,12 +83,12 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 	return nil
 }
 
-// Dispatch applies a sequence of actions atomically to the Arc with the given
-// key. After a successful update the actions are notified to the service-level
-// observer so subscribers (cluster signals) can broadcast them. dispatchKey is
-// a client-generated identifier carried verbatim onto the broadcast so the
-// originating client can match its own echo against the set of outstanding
-// local replays and skip a redundant reduce when no foreign action interleaved.
+// Dispatch applies a sequence of actions atomically to the Arc with the given key.
+// After a successful update the actions are notified to the service-level observer so
+// subscribers (cluster signals) can broadcast them. dispatchKey is a client-generated
+// identifier carried verbatim onto the broadcast so the originating client can match
+// its own echo against the set of outstanding local replays and skip a redundant reduce
+// when no foreign action interleaved.
 //
 // When the Arc's text has gone quiet, Dispatch also reclaims the space held by
 // tombstoned characters: it forgets the characters that were already dead before this
