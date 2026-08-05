@@ -10,8 +10,7 @@
  */
 
 .console-main__workspace {
-    --rail-width: 7.5rem;
-    --top-bar-height: 7rem;
+    --left-bar-size: 7.5rem;
     --inset-left: 0.5rem;
     --inset-right: 1rem;
     --inset-bottom: 1rem;
@@ -22,11 +21,11 @@
        past the content inset. */
     --bleed: 0.5rem;
     --left-drawer-inset-left: calc(
-        var(--inset-left) + var(--rail-width) + var(--gutter)
+        var(--inset-left) + var(--left-bar-size) + var(--gutter)
     );
-    --left-drawer-inset-top: calc(var(--top-bar-height) - var(--bleed));
+    --left-drawer-inset-top: calc(var(--top-bar-size) - var(--bleed));
     --left-drawer-inset-bottom: calc(var(--inset-bottom) - var(--bleed));
-    --bottom-drawer-inset-left: calc(var(--inset-left) + var(--rail-width) - 2px);
+    --bottom-drawer-inset-left: calc(var(--inset-left) + var(--left-bar-size) - 2px);
     --bottom-drawer-inset-right: calc(var(--inset-right) - var(--bleed));
     --bottom-drawer-inset-bottom: var(--inset-bottom);
 
@@ -34,9 +33,9 @@
     min-height: 0;
     display: grid;
     grid-template-columns:
-        var(--inset-left) var(--rail-width) var(--gutter) minmax(0, 1fr)
+        var(--inset-left) var(--left-bar-size) var(--gutter) minmax(0, 1fr)
         var(--inset-right);
-    grid-template-rows: var(--top-bar-height) minmax(0, 1fr) var(--inset-bottom);
+    grid-template-rows: var(--top-bar-size) minmax(0, 1fr) var(--inset-bottom);
     grid-template-areas:
         ". rail top top     top"
         ". rail .   content ."

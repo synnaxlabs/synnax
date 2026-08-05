@@ -10,6 +10,8 @@
  */
 
 .console-main {
+    --top-bar-size: 7rem;
+
     height: 100%;
     width: 100%;
     overflow: hidden;
