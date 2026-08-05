@@ -12,6 +12,7 @@ import {
   type label,
   NotFoundError,
   query,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import {
   createSeverableProxy,
@@ -1314,5 +1315,202 @@ describe("useTombstone", () => {
       handler?.(cached);
     });
     expect(result.current).toBeNull();
+  });
+});
+
+describe("createSelector", () => {
+  interface Data {
+    name: string;
+    value: number;
+  }
+
+  interface Harness {
+    retrieve: ReturnType<typeof vi.fn<() => Promise<Data>>>;
+    set: (next: query.Cached<Data> | undefined) => void;
+    createSelector: Flux.CreateSelector<{ key: string }, Data>;
+  }
+
+  const createHarness = (initial?: query.Cached<Data>): Harness => {
+    let cached = initial;
+    let handler: query.ChangeHandler<Data> | undefined;
+    const retrieve = vi.fn(async (): Promise<Data> => ({ name: "fetched", value: 0 }));
+    const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve,
+      subscribe: (_, h) => {
+        handler = h;
+        return () => {};
+      },
+      getCached: () => cached,
+    });
+    return {
+      retrieve,
+      createSelector,
+      set: (next) => {
+        cached = next;
+        handler?.(next);
+      },
+    };
+  };
+
+  it("returns the selected slice of the cached answer without fetching", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("cached");
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("throws NotFoundError on a cold miss instead of suspending", async () => {
+    const harness = createHarness();
+    const useName = harness.createSelector((data) => data.name);
+    const Display = (): ReactElement => <div>{useName({ key: "a" })}</div>;
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary
+            loading={<div>loading-select</div>}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">
+                {NotFoundError.matches(error) ? "not-found" : "other"}
+              </div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+    expect(utils.queryByText("loading-select")).toBeNull();
+    expect(utils.queryByTestId("error")?.textContent).toEqual("not-found");
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("throws DeletedError when the cached answer is a tombstone", async () => {
+    const harness = createHarness(
+      new query.Deleted<Data>({ name: "corpse", value: 1 }, TimeStamp.now()),
+    );
+    const useName = harness.createSelector((data) => data.name);
+    const Display = (): ReactElement => <div>{useName({ key: "a" })}</div>;
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary
+            loading={null}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">
+                {Flux.DeletedError.matches(error) ? "deleted" : "other"}
+              </div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+    expect(utils.queryByTestId("error")?.textContent).toEqual("deleted");
+  });
+
+  it("throws DisconnectedError when no client is connected", async () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createSelector((data) => data.name);
+    const Display = (): ReactElement => <div>{useName({ key: "a" })}</div>;
+    const NullWrapper = createSynnaxWrapper({ client: null });
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <NullWrapper>
+          <Errors.SuspenseBoundary
+            loading={null}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">
+                {DisconnectedError.matches(error) ? "disconnected" : "other"}
+              </div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </NullWrapper>,
+      );
+    });
+    expect(utils.queryByTestId("error")?.textContent).toEqual("disconnected");
+  });
+
+  it("re-renders when a push changes the selected slice", () => {
+    const harness = createHarness({ name: "before", value: 1 });
+    const useName = harness.createSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("before");
+    act(() => harness.set({ name: "after", value: 1 }));
+    expect(result.current).toEqual("after");
+  });
+
+  it("keeps the previous identity when the selected slice is equal", () => {
+    const harness = createHarness({ name: "same", value: 1 });
+    const useNames = harness.createSelector(
+      (data) => [data.name],
+      (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
+    );
+    const { result } = renderHook(() => useNames({ key: "a" }), { wrapper: Wrapper });
+    const first = result.current;
+    act(() => harness.set({ name: "same", value: 2 }));
+    expect(result.current).toBe(first);
+  });
+
+  it("holds the last live value across an invalidation push", () => {
+    const harness = createHarness({ name: "live", value: 1 });
+    const useName = harness.createSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("live");
+    act(() => harness.set(undefined));
+    expect(result.current).toEqual("live");
+  });
+
+  it("memoizes the selection on the raw answer's reference", () => {
+    const raw: Data = { name: "stable", value: 1 };
+    const harness = createHarness(raw);
+    const select = vi.fn((data: Data) => data.name);
+    const useName = harness.createSelector(select);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("stable");
+    const calls = select.mock.calls.length;
+    act(() => harness.set(raw));
+    expect(select.mock.calls.length).toEqual(calls);
+  });
+
+  it("re-selects when the query changes", () => {
+    const byKey: Record<string, Data> = {
+      a: { name: "alpha", value: 1 },
+      b: { name: "beta", value: 2 },
+    };
+    let handler: query.ChangeHandler<Data> | undefined;
+    const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => byKey.a,
+      subscribe: (_, h) => {
+        handler = h;
+        return () => {};
+      },
+      getCached: ({ query: { key } }) => byKey[key],
+    });
+    const useName = createSelector((data) => data.name);
+    const { result, rerender } = renderHook(({ key }) => useName({ key }), {
+      wrapper: Wrapper,
+      initialProps: { key: "a" },
+    });
+    expect(result.current).toEqual("alpha");
+    rerender({ key: "b" });
+    expect(result.current).toEqual("beta");
+    expect(handler).toBeDefined();
+  });
+
+  it("refuses to mint when the definition has no cache read", () => {
+    const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => ({ name: "fetched", value: 0 }),
+    });
+    expect(() => createSelector((data) => data.name)).toThrow(UnexpectedError);
   });
 });
