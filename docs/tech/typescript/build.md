@@ -96,6 +96,11 @@ pnpm build:pluto
 ```
 
 This will build `pluto` and all of its dependencies. If we want to build all packages,
+we run
+
+```bash
+pnpm build
+```
 
 Generally speaking, you'll be building `pluto` and `x` most often. We almost never build
 `console` or `docs` locally, and instead rely on the CI/CD pipeline to build and publish
