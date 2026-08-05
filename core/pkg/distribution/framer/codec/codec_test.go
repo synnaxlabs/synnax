@@ -476,7 +476,6 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Dynamic Codec", Ordered, func() {
-		ShouldNotLeakGoroutinesPerSpec()
 		const (
 			idxCh  channel.Key = 1
 			dataCh channel.Key = 2
@@ -1273,8 +1272,6 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Resolver", Ordered, func() {
-		ShouldNotLeakGoroutinesPerSpec()
-
 		It(
 			"Should return the error when the resolver fails to retrieve data types",
 			func(ctx SpecContext) {

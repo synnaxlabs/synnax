@@ -17,6 +17,7 @@ linters:
     - set
     - goroutineleak
     - blank
+    - suite
   settings:
     ginkgolinter:
       forbid-focus-container: true
@@ -60,6 +61,11 @@ linters:
         description: >
           Detects blank receivers and all-blank parameter lists that can drop their
           names entirely.
+      suite:
+        type: "module"
+        description: >
+          Enforces Ginkgo suite layout: RunSpecs/RegisterFailHandler only in
+          <package>_suite_test.go, one RunSpecs per package, and no orphaned specs.
 formatters:
   enable:
     - gci

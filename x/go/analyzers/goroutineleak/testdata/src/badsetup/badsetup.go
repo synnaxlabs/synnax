@@ -26,7 +26,7 @@ var _ = BeforeSuite(func() { // want "BeforeSuite must call ShouldNotLeakGorouti
 // Present, but not the first statement.
 var _ = BeforeAll(func() { // want "BeforeAll must call ShouldNotLeakGoroutines"
 	openFixture()
-	ShouldNotLeakGoroutines()
+	ShouldNotLeakGoroutines() // want "may only be called as the first statement"
 })
 
 // Correct: leak check is the first statement — no diagnostic.

@@ -14,11 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Storage", func() {
-	ShouldNotLeakGoroutinesPerSpec()
 	DescribeTable(
 		"Name",
 		func(ctx SpecContext, cfg ...storage.LayerConfig) {

@@ -48,5 +48,4 @@ var _ = BeforeSuite(func() {
 	cmd.Stderr = os.Stderr
 	Expect(cmd.Run()).To(Succeed())
 	mockFS = os.DirFS(tmpDir)
-	ShouldNotLeakGoroutines()
 })

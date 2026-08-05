@@ -21,3 +21,6 @@ plugins:
   - module: "github.com/synnaxlabs/x"
     import: "github.com/synnaxlabs/x/analyzers/blank"
     path: ../../x/go
+  - module: "github.com/synnaxlabs/x"
+    import: "github.com/synnaxlabs/x/analyzers/suite"
+    path: ../../x/go

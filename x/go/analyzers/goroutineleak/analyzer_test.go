@@ -42,4 +42,13 @@ var _ = Describe("Analyzer", func() {
 			"badsetup",
 		)
 	})
+
+	It("Should flag misplaced and duplicate leak-check registrations", func() {
+		analysistest.Run(
+			GinkgoT(),
+			analysistest.TestData(),
+			goroutineleak.Analyzer,
+			"strays",
+		)
+	})
 })
