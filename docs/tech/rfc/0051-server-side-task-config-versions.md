@@ -1,4 +1,4 @@
-# 48 Server-side task configuration versions and import
+# 51 Server-side task configuration versions and import
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-08-05
@@ -153,8 +153,9 @@ record has no parent of its own and no walk from the root reaches it.
 
 A task therefore has more than one parent, and every caller that reads a task's parents
 must filter by ontology type. `Task.snapshottedTo` in the TypeScript client returns the
-first parent it gets, so it filters to `range`. Phase 4 audits the parent readers in
-every client.
+first parent it gets, so it filters to `range`. The ontology cache of that client also
+gives a `parentID` helper that returns one parent, which makes it unsafe for a task.
+Phase 4 audits the parent readers in every client.
 
 Internal tasks gain an ontology resource. The task writer creates none for them today,
 so a scanner has nothing to relate and its `type` cannot resolve. Phase 4 removes that
