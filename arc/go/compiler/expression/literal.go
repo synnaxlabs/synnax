@@ -30,6 +30,14 @@ func compileLiteral(
 	if series := ctx.AST.SeriesLiteral(); series != nil {
 		return compileSeriesLiteral(context.Child(ctx, series))
 	}
+	if boolLit := ctx.AST.BooleanLiteral(); boolLit != nil {
+		if boolLit.TRUE() != nil {
+			ctx.Writer.WriteI32Const(1)
+		} else {
+			ctx.Writer.WriteI32Const(0)
+		}
+		return types.Bool(), nil
+	}
 	return types.Type{}, errors.New("unknown literal type")
 }
 

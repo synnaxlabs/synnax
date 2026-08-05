@@ -440,6 +440,7 @@ literal
     | STR_LITERAL
     | STR_LITERAL_MULTI
     | seriesLiteral
+    | booleanLiteral
     ;
 
 // Numeric literal with optional unit suffix.
@@ -452,6 +453,10 @@ numericLiteral
 
 seriesLiteral
     : LBRACKET expressionList? RBRACKET
+    ;
+
+booleanLiteral
+    : TRUE | FALSE
     ;
 
 expressionList

@@ -48,6 +48,12 @@ func Parse(
 	if series := literal.SeriesLiteral(); series != nil {
 		return ParsedValue{}, errors.New("series literals not supported for default values")
 	}
+	if boolLit := literal.BooleanLiteral(); boolLit != nil {
+		if targetType.IsValid() && targetType.Kind != types.KindBool {
+			return ParsedValue{}, errors.Newf("cannot assign bool to %s", targetType)
+		}
+		return ParsedValue{Value: boolLit.TRUE() != nil, Type: types.Bool()}, nil
+	}
 	return ParsedValue{}, errors.New("unknown literal type")
 }
 

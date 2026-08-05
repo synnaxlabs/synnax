@@ -238,6 +238,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#seriesLiteral.
 	VisitSeriesLiteral(ctx *SeriesLiteralContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#booleanLiteral.
+	VisitBooleanLiteral(ctx *BooleanLiteralContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#expressionList.
 	VisitExpressionList(ctx *ExpressionListContext) interface{}
 }

@@ -482,6 +482,12 @@ func (s *BaseArcParserListener) EnterSeriesLiteral(ctx *SeriesLiteralContext) {}
 // ExitSeriesLiteral is called when production seriesLiteral is exited.
 func (s *BaseArcParserListener) ExitSeriesLiteral(ctx *SeriesLiteralContext) {}
 
+// EnterBooleanLiteral is called when production booleanLiteral is entered.
+func (s *BaseArcParserListener) EnterBooleanLiteral(ctx *BooleanLiteralContext) {}
+
+// ExitBooleanLiteral is called when production booleanLiteral is exited.
+func (s *BaseArcParserListener) ExitBooleanLiteral(ctx *BooleanLiteralContext) {}
+
 // EnterExpressionList is called when production expressionList is entered.
 func (s *BaseArcParserListener) EnterExpressionList(ctx *ExpressionListContext) {}
 

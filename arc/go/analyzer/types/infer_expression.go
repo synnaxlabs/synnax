@@ -288,10 +288,6 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		text := id.GetText()
-		// Handle boolean literals (parsed as identifiers in the grammar)
-		if text == "true" || text == "false" {
-			return types.U8()
-		}
 		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
 				// When a variable is referenced, resolve literal constraints to concrete types.
@@ -323,6 +319,11 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	}
 	if seriesLit := ctx.AST.SeriesLiteral(); seriesLit != nil {
 		return inferSeriesLiteralType(context.Child(ctx, seriesLit))
+	}
+	if boolLit := ctx.AST.BooleanLiteral(); boolLit != nil {
+		t := types.Bool()
+		ctx.TypeMap[ctx.AST] = t
+		return t
 	}
 	if parser.StringTerminal(ctx.AST) != nil {
 		t := types.String()

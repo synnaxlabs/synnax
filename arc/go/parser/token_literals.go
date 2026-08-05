@@ -28,6 +28,8 @@ const (
 	LiteralSTR           = "str"
 	LiteralBOOL          = "bool"
 	LiteralSERIES        = "series"
+	LiteralTRUE          = "true"
+	LiteralFALSE         = "false"
 	LiteralARROW         = "->"
 	LiteralDECLARE       = ":="
 	LiteralSTATEDECLARE  = "$="

@@ -315,6 +315,10 @@ func (v *BaseArcParserVisitor) VisitSeriesLiteral(ctx *SeriesLiteralContext) int
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitBooleanLiteral(ctx *BooleanLiteralContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitExpressionList(ctx *ExpressionListContext) interface{} {
 	return v.VisitChildren(ctx)
 }

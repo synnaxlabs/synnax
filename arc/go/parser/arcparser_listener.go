@@ -238,6 +238,9 @@ type ArcParserListener interface {
 	// EnterSeriesLiteral is called when entering the seriesLiteral production.
 	EnterSeriesLiteral(c *SeriesLiteralContext)
 
+	// EnterBooleanLiteral is called when entering the booleanLiteral production.
+	EnterBooleanLiteral(c *BooleanLiteralContext)
+
 	// EnterExpressionList is called when entering the expressionList production.
 	EnterExpressionList(c *ExpressionListContext)
 
@@ -471,6 +474,9 @@ type ArcParserListener interface {
 
 	// ExitSeriesLiteral is called when exiting the seriesLiteral production.
 	ExitSeriesLiteral(c *SeriesLiteralContext)
+
+	// ExitBooleanLiteral is called when exiting the booleanLiteral production.
+	ExitBooleanLiteral(c *BooleanLiteralContext)
 
 	// ExitExpressionList is called when exiting the expressionList production.
 	ExitExpressionList(c *ExpressionListContext)

@@ -136,28 +136,26 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
 	if len(funcCalls) > 0 && funcName != "" {
-		if funcName != "true" && funcName != "false" {
-			// len(), series.len(), and string.len() are language-level builtins
-			// that require compiler dispatch rather than normal function resolution.
-			// len() is polymorphic, dispatching to series.len or string.len based
-			// on argument type. The qualified forms restrict to a specific type.
-			if funcName == "len" || funcName == "series.len" || funcName == "string.len" {
-				return compileBuiltinLen(ctx, funcCalls[0], funcName)
-			}
+		// len(), series.len(), and string.len() are language-level builtins
+		// that require compiler dispatch rather than normal function resolution.
+		// len() is polymorphic, dispatching to series.len or string.len based
+		// on argument type. The qualified forms restrict to a specific type.
+		if funcName == "len" || funcName == "series.len" || funcName == "string.len" {
+			return compileBuiltinLen(ctx, funcCalls[0], funcName)
+		}
 
-			scope, err := ctx.Scope.Resolve(ctx, head)
-			if err == nil && tail != "" {
-				scope, err = scope.Resolve(ctx, tail)
+		scope, err := ctx.Scope.Resolve(ctx, head)
+		if err == nil && tail != "" {
+			scope, err = scope.Resolve(ctx, tail)
+		}
+		if err == nil && scope.Kind == symbol.KindFunction {
+			if scope.Exec == symbol.ExecFlow {
+				return types.Type{}, errors.Newf(
+					"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
+					funcName, funcName,
+				)
 			}
-			if err == nil && scope.Kind == symbol.KindFunction {
-				if scope.Exec == symbol.ExecFlow {
-					return types.Type{}, errors.Newf(
-						"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
-						funcName, funcName,
-					)
-				}
-				return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
-			}
+			return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
 		}
 	}
 
@@ -332,16 +330,7 @@ func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (type
 		return compileIdentifier(ctx, head, tail)
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		text := id.GetText()
-		if text == "true" {
-			ctx.Writer.WriteI32Const(1)
-			return types.U8(), nil
-		}
-		if text == "false" {
-			ctx.Writer.WriteI32Const(0)
-			return types.U8(), nil
-		}
-		return compileIdentifier(ctx, text, "")
+		return compileIdentifier(ctx, id.GetText(), "")
 	}
 	if ctx.AST.LPAREN() != nil && ctx.AST.Expression() != nil {
 		return Compile(context.Child(ctx, ctx.AST.Expression()))
@@ -402,6 +391,16 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 			return errors.Newf("unexpected default value type %T for f64", defaultVal)
 		}
 		ctx.Writer.WriteF64Const(v)
+	case types.KindBool:
+		v, ok := defaultVal.(bool)
+		if !ok {
+			return errors.Newf("unexpected default value type %T for bool", defaultVal)
+		}
+		if v {
+			ctx.Writer.WriteI32Const(1)
+		} else {
+			ctx.Writer.WriteI32Const(0)
+		}
 	case types.KindString:
 		str, ok := defaultVal.(string)
 		if !ok {
