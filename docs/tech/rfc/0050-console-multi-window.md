@@ -7,7 +7,7 @@
 
 The panel refactor left the Console with working multi-window plumbing and no way to
 reach it: secondary windows rendered a viewport shell, per-window session state existed,
-and window arrangement persisted per project through the drift partition (RFC 0048), but
+and window arrangement persisted per project through the Drift partition (RFC 0048), but
 nothing in the UI created a window. This RFC restores window creation and tab movement
 on top of panels. A window is an unbound viewport: it carries its own panel selector
 strip and can show any panel in the project, including one another window is already
@@ -178,7 +178,7 @@ drift slice already persisted in the project scope.
 
 Landed with the SY-4511 panel UX batch: the aux shell, `Panel.useOpenWindow` and the
 five creation surfaces, the tab and pill haul payloads, the cross-panel move in the
-pluto panel mosaic's drop handler, the tear-off interceptor, window titles and ordinals,
+Pluto panel mosaic's drop handler, the tear-off interceptor, window titles and ordinals,
 and specs covering the cross-panel drag payload and drop semantics, the open-window
 hook, and the move-to-new-window menu flow.
 
@@ -209,7 +209,7 @@ hook, and the move-to-new-window menu flow.
    for preventing something the user may legitimately want.
 3. **Tear-off mints a project panel.** Rejected: an overlay-focused window on the source
    panel, minting nothing. The tab would keep living in its original panel and render in
-   both windows (two renderers, two aether workers, doubled telemetry for one plot), and
+   both windows (two renderers, two Aether workers, doubled telemetry for one plot), and
    a "move" that leaves the tab where it was is not a move. The trade is real: idle
    tear-offs leave pills in a shared strip that teammates see.
 4. **A cross-window drop moves the tab**, mutating the source panel for everyone

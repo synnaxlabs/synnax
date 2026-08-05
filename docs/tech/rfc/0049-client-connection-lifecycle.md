@@ -291,7 +291,7 @@ genuinely is per-pipe.
 
 Died with the rewire: the optimistic "connecting" pseudo-state and its variant map,
 `Flux.Provider` on both threads (its only job was the `ensureStreaming` poke), the
-`allowDisconnected` opt-in and the null-client guards it threaded through flux, and the
+`allowDisconnected` opt-in and the null-client guards it threaded through Flux, and the
 active-probe connection-state query. `useCheckConnection` remains for pre-connection
 surfaces that poll `connection.check`.
 
@@ -322,7 +322,7 @@ no separate banner exists. Reconciliation on recovery never re-suspends views.
 
 ## 6 Implementation
 
-The client lifecycle and pluto rewire landed on the SY-4493 branch chain; the Console
+The client lifecycle and Pluto rewire landed on the SY-4493 branch chain; the Console
 regimes and settled gate landed with the session-state program (SY-4493) and the panel
 UX batch (SY-4511). The connection package is two modules: `status.ts` (data plus the
 pure reducer) and `client.ts` (the one class). Specs cover the reducer table, the
@@ -377,9 +377,9 @@ and replace them.
    are wrong for hardware-adjacent state: a mutation composed against a pre-gap world
    must not fire into a post-gap one unattended. The trade: users retry failed writes
    manually.
-10. **Connection-aware flux, rejected.** Flux consulting the status before fetching
+10. **Connection-aware Flux, rejected.** Flux consulting the status before fetching
     duplicates a decision the client already makes and spreads connection logic across
-    layers. The client short-circuits instead; flux stays blind.
+    layers. The client short-circuits instead; Flux stays blind.
 11. **Split lifecycle objects, built then rejected.** The first implementation split the
     work across a probe loop, a probe transport, and orchestration glue in `Synnax`,
     coordinating through callbacks and a mode setter. The seams were the bug surface: a

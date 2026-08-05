@@ -242,10 +242,10 @@ pnpm install
 
 ### 6.2 Build the Pluto component library
 
-We use [Turborepo](https://turbo.build/repo) to build our various typescript projects.
+We use [Turborepo](https://turbo.build/repo) to build our various TypeScript projects.
 It has great monorepo support, and intelligently caches builds to speed up to
-development. AS a test to make sure the build system is working, we'll build the Synnax
-component library, [pluto](../../pluto) by running
+development. As a test to make sure the build system is working, we'll build the Synnax
+component library, [Pluto](../../pluto) by running
 
 ```zsh
 pnpm build:pluto
@@ -266,7 +266,7 @@ You can now view the Pluto dev server in storybook format at http://localhost:60
 ## 7 Rust
 
 We use [Rust](https://www.rust-lang.org/) for the backend of our user interface built
-using [tauri](https://tauri.app/). To install Rust, run
+using [Tauri](https://tauri.app/). To install Rust, run
 
 ```zsh
 brew install rust

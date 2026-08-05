@@ -10,7 +10,7 @@ Synnax uses **Python 3.12 or greater**, although we highly recommend always usin
 Synnax is organized as a monorepo. Our Python-based software consists of the following
 packages:
 
-- `alamos` - path `alamos/py` - A library for instrumenting python code with logs,
+- `alamos` - path `alamos/py` - A library for instrumenting Python code with logs,
   traces, and metrics.
 - `synnax-freighter` - path `freighter/py` - A transport adapter protocol for
   communicating with the Synnax server.

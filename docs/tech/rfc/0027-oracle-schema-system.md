@@ -1304,7 +1304,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 **Deliverable**: `types.gen.ts`
 
-#### 8.2.1 zod plugin (existing)
+#### 8.2.1 Zod plugin (existing)
 
 1. Already implemented
 2. Generates Zod validation schemas

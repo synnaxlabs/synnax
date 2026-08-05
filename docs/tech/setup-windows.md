@@ -169,7 +169,7 @@ pnpm install
 
 ### 5.3 Build the Pluto component library
 
-We use [Turborepo](https://turbo.build/repo) to build our various typescript projects.
+We use [Turborepo](https://turbo.build/repo) to build our various TypeScript projects.
 It has great monorepo support, and intelligently caches builds to speed up development.
 As a test to make sure the build system is working, we'll build the Synnax component
 library, [Pluto](../../pluto) by running

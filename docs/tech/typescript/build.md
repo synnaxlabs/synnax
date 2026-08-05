@@ -77,9 +77,9 @@ depends on `@synnaxlabs/pluto` and `@synnaxlabs/pluto` depends on `@synnaxlabs/x
    downstream dependency.
 
 Luckily, we don't need to worry about which dependencies need to be built and in what
-order. Instead, we use a tool called [turbo repo](https://turbo.fyi/). Turbo repo (or
-just "turbo") is a tool designed to build monorepos. When we edit a file in an upstream
-dependency, then build a downstream dependency, turbo will automatically detect that the
+order. Instead, we use a tool called [Turborepo](https://turbo.fyi/). Turborepo (or just
+"Turbo") is a tool designed to build monorepos. When we edit a file in an upstream
+dependency, then build a downstream dependency, Turbo will automatically detect that the
 upstream dependency has changed and rebuild it before building the downstream
 dependency. This is a huge time saver.
 
@@ -109,7 +109,7 @@ these applications for us.
 
 ## 4 Important caveats - running tests and development servers
 
-While turbo is great for managing all of our build tooling, it's not designed for
+While Turbo is great for managing all of our build tooling, it's not designed for
 running tests or development servers. In those situations, we need to make sure we
 manually build dependencies whose changes we want reflected in our tests or development
 servers.
@@ -136,8 +136,8 @@ dependencies whose changes we want reflected in our tests.
 ## 5 Vite
 
 There's one more very important, yet less seen and/or modified tool we use to build
-Synnax front end software: [vite](https://vitejs.dev/). Vite is the underlying engine
-that turbo uses to build our packages. You'll never need to run vite directly, but it's
+Synnax front end software: [Vite](https://vitejs.dev/). Vite is the underlying engine
+that Turbo uses to build our packages. You'll never need to run Vite directly, but it's
 important to know that it's there.
 
 ## 6 Generating libraries with multiple entrypoints

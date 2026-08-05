@@ -22,7 +22,7 @@ This RFC settles that question:
    a color that follows the theme, is just a nullable field the consumer fills in.
 3. Defaults are filled the same way everywhere: take a baseline and overlay what the
    caller actually sent. This needs no record of which fields were present, which
-   matters because protobuf and the ORC codec cannot provide it.
+   matters because Protobuf and the ORC codec cannot provide it.
 4. A build-time rule guarantees that filling defaults this way is always safe.
 5. The create type `New` is derived from the base type, switched on by one `@create`
    marker. An `@output` marker hides the fields only the server may set.
@@ -134,14 +134,14 @@ Wherever a default is filled, it works the same: start from a baseline that alre
 holds the defaults, then overlay whatever the caller supplied. Because we only set the
 fields the caller gave us, we never need to ask whether a field was missing or merely
 zero. That question never comes up, which is what lets the same approach work for every
-format, including protobuf and ORC, neither of which can say whether a scalar was on the
+format, including Protobuf and ORC, neither of which can say whether a scalar was on the
 wire.
 
 Each language expresses the baseline naturally:
 
 | Language           | How defaults apply                                                                                                                                                      |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TypeScript, Python | zod's `parse` and pydantic fill omitted fields.                                                                                                                         |
+| TypeScript, Python | Zod's `parse` and pydantic fill omitted fields.                                                                                                                         |
 | Go                 | a generated `ApplyDefaults` fills any field still at its zero value, walking into nested structs. Go needs this because a zeroed struct carries no defaults on its own. |
 | C++                | defaults live in the struct as member initializers, so a default-constructed value already holds them; decoding overlays the present fields.                            |
 

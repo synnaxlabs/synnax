@@ -289,7 +289,7 @@ is ever needed.
 
 ## 8 What this RFC does not cover
 
-- TypeScript, Python, C++, and protobuf outputs: the `versions/vN` layout is Go-only
+- TypeScript, Python, C++, and Protobuf outputs: the `versions/vN` layout is Go-only
   (RFC 0042 §4.3), and this RFC changes nothing outside the Go generator.
 - Snapshot cadence, `oracle snapshot`/`oracle migrate` CLI behavior, and the bump
   discipline in `detectBumps` — all unchanged.

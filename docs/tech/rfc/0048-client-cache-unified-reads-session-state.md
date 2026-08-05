@@ -10,7 +10,7 @@ client-side. Session state is owned by each Console instance in Redux. The two d
 apart routinely, and the read path connecting them had fragmented across three read
 substrates and two selector systems. This RFC restructures the seam:
 
-1. Caching and invalidation move out of flux (pluto) into `client/ts` as the `query`
+1. Caching and invalidation move out of Flux (Pluto) into `client/ts` as the `query`
    package. The client owns one cache with change-stream invalidation, connection-epoch
    reconciliation, first-class deletion states, and optimistic write-through. Every
    client consumer inherits it.
@@ -32,7 +32,7 @@ on reconnect, so a delete missed in a gap left a live-looking document forever. 
 repair was hand-wired per domain, and persisted session state reloaded stale keys
 unreconciled.
 
-The read path was fragmented in the same way. Reads flowed through flux stores, listener
+The read path was fragmented in the same way. Reads flowed through Flux stores, listener
 wiring repeated across ~25 queries files, and a selector system with no lifecycle
 returned undefined on an unfetched record unless a parent pre-warmed the cache. Dozens
 of event callbacks skipped the cache with direct network retrieves.
@@ -94,7 +94,7 @@ follow that consensus: the cache stays below the framework, and the binding subs
 - **`client/ts`** owns tables, spaces, freshness rules, change-stream subscription,
   epochs and reconciliation, tombstones, optimism, and undo. It never touches React or
   Redux.
-- **flux (pluto)** owns the React subscription bindings, `Result` mutation
+- **Flux (Pluto)** owns the React subscription bindings, `Result` mutation
   orchestration, forms, and lists. It never caches, invalidates, or runs query
   lifecycle.
 - **`console/src/session/`** owns the Redux slices, the reducers holding repair policy,
@@ -215,7 +215,7 @@ Caching is the transparent default, decided once at the construction boundary.
 `cache: false` yields a detached cache: retrieves go straight to the network and no
 stream opens.
 
-### 5.5 The flux binding
+### 5.5 The Flux binding
 
 Flux holds no cache. `createRetrieve` takes
 `{ name, retrieve, subscribe?, getCached?, deriveCached? }`, where `subscribe` and
@@ -342,7 +342,7 @@ boundary stayed green:
 2. **The 21-domain rebind**: every domain client onto `query.Retriever`, declarations
    replacing hand-written listener closures, derived tables for the composing domains.
 3. **The connection lifecycle** (RFC 0049), whose epochs the reconciliation rides.
-4. **The flux cutover**: flux stores, streamer adapter, and query lifecycle deleted;
+4. **The Flux cutover**: Flux stores, streamer adapter, and query lifecycle deleted;
    both read idioms rebased on the domain read surface; typed deletion and disconnection
    errors.
 5. **Session robustness**: synchronizers and the settled gate, tombstone and restore UX,
@@ -389,7 +389,7 @@ program once the session program has soaked.
    The cost is that existing scripts gain a background stream unless they opt out, and
    cached reads during a gap can be briefly stale.
 7. **Moving the cache without moving the responsibility, rejected mid-review.** The
-   first cut relocated stores into `client/ts` but left the query lifecycle in flux,
+   first cut relocated stores into `client/ts` but left the query lifecycle in Flux,
    leaking store getters and cache internals. The domain client owns the lifecycle end
    to end.
 8. **Domain-global `onChange`, rejected as the primitive.** Which changes affect a query
@@ -414,8 +414,8 @@ program once the session program has soaked.
 15. **Pure-data reconciler declarations, amended.** A declarative keys-to-resource map
     was proposed; per-domain synchronizer hooks on a shared factory won, so a forgotten
     wire stays a structural failure.
-16. **A pluto-visible dispatch seam, rejected.** Undo stacks and coalescing live in the
-    client's actions controller; flux only subscribes.
+16. **A Pluto-visible dispatch seam, rejected.** Undo stacks and coalescing live in the
+    client's actions controller; Flux only subscribes.
 
 ## 9 Open questions
 
