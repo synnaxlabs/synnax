@@ -2,7 +2,7 @@
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-04-13
-- **Related**: [RFC 0008 - Cesium Columnar Storage](0008-cesium-columnar.md)
+- **Related**: [RFC 0008 - Columnar storage for irregular data](0008-cesium-columnar.md)
 
 ## 0 Summary
 

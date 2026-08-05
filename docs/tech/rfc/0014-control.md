@@ -100,3 +100,9 @@ resulting in the eventual overlap shown in shaded red:
 
 We'll discuss a few solutions to this problem, all of which have their benefits and
 drawbacks.
+
+#### 4.1.0 Introducing a storage-layer mutexed write buffer/streaming cache
+
+#### 4.1.1 Closing unauthorized writers on transfer
+
+#### 4.1.2 Transferring ownership of the domain

@@ -2,7 +2,7 @@
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-07-13
-- **Related**: [RFC 0042 - Core Structure Refactor](0042-core-structure-refactor.md),
+- **Related**: [RFC 0042 - Core structure refactor](0042-core-structure-refactor.md),
   [SY-4456 - Serve Core on Multiple Ports with Unique Certs](https://linear.app/synnax/issue/SY-4456)
 
 ## 0 Summary

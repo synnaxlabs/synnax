@@ -225,10 +225,6 @@ at most), and it will be rare to query or list more tasks than a driver contains
 is almost always less than 10). This is a two-way decision whose interface does not
 affect the end user, so we can always move the config to its own struct if necessary.
 
-### 0.7 Working notes
-
-#### 0.7.0 How do we communicate task configuration and runtime errors?
-
 ## 1 Build system and CI
 
 Perhaps the most challenging part of implementing a driver that can deal with devices

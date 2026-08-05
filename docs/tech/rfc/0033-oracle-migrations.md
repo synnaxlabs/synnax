@@ -566,8 +566,8 @@ current `.oracle` files against the latest snapshot. If they differ and no new m
 has been generated, CI fails. Legacy types are regenerated from the snapshot by
 re-running Oracle's parser on the old `.oracle` source.
 
-This approach is human-readable, git-diffable, and uses Oracle's own source format as
-the authoritative record. Storage is cheap (<200 KB per snapshot). Developers can
+This approach is human-readable, Git-diffable, and uses Oracle's own source format as
+the authoritative record. Storage is cheap (<200 kB per snapshot). Developers can
 inspect snapshots directly to understand what changed between migration versions.
 
 For the first migration (codec transition): no previous snapshot needed. The old schema
@@ -1132,7 +1132,7 @@ Branch `sy-3816-oracle-migrations`.
 - Signal publishers migrated to codec-aware observables
 - All core tests pass
 
-#### 8.0.3 Phase 3: Codec transition
+#### 8.0.3 Phase 3: codec transition
 
 The ORC fallback codec makes explicit codec transition migrations unnecessary for the
 initial msgpack-to-binary switch. Types that implement `SelfEncoder`/`SelfDecoder`
@@ -1153,16 +1153,16 @@ Branch `sy-3824-oracle-auto-migration-plugin`.
 
 ### 8.1 Remaining work
 
-#### 8.1.0 Phase 5: Schema snapshots and CI check
+#### 8.1.0 Phase 5: schema snapshots and CI check
 
 Implement schema snapshot storage and `oracle migrate check` for CI enforcement.
 
-#### 8.1.1 Phase 6: Schema diff engine
+#### 8.1.1 Phase 6: schema diff engine
 
 Build the schema diff engine that compares two `resolution.Table`s field-by-field and
 generates skeleton mode and propagation mode migrations.
 
-#### 8.1.2 Phase 7: Test infrastructure
+#### 8.1.2 Phase 7: test infrastructure
 
 Build migration test helpers. Can start anytime after Phase 1.
 
@@ -1184,7 +1184,7 @@ Build migration test helpers. Can start anytime after Phase 1.
 | 12  | Implicit cross-type ordering via service startup | Service dependency order handles it.                                          |
 | 13  | Single transaction, no batching                  | Metadata volumes are small. Simple and correct.                               |
 | 14  | Migrations sub-package, self-contained           | Never imports parent. Each version has own codec.                             |
-| 15  | Snapshot: full .oracle file copy per migration   | Human-readable, git-diffable, cheap storage.                                  |
+| 15  | Snapshot: full .oracle file copy per migration   | Human-readable, Git-diffable, cheap storage.                                  |
 | 16  | DB-level codec, not per-service                  | Single WithCodec call. ORC dispatch eliminates per-service wiring.            |
 | 17  | Direct binary encoding over protobuf             | Eliminates ToPB/FromPB layer. pb/ retained for transport.                     |
 | 18  | encoding.Codec as universal interface            | Platform-wide. No Gorp-specific abstraction.                                  |

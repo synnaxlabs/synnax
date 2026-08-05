@@ -36,6 +36,7 @@ import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
+import { stringValue } from "@/vis/stringValue/aether";
 import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
 
@@ -71,6 +72,7 @@ export const render = (): void => {
     ...setpoint.REGISTRY,
     ...stateIndicator.REGISTRY,
     ...status.REGISTRY,
+    ...stringValue.REGISTRY,
     ...synnax.REGISTRY,
     ...telem.createRegistry((client) => new LogFactory(client)),
     ...theming.REGISTRY,

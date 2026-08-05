@@ -2,9 +2,10 @@
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-06-15
-- **Related**: [RFC 0027](0027-oracle-schema-system.md),
-  [RFC 0033](0033-oracle-migrations.md), [RFC 0041](0041-action-based-undo-redo.md),
-  [RFC 0043](0043-oracle-struct-unions.md)
+- **Related**: [RFC 0027 - Oracle schema system](0027-oracle-schema-system.md),
+  [RFC 0033 - Oracle migration system](0033-oracle-migrations.md),
+  [RFC 0041 - Action-based undo and redo](0041-action-based-undo-redo.md),
+  [RFC 0043 - Oracle support for struct unions](0043-oracle-struct-unions.md)
 
 ## 0 Summary
 

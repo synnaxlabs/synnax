@@ -2,9 +2,9 @@
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-07-27
-- **Related**: [RFC 0033](0033-oracle-migrations.md),
-  [RFC 0042](0042-core-structure-refactor.md),
-  [RFC 0044](0044-oracle-optionality-defaults-mutation.md)
+- **Related**: [RFC 0033 - Oracle migration system](0033-oracle-migrations.md),
+  [RFC 0042 - Core structure refactor](0042-core-structure-refactor.md),
+  [RFC 0044 - Oracle optionality, defaults, and input/output types](0044-oracle-optionality-defaults-mutation.md)
 
 ## 0 Summary
 
@@ -232,27 +232,27 @@ source-level.
 
 ## 6 Resolved decisions
 
-**6.0 — Backward aliasing (new → old), not forward materialization.** The alternative
-kept definitions in the current package and materialized frozen copies into historical
+**6.0 Backward aliasing (new → old), not forward materialization.** The alternative kept
+definitions in the current package and materialized frozen copies into historical
 packages at divergence time. Rejected: it rewrites history on every divergence,
 contradicting the frozen-snapshot principle, and the current packages churn anyway. The
 trade is real: under backward aliasing, a type's definition and methods stay in the
 version folder where it last changed, so current packages become thin alias surfaces
 over definitions scattered by last-change time.
 
-**6.1 — Predecessor chain, not direct-to-definer.** `v2.T = v1.T` even when the definer
-is v0. Both compile to the identical type; the chain needs only the predecessor baseline
+**6.1 Predecessor chain, not direct-to-definer.** `v2.T = v1.T` even when the definer is
+v0. Both compile to the identical type; the chain needs only the predecessor baseline
 (what `plugin.Request` carries), keeps each package to one version import, and makes a
 bump's diff read as the delta against its predecessor. The trade: a human reading
 `v4/types.gen.go` may hop files to reach a struct body — mitigated by gopls and by
 grepping for the definition.
 
-**6.2 — Existing full-copy history is grandfathered.** Frozen full-copy directories stay
+**6.2 Existing full-copy history is grandfathered.** Frozen full-copy directories stay
 as they are; an alias-form current version chains into them exactly as it would into
 alias-form history. Rewriting history for uniformity was rejected as pure churn against
 immutable packages.
 
-**6.2a — Frozen-source baseline over transcribed or annotated history.** Two retrofit
+**6.2a Frozen-source baseline over transcribed or annotated history.** Two retrofit
 alternatives were rejected: transcribing the pre-versioning snapshots into current
 grammar (hand-authoring ~30 schemas of history, and the frozen snapshots are frozen),
 and a per-type `@go changed` annotation (relies on humans reconstructing which types
@@ -263,11 +263,11 @@ future generator-style change makes affected types fall back to definitions rath
 aliases — safe, but churny; the snapshot-declared baseline takes over from the first
 post-versioning snapshot onward.
 
-**6.3 — Migrations live in the incoming package for all paths.** The generator already
+**6.3 Migrations live in the incoming package for all paths.** The generator already
 scaffolds this way; the RFC ratifies it, and the retrofit moved the legacy
 reverse-direction files that would otherwise cycle (§4.3).
 
-**6.4 — Version directories become permanently pinned.** Full copies allowed, in
+**6.4 Version directories become permanently pinned.** Full copies allowed, in
 principle, deleting ancient version packages wholesale. The chain gives that up: every
 version is reachable from current through aliases. Accepted — nothing prunes these
 directories today, and a future compaction mechanism (§7) can restore the ability if it

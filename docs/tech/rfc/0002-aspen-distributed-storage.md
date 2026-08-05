@@ -344,8 +344,6 @@ process is as follows:
 
 ##### 3.2.2.3 Initiator propagates update (sync)
 
-The initiating node selects a random peer from layer 1.
-
 1. Select a random peer from layer 1, and send a sync message:
 
 ```go

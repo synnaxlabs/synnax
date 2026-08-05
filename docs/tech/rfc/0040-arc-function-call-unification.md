@@ -2,9 +2,9 @@
 
 - **Author**: Nico Alba
 - **Date**: 2026-05-13
-- **Related**: [RFC 0030 - Arc Module System](0030-arc-modules.md),
-  [RFC 0031 - Arc Scheduler Semantics](0031-arc-scheduler-semantics.md),
-  [RFC 0037 - Arc Status Module Updates](0037-arc-status-updates.md)
+- **Related**: [RFC 0030 - Arc module system](0030-arc-modules.md),
+  [RFC 0031 - Arc scheduler stage transition semantics](0031-arc-scheduler-semantics.md),
+  [RFC 0037 - Arc status module updates](0037-arc-status-updates.md)
 
 ## 0 Summary
 
@@ -1076,7 +1076,7 @@ into a real design decision, promote it into the relevant section above (or §8 
 work) and leave the note here as a record. Entry heading:
 `### 13.<n> <phase or date>: <short title>`.
 
-### 13.0 Phase 3: Brace/parens surface convention may invert
+### 13.0 Phase 3: brace/parens surface convention may invert
 
 Today a user-defined function's brace block holds the non-trigger inputs and the parens
 block holds the trigger (its first param is the edge-fed one):
@@ -1104,7 +1104,7 @@ This is surface syntax only. The unified `Inputs` list and explicit `Trigger` bi
 from this RFC are unaffected either way, which is exactly why the foundation was kept
 policy-free (see §8.0). Deferred; no decision yet.
 
-### 13.1 Phase 3: Grammar still uses "config" terminology
+### 13.1 Phase 3: grammar still uses "config" terminology
 
 Phase 1 removed the `Config` field from the type/IR model (Oracle schema). The ANTLR
 grammar, a separate generator, still names its productions `config`: the parser exposes
@@ -1156,7 +1156,7 @@ mechanical `Kind` collapse on a compiling tree lets the compiler and tests catch
 missed reader, whereas mid-stack on the broken-by-design tree there is no safety net.
 Independent of the grammar rename; neither blocks the other.
 
-### 13.3 Phase 5: Runtime inputs are addressed by name, retiring the config/input split
+### 13.3 Phase 5: runtime inputs are addressed by name, retiring the config/input split
 
 The plan scoped the runtime touch as a one-liner (`len(Config)` to `len(Inputs)`), but
 the merge broke more than that: the runtime read inputs by position and split params via

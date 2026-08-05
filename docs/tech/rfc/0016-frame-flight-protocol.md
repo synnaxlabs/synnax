@@ -18,7 +18,7 @@ at the receiver, and thus recreate the frame.
 - **Frame**: Data structure for wrapping primitive arrays with identifying metadata into
   aligned arrays that streamline the telemetry transfer process.
 - **Telemetry**: Data samples received from sensors and sent to actuators; typically
-  stored on Synnax server. More details available [here](../../../pluto).
+  stored on Synnax server. More details available [here](../telemetry.md).
 - **Series**: A strongly typed collection of telemetry samples over a time range. The
   fundamental unit of data transfer in Synnax server.
 

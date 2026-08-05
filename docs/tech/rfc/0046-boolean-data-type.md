@@ -2,8 +2,8 @@
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-04-16
-- **Related**: [RFC 0007 - Data Types](0007-data-type.md),
-  [RFC 0035 - Cesium Variable-Length Storage](0035-cesium-variable-length-storage.md)
+- **Related**: [RFC 0007 - Data types](0007-data-type.md),
+  [RFC 0035 - Cesium variable-length storage](0035-cesium-variable-length-storage.md)
 
 ## 0 Summary
 
@@ -191,7 +191,7 @@ only when the frame codec deserializes a `Series` off the wire. The `Series` typ
 does not grow a new marshaling contract.
 
 Network impact: a deployment with 1000 digital channels sampling at 1 kHz drops from 1
-MB/s to 125 KB/s of digital traffic before any further compression is applied.
+MB/s to 125 kB/s of digital traffic before any further compression is applied.
 
 ### 3.3 On disk: byte-packed
 

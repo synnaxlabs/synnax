@@ -238,7 +238,7 @@ midpoint of `(request_start + response_received) / 2` for that channel's index.
 
 - ✅ Direct/lossless conversion
 - ⚠️ Conversion possible but may warn (e.g., float→int truncation)
-- ❌ Error — conversion not supported
+- ❌ Error: conversion not supported
 
 **Notes on Read Conversions:**
 
@@ -424,7 +424,7 @@ fields have identical pointers within the same endpoint.
   - `"unix_us"`: Unix timestamp in microseconds
   - `"unix_ns"`: Unix timestamp in nanoseconds
 
-**Missing value behavior (`on_empty`) — Task-level property:**
+**Missing value behavior (`on_empty`), task-level property:**
 
 Controls what happens when channel fields haven't received a value:
 
@@ -434,7 +434,7 @@ Controls what happens when channel fields haven't received a value:
 - `"last"`: Use the last received value; if no value has ever been received, falls back
   to `on_initial`
 
-**Initial value behavior (`on_initial`) — Task-level property:**
+**Initial value behavior (`on_initial`), task-level property:**
 
 Only used when `on_empty: "last"` and no value has ever been received:
 
@@ -451,7 +451,7 @@ Only used when `on_empty: "last"` and no value has ever been received:
 **Legend:**
 
 - ✅ Direct/lossless conversion
-- ❌ Error — conversion not supported
+- ❌ Error: conversion not supported
 
 **Notes on Write Conversions:**
 
@@ -761,7 +761,7 @@ via libcurl multi).
 **Guidance:**
 
 - Request body construction (JSON Pointer set operations) should be fast since the body
-  is typically small (<1 KB).
+  is typically small (<1 kB).
 - Last-value caching (`on_empty: "last"`) should store converted JSON values, not raw
   Synnax samples, to avoid re-converting on every iteration.
 
@@ -1044,7 +1044,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - `client/py/examples/http/server.py`: Mock server for examples
 - `client/py/tests/test_http.py`: Device unit tests
 
-#### 10.1.3 PR 5: Documentation - get started
+#### 10.1.3 PR 5: documentation - get started
 
 **Scope:** HTTP driver overview and device connection docs
 
@@ -1081,7 +1081,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - `client/py/examples/http/read_task.py`: Read task example
 - Unit tests for read task configuration
 
-#### 10.2.3 PR 9: Integration tests - read task
+#### 10.2.3 PR 9: integration tests - read task
 
 **Scope:** End-to-end read task testing
 
@@ -1097,7 +1097,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
     unix_ns)
   - Configuration-time validation errors (incompatible types, duplicate channels)
 
-#### 10.2.4 PR 10: Documentation - read task
+#### 10.2.4 PR 10: documentation - read task
 
 **Scope:** Read task documentation
 
@@ -1135,7 +1135,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - `client/py/examples/http/write_task.py`: Write task example
 - Unit tests for write task configuration
 
-#### 10.3.3 PR 14: Integration tests - write task
+#### 10.3.3 PR 14: integration tests - write task
 
 **Scope:** End-to-end write task testing
 
@@ -1149,7 +1149,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
   - `on_initial` behavior (zero vs omit)
   - Configuration-time validation errors (incompatible types, duplicate pointers)
 
-#### 10.3.4 PR 15: Documentation - write task
+#### 10.3.4 PR 15: documentation - write task
 
 **Scope:** Write task documentation
 
@@ -1184,7 +1184,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - `client/py/examples/http/scan_task.py`: Scan task example
 - Unit tests for scan task configuration
 
-#### 10.4.3 PR 19: Integration tests - scan task
+#### 10.4.3 PR 19: integration tests - scan task
 
 **Scope:** End-to-end scan task testing
 
@@ -1193,7 +1193,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
   - Health checks with response validation
   - Device status updates on success/failure
 
-#### 10.4.4 PR 20: Documentation - scan task
+#### 10.4.4 PR 20: documentation - scan task
 
 **Scope:** Scan task documentation
 

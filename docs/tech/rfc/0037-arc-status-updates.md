@@ -2,7 +2,7 @@
 
 - **Author**: Nico Alba
 - **Date**: 2026-04-27
-- **Related**: [RFC 0030 - Arc Module System](0030-arc-modules.md)
+- **Related**: [RFC 0030 - Arc module system](0030-arc-modules.md)
 
 ## 0 Summary
 
