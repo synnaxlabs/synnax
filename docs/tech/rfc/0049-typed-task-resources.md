@@ -9,9 +9,9 @@
   [RFC 0039 - Server-side metadata import/export](./0039-server-side-import-export.md),
   [RFC 0042 - Core structure refactor](./0042-core-structure-refactor.md),
   [RFC 0043 - Oracle support for struct unions](./0043-oracle-struct-unions.md),
-  [RFC 0047 - Oracle predecessor-chain type
-  versioning](./0047-oracle-predecessor-chain-versioning.md), the task draft/deploy RFC
-  (PR #2595), and the superseded task/config split RFC (PR #2471).
+  [RFC 0047 - Oracle predecessor-chain type versioning](./0047-oracle-predecessor-chain-versioning.md),
+  the task draft/deploy RFC (PR #2595), and the superseded task/config split RFC (PR
+  #2471).
 
 ## 0 Summary
 
