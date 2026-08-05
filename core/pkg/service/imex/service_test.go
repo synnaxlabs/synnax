@@ -196,6 +196,14 @@ func (n noopExporter) Export(context.Context, ontology.ID) (imex.Envelope, error
 	return env, nil
 }
 
+// newParent defines a fresh project resource in the ontology and returns its ID so
+// imports satisfy the registry's required-parent check.
+func newParent(ctx context.Context) ontology.ID {
+	id := project.OntologyID(uuid.New())
+	Expect(otg.NewWriter(nil).DefineResources(ctx, id)).To(Succeed())
+	return id
+}
+
 var _ = Describe("Service", func() {
 	var (
 		svc *imex.Service
@@ -295,7 +303,7 @@ var _ = Describe("Service", func() {
 				})
 				id := MustSucceed(s.Import(
 					ctx, db, typelessEnvelope(`{"version":"1.0.0","channels":[]}`),
-					imex.ImportOptions{FileName: "Legacy.json"},
+					imex.ImportOptions{FileName: "Legacy.json", Parent: newParent(ctx)},
 				))
 				Expect(id).To(Equal(ontology.ID{
 					Type: ontology.ResourceTypeLog, Key: "noop-key",
@@ -331,12 +339,12 @@ var _ = Describe("Service", func() {
 				k1 := MustSucceed(s.Import(
 					ctx, db,
 					imex.Envelope{Version: 1, Type: "http_read", Name: "ingest"},
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: newParent(ctx)},
 				))
 				k2 := MustSucceed(s.Import(
 					ctx, db,
 					imex.Envelope{Version: 1, Type: "opc_scan", Name: "scan"},
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: newParent(ctx)},
 				))
 				Expect(
 					k1,
@@ -369,7 +377,7 @@ var _ = Describe("Service", func() {
 					ctx,
 					db,
 					sampleEnvelope("Registry Test", ontology.ResourceTypeChannel),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: newParent(ctx)},
 				))
 				Expect(id.Type).To(Equal(ontology.ResourceTypeChannel))
 				Expect(id.Key).NotTo(BeEmpty())
@@ -383,7 +391,7 @@ var _ = Describe("Service", func() {
 				Name:    "Bad Type",
 			}
 			Expect(
-				svc.Import(ctx, db, env, imex.ImportOptions{}),
+				svc.Import(ctx, db, env, imex.ImportOptions{Parent: newParent(ctx)}),
 			).Error().
 				To(SatisfyAll(
 					MatchError(ContainSubstring("no importer registered")),
@@ -395,7 +403,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				Expect(svc.Import(
 					ctx, db, sampleEnvelope("Erroring", ontology.ResourceTypeDevice),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: newParent(ctx)},
 				)).Error().To(MatchError(ContainSubstring("importer error: forced failure")))
 			},
 		)
@@ -413,7 +421,7 @@ var _ = Describe("Service", func() {
 						ctx,
 						tx,
 						sampleEnvelope("Good Record", ontology.ResourceTypeChannel),
-						imex.ImportOptions{},
+						imex.ImportOptions{Parent: newParent(ctx)},
 					); err != nil {
 						return err
 					}
@@ -421,7 +429,7 @@ var _ = Describe("Service", func() {
 						Version: testVersion,
 						Type:    "nonexistent",
 						Name:    "Bad Type",
-					}, imex.ImportOptions{})
+					}, imex.ImportOptions{Parent: newParent(ctx)})
 					return err
 				})
 				Expect(err).To(MatchError(ContainSubstring("no importer registered")))
@@ -449,8 +457,13 @@ var _ = Describe("Service", func() {
 				"Should fall back to the file name without its extension when the envelope has no name",
 				func(ctx SpecContext) {
 					id := MustSucceed(svc.Import(
-						ctx, db, namelessEnvelope(),
-						imex.ImportOptions{FileName: "Metrics Log.json"},
+						ctx,
+						db,
+						namelessEnvelope(),
+						imex.ImportOptions{
+							FileName: "Metrics Log.json",
+							Parent:   newParent(ctx),
+						},
 					))
 					Expect(id.Key).NotTo(BeEmpty())
 					entry := MustSucceed(ts.Retrieve(ctx, "Metrics Log"))
@@ -465,7 +478,10 @@ var _ = Describe("Service", func() {
 						ctx,
 						db,
 						sampleEnvelope("Body Name", ontology.ResourceTypeChannel),
-						imex.ImportOptions{FileName: "File Name.json"},
+						imex.ImportOptions{
+							FileName: "File Name.json",
+							Parent:   newParent(ctx),
+						},
 					))
 					entry := MustSucceed(ts.Retrieve(ctx, "Body Name"))
 					Expect(entry.Key).To(Equal(id.Key))
@@ -476,7 +492,10 @@ var _ = Describe("Service", func() {
 				"Should reject an envelope with neither a name nor a file name",
 				func(ctx SpecContext) {
 					Expect(svc.Import(
-						ctx, db, namelessEnvelope(), imex.ImportOptions{},
+						ctx,
+						db,
+						namelessEnvelope(),
+						imex.ImportOptions{Parent: newParent(ctx)},
 					)).Error().To(SatisfyAll(
 						MatchError(ContainSubstring("name must be a non-empty string")),
 						MatchError(ContainSubstring("validation error")),
@@ -492,6 +511,17 @@ var _ = Describe("Service", func() {
 				Expect(otg.NewWriter(nil).DefineResources(
 					ctx, project.OntologyID(projectKey),
 				)).To(Succeed())
+			})
+
+			It("Should reject a zero parent", func(ctx SpecContext) {
+				Expect(svc.Import(
+					ctx, db,
+					sampleEnvelope("No Parent", ontology.ResourceTypeChannel),
+					imex.ImportOptions{},
+				)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("parent")),
+					MatchError(ContainSubstring("required")),
+				))
 			})
 
 			It(
@@ -537,7 +567,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				id := MustSucceed(svc.Import(
 					ctx, db, sampleEnvelope("Round Trip", ontology.ResourceTypeChannel),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: newParent(ctx)},
 				))
 				env := MustSucceed(svc.Export(ctx, id))
 				Expect(env.Version).To(Equal(testVersion))

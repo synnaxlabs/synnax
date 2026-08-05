@@ -119,15 +119,19 @@ func (s *Service) ResolveType(ctx context.Context, envelope Envelope) (string, e
 // first resolved through [Service.ResolveType]. The opts.FileName name fallback is
 // applied to the envelope before routing; opts is then handed to the importer untouched
 // — the importer owns all ontology writes, including attaching the resource under
-// opts.Parent. Returns a validation error scoped to the "type" field if no [Importer]
-// is registered for envelope.Type, and a validation error scoped to the "name" field if
-// the envelope has no name after the opts.FileName fallback is applied.
+// opts.Parent. Returns a validation error scoped to the "parent" field if opts.Parent
+// is zero, to the "type" field if no [Importer] is registered for envelope.Type, and
+// to the "name" field if the envelope has no name after the opts.FileName fallback is
+// applied.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	envelope Envelope,
 	opts ImportOptions,
 ) (ontology.ID, error) {
+	if opts.Parent.IsZero() {
+		return ontology.ID{}, validate.PathedError(validate.ErrRequired, "parent")
+	}
 	if envelope.Type == "" {
 		typ, err := s.ResolveType(ctx, envelope)
 		if err != nil {

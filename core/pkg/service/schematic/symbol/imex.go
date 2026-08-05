@@ -66,8 +66,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // Import decodes the envelope into a Symbol and persists it on tx, returning the
 // ontology.ID of the newly-created symbol. The exported key is discarded and a fresh
 // one is generated so that importing always materializes a new resource. Symbols are
-// parented into groups: a non-zero opts.Parent must be a group, and a zero parent
-// falls back to the service's permanent symbol group. Envelopes below versions.Latest
+// parented into groups: opts.Parent must be a group. Envelopes below versions.Latest
 // are Console-written camelCase files; an envelope newer than versions.Latest is
 // rejected with a path-scoped validation error.
 func (s *Service) Import(
@@ -76,14 +75,11 @@ func (s *Service) Import(
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	parent := opts.Parent
-	if parent.IsZero() {
-		parent = s.group.OntologyID()
-	} else if parent.Type != ontology.ResourceTypeGroup {
+	if opts.Parent.Type != ontology.ResourceTypeGroup {
 		return ontology.ID{}, validate.PathedError(
 			errors.Wrapf(
 				validate.ErrValidation,
-				"symbol parent must be a group, got %q", parent.Type,
+				"symbol parent must be a group, got %q", opts.Parent.Type,
 			),
 			"parent",
 		)
@@ -96,7 +92,7 @@ func (s *Service) Import(
 	// env.Name is the resolved resource name: the body's name when present, or the
 	// caller-supplied file name fallback applied by the imex service.
 	sym.Name = env.Name
-	if err = s.NewWriter(tx).Create(ctx, &sym, parent); err != nil {
+	if err = s.NewWriter(tx).Create(ctx, &sym, opts.Parent); err != nil {
 		return ontology.ID{}, err
 	}
 	return sym.OntologyID(), nil

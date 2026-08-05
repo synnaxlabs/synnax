@@ -82,7 +82,10 @@ var _ = Describe("ImEx", func() {
 		// DB's symbol counts stay intact for the other specs.
 		importAndRetrieve := func(ctx SpecContext, path string) symbol.Symbol {
 			id := MustSucceed(imexSvc.Import(
-				ctx, tx, loadEnvelope(path), imex.ImportOptions{},
+				ctx,
+				tx,
+				loadEnvelope(path),
+				imex.ImportOptions{Parent: svc.Group().OntologyID()},
 			))
 			Expect(id.Type).To(Equal(ontology.ResourceTypeSchematicSymbol))
 			key := MustSucceed(uuid.Parse(id.Key))
@@ -130,21 +133,16 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
-		It(
-			"Should parent the imported symbol under the permanent symbol group by default",
-			func(ctx SpecContext) {
-				id := MustSucceed(imexSvc.Import(
-					ctx, tx,
-					loadEnvelope("versions/testdata/import_v2.json"),
-					imex.ImportOptions{},
-				))
-				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-					From: svc.Group().OntologyID(),
-					Type: ontology.RelationshipTypeParentOf,
-					To:   id,
-				})).To(BeTrue())
-			},
-		)
+		It("Should reject a zero parent", func(ctx SpecContext) {
+			Expect(imexSvc.Import(
+				ctx, tx,
+				loadEnvelope("versions/testdata/import_v2.json"),
+				imex.ImportOptions{},
+			)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("parent")),
+				MatchError(ContainSubstring("required")),
+			))
+		})
 
 		It(
 			"Should parent the imported symbol under the given parent group",
@@ -180,7 +178,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, tx,
 					loadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: svc.Group().OntologyID()},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("schematic_symbol version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
@@ -197,7 +195,7 @@ var _ = Describe("ImEx", func() {
 					loadEnvelope(
 						"versions/testdata/import_v2.json",
 					),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: svc.Group().OntologyID()},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
@@ -223,7 +221,10 @@ var _ = Describe("ImEx", func() {
 				})
 				env := MustSucceed(svc.Export(ctx, symbol.OntologyID(original.Key)))
 				id := MustSucceed(imexSvc.Import(
-					ctx, tx, WireRoundTrip(env), imex.ImportOptions{},
+					ctx,
+					tx,
+					WireRoundTrip(env),
+					imex.ImportOptions{Parent: svc.Group().OntologyID()},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))

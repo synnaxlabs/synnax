@@ -404,9 +404,9 @@ type ImportOptions struct {
 	// fallback is applied by the registry before the envelope reaches an Importer.
 	FileName string
 	// Parent is the ontology resource to create the imported resource under — a
-	// project for workspace items, a group for symbols. The registry passes it through
-	// untouched: each Importer decides how (and whether) a parent applies to its
-	// resource type. A zero Parent means no parent was requested.
+	// project for workspace items, a group for symbols. Required: Service.Import
+	// rejects a zero Parent. The registry passes it through untouched; each Importer
+	// decides how the parent applies to its resource type.
 	Parent ontology.ID
 }
 

@@ -60,8 +60,8 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // ontology.ID of the newly-created log. The exported key is discarded and a fresh one
 // is generated so that importing always materializes a new resource rather than
 // overwriting an existing log with a colliding key. Logs are project children, so
-// opts.Parent is
-// required and must be a project; the log is then created within it exactly
+// opts.Parent
+// must be a project; the log is then created within it exactly
 // as a regular create would be. Envelopes older than versions.Latest are legacy
 // camelCase Console exports and are lifted forward through the migration chain; an
 // envelope newer than versions.Latest is rejected with a path-scoped validation
@@ -72,9 +72,6 @@ func (s *Service) Import(
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	if opts.Parent.IsZero() {
-		return ontology.ID{}, validate.PathedError(validate.ErrRequired, "parent")
-	}
 	if opts.Parent.Type != ontology.ResourceTypeProject {
 		return ontology.ID{}, validate.PathedError(
 			errors.Wrapf(

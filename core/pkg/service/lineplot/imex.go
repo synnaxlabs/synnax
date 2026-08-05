@@ -65,7 +65,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // Import decodes the envelope into a LinePlot and persists it on tx, returning the
 // ontology.ID of the newly-created line plot. The exported key is discarded and a
 // fresh one is generated so that importing always materializes a new resource. Line
-// plots are project children, so opts.Parent is required and must be a project; the
+// plots are project children, so opts.Parent must be a project; the
 // plot
 // is then created within it exactly as a regular create would be. Envelopes older
 // than versions.Latest are Console-era files — camelCase typed exports or Console
@@ -77,9 +77,6 @@ func (s *Service) Import(
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	if opts.Parent.IsZero() {
-		return ontology.ID{}, validate.PathedError(validate.ErrRequired, "parent")
-	}
 	if opts.Parent.Type != ontology.ResourceTypeProject {
 		return ontology.ID{}, validate.PathedError(
 			errors.Wrapf(
