@@ -1506,6 +1506,23 @@ describe("createSelector", () => {
     expect(handler).toBeDefined();
   });
 
+  it("passes selector-only query fields through to the projection", () => {
+    const harness = createHarness({ name: "alpha,beta", value: 1 });
+    const usePart = harness.createSelector<string, { key: string; index: number }>(
+      (data, { index }) => data.name.split(",")[index],
+    );
+    const { result, rerender } = renderHook(
+      ({ index }) => usePart({ key: "a", index }),
+      {
+        wrapper: Wrapper,
+        initialProps: { index: 0 },
+      },
+    );
+    expect(result.current).toEqual("alpha");
+    rerender({ index: 1 });
+    expect(result.current).toEqual("beta");
+  });
+
   it("refuses to mint when the definition has no cache read", () => {
     const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",

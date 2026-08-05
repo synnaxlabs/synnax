@@ -237,12 +237,16 @@ export interface UseSelect<Query extends query.Params, Selected> {
   (query: Query): Selected;
 }
 
-/** Mints a {@link UseSelect} sharing the definition's cache wiring. */
+/**
+ * Mints a {@link UseSelect} sharing the definition's cache wiring. ExtendedQuery adds
+ * selector-only fields (a node key, a tab key) the select projection needs; the cache
+ * layer ignores them when addressing the record.
+ */
 export interface CreateSelector<Query extends query.Params, Data extends query.Data> {
-  <Selected>(
-    select: (data: Data, query: Query) => Selected,
+  <Selected, ExtendedQuery extends Query = Query>(
+    select: (data: Data, query: ExtendedQuery) => Selected,
     equal?: (a: Selected, b: Selected) => boolean,
-  ): UseSelect<Query, Selected>;
+  ): UseSelect<ExtendedQuery, Selected>;
 }
 
 export interface CreateRetrieveReturn<
@@ -717,6 +721,7 @@ const createUseSelect = <
   Query extends query.Params,
   Data extends query.Data,
   Selected,
+  ExtendedQuery extends Query = Query,
 >(
   {
     name,
@@ -725,10 +730,10 @@ const createUseSelect = <
     equal,
   }: CreateRetrieveParams<Query, Data> &
     Required<Pick<CreateRetrieveParams<Query, Data>, "getCached">>,
-  select: (data: Data, query: Query) => Selected,
+  select: (data: Data, query: ExtendedQuery) => Selected,
   selectedEqual?: (a: Selected, b: Selected) => boolean,
-): UseSelect<Query, Selected> => {
-  const useSelect = (q: Query): Selected => {
+): UseSelect<ExtendedQuery, Selected> => {
+  const useSelect = (q: ExtendedQuery): Selected => {
     const memoQuery = useMemoDeepEqual(q);
     const client = Synnax.use();
     const held = useRef<{ query: Query; value: Data } | null>(null);
@@ -810,8 +815,8 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
     useEnsureRetrieved: (query: Query) => useEnsure({ ...createParams, query, locals }),
     useInvalidate: () => useInvalidate<Query, Data>(locals),
     useTombstone: (query: Query) => useTombstone({ ...createParams, query }),
-    createSelector: <Selected,>(
-      select: (data: Data, query: Query) => Selected,
+    createSelector: <Selected, ExtendedQuery extends Query = Query>(
+      select: (data: Data, query: ExtendedQuery) => Selected,
       equal?: (a: Selected, b: Selected) => boolean,
     ) => {
       const { getCached } = createParams;
