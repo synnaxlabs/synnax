@@ -206,51 +206,73 @@ class BaseStreamer implements Streamer {
  * logic when the connection is lost or errors occur.
  */
 export class HardenedStreamer implements Streamer {
-  private wrapped_: Streamer | null = null;
+  private current: Streamer | null = null;
   private readonly breaker: breaker.Breaker;
   private readonly opener: StreamOpener;
   private readonly config: ParsedStreamerConfig;
+  private readonly onReopen?: () => void;
+  private readonly onDrop?: (error: Error) => void;
 
   private constructor(
     opener: StreamOpener,
     config: StreamerConfig,
     breakerConfig: breaker.Config = {},
+    onReopen?: () => void,
+    onDrop?: (error: Error) => void,
   ) {
     this.opener = opener;
     this.config = streamerConfigZ.parse(config);
     const {
-      maxRetries = 5000,
+      maxRetries = Infinity,
       baseInterval = TimeSpan.seconds(1),
-      scale = 1,
+      maxInterval = TimeSpan.seconds(30),
+      scale = 2,
+      jitter = 0.25,
     } = breakerConfig ?? {};
-    this.breaker = new breaker.Breaker({ maxRetries, baseInterval, scale });
+    this.breaker = new breaker.Breaker({
+      maxRetries,
+      baseInterval,
+      maxInterval,
+      scale,
+      jitter,
+    });
+    this.onReopen = onReopen;
+    this.onDrop = onDrop;
   }
 
   /**
    * Opens a new hardened streamer with the given configuration.
    * @param opener - The function to use for opening streamers
    * @param config - The configuration for the streamer
+   * @param breakerConfig - Retry behavior for reconnect attempts. Defaults to
+   * retrying forever on capped, jittered exponential backoff.
+   * @param onReopen - Called after every successful reconnect (not the initial
+   * open). Frames may have been dropped between the failure and the reopen.
+   * @param onDrop - Called when the stream fails and reconnection begins.
    * @returns A promise that resolves to a new hardened streamer
    */
   static async open(
     opener: StreamOpener,
     config: StreamerConfig,
     breakerConfig?: breaker.Config,
+    onReopen?: () => void,
+    onDrop?: (error: Error) => void,
   ): Promise<HardenedStreamer> {
-    const h = new HardenedStreamer(opener, config, breakerConfig);
-    await h.runStreamer();
+    const h = new HardenedStreamer(opener, config, breakerConfig, onReopen, onDrop);
+    await h.runStreamer(false);
     return h;
   }
 
-  private async runStreamer(): Promise<void> {
+  private async runStreamer(notifyReopen: boolean = true): Promise<void> {
     while (true)
       try {
-        if (this.wrapped_ != null) this.wrapped_.close();
-        this.wrapped_ = await this.opener(this.config);
+        if (this.current != null) this.current.close();
+        this.current = await this.opener(this.config);
         this.breaker.reset();
+        if (notifyReopen) this.onReopen?.();
         return;
       } catch (e) {
-        this.wrapped_ = null;
+        this.current = null;
         if (!(await this.breaker.wait())) throw errors.fromUnknown(e);
         console.error("failed to open streamer", e);
         continue;
@@ -258,15 +280,16 @@ export class HardenedStreamer implements Streamer {
   }
 
   private get wrapped(): Streamer {
-    if (this.wrapped_ == null) throw new Error("stream closed");
-    return this.wrapped_;
+    if (this.current == null) throw new Error("stream closed");
+    return this.current;
   }
 
   async update(channels: channel.Params): Promise<void> {
     this.config.channels = paramsZ.parse(channels);
     try {
       await this.wrapped.update(channels);
-    } catch {
+    } catch (e) {
+      this.onDrop?.(errors.fromUnknown(e));
       await this.runStreamer();
       return await this.update(channels);
     }
@@ -288,6 +311,7 @@ export class HardenedStreamer implements Streamer {
       return fr;
     } catch (e) {
       if (EOF.matches(e)) throw errors.fromUnknown(e);
+      this.onDrop?.(errors.fromUnknown(e));
       await this.runStreamer();
       return await this.read();
     }
