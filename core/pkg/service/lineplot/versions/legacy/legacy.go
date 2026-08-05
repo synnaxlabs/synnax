@@ -36,10 +36,6 @@ func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 	if err != nil {
 		return Data{}, err
 	}
-	return dispatch(blob, version)
-}
-
-func dispatch(blob msgpack.EncodedJSON, version imex.Version) (Data, error) {
 	switch version {
 	case v4.Version:
 		return imex.DecodeBlob[v4.Data](blob, "line plot data", version)

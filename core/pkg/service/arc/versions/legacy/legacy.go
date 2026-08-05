@@ -46,31 +46,27 @@ func MigrateData(blob msgpack.EncodedJSON) (Document, error) {
 	if err != nil {
 		return Document{}, err
 	}
-	d, err := dispatch(blob, version)
-	if err != nil {
-		return Document{}, err
-	}
-	return lift(d), nil
-}
-
-func dispatch(blob msgpack.EncodedJSON, version imex.Version) (v2.Data, error) {
 	switch version {
 	case v2.Version:
-		return imex.DecodeBlob[v2.Data](blob, "arc state", version)
+		d, err := imex.DecodeBlob[v2.Data](blob, "arc state", version)
+		if err != nil {
+			return Document{}, err
+		}
+		return lift(d), nil
 	case v1.Version:
 		d, err := imex.DecodeBlob[v1.Data](blob, "arc state", version)
 		if err != nil {
-			return v2.Data{}, err
+			return Document{}, err
 		}
-		return v2.Migrate(d), nil
+		return lift(v2.Migrate(d)), nil
 	case v0.Version:
 		d, err := imex.DecodeBlob[v0.Data](blob, "arc state", version)
 		if err != nil {
-			return v2.Data{}, err
+			return Document{}, err
 		}
-		return v2.Migrate(v1.Migrate(d)), nil
+		return lift(v2.Migrate(v1.Migrate(d))), nil
 	default:
-		return v2.Data{}, errors.Newf("unknown arc state version %d", version)
+		return Document{}, errors.Newf("unknown arc state version %d", version)
 	}
 }
 

@@ -42,7 +42,48 @@ func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 	if err != nil {
 		return Data{}, err
 	}
-	d, err := dispatch(blob, version)
+	var d Data
+	switch version {
+	case v5.Version:
+		d, err = imex.DecodeBlob[v5.Data](blob, "schematic data", version)
+	case v4.Version:
+		var old v4.Data
+		old, err = imex.DecodeBlob[v4.Data](blob, "schematic data", version)
+		if err != nil {
+			break
+		}
+		d = v5.Migrate(old)
+	case v3.Version:
+		var old v3.Data
+		old, err = imex.DecodeBlob[v3.Data](blob, "schematic data", version)
+		if err != nil {
+			break
+		}
+		d = v5.Migrate(v4.Migrate(old))
+	case v2.Version:
+		var old v2.Data
+		old, err = imex.DecodeBlob[v2.Data](blob, "schematic data", version)
+		if err != nil {
+			break
+		}
+		d = v5.Migrate(v4.Migrate(v3.Migrate(old)))
+	case v1.Version:
+		var old v1.Data
+		old, err = imex.DecodeBlob[v1.Data](blob, "schematic data", version)
+		if err != nil {
+			break
+		}
+		d = v5.Migrate(v4.Migrate(v3.Migrate(v2.Migrate(old))))
+	case v0.Version:
+		var old v0.Data
+		old, err = imex.DecodeBlob[v0.Data](blob, "schematic data", version)
+		if err != nil {
+			break
+		}
+		d = v5.Migrate(v4.Migrate(v3.Migrate(v2.Migrate(v1.Migrate(old)))))
+	default:
+		return Data{}, errors.Newf("unknown schematic data version %d", version)
+	}
 	if err != nil {
 		return Data{}, err
 	}
@@ -50,43 +91,4 @@ func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 		return e.Source == "" || e.Target == ""
 	})
 	return d, nil
-}
-
-func dispatch(blob msgpack.EncodedJSON, version imex.Version) (Data, error) {
-	switch version {
-	case v5.Version:
-		return imex.DecodeBlob[v5.Data](blob, "schematic data", version)
-	case v4.Version:
-		d, err := imex.DecodeBlob[v4.Data](blob, "schematic data", version)
-		if err != nil {
-			return Data{}, err
-		}
-		return v5.Migrate(d), nil
-	case v3.Version:
-		d, err := imex.DecodeBlob[v3.Data](blob, "schematic data", version)
-		if err != nil {
-			return Data{}, err
-		}
-		return v5.Migrate(v4.Migrate(d)), nil
-	case v2.Version:
-		d, err := imex.DecodeBlob[v2.Data](blob, "schematic data", version)
-		if err != nil {
-			return Data{}, err
-		}
-		return v5.Migrate(v4.Migrate(v3.Migrate(d))), nil
-	case v1.Version:
-		d, err := imex.DecodeBlob[v1.Data](blob, "schematic data", version)
-		if err != nil {
-			return Data{}, err
-		}
-		return v5.Migrate(v4.Migrate(v3.Migrate(v2.Migrate(d)))), nil
-	case v0.Version:
-		d, err := imex.DecodeBlob[v0.Data](blob, "schematic data", version)
-		if err != nil {
-			return Data{}, err
-		}
-		return v5.Migrate(v4.Migrate(v3.Migrate(v2.Migrate(v1.Migrate(d))))), nil
-	default:
-		return Data{}, errors.Newf("unknown schematic data version %d", version)
-	}
 }
