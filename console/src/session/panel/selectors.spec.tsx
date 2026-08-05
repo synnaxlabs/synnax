@@ -121,6 +121,18 @@ describe("panel selectors", () => {
       expect(Panel.selectSelected(state)).toEqual(PANEL);
     });
 
+    // A reload restores the selection with the keep-alive set cleared, so the
+    // selected panel has to come back from the selection alone.
+    it("should mount the selected panel when the stored set is empty", () => {
+      const state = createState(window({ selected: PANEL }));
+      expect(Panel.selectMounted(state)).toEqual([PANEL]);
+    });
+
+    it("should return the stored set when the selected panel already heads it", () => {
+      const win = window({ selected: PANEL, mounted: [PANEL, OTHER_PANEL] });
+      expect(Panel.selectMounted(createState(win))).toBe(win.mounted);
+    });
+
     it("should return a panel's selected tabs in order", () => {
       const state = createState(
         window({ panels: { [PANEL]: { selectedTabs: [TAB, OTHER_TAB] } } }),
@@ -238,6 +250,42 @@ describe("panel selectors", () => {
     });
   });
 
+  describe("useSelectMounted", () => {
+    it("should track the window's mounted panels, most recently selected first", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectMounted(), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toEqual([]);
+      act(() => {
+        store.dispatch(Panel.select({ key: PANEL }));
+        store.dispatch(Panel.select({ key: OTHER_PANEL }));
+      });
+      expect(result.current).toEqual([OTHER_PANEL, PANEL]);
+    });
+
+    // The answer drives which panels stay portaled in. A fresh array identity per
+    // dispatch would re-render every one of them, which is what keep-alive exists
+    // to avoid.
+    it("should not re-render when unrelated state changes", async () => {
+      const { Wrapper, store } = await setup();
+      act(() => {
+        store.dispatch(Panel.select({ key: PANEL }));
+      });
+      const { result, renders } = renderCounted(
+        () => Panel.useSelectMounted(),
+        Wrapper,
+      );
+      const before = renders();
+      act(() => {
+        selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.startOverlaying({}));
+      });
+      expect(result.current).toEqual([PANEL]);
+      expect(renders()).toBe(before);
+    });
+  });
+
   describe("useSelectFocusedTab", () => {
     it("should return the most recently selected tab of a panel", async () => {
       const { Wrapper, store } = await setup();
@@ -292,7 +340,7 @@ describe("panel selectors", () => {
   });
 
   describe("useSelectIsTabFocused", () => {
-    it("should be true only for the panel's focused tab", async () => {
+    it("should be true only for the selected panel's focused tab", async () => {
       const { Wrapper, store } = await setup();
       const { result } = renderHook(
         () => ({
@@ -304,9 +352,26 @@ describe("panel selectors", () => {
       act(() => {
         selectTab(store, PANEL, OTHER_TAB);
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       expect(result.current.focused).toBe(true);
       expect(result.current.other).toBe(false);
+    });
+
+    it("should be false when the tab's panel is not the window's selected panel", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectIsTabFocused(PANEL, TAB), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: OTHER_PANEL }));
+      });
+      expect(result.current).toBe(false);
+      act(() => {
+        store.dispatch(Panel.select({ key: PANEL }));
+      });
+      expect(result.current).toBe(true);
     });
 
     it("should be false when no tab resolves", async () => {
@@ -321,6 +386,7 @@ describe("panel selectors", () => {
       const { Wrapper, store } = await setup();
       act(() => {
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       const { result, renders } = renderCounted(
         () => Panel.useSelectIsTabFocused(PANEL, TAB),
@@ -351,9 +417,14 @@ describe("panel selectors", () => {
       expect(get()).toBe(false);
       act(() => {
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       expect(get()).toBe(true);
       expect(get(PANEL, OTHER_TAB)).toBe(false);
+      act(() => {
+        store.dispatch(Panel.select({ key: OTHER_PANEL }));
+      });
+      expect(get()).toBe(false);
     });
   });
 
@@ -401,6 +472,7 @@ describe("panel selectors", () => {
       act(() => {
         selectTab(store, PANEL, OTHER_TAB);
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       expect(result.current.focused).toBe(false);
       act(() => {
@@ -452,6 +524,7 @@ describe("panel selectors", () => {
       );
       act(() => {
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       expect(result.current.selected).toBe(true);
       expect(result.current.unselected).toBe(false);
@@ -469,6 +542,7 @@ describe("panel selectors", () => {
       act(() => {
         selectTab(store, PANEL, OTHER_TAB);
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
         store.dispatch(Panel.startOverlaying({}));
       });
       expect(result.current.focused).toBe(true);
@@ -487,6 +561,7 @@ describe("panel selectors", () => {
       const { Wrapper, store } = await setup();
       act(() => {
         selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       const { result, renders } = renderCounted(
         () => Panel.useSelectIsTabVisible(PANEL, TAB),
@@ -506,10 +581,10 @@ describe("panel selectors", () => {
       expect(renders()).toBe(before);
     });
 
-    // Regression: the visibility check previously read the raw key parameter, so an
-    // omitted key inside a panel scope fell back to the window's selected panel
-    // instead of the scope's panel.
-    it("should read the scope panel's selection, not the window's selected panel", async () => {
+    // Regression: this previously read only the scoped panel's tab selection, so a
+    // mounted-but-unselected panel's tabs stayed visible and kept rendering into the
+    // shared canvas once panels were kept alive across switches.
+    it("should hide every tab of a panel that is not the window's selected panel", async () => {
       const { Wrapper, store } = await setup({ scope: PANEL });
       const { result } = renderHook(
         () => ({
@@ -522,6 +597,13 @@ describe("panel selectors", () => {
         selectTab(store, PANEL, TAB);
         selectTab(store, OTHER_PANEL, OTHER_TAB);
         store.dispatch(Panel.select({ key: OTHER_PANEL }));
+      });
+      // OTHER_TAB is the selected tab of the window's selected panel, but not a tab
+      // of the scoped panel: it must not leak visibility into this scope.
+      expect(result.current.scoped).toBe(false);
+      expect(result.current.foreign).toBe(false);
+      act(() => {
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       expect(result.current.scoped).toBe(true);
       expect(result.current.foreign).toBe(false);
@@ -543,6 +625,7 @@ describe("panel selectors", () => {
       );
       act(() => {
         selectTab(store, PANEL, OTHER_TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
       });
       await act(async () => {
         await client.panels.create(

@@ -21,12 +21,13 @@ import {
   Icon,
   Nav,
   Panel,
+  Portal,
   Status,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useCallback } from "react";
+import { memo, type PropsWithChildren, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { TabMenuItems } from "@/feature/panel/ContextMenu";
@@ -279,10 +280,11 @@ const EmptyContent = (): ReactElement => (
 
 // Last resort for a panel document that failed to load: the reconcile pass
 // should have pruned dead references before the mosaic rendered. Close
-// removes the reference the way the prune would have.
+// removes the reference the way the prune would have. The panel resolves from
+// the surrounding scope: a kept-alive fallback may belong to an unselected panel.
 const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
   const { error } = props;
-  const selected = Session.Panel.useSelectSelected();
+  const panelKey = Panel.useOptionalKey();
   const dispatch = useDispatch();
   if (!Flux.DeletedError.matches(error) && !isNotFound(error))
     return <Errors.Fallback {...props} />;
@@ -293,8 +295,8 @@ const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
       message={`${name ?? "This panel"} could not be found`}
       description="This window references a panel that no longer exists."
     >
-      {selected != null && (
-        <Button.Button onClick={() => dispatch(Session.Panel.remove(selected))}>
+      {panelKey != null && (
+        <Button.Button onClick={() => dispatch(Session.Panel.remove(panelKey))}>
           Close
         </Button.Button>
       )}
@@ -302,18 +304,57 @@ const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
   );
 };
 
+interface KeepAlivePanelProps extends MosaicProps {
+  panelKey: panel.Key;
+}
+
+// A visited panel renders once into a keyed portal and stays mounted while other
+// panels are selected, so switching back reattaches its DOM instead of remounting.
+// The scope sits outside the boundary so PanelFallback resolves its own panel.
+const KeepAlivePanel = ({
+  panelKey,
+  onCreateTab,
+}: KeepAlivePanelProps): ReactElement => (
+  <Portal.In itemKey={panelKey}>
+    <Panel.Scope.Provider value={panelKey}>
+      <Errors.SuspenseBoundary FallbackComponent={PanelFallback}>
+        <Panel.Suspended panelKey={panelKey}>
+          <Internal onCreateTab={onCreateTab} />
+        </Panel.Suspended>
+      </Errors.SuspenseBoundary>
+    </Panel.Scope.Provider>
+  </Portal.In>
+);
+
+const PortaledInPanels = memo(({ onCreateTab }: MosaicProps) => {
+  const mounted = Session.Panel.useSelectMounted();
+  return (
+    <div>
+      {mounted.map((key) => (
+        <KeepAlivePanel key={key} panelKey={key} onCreateTab={onCreateTab} />
+      ))}
+    </div>
+  );
+});
+PortaledInPanels.displayName = "PortaledInPanels";
+
+const PortaledOutPanel = memo(() => {
+  const selected = Session.Panel.useSelectSelected();
+  return selected == null ? (
+    <EmptyContent />
+  ) : (
+    <Portal.Out itemKey={selected} className={CSS.BE("panel", "host")} />
+  );
+});
+PortaledOutPanel.displayName = "PortaledOutPanel";
+
 export interface MosaicProps {
   onCreateTab: () => panel.NewTab;
 }
 
-export const Mosaic = ({ onCreateTab }: MosaicProps): ReactElement => {
-  const selected = Session.Panel.useSelectSelected();
-  if (selected == null) return <EmptyContent />;
-  return (
-    <Errors.SuspenseBoundary key={selected} FallbackComponent={PanelFallback}>
-      <Panel.Suspended panelKey={selected}>
-        <Internal onCreateTab={onCreateTab} />
-      </Panel.Suspended>
-    </Errors.SuspenseBoundary>
-  );
-};
+export const Mosaic = ({ onCreateTab }: MosaicProps): ReactElement => (
+  <Portal.Context>
+    <PortaledInPanels onCreateTab={onCreateTab} />
+    <PortaledOutPanel />
+  </Portal.Context>
+);
