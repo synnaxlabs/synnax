@@ -56,5 +56,5 @@ specific area of the codebase.
 # 6 - Language Specific Guides
 
 We also have language specific guides for developing in [python](./python/python.md) and
-[typescript](./typescript/typescript.md). These includes information on the correct
-processes for working on the codebase in that language.
+[typescript](./typescript/build.md). These includes information on the correct processes
+for working on the codebase in that language.

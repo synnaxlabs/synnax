@@ -172,7 +172,7 @@ pnpm install
 We use [Turborepo](https://turbo.build/repo) to build our various typescript projects.
 It has great monorepo support, and intelligently caches builds to speed up development.
 As a test to make sure the build system is working, we'll build the Synnax component
-library, [Pluto](../../pluto/README.md) by running
+library, [Pluto](../../pluto) by running
 
 ```bash
 pnpm build:pluto
@@ -182,7 +182,7 @@ pnpm build:pluto
 
 As another test, we'll start a development server for Pluto. We use this server to
 develop components in isolation before integrating them into the main Synnax
-application, [Console](../console/README.md). To start, run
+application, [Console](../../console). To start, run
 
 ```bash
 pnpm dev:pluto

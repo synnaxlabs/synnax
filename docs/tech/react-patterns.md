@@ -4,9 +4,9 @@
 
 Composition is perhaps the most powerful pattern in software engineering, and, until the
 introduction of the Context API, building composite components in React has been
-challenging. Pluto's [header](../../pluto/src/core/std/Header) is a good example.
-Imagine we have a header with some specified font size. Our simple header component
-might look like this:
+challenging. Pluto's [header](../../pluto/src/header) is a good example. Imagine we have
+a header with some specified font size. Our simple header component might look like
+this:
 
 ```jsx
 import { Text } from "@/core/std/Typography";

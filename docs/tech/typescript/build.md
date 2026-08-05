@@ -83,8 +83,8 @@ dependency, then build a downstream dependency, turbo will automatically detect 
 upstream dependency has changed and rebuild it before building the downstream
 dependency. This is a huge time saver.
 
-Turbo is configured in the [`turbo.json`](../../turbo.json) file in the root directory
-of the repository.
+Turbo is configured in the [`turbo.json`](../../../turbo.json) file in the root
+directory of the repository.
 
 ## Building Packages
 
