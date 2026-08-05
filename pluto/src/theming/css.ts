@@ -100,7 +100,6 @@ export const toCSSVars = (
     "border-radius-medium": unitProperty(theme.sizes.border.radius.medium, "rem", true),
     "border-radius-large": unitProperty(theme.sizes.border.radius.large, "rem", true),
     "border-radius-huge": unitProperty(theme.sizes.border.radius.huge, "rem", true),
-    "border-width": unitProperty(theme.sizes.border.width, "px"),
     "border-thick-width": unitProperty(theme.sizes.border.thickWidth, "px"),
     "schematic-element-stroke-width": unitProperty(
       theme.sizes.schematic.elementStrokeWidth,

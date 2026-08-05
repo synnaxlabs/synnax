@@ -107,7 +107,6 @@ export const themeZ = z
           large: z.number(),
           huge: z.number(),
         }),
-        width: z.number(),
         thickWidth: z.number(),
       }),
       schematic: z.object({ elementStrokeWidth: z.number() }),
@@ -182,13 +181,6 @@ const lightGrayScale: GrayScale = Object.fromEntries(
   LIGHT_SCALE.map((color, index) => [`l${index}`, color]),
 ) as GrayScale;
 
-const supportsThinBorder = () => {
-  if (typeof window === "undefined") return false;
-  return window.devicePixelRatio > 1;
-};
-
-const SUPPORTS_THIN_BORDER = supportsThinBorder();
-
 const SYNNAX_BASE: ThemeSpec = {
   key: "synnaxBase",
   name: "Synnax Base",
@@ -258,7 +250,6 @@ const SYNNAX_BASE: ThemeSpec = {
     base: baseSize,
     border: {
       radius: { tiny: 2 / 3, small: 1, medium: 1.5, large: 2, huge: 3 },
-      width: SUPPORTS_THIN_BORDER ? 0.5 : 1,
       thickWidth: 1,
     },
     schematic: { elementStrokeWidth: 2 },
