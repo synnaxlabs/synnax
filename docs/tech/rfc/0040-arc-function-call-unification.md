@@ -414,7 +414,7 @@ implementer touches each set in a different file sweep.
 | ------------ | ------------------------------------------------------ | --------------------------- |
 | `status.set` | `ExecBoth`, mirrored `[key_or_name, message, variant]` | `TriggerOnly` (post-dedupe) |
 
-**User-defined functions:** every user-defined function is now `ExecBoth`
+**User-defined functions**: every user-defined function is now `ExecBoth`
 ([`arc/go/analyzer/function/function.go`](../../../arc/go/analyzer/function/function.go)),
 with `Config` holding the brace-block params and `Inputs` the parens-block params. Under
 this RFC they are auto-assigned `TriggerInput(<first parens-block param>)` if a parens
@@ -596,7 +596,7 @@ migration.
 
 ### 6.0 Type system and IR
 
-**Files:** `arc/go/types/types.gen.go`, `arc/go/types/type.go`, `arc/go/types/fresh.go`,
+**Files**: `arc/go/types/types.gen.go`, `arc/go/types/type.go`, `arc/go/types/fresh.go`,
 `arc/go/types/migrations/vN/`, `arc/go/ir/types.gen.go`, `arc/go/ir/function.go`,
 `arc/go/ir/node.go`, `arc/go/ir/migrations/vN/`
 
@@ -609,7 +609,7 @@ shape; the IR side additionally gains a hand-written `migrate.go` (§5).
 
 ### 6.1 Symbol table
 
-**Files:** `arc/go/symbol/symbol.go`, `arc/go/symbol/hooks/hooks.go`,
+**Files**: `arc/go/symbol/symbol.go`, `arc/go/symbol/hooks/hooks.go`,
 `arc/go/symbol/scope.go`
 
 Replace `AnalyzeCall` + `AnalyzeFlowConfig` with `AnalyzeArguments`. Add
@@ -618,7 +618,7 @@ Replace `AnalyzeCall` + `AnalyzeFlowConfig` with `AnalyzeArguments`. Add
 
 ### 6.2 Analyzer
 
-**Files:** `arc/go/analyzer/call/call.go` (new),
+**Files**: `arc/go/analyzer/call/call.go` (new),
 `arc/go/analyzer/expression/expression.go`, `arc/go/analyzer/flow/flow.go`,
 `arc/go/analyzer/flow/expression.go`, `arc/go/analyzer/function/function.go`,
 `arc/go/analyzer/resolve.go`
@@ -683,14 +683,14 @@ function body) collapse the same way: one pass over `Inputs`, no per-param branc
 
 ### 6.3 Compiler and runtime
 
-**Files:** `arc/go/compiler/compiler.go`, `arc/go/runtime/node/state.go`
+**Files**: `arc/go/compiler/compiler.go`, `arc/go/runtime/node/state.go`
 
 `slices.Concat(i.Config, i.Inputs)` → `i.Inputs`. Edge alignment iterates `Inputs`
 directly. Param ordering is preserved across the migration, so WASM offsets stay stable.
 
 ### 6.4 Graph and text compilation
 
-**Files:** `arc/go/graph/analyze.go`, `arc/go/text/analyze.go`
+**Files**: `arc/go/graph/analyze.go`, `arc/go/text/analyze.go`
 
 Merge `Config`+`Inputs` `bindParams` in graph compilation. In text-to-IR, `Config:`
 field assignments fold into `Inputs:`; the `upstreamIsTrigger` special case is deleted.
@@ -716,14 +716,14 @@ become `cfg.Node.Inputs.ValueMap()`.
 
 ### 6.6 LSP
 
-**Files:** `arc/go/lsp/hover.go`, `arc/go/lsp/completion.go`
+**Files**: `arc/go/lsp/hover.go`, `arc/go/lsp/completion.go`
 
 Hover renders the unified `Inputs` list. Completion proposes named-config keys from the
 same list. The `Trigger` target is shown in hover where set.
 
 ### 6.7 C++ runtime
 
-**Files:** `arc/cpp/runtime/state/state.cpp`, `arc/cpp/runtime/wasm/factory.h`,
+**Files**: `arc/cpp/runtime/state/state.cpp`, `arc/cpp/runtime/wasm/factory.h`,
 `arc/cpp/stl/stable/stable.h`, `arc/cpp/stl/math/math.h`
 
 Generated headers regenerate from the updated schemas. Hand-written sites that read
@@ -732,7 +732,7 @@ unified list.
 
 ### 6.8 Service layer
 
-**Files:** `core/pkg/service/arc/status/status.go`
+**Files**: `core/pkg/service/arc/status/status.go`
 
 The visible win. `newSetSymbolType` declares its param list once and assigns it only to
 `Inputs`. The two analyzer hooks collapse to one `AnalyzeArguments`. `status.set`
@@ -740,7 +740,7 @@ declares `Trigger: TriggerOnly`.
 
 ### 6.9 Test fixtures
 
-**Files:** `arc/go/**/*_test.go`, `arc/cpp/**/*_test.cpp`,
+**Files**: `arc/go/**/*_test.go`, `arc/cpp/**/*_test.cpp`,
 `core/pkg/service/arc/**/*_test.go`, `client/ts/src/arc/**/*.spec.ts`
 
 Mechanical fixture sweep. Every test that constructs a `types.FunctionProperties`,

@@ -749,7 +749,8 @@ Authority mutations from `set_authority` nodes versus channel writes within a cy
 ordered by phase dependencies: the stratifier places `set_authority` nodes in earlier
 phases than the channel writes that depend on them. This is unchanged from the pre-RFC
 design and falls out of the standard dataflow-dependency phasing. See
-`docs/tech/rfc/0031-arc-scheduler-semantics.md` for the underlying invariants.
+[RFC 0031 - Arc scheduler stage transition semantics](0031-arc-scheduler-semantics.md)
+for the underlying invariants.
 
 ## 7 Grammar
 
@@ -1109,7 +1110,8 @@ Anchors for reviewers:
 - Stratifier: `arc/go/stratifier/stratifier.go`
 - Go scheduler: `arc/go/runtime/scheduler/scheduler.go`
 - C++ scheduler: `arc/cpp/runtime/scheduler/scheduler.h`
-- Prior scheduler RFC: `docs/tech/rfc/0031-arc-scheduler-semantics.md`
+- Prior scheduler RFC:
+  [RFC 0031 - Arc scheduler stage transition semantics](0031-arc-scheduler-semantics.md)
 - Integration tests that exercise the surface change:
   `integration/tests/arc/stageless_workflow.py`,
   `integration/tests/arc/inline_sequence_in_stage.py`,

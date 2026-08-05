@@ -88,7 +88,7 @@ resulting in the eventual overlap shown in shaded red:
 <p align="middle">
     <br />
     <img
-        src="./img/0014-control/transfer-overlap.png"
+        src="img/0014-control/transfer-overlap.png"
         width="80%"
         alt="latex eq"
     />

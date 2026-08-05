@@ -195,7 +195,7 @@ where they are filtered only for the channels that the reader requested.
 <br />
 <p align="middle">
     <img
-        src="./img/0012-telemetry-streaming/distribution-relay.png"
+        src="img/0012-telemetry-streaming/distribution-relay.png"
         width="70%"
     />
     <h5 align="middle">Distribution Relay</h5>

@@ -220,14 +220,14 @@ great video explaining how excessive abstraction can be dangerous.
 We use uv for managing packages and virtual environments in our Python code. Make sure
 you've familiarized yourself with some of the basic commands. Documentation is available
 [here](https://docs.astral.sh/uv/). As a supplement to this, make sure you've read our
-[Python build system guide](./python/python.md).
+[Python build system guide](python/python.md).
 
 ### 8.1 pnpm
 
 pnpm is the package manager we use for all of our TypeScript code. Make sure you've
 familiarized yourself with some of the basic commands. Documentation is available
 [here](https://pnpm.io/). As a supplement to this, make sure you've read our
-[frontend build system guide](./typescript/build.md).
+[frontend build system guide](typescript/build.md).
 
 ## 9 Build systems and infrastructure
 

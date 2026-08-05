@@ -1172,12 +1172,12 @@ The bus introduces two independent frame filters that, when combined, can create
 window where the wrong controller commands hardware or the correct controller receives
 nothing.
 
-**Filter 1 (Core-side, coarse):** The streamer's `ExcludeGroups` drops all frames from
+**Filter 1 (Core-side, coarse)**: The streamer's `ExcludeGroups` drops all frames from
 the Driver's own group on the Core relay path. This prevents duplicate delivery of
 frames that were already routed via the local bus. It operates per-group and has no
 knowledge of per-channel authority.
 
-**Filter 2 (client-side, fine):** The `control::States` filter on the bus streamer drops
+**Filter 2 (client-side, fine)**: The `control::States` filter on the bus streamer drops
 local bus frames for channels where the consumer's subject does not hold authority. This
 is the local replacement for Cesium's control gate. It is eventually consistent with a
 staleness window of 1-5 ms on loopback.
@@ -1437,20 +1437,20 @@ are needed.
 
 #### 6.1.3 How this addresses each scenario
 
-**Scenario A (Abort during hotfire):** The abort listener calls `set_authority` with
+**Scenario A (Abort during hotfire)**: The abort listener calls `set_authority` with
 authority 255. The Writer calls `apply_increase(abort, channel, 255)` for each channel.
 Since 255 > 200 (hotfire's authority), the mirror updates immediately. The abort's next
 valve_close command is published to the bus and passes the authority filter. The
 hotfire's commands are now filtered out. Zero latency between authority change and first
 correct command.
 
-**Scenario B (Operator takeover):** The operator is remote, so the authority change
+**Scenario B (Operator takeover)**: The operator is remote, so the authority change
 originates from outside the Driver. The mirror updates via the relay path with 1-5 ms
 staleness. During this window, the hotfire's commands may still pass through the bus.
 This scenario is unchanged from the baseline and requires Core-initiated mirror
 notifications to fully address (see §6.1.5).
 
-**Scenario C (Abort while operator has control):** Same as Scenario A. The abort
+**Scenario C (Abort while operator has control)**: Same as Scenario A. The abort
 listener is local and calls `set_authority` with authority 255. The mirror updates
 immediately, the abort's commands pass through, and the operator's commands are filtered
 on the bus path. The operator's commands still reach hardware via the Core path

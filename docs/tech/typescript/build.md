@@ -37,16 +37,10 @@ various build/developments tools:
 
 Each of these packages are developed and built independently. Note that the
 configuration packages above are marked private and are not published to npm — they are
-only used within this monorepo. The current dependency hierarchy for these packages is
-as follows:
+only used within this monorepo.
 
-<p align="middle">
-    <img src="./img/build/deps.png" width="500px">
-    <h6 align="Middle">Synnax Front End Dependency Graph</h6>
-</p>
-
-**Understanding/referencing this dependency graph is critical when developing Synnax
-front end software.** We'll revisit this graph in a moment.
+**Understanding the dependency hierarchy between these packages is critical when
+developing Synnax front end software.** We'll revisit that hierarchy in a moment.
 
 ## 1 pnpm
 
@@ -67,9 +61,9 @@ run tests, and start development servers.
 
 ## 2 Turborepo
 
-If we refer back to the dependency graph above, we can see that `@synnaxlabs/console`
-depends on `@synnaxlabs/pluto` and `@synnaxlabs/pluto` depends on `@synnaxlabs/x` and
-`@synnaxlabs/client`. This has two implications:
+If we refer back to the dependency hierarchy above, we can see that
+`@synnaxlabs/console` depends on `@synnaxlabs/pluto` and `@synnaxlabs/pluto` depends on
+`@synnaxlabs/x` and `@synnaxlabs/client`. This has two implications:
 
 1. If we make a change to `x` that we want reflected in `console`, we'd need to rebuild
    `x` and all of it's downstream dependencies (`pluto` and `console`).

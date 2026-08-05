@@ -16,13 +16,13 @@ Integration name: `http` (task types: `http_read`, `http_write`, `http_scan`)
 
 ### 0.0 Supported types
 
-**JSON types per endpoint:** `number`, `string`, `boolean`
+**JSON types per endpoint**: `number`, `string`, `boolean`
 
 Objects, arrays, and nulls are not supported as field-level values. The overall request
 and response bodies are JSON objects, but individual extracted/inserted fields must be
 one of the three types above.
 
-**Synnax channel data types:** Numeric types (`int8` through `float64`) and String.
+**Synnax channel data types**: Numeric types (`int8` through `float64`) and String.
 
 UUID, Bytes, and JSON Synnax types are not supported by this driver.
 
@@ -1003,7 +1003,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.0.0 PR 1: JSON ↔ Synnax conversion utility
 
-**Scope:** Type conversion between JSON values and Synnax telemetry types
+**Scope**: Type conversion between JSON values and Synnax telemetry types
 
 - `x/cpp/json/BUILD.bazel`
 - `x/cpp/json/convert.h`: `to_sample_value`, `from_sample_value`,
@@ -1018,7 +1018,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.1.0 PR 2: C++ device foundation
 
-**Scope:** HTTP client infrastructure and driver skeleton
+**Scope**: HTTP client infrastructure and driver skeleton
 
 - `MODULE.bazel`: Add libcurl and cpp-httplib dependencies
 - `driver/http/BUILD.bazel`
@@ -1028,7 +1028,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.1.1 PR 3: Console device connection
 
-**Scope:** Console UI for connecting to HTTP devices
+**Scope**: Console UI for connecting to HTTP devices
 
 - `console/src/hardware/http/device/`: Device configuration UI
 - Device properties form (base URL, auth, headers)
@@ -1036,7 +1036,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.1.2 PR 4: Python client - device
 
-**Scope:** Python client support for HTTP devices
+**Scope**: Python client support for HTTP devices
 
 - `client/py/synnax/http/__init__.py`: HTTP driver package
 - `client/py/synnax/http/types.py`: Device type definitions
@@ -1046,7 +1046,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.1.3 PR 5: documentation - get started
 
-**Scope:** HTTP driver overview and device connection docs
+**Scope**: HTTP driver overview and device connection docs
 
 - `docs/site/src/pages/reference/device-drivers/http/get-started.mdx`
 - Overview, connection setup, authentication options, headers
@@ -1057,7 +1057,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.2.0 PR 6: C++ read task
 
-**Scope:** Read task implementation with multi-endpoint support
+**Scope**: Read task implementation with multi-endpoint support
 
 - `driver/http/read_task.h/.cpp`
 - `driver/http/factory.cpp` (partial - read task only)
@@ -1066,7 +1066,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.2.1 PR 7: Console read task
 
-**Scope:** Console UI for read task configuration
+**Scope**: Console UI for read task configuration
 
 - `console/src/hardware/http/task/Read.tsx`
 - Multi-endpoint configuration UI
@@ -1075,7 +1075,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.2.2 PR 8: Python client - read task
 
-**Scope:** Python client support for HTTP read tasks
+**Scope**: Python client support for HTTP read tasks
 
 - `client/py/synnax/http/read.py`: Read task configuration
 - `client/py/examples/http/read_task.py`: Read task example
@@ -1083,7 +1083,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.2.3 PR 9: integration tests - read task
 
-**Scope:** End-to-end read task testing
+**Scope**: End-to-end read task testing
 
 - `integration/tests/driver/conftest.py`: Shared fixtures, mock HTTP server
 - `integration/tests/driver/http_read.py`
@@ -1099,7 +1099,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.2.4 PR 10: documentation - read task
 
-**Scope:** Read task documentation
+**Scope**: Read task documentation
 
 - `docs/site/src/pages/reference/device-drivers/http/read-task.mdx`
 - Configuration reference, JSON Pointer syntax, type conversions, timestamp formats,
@@ -1111,7 +1111,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.3.0 PR 11: C++ write task
 
-**Scope:** Write task implementation with multi-endpoint support
+**Scope**: Write task implementation with multi-endpoint support
 
 - `driver/http/write_task.h/.cpp`
 - `driver/http/util/request_builder.h/.cpp` + tests
@@ -1120,7 +1120,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.3.1 PR 12: Console write task
 
-**Scope:** Console UI for write task configuration
+**Scope**: Console UI for write task configuration
 
 - `console/src/hardware/http/task/Write.tsx`
 - Multi-endpoint configuration UI
@@ -1129,7 +1129,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.3.2 PR 13: Python client - write task
 
-**Scope:** Python client support for HTTP write tasks
+**Scope**: Python client support for HTTP write tasks
 
 - `client/py/synnax/http/write.py`: Write task configuration
 - `client/py/examples/http/write_task.py`: Write task example
@@ -1137,7 +1137,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.3.3 PR 14: integration tests - write task
 
-**Scope:** End-to-end write task testing
+**Scope**: End-to-end write task testing
 
 - `integration/tests/driver/http_write.py`
   - Event-driven writes with throttling
@@ -1151,7 +1151,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.3.4 PR 15: documentation - write task
 
-**Scope:** Write task documentation
+**Scope**: Write task documentation
 
 - `docs/site/src/pages/reference/device-drivers/http/write-task.mdx`
 - Configuration reference, field types, request body construction, examples
@@ -1162,7 +1162,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.4.0 PR 16: C++ scan task
 
-**Scope:** Health monitoring scan task
+**Scope**: Health monitoring scan task
 
 - `driver/http/scan_task.h/.cpp`
 - Update factory for scan task
@@ -1170,7 +1170,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.4.1 PR 17: Console scan task
 
-**Scope:** Console UI for scan task configuration
+**Scope**: Console UI for scan task configuration
 
 - `console/src/hardware/http/task/Scan.tsx`
 - Health endpoint configuration UI
@@ -1178,7 +1178,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.4.2 PR 18: Python client - scan task
 
-**Scope:** Python client support for HTTP scan tasks
+**Scope**: Python client support for HTTP scan tasks
 
 - `client/py/synnax/http/scan.py`: Scan task configuration
 - `client/py/examples/http/scan_task.py`: Scan task example
@@ -1186,7 +1186,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.4.3 PR 19: integration tests - scan task
 
-**Scope:** End-to-end scan task testing
+**Scope**: End-to-end scan task testing
 
 - `integration/tests/driver/http_scan.py`
   - Health checks with HTTP status only
@@ -1195,7 +1195,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.4.4 PR 20: documentation - scan task
 
-**Scope:** Scan task documentation
+**Scope**: Scan task documentation
 
 - `docs/site/src/pages/reference/device-drivers/http/scan-task.mdx`
 - Health check configuration, response validation, monitoring setup

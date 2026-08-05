@@ -26,10 +26,13 @@ Rules for writing and editing RFCs in this directory.
 
 - Vocabulary and definition entries use a colon after the term:
   `- **Term**: Definition.` Never `-` or `—` after the term.
-- The colon sits outside the bold: `**Term**:`, never `**Term:**`.
+- The colon sits outside the bold: `**Term**:`, never `**Term:**`. A bold lead-in to a
+  following list or code block is not a definition entry, so it keeps the colon inside:
+  `**Method placement, in order:**`
 - A label that states a claim rather than naming a term takes the same form:
-  `- **Subscriber scaling is linear in N**: 3 subscribers cost 3x one.` Never a period
-  inside the bold.
+  `- **Subscriber scaling is linear in N**: 3 subscribers cost 3x one.` In this colon
+  form, never a period inside the bold. The two forms below, led by a section number or
+  an enumerator, are the exceptions.
 - The same applies when the term is a code span: `` `send(payload)`: Sends... ``
 - Parentheticals attach to the term, before the colon: `- **Term** (scope): ...`.
 - Use unordered bullets unless the order itself carries meaning.

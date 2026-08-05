@@ -15,7 +15,7 @@ In this RFC I propose an architecture for wrapping primitive arrays with identif
 metadata and organizing them into 'frames' of aligned arrays that streamline the
 telemetry transfer process.
 
-**AN IMPORTANT NOTE (23-08-09)** -> Since the time of writing this RFC, the term 'Array'
+**AN IMPORTANT NOTE (23-08-09)**: Since the time of writing this RFC, the term 'Array'
 has been changed to 'Series'.
 
 ## 1 Vocabulary

@@ -21,7 +21,7 @@ Each of these packages is developed, built, and published independently. The cur
 dependency hierarchy for these packages is as follows:
 
 <p align="middle">
-    <img src="./img/python/deps.png" width="300px">
+    <img src="img/python/deps.png" width="300px">
     <h6 align="Middle">Synnax Python Dependency Graph</h6>
 </p>
 

@@ -6,7 +6,7 @@
 
 ## 0 Summary
 
-> **v1 scope note (2026-05-11):** For the v1 implementation, **all `status.set`
+> **v1 scope note (2026-05-11)**: For the v1 implementation, **all `status.set`
 > arguments are required** (`key_or_name`, `message`, and `variant`). The
 > optional-parameter mechanism (§5.0.0, "Preserve-on-omit parameters") and the
 > preserve-on-omit / touch / literal-default semantics that depend on it — described
@@ -146,7 +146,7 @@ status.set(key_or_name: string, message?: string, variant?: string) -> string
 | `message`     | `string` | no       | preserve existing / `""` on create     | If supplied, overwrites; if omitted, preserves the existing value (or `""` on create).                                                                                                                             |
 | `variant`     | `string` | no       | preserve existing / `"info"` on create | If supplied, overwrites; if omitted, preserves the existing value (or `"info"` on create). A string-literal argument is validated against the six allowed values at compile time (see [§4.2](#42-variant-values)). |
 
-**Returns:** Status key string. In WASM form, returned as a string handle (handle 0 on
+**Returns**: Status key string. In WASM form, returned as a string handle (handle 0 on
 failure; see §3). In Flow form, `set` is a sink and the return value is discarded.
 
 The signature is identical in both forms (`ExecBoth`, see Vocabulary): WASM passes the
@@ -189,7 +189,7 @@ With the parameter order `(key_or_name, message?, variant?)`, this means
 cannot express a variant-only update. The Flow form covers this case via named config:
 `trigger -> status.set{key_or_name="Pressure Check", variant="error"}`.
 
-**Future Arc work:** Adding `name = value` syntax to `argumentList` would let WASM
+**Future Arc work**: Adding `name = value` syntax to `argumentList` would let WASM
 callers express variant-only updates as `status.set("Pressure Check", variant="error")`,
 with no change to the `status.set` symbol's type signature. That change is cross-cutting
 Arc compiler work (parser, analyzer, compiler) and is out of scope for this RFC.
@@ -212,7 +212,7 @@ closes for free.
    - More than one match: emit an error-level task status, return handle 0.
    - On query error: emit an error-level task status, return handle 0.
 
-**Apply the update / create:** start with the existing row (on update) or with a fresh
+**Apply the update / create**: start with the existing row (on update) or with a fresh
 row populated with literal defaults (on create). For each of `message` and `variant`, if
 the argument was supplied, overwrite that field; if omitted, leave the base value
 (existing on update, default on create). Refresh the row's `time` field to the current
@@ -263,7 +263,7 @@ status.delete(key_or_name: string)
 | ------------- | -------- | -------- | ------------------ |
 | `key_or_name` | `string` | yes      | Status key or name |
 
-**Returns:** Nothing.
+**Returns**: Nothing.
 
 The signature is identical in both forms (`ExecBoth`, see Vocabulary): WASM passes
 `key_or_name` positionally; Flow passes it as a named config field. The wire is a
@@ -1306,7 +1306,7 @@ trigger -> status.set{identifier="Pressure Alert"}
 
 One symbol, several call shapes, all reading the same at the surface.
 
-**Natural shape pairing:** Shape 1 (shared payload). The polymorphism on field presence
+**Natural shape pairing**: Shape 1 (shared payload). The polymorphism on field presence
 _is_ the preserve-on-omit semantics; pairing with any other shape strips the benefit.
 
 #### 7.3.1 Option B: functional options (Go)
@@ -1337,7 +1337,7 @@ first-class records. The cost is per-field constructor functions (`status.messag
 arguments) which Arc does not currently support. Verbose at the call site for the common
 case.
 
-**Natural shape pairing:** Shape 1 (shared payload). Each option mutates one shared
+**Natural shape pairing**: Shape 1 (shared payload). Each option mutates one shared
 config; the upsert API surface is unchanged from Option A's, only the call form differs.
 
 #### 7.3.2 Option C1: Clojure-style threading (family of macros)
@@ -1377,7 +1377,7 @@ Each step is pure. `cond->` makes partial-update natural: the chain literally sk
 steps whose predicates are nil. The cost is a family of operators (`->`, `cond->`,
 `some->`, `as->`, `->>`) that operators must learn and choose between.
 
-**Natural shape pairing:** Shape 4 (whole-object merge). Threading needs a value flowing
+**Natural shape pairing**: Shape 4 (whole-object merge). Threading needs a value flowing
 through the chain; that value is a status record built up by pure transforms and
 persisted by a terminal `save`. Forces first-class records.
 
@@ -1423,7 +1423,7 @@ One operator to learn, one syntactic transformation. The partial-update case los
 elegance C1 gets from `cond->` and reads as ordinary imperative branching wrapped around
 the pipeline.
 
-**Natural shape pairing:** Shape 4 (whole-object merge), same as C1. The pipe carries a
+**Natural shape pairing**: Shape 4 (whole-object merge), same as C1. The pipe carries a
 status record; partial-update branching wraps the pipeline rather than living inside it.
 
 #### 7.3.4 Option D: method chaining (Java, Ruby, JavaScript, Rust builders)
@@ -1453,7 +1453,7 @@ deciding receiver semantics, whether methods are first-class, whether subtyping 
 inheritance enters the language, and how this interacts with Flow nodes. A bigger
 language commitment than it sounds; "just methods" is rarely just methods.
 
-**Natural shape pairing:** Shape 5 (find-then-modify); the chain is exactly "find,
+**Natural shape pairing**: Shape 5 (find-then-modify); the chain is exactly "find,
 mutate, save". Shape 4 also fits if methods are pure (return a new value); the choice
 depends on whether Arc's records are mutable or persistent.
 
@@ -1485,7 +1485,7 @@ Reads like imperative mutation while still producing a value at the end. The new
 language feature is closures with implicit receiver, a non-trivial addition to the type
 system, since the body has to type-check against the receiver's fields.
 
-**Natural shape pairing:** Shape 5 (find-then-modify). The `apply` block needs a held
+**Natural shape pairing**: Shape 5 (find-then-modify). The `apply` block needs a held
 receiver, and the receiver originates from a `find_or_init`-style call.
 
 #### 7.3.6 Option F: cascade operator (Smalltalk, Dart)
@@ -1514,7 +1514,7 @@ original form treated each cascaded call as an independent message send; Dart's 
 a syntactic sugar over the same idea. Reads cleanly for "do N things to one object," but
 loses the value-transformation semantics that make pipes composable.
 
-**Natural shape pairing:** Shape 5 (find-then-modify). Cascades need a held receiver; in
+**Natural shape pairing**: Shape 5 (find-then-modify). Cascades need a held receiver; in
 Flow the cascade collapses back onto Shape 1 because edges don't carry an implicit
 receiver across nodes.
 
@@ -1552,7 +1552,7 @@ the language rather than of one symbol. The cost is first-class records plus a n
 literal form; once those exist, it generalizes everywhere (ranges, devices, channels,
 flow node configs).
 
-**Natural shape pairing:** Shape 4 (whole-object merge). The record-update literal
+**Natural shape pairing**: Shape 4 (whole-object merge). The record-update literal
 produces a status value; that value is persisted by a terminal `save`/`merge` primitive.
 
 #### 7.3.8 Option H: lenses / optics (Haskell, Scala Monocle)
@@ -1579,7 +1579,7 @@ for code that traverses deep object graphs (game state, ASTs, JSON). Almost cert
 overkill for status updates and a poor fit for control engineers. Mentioned only for
 completeness.
 
-**Natural shape pairing:** Shape 4 (whole-object merge). Lens application produces a new
+**Natural shape pairing**: Shape 4 (whole-object merge). Lens application produces a new
 record; that record is persisted by a terminal `save`/`merge`.
 
 ### 7.4 Natural pairings
