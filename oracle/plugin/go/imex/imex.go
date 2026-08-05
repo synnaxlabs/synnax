@@ -9,11 +9,10 @@
 
 // Package imex generates the portable import/export machinery for any Oracle struct
 // that declares the bare `@go imex` marker. Every versions/vK package gains a Version
-// constant equal to K; the versions package root gains Latest and an
-// autoDecodeEnvelope ladder that lifts server-era envelopes through the per-version
-// Migrate<Type> steps. Latest keeps the wire envelope version and the storage schema
-// version a single sequence per resource, and the ladder extends itself on every
-// version bump.
+// constant equal to K; the versions package root gains Latest and an autoDecodeEnvelope
+// ladder that lifts server-era envelopes through the per-version Migrate<Type> steps.
+// Latest keeps the wire envelope version and the storage schema version a single
+// sequence per resource, and the ladder extends itself on every version bump.
 package imex
 
 import (

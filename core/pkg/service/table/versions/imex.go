@@ -28,9 +28,9 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		err error
 	)
 	if env.Version > legacy.LastVersion {
-		// v1 is the shape both producers wrote: Core stamps it on export, and the
-		// v0.56 Console export stamps the same number on the table it retrieved from
-		// Core. Every Table field name is a single word, so the Console's camelCase and
+		// v1 is the shape both producers wrote: Core stamps it on export, and the v0.56
+		// Console export stamps the same number on the table it retrieved from Core.
+		// Every Table field name is a single word, so the Console's camelCase and
 		// Core's snake_case coincide.
 		t, err = autoDecodeEnvelope(ctx, env)
 	} else {

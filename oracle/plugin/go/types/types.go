@@ -257,11 +257,11 @@ func (c *captureGenerator) GenerateFile(
 	return "", nil
 }
 
-// computeSplit resolves the alias split for every version-laid-out current
-// package. Snapshot-declared baselines decide first; for paths the snapshots
-// cannot anchor (history predating per-resource versioning), the highest version
-// package below the current one on disk is the baseline: a type aliases only when
-// its declarations are identical to the frozen ones.
+// computeSplit resolves the alias split for every version-laid-out current package.
+// Snapshot-declared baselines decide first; for paths the snapshots cannot anchor
+// (history predating per-resource versioning), the highest version package below the
+// current one on disk is the baseline: a type aliases only when its declarations are
+// identical to the frozen ones.
 func computeSplit(
 	req *plugin.Request, rewritten *resolution.Table,
 ) (map[string]predecessor, error) {

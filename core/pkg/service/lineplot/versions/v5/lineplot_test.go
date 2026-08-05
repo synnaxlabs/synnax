@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("LinePlot", func() {
 	Describe("GorpKey", func() {
-		It("Should return the linePlot's key", func() {
+		It("Should return the plot's key", func() {
 			k := uuid.New()
 			Expect(v5.LinePlot{Key: k}.GorpKey()).To(Equal(k))
 		})
