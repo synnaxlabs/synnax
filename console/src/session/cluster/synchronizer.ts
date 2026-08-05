@@ -25,12 +25,12 @@ const repair = (
 
 // Adopts the cluster key the connection reports: connecting to a different
 // cluster at the same address, or the predefined local/demo clusters.
-const syncKey: Synchronizer.Synchronizer<StoreState, Action> = {
+const syncKey: Synchronizer.Callbacks<StoreState, Action> = {
   reconcile: ({ client, store }) => repair(store, client.connection.status),
   listen: ({ client, store }) =>
     client.connection.onChange((status) => repair(store, status)),
 };
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = {
-  useSyncClusterKey: () => syncKey,
-};
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
+  { name: "sync cluster key", use: () => syncKey },
+];

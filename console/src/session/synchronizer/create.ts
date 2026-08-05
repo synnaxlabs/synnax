@@ -38,7 +38,7 @@ export interface Params<S, A extends Action> {
  * The host runs reconcile at client-ready and on every epoch bump, and mounts
  * listen once per client, tearing it down on client swap or unmount.
  */
-export interface Synchronizer<S, A extends Action> {
+export interface Callbacks<S, A extends Action> {
   /** Idempotent boundary repair. Pulls state at call time. */
   reconcile: (params: Params<S, A>) => void | Promise<void>;
   /** Mounts steady-state subscriptions: client feeds and store watches. */
@@ -46,19 +46,26 @@ export interface Synchronizer<S, A extends Action> {
 }
 
 /**
- * Builds a synchronizer. The hook body only captures context (flux handles,
- * adders); execution timing belongs to the host.
+ * Builds a synchronizer's callbacks. The hook body only captures context (flux
+ * handles, adders); execution timing belongs to the host.
  */
-export type Use<S, A extends Action> = () => Synchronizer<S, A>;
+export type Use<S, A extends Action> = () => Callbacks<S, A>;
+
+/** A synchronizer hook under the human-readable name the host reports it by. */
+export interface Synchronizer<S, A extends Action> {
+  name: string;
+  use: Use<S, A>;
+}
 
 /**
- * Synchronizer hooks keyed by name, mounted in declaration order by the host.
- * S and A are the host store's shape: a synchronizer needing only a slice of
- * it fits, since Store is covariant in its state and contravariant in its
- * actions. A session slice holding cluster references without an entry in a
- * registry is a structural omission.
+ * Synchronizers, mounted in array order by the host. The array is a constant:
+ * the host calls a hook per entry, so its order and length must never vary
+ * between renders. S and A are the host store's shape: a synchronizer needing
+ * only a slice of it fits, since Store is covariant in its state and
+ * contravariant in its actions. A session slice holding cluster references
+ * without an entry in a registry is a structural omission.
  */
-export type Synchronizers<S, A extends Action> = Record<string, Use<S, A>>;
+export type Synchronizers<S, A extends Action> = Synchronizer<S, A>[];
 
 /** The slice of a domain client a remover needs: delete events and an existence sweep. */
 export interface Removable<K extends record.Key> {
@@ -70,6 +77,8 @@ export interface Removable<K extends record.Key> {
 }
 
 export interface RemoverParams<S, A extends Action, K extends record.Key> {
+  /** Human-readable name the host reports the synchronizer by. */
+  name: string;
   /** The domain client whose deletions this tracks. */
   domain: (client: Synnax) => Removable<K>;
   /** Reads the session's referenced keys. */
@@ -84,11 +93,12 @@ export interface RemoverParams<S, A extends Action, K extends record.Key> {
  * boundary for deletes missed during the gap.
  */
 export const createRemover = <S, A extends Action, K extends record.Key = string>({
+  name,
   domain,
   selectKeys,
   remove,
-}: RemoverParams<S, A, K>): Use<S, A> => {
-  const synchronizer: Synchronizer<S, A> = {
+}: RemoverParams<S, A, K>): Synchronizer<S, A> => {
+  const callbacks: Callbacks<S, A> = {
     reconcile: async ({ client, store }) => {
       const keys = selectKeys(store.getState());
       if (keys.length === 0) return;
@@ -103,5 +113,5 @@ export const createRemover = <S, A extends Action, K extends record.Key = string
         store.dispatch(remove([key]));
       }),
   };
-  return () => synchronizer;
+  return { name, use: () => callbacks };
 };

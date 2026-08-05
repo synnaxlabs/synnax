@@ -40,16 +40,14 @@ const selectKeys = (state: StoreState): string[] => {
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<
   RequiredStoreState,
   RequiredAction
-> = {
-  useRemoveDeletedPanels: Synchronizer.createRemover<
-    RequiredStoreState,
-    RequiredAction
-  >({
+> = [
+  Synchronizer.createRemover<RequiredStoreState, RequiredAction>({
+    name: "remove deleted panels",
     domain: (client) => client.panels,
     selectKeys,
     remove,
   }),
-};
+];
 
 const applySelection = (store: RequiredStore, keys: panel.Key[]): void => {
   const win = selectActiveWindow(store.getState());
@@ -78,7 +76,7 @@ const repairSelection = async ({ client, store }: Params): Promise<void> => {
 
 // The session's selection outlives the project it was made in, so a panel
 // outside the active project must never stay selected.
-const selection: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> = {
+const selection: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
   reconcile: repairSelection,
   listen: (params) => {
     const { client, store } = params;
@@ -128,7 +126,7 @@ const syncTitle = ({ client, store }: Params): void => {
   store.dispatch(Drift.setWindowTitle({ title: cached.name }));
 };
 
-const windowTitle: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> = {
+const windowTitle: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
   reconcile: syncTitle,
   listen: (params) => {
     const { client, store } = params;
@@ -159,7 +157,7 @@ const reconcileTabs = (store: RequiredStore, pan: panel.Panel): void => {
 // Converges the window's tab selections to each referenced panel's live tree.
 // Runs per window off its own cache feed, so the selection and the tree
 // update in the same tick; cross-window echoes of the action are no-ops.
-const tabSelections: Synchronizer.Synchronizer<RequiredStoreState, RequiredAction> = {
+const tabSelections: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
   reconcile: async ({ client, store }) => {
     const win = selectActiveWindow(store.getState());
     if (win == null) return;
@@ -189,8 +187,8 @@ const tabSelections: Synchronizer.Synchronizer<RequiredStoreState, RequiredActio
 export const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers<
   RequiredStoreState,
   RequiredAction
-> = {
-  useReconcileSelection: () => selection,
-  useSyncWindowTitle: () => windowTitle,
-  useReconcileTabSelections: () => tabSelections,
-};
+> = [
+  { name: "reconcile panel selection", use: () => selection },
+  { name: "sync window title", use: () => windowTitle },
+  { name: "reconcile tab selections", use: () => tabSelections },
+];

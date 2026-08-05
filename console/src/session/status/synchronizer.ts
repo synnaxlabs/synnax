@@ -38,6 +38,6 @@ const useSyncStatuses: Synchronizer.Use<unknown, Action> = () => {
   );
 };
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers<unknown, Action> = {
-  useSyncStatuses,
-};
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<unknown, Action> = [
+  { name: "sync statuses", use: useSyncStatuses },
+];

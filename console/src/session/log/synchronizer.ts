@@ -10,10 +10,11 @@
 import { type Action, remove, type StoreState } from "@/session/log/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = {
-  useRemoveDeletedLogs: Synchronizer.createRemover<StoreState, Action>({
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
+  Synchronizer.createRemover<StoreState, Action>({
+    name: "remove deleted logs",
     domain: (client) => client.logs,
     selectKeys: (state: StoreState) => Object.keys(state.log.logs),
     remove: (keys) => remove({ keys }),
   }),
-};
+];

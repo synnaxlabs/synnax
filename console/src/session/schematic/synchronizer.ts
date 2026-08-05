@@ -10,10 +10,11 @@
 import { type Action, remove, type StoreState } from "@/session/schematic/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = {
-  useRemoveDeletedSchematics: Synchronizer.createRemover<StoreState, Action>({
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
+  Synchronizer.createRemover<StoreState, Action>({
+    name: "remove deleted schematics",
     domain: (client) => client.schematics,
     selectKeys: (state: StoreState) => Object.keys(state.schematic.schematics),
     remove: (keys) => remove({ keys }),
   }),
-};
+];

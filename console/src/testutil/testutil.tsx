@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type EnhancedStore } from "@reduxjs/toolkit";
+import { type Action, type EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
   type ontology,
@@ -177,6 +177,20 @@ export const createTestStore = async (options: ConsoleTestProviderOptions = {}) 
 };
 
 export type TestStore = Awaited<ReturnType<typeof createTestStore>>;
+
+/**
+ * Narrows a registry to the named synchronizer so a spec can mount it without
+ * its siblings.
+ * @throws {Error} if the registry holds no synchronizer under the name.
+ */
+export const pickSynchronizer = <S, A extends Action>(
+  synchronizers: Session.Synchronizer.Synchronizers<S, A>,
+  name: string,
+): Session.Synchronizer.Synchronizers<S, A> => {
+  const synchronizer = synchronizers.find((sync) => sync.name === name);
+  if (synchronizer == null) throw new Error(`no synchronizer named ${name}`);
+  return [synchronizer];
+};
 
 const ADDITIONAL_REGISTRY = eraser.REGISTRY;
 

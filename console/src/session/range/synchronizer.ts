@@ -17,7 +17,7 @@ import {
 } from "@/session/range/slice";
 import { type Synchronizer } from "@/session/synchronizer";
 
-const syncRanges: Synchronizer.Synchronizer<StoreState, Action> = {
+const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
   reconcile: async ({ client, store }) => {
     // Unpersisted ranges are local-only; only cluster-backed ones can vanish.
     const keys = store
@@ -43,6 +43,6 @@ const syncRanges: Synchronizer.Synchronizer<StoreState, Action> = {
   },
 };
 
-export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = {
-  useSyncRanges: () => syncRanges,
-};
+export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
+  { name: "sync ranges", use: () => syncRanges },
+];
