@@ -35,9 +35,9 @@ Rules for writing and editing RFCs in this directory.
 - Principle and resolved-decision entries take the same colon form:
   `1. **One Go type per entity**: Owned by its service.` When the bold label leads with
   a section number, it carries no separator, matching headings:
-  `**6.1 Predecessor chain, not direct-to-definer.**` These numbers are cited elsewhere,
-  so an entry added between two others takes a letter suffix (`6.2a`) instead of
-  renumbering its successors.
+  `**6.1 Predecessor chain, not direct-to-definer.**` These numbers stay gapless like
+  headings: an entry added between two others renumbers its successors. Fix the
+  references that point at them.
 
 ## Prose
 
