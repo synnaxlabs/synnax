@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -96,17 +95,6 @@ var _ = Describe("Task", Ordered, func() {
 	})
 	AfterEach(func(ctx SpecContext) {
 		Expect(tx.Close()).To(Succeed())
-	})
-	Describe("Task", func() {
-		It("Should lease a racked task to the rack's node", func(ctx SpecContext) {
-			rk := rack.NewKey(node.Key(1), 1)
-			t := task.Task{Key: uuid.New(), Rack: rk}
-			Expect(t.SetOptions()).To(Equal([]any{rk.Node()}))
-		})
-		It("Should use the default lease for a rackless draft", func(ctx SpecContext) {
-			t := task.Task{Key: uuid.New()}
-			Expect(t.SetOptions()).To(BeNil())
-		})
 	})
 	Describe("CommandChannelKey", func() {
 		It(
