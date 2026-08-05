@@ -17,7 +17,7 @@ Rules for writing and editing RFCs in this directory.
 
 - Sentence case: capitalize only the first word, proper nouns, and acronyms.
 - A heading word that names a code identifier goes in backticks with its real casing,
-  not title case: `` ### 4.0 The `domain.DB` write path ``.
+  not title case: ``### 4.0 The `domain.DB` write path``.
 
 ## Definition lists
 
