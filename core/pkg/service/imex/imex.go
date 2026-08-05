@@ -93,8 +93,7 @@ type Envelope struct {
 	// Service.Import routes through Match.
 	Type string
 	// Name is the resource's human-readable name. Encode requires it on export. On
-	// import
-	// it may be empty until Service.Import applies the opts.FileName fallback.
+	// import it may be empty until Service.Import applies the opts.FileName fallback.
 	Name string
 
 	codec encoding.Codec
@@ -124,6 +123,10 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 	if err := dec.Decode(&m); err != nil {
 		return err
 	}
+	// A JSON null decodes to a nil map rather than an error.
+	if m == nil {
+		return errors.Wrap(validate.ErrValidation, "envelope must be a JSON object")
+	}
 	return e.unmarshal(m, b, xjson.Codec)
 }
 
@@ -131,9 +134,6 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 // raw and codec for a later Decode. Both `type` and `name` are optional: legacy Console
 // state files carry neither.
 func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec) error {
-	if m == nil {
-		return errors.Wrap(validate.ErrValidation, "envelope must be an object")
-	}
 	if v, ok := m["version"]; ok {
 		ver, err := versionFromAny(v)
 		if err != nil {
@@ -371,7 +371,7 @@ type Importer interface {
 	// every registered importer's Match. Markers tested by Match are frozen — they
 	// describe historical file shapes — and must be mutually exclusive across
 	// importers. Importers with no typeless legacy formats return false.
-	Match(body map[string]any) bool
+	Match(map[string]any) bool
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under
 	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the
