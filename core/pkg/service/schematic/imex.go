@@ -15,10 +15,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
@@ -34,9 +33,9 @@ func (*Service) Match(body map[string]any) bool {
 	return (hasNodes && hasProps) || hasControlStatus
 }
 
-// Export retrieves the schematic identified by id and serializes it as an
-// imex.Envelope stamped with versions.Latest. It returns query.ErrNotFound if no
-// schematic exists for id.Key.
+// Export retrieves the schematic identified by id and serializes it as an imex.Envelope
+// stamped with versions.Latest. It returns query.ErrNotFound if no schematic exists for
+// id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
@@ -59,38 +58,22 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 }
 
 // Import decodes the envelope into a Schematic and persists it on tx, returning the
-// ontology.ID of the newly-created schematic. The exported key is discarded and a
-// fresh one is generated so that importing always materializes a new resource.
-// Schematics are project children, so opts.Parent must be a project;
-// the
-// schematic is then created within it exactly as a regular create would be. Envelopes
-// older than versions.Latest are Console-era files — camelCase typed exports or
-// Console states — and are lifted forward; an envelope newer than versions.Latest is
-// rejected with a path-scoped validation error.
+// ontology.ID of the newly-created schematic. The exported key is discarded and a fresh
+// one is generated so that importing always materializes a new resource. Schematics are
+// project children, so opts.Parent must be a project; the schematic is then created
+// within it exactly as a regular create would be. Envelopes older than versions.Latest
+// are Console-era files — camelCase typed exports or Console states — and are lifted
+// forward; an envelope newer than versions.Latest is rejected with a path-scoped
+// validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	if opts.Parent.Type != ontology.ResourceTypeProject {
-		return ontology.ID{}, validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation,
-				"parent must be a project, got %q",
-				opts.Parent.Type,
-			),
-			"parent",
-		)
-	}
-	proj, err := uuid.Parse(opts.Parent.Key)
+	proj, err := project.ParentKey(opts)
 	if err != nil {
-		return ontology.ID{}, validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation, "invalid project key %q", opts.Parent.Key,
-			),
-			"parent",
-		)
+		return ontology.ID{}, err
 	}
 	sch, err := versions.DecodeImport(ctx, env)
 	if err != nil {

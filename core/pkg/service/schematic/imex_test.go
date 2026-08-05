@@ -35,6 +35,17 @@ func loadEnvelope(path string) imex.Envelope {
 }
 
 var _ = Describe("ImEx", func() {
+	DescribeTable("Match",
+		func(body map[string]any, expected bool) {
+			Expect(svc.Match(body)).To(Equal(expected))
+		},
+		Entry("nodes and props", map[string]any{"nodes": nil, "props": nil}, true),
+		Entry("controlStatus alone", map[string]any{"controlStatus": nil}, true),
+		Entry("nodes without props", map[string]any{"nodes": nil}, false),
+		Entry("empty body", map[string]any{}, false),
+		Entry("table markers", map[string]any{"layout": nil, "cells": nil}, false),
+	)
+
 	Describe("Export", func() {
 		It("Should export a schematic as a versioned envelope", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "exported", Snapshot: true}

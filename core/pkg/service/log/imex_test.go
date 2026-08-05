@@ -47,6 +47,21 @@ var _ = Describe("ImEx", func() {
 		return l
 	}
 
+	DescribeTable(
+		"Match",
+		func(body map[string]any, expected bool) {
+			Expect(svc.Match(body)).To(Equal(expected))
+		},
+		Entry("channels array", map[string]any{"channels": []any{}}, true),
+		Entry(
+			"channels not an array",
+			map[string]any{"channels": map[string]any{}},
+			false,
+		),
+		Entry("empty body", map[string]any{}, false),
+		Entry("table markers", map[string]any{"layout": nil, "cells": nil}, false),
+	)
+
 	Describe("Export", func() {
 		It(
 			"Should export a created log as a versioned envelope",

@@ -41,6 +41,17 @@ func loadEnvelope(path string) imex.Envelope {
 var testParent = ontology.ID{Type: ontology.ResourceTypeProject, Key: "imex-parent"}
 
 var _ = Describe("ImEx", func() {
+	DescribeTable("Match",
+		func(body map[string]any, expected bool) {
+			Expect(svc.Match(body)).To(Equal(expected))
+		},
+		Entry("graph and mode", map[string]any{"graph": nil, "mode": nil}, true),
+		Entry("graph and text", map[string]any{"graph": nil, "text": nil}, true),
+		Entry("graph alone", map[string]any{"graph": nil}, false),
+		Entry("mode alone", map[string]any{"mode": nil}, false),
+		Entry("empty body", map[string]any{}, false),
+	)
+
 	Describe("Export", func() {
 		It("Should export an arc as a versioned envelope", func(ctx SpecContext) {
 			a := arc.Arc{Name: "exported", Mode: arc.ModeText}

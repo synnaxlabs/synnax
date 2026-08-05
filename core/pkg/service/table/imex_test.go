@@ -35,6 +35,18 @@ func loadEnvelope(path string) imex.Envelope {
 }
 
 var _ = Describe("ImEx", func() {
+	DescribeTable("Match",
+		func(body map[string]any, expected bool) {
+			Expect(svc.Match(body)).To(Equal(expected))
+		},
+		Entry("layout and cells", map[string]any{"layout": nil, "cells": nil}, true),
+		Entry("selectedCells alone", map[string]any{"selectedCells": nil}, true),
+		Entry("hideIndicators alone", map[string]any{"hideIndicators": nil}, true),
+		Entry("layout without cells", map[string]any{"layout": nil}, false),
+		Entry("empty body", map[string]any{}, false),
+		Entry("log markers", map[string]any{"channels": []any{}}, false),
+	)
+
 	Describe("Export", func() {
 		It("Should export a table as a versioned envelope", func(ctx SpecContext) {
 			t := table.Table{Name: "exported"}

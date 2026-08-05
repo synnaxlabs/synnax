@@ -36,6 +36,16 @@ func loadEnvelope(path string) imex.Envelope {
 }
 
 var _ = Describe("ImEx", func() {
+	DescribeTable("Match",
+		func(body map[string]any, expected bool) {
+			Expect(svc.Match(body)).To(Equal(expected))
+		},
+		Entry("data with svg", map[string]any{"data": map[string]any{"svg": ""}}, true),
+		Entry("data without svg", map[string]any{"data": map[string]any{}}, false),
+		Entry("top-level svg", map[string]any{"svg": ""}, false),
+		Entry("empty body", map[string]any{}, false),
+	)
+
 	Describe("Export", func() {
 		It("Should export a symbol as a versioned envelope", func(ctx SpecContext) {
 			sym := symbol.Symbol{

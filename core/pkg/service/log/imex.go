@@ -16,16 +16,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
 
 // Match reports whether body is a legacy Console log state, which persists channels as
-// an array (bare keys at v0, config objects at v1); no other resource's state does.
-// The marker is frozen — it describes historical file shapes.
+// an array (bare keys at v0, config objects at v1); no other resource's state does. The
+// marker is frozen — it describes historical file shapes.
 func (*Service) Match(body map[string]any) bool {
 	_, ok := body["channels"].([]any)
 	return ok
@@ -57,36 +56,19 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // ontology.ID of the newly-created log. The exported key is discarded and a fresh one
 // is generated so that importing always materializes a new resource rather than
 // overwriting an existing log with a colliding key. Logs are project children, so
-// opts.Parent
-// must be a project; the log is then created within it exactly
-// as a regular create would be. Envelopes older than versions.Latest are legacy
-// camelCase Console exports and are lifted forward through the migration chain; an
-// envelope newer than versions.Latest is rejected with a path-scoped validation
-// error.
+// opts.Parent must be a project; the log is then created within it exactly as a regular
+// create would be. Envelopes older than versions.Latest are legacy camelCase Console
+// exports and are lifted forward through the migration chain; an envelope newer than
+// versions.Latest is rejected with a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	if opts.Parent.Type != ontology.ResourceTypeProject {
-		return ontology.ID{}, validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation,
-				"parent must be a project, got %q",
-				opts.Parent.Type,
-			),
-			"parent",
-		)
-	}
-	proj, err := uuid.Parse(opts.Parent.Key)
+	proj, err := project.ParentKey(opts)
 	if err != nil {
-		return ontology.ID{}, validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation, "invalid project key %q", opts.Parent.Key,
-			),
-			"parent",
-		)
+		return ontology.ID{}, err
 	}
 	l, err := versions.DecodeImport(ctx, env)
 	if err != nil {

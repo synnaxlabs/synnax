@@ -36,6 +36,18 @@ func loadEnvelope(path string) imex.Envelope {
 }
 
 var _ = Describe("ImEx", func() {
+	DescribeTable("Match",
+		func(body map[string]any, expected bool) {
+			Expect(svc.Match(body)).To(Equal(expected))
+		},
+		Entry("axes and channels", map[string]any{"axes": nil, "channels": nil}, true),
+		Entry("selectedRules alone", map[string]any{"selectedRules": nil}, true),
+		Entry("hiddenLines alone", map[string]any{"hiddenLines": nil}, true),
+		Entry("axes without channels", map[string]any{"axes": nil}, false),
+		Entry("empty body", map[string]any{}, false),
+		Entry("table markers", map[string]any{"layout": nil, "cells": nil}, false),
+	)
+
 	Describe("Export", func() {
 		It("Should export a line plot as a versioned envelope", func(ctx SpecContext) {
 			lp := lineplot.LinePlot{Name: "exported"}
