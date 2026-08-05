@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, NotFoundError, query, type Synnax, type task } from "@synnaxlabs/client";
+import { arc, type task } from "@synnaxlabs/client";
 import { compare, type record, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
@@ -40,34 +40,32 @@ export interface SelectKeyParams {
   key: arc.Key;
 }
 
-const requireArc = (client: Synnax | null, key: arc.Key): arc.Arc => {
-  const cached = client?.arcs.getCached(key);
-  if (cached == null) throw new NotFoundError(`Arc with key ${key} not found`);
-  if (query.Deleted.matches(cached))
-    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
-  return cached;
+export type RetrieveQuery = {
+  key: arc.Key;
+  includeStatus?: boolean;
 };
 
-const getArc = (client: Synnax | null, key: arc.Key): arc.Arc | undefined => {
-  const cached = client?.arcs.getCached(key);
-  if (!query.isLive(cached)) return undefined;
-  return cached;
-};
-
-const subscribe = (
-  { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
-  notify: () => void,
-) => (client == null ? () => {} : client.arcs.onChange(key, notify));
+export const {
+  useRetrieve,
+  useRetrieveObservable,
+  useEnsureRetrieved,
+  useTombstone,
+  createSelector,
+} = Flux.createRetrieve<RetrieveQuery, arc.Arc>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
+  subscribe: ({ client, query: { key, includeStatus } }, handler) =>
+    client.arcs.onChange({ key, includeStatus }, handler),
+  getCached: ({ client, query: { key, includeStatus } }) =>
+    client.arcs.getCached({ key, includeStatus }),
+});
 
 // useSelectAllNodes returns every graph node of the Arc with the given key as diagram
 // nodes. graph.Node is a structural superset of Diagram.Node, so the cached array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated cache updates.
-export const [useSelectAllNodes, useGetAllNodes] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, Diagram.Node[]>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireArc(client, key).graph.nodes,
-  }),
+export const useSelectAllNodes = Scope.bindHook(
+  createSelector<Diagram.Node[]>(({ graph }) => graph.nodes),
 );
 
 export interface SelectNodesParams extends SelectKeyParams {
@@ -77,28 +75,23 @@ export interface SelectNodesParams extends SelectKeyParams {
 // useSelectNodes returns only the graph nodes whose keys are in the given set. The
 // result is compared by value, so a consumer that tracks a selection re-renders only
 // when its nodes change, not on every node mutation.
-export const [useSelectNodes, useGetNodes] = Scope.bindSelector(
-  Flux.createSelector<SelectNodesParams, Diagram.Node[]>({
-    subscribe,
-    select: ({ client, args: { key, keys } }) => {
-      const a = getArc(client, key);
-      if (a == null || keys.length === 0) return [];
+export const useSelectNodes = Scope.bindHook(
+  createSelector<Diagram.Node[], SelectNodesParams>(
+    ({ graph }, { keys }) => {
+      if (keys.length === 0) return [];
       const keySet = new Set(keys);
-      return a.graph.nodes.filter((n) => keySet.has(n.key));
+      return graph.nodes.filter((n) => keySet.has(n.key));
     },
-    equal: compare.arraysEqual,
-  }),
+    (a, b) => compare.arraysEqual(a, b),
+  ),
 );
 
 // useSelectAllEdges returns every graph edge of the Arc with the given key as diagram
 // edges. graph.Edge is a structural superset of Diagram.Edge, so the cached array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated cache updates.
-export const [useSelectAllEdges, useGetAllEdges] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, Diagram.Edge[]>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireArc(client, key).graph.edges,
-  }),
+export const useSelectAllEdges = Scope.bindHook(
+  createSelector<Diagram.Edge[]>(({ graph }) => graph.edges),
 );
 
 export interface SelectNodePropsParams extends SelectKeyParams {
@@ -107,40 +100,25 @@ export interface SelectNodePropsParams extends SelectKeyParams {
 
 // useSelectNodeConfig returns the typed config for a single graph node. Returned by
 // reference, so the selection only re-runs when that node's config changes.
-export const [useSelectNodeConfig, useGetNodeConfig] = Scope.bindSelector(
-  Flux.createSelector<SelectNodePropsParams, Node.Config>({
-    subscribe,
-    select: ({ client, args: { key, nodeKey } }) =>
-      requireArc(client, key).graph.inputs[nodeKey] as Node.Config,
-  }),
+export const useSelectNodeConfig = Scope.bindHook(
+  createSelector<Node.Config, SelectNodePropsParams>(
+    ({ graph }, { nodeKey }) => graph.inputs[nodeKey] as Node.Config,
+  ),
 );
 
 // useSelectMode returns the representation mode of the Arc with the given key. It
 // requires the arc to be cached, so callers must render it beneath an Arc.Suspended
 // boundary that has retrieved the arc.
-export const [useSelectMode, useGetMode] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, arc.Mode>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireArc(client, key).mode,
-  }),
-);
+export const useSelectMode = Scope.bindHook(createSelector(({ mode }) => mode));
 
 // useSelectHasText reports whether the Arc with the given key has a cached document.
 // It returns a stable boolean, so an editor that drives its document imperatively
 // re-renders only when the document first becomes available, not on every edit.
-export const [useSelectHasText, useGetHasText] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, boolean>({
-    subscribe,
-    select: ({ client, args: { key } }) => getArc(client, key)?.text.doc != null,
-  }),
+export const useSelectHasText = Scope.bindHook(
+  createSelector(({ text }) => text.doc != null),
 );
 
-export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<SelectKeyParams, string>({
-    subscribe,
-    select: ({ client, args: { key } }) => requireArc(client, key).name,
-  }),
-);
+export const useSelectName = Scope.bindHook(createSelector(({ name }) => name));
 
 export interface AddNodeProps {
   key: string;
@@ -174,11 +152,6 @@ export const useAddNode = (keyOverride?: arc.Key) => {
     },
     [key, dispatch, theme],
   );
-};
-
-export type RetrieveQuery = {
-  key: arc.Key;
-  includeStatus?: boolean;
 };
 
 export type ListQuery = List.PagerParams & {
@@ -241,14 +214,6 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });
-
-export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved, useTombstone } =
-  Flux.createRetrieve<RetrieveQuery, arc.Arc>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
-    subscribe: ({ client, query }, handler) => client.arcs.onChange(query, handler),
-    getCached: ({ client, query }) => client.arcs.getCached(query),
-  });
 
 export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 
