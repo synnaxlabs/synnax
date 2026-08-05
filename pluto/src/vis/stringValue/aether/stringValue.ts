@@ -39,8 +39,9 @@ export class StringValue
   implements diagram.Element
 {
   static readonly TYPE = "StringValue";
+  static readonly z = stateZ;
 
-  schema = stateZ;
+  schema = StringValue.z;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
