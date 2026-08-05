@@ -1425,11 +1425,11 @@ var _ = Describe("Driver", func() {
 
 			otherRack := rack.Rack{Name: "Other Rack for Commands"}
 			Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+			otherTask := newTask(otherRack.Key)
+			Expect(taskWriter.Create(ctx, &otherTask)).To(Succeed())
 
-			t := newTask(otherRack.Key)
-			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 			cmd := task.Command{
-				Task: t.Key,
+				Task: otherTask.Key,
 				Type: "start",
 				Key:  "cmd-other-rack",
 			}
@@ -1718,8 +1718,7 @@ var _ = Describe("Driver", func() {
 				Expect(d1.Close()).To(Succeed())
 
 				// Open a new driver with a factory that blocks until all tasks are
-				// being
-				// configured concurrently.
+				// being configured concurrently.
 				factory := &mockFactory{
 					name: "test",
 					configureFunc: func(

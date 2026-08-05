@@ -86,7 +86,7 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
 
 export const useIsRunning = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
-) => useStatus(ctx)?.details.running ?? false;
+) => useStatus(ctx).details.running;
 
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,

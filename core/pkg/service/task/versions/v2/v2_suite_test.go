@@ -7,9 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
-import { Form } from "@synnaxlabs/pluto";
-import { type z } from "zod";
+package v2_test
 
-export const useStatus = <Schema extends z.ZodType>(ctx?: Form.ContextValue<Schema>) =>
-  Form.useFieldValue<task.Status>("status", { ctx });
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestTaskV2(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Task v2 Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

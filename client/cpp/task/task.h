@@ -26,7 +26,7 @@
 #include "core/pkg/service/task/pb/task.pb.h"
 #include "core/pkg/transport/grpc/task/task.pb.h"
 
-namespace synnax { namespace task {
+namespace synnax::task {
 
 const std::string SET_CHANNEL = "sy_task_set";
 const std::string DELETE_CHANNEL = "sy_task_delete";
@@ -210,4 +210,4 @@ private:
     /// @brief Task deletion transport.
     std::shared_ptr<DeleteClient> task_delete_client;
 };
-}}
+}
