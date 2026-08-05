@@ -146,16 +146,9 @@ No new relationship type is needed. The existing tree walk, delete cascade, and
 task, enforced in the task writer, and the relationship is defined and deleted in the
 same transaction as the task row, so no retrieve observes a task without its config.
 
-Two structural changes follow from reusing `parent_of`:
-
-- **The task's tree position moves down a level.** The writer parents every non-internal
-  task under a group today. The config record takes that position: the group parents the
-  record, and the record parents the task. Leaving both edges in place would list every
-  task twice in the Console tree, so the group edge moves to the record.
-- **Internal tasks gain ontology resources.** The writer skips resource creation for
-  internal tasks, so a scanner has no ontology presence to relate. Internal tasks now
-  get resources so the relationship can exist. They stay out of the tree by not being
-  attached to a group, which is what `internal` already means.
+The edge is additive. A task keeps the group parent the writer gives it today, and the
+config record is a second parent alongside it. Nothing about the existing tree shape
+changes.
 
 The config record also gains a UUID that survives export and import, and an ontology
 presence that per-type endpoints and access policies can name later.
@@ -292,10 +285,10 @@ builds, the tests pass, and the product can ship. No phase changes the task payl
    ontology registration, and the config registry the task writer will consult. Additive
    and unconsumed; Ginkgo suites exercise the packages directly.
 4. **Decompose and compose**: the storage cutover. The task writer decomposes on write;
-   retrieve, `OnChange`, and `sy_task_set` compose on read; the parent relationship
-   moves to the config record; internal tasks gain ontology resources; and the §4.8
-   startup migration runs. `type` and `config` become resolved. The task payload does
-   not change, so every client keeps working untouched.
+   retrieve, `OnChange`, and `sy_task_set` compose on read; the config record becomes a
+   second parent of the task; and the §4.8 startup migration runs. `type` and `config`
+   become resolved. The task payload does not change, so every client keeps working
+   untouched.
 5. **Import and export**: the task service implements `imex.Importer`, and `Export`
    encodes the typed struct. This unblocks SY-4524.
 6. **Client compat deletion**: one PR per client, no wire change. The Console loses its
@@ -357,8 +350,8 @@ code, not new behavior.
 
 ## 8 Open questions
 
-1. What the Console tree shows now that the config record sits between the group and the
-   task: the record, the task, or one collapsed node for the pair.
+1. How an internal task carries the edge. The writer creates no ontology resource for
+   one today, so a scanner has nothing to relate.
 2. Whether composition belongs in the retrieve builder or behind an explicit
    `.WithConfigs()` option, so callers who only need a task name skip the join. Making
    `type` resolved raises the stakes: a caller that filters by type always needs it.
