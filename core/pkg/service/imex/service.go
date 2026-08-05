@@ -96,9 +96,9 @@ func notFoundError[T ~string](typ T, kind string) error {
 // ResolveType returns the registration type string that Import will route envelope to.
 // A non-empty envelope.Type is returned as-is. For typeless envelopes — legacy Console
 // state files never carried a type — the body map already parsed at envelope decode is
-// offered to every registered [Importer] that implements [Matcher], in sorted type
-// order; the first to claim it wins. Returns a validation error scoped to the "type"
-// field when no importer claims the body.
+// offered to every registered [Importer]'s Match, in sorted type order; the first to
+// claim it wins. Returns a validation error scoped to the "type" field when no
+// importer claims the body.
 func (s *Service) ResolveType(ctx context.Context, envelope Envelope) (string, error) {
 	if envelope.Type != "" {
 		return envelope.Type, nil
@@ -107,7 +107,7 @@ func (s *Service) ResolveType(ctx context.Context, envelope Envelope) (string, e
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, t := range slices.Sorted(maps.Keys(s.importers)) {
-		if m, ok := s.importers[t].(Matcher); ok && m.Match(body) {
+		if s.importers[t].Match(body) {
 			return t, nil
 		}
 	}

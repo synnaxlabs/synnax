@@ -107,6 +107,8 @@ func (s *testService) Import(
 	return id, nil
 }
 
+func (*testService) Match(map[string]any) bool { return false }
+
 func (s *testService) Export(
 	ctx context.Context,
 	id ontology.ID,
@@ -150,6 +152,8 @@ type errorService struct{}
 
 func (errorService) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
 
+func (errorService) Match(map[string]any) bool { return false }
+
 func (errorService) Import(
 	context.Context, gorp.Tx, imex.Envelope, imex.ImportOptions,
 ) (ontology.ID, error) {
@@ -164,6 +168,8 @@ type noopImporter struct{ typ ontology.ResourceType }
 
 func (n noopImporter) Type() ontology.ResourceType { return n.typ }
 
+func (noopImporter) Match(map[string]any) bool { return false }
+
 func (n noopImporter) Import(
 	context.Context, gorp.Tx, imex.Envelope, imex.ImportOptions,
 ) (ontology.ID, error) {
@@ -176,8 +182,6 @@ type matchImporter struct {
 	noopImporter
 	marker string
 }
-
-var _ imex.Matcher = matchImporter{}
 
 func (m matchImporter) Match(body map[string]any) bool {
 	_, ok := body[m.marker]

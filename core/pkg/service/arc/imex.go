@@ -19,10 +19,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var (
-	_ imex.ImportExporter = (*Service)(nil)
-	_ imex.Matcher        = (*Service)(nil)
-)
+var _ imex.ImportExporter = (*Service)(nil)
 
 // Match reports whether body is a legacy Console arc state: v0-v2 files persist the
 // graph inline alongside text and mode. The markers are frozen — they describe

@@ -106,8 +106,8 @@ type Envelope struct {
 	// fine-grained type strings like "http_read" or "opc_scan"), Type is the
 	// fine-grained string; the broader ontology resource type is recovered through the
 	// Importer's Type() method. Empty on legacy Console state files, which never
-	// carried a type — Service.Import resolves it by offering the body to registered
-	// Matchers.
+	// carried a type — Service.Import resolves it by offering the body to each
+	// registered importer's Match.
 	Type string
 	// Name is the human-readable name of the resource. Required on export — Encode
 	// enforces that the input value carries a top-level string `name` field. On import
@@ -155,7 +155,7 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 // that produced them, it promotes the {version, type, name} headers onto the receiver
 // and stashes raw + codec for the later typed decode via Decode[T]. Both `type` and
 // `name` are optional at decode time: legacy Console state files carry neither, so
-// Service.Import resolves a missing type by offering the body to registered Matchers
+// Service.Import resolves a missing type by offering the body to importers' Match
 // and fills a missing name from the caller-supplied file name.
 func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec) error {
 	if m == nil {
@@ -420,22 +420,18 @@ type Importer interface {
 	// re-deriving one from the body. The importer owns all ontology writes for the
 	// resource, including attaching it under opts.Parent when one is given.
 	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (ontology.ID, error)
+	// Match reports whether body, the envelope body decoded as a flat map, is this
+	// importer's resource. It routes envelopes carrying no `type` header: legacy
+	// Console state files never carried one, so Service.ResolveType offers the body to
+	// every registered importer's Match. Markers tested by Match are frozen — they
+	// describe historical file shapes — and must be mutually exclusive across
+	// importers. Importers with no typeless legacy formats return false.
+	Match(body map[string]any) bool
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under
 	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the
 	// resource type used for access control and ontology accounting.
 	Type() ontology.ResourceType
-}
-
-// Matcher is implemented by Importers that can claim envelopes carrying no `type`
-// header. Legacy Console state files never carried one, so Service.ResolveType offers
-// the decoded body to each registered Matcher instead. Markers tested by Match are
-// frozen — they describe historical file shapes — and must be mutually exclusive
-// across importers.
-type Matcher interface {
-	// Match reports whether body, the envelope body decoded as a flat map, is this
-	// importer's resource.
-	Match(body map[string]any) bool
 }
 
 // Exporter serializes a stored resource as an Envelope, stamping its own per-schema

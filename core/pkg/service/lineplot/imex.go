@@ -21,10 +21,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var (
-	_ imex.ImportExporter = (*Service)(nil)
-	_ imex.Matcher        = (*Service)(nil)
-)
+var _ imex.ImportExporter = (*Service)(nil)
 
 // Match reports whether body is a legacy Console line plot state: v0-v4 files persist
 // the plot body inline (axes/channels), v5 carries selectedRules/hiddenLines alongside

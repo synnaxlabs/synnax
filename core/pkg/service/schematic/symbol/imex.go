@@ -21,10 +21,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var (
-	_ imex.ImportExporter = (*Service)(nil)
-	_ imex.Matcher        = (*Service)(nil)
-)
+var _ imex.ImportExporter = (*Service)(nil)
 
 // Match reports whether body is a legacy Console symbol file: main-era exports carry
 // the symbol spec as a data object with an inline svg, and no other typeless file

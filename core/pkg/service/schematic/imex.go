@@ -21,10 +21,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var (
-	_ imex.ImportExporter = (*Service)(nil)
-	_ imex.Matcher        = (*Service)(nil)
-)
+var _ imex.ImportExporter = (*Service)(nil)
 
 // Match reports whether body is a legacy Console schematic state: v0-v5 files persist
 // the document inline (nodes/edges/props), v6 carries controlStatus alongside an

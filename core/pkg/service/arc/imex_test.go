@@ -36,6 +36,10 @@ func loadEnvelope(path string) imex.Envelope {
 	return env
 }
 
+// testParent satisfies the registry's required-parent check; the arc importer does
+// not parent imported resources, so the ID only has to be non-zero.
+var testParent = ontology.ID{Type: ontology.ResourceTypeProject, Key: "imex-parent"}
+
 var _ = Describe("ImEx", func() {
 	Describe("Export", func() {
 		It("Should export an arc as a versioned envelope", func(ctx SpecContext) {
@@ -84,7 +88,9 @@ var _ = Describe("ImEx", func() {
 
 		It("Should import a current snake_case envelope", func(ctx SpecContext) {
 			res := importAndRetrieve(
-				ctx, "versions/testdata/import_v3.json", imex.ImportOptions{},
+				ctx,
+				"versions/testdata/import_v3.json",
+				imex.ImportOptions{Parent: testParent},
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
 			Expect(res.Mode).To(Equal(arc.ModeGraph))
@@ -103,7 +109,7 @@ var _ = Describe("ImEx", func() {
 				res := importAndRetrieve(
 					ctx,
 					"versions/testdata/import_typed_console.json",
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: testParent},
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Mode).To(Equal(arc.ModeGraph))
@@ -137,7 +143,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				res := importAndRetrieve(
 					ctx, "versions/testdata/import_v0_state.json",
-					imex.ImportOptions{FileName: "Legacy Arc.json"},
+					imex.ImportOptions{FileName: "Legacy Arc.json", Parent: testParent},
 				)
 				Expect(res.Name).To(Equal("Legacy Arc"))
 				Expect(res.Mode).To(Equal(arc.ModeGraph))
@@ -167,7 +173,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				res := importAndRetrieve(
 					ctx, "versions/testdata/import_v2_state.json",
-					imex.ImportOptions{FileName: "V2 Arc.json"},
+					imex.ImportOptions{FileName: "V2 Arc.json", Parent: testParent},
 				)
 				Expect(res.Mode).To(Equal(arc.ModeText))
 				Expect(res.Graph.Edges[0].Source).To(
@@ -184,7 +190,7 @@ var _ = Describe("ImEx", func() {
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
 					loadEnvelope("versions/testdata/import_bad_version.json"),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: testParent},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("arc version 99")),
 					MatchError(ContainSubstring("newer than this Core supports")),
@@ -201,7 +207,7 @@ var _ = Describe("ImEx", func() {
 					loadEnvelope(
 						"versions/testdata/import_v3.json",
 					),
-					imex.ImportOptions{},
+					imex.ImportOptions{Parent: testParent},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 			},
@@ -217,7 +223,7 @@ var _ = Describe("ImEx", func() {
 				Expect(svc.NewWriter(nil).Create(ctx, &original)).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, arc.OntologyID(original.Key)))
 				id := MustSucceed(imexSvc.Import(
-					ctx, db, WireRoundTrip(env), imex.ImportOptions{},
+					ctx, db, WireRoundTrip(env), imex.ImportOptions{Parent: testParent},
 				))
 				key := MustSucceed(uuid.Parse(id.Key))
 				Expect(key).ToNot(Equal(original.Key))

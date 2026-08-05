@@ -21,10 +21,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var (
-	_ imex.ImportExporter = (*Service)(nil)
-	_ imex.Matcher        = (*Service)(nil)
-)
+var _ imex.ImportExporter = (*Service)(nil)
 
 // Match reports whether body is a legacy Console table state: v0 files persist the
 // structural model inline (layout/cells), v1 carries selectedCells/hideIndicators
