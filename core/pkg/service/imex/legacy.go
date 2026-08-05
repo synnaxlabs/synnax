@@ -37,12 +37,12 @@ func DecodeBlob[T any](
 	resource string,
 	v Version,
 ) (T, error) {
-	var d T
+	var t T
 	if blob == nil {
-		return d, nil
+		return t, nil
 	}
-	if err := blob.Unmarshal(&d); err != nil {
-		return d, errors.Wrapf(err, "decode v%d %s", v, resource)
+	if err := blob.Unmarshal(&t); err != nil {
+		return t, errors.Wrapf(err, "decode v%d %s", v, resource)
 	}
-	return d, nil
+	return t, nil
 }
