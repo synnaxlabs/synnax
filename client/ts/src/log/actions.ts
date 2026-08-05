@@ -11,6 +11,7 @@ import { color } from "@synnaxlabs/x";
 
 import { actions } from "@/actions";
 import {
+  type Action,
   addChannel,
   createReduceAll,
   type Handlers,
@@ -197,3 +198,35 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// kindOf keys single-channel edits by channel so rapid edits to one
+// channel's config coalesce into a single undoable, while edits to distinct
+// channels stay separate. Log-level edits (name, precision, flags) key by their
+// action type; multi-action batches collapse into one "transaction" undoable.
+export const kindOf = (actions: Action[]): string => {
+  if (actions.length === 0) return "default";
+  if (actions.length > 1) return "transaction";
+  const a = actions[0];
+  switch (a.type) {
+    case "add_channel":
+      return `channel:${a.addChannel.channel}`;
+    case "remove_channel":
+      return `channel:${a.removeChannel.channel}`;
+    case "set_channel_entry":
+      return `channel:${a.setChannelEntry.entry.channel}`;
+    case "set_channel_color":
+      return `channel:${a.setChannelColor.channel}`;
+    case "set_channel_notation":
+      return `channel:${a.setChannelNotation.channel}`;
+    case "set_channel_precision":
+      return `channel:${a.setChannelPrecision.channel}`;
+    case "set_channel_alias":
+      return `channel:${a.setChannelAlias.channel}`;
+    case "set_channel_timestamp_format":
+      return `channel:${a.setChannelTimestampFormat.channel}`;
+    case "set_channel_timestamp_tz":
+      return `channel:${a.setChannelTimestampTz.channel}`;
+    default:
+      return a.type;
+  }
+};

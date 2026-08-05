@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { id, TimeStamp } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { task } from "@/task";
-import { createTestClient } from "@/testutil";
+import { createTestClient, isLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -87,7 +87,7 @@ describe("Task", async () => {
         name: "updated",
       });
       expect(updated.name).toBe("updated");
-      const retrieved = await client.tasks.retrieve({ key: m.key });
+      const retrieved = await client.tasks.retrieve(m.key);
       expect(retrieved.name).toBe("updated");
     });
   });
@@ -98,7 +98,7 @@ describe("Task", async () => {
         config: { a: "dog" },
         type: "ni",
       });
-      const retrieved = await client.tasks.retrieve({ key: m.key });
+      const retrieved = await client.tasks.retrieve(m.key);
       expect(retrieved.key).toBe(m.key);
       expect(retrieved.name).toBe("test");
       expect(retrieved.config).toStrictEqual({ a: "dog" });
@@ -651,6 +651,68 @@ describe("Task", async () => {
       });
       expect(retrieved.type).toBe("unique_type_test");
       expect(retrieved.config.value).toBe(42);
+    });
+  });
+
+  describe("onChange", () => {
+    it("merges a status keyed by details.task into a subscribed single query", async () => {
+      const t = await testRack.createTask({
+        name: `status-details-single-${id.create()}`,
+        config: {},
+        type: "ni",
+      });
+      const query = { key: t.key };
+      const off = client.tasks.onChange(query, vi.fn());
+      try {
+        await client.tasks.retrieve(query);
+        await client.statuses.set({
+          key: id.create(),
+          name: "Task Status",
+          variant: "error",
+          message: "task failed",
+          time: TimeStamp.now(),
+          details: { task: t.key, running: false, cmd: "", data: {} },
+        });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(query);
+            if (!isLive(cached)) return undefined;
+            return cached.status?.message;
+          })
+          .toBe("task failed");
+      } finally {
+        off();
+      }
+    });
+
+    it("merges a status keyed by details.task into a subscribed request query", async () => {
+      const t = await testRack.createTask({
+        name: `status-details-request-${id.create()}`,
+        config: {},
+        type: "ni",
+      });
+      const query = { keys: [t.key] };
+      const off = client.tasks.onChange(query, vi.fn());
+      try {
+        await client.tasks.retrieve(query);
+        await client.statuses.set({
+          key: id.create(),
+          name: "Task Status",
+          variant: "warning",
+          message: "task degraded",
+          time: TimeStamp.now(),
+          details: { task: t.key, running: true, cmd: "", data: {} },
+        });
+        await expect
+          .poll(() => {
+            const cached = client.tasks.getCached(query);
+            if (!isLive(cached)) return undefined;
+            return cached.find((v) => v.key === t.key)?.status?.message;
+          })
+          .toBe("task degraded");
+      } finally {
+        off();
+      }
     });
   });
 });

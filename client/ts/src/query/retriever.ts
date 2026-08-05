@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type destructor, type record } from "@synnaxlabs/x";
-import type z from "zod";
+import z from "zod";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/errors";
 import { type Cache } from "@/query/cache";
 import {
   type Cached,
@@ -38,6 +38,18 @@ const keysOnly = (query: unknown): unknown[] | null => {
   return keys;
 };
 
+/** True for params that are a bare record key rather than a query object. */
+const isBareKey = (params: unknown): params is record.Key =>
+  typeof params === "string" || typeof params === "number";
+
+/**
+ * Request schema arm reading a bare key list as `{ keys }`. Union it onto a
+ * domain's request schema to opt that domain into the shorthand:
+ * `retrieveRequestZ.or(keyListZ(keyZ))`.
+ */
+export const keyListZ = <K extends z.ZodType<record.Key>>(key: K) =>
+  z.array(key).transform((keys) => ({ keys }));
+
 interface ComposeProp<V, D> {
   /**
    * Per-record enrichment applied to every answer, receiving the normalized
@@ -63,7 +75,8 @@ export type RetrieverParams<
   K extends record.Key,
   V extends Keyed<K>,
   D extends Data = V,
-  SingleParams = { key: K },
+  SingleInput = { key: K },
+  SingleQuery extends Params = K,
 > = ComposeParam<V, D> & {
   /** Resource name used in error messages, e.g. "range". */
   name: string;
@@ -91,12 +104,15 @@ export type RetrieverParams<
   };
   /** Custom single space for domains whose single query is richer than a key. */
   single?: {
-    /** Whether the params address exactly one record. */
-    is: (params: unknown) => params is SingleParams;
-    /** Canonicalizes single params so equivalent queries hash identically. */
-    normalize: (params: SingleParams) => Params;
+    /**
+     * Discriminates and canonicalizes single params: parse success routes the
+     * query to the single space, and the output is the space's query. Object
+     * schemas must reject unknown keys so request params fall through. Union
+     * in a bare-key arm to accept `retrieve(key)`.
+     */
+    schema: z.ZodType<SingleQuery, SingleInput | record.Key>;
     /** The space answering single queries, built via the cache. */
-    space: Retrieves<Params, D>;
+    space: Retrieves<SingleQuery, D>;
   };
 };
 
@@ -128,15 +144,18 @@ export abstract class Retriever<
   K extends record.Key,
   V extends Keyed<K>,
   D extends Data = V,
-  SingleParams = { key: K },
+  SingleInput = { key: K },
+  SingleQuery extends Params = K,
 > {
-  private readonly singleSpace: Retrieves<Params, D>;
+  private readonly singleSpace: Retrieves<SingleQuery, D>;
   private readonly requestSpace: Retrieves<z.output<Z>, D[]>;
-  private readonly isSingle: (params: unknown) => params is SingleParams;
-  private readonly normalizeSingle: (params: SingleParams) => Params;
-  private readonly normalizeRequest: (params: z.input<Z>) => z.output<Z>;
+  private readonly trySingle: (params: unknown) => { query: SingleQuery } | null;
+  private readonly normalizeRequest: (params: unknown) => z.output<Z>;
 
-  constructor(cache: Cache, params: RetrieverParams<Z, K, V, D, SingleParams>) {
+  constructor(
+    cache: Cache,
+    params: RetrieverParams<Z, K, V, D, SingleInput, SingleQuery>,
+  ) {
     const {
       name,
       table,
@@ -169,9 +188,22 @@ export abstract class Retriever<
     this.normalizeRequest = (p) => schema.parse(p);
     if (single != null) {
       this.singleSpace = single.space;
-      this.isSingle = single.is;
-      this.normalizeSingle = single.normalize;
+      const singleSchema = single.schema;
+      // Params carrying `key` that fail the single schema are malformed
+      // single queries; falling through would silently fetch every record.
+      this.trySingle = (p) => {
+        const res = singleSchema.safeParse(p);
+        if (res.success) return { query: res.data };
+        if (isBareKey(p) || (typeof p === "object" && p !== null && "key" in p))
+          throw new ValidationError(
+            `${name} params address a single key but do not match the ` +
+              `single-query schema: ${res.error.issues.map((i) => i.message).join("; ")}`,
+          );
+        return null;
+      };
     } else {
+      // The default path binds SingleQuery = K: `{ key }` params resolve through the
+      // table's fetch. The casts are the one seam the defaults can't prove.
       this.singleSpace = cache.queries<K, D, K, V>({
         name,
         table,
@@ -185,28 +217,33 @@ export abstract class Retriever<
         keyOf: (query) => query,
         single: true,
       }) as Retrieves<Params, D>;
-      this.isSingle = (p): p is SingleParams =>
-        typeof p === "object" && p !== null && "key" in p;
-      this.normalizeSingle = ((p: { key: K }) => p.key) as unknown as (
-        params: SingleParams,
-      ) => Params;
+      this.trySingle = (p) => {
+        if (isBareKey(p)) return { query: p as Params as SingleQuery };
+        return typeof p === "object" && p !== null && "key" in p
+          ? { query: (p as { key: K }).key as Params as SingleQuery }
+          : null;
+      };
     }
   }
 
   /**
    * Reads the record the params address, or every record matching them.
-   * Serves the cache when the answer is fresh, fetching otherwise.
+   * Serves the cache when the answer is fresh, fetching otherwise. A bare key
+   * is shorthand for `{ key }`; a bare key list is accepted by domains whose
+   * request schema unions in {@link keyListZ}.
    * @throws {NotFoundError} if a single-record query matches nothing or the
    * record was deleted.
+   * @throws {ValidationError} if params contain `key` (or are a bare key)
+   * but fail the single-query schema.
    */
-  retrieve(params: SingleParams, options?: FetchOptions): Promise<D>;
-  retrieve(params: z.input<Z>, options?: FetchOptions): Promise<D[]>;
+  retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
+  retrieve(params: K[] | z.input<Z>, options?: FetchOptions): Promise<D[]>;
   async retrieve(
-    params: SingleParams | z.input<Z>,
+    params: K | K[] | SingleInput | z.input<Z>,
     options?: FetchOptions,
   ): Promise<D | D[]> {
-    if (this.isSingle(params))
-      return await this.singleSpace.retrieve(this.normalizeSingle(params), options);
+    const single = this.trySingle(params);
+    if (single != null) return await this.singleSpace.retrieve(single.query, options);
     return await this.requestSpace.retrieve(this.normalizeRequest(params), options);
   }
 
@@ -214,17 +251,18 @@ export abstract class Retriever<
    * Subscribes to changes in the cached answer to the given query. The handler
    * fires on every change or deletion. Returns a destructor that unsubscribes.
    */
-  onChange(params: SingleParams, handler: ChangeHandler<D>): destructor.Destructor;
-  onChange(params: z.input<Z>, handler: ChangeHandler<D[]>): destructor.Destructor;
+  onChange(params: K | SingleInput, handler: ChangeHandler<D>): destructor.Destructor;
   onChange(
-    params: SingleParams | z.input<Z>,
+    params: K[] | z.input<Z>,
+    handler: ChangeHandler<D[]>,
+  ): destructor.Destructor;
+  onChange(
+    params: K | K[] | SingleInput | z.input<Z>,
     handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
-    if (this.isSingle(params))
-      return this.singleSpace.onChange(
-        this.normalizeSingle(params),
-        handler as ChangeHandler<D>,
-      );
+    const single = this.trySingle(params);
+    if (single != null)
+      return this.singleSpace.onChange(single.query, handler as ChangeHandler<D>);
     return this.requestSpace.onChange(
       this.normalizeRequest(params),
       handler as ChangeHandler<D[]>,
@@ -236,11 +274,13 @@ export abstract class Retriever<
    * or undefined when nothing is cached. May be stale for unsubscribed
    * queries.
    */
-  getCached(params: SingleParams): Cached<D> | undefined;
-  getCached(params: z.input<Z>): Cached<D[]> | undefined;
-  getCached(params: SingleParams | z.input<Z>): Cached<D> | Cached<D[]> | undefined {
-    if (this.isSingle(params))
-      return this.singleSpace.getCached(this.normalizeSingle(params));
+  getCached(params: K | SingleInput): Cached<D> | undefined;
+  getCached(params: K[] | z.input<Z>): Cached<D[]> | undefined;
+  getCached(
+    params: K | K[] | SingleInput | z.input<Z>,
+  ): Cached<D> | Cached<D[]> | undefined {
+    const single = this.trySingle(params);
+    if (single != null) return this.singleSpace.getCached(single.query);
     return this.requestSpace.getCached(this.normalizeRequest(params));
   }
 }

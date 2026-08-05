@@ -15,6 +15,7 @@ import { z } from "zod";
 export const clusterZ = synnaxParamsZ
   .extend({ key: z.string(), name: z.string().min(1, { message: "Name is required" }) })
   .omit({
+    cache: true,
     connectivityPollFrequency: true,
     retry: true,
     clockSkewThreshold: true,

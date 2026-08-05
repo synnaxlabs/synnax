@@ -92,9 +92,9 @@ describe("role ontology service", () => {
 
   it("should render each built-in role's icon and fall back for custom roles", async () => {
     const role = await createRole();
-    const [rolesGroup] = await client.ontology.retrieveParents(
-      access.role.ontologyID(role.key),
-    );
+    const [rolesGroup] = await client.ontology.parents.retrieve({
+      ids: access.role.ontologyID(role.key),
+    });
     await renderOntologyTree({
       client,
       root: rolesGroup.id,

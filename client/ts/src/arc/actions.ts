@@ -169,3 +169,15 @@ export const isUndoable = (action: Action): boolean =>
   action.type !== "insert_char" &&
   action.type !== "delete_char" &&
   action.type !== "forget_chars";
+
+// kindOf classifies an action batch for the undo coalesce window. A
+// node drag dispatches a stream of set_node_position actions for a single
+// gesture; classifying them all as "move" collapses them into one undoable.
+export const kindOf = (actions: Action[]): string => {
+  if (actions.length === 0) return "default";
+  const hasMove = actions.some((a) => a.type === "set_node_position");
+  const onlyMove = actions.every((a) => a.type === "set_node_position");
+  if (hasMove && onlyMove) return "move";
+  if (actions.length === 1) return actions[0].type;
+  return "transaction";
+};
