@@ -229,6 +229,8 @@ affect the end user, so we can always move the config to its own struct if neces
 
 #### 0.7.0 How do we communicate task configuration and runtime errors?
 
+1. Driver is in charge of starting, stopping, and
+
 ## 1 Build system and CI
 
 Perhaps the most challenging part of implementing a driver that can deal with devices

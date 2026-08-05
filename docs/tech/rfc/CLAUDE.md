@@ -4,18 +4,25 @@ Rules for writing and editing RFCs in this directory.
 
 ## Files and structure
 
-- File names are `NNNN-slug.md` — four-digit number, kebab-case slug, no dates.
-- The H1 is `# NN Title` in sentence case, using the unpadded number.
+- File names are `NNNN-slug.md` — four-digit number, kebab-case slug, no dates. The
+  files were renamed from a dated form, so `git log` needs `--follow` to reach history
+  before the rename.
+- The H1 is `# NN Title` in sentence case, using the unpadded number. A
+  `Component - Subtitle` H1 capitalizes the subtitle: `# 4 Signal - Goroutine manager`.
 - Front matter is a bullet list directly under the H1, in this order:
   `- **Author**: Name`, `- **Date**: YYYY-MM-DD`,
-  `- **Related**: [RFC NNNN - Title](NNNN-slug.md)` (Related is optional).
+  `- **Related**: [RFC NNNN - Title](NNNN-slug.md)` (Related is optional). A Related
+  title matches the target's H1; for a `Component - Subtitle` H1 the component alone is
+  enough.
 - Headings are numbered hierarchically from zero: `## 0 Summary`, `### 0.0 ...`. Every
   heading below the H1 carries a number — appendix and working-notes sections too.
 - Implementation stages are labeled `Phase N` — never `Part N`.
 
 ## Headings
 
-- Sentence case: capitalize only the first word, proper nouns, and acronyms.
+- Sentence case: capitalize only the first word, proper nouns, and acronyms. Text after
+  a colon follows the same rule: `### 8.4 Phase 5: integration`, but
+  `### 8.1 Phase 2: Go plugins`.
 - A heading word that names a code identifier goes in backticks with its real casing,
   not title case: ``### 4.0 The `domain.DB` write path``.
 
@@ -29,11 +36,16 @@ Rules for writing and editing RFCs in this directory.
 - Definitions are sentence-cased: capitalize the first word, then normal prose rules.
   Acronym expansions are not title-cased: `**DAQ**: Data acquisition computer.` Proper
   nouns inside an expansion keep their capitals.
+- Principle and resolved-decision entries take the same colon form:
+  `1. **One Go type per entity**: Owned by its service.` When the bold label leads with
+  a section number, it carries no separator, matching headings:
+  `**6.1 Predecessor chain, not direct-to-definer.**`
 
 ## Prose
 
 - 88-character lines, hand-wrapped and filled to the limit. Measure characters, not
-  bytes — em dashes and µ are multi-byte.
+  bytes — em dashes and µ are multi-byte. A link or URL that cannot be broken is allowed
+  to overflow; do not contort the prose around it.
 - Put a space between a number and its unit, with correct unit casing: `1 Hz`, `25 kHz`,
   `10 ms`, `100 µs`, `200 KB`. Use the micro sign µ (U+00B5), never Greek mu (μ).
 - Backtick type names and code identifiers in prose: `uint8`, `float64`, `domain.DB`,

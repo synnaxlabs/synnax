@@ -1342,7 +1342,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 **Deliverable**: `query.gen.py`
 
-### 8.4 Phase 5: Integration
+### 8.4 Phase 5: integration
 
 1. Write schemas for all existing structs
 2. Replace hand-written types with generated code
@@ -1352,7 +1352,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 **Deliverable**: Full adoption across codebase
 
-### 8.5 Phase 6: Migrations (future)
+### 8.5 Phase 6: migrations (future)
 
 1. Design migration schema syntax
 2. Implement migration diffing

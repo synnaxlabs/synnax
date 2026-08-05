@@ -171,20 +171,20 @@ entirely. There is no single guaranteed pre-store check.
 
 ## 3 Principles
 
-1. **Distribution is only about topology** — a package belongs in `distribution` iff its
+1. **Distribution is only about topology**: A package belongs in `distribution` iff its
    correctness depends on cluster topology. Metadata CRUD, relationships, indexing, and
    CDC are service concerns even when they describe topology-aware entities.
-2. **One Go type per entity** — owned by its service. API and transport serialize that
+2. **One Go type per entity**: Owned by its service. API and transport serialize that
    type; they do not redefine it. Fields a client considers part of the entity but that
    are not stored are part of that one type, marked resolved.
-3. **Stored vs. resolved is declared, not improvised** — a schema property generated
+3. **Stored vs. resolved is declared, not improvised**: A schema property generated
    consistently, not a per-service convention.
-4. **A version is a self-contained package** — frozen struct, codec, and key/ontology
+4. **A version is a self-contained package**: Frozen struct, codec, and key/ontology
    methods, importing nothing from the parent service. The current version is the
    highest-numbered one, re-exported as the canonical type.
-5. **Know the version before decoding the body** — peek `{version, type}` first; decode
+5. **Know the version before decoding the body**: Peek `{version, type}` first; decode
    the body exactly once, directly into the version-specific frozen type.
-6. **Validation happens once, at the write seam** — every entry is validated immediately
+6. **Validation happens once, at the write seam**: Every entry is validated immediately
    before encode + store, regardless of which path produced it. A service cannot opt
    out, and cannot forget.
 

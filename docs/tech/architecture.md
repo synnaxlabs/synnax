@@ -143,7 +143,7 @@ the following RFCs:
 
 - [0003 - Segment Distribution](rfc/0003-segment-distribution.md)
 
-### 1.3 - Layer 3 - Service
+### 1.4 - Layer 3 - Service
 
 The service layer implements the majority of Synnax's core functionality. This includes
 registering and authenticating users, managing channels, ranges, and other entities to
@@ -152,7 +152,7 @@ relies on the distribution layer to handle any distributed operations. While it 
 critical role in the Synnax ecosystem, the service layer holds little architectural
 significance and is not discussed in detail here.
 
-### 1.4 - Layer 4 - Interface
+### 1.5 - Layer 4 - Interface
 
 The highest layer of Synnax server is the interface layer. This layer takes the
 functionality in the service layer and exposes a clean network API to clients. The

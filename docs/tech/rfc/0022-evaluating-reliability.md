@@ -8,7 +8,7 @@
 This serves to outline plans for improving stability to Synnax as well as maintaining an
 ongoing prioritization and awareness of stability and reliability of the software we
 develop. This expands on steps described on 2024-06-13 regarding
-[Engineering Process Standardization](0020-engineering-workflow.md).
+[Engineering process standardization](0020-engineering-workflow.md).
 
 In short, the sources of instability and pain for the customer could come from each of
 the following areas currently:

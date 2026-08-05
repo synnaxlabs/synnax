@@ -1132,7 +1132,7 @@ Branch `sy-3816-oracle-migrations`.
 - Signal publishers migrated to codec-aware observables
 - All core tests pass
 
-#### 8.0.3 Phase 3: Codec transition
+#### 8.0.3 Phase 3: codec transition
 
 The ORC fallback codec makes explicit codec transition migrations unnecessary for the
 initial msgpack-to-binary switch. Types that implement `SelfEncoder`/`SelfDecoder`
@@ -1153,16 +1153,16 @@ Branch `sy-3824-oracle-auto-migration-plugin`.
 
 ### 8.1 Remaining work
 
-#### 8.1.0 Phase 5: Schema snapshots and CI check
+#### 8.1.0 Phase 5: schema snapshots and CI check
 
 Implement schema snapshot storage and `oracle migrate check` for CI enforcement.
 
-#### 8.1.1 Phase 6: Schema diff engine
+#### 8.1.1 Phase 6: schema diff engine
 
 Build the schema diff engine that compares two `resolution.Table`s field-by-field and
 generates skeleton mode and propagation mode migrations.
 
-#### 8.1.2 Phase 7: Test infrastructure
+#### 8.1.2 Phase 7: test infrastructure
 
 Build migration test helpers. Can start anytime after Phase 1.
 
