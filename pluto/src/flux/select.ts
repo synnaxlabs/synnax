@@ -45,7 +45,7 @@ export interface CreateSelectorParams<Args extends {}, Selected, Raw = Selected>
 export type Getter<Args extends {}, Selected> = optional.Arg<Args, Selected>;
 
 /** UseSelect is the reactive hook: it subscribes and re-renders on change. */
-export type UseSelect<Args extends {}, Selected> = optional.Arg<Args, Selected>;
+type UseSelect<Args extends {}, Selected> = optional.Arg<Args, Selected>;
 
 /**
  * UseGet is the non-reactive hook: it returns a stable {@link Getter} that reads the

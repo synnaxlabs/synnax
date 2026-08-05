@@ -13,6 +13,7 @@ import {
   NotFoundError,
   query,
   type Synnax as Client,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import { type destructor, state, TimeSpan } from "@synnaxlabs/x";
 import {
@@ -23,7 +24,9 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
+import { type flux } from "@/flux/aether";
 import { DeletedError, type Tombstone, tombstoneOf } from "@/flux/errors";
 import {
   errorResult,
@@ -55,14 +58,11 @@ export interface RetrieveParams<Query extends query.Params> {
 export interface CreateRetrieveParams<
   Query extends query.Params,
   Data extends query.Data,
-> {
-  name: string;
-  retrieve: (params: RetrieveParams<Query>) => Promise<Data>;
+> extends flux.Definition<Query, Data> {
   subscribe?: (
     params: RetrieveParams<Query>,
     handler: query.ChangeHandler<Data>,
   ) => destructor.Destructor;
-  getCached?: (params: RetrieveParams<Query>) => query.Cached<Data> | undefined;
   /**
    * Builds the answer synchronously from records already cached under other
    * queries. Consulted only when `getCached` misses, so suspending reads
@@ -81,6 +81,13 @@ export interface CreateRetrieveParams<
 export interface BeforeRetrieveParams<Query extends query.Params> {
   query: Query;
 }
+
+// The observable idiom names its result callback onChange, colliding with the
+// definition's subscription member; the legacy internals take the params without it.
+type ObservableCreateParams<
+  Query extends query.Params,
+  Data extends query.Data,
+> = Omit<CreateRetrieveParams<Query, Data>, "onChange">;
 
 export interface UseObservableBaseRetrieveParams<
   Query extends query.Params,
@@ -218,6 +225,26 @@ export interface UseTombstone<Query extends query.Params> {
   (query: Query): Tombstone | null;
 }
 
+/**
+ * A warm-cache projected read: returns the selected slice of the query's cached
+ * answer and re-renders only when that slice changes. Never suspends and never
+ * fetches; a parent must have retrieved the query (see useEnsureRetrieved).
+ * @throws {NotFoundError} when nothing is cached for the query.
+ * @throws {DeletedError} when the cached answer is a tombstone.
+ * @throws {DisconnectedError} when no Core is connected.
+ */
+export interface UseSelect<Query extends query.Params, Selected> {
+  (query: Query): Selected;
+}
+
+/** Mints a {@link UseSelect} sharing the definition's cache wiring. */
+export interface CreateSelector<Query extends query.Params, Data extends query.Data> {
+  <Selected>(
+    select: (data: Data, query: Query) => Selected,
+    equal?: (a: Selected, b: Selected) => boolean,
+  ): UseSelect<Query, Selected>;
+}
+
 export interface CreateRetrieveReturn<
   Query extends query.Params,
   Data extends state.State,
@@ -230,13 +257,14 @@ export interface CreateRetrieveReturn<
   useEnsureRetrieved: UseEnsureRetrieved<Query>;
   useInvalidate: UseInvalidate<Query>;
   useTombstone: UseTombstone<Query>;
+  createSelector: CreateSelector<Query, Data>;
 }
 
 const initialResult = <Data extends state.State>(name: string): Result<Data> =>
   loadingResult<Data>(`Retrieving ${name}`, undefined);
 
 const useStateful = <Query extends query.Params, Data extends query.Data>(
-  createParams: CreateRetrieveParams<Query, Data> &
+  createParams: ObservableCreateParams<Query, Data> &
     Pick<
       UseObservableBaseRetrieveParams<Query, Data>,
       "beforeRetrieve" | "addStatusOnFailure"
@@ -259,7 +287,7 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
   beforeRetrieve,
   addStatusOnFailure = true,
 }: UseObservableBaseRetrieveParams<Query, Data> &
-  CreateRetrieveParams<Query, Data>): UseRetrieveObservableReturn<Query> => {
+  ObservableCreateParams<Query, Data>): UseRetrieveObservableReturn<Query> => {
   const client = Synnax.use();
   const queryRef = useRef<Query | null>(null);
   const listeners = useDestructors();
@@ -342,7 +370,7 @@ const useDirect = <Query extends query.Params, Data extends query.Data>({
   query,
   ...restParams
 }: UseDirectRetrieveParams<Query, Data> &
-  CreateRetrieveParams<Query, Data>): UseDirectRetrieveReturn<Data> => {
+  ObservableCreateParams<Query, Data>): UseDirectRetrieveReturn<Data> => {
   const { retrieveAsync, retrieve: _, ...rest } = useStateful(restParams);
   const memoquery = useMemoDeepEqual(query);
   useAsyncEffect(
@@ -356,7 +384,7 @@ const useEffect = <Query extends query.Params, Data extends query.Data>({
   query,
   onChange,
   ...restParams
-}: UseRetrieveEffectParams<Query, Data> & CreateRetrieveParams<Query, Data>): void => {
+}: UseRetrieveEffectParams<Query, Data> & ObservableCreateParams<Query, Data>): void => {
   const resultRef = useRef<Result<Data>>(initialResult<Data>(restParams.name));
   const { retrieveAsync } = useObservableBase<Query, Data>({
     ...restParams,
@@ -384,7 +412,7 @@ export const useObservableRetrieve = <
   onChange,
   ...restParams
 }: UseRetrieveObservableParams<Query, Data> &
-  CreateRetrieveParams<Query, Data>): UseRetrieveObservableReturn<Query> => {
+  ObservableCreateParams<Query, Data>): UseRetrieveObservableReturn<Query> => {
   const resultRef = useRef<Result<Data>>(initialResult<Data>(restParams.name));
   const handleChange = useCallback(
     (setter: state.SetArg<Result<Data>>, query: Query) => {
@@ -685,9 +713,87 @@ const useTombstone = <Query extends query.Params, Data extends query.Data>({
   );
 };
 
+const createUseSelect = <
+  Query extends query.Params,
+  Data extends query.Data,
+  Selected,
+>(
+  {
+    name,
+    subscribe,
+    getCached,
+    equal,
+  }: CreateRetrieveParams<Query, Data> &
+    Required<Pick<CreateRetrieveParams<Query, Data>, "getCached">>,
+  select: (data: Data, query: Query) => Selected,
+  selectedEqual?: (a: Selected, b: Selected) => boolean,
+): UseSelect<Query, Selected> => {
+  const useSelect = (q: Query): Selected => {
+    const memoQuery = useMemoDeepEqual(q);
+    const client = Synnax.use();
+    const held = useRef<{ query: Query; value: Data } | null>(null);
+    const computed = useRef<{ raw: Data; query: Query; out: Selected } | null>(null);
+    const subscribeToCache = useCallback(
+      (notify: () => void) => {
+        if (subscribe == null || client == null) return NOOP_SUBSCRIBE();
+        return subscribe({ client, query: memoQuery }, () => notify());
+      },
+      [client, memoQuery],
+    );
+    const getSnapshot = useCallback((): query.Cached<Data> | undefined => {
+      if (client == null) return undefined;
+      const next = getCached({ client, query: memoQuery });
+      const prev = held.current;
+      // An invalidated entry repairs under its own subscription; serve the held
+      // answer across the gap.
+      if (next === undefined)
+        return prev != null && prev.query === memoQuery ? prev.value : undefined;
+      if (!isLive<Data>(next)) return next;
+      if (
+        equal != null &&
+        prev != null &&
+        prev.query === memoQuery &&
+        equal(prev.value, next)
+      )
+        return prev.value;
+      held.current = { query: memoQuery, value: next };
+      return next;
+    }, [client, memoQuery]);
+    const selector = useCallback(
+      (raw: query.Cached<Data> | undefined): Selected => {
+        if (client == null)
+          throw new DisconnectedError(`Cannot select ${name}: no Core connected.`);
+        if (raw === undefined)
+          throw new NotFoundError(
+            `Cannot select ${name}: nothing cached. A parent must retrieve it first.`,
+          );
+        if (Deleted.matches<Data>(raw))
+          throw new DeletedError(`${name} was deleted`, raw.corpse);
+        const cached = computed.current;
+        if (cached != null && cached.raw === raw && cached.query === memoQuery)
+          return cached.out;
+        const out = select(raw, memoQuery);
+        computed.current = { raw, query: memoQuery, out };
+        return out;
+      },
+      [client, memoQuery],
+    );
+    return useSyncExternalStoreWithSelector(
+      subscribeToCache,
+      getSnapshot,
+      undefined,
+      selector,
+      selectedEqual,
+    );
+  };
+  return useSelect;
+};
+
 export const createRetrieve = <Query extends query.Params, Data extends query.Data>(
-  createParams: CreateRetrieveParams<Query, Data>,
+  rawParams: CreateRetrieveParams<Query, Data>,
 ): CreateRetrieveReturn<Query, Data> => {
+  const { onChange, ...rest } = rawParams;
+  const createParams = { ...rest, subscribe: rawParams.subscribe ?? onChange };
   const locals = new WeakMap<Client, LocalCache<Data>>();
   return {
     useRetrieve: (
@@ -704,5 +810,16 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
     useEnsureRetrieved: (query: Query) => useEnsure({ ...createParams, query, locals }),
     useInvalidate: () => useInvalidate<Query, Data>(locals),
     useTombstone: (query: Query) => useTombstone({ ...createParams, query }),
+    createSelector: <Selected,>(
+      select: (data: Data, query: Query) => Selected,
+      equal?: (a: Selected, b: Selected) => boolean,
+    ) => {
+      const { getCached } = createParams;
+      if (getCached == null)
+        throw new UnexpectedError(
+          `Cannot create a selector for ${createParams.name}: no getCached defined.`,
+        );
+      return createUseSelect({ ...createParams, getCached }, select, equal);
+    },
   };
 };
