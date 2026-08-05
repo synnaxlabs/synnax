@@ -321,52 +321,69 @@ already types these by hand. The schemas make it official.
 
 Prerequisite (external to this RFC): the SY-4488 stack — UUID task keys with rack as a
 field, and deploy-on-start. The Console autosave work must target the typed resource in
-Phase 6. It must not land against `task.config`.
+Phase 9. It must not land against `task.config`.
 
 Each numbered phase is a PR, or a short series where noted. At each boundary the tree
-builds, the tests pass, and the product can ship.
+builds, the tests pass, and the product can ship. The order front-loads storage: the
+typed tables and the migration land under an unchanged task envelope, so the Core owns
+config shape and migrations well before any client changes.
 
 1. **Oracle groundwork.** Cross-file extension of a common shape for the shared task
    config bases. Per-type endpoint generation, including the action dispatch endpoints.
-   Support for an `ontology.ID` field with a Gorp index, and for a resolved `task` field
-   on resources. This is pure generator work with generator tests. No schema consumes it
-   yet.
+   Support for an `ontology.ID` field with a Gorp index, for a resolved `task` field on
+   resources, and for a resolved `config` field that composes a task's payload from the
+   resource it references. This is pure generator work with generator tests. No schema
+   consumes it yet.
 2. **Schema authorship.** The per-integration `.oracle` files and their generated
    Go/TypeScript/Python/C++/Protobuf artifacts, not yet wired (the NI file adapted from
    the draft). One PR per integration or per small group. Each PR is a reviewable schema
    plus inert generated code.
-3. **Core services, additive.** The per-integration service packages, the `empty`
-   resource, the per-type endpoints, the action reducers with two-tier validation, the
-   deploy verb, and the resolved `task` field on the Gorp `config` index. All of it
-   exists adjacent to the untouched task shape. Production does not consume it yet.
-   Ginkgo suites exercise it directly. The tree stays green because the change is
-   additive.
-4. **Core cutover.** The atomic PR. It makes the task row slim (it drops `type`, `name`,
-   `snapshot`, and the embedded config object, and adds the `config` reference and
-   `auto_start`). It runs the §4.6 startup migration. It routes the Go driver factories
-   (arc, pagerduty) through typed payloads. It removes `/task/create` and the
-   config/copy paths of the task writer. It points the task imex at the resources, which
-   unblocks SY-4524. The PR is large by necessity: a split would leave a partially wired
-   intermediate state. Phases 1–3 limit it to the cutover itself.
-5. **Driver cutover.** One PR per integration wave. Each wave consumes the generated C++
+3. **Gorp tables for every resource.** The per-integration service packages, the `empty`
+   resource, the Gorp tables, the ontology registration, and the per-type retrieve
+   endpoints. No production path writes to a table yet; Ginkgo suites exercise them
+   directly. The tree stays green because the change is additive.
+4. **The resolved `config` field.** The storage cutover. The task row stores the
+   `config` ontology ID and drops the embedded config object, `name`, and `snapshot`.
+   The task envelope does not change: the writer decomposes an incoming config into its
+   typed resource, and retrieve recomposes the payload from that resource as a resolved
+   field. The §4.6 startup migration and the live-write decomposer share one code path.
+   From here the Core owns the config version chain and always serves the migrated
+   shape. The integrations whose schemas restructured (the EtherCAT and OPC map keys,
+   §4.2) change payload shape here, so the Console and Driver readers for those types
+   move in the same release and the `??` fallback lookups go away with them. Resolved
+   Decision 12 rejects a composed payload as an end state; here it is a compatibility
+   shim that Phase 7 deletes.
+5. **Server-side import and export.** The task imex reads and writes typed resources
+   instead of flattening an opaque blob. This unblocks SY-4524.
+6. **Client compat deletion.** One PR per client, no wire change. The Console loses its
+   import ingesters and its private NI version chain, the Driver loses its legacy-shape
+   parse paths, and the Python client loses its old-shape readers. Each client handles
+   exactly one shape from here, because the Core guarantees it.
+7. **API cutover.** The task payload slims to §4.1 and gains `auto_start`; the resolved
+   compat fields go away. The per-type create and action dispatch endpoints with
+   two-tier validation become the write path, which brings drafts and the deploy verb.
+   It removes `/task/create` and the config/copy paths of the task writer, and routes
+   the Go driver factories (arc, pagerduty) through typed payloads.
+8. **Driver cutover.** One PR per integration wave. Each wave consumes the generated C++
    proto configs, deletes the `parser.field` config structs, and switches dispatch to
    the `config` ontology ID with a per-type retrieve for each fetch. The scanner startup
    moves to `empty`-resource deploys in the first wave.
-6. **Console migration.** Its own phase, one PR per integration. The forms edit typed
-   resources through action dispatch with generated Zod (the UI-only refinements stay),
-   which carries autosave and undo/redo. The tabs key on resource UUIDs. The drift and
-   deploy UX follows the draft/deploy design. We delete the `??` fallback lookups and
-   the client-side NI version chain.
-7. **Python rewiring.** The generated Pydantic resource models replace the hand-written
-   config models. The wrappers in the style of `StarterStopperMixin` stay as sugar over
-   create, deploy, and start.
-8. **Arc + Slack alignment.** Complete the Arc retrofit (drop `config{arc_key}`, use the
-   standard edge). Land `slack_alert` (SY-3995) directly in the new shape.
+9. **Console migration.** One PR per integration. The forms edit typed resources through
+   action dispatch with generated Zod (the UI-only refinements stay), which carries
+   autosave and undo/redo. The tabs key on resource UUIDs. The drift and deploy UX
+   follows the draft/deploy design.
+10. **Python rewiring.** The generated Pydantic resource models replace the hand-written
+    config models. The wrappers in the style of `StarterStopperMixin` stay as sugar over
+    create, deploy, and start.
+11. **Arc + Slack alignment.** Complete the Arc retrofit (drop `config{arc_key}`, use
+    the standard edge). Land `slack_alert` (SY-3995) directly in the new shape.
 
-**Compatibility:** the wire for task payloads breaks at Phase 4. The Core, the Driver,
-and the Console ship the cutover together (lockstep releases, no window of coexistence).
-Persisted data migrates forward automatically. There is no downgrade path across
-Phase 4. This is the standard position for storage migrations in this codebase.
+**Compatibility:** Phase 4 migrates persisted data and keeps the task envelope, so
+clients keep working across it; only the restructured integrations shift payload shape,
+and their readers move in that release. The envelope itself breaks at Phase 7, and the
+Core, the Driver, and the Console ship that one together (lockstep releases, no window
+of coexistence). There is no downgrade path across Phase 4 or Phase 7. This is the
+standard position for storage migrations in this codebase.
 
 ---
 
@@ -439,4 +456,4 @@ Phase 4. This is the standard position for storage migrations in this codebase.
    the resource, or client-side recompute from the generated validation code.
 3. The quarantine surface for unknown-type rows at migration (§4.6): the status variant,
    and whether the Console lists them.
-4. The wave order of the Driver and Console cutovers across integrations in Phases 5–6.
+4. The wave order of the Driver and Console cutovers across integrations in Phases 8–9.
