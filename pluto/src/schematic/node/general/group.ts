@@ -16,6 +16,7 @@ export const GROUP: Group = {
   Icon: Icon.Channel,
   symbols: [
     "value",
+    "stringDisplay",
     "gauge",
     "setpoint",
     "textBox",

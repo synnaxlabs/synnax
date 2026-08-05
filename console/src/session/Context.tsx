@@ -46,7 +46,7 @@ export const Context = ({ children }: ContextProps) => {
   );
 };
 
-const MAIN_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> = {
+const MAIN_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> = [
   ...Arc.SYNCHRONIZERS,
   ...Cluster.SYNCHRONIZERS,
   ...LinePlot.SYNCHRONIZERS,
@@ -57,10 +57,15 @@ const MAIN_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> = {
   ...Schematic.SYNCHRONIZERS,
   ...Status.SYNCHRONIZERS,
   ...Table.SYNCHRONIZERS,
-};
+];
 
 const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> =
   Panel.WINDOW_SYNCHRONIZERS;
+
+const ALL_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> = [
+  ...WINDOW_SYNCHRONIZERS,
+  ...MAIN_SYNCHRONIZERS,
+];
 
 /**
  * Mounts the session synchronizers for this window. Must be called below the
@@ -69,11 +74,7 @@ const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers<State, Action> =
  * return-to-cold.
  */
 const useSynchronizers = (): boolean =>
-  Synchronizer.use(
-    Runtime.isMainWindow()
-      ? { ...WINDOW_SYNCHRONIZERS, ...MAIN_SYNCHRONIZERS }
-      : WINDOW_SYNCHRONIZERS,
-  );
+  Synchronizer.use(Runtime.isMainWindow() ? ALL_SYNCHRONIZERS : WINDOW_SYNCHRONIZERS);
 
 const SettledContext = createContext(false);
 SettledContext.displayName = "Settled";
