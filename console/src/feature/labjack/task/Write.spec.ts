@@ -30,7 +30,7 @@ import { getIconButton, uniqueName } from "@/testutil";
 const client = createTestClient();
 
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(LabJack.Task.Write, options);
+  await renderTaskFormTab(LabJack.Task.Write, { task: ZERO_DRAFT, ...options });
 
 const createConfig = (
   device: string,

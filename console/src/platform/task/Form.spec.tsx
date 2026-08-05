@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/pluto";
 import { screen, waitFor } from "@testing-library/react";
@@ -70,6 +70,13 @@ const createRenderer = ({
     showControls,
   });
 
+const createTask = async (client: Synnax) =>
+  await client.tasks.create({
+    name: "New Test Task",
+    type: "test_task",
+    config: { device: "", channels: [] },
+  });
+
 const findNameInput = (): HTMLInputElement => {
   const input = document.body.querySelector<HTMLInputElement>(
     "input[value='New Test Task']",
@@ -85,16 +92,26 @@ describe("wrapForm", () => {
   });
 
   it("should render the header name field, the child form, and the controls", async () => {
+    const client = createTestClient();
+    const tsk = await createTask(client);
     const Renderer = createRenderer();
-    const { container } = await renderTaskFormTab(Renderer);
+    const { container } = await renderTaskFormTab(Renderer, {
+      client,
+      taskKey: tsk.key,
+    });
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
     expect(findNameInput()).toBeTruthy();
     expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeTruthy();
   });
 
   it("should omit the controls when showControls is false", async () => {
+    const client = createTestClient();
+    const tsk = await createTask(client);
     const Renderer = createRenderer({ showControls: false });
-    const { container } = await renderTaskFormTab(Renderer);
+    const { container } = await renderTaskFormTab(Renderer, {
+      client,
+      taskKey: tsk.key,
+    });
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
     expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeNull();
   });
@@ -114,8 +131,10 @@ describe("wrapForm", () => {
     });
 
     it("should default to zero for a draft task", async () => {
+      const client = createTestClient();
+      const tsk = await createTask(client);
       const Renderer = createRenderer({ Form: RackProbe });
-      await renderTaskFormTab(Renderer);
+      await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
       await waitFor(() => expect(screen.getByText("rack:0")).toBeTruthy());
     });
   });
@@ -227,9 +246,10 @@ describe("useIsRunning", () => {
     expect(result.current.value).toBe(false);
   });
 
-  it("should default to false when there is no status", async () => {
-    const { result } = await renderTaskFormHook({}, (ctx) => Task.useIsRunning(ctx));
-    expect(result.current.value).toBe(false);
+  it("should throw when the form carries no status", async () => {
+    await expect(
+      renderTaskFormHook({}, (ctx) => Task.useIsRunning(ctx)),
+    ).rejects.toThrow("Path status does not exist");
   });
 });
 

@@ -68,7 +68,7 @@ describe("Controls.Controls", () => {
       { values: { snapshot: true } },
     );
     await waitFor(() =>
-      expect(screen.getByText("Task has not been deployed")).toBeTruthy(),
+      expect(screen.getByText("Test Task has not been deployed")).toBeTruthy(),
     );
     expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeNull();
   });

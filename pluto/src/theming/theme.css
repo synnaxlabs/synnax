@@ -106,6 +106,7 @@
     );
     --pluto-selected-list-border-color: transparent;
 
+    --pluto-border-width: 1px;
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);
     --pluto-height-large: 6rem;
@@ -118,6 +119,12 @@
         fill 0.15s ease-in-out, opacity 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
     --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
+}
+
+@media (resolution >= 2dppx) {
+    :root {
+        --pluto-border-width: 0.5px;
+    }
 }
 
 .pluto-theme-synnax-light {

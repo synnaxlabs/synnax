@@ -30,10 +30,9 @@ describe("useStatus", () => {
     expect(result.current.value.details.running).toBe(true);
   });
 
-  it("should fall back to a default disabled status when absent", async () => {
-    const { result } = await renderTaskFormHook({}, (ctx) => Task.useStatus(ctx));
-    expect(result.current.value.variant).toBe("disabled");
-    expect(result.current.value.message).toBe("Task has not been deployed");
-    expect(result.current.value.details.running).toBe(false);
+  it("should throw when the form carries no status", async () => {
+    await expect(renderTaskFormHook({}, (ctx) => Task.useStatus(ctx))).rejects.toThrow(
+      "Path status does not exist",
+    );
   });
 });

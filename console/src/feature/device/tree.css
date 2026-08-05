@@ -16,8 +16,6 @@
             flex-shrink: 1;
         }
         .console-location {
-            line-height: 100%;
-            margin-top: 0.25rem;
             margin-left: auto;
             flex-shrink: 10;
         }

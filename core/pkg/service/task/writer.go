@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -57,17 +59,25 @@ func resolveStatus(t *Task, provided *Status, existed bool) *Status {
 	return provided
 }
 
-// healStatus restores a task's status row if it has gone missing (e.g. deleted
-// out-of-band) without clobbering a live one. Tasks are re-created on every scan cycle,
-// so on a no-op update the placeholder status must not overwrite a status the
-// driver has already reported; it is only written when no row exists.
-func (w Writer) healStatus(ctx context.Context, stat *Status) error {
-	if exists, err := gorp.NewRetrieve[string, Status]().
+// healStatus returns the task's effective status, writing stat first if no row exists.
+// Tasks are re-created on every scan cycle, so on a no-op update the placeholder must
+// not overwrite a status the driver has already reported.
+func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
+	var existing Status
+	err := gorp.NewRetrieve[string, Status]().
 		Where(gorp.MatchKeys[string, Status](stat.Key)).
-		Exists(ctx, w.tx); err != nil || exists {
-		return err
+		Entry(&existing).
+		Exec(ctx, w.tx)
+	if err == nil {
+		return &existing, nil
 	}
-	return w.status.Set(ctx, stat)
+	if !errors.Is(err, query.ErrNotFound) {
+		return nil, err
+	}
+	if err := w.status.Set(ctx, stat); err != nil {
+		return nil, err
+	}
+	return stat, nil
 }
 
 // Create creates or updates a task. A provided status is persisted as given. Without
@@ -102,9 +112,10 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		if err := w.status.Set(ctx, stat); err != nil {
 			return err
 		}
-	} else if err := w.healStatus(ctx, stat); err != nil {
+	} else if stat, err = w.healStatus(ctx, stat); err != nil {
 		return err
 	}
+	t.Status = stat
 	// We don't create ontology resources for internal tasks.
 	if t.Internal {
 		return nil

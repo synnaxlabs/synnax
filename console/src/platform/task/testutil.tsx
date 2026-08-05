@@ -90,16 +90,50 @@ export const TaskFormProvider = ({
 };
 TaskFormProvider.displayName = "TaskFormProvider";
 
+export interface CreateTaskStatusOverrides extends Partial<
+  Omit<task.Status, "details">
+> {
+  details?: Partial<task.Status["details"]>;
+}
+
+/** Builds a fully-populated task.Status, merging `overrides` over sane defaults. */
+export const createTaskStatus = (
+  overrides: CreateTaskStatusOverrides = {},
+): task.Status => {
+  const { details, ...rest } = overrides;
+  return {
+    key: id.create(),
+    name: "Task Status",
+    variant: "success",
+    message: "Running smoothly",
+    description: "",
+    time: TimeStamp.now(),
+    ...rest,
+    details: {
+      task: "0",
+      running: false,
+      cmd: "",
+      configHash: "",
+      rack: 0,
+      ...details,
+    },
+  };
+};
+
 /**
  * The default value tree a task form is built around: a persisted-less task with an
  * empty channel list. Specs merge their own top-level fields and `config` over this.
+ * The status mirrors what core writes for a task that has never been deployed.
  */
 export const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   key: undefined,
   name: "Test Task",
   rack: 0,
   snapshot: false,
-  status: undefined,
+  status: createTaskStatus({
+    variant: "disabled",
+    message: "Test Task has not been deployed",
+  }),
   config: { channels: [] },
 };
 
@@ -288,8 +322,10 @@ export const renderInTaskFormWithClient = async (
 export interface RenderTaskFormTabOptions {
   /** Client backing the console wrapper; falls back to a shared test client. */
   client?: Client | null;
-  /** Key of the task row the form edits; empty for a form left on initial values. */
+  /** Key of the task row the form edits. */
   taskKey?: task.Key;
+  /** Row to create and open when `taskKey` is omitted. */
+  task?: task.New;
   /**
    * When provided, a CaptureStatuses probe is mounted alongside the renderer and this
    * callback receives the notification list on every change.
@@ -311,8 +347,11 @@ export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
   options: RenderTaskFormTabOptions = {},
 ): Promise<RenderTaskFormTabResult> => {
-  const { taskKey = "", onStatuses } = options;
+  const { onStatuses } = options;
   const client = options.client ?? defaultClient;
+  const taskKey =
+    options.taskKey ??
+    (options.task == null ? "" : (await client.tasks.create(options.task)).key);
   const store = await createTestStore();
   const { wrapper } = await createConsoleWrapper({ client, store });
   const tab: panel.Tab = {
@@ -406,34 +445,22 @@ export const awaitCommand = async (
   }
 };
 
-export interface CreateTaskStatusOverrides extends Partial<
-  Omit<task.Status, "details">
-> {
-  details?: Partial<task.Status["details"]>;
-}
-
-/** Builds a fully-populated task.Status, merging `overrides` over sane defaults. */
-export const createTaskStatus = (
-  overrides: CreateTaskStatusOverrides = {},
-): task.Status => {
-  const { details, ...rest } = overrides;
-  return {
-    key: id.create(),
-    name: "Task Status",
-    variant: "success",
-    message: "Running smoothly",
-    description: "",
-    time: TimeStamp.now(),
-    ...rest,
-    details: {
-      task: "0",
-      running: false,
-      cmd: "",
-      configHash: "",
-      rack: 0,
-      ...details,
-    },
-  };
+/**
+ * Writes the status a driver reports once a task has stopped. Specs run without a
+ * driver, so a start command otherwise leaves the task mid-start forever and the
+ * form offers no way to deploy again.
+ */
+export const reportTaskStopped = async (
+  client: Client,
+  tsk: task.Payload,
+): Promise<void> => {
+  await client.tasks.create({
+    ...tsk,
+    status: createTaskStatus({
+      message: "Task stopped",
+      details: { task: tsk.key, running: false, configHash: tsk.configHash },
+    }),
+  });
 };
 
 /** Finds the single non-checkbox input rendered by a task form field. */

@@ -219,5 +219,40 @@ describe("Rack", () => {
         stop();
       }
     });
+    // Task and device statuses both name their rack in their details, and both parse
+    // against the rack status schema, so only the key tells them apart.
+    it("should not adopt a task or device status naming the rack", async () => {
+      const r = await client.racks.create({ name: "status-impostor" });
+      const params = { key: r.key, includeStatus: true };
+      await client.racks.retrieve(params);
+      const seen: (string | undefined)[] = [];
+      const stop = client.racks.onChange(params, (cached) => {
+        if (query.isLive(cached)) seen.push(cached.status?.message);
+      });
+      const impostor = (type: string, message: string) =>
+        status.create<typeof rack.statusDetailsZ>({
+          key: `${type}:${id.create()}`,
+          variant: "loading",
+          message,
+          details: { rack: r.key },
+        });
+      try {
+        await client.statuses.set(impostor("task", "Running start command..."));
+        await client.statuses.set(impostor("device", "Device reconnecting..."));
+        await client.statuses.set(
+          status.create<typeof rack.statusDetailsZ>({
+            key: statusKey(r.key),
+            variant: "success",
+            message: "Driver alive",
+            details: { rack: r.key },
+          }),
+        );
+        await expect.poll(() => seen.at(-1)).toBe("Driver alive");
+        expect(seen).not.toContain("Running start command...");
+        expect(seen).not.toContain("Device reconnecting...");
+      } finally {
+        stop();
+      }
+    });
   });
 });

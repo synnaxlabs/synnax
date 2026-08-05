@@ -9,7 +9,7 @@
 
 import { type query, type Synnax as Client } from "@synnaxlabs/client";
 import { type destructor, state } from "@synnaxlabs/x";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { type z } from "zod";
 
 import {
@@ -51,7 +51,7 @@ export interface CreateFormParams<
   name: string;
   schema: Schema;
   initialValues: z.infer<Schema>;
-  retrieveCached?: (params: FormClientParams<Query>) => z.infer<Schema> | undefined;
+  getCached?: (params: FormClientParams<Query>) => z.infer<Schema> | undefined;
   update: (params: FormUpdateParams<Schema>) => Promise<void>;
   retrieve: (params: FormRetrieveParams<Query, Schema>) => Promise<void>;
   mountListeners?: (
@@ -123,7 +123,7 @@ export const createForm =
     mountListeners,
     update,
     initialValues: baseInitialValues,
-    retrieveCached,
+    getCached,
   }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> =>
   ({
     query,
@@ -144,8 +144,11 @@ export const createForm =
     const addStatus = Status.useAdder();
 
     const cached = useInitializerRef(() =>
-      client == null ? undefined : retrieveCached?.({ client, query }),
+      client == null ? undefined : getCached?.({ client, query }),
     );
+    // A form filled from the cache is already populated, and the fetch would reset
+    // over edits made while it was in flight. The first retrieve only subscribes.
+    const servedFromCache = useRef(initialValues == null && cached.current != null);
 
     const form = Form.use<Schema>({
       schema,
@@ -172,7 +175,8 @@ export const createForm =
           setResult((p) => loadingResult(`retrieving ${name}`, p.data));
           if (signal?.aborted) return;
           const params = { client, query, ...form, set: noNotifySet };
-          await retrieve(params);
+          if (servedFromCache.current) servedFromCache.current = false;
+          else await retrieve(params);
           if (signal?.aborted) return;
           listeners.cleanup();
           listeners.set(mountListeners?.(params));

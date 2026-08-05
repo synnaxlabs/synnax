@@ -41,22 +41,14 @@ const ProjectSideEffect = (): null => {
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigable as possible.
  *
- * On macOS desktop the top bar spans the full window so the traffic lights sit above
- * the left rail. Everywhere else the rail runs to the window's top edge and the top
- * bar starts to its right.
+ * The workspace grid places the top bar, the left rail, and the content. On macOS
+ * desktop the top bar spans the full window so the traffic lights sit above the rail;
+ * everywhere else the rail runs to the window's top edge and the top bar starts to its
+ * right. That is the only difference, and it lives entirely in the grid template.
  */
 export const Primary = (): ReactElement => {
   const os = OS.use();
   const fullWidthTop = os === "macOS" && Session.Runtime.ENGINE === "tauri";
-  const column = (
-    <Flex.Box gap="tiny" grow className={CSS.BE("main", "column")}>
-      <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
-        <Nav.Drawer.Left />
-        <Mosaic.Mosaic />
-      </Flex.Box>
-      <Nav.Drawer.Bottom />
-    </Flex.Box>
-  );
   return (
     <>
       <SideEffect />
@@ -64,25 +56,22 @@ export const Primary = (): ReactElement => {
         <Auth.ConnectionGuard>
           <Project.Guard>
             <ProjectSideEffect />
-            {fullWidthTop ? (
-              <>
-                <Nav.Bar.Top />
-                <Flex.Box x gap="tiny" grow className={CSS.BE("main", "content")}>
-                  <Nav.Bar.Left />
-                  {column}
+            <div
+              className={CSS(
+                CSS.BE("main", "workspace"),
+                fullWidthTop && CSS.M("full-width-top"),
+              )}
+            >
+              <Nav.Bar.Top />
+              <Nav.Bar.Left />
+              <Flex.Box y gap="tiny" className={CSS.BE("main", "content")}>
+                <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
+                  <Nav.Drawer.Left />
+                  <Mosaic.Mosaic />
                 </Flex.Box>
-              </>
-            ) : (
-              <Flex.Box x empty grow>
-                <Nav.Bar.Left />
-                <Flex.Box y empty grow>
-                  <Nav.Bar.Top />
-                  <Flex.Box x gap="tiny" grow className={CSS.BE("main", "content")}>
-                    {column}
-                  </Flex.Box>
-                </Flex.Box>
+                <Nav.Drawer.Bottom />
               </Flex.Box>
-            )}
+            </div>
           </Project.Guard>
         </Auth.ConnectionGuard>
       </Auth.Guard>

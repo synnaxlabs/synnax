@@ -542,6 +542,80 @@ describe("Tabs", () => {
     });
   });
 
+  describe("wheel scrolling", () => {
+    // jsdom lays nothing out, so the scrollport geometry is stubbed per element.
+    const stubStrip = (scrollWidth: number, clientWidth: number): HTMLElement => {
+      const strip = screen.getByRole("tablist");
+      let scrollLeft = 0;
+      Object.defineProperties(strip, {
+        scrollWidth: { value: scrollWidth, configurable: true },
+        clientWidth: { value: clientWidth, configurable: true },
+        scrollLeft: {
+          get: () => scrollLeft,
+          set: (v: number) => (scrollLeft = v),
+          configurable: true,
+        },
+      });
+      return strip;
+    };
+
+    const wheel = (strip: HTMLElement, init: WheelEventInit): Event => {
+      const event = createEvent.wheel(strip, { cancelable: true, ...init });
+      fireEvent(strip, event);
+      return event;
+    };
+
+    it("should scroll an overflowing strip right on a downward wheel", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      const event = wheel(strip, { deltaY: 100 });
+      expect(strip.scrollLeft).toEqual(100);
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it("should scroll left on an upward wheel", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      strip.scrollLeft = 150;
+      wheel(strip, { deltaY: -100 });
+      expect(strip.scrollLeft).toEqual(50);
+    });
+
+    it("should not scroll a strip that does not overflow", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(200, 200);
+      const event = wheel(strip, { deltaY: 100 });
+      expect(strip.scrollLeft).toEqual(0);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it("should ignore a wheel already travelling horizontally", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      const event = wheel(strip, { deltaX: 100, deltaY: 20 });
+      expect(strip.scrollLeft).toEqual(0);
+      expect(event.defaultPrevented).toBe(false);
+    });
+
+    it("should clamp at the end and let the wheel chain to an ancestor", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      const clamped = wheel(strip, { deltaY: 1000 });
+      expect(strip.scrollLeft).toEqual(300);
+      expect(clamped.defaultPrevented).toBe(true);
+      const atLimit = wheel(strip, { deltaY: 100 });
+      expect(strip.scrollLeft).toEqual(300);
+      expect(atLimit.defaultPrevented).toBe(false);
+    });
+
+    it("should scale a line-mode wheel into pixels", () => {
+      render(<BasicTabs initialValue="a" />);
+      const strip = stubStrip(500, 200);
+      wheel(strip, { deltaY: 3, deltaMode: WheelEvent.DOM_DELTA_LINE });
+      expect(strip.scrollLeft).toEqual(48);
+    });
+  });
+
   describe("Selector drag-and-drop", () => {
     const TAB_TYPE = "tab";
 
