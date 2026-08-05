@@ -78,7 +78,11 @@ func hashConfig(config msgpack.EncodedJSON) (string, error) {
 // relationships are all rewritten; each legacy-to-UUID pair is staged in KV under
 // LegacyKeyKVPrefix for the panel migration. The whole re-key runs in one migration
 // transaction, so it commits atomically.
-func migrateKeysToUUID(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+func migrateKeysToUUID(
+	ctx context.Context,
+	tx gorp.Tx,
+	_ alamos.Instrumentation,
+) error {
 	stale, err := collectEntries(
 		ctx,
 		gorp.WrapReader[v1.Key, v1.Task](tx),

@@ -336,7 +336,11 @@ func convertTaskTab(
 // MigrateTaskTabKeys rewrites the task key embedded in every panel view tab's args
 // from the legacy uint64 string to the UUID minted by the task re-key migration,
 // then drains the staging map.
-func MigrateTaskTabKeys(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+func MigrateTaskTabKeys(
+	ctx context.Context,
+	tx gorp.Tx,
+	_ alamos.Instrumentation,
+) error {
 	mapping := make(map[string]string)
 	var stagedKeys [][]byte
 	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(task.LegacyKeyKVPrefix)))

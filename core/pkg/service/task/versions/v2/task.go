@@ -21,14 +21,8 @@ var _ gorp.Entry[Key] = Task{}
 // GorpKey implements gorp.Entry.
 func (t Task) GorpKey() Key { return t.Key }
 
-// SetOptions implements gorp.Entry, leasing the task to its rack's node. A rackless
-// draft has no lease target.
-func (t Task) SetOptions() []any {
-	if t.Rack.IsZero() {
-		return nil
-	}
-	return []any{t.Rack.Node()}
-}
+// SetOptions implements gorp.Entry.
+func (t Task) SetOptions() []any { return nil }
 
 // OntologyID returns the unique ontology identifier for the task.
 func (t Task) OntologyID() ontology.ID {
