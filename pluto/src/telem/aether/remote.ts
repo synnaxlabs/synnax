@@ -32,6 +32,8 @@ import {
   type SeriesSource,
   type SeriesSourceSpec,
   type Spec,
+  type StringSource,
+  type StringSourceSpec,
   type Telem,
 } from "@/telem/aether/telem";
 import { type client } from "@/telem/client";
@@ -326,6 +328,92 @@ export class StreamChannelData
   }
 }
 
+// StreamChannelStringValue reads the most recent value of a channel in real-time as
+// text, preserving variable density data types rather than coercing to a number.
+export class StreamChannelStringValue
+  extends AbstractSource<typeof streamChannelValuePropsZ>
+  implements StringSource
+{
+  static readonly TYPE = "stream-channel-string-value";
+  schema = streamChannelValuePropsZ;
+
+  private readonly client: client.Client;
+  private removeStreamHandler: destructor.Destructor | null = null;
+  private leadingBuffer: Series | null = null;
+  private latest = "";
+  // Buffer length the latest decode was taken at, or -1 to force a re-decode.
+  private decodedAt = -1;
+  // Bumped by cleanup to invalidate a read that is still awaiting.
+  private generation = 0;
+  private valid = false;
+  private readonly onStatusChange?: status.Adder;
+  constructor(client: client.Client, props: unknown, options?: CreateOptions) {
+    super(props);
+    this.client = client;
+    this.onStatusChange = options?.onStatusChange;
+  }
+
+  cleanup(): void {
+    this.generation++;
+    this.removeStreamHandler?.();
+    this.valid = false;
+    this.leadingBuffer?.release();
+    this.leadingBuffer = null;
+    this.latest = "";
+    this.decodedAt = -1;
+    this.removeStreamHandler = null;
+  }
+
+  value(): string {
+    // No valid channel has been set.
+    if (primitive.isZero(this.props.channel)) return "";
+    if (!this.valid) void this.read();
+    const buffer = this.leadingBuffer;
+    if (buffer == null || buffer.length === 0) return "";
+    // Samples are appended into the leading buffer in place, so the length is what
+    // marks new data. Decoding is gated on it because asString scans linearly.
+    if (buffer.length !== this.decodedAt) {
+      this.latest = buffer.asString(-1) ?? this.latest;
+      this.decodedAt = buffer.length;
+    }
+    return this.latest;
+  }
+
+  private async read(): Promise<void> {
+    const generation = this.generation;
+    try {
+      this.valid = true;
+      this.removeStreamHandler?.();
+      const ch = await this.client.retrieveChannel(this.props.channel);
+      const handler: client.StreamHandler = (res) => {
+        if (generation !== this.generation) return;
+        const data = res.get(ch.key);
+        if (data == null) return;
+        const leading = data.series.at(-1);
+        if (leading != null) {
+          leading.acquire();
+          this.leadingBuffer?.release();
+          this.leadingBuffer = leading;
+          this.decodedAt = -1;
+        }
+        this.notify();
+      };
+      const removeStreamHandler = await this.client.stream(handler, [ch.key]);
+      if (generation !== this.generation) {
+        removeStreamHandler();
+        return;
+      }
+      this.removeStreamHandler = removeStreamHandler;
+      this.notify();
+    } catch (e) {
+      this.valid = false;
+      this.onStatusChange?.(
+        xstatus.fromException(e, "failed to stream channel string value"),
+      );
+    }
+  }
+}
+
 type Constructor = new (
   client: client.Client,
   props: unknown,
@@ -336,6 +424,7 @@ const REGISTRY: Record<string, Constructor> = {
   [ChannelData.TYPE]: ChannelData,
   [StreamChannelData.TYPE]: StreamChannelData,
   [StreamChannelValue.TYPE]: StreamChannelValue,
+  [StreamChannelStringValue.TYPE]: StreamChannelStringValue,
 };
 
 export class RemoteFactory implements RemoteFactory {
@@ -373,4 +462,13 @@ export const streamChannelValue = (
   props,
   variant: "source",
   valueType: "number",
+});
+
+export const streamChannelStringValue = (
+  props: StreamChannelValueProps,
+): StringSourceSpec => ({
+  type: StreamChannelStringValue.TYPE,
+  props,
+  variant: "source",
+  valueType: "string",
 });
