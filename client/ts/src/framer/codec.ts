@@ -31,13 +31,17 @@ interface KeyedSeries extends SeriesPayload {
   key: number;
 }
 
+/** Orders channel keys the way the Core does. The default comparator sorts numbers as
+ * strings and diverges as soon as two keys differ in decimal width. */
+const compareKeys = (a: channel.Key, b: channel.Key): number => a - b;
+
 const sortFramePayloadByKey = (framePayload: Payload): void => {
   const { keys, series } = framePayload;
   keys.forEach((key, index) => {
     (series[index] as KeyedSeries).key = key;
   });
-  series.sort((a, b) => (a as KeyedSeries).key - (b as KeyedSeries).key);
-  keys.sort((a, b) => a - b);
+  series.sort((a, b) => compareKeys((a as KeyedSeries).key, (b as KeyedSeries).key));
+  keys.sort(compareKeys);
   // @ts-expect-error - deleting static property keys.
   series.forEach((ser) => delete (ser as KeyedSeries).key);
 };
@@ -75,7 +79,7 @@ export class Codec {
   update(keys: channel.Key[], dataTypes: DataType[]): void {
     this.seqNum++;
     const state = {
-      keys,
+      keys: [...keys],
       keyDataTypes: new Map(),
       hasVariableDataTypes: false,
     };
@@ -84,7 +88,9 @@ export class Codec {
       state.keyDataTypes.set(k, dt);
       if (dt.isVariable) state.hasVariableDataTypes = true;
     });
-    state.keys.sort();
+    // Encoder and decoder walk this order positionally when a frame carries every
+    // channel, so it has to match the Core's.
+    state.keys.sort(compareKeys);
     this.states.set(this.seqNum, state);
     this.currState = state;
   }

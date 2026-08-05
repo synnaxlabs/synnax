@@ -207,6 +207,35 @@ describe("encoder", () => {
           ],
         ),
       },
+      // Keys are (12-bit node key << 20 | 20-bit local key), so their decimal widths
+      // differ across nodes. These two pairs sort differently under a lexicographic
+      // comparator than under a numeric one, which is the order the Core encodes in.
+      {
+        name: "All Channels Present, Keys Spanning A Decimal Width",
+        // Node 9 (7 digits) and node 10 (8 digits).
+        channels: [9437185, 10485761],
+        dataTypes: [DataType.INT64, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [9437185, 10485761],
+          [
+            new Series(new BigInt64Array([1n, 2n, 3n])),
+            new Series(new Float32Array([4, 5, 6])),
+          ],
+        ),
+      },
+      {
+        name: "All Channels Present, Free Channel Alongside A Leased One",
+        // Node 5, and a free channel (node key 4095).
+        channels: [5242881, 4293918721],
+        dataTypes: [DataType.INT64, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [5242881, 4293918721],
+          [
+            new Series(new BigInt64Array([1n, 2n, 3n])),
+            new Series(new Float32Array([4, 5, 6])),
+          ],
+        ),
+      },
       {
         name: "Variable Data Types",
         channels: [1, 2, 3],
