@@ -41,7 +41,7 @@ var _ = Describe("ImEx", func() {
 	)
 
 	Describe("Export", func() {
-		It("Should export an arc as a versioned envelope", func(ctx SpecContext) {
+		It("Should export an Arc as a versioned envelope", func(ctx SpecContext) {
 			a := arc.Arc{Name: "exported", Mode: arc.ModeText}
 			Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, arc.OntologyID(a.Key)))
@@ -217,7 +217,7 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Round trip", func() {
 		It(
-			"Should preserve arc content through export then import",
+			"Should preserve Arc content through export then import",
 			func(ctx SpecContext) {
 				original := arc.Arc{Name: "round-trip", Mode: arc.ModeText}
 				original.Text.Raw = "b = 2"

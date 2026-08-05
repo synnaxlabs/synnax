@@ -22,7 +22,7 @@ func (a Arc) GorpKey() Key { return a.Key }
 // SetOptions implements gorp.Entry.
 func (Arc) SetOptions() []any { return nil }
 
-// OntologyID returns the unique ontology identifier for the arc.
+// OntologyID returns the unique ontology identifier for the Arc.
 func (a Arc) OntologyID() ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeArc, Key: a.Key.String()}
 }

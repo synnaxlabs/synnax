@@ -66,12 +66,12 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
-	// ImEx is the import/export registry the arc service registers itself with as the
-	// exporter for arc resources during OpenService.
+	// ImEx is the import/export registry the Arc service registers itself with as the
+	// exporter for Arc resources during OpenService.
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
-	// TextSweepQuiescence is how long an arc's text must go unedited before its
+	// TextSweepQuiescence is how long an Arc's text must go unedited before its
 	// tombstoned characters become eligible to be reclaimed.
 	//
 	// [OPTIONAL] - Defaults to 5 seconds

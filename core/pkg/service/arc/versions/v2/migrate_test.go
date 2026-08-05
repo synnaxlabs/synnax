@@ -37,7 +37,7 @@ import (
 var _ = Describe("MigrateArc", func() {
 	Describe("v1 -> v2", func() {
 		It(
-			"Should lift a v1 arc, seeding the document from the raw text",
+			"Should lift a v1 Arc, seeding the document from the raw text",
 			func(ctx SpecContext) {
 				key := uuid.New()
 				migrated := migrateFromV1(ctx, v1.Arc{
@@ -227,7 +227,7 @@ var _ = Describe("MigrateArc", func() {
 	})
 })
 
-// migrateFromV1 runs the v2 migration over a gorp-seeded v1 arc and returns the
+// migrateFromV1 runs the v2 migration over a gorp-seeded v1 Arc and returns the
 // migrated current Arc. The v1 chain is marked applied with no-op migrations so only
 // the v2 migration runs.
 func migrateFromV1(ctx SpecContext, seed v1.Arc) v2.Arc {
@@ -254,7 +254,7 @@ func migrateFromV1(ctx SpecContext, seed v1.Arc) v2.Arc {
 	return got
 }
 
-// migrateFromV0 runs the full arc migration chain over a gorp-seeded v0 arc and returns
+// migrateFromV0 runs the full Arc migration chain over a gorp-seeded v0 Arc and returns
 // the migrated current Arc.
 func migrateFromV0(ctx SpecContext, seed v0.Arc) v2.Arc {
 	db := DeferClose(gorp.Wrap(memkv.New()))

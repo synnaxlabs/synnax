@@ -18,37 +18,36 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Ontology", func() {
-	Describe("OntologyIDsFromGroups", func() {
-		It("Should map a slice of groups to ontology IDs", func() {
-			a := group.Group{Key: uuid.New(), Name: "a"}
-			b := group.Group{Key: uuid.New(), Name: "b"}
-			Expect(group.OntologyIDsFromGroups([]group.Group{a, b})).
-				To(ConsistOf(a.OntologyID(), b.OntologyID()))
-		})
+var _ = Describe("OntologyIDsFromGroups", func() {
+	It("Should map a slice of groups to ontology IDs", func() {
+		a := group.Group{Key: uuid.New(), Name: "a"}
+		b := group.Group{Key: uuid.New(), Name: "b"}
+		Expect(group.OntologyIDsFromGroups([]group.Group{a, b})).
+			To(ConsistOf(a.OntologyID(), b.OntologyID()))
 	})
-	Describe("KeyFromOntologyID", func() {
-		It("Should return the key of a group ID", func() {
-			key := uuid.New()
-			Expect(group.KeyFromOntologyID(group.OntologyID(key))).To(Equal(key))
-		})
-		DescribeTable("Should reject an ID that is not a group",
-			func(id ontology.ID, msg string) {
-				Expect(group.KeyFromOntologyID(id)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(msg)),
-				))
-			},
-			Entry("a project",
-				ontology.ID{Type: ontology.ResourceTypeProject, Key: uuid.NewString()},
-				`must be a group, got "project"`),
-			Entry("a zero ID", ontology.ID{}, `must be a group, got ""`),
-			Entry("a group whose key is not a UUID",
-				ontology.ID{Type: ontology.ResourceTypeGroup, Key: "not-a-uuid"},
-				`invalid group key "not-a-uuid"`),
-			Entry("a group with an empty key",
-				ontology.ID{Type: ontology.ResourceTypeGroup},
-				`invalid group key ""`),
-		)
+})
+
+var _ = Describe("KeyFromOntologyID", func() {
+	It("Should return the key of a group ID", func() {
+		key := uuid.New()
+		Expect(group.KeyFromOntologyID(group.OntologyID(key))).To(Equal(key))
 	})
+	DescribeTable("Should reject an ID that is not a group",
+		func(id ontology.ID, msg string) {
+			Expect(group.KeyFromOntologyID(id)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(msg)),
+			))
+		},
+		Entry("a project",
+			ontology.ID{Type: ontology.ResourceTypeProject, Key: uuid.NewString()},
+			`must be a group, got "project"`),
+		Entry("a zero ID", ontology.ID{}, `must be a group, got ""`),
+		Entry("a group whose key is not a UUID",
+			ontology.ID{Type: ontology.ResourceTypeGroup, Key: "not-a-uuid"},
+			`invalid group key "not-a-uuid"`),
+		Entry("a group with an empty key",
+			ontology.ID{Type: ontology.ResourceTypeGroup},
+			`invalid group key ""`),
+	)
 })

@@ -11,8 +11,8 @@
 // modules to write task-level status updates. Currently only used by the
 // status module.
 //
-// Lives under internal/ because only the arc runtime constructs Reporters
-// today; if non-arc packages ever need this shape, move the file to
+// Lives under internal/ because only the Arc runtime constructs Reporters
+// today; if non-Arc packages ever need this shape, move the file to
 // core/pkg/service/arc/taskreporter.
 package taskreporter
 

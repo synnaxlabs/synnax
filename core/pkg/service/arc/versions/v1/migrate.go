@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// migrateArc lifts a v0 arc into the v1 shape, dropping the persisted program status.
+// migrateArc lifts a v0 Arc into the v1 shape, dropping the persisted program status.
 func migrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
 	return autoMigrateArc(ctx, old)
 }

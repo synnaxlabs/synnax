@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// migrateArc lifts a v1 arc into the v2 shape.
+// migrateArc lifts a v1 Arc into the v2 shape.
 func migrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
 	return autoMigrateArc(ctx, old)
 }

@@ -90,7 +90,7 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 // originating client can match its own echo against the set of outstanding
 // local replays and skip a redundant reduce when no foreign action interleaved.
 //
-// When the arc's text has gone quiet, Dispatch also reclaims the space held by
+// When the Arc's text has gone quiet, Dispatch also reclaims the space held by
 // tombstoned characters: it forgets the characters that were already dead before this
 // dispatch and broadcasts that sweep as a separate frame with an empty dispatchKey, so
 // every editor (including the originator, which skips its own echo) applies it.

@@ -25,7 +25,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// migrateSeed runs the v1 migration chain over a gorp-seeded v0 arc and returns the
+// migrateSeed runs the v1 migration chain over a gorp-seeded v0 Arc and returns the
 // migrated v1 Arc.
 func migrateSeed(ctx SpecContext, seed v0.Arc) v1.Arc {
 	db := DeferClose(gorp.Wrap(memkv.New()))
@@ -46,7 +46,7 @@ func migrateSeed(ctx SpecContext, seed v0.Arc) v1.Arc {
 
 var _ = Describe("MigrateArc", func() {
 	It(
-		"Should carry the arc's key, name, mode, graph, and text",
+		"Should carry the Arc's key, name, mode, graph, and text",
 		func(ctx SpecContext) {
 			key := uuid.New()
 			migrated := migrateSeed(ctx, v0.Arc{

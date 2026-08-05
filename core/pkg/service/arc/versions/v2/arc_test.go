@@ -21,7 +21,7 @@ import (
 
 var _ = Describe("Arc", func() {
 	Describe("GorpKey", func() {
-		It("Should return the arc's key", func() {
+		It("Should return the Arc's key", func() {
 			k := uuid.New()
 			Expect(v2.Arc{Key: k}.GorpKey()).To(Equal(k))
 		})
@@ -33,7 +33,7 @@ var _ = Describe("Arc", func() {
 		})
 	})
 	Describe("OntologyID", func() {
-		It("Should return the arc ontology identifier", func() {
+		It("Should return the Arc ontology identifier", func() {
 			k := uuid.New()
 			Expect(v2.Arc{Key: k}.OntologyID()).To(Equal(ontology.ID{
 				Type: ontology.ResourceTypeArc, Key: k.String(),
