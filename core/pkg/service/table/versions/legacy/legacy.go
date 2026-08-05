@@ -23,22 +23,25 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Data is the latest legacy snapshot; the migration chain terminates in it.
+type Data = v0.Data
+
 // MigrateData decodes the opaque table data blob, dispatches on its declared version,
-// and walks the per-step Migrate functions forward to v0.Data. A nil blob and a blob
+// and walks the per-step Migrate functions forward to Data. A nil blob and a blob
 // without a version field both fall through to v0.
-func MigrateData(blob msgpack.EncodedJSON) (v0.Data, error) {
+func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 	version, err := imex.PeekVersion(blob, "table data")
 	if err != nil {
-		return v0.Data{}, err
+		return Data{}, err
 	}
 	return dispatch(blob, version)
 }
 
-func dispatch(blob msgpack.EncodedJSON, version imex.Version) (v0.Data, error) {
+func dispatch(blob msgpack.EncodedJSON, version imex.Version) (Data, error) {
 	switch version {
 	case v0.Version:
 		return imex.DecodeBlob[v0.Data](blob, "table data", version)
 	default:
-		return v0.Data{}, errors.Newf("unknown table data version %d", version)
+		return Data{}, errors.Newf("unknown table data version %d", version)
 	}
 }

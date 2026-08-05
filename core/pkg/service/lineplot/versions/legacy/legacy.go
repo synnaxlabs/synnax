@@ -25,46 +25,49 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Data is the latest legacy snapshot; the migration chain terminates in it.
+type Data = v4.Data
+
 // MigrateData decodes the opaque line plot data blob, dispatches on its declared
-// version, and walks the per-step Migrate functions forward to v4.Data. A nil blob and
-// a blob without a version field both fall through to v0 and walk the full chain.
-func MigrateData(blob msgpack.EncodedJSON) (v4.Data, error) {
+// version, and walks the per-step Migrate functions forward to Data. A nil blob and a
+// blob without a version field both fall through to v0 and walk the full chain.
+func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 	version, err := imex.PeekVersion(blob, "line plot data")
 	if err != nil {
-		return v4.Data{}, err
+		return Data{}, err
 	}
 	return dispatch(blob, version)
 }
 
-func dispatch(blob msgpack.EncodedJSON, version imex.Version) (v4.Data, error) {
+func dispatch(blob msgpack.EncodedJSON, version imex.Version) (Data, error) {
 	switch version {
 	case v4.Version:
 		return imex.DecodeBlob[v4.Data](blob, "line plot data", version)
 	case v3.Version:
 		d, err := imex.DecodeBlob[v3.Data](blob, "line plot data", version)
 		if err != nil {
-			return v4.Data{}, err
+			return Data{}, err
 		}
 		return v4.Migrate(d), nil
 	case v2.Version:
 		d, err := imex.DecodeBlob[v2.Data](blob, "line plot data", version)
 		if err != nil {
-			return v4.Data{}, err
+			return Data{}, err
 		}
 		return v4.Migrate(v3.Migrate(d)), nil
 	case v1.Version:
 		d, err := imex.DecodeBlob[v1.Data](blob, "line plot data", version)
 		if err != nil {
-			return v4.Data{}, err
+			return Data{}, err
 		}
 		return v4.Migrate(v3.Migrate(v2.Migrate(d))), nil
 	case v0.Version:
 		d, err := imex.DecodeBlob[v0.Data](blob, "line plot data", version)
 		if err != nil {
-			return v4.Data{}, err
+			return Data{}, err
 		}
 		return v4.Migrate(v3.Migrate(v2.Migrate(v1.Migrate(d)))), nil
 	default:
-		return v4.Data{}, errors.Newf("unknown line plot data version %d", version)
+		return Data{}, errors.Newf("unknown line plot data version %d", version)
 	}
 }

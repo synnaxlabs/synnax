@@ -22,29 +22,32 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Data is the latest legacy snapshot; the migration chain terminates in it.
+type Data = v1.Data
+
 // MigrateData decodes the opaque log data blob, dispatches on its declared version, and
-// walks the per-step Migrate functions forward to v1.Data. A nil blob and a blob
-// without a version field both fall through to v0 and walk the full chain. Enum strings
-// outside their closed sets flow through untouched for the latest-Log lift to default.
-func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
+// walks the per-step Migrate functions forward to Data. A nil blob and a blob without a
+// version field both fall through to v0 and walk the full chain. Enum strings outside
+// their closed sets flow through untouched for the latest-Log lift to default.
+func MigrateData(blob msgpack.EncodedJSON) (Data, error) {
 	version, err := imex.PeekVersion(blob, "log data")
 	if err != nil {
-		return v1.Data{}, err
+		return Data{}, err
 	}
 	return dispatch(blob, version)
 }
 
-func dispatch(blob msgpack.EncodedJSON, version imex.Version) (v1.Data, error) {
+func dispatch(blob msgpack.EncodedJSON, version imex.Version) (Data, error) {
 	switch version {
 	case v1.Version:
 		return imex.DecodeBlob[v1.Data](blob, "log data", version)
 	case v0.Version:
 		d, err := imex.DecodeBlob[v0.Data](blob, "log data", version)
 		if err != nil {
-			return v1.Data{}, err
+			return Data{}, err
 		}
 		return v1.Migrate(d), nil
 	default:
-		return v1.Data{}, errors.Newf("unknown log data version %d", version)
+		return Data{}, errors.Newf("unknown log data version %d", version)
 	}
 }
