@@ -45,11 +45,11 @@ func checkOptionalDefaultInvariant(c *analysisCtx) {
 	}
 }
 
-// checkDefaultInvariant enforces the default invariant from RFC 0044: a required field
-// that carries a static default must either default to its type's zero value, or have a
-// type whose zero value is not a valid value. When neither holds, value-based
-// default-filling could overwrite a deliberate zero (a `precision` of 0, a `visible` of
-// false), so the schema is rejected at analysis time.
+// checkDefaultInvariant enforces the default invariant: a required field that carries a
+// static default must either default to its type's zero value, or have a type whose
+// zero value is not a valid value. When neither holds, value-based default-filling
+// could overwrite a deliberate zero (a `precision` of 0, a `visible` of false), so the
+// schema is rejected at analysis time.
 //
 // The check is conservative. It decides only the cases it can settle without
 // introspecting validation bounds (booleans and integer enums) and abstains otherwise,

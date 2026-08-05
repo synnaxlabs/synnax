@@ -1,9 +1,4 @@
----
-title: Synnax - Segment Distribution
-layout: "@/layouts/MainLayout.astro"
----
-
-# 0003 Delta - Segment distribution
+# 3 Delta - Segment distribution
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2022-06-04
