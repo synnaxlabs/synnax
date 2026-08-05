@@ -680,6 +680,10 @@ const useCachedValue = <Query extends query.Params, Data extends query.Data>({
   equal,
 }: Omit<UseSuspendedParams<Query, Data>, "query"> &
   CreateRetrieveParams<Query, Data> & { query: Query | null }): Data | undefined => {
+  if (getCached == null)
+    throw new UnexpectedError(
+      `Cannot read ${name} through useCached: no getCached defined.`,
+    );
   const memoQuery = useMemoDeepEqual(q);
   const client = Synnax.use();
   const held = useRef<{ query: Query; value: Data } | null>(null);

@@ -212,14 +212,14 @@ describe("queries", () => {
       ]);
 
       const { result } = renderHook(
-        () => Label.useRetrieveLabelsOf({ id: label.ontologyID(targetLabel.key) }),
+        () => Label.useCachedLabelsOf({ id: label.ontologyID(targetLabel.key) }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => expect(result.current).toBeDefined());
 
-      expect(result.current.data).toHaveLength(2);
-      expect(result.current.data?.map((l) => l.key)).toContain(label1.key);
-      expect(result.current.data?.map((l) => l.key)).toContain(label2.key);
+      expect(result.current).toHaveLength(2);
+      expect(result.current?.map((l) => l.key)).toContain(label1.key);
+      expect(result.current?.map((l) => l.key)).toContain(label2.key);
     });
 
     it("should update when labels are added to entity", async () => {
@@ -230,15 +230,13 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useRetrieveLabelsOf({
+          Label.useCachedLabelsOf({
             id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      const initialLength = result.current.data?.length ?? 0;
+      await waitFor(() => expect(result.current).toBeDefined());
+      const initialLength = result.current?.length ?? 0;
 
       const newLabel = await client.labels.create({
         name: "addedLabel",
@@ -247,8 +245,8 @@ describe("queries", () => {
       await client.labels.label(label.ontologyID(targetLabel.key), [newLabel.key]);
 
       await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
-        expect(result.current.data?.map((l) => l.key)).toContain(newLabel.key);
+        expect(result.current).toHaveLength(initialLength + 1);
+        expect(result.current?.map((l) => l.key)).toContain(newLabel.key);
       });
     });
 
@@ -266,22 +264,20 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useRetrieveLabelsOf({
+          Label.useCachedLabelsOf({
             id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.data?.map((l) => l.key)).toContain(labelToRemove.key);
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current?.map((l) => l.key)).toContain(labelToRemove.key);
 
       await client.labels.label(label.ontologyID(targetLabel.key), [], {
         replace: true,
       });
 
       await waitFor(() => {
-        expect(result.current.data?.map((l) => l.key)).not.toContain(labelToRemove.key);
+        expect(result.current?.map((l) => l.key)).not.toContain(labelToRemove.key);
       });
     });
 
@@ -299,17 +295,15 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useRetrieveLabelsOf({
+          Label.useCachedLabelsOf({
             id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(
-        result.current.data?.find((l) => l.key === originalLabel.key)?.name,
-      ).toEqual("originalName");
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current?.find((l) => l.key === originalLabel.key)?.name).toEqual(
+        "originalName",
+      );
 
       const updatedLabel = await client.labels.create({
         ...originalLabel,
@@ -317,9 +311,9 @@ describe("queries", () => {
       });
 
       await waitFor(() => {
-        expect(
-          result.current.data?.find((l) => l.key === updatedLabel.key)?.name,
-        ).toEqual("updatedName");
+        expect(result.current?.find((l) => l.key === updatedLabel.key)?.name).toEqual(
+          "updatedName",
+        );
       });
     });
 
@@ -337,20 +331,18 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useRetrieveLabelsOf({
+          Label.useCachedLabelsOf({
             id: label.ontologyID(targetLabel.key),
           }),
         { wrapper },
       );
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.data?.map((l) => l.key)).toContain(labelToDelete.key);
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current?.map((l) => l.key)).toContain(labelToDelete.key);
 
       await client.labels.delete(labelToDelete.key);
 
       await waitFor(() => {
-        expect(result.current.data?.map((l) => l.key)).not.toContain(labelToDelete.key);
+        expect(result.current?.map((l) => l.key)).not.toContain(labelToDelete.key);
       });
     });
     describe("retrieveMultiple", () => {

@@ -399,18 +399,11 @@ describe("queries", () => {
       const l1 = await client.logs.create(proj.key, { name: "My Log" });
       await client.lineplots.create(proj.key, { name: "My Plot" });
 
-      const { result } = renderHook(
-        () =>
-          Project.useRetrieveChildren({
-            resourceID: schematic.ontologyID(s1.key),
-            types: ["log"],
-          }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect((result.current.data ?? []).length).toBeGreaterThanOrEqual(1);
+      const children = await Project.retrieveChildren(client, {
+        resourceID: schematic.ontologyID(s1.key),
+        types: ["log"],
       });
-      const keys = (result.current.data ?? []).map((p) => p.key);
+      const keys = children.map((p) => p.key);
       expect(keys).toContain(l1.key);
       expect(keys).toHaveLength(1);
     });
@@ -424,18 +417,11 @@ describe("queries", () => {
       const t1 = await client.tables.create(proj.key, { name: "A Table" });
       const l1 = await client.logs.create(proj.key, { name: "A Log" });
 
-      const { result } = renderHook(
-        () =>
-          Project.useRetrieveChildren({
-            resourceID: schematic.ontologyID(s1.key),
-            types: ["lineplot", "table"],
-          }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect((result.current.data ?? []).length).toBeGreaterThanOrEqual(2);
+      const children = await Project.retrieveChildren(client, {
+        resourceID: schematic.ontologyID(s1.key),
+        types: ["lineplot", "table"],
       });
-      const keys = (result.current.data ?? []).map((p) => p.key);
+      const keys = children.map((p) => p.key);
       expect(keys).toContain(lp.key);
       expect(keys).toContain(t1.key);
       expect(keys).not.toContain(l1.key);
@@ -457,18 +443,11 @@ describe("queries", () => {
       const t1 = await client.tables.create(proj.key, { name: "Table" });
       const l1 = await client.logs.create(proj.key, { name: "Log" });
 
-      const { result } = renderHook(
-        () =>
-          Project.useRetrieveChildren({
-            resourceID: schematic.ontologyID(s1.key),
-            types: ["lineplot", "table", "log"],
-          }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect((result.current.data ?? []).length).toBeGreaterThanOrEqual(3);
+      const children = await Project.retrieveChildren(client, {
+        resourceID: schematic.ontologyID(s1.key),
+        types: ["lineplot", "table", "log"],
       });
-      const keys = (result.current.data ?? []).map((p) => p.key);
+      const keys = children.map((p) => p.key);
       expect(keys).toContain(lp.key);
       expect(keys).toContain(t1.key);
       expect(keys).toContain(l1.key);
@@ -485,44 +464,19 @@ describe("queries", () => {
         name: "Other",
       });
 
-      const { result } = renderHook(
-        () =>
-          Project.useRetrieveChildren({
-            resourceID: schematic.ontologyID(s1.key),
-            types: ["schematic"],
-          }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect((result.current.data ?? []).length).toBeGreaterThanOrEqual(1);
+      const children = await Project.retrieveChildren(client, {
+        resourceID: schematic.ontologyID(s1.key),
+        types: ["schematic"],
       });
-      const keys = (result.current.data ?? []).map((p) => p.key);
+      const keys = children.map((p) => p.key);
       expect(keys).not.toContain(s1.key);
       expect(keys).toContain(s2.key);
     });
 
-    it("should return empty when resourceID is not provided", async () => {
-      const { result } = renderHook(
-        () => Project.useRetrieveChildren({ types: ["schematic"] }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(result.current.data ?? []).toEqual([]);
-      });
-    });
-
-    it("should return empty when no client is available", async () => {
-      const noClientWrapper = await createAsyncSynnaxWrapper({ client: null });
-      const { result } = renderHook(
-        () =>
-          Project.useRetrieveChildren({
-            resourceID: schematic.ontologyID("some-key"),
-            types: ["schematic"],
-          }),
-        { wrapper: noClientWrapper },
-      );
-      expect(result.current.data).toBeUndefined();
-    });
+    it("should return empty when resourceID is not provided", async () =>
+      expect(await Project.retrieveChildren(client, { types: ["schematic"] })).toEqual(
+        [],
+      ));
 
     it("should find children inside groups", async () => {
       const proj = await client.projects.create({ name: "grouped_ws", layout: {} });
@@ -542,18 +496,11 @@ describe("queries", () => {
         schematic.ontologyID(s2.key),
       );
 
-      const { result } = renderHook(
-        () =>
-          Project.useRetrieveChildren({
-            resourceID: schematic.ontologyID(s1.key),
-            types: ["schematic"],
-          }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect((result.current.data ?? []).length).toBeGreaterThanOrEqual(1);
+      const children = await Project.retrieveChildren(client, {
+        resourceID: schematic.ontologyID(s1.key),
+        types: ["schematic"],
       });
-      const keys = (result.current.data ?? []).map((p) => p.key);
+      const keys = children.map((p) => p.key);
       expect(keys).toContain(s2.key);
       expect(keys).not.toContain(s1.key);
     });
@@ -580,18 +527,11 @@ describe("queries", () => {
         schematic.ontologyID(s2.key),
       );
 
-      const { result } = renderHook(
-        () =>
-          Project.useRetrieveChildren({
-            resourceID: schematic.ontologyID(s1.key),
-            types: ["schematic"],
-          }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect((result.current.data ?? []).length).toBeGreaterThanOrEqual(1);
+      const children = await Project.retrieveChildren(client, {
+        resourceID: schematic.ontologyID(s1.key),
+        types: ["schematic"],
       });
-      const keys = (result.current.data ?? []).map((p) => p.key);
+      const keys = children.map((p) => p.key);
       expect(keys).toContain(s2.key);
       expect(keys).not.toContain(s1.key);
     });
@@ -608,18 +548,11 @@ describe("queries", () => {
       const lp1 = await client.lineplots.create(p1.key, { name: "P1 Plot" });
       await client.lineplots.create(p2.key, { name: "P2 Plot" });
 
-      const { result } = renderHook(
-        () =>
-          Project.useRetrieveChildren({
-            resourceID: schematic.ontologyID(s1.key),
-            types: ["lineplot"],
-          }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect((result.current.data ?? []).length).toBeGreaterThanOrEqual(1);
+      const children = await Project.retrieveChildren(client, {
+        resourceID: schematic.ontologyID(s1.key),
+        types: ["lineplot"],
       });
-      const keys = (result.current.data ?? []).map((p) => p.key);
+      const keys = children.map((p) => p.key);
       expect(keys).toContain(lp1.key);
       expect(keys).toHaveLength(1);
     });
@@ -772,20 +705,11 @@ describe("queries", () => {
         expectedSiblings: schematic.Schematic[],
         unexpectedKeys: string[],
       ): Promise<void> => {
-        const { result } = renderHook(
-          () =>
-            Project.useRetrieveChildren({
-              resourceID: schematic.ontologyID(source.key),
-              types: ["schematic"],
-            }),
-          { wrapper },
-        );
-        await waitFor(() => {
-          expect((result.current.data ?? []).length).toBeGreaterThanOrEqual(
-            expectedSiblings.length,
-          );
+        const children = await Project.retrieveChildren(client, {
+          resourceID: schematic.ontologyID(source.key),
+          types: ["schematic"],
         });
-        const keys = (result.current.data ?? []).map((p) => p.key);
+        const keys = children.map((p) => p.key);
         for (const s of expectedSiblings) expect(keys).toContain(s.key);
         expect(keys).not.toContain(source.key);
         for (const k of unexpectedKeys) expect(keys).not.toContain(k);

@@ -39,7 +39,7 @@ export const setLabelsFor = async ({
   return await client.labels.retrieve({ keys: labels });
 };
 
-export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
+export const { useCached: useCachedLabelsOf } = Flux.createRetrieve<
   LabelsOfQuery,
   label.Label[]
 >({

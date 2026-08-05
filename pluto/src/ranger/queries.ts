@@ -185,14 +185,8 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
 });
 
-export const useLabels = (
-  key: ranger.Key,
-  opts?: Omit<
-    Flux.UseDirectRetrieveParams<Label.LabelsOfQuery, label.Label[]>,
-    "query"
-  >,
-): Flux.UseDirectRetrieveReturn<label.Label[]> =>
-  Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) }, opts);
+export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
+  Label.useCachedLabelsOf(key == null ? null : { id: ranger.ontologyID(key) });
 
 export { type ListQuery } from "@/ranger/aether/queries";
 

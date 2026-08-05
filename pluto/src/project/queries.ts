@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, project } from "@synnaxlabs/client";
+import { ontology, project, type Synnax } from "@synnaxlabs/client";
 import { array, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -156,20 +156,17 @@ const findProjectAncestor = async (
   return null;
 };
 
-const retrieveChildrenImpl = async ({
-  client,
-  query: { resourceID, types },
-}: Flux.RetrieveParams<RetrieveChildrenQuery>): Promise<record.KeyedNamed[]> => {
+/**
+ * Retrieves the sibling resources sharing the queried resource's project,
+ * excluding the resource itself. Returns an empty list when the resource has no
+ * project ancestor.
+ */
+export const retrieveChildren = async (
+  client: Synnax,
+  { resourceID, types }: RetrieveChildrenQuery,
+): Promise<record.KeyedNamed[]> => {
   if (resourceID == null) return [];
   const projectID = await findProjectAncestor(client, resourceID);
   if (projectID == null) return [];
   return await collectChildren(client, projectID, types, resourceID.key);
 };
-
-export const { useRetrieve: useRetrieveChildren } = Flux.createRetrieve<
-  RetrieveChildrenQuery,
-  record.KeyedNamed[]
->({
-  name: "project children",
-  retrieve: retrieveChildrenImpl,
-});
