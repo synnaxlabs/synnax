@@ -2,14 +2,15 @@
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-08-03
-- **Related**: [RFC 0017 - General purpose device drivers](./0017-drivers.md),
-  [RFC 0027 - Oracle schema system](./0027-oracle-schema-system.md),
-  [RFC 0033 - Oracle migration system](./0033-oracle-migrations.md),
-  [RFC 0034 - Gorp in-memory indexes](./0034-gorp-indexes.md),
-  [RFC 0039 - Server-side metadata import/export](./0039-server-side-import-export.md),
-  [RFC 0042 - Core structure refactor](./0042-core-structure-refactor.md),
-  [RFC 0043 - Oracle support for struct unions](./0043-oracle-struct-unions.md), and
-  [RFC 0047 - Oracle predecessor-chain type versioning](./0047-oracle-predecessor-chain-versioning.md).
+- **Related**: [RFC 0017 - General purpose device drivers](0017-drivers.md),
+  [RFC 0027 - Oracle schema system](0027-oracle-schema-system.md),
+  [RFC 0033 - Oracle migration system](0033-oracle-migrations.md),
+  [RFC 0034 - Gorp in-memory indexes](0034-gorp-indexes.md),
+  [RFC 0039 - Server-side metadata import/export](0039-server-side-import-export.md),
+  [RFC 0041 - Action-based undo and redo](0041-action-based-undo-redo.md),
+  [RFC 0042 - Core structure refactor](0042-core-structure-refactor.md),
+  [RFC 0043 - Oracle support for struct unions](0043-oracle-struct-unions.md), and
+  [RFC 0047 - Oracle predecessor-chain type versioning](0047-oracle-predecessor-chain-versioning.md).
 
 ## 0 Summary
 
