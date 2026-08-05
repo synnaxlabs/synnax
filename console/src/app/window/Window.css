@@ -13,7 +13,6 @@
     height: 100%;
     width: 100%;
     overflow: hidden;
-    padding-left: 0.5rem;
     background: var(--pluto-gray-l2);
 
     /* Chrome controls recess toward the canvas instead of lightening; nested
