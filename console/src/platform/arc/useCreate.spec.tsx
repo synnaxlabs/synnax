@@ -29,7 +29,7 @@ describe("arc useCreate", () => {
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Automation Name")).toBeTruthy(),
     );
-    const create = screen.getByRole("button", { name: "Create" });
+    const create = await screen.findByRole("button", { name: "Create" });
     await act(async () => {
       fireEvent.click(create);
     });
@@ -45,7 +45,7 @@ describe("arc useCreate", () => {
     const input = await screen.findByPlaceholderText("Automation Name");
     fireEvent.change(input, { target: { value: name } });
 
-    const create = screen.getByRole("button", { name: "Create" });
+    const create = await screen.findByRole("button", { name: "Create" });
     await act(async () => {
       fireEvent.click(create);
     });
