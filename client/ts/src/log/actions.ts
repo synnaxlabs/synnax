@@ -37,6 +37,11 @@ import { channelEntryZ } from "@/log/types.gen";
 // mutations target the specific channel so concurrent edits to distinct channels
 // neither coalesce nor invalidate each other's undoables.
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.log);
+    return { inverse: [], targets: [payload.log.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
@@ -198,6 +203,11 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.log : undefined;
 
 // kindOf keys single-channel edits by channel so rapid edits to one
 // channel's config coalesce into a single undoable, while edits to distinct

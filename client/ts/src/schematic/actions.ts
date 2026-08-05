@@ -24,6 +24,11 @@ import {
 } from "@/schematic/actions.gen";
 
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.schematic);
+    return { inverse: [], targets: [payload.schematic.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
@@ -144,6 +149,11 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.schematic : undefined;
 
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";

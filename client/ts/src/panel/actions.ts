@@ -146,6 +146,11 @@ const replaceTab = (n: Draft<Node>, key: string, next: Tab): boolean => {
 };
 
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.panel);
+    return { inverse: [], targets: [payload.panel.key] };
+  },
+
   rename: (state, payload) => {
     state.name = payload.name;
     return { inverse: [], targets: [state.key] };
@@ -302,6 +307,11 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.panel : undefined;
 
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";

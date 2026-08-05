@@ -49,6 +49,11 @@ const expandTemplate = (template: Cell, count: number): Cell[] =>
   }));
 
 const handlers: Handlers = {
+  create: (state, payload) => {
+    Object.assign(state, payload.table);
+    return { inverse: [], targets: [payload.table.key] };
+  },
+
   rename: (state, payload) => {
     const oldName = state.name;
     state.name = payload.name;
@@ -253,6 +258,11 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+// createOf hands the dispatch controller the document carried by a create
+// action so frames for never-cached documents ingest instead of drop.
+export const createOf = (action: Action) =>
+  action.type === "create" ? action.create.table : undefined;
 
 // kindOf classifies an action batch for the undoable store's
 // per-kind coalesce window. Continuous resize gestures (a stream of

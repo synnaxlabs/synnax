@@ -10,10 +10,11 @@
 import {
   DisconnectedError,
   isConnectionError,
+  NotFoundError,
   query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { type destructor, state } from "@synnaxlabs/x";
+import { type destructor, state, TimeSpan } from "@synnaxlabs/x";
 import {
   use,
   useCallback,
@@ -421,14 +422,78 @@ const localFor = <Data extends query.Data>(
 
 const NOOP_SUBSCRIBE = () => () => {};
 
+/**
+ * How long a not-found suspending read stays pending before the not-found
+ * becomes final. Covers a reference arriving ahead of its document's create
+ * broadcast (e.g. a panel tab minted in another window).
+ */
+const NOT_FOUND_WAIT = TimeSpan.seconds(5);
+
+const awaitCreation = <Query extends query.Params, Data extends query.Data>(
+  params: RetrieveParams<Query>,
+  {
+    name,
+    error,
+    hash,
+    subscribe,
+    getCached,
+    local,
+  }: Required<Pick<CreateRetrieveParams<Query, Data>, "subscribe" | "getCached">> & {
+    name: string;
+    error: Error;
+    hash: string;
+    local: LocalCache<Data>;
+  },
+): Promise<Data> =>
+  new Promise<Data>((resolve, reject) => {
+    const epoch = local.epoch;
+    let settled = false;
+    let disconnect: destructor.Destructor = () => {};
+    const finish = () => {
+      settled = true;
+      clearTimeout(timer);
+      disconnect();
+      local.inFlight.delete(hash);
+    };
+    const timer = setTimeout(() => {
+      finish();
+      // A reconnect landed during the wait, so the not-found may no longer hold.
+      if (local.epoch === epoch) local.settled.set(hash, { error });
+      reject(error);
+    }, NOT_FOUND_WAIT.milliseconds);
+    disconnect = subscribe(params, (result) => {
+      if (result === undefined) return;
+      finish();
+      if (Deleted.matches<Data>(result))
+        reject(new DeletedError(`${name} was deleted`, result.corpse));
+      else resolve(result);
+    });
+    // An already-answered query delivers during subscribe itself, before the
+    // destructor exists to be called; tear it down now.
+    if (settled) disconnect();
+    // The document may have landed, or been deleted, between the failed
+    // fetch and the subscription mounting.
+    const cached = getCached(params);
+    if (cached !== undefined) {
+      finish();
+      if (Deleted.matches<Data>(cached))
+        reject(new DeletedError(`${name} was deleted`, cached.corpse));
+      else resolve(cached);
+    }
+  });
+
 const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
   {
     name,
     retrieve,
+    subscribe,
     getCached,
     local,
-  }: Pick<CreateRetrieveParams<Query, Data>, "name" | "retrieve" | "getCached"> & {
+  }: Pick<
+    CreateRetrieveParams<Query, Data>,
+    "name" | "retrieve" | "subscribe" | "getCached"
+  > & {
     local: LocalCache<Data>;
   },
 ): Data => {
@@ -451,6 +516,18 @@ const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
       },
       (cause: unknown) => {
         const error = new Error(`Failed to retrieve ${name}`, { cause });
+        // A domain-cached not-found stays pending: the reference may have
+        // outrun its document's create broadcast, which the subscription will
+        // deliver. Everything else settles.
+        if (subscribe != null && getCached != null && NotFoundError.matches(cause))
+          return awaitCreation(params, {
+            name,
+            error,
+            hash,
+            subscribe,
+            getCached,
+            local,
+          });
         // A failed fetch writes nothing getCached can serve, so the error must
         // settle locally or the next render refetches forever. A later cache
         // hit short-circuits before this entry is read. A reconnect that
@@ -501,7 +578,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   }
   const derived = deriveCached?.(params);
   if (derived != null) return derived;
-  return suspendOnFetch(params, { name, retrieve, getCached, local });
+  return suspendOnFetch(params, { name, retrieve, subscribe, getCached, local });
 };
 
 const useEnsure = <Query extends query.Params, Data extends query.Data>({
@@ -509,6 +586,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
   locals,
   name,
   retrieve,
+  subscribe,
   getCached,
   deriveCached,
 }: UseSuspendedParams<Query, Data> & CreateRetrieveParams<Query, Data>): void => {
@@ -528,7 +606,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
     return;
   }
   if (deriveCached?.(params) != null) return;
-  suspendOnFetch(params, { name, retrieve, getCached, local });
+  suspendOnFetch(params, { name, retrieve, subscribe, getCached, local });
 };
 
 interface UseTombstoneParams<Query extends query.Params> {

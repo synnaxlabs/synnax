@@ -79,6 +79,25 @@ describe("store", () => {
     expect(cached.corpse.name).toEqual(plot.name);
   });
 
+  // Regression: a document created by another client must materialize in this
+  // client's cache from the create broadcast alone, with no retrieve. A panel
+  // tab referencing it can otherwise render before the doc is fetchable.
+  it("ingests remotely created documents from create broadcast frames", async () => {
+    const remote = createTestClient();
+    try {
+      await remote.connect();
+      await client.connect();
+      const plot = await seedPlot();
+      await expect
+        .poll(() => query.isLive(remote.lineplots.getCached(plot.key)))
+        .toBe(true);
+      const cached = remote.lineplots.getCached(plot.key);
+      if (query.isLive(cached)) expect(cached.name).toEqual(plot.name);
+    } finally {
+      remote.close();
+    }
+  });
+
   it("reduces broadcast dispatch frames into the cached document", async () => {
     await client.connect();
     const plot = await seedPlot();

@@ -14,6 +14,11 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
+// Handle replaces the document with its created state.
+func (p CreatePayload) Handle(Panel) (Panel, error) {
+	return p.Panel, nil
+}
+
 // Handle replaces the panel's name.
 func (p RenamePayload) Handle(state Panel) (Panel, error) {
 	state.Name = p.Name

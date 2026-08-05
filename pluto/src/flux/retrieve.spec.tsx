@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type label, query } from "@synnaxlabs/client";
+import {
+  DisconnectedError,
+  type label,
+  NotFoundError,
+  query,
+} from "@synnaxlabs/client";
 import {
   createSeverableProxy,
   createTestClient,
@@ -583,6 +588,196 @@ describe("useRetrieveSuspended", () => {
 
     await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("2"));
     expect(retrieve).toHaveBeenCalledTimes(2);
+  });
+
+  describe("not-found wait", () => {
+    interface Harness {
+      utils: ReturnType<typeof render>;
+      retrieve: ReturnType<typeof vi.fn>;
+      push: (result: query.Cached<number> | undefined) => void;
+    }
+
+    // Renders a suspending read whose fetch rejects with NotFoundError while
+    // the domain cache is empty, so the read enters the pending wait.
+    const renderNotFound = async (key: string): Promise<Harness> => {
+      let cached: query.Cached<number> | undefined;
+      let handler: query.ChangeHandler<number> | null = null;
+      const retrieve = vi.fn(async (): Promise<number> => {
+        throw new NotFoundError("no such number");
+      });
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve,
+        subscribe: (_, h) => {
+          handler = h;
+          return () => {};
+        },
+        getCached: () => cached,
+      });
+
+      const Display = (): ReactElement => {
+        const value = useRetrieveSuspended({ key });
+        return <div data-testid="value">{value}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div>waiting</div>}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      return {
+        utils,
+        retrieve,
+        push: (result) => {
+          cached = result;
+          handler?.(result);
+        },
+      };
+    };
+
+    it("stays suspended on not-found and resolves when the document appears", async () => {
+      const { utils, push } = await renderNotFound("nf-wait");
+      expect(utils.queryByText("waiting")).toBeTruthy();
+      expect(utils.queryByTestId("error")).toBeNull();
+
+      await act(async () => {
+        push(21);
+      });
+
+      await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("21"));
+    });
+
+    it("rejects with the not-found error after the wait expires, without refetching", async () => {
+      vi.useFakeTimers();
+      try {
+        const { utils, retrieve } = await renderNotFound("nf-timeout");
+        expect(utils.queryByText("waiting")).toBeTruthy();
+
+        await act(async () => {
+          vi.advanceTimersByTime(TimeSpan.seconds(6).milliseconds);
+          await Promise.resolve();
+        });
+
+        expect(utils.queryByTestId("error")?.textContent).toBe(
+          "Failed to retrieve Number",
+        );
+        expect(retrieve).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("rejects with a deleted error when a tombstone arrives during the wait", async () => {
+      const { utils, push } = await renderNotFound("nf-tombstone");
+      expect(utils.queryByText("waiting")).toBeTruthy();
+
+      await act(async () => {
+        push(new query.Deleted(3, TimeStamp.now()));
+      });
+
+      await waitFor(() =>
+        expect(utils.queryByTestId("error")?.textContent).toBe("Number was deleted"),
+      );
+    });
+
+    it("tears down the subscription when it delivers a tombstone synchronously", async () => {
+      const tombstone = new query.Deleted<number>(3, TimeStamp.now());
+      let cached: query.Cached<number> | undefined;
+      const disconnect = vi.fn();
+      const retrieve = vi.fn(async (): Promise<number> => {
+        throw new NotFoundError("no such number");
+      });
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve,
+        // A row tombstoned between the failed fetch and the subscription
+        // mounting answers during onChange itself, so the handler fires
+        // before the destructor is returned.
+        subscribe: (_, h) => {
+          cached = tombstone;
+          h(tombstone);
+          return disconnect;
+        },
+        getCached: () => cached,
+      });
+
+      const Display = (): ReactElement => {
+        const value = useRetrieveSuspended({ key: "nf-sync-tombstone" });
+        return <div data-testid="value">{value}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div>waiting</div>}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      await waitFor(() =>
+        expect(utils.queryByTestId("error")?.textContent).toBe("Number was deleted"),
+      );
+      expect(disconnect).toHaveBeenCalled();
+    });
+
+    it("settles a not-found immediately when the query has no subscription", async () => {
+      const retrieve = vi.fn(async (): Promise<number> => {
+        throw new NotFoundError("no such number");
+      });
+      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve,
+        getCached: () => undefined,
+      });
+
+      const Display = (): ReactElement => {
+        const value = useRetrieveSuspended({ key: "nf-unsubscribed" });
+        return <div>{value}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div>waiting</div>}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(utils.queryByTestId("error")?.textContent).toBe(
+        "Failed to retrieve Number",
+      );
+      expect(retrieve).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("refetches a read that failed during an outage once the connection returns", async () => {

@@ -12,7 +12,7 @@ import { array, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { kindOf, reduceAll } from "@/log/actions";
+import { createOf, kindOf, reduceAll } from "@/log/actions";
 import {
   type Action,
   dispatchReqZ,
@@ -88,6 +88,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
       onError: cache.onError,
       reduce: reduceAll,
       kindOf,
+      createOf,
     });
     cache.listen(dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ));
     super(cache, {
