@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Ontology", func() {
@@ -58,6 +59,30 @@ var _ = Describe("Ontology", func() {
 			p := project.Project{Key: uuid.New(), Name: "x"}
 			Expect(p.OntologyID()).To(Equal(p.OntologyID()))
 		})
+	})
+	Describe("KeyFromOntologyID", func() {
+		It("Should return the key of a project ID", func() {
+			key := uuid.New()
+			Expect(project.KeyFromOntologyID(project.OntologyID(key))).To(Equal(key))
+		})
+		DescribeTable("Should reject an ID that is not a project",
+			func(id ontology.ID, msg string) {
+				Expect(project.KeyFromOntologyID(id)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry("a group",
+				ontology.ID{Type: ontology.ResourceTypeGroup, Key: uuid.NewString()},
+				`must be a project, got "group"`),
+			Entry("a zero ID", ontology.ID{}, `must be a project, got ""`),
+			Entry("a project whose key is not a UUID",
+				ontology.ID{Type: ontology.ResourceTypeProject, Key: "not-a-uuid"},
+				`invalid project key "not-a-uuid"`),
+			Entry("a project with an empty key",
+				ontology.ID{Type: ontology.ResourceTypeProject},
+				`invalid project key ""`),
+		)
 	})
 	Describe("KeysFromOntologyIDs", func() {
 		It("Should round-trip keys through ontology IDs", func() {
