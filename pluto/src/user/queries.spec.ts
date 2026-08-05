@@ -112,16 +112,12 @@ describe("User queries", () => {
     });
   });
 
-  describe("useRetrieveGroupID", () => {
+  describe("useCachedGroupID", () => {
     it("should retrieve the Users group ID", async () => {
-      const { result } = renderHook(() => User.useRetrieveGroupID({}), { wrapper });
+      const { result } = renderHook(() => User.useCachedGroupID({}), { wrapper });
 
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      expect(result.current.data).toBeDefined();
-      const res = await client.ontology.retrieve(result.current.data as ontology.ID);
+      await waitFor(() => expect(result.current).toBeDefined());
+      const res = await client.ontology.retrieve(result.current as ontology.ID);
       expect(res.name).toBe("Users");
     });
   });

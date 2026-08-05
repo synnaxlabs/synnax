@@ -238,7 +238,7 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
 
 type RetrieveGroupQuery = Record<string, never>;
 
-export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
+export const { useCached: useCachedGroup } = Flux.createRetrieve<
   RetrieveGroupQuery,
   group.Group
 >({

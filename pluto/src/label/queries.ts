@@ -107,12 +107,10 @@ export type RetrieveMultipleParams = {
   keys: label.Key[];
 };
 
-export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
-  RetrieveMultipleParams,
-  label.Label[]
->({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.labels.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.labels.onChange(query, handler),
-  getCached: ({ client, query }) => client.labels.getCached(query),
-});
+export const { useRetrieve: useRetrieveMultiple, useCached: useCachedMultiple } =
+  Flux.createRetrieve<RetrieveMultipleParams, label.Label[]>({
+    name: PLURAL_RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.labels.retrieve(query),
+    subscribe: ({ client, query }, handler) => client.labels.onChange(query, handler),
+    getCached: ({ client, query }) => client.labels.getCached(query),
+  });

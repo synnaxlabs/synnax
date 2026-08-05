@@ -1694,4 +1694,16 @@ describe("useCached", () => {
     expect(result.current).toBeUndefined();
     expect(harness.retrieve).not.toHaveBeenCalled();
   });
+
+  it("serves a settled answer once for a definition without getCached", async () => {
+    const retrieve = vi.fn(async (): Promise<Data> => ({ name: "one-shot", value: 4 }));
+    const { useCached } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve,
+    });
+    const { result } = renderHook(() => useCached({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toBeUndefined();
+    await waitFor(() => expect(result.current).toEqual({ name: "one-shot", value: 4 }));
+    expect(retrieve).toHaveBeenCalledTimes(1);
+  });
 });

@@ -878,14 +878,13 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieveGroupID", () => {
+  describe("useCachedGroupID", () => {
     it("should retrieve the group ID", async () => {
-      const { result } = renderHook(() => Device.useRetrieveGroupID({}), {
+      const { result } = renderHook(() => Device.useCachedGroupID({}), {
         wrapper,
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.type).toEqual("group");
-      expect(result.current.data?.key).not.toBeFalsy();
+      await waitFor(() => expect(result.current?.type).toEqual("group"));
+      expect(result.current?.key).not.toBeFalsy();
     });
   });
 

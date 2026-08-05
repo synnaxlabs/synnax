@@ -74,6 +74,7 @@ export type RetrieveParentQuery = {
 export const {
   useRetrieve: useRetrieveParent,
   useRetrieveEffect: useRetrieveParentEffect,
+  useCached: useCachedParent,
 } = Flux.createRetrieve<RetrieveParentQuery, ranger.Range | null>({
   name: PARENT_RESOURCE_NAME,
   retrieve: async ({ client, query: { id } }) =>
@@ -90,6 +91,7 @@ export const {
   useEnsureRetrieved,
   useTombstone,
   createSelector,
+  useCached,
 } = Flux.createRetrieve<RetrieveQuery, ranger.Range>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),

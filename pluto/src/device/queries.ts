@@ -58,6 +58,8 @@ export const {
   useRetrieve,
   useRetrieveStateful: useStatefulRetrieve,
   useRetrieveEffect,
+  useRetrieveSuspended,
+  useCached,
 } = createRetrieve();
 
 export type ListParams = device.RetrieveMultipleParams;
@@ -113,7 +115,7 @@ export const { useUpdate: useCreate } = createCreate();
 
 export type UseRetrieveGroupParams = Record<string, never>;
 
-export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
+export const { useCached: useCachedGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
   ontology.ID | undefined
 >({

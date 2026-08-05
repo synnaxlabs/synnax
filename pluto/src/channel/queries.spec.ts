@@ -1280,27 +1280,25 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieveGroup", () => {
+  describe("useCachedGroup", () => {
     it("should retrieve the channel group", async () => {
-      const { result } = renderHook(() => Channel.useRetrieveGroup({}), { wrapper });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toBeDefined();
-      expect(result.current.data?.key).toBeDefined();
-      expect(result.current.data?.name).toEqual("Channels");
+      const { result } = renderHook(() => Channel.useCachedGroup({}), { wrapper });
+      await waitFor(() => expect(result.current).toBeDefined());
+      expect(result.current?.key).toBeDefined();
+      expect(result.current?.name).toEqual("Channels");
     });
 
-    it("should cache the group after first retrieval", async () => {
-      const { result: result1 } = renderHook(() => Channel.useRetrieveGroup({}), {
+    it("should serve the same group to a second caller", async () => {
+      const { result: result1 } = renderHook(() => Channel.useCachedGroup({}), {
         wrapper,
       });
-      await waitFor(() => expect(result1.current.variant).toEqual("success"));
-      const firstGroup = result1.current.data;
+      await waitFor(() => expect(result1.current).toBeDefined());
+      const firstGroup = result1.current;
 
-      const { result: result2 } = renderHook(() => Channel.useRetrieveGroup({}), {
+      const { result: result2 } = renderHook(() => Channel.useCachedGroup({}), {
         wrapper,
       });
-      await waitFor(() => expect(result2.current.variant).toEqual("success"));
-      expect(result2.current.data?.key).toEqual(firstGroup?.key);
+      await waitFor(() => expect(result2.current?.key).toEqual(firstGroup?.key));
     });
   });
 

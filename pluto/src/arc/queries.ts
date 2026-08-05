@@ -50,6 +50,7 @@ export const {
   useRetrieveObservable,
   useEnsureRetrieved,
   useTombstone,
+  useCached,
   createSelector,
 } = Flux.createRetrieve<RetrieveQuery, arc.Arc>({
   name: RESOURCE_NAME,
@@ -233,13 +234,12 @@ export type RetrieveTaskParams = {
   arcKey: arc.Key;
 };
 
-export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
-  RetrieveTaskParams,
-  task.Task | null
->({
-  name: "Task",
-  retrieve: async ({ client, query }) => await client.arcs.task.retrieve(query.arcKey),
-  subscribe: ({ client, query }, handler) =>
-    client.arcs.task.onChange(query.arcKey, handler),
-  getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
-});
+export const { useRetrieve: useRetrieveTask, useCached: useCachedTask } =
+  Flux.createRetrieve<RetrieveTaskParams, task.Task | null>({
+    name: "Task",
+    retrieve: async ({ client, query }) =>
+      await client.arcs.task.retrieve(query.arcKey),
+    subscribe: ({ client, query }, handler) =>
+      client.arcs.task.onChange(query.arcKey, handler),
+    getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
+  });

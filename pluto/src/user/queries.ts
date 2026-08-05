@@ -53,7 +53,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>(
 
 export type UseRetrieveGroupParams = Record<string, never>;
 
-export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
+export const { useCached: useCachedGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
   ontology.ID | undefined
 >({
@@ -116,7 +116,10 @@ const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
   return user;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<Partial<RetrieveQuery>, user.User>({
+export const { useRetrieve, useCached } = Flux.createRetrieve<
+  Partial<RetrieveQuery>,
+  user.User
+>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query: { key } }) => {
     if (key == null) return await retrieveCurrent(client);

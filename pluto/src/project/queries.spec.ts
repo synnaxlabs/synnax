@@ -322,15 +322,14 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieveGroupID", () => {
+  describe("useCachedGroupID", () => {
     it("should correctly retrieve group ID", async () => {
-      const { result } = renderHook(() => Project.useRetrieveGroupID({}), {
+      const { result } = renderHook(() => Project.useCachedGroupID({}), {
         wrapper,
       });
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data?.type).toEqual("group");
-        expect(result.current.data?.key).not.toBeFalsy();
+        expect(result.current?.type).toEqual("group");
+        expect(result.current?.key).not.toBeFalsy();
       });
     });
   });

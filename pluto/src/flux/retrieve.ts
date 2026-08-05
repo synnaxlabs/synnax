@@ -20,6 +20,7 @@ import {
   use,
   useCallback,
   useMemo,
+  useReducer,
   useRef,
   useState,
   useSyncExternalStore,
@@ -244,8 +245,9 @@ export interface UseSelect<Query extends query.Params, Selected> {
  * deduped background fetch on a cold miss. Never suspends and never throws: a
  * miss, a deleted record, a failed fetch, and a disconnected client all read as
  * undefined. A null query skips the read entirely: pass null when the caller
- * holds an empty reference (a zero channel key) instead of a dud query. Reach
- * for `useRetrieve` wherever the caller may suspend.
+ * holds an empty reference (a zero channel key) instead of a dud query. A
+ * definition without getCached serves its answer once fetched but never
+ * updates it. Reach for `useRetrieve` wherever the caller may suspend.
  */
 export interface UseCached<Query extends query.Params, Data extends state.State> {
   (query: Query | null): Data | undefined;
@@ -680,11 +682,10 @@ const useCachedValue = <Query extends query.Params, Data extends query.Data>({
   equal,
 }: Omit<UseSuspendedParams<Query, Data>, "query"> &
   CreateRetrieveParams<Query, Data> & { query: Query | null }): Data | undefined => {
-  if (getCached == null)
-    throw new UnexpectedError(
-      `Cannot read ${name} through useCached: no getCached defined.`,
-    );
   const memoQuery = useMemoDeepEqual(q);
+  // Definitions without getCached serve the locally settled answer instead of
+  // the domain cache, so settling must re-render by hand.
+  const [, bump] = useReducer((x: number) => x + 1, 0);
   const client = Synnax.use();
   const held = useRef<{ query: Query; value: Data } | null>(null);
 
@@ -718,8 +719,12 @@ const useCachedValue = <Query extends query.Params, Data extends query.Data>({
   if (derived != null) return derived;
   const settled = local.settled.get(query.hash(memoQuery));
   if (settled != null) return "data" in settled ? settled.data : undefined;
-  ensureFetch(params, { name, retrieve, subscribe, getCached, local }).catch(
+  ensureFetch(params, { name, retrieve, subscribe, getCached, local }).then(
+    () => {
+      if (getCached == null) bump();
+    },
     (exc: unknown) => {
+      bump();
       const cause = exc instanceof Error && exc.cause != null ? exc.cause : exc;
       // An absent or deleted record is a state this read renders as undefined,
       // not a failure worth reporting.

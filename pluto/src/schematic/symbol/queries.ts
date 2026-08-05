@@ -14,15 +14,48 @@ import {
   query,
   schematic,
 } from "@synnaxlabs/client";
-import { verbs } from "@synnaxlabs/x";
+import { errors, verbs } from "@synnaxlabs/x";
+import { useEffect, useState } from "react";
 
 import { Flux } from "@/flux";
+import { Status } from "@/status/base";
+import { Synnax } from "@/synnax";
 
-/// isMissing reports whether a schematic symbol retrieve resolved to a missing
-/// reference. Lets canvas and property-panel call sites branch on the existing
-/// Flux Result without inventing a parallel state type.
-export const isMissing = (res: Flux.Result<schematic.symbol.Symbol>): boolean =>
-  res.variant === "error" && NotFoundError.matches(res.status.details.error);
+export interface Resolved {
+  symbol?: schematic.symbol.Symbol;
+  // missing reports whether the key points at a symbol that no longer exists
+  // (or never did), as opposed to one still loading.
+  missing: boolean;
+}
+
+/**
+ * Resolves a symbol specification by key, kept live across edits and deletes.
+ * Loading and missing are distinct: `symbol` is unset for both, `missing` is
+ * true only once the reference is known to be dangling.
+ */
+export const useResolved = (key: string | null): Resolved => {
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
+  const [resolved, setResolved] = useState<Resolved>({ missing: false });
+  useEffect(() => {
+    setResolved({ missing: false });
+    if (client == null || key == null) return;
+    handleError(async () => {
+      try {
+        const symbol = await client.schematics.symbols.retrieve({ key });
+        setResolved({ symbol, missing: false });
+      } catch (e) {
+        if (NotFoundError.matches(e)) return setResolved({ missing: true });
+        throw errors.fromUnknown(e);
+      }
+    }, "Failed to retrieve schematic symbol");
+    return client.schematics.symbols.onChange({ key }, (res) => {
+      if (query.isLive(res)) setResolved({ symbol: res, missing: false });
+      else if (query.Deleted.matches(res)) setResolved({ missing: true });
+    });
+  }, [client, key, handleError]);
+  return resolved;
+};
 
 const RESOURCE_NAME = "schematic symbol";
 const PLURAL_RESOURCE_NAME = "schematic symbols";
@@ -146,7 +179,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
-export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<{}, group.Group>({
+export const { useCached: useCachedGroup } = Flux.createRetrieve<{}, group.Group>({
   name: RESOURCE_NAME,
   retrieve: async ({ client }) => await client.schematics.symbols.retrieveGroup(),
 });

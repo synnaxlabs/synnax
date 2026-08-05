@@ -33,6 +33,7 @@ export const {
   useEnsureRetrieved,
   useRetrieveEffect,
   useInvalidate,
+  useCached,
   createSelector,
 } = Flux.createRetrieve<RetrieveQuery, panel.Panel>({
   name: RESOURCE_NAME,

@@ -79,26 +79,24 @@ export type RetrieveMultipleQuery = {
   keys: status.Key[];
 };
 
-export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
-  RetrieveMultipleQuery,
-  status.Status[]
->({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys } }) => {
-    if (keys.length === 0) return [];
-    return await client.statuses.retrieve({ keys });
-  },
-  subscribe: ({ client, query: { keys } }, handler) => {
-    if (keys.length === 0) return () => {};
-    return client.statuses.onChange({ keys }, handler);
-  },
-  getCached: ({ client, query: { keys } }) => {
-    if (keys.length === 0) return undefined;
-    return client.statuses.getCached({ keys });
-  },
-});
+export const { useRetrieve: useRetrieveMultiple, useCached: useCachedMultiple } =
+  Flux.createRetrieve<RetrieveMultipleQuery, status.Status[]>({
+    name: PLURAL_RESOURCE_NAME,
+    retrieve: async ({ client, query: { keys } }) => {
+      if (keys.length === 0) return [];
+      return await client.statuses.retrieve({ keys });
+    },
+    subscribe: ({ client, query: { keys } }, handler) => {
+      if (keys.length === 0) return () => {};
+      return client.statuses.onChange({ keys }, handler);
+    },
+    getCached: ({ client, query: { keys } }) => {
+      if (keys.length === 0) return undefined;
+      return client.statuses.getCached({ keys });
+    },
+  });
 
-export const { useRetrieve } = createRetrieve();
+export const { useRetrieve, useCached } = createRetrieve();
 
 export const useSetSynchronizer = (onSet: (status: status.Status) => void): void => {
   const client = Synnax.use();

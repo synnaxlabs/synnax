@@ -72,7 +72,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 
 export type RetrieveGroupQuery = Record<string, never>;
 
-export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
+export const { useCached: useCachedGroupID } = Flux.createRetrieve<
   RetrieveGroupQuery,
   ontology.ID | undefined
 >({
