@@ -23,7 +23,7 @@ import {
 import { getHeaderIconButton, uniqueName } from "@/testutil";
 
 const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(HTTP.Task.Read, options);
+  await renderTaskFormTab(HTTP.Task.Read, { task: ZERO_DRAFT, ...options });
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an endpoint"));

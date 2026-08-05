@@ -30,7 +30,7 @@ import {
 } from "@/testutil";
 
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(HTTP.Task.Write, options);
+  await renderTaskFormTab(HTTP.Task.Write, { task: ZERO_DRAFT, ...options });
 
 // Draft creates mint their own key; the zero payload's empty key must not be sent.
 const { key: _key, ...ZERO_DRAFT } = HTTP.Task.ZERO_WRITE_PAYLOAD;

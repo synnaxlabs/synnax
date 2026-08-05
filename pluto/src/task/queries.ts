@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, query, rack, task } from "@synnaxlabs/client";
-import { array, type optional, verbs } from "@synnaxlabs/x";
+import { array, type optional, primitive, verbs } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
 
@@ -163,8 +163,8 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     name: RESOURCE_NAME,
     schema,
     initialValues: actualInitialValues,
-    retrieveCached: ({ client, query: { key } }) => {
-      if (key == null) return undefined;
+    getCached: ({ client, query: { key } }) => {
+      if (primitive.isZero(key)) return undefined;
       const cached = client.tasks.getCached(key);
       if (!query.isLive(cached) || cached.status == null) return undefined;
       return taskToFormValues(cached.payload as task.Payload<S>);

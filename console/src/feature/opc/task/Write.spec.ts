@@ -19,6 +19,7 @@ import {
   clickDeploy,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskStopped,
 } from "@/platform/task/testutil";
 import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
 
@@ -110,11 +111,12 @@ describe("OPC.Write", () => {
     const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
     const first = await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(new RegExp(ch.nodeName));
-    await deployAndAwaitTask(client, first.container, draft.key);
+    const deployed = await deployAndAwaitTask(client, first.container, draft.key);
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
       schemas: OPC.Device.SCHEMAS,
     });
+    await reportTaskStopped(client, deployed.payload);
     first.unmount();
 
     const second = await renderWrite({ client, taskKey: draft.key });

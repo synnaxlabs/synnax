@@ -105,6 +105,56 @@ describe("useForm", () => {
     });
   });
 
+  describe("getCached", () => {
+    const CACHED = { key: "123", name: "Apple Cat", age: 30 };
+    const INITIAL = { key: "", name: "", age: 0 };
+
+    const renderForm = (
+      getCached: (params: { query: Params }) => typeof CACHED | undefined,
+      params: Partial<Flux.UseFormParams<Params, typeof formSchema>> = {},
+    ) => {
+      const retrieve = vi.fn(
+        async ({ reset }: Flux.FormRetrieveParams<Params, typeof formSchema>) =>
+          reset({ key: "123", name: "Fetched", age: 40 }),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createForm<Params, typeof formSchema>({
+            initialValues: INITIAL,
+            schema: formSchema,
+            name: "test",
+            getCached,
+            retrieve,
+            update: vi.fn(),
+          })({ query: { key: "123" }, ...params }),
+        { wrapper },
+      );
+      return { result, retrieve };
+    };
+
+    it("should fill the form from the cache on the first render", async () => {
+      const { result, retrieve } = renderForm(() => CACHED);
+      expect(result.current.form.value()).toEqual(CACHED);
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(retrieve).not.toHaveBeenCalled();
+    });
+
+    it("should fetch when the cache misses", async () => {
+      const { result, retrieve } = renderForm(() => undefined);
+      expect(result.current.form.value()).toEqual(INITIAL);
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+      expect(result.current.form.value().name).toEqual("Fetched");
+    });
+
+    it("should prefer explicit initial values over the cache", async () => {
+      const { result, retrieve } = renderForm(() => CACHED, {
+        initialValues: { key: "456", name: "Explicit", age: 50 },
+      });
+      expect(result.current.form.value().name).toEqual("Explicit");
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+    });
+  });
+
   it("should validate form values as they are set", async () => {
     const update = vi.fn();
     const retrieve = vi.fn().mockReturnValue(null);

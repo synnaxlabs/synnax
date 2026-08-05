@@ -22,7 +22,10 @@ import {
 import { uniqueName } from "@/testutil";
 
 const renderAlert = async (options: RenderTaskFormTabOptions = {}) =>
-  await renderTaskFormTab(PagerDuty.Task.Alert, options);
+  await renderTaskFormTab(PagerDuty.Task.Alert, {
+    task: ZERO_DRAFT,
+    ...options,
+  });
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
 
@@ -95,7 +98,7 @@ describe("PagerDuty Alert form", () => {
     await screen.findByText("New alert");
   });
 
-  it("should fall back to the initial values when the row's config is invalid", async () => {
+  it("should load a routing key the deploy schema would reject", async () => {
     const client = createTestClient();
     const config = createAlertConfig({ routingKey: "too_short" });
     const draft = await client.tasks.create({ ...ZERO_DRAFT, config });
@@ -103,8 +106,8 @@ describe("PagerDuty Alert form", () => {
     const input = await screen.findByPlaceholderText<HTMLInputElement>(
       ROUTING_KEY_PLACEHOLDER,
     );
-    expect(input.value).toBe("");
-    expect(screen.queryByText("New alert")).toBeNull();
+    expect(input.value).toBe("too_short");
+    expect(screen.queryByText("No alerts.")).toBeNull();
   });
 
   describe("deploying against a live cluster", () => {

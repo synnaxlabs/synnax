@@ -19,6 +19,7 @@ import {
   clickDeploy,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
+  reportTaskStopped,
 } from "@/platform/task/testutil";
 import { getLabeledInput, uniqueName } from "@/testutil";
 
@@ -128,7 +129,7 @@ describe("OPC.Read", () => {
     await screen.findByText(new RegExp(tsChannel.nodeName));
     expect(screen.getAllByText("Use as Index")).toHaveLength(1);
 
-    await deployAndAwaitTask(client, first.container, draft.key);
+    const deployed = await deployAndAwaitTask(client, first.container, draft.key);
 
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
@@ -141,6 +142,7 @@ describe("OPC.Read", () => {
     const dataKey = afterFirst.properties.read.channels[dataChannel.nodeId];
     const created = await client.channels.retrieve(dataKey);
     expect(created.index).toBe(indexKey);
+    await reportTaskStopped(client, deployed.payload);
     first.unmount();
 
     const second = await renderRead({ client, taskKey: draft.key });

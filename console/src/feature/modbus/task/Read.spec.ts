@@ -14,7 +14,12 @@ import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
-import { awaitCommand, clickDeploy, renderTaskFormTab } from "@/platform/task/testutil";
+import {
+  awaitCommand,
+  clickDeploy,
+  renderTaskFormTab,
+  reportTaskStopped,
+} from "@/platform/task/testutil";
 import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
@@ -108,11 +113,12 @@ describe("Modbus.Read", () => {
     await screen.findByText(dev.name);
     fireEvent.click(getIconButton(first.container, "add"));
     await screen.findByText("Coil");
-    await deployAndAwaitTask(client, first.container, draft.key);
+    const deployed = await deployAndAwaitTask(client, first.container, draft.key);
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
       schemas: Modbus.Device.SCHEMAS,
     });
+    await reportTaskStopped(client, deployed.payload);
     first.unmount();
 
     const second = await renderTaskFormTab(Modbus.Task.Read, {
