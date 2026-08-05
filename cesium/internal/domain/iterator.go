@@ -129,9 +129,9 @@ func (i *Iterator) SeekLast(ctx context.Context) bool {
 	return i.SeekLE(ctx, i.Bounds.End-1)
 }
 
-// SeekLE seeks to the domain whose TimeRange contain the provided timestamp. If no such domain
-// exists, SeekLE seeks to the closest domain whose ending timestamp is less than the provided
-// timestamp. If no such domain exists, SeekLE returns false.
+// SeekLE seeks to the domain whose TimeRange contain the provided timestamp. If no such
+// domain exists, SeekLE seeks to the closest domain whose ending timestamp is less than
+// the provided timestamp. If no such domain exists, SeekLE returns false.
 func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 	if i.closed {
 		return false
@@ -141,9 +141,9 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 	return i.reload()
 }
 
-// SeekGE seeks to the domain whose TimeRange contain the provided timestamp. If no such domain
-// exists, SeekGE seeks to the closest domain whose starting timestamp is greater than the
-// provided timestamp. If no such domain exists, SeekGE returns false.
+// SeekGE seeks to the domain whose TimeRange contain the provided timestamp. If no such
+// domain exists, SeekGE seeks to the closest domain whose starting timestamp is greater
+// than the provided timestamp. If no such domain exists, SeekGE returns false.
 func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 	if i.closed {
 		return false
@@ -153,8 +153,8 @@ func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 	return i.reload()
 }
 
-// Next advances the iterator to the next domain. If the iterator has been exhausted, Next
-// returns false.
+// Next advances the iterator to the next domain. If the iterator has been exhausted,
+// Next returns false.
 func (i *Iterator) Next() bool {
 	if !i.valid {
 		return false
@@ -169,8 +169,8 @@ func (i *Iterator) Next() bool {
 	return ok
 }
 
-// Prev advances the iterator to the previous domain. If the iterator has been exhausted,
-// Prev returns false.
+// Prev advances the iterator to the previous domain. If the iterator has been
+// exhausted, Prev returns false.
 func (i *Iterator) Prev() bool {
 	if !i.valid {
 		return false

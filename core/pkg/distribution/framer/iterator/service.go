@@ -182,7 +182,13 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 
 	if needPeerRouting {
 		routeInletTo = peerSenderAddr
-		sender, receivers, err := s.openManyPeers(ctx, cfg.Bounds, cfg.ChunkSize, batch.Peers, !needGatewayRouting)
+		sender, receivers, err := s.openManyPeers(
+			ctx,
+			cfg.Bounds,
+			cfg.ChunkSize,
+			batch.Peers,
+			!needGatewayRouting,
+		)
 		if err != nil {
 			return nil, err
 		}

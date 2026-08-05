@@ -20,17 +20,22 @@ import (
 var _ = Describe("TimeStamp", func() {
 	Describe("Now", func() {
 		It("Should return the current time", func() {
-			Expect(telem.Now().Time()).To(BeTemporally("~", time.Now(), time.Millisecond))
+			Expect(
+				telem.Now().Time(),
+			).To(BeTemporally("~", time.Now(), time.Millisecond))
 		})
 	})
 
 	Describe("NewTimeStamp", func() {
-		It("Should construct a timestamp with nanosecond precision from a time.Time", func() {
-			t := time.Now()
-			ts := telem.NewTimeStamp(t)
-			Expect(ts).To(Equal(telem.TimeStamp(t.UnixNano())))
-			Expect(ts.Time()).To(BeTemporally("==", t))
-		})
+		It(
+			"Should construct a timestamp with nanosecond precision from a time.Time",
+			func() {
+				t := time.Now()
+				ts := telem.NewTimeStamp(t)
+				Expect(ts).To(Equal(telem.TimeStamp(t.UnixNano())))
+				Expect(ts.Time()).To(BeTemporally("==", t))
+			},
+		)
 	})
 
 	Describe("Since", func() {

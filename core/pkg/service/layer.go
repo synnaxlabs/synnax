@@ -125,7 +125,6 @@ func (c LayerConfig) Validate() error {
 	validate.NotNil(v, "distribution", c.Distribution)
 	validate.NotNil(v, "security", c.Security)
 	return v.Error()
-
 }
 
 // Layer contains all relevant services within the Synnax service layer.
@@ -175,13 +174,15 @@ type Layer struct {
 	// Framer is for reading, writing, and streaming frames of telemetry from channels
 	// across the cluster.
 	Framer *framer.Service
-	// Channel is the highest-level channel service and owns calculated channel behavior.
+	// Channel is the highest-level channel service and owns calculated channel
+	// behavior.
 	Channel *channel.Service
 	// Verification verifies that the universe remains as it is.
 	Verification *verification.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
-	// Metrics is used for collecting host machine metrics and publishing them over channels
+	// Metrics is used for collecting host machine metrics and publishing them over
+	// channels
 	Metrics *metrics.Service
 	// Status is used for tracking the statuses
 	Status *status.Service
@@ -204,10 +205,10 @@ type Layer struct {
 // Close shuts down the service layer, returning any error encountered.
 func (l *Layer) Close() error { return l.closer.Close() }
 
-// OpenLayer opens the service layer using the provided configurations. Later configurations
-// override the fields set in previous ones. If the configuration is invalid, or
-// any services fail to open, Open returns a nil layer and an error. If the returned
-// error is nil, the Layer must be closed by calling Close after use.
+// OpenLayer opens the service layer using the provided configurations. Later
+// configurations override the fields set in previous ones. If the configuration is
+// invalid, or any services fail to open, Open returns a nil layer and an error. If the
+// returned error is nil, the Layer must be closed by calling Close after use.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	cfg, err := config.New(DefaultLayerConfig, cfgs...)
 	if err != nil {

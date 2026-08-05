@@ -382,7 +382,7 @@ func (n NumberZ) dumpReflect(val reflect.Value) (any, error) {
 // conversion and validation based on the destination type. For integer types, it
 // ensures the value is within the valid range. For floating-point types, it handles
 // precision conversion.
-func (n NumberZ) Parse(data any, dest any) error {
+func (n NumberZ) Parse(data, dest any) error {
 	var err error
 	if data, err = parseJSONNumber(data); err != nil {
 		return err
@@ -393,7 +393,7 @@ func (n NumberZ) Parse(data any, dest any) error {
 	return n.parseReflect(data, dest)
 }
 
-func (n NumberZ) parseFast(data any, dest any) bool {
+func (n NumberZ) parseFast(data, dest any) bool {
 	if data == nil || dest == nil {
 		return false
 	}
@@ -494,7 +494,7 @@ func (n NumberZ) parseFast(data any, dest any) bool {
 	return false
 }
 
-func (n NumberZ) parseReflect(data any, dest any) error {
+func (n NumberZ) parseReflect(data, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := n.validateDestination(destVal); err != nil {
 		return err

@@ -24,3 +24,4 @@ class Latency(TestCase):
     def teardown(self) -> None:
         gc.enable()
         self.log("GC Enabled")
+        super().teardown()

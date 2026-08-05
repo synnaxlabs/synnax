@@ -13,7 +13,6 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 	"github.com/synnaxlabs/x/gorp"
 )

@@ -17,35 +17,47 @@ import (
 
 var _ = Describe("Slices", func() {
 	Describe("Truncate", func() {
-		It("should return the full slice if its length is less than maxDisplayValues", func() {
-			slice := []int{1, 2, 3}
-			first, last := slices.Truncate(slice, 5)
-			Expect(first).To(Equal([]int{1, 2, 3}))
-			Expect(last).To(BeNil())
-		})
+		It(
+			"should return the full slice if its length is less than maxDisplayValues",
+			func() {
+				slice := []int{1, 2, 3}
+				first, last := slices.Truncate(slice, 5)
+				Expect(first).To(Equal([]int{1, 2, 3}))
+				Expect(last).To(BeNil())
+			},
+		)
 
-		It("should return the full slice if its length is equal to maxDisplayValues", func() {
-			slice := []int{1, 2, 3, 4, 5}
-			first, last := slices.Truncate(slice, 5)
-			Expect(first).To(Equal([]int{1, 2, 3, 4, 5}))
-			Expect(last).To(BeNil())
-		})
+		It(
+			"should return the full slice if its length is equal to maxDisplayValues",
+			func() {
+				slice := []int{1, 2, 3, 4, 5}
+				first, last := slices.Truncate(slice, 5)
+				Expect(first).To(Equal([]int{1, 2, 3, 4, 5}))
+				Expect(last).To(BeNil())
+			},
+		)
 
-		It("should truncate and split evenly between first and last for long slices (even split)", func() {
-			slice := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-			first, last := slices.Truncate(slice, 6)
-			// startCount = 3, endCount = 3
-			Expect(first).To(Equal([]int{1, 2, 3}))
-			Expect(last).To(Equal([]int{8, 9, 10}))
-		})
+		It(
+			"should truncate and split evenly between first and last for long slices (even split)",
+			func() {
+				slice := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+				first, last := slices.Truncate(slice, 6)
+				// startCount = 3, endCount = 3
+				Expect(first).To(Equal([]int{1, 2, 3}))
+				Expect(last).To(Equal([]int{8, 9, 10}))
+			},
+		)
 
-		It("should truncate and split unevenly between first and last for long slices (odd split)", func() {
-			slice := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-			first, last := slices.Truncate(slice, 5)
-			// startCount = 2, endCount = 3
-			Expect(first).To(Equal([]int{1, 2}))
-			Expect(last).To(Equal([]int{8, 9, 10}))
-		})
+		It(
+			"should truncate and split unevenly between first and last for long slices (odd split)",
+			func() {
+				slice := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+				first, last := slices.Truncate(slice, 5)
+				// startCount = 2, endCount = 3
+				Expect(first).To(Equal([]int{1, 2}))
+				Expect(last).To(Equal([]int{8, 9, 10}))
+			},
+		)
 
 		It("should handle maxDisplayValues of 1", func() {
 			slice := []int{1, 2, 3, 4, 5}

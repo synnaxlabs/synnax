@@ -60,9 +60,14 @@ func validateOmitRefs(
 					return
 				}
 				if omit.IsType(resolved, lang) {
-					d := diagnostics.Errorf(nil,
+					d := diagnostics.Errorf(
+						nil,
 						"%s generates for %s but %s references %s, which is omitted in %s",
-						t.QualifiedName, lang, context, resolved.QualifiedName, lang,
+						t.QualifiedName,
+						lang,
+						context,
+						resolved.QualifiedName,
+						lang,
 					)
 					diag.Report(t.Namespace+".oracle", d)
 				}
@@ -134,7 +139,8 @@ func validateVersionArgs(c *analysisCtx, types []resolution.Type) {
 		if valid {
 			continue
 		}
-		d := diagnostics.Errorf(nil,
+		d := diagnostics.Errorf(
+			nil,
 			"%s has a malformed @go version; expected `version <int>` or `version <int> pinned`",
 			t.QualifiedName,
 		)

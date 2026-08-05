@@ -64,9 +64,14 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Transport.Server().BindHandler(func(ctx context.Context, req Request) (types.Nil, error) {
-		return types.Nil{}, cfg.TSChannel.DeleteTimeRange(ctx, req.Keys.Storage(), req.Bounds)
-	})
+	cfg.Transport.Server().
+		BindHandler(func(ctx context.Context, req Request) (types.Nil, error) {
+			return types.Nil{}, cfg.TSChannel.DeleteTimeRange(
+				ctx,
+				req.Keys.Storage(),
+				req.Bounds,
+			)
+		})
 	return &Service{proxy: proxy}, nil
 }
 

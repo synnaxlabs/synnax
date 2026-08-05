@@ -107,7 +107,9 @@ func (s *Series) validateVariable() error {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"variable-density length prefix at byte %d claims %d bytes, but only %d remain",
-				offset-variableLengthPrefixSize, length, len(s.Data)-offset,
+				offset-variableLengthPrefixSize,
+				length,
+				len(s.Data)-offset,
 			)
 		}
 		sample := s.Data[offset : offset+length]
@@ -245,7 +247,8 @@ func SetValueAt[T FixedSample](s Series, i int, v T) {
 // dst and src must have the same DataType, and that DataType cannot be of variable
 // density.
 func CopyValue(dst, src Series, dstIdx, srcIdx int) {
-	if dst.DataType != src.DataType || dst.DataType.IsVariable() || src.DataType.IsVariable() {
+	if dst.DataType != src.DataType || dst.DataType.IsVariable() ||
+		src.DataType.IsVariable() {
 		panic("cannot copy values from non-variable series")
 	}
 	den := int(dst.DataType.Density())

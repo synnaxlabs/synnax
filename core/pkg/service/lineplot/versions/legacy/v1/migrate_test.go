@@ -38,19 +38,83 @@ func nonZeroV0() v0.Data {
 			RenderTrigger:    7,
 			HasHadChannelSet: true,
 			Axes: v0.Axes{
-				X1: v0.Axis{Key: "x1", Label: "time", LabelDirection: "x", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 100}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75},
-				X2: v0.Axis{Key: "x2", Label: "", LabelDirection: "x", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 0}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75},
-				Y1: v0.Axis{Key: "y1", Label: "p", LabelDirection: "x", LabelLevel: "small", Bounds: v0.Bounds{Lower: -1, Upper: 5}, AutoBounds: v0.AutoBounds{Lower: false, Upper: false}, TickSpacing: 60},
-				Y2: v0.Axis{Key: "y2", Label: "", LabelDirection: "x", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 0}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75},
-				Y3: v0.Axis{Key: "y3", Label: "", LabelDirection: "x", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 0}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75},
-				Y4: v0.Axis{Key: "y4", Label: "", LabelDirection: "x", LabelLevel: "small", Bounds: v0.Bounds{Lower: 0, Upper: 0}, AutoBounds: v0.AutoBounds{Lower: true, Upper: true}, TickSpacing: 75},
+				X1: v0.Axis{
+					Key:            "x1",
+					Label:          "time",
+					LabelDirection: "x",
+					LabelLevel:     "small",
+					Bounds:         v0.Bounds{Lower: 0, Upper: 100},
+					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
+					TickSpacing:    75,
+				},
+				X2: v0.Axis{
+					Key:            "x2",
+					Label:          "",
+					LabelDirection: "x",
+					LabelLevel:     "small",
+					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
+					TickSpacing:    75,
+				},
+				Y1: v0.Axis{
+					Key:            "y1",
+					Label:          "p",
+					LabelDirection: "x",
+					LabelLevel:     "small",
+					Bounds:         v0.Bounds{Lower: -1, Upper: 5},
+					AutoBounds:     v0.AutoBounds{Lower: false, Upper: false},
+					TickSpacing:    60,
+				},
+				Y2: v0.Axis{
+					Key:            "y2",
+					Label:          "",
+					LabelDirection: "x",
+					LabelLevel:     "small",
+					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
+					TickSpacing:    75,
+				},
+				Y3: v0.Axis{
+					Key:            "y3",
+					Label:          "",
+					LabelDirection: "x",
+					LabelLevel:     "small",
+					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
+					TickSpacing:    75,
+				},
+				Y4: v0.Axis{
+					Key:            "y4",
+					Label:          "",
+					LabelDirection: "x",
+					LabelLevel:     "small",
+					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
+					TickSpacing:    75,
+				},
 			},
 		},
 		Lines: []v0.Line{
-			{Key: "y1-rng1-ch10", Label: &label, Color: color.MustFromHex("#ff0000"), StrokeWidth: 2, Downsample: 1, DownsampleMode: "decimate"},
+			{
+				Key:            "y1-rng1-ch10",
+				Label:          &label,
+				Color:          color.MustFromHex("#ff0000"),
+				StrokeWidth:    2,
+				Downsample:     1,
+				DownsampleMode: "decimate",
+			},
 		},
 		Rules: []v0.Rule{
-			{Key: "r1", Label: "max", Color: color.MustFromHex("#0000ff"), Axis: "y1", LineWidth: 1, LineDash: 0, Units: "psi", Position: 4.5},
+			{
+				Key:       "r1",
+				Label:     "max",
+				Color:     color.MustFromHex("#0000ff"),
+				Axis:      "y1",
+				LineWidth: 1,
+				LineDash:  0,
+				Units:     "psi",
+				Position:  4.5,
+			},
 		},
 	}
 }
@@ -65,12 +129,15 @@ var _ = Describe("Migrate", func() {
 		Expect(out.Legend.Position.Units.X).To(Equal("px"))
 	})
 
-	It("Should reset the user-set legend.visible to the default (mirroring the console v1 migration)", func() {
-		in := nonZeroV0()
-		in.Legend.Visible = false
-		out := v1.Migrate(in)
-		Expect(out.Legend.Visible).To(BeTrue())
-	})
+	It(
+		"Should reset the user-set legend.visible to the default (mirroring the console v1 migration)",
+		func() {
+			in := nonZeroV0()
+			in.Legend.Visible = false
+			out := v1.Migrate(in)
+			Expect(out.Legend.Visible).To(BeTrue())
+		},
+	)
 
 	It("Should pass every v0 model field through unchanged", func() {
 		in := nonZeroV0()

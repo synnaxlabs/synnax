@@ -33,10 +33,10 @@ func (w Writer) Create(
 		p.Key = uuid.New()
 	}
 	if err = p.Validate(); err != nil {
-		return
+		return err
 	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	otgID := p.OntologyID()
 	if err := w.otg.DefineResources(ctx, otgID); err != nil {
@@ -95,7 +95,9 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Project](keys...)).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Project](keys...)).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)

@@ -30,9 +30,9 @@ func installRuffFixture() (absFile, projectDir string) {
 	DeferCleanup(func() { Expect(os.RemoveAll(root)).To(Succeed()) })
 	Expect(os.WriteFile(filepath.Join(root, "pyproject.toml"), []byte(`[tool.ruff]
 line-length = 88
-`), 0644)).To(Succeed())
+`), 0o644)).To(Succeed())
 	src := filepath.Join(root, "src")
-	Expect(os.MkdirAll(src, 0755)).To(Succeed())
+	Expect(os.MkdirAll(src, 0o755)).To(Succeed())
 	return filepath.Join(src, "foo.py"), root
 }
 
@@ -67,6 +67,9 @@ var _ = Describe("Ruff Formatter", func() {
 		absFile, _ := installRuffFixture()
 		raw := []byte("def foo(:\n")
 		r := &format.Ruff{Bin: "ruff"}
-		Expect(r.Format(ctx, raw, absFile)).Error().To(MatchError(ContainSubstring("ruff")))
+		Expect(
+			r.Format(ctx, raw, absFile),
+		).Error().
+			To(MatchError(ContainSubstring("ruff")))
 	})
 })

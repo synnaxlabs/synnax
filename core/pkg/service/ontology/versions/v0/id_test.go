@@ -50,7 +50,9 @@ var _ = Describe("ID", func() {
 			Expect(v0.ID{Type: v0.ResourceTypeChannel}.IsType()).To(BeTrue())
 		})
 		It("Should return false if the Key is not empty", func() {
-			Expect(v0.ID{Type: v0.ResourceTypeChannel, Key: "foo"}.IsType()).To(BeFalse())
+			Expect(
+				v0.ID{Type: v0.ResourceTypeChannel, Key: "foo"}.IsType(),
+			).To(BeFalse())
 		})
 	})
 })

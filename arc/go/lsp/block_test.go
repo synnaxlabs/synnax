@@ -34,36 +34,60 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 
 	BeforeEach(func() {
 		channels := []symbol.Symbol{
-			{Name: "sensor", Type: types.Chan(types.F32()), Kind: symbol.KindChannel, ID: 1},
-			{Name: "temp_c", Type: types.Chan(types.F32()), Kind: symbol.KindChannel, ID: 2},
-			{Name: "pressure", Type: types.Chan(types.F64()), Kind: symbol.KindChannel, ID: 3},
+			{
+				Name: "sensor",
+				Type: types.Chan(types.F32()),
+				Kind: symbol.KindChannel,
+				ID:   1,
+			},
+			{
+				Name: "temp_c",
+				Type: types.Chan(types.F32()),
+				Kind: symbol.KindChannel,
+				ID:   2,
+			},
+			{
+				Name: "pressure",
+				Type: types.Chan(types.F64()),
+				Kind: symbol.KindChannel,
+				ID:   3,
+			},
 		}
-		server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) }}))
+		server = MustSucceed(
+			lsp.New(
+				lsp.Config{
+					NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
+				},
+			),
+		)
 		server.SetClient(&MockClient{})
 	})
 
 	Describe("Hover", func() {
-		It("Should provide hover for channel from GlobalResolver in block expression", func(ctx SpecContext) {
-			uri := generateBlockURI("hover-test-1")
-			content := "return sensor * 1.8 + 32"
-			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-				TextDocument: protocol.TextDocumentItem{
-					URI:        uri,
-					LanguageID: "arc",
-					Version:    1,
-					Text:       content,
-				},
-			})).To(Succeed())
+		It(
+			"Should provide hover for channel from GlobalResolver in block expression",
+			func(ctx SpecContext) {
+				uri := generateBlockURI("hover-test-1")
+				content := "return sensor * 1.8 + 32"
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        uri,
+						LanguageID: "arc",
+						Version:    1,
+						Text:       content,
+					},
+				})).To(Succeed())
 
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 7},
-				},
-			}))
-			Expect(hover).ToNot(BeNil())
-			Expect(HoverContents(hover)).To(ContainSubstring("chan f32"))
-		})
+				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+						Position:     protocol.Position{Line: 0, Character: 7},
+					},
+				}))
+				Expect(hover).ToNot(BeNil())
+				Expect(HoverContents(hover)).To(ContainSubstring("chan f32"))
+			},
+		)
 
 		It("Should handle multi-line block expression", func(ctx SpecContext) {
 			uri := generateBlockURI("hover-test-2")
@@ -172,53 +196,63 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 					break
 				}
 			}
-			Expect(found).To(BeTrue(), "Expected to find 'pressure' in completion items")
+			Expect(
+				found,
+			).To(BeTrue(), "Expected to find 'pressure' in completion items")
 		})
 
-		It("Should complete local variables and globals together", func(ctx SpecContext) {
-			uri := generateBlockURI("completion-test-4")
-			content := "let sensor_value = sensor * 2\nreturn sens"
-			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-				TextDocument: protocol.TextDocumentItem{
-					URI:        uri,
-					LanguageID: "arc",
-					Version:    1,
-					Text:       content,
-				},
-			})).To(Succeed())
+		It(
+			"Should complete local variables and globals together",
+			func(ctx SpecContext) {
+				uri := generateBlockURI("completion-test-4")
+				content := "let sensor_value = sensor * 2\nreturn sens"
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        uri,
+						LanguageID: "arc",
+						Version:    1,
+						Text:       content,
+					},
+				})).To(Succeed())
 
-			// Request completion at "sens|" on line 1
-			completions := Completion(server, ctx, uri, 1, 11)
-			Expect(completions).ToNot(BeNil())
+				// Request completion at "sens|" on line 1
+				completions := Completion(server, ctx, uri, 1, 11)
+				Expect(completions).ToNot(BeNil())
 
-			foundSensor := false
-			for _, item := range completions.Items {
-				if item.Label == "sensor" {
-					foundSensor = true
+				foundSensor := false
+				for _, item := range completions.Items {
+					if item.Label == "sensor" {
+						foundSensor = true
+					}
 				}
-			}
-			Expect(foundSensor).To(BeTrue(), "Expected to find 'sensor' from GlobalResolver")
-		})
+				Expect(
+					foundSensor,
+				).To(BeTrue(), "Expected to find 'sensor' from GlobalResolver")
+			},
+		)
 	})
 
 	Describe("Definition", func() {
-		It("Should return nil for GlobalResolver symbols (no AST)", func(ctx SpecContext) {
-			docURI := generateBlockURI("definition-test-1")
-			content := "return sensor * 2"
-			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-				TextDocument: protocol.TextDocumentItem{
-					URI:        docURI,
-					LanguageID: "arc",
-					Version:    1,
-					Text:       content,
-				},
-			})).To(Succeed())
+		It(
+			"Should return nil for GlobalResolver symbols (no AST)",
+			func(ctx SpecContext) {
+				docURI := generateBlockURI("definition-test-1")
+				content := "return sensor * 2"
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        docURI,
+						LanguageID: "arc",
+						Version:    1,
+						Text:       content,
+					},
+				})).To(Succeed())
 
-			// Go to definition on "sensor"
-			locations := Definition(server, ctx, docURI, 0, 7)
-			// GlobalResolver symbols have no AST, so should return nil
-			Expect(locations).To(BeNil())
-		})
+				// Go to definition on "sensor"
+				locations := Definition(server, ctx, docURI, 0, 7)
+				// GlobalResolver symbols have no AST, so should return nil
+				Expect(locations).To(BeNil())
+			},
+		)
 	})
 
 	Describe("DidChange", func() {
@@ -284,64 +318,73 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			}
 		})
 
-		It("Should return nil when renaming GlobalResolver symbol in block", func(ctx SpecContext) {
-			docURI := generateBlockURI("rename-test-2")
-			content := "return sensor * 2"
-			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-				TextDocument: protocol.TextDocumentItem{
-					URI:        docURI,
-					LanguageID: "arc",
-					Version:    1,
-					Text:       content,
-				},
-			})).To(Succeed())
+		It(
+			"Should return nil when renaming GlobalResolver symbol in block",
+			func(ctx SpecContext) {
+				docURI := generateBlockURI("rename-test-2")
+				content := "return sensor * 2"
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        docURI,
+						LanguageID: "arc",
+						Version:    1,
+						Text:       content,
+					},
+				})).To(Succeed())
 
-			edit := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
-					Position:     protocol.Position{Line: 0, Character: 7},
-				},
-				NewName: "newSensor",
-			}))
-			Expect(edit).To(BeNil())
-		})
+				edit := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
+					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+						TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+						Position:     protocol.Position{Line: 0, Character: 7},
+					},
+					NewName: "newSensor",
+				}))
+				Expect(edit).To(BeNil())
+			},
+		)
 	})
 
 	Describe("Definition", func() {
-		It("Should return nil for GlobalResolver symbols (no AST)", func(ctx SpecContext) {
-			uri := generateBlockURI("definition-test-1")
-			content := "return sensor * 2"
-			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-				TextDocument: protocol.TextDocumentItem{
-					URI:        uri,
-					LanguageID: "arc",
-					Version:    1,
-					Text:       content,
-				},
-			})).To(Succeed())
+		It(
+			"Should return nil for GlobalResolver symbols (no AST)",
+			func(ctx SpecContext) {
+				uri := generateBlockURI("definition-test-1")
+				content := "return sensor * 2"
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        uri,
+						LanguageID: "arc",
+						Version:    1,
+						Text:       content,
+					},
+				})).To(Succeed())
 
-			locations := Definition(server, ctx, uri, 0, 7)
-			Expect(locations).To(BeNil())
-		})
+				locations := Definition(server, ctx, uri, 0, 7)
+				Expect(locations).To(BeNil())
+			},
+		)
 
-		It("Should find definition of local variable in block expression", func(ctx SpecContext) {
-			uri := generateBlockURI("definition-test-2")
-			content := "x := 10\nreturn x * 2"
-			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-				TextDocument: protocol.TextDocumentItem{
-					URI:        uri,
-					LanguageID: "arc",
-					Version:    1,
-					Text:       content,
-				},
-			})).To(Succeed())
+		It(
+			"Should find definition of local variable in block expression",
+			func(ctx SpecContext) {
+				uri := generateBlockURI("definition-test-2")
+				content := "x := 10\nreturn x * 2"
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        uri,
+						LanguageID: "arc",
+						Version:    1,
+						Text:       content,
+					},
+				})).To(Succeed())
 
-			locations := Definition(server, ctx, uri, 1, 7)
-			Expect(locations).ToNot(BeNil())
-			Expect(locations).To(HaveLen(1))
-			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
-			Expect(locations[0].Range.Start.Character).To(Equal(uint32(0)))
-		})
+				locations := Definition(server, ctx, uri, 1, 7)
+				Expect(locations).ToNot(BeNil())
+				Expect(locations).To(HaveLen(1))
+				Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
+				Expect(locations[0].Range.Start.Character).To(Equal(uint32(0)))
+			},
+		)
 	})
 
 	Describe("Semantic Tokens", func() {
@@ -357,9 +400,11 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 				},
 			})).To(Succeed())
 
-			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			}))
+			tokens := MustSucceed(
+				server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				}),
+			)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 5*5))
 		})
@@ -376,50 +421,58 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 				},
 			})).To(Succeed())
 
-			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-			}))
+			tokens := MustSucceed(
+				server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				}),
+			)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
 		})
 	})
 
 	Describe("Multi-statement Completion", func() {
-		It("Should provide completion for GlobalResolver symbols with prefix in multi-statement block", func(ctx SpecContext) {
-			uri := generateBlockURI("completion-test-5")
-			content := "let x = sensor\nlet y = x * 2\nreturn y + sen"
-			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-				TextDocument: protocol.TextDocumentItem{
-					URI:        uri,
-					LanguageID: "arc",
-					Version:    1,
-					Text:       content,
-				},
-			})).To(Succeed())
+		It(
+			"Should provide completion for GlobalResolver symbols with prefix in multi-statement block",
+			func(ctx SpecContext) {
+				uri := generateBlockURI("completion-test-5")
+				content := "let x = sensor\nlet y = x * 2\nreturn y + sen"
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        uri,
+						LanguageID: "arc",
+						Version:    1,
+						Text:       content,
+					},
+				})).To(Succeed())
 
-			completions := Completion(server, ctx, uri, 2, 14)
-			Expect(completions).ToNot(BeNil())
+				completions := Completion(server, ctx, uri, 2, 14)
+				Expect(completions).ToNot(BeNil())
 
-			Expect(HasCompletion(completions.Items, "sensor")).To(BeTrue())
-		})
+				Expect(HasCompletion(completions.Items, "sensor")).To(BeTrue())
+			},
+		)
 
-		It("Should provide completion for both local and GlobalResolver symbols in multi-statement block", func(ctx SpecContext) {
-			uri := generateBlockURI("completion-test-6")
-			content := "myVar := sensor\nmyOther := myVar * 2\nreturn my"
-			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
-				TextDocument: protocol.TextDocumentItem{
-					URI:        uri,
-					LanguageID: "arc",
-					Version:    1,
-					Text:       content,
-				},
-			})).To(Succeed())
+		It(
+			"Should provide completion for both local and GlobalResolver symbols in multi-statement block",
+			func(ctx SpecContext) {
+				uri := generateBlockURI("completion-test-6")
+				content := "myVar := sensor\nmyOther := myVar * 2\nreturn my"
+				Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+					TextDocument: protocol.TextDocumentItem{
+						URI:        uri,
+						LanguageID: "arc",
+						Version:    1,
+						Text:       content,
+					},
+				})).To(Succeed())
 
-			completions := Completion(server, ctx, uri, 2, 9)
-			Expect(completions).ToNot(BeNil())
+				completions := Completion(server, ctx, uri, 2, 9)
+				Expect(completions).ToNot(BeNil())
 
-			Expect(HasCompletion(completions.Items, "myVar")).To(BeTrue())
-			Expect(HasCompletion(completions.Items, "myOther")).To(BeTrue())
-		})
+				Expect(HasCompletion(completions.Items, "myVar")).To(BeTrue())
+				Expect(HasCompletion(completions.Items, "myOther")).To(BeTrue())
+			},
+		)
 	})
 })

@@ -31,12 +31,17 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("lineplot"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[lineplot.LinePlot](ctx, WireRoundTrip(env)))
+			decoded := MustSucceed(
+				imex.Decode[lineplot.LinePlot](ctx, WireRoundTrip(env)),
+			)
 			Expect(decoded.Name).To(Equal("exported"))
 		})
 
 		It("Should return not found for a missing key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: uuid.NewString()}
+			id := ontology.ID{
+				Type: ontology.ResourceTypeLineplot,
+				Key:  uuid.NewString(),
+			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 

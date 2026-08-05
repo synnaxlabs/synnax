@@ -91,8 +91,10 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 	return wrapWriter[K, E](tx, d.retrieve.keyPrefix, d.indexes).Delete(ctx, keys...)
 }
 
-type GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error
-type guards[K Key, E Entry[K]] []GuardFunc[K, E]
+type (
+	GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error
+	guards[K Key, E Entry[K]]    []GuardFunc[K, E]
+)
 
 func (g guards[K, E]) checkOne(ctx Context, entry E) error {
 	for _, f := range g {

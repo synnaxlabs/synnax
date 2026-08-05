@@ -108,9 +108,12 @@ func migrateAxis(a v2.Axis) Axis {
 		LabelDirection: spatial.Direction(a.LabelDirection),
 		LabelLevel:     text.Level(a.LabelLevel),
 		Bounds:         spatial.Bounds{Lower: a.Bounds.Lower, Upper: a.Bounds.Upper},
-		ManualBounds:   ManualBounds{Lower: !a.AutoBounds.Lower, Upper: !a.AutoBounds.Upper},
-		TickSpacing:    a.TickSpacing,
-		Type:           migrateTickType(a.Type),
+		ManualBounds: ManualBounds{
+			Lower: !a.AutoBounds.Lower,
+			Upper: !a.AutoBounds.Upper,
+		},
+		TickSpacing: a.TickSpacing,
+		Type:        migrateTickType(a.Type),
 	}
 }
 

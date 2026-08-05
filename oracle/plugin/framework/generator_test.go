@@ -73,18 +73,21 @@ var _ = Describe("Generator", func() {
 	})
 
 	Describe("Union Collection", func() {
-		It("Should pass unions sharing the structs' output path to the file generator", func() {
-			Expect(table.Add(newGoType(
-				"Scale",
-				resolution.UnionForm{Discriminator: "type"},
-				"pkg/types",
-			))).To(Succeed())
-			resp := MustSucceed(gen.Generate(&plugin.Request{Resolutions: table}))
-			Expect(resp.Files).To(HaveLen(1))
-			Expect(fg.contexts).To(HaveLen(1))
-			Expect(fg.contexts[0].Unions).To(HaveLen(1))
-			Expect(fg.contexts[0].Unions[0].Name).To(Equal("Scale"))
-		})
+		It(
+			"Should pass unions sharing the structs' output path to the file generator",
+			func() {
+				Expect(table.Add(newGoType(
+					"Scale",
+					resolution.UnionForm{Discriminator: "type"},
+					"pkg/types",
+				))).To(Succeed())
+				resp := MustSucceed(gen.Generate(&plugin.Request{Resolutions: table}))
+				Expect(resp.Files).To(HaveLen(1))
+				Expect(fg.contexts).To(HaveLen(1))
+				Expect(fg.contexts[0].Unions).To(HaveLen(1))
+				Expect(fg.contexts[0].Unions[0].Name).To(Equal("Scale"))
+			},
+		)
 
 		It("Should not collect unions when CollectUnions is disabled", func() {
 			gen.CollectUnions = false
@@ -98,25 +101,28 @@ var _ = Describe("Generator", func() {
 			Expect(fg.contexts[0].Unions).To(BeEmpty())
 		})
 
-		It("Should generate a union-only file for unions at an output with no structs", func() {
-			Expect(table.Add(newGoType(
-				"Scale",
-				resolution.UnionForm{Discriminator: "type"},
-				"other/types",
-			))).To(Succeed())
-			resp := MustSucceed(gen.Generate(&plugin.Request{Resolutions: table}))
-			Expect(resp.Files).To(HaveLen(2))
-			Expect(fg.contexts).To(HaveLen(2))
+		It(
+			"Should generate a union-only file for unions at an output with no structs",
+			func() {
+				Expect(table.Add(newGoType(
+					"Scale",
+					resolution.UnionForm{Discriminator: "type"},
+					"other/types",
+				))).To(Succeed())
+				resp := MustSucceed(gen.Generate(&plugin.Request{Resolutions: table}))
+				Expect(resp.Files).To(HaveLen(2))
+				Expect(fg.contexts).To(HaveLen(2))
 
-			structCtx := fg.contexts[0]
-			Expect(structCtx.OutputPath).To(Equal("pkg/types"))
-			Expect(structCtx.Unions).To(BeEmpty())
+				structCtx := fg.contexts[0]
+				Expect(structCtx.OutputPath).To(Equal("pkg/types"))
+				Expect(structCtx.Unions).To(BeEmpty())
 
-			unionCtx := fg.contexts[1]
-			Expect(unionCtx.OutputPath).To(Equal("other/types"))
-			Expect(unionCtx.Structs).To(BeEmpty())
-			Expect(unionCtx.Unions).To(HaveLen(1))
-			Expect(unionCtx.Unions[0].Name).To(Equal("Scale"))
-		})
+				unionCtx := fg.contexts[1]
+				Expect(unionCtx.OutputPath).To(Equal("other/types"))
+				Expect(unionCtx.Structs).To(BeEmpty())
+				Expect(unionCtx.Unions).To(HaveLen(1))
+				Expect(unionCtx.Unions[0].Name).To(Equal("Scale"))
+			},
+		)
 	})
 })

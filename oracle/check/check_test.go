@@ -28,7 +28,12 @@ type fixedGate struct {
 }
 
 func (g *fixedGate) Name() string { return g.name }
-func (g *fixedGate) Run(_ context.Context, _ *pipeline.Result, _ check.Env) check.GateReport {
+
+func (g *fixedGate) Run(
+	_ context.Context,
+	_ *pipeline.Result,
+	_ check.Env,
+) check.GateReport {
 	return check.GateReport{
 		Gate:    g.name,
 		Status:  g.status,
@@ -102,11 +107,13 @@ var _ = Describe("Render", func() {
 	r := &check.Report{
 		Gates: []check.GateReport{
 			{Gate: "format", Status: check.StatusPass, Elapsed: time.Millisecond},
-			{Gate: "analyze", Status: check.StatusFail, Elapsed: time.Millisecond,
+			{
+				Gate: "analyze", Status: check.StatusFail, Elapsed: time.Millisecond,
 				Findings: []check.Finding{{
 					Path: "schemas/x.oracle", Line: 10, Severity: check.SeverityError,
 					Message: "boom", FixHint: "fix it",
-				}}},
+				}},
+			},
 		},
 		TotalRun: 2, TotalPassed: 1, TotalFailed: 1, Elapsed: time.Millisecond,
 	}

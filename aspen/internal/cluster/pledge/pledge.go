@@ -93,7 +93,10 @@ func Pledge(ctx context.Context, cfgs ...Config) (res Response, err error) {
 		case dur := <-t.C:
 			cfg.L.Info("pledging to peer", zap.Stringer("address", addr))
 
-			reqCtx, cancel := context.WithTimeout(context.Background(), cfg.RequestTimeout)
+			reqCtx, cancel := context.WithTimeout(
+				context.Background(),
+				cfg.RequestTimeout,
+			)
 
 			res, err = cfg.TransportClient.Send(reqCtx, addr, Request{Key: 0})
 
@@ -140,12 +143,14 @@ func Arbitrate(cfgs ...Config) error {
 
 func arbitrate(cfg Config) error {
 	j := &juror{Config: cfg}
-	cfg.TransportServer.BindHandler(func(ctx context.Context, req Request) (Response, error) {
-		if req.Key == 0 {
-			return (&responsible{Config: cfg}).propose(ctx)
-		}
-		return Response{}, j.verdict(ctx, req)
-	})
+	cfg.TransportServer.BindHandler(
+		func(ctx context.Context, req Request) (Response, error) {
+			if req.Key == 0 {
+				return (&responsible{Config: cfg}).propose(ctx)
+			}
+			return Response{}, j.verdict(ctx, req)
+		},
+	)
 	return nil
 }
 
@@ -192,7 +197,8 @@ func (r *responsible) propose(ctx context.Context) (res Response, err error) {
 		logKey := zap.Uint32("key", uint32(res.Key))
 		r.L.Debug("responsible proposing", logKey, zap.Int("quorumCount", len(quorum)))
 
-		// If any node returns an error, it means we need to retry the responsible with a new Name.
+		// If any node returns an error, it means we need to retry the responsible with
+		// a new Name.
 		if err = r.consultQuorum(ctx, res.Key, quorum); err != nil {
 			r.L.Error("quorum rejected proposal. retrying.", zap.Error(err))
 			continue
@@ -233,7 +239,11 @@ func (r *responsible) idToPropose() node.Key {
 	return r._proposedKey
 }
 
-func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum node.Group) error {
+func (r *responsible) consultQuorum(
+	ctx context.Context,
+	key node.Key,
+	quorum node.Group,
+) error {
 	reqCtx, cancel := context.WithTimeout(ctx, r.RequestTimeout)
 	defer cancel()
 	wg := errgroup.Group{}
@@ -280,9 +290,12 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	if slices.Contains(j.approvals, req.Key) {
-		j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
+		j.L.Warn(
+			"juror rejected proposal. already approved for a different pledge",
+			logID,
+		)
 		err = errProposalRejected
-		return
+		return err
 	}
 	if req.Key <= highestNodeID(j.Candidates()) {
 		j.L.Warn("juror rejected proposal. id out of range", logID)
@@ -290,10 +303,14 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	}
 	j.approvals = append(j.approvals, req.Key)
 	j.L.Debug("juror approved proposal", logID)
-	return
+	return err
 }
 
-func highestNodeID(candidates node.Group) node.Key { return lo.Max(lo.Keys(candidates)) }
+func highestNodeID(
+	candidates node.Group,
+) node.Key {
+	return lo.Max(lo.Keys(candidates))
+}
 
 func introduceRandomJitter(retryInterval time.Duration) {
 	// sleep for a random percentage of the retry interval, somewhere between

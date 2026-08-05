@@ -85,7 +85,7 @@ func (p *progressLogger) shouldLogProgress() bool {
 // configured prefix, decodes each as type I, transforms it to type O via the transform
 // function, and encodes the result. Both decoding and encoding use the DB's codec from
 // MigrationContext.
-func NewEntryMigration[IK Key, OK Key, I Entry[IK], O Entry[OK]](
+func NewEntryMigration[IK, OK Key, I Entry[IK], O Entry[OK]](
 	key string,
 	transform func(context.Context, I) (O, error),
 ) migrate.Migration {

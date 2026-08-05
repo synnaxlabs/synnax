@@ -54,7 +54,8 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			}
 			// SY-4474: Enable const-expression initializers for variables
 			return types.Type{}, errors.Newf(
-				"cannot read '%s': its initializer is not a compile-time constant", name,
+				"cannot read '%s': its initializer is not a compile-time constant",
+				name,
 			)
 		}
 		ctx.Writer.WriteLocalGet(scope.ID)
@@ -69,8 +70,11 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	case symbol.KindStatefulVariable:
 		// Reassigned is only tracked at flow level; a never-written $= there is
 		// its initial value. Func-local statefuls always load their cell.
-		if _, fnErr := scope.ClosestAncestorOfKind(symbol.KindFunction); errors.Is(fnErr, query.ErrNotFound) &&
-			!scope.Reassigned && scope.DefaultValue != nil {
+		if _, fnErr := scope.ClosestAncestorOfKind(
+			symbol.KindFunction,
+		); errors.Is(fnErr, query.ErrNotFound) &&
+			!scope.Reassigned &&
+			scope.DefaultValue != nil {
 			return castAndEmitConst(ctx, scope)
 		}
 		emitStatefulLoad(ctx, scope.ID, scope.Type)
@@ -83,7 +87,11 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		emitChannelRead(ctx, scope.Type)
 		return scope.Type.Unwrap(), nil
 	default:
-		return types.Type{}, errors.Newf("unsupported symbol kind: %v for '%s'", scope.Kind, name)
+		return types.Type{}, errors.Newf(
+			"unsupported symbol kind: %v for '%s'",
+			scope.Kind,
+			name,
+		)
 	}
 }
 
@@ -96,7 +104,8 @@ func channelKeyOf(sym *symbol.Symbol) int {
 	return sym.ID
 }
 
-// sameFunction reports whether a and b compile into the same unit (same enclosing function, or both module-level).
+// sameFunction reports whether a and b compile into the same unit (same enclosing
+// function, or both module-level).
 func sameFunction(a, b *symbol.Symbol) bool {
 	af, _ := a.ClosestAncestorOfKind(symbol.KindFunction)
 	bf, _ := b.ClosestAncestorOfKind(symbol.KindFunction)
@@ -207,7 +216,12 @@ func emitZeroValue[ASTNode antlr.ParserRuleContext](
 	t types.Type,
 ) {
 	switch t.Kind {
-	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
+	case types.KindI8,
+		types.KindI16,
+		types.KindI32,
+		types.KindU8,
+		types.KindU16,
+		types.KindU32:
 		ctx.Writer.WriteI32Const(0)
 	case types.KindI64, types.KindU64:
 		ctx.Writer.WriteI64Const(0)

@@ -114,7 +114,9 @@ func (s *streamServer[RQ, RS]) Report() alamos.Report {
 	}
 }
 
-func (s *streamServer[RQ, RS]) resolveStreamCodec(contentType string) (encoding.Codec, bool) {
+func (s *streamServer[RQ, RS]) resolveStreamCodec(
+	contentType string,
+) (encoding.Codec, bool) {
 	for _, ac := range s.additionalCodecs {
 		if ac.contentType == contentType {
 			return ac.new(), true

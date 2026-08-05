@@ -45,7 +45,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Tables  []table.Table `json:"tables" msgpack:"tables"`
+		Tables  []table.Table `json:"tables"  msgpack:"tables"`
 		Project project.Key   `json:"project" msgpack:"project"`
 	}
 	CreateResponse struct {
@@ -65,7 +65,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Project, &req.Tables); err != nil {
+	if err := s.internal.NewWriter(tx).
+		CreateMany(ctx, req.Project, &req.Tables); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Tables: req.Tables}, nil
@@ -91,12 +92,13 @@ func (s *Service) Dispatch(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return types.Nil{}, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
 	RetrieveRequest struct {
-		Keys                []table.Key `json:"keys" msgpack:"keys"`
+		Keys                []table.Key `json:"keys"                   msgpack:"keys"`
 		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {

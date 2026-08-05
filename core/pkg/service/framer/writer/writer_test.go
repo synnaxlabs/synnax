@@ -63,58 +63,83 @@ var _ = Describe("Writer", func() {
 	}
 
 	Describe("Open Errors", func() {
-		It("Should return a validation error when opening with no keys", func(ctx SpecContext) {
-			Expect(writerSvc.Open(ctx, writer.Config{Start: telem.SecondTS})).
-				Error().To(MatchError(ContainSubstring("keys: must be non-empty")))
-		})
-		It("Should return a validation error when opening a stream with no keys", func(ctx SpecContext) {
-			Expect(writerSvc.NewStream(ctx, writer.Config{Start: telem.SecondTS})).
-				Error().To(MatchError(ContainSubstring("keys: must be non-empty")))
-		})
-		It("Should return an error when opening with a nonexistent channel", func(ctx SpecContext) {
-			Expect(writerSvc.Open(ctx, writer.Config{
-				Keys:  channel.Keys{channel.NewKey(mockNode.Cluster.HostKey(), 9999)},
-				Start: telem.SecondTS,
-			})).Error().To(MatchError(query.ErrNotFound))
-		})
-		It("Should return an error when opening a stream with a nonexistent channel", func(ctx SpecContext) {
-			Expect(writerSvc.NewStream(ctx, writer.Config{
-				Keys:  channel.Keys{channel.NewKey(mockNode.Cluster.HostKey(), 9999)},
-				Start: telem.SecondTS,
-			})).Error().To(MatchError(query.ErrNotFound))
-		})
-		It("Should return an error when opening with a nonexistent free channel", func(ctx SpecContext) {
-			Expect(writerSvc.Open(ctx, writer.Config{
-				Keys:  channel.Keys{channel.NewKey(node.KeyFree, 9999)},
-				Start: telem.SecondTS,
-			})).Error().To(MatchError(query.ErrNotFound))
-		})
-		It("Should return an error when a nonexistent free channel is mixed with valid keys", func(ctx SpecContext) {
-			ch := createVirtual(ctx)
-			Expect(writerSvc.NewStream(ctx, writer.Config{
-				Keys:  channel.Keys{ch.Key(), channel.NewKey(node.KeyFree, 9999)},
-				Start: telem.SecondTS,
-			})).Error().To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should return a validation error when opening with no keys",
+			func(ctx SpecContext) {
+				Expect(writerSvc.Open(ctx, writer.Config{Start: telem.SecondTS})).
+					Error().To(MatchError(ContainSubstring("keys: must be non-empty")))
+			},
+		)
+		It(
+			"Should return a validation error when opening a stream with no keys",
+			func(ctx SpecContext) {
+				Expect(writerSvc.NewStream(ctx, writer.Config{Start: telem.SecondTS})).
+					Error().To(MatchError(ContainSubstring("keys: must be non-empty")))
+			},
+		)
+		It(
+			"Should return an error when opening with a nonexistent channel",
+			func(ctx SpecContext) {
+				Expect(writerSvc.Open(ctx, writer.Config{
+					Keys: channel.Keys{
+						channel.NewKey(mockNode.Cluster.HostKey(), 9999),
+					},
+					Start: telem.SecondTS,
+				})).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
+		It(
+			"Should return an error when opening a stream with a nonexistent channel",
+			func(ctx SpecContext) {
+				Expect(writerSvc.NewStream(ctx, writer.Config{
+					Keys: channel.Keys{
+						channel.NewKey(mockNode.Cluster.HostKey(), 9999),
+					},
+					Start: telem.SecondTS,
+				})).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
+		It(
+			"Should return an error when opening with a nonexistent free channel",
+			func(ctx SpecContext) {
+				Expect(writerSvc.Open(ctx, writer.Config{
+					Keys:  channel.Keys{channel.NewKey(node.KeyFree, 9999)},
+					Start: telem.SecondTS,
+				})).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
+		It(
+			"Should return an error when a nonexistent free channel is mixed with valid keys",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx)
+				Expect(writerSvc.NewStream(ctx, writer.Config{
+					Keys:  channel.Keys{ch.Key(), channel.NewKey(node.KeyFree, 9999)},
+					Start: telem.SecondTS,
+				})).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 
 	Describe("Frame Errors", func() {
-		It("Should return an error when a frame key is not in the writer's key set", func(ctx SpecContext) {
-			ch := createVirtual(ctx)
-			w := MustSucceed(writerSvc.Open(ctx, writer.Config{
-				Keys:  channel.Keys{ch.Key()},
-				Start: 10 * telem.SecondTS,
-				Sync:  new(true),
-			}))
-			Expect(w.Write(frame.NewMulti(
-				[]channel.Key{ch.Key(), channel.NewKey(12, 22)},
-				[]telem.Series{
-					telem.NewSeriesV[int64](1, 2, 3),
-					telem.NewSeriesV[int64](4, 5, 6),
-				},
-			))).Error().To(MatchError(validate.ErrValidation))
-			Expect(w.Close()).To(MatchError(validate.ErrValidation))
-		})
+		It(
+			"Should return an error when a frame key is not in the writer's key set",
+			func(ctx SpecContext) {
+				ch := createVirtual(ctx)
+				w := MustSucceed(writerSvc.Open(ctx, writer.Config{
+					Keys:  channel.Keys{ch.Key()},
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frame.NewMulti(
+					[]channel.Key{ch.Key(), channel.NewKey(12, 22)},
+					[]telem.Series{
+						telem.NewSeriesV[int64](1, 2, 3),
+						telem.NewSeriesV[int64](4, 5, 6),
+					},
+				))).Error().To(MatchError(validate.ErrValidation))
+				Expect(w.Close()).To(MatchError(validate.ErrValidation))
+			},
+		)
 		It("Should reject an out-of-bounds command", func(ctx SpecContext) {
 			ch := createVirtual(ctx)
 			s := MustSucceed(writerSvc.NewStream(ctx, writer.Config{
@@ -179,88 +204,100 @@ var _ = Describe("Writer", func() {
 			),
 		)
 
-		It("Should treat int64 and timestamp series as equivalent", func(ctx SpecContext) {
-			idxCh, dataCh := createIndexed(ctx, telem.Int64T)
-			w := MustOpen(writerSvc.Open(ctx, writer.Config{
-				Keys:  channel.Keys{idxCh.Key(), dataCh.Key()},
-				Start: 10 * telem.SecondTS,
-				Sync:  new(true),
-			}))
-			Expect(w.Write(frame.NewMulti(
-				[]channel.Key{idxCh.Key(), dataCh.Key()},
-				[]telem.Series{
-					telem.NewSeriesV(
-						int64(10*telem.SecondTS),
-						int64(11*telem.SecondTS),
-					),
-					telem.NewSeriesSecondsTSV(1, 2),
-				},
-			))).To(BeTrue())
-		})
+		It(
+			"Should treat int64 and timestamp series as equivalent",
+			func(ctx SpecContext) {
+				idxCh, dataCh := createIndexed(ctx, telem.Int64T)
+				w := MustOpen(writerSvc.Open(ctx, writer.Config{
+					Keys:  channel.Keys{idxCh.Key(), dataCh.Key()},
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frame.NewMulti(
+					[]channel.Key{idxCh.Key(), dataCh.Key()},
+					[]telem.Series{
+						telem.NewSeriesV(
+							int64(10*telem.SecondTS),
+							int64(11*telem.SecondTS),
+						),
+						telem.NewSeriesSecondsTSV(1, 2),
+					},
+				))).To(BeTrue())
+			},
+		)
 	})
 
 	Describe("Free Channel Writes", func() {
-		It("Should stamp alignments on free writes and stream them through the relay", func(ctx SpecContext) {
-			idxCh := channel.Channel{
-				Name:        UniqueChannelName(),
-				IsIndex:     true,
-				DataType:    telem.TimeStampT,
-				Leaseholder: node.KeyFree,
-				Virtual:     true,
-			}
-			Expect(channelWriter.Create(ctx, &idxCh)).To(Succeed())
-			dataCh := channel.Channel{
-				Name:        UniqueChannelName(),
-				DataType:    telem.Float32T,
-				Leaseholder: node.KeyFree,
-				Virtual:     true,
-				LocalIndex:  idxCh.LocalKey,
-			}
-			Expect(channelWriter.Create(ctx, &dataCh)).To(Succeed())
-			keys := channel.Keys{idxCh.Key(), dataCh.Key()}
+		It(
+			"Should stamp alignments on free writes and stream them through the relay",
+			func(ctx SpecContext) {
+				idxCh := channel.Channel{
+					Name:        UniqueChannelName(),
+					IsIndex:     true,
+					DataType:    telem.TimeStampT,
+					Leaseholder: node.KeyFree,
+					Virtual:     true,
+				}
+				Expect(channelWriter.Create(ctx, &idxCh)).To(Succeed())
+				dataCh := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Float32T,
+					Leaseholder: node.KeyFree,
+					Virtual:     true,
+					LocalIndex:  idxCh.LocalKey,
+				}
+				Expect(channelWriter.Create(ctx, &dataCh)).To(Succeed())
+				keys := channel.Keys{idxCh.Key(), dataCh.Key()}
 
-			streamer := MustSucceed(mockNode.Framer.NewStreamer(framer.StreamerConfig{
-				Keys:        keys,
-				SendOpenAck: new(true),
-			}))
-			_, out := confluence.Attach(streamer, 10)
-			sCtx, cancel := signal.WithCancel(ctx)
-			defer cancel()
-			streamer.Flow(sCtx)
-			var res framer.StreamerResponse
-			Eventually(out.Outlet()).Should(Receive(&res))
+				streamer := MustSucceed(
+					mockNode.Framer.NewStreamer(framer.StreamerConfig{
+						Keys:        keys,
+						SendOpenAck: new(true),
+					}),
+				)
+				_, out := confluence.Attach(streamer, 10)
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				streamer.Flow(sCtx)
+				var res framer.StreamerResponse
+				Eventually(out.Outlet()).Should(Receive(&res))
 
-			w := MustOpen(writerSvc.Open(ctx, writer.Config{
-				Keys:  keys,
-				Start: 10 * telem.SecondTS,
-				Sync:  new(true),
-			}))
-			data := telem.NewSeriesV[float32](1, 2)
-			idx := telem.NewSeriesSecondsTSV(10, 11)
-			Expect(w.Write(frame.NewMulti(keys, []telem.Series{idx, data}))).To(BeTrue())
-			Eventually(out.Outlet()).Should(Receive(&res))
-			writtenData := res.Frame.Get(dataCh.Key()).Series[0]
-			Expect(writtenData).To(telem.MatchSeriesData(data))
-			writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
-			Expect(writtenIdx).To(telem.MatchSeriesData(idx))
-			firstAlignment := writtenData.Alignment
-			groupDomain := firstAlignment.DomainIndex()
-			Expect(groupDomain).To(BeNumerically(">", cesium.ZeroLeadingAlignment))
-			Expect(firstAlignment.SampleIndex()).To(BeEquivalentTo(0))
-			Expect(writtenIdx.Alignment).To(Equal(firstAlignment))
+				w := MustOpen(writerSvc.Open(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				data := telem.NewSeriesV[float32](1, 2)
+				idx := telem.NewSeriesSecondsTSV(10, 11)
+				Expect(
+					w.Write(frame.NewMulti(keys, []telem.Series{idx, data})),
+				).To(BeTrue())
+				Eventually(out.Outlet()).Should(Receive(&res))
+				writtenData := res.Frame.Get(dataCh.Key()).Series[0]
+				Expect(writtenData).To(telem.MatchSeriesData(data))
+				writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
+				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
+				firstAlignment := writtenData.Alignment
+				groupDomain := firstAlignment.DomainIndex()
+				Expect(groupDomain).To(BeNumerically(">", cesium.ZeroLeadingAlignment))
+				Expect(firstAlignment.SampleIndex()).To(BeEquivalentTo(0))
+				Expect(writtenIdx.Alignment).To(Equal(firstAlignment))
 
-			data = telem.NewSeriesV[float32](3, 4)
-			idx = telem.NewSeriesSecondsTSV(12, 13)
-			Expect(w.Write(frame.NewMulti(keys, []telem.Series{idx, data}))).To(BeTrue())
-			Eventually(out.Outlet()).Should(Receive(&res))
-			writtenData = res.Frame.Get(dataCh.Key()).Series[0]
-			Expect(writtenData).To(telem.MatchSeriesData(data))
-			writtenIdx = res.Frame.Get(idxCh.Key()).Series[0]
-			Expect(writtenIdx).To(telem.MatchSeriesData(idx))
-			Expect(writtenData.Alignment.DomainIndex()).To(Equal(groupDomain))
-			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
-			Expect(writtenData.Alignment).To(BeNumerically(">", firstAlignment))
-			Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
-		})
+				data = telem.NewSeriesV[float32](3, 4)
+				idx = telem.NewSeriesSecondsTSV(12, 13)
+				Expect(
+					w.Write(frame.NewMulti(keys, []telem.Series{idx, data})),
+				).To(BeTrue())
+				Eventually(out.Outlet()).Should(Receive(&res))
+				writtenData = res.Frame.Get(dataCh.Key()).Series[0]
+				Expect(writtenData).To(telem.MatchSeriesData(data))
+				writtenIdx = res.Frame.Get(idxCh.Key()).Series[0]
+				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
+				Expect(writtenData.Alignment.DomainIndex()).To(Equal(groupDomain))
+				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
+				Expect(writtenData.Alignment).To(BeNumerically(">", firstAlignment))
+				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
+			},
+		)
 	})
 })

@@ -27,11 +27,14 @@ import (
 // SourceType is the configuration token selecting the file source.
 const SourceType = "file"
 
-// NewSource builds a file source serving the PEM pair at certPath and keyPath, reading them
-// through fs. It returns validate.ErrValidation if either path is empty.
+// NewSource builds a file source serving the PEM pair at certPath and keyPath, reading
+// them through fs. It returns validate.ErrValidation if either path is empty.
 func NewSource(fs xfs.FS, certPath, keyPath string) (cert.Source, error) {
 	if certPath == "" || keyPath == "" {
-		return nil, errors.Wrap(validate.ErrValidation, "file source requires both a cert and a key path")
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"file source requires both a cert and a key path",
+		)
 	}
 	if fs == nil {
 		fs = xfs.Default

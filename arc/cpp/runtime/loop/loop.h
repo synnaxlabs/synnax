@@ -12,7 +12,7 @@
 #include <memory>
 #include <thread>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"

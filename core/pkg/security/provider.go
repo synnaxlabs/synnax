@@ -22,15 +22,16 @@ import (
 
 // TLSProvider assembles listener TLS configurations for services that require them.
 type TLSProvider interface {
-	// TLSConfigFor combines the node-wide TLS policy with the certificate served by src,
-	// producing the tls.Config for a single listener. It returns nil in insecure mode.
-	// The returned config's behavior may change over time as src reloads its certificate.
-	TLSConfigFor(src cert.Source) *tls.Config
-	// NodeClientConfig returns the tls.Config the node uses when dialing peers, backed by
-	// the node's own certificate. It returns nil in insecure mode.
+	// TLSConfigFor combines the node-wide TLS policy with the certificate served by
+	// src, producing the tls.Config for a single listener. It returns nil in insecure
+	// mode. The returned config's behavior may change over time as src reloads its
+	// certificate.
+	TLSConfigFor(cert.Source) *tls.Config
+	// NodeClientConfig returns the tls.Config the node uses when dialing peers, backed
+	// by the node's own certificate. It returns nil in insecure mode.
 	NodeClientConfig() *tls.Config
-	// VerifyCoreCert confirms src serves a certificate that chains to the Core CA
-	// and is valid for host, the two checks peers perform when dialing this node. It is a
+	// VerifyCoreCert confirms src serves a certificate that chains to the Core CA and
+	// is valid for host, the two checks peers perform when dialing this node. It is a
 	// no-op in insecure mode.
 	VerifyCoreCert(src cert.Source, host string) error
 }
@@ -41,9 +42,9 @@ type KeyProvider interface {
 	NodePrivate() crypto.PrivateKey
 }
 
-// Provider provides security information and services for the node. It's important to note
-// that Provider itself does not implement any security mechanisms, but rather provides
-// configuration and information for other components to implement them.
+// Provider provides security information and services for the node. It's important to
+// note that Provider itself does not implement any security mechanisms, but rather
+// provides configuration and information for other components to implement them.
 type Provider interface {
 	TLSProvider
 	KeyProvider

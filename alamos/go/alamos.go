@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 // Package alamos provides a collection of tools for instrumenting distributed services.
-// These tools cover all three pillars of observability: logs, traces, and metrics.
-// The intent of alamos is not to provide implementations for these pillars, but instead
+// These tools cover all three pillars of observability: logs, traces, and metrics. The
+// intent of alamos is not to provide implementations for these pillars, but instead
 // provided an opinionated interface for integrating with existing providers.
 //
-// The core data type of alamos is the Instrumentation type, which is an aggregation
-// of the Logger (L), Tracer (T), and Reporter (R) services.
+// The core data type of alamos is the Instrumentation type, which is an aggregation of
+// the Logger (L), Tracer (T), and Reporter (R) services.
 //
 // The Logger (L) is an enhanced version of zap's logger that provides no-op logging
 // when nil.
@@ -21,19 +21,19 @@
 // The Tracer (T) is uses both open-telemetry and go's internal tracing APIs to provide
 // tracing. It can also propagate tracing information across RPC boundaries.
 //
-// The Reporter (R) allows for attaching metadata to the instrumentation, and is ideal for
-// recording the configuration of the application.
+// The Reporter (R) allows for attaching metadata to the instrumentation, and is ideal
+// for recording the configuration of the application.
 package alamos
 
 // Instrumentation is the alamos core data type, and represents a collection of
 // instrumentation tools: a logger, a devTracer, and a reporter.
 //
-// The zero-value represents a no-op instrumentation that does no logging, tracing,
-// or reporting. We recommend embedding Instrumentation within the configs
-// of your services, like the following:
+// The zero-value represents a no-op instrumentation that does no logging, tracing, or
+// reporting. We recommend embedding Instrumentation within the configs of your
+// services, like the following:
 //
 //	type MyServiceConfig struct {
-//		alamos.Instrumentation
+//	    alamos.Instrumentation
 //	     // ...other fields
 //	}
 //
@@ -43,8 +43,8 @@ package alamos
 //	// cfg.L is a no-op logger
 //	cfg.L.Debug("hello world")
 //
-// To instantiate the config with instrumentation, use the alamos.New function along with
-// the With* options:
+// To instantiate the config with instrumentation, use the alamos.New function along
+// with the With* options:
 //
 //	// define a tracing config
 //	tracingConfig := tracing.Properties{}
@@ -163,7 +163,11 @@ type Option func(*Instrumentation)
 func WithTracer(t *Tracer) Option { return func(ins *Instrumentation) { ins.T = t } }
 
 // WithReporter configures the instrumentation to use the given Reporter.
-func WithReporter(r *Reporter) Option { return func(ins *Instrumentation) { ins.R = r } }
+func WithReporter(
+	r *Reporter,
+) Option {
+	return func(ins *Instrumentation) { ins.R = r }
+}
 
 // WithLogger configures the instrumentation to use the given Logger.
 func WithLogger(l *Logger) Option { return func(ins *Instrumentation) { ins.L = l } }

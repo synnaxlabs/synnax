@@ -9,7 +9,6 @@
 
 #pragma once
 
-// std
 #include <cstdint>
 #include <cstring>
 #include <vector>

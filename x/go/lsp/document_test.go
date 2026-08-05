@@ -19,33 +19,47 @@ import (
 var _ = Describe("Document", func() {
 	Describe("PositionToOffset", func() {
 		It("Should convert a position on the first line", func() {
-			Expect(lsp.PositionToOffset("hello", protocol.Position{Line: 0, Character: 3})).To(Equal(3))
+			Expect(
+				lsp.PositionToOffset("hello", protocol.Position{Line: 0, Character: 3}),
+			).To(Equal(3))
 		})
 
 		It("Should convert a position on a subsequent line", func() {
 			content := "hello\nworld"
-			Expect(lsp.PositionToOffset(content, protocol.Position{Line: 1, Character: 2})).To(Equal(8))
+			Expect(
+				lsp.PositionToOffset(content, protocol.Position{Line: 1, Character: 2}),
+			).To(Equal(8))
 		})
 
 		It("Should clamp beyond-content positions to content length", func() {
-			Expect(lsp.PositionToOffset("hi", protocol.Position{Line: 5, Character: 0})).To(Equal(2))
+			Expect(
+				lsp.PositionToOffset("hi", protocol.Position{Line: 5, Character: 0}),
+			).To(Equal(2))
 		})
 
 		It("Should clamp character beyond line length", func() {
-			Expect(lsp.PositionToOffset("hi", protocol.Position{Line: 0, Character: 100})).To(Equal(2))
+			Expect(
+				lsp.PositionToOffset("hi", protocol.Position{Line: 0, Character: 100}),
+			).To(Equal(2))
 		})
 
 		It("Should return 0 for position at start", func() {
-			Expect(lsp.PositionToOffset("hello", protocol.Position{Line: 0, Character: 0})).To(Equal(0))
+			Expect(
+				lsp.PositionToOffset("hello", protocol.Position{Line: 0, Character: 0}),
+			).To(Equal(0))
 		})
 
 		It("Should handle empty content", func() {
-			Expect(lsp.PositionToOffset("", protocol.Position{Line: 0, Character: 0})).To(Equal(0))
+			Expect(
+				lsp.PositionToOffset("", protocol.Position{Line: 0, Character: 0}),
+			).To(Equal(0))
 		})
 
 		It("Should handle multi-line content with later line", func() {
 			content := "line1\nline2\nline3"
-			Expect(lsp.PositionToOffset(content, protocol.Position{Line: 2, Character: 2})).To(Equal(14))
+			Expect(
+				lsp.PositionToOffset(content, protocol.Position{Line: 2, Character: 2}),
+			).To(Equal(14))
 		})
 	})
 
@@ -95,7 +109,9 @@ var _ = Describe("Document", func() {
 				},
 				Text: "replaced",
 			}
-			Expect(lsp.ApplyIncrementalChange(content, change)).To(Equal("line1\nreplaced\nline3"))
+			Expect(
+				lsp.ApplyIncrementalChange(content, change),
+			).To(Equal("line1\nreplaced\nline3"))
 		})
 
 		It("Should handle empty document", func() {
@@ -161,23 +177,42 @@ var _ = Describe("Document", func() {
 
 	Describe("GetWordAtPosition", func() {
 		It("Should extract a word in the middle of a line", func() {
-			Expect(lsp.GetWordAtPosition("hello world", protocol.Position{Line: 0, Character: 7})).To(Equal("world"))
+			Expect(
+				lsp.GetWordAtPosition(
+					"hello world",
+					protocol.Position{Line: 0, Character: 7},
+				),
+			).To(Equal("world"))
 		})
 
 		It("Should extract a word at the beginning of a line", func() {
-			Expect(lsp.GetWordAtPosition("hello world", protocol.Position{Line: 0, Character: 0})).To(Equal("hello"))
+			Expect(
+				lsp.GetWordAtPosition(
+					"hello world",
+					protocol.Position{Line: 0, Character: 0},
+				),
+			).To(Equal("hello"))
 		})
 
 		It("Should return empty for position beyond line", func() {
-			Expect(lsp.GetWordAtPosition("hi", protocol.Position{Line: 0, Character: 10})).To(Equal(""))
+			Expect(
+				lsp.GetWordAtPosition("hi", protocol.Position{Line: 0, Character: 10}),
+			).To(Equal(""))
 		})
 
 		It("Should return empty for position on empty content", func() {
-			Expect(lsp.GetWordAtPosition("", protocol.Position{Line: 0, Character: 0})).To(Equal(""))
+			Expect(
+				lsp.GetWordAtPosition("", protocol.Position{Line: 0, Character: 0}),
+			).To(Equal(""))
 		})
 
 		It("Should extract word from multi-line content", func() {
-			Expect(lsp.GetWordAtPosition("first\nsecond", protocol.Position{Line: 1, Character: 2})).To(Equal("second"))
+			Expect(
+				lsp.GetWordAtPosition(
+					"first\nsecond",
+					protocol.Position{Line: 1, Character: 2},
+				),
+			).To(Equal("second"))
 		})
 	})
 
@@ -214,18 +249,31 @@ var _ = Describe("Document", func() {
 
 	Describe("GetWordRangeAtPosition", func() {
 		It("Should return correct range for a word", func() {
-			r := lsp.GetWordRangeAtPosition("hello world", protocol.Position{Line: 0, Character: 7})
+			r := lsp.GetWordRangeAtPosition(
+				"hello world",
+				protocol.Position{Line: 0, Character: 7},
+			)
 			Expect(r).ToNot(BeNil())
 			Expect(r.Start.Character).To(Equal(uint32(6)))
 			Expect(r.End.Character).To(Equal(uint32(11)))
 		})
 
 		It("Should return nil for empty content", func() {
-			Expect(lsp.GetWordRangeAtPosition("", protocol.Position{Line: 0, Character: 0})).To(BeNil())
+			Expect(
+				lsp.GetWordRangeAtPosition(
+					"",
+					protocol.Position{Line: 0, Character: 0},
+				),
+			).To(BeNil())
 		})
 
 		It("Should return nil for position beyond line", func() {
-			Expect(lsp.GetWordRangeAtPosition("hi", protocol.Position{Line: 0, Character: 10})).To(BeNil())
+			Expect(
+				lsp.GetWordRangeAtPosition(
+					"hi",
+					protocol.Position{Line: 0, Character: 10},
+				),
+			).To(BeNil())
 		})
 	})
 })

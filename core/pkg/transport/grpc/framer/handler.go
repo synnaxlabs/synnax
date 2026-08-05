@@ -62,13 +62,27 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[framer.WriterRequest, *WriterRequest]       = (*frameWriterRequestTranslator)(nil)
-	_ fgrpc.Translator[framer.WriterResponse, *WriterResponse]     = (*frameWriterResponseTranslator)(nil)
-	_ fgrpc.Translator[framer.IteratorRequest, *IteratorRequest]   = (*frameIteratorRequestTranslator)(nil)
-	_ fgrpc.Translator[framer.IteratorResponse, *IteratorResponse] = (*frameIteratorResponseTranslator)(nil)
-	_ fgrpc.Translator[framer.StreamerRequest, *StreamerRequest]   = (*frameStreamerRequestTranslator)(nil)
-	_ fgrpc.Translator[framer.StreamerResponse, *StreamerResponse] = (*frameStreamerResponseTranslator)(nil)
-	_ fgrpc.Translator[framer.DeleteRequest, *DeleteRequest]       = (*frameDeleteRequestTranslator)(nil)
+	_ fgrpc.Translator[framer.WriterRequest, *WriterRequest] = (*frameWriterRequestTranslator)(
+		nil,
+	)
+	_ fgrpc.Translator[framer.WriterResponse, *WriterResponse] = (*frameWriterResponseTranslator)(
+		nil,
+	)
+	_ fgrpc.Translator[framer.IteratorRequest, *IteratorRequest] = (*frameIteratorRequestTranslator)(
+		nil,
+	)
+	_ fgrpc.Translator[framer.IteratorResponse, *IteratorResponse] = (*frameIteratorResponseTranslator)(
+		nil,
+	)
+	_ fgrpc.Translator[framer.StreamerRequest, *StreamerRequest] = (*frameStreamerRequestTranslator)(
+		nil,
+	)
+	_ fgrpc.Translator[framer.StreamerResponse, *StreamerResponse] = (*frameStreamerResponseTranslator)(
+		nil,
+	)
+	_ fgrpc.Translator[framer.DeleteRequest, *DeleteRequest] = (*frameDeleteRequestTranslator)(
+		nil,
+	)
 )
 
 func (t frameWriterRequestTranslator) Forward(
@@ -120,15 +134,17 @@ func (t frameWriterRequestTranslator) Backward(
 		}
 		keys := channel.KeysFromUint32(msg.Config.Keys)
 		r.Config = framer.WriterConfig{
-			Keys:                     keys,
-			Start:                    telem.TimeStamp(msg.Config.Start),
-			Mode:                     framer.WriterMode(msg.Config.Mode),
-			Authorities:              msg.Config.Authorities,
-			EnableAutoCommit:         msg.Config.EnableAutoCommit,
-			AutoIndexPersistInterval: telem.TimeSpan(msg.Config.AutoIndexPersistInterval),
-			ControlSubject:           subj,
-			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
-			AutoIndex:                msg.Config.AutoIndex,
+			Keys:             keys,
+			Start:            telem.TimeStamp(msg.Config.Start),
+			Mode:             framer.WriterMode(msg.Config.Mode),
+			Authorities:      msg.Config.Authorities,
+			EnableAutoCommit: msg.Config.EnableAutoCommit,
+			AutoIndexPersistInterval: telem.TimeSpan(
+				msg.Config.AutoIndexPersistInterval,
+			),
+			ControlSubject:    subj,
+			ErrOnUnauthorized: msg.Config.ErrOnUnauthorized,
+			AutoIndex:         msg.Config.AutoIndex,
 		}
 		if t.codec != nil {
 			if err = t.codec.Update(ctx, keys); err != nil {
@@ -411,7 +427,9 @@ func New(
 					fgrpc.Translator[framer.WriterResponse, *WriterResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
-					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
+					return frameWriterRequestTranslator{
+						codec: codec,
+					}, frameWriterResponseTranslator{}
 				},
 				ServiceDesc: &FrameWriterService_ServiceDesc,
 			},
@@ -436,7 +454,11 @@ func New(
 					fgrpc.Translator[framer.StreamerResponse, *StreamerResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
-					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
+					return frameStreamerRequestTranslator{
+							codec: codec,
+						}, frameStreamerResponseTranslator{
+							codec: codec,
+						}
 				},
 				ServiceDesc: &FrameStreamerService_ServiceDesc,
 			},

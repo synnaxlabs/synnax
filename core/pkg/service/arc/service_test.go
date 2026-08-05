@@ -118,9 +118,15 @@ var _ = Describe("NewLSP", func() {
 		uri := uri.URI("file:///test.arc")
 		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := test_lsp_channel\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
-		Expect(DiagnosticMessage(client.Diagnostics()[0])).To(ContainSubstring("undefined symbol"))
+		Expect(
+			DiagnosticMessage(client.Diagnostics()[0]),
+		).To(ContainSubstring("undefined symbol"))
 
-		ch := channel.Channel{Name: "test_lsp_channel", DataType: telem.Float32T, Virtual: true}
+		ch := channel.Channel{
+			Name:     "test_lsp_channel",
+			DataType: telem.Float32T,
+			Virtual:  true,
+		}
 		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 
 		Eventually(func() int {

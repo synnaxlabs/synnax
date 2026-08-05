@@ -29,14 +29,19 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(full().Validate()).To(Succeed())
 		})
 
-		DescribeTable("Should fail when a required field is missing",
+		DescribeTable(
+			"Should fail when a required field is missing",
 			func(clear func(*panel.ServiceConfig), field string) {
 				cfg := full()
 				clear(&cfg)
 				Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
 			},
 			Entry("db", func(c *panel.ServiceConfig) { c.DB = nil }, "db"),
-			Entry("ontology", func(c *panel.ServiceConfig) { c.Ontology = nil }, "ontology"),
+			Entry(
+				"ontology",
+				func(c *panel.ServiceConfig) { c.Ontology = nil },
+				"ontology",
+			),
 			Entry("search", func(c *panel.ServiceConfig) { c.Search = nil }, "search"),
 		)
 

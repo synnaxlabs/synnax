@@ -39,34 +39,41 @@ var _ = Describe("Graph", func() {
 			Expect(decoded.Edges).To(HaveLen(1))
 		})
 
-		It("Should lift legacy inline node type and config into the inputs map", func() {
-			legacy := struct {
-				Nodes []struct {
-					Key      string               `msgpack:"key"`
-					Type     string               `msgpack:"type"`
-					Config   xmsgpack.EncodedJSON `msgpack:"config"`
-					Position spatial.XY           `msgpack:"position"`
-				} `msgpack:"nodes"`
-			}{
-				Nodes: []struct {
-					Key      string               `msgpack:"key"`
-					Type     string               `msgpack:"type"`
-					Config   xmsgpack.EncodedJSON `msgpack:"config"`
-					Position spatial.XY           `msgpack:"position"`
+		It(
+			"Should lift legacy inline node type and config into the inputs map",
+			func() {
+				legacy := struct {
+					Nodes []struct {
+						Key      string               `msgpack:"key"`
+						Type     string               `msgpack:"type"`
+						Config   xmsgpack.EncodedJSON `msgpack:"config"`
+						Position spatial.XY           `msgpack:"position"`
+					} `msgpack:"nodes"`
 				}{
-					{Key: "n1", Type: "on", Config: xmsgpack.EncodedJSON{"channel": int8(12)}},
-					{Key: "n2", Type: "printer"},
-				},
-			}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v1.Graph
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Nodes).To(HaveLen(2))
-			Expect(decoded.Inputs["n1"]).To(SatisfyAll(
-				HaveKeyWithValue("type", "on"),
-				HaveKeyWithValue("channel", int8(12)),
-			))
-			Expect(decoded.Inputs["n2"]).To(HaveKeyWithValue("type", "printer"))
-		})
+					Nodes: []struct {
+						Key      string               `msgpack:"key"`
+						Type     string               `msgpack:"type"`
+						Config   xmsgpack.EncodedJSON `msgpack:"config"`
+						Position spatial.XY           `msgpack:"position"`
+					}{
+						{
+							Key:    "n1",
+							Type:   "on",
+							Config: xmsgpack.EncodedJSON{"channel": int8(12)},
+						},
+						{Key: "n2", Type: "printer"},
+					},
+				}
+				data := MustSucceed(msgpack.Marshal(legacy))
+				var decoded v1.Graph
+				Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+				Expect(decoded.Nodes).To(HaveLen(2))
+				Expect(decoded.Inputs["n1"]).To(SatisfyAll(
+					HaveKeyWithValue("type", "on"),
+					HaveKeyWithValue("channel", int8(12)),
+				))
+				Expect(decoded.Inputs["n2"]).To(HaveKeyWithValue("type", "printer"))
+			},
+		)
 	})
 })

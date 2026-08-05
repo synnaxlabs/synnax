@@ -25,7 +25,7 @@ var _ = Describe("Create", func() {
 	BeforeEach(func() {
 		schemasDir = MustSucceed(os.MkdirTemp("", "schemas"))
 		snapshotsDir = filepath.Join(schemasDir, ".snapshots")
-		Expect(os.MkdirAll(snapshotsDir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(snapshotsDir, 0o755)).To(Succeed())
 		DeferCleanup(func() {
 			Expect(os.RemoveAll(schemasDir)).To(Succeed())
 		})
@@ -34,7 +34,7 @@ var _ = Describe("Create", func() {
 	It("should copy oracle files into the versioned snapshot directory", func() {
 		Expect(os.WriteFile(
 			filepath.Join(schemasDir, "user.oracle"),
-			[]byte("User struct { key uuid }"), 0644,
+			[]byte("User struct { key uuid }"), 0o644,
 		)).To(Succeed())
 
 		Expect(snapshot.Create(schemasDir, snapshotsDir, 53)).To(Succeed())
@@ -47,10 +47,10 @@ var _ = Describe("Create", func() {
 
 	It("should preserve subdirectory structure", func() {
 		subDir := filepath.Join(schemasDir, "core")
-		Expect(os.MkdirAll(subDir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(subDir, 0o755)).To(Succeed())
 		Expect(os.WriteFile(
 			filepath.Join(subDir, "channel.oracle"),
-			[]byte("Channel struct {}"), 0644,
+			[]byte("Channel struct {}"), 0o644,
 		)).To(Succeed())
 
 		Expect(snapshot.Create(schemasDir, snapshotsDir, 1)).To(Succeed())
@@ -64,13 +64,13 @@ var _ = Describe("Create", func() {
 	It("should skip the .snapshots directory itself", func() {
 		Expect(os.WriteFile(
 			filepath.Join(schemasDir, "root.oracle"),
-			[]byte("Root struct {}"), 0644,
+			[]byte("Root struct {}"), 0o644,
 		)).To(Succeed())
 		existingSnapshot := filepath.Join(snapshotsDir, "v1")
-		Expect(os.MkdirAll(existingSnapshot, 0755)).To(Succeed())
+		Expect(os.MkdirAll(existingSnapshot, 0o755)).To(Succeed())
 		Expect(os.WriteFile(
 			filepath.Join(existingSnapshot, "old.oracle"),
-			[]byte("Old struct {}"), 0644,
+			[]byte("Old struct {}"), 0o644,
 		)).To(Succeed())
 
 		Expect(snapshot.Create(schemasDir, snapshotsDir, 2)).To(Succeed())
@@ -82,11 +82,11 @@ var _ = Describe("Create", func() {
 	It("should skip non-oracle files", func() {
 		Expect(os.WriteFile(
 			filepath.Join(schemasDir, "readme.md"),
-			[]byte("# Readme"), 0644,
+			[]byte("# Readme"), 0o644,
 		)).To(Succeed())
 		Expect(os.WriteFile(
 			filepath.Join(schemasDir, "schema.oracle"),
-			[]byte("S struct {}"), 0644,
+			[]byte("S struct {}"), 0o644,
 		)).To(Succeed())
 
 		Expect(snapshot.Create(schemasDir, snapshotsDir, 3)).To(Succeed())
@@ -112,25 +112,27 @@ var _ = Describe("LatestVersion", func() {
 	})
 
 	It("should return 0 when the directory does not exist", func() {
-		v := MustSucceed(snapshot.LatestVersion(filepath.Join(snapshotsDir, "nonexistent")))
+		v := MustSucceed(
+			snapshot.LatestVersion(filepath.Join(snapshotsDir, "nonexistent")),
+		)
 		Expect(v).To(Equal(0))
 	})
 
 	It("should return the highest version number", func() {
-		Expect(os.MkdirAll(filepath.Join(snapshotsDir, "v1"), 0755)).To(Succeed())
-		Expect(os.MkdirAll(filepath.Join(snapshotsDir, "v53"), 0755)).To(Succeed())
-		Expect(os.MkdirAll(filepath.Join(snapshotsDir, "v10"), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(snapshotsDir, "v1"), 0o755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(snapshotsDir, "v53"), 0o755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(snapshotsDir, "v10"), 0o755)).To(Succeed())
 
 		v := MustSucceed(snapshot.LatestVersion(snapshotsDir))
 		Expect(v).To(Equal(53))
 	})
 
 	It("should ignore non-version directories", func() {
-		Expect(os.MkdirAll(filepath.Join(snapshotsDir, "v5"), 0755)).To(Succeed())
-		Expect(os.MkdirAll(filepath.Join(snapshotsDir, "other"), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(snapshotsDir, "v5"), 0o755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(snapshotsDir, "other"), 0o755)).To(Succeed())
 		Expect(os.WriteFile(
 			filepath.Join(snapshotsDir, "file.txt"),
-			[]byte("not a dir"), 0644,
+			[]byte("not a dir"), 0o644,
 		)).To(Succeed())
 
 		v := MustSucceed(snapshot.LatestVersion(snapshotsDir))
@@ -149,8 +151,12 @@ var _ = Describe("Files", func() {
 	})
 
 	It("should return sorted oracle files", func() {
-		Expect(os.WriteFile(filepath.Join(snapshotDir, "b.oracle"), []byte("B"), 0644)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(snapshotDir, "a.oracle"), []byte("A"), 0644)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(snapshotDir, "b.oracle"), []byte("B"), 0o644),
+		).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(snapshotDir, "a.oracle"), []byte("A"), 0o644),
+		).To(Succeed())
 
 		files := MustSucceed(snapshot.Files(snapshotDir))
 		Expect(files).To(HaveLen(2))
@@ -160,8 +166,10 @@ var _ = Describe("Files", func() {
 
 	It("should include files in subdirectories", func() {
 		subDir := filepath.Join(snapshotDir, "sub")
-		Expect(os.MkdirAll(subDir, 0755)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(subDir, "nested.oracle"), []byte("N"), 0644)).To(Succeed())
+		Expect(os.MkdirAll(subDir, 0o755)).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(subDir, "nested.oracle"), []byte("N"), 0o644),
+		).To(Succeed())
 
 		files := MustSucceed(snapshot.Files(snapshotDir))
 		Expect(files).To(HaveLen(1))
@@ -169,8 +177,16 @@ var _ = Describe("Files", func() {
 	})
 
 	It("should ignore non-oracle files", func() {
-		Expect(os.WriteFile(filepath.Join(snapshotDir, "schema.oracle"), []byte("S"), 0644)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(snapshotDir, "readme.md"), []byte("R"), 0644)).To(Succeed())
+		Expect(
+			os.WriteFile(
+				filepath.Join(snapshotDir, "schema.oracle"),
+				[]byte("S"),
+				0o644,
+			),
+		).To(Succeed())
+		Expect(
+			os.WriteFile(filepath.Join(snapshotDir, "readme.md"), []byte("R"), 0o644),
+		).To(Succeed())
 
 		files := MustSucceed(snapshot.Files(snapshotDir))
 		Expect(files).To(HaveLen(1))
@@ -196,7 +212,7 @@ var _ = Describe("FileLoader", func() {
 	It("should load a file from the snapshot directory", func() {
 		Expect(os.WriteFile(
 			filepath.Join(snapshotDir, "user.oracle"),
-			[]byte("User struct {}"), 0644,
+			[]byte("User struct {}"), 0o644,
 		)).To(Succeed())
 
 		content, filePath := MustSucceed2(loader.Load("schemas/user"))
@@ -206,10 +222,10 @@ var _ = Describe("FileLoader", func() {
 
 	It("should handle nested import paths", func() {
 		subDir := filepath.Join(snapshotDir, "core")
-		Expect(os.MkdirAll(subDir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(subDir, 0o755)).To(Succeed())
 		Expect(os.WriteFile(
 			filepath.Join(subDir, "channel.oracle"),
-			[]byte("Channel struct {}"), 0644,
+			[]byte("Channel struct {}"), 0o644,
 		)).To(Succeed())
 
 		content, filePath := MustSucceed2(loader.Load("schemas/core/channel"))

@@ -93,7 +93,10 @@ func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
 		oIdx := b.getOrCreateOutput(src, edge.Source.Param)
 		src.outputs[oIdx].edges = append(
 			src.outputs[oIdx].edges,
-			outEdge{targetIdx: target, conditional: edge.Kind == ir.EdgeKindConditional},
+			outEdge{
+				targetIdx:   target,
+				conditional: edge.Kind == ir.EdgeKindConditional,
+			},
 		)
 	}
 	s := &Scheduler{

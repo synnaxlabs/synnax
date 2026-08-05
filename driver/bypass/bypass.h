@@ -20,7 +20,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "client/cpp/channel/types.gen.h"
 #include "x/cpp/telem/frame.h"

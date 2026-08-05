@@ -11,17 +11,17 @@
 
 #include <chrono>
 #include <memory>
-#include <ranges>
 #include <set>
 #include <utility>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/control/control.h"
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/thread.h"
 
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"

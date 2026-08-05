@@ -62,43 +62,49 @@ var _ = Describe("Signals", func() {
 		}
 	})
 
-	It("Should broadcast a dispatched action vector on the set channel", func(ctx SpecContext) {
-		responses := openStreamer(ctx, setChannelName)
-		p := panel.Panel{Name: "sig", Parent: &parentID}
-		Expect(writer.Create(ctx, &p)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
-		})
-		Expect(writer.Dispatch(ctx, p.Key, "dk-1", []panel.Action{
-			panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
-		})).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
-		var decoded []actions.Scoped[panel.Key, panel.Action]
-		for sample := range res.Frame.SeriesAt(0).Samples() {
-			var sa actions.Scoped[panel.Key, panel.Action]
-			Expect(json.Unmarshal(sample, &sa)).To(Succeed())
-			decoded = append(decoded, sa)
-		}
-		Expect(decoded).ToNot(BeEmpty())
-		last := decoded[len(decoded)-1]
-		Expect(last.Key).To(Equal(p.Key))
-		Expect(last.DispatchKey).To(Equal("dk-1"))
-		Expect(last.Actions).To(HaveLen(1))
-		Expect(last.Actions[0].Type).To(Equal(panel.ActionTypeRename))
-	})
+	It(
+		"Should broadcast a dispatched action vector on the set channel",
+		func(ctx SpecContext) {
+			responses := openStreamer(ctx, setChannelName)
+			p := panel.Panel{Name: "sig", Parent: &parentID}
+			Expect(writer.Create(ctx, &p)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+			})
+			Expect(writer.Dispatch(ctx, p.Key, "dk-1", []panel.Action{
+				panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
+			})).To(Succeed())
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
+			var decoded []actions.Scoped[panel.Key, panel.Action]
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				var sa actions.Scoped[panel.Key, panel.Action]
+				Expect(json.Unmarshal(sample, &sa)).To(Succeed())
+				decoded = append(decoded, sa)
+			}
+			Expect(decoded).ToNot(BeEmpty())
+			last := decoded[len(decoded)-1]
+			Expect(last.Key).To(Equal(p.Key))
+			Expect(last.DispatchKey).To(Equal("dk-1"))
+			Expect(last.Actions).To(HaveLen(1))
+			Expect(last.Actions[0].Type).To(Equal(panel.ActionTypeRename))
+		},
+	)
 
-	It("Should emit the deleted panel key on the delete channel", func(ctx SpecContext) {
-		responses := openStreamer(ctx, deleteChannelName)
-		p := panel.Panel{Name: "sig-del", Parent: &parentID}
-		Expect(writer.Create(ctx, &p)).To(Succeed())
-		Expect(writer.Delete(ctx, p.Key)).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
-		var keys []uuid.UUID
-		for sample := range res.Frame.SeriesAt(0).Samples() {
-			keys = append(keys, MustSucceed(uuid.FromBytes(sample)))
-		}
-		Expect(keys).To(ContainElement(p.Key))
-	})
+	It(
+		"Should emit the deleted panel key on the delete channel",
+		func(ctx SpecContext) {
+			responses := openStreamer(ctx, deleteChannelName)
+			p := panel.Panel{Name: "sig-del", Parent: &parentID}
+			Expect(writer.Create(ctx, &p)).To(Succeed())
+			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
+			var keys []uuid.UUID
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				keys = append(keys, MustSucceed(uuid.FromBytes(sample)))
+			}
+			Expect(keys).To(ContainElement(p.Key))
+		},
+	)
 })

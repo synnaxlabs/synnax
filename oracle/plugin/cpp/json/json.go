@@ -223,7 +223,10 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-func (p *Plugin) processArrayWrapper(dt resolution.Type, data *templateData) *arrayWrapperData {
+func (p *Plugin) processArrayWrapper(
+	dt resolution.Type,
+	data *templateData,
+) *arrayWrapperData {
 	if !isVariableLengthArray(dt) {
 		return nil
 	}
@@ -247,7 +250,11 @@ func (p *Plugin) processArrayWrapper(dt resolution.Type, data *templateData) *ar
 	}
 }
 
-func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
+func (p *Plugin) resolveExtendsType(
+	extendsRef resolution.TypeRef,
+	parent resolution.Type,
+	data *templateData,
+) string {
 	name := domain.GetName(parent, "cpp")
 
 	if parent.Namespace != data.rawNs {
@@ -332,11 +339,18 @@ func (p *Plugin) processStruct(
 // isSelfReference reports whether t directly or transitively references parent.
 // Stays consistent with the cpp types plugin's decision on optional
 // fields by sharing resolution.RefersTo.
-func isSelfReference(t resolution.TypeRef, parent resolution.Type, table *resolution.Table) bool {
+func isSelfReference(
+	t resolution.TypeRef,
+	parent resolution.Type,
+	table *resolution.Table,
+) bool {
 	return resolution.RefersTo(t, parent.QualifiedName, table)
 }
 
-func (p *Plugin) resolveToArrayElement(typeRef resolution.TypeRef, data *templateData) (resolution.TypeRef, bool) {
+func (p *Plugin) resolveToArrayElement(
+	typeRef resolution.TypeRef,
+	data *templateData,
+) (resolution.TypeRef, bool) {
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		return typeRef.TypeArgs[0], true
 	}
@@ -361,7 +375,11 @@ func (p *Plugin) resolveToArrayElement(typeRef resolution.TypeRef, data *templat
 	return resolution.TypeRef{}, false
 }
 
-func (p *Plugin) processField(field resolution.Field, parent resolution.Type, data *templateData) fieldData {
+func (p *Plugin) processField(
+	field resolution.Field,
+	parent resolution.Type,
+	data *templateData,
+) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
 	jsonName := toSnakeCase(field.Name)
 
@@ -371,7 +389,8 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 	}
 	cppFieldName = keywords.Escape(cppFieldName)
 
-	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil && !field.Type.TypeParam.HasDefault()
+	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil &&
+		!field.Type.TypeParam.HasDefault()
 	typeParamName := ""
 	if isGenericField {
 		typeParamName = field.Type.TypeParam.Name
@@ -428,7 +447,10 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		return fmt.Sprintf("std::unordered_map<%s, %s>", keyType, valueType)
 	}
 
-	if mapping := primitiveMapper.Map(typeRef.Name); mapping.TargetType != "" && mapping.TargetType != "void" {
+	if mapping := primitiveMapper.Map(
+		typeRef.Name,
+	); mapping.TargetType != "" &&
+		mapping.TargetType != "void" {
 		for _, imp := range mapping.Imports {
 			if imp.Category == "system" {
 				data.includes.addSystem(imp.Path)
@@ -494,21 +516,31 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 	return name
 }
 
-func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data *templateData, isSelfRef bool) string {
+func (p *Plugin) parseExprForField(
+	field resolution.Field,
+	cppType string,
+	data *templateData,
+	isSelfRef bool,
+) string {
 	typeRef := field.Type
 	jsonName := toSnakeCase(field.Name)
 	hasDefault := field.Optional || hasRenderableDefault(field, data.table)
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		if field.Optional {
-			return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, typeRef.TypeParam.Name, jsonName)
+			return fmt.Sprintf(
+				`parser.field<std::optional<%s>>("%s")`,
+				typeRef.TypeParam.Name,
+				jsonName,
+			)
 		}
 		return fmt.Sprintf(`parser.field<%s>("%s")`, typeRef.TypeParam.Name, jsonName)
 	}
 
 	if resolved, ok := typeRef.Resolve(data.table); ok {
 		if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
-			if distinctForm.Base.Name == "Array" && len(distinctForm.Base.TypeArgs) > 0 {
+			if distinctForm.Base.Name == "Array" &&
+				len(distinctForm.Base.TypeArgs) > 0 {
 				wrapperType := domain.GetName(resolved, "cpp")
 				if resolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(resolved, "cpp")
@@ -527,9 +559,17 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 
 		if elemType.TypeParam != nil {
 			if field.Optional {
-				return fmt.Sprintf(`parser.field<std::optional<std::vector<%s>>>("%s")`, elemType.TypeParam.Name, jsonName)
+				return fmt.Sprintf(
+					`parser.field<std::optional<std::vector<%s>>>("%s")`,
+					elemType.TypeParam.Name,
+					jsonName,
+				)
 			}
-			return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, elemType.TypeParam.Name, jsonName)
+			return fmt.Sprintf(
+				`parser.field<std::vector<%s>>("%s")`,
+				elemType.TypeParam.Name,
+				jsonName,
+			)
 		}
 
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
@@ -545,19 +585,32 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 				if len(elemType.TypeArgs) > 0 {
 					var args []string
 					for i, arg := range elemType.TypeArgs {
-						if i < len(structForm.TypeParams) && structForm.TypeParams[i].HasDefault() {
+						if i < len(structForm.TypeParams) &&
+							structForm.TypeParams[i].HasDefault() {
 							continue
 						}
 						args = append(args, p.typeRefToCpp(arg, data))
 					}
 					if len(args) > 0 {
-						structType = fmt.Sprintf("%s<%s>", structType, strings.Join(args, ", "))
+						structType = fmt.Sprintf(
+							"%s<%s>",
+							structType,
+							strings.Join(args, ", "),
+						)
 					}
 				}
 				if field.Optional {
-					return fmt.Sprintf(`parser.field<std::optional<std::vector<%s>>>("%s")`, structType, jsonName)
+					return fmt.Sprintf(
+						`parser.field<std::optional<std::vector<%s>>>("%s")`,
+						structType,
+						jsonName,
+					)
 				}
-				return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, structType, jsonName)
+				return fmt.Sprintf(
+					`parser.field<std::vector<%s>>("%s")`,
+					structType,
+					jsonName,
+				)
 			}
 			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
 				parseFn := "parse_" + lo.SnakeCase(domain.GetName(elemResolved, "cpp"))
@@ -581,7 +634,11 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 		}
 
 		if field.Optional {
-			return fmt.Sprintf(`parser.field<std::optional<std::vector<%s>>>("%s")`, innerType, jsonName)
+			return fmt.Sprintf(
+				`parser.field<std::optional<std::vector<%s>>>("%s")`,
+				innerType,
+				jsonName,
+			)
 		}
 		return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, innerType, jsonName)
 	}
@@ -591,14 +648,21 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 		if enumForm, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
 			if !enumForm.IsIntEnum {
 				if field.Optional {
-					return fmt.Sprintf(`parser.field<std::optional<std::string>>("%s")`, jsonName)
+					return fmt.Sprintf(
+						`parser.field<std::optional<std::string>>("%s")`,
+						jsonName,
+					)
 				}
 				if hasDefault {
 					defaultVal := jsonDefaultLiteral(field, data.table)
 					if defaultVal == "" {
 						defaultVal = `""`
 					}
-					return fmt.Sprintf(`parser.field<std::string>("%s", %s)`, jsonName, defaultVal)
+					return fmt.Sprintf(
+						`parser.field<std::string>("%s", %s)`,
+						jsonName,
+						defaultVal,
+					)
 				}
 				return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
 			}
@@ -611,7 +675,11 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 				}
 			}
 			if field.Optional {
-				return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, enumType, jsonName)
+				return fmt.Sprintf(
+					`parser.field<std::optional<%s>>("%s")`,
+					enumType,
+					jsonName,
+				)
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, enumType, jsonName)
 		}
@@ -627,20 +695,33 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 			if len(typeRef.TypeArgs) > 0 {
 				var args []string
 				for i, arg := range typeRef.TypeArgs {
-					if i < len(structForm.TypeParams) && structForm.TypeParams[i].HasDefault() {
+					if i < len(structForm.TypeParams) &&
+						structForm.TypeParams[i].HasDefault() {
 						continue
 					}
 					args = append(args, p.typeRefToCpp(arg, data))
 				}
 				if len(args) > 0 {
-					structType = fmt.Sprintf("%s<%s>", structType, strings.Join(args, ", "))
+					structType = fmt.Sprintf(
+						"%s<%s>",
+						structType,
+						strings.Join(args, ", "),
+					)
 				}
 			}
 			if field.Optional {
 				if isSelfRef {
-					return fmt.Sprintf(`parser.field<x::mem::indirect<%s>>("%s")`, structType, jsonName)
+					return fmt.Sprintf(
+						`parser.field<x::mem::indirect<%s>>("%s")`,
+						structType,
+						jsonName,
+					)
 				}
-				return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, structType, jsonName)
+				return fmt.Sprintf(
+					`parser.field<std::optional<%s>>("%s")`,
+					structType,
+					jsonName,
+				)
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
 		}
@@ -658,7 +739,10 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 			if field.Optional {
 				return fmt.Sprintf(
 					`parser.has("%s") ? std::optional<%s>(%s(parser.child("%s"))) : std::nullopt`,
-					jsonName, cppType, parseFn, jsonName,
+					jsonName,
+					cppType,
+					parseFn,
+					jsonName,
 				)
 			}
 			if hasDefault {
@@ -670,7 +754,9 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 			return fmt.Sprintf(`%s(parser.child("%s"))`, parseFn, jsonName)
 		}
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-			if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
+			if targetResolved, targetOk := aliasForm.Target.Resolve(
+				data.table,
+			); targetOk {
 				if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
 					aliasType := domain.GetName(resolved, "cpp")
 					if resolved.Namespace != data.rawNs {
@@ -681,7 +767,11 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 						}
 					}
 					if field.Optional {
-						return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, aliasType, jsonName)
+						return fmt.Sprintf(
+							`parser.field<std::optional<%s>>("%s")`,
+							aliasType,
+							jsonName,
+						)
 					}
 					return fmt.Sprintf(`parser.field<%s>("%s")`, aliasType, jsonName)
 				}
@@ -689,9 +779,16 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 		}
 	}
 
-	if mapping := primitiveMapper.Map(typeRef.Name); mapping.TargetType != "" && mapping.TargetType != "void" {
+	if mapping := primitiveMapper.Map(
+		typeRef.Name,
+	); mapping.TargetType != "" &&
+		mapping.TargetType != "void" {
 		if field.Optional {
-			return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, cppType, jsonName)
+			return fmt.Sprintf(
+				`parser.field<std::optional<%s>>("%s")`,
+				cppType,
+				jsonName,
+			)
 		}
 		if hasDefault {
 			defaultVal := jsonDefaultLiteral(field, data.table)
@@ -699,7 +796,12 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 				defaultVal = defaultValueForPrimitive(typeRef.Name)
 			}
 			if defaultVal != "" {
-				return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+				return fmt.Sprintf(
+					`parser.field<%s>("%s", %s)`,
+					cppType,
+					jsonName,
+					defaultVal,
+				)
 			}
 		}
 		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
@@ -707,7 +809,11 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 
 	if field.Optional {
 		if isSelfRef {
-			return fmt.Sprintf(`parser.field<x::mem::indirect<%s>>("%s")`, cppType, jsonName)
+			return fmt.Sprintf(
+				`parser.field<x::mem::indirect<%s>>("%s")`,
+				cppType,
+				jsonName,
+			)
 		}
 		return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, cppType, jsonName)
 	}
@@ -726,28 +832,49 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 					defaultVal = fmt.Sprintf("x::telem::Rate(%s)", defaultVal)
 				}
 			}
-			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+			return fmt.Sprintf(
+				`parser.field<%s>("%s", %s)`,
+				cppType,
+				jsonName,
+				defaultVal,
+			)
 		}
 	}
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
 
-func (p *Plugin) genericParseExprsForField(field resolution.Field) (jsonParseExpr, structParseExpr string) {
+func (p *Plugin) genericParseExprsForField(
+	field resolution.Field,
+) (jsonParseExpr, structParseExpr string) {
 	jsonName := toSnakeCase(field.Name)
 	typeParamName := field.Type.TypeParam.Name
 
 	if field.Optional {
-		jsonParseExpr = fmt.Sprintf(`parser.field<std::optional<x::json::json::object_t>>("%s")`, jsonName)
-		structParseExpr = fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, typeParamName, jsonName)
+		jsonParseExpr = fmt.Sprintf(
+			`parser.field<std::optional<x::json::json::object_t>>("%s")`,
+			jsonName,
+		)
+		structParseExpr = fmt.Sprintf(
+			`parser.field<std::optional<%s>>("%s")`,
+			typeParamName,
+			jsonName,
+		)
 	} else {
-		jsonParseExpr = fmt.Sprintf(`parser.field<x::json::json::object_t>("%s")`, jsonName)
+		jsonParseExpr = fmt.Sprintf(
+			`parser.field<x::json::json::object_t>("%s")`,
+			jsonName,
+		)
 		structParseExpr = fmt.Sprintf(`parser.field<%s>("%s")`, typeParamName, jsonName)
 	}
 
 	return jsonParseExpr, structParseExpr
 }
 
-func (p *Plugin) toJSONExprForField(field resolution.Field, data *templateData, isSelfRef bool) string {
+func (p *Plugin) toJSONExprForField(
+	field resolution.Field,
+	data *templateData,
+	isSelfRef bool,
+) string {
 	typeRef := field.Type
 	jsonName := toSnakeCase(field.Name)
 
@@ -774,12 +901,18 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, data *templateData, 
 	// the cycle-through-distinct case doesn't fall through to the default
 	// assignment below, which would be ill-typed against indirect<T>.
 	if isSelfRef {
-		return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
+		return fmt.Sprintf(
+			`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
+			fieldName,
+			jsonName,
+			fieldName,
+		)
 	}
 
 	if resolved, ok := typeRef.Resolve(data.table); ok {
 		if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
-			if distinctForm.Base.Name == "Array" && len(distinctForm.Base.TypeArgs) > 0 {
+			if distinctForm.Base.Name == "Array" &&
+				len(distinctForm.Base.TypeArgs) > 0 {
 				return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 			}
 		}
@@ -804,9 +937,18 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, data *templateData, 
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
 			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 				if field.Optional {
-					return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = x::json::to_array(*this->%s);`, fieldName, jsonName, fieldName)
+					return fmt.Sprintf(
+						`if (this->%s.has_value()) j["%s"] = x::json::to_array(*this->%s);`,
+						fieldName,
+						jsonName,
+						fieldName,
+					)
 				}
-				return fmt.Sprintf(`j["%s"] = x::json::to_array(this->%s);`, jsonName, fieldName)
+				return fmt.Sprintf(
+					`j["%s"] = x::json::to_array(this->%s);`,
+					jsonName,
+					fieldName,
+				)
 			}
 			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
 				// Qualify the free to_json: unqualified lookup inside a member
@@ -844,7 +986,12 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, data *templateData, 
 		}
 
 		if field.Optional {
-			return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = *this->%s;`, fieldName, jsonName, fieldName)
+			return fmt.Sprintf(
+				`if (this->%s.has_value()) j["%s"] = *this->%s;`,
+				fieldName,
+				jsonName,
+				fieldName,
+			)
 		}
 		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
 	}
@@ -853,10 +1000,20 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, data *templateData, 
 	if resolvedOk {
 		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
 			if isSelfRef {
-				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
+				return fmt.Sprintf(
+					`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
+					fieldName,
+					jsonName,
+					fieldName,
+				)
 			}
 			if field.Optional {
-				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
+				return fmt.Sprintf(
+					`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
+					fieldName,
+					jsonName,
+					fieldName,
+				)
 			}
 			return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 		}
@@ -872,30 +1029,58 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, data *templateData, 
 				}
 			}
 			if field.Optional {
-				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = %s::to_json(*this->%s);`, fieldName, jsonName, qualifier, fieldName)
+				return fmt.Sprintf(
+					`if (this->%s.has_value()) j["%s"] = %s::to_json(*this->%s);`,
+					fieldName,
+					jsonName,
+					qualifier,
+					fieldName,
+				)
 			}
-			return fmt.Sprintf(`j["%s"] = %s::to_json(this->%s);`, jsonName, qualifier, fieldName)
+			return fmt.Sprintf(
+				`j["%s"] = %s::to_json(this->%s);`,
+				jsonName,
+				qualifier,
+				fieldName,
+			)
 		}
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
-			if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
+			if targetResolved, targetOk := aliasForm.Target.Resolve(
+				data.table,
+			); targetOk {
 				if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
 					if field.Optional {
-						return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
+						return fmt.Sprintf(
+							`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
+							fieldName,
+							jsonName,
+							fieldName,
+						)
 					}
-					return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
+					return fmt.Sprintf(
+						`j["%s"] = this->%s.to_json();`,
+						jsonName,
+						fieldName,
+					)
 				}
 			}
 		}
 	}
 
 	lowerName := strings.ToLower(typeRef.Name)
-	if strings.HasSuffix(lowerName, "timestamp") || strings.HasSuffix(lowerName, "timespan") {
+	if strings.HasSuffix(lowerName, "timestamp") ||
+		strings.HasSuffix(lowerName, "timespan") {
 		return fmt.Sprintf(`j["%s"] = this->%s.nanoseconds();`, jsonName, fieldName)
 	}
 
 	if typeRef.Name == "uuid" || p.resolvesToUUID(typeRef, data) {
 		if field.Optional {
-			return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
+			return fmt.Sprintf(
+				`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`,
+				fieldName,
+				jsonName,
+				fieldName,
+			)
 		}
 		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 	}
@@ -941,7 +1126,11 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 		}
 		return ""
 	case resolution.ValueKindIdent:
-		if ev, ok := validation.ResolveEnumVariant(v.IdentValue, field.Type, table); ok {
+		if ev, ok := validation.ResolveEnumVariant(
+			v.IdentValue,
+			field.Type,
+			table,
+		); ok {
 			return fmt.Sprintf("%q", ev.Variant.StringValue())
 		}
 		if v.IdentValue == "true" || v.IdentValue == "false" {

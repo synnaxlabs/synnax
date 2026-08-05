@@ -9,12 +9,11 @@
 
 import random
 
-import synnax as sy
-from console.case import ConsoleCase
 from console.task.analog_write import AnalogWrite
+from tests.console.task.ni_rack_case import NIRackCase
 
 
-class NIAnalogWriteForms(ConsoleCase):
+class NIAnalogWriteForms(NIRackCase):
     """
     Test the input selection for each channel type. Not running the tasks here.
     Only verify that each input type (dropdown/int/float) can be
@@ -42,7 +41,7 @@ class NIAnalogWriteForms(ConsoleCase):
             auto_start=False,
         )
 
-        self.create_test_rack(rack_name, device_name)
+        self.create_test_ni_rack(rack_name, device_name)
         self.verify_voltage_inputs(ni_ao, device_name)
         self.verify_current_inputs(ni_ao, device_name)
 
@@ -53,22 +52,6 @@ class NIAnalogWriteForms(ConsoleCase):
         self.log(f"Asserting {total} channel forms in random order")
         for ch in ch_names:
             ni_ao.assert_channel(ch)
-
-    def create_test_rack(self, rack_name: str, device_name: str) -> None:
-        rack = self.client.racks.create(name=rack_name)
-        self.client.devices.create(
-            [
-                sy.ni.Device(
-                    key="130227d7-02cc-4733-b370-0d590add1bc4",
-                    rack=rack.key,
-                    name=device_name,
-                    model="NI 9229",
-                    location=device_name,
-                    identifier=f"{device_name}Mod1",
-                )
-            ]
-        )
-        sy.sleep(1)
 
     def verify_voltage_inputs(self, ni_ao: AnalogWrite, device_name: str) -> None:
         """Validate voltage inputs"""

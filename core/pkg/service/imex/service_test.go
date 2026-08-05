@@ -47,8 +47,8 @@ func sampleEnvelope(name string, typ ontology.ResourceType) imex.Envelope {
 }
 
 type testEntry struct {
-	Key      string `json:"key" msgpack:"key"`
-	Name     string `json:"name" msgpack:"name"`
+	Key      string `json:"key"       msgpack:"key"`
+	Name     string `json:"name"      msgpack:"name"`
 	FieldOne string `json:"field_one" msgpack:"field_one"`
 	FieldTwo int    `json:"field_two" msgpack:"field_two"`
 }
@@ -99,7 +99,10 @@ func (s *testService) Import(
 	}
 	if opts.Project != uuid.Nil {
 		if err := w.DefineRelationships(
-			ctx, project.OntologyID(opts.Project), ontology.RelationshipTypeParentOf, id,
+			ctx,
+			project.OntologyID(opts.Project),
+			ontology.RelationshipTypeParentOf,
+			id,
 		); err != nil {
 			return ontology.ID{}, err
 		}
@@ -107,7 +110,10 @@ func (s *testService) Import(
 	return id, nil
 }
 
-func (s *testService) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
+func (s *testService) Export(
+	ctx context.Context,
+	id ontology.ID,
+) (imex.Envelope, error) {
 	var e testEntry
 	if err := s.table.NewRetrieve().
 		Where(gorp.MatchKeys[string, testEntry](id.Key)).
@@ -115,7 +121,10 @@ func (s *testService) Export(ctx context.Context, id ontology.ID) (imex.Envelope
 		Exec(ctx, s.db); err != nil {
 		return imex.Envelope{}, err
 	}
-	env := imex.Envelope{Version: testVersion, Type: string(ontology.ResourceTypeChannel)}
+	env := imex.Envelope{
+		Version: testVersion,
+		Type:    string(ontology.ResourceTypeChannel),
+	}
 	if err := imex.Encode(
 		&env,
 		testResource{Name: e.Name, FieldOne: e.FieldOne, FieldTwo: e.FieldTwo},
@@ -195,19 +204,25 @@ var _ = Describe("Service", func() {
 			).To(Equal(ontology.ResourceTypeChannel))
 		})
 
-		It("Should return a validation error scoped to the type field if not registered", func() {
-			Expect(svc.ImporterType("nonexistent")).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("type")),
-				MatchError(ContainSubstring("no importer registered")),
-				MatchError(ContainSubstring("validation error")),
-			))
-		})
+		It(
+			"Should return a validation error scoped to the type field if not registered",
+			func() {
+				Expect(svc.ImporterType("nonexistent")).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("type")),
+					MatchError(ContainSubstring("no importer registered")),
+					MatchError(ContainSubstring("validation error")),
+				))
+			},
+		)
 	})
 
 	Describe("RegisterImporter", func() {
 		It("Should register an importer under a narrow type string", func() {
 			s := imex.NewService()
-			s.RegisterImporter("narrow", noopImporter{typ: ontology.ResourceTypeChannel})
+			s.RegisterImporter(
+				"narrow",
+				noopImporter{typ: ontology.ResourceTypeChannel},
+			)
 			Expect(s.ImporterType("narrow")).To(Equal(ontology.ResourceTypeChannel))
 		})
 
@@ -215,8 +230,14 @@ var _ = Describe("Service", func() {
 			"Should map the narrow type to the importer's broader Type for access control",
 			func(ctx SpecContext) {
 				s := imex.NewService()
-				s.RegisterImporter("http_read", noopImporter{typ: ontology.ResourceTypeTask})
-				s.RegisterImporter("opc_scan", noopImporter{typ: ontology.ResourceTypeTask})
+				s.RegisterImporter(
+					"http_read",
+					noopImporter{typ: ontology.ResourceTypeTask},
+				)
+				s.RegisterImporter(
+					"opc_scan",
+					noopImporter{typ: ontology.ResourceTypeTask},
+				)
 				Expect(s.ImporterType("http_read")).To(Equal(ontology.ResourceTypeTask))
 				Expect(s.ImporterType("opc_scan")).To(Equal(ontology.ResourceTypeTask))
 				k1 := MustSucceed(s.Import(
@@ -229,8 +250,12 @@ var _ = Describe("Service", func() {
 					imex.Envelope{Version: 1, Type: "opc_scan", Name: "scan"},
 					imex.ImportOptions{},
 				))
-				Expect(k1).To(Equal(ontology.ID{Type: ontology.ResourceTypeTask, Key: "noop-key"}))
-				Expect(k2).To(Equal(ontology.ID{Type: ontology.ResourceTypeTask, Key: "noop-key"}))
+				Expect(
+					k1,
+				).To(Equal(ontology.ID{Type: ontology.ResourceTypeTask, Key: "noop-key"}))
+				Expect(
+					k2,
+				).To(Equal(ontology.ID{Type: ontology.ResourceTypeTask, Key: "noop-key"}))
 			},
 		)
 	})
@@ -249,14 +274,19 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Import", func() {
-		It("Should route to the correct service by type and return the new ID", func(ctx SpecContext) {
-			id := MustSucceed(svc.Import(
-				ctx, db, sampleEnvelope("Registry Test", ontology.ResourceTypeChannel),
-				imex.ImportOptions{},
-			))
-			Expect(id.Type).To(Equal(ontology.ResourceTypeChannel))
-			Expect(id.Key).NotTo(BeEmpty())
-		})
+		It(
+			"Should route to the correct service by type and return the new ID",
+			func(ctx SpecContext) {
+				id := MustSucceed(svc.Import(
+					ctx,
+					db,
+					sampleEnvelope("Registry Test", ontology.ResourceTypeChannel),
+					imex.ImportOptions{},
+				))
+				Expect(id.Type).To(Equal(ontology.ResourceTypeChannel))
+				Expect(id.Key).NotTo(BeEmpty())
+			},
+		)
 
 		It("Should reject an unregistered type", func(ctx SpecContext) {
 			env := imex.Envelope{
@@ -264,43 +294,54 @@ var _ = Describe("Service", func() {
 				Type:    "nonexistent",
 				Name:    "Bad Type",
 			}
-			Expect(svc.Import(ctx, db, env, imex.ImportOptions{})).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("no importer registered")),
-				MatchError(ContainSubstring("validation error")),
-			))
+			Expect(
+				svc.Import(ctx, db, env, imex.ImportOptions{}),
+			).Error().
+				To(SatisfyAll(
+					MatchError(ContainSubstring("no importer registered")),
+					MatchError(ContainSubstring("validation error")),
+				))
 		})
-		It("Should pass errors from the importer through verbatim", func(ctx SpecContext) {
-			Expect(svc.Import(
-				ctx, db, sampleEnvelope("Erroring", ontology.ResourceTypeDevice),
-				imex.ImportOptions{},
-			)).Error().To(MatchError(ContainSubstring("importer error: forced failure")))
-		})
-
-		It("Should roll back the transaction when a sibling envelope fails", func(ctx SpecContext) {
-			// Per-envelope atomicity is now the caller's responsibility —
-			// Service.Import takes a single envelope on a single Tx, and the caller
-			// wraps the multi- envelope batch in db.WithTx. This test exercises that
-			// contract: the bad envelope causes the tx callback to return early, so the
-			// good envelope's write is rolled back along with it.
-			err := db.WithTx(ctx, func(tx gorp.Tx) error {
-				if _, err := svc.Import(
-					ctx, tx, sampleEnvelope("Good Record", ontology.ResourceTypeChannel),
+		It(
+			"Should pass errors from the importer through verbatim",
+			func(ctx SpecContext) {
+				Expect(svc.Import(
+					ctx, db, sampleEnvelope("Erroring", ontology.ResourceTypeDevice),
 					imex.ImportOptions{},
-				); err != nil {
+				)).Error().To(MatchError(ContainSubstring("importer error: forced failure")))
+			},
+		)
+
+		It(
+			"Should roll back the transaction when a sibling envelope fails",
+			func(ctx SpecContext) {
+				// Per-envelope atomicity is now the caller's responsibility —
+				// Service.Import takes a single envelope on a single Tx, and the caller
+				// wraps the multi- envelope batch in db.WithTx. This test exercises
+				// that contract: the bad envelope causes the tx callback to return
+				// early, so the good envelope's write is rolled back along with it.
+				err := db.WithTx(ctx, func(tx gorp.Tx) error {
+					if _, err := svc.Import(
+						ctx,
+						tx,
+						sampleEnvelope("Good Record", ontology.ResourceTypeChannel),
+						imex.ImportOptions{},
+					); err != nil {
+						return err
+					}
+					_, err := svc.Import(ctx, tx, imex.Envelope{
+						Version: testVersion,
+						Type:    "nonexistent",
+						Name:    "Bad Type",
+					}, imex.ImportOptions{})
 					return err
-				}
-				_, err := svc.Import(ctx, tx, imex.Envelope{
-					Version: testVersion,
-					Type:    "nonexistent",
-					Name:    "Bad Type",
-				}, imex.ImportOptions{})
-				return err
-			})
-			Expect(err).To(MatchError(ContainSubstring("no importer registered")))
-			Expect(ts.Retrieve(ctx, "Good Record")).Error().To(
-				MatchError(query.ErrNotFound),
-			)
-		})
+				})
+				Expect(err).To(MatchError(ContainSubstring("no importer registered")))
+				Expect(ts.Retrieve(ctx, "Good Record")).Error().To(
+					MatchError(query.ErrNotFound),
+				)
+			},
+		)
 	})
 
 	Describe("Import Options", func() {
@@ -316,33 +357,44 @@ var _ = Describe("Service", func() {
 		}
 
 		Describe("FileName", func() {
-			It("Should fall back to the file name without its extension when the envelope has no name", func(ctx SpecContext) {
-				id := MustSucceed(svc.Import(
-					ctx, db, namelessEnvelope(),
-					imex.ImportOptions{FileName: "Metrics Log.json"},
-				))
-				Expect(id.Key).NotTo(BeEmpty())
-				entry := MustSucceed(ts.Retrieve(ctx, "Metrics Log"))
-				Expect(entry.Key).To(Equal(id.Key))
-			})
+			It(
+				"Should fall back to the file name without its extension when the envelope has no name",
+				func(ctx SpecContext) {
+					id := MustSucceed(svc.Import(
+						ctx, db, namelessEnvelope(),
+						imex.ImportOptions{FileName: "Metrics Log.json"},
+					))
+					Expect(id.Key).NotTo(BeEmpty())
+					entry := MustSucceed(ts.Retrieve(ctx, "Metrics Log"))
+					Expect(entry.Key).To(Equal(id.Key))
+				},
+			)
 
-			It("Should prefer the envelope's name over the file name", func(ctx SpecContext) {
-				id := MustSucceed(svc.Import(
-					ctx, db, sampleEnvelope("Body Name", ontology.ResourceTypeChannel),
-					imex.ImportOptions{FileName: "File Name.json"},
-				))
-				entry := MustSucceed(ts.Retrieve(ctx, "Body Name"))
-				Expect(entry.Key).To(Equal(id.Key))
-			})
+			It(
+				"Should prefer the envelope's name over the file name",
+				func(ctx SpecContext) {
+					id := MustSucceed(svc.Import(
+						ctx,
+						db,
+						sampleEnvelope("Body Name", ontology.ResourceTypeChannel),
+						imex.ImportOptions{FileName: "File Name.json"},
+					))
+					entry := MustSucceed(ts.Retrieve(ctx, "Body Name"))
+					Expect(entry.Key).To(Equal(id.Key))
+				},
+			)
 
-			It("Should reject an envelope with neither a name nor a file name", func(ctx SpecContext) {
-				Expect(svc.Import(
-					ctx, db, namelessEnvelope(), imex.ImportOptions{},
-				)).Error().To(SatisfyAll(
-					MatchError(ContainSubstring("name must be a non-empty string")),
-					MatchError(ContainSubstring("validation error")),
-				))
-			})
+			It(
+				"Should reject an envelope with neither a name nor a file name",
+				func(ctx SpecContext) {
+					Expect(svc.Import(
+						ctx, db, namelessEnvelope(), imex.ImportOptions{},
+					)).Error().To(SatisfyAll(
+						MatchError(ContainSubstring("name must be a non-empty string")),
+						MatchError(ContainSubstring("validation error")),
+					))
+				},
+			)
 		})
 
 		Describe("Project", func() {
@@ -354,55 +406,71 @@ var _ = Describe("Service", func() {
 				)).To(Succeed())
 			})
 
-			It("Should attach the imported resource under the given project", func(ctx SpecContext) {
-				id := MustSucceed(svc.Import(
-					ctx, db, sampleEnvelope("Parented", ontology.ResourceTypeChannel),
-					imex.ImportOptions{Project: projectKey},
-				))
-				Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-					From: project.OntologyID(projectKey),
-					Type: ontology.RelationshipTypeParentOf,
-					To:   id,
-				})).To(BeTrue())
-			})
+			It(
+				"Should attach the imported resource under the given project",
+				func(ctx SpecContext) {
+					id := MustSucceed(svc.Import(
+						ctx,
+						db,
+						sampleEnvelope("Parented", ontology.ResourceTypeChannel),
+						imex.ImportOptions{Project: projectKey},
+					))
+					Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
+						From: project.OntologyID(projectKey),
+						Type: ontology.RelationshipTypeParentOf,
+						To:   id,
+					})).To(BeTrue())
+				},
+			)
 
-			It("Should roll back the import when the project does not exist", func(ctx SpecContext) {
-				err := db.WithTx(ctx, func(tx gorp.Tx) error {
-					_, err := svc.Import(
-						ctx, tx,
-						sampleEnvelope("Orphaned", ontology.ResourceTypeChannel),
-						imex.ImportOptions{Project: uuid.New()},
+			It(
+				"Should roll back the import when the project does not exist",
+				func(ctx SpecContext) {
+					err := db.WithTx(ctx, func(tx gorp.Tx) error {
+						_, err := svc.Import(
+							ctx, tx,
+							sampleEnvelope("Orphaned", ontology.ResourceTypeChannel),
+							imex.ImportOptions{Project: uuid.New()},
+						)
+						return err
+					})
+					Expect(err).To(MatchError(query.ErrNotFound))
+					Expect(ts.Retrieve(ctx, "Orphaned")).Error().To(
+						MatchError(query.ErrNotFound),
 					)
-					return err
-				})
-				Expect(err).To(MatchError(query.ErrNotFound))
-				Expect(ts.Retrieve(ctx, "Orphaned")).Error().To(
-					MatchError(query.ErrNotFound),
-				)
-			})
+				},
+			)
 		})
 	})
 
 	Describe("Export", func() {
-		It("Should round-trip a registered resource through Import then Export", func(ctx SpecContext) {
-			id := MustSucceed(svc.Import(
-				ctx, db, sampleEnvelope("Round Trip", ontology.ResourceTypeChannel),
-				imex.ImportOptions{},
-			))
-			env := MustSucceed(svc.Export(ctx, id))
-			Expect(env.Version).To(Equal(testVersion))
-			Expect(env.Type).To(Equal(string(ontology.ResourceTypeChannel)))
-			Expect(env.Name).To(Equal("Round Trip"))
-			roundTripped := MustSucceed(imex.Decode[testResource](ctx, WireRoundTrip(env)))
-			Expect(roundTripped.FieldOne).To(Equal("value"))
-			Expect(roundTripped.FieldTwo).To(Equal(42))
-		})
-		It("Should pass errors from the exporter through verbatim", func(ctx SpecContext) {
-			Expect(svc.Export(ctx, ontology.ID{
-				Type: ontology.ResourceTypeDevice,
-				Key:  "any-key",
-			})).Error().To(MatchError(ContainSubstring("exporter error: forced failure")))
-		})
+		It(
+			"Should round-trip a registered resource through Import then Export",
+			func(ctx SpecContext) {
+				id := MustSucceed(svc.Import(
+					ctx, db, sampleEnvelope("Round Trip", ontology.ResourceTypeChannel),
+					imex.ImportOptions{},
+				))
+				env := MustSucceed(svc.Export(ctx, id))
+				Expect(env.Version).To(Equal(testVersion))
+				Expect(env.Type).To(Equal(string(ontology.ResourceTypeChannel)))
+				Expect(env.Name).To(Equal("Round Trip"))
+				roundTripped := MustSucceed(
+					imex.Decode[testResource](ctx, WireRoundTrip(env)),
+				)
+				Expect(roundTripped.FieldOne).To(Equal("value"))
+				Expect(roundTripped.FieldTwo).To(Equal(42))
+			},
+		)
+		It(
+			"Should pass errors from the exporter through verbatim",
+			func(ctx SpecContext) {
+				Expect(svc.Export(ctx, ontology.ID{
+					Type: ontology.ResourceTypeDevice,
+					Key:  "any-key",
+				})).Error().To(MatchError(ContainSubstring("exporter error: forced failure")))
+			},
+		)
 
 		It("Should reject an unregistered type", func(ctx SpecContext) {
 			Expect(svc.Export(ctx, ontology.ID{
@@ -416,30 +484,36 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Concurrency", func() {
-		It("Should be safe to register and look up handlers from multiple goroutines", func() {
-			s := imex.NewService()
-			const N = 64
-			types := make([]string, N)
-			for i := range types {
-				types[i] = fmt.Sprintf("type-%d", i)
-			}
-			var wg sync.WaitGroup
-			wg.Add(N)
-			for _, t := range types {
-				go func(t string) {
-					defer wg.Done()
-					s.RegisterImporter(t, noopImporter{typ: ontology.ResourceTypeTask})
-				}(t)
-			}
-			wg.Wait()
-			wg.Add(N)
-			for _, t := range types {
-				go func(t string) {
-					defer wg.Done()
-					Expect(s.ImporterType(t)).To(Equal(ontology.ResourceTypeTask))
-				}(t)
-			}
-			wg.Wait()
-		})
+		It(
+			"Should be safe to register and look up handlers from multiple goroutines",
+			func() {
+				s := imex.NewService()
+				const N = 64
+				types := make([]string, N)
+				for i := range types {
+					types[i] = fmt.Sprintf("type-%d", i)
+				}
+				var wg sync.WaitGroup
+				wg.Add(N)
+				for _, t := range types {
+					go func(t string) {
+						defer wg.Done()
+						s.RegisterImporter(
+							t,
+							noopImporter{typ: ontology.ResourceTypeTask},
+						)
+					}(t)
+				}
+				wg.Wait()
+				wg.Add(N)
+				for _, t := range types {
+					go func(t string) {
+						defer wg.Done()
+						Expect(s.ImporterType(t)).To(Equal(ontology.ResourceTypeTask))
+					}(t)
+				}
+				wg.Wait()
+			},
+		)
 	})
 })

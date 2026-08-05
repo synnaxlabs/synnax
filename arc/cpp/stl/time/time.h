@@ -13,6 +13,8 @@
 #include <memory>
 #include <numeric>
 
+#include "wasmtime.hh"
+
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 

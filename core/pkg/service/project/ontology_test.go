@@ -28,12 +28,15 @@ import (
 
 var _ = Describe("Ontology", func() {
 	Describe("OntologyID", func() {
-		It("Should build an ontology ID with the project resource type and the key", func() {
-			key := uuid.New()
-			id := project.OntologyID(key)
-			Expect(id.Type).To(Equal(ontology.ResourceTypeProject))
-			Expect(id.Key).To(Equal(key.String()))
-		})
+		It(
+			"Should build an ontology ID with the project resource type and the key",
+			func() {
+				key := uuid.New()
+				id := project.OntologyID(key)
+				Expect(id.Type).To(Equal(ontology.ResourceTypeProject))
+				Expect(id.Key).To(Equal(key.String()))
+			},
+		)
 	})
 	Describe("OntologyIDs", func() {
 		It("Should map a slice of keys to ontology IDs", func() {
@@ -82,53 +85,64 @@ var _ = Describe("Ontology", func() {
 			Expect(resource.ID).To(Equal(p.OntologyID()))
 			Expect(resource.Name).To(Equal("resource"))
 		})
-		It("Should return an error when the key is not a valid UUID", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, "not-a-uuid", nil)).Error().
-				To(MatchError(ContainSubstring("invalid UUID")))
-		})
-		It("Should return query.ErrNotFound when no project has the given key", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, uuid.NewString(), nil)).Error().
-				To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should return an error when the key is not a valid UUID",
+			func(ctx SpecContext) {
+				Expect(svc.RetrieveResource(ctx, "not-a-uuid", nil)).Error().
+					To(MatchError(ContainSubstring("invalid UUID")))
+			},
+		)
+		It(
+			"Should return query.ErrNotFound when no project has the given key",
+			func(ctx SpecContext) {
+				Expect(svc.RetrieveResource(ctx, uuid.NewString(), nil)).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 	Describe("OnChange", func() {
-		It("Should publish set and delete changes translated into ontology changes", func(ctx SpecContext) {
-			var (
-				mu      sync.Mutex
-				changes []ontology.Change
-			)
-			disconnect := svc.OnChange(func(_ context.Context, it iter.Seq[ontology.Change]) {
-				mu.Lock()
-				defer mu.Unlock()
-				changes = append(changes, slices.Collect(it)...)
-			})
-			DeferCleanup(disconnect)
+		It(
+			"Should publish set and delete changes translated into ontology changes",
+			func(ctx SpecContext) {
+				var (
+					mu      sync.Mutex
+					changes []ontology.Change
+				)
+				disconnect := svc.OnChange(
+					func(_ context.Context, it iter.Seq[ontology.Change]) {
+						mu.Lock()
+						defer mu.Unlock()
+						changes = append(changes, slices.Collect(it)...)
+					},
+				)
+				DeferCleanup(disconnect)
 
-			p := project.Project{Key: uuid.New(), Name: "observed"}
-			Expect(writer.Create(ctx, &p)).To(Succeed())
-			expectedID := p.OntologyID().String()
+				p := project.Project{Key: uuid.New(), Name: "observed"}
+				Expect(writer.Create(ctx, &p)).To(Succeed())
+				expectedID := p.OntologyID().String()
 
-			Eventually(func(g Gomega) {
-				mu.Lock()
-				defer mu.Unlock()
-				idx := slices.IndexFunc(changes, func(c ontology.Change) bool {
-					return c.Key == expectedID && c.Variant == xchange.VariantSet
-				})
-				g.Expect(idx).ToNot(Equal(-1))
-				g.Expect(changes[idx].Value.Name).To(Equal("observed"))
-			}).Should(Succeed())
+				Eventually(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					idx := slices.IndexFunc(changes, func(c ontology.Change) bool {
+						return c.Key == expectedID && c.Variant == xchange.VariantSet
+					})
+					g.Expect(idx).ToNot(Equal(-1))
+					g.Expect(changes[idx].Value.Name).To(Equal("observed"))
+				}).Should(Succeed())
 
-			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 
-			Eventually(func(g Gomega) {
-				mu.Lock()
-				defer mu.Unlock()
-				g.Expect(changes).To(ContainElement(SatisfyAll(
-					HaveField("Key", expectedID),
-					HaveField("Variant", xchange.VariantDelete),
-				)))
-			}).Should(Succeed())
-		})
+				Eventually(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					g.Expect(changes).To(ContainElement(SatisfyAll(
+						HaveField("Key", expectedID),
+						HaveField("Variant", xchange.VariantDelete),
+					)))
+				}).Should(Succeed())
+			},
+		)
 	})
 	Describe("OpenNexter", func() {
 		It("Should iterate over all projects currently stored", func(ctx SpecContext) {

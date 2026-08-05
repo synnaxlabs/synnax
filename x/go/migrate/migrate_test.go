@@ -66,7 +66,10 @@ func cfg(migrations ...migrate.Migration) migrate.Config {
 	}
 }
 
-func cfgWithApplied(applied set.Set[string], migrations ...migrate.Migration) migrate.Config {
+func cfgWithApplied(
+	applied set.Set[string],
+	migrations ...migrate.Migration,
+) migrate.Config {
 	return migrate.Config{
 		Migrations: migrations,
 		Applied:    applied,
@@ -111,18 +114,26 @@ var _ = Describe("Migrate", func() {
 			Expect(order).To(Equal([]string{"b"}))
 		})
 
-		It("Should return the updated applied set including newly run migrations", func() {
-			applied := MustSucceed(migrate.Migrate(ctx, cfg(noop("a"), noop("b"))))
-			Expect(applied).To(HaveLen(2))
-			Expect(applied.Contains("a")).To(BeTrue())
-			Expect(applied.Contains("b")).To(BeTrue())
-		})
+		It(
+			"Should return the updated applied set including newly run migrations",
+			func() {
+				applied := MustSucceed(migrate.Migrate(ctx, cfg(noop("a"), noop("b"))))
+				Expect(applied).To(HaveLen(2))
+				Expect(applied.Contains("a")).To(BeTrue())
+				Expect(applied.Contains("b")).To(BeTrue())
+			},
+		)
 
-		It("Should return the applied set unchanged when all migrations are applied", func() {
-			applied := set.New("a", "b")
-			result := MustSucceed(migrate.Migrate(ctx, cfgWithApplied(applied, noop("a"), noop("b"))))
-			Expect(result).To(HaveLen(2))
-		})
+		It(
+			"Should return the applied set unchanged when all migrations are applied",
+			func() {
+				applied := set.New("a", "b")
+				result := MustSucceed(
+					migrate.Migrate(ctx, cfgWithApplied(applied, noop("a"), noop("b"))),
+				)
+				Expect(result).To(HaveLen(2))
+			},
+		)
 
 		It("Should handle an empty migrations list", func() {
 			applied := MustSucceed(migrate.Migrate(ctx, cfg()))

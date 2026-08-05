@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package gomod provides utilities for parsing go.mod files and resolving Go import paths.
+// Package gomod provides utilities for parsing go.mod files and resolving Go import
+// paths.
 package gomod
 
 import (

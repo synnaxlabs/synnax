@@ -203,7 +203,11 @@ var byteOrder = telem.ByteOrder
 // NewStatic creates a new codec that uses the given channel keys and data types as
 // its encoding state with default configuration (alignment compression enabled).
 // It is not safe to call Update on a codec instantiated using NewStatic.
-func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType, opts ...Option) *Codec {
+func NewStatic(
+	channelKeys channel.Keys,
+	dataTypes []telem.DataType,
+	opts ...Option,
+) *Codec {
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
 	}
@@ -392,7 +396,12 @@ func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 
 func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
-		panic(fmt.Sprintf("[framer.codec] - dynamic codec was not updated for first call to %s", opName))
+		panic(
+			fmt.Sprintf(
+				"[framer.codec] - dynamic codec was not updated for first call to %s",
+				opName,
+			),
+		)
 	}
 }
 
@@ -585,8 +594,11 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			(s.DataType == telem.Int64T || s.DataType == telem.TimeStampT)
 		if dt != s.DataType && !isEquivalent {
 			return errors.Wrapf(
-				validate.ErrValidation, "data type %s for channel %s does not match series data type %s",
-				dt, c.retrieveName(ctx, key), s.DataType,
+				validate.ErrValidation,
+				"data type %s for channel %s does not match series data type %s",
+				dt,
+				c.retrieveName(ctx, key),
+				s.DataType,
 			)
 		}
 	}
@@ -605,7 +617,8 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			c.encodeSorter.offset,
 		)
 	} else {
-		// No merging - create series info directly from sorted data using reusable slice
+		// No merging - create series info directly from sorted data using reusable
+		// slice
 		count := c.encodeSorter.offset
 		if cap(c.mergedSeriesResult) < count {
 			c.mergedSeriesResult = make([]mergedSeriesInfo, 0, count)
@@ -675,7 +688,8 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		}
 	}
 
-	fgs.timeRangesZero = fgs.equalTimeRanges && refTr.Start.IsZero() && refTr.End.IsZero()
+	fgs.timeRangesZero = fgs.equalTimeRanges && refTr.Start.IsZero() &&
+		refTr.End.IsZero()
 	fgs.zeroAlignments = fgs.equalAlignments && refAlignment == 0
 
 	// Calculate metadata size based on merged series count
@@ -773,7 +787,12 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
 		states := lo.Keys(c.mu.states)
-		err = errors.Wrapf(validate.ErrValidation, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
+		err = errors.Wrapf(
+			validate.ErrValidation,
+			"[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v",
+			seqNum,
+			states,
+		)
 		return framer.Frame{}, err
 	}
 	fgs := decodeFlags(flagB)
@@ -874,5 +893,8 @@ func (c *Codec) readTimeRange() (telem.TimeRange, error) {
 	if err != nil {
 		return telem.TimeRange{}, err
 	}
-	return telem.TimeRange{Start: telem.TimeStamp(start), End: telem.TimeStamp(end)}, nil
+	return telem.TimeRange{
+		Start: telem.TimeStamp(start),
+		End:   telem.TimeStamp(end),
+	}, nil
 }

@@ -103,17 +103,23 @@ func init() { AddFlags(Cmd) }
 // This is used by the Windows service to start the Core with the config loaded from
 // a YAML file.
 func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
-	peers := lo.Map(viper.GetStringSlice(FlagPeers), func(peer string, _ int) address.Address {
-		return address.Address(peer)
-	})
+	peers := lo.Map(
+		viper.GetStringSlice(FlagPeers),
+		func(peer string, _ int) address.Address {
+			return address.Address(peer)
+		},
+	)
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
 	listeners, err := listener.Parse()
 	if err != nil {
 		return CoreConfig{}, err
 	}
-	factoryCfg.Hosts = lo.Map(listeners, func(l listener.Config, _ int) address.Address {
-		return l.Address
-	})
+	factoryCfg.Hosts = lo.Map(
+		listeners,
+		func(l listener.Config, _ int) address.Address {
+			return l.Address
+		},
+	)
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),

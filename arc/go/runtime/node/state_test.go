@@ -23,127 +23,142 @@ import (
 
 var _ = Describe("ProgramState", func() {
 	Describe("Input Alignment", func() {
-		It("Should correctly order the inputs regardless of edge order", func(ctx SpecContext) {
-			g := graph.Graph{
-				Nodes: graph.Nodes{
-					{Key: "in1"},
-					{Key: "in2"},
-					{Key: "in3"},
-					{Key: "target"},
-				},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"in1":    {"type": "in1"},
-					"in2":    {"type": "in2"},
-					"in3":    {"type": "in3"},
-					"target": {"type": "target"},
-				},
-				Edges: graph.Edges{
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "in2", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "target", Param: "in2"},
-					}},
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "in1", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "target", Param: "in1"},
-					}},
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "in3", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "target", Param: "in3"},
-					}},
-				},
-				Functions: []ir.Function{
-					{
-						Key: "in1",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.I32()},
+		It(
+			"Should correctly order the inputs regardless of edge order",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Nodes: graph.Nodes{
+						{Key: "in1"},
+						{Key: "in2"},
+						{Key: "in3"},
+						{Key: "target"},
+					},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"in1":    {"type": "in1"},
+						"in2":    {"type": "in2"},
+						"in3":    {"type": "in3"},
+						"target": {"type": "target"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "in2",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "target", Param: "in2"},
+						}},
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "in1",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "target", Param: "in1"},
+						}},
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "in3",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "target", Param: "in3"},
+						}},
+					},
+					Functions: []ir.Function{
+						{
+							Key: "in1",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
+						},
+						{
+							Key: "in2",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
+						},
+						{
+							Key: "in3",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.U8()},
+							},
+						},
+						{
+							Key: "target",
+							Inputs: types.Params{
+								{Name: "in1", Type: types.I32()},
+								{Name: "in2", Type: types.F32()},
+								{Name: "in3", Type: types.U8()},
+							},
 						},
 					},
-					{
-						Key: "in2",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.F32()},
-						},
-					},
-					{
-						Key: "in3",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.U8()},
-						},
-					},
-					{
-						Key: "target",
-						Inputs: types.Params{
-							{Name: "in1", Type: types.I32()},
-							{Name: "in2", Type: types.F32()},
-							{Name: "in3", Type: types.U8()},
-						},
-					},
-				},
-			}
-			ir, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			var (
-				s      = node.New(ir)
-				in1    = s.Node("in1")
-				in2    = s.Node("in2")
-				in3    = s.Node("in3")
-				target = s.Node("target")
-			)
-			*in1.Output(0) = telem.NewSeriesV[int32](1)
-			*in1.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			*in2.Output(0) = telem.NewSeriesV[float32](2)
-			*in2.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
-			*in3.Output(0) = telem.NewSeriesV[uint8](3)
-			*in3.OutputTime(0) = telem.NewSeriesSecondsTSV(3)
-			target.RefreshInputs()
-			target1In1 := target.Input(0)
-			Expect(target1In1).To(telem.MatchSeriesDataV[int32](1))
-			target1In2 := target.Input(1)
-			Expect(target1In2).To(telem.MatchSeriesDataV[float32](2))
-			target1In3 := target.Input(2)
-			Expect(target1In3).To(telem.MatchSeriesDataV[uint8](3))
-		})
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				var (
+					s      = node.New(ir)
+					in1    = s.Node("in1")
+					in2    = s.Node("in2")
+					in3    = s.Node("in3")
+					target = s.Node("target")
+				)
+				*in1.Output(0) = telem.NewSeriesV[int32](1)
+				*in1.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+				*in2.Output(0) = telem.NewSeriesV[float32](2)
+				*in2.OutputTime(0) = telem.NewSeriesSecondsTSV(2)
+				*in3.Output(0) = telem.NewSeriesV[uint8](3)
+				*in3.OutputTime(0) = telem.NewSeriesSecondsTSV(3)
+				target.RefreshInputs()
+				target1In1 := target.Input(0)
+				Expect(target1In1).To(telem.MatchSeriesDataV[int32](1))
+				target1In2 := target.Input(1)
+				Expect(target1In2).To(telem.MatchSeriesDataV[float32](2))
+				target1In3 := target.Input(2)
+				Expect(target1In3).To(telem.MatchSeriesDataV[uint8](3))
+			},
+		)
 
-		It("Should correctly align outputs of one node with inputs of another", func(ctx SpecContext) {
-			g := graph.Graph{
-				Nodes: graph.Nodes{{Key: "first"}, {Key: "second"}},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"first":  {"type": "first"},
-					"second": {"type": "second"},
-				},
-				Functions: []ir.Function{
-					{
-						Key: "first",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.F32()},
+		It(
+			"Should correctly align outputs of one node with inputs of another",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Nodes: graph.Nodes{{Key: "first"}, {Key: "second"}},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"first":  {"type": "first"},
+						"second": {"type": "second"},
+					},
+					Functions: []ir.Function{
+						{
+							Key: "first",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
+						},
+						{
+							Key: "second",
+							Inputs: types.Params{
+								{Name: ir.DefaultInputParam, Type: types.F32()},
+							},
 						},
 					},
-					{
-						Key: "second",
-						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.F32()},
-						},
-					},
-				},
-				Edges: graph.Edges{{Edge: ir.Edge{
-					Source: ir.Handle{Node: "first", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "second", Param: ir.DefaultInputParam},
-				}}},
-			}
-			ir, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(ir)
-			first := s.Node("first")
-			second := s.Node("second")
-			Expect(first.RefreshInputs()).To(BeTrue())
-			Expect(second.RefreshInputs()).To(BeFalse())
-			*first.Output(0) = telem.NewSeriesV[float32](1, 2, 3)
-			*first.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			Expect(first.RefreshInputs()).To(BeTrue())
-			Expect(second.RefreshInputs()).To(BeTrue())
-			Expect(second.Input(0)).To(telem.MatchSeries(*first.Output(0)))
-			Expect(second.InputTime(0)).To(telem.MatchSeries(*first.OutputTime(0)))
-		})
+					Edges: graph.Edges{{Edge: ir.Edge{
+						Source: ir.Handle{Node: "first", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "second", Param: ir.DefaultInputParam},
+					}}},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(ir)
+				first := s.Node("first")
+				second := s.Node("second")
+				Expect(first.RefreshInputs()).To(BeTrue())
+				Expect(second.RefreshInputs()).To(BeFalse())
+				*first.Output(0) = telem.NewSeriesV[float32](1, 2, 3)
+				*first.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
+				Expect(first.RefreshInputs()).To(BeTrue())
+				Expect(second.RefreshInputs()).To(BeTrue())
+				Expect(second.Input(0)).To(telem.MatchSeries(*first.Output(0)))
+				Expect(second.InputTime(0)).To(telem.MatchSeries(*first.OutputTime(0)))
+			},
+		)
 
 		It("Should not trigger recalculation with empty output", func(ctx SpecContext) {
 			g := graph.Graph{
@@ -212,8 +227,14 @@ var _ = Describe("ProgramState", func() {
 				},
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "producer", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "consumer", Param: ir.DefaultInputParam},
+						Source: ir.Handle{
+							Node:  "producer",
+							Param: ir.DefaultOutputParam,
+						},
+						Target: ir.Handle{
+							Node:  "consumer",
+							Param: ir.DefaultInputParam,
+						},
 					}},
 				},
 			}
@@ -284,8 +305,12 @@ var _ = Describe("ProgramState", func() {
 			*nodeB.Output(0) = telem.NewSeriesV[float32](2.0)
 			*nodeB.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
 			Expect(target.RefreshInputs()).To(BeTrue())
-			Expect(target.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](1.0)))
-			Expect(target.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
+			Expect(
+				target.Input(0),
+			).To(telem.MatchSeries(telem.NewSeriesV[float32](1.0)))
+			Expect(
+				target.Input(1),
+			).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
 
 		It("Should select earliest timestamp as trigger", func(ctx SpecContext) {
@@ -343,53 +368,64 @@ var _ = Describe("ProgramState", func() {
 			*late.Output(0) = telem.NewSeriesV[int32](20)
 			*late.OutputTime(0) = telem.NewSeriesSecondsTSV(200)
 			Expect(target.RefreshInputs()).To(BeTrue())
-			Expect(target.InputTime(0)).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100)))
+			Expect(
+				target.InputTime(0),
+			).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100)))
 		})
 
-		It("Should accumulate multiple series before triggering", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key: "source",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.I32()},
+		It(
+			"Should accumulate multiple series before triggering",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "source",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
+						},
+						{
+							Key: "sink",
+							Inputs: types.Params{
+								{Name: ir.DefaultInputParam, Type: types.I32()},
+							},
 						},
 					},
-					{
-						Key: "sink",
-						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.I32()},
-						},
+					Nodes: []graph.Node{
+						{Key: "source"},
+						{Key: "sink"},
 					},
-				},
-				Nodes: []graph.Node{
-					{Key: "source"},
-					{Key: "sink"},
-				},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"source": {"type": "source"},
-					"sink":   {"type": "sink"},
-				},
-				Edges: graph.Edges{
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
-					}},
-				},
-			}
-			ir, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(ir)
-			source := s.Node("source")
-			sink := s.Node("sink")
-			*source.Output(0) = telem.NewSeriesV[int32](1)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			Expect(sink.RefreshInputs()).To(BeTrue())
-			*source.Output(0) = telem.NewSeriesV[int32](2)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
-			Expect(sink.RefreshInputs()).To(BeTrue())
-			Expect(sink.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
-		})
+					Inputs: map[string]msgpack.EncodedJSON{
+						"source": {"type": "source"},
+						"sink":   {"type": "sink"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{
+								Node:  "sink",
+								Param: ir.DefaultInputParam,
+							},
+						}},
+					},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(ir)
+				source := s.Node("source")
+				sink := s.Node("sink")
+				*source.Output(0) = telem.NewSeriesV[int32](1)
+				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				Expect(sink.RefreshInputs()).To(BeTrue())
+				*source.Output(0) = telem.NewSeriesV[int32](2)
+				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+				Expect(sink.RefreshInputs()).To(BeTrue())
+				Expect(sink.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+			},
+		)
 
 		It("Should handle partial input updates", func(ctx SpecContext) {
 			g := graph.Graph{
@@ -449,8 +485,12 @@ var _ = Describe("ProgramState", func() {
 			*nodeA.Output(0) = telem.NewSeriesV[float32](3.0)
 			*nodeA.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
 			Expect(target.RefreshInputs()).To(BeTrue())
-			Expect(target.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](3.0)))
-			Expect(target.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
+			Expect(
+				target.Input(0),
+			).To(telem.MatchSeries(telem.NewSeriesV[float32](3.0)))
+			Expect(
+				target.Input(1),
+			).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
 
 		It("Should prune old series after watermark update", func(ctx SpecContext) {
@@ -537,11 +577,17 @@ var _ = Describe("ProgramState", func() {
 					},
 					Edges: graph.Edges{
 						{Edge: ir.Edge{
-							Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
+							Source: ir.Handle{
+								Node:  "lhs",
+								Param: ir.DefaultOutputParam,
+							},
 							Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
 						}},
 						{Edge: ir.Edge{
-							Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
+							Source: ir.Handle{
+								Node:  "rhs",
+								Param: ir.DefaultOutputParam,
+							},
 							Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
 						}},
 					},
@@ -560,190 +606,235 @@ var _ = Describe("ProgramState", func() {
 				Expect(op.RefreshInputs()).To(BeFalse())
 			})
 
-			It("Should not trigger recalculation when non-trigger input unchanged", func(ctx SpecContext) {
-				g := graph.Graph{
-					Functions: []ir.Function{
-						{
-							Key: "a",
-							Outputs: types.Params{
-								{Name: ir.DefaultOutputParam, Type: types.I32()},
+			It(
+				"Should not trigger recalculation when non-trigger input unchanged",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Functions: []ir.Function{
+							{
+								Key: "a",
+								Outputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.I32()},
+								},
+							},
+							{
+								Key: "b",
+								Outputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.I32()},
+								},
+							},
+							{
+								Key: "compute",
+								Inputs: types.Params{
+									{Name: ir.LHSInputParam, Type: types.I32()},
+									{Name: ir.RHSInputParam, Type: types.I32()},
+								},
 							},
 						},
-						{
-							Key: "b",
-							Outputs: types.Params{
-								{Name: ir.DefaultOutputParam, Type: types.I32()},
-							},
+						Nodes: []graph.Node{
+							{Key: "a"},
+							{Key: "b"},
+							{Key: "compute"},
 						},
-						{
-							Key: "compute",
-							Inputs: types.Params{
-								{Name: ir.LHSInputParam, Type: types.I32()},
-								{Name: ir.RHSInputParam, Type: types.I32()},
-							},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"a":       {"type": "a"},
+							"b":       {"type": "b"},
+							"compute": {"type": "compute"},
 						},
-					},
-					Nodes: []graph.Node{
-						{Key: "a"},
-						{Key: "b"},
-						{Key: "compute"},
-					},
-					Inputs: map[string]msgpack.EncodedJSON{
-						"a":       {"type": "a"},
-						"b":       {"type": "b"},
-						"compute": {"type": "compute"},
-					},
-					Edges: graph.Edges{
-						{Edge: ir.Edge{
-							Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "compute", Param: ir.LHSInputParam},
-						}},
-						{Edge: ir.Edge{
-							Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "compute", Param: ir.RHSInputParam},
-						}},
-					},
-				}
-				ir, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				s := node.New(ir)
-				nodeA := s.Node("a")
-				nodeB := s.Node("b")
-				compute := s.Node("compute")
-				*nodeA.Output(0) = telem.NewSeriesV[int32](100)
-				*nodeA.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-				*nodeB.Output(0) = telem.NewSeriesV[int32](50)
-				*nodeB.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-				Expect(compute.RefreshInputs()).To(BeTrue())
-				Expect(compute.RefreshInputs()).To(BeFalse())
-				Expect(compute.RefreshInputs()).To(BeFalse())
-			})
+						Edges: graph.Edges{
+							{Edge: ir.Edge{
+								Source: ir.Handle{
+									Node:  "a",
+									Param: ir.DefaultOutputParam,
+								},
+								Target: ir.Handle{
+									Node:  "compute",
+									Param: ir.LHSInputParam,
+								},
+							}},
+							{Edge: ir.Edge{
+								Source: ir.Handle{
+									Node:  "b",
+									Param: ir.DefaultOutputParam,
+								},
+								Target: ir.Handle{
+									Node:  "compute",
+									Param: ir.RHSInputParam,
+								},
+							}},
+						},
+					}
+					ir, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					s := node.New(ir)
+					nodeA := s.Node("a")
+					nodeB := s.Node("b")
+					compute := s.Node("compute")
+					*nodeA.Output(0) = telem.NewSeriesV[int32](100)
+					*nodeA.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
+					*nodeB.Output(0) = telem.NewSeriesV[int32](50)
+					*nodeB.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
+					Expect(compute.RefreshInputs()).To(BeTrue())
+					Expect(compute.RefreshInputs()).To(BeFalse())
+					Expect(compute.RefreshInputs()).To(BeFalse())
+				},
+			)
 
-			It("Should correctly track watermarks with staggered timestamps", func(ctx SpecContext) {
-				g := graph.Graph{
-					Functions: []ir.Function{
-						{
-							Key: "early",
-							Outputs: types.Params{
-								{Name: ir.DefaultOutputParam, Type: types.F32()},
+			It(
+				"Should correctly track watermarks with staggered timestamps",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Functions: []ir.Function{
+							{
+								Key: "early",
+								Outputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.F32()},
+								},
+							},
+							{
+								Key: "late",
+								Outputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.F32()},
+								},
+							},
+							{
+								Key: "target",
+								Inputs: types.Params{
+									{Name: ir.LHSInputParam, Type: types.F32()},
+									{Name: ir.RHSInputParam, Type: types.F32()},
+								},
 							},
 						},
-						{
-							Key: "late",
-							Outputs: types.Params{
-								{Name: ir.DefaultOutputParam, Type: types.F32()},
-							},
+						Nodes: []graph.Node{
+							{Key: "early"},
+							{Key: "late"},
+							{Key: "target"},
 						},
-						{
-							Key: "target",
-							Inputs: types.Params{
-								{Name: ir.LHSInputParam, Type: types.F32()},
-								{Name: ir.RHSInputParam, Type: types.F32()},
-							},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"early":  {"type": "early"},
+							"late":   {"type": "late"},
+							"target": {"type": "target"},
 						},
-					},
-					Nodes: []graph.Node{
-						{Key: "early"},
-						{Key: "late"},
-						{Key: "target"},
-					},
-					Inputs: map[string]msgpack.EncodedJSON{
-						"early":  {"type": "early"},
-						"late":   {"type": "late"},
-						"target": {"type": "target"},
-					},
-					Edges: graph.Edges{
-						{Edge: ir.Edge{
-							Source: ir.Handle{Node: "early", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "target", Param: ir.LHSInputParam},
-						}},
-						{Edge: ir.Edge{
-							Source: ir.Handle{Node: "late", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "target", Param: ir.RHSInputParam},
-						}},
-					},
-				}
-				ir, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				s := node.New(ir)
-				early := s.Node("early")
-				late := s.Node("late")
-				target := s.Node("target")
-				*early.Output(0) = telem.NewSeriesV[float32](1.0)
-				*early.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-				*late.Output(0) = telem.NewSeriesV[float32](2.0)
-				*late.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
-				Expect(target.RefreshInputs()).To(BeTrue())
-				Expect(target.RefreshInputs()).To(BeFalse())
-				*early.Output(0) = telem.NewSeriesV[float32](3.0)
-				*early.OutputTime(0) = telem.NewSeriesSecondsTSV(30)
-				*late.Output(0) = telem.NewSeriesV[float32](4.0)
-				*late.OutputTime(0) = telem.NewSeriesSecondsTSV(40)
-				Expect(target.RefreshInputs()).To(BeTrue())
-				Expect(target.RefreshInputs()).To(BeFalse())
-			})
+						Edges: graph.Edges{
+							{Edge: ir.Edge{
+								Source: ir.Handle{
+									Node:  "early",
+									Param: ir.DefaultOutputParam,
+								},
+								Target: ir.Handle{
+									Node:  "target",
+									Param: ir.LHSInputParam,
+								},
+							}},
+							{Edge: ir.Edge{
+								Source: ir.Handle{
+									Node:  "late",
+									Param: ir.DefaultOutputParam,
+								},
+								Target: ir.Handle{
+									Node:  "target",
+									Param: ir.RHSInputParam,
+								},
+							}},
+						},
+					}
+					ir, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					s := node.New(ir)
+					early := s.Node("early")
+					late := s.Node("late")
+					target := s.Node("target")
+					*early.Output(0) = telem.NewSeriesV[float32](1.0)
+					*early.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+					*late.Output(0) = telem.NewSeriesV[float32](2.0)
+					*late.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+					Expect(target.RefreshInputs()).To(BeTrue())
+					Expect(target.RefreshInputs()).To(BeFalse())
+					*early.Output(0) = telem.NewSeriesV[float32](3.0)
+					*early.OutputTime(0) = telem.NewSeriesSecondsTSV(30)
+					*late.Output(0) = telem.NewSeriesV[float32](4.0)
+					*late.OutputTime(0) = telem.NewSeriesSecondsTSV(40)
+					Expect(target.RefreshInputs()).To(BeTrue())
+					Expect(target.RefreshInputs()).To(BeFalse())
+				},
+			)
 
-			It("Should prevent non-trigger input from causing spurious triggers", func(ctx SpecContext) {
-				g := graph.Graph{
-					Functions: []ir.Function{
-						{
-							Key: "x",
-							Outputs: types.Params{
-								{Name: ir.DefaultOutputParam, Type: types.U32()},
+			It(
+				"Should prevent non-trigger input from causing spurious triggers",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Functions: []ir.Function{
+							{
+								Key: "x",
+								Outputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.U32()},
+								},
+							},
+							{
+								Key: "y",
+								Outputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.U32()},
+								},
+							},
+							{
+								Key: "processor",
+								Inputs: types.Params{
+									{Name: ir.LHSInputParam, Type: types.U32()},
+									{Name: ir.RHSInputParam, Type: types.U32()},
+								},
 							},
 						},
-						{
-							Key: "y",
-							Outputs: types.Params{
-								{Name: ir.DefaultOutputParam, Type: types.U32()},
-							},
+						Nodes: []graph.Node{
+							{Key: "x"},
+							{Key: "y"},
+							{Key: "processor"},
 						},
-						{
-							Key: "processor",
-							Inputs: types.Params{
-								{Name: ir.LHSInputParam, Type: types.U32()},
-								{Name: ir.RHSInputParam, Type: types.U32()},
-							},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"x":         {"type": "x"},
+							"y":         {"type": "y"},
+							"processor": {"type": "processor"},
 						},
-					},
-					Nodes: []graph.Node{
-						{Key: "x"},
-						{Key: "y"},
-						{Key: "processor"},
-					},
-					Inputs: map[string]msgpack.EncodedJSON{
-						"x":         {"type": "x"},
-						"y":         {"type": "y"},
-						"processor": {"type": "processor"},
-					},
-					Edges: graph.Edges{
-						{Edge: ir.Edge{
-							Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "processor", Param: ir.LHSInputParam},
-						}},
-						{Edge: ir.Edge{
-							Source: ir.Handle{Node: "y", Param: ir.DefaultOutputParam},
-							Target: ir.Handle{Node: "processor", Param: ir.RHSInputParam},
-						}},
-					},
-				}
-				ir, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				s := node.New(ir)
-				nodeX := s.Node("x")
-				nodeY := s.Node("y")
-				processor := s.Node("processor")
-				*nodeX.Output(0) = telem.NewSeriesV[uint32](10)
-				*nodeX.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
-				*nodeY.Output(0) = telem.NewSeriesV[uint32](20)
-				*nodeY.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
-				firstRefresh := processor.RefreshInputs()
-				Expect(firstRefresh).To(BeTrue())
-				secondRefresh := processor.RefreshInputs()
-				Expect(secondRefresh).To(BeFalse())
-				thirdRefresh := processor.RefreshInputs()
-				Expect(thirdRefresh).To(BeFalse())
-			})
+						Edges: graph.Edges{
+							{Edge: ir.Edge{
+								Source: ir.Handle{
+									Node:  "x",
+									Param: ir.DefaultOutputParam,
+								},
+								Target: ir.Handle{
+									Node:  "processor",
+									Param: ir.LHSInputParam,
+								},
+							}},
+							{Edge: ir.Edge{
+								Source: ir.Handle{
+									Node:  "y",
+									Param: ir.DefaultOutputParam,
+								},
+								Target: ir.Handle{
+									Node:  "processor",
+									Param: ir.RHSInputParam,
+								},
+							}},
+						},
+					}
+					ir, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+					s := node.New(ir)
+					nodeX := s.Node("x")
+					nodeY := s.Node("y")
+					processor := s.Node("processor")
+					*nodeX.Output(0) = telem.NewSeriesV[uint32](10)
+					*nodeX.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
+					*nodeY.Output(0) = telem.NewSeriesV[uint32](20)
+					*nodeY.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
+					firstRefresh := processor.RefreshInputs()
+					Expect(firstRefresh).To(BeTrue())
+					secondRefresh := processor.RefreshInputs()
+					Expect(secondRefresh).To(BeFalse())
+					thirdRefresh := processor.RefreshInputs()
+					Expect(thirdRefresh).To(BeFalse())
+				},
+			)
 
 			It("Should handle three inputs with same timestamp", func(ctx SpecContext) {
 				g := graph.Graph{
@@ -819,276 +910,345 @@ var _ = Describe("ProgramState", func() {
 				Expect(combiner.RefreshInputs()).To(BeFalse())
 			})
 		})
-
 	})
 
 	Describe("Optional Input Parameters", func() {
-		It("Should use default value for unconnected optional input", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key: "source",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.F32()},
+		It(
+			"Should use default value for unconnected optional input",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "source",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
+						},
+						{
+							Key: "processor",
+							Inputs: types.Params{
+								{Name: "data", Type: types.F32()},
+								{
+									Name:  "multiplier",
+									Type:  types.F32(),
+									Value: float32(2.0),
+								},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
 						},
 					},
-					{
-						Key: "processor",
-						Inputs: types.Params{
-							{Name: "data", Type: types.F32()},
-							{Name: "multiplier", Type: types.F32(), Value: float32(2.0)},
-						},
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.F32()},
-						},
+					Nodes: []graph.Node{
+						{Key: "source"},
+						{Key: "processor"},
 					},
-				},
-				Nodes: []graph.Node{
-					{Key: "source"},
-					{Key: "processor"},
-				},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"source":    {"type": "source"},
-					"processor": {"type": "processor"},
-				},
-				Edges: graph.Edges{
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "processor", Param: "data"},
-					}},
-					// Note: "multiplier" input is not connected, should use default
-				},
-			}
-			ir, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(ir)
-			source := s.Node("source")
-			processor := s.Node("processor")
-			*source.Output(0) = telem.NewSeriesV[float32](5.0)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			Expect(processor.RefreshInputs()).To(BeTrue())
-			Expect(processor.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](5.0)))
-			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
-		})
+					Inputs: map[string]msgpack.EncodedJSON{
+						"source":    {"type": "source"},
+						"processor": {"type": "processor"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "processor", Param: "data"},
+						}},
+						// Note: "multiplier" input is not connected, should use default
+					},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(ir)
+				source := s.Node("source")
+				processor := s.Node("processor")
+				*source.Output(0) = telem.NewSeriesV[float32](5.0)
+				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				Expect(processor.RefreshInputs()).To(BeTrue())
+				Expect(
+					processor.Input(0),
+				).To(telem.MatchSeries(telem.NewSeriesV[float32](5.0)))
+				Expect(
+					processor.Input(1),
+				).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
+			},
+		)
 
-		It("Should seed an unconnected TimeSpan literal input as a timestamp series", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key:     "source",
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
-					},
-					{
-						Key: "windowed",
-						Inputs: types.Params{
-							{Name: "data", Type: types.F32()},
-							{Name: "duration", Type: types.TimeSpan(), Value: telem.TimeSpan(5)},
+		It(
+			"Should seed an unconnected TimeSpan literal input as a timestamp series",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "source",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
 						},
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+						{
+							Key: "windowed",
+							Inputs: types.Params{
+								{Name: "data", Type: types.F32()},
+								{
+									Name:  "duration",
+									Type:  types.TimeSpan(),
+									Value: telem.TimeSpan(5),
+								},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F32()},
+							},
+						},
 					},
-				},
-				Nodes: []graph.Node{
-					{Key: "source"},
-					{Key: "windowed"},
-				},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"source":   {"type": "source"},
-					"windowed": {"type": "windowed"},
-				},
-				Edges: graph.Edges{
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "windowed", Param: "data"},
-					}},
-				},
-			}
-			inter, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(inter)
-			source := s.Node("source")
-			windowed := s.Node("windowed")
-			*source.Output(0) = telem.NewSeriesV[float32](5.0)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			Expect(windowed.RefreshInputs()).To(BeTrue())
-			Expect(windowed.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[telem.TimeStamp](5)))
-		})
+					Nodes: []graph.Node{
+						{Key: "source"},
+						{Key: "windowed"},
+					},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"source":   {"type": "source"},
+						"windowed": {"type": "windowed"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "windowed", Param: "data"},
+						}},
+					},
+				}
+				inter, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(inter)
+				source := s.Node("source")
+				windowed := s.Node("windowed")
+				*source.Output(0) = telem.NewSeriesV[float32](5.0)
+				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				Expect(windowed.RefreshInputs()).To(BeTrue())
+				Expect(
+					windowed.Input(1),
+				).To(telem.MatchSeries(telem.NewSeriesV[telem.TimeStamp](5)))
+			},
+		)
 
-		It("Should override default value when input is connected", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key: "data_source",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.I32()},
+		It(
+			"Should override default value when input is connected",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "data_source",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
+						},
+						{
+							Key: "multiplier_source",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
+						},
+						{
+							Key: "processor",
+							Inputs: types.Params{
+								{Name: "value", Type: types.I32()},
+								{Name: "factor", Type: types.I32(), Value: int32(10)},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
 						},
 					},
-					{
-						Key: "multiplier_source",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.I32()},
-						},
+					Nodes: []graph.Node{
+						{Key: "data_source"},
+						{Key: "multiplier_source"},
+						{Key: "processor"},
 					},
-					{
-						Key: "processor",
-						Inputs: types.Params{
-							{Name: "value", Type: types.I32()},
-							{Name: "factor", Type: types.I32(), Value: int32(10)},
-						},
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.I32()},
-						},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"data_source":       {"type": "data_source"},
+						"multiplier_source": {"type": "multiplier_source"},
+						"processor":         {"type": "processor"},
 					},
-				},
-				Nodes: []graph.Node{
-					{Key: "data_source"},
-					{Key: "multiplier_source"},
-					{Key: "processor"},
-				},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"data_source":       {"type": "data_source"},
-					"multiplier_source": {"type": "multiplier_source"},
-					"processor":         {"type": "processor"},
-				},
-				Edges: graph.Edges{
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "data_source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "processor", Param: "value"},
-					}},
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "multiplier_source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "processor", Param: "factor"},
-					}},
-				},
-			}
-			ir, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(ir)
-			dataSource := s.Node("data_source")
-			multiplierSource := s.Node("multiplier_source")
-			processor := s.Node("processor")
-			*dataSource.Output(0) = telem.NewSeriesV[int32](100)
-			*dataSource.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			*multiplierSource.Output(0) = telem.NewSeriesV[int32](3)
-			*multiplierSource.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			Expect(processor.RefreshInputs()).To(BeTrue())
-			Expect(processor.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](100)))
-			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int32](3)))
-		})
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "data_source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "processor", Param: "value"},
+						}},
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "multiplier_source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "processor", Param: "factor"},
+						}},
+					},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(ir)
+				dataSource := s.Node("data_source")
+				multiplierSource := s.Node("multiplier_source")
+				processor := s.Node("processor")
+				*dataSource.Output(0) = telem.NewSeriesV[int32](100)
+				*dataSource.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				*multiplierSource.Output(0) = telem.NewSeriesV[int32](3)
+				*multiplierSource.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				Expect(processor.RefreshInputs()).To(BeTrue())
+				Expect(
+					processor.Input(0),
+				).To(telem.MatchSeries(telem.NewSeriesV[int32](100)))
+				Expect(
+					processor.Input(1),
+				).To(telem.MatchSeries(telem.NewSeriesV[int32](3)))
+			},
+		)
 
-		It("Should handle multiple optional parameters with defaults", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key: "input",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.F64()},
+		It(
+			"Should handle multiple optional parameters with defaults",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "input",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F64()},
+							},
+						},
+						{
+							Key: "calculator",
+							Inputs: types.Params{
+								{Name: "x", Type: types.F64()},
+								{
+									Name:  "offset",
+									Type:  types.F64(),
+									Value: float64(5.0),
+								},
+								{Name: "scale", Type: types.F64(), Value: float64(2.5)},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.F64()},
+							},
 						},
 					},
-					{
-						Key: "calculator",
-						Inputs: types.Params{
-							{Name: "x", Type: types.F64()},
-							{Name: "offset", Type: types.F64(), Value: float64(5.0)},
-							{Name: "scale", Type: types.F64(), Value: float64(2.5)},
-						},
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.F64()},
-						},
+					Nodes: []graph.Node{
+						{Key: "input"},
+						{Key: "calculator"},
 					},
-				},
-				Nodes: []graph.Node{
-					{Key: "input"},
-					{Key: "calculator"},
-				},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"input":      {"type": "input"},
-					"calculator": {"type": "calculator"},
-				},
-				Edges: graph.Edges{
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "calculator", Param: "x"},
-					}},
-					// "offset" and "scale" are unconnected, should use defaults
-				},
-			}
-			ir, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(ir)
-			input := s.Node("input")
-			calculator := s.Node("calculator")
-			*input.Output(0) = telem.NewSeriesV(10.0)
-			*input.OutputTime(0) = telem.NewSeriesSecondsTSV(15)
-			Expect(calculator.RefreshInputs()).To(BeTrue())
-			Expect(calculator.Input(0)).To(telem.MatchSeries(telem.NewSeriesV(10.0)))
-			Expect(calculator.Input(1)).To(telem.MatchSeries(telem.NewSeriesV(5.0)))
-			Expect(calculator.Input(2)).To(telem.MatchSeries(telem.NewSeriesV(2.5)))
-		})
+					Inputs: map[string]msgpack.EncodedJSON{
+						"input":      {"type": "input"},
+						"calculator": {"type": "calculator"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "input",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "calculator", Param: "x"},
+						}},
+						// "offset" and "scale" are unconnected, should use defaults
+					},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(ir)
+				input := s.Node("input")
+				calculator := s.Node("calculator")
+				*input.Output(0) = telem.NewSeriesV(10.0)
+				*input.OutputTime(0) = telem.NewSeriesSecondsTSV(15)
+				Expect(calculator.RefreshInputs()).To(BeTrue())
+				Expect(
+					calculator.Input(0),
+				).To(telem.MatchSeries(telem.NewSeriesV(10.0)))
+				Expect(calculator.Input(1)).To(telem.MatchSeries(telem.NewSeriesV(5.0)))
+				Expect(calculator.Input(2)).To(telem.MatchSeries(telem.NewSeriesV(2.5)))
+			},
+		)
 
-		It("Should handle mix of connected and unconnected optional inputs", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key: "src1",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.I64()},
+		It(
+			"Should handle mix of connected and unconnected optional inputs",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "src1",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
+							},
+						},
+						{
+							Key: "src2",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
+							},
+						},
+						{
+							Key: "combiner",
+							Inputs: types.Params{
+								{Name: "a", Type: types.I64()},
+								{Name: "b", Type: types.I64(), Value: int64(20)},
+								{Name: "c", Type: types.I64(), Value: int64(30)},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
+							},
 						},
 					},
-					{
-						Key: "src2",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.I64()},
-						},
+					Nodes: []graph.Node{
+						{Key: "src1"},
+						{Key: "src2"},
+						{Key: "combiner"},
 					},
-					{
-						Key: "combiner",
-						Inputs: types.Params{
-							{Name: "a", Type: types.I64()},
-							{Name: "b", Type: types.I64(), Value: int64(20)},
-							{Name: "c", Type: types.I64(), Value: int64(30)},
-						},
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.I64()},
-						},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"src1":     {"type": "src1"},
+						"src2":     {"type": "src2"},
+						"combiner": {"type": "combiner"},
 					},
-				},
-				Nodes: []graph.Node{
-					{Key: "src1"},
-					{Key: "src2"},
-					{Key: "combiner"},
-				},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"src1":     {"type": "src1"},
-					"src2":     {"type": "src2"},
-					"combiner": {"type": "combiner"},
-				},
-				Edges: graph.Edges{
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "src1", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "combiner", Param: "a"},
-					}},
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "src2", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "combiner", Param: "c"},
-					}},
-					// "b" is unconnected, should use default value 20
-				},
-			}
-			ir, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(ir)
-			src1 := s.Node("src1")
-			src2 := s.Node("src2")
-			combiner := s.Node("combiner")
-			*src1.Output(0) = telem.NewSeriesV[int64](100)
-			*src1.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-			*src2.Output(0) = telem.NewSeriesV[int64](300)
-			*src2.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-			Expect(combiner.RefreshInputs()).To(BeTrue())
-			Expect(combiner.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](100)))
-			Expect(combiner.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int64](20)))
-			Expect(combiner.Input(2)).To(telem.MatchSeries(telem.NewSeriesV[int64](300)))
-		})
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "src1",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "combiner", Param: "a"},
+						}},
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "src2",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "combiner", Param: "c"},
+						}},
+						// "b" is unconnected, should use default value 20
+					},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(ir)
+				src1 := s.Node("src1")
+				src2 := s.Node("src2")
+				combiner := s.Node("combiner")
+				*src1.Output(0) = telem.NewSeriesV[int64](100)
+				*src1.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
+				*src2.Output(0) = telem.NewSeriesV[int64](300)
+				*src2.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
+				Expect(combiner.RefreshInputs()).To(BeTrue())
+				Expect(
+					combiner.Input(0),
+				).To(telem.MatchSeries(telem.NewSeriesV[int64](100)))
+				Expect(
+					combiner.Input(1),
+				).To(telem.MatchSeries(telem.NewSeriesV[int64](20)))
+				Expect(
+					combiner.Input(2),
+				).To(telem.MatchSeries(telem.NewSeriesV[int64](300)))
+			},
+		)
 
 		It("Should allow default values with different types", func(ctx SpecContext) {
 			g := graph.Graph{
@@ -1134,120 +1294,150 @@ var _ = Describe("ProgramState", func() {
 			*data.Output(0) = telem.NewSeriesV[float32](42.5)
 			*data.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 			Expect(processor.RefreshInputs()).To(BeTrue())
-			Expect(processor.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[float32](42.5)))
+			Expect(
+				processor.Input(0),
+			).To(telem.MatchSeries(telem.NewSeriesV[float32](42.5)))
 			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
-			Expect(processor.Input(2)).To(telem.MatchSeries(telem.NewSeriesV[int32](50)))
+			Expect(
+				processor.Input(2),
+			).To(telem.MatchSeries(telem.NewSeriesV[int32](50)))
 		})
 
-		It("Should persist default values across multiple executions", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key: "source",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.U32()},
+		It(
+			"Should persist default values across multiple executions",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "source",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.U32()},
+							},
+						},
+						{
+							Key: "processor",
+							Inputs: types.Params{
+								{Name: "value", Type: types.U32()},
+								{Name: "offset", Type: types.U32(), Value: uint32(100)},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.U32()},
+							},
 						},
 					},
-					{
-						Key: "processor",
-						Inputs: types.Params{
-							{Name: "value", Type: types.U32()},
-							{Name: "offset", Type: types.U32(), Value: uint32(100)},
-						},
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.U32()},
-						},
+					Nodes: []graph.Node{
+						{Key: "source"},
+						{Key: "processor"},
 					},
-				},
-				Nodes: []graph.Node{
-					{Key: "source"},
-					{Key: "processor"},
-				},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"source":    {"type": "source"},
-					"processor": {"type": "processor"},
-				},
-				Edges: graph.Edges{
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "processor", Param: "value"},
-					}},
-					// "offset" is unconnected, will use default
-				},
-			}
-			ir, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(ir)
-			source := s.Node("source")
-			processor := s.Node("processor")
-			// First execution with data at t=5
-			*source.Output(0) = telem.NewSeriesV[uint32](10)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-			Expect(processor.RefreshInputs()).To(BeTrue())
-			Expect(processor.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](10)))
-			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[uint32](100)))
-			// Second execution with new data at t=10 - default should persist
-			*source.Output(0) = telem.NewSeriesV[uint32](20)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			Expect(processor.RefreshInputs()).To(BeTrue())
-			Expect(processor.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](20)))
-			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[uint32](100)))
-			// Third execution with new data at t=15 - default should still persist
-			*source.Output(0) = telem.NewSeriesV[uint32](30)
-			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(15)
-			Expect(processor.RefreshInputs()).To(BeTrue())
-			Expect(processor.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](30)))
-			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[uint32](100)))
-			// No new data - should not trigger
-			Expect(processor.RefreshInputs()).To(BeFalse())
-		})
+					Inputs: map[string]msgpack.EncodedJSON{
+						"source":    {"type": "source"},
+						"processor": {"type": "processor"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "source",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "processor", Param: "value"},
+						}},
+						// "offset" is unconnected, will use default
+					},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(ir)
+				source := s.Node("source")
+				processor := s.Node("processor")
+				// First execution with data at t=5
+				*source.Output(0) = telem.NewSeriesV[uint32](10)
+				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
+				Expect(processor.RefreshInputs()).To(BeTrue())
+				Expect(
+					processor.Input(0),
+				).To(telem.MatchSeries(telem.NewSeriesV[uint32](10)))
+				Expect(
+					processor.Input(1),
+				).To(telem.MatchSeries(telem.NewSeriesV[uint32](100)))
+				// Second execution with new data at t=10 - default should persist
+				*source.Output(0) = telem.NewSeriesV[uint32](20)
+				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				Expect(processor.RefreshInputs()).To(BeTrue())
+				Expect(
+					processor.Input(0),
+				).To(telem.MatchSeries(telem.NewSeriesV[uint32](20)))
+				Expect(
+					processor.Input(1),
+				).To(telem.MatchSeries(telem.NewSeriesV[uint32](100)))
+				// Third execution with new data at t=15 - default should still persist
+				*source.Output(0) = telem.NewSeriesV[uint32](30)
+				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(15)
+				Expect(processor.RefreshInputs()).To(BeTrue())
+				Expect(
+					processor.Input(0),
+				).To(telem.MatchSeries(telem.NewSeriesV[uint32](30)))
+				Expect(
+					processor.Input(1),
+				).To(telem.MatchSeries(telem.NewSeriesV[uint32](100)))
+				// No new data - should not trigger
+				Expect(processor.RefreshInputs()).To(BeFalse())
+			},
+		)
 
-		It("Should handle optional input with zero value as default", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key: "input",
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.I32()},
+		It(
+			"Should handle optional input with zero value as default",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "input",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
+						},
+						{
+							Key: "adder",
+							Inputs: types.Params{
+								{Name: "base", Type: types.I32()},
+								{Name: "offset", Type: types.I32(), Value: int32(0)},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
 						},
 					},
-					{
-						Key: "adder",
-						Inputs: types.Params{
-							{Name: "base", Type: types.I32()},
-							{Name: "offset", Type: types.I32(), Value: int32(0)},
-						},
-						Outputs: types.Params{
-							{Name: ir.DefaultOutputParam, Type: types.I32()},
-						},
+					Nodes: []graph.Node{
+						{Key: "input"},
+						{Key: "adder"},
 					},
-				},
-				Nodes: []graph.Node{
-					{Key: "input"},
-					{Key: "adder"},
-				},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"input": {"type": "input"},
-					"adder": {"type": "adder"},
-				},
-				Edges: graph.Edges{
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "adder", Param: "base"},
-					}},
-				},
-			}
-			ir, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(ir)
-			input := s.Node("input")
-			adder := s.Node("adder")
-			*input.Output(0) = telem.NewSeriesV[int32](50)
-			*input.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			Expect(adder.RefreshInputs()).To(BeTrue())
-			Expect(adder.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](50)))
-			Expect(adder.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int32](0)))
-		})
+					Inputs: map[string]msgpack.EncodedJSON{
+						"input": {"type": "input"},
+						"adder": {"type": "adder"},
+					},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "input",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "adder", Param: "base"},
+						}},
+					},
+				}
+				ir, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(ir)
+				input := s.Node("input")
+				adder := s.Node("adder")
+				*input.Output(0) = telem.NewSeriesV[int32](50)
+				*input.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				Expect(adder.RefreshInputs()).To(BeTrue())
+				Expect(
+					adder.Input(0),
+				).To(telem.MatchSeries(telem.NewSeriesV[int32](50)))
+				Expect(adder.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int32](0)))
+			},
+		)
 
 		It("Should handle node with only optional inputs", func(ctx SpecContext) {
 			g := graph.Graph{
@@ -1276,7 +1466,9 @@ var _ = Describe("ProgramState", func() {
 			s := node.New(ir)
 			generator := s.Node("generator")
 			Expect(generator.RefreshInputs()).To(BeTrue())
-			Expect(generator.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](42)))
+			Expect(
+				generator.Input(0),
+			).To(telem.MatchSeries(telem.NewSeriesV[int64](42)))
 			Expect(generator.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[int64](7)))
 		})
 	})
@@ -1306,139 +1498,174 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy(0)).To(BeFalse())
 			})
 
-			It("Should return false for series with last element 0 (float64)", func(ctx SpecContext) {
-				g := graph.Graph{
-					Nodes:  []graph.Node{{Key: "test"}},
-					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []ir.Function{{
-						Key: "test",
-						Outputs: types.Params{
-							{Name: outputParam, Type: types.F64()},
+			It(
+				"Should return false for series with last element 0 (float64)",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Nodes: []graph.Node{{Key: "test"}},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"test": {"type": "test"},
 						},
-					}},
-				}
-				prog, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				s := node.New(prog)
-				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV(1.0, 2.0, 0.0)
-				Expect(n.IsOutputTruthy(0)).To(BeFalse())
-			})
+						Functions: []ir.Function{{
+							Key: "test",
+							Outputs: types.Params{
+								{Name: outputParam, Type: types.F64()},
+							},
+						}},
+					}
+					prog, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue())
+					s := node.New(prog)
+					n := s.Node("test")
+					*n.Output(0) = telem.NewSeriesV(1.0, 2.0, 0.0)
+					Expect(n.IsOutputTruthy(0)).To(BeFalse())
+				},
+			)
 
-			It("Should return true for series with last element non-zero (float64)", func(ctx SpecContext) {
-				g := graph.Graph{
-					Nodes:  []graph.Node{{Key: "test"}},
-					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []ir.Function{{
-						Key: "test",
-						Outputs: types.Params{
-							{Name: outputParam, Type: types.F64()},
+			It(
+				"Should return true for series with last element non-zero (float64)",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Nodes: []graph.Node{{Key: "test"}},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"test": {"type": "test"},
 						},
-					}},
-				}
-				prog, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				s := node.New(prog)
-				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV(0.0, 0.0, 3.14)
-				Expect(n.IsOutputTruthy(0)).To(BeTrue())
-			})
+						Functions: []ir.Function{{
+							Key: "test",
+							Outputs: types.Params{
+								{Name: outputParam, Type: types.F64()},
+							},
+						}},
+					}
+					prog, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue())
+					s := node.New(prog)
+					n := s.Node("test")
+					*n.Output(0) = telem.NewSeriesV(0.0, 0.0, 3.14)
+					Expect(n.IsOutputTruthy(0)).To(BeTrue())
+				},
+			)
 
-			It("Should return false for series with last element 0 (uint8)", func(ctx SpecContext) {
-				g := graph.Graph{
-					Nodes:  []graph.Node{{Key: "test"}},
-					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []ir.Function{{
-						Key: "test",
-						Outputs: types.Params{
-							{Name: outputParam, Type: types.U8()},
+			It(
+				"Should return false for series with last element 0 (uint8)",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Nodes: []graph.Node{{Key: "test"}},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"test": {"type": "test"},
 						},
-					}},
-				}
-				prog, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				s := node.New(prog)
-				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV[uint8](1, 1, 0)
-				Expect(n.IsOutputTruthy(0)).To(BeFalse())
-			})
+						Functions: []ir.Function{{
+							Key: "test",
+							Outputs: types.Params{
+								{Name: outputParam, Type: types.U8()},
+							},
+						}},
+					}
+					prog, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue())
+					s := node.New(prog)
+					n := s.Node("test")
+					*n.Output(0) = telem.NewSeriesV[uint8](1, 1, 0)
+					Expect(n.IsOutputTruthy(0)).To(BeFalse())
+				},
+			)
 
-			It("Should return true for series with last element non-zero (uint8)", func(ctx SpecContext) {
-				g := graph.Graph{
-					Nodes:  []graph.Node{{Key: "test"}},
-					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []ir.Function{{
-						Key: "test",
-						Outputs: types.Params{
-							{Name: outputParam, Type: types.U8()},
+			It(
+				"Should return true for series with last element non-zero (uint8)",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Nodes: []graph.Node{{Key: "test"}},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"test": {"type": "test"},
 						},
-					}},
-				}
-				prog, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				s := node.New(prog)
-				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV[uint8](0, 0, 1)
-				Expect(n.IsOutputTruthy(0)).To(BeTrue())
-			})
+						Functions: []ir.Function{{
+							Key: "test",
+							Outputs: types.Params{
+								{Name: outputParam, Type: types.U8()},
+							},
+						}},
+					}
+					prog, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue())
+					s := node.New(prog)
+					n := s.Node("test")
+					*n.Output(0) = telem.NewSeriesV[uint8](0, 0, 1)
+					Expect(n.IsOutputTruthy(0)).To(BeTrue())
+				},
+			)
 
-			It("Should return false for series with last element 0 (int32)", func(ctx SpecContext) {
-				g := graph.Graph{
-					Nodes:  []graph.Node{{Key: "test"}},
-					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []ir.Function{{
-						Key: "test",
-						Outputs: types.Params{
-							{Name: outputParam, Type: types.I32()},
+			It(
+				"Should return false for series with last element 0 (int32)",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Nodes: []graph.Node{{Key: "test"}},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"test": {"type": "test"},
 						},
-					}},
-				}
-				prog, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				s := node.New(prog)
-				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV[int32](42, -10, 0)
-				Expect(n.IsOutputTruthy(0)).To(BeFalse())
-			})
+						Functions: []ir.Function{{
+							Key: "test",
+							Outputs: types.Params{
+								{Name: outputParam, Type: types.I32()},
+							},
+						}},
+					}
+					prog, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue())
+					s := node.New(prog)
+					n := s.Node("test")
+					*n.Output(0) = telem.NewSeriesV[int32](42, -10, 0)
+					Expect(n.IsOutputTruthy(0)).To(BeFalse())
+				},
+			)
 
-			It("Should return true for series with last element non-zero (int32)", func(ctx SpecContext) {
-				g := graph.Graph{
-					Nodes:  []graph.Node{{Key: "test"}},
-					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []ir.Function{{
-						Key: "test",
-						Outputs: types.Params{
-							{Name: outputParam, Type: types.I32()},
+			It(
+				"Should return true for series with last element non-zero (int32)",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Nodes: []graph.Node{{Key: "test"}},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"test": {"type": "test"},
 						},
-					}},
-				}
-				prog, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				s := node.New(prog)
-				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV[int32](0, 0, -42)
-				Expect(n.IsOutputTruthy(0)).To(BeTrue())
-			})
+						Functions: []ir.Function{{
+							Key: "test",
+							Outputs: types.Params{
+								{Name: outputParam, Type: types.I32()},
+							},
+						}},
+					}
+					prog, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue())
+					s := node.New(prog)
+					n := s.Node("test")
+					*n.Output(0) = telem.NewSeriesV[int32](0, 0, -42)
+					Expect(n.IsOutputTruthy(0)).To(BeTrue())
+				},
+			)
 
-			It("Should return false for out-of-range output ordinal", func(ctx SpecContext) {
-				g := graph.Graph{
-					Nodes:  []graph.Node{{Key: "test"}},
-					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []ir.Function{{
-						Key: "test",
-						Outputs: types.Params{
-							{Name: outputParam, Type: types.F32()},
+			It(
+				"Should return false for out-of-range output ordinal",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Nodes: []graph.Node{{Key: "test"}},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"test": {"type": "test"},
 						},
-					}},
-				}
-				prog, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				s := node.New(prog)
-				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV[float32](1.0)
-				Expect(n.IsOutputTruthy(-1)).To(BeFalse())
-				Expect(n.IsOutputTruthy(7)).To(BeFalse())
-			})
+						Functions: []ir.Function{{
+							Key: "test",
+							Outputs: types.Params{
+								{Name: outputParam, Type: types.F32()},
+							},
+						}},
+					}
+					prog, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue())
+					s := node.New(prog)
+					n := s.Node("test")
+					*n.Output(0) = telem.NewSeriesV[float32](1.0)
+					Expect(n.IsOutputTruthy(-1)).To(BeFalse())
+					Expect(n.IsOutputTruthy(7)).To(BeFalse())
+				},
+			)
 
 			It("Should check the last element only", func(ctx SpecContext) {
 				g := graph.Graph{
@@ -1484,26 +1711,31 @@ var _ = Describe("ProgramState", func() {
 				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
 
-			It("Should treat a non-empty string as truthy and an empty string as falsy", func(ctx SpecContext) {
-				g := graph.Graph{
-					Nodes:  []graph.Node{{Key: "test"}},
-					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
-					Functions: []ir.Function{{
-						Key: "test",
-						Outputs: types.Params{
-							{Name: outputParam, Type: types.String()},
+			It(
+				"Should treat a non-empty string as truthy and an empty string as falsy",
+				func(ctx SpecContext) {
+					g := graph.Graph{
+						Nodes: []graph.Node{{Key: "test"}},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"test": {"type": "test"},
 						},
-					}},
-				}
-				prog, diagnostics := graph.Analyze(ctx, g, nil)
-				Expect(diagnostics.Ok()).To(BeTrue())
-				s := node.New(prog)
-				n := s.Node("test")
-				*n.Output(0) = telem.NewSeriesV("")
-				Expect(n.IsOutputTruthy(0)).To(BeFalse())
-				*n.Output(0) = telem.NewSeriesV("ox_alarm")
-				Expect(n.IsOutputTruthy(0)).To(BeTrue())
-			})
+						Functions: []ir.Function{{
+							Key: "test",
+							Outputs: types.Params{
+								{Name: outputParam, Type: types.String()},
+							},
+						}},
+					}
+					prog, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue())
+					s := node.New(prog)
+					n := s.Node("test")
+					*n.Output(0) = telem.NewSeriesV("")
+					Expect(n.IsOutputTruthy(0)).To(BeFalse())
+					*n.Output(0) = telem.NewSeriesV("ox_alarm")
+					Expect(n.IsOutputTruthy(0)).To(BeTrue())
+				},
+			)
 		})
 	})
 
@@ -1512,14 +1744,22 @@ var _ = Describe("ProgramState", func() {
 			g := graph.Graph{
 				Nodes:  []graph.Node{{Key: "n"}},
 				Inputs: map[string]msgpack.EncodedJSON{"n": {"type": "n"}},
-				Functions: []ir.Function{{
-					Key: "n",
-					Inputs: types.Params{
-						{Name: ir.DefaultInputParam, Type: types.F32(), Value: float32(0)},
-						{Name: "reset", Type: types.U8(), Value: uint8(0)},
+				Functions: []ir.Function{
+					{
+						Key: "n",
+						Inputs: types.Params{
+							{
+								Name:  ir.DefaultInputParam,
+								Type:  types.F32(),
+								Value: float32(0),
+							},
+							{Name: "reset", Type: types.U8(), Value: uint8(0)},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
 					},
-					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
-				}},
+				},
 			}
 			prog, diagnostics := graph.Analyze(ctx, g, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1556,13 +1796,17 @@ var _ = Describe("ProgramState", func() {
 				}}},
 				Functions: []ir.Function{
 					{
-						Key:     "src",
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Key: "src",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
 					},
 					{
-						Key:     "target",
-						Inputs:  types.Params{{Name: "x", Type: types.I64()}},
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Key:    "target",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
 					},
 				},
 			}
@@ -1573,62 +1817,78 @@ var _ = Describe("ProgramState", func() {
 			Expect(func() { n.Reset() }).ToNot(Panic())
 		})
 
-		It("Should re-arm literal-valued inputs so the node re-runs", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{{
-					Key: "generator",
-					Inputs: types.Params{
-						{Name: "start", Type: types.I64(), Value: int64(42)},
+		It(
+			"Should re-arm literal-valued inputs so the node re-runs",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "generator",
+							Inputs: types.Params{
+								{Name: "start", Type: types.I64(), Value: int64(42)},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
+							},
+						},
 					},
-					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-				}},
-				Nodes:  []graph.Node{{Key: "generator"}},
-				Inputs: map[string]msgpack.EncodedJSON{"generator": {"type": "generator"}},
-			}
-			prog, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			n := node.New(prog).Node("generator")
-			Expect(n.RefreshInputs()).To(BeTrue())
-			Expect(n.RefreshInputs()).To(BeFalse())
-			n.Reset()
-			Expect(n.RefreshInputs()).To(BeTrue())
-		})
+					Nodes: []graph.Node{{Key: "generator"}},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"generator": {"type": "generator"},
+					},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				n := node.New(prog).Node("generator")
+				Expect(n.RefreshInputs()).To(BeTrue())
+				Expect(n.RefreshInputs()).To(BeFalse())
+				n.Reset()
+				Expect(n.RefreshInputs()).To(BeTrue())
+			},
+		)
 
-		It("Should not re-arm a consumed variable register read", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key:     "variable",
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+		It(
+			"Should not re-arm a consumed variable register read",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "variable",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
+						},
+						{
+							Key: "dst",
+							Inputs: types.Params{
+								{Name: ir.DefaultInputParam, Type: types.I32()},
+							},
+						},
 					},
-					{
-						Key:    "dst",
-						Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
+					Nodes: []graph.Node{{Key: "v"}, {Key: "reader"}},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"v":      {"type": "variable"},
+						"reader": {"type": "dst"},
 					},
-				},
-				Nodes: []graph.Node{{Key: "v"}, {Key: "reader"}},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"v":      {"type": "variable"},
-					"reader": {"type": "dst"},
-				},
-				Edges: graph.Edges{{Edge: ir.Edge{
-					Source: ir.Handle{Node: "v", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "reader", Param: ir.DefaultInputParam},
-				}}},
-			}
-			prog, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(prog)
-			v, reader := s.Node("v"), s.Node("reader")
-			*v.Output(0) = telem.NewSeriesV[int32](1)
-			*v.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			Expect(reader.RefreshInputs()).To(BeTrue())
-			reader.Reset()
-			Expect(reader.RefreshInputs()).To(BeFalse())
-			*v.Output(0) = telem.NewSeriesV[int32](2)
-			*v.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
-			Expect(reader.RefreshInputs()).To(BeTrue())
-		})
+					Edges: graph.Edges{{Edge: ir.Edge{
+						Source: ir.Handle{Node: "v", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "reader", Param: ir.DefaultInputParam},
+					}}},
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(prog)
+				v, reader := s.Node("v"), s.Node("reader")
+				*v.Output(0) = telem.NewSeriesV[int32](1)
+				*v.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				Expect(reader.RefreshInputs()).To(BeTrue())
+				reader.Reset()
+				Expect(reader.RefreshInputs()).To(BeFalse())
+				*v.Output(0) = telem.NewSeriesV[int32](2)
+				*v.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+				Expect(reader.RefreshInputs()).To(BeTrue())
+			},
+		)
 
 		It("Should re-arm a self-write feeder only on Reset", func(ctx SpecContext) {
 			// A reader writing back into its source variable is a cycle the
@@ -1679,135 +1939,180 @@ var _ = Describe("ProgramState", func() {
 			Expect(reader.RefreshInputs()).To(BeTrue())
 		})
 
-		It("Should absorb a derived variable's pending data so only later values fire", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key:     "feeder",
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+		It(
+			"Should absorb a derived variable's pending data so only later values fire",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "feeder",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
+						},
+						{
+							Key: "variable",
+							Inputs: types.Params{
+								{Name: ir.DefaultInputParam, Type: types.I32()},
+							},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I32()},
+							},
+						},
+						{
+							Key: "dst",
+							Inputs: types.Params{
+								{Name: ir.DefaultInputParam, Type: types.I32()},
+							},
+						},
 					},
-					{
-						Key:     "variable",
-						Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+					Nodes: []graph.Node{{Key: "feeder"}, {Key: "v"}, {Key: "reader"}},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"feeder": {"type": "feeder"},
+						"v":      {"type": "variable"},
+						"reader": {"type": "dst"},
 					},
-					{
-						Key:    "dst",
-						Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
+					Edges: graph.Edges{
+						{Edge: ir.Edge{
+							Source: ir.Handle{
+								Node:  "feeder",
+								Param: ir.DefaultOutputParam,
+							},
+							Target: ir.Handle{Node: "v", Param: ir.DefaultInputParam},
+						}},
+						{Edge: ir.Edge{
+							Source: ir.Handle{Node: "v", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{
+								Node:  "reader",
+								Param: ir.DefaultInputParam,
+							},
+						}},
 					},
-				},
-				Nodes: []graph.Node{{Key: "feeder"}, {Key: "v"}, {Key: "reader"}},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"feeder": {"type": "feeder"},
-					"v":      {"type": "variable"},
-					"reader": {"type": "dst"},
-				},
-				Edges: graph.Edges{
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "feeder", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "v", Param: ir.DefaultInputParam},
-					}},
-					{Edge: ir.Edge{
-						Source: ir.Handle{Node: "v", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "reader", Param: ir.DefaultInputParam},
-					}},
-				},
-			}
-			prog, diagnostics := graph.Analyze(ctx, g, nil)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			s := node.New(prog)
-			v, reader := s.Node("v"), s.Node("reader")
-			*v.Output(0) = telem.NewSeriesV[int32](1)
-			*v.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			reader.Reset()
-			Expect(reader.RefreshInputs()).To(BeFalse())
-			*v.Output(0) = telem.NewSeriesV[int32](2)
-			*v.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
-			Expect(reader.RefreshInputs()).To(BeTrue())
-		})
+				}
+				prog, diagnostics := graph.Analyze(ctx, g, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				s := node.New(prog)
+				v, reader := s.Node("v"), s.Node("reader")
+				*v.Output(0) = telem.NewSeriesV[int32](1)
+				*v.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				reader.Reset()
+				Expect(reader.RefreshInputs()).To(BeFalse())
+				*v.Output(0) = telem.NewSeriesV[int32](2)
+				*v.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+				Expect(reader.RefreshInputs()).To(BeTrue())
+			},
+		)
 	})
 
 	Describe("New", func() {
-		It("Should initialize output storage with the declared data types", func(ctx SpecContext) {
-			s := newLinkedState(ctx)
-			src := s.Node("src")
-			Expect(src.Output(0).DataType).To(Equal(telem.Int32T))
-			Expect(src.Output(0).Len()).To(BeZero())
-			Expect(src.OutputTime(0).DataType).To(Equal(telem.TimeStampT))
-		})
+		It(
+			"Should initialize output storage with the declared data types",
+			func(ctx SpecContext) {
+				s := newLinkedState(ctx)
+				src := s.Node("src")
+				Expect(src.Output(0).DataType).To(Equal(telem.Int32T))
+				Expect(src.Output(0).Len()).To(BeZero())
+				Expect(src.OutputTime(0).DataType).To(Equal(telem.TimeStampT))
+			},
+		)
 	})
 
 	Describe("Input and InputTime", func() {
-		It("Should expose the aligned data and time after a refresh", func(ctx SpecContext) {
-			s := newLinkedState(ctx)
-			src, dst := s.Node("src"), s.Node("dst")
-			*src.Output(0) = telem.NewSeriesV[int32](3)
-			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			Expect(dst.RefreshInputs()).To(BeTrue())
-			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](3)))
-			Expect(dst.InputTime(0)).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(10)))
-		})
+		It(
+			"Should expose the aligned data and time after a refresh",
+			func(ctx SpecContext) {
+				s := newLinkedState(ctx)
+				src, dst := s.Node("src"), s.Node("dst")
+				*src.Output(0) = telem.NewSeriesV[int32](3)
+				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				Expect(dst.RefreshInputs()).To(BeTrue())
+				Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](3)))
+				Expect(
+					dst.InputTime(0),
+				).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(10)))
+			},
+		)
 	})
 
 	Describe("RefSourced and RefInput", func() {
-		It("Should report an edge-fed reference input as sourced", func(ctx SpecContext) {
-			s := newRefState(ctx)
-			Expect(s.Node("reader").RefSourced(0)).To(BeTrue())
-		})
+		It(
+			"Should report an edge-fed reference input as sourced",
+			func(ctx SpecContext) {
+				s := newRefState(ctx)
+				Expect(s.Node("reader").RefSourced(0)).To(BeTrue())
+			},
+		)
 
-		It("Should return the source series for an edge-fed reference input", func(ctx SpecContext) {
-			s := newRefState(ctx)
-			reg, reader := s.Node("reg"), s.Node("reader")
-			*reg.Output(0) = telem.NewSeriesV[uint32](7)
-			Expect(reader.RefInput(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](7)))
-		})
+		It(
+			"Should return the source series for an edge-fed reference input",
+			func(ctx SpecContext) {
+				s := newRefState(ctx)
+				reg, reader := s.Node("reg"), s.Node("reader")
+				*reg.Output(0) = telem.NewSeriesV[uint32](7)
+				Expect(
+					reader.RefInput(0),
+				).To(telem.MatchSeries(telem.NewSeriesV[uint32](7)))
+			},
+		)
 
-		It("Should report an unedged reference input as unsourced", func(ctx SpecContext) {
-			inter := ir.IR{Nodes: ir.Nodes{{
-				Key:  "reader",
-				Type: "reader",
-				Inputs: types.Params{
-					{Name: "channel", Type: types.Chan(types.F32())},
-				},
-			}}}
-			reader := node.New(inter).Node("reader")
-			Expect(reader.RefSourced(0)).To(BeFalse())
-			Expect(reader.RefInput(0).Len()).To(BeZero())
-		})
+		It(
+			"Should report an unedged reference input as unsourced",
+			func(ctx SpecContext) {
+				inter := ir.IR{Nodes: ir.Nodes{{
+					Key:  "reader",
+					Type: "reader",
+					Inputs: types.Params{
+						{Name: "channel", Type: types.Chan(types.F32())},
+					},
+				}}}
+				reader := node.New(inter).Node("reader")
+				Expect(reader.RefSourced(0)).To(BeFalse())
+				Expect(reader.RefInput(0).Len()).To(BeZero())
+			},
+		)
 
-		It("Should report false for data inputs and out-of-range indexes", func(ctx SpecContext) {
-			s := newRefState(ctx)
-			reader := s.Node("reader")
-			Expect(reader.RefSourced(1)).To(BeFalse())
-			Expect(reader.RefSourced(-1)).To(BeFalse())
-			Expect(reader.RefSourced(9)).To(BeFalse())
-			Expect(reader.RefInput(1).Len()).To(BeZero())
-			Expect(reader.RefInput(9).Len()).To(BeZero())
-		})
+		It(
+			"Should report false for data inputs and out-of-range indexes",
+			func(ctx SpecContext) {
+				s := newRefState(ctx)
+				reader := s.Node("reader")
+				Expect(reader.RefSourced(1)).To(BeFalse())
+				Expect(reader.RefSourced(-1)).To(BeFalse())
+				Expect(reader.RefSourced(9)).To(BeFalse())
+				Expect(reader.RefInput(1).Len()).To(BeZero())
+				Expect(reader.RefInput(9).Len()).To(BeZero())
+			},
+		)
 	})
 
 	Describe("AbsorbInputs", func() {
-		It("Should mark inputs consumed at the current source timestamp", func(ctx SpecContext) {
-			s := newLinkedState(ctx)
-			src, dst := s.Node("src"), s.Node("dst")
-			*src.Output(0) = telem.NewSeriesV[int32](1)
-			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			dst.AbsorbInputs()
-			Expect(dst.RefreshInputs()).To(BeFalse())
-			*src.Output(0) = telem.NewSeriesV[int32](2)
-			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
-			Expect(dst.RefreshInputs()).To(BeTrue())
-			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
-		})
+		It(
+			"Should mark inputs consumed at the current source timestamp",
+			func(ctx SpecContext) {
+				s := newLinkedState(ctx)
+				src, dst := s.Node("src"), s.Node("dst")
+				*src.Output(0) = telem.NewSeriesV[int32](1)
+				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				dst.AbsorbInputs()
+				Expect(dst.RefreshInputs()).To(BeFalse())
+				*src.Output(0) = telem.NewSeriesV[int32](2)
+				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+				Expect(dst.RefreshInputs()).To(BeTrue())
+				Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+			},
+		)
 
-		It("Should still fire for data arriving after an empty absorb", func(ctx SpecContext) {
-			s := newLinkedState(ctx)
-			src, dst := s.Node("src"), s.Node("dst")
-			dst.AbsorbInputs()
-			*src.Output(0) = telem.NewSeriesV[int32](1)
-			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			Expect(dst.RefreshInputs()).To(BeTrue())
-		})
+		It(
+			"Should still fire for data arriving after an empty absorb",
+			func(ctx SpecContext) {
+				s := newLinkedState(ctx)
+				src, dst := s.Node("src"), s.Node("dst")
+				dst.AbsorbInputs()
+				*src.Output(0) = telem.NewSeriesV[int32](1)
+				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				Expect(dst.RefreshInputs()).To(BeTrue())
+			},
+		)
 
 		It("Should mark every data input consumed", func(ctx SpecContext) {
 			s := newPairState(ctx)
@@ -1840,15 +2145,18 @@ var _ = Describe("ProgramState", func() {
 				To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
 		})
 
-		It("Should leave nothing for RefreshInputs after consuming", func(ctx SpecContext) {
-			s := newLinkedState(ctx)
-			src, dst := s.Node("src"), s.Node("dst")
-			*src.Output(0) = telem.NewSeriesV[int32](1)
-			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			Expect(MustBeOk(dst.ConsumeInput(0))).
-				To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
-			Expect(dst.RefreshInputs()).To(BeFalse())
-		})
+		It(
+			"Should leave nothing for RefreshInputs after consuming",
+			func(ctx SpecContext) {
+				s := newLinkedState(ctx)
+				src, dst := s.Node("src"), s.Node("dst")
+				*src.Output(0) = telem.NewSeriesV[int32](1)
+				*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				Expect(MustBeOk(dst.ConsumeInput(0))).
+					To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+				Expect(dst.RefreshInputs()).To(BeFalse())
+			},
+		)
 
 		It("Should return false when the input has no data", func(ctx SpecContext) {
 			s := newLinkedState(ctx)
@@ -1875,20 +2183,23 @@ var _ = Describe("ProgramState", func() {
 	})
 
 	Describe("LastChanged", func() {
-		It("Should return the most recently changed input and consume it", func(ctx SpecContext) {
-			s := newPairState(ctx)
-			a, b, target := s.Node("a"), s.Node("b"), s.Node("target")
-			*a.Output(0) = telem.NewSeriesV[int32](1)
-			*a.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			*b.Output(0) = telem.NewSeriesV[int32](2)
-			*b.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
-			Expect(MustBeOk(target.LastChanged())).
-				To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
-			Expect(MustBeOk(target.LastChanged())).
-				To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
-			_, ok := target.LastChanged()
-			Expect(ok).To(BeFalse())
-		})
+		It(
+			"Should return the most recently changed input and consume it",
+			func(ctx SpecContext) {
+				s := newPairState(ctx)
+				a, b, target := s.Node("a"), s.Node("b"), s.Node("target")
+				*a.Output(0) = telem.NewSeriesV[int32](1)
+				*a.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+				*b.Output(0) = telem.NewSeriesV[int32](2)
+				*b.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+				Expect(MustBeOk(target.LastChanged())).
+					To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+				Expect(MustBeOk(target.LastChanged())).
+					To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+				_, ok := target.LastChanged()
+				Expect(ok).To(BeFalse())
+			},
+		)
 
 		It("Should return false when no input has data", func(ctx SpecContext) {
 			s := newPairState(ctx)
@@ -1910,19 +2221,30 @@ var _ = Describe("ProgramState", func() {
 	})
 
 	Describe("InitInput", func() {
-		It("Should populate the input's source so the node fires", func(ctx SpecContext) {
-			s := newLinkedState(ctx)
-			dst := s.Node("dst")
-			dst.InitInput(0, telem.NewSeriesV[int32](7), telem.NewSeriesSecondsTSV(5))
-			Expect(dst.RefreshInputs()).To(BeTrue())
-			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](7)))
-		})
+		It(
+			"Should populate the input's source so the node fires",
+			func(ctx SpecContext) {
+				s := newLinkedState(ctx)
+				dst := s.Node("dst")
+				dst.InitInput(
+					0,
+					telem.NewSeriesV[int32](7),
+					telem.NewSeriesSecondsTSV(5),
+				)
+				Expect(dst.RefreshInputs()).To(BeTrue())
+				Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](7)))
+			},
+		)
 
 		It("Should ignore an out-of-range index", func(ctx SpecContext) {
 			s := newLinkedState(ctx)
 			dst := s.Node("dst")
 			Expect(func() {
-				dst.InitInput(9, telem.NewSeriesV[int32](7), telem.NewSeriesSecondsTSV(5))
+				dst.InitInput(
+					9,
+					telem.NewSeriesV[int32](7),
+					telem.NewSeriesSecondsTSV(5),
+				)
 			}).ToNot(Panic())
 		})
 	})
@@ -1994,7 +2316,6 @@ var _ = Describe("ProgramState", func() {
 			Expect(node.NumericInput[uint8](build().Node("c"), "nope")).To(BeZero())
 		})
 	})
-
 })
 
 // newLinkedState builds src (i32 output) -> dst (i32 input) and returns the state.
@@ -2010,8 +2331,11 @@ func newLinkedState(ctx SpecContext) *node.ProgramState {
 				Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
 			},
 		},
-		Nodes:  []graph.Node{{Key: "src"}, {Key: "dst"}},
-		Inputs: map[string]msgpack.EncodedJSON{"src": {"type": "src"}, "dst": {"type": "dst"}},
+		Nodes: []graph.Node{{Key: "src"}, {Key: "dst"}},
+		Inputs: map[string]msgpack.EncodedJSON{
+			"src": {"type": "src"},
+			"dst": {"type": "dst"},
+		},
 		Edges: graph.Edges{{Edge: ir.Edge{
 			Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: "dst", Param: ir.DefaultInputParam},
@@ -2096,69 +2420,94 @@ func newRefState(ctx SpecContext) *node.ProgramState {
 }
 
 var _ = Describe("Gating and Absorb Edge Cases", func() {
-	It("Should gate a value-fed node on an edge into an undeclared param", func(ctx SpecContext) {
-		prog := ir.IR{
-			Nodes: ir.Nodes{
-				{
-					Key:     "trigger",
-					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-				},
-				{
-					Key:     "target",
-					Inputs:  types.Params{{Name: "value", Type: types.I64(), Value: int64(5)}},
-					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-				},
-			},
-			Edges: ir.Edges{{
-				Source: ir.Handle{Node: "trigger", Param: ir.DefaultOutputParam},
-				Target: ir.Handle{Node: "target", Param: ir.DefaultInputParam},
-			}},
-		}
-		s := node.New(prog)
-		target := s.Node("target")
-		Expect(target.RefreshInputs()).To(BeFalse(),
-			"the gate has no data yet, so the node must not fire")
-		trigger := s.Node("trigger")
-		*trigger.Output(0) = telem.NewSeriesV[uint8](1)
-		*trigger.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
-		Expect(target.RefreshInputs()).To(BeTrue())
-		Expect(target.RefreshInputs()).To(BeFalse())
-	})
-
-	It("Should skip reference and unsourced inputs when absorbing", func(ctx SpecContext) {
-		prog := ir.IR{
-			Nodes: ir.Nodes{
-				{
-					Key:     "bind",
-					Type:    "variable",
-					Inputs:  types.Params{{Name: "f0", Type: types.U32(), Value: uint32(7)}},
-					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Chan(types.F32())}},
-				},
-				{
-					Key:  "reader",
-					Type: "on",
-					Inputs: types.Params{
-						{Name: "channel", Type: types.Chan(types.F32()), Value: uint32(7)},
+	It(
+		"Should gate a value-fed node on an edge into an undeclared param",
+		func(ctx SpecContext) {
+			prog := ir.IR{
+				Nodes: ir.Nodes{
+					{
+						Key: "trigger",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
 					},
-					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+					{
+						Key: "target",
+						Inputs: types.Params{
+							{Name: "value", Type: types.I64(), Value: int64(5)},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
 				},
-			},
-			Edges: ir.Edges{
-				{
-					Source: ir.Handle{Node: "bind", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "reader", Param: "channel"},
+				Edges: ir.Edges{{
+					Source: ir.Handle{Node: "trigger", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "target", Param: ir.DefaultInputParam},
+				}},
+			}
+			s := node.New(prog)
+			target := s.Node("target")
+			Expect(target.RefreshInputs()).To(BeFalse(),
+				"the gate has no data yet, so the node must not fire")
+			trigger := s.Node("trigger")
+			*trigger.Output(0) = telem.NewSeriesV[uint8](1)
+			*trigger.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
+			Expect(target.RefreshInputs()).To(BeTrue())
+			Expect(target.RefreshInputs()).To(BeFalse())
+		},
+	)
+
+	It(
+		"Should skip reference and unsourced inputs when absorbing",
+		func(ctx SpecContext) {
+			prog := ir.IR{
+				Nodes: ir.Nodes{
+					{
+						Key:  "bind",
+						Type: "variable",
+						Inputs: types.Params{
+							{Name: "f0", Type: types.U32(), Value: uint32(7)},
+						},
+						Outputs: types.Params{
+							{
+								Name: ir.DefaultOutputParam,
+								Type: types.Chan(types.F32()),
+							},
+						},
+					},
+					{
+						Key:  "reader",
+						Type: "on",
+						Inputs: types.Params{
+							{
+								Name:  "channel",
+								Type:  types.Chan(types.F32()),
+								Value: uint32(7),
+							},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F32()},
+						},
+					},
 				},
-				{
-					Source: ir.Handle{Node: "ghost", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "reader", Param: "gate"},
+				Edges: ir.Edges{
+					{
+						Source: ir.Handle{Node: "bind", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "reader", Param: "channel"},
+					},
+					{
+						Source: ir.Handle{Node: "ghost", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "reader", Param: "gate"},
+					},
 				},
-			},
-		}
-		s := node.New(prog)
-		reader := s.Node("reader")
-		*s.Node("bind").Output(0) = telem.NewSeriesV[uint32](9)
-		reader.AbsorbInputs()
-		Expect(reader.RefSourced(0)).To(BeTrue())
-		Expect(telem.ValueAt[uint32](reader.RefInput(0), -1)).To(Equal(uint32(9)))
-	})
+			}
+			s := node.New(prog)
+			reader := s.Node("reader")
+			*s.Node("bind").Output(0) = telem.NewSeriesV[uint32](9)
+			reader.AbsorbInputs()
+			Expect(reader.RefSourced(0)).To(BeTrue())
+			Expect(telem.ValueAt[uint32](reader.RefInput(0), -1)).To(Equal(uint32(9)))
+		},
+	)
 })

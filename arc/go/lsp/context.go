@@ -129,7 +129,8 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	// When the last token is a partial identifier the user is typing, strip it
 	// and re-evaluate context against the preceding token. This lets all
 	// existing context rules apply correctly to the real syntactic position.
-	if lastToken.GetTokenType() == parser.ArcLexerIDENTIFIER && len(tokensBeforeCursor) >= 2 {
+	if lastToken.GetTokenType() == parser.ArcLexerIDENTIFIER &&
+		len(tokensBeforeCursor) >= 2 {
 		stripped := tokensBeforeCursor[:len(tokensBeforeCursor)-1]
 		strippedLast := stripped[len(stripped)-1]
 		if isExpressionContext(stripped, strippedLast) {
@@ -151,7 +152,8 @@ func isPositionInComment(content string, pos protocol.Position) bool {
 	col := int(pos.Character)
 	for _, t := range allTokens {
 		tokenType := t.GetTokenType()
-		if tokenType != parser.ArcLexerSINGLE_LINE_COMMENT && tokenType != parser.ArcLexerMULTI_LINE_COMMENT {
+		if tokenType != parser.ArcLexerSINGLE_LINE_COMMENT &&
+			tokenType != parser.ArcLexerMULTI_LINE_COMMENT {
 			continue
 		}
 		startLine := t.GetLine()
@@ -344,7 +346,8 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 	if prevType == parser.ArcLexerIDENTIFIER && len(tokens) >= 3 {
 		prevPrevToken := tokens[len(tokens)-3]
 		prevPrevType := prevPrevToken.GetTokenType()
-		if prevPrevType == parser.ArcLexerLPAREN || prevPrevType == parser.ArcLexerCOMMA {
+		if prevPrevType == parser.ArcLexerLPAREN ||
+			prevPrevType == parser.ArcLexerCOMMA {
 			return true
 		}
 	}
@@ -479,7 +482,11 @@ func isSameLineAfterOpenBrace(lastToken antlr.Token, pos protocol.Position) bool
 	return cursorLine == lastToken.GetLine()
 }
 
-func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos protocol.Position) bool {
+func isStatementStartContext(
+	tokens []antlr.Token,
+	lastToken antlr.Token,
+	pos protocol.Position,
+) bool {
 	tokenType := lastToken.GetTokenType()
 	lastLine := lastToken.GetLine()
 	cursorLine := int(pos.Line) + 1
@@ -651,13 +658,15 @@ func extractInputContext(content string, pos protocol.Position) *inputContextInf
 	for i := result.inputBraceIndex + 1; i < len(tokensBeforeCursor); i++ {
 		t := tokensBeforeCursor[i]
 		if t.GetTokenType() == parser.ArcLexerIDENTIFIER {
-			if i+1 < len(tokensBeforeCursor) && tokensBeforeCursor[i+1].GetTokenType() == parser.ArcLexerASSIGN {
+			if i+1 < len(tokensBeforeCursor) &&
+				tokensBeforeCursor[i+1].GetTokenType() == parser.ArcLexerASSIGN {
 				info.existingParams = append(info.existingParams, t.GetText())
 			}
 		}
 	}
 	lastToken := tokensBeforeCursor[len(tokensBeforeCursor)-1]
-	if lastToken.GetTokenType() == parser.ArcLexerASSIGN && len(tokensBeforeCursor) >= 2 {
+	if lastToken.GetTokenType() == parser.ArcLexerASSIGN &&
+		len(tokensBeforeCursor) >= 2 {
 		prevToken := tokensBeforeCursor[len(tokensBeforeCursor)-2]
 		if prevToken.GetTokenType() == parser.ArcLexerIDENTIFIER {
 			info.currentParamName = prevToken.GetText()

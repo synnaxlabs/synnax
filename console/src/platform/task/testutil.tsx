@@ -361,6 +361,18 @@ export const selectFromDropdown = async (
 };
 
 /**
+ * Finds the input rendered inside the Input.Item labeled by label. Item labels carry no
+ * htmlFor, so this walks the item container instead of using getByLabelText.
+ * @throws if no item or input renders for the label.
+ */
+export const getLabeledInput = (label: string): HTMLInputElement => {
+  const item = screen.getByText(label).closest(".pluto-input__item");
+  const input = item?.querySelector("input");
+  if (input == null) throw new Error(`no input found for label "${label}"`);
+  return input;
+};
+
+/**
  * Reads command-channel frames until one carries a command for taskKey, so parallel
  * suites writing their own task commands cannot interfere.
  */

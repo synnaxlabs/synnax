@@ -39,15 +39,18 @@ var _ = Describe("Clang Formatter", func() {
 		Expect(string(first)).To(Equal(string(second)))
 	})
 
-	It("Should pick a header-style indent for .h files via --assume-filename", func(ctx SpecContext) {
-		// Header content: clang-format treats the same content differently
-		// depending on the assumed filename's extension (e.g. include
-		// guard handling). Verify the assume-filename round-trip works
-		// rather than asserting on a specific style, which is config-
-		// dependent.
-		raw := []byte("#pragma once\nint  foo(  );\n")
-		out := MustSucceed(format.NewClang().Format(ctx, raw, "/abs/foo.h"))
-		Expect(string(out)).To(ContainSubstring("#pragma once"))
-		Expect(string(out)).To(ContainSubstring("int foo();"))
-	})
+	It(
+		"Should pick a header-style indent for .h files via --assume-filename",
+		func(ctx SpecContext) {
+			// Header content: clang-format treats the same content differently
+			// depending on the assumed filename's extension (e.g. include
+			// guard handling). Verify the assume-filename round-trip works
+			// rather than asserting on a specific style, which is config-
+			// dependent.
+			raw := []byte("#pragma once\nint  foo(  );\n")
+			out := MustSucceed(format.NewClang().Format(ctx, raw, "/abs/foo.h"))
+			Expect(string(out)).To(ContainSubstring("#pragma once"))
+			Expect(string(out)).To(ContainSubstring("int foo();"))
+		},
+	)
 })

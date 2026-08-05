@@ -70,7 +70,11 @@ type unionVariantData struct {
 // composes the union's shared base schema(s) and its own payload schema via
 // zod .extend, adding only the discriminator literal, so the shared fields are
 // not duplicated across variants.
-func (p *Plugin) processUnion(entry resolution.Type, table *resolution.Table, data *templateData) unionData {
+func (p *Plugin) processUnion(
+	entry resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+) unionData {
 	form, ok := entry.Form.(resolution.UnionForm)
 	if !ok {
 		return unionData{}

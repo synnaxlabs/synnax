@@ -67,7 +67,11 @@ func Analyze(
 	cfgs ...parser.Config,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	// Step 1: Build Root Context and Register All Functions
-	aCtx := acontext.NewRoot[antlr.ParserRuleContext](ctx, nil, root).WithConfig(parser.ConfigOf(cfgs...))
+	aCtx := acontext.NewRoot[antlr.ParserRuleContext](
+		ctx,
+		nil,
+		root,
+	).WithConfig(parser.ConfigOf(cfgs...))
 	for _, fn := range g.Functions {
 		funcScope, err := aCtx.Scope.Add(aCtx, symbol.Symbol{
 			Name: fn.Key,
@@ -83,7 +87,12 @@ func Analyze(
 			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
-		if err = bindParams(aCtx, funcScope, fn.Outputs, symbol.KindOutput); err != nil {
+		if err = bindParams(
+			aCtx,
+			funcScope,
+			fn.Outputs,
+			symbol.KindOutput,
+		); err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
@@ -163,7 +172,9 @@ func Analyze(
 				}
 				channelSym, err := aCtx.Scope.Resolve(aCtx, strconv.Itoa(int(k)))
 				if err == nil && channelSym.Type.Kind == types.KindChan {
-					if err := param.Type.ChanDirection.CheckCompatibility(channelSym.Type.ChanDirection); err != nil {
+					if err := param.Type.ChanDirection.CheckCompatibility(
+						channelSym.Type.ChanDirection,
+					); err != nil {
 						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
@@ -193,7 +204,12 @@ func Analyze(
 
 	// Step 5: Check Types Across Edges, Unify, and Apply Substitutions
 	irEdges := g.Edges.IR()
-	if !analyzer.ResolveNodeTypes(irNodes, irEdges, aCtx.Constraints, aCtx.Diagnostics) {
+	if !analyzer.ResolveNodeTypes(
+		irNodes,
+		irEdges,
+		aCtx.Constraints,
+		aCtx.Diagnostics,
+	) {
 		return ir.IR{}, aCtx.Diagnostics
 	}
 

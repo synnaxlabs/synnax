@@ -33,13 +33,20 @@ var _ = Describe("Rename", Ordered, func() {
 			{Name: "old-name", DataType: telem.TimeStampT, IsIndex: true},
 		}))
 		key := out[0].Key()
-		Expect(n.Channel.Rename(ctx, map[channel.Key]string{key: "new-name"})).To(Succeed())
+		Expect(
+			n.Channel.Rename(ctx, map[channel.Key]string{key: "new-name"}),
+		).To(Succeed())
 		stored := MustSucceed(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
 		Expect(stored.Name).To(Equal("new-name"))
 	})
 	It("Should skip storage renames for a free channel", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
-			{Name: "free-rename", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
+			{
+				Name:        "free-rename",
+				DataType:    telem.Float32T,
+				Leaseholder: node.KeyFree,
+				Virtual:     true,
+			},
 		}))
 		key := out[0].Key()
 		Expect(n.Channel.Rename(
@@ -49,11 +56,15 @@ var _ = Describe("Rename", Ordered, func() {
 			MatchError(query.ErrNotFound),
 		)
 	})
-	It("Should return an error when a key's leaseholder is not in the cluster", func(ctx SpecContext) {
-		Expect(n.Channel.Rename(
-			ctx, map[channel.Key]string{channel.NewKey(node.Key(99), 1): "unresolvable"},
-		)).To(MatchError(query.ErrNotFound))
-	})
+	It(
+		"Should return an error when a key's leaseholder is not in the cluster",
+		func(ctx SpecContext) {
+			Expect(n.Channel.Rename(
+				ctx,
+				map[channel.Key]string{channel.NewKey(node.Key(99), 1): "unresolvable"},
+			)).To(MatchError(query.ErrNotFound))
+		},
+	)
 
 	Context("Multi Node", Ordered, func() {
 		var (
@@ -69,19 +80,36 @@ var _ = Describe("Rename", Ordered, func() {
 
 		It("Should route the rename to the leaseholder", func(ctx SpecContext) {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
-				{Name: "remote-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+				{
+					Name:        "remote-old",
+					DataType:    telem.TimeStampT,
+					IsIndex:     true,
+					Leaseholder: peer.Cluster.HostKey(),
+				},
 			}))
 			key := out[0].Key()
 			Expect(gateway.Channel.Rename(
 				ctx, map[channel.Key]string{key: "remote-new"},
 			)).To(Succeed())
-			stored := MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
+			stored := MustSucceed(
+				peer.Storage.TS.RetrieveChannel(ctx, key.StorageKey()),
+			)
 			Expect(stored.Name).To(Equal("remote-new"))
 		})
 		It("Should rename both gateway and peer channels", func(ctx SpecContext) {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
-				{Name: "gateway-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
-				{Name: "peer-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
+				{
+					Name:        "gateway-old",
+					DataType:    telem.TimeStampT,
+					IsIndex:     true,
+					Leaseholder: gateway.Cluster.HostKey(),
+				},
+				{
+					Name:        "peer-old",
+					DataType:    telem.TimeStampT,
+					IsIndex:     true,
+					Leaseholder: peer.Cluster.HostKey(),
+				},
 			}))
 			gatewayKey := out[0].Key()
 			peerKey := out[1].Key()
@@ -91,29 +119,57 @@ var _ = Describe("Rename", Ordered, func() {
 			Expect(peer.Channel.Rename(
 				ctx, map[channel.Key]string{peerKey: "peer-new"},
 			)).To(Succeed())
-			stored := MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey()))
+			stored := MustSucceed(
+				gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey()),
+			)
 			Expect(stored.Name).To(Equal("gateway-new"))
-			stored = MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey()))
+			stored = MustSucceed(
+				peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey()),
+			)
 			Expect(stored.Name).To(Equal("peer-new"))
 		})
-		It("Should route a mixed-batch rename to each key's leaseholder", func(ctx SpecContext) {
-			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
-				{Name: "mb-gateway-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
-				{Name: "mb-peer-old", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
-			}))
-			gatewayKey := out[0].Key()
-			peerKey := out[1].Key()
-			Expect(gateway.Channel.Rename(
-				ctx,
-				map[channel.Key]string{
-					gatewayKey: "mb-gateway-new",
-					peerKey:    "mb-peer-new",
-				},
-			)).To(Succeed())
-			Expect(MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey())).Name).
-				To(Equal("mb-gateway-new"))
-			Expect(MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey())).Name).
-				To(Equal("mb-peer-new"))
-		})
+		It(
+			"Should route a mixed-batch rename to each key's leaseholder",
+			func(ctx SpecContext) {
+				out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
+					{
+						Name:        "mb-gateway-old",
+						DataType:    telem.TimeStampT,
+						IsIndex:     true,
+						Leaseholder: gateway.Cluster.HostKey(),
+					},
+					{
+						Name:        "mb-peer-old",
+						DataType:    telem.TimeStampT,
+						IsIndex:     true,
+						Leaseholder: peer.Cluster.HostKey(),
+					},
+				}))
+				gatewayKey := out[0].Key()
+				peerKey := out[1].Key()
+				Expect(gateway.Channel.Rename(
+					ctx,
+					map[channel.Key]string{
+						gatewayKey: "mb-gateway-new",
+						peerKey:    "mb-peer-new",
+					},
+				)).To(Succeed())
+				Expect(
+					MustSucceed(
+						gateway.Storage.TS.RetrieveChannel(
+							ctx,
+							gatewayKey.StorageKey(),
+						),
+					).Name,
+				).
+					To(Equal("mb-gateway-new"))
+				Expect(
+					MustSucceed(
+						peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey()),
+					).Name,
+				).
+					To(Equal("mb-peer-new"))
+			},
+		)
 	})
 })

@@ -26,7 +26,7 @@ func StatusKey(key channel.Key) string {
 }
 
 // StatusFromError builds an error status for a calculated channel.
-func StatusFromError(key channel.Key, name string, msg string, err error) *Status {
+func StatusFromError(key channel.Key, name, msg string, err error) *Status {
 	return &Status{
 		Key:         StatusKey(key),
 		Name:        name,

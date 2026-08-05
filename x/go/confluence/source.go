@@ -29,7 +29,11 @@ type AbstractMultiSource[V Value] struct {
 }
 
 // OutTo implements the Source interface.
-func (ams *AbstractMultiSource[V]) OutTo(inlets ...Inlet[V]) { ams.Out = append(ams.Out, inlets...) }
+func (ams *AbstractMultiSource[V]) OutTo(
+	inlets ...Inlet[V],
+) {
+	ams.Out = append(ams.Out, inlets...)
+}
 
 // SendToEach sends the provided value to each Inlet in the Source.
 func (ams *AbstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
@@ -54,7 +58,7 @@ func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 	t time.Duration,
 	timer *time.Timer,
 ) error {
-	var timedOutInlet = -1
+	timedOutInlet := -1
 	for i, inlet := range ams.Out {
 		select {
 		case <-ctx.Done():
@@ -66,7 +70,11 @@ func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 		}
 	}
 	if timedOutInlet >= 0 {
-		return errors.Wrapf(timeout.ErrTimeout, "timed out sending to inlet %s", ams.Out[timedOutInlet].InletAddress())
+		return errors.Wrapf(
+			timeout.ErrTimeout,
+			"timed out sending to inlet %s",
+			ams.Out[timedOutInlet].InletAddress(),
+		)
 	}
 	return nil
 }
@@ -96,35 +104,46 @@ func (aus *AbstractUnarySource[O]) OutTo(inlets ...Inlet[O]) {
 // CloseInlets implements the InletCloser interface.
 func (aus *AbstractUnarySource[O]) CloseInlets() { aus.Out.Close() }
 
-// AbstractAddressableSource is an implementation of a Source that stores its Inlet(sink) in an
-// addressable map. This is ideal for use cases where the address of an Inlet is
-// relevant to the routing of the value (such as a Switch).
+// AbstractAddressableSource is an implementation of a Source that stores its
+// Inlet(sink) in an addressable map. This is ideal for use cases where the address of
+// an Inlet is relevant to the routing of the value (such as a Switch).
 type AbstractAddressableSource[O Value] struct {
 	// Out is an address map of all Inlet(sink) reachable by the Source.
 	Out                     map[address.Address]Inlet[O]
 	PanicOnDuplicateAddress bool
 }
 
-// OutTo implements the Source interface. Inlets provided must have a valid InletAddress.
-// If two inlets are provided with the same address, the last Inlet will override the
-// previous one.
+// OutTo implements the Source interface. Inlets provided must have a valid
+// InletAddress. If two inlets are provided with the same address, the last Inlet will
+// override the previous one.
 func (aas *AbstractAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
 	if aas.Out == nil {
 		aas.Out = make(map[address.Address]Inlet[O])
 	}
 	for _, inlet := range inlets {
 		if inlet.InletAddress() == "" {
-			panic("[confluence.AbstractAddressableSource] - inlet must have a valid address")
+			panic(
+				"[confluence.AbstractAddressableSource] - inlet must have a valid address",
+			)
 		}
 		if _, ok := aas.Out[inlet.InletAddress()]; ok && aas.PanicOnDuplicateAddress {
-			panic(fmt.Sprintf("[confluence.AbstractAddressableSource] - duplicate address %sink", inlet.InletAddress()))
+			panic(
+				fmt.Sprintf(
+					"[confluence.AbstractAddressableSource] - duplicate address %sink",
+					inlet.InletAddress(),
+				),
+			)
 		}
 		aas.Out[inlet.InletAddress()] = inlet
 	}
 }
 
 // Send sends a value to the target address.
-func (aas *AbstractAddressableSource[O]) Send(ctx context.Context, target address.Address, v O) error {
+func (aas *AbstractAddressableSource[O]) Send(
+	ctx context.Context,
+	target address.Address,
+	v O,
+) error {
 	inlet, ok := aas.Out[target]
 	if !ok {
 		return address.NewTargetNotFoundError(target)
@@ -139,7 +158,6 @@ func (aas *AbstractAddressableSource[O]) SendToEach(ctx context.Context, v O) er
 		}
 	}
 	return nil
-
 }
 
 // CloseInlets closes all Inlet(sink) provided to AbstractAddressableSource.OutTo.

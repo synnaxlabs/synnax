@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "absl/log/log.h"
+
 #include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"

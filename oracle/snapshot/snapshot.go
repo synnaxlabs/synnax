@@ -27,31 +27,34 @@ import (
 // preserving subdirectory structure. Skips the snapshots directory itself.
 func Create(schemasDir, snapshotsDir string, version int) error {
 	destDir := filepath.Join(snapshotsDir, fmt.Sprintf("v%d", version))
-	return filepath.Walk(schemasDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Skip the snapshots directory itself.
-		if info.IsDir() && path == filepath.Join(schemasDir, "snapshots") {
-			return filepath.SkipDir
-		}
-		if info.IsDir() || !strings.HasSuffix(info.Name(), ".oracle") {
-			return nil
-		}
-		rel, err := filepath.Rel(schemasDir, path)
-		if err != nil {
-			return errors.Wrapf(err, "failed to compute relative path for %s", path)
-		}
-		dst := filepath.Join(destDir, rel)
-		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-			return errors.Wrapf(err, "failed to create directory for %s", dst)
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return errors.Wrapf(err, "failed to read %s", path)
-		}
-		return os.WriteFile(dst, data, 0644)
-	})
+	return filepath.Walk(
+		schemasDir,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			// Skip the snapshots directory itself.
+			if info.IsDir() && path == filepath.Join(schemasDir, "snapshots") {
+				return filepath.SkipDir
+			}
+			if info.IsDir() || !strings.HasSuffix(info.Name(), ".oracle") {
+				return nil
+			}
+			rel, err := filepath.Rel(schemasDir, path)
+			if err != nil {
+				return errors.Wrapf(err, "failed to compute relative path for %s", path)
+			}
+			dst := filepath.Join(destDir, rel)
+			if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+				return errors.Wrapf(err, "failed to create directory for %s", dst)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return errors.Wrapf(err, "failed to read %s", path)
+			}
+			return os.WriteFile(dst, data, 0o644)
+		},
+	)
 }
 
 // LatestVersion returns the highest snapshot version number in snapshotsDir,
@@ -62,7 +65,11 @@ func LatestVersion(snapshotsDir string) (int, error) {
 		return 0, nil
 	}
 	if err != nil {
-		return 0, errors.Wrapf(err, "failed to read snapshots directory %s", snapshotsDir)
+		return 0, errors.Wrapf(
+			err,
+			"failed to read snapshots directory %s",
+			snapshotsDir,
+		)
 	}
 	max := 0
 	for _, entry := range entries {
@@ -117,17 +124,24 @@ func (l *FileLoader) RepoRoot() string { return l.repoRoot }
 // subdirectories to find all schema files.
 func Files(snapshotDir string) ([]string, error) {
 	var files []string
-	err := filepath.Walk(snapshotDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && strings.HasSuffix(info.Name(), ".oracle") {
-			files = append(files, path)
-		}
-		return nil
-	})
+	err := filepath.Walk(
+		snapshotDir,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && strings.HasSuffix(info.Name(), ".oracle") {
+				files = append(files, path)
+			}
+			return nil
+		},
+	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to walk snapshot directory %s", snapshotDir)
+		return nil, errors.Wrapf(
+			err,
+			"failed to walk snapshot directory %s",
+			snapshotDir,
+		)
 	}
 	sort.Strings(files)
 	return files, nil

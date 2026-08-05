@@ -11,8 +11,9 @@ package alamos
 
 import "context"
 
-// TraceCarrier is a propagation medium for traces, whether it be a protocol header, persisted
-// storage, or something else. TraceCarrier is passed to the Propagate and Depropagate functions.
+// TraceCarrier is a propagation medium for traces, whether it be a protocol header,
+// persisted storage, or something else. TraceCarrier is passed to the Propagate and
+// Depropagate functions.
 type TraceCarrier interface {
 	// Set sets the given key to the given value.
 	Set(key, value string)
@@ -31,7 +32,10 @@ func (t *Tracer) Propagate(ctx context.Context, carrier TraceCarrier) {
 
 // Depropagate extracts a span from the given carrier and returns a new context with the
 // span attached.
-func (t *Tracer) Depropagate(ctx context.Context, carrier TraceCarrier) context.Context {
+func (t *Tracer) Depropagate(
+	ctx context.Context,
+	carrier TraceCarrier,
+) context.Context {
 	if t == nil {
 		return ctx
 	}

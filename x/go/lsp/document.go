@@ -55,7 +55,9 @@ func ApplyIncrementalChange(
 		b.WriteString(content[end:])
 		return b.String()
 	default:
-		panic(fmt.Sprintf("unhandled TextDocumentContentChangeEvent variant %T", change))
+		panic(
+			fmt.Sprintf("unhandled TextDocumentContentChangeEvent variant %T", change),
+		)
 	}
 }
 

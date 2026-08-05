@@ -49,8 +49,12 @@ var _ = Describe("LSP", func() {
 			})
 			result := lsp.TranslateDiagnostics(d, source)
 			Expect(result).To(HaveLen(1))
-			Expect(result[0].Range.Start).To(Equal(protocol.Position{Line: 5, Character: 3}))
-			Expect(result[0].Range.End).To(Equal(protocol.Position{Line: 5, Character: 10}))
+			Expect(
+				result[0].Range.Start,
+			).To(Equal(protocol.Position{Line: 5, Character: 3}))
+			Expect(
+				result[0].Range.End,
+			).To(Equal(protocol.Position{Line: 5, Character: 10}))
 		})
 
 		It("Should set source from config", func() {
@@ -91,7 +95,9 @@ var _ = Describe("LSP", func() {
 		It("Should handle zero-line diagnostics safely", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Range:    protocol.Range{Start: protocol.Position{Line: 0, Character: 0}},
+				Range: protocol.Range{
+					Start: protocol.Position{Line: 0, Character: 0},
+				},
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "zero line",
 			})

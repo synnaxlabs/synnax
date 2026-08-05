@@ -34,14 +34,18 @@ func createV1() v1.Data {
 			{Key: "n1", Position: v0.XY{X: 1, Y: 2}},
 			{Key: "n2", Position: v0.XY{X: 3, Y: 4}},
 		},
-		Edges: []v0.Edge{{
-			Key:          "e1",
-			Source:       "n1",
-			Target:       "n2",
-			SourceHandle: &srcH,
-			TargetHandle: &tgtH,
-			Data:         json.RawMessage(`{"segments":[{"direction":"x","length":10}]}`),
-		}},
+		Edges: []v0.Edge{
+			{
+				Key:          "e1",
+				Source:       "n1",
+				Target:       "n2",
+				SourceHandle: &srcH,
+				TargetHandle: &tgtH,
+				Data: json.RawMessage(
+					`{"segments":[{"direction":"x","length":10}]}`,
+				),
+			},
+		},
 		Props:   map[string]json.RawMessage{"n1": json.RawMessage(`{"key":"valve"}`)},
 		Control: "released",
 		Legend:  v1.ZeroLegend,

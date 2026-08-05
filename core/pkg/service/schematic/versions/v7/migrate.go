@@ -230,7 +230,9 @@ func segmentsToRaw(segs []segment) []any {
 // "key" field to "variant" to match the v6 NodeProps schema declared in
 // schematic.oracle. Empty entries are dropped because msgpack.EncodedJSON is
 // nil-equivalent to "no entry".
-func migrateProps(in map[string]json.RawMessage) (map[string]msgpack.EncodedJSON, error) {
+func migrateProps(
+	in map[string]json.RawMessage,
+) (map[string]msgpack.EncodedJSON, error) {
 	if len(in) == 0 {
 		return nil, nil
 	}

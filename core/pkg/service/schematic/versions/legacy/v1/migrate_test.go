@@ -33,14 +33,18 @@ func createV0() v0.Data {
 			{Key: "n1", Position: v0.XY{X: 1, Y: 2}},
 			{Key: "n2", Position: v0.XY{X: 3, Y: 4}},
 		},
-		Edges: []v0.Edge{{
-			Key:          "e1",
-			Source:       "n1",
-			Target:       "n2",
-			SourceHandle: &srcH,
-			TargetHandle: &tgtH,
-			Data:         json.RawMessage(`{"segments":[{"direction":"x","length":10}]}`),
-		}},
+		Edges: []v0.Edge{
+			{
+				Key:          "e1",
+				Source:       "n1",
+				Target:       "n2",
+				SourceHandle: &srcH,
+				TargetHandle: &tgtH,
+				Data: json.RawMessage(
+					`{"segments":[{"direction":"x","length":10}]}`,
+				),
+			},
+		},
 		Props:   map[string]json.RawMessage{"n1": json.RawMessage(`{"key":"valve"}`)},
 		Control: "released",
 	}
@@ -67,13 +71,16 @@ var _ = Describe("Migrate", func() {
 		Expect(out.Control).To(Equal(in.Control))
 	})
 
-	It("Should produce a legend whose units default to px when no legend exists upstream", func() {
-		out := v1.Migrate(v0.Data{})
-		Expect(out.Legend.Visible).To(BeTrue())
-		Expect(out.Legend.Position).To(Equal(v1.LegendPosition{
-			X: 50, Y: 50,
-			Units: &v1.LegendUnits{X: "px", Y: "px"},
-		}))
-		Expect(out.Legend.Colors).To(BeEmpty())
-	})
+	It(
+		"Should produce a legend whose units default to px when no legend exists upstream",
+		func() {
+			out := v1.Migrate(v0.Data{})
+			Expect(out.Legend.Visible).To(BeTrue())
+			Expect(out.Legend.Position).To(Equal(v1.LegendPosition{
+				X: 50, Y: 50,
+				Units: &v1.LegendUnits{X: "px", Y: "px"},
+			}))
+			Expect(out.Legend.Colors).To(BeEmpty())
+		},
+	)
 })

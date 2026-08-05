@@ -36,40 +36,49 @@ import (
 
 var _ = Describe("MigrateArc", func() {
 	Describe("v1 -> v2", func() {
-		It("Should lift a v1 arc, seeding the document from the raw text", func(ctx SpecContext) {
-			key := uuid.New()
-			migrated := migrateFromV1(ctx, v1.Arc{
-				Key:  key,
-				Name: "direct",
-				Mode: v1.ModeText,
-				Text: text.Text{Raw: "x := 1"},
-			})
-			Expect(migrated.Key).To(Equal(key))
-			Expect(migrated.Name).To(Equal("direct"))
-			Expect(migrated.Text.Materialize().Raw).To(Equal("x := 1"))
-			Expect(migrated.Text.Raw).To(BeEmpty())
-		})
+		It(
+			"Should lift a v1 arc, seeding the document from the raw text",
+			func(ctx SpecContext) {
+				key := uuid.New()
+				migrated := migrateFromV1(ctx, v1.Arc{
+					Key:  key,
+					Name: "direct",
+					Mode: v1.ModeText,
+					Text: text.Text{Raw: "x := 1"},
+				})
+				Expect(migrated.Key).To(Equal(key))
+				Expect(migrated.Name).To(Equal("direct"))
+				Expect(migrated.Text.Materialize().Raw).To(Equal("x := 1"))
+				Expect(migrated.Text.Raw).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("v0 -> v2", func() {
-		It("Should seed the document from the previously persisted raw text", func(ctx SpecContext) {
-			got := migrateFromV0(ctx, v0.Arc{
-				Key:  uuid.New(),
-				Name: "legacy",
-				Mode: v0.ModeText,
-				Text: text.Text{Raw: "x := 1"},
-			})
-			Expect(got.Text.Materialize().Raw).To(Equal("x := 1"))
-		})
+		It(
+			"Should seed the document from the previously persisted raw text",
+			func(ctx SpecContext) {
+				got := migrateFromV0(ctx, v0.Arc{
+					Key:  uuid.New(),
+					Name: "legacy",
+					Mode: v0.ModeText,
+					Text: text.Text{Raw: "x := 1"},
+				})
+				Expect(got.Text.Materialize().Raw).To(Equal("x := 1"))
+			},
+		)
 
-		It("Should produce an empty document when there is no prior text", func(ctx SpecContext) {
-			got := migrateFromV0(ctx, v0.Arc{
-				Key:  uuid.New(),
-				Name: "empty",
-				Mode: v0.ModeGraph,
-			})
-			Expect(got.Text.Materialize().Raw).To(Equal(""))
-		})
+		It(
+			"Should produce an empty document when there is no prior text",
+			func(ctx SpecContext) {
+				got := migrateFromV0(ctx, v0.Arc{
+					Key:  uuid.New(),
+					Name: "empty",
+					Mode: v0.ModeGraph,
+				})
+				Expect(got.Text.Materialize().Raw).To(Equal(""))
+			},
+		)
 		It("rewrites v0-encoded entries through the new codec", func(ctx SpecContext) {
 			seed := v0.Arc{
 				Key:  uuid.New(),
@@ -114,50 +123,53 @@ var _ = Describe("MigrateArc", func() {
 			Expect(got.Status).To(BeNil())
 		})
 
-		It("rewrites deprecated set_status graph nodes to status.set", func(ctx SpecContext) {
-			seed := v0.Arc{
-				Key:  uuid.New(),
-				Name: "Legacy Status Graph",
-				Mode: v0.ModeGraph,
-				Graph: graph.Graph{
-					Nodes: graph.Nodes{
-						{
-							Key:  "alarm",
-							Type: "set_status",
-							Config: msgpack.EncodedJSON{
-								"statusKey":   "ox_alarm",
-								"variant":     "error",
-								"message":     "Overpressure",
-								"description": "dropped on migrate",
+		It(
+			"rewrites deprecated set_status graph nodes to status.set",
+			func(ctx SpecContext) {
+				seed := v0.Arc{
+					Key:  uuid.New(),
+					Name: "Legacy Status Graph",
+					Mode: v0.ModeGraph,
+					Graph: graph.Graph{
+						Nodes: graph.Nodes{
+							{
+								Key:  "alarm",
+								Type: "set_status",
+								Config: msgpack.EncodedJSON{
+									"statusKey":   "ox_alarm",
+									"variant":     "error",
+									"message":     "Overpressure",
+									"description": "dropped on migrate",
+								},
+								Position: spatial.XY{X: 0, Y: 0},
 							},
-							Position: spatial.XY{X: 0, Y: 0},
-						},
-						{
-							Key:      "scale",
-							Type:     "scale",
-							Config:   msgpack.EncodedJSON{"factor": "2"},
-							Position: spatial.XY{X: 100, Y: 0},
+							{
+								Key:      "scale",
+								Type:     "scale",
+								Config:   msgpack.EncodedJSON{"factor": "2"},
+								Position: spatial.XY{X: 100, Y: 0},
+							},
 						},
 					},
-				},
-			}
-			got := migrateFromV0(ctx, seed)
-			Expect(got.Graph.Nodes).To(HaveLen(2))
+				}
+				got := migrateFromV0(ctx, seed)
+				Expect(got.Graph.Nodes).To(HaveLen(2))
 
-			Expect(got.Graph.Nodes).To(ContainElement(HaveField("Key", "alarm")))
-			alarmCfg := got.Graph.Inputs["alarm"]
-			Expect(alarmCfg["type"]).To(Equal("status.set"))
-			Expect(alarmCfg["key_or_name"]).To(Equal("ox_alarm"))
-			Expect(alarmCfg["variant"]).To(Equal("error"))
-			Expect(alarmCfg["message"]).To(Equal("Overpressure"))
-			Expect(alarmCfg).ToNot(HaveKey("statusKey"))
-			Expect(alarmCfg).ToNot(HaveKey("description"))
+				Expect(got.Graph.Nodes).To(ContainElement(HaveField("Key", "alarm")))
+				alarmCfg := got.Graph.Inputs["alarm"]
+				Expect(alarmCfg["type"]).To(Equal("status.set"))
+				Expect(alarmCfg["key_or_name"]).To(Equal("ox_alarm"))
+				Expect(alarmCfg["variant"]).To(Equal("error"))
+				Expect(alarmCfg["message"]).To(Equal("Overpressure"))
+				Expect(alarmCfg).ToNot(HaveKey("statusKey"))
+				Expect(alarmCfg).ToNot(HaveKey("description"))
 
-			Expect(got.Graph.Nodes).To(ContainElement(HaveField("Key", "scale")))
-			scaleCfg := got.Graph.Inputs["scale"]
-			Expect(scaleCfg["type"]).To(Equal("scale"))
-			Expect(scaleCfg["factor"]).To(Equal("2"))
-		})
+				Expect(got.Graph.Nodes).To(ContainElement(HaveField("Key", "scale")))
+				scaleCfg := got.Graph.Inputs["scale"]
+				Expect(scaleCfg["type"]).To(Equal("scale"))
+				Expect(scaleCfg["factor"]).To(Equal("2"))
+			},
+		)
 
 		It("defaults missing set_status config parameters", func(ctx SpecContext) {
 			seed := v0.Arc{
@@ -177,34 +189,41 @@ var _ = Describe("MigrateArc", func() {
 			Expect(alarmCfg["message"]).To(Equal(""))
 		})
 
-		It("drops Status and Program and preserves core wire fields when v0 entries carry a populated Status", func(ctx SpecContext) {
-			statusKey := uuid.New().String()
-			labelKey := uuid.New()
-			seed := v0.Arc{
-				Key:  uuid.New(),
-				Name: "Loaded Seed",
-				Mode: v0.ModeGraph,
-				Text: text.Text{Raw: ""},
-				Status: &v0.Status{
-					Key:         statusKey,
-					Name:        "running",
-					Variant:     "success",
-					Message:     "task is running",
-					Description: "started 5s ago",
-					Time:        telem.Now(),
-					Details:     v0.StatusDetails{Running: true},
-					Labels: []label.Label{
-						{Key: labelKey, Name: "critical", Color: color.Color{R: 255, A: 1}},
+		It(
+			"drops Status and Program and preserves core wire fields when v0 entries carry a populated Status",
+			func(ctx SpecContext) {
+				statusKey := uuid.New().String()
+				labelKey := uuid.New()
+				seed := v0.Arc{
+					Key:  uuid.New(),
+					Name: "Loaded Seed",
+					Mode: v0.ModeGraph,
+					Text: text.Text{Raw: ""},
+					Status: &v0.Status{
+						Key:         statusKey,
+						Name:        "running",
+						Variant:     "success",
+						Message:     "task is running",
+						Description: "started 5s ago",
+						Time:        telem.Now(),
+						Details:     v0.StatusDetails{Running: true},
+						Labels: []label.Label{
+							{
+								Key:   labelKey,
+								Name:  "critical",
+								Color: color.Color{R: 255, A: 1},
+							},
+						},
 					},
-				},
-			}
-			got := migrateFromV0(ctx, seed)
-			Expect(got.Key).To(Equal(seed.Key))
-			Expect(got.Name).To(Equal(seed.Name))
-			Expect(got.Mode).To(Equal(v2.Mode(seed.Mode)))
-			Expect(got.Status).To(BeNil())
-			Expect(got.Program).To(BeNil())
-		})
+				}
+				got := migrateFromV0(ctx, seed)
+				Expect(got.Key).To(Equal(seed.Key))
+				Expect(got.Name).To(Equal(seed.Name))
+				Expect(got.Mode).To(Equal(v2.Mode(seed.Mode)))
+				Expect(got.Status).To(BeNil())
+				Expect(got.Program).To(BeNil())
+			},
+		)
 	})
 })
 

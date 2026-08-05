@@ -18,7 +18,7 @@ on:
       - alamos/go/**
       - cesium/**
       - codecov.yaml
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
       - x/go/**
   push:
     branches:
@@ -31,7 +31,7 @@ on:
       - alamos/go/**
       - cesium/**
       - codecov.yaml
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
       - x/go/**
   workflow_dispatch:
 

@@ -41,7 +41,10 @@ const (
 	WriterCommandSetAuthority
 )
 
-var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterCommandWrite, WriterCommandSetAuthority)
+var validateWriterCommand = validate.NewInclusiveBoundsChecker(
+	WriterCommandWrite,
+	WriterCommandSetAuthority,
+)
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
@@ -136,11 +139,11 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if w.accumulatedErr != nil {
 					err = w.accumulatedErr
 				}
-				return
+				return err
 			case req, ok := <-w.In.Outlet():
 				if !ok {
 					err = w.accumulatedErr
-					return
+					return err
 				}
 				var commitEnd telem.TimeStamp
 				if w.accumulatedErr == nil {
@@ -154,20 +157,23 @@ func (w *streamWriter) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func (w *streamWriter) process(ctx context.Context, req WriterRequest) (commitEnd telem.TimeStamp, err error) {
+func (w *streamWriter) process(
+	ctx context.Context,
+	req WriterRequest,
+) (commitEnd telem.TimeStamp, err error) {
 	if err = validateWriterCommand(req.Command); err != nil {
 		return 0, err
 	}
 	if req.Command == WriterCommandSetAuthority {
 		err = w.setAuthority(ctx, req.Config)
-		return
+		return commitEnd, err
 	}
 	if req.Command == WriterCommandCommit {
 		commitEnd, err = w.commit(ctx)
-		return
+		return commitEnd, err
 	}
 	err = w.write(ctx, req)
-	return
+	return commitEnd, err
 }
 
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error {
@@ -224,8 +230,14 @@ func (w *streamWriter) maybeSendRes(
 	req WriterRequest,
 	end telem.TimeStamp,
 ) error {
-	res := WriterResponse{Command: req.Command, SeqNum: req.SeqNum, End: end, Authorized: true}
-	if w.accumulatedErr != nil && errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
+	res := WriterResponse{
+		Command:    req.Command,
+		SeqNum:     req.SeqNum,
+		End:        end,
+		Authorized: true,
+	}
+	if w.accumulatedErr != nil &&
+		errors.Is(w.accumulatedErr, xcontrol.ErrUnauthorized) {
 		w.accumulatedErr = nil
 		w.errSent = false
 		res.Authorized = false
@@ -268,7 +280,10 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	if w.virtual.internal != nil {
-		if req.Frame, err = w.virtual.write(&excludeUnauthorized, req.Frame); err != nil {
+		if req.Frame, err = w.virtual.write(
+			&excludeUnauthorized,
+			req.Frame,
+		); err != nil {
 			accumulatedErr = err
 			if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
 				return accumulatedErr
@@ -402,7 +417,9 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *streamWriter) close(ctx context.Context) error {
 	var err error
-	parentUpdate := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
+	parentUpdate := ControlUpdate{
+		Transfers: make([]control.Transfer, 0, len(w.internal)),
+	}
 	for _, idx := range w.internal {
 		u, errClose := idx.Close()
 		if errClose != nil {
@@ -784,7 +801,6 @@ func missingChannelError(
 func incorrectNumberOfSeriesError(
 	expected int,
 	received int,
-
 ) error {
 	return errors.Wrapf(
 		validate.ErrValidation,
@@ -814,7 +830,8 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		}
 		ch := uWriter.Channel
 		if lengthOfFrame == -1 {
-			if !ch.DataType.IsVariable() && s.DataType.Density() == telem.UnknownDensity {
+			if !ch.DataType.IsVariable() &&
+				s.DataType.Density() == telem.UnknownDensity {
 				return invalidDataTypeError(ch, s.DataType)
 			}
 			lengthOfFrame = s.Len()
@@ -868,7 +885,9 @@ func (w *idxWriter) updateHighWater(s telem.Series) error {
 // resolveCommitEnd returns the end timestamp for a commit. For an index channel, this
 // returns the high watermark. For a non-index channel, this returns a stamp to the
 // approximation of the end
-func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApproximation, error) {
+func (w *idxWriter) resolveCommitEnd(
+	ctx context.Context,
+) (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil
 	}
@@ -890,7 +909,10 @@ type virtualWriter struct {
 	digestKey channel.Key
 }
 
-func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame, error) {
+func (w virtualWriter) write(
+	filterUnauthorized *[]ChannelKey,
+	fr Frame,
+) (Frame, error) {
 	var accumulatedErr error
 	for rawI, k := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {

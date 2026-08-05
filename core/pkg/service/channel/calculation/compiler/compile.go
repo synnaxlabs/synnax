@@ -129,9 +129,12 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	}
 	addNode(calculationKey, calculationKey, nil)
 	addNode(writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
-	cfg.Channel.Operations = lo.Filter(cfg.Channel.Operations, func(item channel.Operation, _ int) bool {
-		return item.Type != "none"
-	})
+	cfg.Channel.Operations = lo.Filter(
+		cfg.Channel.Operations,
+		func(item channel.Operation, _ int) bool {
+			return item.Type != "none"
+		},
+	)
 	if len(cfg.Channel.Operations) == 0 {
 		g.Edges = graph.Edges{{Edge: ir.Edge{
 			Source: ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
@@ -152,7 +155,10 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 			}
 			if i == 0 {
 				g.Edges = append(g.Edges, graph.Edge{Edge: ir.Edge{
-					Source: ir.Handle{Node: calculationKey, Param: ir.DefaultOutputParam},
+					Source: ir.Handle{
+						Node:  calculationKey,
+						Param: ir.DefaultOutputParam,
+					},
 					Target: ir.Handle{Node: key, Param: ir.DefaultInputParam},
 				}})
 			}

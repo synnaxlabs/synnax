@@ -44,7 +44,8 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Virtual:  true,
 					DataType: telem.Float32T,
 					Name:     UniqueChannelName(),
-				}}
+				},
+			}
 			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 
 			var resChannels []channel.Channel
@@ -100,37 +101,44 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal(n))
 		})
-		It("Should correctly retrieve channels by regex expression", func(ctx SpecContext) {
-			created := []channel.Channel{
-				{
-					Virtual:  true,
-					DataType: telem.Float32T,
-					Name:     "SG222",
-				},
-				{
-					Virtual:  true,
-					DataType: telem.Float32T,
-					Name:     "SG223",
-				},
-			}
-			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
-			var resChannels []channel.Channel
+		It(
+			"Should correctly retrieve channels by regex expression",
+			func(ctx SpecContext) {
+				created := []channel.Channel{
+					{
+						Virtual:  true,
+						DataType: telem.Float32T,
+						Name:     "SG222",
+					},
+					{
+						Virtual:  true,
+						DataType: telem.Float32T,
+						Name:     "SG223",
+					},
+				}
+				Expect(writer.CreateMany(ctx, &created)).To(Succeed())
+				var resChannels []channel.Channel
 
-			Expect(svc.
-				NewRetrieve().
-				Where(channel.MatchNames("SG22.*")).
-				Entries(&resChannels).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(resChannels).To(HaveLen(2))
-		})
-		It("Should return a well formatted error if a channel cannot be found by its key", func(ctx SpecContext) {
-			var resChannels []channel.Channel
-			Expect(svc.
-				NewRetrieve().
-				Where(channel.MatchKeys(435)).
-				Entries(&resChannels).
-				Exec(ctx, nil)).To(MatchError(ContainSubstring("Channels with keys [435] not found")))
-		})
+				Expect(svc.
+					NewRetrieve().
+					Where(channel.MatchNames("SG22.*")).
+					Entries(&resChannels).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(resChannels).To(HaveLen(2))
+			},
+		)
+		It(
+			"Should return a well formatted error if a channel cannot be found by its key",
+			func(ctx SpecContext) {
+				var resChannels []channel.Channel
+				Expect(svc.
+					NewRetrieve().
+					Where(channel.MatchKeys(435)).
+					Entries(&resChannels).
+					Exec(ctx, nil),
+				).To(MatchError(ContainSubstring("Channels with keys [435] not found")))
+			},
+		)
 		It("Should correctly filter channels by search term", func(ctx SpecContext) {
 			created := []channel.Channel{
 				{
@@ -157,15 +165,17 @@ var _ = Describe("Retrieve", Ordered, func() {
 			}).Should(Succeed())
 		})
 
-		It("Should return an error when retrieving a channel with a key of 0", func(ctx SpecContext) {
-			var resChannels []channel.Channel
-			Expect(svc.
-				NewRetrieve().
-				Where(channel.MatchKeys(0)).
-				Entries(&resChannels).
-				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-		})
-
+		It(
+			"Should return an error when retrieving a channel with a key of 0",
+			func(ctx SpecContext) {
+				var resChannels []channel.Channel
+				Expect(svc.
+					NewRetrieve().
+					Where(channel.MatchKeys(0)).
+					Entries(&resChannels).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 	Describe("MatchCalculated", func() {
 		It("Should only return calculated channels", func(ctx SpecContext) {
@@ -197,24 +207,27 @@ var _ = Describe("Retrieve", Ordered, func() {
 			))
 		})
 
-		It("Should return empty when no calculated channels exist on a fresh node", func(ctx SpecContext) {
-			freshSvc, _ := openService(ctx, mock.NewNode(ctx))
-			base := channel.Channel{
-				Virtual:  true,
-				DataType: telem.Float32T,
-				Name:     "wc_only_base",
-			}
-			Expect(freshSvc.NewWriter(nil).
-				CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
+		It(
+			"Should return empty when no calculated channels exist on a fresh node",
+			func(ctx SpecContext) {
+				freshSvc, _ := openService(ctx, mock.NewNode(ctx))
+				base := channel.Channel{
+					Virtual:  true,
+					DataType: telem.Float32T,
+					Name:     "wc_only_base",
+				}
+				Expect(freshSvc.NewWriter(nil).
+					CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
 
-			var results []channel.Channel
-			Expect(freshSvc.
-				NewRetrieve().
-				Where(channel.MatchCalculated()).
-				Entries(&results).
-				Exec(ctx, nil)).To(Succeed())
-			Expect(results).To(BeEmpty())
-		})
+				var results []channel.Channel
+				Expect(freshSvc.
+					NewRetrieve().
+					Where(channel.MatchCalculated()).
+					Entries(&results).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(results).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Exists", func() {

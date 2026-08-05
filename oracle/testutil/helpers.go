@@ -111,7 +111,8 @@ func contentOf(resp *plugin.Response, pathSuffix string) string {
 func MustContentOf(resp *plugin.Response, pathSuffix string) string {
 	ginkgo.GinkgoHelper()
 	content := contentOf(resp, pathSuffix)
-	gomega.Expect(content).NotTo(gomega.BeEmpty(), "no file found with suffix: %s", pathSuffix)
+	gomega.Expect(content).
+		NotTo(gomega.BeEmpty(), "no file found with suffix: %s", pathSuffix)
 	return content
 }
 
@@ -132,7 +133,8 @@ func ExpectContent(resp *plugin.Response, pathSuffix string) *ContentExpectation
 func (c *ContentExpectation) ToContain(substrings ...string) *ContentExpectation {
 	ginkgo.GinkgoHelper()
 	for _, s := range substrings {
-		gomega.Expect(c.content).To(gomega.ContainSubstring(s), "expected content to contain: %q", s)
+		gomega.Expect(c.content).
+			To(gomega.ContainSubstring(s), "expected content to contain: %q", s)
 	}
 	return c
 }
@@ -151,18 +153,22 @@ func (c *ContentExpectation) ToBeValidGoSource() *ContentExpectation {
 func (c *ContentExpectation) ToNotContain(substrings ...string) *ContentExpectation {
 	ginkgo.GinkgoHelper()
 	for _, s := range substrings {
-		gomega.Expect(c.content).NotTo(gomega.ContainSubstring(s), "expected content to NOT contain: %q", s)
+		gomega.Expect(c.content).
+			NotTo(gomega.ContainSubstring(s), "expected content to NOT contain: %q", s)
 	}
 	return c
 }
 
 // ToPreserveOrder asserts that the given substrings appear in order in the content.
-func (c *ContentExpectation) ToPreserveOrder(orderedSubstrings ...string) *ContentExpectation {
+func (c *ContentExpectation) ToPreserveOrder(
+	orderedSubstrings ...string,
+) *ContentExpectation {
 	ginkgo.GinkgoHelper()
 	lastIdx := -1
 	for _, s := range orderedSubstrings {
 		idx := strings.Index(c.content, s)
-		gomega.Expect(idx).To(gomega.BeNumerically(">=", 0), "expected content to contain: %q", s)
+		gomega.Expect(idx).
+			To(gomega.BeNumerically(">=", 0), "expected content to contain: %q", s)
 		gomega.Expect(idx).To(gomega.BeNumerically(">", lastIdx),
 			"expected %q to appear after previous substring", s)
 		lastIdx = idx

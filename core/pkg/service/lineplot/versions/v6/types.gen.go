@@ -33,7 +33,8 @@ const (
 	TickTypeTime   TickType = "time"
 )
 
-// IsValid reports whether t is one of the defined TickType values.
+// IsValid reports whether t is one of the defined TickType
+// values.
 func (t TickType) IsValid() bool {
 	switch t {
 	case TickTypeLinear, TickTypeTime:
@@ -51,7 +52,8 @@ const (
 	DownsampleModeDecimate DownsampleMode = "decimate"
 )
 
-// IsValid reports whether d is one of the defined DownsampleMode values.
+// IsValid reports whether d is one of the defined DownsampleMode
+// values.
 func (d DownsampleMode) IsValid() bool {
 	switch d {
 	case DownsampleModeAverage, DownsampleModeDecimate:
@@ -69,7 +71,8 @@ const (
 	XAxisKeyX2 XAxisKey = "x2"
 )
 
-// IsValid reports whether x is one of the defined XAxisKey values.
+// IsValid reports whether x is one of the defined XAxisKey
+// values.
 func (x XAxisKey) IsValid() bool {
 	switch x {
 	case XAxisKeyX1, XAxisKeyX2:
@@ -89,7 +92,8 @@ const (
 	YAxisKeyY4 YAxisKey = "y4"
 )
 
-// IsValid reports whether y is one of the defined YAxisKey values.
+// IsValid reports whether y is one of the defined YAxisKey
+// values.
 func (y YAxisKey) IsValid() bool {
 	switch y {
 	case YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4:
@@ -111,7 +115,8 @@ const (
 	AxisKeyY4 AxisKey = "y4"
 )
 
-// IsValid reports whether a is one of the defined AxisKey values.
+// IsValid reports whether a is one of the defined AxisKey
+// values.
 func (a AxisKey) IsValid() bool {
 	switch a {
 	case AxisKeyX1, AxisKeyX2, AxisKeyY1, AxisKeyY2, AxisKeyY3, AxisKeyY4:

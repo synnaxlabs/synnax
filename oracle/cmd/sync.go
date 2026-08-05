@@ -125,7 +125,9 @@ func runSync(cmd *cobra.Command) error {
 				absPaths[i] = filepath.Join(repoRoot, f)
 			}
 			if err := pw.PostWrite(absPaths); err != nil {
-				printDim(fmt.Sprintf("post-write hook for %s failed: %v", pluginName, err))
+				printDim(
+					fmt.Sprintf("post-write hook for %s failed: %v", pluginName, err),
+				)
 			}
 		}
 	}
@@ -158,12 +160,20 @@ func runSync(cmd *cobra.Command) error {
 	// files because the license formatter no-ops when a header is
 	// already present and gofmt is stable.
 	if !bufResult.Cached {
-		if _, err := codegen.FormatBufOutputs(ctx, repoRoot, formatters, 0); err != nil {
+		if _, err := codegen.FormatBufOutputs(
+			ctx,
+			repoRoot,
+			formatters,
+			0,
+		); err != nil {
 			return errors.Wrap(err, "format buf outputs")
 		}
 	}
 
-	printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged)+len(syncResult.Skipped))
+	printSyncedCount(
+		len(syncResult.Written),
+		len(syncResult.Unchanged)+len(syncResult.Skipped),
+	)
 	return nil
 }
 
@@ -180,7 +190,7 @@ func writeSchemaSources(result *pipeline.Result, repoRoot string) (int, error) {
 			continue
 		}
 		abs := paths.Resolve(rel, repoRoot)
-		if err := os.WriteFile(abs, canonical, 0644); err != nil {
+		if err := os.WriteFile(abs, canonical, 0o644); err != nil {
 			return formatted, errors.Wrapf(err, "failed to write %s", abs)
 		}
 		formatted++
@@ -292,14 +302,17 @@ func syncOutputs(
 			if p.Existing != nil && string(p.Existing) == string(canonical) {
 				mu.Lock()
 				r.Unchanged = append(r.Unchanged, p.RelPath)
-				cache.Put(p.RelPath, format.Entry{Raw: p.RawHash, Canonical: canonicalHash})
+				cache.Put(
+					p.RelPath,
+					format.Entry{Raw: p.RawHash, Canonical: canonicalHash},
+				)
 				mu.Unlock()
 				return nil
 			}
-			if err := os.MkdirAll(filepath.Dir(p.AbsPath), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(p.AbsPath), 0o755); err != nil {
 				return errors.Wrapf(err, "mkdir %s", filepath.Dir(p.AbsPath))
 			}
-			if err := os.WriteFile(p.AbsPath, canonical, 0644); err != nil {
+			if err := os.WriteFile(p.AbsPath, canonical, 0o644); err != nil {
 				return errors.Wrapf(err, "write %s", p.AbsPath)
 			}
 			mu.Lock()

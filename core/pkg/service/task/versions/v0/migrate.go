@@ -91,8 +91,14 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 			if len(missingStatuses) == 0 {
 				return nil
 			}
-			ins.L.Info("creating unknown statuses for existing tasks", zap.Int("count", len(missingStatuses)))
-			return status.NewWriter[StatusDetails](cfg.Status, tx).SetMany(ctx, &missingStatuses)
+			ins.L.Info(
+				"creating unknown statuses for existing tasks",
+				zap.Int("count", len(missingStatuses)),
+			)
+			return status.NewWriter[StatusDetails](
+				cfg.Status,
+				tx,
+			).SetMany(ctx, &missingStatuses)
 		},
 	)
 }

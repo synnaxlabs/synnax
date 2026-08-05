@@ -240,7 +240,9 @@ var _ = Describe("Binary Opcodes", func() {
 			writer := wasm.NewWriter()
 			err := writer.WriteBinaryOpInferred("%", types.F32())
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("float modulo not yet implemented")))
+			Expect(
+				err,
+			).To(MatchError(ContainSubstring("float modulo not yet implemented")))
 		})
 	})
 

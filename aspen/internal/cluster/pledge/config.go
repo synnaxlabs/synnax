@@ -10,6 +10,8 @@
 package pledge
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
-	"time"
 )
 
 type (
@@ -73,7 +74,11 @@ var _ config.Config[Config] = Config{}
 func (cfg Config) Override(other Config) Config {
 	cfg.TransportClient = override.Nil(cfg.TransportClient, other.TransportClient)
 	cfg.TransportServer = override.Nil(cfg.TransportServer, other.TransportServer)
-	cfg.ClusterKey = override.If(cfg.ClusterKey, other.ClusterKey, other.ClusterKey != uuid.Nil)
+	cfg.ClusterKey = override.If(
+		cfg.ClusterKey,
+		other.ClusterKey,
+		other.ClusterKey != uuid.Nil,
+	)
 	cfg.RequestTimeout = override.Numeric(cfg.RequestTimeout, other.RequestTimeout)
 	cfg.RetryInterval = override.Numeric(cfg.RetryInterval, other.RetryInterval)
 	cfg.RetryScale = override.Numeric(cfg.RetryScale, other.RetryScale)

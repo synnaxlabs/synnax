@@ -97,12 +97,15 @@ var _ = Describe("Files", func() {
 			fd.Report("a.oracle", errAt("a error"))
 		})
 
-		It("Should return only error-level diagnostics in first-seen file order", func() {
-			errs := fd.Errors()
-			Expect(errs).To(HaveLen(2))
-			Expect(errs[0].Message).To(Equal("b error"))
-			Expect(errs[1].Message).To(Equal("a error"))
-		})
+		It(
+			"Should return only error-level diagnostics in first-seen file order",
+			func() {
+				errs := fd.Errors()
+				Expect(errs).To(HaveLen(2))
+				Expect(errs[0].Message).To(Equal("b error"))
+				Expect(errs[1].Message).To(Equal("a error"))
+			},
+		)
 
 		It("Should visit every diagnostic with its origin file", func() {
 			var visited []string

@@ -143,7 +143,10 @@ func (e *benchStreamerEnv) close(b *testing.B) {
 	}
 }
 
-func (e *benchStreamerEnv) createVirtualChannel(b *testing.B, name string) *channel.Channel {
+func (e *benchStreamerEnv) createVirtualChannel(
+	b *testing.B,
+	name string,
+) *channel.Channel {
 	ch := &channel.Channel{
 		Name:     name,
 		DataType: telem.Float32T,
@@ -182,7 +185,10 @@ func (e *benchStreamerEnv) createIndexedChannels(
 	return indexCh, dataChannels
 }
 
-func (e *benchStreamerEnv) createCalculation(b *testing.B, name, expression string) *channel.Channel {
+func (e *benchStreamerEnv) createCalculation(
+	b *testing.B,
+	name, expression string,
+) *channel.Channel {
 	calc := &channel.Channel{
 		Name:       name,
 		DataType:   telem.Float32T,
@@ -440,13 +446,21 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 			env := newBenchStreamerEnv(b)
 			defer env.close(b)
 
-			indexCh, dataChannels := env.createIndexedChannels(b, fmt.Sprintf("chain%d", length), 1)
+			indexCh, dataChannels := env.createIndexedChannels(
+				b,
+				fmt.Sprintf("chain%d", length),
+				1,
+			)
 
 			var finalCalc *channel.Channel
 			prevName := fmt.Sprintf("chain%d_sensor_0", length)
 			for i := range length {
 				name := fmt.Sprintf("chain%d_calc_%d", length, i)
-				finalCalc = env.createCalculation(b, name, fmt.Sprintf("return %s + 1", prevName))
+				finalCalc = env.createCalculation(
+					b,
+					name,
+					fmt.Sprintf("return %s + 1", prevName),
+				)
 				prevName = name
 			}
 
@@ -507,7 +521,10 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 			}
 			b.StopTimer()
 			inlet.Close()
-			b.ReportMetric(float64(samplesPerFrame*b.N)/b.Elapsed().Seconds(), "samples/sec")
+			b.ReportMetric(
+				float64(samplesPerFrame*b.N)/b.Elapsed().Seconds(),
+				"samples/sec",
+			)
 		})
 	}
 }

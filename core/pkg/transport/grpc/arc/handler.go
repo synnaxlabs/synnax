@@ -49,11 +49,21 @@ type (
 )
 
 var (
-	_ grpc.Translator[arc.CreateRequest, *CreateRequest]       = (*createRequestTranslator)(nil)
-	_ grpc.Translator[arc.CreateResponse, *CreateResponse]     = (*createResponseTranslator)(nil)
-	_ grpc.Translator[arc.RetrieveRequest, *RetrieveRequest]   = (*retrieveRequestTranslator)(nil)
-	_ grpc.Translator[arc.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
-	_ grpc.Translator[arc.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
+	_ grpc.Translator[arc.CreateRequest, *CreateRequest] = (*createRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[arc.CreateResponse, *CreateResponse] = (*createResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[arc.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[arc.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[arc.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
+		nil,
+	)
 )
 
 func (createRequestTranslator) Forward(

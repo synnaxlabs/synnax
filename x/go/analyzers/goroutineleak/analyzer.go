@@ -119,7 +119,8 @@ func hasTopLevelPerSpec(pass *analysis.Pass) bool {
 			}
 			found := false
 			ast.Inspect(gen, func(n ast.Node) bool {
-				if call, ok := n.(*ast.CallExpr); ok && calleeName(call) == perSpecCheck {
+				if call, ok := n.(*ast.CallExpr); ok &&
+					calleeName(call) == perSpecCheck {
 					found = true
 					return false
 				}

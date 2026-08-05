@@ -32,7 +32,10 @@ func newMockPolymorphicSymbols() []symbol.Symbol {
 			Type: types.Function(types.FunctionProperties{
 				Inputs: simpleInputs,
 				Outputs: types.Params{
-					{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
+					{
+						Name: ir.DefaultOutputParam,
+						Type: types.Variable("T", &constraint),
+					},
 				},
 			}),
 			Trigger: symbol.TriggerInput("a"),
@@ -75,20 +78,35 @@ var _ = Describe("Polymorphic func Analysis", func() {
 			}),
 	)
 
-	It("Should accept two calls to the same polymorphic func with different concrete types", func(sCtx SpecContext) {
-		i64Extras := []symbol.Symbol{
-			{Name: "sensor_i64", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
-			{Name: "out_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
-			{Name: "out_i64", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
-		}
-		root = NewRoot(nil, append(extras, i64Extras...)...)
-		src := `sensor_f32 -> simple{} -> out_f32
+	It(
+		"Should accept two calls to the same polymorphic func with different concrete types",
+		func(sCtx SpecContext) {
+			i64Extras := []symbol.Symbol{
+				{
+					Name: "sensor_i64",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+				},
+				{
+					Name: "out_f32",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+				{
+					Name: "out_i64",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+				},
+			}
+			root = NewRoot(nil, append(extras, i64Extras...)...)
+			src := `sensor_f32 -> simple{} -> out_f32
 sensor_i64 -> simple{} -> out_i64`
-		ast := MustSucceed(parser.Parse(src))
-		ctx := acontext.NewRoot(sCtx, ast, root)
-		analyzer.AnalyzeProgram(ctx)
-		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-	})
+			ast := MustSucceed(parser.Parse(src))
+			ctx := acontext.NewRoot(sCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		},
+	)
 
 	// Pins the prev-freshening contract: at each func→func boundary, the
 	// previous function is re-freshened with the same position-derived key
@@ -96,18 +114,25 @@ sensor_i64 -> simple{} -> out_i64`
 	// resolve through the constraint store from the earlier node analysis.
 	// A chain of three polymorphic functions hits this path twice and would
 	// silently mis-propagate types if constraint retention regressed.
-	It("Should propagate types through a chain of three polymorphic funcs", func(sCtx SpecContext) {
-		chainExtras := []symbol.Symbol{
-			{Name: "out_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
-		}
-		root = NewRoot(nil, append(extras, chainExtras...)...)
-		src := `sensor_f32 -> simple{} -> simple{} -> simple{} -> out_f32`
-		ast := MustSucceed(parser.Parse(src))
-		ctx := acontext.NewRoot(sCtx, ast, root)
-		analyzer.AnalyzeProgram(ctx)
-		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		Expect(ctx.Constraints.Substitutions).To(ContainElement(types.F32()))
-	})
+	It(
+		"Should propagate types through a chain of three polymorphic funcs",
+		func(sCtx SpecContext) {
+			chainExtras := []symbol.Symbol{
+				{
+					Name: "out_f32",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+			}
+			root = NewRoot(nil, append(extras, chainExtras...)...)
+			src := `sensor_f32 -> simple{} -> simple{} -> simple{} -> out_f32`
+			ast := MustSucceed(parser.Parse(src))
+			ctx := acontext.NewRoot(sCtx, ast, root)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(ctx.Constraints.Substitutions).To(ContainElement(types.F32()))
+		},
+	)
 })
 
 var _ = Describe("Polymorphic func in module - cross-analysis", func() {
@@ -128,28 +153,39 @@ var _ = Describe("Polymorphic func in module - cross-analysis", func() {
 		mod.AddChild(simple)
 		return []symbol.Symbol{
 			*mod,
-			{Name: "sensor_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
-			{Name: "sensor_i64", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
+			{
+				Name: "sensor_f32",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+			},
+			{
+				Name: "sensor_i64",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+			},
 			{Name: "out_f32", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
 			{Name: "out_i64", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
 		}
 	}
 
-	It("Should not corrupt a module's polymorphic function type across analyses", func(sCtx SpecContext) {
-		extras := buildExtras()
+	It(
+		"Should not corrupt a module's polymorphic function type across analyses",
+		func(sCtx SpecContext) {
+			extras := buildExtras()
 
-		root1 := NewRoot(nil, extras...)
-		ast1 := MustSucceed(parser.Parse(`import mymod
+			root1 := NewRoot(nil, extras...)
+			ast1 := MustSucceed(parser.Parse(`import mymod
 sensor_f32 -> mymod.simple{} -> out_f32`))
-		ctx1 := acontext.NewRoot(sCtx, ast1, root1)
-		analyzer.AnalyzeProgram(ctx1)
-		Expect(ctx1.Diagnostics.Ok()).To(BeTrue(), ctx1.Diagnostics.String())
+			ctx1 := acontext.NewRoot(sCtx, ast1, root1)
+			analyzer.AnalyzeProgram(ctx1)
+			Expect(ctx1.Diagnostics.Ok()).To(BeTrue(), ctx1.Diagnostics.String())
 
-		root2 := NewRoot(nil, extras...)
-		ast2 := MustSucceed(parser.Parse(`import mymod
+			root2 := NewRoot(nil, extras...)
+			ast2 := MustSucceed(parser.Parse(`import mymod
 sensor_i64 -> mymod.simple{} -> out_i64`))
-		ctx2 := acontext.NewRoot(sCtx, ast2, root2)
-		analyzer.AnalyzeProgram(ctx2)
-		Expect(ctx2.Diagnostics.Ok()).To(BeTrue(), ctx2.Diagnostics.String())
-	})
+			ctx2 := acontext.NewRoot(sCtx, ast2, root2)
+			analyzer.AnalyzeProgram(ctx2)
+			Expect(ctx2.Diagnostics.Ok()).To(BeTrue(), ctx2.Diagnostics.String())
+		},
+	)
 })

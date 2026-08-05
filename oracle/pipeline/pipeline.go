@@ -331,7 +331,10 @@ func FormatGenerated(
 	}
 	batch := make([]format.File, len(files))
 	for i, f := range files {
-		batch[i] = format.File{Path: paths.Resolve(f.Path, repoRoot), Content: f.Content}
+		batch[i] = format.File{
+			Path:    paths.Resolve(f.Path, repoRoot),
+			Content: f.Content,
+		}
 	}
 	formatted, err := formatters.FormatBatch(ctx, batch, workers)
 	if err != nil {

@@ -24,7 +24,8 @@ const (
 	OuterLocationLeft   OuterLocation = "left"
 )
 
-// IsValid reports whether o is one of the defined OuterLocation values.
+// IsValid reports whether o is one of the defined OuterLocation
+// values.
 func (o OuterLocation) IsValid() bool {
 	switch o {
 	case OuterLocationTop, OuterLocationRight, OuterLocationBottom, OuterLocationLeft:
@@ -51,7 +52,8 @@ const (
 	DirectionY Direction = "y"
 )
 
-// IsValid reports whether d is one of the defined Direction values.
+// IsValid reports whether d is one of the defined Direction
+// values.
 func (d Direction) IsValid() bool {
 	switch d {
 	case DirectionX, DirectionY:
@@ -69,7 +71,8 @@ const (
 	XLocationRight XLocation = "right"
 )
 
-// IsValid reports whether x is one of the defined XLocation values.
+// IsValid reports whether x is one of the defined XLocation
+// values.
 func (x XLocation) IsValid() bool {
 	switch x {
 	case XLocationLeft, XLocationRight:
@@ -87,7 +90,8 @@ const (
 	YLocationBottom YLocation = "bottom"
 )
 
-// IsValid reports whether y is one of the defined YLocation values.
+// IsValid reports whether y is one of the defined YLocation
+// values.
 func (y YLocation) IsValid() bool {
 	switch y {
 	case YLocationTop, YLocationBottom:
@@ -106,7 +110,8 @@ const (
 	StickyUnitDecimal StickyUnit = "decimal"
 )
 
-// IsValid reports whether s is one of the defined StickyUnit values.
+// IsValid reports whether s is one of the defined StickyUnit
+// values.
 func (s StickyUnit) IsValid() bool {
 	switch s {
 	case StickyUnitPx, StickyUnitDecimal:

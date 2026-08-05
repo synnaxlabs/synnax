@@ -28,10 +28,11 @@ from multiprocessing.process import BaseProcess
 from examples.simulators.device_sim import DeviceSim
 
 import synnax as sy
-from framework.test_case import TestCase
+from framework.hardware_case import HardwareCase
+from framework.models import SynnaxConnection
 
 
-class SimulatorCase(TestCase):
+class SimulatorCase(HardwareCase):
     """DeviceSim lifecycle management.
 
     Subclasses set sim_classes to a list of DeviceSim subclasses.
@@ -44,9 +45,18 @@ class SimulatorCase(TestCase):
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
+    def __init__(
+        self,
+        synnax_connection: SynnaxConnection = SynnaxConnection(),
+        *,
+        name: str,
+        **params: object,
+    ) -> None:
+        super().__init__(synnax_connection, name=name, **params)
+        self.sims = {}
+
     def setup(self) -> None:
         """Start simulator(s), connect device(s), then delegate to next in MRO."""
-        self.sims = getattr(self, "sims", {})
         for sim_cls in self.sim_classes:
             name = sim_cls.device_name
             existing = self.sims.get(name)
@@ -117,6 +127,9 @@ class SimulatorCase(TestCase):
         rack = self.client.racks.retrieve(name=self.RACK_NAME)
         device_instance = sim_cls.create_device(rack.key)
         try:
-            self.client.devices.retrieve(name=device_instance.name)
+            existing = self.client.devices.retrieve(name=device_instance.name)
+            # A sim device only exists for its sim, so one found here is a leftover from
+            # a killed teardown; adopt it so this run's teardown reclaims it.
+            self.track_test_devices([existing])
         except sy.NotFoundError:
-            self.client.devices.create(device_instance)
+            self.create_test_devices([device_instance])

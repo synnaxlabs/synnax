@@ -126,8 +126,15 @@ func (w Writer) Delete(ctx context.Context, key Key) error {
 
 // DeleteGuard deletes the rack with the given key and its associated status if the
 // provided guard function returns nil.
-func (w Writer) DeleteGuard(ctx context.Context, key Key, guard gorp.GuardFunc[Key, Rack]) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Rack](key)).Guard(guard).Exec(ctx, w.tx); err != nil {
+func (w Writer) DeleteGuard(
+	ctx context.Context,
+	key Key,
+	guard gorp.GuardFunc[Key, Rack],
+) error {
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Rack](key)).
+		Guard(guard).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.status.Delete(ctx, key.OntologyID().String())

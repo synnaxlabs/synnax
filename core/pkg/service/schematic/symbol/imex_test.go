@@ -30,7 +30,9 @@ var _ = Describe("ImEx", func() {
 			}
 			// Export reads committed data, so the symbol is created outside the
 			// per-spec tx and must be deleted to keep the shared DB's counts intact.
-			Expect(svc.NewWriter(nil).Create(ctx, &sym, proj.OntologyID())).To(Succeed())
+			Expect(
+				svc.NewWriter(nil).Create(ctx, &sym, proj.OntologyID()),
+			).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 			})
@@ -53,7 +55,10 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It("Should error on an invalid UUID key", func(ctx SpecContext) {
-			id := ontology.ID{Type: ontology.ResourceTypeSchematicSymbol, Key: "not-a-uuid"}
+			id := ontology.ID{
+				Type: ontology.ResourceTypeSchematicSymbol,
+				Key:  "not-a-uuid",
+			}
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
 		})
 	})

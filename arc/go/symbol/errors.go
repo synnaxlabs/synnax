@@ -41,7 +41,11 @@ func (e *UndefinedSymbolError) GetHint() string {
 		head = head[:dot]
 	}
 	if e.scope.IsAmbientModule(head) {
-		return fmt.Sprintf("module %q is not imported. add `import %s` at the top of the file", head, head)
+		return fmt.Sprintf(
+			"module %q is not imported. add `import %s` at the top of the file",
+			head,
+			head,
+		)
 	}
 	suggestions := e.scope.SuggestSimilar(e.ctx, e.Name, 2)
 	if len(suggestions) > 0 {
@@ -60,7 +64,10 @@ func (s *Symbol) IsAmbientModule(name string) bool {
 		if cur.Kind != KindAmbient {
 			continue
 		}
-		if child := cur.FindChild(name); child != nil && child.Kind == KindModule && !child.Internal {
+		if child := cur.FindChild(
+			name,
+		); child != nil && child.Kind == KindModule &&
+			!child.Internal {
 			return true
 		}
 	}

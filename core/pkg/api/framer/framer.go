@@ -65,8 +65,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type DeleteRequest struct {
-	Keys   channel.Keys    `json:"keys" msgpack:"keys" validate:"required"`
-	Names  []string        `json:"names" msgpack:"names" validate:"names"`
+	Keys   channel.Keys    `json:"keys"   msgpack:"keys"   validate:"required"`
+	Names  []string        `json:"names"  msgpack:"names"  validate:"names"`
 	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
 }
 
@@ -342,15 +342,15 @@ type WriterConfig struct {
 
 // WriterRequest represents a request to write telemetry data for a set of channels.
 type WriterRequest struct {
-	Config  WriterConfig  `json:"config" msgpack:"config"`
-	Frame   Frame         `json:"frame" msgpack:"frame"`
+	Config  WriterConfig  `json:"config"  msgpack:"config"`
+	Frame   Frame         `json:"frame"   msgpack:"frame"`
 	Command WriterCommand `json:"command" msgpack:"command"`
 }
 
 type WriterResponse struct {
-	Err        errors.Payload  `json:"err" msgpack:"err"`
-	End        telem.TimeStamp `json:"end" msgpack:"end"`
-	Command    WriterCommand   `json:"command" msgpack:"command"`
+	Err        errors.Payload  `json:"err"        msgpack:"err"`
+	End        telem.TimeStamp `json:"end"        msgpack:"end"`
+	Command    WriterCommand   `json:"command"    msgpack:"command"`
 	Authorized bool            `json:"authorized" msgpack:"authorized"`
 }
 

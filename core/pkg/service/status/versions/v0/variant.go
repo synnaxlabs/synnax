@@ -12,7 +12,12 @@ package v0
 // IsValid reports whether v is one of the defined Variant values.
 func (v Variant) IsValid() bool {
 	switch v {
-	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:
+	case VariantSuccess,
+		VariantInfo,
+		VariantWarning,
+		VariantError,
+		VariantLoading,
+		VariantDisabled:
 		return true
 	default:
 		return false

@@ -38,7 +38,8 @@ type TypeOrigin struct {
 	InferredAs string
 }
 
-// Constraint represents a type relationship that must hold for successful type checking.
+// Constraint represents a type relationship that must hold for successful type
+// checking.
 type Constraint struct {
 	// Source is the AST node that generated this constraint for error reporting.
 	Source antlr.ParserRuleContext
@@ -146,7 +147,10 @@ func (s *System) ApplySubstitutions(t types.Type) types.Type {
 	return s.applySubstitutions(t, make(set.Set[string]))
 }
 
-func (s *System) applySubstitutionsToParams(t types.Params, visited set.Set[string]) types.Params {
+func (s *System) applySubstitutionsToParams(
+	t types.Params,
+	visited set.Set[string],
+) types.Params {
 	t2 := slices.Clone(t)
 	for i, p := range t2 {
 		t2[i].Type = s.applySubstitutions(p.Type, visited)

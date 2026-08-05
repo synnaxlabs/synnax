@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package index provides functionality for efficient queries of time series on top of
-// a data source.
+// Package index provides functionality for efficient queries of time series on top of a
+// data source.
 //
 // The Index interface provides utilities for finding the number of samples between two
-// timestamps, and for finding the timestamp between a starting timestamp and a number of
-// samples.
+// timestamps, and for finding the timestamp between a starting timestamp and a number
+// of samples.
 //
 // The Domain index is an implementation designed for lookups on domain databases.
 package index
@@ -29,18 +29,31 @@ import (
 var ErrDiscontinuous = errors.Wrap(validate.ErrValidation, "discontinuous")
 
 func NewDiscontinuousTRError(tr telem.TimeRange) error {
-	return errors.Wrapf(ErrDiscontinuous, "the time range %s is not continuous in the index", tr)
+	return errors.Wrapf(
+		ErrDiscontinuous,
+		"the time range %s is not continuous in the index",
+		tr,
+	)
 }
 
-func NewDiscontinuousOffsetError(offset int64, domainLen int64) error {
-	return errors.Wrapf(ErrDiscontinuous, "failed to resolve position %d in continuous index of length %d", offset, domainLen)
+func NewDiscontinuousOffsetError(offset, domainLen int64) error {
+	return errors.Wrapf(
+		ErrDiscontinuous,
+		"failed to resolve position %d in continuous index of length %d",
+		offset,
+		domainLen,
+	)
 }
 
 // NewDiscontinuousStampError is returned when a timestamp cannot be resolved to an
 // exact sample in the index, whether because no domain contains it or because it falls
 // between two samples.
 func NewDiscontinuousStampError(stamp telem.TimeStamp) error {
-	return errors.Wrapf(ErrDiscontinuous, "the timestamp %s does not exist in the index", stamp)
+	return errors.Wrapf(
+		ErrDiscontinuous,
+		"the timestamp %s does not exist in the index",
+		stamp,
+	)
 }
 
 // ContinuousPolicy is a type alias for a boolean that indicates whether a domain

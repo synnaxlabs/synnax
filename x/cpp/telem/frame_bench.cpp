@@ -9,11 +9,11 @@
 
 #include <vector>
 
+#include "benchmark/benchmark.h"
+
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
-
-#include "benchmark/benchmark.h"
 
 namespace {
 x::telem::Series make_float_series(const size_t num_samples) {

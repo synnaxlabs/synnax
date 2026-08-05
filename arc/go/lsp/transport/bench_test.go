@@ -71,7 +71,11 @@ func newHarness(b *testing.B) *benchHarness {
 	if err != nil {
 		b.Fatal(err)
 	}
-	clientStream, serverStream := mock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](ctx, 64, 64)
+	clientStream, serverStream := mock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
+		ctx,
+		64,
+		64,
+	)
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- transport.ServeFreighter(ctx, transport.Config{
@@ -97,7 +101,9 @@ func (h *benchHarness) send(msg map[string]any) {
 	if err != nil {
 		h.b.Fatal(err)
 	}
-	if err := h.stream.Send(transport.JSONRPCMessage{Content: string(data)}); err != nil {
+	if err := h.stream.Send(
+		transport.JSONRPCMessage{Content: string(data)},
+	); err != nil {
 		h.b.Fatal(err)
 	}
 }
@@ -136,7 +142,9 @@ func (h *benchHarness) request(method string, params any) map[string]any {
 	h.b.Helper()
 	h.nextID++
 	id := h.nextID
-	h.send(map[string]any{"jsonrpc": "2.0", "id": id, "method": method, "params": params})
+	h.send(
+		map[string]any{"jsonrpc": "2.0", "id": id, "method": method, "params": params},
+	)
 	return h.pump(func(msg map[string]any) bool {
 		respID, ok := msg["id"].(float64)
 		return ok && int(respID) == id

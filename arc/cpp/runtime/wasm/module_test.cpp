@@ -11,6 +11,7 @@
 #include <string>
 
 #include "gtest/gtest.h"
+#include "wasmtime.hh"
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"

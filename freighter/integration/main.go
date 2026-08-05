@@ -44,7 +44,6 @@ func main() {
 		cancel()
 		return sCtx.Wait()
 	}()
-
 	if err != nil {
 		zap.S().Fatalw("failed to start server", "error", err)
 	}

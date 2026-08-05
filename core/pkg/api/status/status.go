@@ -115,7 +115,10 @@ func (s *Service) SetByKeyOrName(
 	req SetByKeyOrNameRequest,
 ) (SetByKeyOrNameResponse, error) {
 	if !req.Variant.IsValid() {
-		return SetByKeyOrNameResponse{}, errors.Wrap(validate.ErrValidation, "invalid status variant")
+		return SetByKeyOrNameResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"invalid status variant",
+		)
 	}
 	matches, err := s.internal.ResolveKeyOrName(ctx, tx, req.KeyOrName)
 	if err != nil {
