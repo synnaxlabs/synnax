@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { EOF } from "@synnaxlabs/freighter";
+import { EOF, Unreachable } from "@synnaxlabs/freighter";
 import { DataType, Series } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
 import { type channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { DisconnectedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
 import { type query } from "@/query";
 import { createStreamer, type StreamerParams } from "@/query/streamer";
@@ -299,6 +299,33 @@ describe("openStreamer", () => {
       );
 
       await expect.poll(() => onChange.mock.calls.length).toBe(1);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(onError).not.toHaveBeenCalled();
+      await closeStreamer();
+    });
+
+    it("should not report connectivity failures from listeners", async () => {
+      let callCount = 0;
+      const onChange = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) throw new Unreachable({ message: "cannot reach cluster" });
+        throw new DisconnectedError("cluster unreachable");
+      });
+      const onError = vi.fn();
+      const schema = z.object({ value: z.number() });
+      const frames = [
+        new framer.Frame({ test: new Series([{ value: 1 }, { value: 2 }]) }),
+      ];
+
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          onError,
+          listeners: createListeners("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+
+      await expect.poll(() => onChange.mock.calls.length).toBe(2);
       await new Promise((resolve) => setTimeout(resolve, 50));
       expect(onError).not.toHaveBeenCalled();
       await closeStreamer();

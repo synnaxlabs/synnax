@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker, TimeSpan, TimeStamp, url, uuid, zod } from "@synnaxlabs/x";
+import {
+  breaker,
+  type CrudeTimeSpan,
+  TimeSpan,
+  TimeStamp,
+  url,
+  uuid,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
@@ -71,7 +79,7 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
  *
  * @property channel - Channel client for creating and retrieving channels.
  * @property data - Data client for reading and writing telemetry.
- * @property connectivity - Client for retrieving connectivity information.
+ * @property connection - The connection state machine.
  * @property ontology - Client for querying the cluster's ontology.
  */
 export default class Synnax extends framer.Client {
@@ -83,7 +91,7 @@ export default class Synnax extends framer.Client {
   readonly auth: auth.Client;
   readonly users: user.Client;
   readonly access: access.Client;
-  readonly connectivity: connection.Checker;
+  readonly connection: connection.Handle;
   readonly ontology: ontology.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
@@ -101,15 +109,9 @@ export default class Synnax extends framer.Client {
   readonly tables: table.Client;
   readonly groups: group.Client;
   readonly imex: imex.Client;
-  /**
-   * The client's local mirror of cluster state. Live and streamed when
-   * `cache: true` (the default); detached (local-only, no streaming) when
-   * `cache: false`. Not a data access path: per-domain stores on the domain
-   * clients remain the only way to read cached records.
-   */
-  readonly cache: query.Cache;
-  static readonly connectivity = connection.Checker;
+  private readonly cache: query.Cache;
   private readonly transport: Transport;
+  private readonly conn: connection.Client;
 
   /**
    * The version of the client.
@@ -128,8 +130,8 @@ export default class Synnax extends framer.Client {
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster
    * must be configured to support TLS. Defaults to false.
    *
-   * A Synnax client must be closed when it is no longer needed. This will stop
-   * the client from polling the cluster for connectivity information.
+   * A Synnax client must be closed when it is no longer needed. This stops the
+   * connection machine and closes the change stream.
    */
   constructor(params: SynnaxParams) {
     const parsedParams = zod.parse(synnaxParamsZ, params);
@@ -158,25 +160,52 @@ export default class Synnax extends framer.Client {
               (config) => this.openStreamer(config),
               channels,
               retry,
-              () => onReopen?.(),
+              () => {
+                // stream.live first: onReopen's reconcile fetches must not hit
+                // the unreachable short circuit
+                this.conn.notify({ type: "stream.live" });
+                onReopen?.();
+              },
+              (error) => this.conn.notify({ type: "stream.drop", error }),
             );
             // Reads start when the ObservableStreamer is constructed below,
             // so onOpen fires strictly before any frame or reconnect.
             onOpen?.();
+            this.conn.notify({ type: "stream.live" });
             return new framer.ObservableStreamer(hardened);
           }
         : null,
       onError: parsedParams.onInternalError,
     });
     this.cache = cache;
-    this.connectivity = new connection.Checker(
-      transport.unary,
-      connectivityPollFrequency,
-      this.clientVersion,
-      parsedParams.name,
-      clockSkewThreshold,
+    this.conn = new connection.Client({
+      unary: transport.unaryNoRetry,
+      address: `${host}:${Number(port)}`,
+      name: parsedParams.name,
+      clockSkewThreshold: new TimeSpan(clockSkewThreshold).abs(),
+      requiresStream: parsedParams.cache,
+      retry,
+      heartbeatInterval: connectivityPollFrequency,
+      stream: {
+        reset: async () => await cache.reset(),
+        ensure: async () => await cache.ensureStreaming(),
+      },
+      onInternalError: parsedParams.onInternalError,
+    });
+    this.connection = this.conn;
+    cache.onEpoch((epoch) => this.conn.notify({ type: "epoch.advanced", epoch }));
+    transport.unary.use(this.conn.middleware());
+    // The auth client fails fast: login retries belong to the request that
+    // triggered them (the breaker-wrapped unary or the check loop), never
+    // stacked beneath it.
+    this.auth = new auth.Client(
+      transport.unaryNoRetry,
+      { username, password },
+      {
+        onSuccess: () => this.conn.notify({ type: "auth.success" }),
+        onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
+      },
     );
-    this.auth = new auth.Client(transport.unary, { username, password });
     transport.use(this.auth.middleware());
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
@@ -265,8 +294,30 @@ export default class Synnax extends framer.Client {
     this.imex = new imex.Client({ file: this.transport.file });
   }
 
+  /**
+   * Awaits the connection's first success. Idempotent: resolves immediately
+   * when already connected.
+   * @throws {AuthError} on a definitive credential rejection.
+   * @throws {DisconnectedError} when the cluster cannot be reached after the
+   * configured retry budget, or when the client is closed while waiting.
+   * @throws {Error} if the timeout elapses first.
+   */
+  async connect({ timeout }: ConnectOptions = {}): Promise<connection.Status> {
+    return await this.conn.connect(timeout);
+  }
+
+  /** Supplies new credentials after an auth failure and resumes connecting. */
+  reauthenticate(credentials: auth.Credentials): void {
+    this.auth.setCredentials(credentials);
+    this.conn.notify({ type: "credentials.replaced" });
+  }
+
   close(): void {
-    this.connectivity.stop();
+    this.conn
+      .close()
+      .catch((err: unknown) =>
+        this.cache.onError(new Error("failed to close the connection", { cause: err })),
+      );
     this.cache
       .close()
       .catch((err: unknown) =>
@@ -277,18 +328,10 @@ export default class Synnax extends framer.Client {
   }
 }
 
-export interface CheckConnectionParams extends Pick<
-  SynnaxParams,
-  "host" | "port" | "secure" | "retry" | "name"
-> {}
-
-export const checkConnection = async (params: CheckConnectionParams) =>
-  await newConnectionChecker(params).check();
-
-export const newConnectionChecker = (params: CheckConnectionParams) => {
-  const { host, port, secure, name, retry } = params;
-  const retryConfig = zod.parse(breaker.breakerConfigZ.optional(), retry);
-  const endpoint = new url.URL({ host, port: Number(port) });
-  const transport = new Transport(endpoint, retryConfig, secure);
-  return new connection.Checker(transport.unary, undefined, __VERSION__, name);
-};
+export interface ConnectOptions {
+  /**
+   * Maximum time to wait before rejecting. Without it, connect rejects when
+   * the connection escalates to error(unreachable) after its retry budget.
+   */
+  timeout?: CrudeTimeSpan;
+}

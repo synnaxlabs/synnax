@@ -69,7 +69,7 @@ const cachedName = (key: LinePlot["key"]): string | undefined => {
 
 describe("store", () => {
   it("tombstones deletes from live delete signals", async () => {
-    await client.cache.ensureStreaming();
+    await client.connect();
     const plot = await seedPlot();
     await client.lineplots.delete(plot.key);
     await expect
@@ -80,7 +80,7 @@ describe("store", () => {
   });
 
   it("reduces broadcast dispatch frames into the cached document", async () => {
-    await client.cache.ensureStreaming();
+    await client.connect();
     const plot = await seedPlot();
     const name = `renamed-${id.create()}`;
     await client.lineplots.dispatch(plot.key, [rename({ name })]);

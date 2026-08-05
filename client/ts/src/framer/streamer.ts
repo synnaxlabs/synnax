@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { breaker, errors, observe, Rate, TimeSpan } from "@synnaxlabs/x";
+import {
+  breaker,
+  errors,
+  observe,
+  Rate,
+  sync,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -212,6 +220,12 @@ export class HardenedStreamer implements Streamer {
   private readonly config: ParsedStreamerConfig;
   private readonly onReopen?: () => void;
   private readonly onDrop?: (error: Error) => void;
+  private readonly closeNotifier = new sync.Notifier();
+  // A stream that outlives this span proves the incident over; a shorter
+  // life keeps the reconnect backoff escalating.
+  private readonly stableAfter: TimeSpan;
+  private openedAt = TimeStamp.now();
+  private closed = false;
 
   private constructor(
     opener: StreamOpener,
@@ -225,7 +239,9 @@ export class HardenedStreamer implements Streamer {
     const {
       maxRetries = Infinity,
       baseInterval = TimeSpan.seconds(1),
-      maxInterval = TimeSpan.seconds(30),
+      // reconnect attempts are cheap: a low cap bounds how long a returned
+      // cluster goes unnoticed while backoff is escalated
+      maxInterval = TimeSpan.seconds(5),
       scale = 2,
       jitter = 0.25,
     } = breakerConfig ?? {};
@@ -235,7 +251,13 @@ export class HardenedStreamer implements Streamer {
       maxInterval,
       scale,
       jitter,
+      // close() interrupts a pending backoff so a retired streamer's
+      // reconnect loop ends promptly instead of sleeping through it
+      sleepFn: async (duration) => {
+        await this.closeNotifier.wait(duration);
+      },
     });
+    this.stableAfter = new TimeSpan(maxInterval);
     this.onReopen = onReopen;
     this.onDrop = onDrop;
   }
@@ -264,19 +286,36 @@ export class HardenedStreamer implements Streamer {
   }
 
   private async runStreamer(notifyReopen: boolean = true): Promise<void> {
-    while (true)
+    // A long-lived stream that dropped is a fresh incident: reconnect
+    // immediately. A short-lived one is a failing cycle (e.g. a server that
+    // accepts streams and instantly ends them): keep backing off, or the
+    // loop dials hot.
+    if (notifyReopen)
+      if (TimeStamp.since(this.openedAt).greaterThan(this.stableAfter))
+        this.breaker.reset();
+      else if (!(await this.breaker.wait())) throw new EOF();
+    while (!this.closed)
       try {
         if (this.current != null) this.current.close();
-        this.current = await this.opener(this.config);
-        this.breaker.reset();
+        this.current = null;
+        const next = await this.opener(this.config);
+        // closed while the open was in flight: the fresh stream is already
+        // retired and must not be handed to callers
+        if (this.closed) {
+          next.close();
+          break;
+        }
+        this.current = next;
+        this.openedAt = TimeStamp.now();
         if (notifyReopen) this.onReopen?.();
         return;
       } catch (e) {
         this.current = null;
+        if (this.closed) break;
         if (!(await this.breaker.wait())) throw errors.fromUnknown(e);
         console.error("failed to open streamer", e);
-        continue;
       }
+    throw new EOF();
   }
 
   private get wrapped(): Streamer {
@@ -285,10 +324,12 @@ export class HardenedStreamer implements Streamer {
   }
 
   async update(channels: channel.Params): Promise<void> {
+    if (this.closed) throw new EOF();
     this.config.channels = paramsZ.parse(channels);
     try {
       await this.wrapped.update(channels);
     } catch (e) {
+      if (this.closed || EOF.matches(e)) throw errors.fromUnknown(e);
       this.onDrop?.(errors.fromUnknown(e));
       await this.runStreamer();
       return await this.update(channels);
@@ -305,19 +346,25 @@ export class HardenedStreamer implements Streamer {
   }
 
   async read(): Promise<Frame> {
+    if (this.closed) throw new EOF();
     try {
-      const fr = await this.wrapped.read();
-      this.breaker.reset();
-      return fr;
+      return await this.wrapped.read();
     } catch (e) {
-      if (EOF.matches(e)) throw errors.fromUnknown(e);
+      if (this.closed) throw new EOF();
+      // an EOF the client did not ask for is a drop: the server ended the
+      // stream, so reconnect like any other failure
       this.onDrop?.(errors.fromUnknown(e));
       await this.runStreamer();
       return await this.read();
     }
   }
+
+  /** Stops reconnecting and closes the stream. Idempotent; never throws. */
   close(): void {
-    this.wrapped.close();
+    if (this.closed) return;
+    this.closed = true;
+    this.closeNotifier.notify();
+    this.current?.close();
   }
 
   get keys(): channel.Key[] {

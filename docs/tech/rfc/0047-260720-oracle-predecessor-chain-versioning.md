@@ -1,4 +1,4 @@
-# 0046 - Oracle Predecessor-Chain Type Versioning
+# 47 - Oracle Predecessor-Chain Type Versioning
 
 **Feature Name:** Predecessor-Chain Aliasing for Versioned Go Type Packages
 

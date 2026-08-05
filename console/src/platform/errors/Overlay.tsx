@@ -46,14 +46,14 @@ const useExtraErrorInfo = (): ExtraErrorInfo => {
   // If they throw, the error bubbles to OverlayWithoutStore which is fine.
   // We use optional chaining when building extraInfo to handle undefined values.
   const consoleVersion = Session.Version.use();
-  const connectionState = Synnax.useConnectionState();
+  const connectionStatus = Synnax.useConnectionStatus();
   const extraInfo: ExtraErrorInfo = {
     consoleVersion: "unknown",
     coreVersion: "unknown",
   };
   if (consoleVersion != null) extraInfo.consoleVersion = consoleVersion;
-  if (connectionState?.nodeVersion != null)
-    extraInfo.coreVersion = connectionState.nodeVersion;
+  if (connectionStatus?.details.nodeVersion != null)
+    extraInfo.coreVersion = connectionStatus.details.nodeVersion;
   return extraInfo;
 };
 

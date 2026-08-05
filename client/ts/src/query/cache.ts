@@ -10,6 +10,7 @@
 import { type destructor, observe, type record, type state } from "@synnaxlabs/x";
 import type z from "zod";
 
+import { isConnectionError } from "@/errors";
 import { bindDerived, type DeriveParams } from "@/query/derived";
 import { Queries, type QueriesParams, type Retrieves } from "@/query/query";
 import {
@@ -238,6 +239,8 @@ export class Cache {
         try {
           await reconcile();
         } catch (exc) {
+          // The next reopen reconciles again, so an unreachable cluster is churn.
+          if (isConnectionError(exc)) return;
           this.onError(new Error(`failed to reconcile ${name} cache`, { cause: exc }));
         }
       }),

@@ -336,7 +336,7 @@ export interface CreateConnectedConsoleWrapperParams extends CreateConsoleWrappe
 
 /**
  * Like createConsoleWrapper, but nests the production pluto Synnax.Provider inside the
- * stack, so Synnax.useConnectionState reflects a live connection to the cluster at
+ * stack, so Synnax.useConnectionStatus reflects a live connection to the cluster at
  * connParams, the same wiring the app uses in production.
  */
 export const createConnectedConsoleWrapper = async ({

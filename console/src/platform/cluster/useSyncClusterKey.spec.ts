@@ -19,14 +19,14 @@ import { createConnectedConsoleWrapper, renderHookWithConsole } from "@/testutil
 
 const retrieveServerClusterKey = async (): Promise<string> => {
   const client = createTestClient();
-  const { clusterKey } = await client.connectivity.check();
+  const { details } = await client.connect();
   client.close();
-  return clusterKey;
+  return details.clusterKey;
 };
 
 const useSyncWithConnectionState = () => {
   Cluster.useSyncClusterKey();
-  return Synnax.useConnectionState();
+  return Synnax.useConnectionStatus();
 };
 
 describe("useSyncClusterKey", () => {
@@ -34,7 +34,7 @@ describe("useSyncClusterKey", () => {
     const { result, store } = await renderHookWithConsole(useSyncWithConnectionState, {
       preloadedState: createClusterState([createCluster("active-1")], "active-1"),
     });
-    expect(result.current.status).toBe("disconnected");
+    expect(result.current.variant).toBe("disabled");
     expect(Session.Cluster.selectState(store.getState(), "active-1")).toBeDefined();
     expect(Session.Cluster.selectSelectedKey(store.getState())).toEqual("active-1");
   });
@@ -48,8 +48,8 @@ describe("useSyncClusterKey", () => {
       preloadedState: createClusterState([active], serverKey),
     });
     const { result } = renderHook(useSyncWithConnectionState, { wrapper });
-    await waitFor(() => expect(result.current.status).toBe("connected"));
-    expect(result.current.clusterKey).toEqual(serverKey);
+    await waitFor(() => expect(result.current.variant).toBe("success"));
+    expect(result.current.details.clusterKey).toEqual(serverKey);
     expect(Session.Cluster.selectSelectedKey(store.getState())).toEqual(serverKey);
     expect(Session.Cluster.selectState(store.getState(), serverKey)).toBeDefined();
   });

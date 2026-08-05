@@ -10,7 +10,7 @@
 import { DataType, errors, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { NotFoundError } from "@/errors";
+import { isConnectionError, NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
 
 /**
@@ -130,6 +130,9 @@ export const createStreamer = ({
   let opened: Promise<ObservableStream> | null = null;
   const report = (exc: unknown, message: string) => {
     if (NotFoundError.matches(exc)) return;
+    // A connectivity failure mid-change is repaired by the reconcile that
+    // follows the stream's reopen, so it is churn, not a defect.
+    if (isConnectionError(exc)) return;
     onError(new Error(message, { cause: exc }));
   };
   const open = async (): Promise<ObservableStream> => {

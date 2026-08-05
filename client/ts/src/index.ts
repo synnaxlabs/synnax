@@ -16,9 +16,7 @@ export type { Param } from "@/arc/types/types.gen";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export {
-  checkConnection,
-  type CheckConnectionParams,
-  newConnectionChecker,
+  type ConnectOptions,
   default as Synnax,
   type SynnaxParams,
   synnaxParamsZ,
@@ -30,6 +28,7 @@ export {
   AuthError,
   ContiguityError,
   DisconnectedError,
+  isConnectionError,
   MultipleFoundError,
   NotFoundError,
   QueryError,
