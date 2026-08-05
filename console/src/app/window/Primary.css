@@ -9,22 +9,61 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-main__content {
-    padding-right: 1rem;
-    padding-bottom: 1rem;
-    padding-left: 0.5rem;
-    /* Hover drawers overshoot the docked footprint: tucked under the top bar, fused
-       into the left bar's border, bled past the content padding. */
-    --left-drawer-inset-left: 8.5rem;
-    --left-drawer-inset-top: 6.5rem;
-    --left-drawer-inset-bottom: 0.5rem;
-    --bottom-drawer-inset-left: calc(8rem - 2px);
-    --bottom-drawer-inset-right: 0.5rem;
-    --bottom-drawer-inset-bottom: 1rem;
+.console-main__workspace {
+    --rail-width: 7.5rem;
+    --top-bar-height: 7rem;
+    --inset-left: 0.5rem;
+    --inset-right: 1rem;
+    --inset-bottom: 1rem;
+    --gutter: 0.5rem;
+
+    /* Hover drawers float at viewport coordinates, so they overshoot the docked
+       footprint: tucked under the top bar, fused into the left bar's border, bled
+       past the content inset. */
+    --bleed: 0.5rem;
+    --left-drawer-inset-left: calc(
+        var(--inset-left) + var(--rail-width) + var(--gutter)
+    );
+    --left-drawer-inset-top: calc(var(--top-bar-height) - var(--bleed));
+    --left-drawer-inset-bottom: calc(var(--inset-bottom) - var(--bleed));
+    --bottom-drawer-inset-left: calc(var(--inset-left) + var(--rail-width) - 2px);
+    --bottom-drawer-inset-right: calc(var(--inset-right) - var(--bleed));
+    --bottom-drawer-inset-bottom: var(--inset-bottom);
+
+    flex-grow: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns:
+        var(--inset-left) var(--rail-width) var(--gutter) minmax(0, 1fr)
+        var(--inset-right);
+    grid-template-rows: var(--top-bar-height) minmax(0, 1fr) var(--inset-bottom);
+    grid-template-areas:
+        ". rail top top     top"
+        ". rail .   content ."
+        ". .    .   .       .";
+
+    /* macOS desktop overlays the traffic lights on the window's corner, so the top
+       bar takes the full width and the rail starts below it. */
+    &.console--full-width-top {
+        grid-template-areas:
+            "top top  top top     top"
+            ".   rail .   content ."
+            ".   .    .   .       .";
+    }
+
+    > .console-nav__bar.pluto--location-top {
+        grid-area: top;
+    }
+
+    > .console-nav__bar.pluto--location-left {
+        grid-area: rail;
+    }
 }
 
-.console-main__column {
-    width: 0;
+.console-main__content {
+    grid-area: content;
+    min-width: 0;
+    min-height: 0;
 }
 
 .console-main__row {
