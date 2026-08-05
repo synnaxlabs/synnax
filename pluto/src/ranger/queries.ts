@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  label,
-  NotFoundError,
-  type ontology,
-  query,
-  ranger,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { label, type ontology, query, ranger } from "@synnaxlabs/client";
 import { type optional, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
@@ -96,6 +89,7 @@ export const {
   useRetrieveSuspended: useRetrieveSuspense,
   useEnsureRetrieved,
   useTombstone,
+  createSelector,
 } = Flux.createRetrieve<RetrieveQuery, ranger.Range>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
@@ -313,22 +307,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-const requireRange = (client: Client | null, key: ranger.Key): ranger.Range => {
-  const cached = client?.ranges.getCached(key);
-  if (cached == null) throw new NotFoundError(`Range with key ${key} not found`);
-  if (query.Deleted.matches(cached))
-    throw new Flux.DeletedError(`${RESOURCE_NAME} was deleted`, cached.corpse);
-  return cached;
-};
-
 export interface SelectKeyParams {
   key: ranger.Key;
 }
 
-export const [useSelectName, useGetName] = Flux.createSelector<SelectKeyParams, string>(
-  {
-    subscribe: ({ client, args: { key } }, notify) =>
-      client == null ? () => {} : client.ranges.onChange(key, notify),
-    select: ({ client, args: { key } }) => requireRange(client, key).name,
-  },
-);
+export const useSelectName = createSelector(({ name }) => name);

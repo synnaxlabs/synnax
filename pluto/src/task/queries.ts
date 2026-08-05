@@ -36,24 +36,14 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
       client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined,
   });
 
-export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
+export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved, createSelector } =
   createRetrieve();
 
 export interface SelectKeyParams {
   key: task.Key;
 }
 
-export const [useSelectName, useGetName] = Flux.createSelector<SelectKeyParams, string>(
-  {
-    subscribe: ({ client, args: { key } }, notify) =>
-      client == null ? () => {} : client.tasks.onChange(key, notify),
-    select: ({ client, args: { key } }) => {
-      const cached = client?.tasks.getCached(key);
-      if (!query.isLive(cached)) return "Task";
-      return cached.name;
-    },
-  },
-);
+export const useSelectName = createSelector(({ name }) => name);
 
 export const useRetrieveObservableName = ({
   onChange,
