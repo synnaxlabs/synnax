@@ -16,7 +16,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var (
@@ -74,9 +77,27 @@ func (s *Service) Import(
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	proj, err := opts.ProjectKey()
-	if err != nil {
-		return ontology.ID{}, err
+	var proj project.Key
+	if !opts.Parent.IsZero() {
+		if opts.Parent.Type != ontology.ResourceTypeProject {
+			return ontology.ID{}, validate.PathedError(
+				errors.Wrapf(
+					validate.ErrValidation,
+					"parent must be a project, got %q",
+					opts.Parent.Type,
+				),
+				"parent",
+			)
+		}
+		var err error
+		if proj, err = uuid.Parse(opts.Parent.Key); err != nil {
+			return ontology.ID{}, validate.PathedError(
+				errors.Wrapf(
+					validate.ErrValidation, "invalid project key %q", opts.Parent.Key,
+				),
+				"parent",
+			)
+		}
 	}
 	lp, err := versions.DecodeImport(ctx, env)
 	if err != nil {

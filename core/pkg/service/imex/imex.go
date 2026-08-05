@@ -29,9 +29,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
@@ -410,26 +408,6 @@ type ImportOptions struct {
 	// untouched: each Importer decides how (and whether) a parent applies to its
 	// resource type. A zero Parent means no parent was requested.
 	Parent ontology.ID
-}
-
-// ProjectKey converts the parent resource to a project key for importers whose
-// resources are project children. Returns the zero key when no parent was given, and a
-// validation error scoped to the "parent" field when the parent is not a project or
-// its key is not a valid UUID.
-func (o ImportOptions) ProjectKey() (project.Key, error) {
-	if o.Parent.IsZero() {
-		return uuid.Nil, nil
-	}
-	if o.Parent.Type != ontology.ResourceTypeProject {
-		return uuid.Nil, newFieldError(
-			"parent", "parent must be a project, got %q", o.Parent.Type,
-		)
-	}
-	key, err := uuid.Parse(o.Parent.Key)
-	if err != nil {
-		return uuid.Nil, newFieldError("parent", "invalid project key %q", o.Parent.Key)
-	}
-	return key, nil
 }
 
 // Importer materializes a resource from an Envelope and persists it. The envelope's
