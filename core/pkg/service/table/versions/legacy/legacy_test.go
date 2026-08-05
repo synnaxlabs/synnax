@@ -51,8 +51,7 @@ var _ = Describe("MigrateData", func() {
 	})
 
 	It("Should decode a nil blob into a zero v0.Data", func() {
-		out := MustSucceed(legacy.MigrateData(nil))
-		Expect(out).To(Equal(v0.Data{}))
+		Expect(legacy.MigrateData(nil)).To(Equal(v0.Data{}))
 	})
 
 	It("Should error on an unknown declared version", func() {

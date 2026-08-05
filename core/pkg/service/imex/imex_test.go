@@ -732,8 +732,7 @@ var _ = Describe("ImEx", func() {
 					Expect(roundEnv.Version).To(Equal(imex.Version(7)))
 					Expect(roundEnv.Type).To(Equal("log"))
 					Expect(roundEnv.Name).To(Equal("n"))
-					out := MustSucceed(imex.Decode[payload](ctx, roundEnv))
-					Expect(out).To(Equal(src))
+					Expect(imex.Decode[payload](ctx, roundEnv)).To(Equal(src))
 				},
 			)
 		})
