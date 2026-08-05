@@ -22,6 +22,7 @@ import { z } from "zod";
 import { Flux } from "@/flux";
 import { Label } from "@/label";
 import { type List } from "@/list";
+import { listDefinition, type ListQuery } from "@/ranger/aether/queries";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "range";
@@ -199,14 +200,12 @@ export const useLabels = (
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
   Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) }, opts);
 
-export type ListQuery = Omit<ranger.RetrieveRequest, "names">;
+export { type ListQuery } from "@/ranger/aether/queries";
 
 export const useList = Flux.createList<ListQuery, ranger.Key, ranger.Range>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.ranges.retrieve(query),
+  ...listDefinition,
+  subscribe: listDefinition.onChange,
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  subscribe: ({ client, query }, handler) => client.ranges.onChange(query, handler),
-  getCached: ({ client, query }) => client.ranges.getCached(query),
 });
 
 export const metaDataFormSchema = z.object({

@@ -13,14 +13,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { flux } from "@/flux/aether";
 
-interface Query {
+type Query = {
   key: string;
-}
+};
 
-interface Data {
+type Data = {
   key: string;
   name: string;
-}
+};
 
 const CLIENT = new Synnax({
   host: "localhost",
@@ -68,8 +68,10 @@ const flush = async () => await new Promise((resolve) => setTimeout(resolve, 0))
 
 describe("flux.Retrieve", () => {
   let harness: Harness;
-  let onChange: ReturnType<typeof vi.fn>;
-  let onError: ReturnType<typeof vi.fn>;
+  let onChange: ReturnType<
+    typeof vi.fn<(result: query.Cached<Data> | undefined) => void>
+  >;
+  let onError: ReturnType<typeof vi.fn<(error: Error) => void>>;
 
   beforeEach(() => {
     harness = createHarness();

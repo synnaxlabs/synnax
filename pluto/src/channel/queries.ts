@@ -11,10 +11,15 @@ import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/c
 import { array, control, type optional, TimeSpan, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import {
+  PLURAL_RESOURCE_NAME,
+  RESOURCE_NAME,
+  retrieveDefinition,
+  retrieveMultipleDefinition,
+  type RetrieveMultipleQuery,
+  type RetrieveQuery,
+} from "@/channel/aether/queries";
 import { Flux } from "@/flux";
-
-const RESOURCE_NAME = "channel";
-const PLURAL_RESOURCE_NAME = "channels";
 
 export const formSchema = channel.payloadZ
   .required({ expression: true })
@@ -49,10 +54,10 @@ const channelToFormValues = (ch: channel.Channel) => ({
   dataType: ch.dataType.toString(),
 });
 
-export type RetrieveQuery = {
-  key: channel.Key;
-  rangeKey?: ranger.Key;
-};
+export {
+  type RetrieveMultipleQuery,
+  type RetrieveQuery,
+} from "@/channel/aether/queries";
 
 export const ZERO_FORM_VALUES: z.infer<
   typeof formSchema | typeof calculatedFormSchema
@@ -78,25 +83,16 @@ export const ZERO_FORM_VALUES: z.infer<
 
 export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
   Flux.createRetrieve<RetrieveQuery, channel.Channel>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query: { key, rangeKey } }) =>
-      await client.channels.retrieve(key, { rangeKey }),
-    subscribe: ({ client, query }, handler) => client.channels.onChange(query, handler),
-    getCached: ({ client, query }) => client.channels.getCached(query),
+    ...retrieveDefinition,
+    subscribe: retrieveDefinition.onChange,
   });
-
-export type RetrieveMultipleQuery = channel.RetrieveOptions & {
-  keys: channel.Key[];
-};
 
 export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
   channel.Channel[]
 >({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.channels.onChange(query, handler),
-  getCached: ({ client, query }) => client.channels.getCached(query),
+  ...retrieveMultipleDefinition,
+  subscribe: retrieveMultipleDefinition.onChange,
 });
 
 const retrieveInitialFormValues = async ({
