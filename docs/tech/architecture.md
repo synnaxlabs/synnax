@@ -17,10 +17,10 @@ graphically with the time-series engine.
 The time-series engine is the core of the platform. It accepts writes, transports
 streams, and serves reads of time-series data. It also serves auxiliary roles such as
 user authentication, managing user interface configurations, and storing metadata. This
-engine, commonly referred to as "Synnax" or "Synnax Server", is written completely in
-Go, and compiles to a single (~35 MB) binary. The server is **horizontally scalable**,
-meaning that it can be run on multiple machines while still appearing as a single server
-to clients accessing its data.
+engine, commonly referred to as "Synnax" or "the Core", is written completely in Go, and
+compiles to a single (~35 MB) binary. The Core is **horizontally scalable**, meaning
+that it can be run on multiple machines while still appearing as a single Core to
+clients accessing its data.
 
 ### 2.0 Horizontal scale
 
@@ -33,11 +33,11 @@ the cluster.
 
 ### 2.1 Layered architecture
 
-Synnax Server's architecture is **layered**. Each layer (there are four) extends the
-layer below it to augment its functionality. The core principle behind layered design is
-that layers below are _unaware_ of layers above i.e. function calls and type access can
-only be made from layers above to layers below, and not vice versa. **We follow this
-principle with extreme rigor**. Synnax Server has four layers, which we'll cover in the
+The Core's architecture is **layered**. Each layer (there are four) extends the layer
+below it to augment its functionality. The core principle behind layered design is that
+layers below are _unaware_ of layers above i.e. function calls and type access can only
+be made from layers above to layers below, and not vice versa. **We follow this
+principle with extreme rigor**. The Core has four layers, which we'll cover in the
 following sections. Each layer has additional guidelines for what types of code belong
 in it.
 
@@ -154,9 +154,9 @@ significance and is not discussed in detail here.
 
 ### 2.5 Layer 4 - Interface
 
-The highest layer of Synnax server is the interface layer. This layer takes the
-functionality in the service layer and exposes a clean network API to clients. The
-interface layer implements as little service specific functionality as possible, and is
-designed in such a way that it can be easily extended to support new protocols.
-Currently, it only supports HTTP (+ Websockets), but in the future it will support gRPC
-and other protocols.
+The highest layer of the Core is the interface layer. This layer takes the functionality
+in the service layer and exposes a clean network API to clients. The interface layer
+implements as little service specific functionality as possible, and is designed in such
+a way that it can be easily extended to support new protocols. Currently, it only
+supports HTTP (+ Websockets), but in the future it will support gRPC and other
+protocols.

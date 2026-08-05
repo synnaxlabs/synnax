@@ -39,8 +39,8 @@ I've decided these are so important that they deserve a page of their own,
 
 Event channels are built for two workloads: highly irregular, low volume telemetry and
 multi-writer scenarios. The former allows us to support
-[supervisory](../telemetry.md#33---supervisory-commands) control, and the latter enables
-[real-time](../telemetry.md#32---real-time-commands) control by multiple clients.
+[supervisory](../telemetry.md#42-supervisory-commands) control, and the latter enables
+[real-time](../telemetry.md#41-real-time-commands) control by multiple clients.
 Supporting this use case is critical for allowing human and auto-sequence
 interoperability.
 
