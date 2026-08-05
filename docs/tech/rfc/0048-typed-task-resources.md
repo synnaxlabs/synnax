@@ -13,12 +13,10 @@
 
 ## 0 Summary
 
-Today, a task is one record with an opaque `config` field. The field is a
-`map[string]any` in Go, a `json::object_t` in C++, a `dict[str, Any]` in Python, and a
-`record.Unknown` in TypeScript. On the wire, it is a `google.protobuf.Struct`. The Core
-does not parse it. Each integration defines its config shape three times by hand: in
-Console Zod, in Python Pydantic, and in C++ `parser.field<T>()` calls. The three copies
-do not stay identical.
+Today, a task is one record with an opaque `config` field: a `map[string]any` in Go, a
+`google.protobuf.Struct` on the wire. The Core does not parse it. Each integration
+defines its config shape three times by hand — Console Zod, Python Pydantic, C++
+`parser.field<T>()` — and the copies do not stay identical.
 
 This RFC inverts the model. Each task type becomes a first-class resource with a strong
 type. Each resource has its own Oracle schema, ontology type, Protobuf message, and
@@ -42,78 +40,63 @@ hand. The only parsers are the Oracle-generated Zod, Pydantic, and proto code.
 
 Five problems add up. All of them come from config opacity:
 
-1. **There is no single source of truth.** The OPC UA read config is defined in
-   `console/src/feature/opc/task/types.ts`, in `client/py/synnax/opcua/types.py`, and in
-   `driver/opc/read_task.h`. These three copies are written by hand. They must agree on
-   each field name, default, and bound. No tool reports when they do not agree. NI
-   multiplies this problem by approximately 50 channel variants.
-2. **The Core cannot validate or migrate.** `Task.Config` is `msgpack.EncodedJSON`
-   (`core/pkg/service/task/versions/v1/types.gen.go`). The Core stores it as raw JSON
-   bytes and does not touch it. Config schema changes occur on the client side, or not
-   at all. The Console holds a private version chain in
-   `console/src/feature/ni/task/types/v0.ts`. The Python client reads old shapes
-   incorrectly and does not report it. The Driver fails to parse them.
-3. **Wire case-conversion corrupts semantic keys.** The task config does not have a
-   `preserveCase` wrapper. Thus the TypeScript codec (`x/ts/src/binary/codec.ts`)
-   converts record keys that are data, not identifiers. Examples: OPC NodeIds and
-   EtherCAT `manual_<index>_<subindex>` map keys. The `??` fallback lookups in
-   `console/src/feature/opc/task/Read.tsx` and
-   `console/src/feature/ethercat/task/types.ts` exist only to hide this corrupted
-   persisted data.
+1. **There is no single source of truth.** Each config shape is written by hand three
+   times — Console Zod, Python Pydantic, C++ parser — and no tool reports when the
+   copies disagree. NI multiplies this by approximately 50 channel variants.
+2. **The Core cannot validate or migrate.** `Task.Config` is `msgpack.EncodedJSON`; the
+   Core stores raw bytes. Config migrations occur client-side or not at all: the Console
+   holds a private NI version chain, the Python client reads old shapes incorrectly, and
+   the Driver fails to parse them.
+3. **Wire case-conversion corrupts semantic keys.** The task config has no
+   `preserveCase` wrapper, so the TypeScript codec converts record keys that are data:
+   OPC NodeIds, EtherCAT `manual_<index>_<subindex>` map keys. The `??` fallback lookups
+   in the Console exist only to hide the corrupted persisted data.
 4. **Server-side import and export are blocked.** RFC 0039 moved metadata import into
-   the Core. But `core/pkg/service/task/imex.go` must flatten an opaque blob. The code
-   says that this flattening is temporary until task configs get strong types. SY-4524
-   (server-side task import) is blocked on this RFC.
+   the Core, but the task imex must flatten an opaque blob. SY-4524 (server-side task
+   import) is blocked on this RFC.
 5. **The open set has no remaining value.** Task types were an open set so that drivers
-   could change independently (RFC 0017). In practice, each type string is first-party,
-   and the Driver and the Core ship together. Openness now only means that the Core
-   cannot reject bad data and cannot read its own data.
+   could change independently (RFC 0017). Each type string is first-party, and the
+   Driver and the Core ship together. Openness now only means that the Core cannot
+   reject bad data and cannot read its own data.
 
 ---
 
 ## 2 Vocabulary
 
 - **Typed task resource** (or **resource**): a first-class record with a UUID key for
-  one task type (`http_read`, `ni_analog_read`). It holds the name and all configuration
-  fields inline. A per-integration service owns it.
-- **Task**: the slim execution record. It exists only while deployed. It is always bound
+  one task type (`http_read`). It holds the name and all configuration fields. A
+  per-integration service owns it.
+- **Task**: the slim execution record. It exists only while deployed and is always bound
   to a rack.
 - **Integration**: a hardware family and its schema/service unit: `ni`, `opc`,
   `labjack`, `modbus`, `ethercat`, `http`, `arc`, `pagerduty`, `slack`.
-- **Draft**: a typed resource that has no task and is not a snapshot. This is the only
-  editable undeployed state.
-- **Deploy / undeploy**: to deploy is to make a task on a rack for a resource. To
+- **Draft**: a typed resource with no task and no snapshot flag; the only editable
+  undeployed state.
+- **Deploy / undeploy**: to deploy is to make a task on a rack for a resource; to
   undeploy is to delete that task. Undeploy never deletes the resource.
-- **Action dispatch**: the shared update path for stateful resources: a batch of
-  schema-declared actions reduced atomically in one transaction and broadcast over
-  signals. It is the machinery behind schematic editing.
+- **Action dispatch**: the shared update path behind schematic editing: a batch of
+  schema-declared actions reduced atomically and broadcast over signals.
 - **`config` reference**: the one stored link between the two records: an ontology ID
   (`<type>:<uuid>`) on the task that points to its parent resource. It is never null.
-- **`empty` resource**: the minimal resource type. It has a name and nothing more. It is
-  the parent of internal tasks with no configuration: the scanners and the rack status
-  task.
+- **`empty` resource**: the minimal resource type: a name and nothing more. The parent
+  of the scanners and the rack status task.
 
 ---
 
 ## 3 Principles
 
 1. **The Core owns persisted data and its migrations.** Config shapes are persisted
-   data. Their schema and version chain belong to the Core, not to each client.
+   data; their schema and version chain belong to the Core, not to each client.
 2. **Write the shape one time.** One Oracle schema generates the Go, TypeScript, Python,
-   C++, and Protobuf code. The clients and the Driver consume generated code. Hand
-   parsing is a defect.
+   C++, and Protobuf code. Hand parsing is a defect.
 3. **The specific depends on the generic.** Integration services compose the task
-   service. The task service never learns integration names. The `config` reference is
-   opaque data to it: an ontology ID that it stores and indexes, and that only per-type
-   consumers dereference.
-4. **Closed set, loud failure.** Task types are internal dispatch keys. An unknown type
-   is a composition bug. The Core rejects it. The Core never stores it and never drops
-   it without a report. The one soft edge is the migration of data that exists before
-   the cutover (§4.6).
-5. **The resource is what users own.** The configuration is the durable artifact. Users
-   draft it, snapshot it, import it, and export it. Execution is temporary and
-   rack-bound. The data model shows this: portable UUID identity on the resource, rack
-   binding on the task.
+   service. The task service never learns integration names: the `config` reference is
+   opaque data that it stores and indexes, and that only per-type consumers dereference.
+4. **Closed set, loud failure.** Task types are internal dispatch keys; the Core rejects
+   an unknown type. The one soft edge is the migration of pre-cutover data (§4.6).
+5. **The resource is what users own.** The configuration is the durable artifact: users
+   draft, snapshot, import, and export it. Execution is temporary and rack-bound:
+   portable UUID identity on the resource, rack binding on the task.
 
 ---
 
@@ -165,9 +148,9 @@ and `snapshot` (snapshots do not have task rows, §4.3). Status stays in the sta
 service, keyed by the ontology ID of the task. A draft has no status because nothing
 executes.
 
-The generic `/task/create` endpoint is not exposed. Nothing needs it. Users create
-resources through the per-type endpoints. The Driver mints its internal tasks through
-the deploy path against `empty` resources.
+The generic `/task/create` endpoint is not exposed. Users create resources through the
+per-type endpoints; the Driver mints its internal tasks through the deploy path against
+`empty` resources.
 
 ### 4.2 Schemas and services
 
@@ -176,9 +159,8 @@ the deploy path against `empty` resources.
 (amended), `pagerduty.oracle`, `slack.oracle` (the Slack integration, SY-3995, lands
 directly in this shape), and the `empty` resource. A file defines the shared parts of an
 integration (channel unions, scales, endpoints) and its task-type resources. We rejected
-per-type files. The 19-variant AI channel union of NI, and its scale/CJC unions, are
-shared across its five task types. A split would cause heavy cross-file imports and give
-no isolation.
+per-type files: the 19-variant AI channel union of NI and its scale/CJC unions are
+shared across its five task types.
 
 The NI schema draft (32 enums, 4 unions, 57 structs) is the start point. We adapt it so
 that the task configs become root resources, not embedded config shapes. Shared
@@ -204,65 +186,57 @@ the retrieve builders, the ontology registration, and the imex of its resources.
   EtherCAT `auto_<pdo>` / `manual_<index>_<subindex>` channel maps are the canonical
   case. This change removes the caseconv corruption class at the root. We then delete
   the `??` fallback lookups.
-- Validation splits into two tiers (§4.3). The shape tier is the decode into the
-  generated types. The semantic tier covers required fields, bounds, and discriminants —
-  expressed in the schema and generated — plus rules outside Oracle's reach (stream rate
-  ≤ sample rate, port uniqueness), written in the Go service. Both tiers run on the
-  dispatch path. Clients can state the semantic rules again as UI-side refinements.
+- Validation splits into two tiers (§4.3): the shape tier is the decode into the
+  generated types; the semantic tier covers required fields, bounds, and discriminants
+  (generated from the schema) plus rules outside Oracle's reach (stream rate ≤ sample
+  rate, port uniqueness), written in the Go service. Clients can restate the semantic
+  rules as UI-side refinements.
 
 ### 4.3 Lifecycle
 
 **Create.** `POST /<type>/create` makes a draft: a resource with no task. The resource
 does not have and does not accept a rack.
 
-**Edit.** Every edit is an action dispatch. The per-type writer reduces a dispatched
-batch atomically in one transaction, then broadcasts it over signals — the shared
-machinery behind schematics. Editing is thus synchronous across clients, and the Console
-gets autosave and undo/redo from the standard action path. Validation has two tiers. The
-shape tier runs on every dispatch and rejects it on failure: a dispatch that does not
-decode into the generated types never commits, so the stored config is always
-well-typed. The semantic tier also runs on every dispatch, but it reports diagnostics
-and never rejects: an incomplete draft always commits, so a user can edit through
-invalid intermediate states. The diagnostics gate deploy and `start` only. A dispatch to
-a deployed resource behaves the same. It also updates `config_hash` on the task row in
-the same transaction (found through the `config` index) and fires the `sy_task_set`
-metadata refresh. Active tasks do not restart; the Console shows the drift until the
-user deploys again with `start`.
+**Edit.** Every edit is an action dispatch: the per-type writer reduces the batch
+atomically in one transaction and broadcasts it over signals, the machinery behind
+schematics. Editing is synchronous across clients, and the Console gets autosave and
+undo/redo from the standard action path. The shape tier rejects a dispatch that does not
+decode into the generated types, so the stored config is always well-typed. The semantic
+tier reports diagnostics and never rejects: an incomplete draft commits, and the
+diagnostics gate deploy and `start` only. A dispatch to a deployed resource behaves the
+same; it also updates `config_hash` on the task row (found through the `config` index)
+and fires the `sy_task_set` metadata refresh. Active tasks do not restart; the Console
+shows the drift until the next `start`.
 
 **Deploy.** Deploy is an execution transition, not an edit, so it stays outside the
 action set. The per-type deploy operation receives the resource key and a rack key. In
-one transaction, it verifies that the resource has no outstanding semantic diagnostics,
-examines the `integrations` list of the rack, mints the task with its `config`
-reference, and stamps the ontology edge. It contains no validation logic of its own: it
-gates on the diagnostics that the dispatch path computed. A rack without `ni` causes a
-hard error for an `ni_analog_read` deploy, because that deploy can never succeed. A
-deploy to a different rack writes the new value into the `rack` field of the task. The
-old Driver then tears down, as the task draft/deploy design (SY-4488) specifies for a
-rack move.
+one transaction, it checks the semantic diagnostics and the `integrations` list of the
+rack, mints the task with its `config` reference, and stamps the ontology edge. It has
+no validation logic of its own. A rack without `ni` is a hard error for an
+`ni_analog_read` deploy. A deploy to a different rack writes the new `rack` value on the
+task; the old Driver tears down, as the task draft/deploy design (SY-4488) specifies for
+a rack move.
 
 **Start / stop, deploy-on-start.** This RFC builds on the draft/deploy design and keeps
 its behavior: `sy_task_set` is metadata-only, and the `start` command absorbs
 configuration. `start` refuses a resource with outstanding semantic diagnostics. The
 Core computes `config_hash` (xxhash64 over canonical bytes) when it writes the resource,
 and stores the hash on the task row. On `start`, the Driver compares the hash with its
-active instance. Only on a mismatch does it fetch the typed resource again. Drivers
-report the active hash in the status details. Drift is the difference between the two
-hashes. Two points change relative to that design: the input of the hash is the typed
-resource, and drafts are resources without tasks, not tasks without racks (Resolved
-Decision 6).
+active instance and fetches the typed resource only on a mismatch; drift is the
+difference between the stored and active hashes. Two points change relative to that
+design: the input of the hash is the typed resource, and drafts are resources without
+tasks, not tasks without racks (Resolved Decision 6).
 
-**Undeploy / delete.** To delete the task is to undeploy. The execution record and its
-status go away. The resource stays as a draft, and its resolved `task` field becomes
+**Undeploy / delete.** To delete the task is to undeploy: the execution record and its
+status go away, the resource stays as a draft, and its resolved `task` field becomes
 empty. To delete the resource is to also delete its task, found through the `config`
 index (the Arc `deleteChildTasks` pattern). The delete action on a task entry in the
-Console tree deletes the resource, because the resource is the object that the user
-sees.
+Console tree deletes the resource, because the resource is what the user sees.
 
-**Snapshot.** A snapshot is a copy of the resource: a new UUID, `snapshot: true`. The
-copy is immutable: the dispatch path rejects every action except `Rename` on a snapshot,
-the same guard the schematic writer applies. Ranges refer to it exactly as they refer to
-task snapshots now. A snapshot does not get a task row. A frozen config has no
-execution, so no part of it belongs in the task table.
+**Snapshot.** A snapshot is a copy of the resource: a new UUID, `snapshot: true`, no
+task row. The dispatch path rejects every action except `Rename` on a snapshot, the same
+guard the schematic writer applies. Ranges refer to it exactly as they refer to task
+snapshots now.
 
 **Copy.** A copy of a resource is a per-type create from the fields of a current
 resource. The `Copy` method of the task writer goes away with the config that it existed
@@ -273,11 +247,9 @@ to clone.
 Configs have strong types on each wire. `google.protobuf.Struct` and `Any` are gone.
 
 - **Per-type Protobuf messages**, generated by the Oracle `@pb` output for each
-  integration. The Driver reads a config from the per-type retrieve endpoint of the
-  applicable integration. Each read returns the typed message for that resource. The
-  Driver switches on the type part of the task's `config` ontology ID and calls the
-  applicable generated client. The `ErrTaskNotHandled` scan goes away, because dispatch
-  is exact.
+  integration. The Driver switches on the type part of the task's `config` ontology ID
+  and calls the generated client for that type; each retrieve returns the typed message.
+  The `ErrTaskNotHandled` scan goes away, because dispatch is exact.
 - **C++** consumes the generated proto types directly. We delete the `x::json::Parser`
   config layer in `driver/*/` for each integration when it cuts over.
 - **TypeScript and Python** use the HTTP JSON/MessagePack transports with generated Zod
@@ -304,20 +276,17 @@ One fetch returns one typed message. The factories of the in-process Go driver (
 A one-time startup migration converts each stored task:
 
 1. For each task row, the migration dispatches on the legacy `type` string to the
-   applicable integration migrator. The migrator decodes the config through the version
-   chain of the integration. This makes the shapes that the Console migrated on the
-   client side into current shapes. It also repairs the semantic keys that camelCase
-   conversion corrupted, when it restructures the EtherCAT/OPC channel maps into arrays.
-   The migrator then creates the typed resource, writes the `config` reference on the
-   task row, and makes the row slim.
+   integration migrator. The migrator decodes the config through the version chain,
+   repairs the semantic keys that camelCase conversion corrupted (restructuring the
+   EtherCAT/OPC channel maps into arrays), creates the typed resource, writes the
+   `config` reference on the task row, and makes the row slim.
 2. Snapshot tasks convert to snapshot resources. The migration deletes their task rows
    and points the range references to the new resources.
 3. Internal scanner and status tasks convert to `empty` resources. The
    create-if-not-exists path in the Driver startup moves to the deploy flow.
-4. **Unknown type strings cause a warning and quarantine.** The migration keeps the row
-   under a quarantine key with an error status. The Driver does not configure it. The
-   log reports it clearly. The migration does not drop it, and also does not keep it
-   active without a report.
+4. **Unknown type strings cause a warning and quarantine.** The row keeps an error
+   status under a quarantine key, the Driver does not configure it, and the log reports
+   it. The migration never drops a row silently.
 
 The migration composes with the UUID re-key migration from the SY-4488 stack, which must
 land first. The migration of this RFC assumes UUID task keys and rack-as-field.
@@ -336,10 +305,10 @@ land first. The migration of this RFC assumes UUID task keys and rack-as-field.
 - `pagerduty_alert`, `slack_alert`: Go-side factories. Slack lands in this shape.
 - `empty`: scanners (`*_scan`, `ni_scanner`) and rack status. Name only.
 
-The scanner task types (`opc_scan`, `modbus_scan`, …) have no real configuration today.
-They become internal tasks with `empty` parents. They do not get their own resource
-types. The `"Rack Status"` type string (with the space) and the other legacy strings go
-away with the `type` field itself.
+The scanner task types (`opc_scan`, `modbus_scan`, …) have no real configuration; they
+become internal tasks with `empty` parents, not resource types of their own. The
+`"Rack Status"` type string (with the space) and the other legacy strings go away with
+the `type` field itself.
 
 Per-type `StatusData` (the `errors[]` of NI, the read status of EtherCAT) gets a type in
 the schema of each integration, threaded through the status details generic. The Console
@@ -376,9 +345,8 @@ builds, the tests pass, and the product can ship.
    `auto_start`). It runs the §4.6 startup migration. It routes the Go driver factories
    (arc, pagerduty) through typed payloads. It removes `/task/create` and the
    config/copy paths of the task writer. It points the task imex at the resources, which
-   unblocks SY-4524. The PR is large by necessity: a split of the migration and the
-   shape change would make an intermediate state that is wired only in part. Phases 1–3
-   limit this PR to the cutover itself.
+   unblocks SY-4524. The PR is large by necessity: a split would leave a partially wired
+   intermediate state. Phases 1–3 limit it to the cutover itself.
 5. **Driver cutover.** One PR per integration wave. Each wave consumes the generated C++
    proto configs, deletes the `parser.field` config structs, and switches dispatch to
    the `config` ontology ID with a per-type retrieve for each fetch. The scanner startup
@@ -403,88 +371,60 @@ Phase 4. This is the standard position for storage migrations in this codebase.
 
 ## 6 Resolved decisions
 
-1. **A config union inside `Task` — rejected.** This was the alternative to the full
-   RFC: keep one task table and type `config` as an Oracle discriminated union. It gives
-   typed configs with much less machinery, and that trade is real. We rejected it
-   because it types the blob but does not repair the model. It gives no per-type
-   ontology presence or permissions. It gives no drafts. It gives no portable UUID
-   identity for ImEx (task keys carry rack history). And snapshot and copy stay attached
-   to execution.
+1. **A config union inside `Task` — rejected.** It types the blob with much less
+   machinery, and that trade is real. But it does not repair the model: no per-type
+   ontology presence or permissions, no drafts, no portable UUID identity for ImEx, and
+   snapshot and copy stay attached to execution.
 2. **The earlier task/config split draft and its Phase 1 implementation — superseded.**
-   That draft split the same data but kept the task as the root, kept the wire format
-   (config as a composed resolved field), kept an embedded-blob fallback for types
-   without a registration, and used a three-release dual-write rollout. Its caution was
-   its purpose — and is the reason we supersede it. To keep the wire is to keep the open
-   set and the opaque payload that this RFC exists to remove. The stored `config`
-   reference and the per-type endpoints replace its provider registry, its writer
-   dispatch, its dual write, and its fallback machinery (§4.5).
-3. **The task as the root aggregate (option 2) — rejected.** In that model, users create
-   and own tasks, and the config is a satellite of the task. The identity of the
-   portable artifact stays rack-bound. Drafts get no home. Snapshot and copy stay
-   attached to execution. The resource as the root follows the Arc precedent. Note the
-   distinction from decision 12: the task does store the `config` reference, but the
-   reference is opaque data to the task service, and the resource stays the root that
-   users own.
+   It kept the task as the root, the open wire format, an embedded-blob fallback, and a
+   three-release dual-write rollout. The stored `config` reference and the per-type
+   endpoints replace all of that machinery (§4.5).
+3. **The task as the root aggregate — rejected.** The portable artifact's identity stays
+   rack-bound, drafts get no home, and snapshot and copy stay attached to execution. The
+   resource as root follows the Arc precedent.
 4. **`google.protobuf.Any` / `Struct` for configs — rejected.** Typed per-type messages
-   only. `Any` returns dispatch to strings and defeats the purpose. `Struct` is the
-   current state that we remove.
-5. **Per-type schema files — rejected** in favor of per-integration files. These keep
+   only. `Any` returns dispatch to strings; `Struct` is the current state we remove.
+5. **Per-type schema files — rejected** in favor of per-integration files, which keep
    the shared channel and scale unions adjacent to their users (§4.2).
 6. **Draft tasks without racks (the original draft/deploy model) — replaced.** Two draft
-   representations (a task without a rack, a resource without a task) cannot exist
-   together. A task now always has a rack. The resource without a task is the only
-   draft. The deploy-on-start, hash, and metadata-only-set behavior of the draft/deploy
-   design stays.
+   representations cannot exist together: a task always has a rack, and the resource
+   without a task is the only draft. The deploy-on-start behavior stays.
 7. **The node as a first-class deployment target — deferred.** Each node has exactly one
-   embedded rack. A deploy to a node is thus sugar: the deploy endpoint resolves the
-   node to its embedded rack. A polymorphic location type waits for the rack and device
-   UUID re-key follow-up.
-8. **A `task.name` mirror — rejected.** The resource owns the name. Task lists read
-   through the ontology and the per-type services. A synchronized mirror is a second
-   source of truth, and no consumer needs it.
+   embedded rack, so deploy-to-node is sugar; a polymorphic location type waits for the
+   rack and device UUID re-key.
+8. **A `task.name` mirror — rejected.** The resource owns the name; a synchronized
+   mirror is a second source of truth that no consumer needs.
 9. **Snapshot task rows — removed.** A snapshot is a frozen resource copy. Execution
    state has no place in it.
-10. **The open task-type set — closed.** A third-party task type would need a schema, a
-    service, and a driver factory in any case. An exit that skips validation makes the
-    problems of today occur again, and for exactly the tasks that are most likely to be
-    malformed. Test suites use a registered test-only type behind the service config
-    seam, not a wire bypass.
+10. **The open task-type set — closed.** A third-party type needs a schema, a service,
+    and a driver factory in any case; a validation bypass recreates today's problems.
+    Tests register a test-only type behind the service config seam, not a wire bypass.
 11. **Multi-deploy (one resource, many tasks) — future work.** Validation permits at
-    most one task to hold a `config` reference to a given resource. Fan-out changes the
-    channel-write behavior and needs its own design.
+    most one task per resource. Fan-out changes the channel-write behavior and needs its
+    own design.
 12. **A resolved `config` payload on the task (registry + `oneof` envelope) —
-    replaced.** The first draft of this RFC composed the typed config into the task
-    payload at the API layer, through a registry and a Protobuf `oneof`. The stored
-    ontology ID gives the same answer as plain data. It deletes the registry and the
-    envelope, and it keeps the task service fully generic. Deploy-on-start makes the
-    config fetch lazy, so no consumer needs the composed payload. We also rejected
-    mutual stored references (a stored `task` field on the resource): two stored links
-    can drift apart. The `config` reference is the single source of truth, and the
-    server resolves the resource's `task` field from it.
-13. **Config validation inside the deploy operation — replaced.** The first draft
-    validated the config in the deploy transaction. That shape makes deploy heavyweight
-    and leaves editing asynchronous. Validation moved to the dispatch path with two
-    tiers (§4.3): shape rejects a dispatch, semantic diagnostics report live and gate
-    deploy and `start`. We also rejected a hard semantic gate on updates: it would
-    reject every incomplete intermediate state and make drafts uneditable in practice.
-14. **Deploy inside the action union — rejected.** Reducers are pure maps from resource
-    state to resource state; no existing reducer writes another table. Deploy mints a
-    task row and stamps an edge, and its siblings (`start`, `stop`, undeploy) already
-    live outside the action stream. Execution transitions stay out of the action set,
-    and undo history never contains a deployment.
+    replaced.** The stored ontology ID gives the same answer as plain data, deletes the
+    registry and envelope, and keeps the task service generic; deploy-on-start makes the
+    config fetch lazy. Mutual stored references were also rejected: two stored links can
+    drift apart.
+13. **Config validation inside the deploy operation — replaced** by the two dispatch
+    tiers (§4.3). A hard semantic gate on updates was also rejected: it would reject
+    every incomplete intermediate state and make drafts uneditable.
+14. **Deploy inside the action union — rejected.** Reducers are pure state-to-state
+    maps, and the execution lifecycle (`start`, `stop`, undeploy) already lives outside
+    the action stream. Undo history never contains a deployment.
 
 ---
 
 ## 7 What this RFC does not cover
 
 - **Typed command args** (`start`, `stop`, `tare`, `test_connection`, `browse`):
-  `Command.args` stays opaque. A follow-up can type per-command args with the same union
-  machinery.
-- **The UUID re-key of statuses, racks, and devices**, and the move of device management
-  to the server side. Status keys stay task-ontology-ID strings here.
-- **Typed device `properties`.** The channel maps with NodeId keys inside device
-  properties are the same corruption class as §4.2. They must get the same
-  array-of-structs treatment in an adjacent effort.
+  `Command.args` stays opaque. A follow-up can type them with the same union machinery.
+- **The UUID re-key of statuses, racks, and devices**, and server-side device
+  management. Status keys stay task-ontology-ID strings here.
+- **Typed device `properties`.** The NodeId-keyed channel maps in device properties are
+  the same corruption class as §4.2 and need the same array-of-structs treatment in an
+  adjacent effort.
 - **Protobuf as the TypeScript and Python wire.** Those clients stay on HTTP
   JSON/MessagePack. The snake↔camel removal effort tracks the larger proto migration.
 - **Multi-deploy fan-out** (Resolved Decision 11).
