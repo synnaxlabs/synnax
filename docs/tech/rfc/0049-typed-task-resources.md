@@ -2,12 +2,15 @@
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-08-03
-- **Related**: [RFC 0017](./0017-drivers.md),
-  [RFC 0027](./0027-oracle-schema-system.md), [RFC 0033](./0033-oracle-migrations.md),
-  [RFC 0039](./0039-server-side-import-export.md),
-  [RFC 0042](./0042-core-structure-refactor.md),
-  [RFC 0043](./0043-oracle-struct-unions.md),
-  [RFC 0047](./0047-oracle-predecessor-chain-versioning.md), the task draft/deploy RFC
+- **Related**: [RFC 0017 - General purpose device drivers](./0017-drivers.md),
+  [RFC 0027 - Oracle schema system](./0027-oracle-schema-system.md),
+  [RFC 0033 - Oracle migration system](./0033-oracle-migrations.md),
+  [RFC 0034 - Gorp in-memory indexes](./0034-gorp-indexes.md),
+  [RFC 0039 - Server-side metadata import/export](./0039-server-side-import-export.md),
+  [RFC 0042 - Core structure refactor](./0042-core-structure-refactor.md),
+  [RFC 0043 - Oracle support for struct unions](./0043-oracle-struct-unions.md),
+  [RFC 0047 - Oracle predecessor-chain type
+  versioning](./0047-oracle-predecessor-chain-versioning.md), the task draft/deploy RFC
   (PR #2595), and the superseded task/config split RFC (PR #2471).
 
 ## 0 Summary
@@ -71,22 +74,22 @@ Five problems add up. All of them come from config opacity:
 
 ## 2 Vocabulary
 
-- **Typed task resource** (or **resource**) — a first-class record with a UUID key for
+- **Typed task resource** (or **resource**): a first-class record with a UUID key for
   one task type (`http_read`, `ni_analog_read`). It holds the name and all configuration
   fields inline. A per-integration service owns it.
-- **Task** — the slim execution record. It exists only while deployed. It is always
-  bound to a rack.
-- **Integration** — a hardware family and its schema/service unit: `ni`, `opc`,
+- **Task**: the slim execution record. It exists only while deployed. It is always bound
+  to a rack.
+- **Integration**: a hardware family and its schema/service unit: `ni`, `opc`,
   `labjack`, `modbus`, `ethercat`, `http`, `arc`, `pagerduty`, `slack`.
-- **Draft** — a typed resource that has no task and is not a snapshot. This is the only
+- **Draft**: a typed resource that has no task and is not a snapshot. This is the only
   editable undeployed state.
-- **Deploy / undeploy** — to deploy is to make a task on a rack for a resource. To
+- **Deploy / undeploy**: to deploy is to make a task on a rack for a resource. To
   undeploy is to delete that task. Undeploy never deletes the resource.
-- **`config` reference** — the one stored link between the two records: an ontology ID
+- **`config` reference**: the one stored link between the two records: an ontology ID
   (`<type>:<uuid>`) on the task that points to its parent resource. It is never null.
-- **`empty` resource** — the minimal resource type. It has a name and nothing more. It
-  is the parent of internal tasks with no configuration: the scanners and the rack
-  status task.
+- **`empty` resource**: the minimal resource type. It has a name and nothing more. It is
+  the parent of internal tasks with no configuration: the scanners and the rack status
+  task.
 
 ---
 
@@ -224,7 +227,7 @@ the hash on the task row. On `start`, the Driver compares the hash with its acti
 instance. Only on a mismatch does it fetch the typed resource again. Drivers report the
 active hash in the status details. Drift is the difference between the two hashes. Two
 points change relative to that RFC: the input of the hash is the typed resource, and
-drafts are resources without tasks, not tasks without racks (§6.6).
+drafts are resources without tasks, not tasks without racks (Resolved Decision 6).
 
 **Edit while deployed.** A write to the resource updates `config_hash` on its task row
 in the same transaction. The service finds the task row through the `config` index. The
@@ -306,16 +309,16 @@ first. The migration of this RFC assumes UUID task keys and rack-as-field.
 ### 4.7 Integration inventory
 
 - `ni_analog_read`, `ni_analog_write`, `ni_digital_read`, `ni_digital_write`,
-  `ni_counter_read` — schema from PR #2433.
+  `ni_counter_read`: schema from PR #2433.
 - `opc_read`, `opc_write`.
 - `labjack_read`, `labjack_write`.
 - `modbus_read`, `modbus_write`.
-- `ethercat_read`, `ethercat_write` — channel maps become arrays.
+- `ethercat_read`, `ethercat_write`: channel maps become arrays.
 - `http_read`, `http_write`.
-- `arc` — retrofit: the standard edge replaces `config{arc_key}`. PR #2496 already moved
+- `arc`: retrofit — the standard edge replaces `config{arc_key}`. PR #2496 already moved
   creation server-side.
-- `pagerduty_alert`, `slack_alert` — Go-side factories. Slack lands in this shape.
-- `empty` — scanners (`*_scan`, `ni_scanner`) and rack status. Name only.
+- `pagerduty_alert`, `slack_alert`: Go-side factories. Slack lands in this shape.
+- `empty`: scanners (`*_scan`, `ni_scanner`) and rack status. Name only.
 
 The scanner task types (`opc_scan`, `modbus_scan`, …) have no real configuration today.
 They become internal tasks with `empty` parents. They do not get their own resource
