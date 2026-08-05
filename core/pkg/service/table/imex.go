@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
@@ -70,9 +71,9 @@ func (s *Service) Import(
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	proj, err := project.ParentKey(opts)
+	proj, err := project.KeyFromOntologyID(opts.Parent)
 	if err != nil {
-		return ontology.ID{}, err
+		return ontology.ID{}, validate.PathedError(err, "parent")
 	}
 	t, err := versions.DecodeImport(ctx, env)
 	if err != nil {

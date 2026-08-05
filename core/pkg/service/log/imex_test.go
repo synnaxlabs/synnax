@@ -253,7 +253,7 @@ var _ = Describe("ImEx", func() {
 				ctx, db, loadEnvelope(v3Fixture),
 				imex.ImportOptions{Parent: ontology.ID{Type: "group", Key: "g1"}},
 			)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("parent must be a project")),
+				MatchError(ContainSubstring("parent: must be a project")),
 				MatchError(ContainSubstring("validation error")),
 			))
 		})
