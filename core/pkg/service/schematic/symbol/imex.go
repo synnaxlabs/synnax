@@ -23,10 +23,8 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
-// Match reports whether body is a legacy Console symbol file, which nests the symbol
-// spec in a data object with an inline svg; no other typeless file family nests its
-// payload that way. The marker is frozen — it describes historical file shapes; current
-// exports carry a type header and never reach matching.
+// Match reports whether body is a legacy Console symbol file, which nests the spec in a
+// data object with an inline svg. The marker is a frozen historical file shape.
 func (*Service) Match(body map[string]any) bool {
 	data, ok := body["data"].(map[string]any)
 	if !ok {
@@ -36,9 +34,8 @@ func (*Service) Match(body map[string]any) bool {
 	return ok
 }
 
-// Export retrieves the symbol identified by id and serializes it as an imex.Envelope
-// stamped with versions.Latest. It returns query.ErrNotFound if no symbol exists for
-// id.Key.
+// Export serializes the symbol identified by id, stamping versions.Latest. It returns
+// query.ErrNotFound if no symbol has id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
@@ -60,12 +57,9 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	return env, nil
 }
 
-// Import decodes the envelope into a Symbol and persists it on tx, returning the
-// ontology.ID of the newly-created symbol. The exported key is discarded and a fresh
-// one is generated so that importing always materializes a new resource. Symbols are
-// parented into groups: opts.Parent must be a group. Envelopes below versions.Latest
-// are Console-written camelCase files; an envelope newer than versions.Latest is
-// rejected with a path-scoped validation error.
+// Import decodes env into a Symbol created under opts.Parent, which must be a group.
+// The key on the wire is discarded so every import mints a new resource. An unknown
+// envelope version is a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,

@@ -52,10 +52,8 @@ func (s *Service) RegisterImportExporter(ie ImportExporter) {
 	s.exporters[t] = ie
 }
 
-// RegisterImporter adds an [Importer] for the given resource type. Use this for
-// services with asymmetric registration — for example, a task service that imports
-// under fine-grained type strings (e.g., "http_read", "opc_scan") but exports under a
-// single coarse type ("task").
+// RegisterImporter adds an Importer for t. Use it when a service registers under
+// fine-grained type strings ("http_read") but exports under one coarse type ("task").
 func (s *Service) RegisterImporter(t string, i Importer) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -70,11 +68,8 @@ func (s *Service) RegisterExporter(e Exporter) {
 	s.exporters[e.Type()] = e
 }
 
-// ImporterType returns the ontology resource type that the [Importer] registered under
-// the given (possibly narrow) type string creates. For symmetric importers (e.g.,
-// "log") this is identical to the registration string; for asymmetric importers (e.g.,
-// a task service registered under "http_read") this is the broader ontology type
-// ("task"). Returns a validation error scoped to the "type" field if no importer is
+// ImporterType returns the ontology resource type created by the Importer registered
+// under t. It returns a validation error scoped to the "type" field when no importer is
 // registered for t.
 func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
 	s.mu.RLock()
@@ -93,12 +88,10 @@ func notFoundError[T ~string](typ T, kind string) error {
 	)
 }
 
-// ResolveType returns the registration type string that Import will route envelope to.
-// A non-empty envelope.Type is returned as-is. For typeless envelopes — legacy Console
-// state files never carried a type — the body map already parsed at envelope decode is
-// offered to every registered [Importer]'s Match, in sorted type order; the first to
-// claim it wins. Returns a validation error scoped to the "type" field when no
-// importer claims the body.
+// ResolveType returns the registration type string Import will route envelope to. A
+// non-empty envelope.Type passes through; a typeless envelope's body is offered to
+// every Importer's Match in sorted type order, first claim winning. It returns a
+// validation error scoped to the "type" field when nothing claims the body.
 func (s *Service) ResolveType(ctx context.Context, envelope Envelope) (string, error) {
 	if envelope.Type != "" {
 		return envelope.Type, nil
@@ -114,15 +107,11 @@ func (s *Service) ResolveType(ctx context.Context, envelope Envelope) (string, e
 	return "", newFieldError("type", "file does not match any known resource format")
 }
 
-// Import routes envelope to the [Importer] registered under envelope.Type, persists it
-// on tx, and returns the ontology.ID of the created resource. A typeless envelope is
-// first resolved through [Service.ResolveType]. The opts.FileName name fallback is
-// applied to the envelope before routing; opts is then handed to the importer untouched
-// — the importer owns all ontology writes, including attaching the resource under
-// opts.Parent. Returns a validation error scoped to the "parent" field if opts.Parent
-// is zero, to the "type" field if no [Importer] is registered for envelope.Type, and
-// to the "name" field if the envelope has no name after the opts.FileName fallback is
-// applied.
+// Import routes envelope to its Importer, persists it on tx, and returns the created
+// resource's ID. The opts.FileName fallback is applied before routing; opts then
+// reaches the importer untouched. It returns a validation error scoped to "parent" when
+// opts.Parent is zero, to "type" when nothing is registered, and to "name" when the
+// envelope is still nameless after the fallback.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -158,10 +147,8 @@ func (s *Service) Import(
 	return id, nil
 }
 
-// Export routes resource to the [Exporter] registered under resource.Type and returns
-// the resulting envelope. The Exporter reads from its own storage handle and stamps its
-// per-schema version on the envelope. Returns a validation error scoped to the "type"
-// field if no Exporter is registered for resource.Type.
+// Export routes resource to its Exporter and returns the resulting envelope. It returns
+// a validation error scoped to the "type" field when no Exporter is registered.
 func (s *Service) Export(
 	ctx context.Context,
 	resource ontology.ID,

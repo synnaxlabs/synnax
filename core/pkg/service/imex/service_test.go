@@ -463,7 +463,7 @@ var _ = Describe("Service", func() {
 
 		Describe("FileName", func() {
 			It(
-				"Should fall back to the file name without its extension when the envelope has no name",
+				"Should fall back to the extensionless file name when the envelope has no name",
 				func(ctx SpecContext) {
 					id := MustSucceed(svc.Import(
 						ctx,

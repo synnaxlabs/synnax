@@ -94,11 +94,8 @@ type consoleSymbol struct {
 	Data consoleSpec `json:"data" msgpack:"data"`
 }
 
-// DecodeImExEnvelope materializes the envelope's body as a current-version Symbol,
-// keyless and named after the envelope. Envelopes stamped at or above Floor decode
-// through the generated migration chain; envelopes below Floor are Console-written
-// camelCase files. An envelope newer than Latest is rejected with a path-scoped
-// validation error.
+// DecodeImExEnvelope materializes env's body as a current-version Symbol, keyless and
+// named after the envelope. An unknown version is a path-scoped validation error.
 func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) {
 	var (
 		sym Symbol

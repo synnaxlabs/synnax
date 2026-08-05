@@ -155,11 +155,8 @@ func (d consoleDocument) linePlot() LinePlot {
 	}
 }
 
-// DecodeImExEnvelope materializes the envelope's body as a current-version LinePlot,
-// keyless and named after the envelope. Envelopes stamped at or above Floor decode
-// through the generated migration chain; older ones are Console-era files — camelCase
-// typed exports or Console states — and are lifted forward. An envelope newer than
-// Latest is rejected with a path-scoped validation error.
+// DecodeImExEnvelope materializes env's body as a current-version LinePlot, keyless and
+// named after the envelope. An unknown version is a path-scoped validation error.
 func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error) {
 	var (
 		lp  LinePlot

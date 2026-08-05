@@ -317,7 +317,7 @@ var _ = Describe("ImEx", func() {
 			)
 
 			It(
-				"Should fall back to the data's json:\"type\" field when the envelope type is empty",
+				"Should fall back to the data's json type field when the envelope type is empty",
 				func() {
 					type payload struct {
 						Name string `json:"name"`
@@ -332,7 +332,7 @@ var _ = Describe("ImEx", func() {
 			)
 
 			It(
-				"Should prefer the data's type and name fields over the envelope's when both are set",
+				"Should prefer the data's type and name over the envelope's when both are set",
 				func() {
 					type payload struct {
 						Name string `json:"name"`

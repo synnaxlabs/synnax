@@ -21,9 +21,8 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
-// Match reports whether body is a legacy Console Arc state: v0-v2 files persist the
-// graph inline alongside text and mode. The markers are frozen — they describe
-// historical file shapes.
+// Match reports whether body is a legacy Console Arc state, which persists the graph
+// inline alongside text and mode. The markers are frozen historical file shapes.
 func (*Service) Match(body map[string]any) bool {
 	_, hasGraph := body["graph"]
 	_, hasMode := body["mode"]
@@ -31,9 +30,8 @@ func (*Service) Match(body map[string]any) bool {
 	return hasGraph && (hasMode || hasText)
 }
 
-// Export retrieves the Arc identified by id and serializes it as an imex.Envelope
-// stamped with versions.Latest. It returns query.ErrNotFound if no Arc exists for
-// id.Key.
+// Export serializes the Arc identified by id, stamping versions.Latest. It returns
+// query.ErrNotFound if no Arc has id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
@@ -55,13 +53,10 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	return env, nil
 }
 
-// Import decodes the envelope into an Arc and persists it on tx, returning the
-// ontology.ID of the newly-created Arc. The exported key is discarded and a fresh one
-// is generated so that importing always materializes a new resource. Arcs are not
-// parented on import, so opts.Parent does not apply. Envelopes older than
-// versions.Latest are Console-era files — camelCase typed exports or Console states —
-// and are lifted forward; an envelope newer than versions.Latest is rejected with a
-// path-scoped validation error.
+// Import decodes env into an Arc and persists it on tx. Arcs are not parented on
+// import, so opts.Parent does not apply. The key on the wire is discarded so every
+// import mints a new resource. An unknown envelope version is a path-scoped validation
+// error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,

@@ -24,19 +24,15 @@ import (
 var _ imex.ImportExporter = (*Service)(nil)
 
 // Match reports whether body is a legacy Console schematic state, which persists the
-// document inline under nodes and props. v0-v5 are the state versions any released
-// Console wrote to a file; v6 renamed props to configs but shipped alongside the typed
-// export, so it never reaches matching. The markers are frozen — they describe
-// historical file shapes.
+// document inline under nodes and props. The markers are frozen historical file shapes.
 func (*Service) Match(body map[string]any) bool {
 	_, hasNodes := body["nodes"]
 	_, hasProps := body["props"]
 	return hasNodes && hasProps
 }
 
-// Export retrieves the schematic identified by id and serializes it as an imex.Envelope
-// stamped with versions.Latest. It returns query.ErrNotFound if no schematic exists for
-// id.Key.
+// Export serializes the schematic identified by id, stamping versions.Latest. It
+// returns query.ErrNotFound if no schematic has id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
@@ -58,14 +54,9 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	return env, nil
 }
 
-// Import decodes the envelope into a Schematic and persists it on tx, returning the
-// ontology.ID of the newly-created schematic. The exported key is discarded and a fresh
-// one is generated so that importing always materializes a new resource. Schematics are
-// project children, so opts.Parent must be a project; the schematic is then created
-// within it exactly as a regular create would be. Envelopes older than versions.Latest
-// are Console-era files — camelCase typed exports or Console states — and are lifted
-// forward; an envelope newer than versions.Latest is rejected with a path-scoped
-// validation error.
+// Import decodes env into a Schematic created under opts.Parent, which must be a
+// project. The key on the wire is discarded so every import mints a new resource. An
+// unknown envelope version is a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,

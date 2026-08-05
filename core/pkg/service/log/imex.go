@@ -23,17 +23,15 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
-// Match reports whether body is a legacy Console log state, which persists channels as
-// an array (bare keys at v0, config objects at v1); no other resource's state does. The
-// marker is frozen — it describes historical file shapes.
+// Match reports whether body is a legacy Console log state, which persists the channels
+// as an array. The markers are frozen historical file shapes.
 func (*Service) Match(body map[string]any) bool {
 	_, ok := body["channels"].([]any)
 	return ok
 }
 
-// Export retrieves the log identified by id and serializes it as an imex.Envelope
-// stamped with versions.Latest. It returns query.ErrNotFound if no log exists for
-// id.Key.
+// Export serializes the log identified by id, stamping versions.Latest. It returns
+// query.ErrNotFound if no log has id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
@@ -53,14 +51,9 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	return env, nil
 }
 
-// Import decodes the envelope into a Log and persists it on tx, returning the
-// ontology.ID of the newly-created log. The exported key is discarded and a fresh one
-// is generated so that importing always materializes a new resource rather than
-// overwriting an existing log with a colliding key. Logs are project children, so
-// opts.Parent must be a project; the log is then created within it exactly as a regular
-// create would be. Envelopes older than versions.Latest are legacy camelCase Console
-// exports and are lifted forward through the migration chain; an envelope newer than
-// versions.Latest is rejected with a path-scoped validation error.
+// Import decodes env into a Log created under opts.Parent, which must be a project. The
+// key on the wire is discarded so every import mints a new resource. An unknown
+// envelope version is a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,

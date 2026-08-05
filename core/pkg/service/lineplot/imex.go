@@ -24,8 +24,7 @@ import (
 var _ imex.ImportExporter = (*Service)(nil)
 
 // Match reports whether body is a legacy Console line plot state, which persists the
-// plot body inline under axes and channels. v0-v4 are the state versions any released
-// Console wrote to a file. The markers are frozen — they describe historical file
+// plot body inline under axes and channels. The markers are frozen historical file
 // shapes.
 func (*Service) Match(body map[string]any) bool {
 	_, hasAxes := body["axes"]
@@ -33,9 +32,8 @@ func (*Service) Match(body map[string]any) bool {
 	return hasAxes && hasChannels
 }
 
-// Export retrieves the line plot identified by id and serializes it as an imex.Envelope
-// stamped with versions.Latest. It returns query.ErrNotFound if no line plot exists for
-// id.Key.
+// Export serializes the line plot identified by id, stamping versions.Latest. It
+// returns query.ErrNotFound if no line plot has id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
@@ -57,14 +55,9 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	return env, nil
 }
 
-// Import decodes the envelope into a LinePlot and persists it on tx, returning the
-// ontology.ID of the newly-created line plot. The exported key is discarded and a fresh
-// one is generated so that importing always materializes a new resource. Line plots are
-// project children, so opts.Parent must be a project; the plot is then created within
-// it exactly as a regular create would be. Envelopes older than versions.Latest are
-// Console-era files — camelCase typed exports or Console states — and are lifted
-// forward; an envelope newer than versions.Latest is rejected with a path-scoped
-// validation error.
+// Import decodes env into a LinePlot created under opts.Parent, which must be a
+// project. The key on the wire is discarded so every import mints a new resource. An
+// unknown envelope version is a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
