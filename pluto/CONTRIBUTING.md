@@ -87,8 +87,8 @@ threads.**
 You may have noticed that the case of the module name is different from that of it's
 parent folder. This is intentional. Pluto heavily leverages web-workers to do data
 fetching, heavy computations, and rendering. To implement this functionality, we've
-developed an internal framework called [Aether](src/aether/README.md) that mirrors
-specific parts of the React component tree in a web-worker.
+developed an internal framework called [Aether](src/aether) that mirrors specific parts
+of the React component tree in a web-worker.
 
 This means that we often have tighly paired component definitions; one exists in the
 main thread and the other exists in the worker thread. For example, we have a `LinePlot`

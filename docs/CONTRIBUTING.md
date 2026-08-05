@@ -18,7 +18,7 @@ contribute to. There are a few ways to do this:
    something that catches your eye. Issues marked
    ["good first issue"](https://github.com/synnaxlabs/synnax/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
    are a great place to start.
-2. Read our [product strategy documents](product/psd), our
+2. Read our product strategy documents, our
    [architecture overview](./tech/architecture.md) document, and our technical
    [requests for comments (RFCs)](tech/rfc). These documents outline critical product
    strategies and technical design decisions we've made, and provide insight into the
@@ -29,7 +29,7 @@ contribute to. There are a few ways to do this:
    many interesting algorithms:
    - [Distributed counters](../aspen/internal/cluster/pledge/pledge.go)
    - [Gossip algorithms](../aspen/internal/kv/gossip.go)
-   - [GPU rendering](../pluto/src/core/vis)
+   - [GPU rendering](../pluto/src/vis)
    - [Transport protocols](../freighter)
    - And more!
 
