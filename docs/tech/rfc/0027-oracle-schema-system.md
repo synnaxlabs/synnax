@@ -1417,4 +1417,4 @@ struct Range {
 - [RFC 0026 - Meta data structures](./0026-meta-data.md)
 - [Prisma Schema Language](https://www.prisma.io/docs/orm/prisma-schema)
 - [ANTLR 4](https://www.antlr.org/)
-- [Arc Grammar (internal)](../../arc/go/parser/)
+- [Arc Grammar (internal)](../../../arc/go/parser/)

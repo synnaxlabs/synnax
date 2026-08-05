@@ -149,13 +149,13 @@ Each language expresses the baseline naturally:
 The model rests on one promise: every stored record is complete and valid. Three places
 keep it.
 
-- **Create and update** (a write): the server fills defaults, validates, and stores. It
+- **Create and update** (a write): The server fills defaults, validates, and stores. It
   also drops any `@output` fields the client tried to send and sets them itself, so a
   client cannot forge the `author`. The client defaults locally first so its own view
   updates right away, and the server repeats it as the authority. For example, a client
   may send `{ "variant": "value" }` for a cell, and the server fills in `precision`,
   `notation`, and the rest before storing.
-- **Migration** (also a write): it reads old data loosely, without validating, since the
+- **Migration** (also a write): It reads old data loosely, without validating, since the
   point is to repair data that may not be valid. Then it fills defaults and validates
   before saving. A nice result is that adding a field with a default needs no
   hand-written migration code: the migration leaves the field zero and default-filling

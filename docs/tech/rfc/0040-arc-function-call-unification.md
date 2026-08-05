@@ -69,11 +69,11 @@ mirrored to `Config` in every `ExecBoth` symbol. Replace both with a single
 
 **Collapse the two analyzer hook surfaces.** A symbol that wants to validate its
 arguments (e.g. `status.set` constraining the `variant` literal; see
-[RFC 0037 §5.0.1](./0037-arc-status-updates.md#501---literal-value-constraints))
-registers `AnalyzeCall` for the parens form AND `AnalyzeFlowConfig` for the brace form.
-The two hooks walk different AST shapes to find the same argument and run the same
-literal check. Replace both with a single `AnalyzeArguments` hook that receives a
-unified `[]Argument` view.
+[RFC 0037 §5.0.1](./0037-arc-status-updates.md#501-literal-value-constraints)) registers
+`AnalyzeCall` for the parens form AND `AnalyzeFlowConfig` for the brace form. The two
+hooks walk different AST shapes to find the same argument and run the same literal
+check. Replace both with a single `AnalyzeArguments` hook that receives a unified
+`[]Argument` view.
 
 ## 2 Non-goals
 
@@ -585,7 +585,7 @@ deserialize identically.
 
 **Scope: Go is assumed to be the deserialization boundary for persisted IR.** The
 existing migrations all live on the Go side
-([core/pkg/service/arc/migrations/v54/migrate_test.go](../../../core/pkg/service/arc/migrations/v54/migrate_test.go),
+([core/pkg/service/arc/versions/v1/migrate_test.go](../../../core/pkg/service/arc/versions/v1/migrate_test.go),
 with no TS or C++ counterpart), which suggests the Go server deserializes persisted Arc
 programs and hands post-migration data to the C++ and TS bindings. If that holds, those
 bindings never see pre-vN bytes and no hand-written C++ or TS migration is required.
@@ -990,20 +990,20 @@ declarations into `Inputs:`.
 
 New tests required by this change:
 
-- **Migration round-trip**: pre-vN IR JSON / msgpack / proto deserialize, migrate, and
+- **Migration round-trip**: Pre-vN IR JSON / msgpack / proto deserialize, migrate, and
   produce IR Type-shape identical to a fresh declaration in the new shape.
-- **`call.Analyze` shared validation**: argument count, type, name resolution,
+- **`call.Analyze` shared validation**: Argument count, type, name resolution,
   unknown-name detection, duplicate-name detection, verified once against both parens
   and brace surface forms. Today's coverage duplicates each scenario across two test
   files.
-- **`Trigger` consult**: a flow call to a `TriggerOnly` symbol does not type-check the
+- **`Trigger` consult**: A flow call to a `TriggerOnly` symbol does not type-check the
   upstream; a flow call to a `TriggerInput("x")` symbol type-checks the upstream against
   the `x` param's type and rejects type mismatches.
-- **`Trigger` invariant**: the `stl_test.go` symbol walker fails when a registered
+- **`Trigger` invariant**: The `stl_test.go` symbol walker fails when a registered
   symbol declares `Trigger.Target = "missing_param"`.
-- **Surface-syntax preservation**: the smoke program in Section 11 parses, analyzes,
+- **Surface-syntax preservation**: The smoke program in Section 11 parses, analyzes,
   compiles, and runs identically to the pre-refactor branch.
-- **`status.set` collapse**: the literal-validation `AnalyzeArguments` hook fires
+- **`status.set` collapse**: The literal-validation `AnalyzeArguments` hook fires
   correctly for both `status.set(..., "errpr")` and `status.set{variant="errpr"}`,
   emitting one diagnostic per call site (today's hooks would each fire once).
 

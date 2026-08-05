@@ -142,7 +142,7 @@ three days, and we'll release on the fourth day of the cycle.
 The engineering team is in charge of QA, which consists of a checklist of manual
 verifications and additional tests that need to be completed before a release candidate
 can be merged into `main`. This checklist is available as a
-[pull request template](/.github/PULL_REQUEST_TEMPLATE/rc.md).
+[pull request template](../../../.github/PULL_REQUEST_TEMPLATE/rc.md).
 
 ## 7 CI/CD scheduling
 

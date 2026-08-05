@@ -360,7 +360,7 @@ type SyncMessage struct {
 
 ##### 3.2.2.4 Peer processes update and response (ack)
 
-After receiving a sync message, the peer node [merges](#merging-updates) the updates
+After receiving a sync message, the peer node [merges](#323-merging-updates) the updates
 into its own state. The node also persists the updates to state. The peer node then
 sends the following ack message back to the initiator:
 
@@ -387,7 +387,7 @@ type AckMessage struct {
 
 ##### 3.2.2.5 Initiator processes update
 
-After receiving an ack message, the initiator [merges](#merging-updates) the updates
+After receiving an ack message, the initiator [merges](#323-merging-updates) the updates
 into its own state. Then, for each feedback entry, it flips a coin with a `k`
 probability of returning true. If the coin is true, sets the state of the update with
 the matching key to `StateRecovered`. End of gossip.

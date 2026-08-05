@@ -10,14 +10,14 @@
 Synnax gains a first-class boolean data type, `BoolT`. A boolean channel has three
 distinct representations that do not agree:
 
-- **In memory**: byte-packed. One sample per byte, canonical values `0x00` (false) and
+- **In memory**: Byte-packed. One sample per byte, canonical values `0x00` (false) and
   `0x01` (true). The `telem.Series` density invariant is preserved; every existing
   iterator, writer, Cesium reader, and client `TypedArray` view treats a bool sample
   identically to a `uint8` sample.
-- **On the wire**: bit-packed. The Freighter frame codec packs eight samples into one
+- **On the wire**: Bit-packed. The Freighter frame codec packs eight samples into one
   byte on send and unpacks back to byte-packed `Series` on receive. Digital traffic
   drops by a factor of eight before any further compression.
-- **On disk**: byte-packed today, identical to the in-memory form. A future Cesium
+- **On disk**: Byte-packed today, identical to the in-memory form. A future Cesium
   storage codec can compress boolean channels independently (bit-packing, run-length
   encoding, or both) without affecting in-memory or wire representations.
 

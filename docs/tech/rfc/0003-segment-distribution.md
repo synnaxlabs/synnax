@@ -41,7 +41,7 @@ context if the caller wants to perform network optimization themselves.
   and business intelligence purposes. Data warehouses typically involve long-running
   queries on much larger data sets than typical OLTP systems. Data warehouse queries
   fall into the OLAP category of workloads.
-- **OTN**: over the network.
+- **OTN**: Over the network.
 
 ## 2 Motivation
 
@@ -136,15 +136,13 @@ while laying the groundwork for distributed query processing.
 ### 3.1 Storage engine integration
 
 Delta's distribution layer directly interacts with two storage engines: Cesium and
-Aspen. DL uses
-[Aspen](https://github.com/synnaxlabs/synnax/blob/main/docs/tech/rfc/0002-aspen-distributed-storage.md)
-for querying cluster topology as well as storing distributed key-value data. It uses one
-or more
-[Cesium](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/1-220517-cesium-segment-storage.md)
-database(s) for reading and writing time-series data from disk. Because the distribution
-layer uses multiple storage engines, there's a certain amount of overlap and data
-reconciliation that must be performed in order to ensure that information stays
-consistent (this is particularly relevant for [channels](#Channels)).
+Aspen. DL uses [Aspen](./0002-aspen-distributed-storage.md) for querying cluster
+topology as well as storing distributed key-value data. It uses one or more
+[Cesium](./0001-cesium-segment-storage.md) database(s) for reading and writing
+time-series data from disk. Because the distribution layer uses multiple storage
+engines, there's a certain amount of overlap and data reconciliation that must be
+performed in order to ensure that information stays consistent (this is particularly
+relevant for [channels](#32-channels)).
 
 <p align="middle">
     <img
@@ -211,8 +209,8 @@ values. Channels have a few important fields:
   fixed, and cannot be changed without deleting and recreating a channel. All data
   written to the channel will have the same data type.
 - **Key**: A unique identifier for the channel across the entire cluster. This key is
-  automatically assigned and cannot be changed. See [Keys](#Keys) for more information
-  on how this value is selected.
+  automatically assigned and cannot be changed. See [Keys](#320-keys) for more
+  information on how this value is selected.
 - **Node ID**: The ID of the node that owns the channel. This node is known as the
   leaseholder, and is the only node that can write _new_ channel data to disk. The
   leaseholder is typically kept in proximity (physically) to the source generating the
@@ -229,7 +227,7 @@ solve a lot of complicated distributed systems problems (we don't need to implem
 and transaction retries, for example).
 
 For more information on channels and segments, see the
-[Cesium RFC](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/220517-cesium-segment-storage.md).
+[Cesium RFC](./0001-cesium-segment-storage.md).
 
 #### 3.2.0 Keys
 
