@@ -4,9 +4,6 @@ Rules for writing and editing RFCs in this directory.
 
 ## Files and structure
 
-- File names are `NNNN-slug.md` — four-digit number, kebab-case slug, no dates. The
-  files were renamed from a dated form, so `git log` needs `--follow` to reach history
-  before the rename.
 - The H1 is `# NN Title` in sentence case, using the unpadded number. A
   `Component - Subtitle` H1 capitalizes the subtitle: `# 4 Signal - Goroutine manager`.
 - Front matter is a bullet list directly under the H1, in this order:
@@ -21,8 +18,7 @@ Rules for writing and editing RFCs in this directory.
 ## Headings
 
 - Sentence case: capitalize only the first word, proper nouns, and acronyms. Text after
-  a colon follows the same rule: `### 8.4 Phase 5: integration`, but
-  `### 8.1 Phase 2: Go plugins`.
+  a colon follows the same rule: `### 8.4 Phase 5: Integration`
 - A heading word that names a code identifier goes in backticks with its real casing,
   not title case: ``### 4.0 The `domain.DB` write path``.
 
@@ -43,9 +39,6 @@ Rules for writing and editing RFCs in this directory.
 
 ## Prose
 
-- 88-character lines, hand-wrapped and filled to the limit. Measure characters, not
-  bytes — em dashes and µ are multi-byte. A link or URL that cannot be broken is allowed
-  to overflow; do not contort the prose around it.
 - Put a space between a number and its unit, with correct unit casing: `1 Hz`, `25 kHz`,
   `10 ms`, `100 µs`, `200 kB`. Kilo is a lowercase `k`; mega and giga are `M` and `G`.
   Use the micro sign µ (U+00B5), never Greek mu (μ).
