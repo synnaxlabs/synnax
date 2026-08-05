@@ -1,4 +1,4 @@
-# VSCode Configuration
+# VSCode configuration
 
 VSCode is tricky to set up with a monorepo like Synnax. The editor can have trouble
 detecting package installations like eslint and typescript, run into issues with python
