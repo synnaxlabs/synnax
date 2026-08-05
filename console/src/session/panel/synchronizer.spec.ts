@@ -15,9 +15,9 @@ import { act, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
+import { pickSynchronizer } from "@/session/synchronizer/testutil";
 import {
   createTestStore,
-  pickSynchronizer,
   renderHookWithConsole,
   type TestStore,
   uniqueName,
