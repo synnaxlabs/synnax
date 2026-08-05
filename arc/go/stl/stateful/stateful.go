@@ -44,6 +44,7 @@ type Host struct {
 	stateI64    map[string]map[uint32]int64
 	stateF32    map[string]map[uint32]float32
 	stateF64    map[string]map[uint32]float64
+	stateBool   map[string]map[uint32]bool
 	stateString map[string]map[uint32]string
 	stateSeries map[string]map[uint32]telem.Series
 }
@@ -67,6 +68,7 @@ func (h *Host) ClearNode(key string) {
 	delete(h.stateI64, key)
 	delete(h.stateF32, key)
 	delete(h.stateF64, key)
+	delete(h.stateBool, key)
 	delete(h.stateString, key)
 	delete(h.stateSeries, key)
 }
@@ -93,6 +95,7 @@ func NewHost(
 		stateI64:    make(map[string]map[uint32]int64),
 		stateF32:    make(map[string]map[uint32]float32),
 		stateF64:    make(map[string]map[uint32]float64),
+		stateBool:   make(map[string]map[uint32]bool),
 		stateString: make(map[string]map[uint32]string),
 		stateSeries: make(map[string]map[uint32]telem.Series),
 	}
@@ -110,6 +113,7 @@ func NewHost(
 	bindScalarI64[int64](builder, h, h.stateI64, "i64")
 	bindScalarF32(builder, h)
 	bindScalarF64(builder, h)
+	bindScalarBool(builder, h)
 	bindStr(builder, h)
 	bindSeries(builder, h, "u8")
 	bindSeries(builder, h, "u16")
@@ -121,6 +125,7 @@ func NewHost(
 	bindSeries(builder, h, "i64")
 	bindSeries(builder, h, "f32")
 	bindSeries(builder, h, "f64")
+	bindSeries(builder, h, "bool")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
@@ -247,6 +252,36 @@ func bindScalarI64[T i64Compatible](
 			}
 			inner[varID] = T(value)
 		}).Export("store_" + suffix)
+}
+
+func bindScalarBool(builder wazero.HostModuleBuilder, h *Host) {
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID, initValue uint32) uint32 {
+			key := h.currentNodeKey
+			inner, ok := h.stateBool[key]
+			if !ok {
+				inner = make(map[uint32]bool)
+				h.stateBool[key] = inner
+			}
+			if value, ok := inner[varID]; ok {
+				if value {
+					return 1
+				}
+				return 0
+			}
+			inner[varID] = initValue != 0
+			return initValue
+		}).Export("load_bool")
+	builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, varID, value uint32) {
+			key := h.currentNodeKey
+			inner, ok := h.stateBool[key]
+			if !ok {
+				inner = make(map[uint32]bool)
+				h.stateBool[key] = inner
+			}
+			inner[varID] = value != 0
+		}).Export("store_bool")
 }
 
 func bindScalarF32(builder wazero.HostModuleBuilder, h *Host) {

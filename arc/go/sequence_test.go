@@ -52,6 +52,16 @@ var _ = Describe("Sequence", func() {
 		return vals[len(vals)-1]
 	}
 
+	// lastBool returns the final bool value written to a channel.
+	lastBool := func(fr telem.Frame[uint32], key uint32) bool {
+		ch := fr.Get(key)
+		Expect(ch.Series).ToNot(BeEmpty(), "channel %d not written", key)
+		s := ch.Series[len(ch.Series)-1]
+		vals := telem.UnmarshalSeries[bool](s)
+		Expect(vals).ToNot(BeEmpty())
+		return vals[len(vals)-1]
+	}
+
 	// countOf returns how many samples on a channel equal want.
 	countOf := func(fr telem.Frame[uint32], key uint32, want string) int {
 		n := 0
@@ -3816,6 +3826,71 @@ var _ = Describe("Sequence", func() {
 				Expect(lastU8(out, 101)).To(Equal(uint8(2)))
 			},
 		)
+
+		It(
+			"Folds an unwritten bool stateful's initial value into flow reads",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.Bool(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x bool $= true
+				    stage s1 {
+				        x -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BoolT},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastBool(out, 101)).To(BeTrue())
+			},
+		)
+
+		It(
+			"Persists a toggled bool stateful across stage re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.Bool(), 101},
+					"go2":       {types.U8(), 102},
+					"go1":       {types.U8(), 103},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x bool $= false
+				    stage s1 {
+				        x = not(x)
+				        x -> out
+				        go2 => s2
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BoolT},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+					channels.Digest{Key: 103, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastBool(out, 101)).To(BeTrue())
+				trigger(h, ctx, 102)
+				trigger(h, ctx, 103)
+				out, _ = h.Flush()
+				Expect(lastBool(out, 101)).To(BeFalse())
+			},
+		)
 	})
 
 	Describe("Variable initialization on declaration", func() {
@@ -5237,6 +5312,29 @@ var _ = Describe("Sequence", func() {
 				Expect(lastString(out, 102)).To(Equal("n=6"))
 			},
 		)
+
+		It("Interpolates a toggled bool stateful", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    flag bool $= false
+				    stage s1 {
+				        flag = not(flag)
+				        f"flag={flag}" -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 102)).To(Equal("flag=true"))
+		})
 
 		It(
 			"Interpolates a channel read/write that follows a rebind",

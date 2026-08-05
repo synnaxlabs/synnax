@@ -40,6 +40,7 @@ var _ = Describe("Channel", func() {
 				{Key: 1, DataType: telem.Float64T},
 				{Key: 2, DataType: telem.Int32T},
 				{Key: 3, DataType: telem.StringT},
+				{Key: 4, DataType: telem.BoolT},
 			})
 			ss = strings.NewProgramState()
 			_, err := channels.NewHost(ctx, rt.Underlying(), cs, ss)
@@ -170,6 +171,35 @@ var _ = Describe("Channel", func() {
 					Expect(MustBeOk(ss.Get(rh))).To(Equal("hello world"))
 				},
 			)
+		})
+
+		Describe("bool type", func() {
+			It("Should write and read back true", func(ctx SpecContext) {
+				rt.CallVoid(ctx, "channels", "write_bool", testutil.U32(4), testutil.U32(1))
+				fr := telem.Frame[uint32]{}
+				fr, _ = cs.Flush(fr)
+				cs.Ingest(fr)
+				result := rt.Call(ctx, "channels", "read_bool", testutil.U32(4))
+				Expect(testutil.AsU32(result[0])).To(Equal(uint32(1)))
+			})
+
+			It("Should write and read back false", func(ctx SpecContext) {
+				rt.CallVoid(ctx, "channels", "write_bool", testutil.U32(4), testutil.U32(0))
+				fr := telem.Frame[uint32]{}
+				fr, _ = cs.Flush(fr)
+				cs.Ingest(fr)
+				result := rt.Call(ctx, "channels", "read_bool", testutil.U32(4))
+				Expect(testutil.AsU32(result[0])).To(Equal(uint32(0)))
+			})
+
+			It("Should normalize a nonzero write to 1", func(ctx SpecContext) {
+				rt.CallVoid(ctx, "channels", "write_bool", testutil.U32(4), testutil.U32(42))
+				fr := telem.Frame[uint32]{}
+				fr, _ = cs.Flush(fr)
+				cs.Ingest(fr)
+				result := rt.Call(ctx, "channels", "read_bool", testutil.U32(4))
+				Expect(testutil.AsU32(result[0])).To(Equal(uint32(1)))
+			})
 		})
 
 		Describe("read with no data", func() {
