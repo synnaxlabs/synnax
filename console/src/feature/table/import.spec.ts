@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { table as clientTable } from "@synnaxlabs/client";
+import { expectLive } from "@synnaxlabs/client/testutil";
 import { type record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,7 +16,7 @@ import { Table } from "@/feature/table";
 import { client, project } from "@/feature/table/testutil";
 import { createFileIngesterContext } from "@/platform/import/testutil";
 import { type Panel } from "@/platform/panel";
-import { createGrantedFluxStore, uniqueName } from "@/testutil";
+import { assertDefined, awaitGranted, uniqueName } from "@/testutil";
 
 const populatedV0State = (overrides: Record<string, unknown> = {}) => ({
   key: "11111111-1111-1111-1111-111111111111",
@@ -78,7 +79,7 @@ describe("table state migrations", () => {
     const upload = Table.anyStateZ.parse(
       populatedV0State({ remoteCreated: false }),
     ).pendingUpload;
-    if (upload == null) throw new Error("expected pendingUpload to be defined");
+    assertDefined(upload, "expected pendingUpload to be defined");
     expect(upload.key).toEqual("11111111-1111-1111-1111-111111111111");
     expect(upload.rows).toHaveLength(2);
     expect(upload.rows[0].cells).toEqual(["a", "b"]);
@@ -98,7 +99,7 @@ describe("table state migrations", () => {
         },
       }),
     ).pendingUpload;
-    if (upload == null) throw new Error("expected pendingUpload to be defined");
+    assertDefined(upload, "expected pendingUpload to be defined");
     const cell = upload.cells.a as Record<string, unknown>;
     expect(cell.selected).toBeUndefined();
   });
@@ -176,11 +177,7 @@ describe("table import", () => {
 
 describe("table ingest", () => {
   it("creates the table on the cluster and opens it as a tab", async () => {
-    const store = await createGrantedFluxStore(
-      client,
-      clientTable.TYPE_ONTOLOGY_ID,
-      "update",
-    );
+    await awaitGranted(client, clientTable.TYPE_ONTOLOGY_ID, "update");
     const openTab = vi.fn<Panel.OpenTab>();
     const name = uniqueName("imported");
     const id = await Table.ingest(
@@ -188,17 +185,17 @@ describe("table ingest", () => {
       createFileIngesterContext({
         name,
         openTab,
-        store,
         client,
         projectKey: await project(),
       }),
     );
     expect(openTab).toHaveBeenCalledTimes(1);
-    if (id == null) throw new Error("ingest returned no ontology id");
-    const created = await client.tables.retrieve({ key: id.key });
+    assertDefined(id, "ingest returned no ontology id");
+    const created = await client.tables.retrieve(id.key);
     expect(created.name).toBe(name);
     expect(created.rows).toHaveLength(1);
-    expect(store.tables.get(id.key)?.name).toBe(name);
+    const cached = client.tables.getCached(id.key);
+    expect(expectLive(cached).name).toBe(name);
   });
 
   it("rejects the import when the permission cache has no grant", async () => {

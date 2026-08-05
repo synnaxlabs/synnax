@@ -15,6 +15,7 @@ import {
   Icon,
   type List,
   Menu,
+  Panel as PPanel,
   Status,
   Text,
 } from "@synnaxlabs/pluto";
@@ -52,6 +53,7 @@ export const ContextMenu = ({
     type: "Arc",
     description: "Deleting this Arc will permanently remove it.",
   });
+  const closeTabs = PPanel.useCloseResourceTabs();
   const { update: del } = Arc.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<arc.Key | arc.Key[]>) => {
@@ -60,9 +62,10 @@ export const ContextMenu = ({
         const arcs = getItem(arcKeys);
         if (!(await confirm(arcs))) return false;
         dispatch(Session.Arc.remove({ keys: arcKeys }));
+        closeTabs(arc.ontologyID(arcKeys));
         return data;
       },
-      [getItem, dispatch],
+      [getItem, dispatch, closeTabs],
     ),
   });
 

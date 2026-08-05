@@ -62,15 +62,14 @@ describe("ParentRangeButton", () => {
 
     it("should open the parent range as a tab when clicked", async () => {
       const { tsk, range } = await createTaskWithParentRange();
-      const { store, wrapper, panelKey } = await renderInTaskFormWithClient(
+      const { store, panelKey } = await renderInTaskFormWithClient(
         <Task.ParentRangeButton />,
         { client, values: { key: tsk.key } },
       );
-      const created = await createSelectedPanel(wrapper, store, client, [], panelKey);
+      await createSelectedPanel(store, client, [], panelKey);
       fireEvent.click(await screen.findByText(range.name, {}));
-      await waitFor(() => {
-        const doc = created.fluxStore.panels.get(panelKey);
-        assertDefined(doc, "panel doc missing from flux store");
+      await waitFor(async () => {
+        const doc = await client.panels.retrieve(panelKey);
         const tab = panel.findTabByResource(doc.root, ranger.ontologyID(range.key));
         assertDefined(tab, "range resource tab was not opened");
       });

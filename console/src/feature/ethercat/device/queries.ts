@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, query } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
-import { array, primitive } from "@synnaxlabs/x";
+import { array, primitive, verbs } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
@@ -30,17 +30,24 @@ export interface SelectEnabledStateParams {
   keys: device.Key[];
 }
 
+const EMPTY_SLAVES: SlaveDevice[] = [];
+
 export const [useSelectEnabledState] = Flux.createSelector<
-  Device.FluxSubStore,
   SelectEnabledStateParams,
   EnabledState,
   SlaveDevice[]
 >({
-  subscribe: (store, { keys }, notify) => {
-    const destructors = keys.map((key) => store.devices.onSet(notify, key));
+  subscribe: ({ client, args: { keys } }, notify) => {
+    if (client == null) return () => {};
+    const destructors = keys.map((key) => client.devices.onChange(key, notify));
     return () => destructors.forEach((d) => d());
   },
-  select: (store, { keys }) => store.devices.get(keys) as SlaveDevice[],
+  select: ({ client, args: { keys } }) => {
+    if (client == null || keys.length === 0) return EMPTY_SLAVES;
+    const cached = client.devices.getCached({ keys });
+    if (!query.isLive(cached)) return EMPTY_SLAVES;
+    return cached as unknown as SlaveDevice[];
+  },
   transform: (devices) => {
     const disabledCount = devices.filter((d) => !d.properties?.enabled).length;
     return {
@@ -72,20 +79,15 @@ export interface ToggleEnabledParams {
   enabled?: boolean;
 }
 
-export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
-  ToggleEnabledParams,
-  Device.FluxSubStore,
-  ToggleEnabledParams
->({
+export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledParams>({
   name: "Toggle Enabled",
-  verbs: Flux.UPDATE_VERBS,
-  update: async ({ data, client, store, rollbacks, onOptimisticComplete }) => {
+  verbs: verbs.UPDATE,
+  update: async ({ data, client }) => {
     const keys = array.toArray(data.keys);
 
-    const devices = await Device.retrieveMultiple({
-      client,
-      store,
-      query: { keys },
+    const devices = await client.devices.retrieve({
+      keys,
+      includeStatus: true,
       schemas: SLAVE_SCHEMAS,
     });
 
@@ -95,9 +97,6 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
       ...dev,
       properties: { ...dev.properties, enabled: enabledValue },
     }));
-
-    rollbacks.push(store.devices.set(updated));
-    await onOptimisticComplete(data);
 
     await client.devices.create(updated);
 

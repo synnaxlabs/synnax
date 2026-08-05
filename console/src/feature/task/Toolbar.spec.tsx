@@ -11,7 +11,7 @@ import { NotFoundError, type panel, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
@@ -30,6 +30,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   getIconButton,
+  openContextMenu,
   uniqueName,
 } from "@/testutil";
 
@@ -76,7 +77,10 @@ const createTask = async ({ config = {}, running }: CreateTaskOptions = {}) => {
 
 const renderToolbar = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  const created = await createSelectedPanel(wrapper, store, client);
+  const created = await createSelectedPanel(store, client);
+  // useOpenTab reads the panel query cache; warm it and keep it subscribed
+  // so dispatches stay visible.
+  await client.panels.retrieve(created.panelKey);
   render(
     <Task.RegistryProvider registry={Task.REGISTRY}>
       {Task.TOOLBAR.content}
@@ -88,20 +92,15 @@ const renderToolbar = async () => {
 };
 
 const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unknown> =>
-  await waitFor(() => {
-    const doc = created.fluxStore.panels.get(created.panelKey);
-    assertDefined(doc, "panel doc missing from flux store");
-    if (doc.root.variant !== "leaf") throw new Error("panel root is not a leaf");
+  await waitFor(async () => {
+    const doc = await client.panels.retrieve(created.panelKey);
+    assert(doc.root.variant === "leaf", "panel root is not a leaf");
     const tab = doc.root.tabs.find(
       (t): t is panel.TabView => t.variant === "view" && t.type === type,
     );
     assertDefined(tab, `no ${type} tab was opened`);
     return tab.args;
   });
-
-const openContextMenu = async (name: string): Promise<void> => {
-  fireEvent.contextMenu(await screen.findByText(name));
-};
 
 // The task's reported status streams in after the initial list fetch. Reopen the menu
 // until the status-dependent item is present so status-gated flows are deterministic.
@@ -135,7 +134,10 @@ describe("task/Toolbar", () => {
   it("opens the task's configuration tab on double click", async () => {
     const t = await createTask();
     const { created } = await renderToolbar();
-    fireEvent.doubleClick(await screen.findByText(t.name));
+    await screen.findByText(t.name);
+    // Re-query synchronously: async status/permission resolutions can replace the
+    // text node, detaching a match held across an await before the event lands.
+    fireEvent.doubleClick(screen.getByText(t.name));
     const args = await awaitTab(created, NI.Task.ANALOG_READ_TYPE);
     expect(args).toEqual({ taskKey: t.key });
   });

@@ -15,7 +15,6 @@ import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Label } from "@/label";
-import { Ontology } from "@/ontology";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -23,10 +22,7 @@ const client = createTestClient();
 describe("queries", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
   describe("useList", () => {
     it("should return a list of label keys", async () => {
@@ -122,10 +118,7 @@ describe("queries", () => {
       expect(result.current.data).toHaveLength(2);
     });
 
-    // Skipped only while flux is cache-blind: legacy raw-send traffic from
-    // parallel spec files races this live-update assertion. The pluto rebind
-    // onto the client cache restores it.
-    it.skip("should update the list when a label is created", async () => {
+    it("should update the list when a label is created", async () => {
       const { result } = renderHook(() => Label.useList(), {
         wrapper,
       });
@@ -511,7 +504,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       await expect(
-        async () => await client.labels.retrieve({ key: labelToDelete.key }),
+        async () => await client.labels.retrieve(labelToDelete.key),
       ).rejects.toThrow();
     });
 
@@ -539,10 +532,10 @@ describe("queries", () => {
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
 
       await expect(
-        async () => await client.labels.retrieve({ key: label1.key }),
+        async () => await client.labels.retrieve(label1.key),
       ).rejects.toThrow();
       await expect(
-        async () => await client.labels.retrieve({ key: label2.key }),
+        async () => await client.labels.retrieve(label2.key),
       ).rejects.toThrow();
     });
   });

@@ -16,12 +16,15 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import z from "zod";
 
 import { Aether } from "@/aether";
 import { context } from "@/context";
+import { Errors } from "@/errors";
 import { useCombinedStateAndRef } from "@/hooks";
+import { useMemoDeepEqual } from "@/memo";
 import { Status } from "@/status/base";
 import { synnax } from "@/synnax/aether";
 
@@ -125,9 +128,18 @@ export const TestProvider = ({ children, client }: TestProviderProps): ReactElem
   );
 };
 
-export const Provider = ({ children, connParams }: ProviderProps): ReactElement => {
+export const Provider = ({
+  children,
+  connParams: connParamsProp,
+}: ProviderProps): ReactElement => {
+  // The client's lifetime keys on param content: a content-equal rewrite of
+  // the params object (state hydration) must not tear down the connection.
+  const connParams = useMemoDeepEqual(connParamsProp);
   const [state, setState, ref] =
     useCombinedStateAndRef<ContextValue>(ZERO_CONTEXT_VALUE);
+  // Advances whenever the cluster may answer differently than it just did, which is
+  // the cue for latched error boundaries to try again.
+  const [resetKey, setResetKey] = useState(0);
 
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
@@ -156,6 +168,8 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
           addVersionMismatchStatus(addStatus, connStatus);
         }
       }
+      if (connStatus.details.epoch !== prev.details.epoch)
+        setResetKey((key) => key + 1);
       setState((prev) => ({ ...prev, status: connStatus }));
     },
     [addStatus],
@@ -169,6 +183,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
     versionWarned.current = false;
     const client = new Synnax({ ...connParams, onInternalError: handleError });
     setState({ client, status: client.connection.status });
+    setResetKey((key) => key + 1);
     const detach = client.connection.onChange(handleChange);
     return () => {
       detach();
@@ -179,7 +194,9 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
 
   return (
     <Context value={state}>
-      <Aether.Composite path={path}>{children}</Aether.Composite>
+      <Errors.ResetProvider value={resetKey}>
+        <Aether.Composite path={path}>{children}</Aether.Composite>
+      </Errors.ResetProvider>
     </Context>
   );
 };

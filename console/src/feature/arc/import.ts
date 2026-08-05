@@ -299,16 +299,12 @@ export const parseImport = (data: unknown, fallbackName?: string): arc.New => {
   return { ...rest, name: fallbackName ?? rest.name };
 };
 
-export const ingest: Import.FileIngester = async (
-  data,
-  { name, openTab, store, client },
-) => {
-  if (!Access.updateGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }))
+export const ingest: Import.FileIngester = async (data, { name, openTab, client }) => {
+  if (!Access.updateGranted({ id: arc.TYPE_ONTOLOGY_ID, client }))
     throw new Error("You do not have permission to import Arc automations");
   if (client == null) throw new DisconnectedError();
   const newPayload = parseImport(data, name);
   const created = await client.arcs.create(newPayload);
-  store.arcs.set(created.key, created);
   openTab({ variant: "resource", resource: arc.ontologyID(created.key) });
   return arc.ontologyID(created.key);
 };

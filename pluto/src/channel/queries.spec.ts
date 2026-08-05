@@ -9,7 +9,7 @@
 
 import { channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { id, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -332,9 +332,10 @@ describe("queries", () => {
         expect(firstResult.current.data).toContain(ch.key);
         unmount();
 
-        const { result: secondResult } = renderHook(() => Channel.useList(), {
-          wrapper,
-        });
+        const { result: secondResult } = renderHook(
+          () => Channel.useList({ initialQuery: {} }),
+          { wrapper },
+        );
         expect(secondResult.current.variant).toEqual("loading");
         expect(secondResult.current.data).toContain(ch.key);
       });
@@ -875,6 +876,9 @@ describe("queries", () => {
         virtual: true,
         expression: `return ${source.name} * 2`,
       });
+      // The core clears a calculated channel's status shortly after creation;
+      // let that settle so it does not race the status set below.
+      await sleep.sleep(TimeSpan.milliseconds(500));
       await client.statuses.set({
         key: channel.statusKey(calc.key),
         name: calc.name,
@@ -930,6 +934,9 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.status).toBeUndefined();
 
+      // The core clears a calculated channel's status shortly after creation;
+      // let that settle so it does not race the status set below.
+      await sleep.sleep(TimeSpan.milliseconds(500));
       await act(async () => {
         await client.statuses.set({
           key: channel.statusKey(calc.key),

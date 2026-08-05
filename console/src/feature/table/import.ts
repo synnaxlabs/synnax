@@ -148,14 +148,13 @@ export const parseImport = (
 
 export const ingest: Import.FileIngester = async (
   data,
-  { name, openTab, store, client, projectKey },
+  { name, openTab, client, projectKey },
 ) => {
-  if (!Access.updateGranted({ id: table.TYPE_ONTOLOGY_ID, store, client }))
+  if (!Access.updateGranted({ id: table.TYPE_ONTOLOGY_ID, client }))
     throw new Error("You do not have permission to import tables");
   if (client == null) throw new DisconnectedError();
   const newPayload = parseImport(data, name);
   const created = await client.tables.create(projectKey, newPayload);
-  store.tables.set(created.key, created);
   openTab({ variant: "resource", resource: table.ontologyID(created.key) });
   return table.ontologyID(created.key);
 };

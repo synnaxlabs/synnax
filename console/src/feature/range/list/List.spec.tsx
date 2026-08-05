@@ -9,7 +9,8 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Ranger, state } from "@synnaxlabs/pluto";
+import { Ranger } from "@synnaxlabs/pluto";
+import { state } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
