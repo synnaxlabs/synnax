@@ -11,7 +11,8 @@
 // through the chain of historical wire formats up to the latest legacy snapshot,
 // v1.Data. Each subpackage v0..v1 owns a frozen Data shape and (for v1) a Migrate
 // function that lifts the previous version's Data into its own; this package owns the
-// version dispatch and the forward chain, so callers never have to think about either.
+// version dispatch, the forward chain, and the re-export of the terminal model, so
+// callers never reach past it into a version sub-package.
 package legacy
 
 import (
@@ -28,6 +29,13 @@ const LastVersion = v1.Version
 
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v1.Data
+
+// The model Data is built from, each name taken from the version that last redefined
+// it.
+type (
+	ChannelEntry    = v1.ChannelEntry
+	TimestampConfig = v1.TimestampConfig
+)
 
 // MigrateData decodes the opaque log data blob, dispatches on its declared version, and
 // walks the per-step Migrate functions forward to Data. A nil blob and a blob without a

@@ -15,14 +15,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
-	legacyv6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v6"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// schematicFromConsole lifts the frozen Console v6 export into the current Schematic.
-func schematicFromConsole(d legacyv6.Data) Schematic {
+// schematicFromConsole lifts the frozen Console export into the current Schematic.
+func schematicFromConsole(d legacy.Export) Schematic {
 	nodes := make([]Node, len(d.Nodes))
 	for i, n := range d.Nodes {
 		nodes[i] = Node{Key: n.Key, Position: n.Position, ZIndex: n.ZIndex}
@@ -49,12 +48,12 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	)
 	switch {
 	case env.Version > legacy.LastVersion:
-		sch, err = decodeMigrate(ctx, env)
-	case env.Version == legacyv6.Version:
+		sch, err = autoDecodeEnvelope(ctx, env)
+	case env.Version == legacy.LastVersion:
 		// The v0.56 Console export: the typed schematic it retrieved from the Core,
 		// written back out in camelCase under the Console's own version stamp.
-		var doc legacyv6.Data
-		if doc, err = imex.Decode[legacyv6.Data](ctx, env); err == nil {
+		var doc legacy.Export
+		if doc, err = imex.Decode[legacy.Export](ctx, env); err == nil {
 			sch = schematicFromConsole(doc)
 		}
 	default:

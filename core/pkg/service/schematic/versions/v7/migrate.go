@@ -15,8 +15,6 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
-	legacyv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
-	legacyv3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -74,7 +72,7 @@ func MigrateSchematic(
 	return out, nil
 }
 
-func migrateNode(n legacyv0.Node) Node {
+func migrateNode(n legacy.Node) Node {
 	out := Node{
 		Key:      n.Key,
 		Position: spatial.XY{X: n.Position.X, Y: n.Position.Y},
@@ -93,7 +91,7 @@ func migrateNode(n legacyv0.Node) Node {
 // variant defaults to "pipe") so the lifted shape always parses cleanly under the v6
 // EdgeProps schema. Returns the typed edge plus the payload (or nil when there is
 // nothing to lift).
-func migrateEdge(e legacyv3.Edge) (Edge, msgpack.EncodedJSON, error) {
+func migrateEdge(e legacy.Edge) (Edge, msgpack.EncodedJSON, error) {
 	out := Edge{
 		Key:    e.Key,
 		Source: Handle{Node: e.Source, Param: stringOrEmpty(e.SourceHandle)},
@@ -226,7 +224,7 @@ func segmentsToRaw(segs []segment) []any {
 }
 
 // migrateProps decodes each opaque prop entry from raw JSON bytes into the in-memory
-// map[string]any shape that msgpack.EncodedJSON wraps, renaming the legacyv0..v5
+// map[string]any shape that msgpack.EncodedJSON wraps, renaming the legacy..v5
 // node-prop
 // "key" field to "variant" to match the v6 NodeProps schema declared in
 // schematic.oracle. Empty entries are dropped because msgpack.EncodedJSON is
@@ -247,7 +245,7 @@ func migrateProps(
 			return nil, errors.Wrapf(err, "decode props[%q]", k)
 		}
 		// Mirrors the Console v6 migrateProps: variant is always set from the
-		// legacyv0..v5 "key" field, overwriting any prior variant. legacyv0..v5
+		// legacy..v5 "key" field, overwriting any prior variant. legacy..v5
 		// NodeProps schemas declare
 		// key (not variant), so production data never carries both, but the
 		// always-overwrite contract matches the Console's single source of truth.

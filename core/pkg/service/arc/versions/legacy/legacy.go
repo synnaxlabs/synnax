@@ -12,7 +12,7 @@
 // lifting the result into the typed document parts of an Arc. Each subpackage v0..v2
 // owns a frozen Data shape and a single Migrate function that lifts the previous
 // version's Data into its own; this package owns the version dispatch, the forward
-// chain, and the final lift into Document.
+// chain, the re-export of the terminal model, and the final lift into Document.
 package legacy
 
 import (
@@ -32,6 +32,18 @@ import (
 // LastVersion is the highest version a Console-written file carries. Envelopes stamped
 // above it are server exports and route to the generated migration chain.
 const LastVersion = v2.Version
+
+// Data is the latest legacy snapshot; the migration chain terminates in it.
+type Data = v2.Data
+
+// The model Data is built from, each name taken from the version that last redefined
+// it.
+type (
+	Edge  = v1.Edge
+	Graph = v1.Graph
+	Node  = v0.Node
+	Text  = v0.Text
+)
 
 // Document is the typed body a Console state lifts into. Mode is the raw wire
 // string ("graph" or "text"); the importer converts it to the typed enum.

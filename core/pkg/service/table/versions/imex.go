@@ -32,7 +32,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		// v0.56 Console export stamps the same number on the table it retrieved from
 		// Core. Every Table field name is a single word, so the Console's camelCase and
 		// Core's snake_case coincide.
-		t, err = decodeMigrate(ctx, env)
+		t, err = autoDecodeEnvelope(ctx, env)
 	} else {
 		// Console states embed the structural model inline: ride the storage lift,
 		// which decodes the body through the legacy chain.

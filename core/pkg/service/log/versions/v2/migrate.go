@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
-	legacyv1 "github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
@@ -51,7 +50,7 @@ func MigrateLog(ctx context.Context, old v0.Log) (Log, error) {
 // first replaces any out-of-set enum with its standard default, and the lift parses the
 // raw color string into the typed color.Color (defaulting a malformed or empty value to
 // the zero color).
-func logFromV1(d legacyv1.Data) Log {
+func logFromV1(d legacy.Data) Log {
 	d = d.Normalize()
 	channels := make([]ChannelEntry, len(d.Channels))
 	for i, c := range d.Channels {

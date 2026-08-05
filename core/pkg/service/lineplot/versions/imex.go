@@ -28,7 +28,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		err error
 	)
 	if env.Version > legacy.LastVersion {
-		lp, err = decodeMigrate(ctx, env)
+		lp, err = autoDecodeEnvelope(ctx, env)
 	} else {
 		// Every Console line plot file is a state: the exporter writes the slice entry,
 		// which embeds the body inline under a stamped version. Ride the storage lift,

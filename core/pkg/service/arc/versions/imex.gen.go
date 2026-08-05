@@ -22,10 +22,10 @@ import (
 // highest version import accepts. It equals the resource's current schema version.
 const Latest = v3.Version
 
-// decodeMigrate decodes a server-exported envelope as its version's Arc shape and
-// lifts it through the per-version migration chain to the current shape. A version the
-// ladder does not cover is rejected with a path-scoped validation error.
-func decodeMigrate(ctx context.Context, env imex.Envelope) (Arc, error) {
+// autoDecodeEnvelope decodes a server-exported envelope as its version's Arc
+// shape and lifts it through the per-version migration chain to the current shape. A
+// version the ladder does not cover is rejected with a path-scoped validation error.
+func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	switch env.Version {
 	case v3.Version:
 		return imex.Decode[Arc](ctx, env)

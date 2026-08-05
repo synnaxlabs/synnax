@@ -11,7 +11,8 @@
 // through the chain of historical wire formats up to the latest legacy snapshot,
 // v5.Data. Each subpackage v0..v5 owns a frozen Data shape and a single Migrate
 // function that lifts the previous version's Data into its own; this package owns the
-// version dispatch and the forward chain, so callers never have to think about either.
+// version dispatch, the forward chain, and the re-export of the terminal model, so
+// callers never reach past it into a version sub-package.
 package legacy
 
 import (
@@ -34,8 +35,34 @@ import (
 // outside the state chain: it is the Console's own export format, not a stored state.
 const LastVersion = v6.Version
 
+// DataVersion is the version Data carries once the chain has run. It trails
+// LastVersion because v6 is an export format rather than a chain step.
+const DataVersion = v5.Version
+
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v5.Data
+
+// Export is the Console's own export format, stamped at LastVersion. It sits outside
+// the state chain: the Console wrote back the typed schematic it retrieved from the
+// Core rather than a stored state.
+type Export = v6.Data
+
+// The model Data is built from, each name taken from the version that last redefined
+// it. v6 is excluded: it is the Console's own export format, not a chain step, and
+// redefines Edge and Node incompatibly.
+type (
+	Edge           = v3.Edge
+	Legend         = v1.Legend
+	LegendPosition = v1.LegendPosition
+	LegendRoot     = v1.LegendRoot
+	LegendUnits    = v1.LegendUnits
+	Measured       = v0.Measured
+	Node           = v0.Node
+	Segment        = v3.Segment
+	ToolbarState   = v0.ToolbarState
+	Viewport       = v0.Viewport
+	XY             = v0.XY
+)
 
 // MigrateData decodes the opaque schematic data blob, dispatches on its declared
 // version, and walks the per-step Migrate functions forward to Data. A nil blob and a

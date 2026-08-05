@@ -13,9 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
-	legacyv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
-	legacyv1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v1"
-	legacyv2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v2"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
@@ -51,15 +48,15 @@ func MigrateLinePlot(ctx context.Context, old v0.LinePlot) (LinePlot, error) {
 	return out, nil
 }
 
-func migrateTitle(t legacyv0.Title) Title {
+func migrateTitle(t legacy.Title) Title {
 	return Title{Level: text.Level(t.Level), Visible: t.Visible}
 }
 
-func migrateLegend(l legacyv1.Legend) Legend {
+func migrateLegend(l legacy.Legend) Legend {
 	return Legend{Hidden: !l.Visible, Position: migrateStickyXY(l.Position)}
 }
 
-func migrateStickyXY(p legacyv1.LegendPosition) spatial.StickyXY {
+func migrateStickyXY(p legacy.LegendPosition) spatial.StickyXY {
 	return spatial.StickyXY{
 		X:     p.X,
 		Y:     p.Y,
@@ -68,29 +65,29 @@ func migrateStickyXY(p legacyv1.LegendPosition) spatial.StickyXY {
 	}
 }
 
-func migrateStickyRoot(r *legacyv1.StickyRoot) spatial.CornerLocation {
+func migrateStickyRoot(r *legacy.StickyRoot) spatial.CornerLocation {
 	if r == nil {
 		return spatial.CornerLocation{X: spatial.XLocationLeft, Y: spatial.YLocationTop}
 	}
 	return spatial.CornerLocation{X: spatial.XLocation(r.X), Y: spatial.YLocation(r.Y)}
 }
 
-func migrateStickyUnits(u *legacyv1.StickyUnits) spatial.StickyUnits {
+func migrateStickyUnits(u *legacy.StickyUnits) spatial.StickyUnits {
 	if u == nil {
 		return spatial.StickyUnits{X: spatial.StickyUnitPx, Y: spatial.StickyUnitPx}
 	}
 	return spatial.StickyUnits{X: spatial.StickyUnit(u.X), Y: spatial.StickyUnit(u.Y)}
 }
 
-func migrateChannels(c legacyv0.Channels) Channels {
+func migrateChannels(c legacy.Channels) Channels {
 	return Channels{X1: c.X1, X2: c.X2, Y1: c.Y1, Y2: c.Y2, Y3: c.Y3, Y4: c.Y4}
 }
 
-func migrateRanges(r legacyv0.Ranges) Ranges {
+func migrateRanges(r legacy.Ranges) Ranges {
 	return Ranges{X1: r.X1, X2: r.X2}
 }
 
-func migrateAxes(a legacyv2.Axes) Axes {
+func migrateAxes(a legacy.Axes) Axes {
 	return Axes{
 		X1: migrateAxis(a.X1),
 		X2: migrateAxis(a.X2),
@@ -101,7 +98,7 @@ func migrateAxes(a legacyv2.Axes) Axes {
 	}
 }
 
-func migrateAxis(a legacyv2.Axis) Axis {
+func migrateAxis(a legacy.Axis) Axis {
 	return Axis{
 		Key:            AxisKey(a.Key),
 		Label:          a.Label,
@@ -135,7 +132,7 @@ func colorPtr(c color.Color) *color.Color {
 	return &c
 }
 
-func migrateLines(in []legacyv0.Line) []Line {
+func migrateLines(in []legacy.Line) []Line {
 	out := make([]Line, len(in))
 	for i, l := range in {
 		out[i] = Line{
@@ -150,7 +147,7 @@ func migrateLines(in []legacyv0.Line) []Line {
 	return out
 }
 
-func migrateRules(in []legacyv0.Rule) []Rule {
+func migrateRules(in []legacy.Rule) []Rule {
 	out := make([]Rule, len(in))
 	for i, r := range in {
 		out[i] = Rule{

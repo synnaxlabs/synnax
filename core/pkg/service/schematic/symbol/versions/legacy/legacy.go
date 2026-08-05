@@ -20,3 +20,14 @@ import (
 // LastVersion is the highest version a Console-written file carries. Envelopes stamped
 // above it are server exports and route to the generated migration chain.
 const LastVersion = v1.Version
+
+// Data is the latest legacy snapshot: the only Console format.
+type Data = v1.Data
+
+// The model Data is built from.
+type (
+	Handle = v1.Handle
+	Region = v1.Region
+	Spec   = v1.Spec
+	State  = v1.State
+)

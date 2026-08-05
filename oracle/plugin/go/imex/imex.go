@@ -9,10 +9,11 @@
 
 // Package imex generates the portable import/export machinery for any Oracle struct
 // that declares the bare `@go imex` marker. Every versions/vK package gains a Version
-// constant equal to K; the versions package root gains Latest and a decodeMigrate
-// ladder that lifts server-era envelopes through the per-version Migrate<Type> steps.
-// Latest keeps the wire envelope version and the storage schema version a single
-// sequence per resource, and the ladder extends itself on every version bump.
+// constant equal to K; the versions package root gains Latest and an
+// autoDecodeEnvelope ladder that lifts server-era envelopes through the per-version
+// Migrate<Type> steps. Latest keeps the wire envelope version and the storage schema
+// version a single sequence per resource, and the ladder extends itself on every
+// version bump.
 package imex
 
 import (
@@ -68,10 +69,10 @@ func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(f
 
 // Generate emits imex machinery into the versions tree of every output package whose
 // type declares @go imex: one Version constant per versions/vK package the Core has
-// exported, and Latest plus the decodeMigrate ladder in the versions package root.
-// Versions below the floor predate Core export, so their constant is deleted instead.
-// It errors when a marked type lacks a @go version or when two types at the same path
-// both carry the marker.
+// exported, and Latest plus the autoDecodeEnvelope ladder in the versions package
+// root. Versions below the floor predate Core export, so their constant is deleted
+// instead. It errors when a marked type lacks a @go version or when two types at the
+// same path both carry the marker.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	declared := make(map[string]string)
@@ -323,10 +324,10 @@ import (
 // highest version import accepts. It equals the resource's current schema version.
 const Latest = {{.CurrentPkg}}.Version
 
-// decodeMigrate decodes a server-exported envelope as its version's {{.Type}} shape and
-// lifts it through the per-version migration chain to the current shape. A version the
-// ladder does not cover is rejected with a path-scoped validation error.
-func decodeMigrate(ctx context.Context, env imex.Envelope) ({{.Type}}, error) {
+// autoDecodeEnvelope decodes a server-exported envelope as its version's {{.Type}}
+// shape and lifts it through the per-version migration chain to the current shape. A
+// version the ladder does not cover is rejected with a path-scoped validation error.
+func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) ({{.Type}}, error) {
 	switch env.Version {
 {{- range .Arms}}
 	case {{.Pkg}}.Version:

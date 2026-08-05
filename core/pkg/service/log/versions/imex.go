@@ -28,7 +28,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 		err error
 	)
 	if env.Version > legacy.LastVersion {
-		l, err = decodeMigrate(ctx, env)
+		l, err = autoDecodeEnvelope(ctx, env)
 	} else {
 		// Console states embed the body inline: ride the storage lift, which decodes
 		// the body through the legacy chain.

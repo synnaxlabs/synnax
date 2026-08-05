@@ -11,9 +11,10 @@
 // through the chain of historical wire formats up to the latest legacy snapshot,
 // v0.Data. Each subpackage owns a frozen Data shape and a single Migrate function that
 // lifts the previous version's Data into its own; this package owns the version
-// dispatch and the forward chain, so callers never have to think about either. Table
-// currently has a single legacy snapshot, but the package shape matches line plot and
-// schematic so adding a future v1 is mechanical.
+// dispatch, the forward chain, and the re-export of the terminal model, so callers
+// never reach past it into a version sub-package. Table currently has a single legacy
+// snapshot, but the package shape matches line plot and schematic so adding a future v1
+// is mechanical.
 package legacy
 
 import (
@@ -29,6 +30,16 @@ const LastVersion = v0.Version
 
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v0.Data
+
+// The model Data is built from, each name taken from the version that last redefined
+// it.
+type (
+	Cell    = v0.Cell
+	CellRef = v0.CellRef
+	Column  = v0.Column
+	Layout  = v0.Layout
+	Row     = v0.Row
+)
 
 // MigrateData decodes the opaque table data blob, dispatches on its declared version,
 // and walks the per-step Migrate functions forward to Data. A nil blob and a blob

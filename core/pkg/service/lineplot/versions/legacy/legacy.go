@@ -11,7 +11,8 @@
 // through the chain of historical wire formats up to the latest legacy snapshot,
 // v4.Data. Each subpackage v0..v4 owns a frozen Data shape and a single Migrate
 // function that lifts the previous version's Data into its own; this package owns the
-// version dispatch and the forward chain, so callers never have to think about either.
+// version dispatch, the forward chain, and the re-export of the terminal model, so
+// callers never reach past it into a version sub-package.
 package legacy
 
 import (
@@ -31,6 +32,26 @@ const LastVersion = v4.Version
 
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v4.Data
+
+// The model Data is built from, each name taken from the version that last redefined
+// it.
+type (
+	AutoBounds     = v0.AutoBounds
+	Axes           = v2.Axes
+	AxesContainer  = v2.AxesContainer
+	Axis           = v2.Axis
+	Bounds         = v0.Bounds
+	Channels       = v0.Channels
+	Legend         = v1.Legend
+	LegendPosition = v1.LegendPosition
+	Line           = v0.Line
+	Ranges         = v0.Ranges
+	Rule           = v0.Rule
+	StickyRoot     = v1.StickyRoot
+	StickyUnits    = v1.StickyUnits
+	Title          = v0.Title
+	XY             = v0.XY
+)
 
 // MigrateData decodes the opaque line plot data blob, dispatches on its declared
 // version, and walks the per-step Migrate functions forward to Data. A nil blob and a

@@ -16,18 +16,17 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
-	legacyv1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy/v1"
 )
 
 // specFromConsole lifts the frozen Console v1 export into the current Spec.
-func specFromConsole(s legacyv1.Spec) Spec {
+func specFromConsole(s legacy.Spec) Spec {
 	return Spec{
 		SVG: s.SVG, Variant: s.Variant, Scale: s.Scale,
 		ScaleStroke: s.ScaleStroke, PreviewViewport: s.PreviewViewport,
-		States: lo.Map(s.States, func(st legacyv1.State, _ int) State {
+		States: lo.Map(s.States, func(st legacy.State, _ int) State {
 			return State{
 				Key: st.Key, Name: st.Name,
-				Regions: lo.Map(st.Regions, func(r legacyv1.Region, _ int) Region {
+				Regions: lo.Map(st.Regions, func(r legacy.Region, _ int) Region {
 					return Region{
 						Key: r.Key, Name: r.Name, Selectors: r.Selectors,
 						StrokeColor: r.StrokeColor, FillColor: r.FillColor,
@@ -35,7 +34,7 @@ func specFromConsole(s legacyv1.Spec) Spec {
 				}),
 			}
 		}),
-		Handles: lo.Map(s.Handles, func(h legacyv1.Handle, _ int) Handle {
+		Handles: lo.Map(s.Handles, func(h legacy.Handle, _ int) Handle {
 			return Handle{
 				Key: h.Key, Position: h.Position, Orientation: h.Orientation,
 			}
@@ -51,10 +50,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 		err error
 	)
 	if env.Version > legacy.LastVersion {
-		sym, err = decodeMigrate(ctx, env)
+		sym, err = autoDecodeEnvelope(ctx, env)
 	} else {
-		var d legacyv1.Data
-		if d, err = imex.Decode[legacyv1.Data](ctx, env); err == nil {
+		var d legacy.Data
+		if d, err = imex.Decode[legacy.Data](ctx, env); err == nil {
 			sym.Data = specFromConsole(d.Spec)
 		}
 	}

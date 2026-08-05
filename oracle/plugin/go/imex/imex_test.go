@@ -96,7 +96,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"package versions",
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions/v3"`,
 					"const Latest = v3.Version",
-					"func decodeMigrate(ctx context.Context, env imex.Envelope) (Log, error)",
+					"func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Log, error)",
 					"case v3.Version:",
 					"return imex.Decode[Log](ctx, env)",
 				).

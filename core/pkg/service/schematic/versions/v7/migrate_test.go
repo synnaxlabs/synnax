@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
-	legacyv5 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v5"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -382,7 +381,7 @@ var _ = Describe("MigrateData", func() {
 	// counts, edge.data preservation, orphan filter, dispatch.
 	Describe("real-world fixtures", func() {
 		DescribeTable(
-			"Should walk the chain to legacyv5.Data, preserving edge.data and dropping orphans",
+			"Should walk the chain to legacy.Data, preserving edge.data and dropping orphans",
 			func(fixture string, expectNodes, expectEdges, expectInputOrphans int) {
 				blob, raw := loadFixture(fixture)
 				rawNodes, _ := raw["nodes"].([]any)
@@ -401,7 +400,7 @@ var _ = Describe("MigrateData", func() {
 				Expect(len(rawEdges) - len(validRawEdges)).To(Equal(expectInputOrphans))
 
 				out := MustSucceed(legacy.MigrateData(blob))
-				Expect(out.Version).To(Equal(legacyv5.Version))
+				Expect(out.Version).To(Equal(legacy.DataVersion))
 				Expect(out.Nodes).To(HaveLen(len(rawNodes)))
 				Expect(out.Edges).To(HaveLen(len(validRawEdges)))
 
@@ -445,7 +444,7 @@ var _ = Describe("MigrateData", func() {
 				"edges": [{"key": "e1", "source": "n1", "target": "n2", "sourceHandle": "out", "targetHandle": "in"}],
 				"props": {"n1": {"key": "valve"}}
 			}`)))
-			Expect(out.Version).To(Equal(legacyv5.Version))
+			Expect(out.Version).To(Equal(legacy.DataVersion))
 			Expect(out.Authority).To(BeEquivalentTo(1))
 			Expect(out.Mode).To(Equal("select"))
 			Expect(out.Legend.Visible).To(BeTrue())
@@ -455,7 +454,7 @@ var _ = Describe("MigrateData", func() {
 			out := MustSucceed(
 				legacy.MigrateData(jsonMap(`{"nodes": [], "edges": [], "props": {}}`)),
 			)
-			Expect(out.Version).To(Equal(legacyv5.Version))
+			Expect(out.Version).To(Equal(legacy.DataVersion))
 		})
 
 		It("Should preserve user-set zIndex on nodes through the chain", func() {
@@ -472,7 +471,7 @@ var _ = Describe("MigrateData", func() {
 		})
 
 		It(
-			"Should preserve edge.data through a v0 blob into legacyv5.Edge.Data",
+			"Should preserve edge.data through a v0 blob into legacy.Edge.Data",
 			func() {
 				out := MustSucceed(legacy.MigrateData(jsonMap(`{
 				"version": "0.0.0",
@@ -512,10 +511,10 @@ var _ = Describe("MigrateData", func() {
 		})
 
 		It(
-			"Should walk the chain on a nil blob and produce a zero legacyv5.Data",
+			"Should walk the chain on a nil blob and produce a zero legacy.Data",
 			func() {
 				out := MustSucceed(legacy.MigrateData(nil))
-				Expect(out.Version).To(Equal(legacyv5.Version))
+				Expect(out.Version).To(Equal(legacy.DataVersion))
 				Expect(out.Nodes).To(BeEmpty())
 				Expect(out.Edges).To(BeEmpty())
 			},
