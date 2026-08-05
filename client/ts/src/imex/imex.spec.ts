@@ -113,7 +113,7 @@ describe("Imex", () => {
           fileName: `${name}.json`,
           parent: { type: "group", key: uuid.create() },
         }),
-      ).rejects.toThrow("parent must be a project");
+      ).rejects.toThrow("parent: must be a project");
     });
 
     it("should parent the imported resource under the given parent", async () => {

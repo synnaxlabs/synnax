@@ -33,6 +33,7 @@ import (
 // blob, so any envelope-only keys (version, type) are simply ignored by the lenient v1
 // parse the way an unrecognized persisted field would be.
 func loadV55(path string) v2.Log {
+	GinkgoHelper()
 	raw := MustSucceed(os.ReadFile(path))
 	var m map[string]any
 	Expect(json.Unmarshal(raw, &m)).To(Succeed())

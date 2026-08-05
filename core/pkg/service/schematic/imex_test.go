@@ -10,9 +10,6 @@
 package schematic_test
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,15 +21,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// loadEnvelope reads a wire-format envelope fixture from versions/testdata and
-// unmarshals it into an imex.Envelope, binding the codec that Decode needs.
-func loadEnvelope(path string) imex.Envelope {
-	raw := MustSucceed(os.ReadFile(path))
-	var env imex.Envelope
-	Expect(json.Unmarshal(raw, &env)).To(Succeed())
-	return env
-}
 
 var _ = Describe("ImEx", func() {
 	DescribeTable("Match",
@@ -80,7 +68,8 @@ var _ = Describe("ImEx", func() {
 		importAndRetrieve := func(
 			ctx SpecContext, path string, opts imex.ImportOptions,
 		) schematic.Schematic {
-			id := MustSucceed(imexSvc.Import(ctx, db, loadEnvelope(path), opts))
+			GinkgoHelper()
+			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
 			Expect(id.Type).To(Equal(ontology.ResourceTypeSchematic))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res schematic.Schematic
@@ -139,7 +128,7 @@ var _ = Describe("ImEx", func() {
 				Expect(imexSvc.Import(
 					ctx,
 					db,
-					loadEnvelope("versions/testdata/import_v6_state.json"),
+					LoadEnvelope("versions/testdata/import_v6_state.json"),
 					imex.ImportOptions{
 						FileName: "My Schematic.json",
 						Parent:   proj.OntologyID(),
@@ -178,7 +167,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should reject a zero parent", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("versions/testdata/import_v7.json"),
+				LoadEnvelope("versions/testdata/import_v7.json"),
 				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("parent")),
@@ -190,7 +179,7 @@ var _ = Describe("ImEx", func() {
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
-					loadEnvelope("versions/testdata/import_bad_version.json"),
+					LoadEnvelope("versions/testdata/import_bad_version.json"),
 					imex.ImportOptions{Parent: proj.OntologyID()},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("schematic version 99")),
@@ -205,7 +194,7 @@ var _ = Describe("ImEx", func() {
 				id := MustSucceed(imexSvc.Import(
 					ctx,
 					db,
-					loadEnvelope(
+					LoadEnvelope(
 						"versions/testdata/import_v7.json",
 					),
 					imex.ImportOptions{Parent: proj.OntologyID()},

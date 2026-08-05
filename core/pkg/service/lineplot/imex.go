@@ -35,9 +35,9 @@ func (*Service) Match(body map[string]any) bool {
 	return (hasAxes && hasChannels) || hasSelectedRules || hasHiddenLines
 }
 
-// Export retrieves the line plot identified by id and serializes it as an
-// imex.Envelope stamped with versions.Latest. It returns query.ErrNotFound if no
-// line plot exists for id.Key.
+// Export retrieves the line plot identified by id and serializes it as an imex.Envelope
+// stamped with versions.Latest. It returns query.ErrNotFound if no line plot exists for
+// id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {

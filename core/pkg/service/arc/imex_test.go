@@ -10,9 +10,6 @@
 package arc_test
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,15 +23,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// loadEnvelope reads a wire-format envelope fixture from versions/testdata and
-// unmarshals it into an imex.Envelope, binding the codec that Decode needs.
-func loadEnvelope(path string) imex.Envelope {
-	raw := MustSucceed(os.ReadFile(path))
-	var env imex.Envelope
-	Expect(json.Unmarshal(raw, &env)).To(Succeed())
-	return env
-}
 
 // testParent satisfies the registry's required-parent check; the Arc importer does
 // not parent imported resources, so the ID only has to be non-zero.
@@ -81,7 +69,8 @@ var _ = Describe("ImEx", func() {
 		importAndRetrieve := func(
 			ctx SpecContext, path string, opts imex.ImportOptions,
 		) arc.Arc {
-			id := MustSucceed(imexSvc.Import(ctx, db, loadEnvelope(path), opts))
+			GinkgoHelper()
+			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
 			Expect(id.Type).To(Equal(ontology.ResourceTypeArc))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res arc.Arc
@@ -93,6 +82,7 @@ var _ = Describe("ImEx", func() {
 		}
 
 		inputsOf := func(a arc.Arc, node string) map[string]any {
+			GinkgoHelper()
 			Expect(a.Graph.Inputs).To(HaveKey(node))
 			return map[string]any(a.Graph.Inputs[node])
 		}
@@ -200,7 +190,7 @@ var _ = Describe("ImEx", func() {
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
-					loadEnvelope("versions/testdata/import_bad_version.json"),
+					LoadEnvelope("versions/testdata/import_bad_version.json"),
 					imex.ImportOptions{Parent: testParent},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("arc version 99")),
@@ -215,7 +205,7 @@ var _ = Describe("ImEx", func() {
 				id := MustSucceed(imexSvc.Import(
 					ctx,
 					db,
-					loadEnvelope(
+					LoadEnvelope(
 						"versions/testdata/import_v3.json",
 					),
 					imex.ImportOptions{Parent: testParent},

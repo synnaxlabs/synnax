@@ -30,19 +30,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// loadEnvelope reads a wire-format envelope fixture from versions/testdata and
-// unmarshals it into an imex.Envelope, binding the codec that Decode needs. The
-// fixtures cover both legacy camelCase Console exports (v0, v1) and the current
-// Core-typed snake_case shape (v2) that Import dispatches on by version.
-func loadEnvelope(path string) imex.Envelope {
-	raw := MustSucceed(os.ReadFile(path))
-	var env imex.Envelope
-	Expect(json.Unmarshal(raw, &env)).To(Succeed())
-	return env
-}
-
 var _ = Describe("ImEx", func() {
 	createLog := func(ctx SpecContext, l log.Log) log.Log {
+		GinkgoHelper()
 		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 		return l
 	}
@@ -119,11 +109,12 @@ var _ = Describe("ImEx", func() {
 		)
 
 		importAndRetrieve := func(ctx SpecContext, path string) (ontology.ID, log.Log) {
+			GinkgoHelper()
 			id := MustSucceed(
 				imexSvc.Import(
 					ctx,
 					db,
-					loadEnvelope(path),
+					LoadEnvelope(path),
 					imex.ImportOptions{Parent: proj.OntologyID()},
 				),
 			)
@@ -156,7 +147,7 @@ var _ = Describe("ImEx", func() {
 				id := MustSucceed(imexSvc.Import(
 					ctx,
 					db,
-					loadEnvelope("versions/testdata/import_v0_state.json"),
+					LoadEnvelope("versions/testdata/import_v0_state.json"),
 					imex.ImportOptions{
 						FileName: "Legacy Log.json",
 						Parent:   proj.OntologyID(),
@@ -230,7 +221,7 @@ var _ = Describe("ImEx", func() {
 			"Should create the imported log under the parent project from the options",
 			func(ctx SpecContext) {
 				id := MustSucceed(imexSvc.Import(
-					ctx, db, loadEnvelope(v3Fixture),
+					ctx, db, LoadEnvelope(v3Fixture),
 					imex.ImportOptions{Parent: proj.OntologyID()},
 				))
 				Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
@@ -243,14 +234,14 @@ var _ = Describe("ImEx", func() {
 
 		It("Should reject a parent project that does not exist", func(ctx SpecContext) {
 			Expect(imexSvc.Import(
-				ctx, db, loadEnvelope(v3Fixture),
+				ctx, db, LoadEnvelope(v3Fixture),
 				imex.ImportOptions{Parent: project.OntologyID(uuid.New())},
 			)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should reject a parent that is not a project", func(ctx SpecContext) {
 			Expect(imexSvc.Import(
-				ctx, db, loadEnvelope(v3Fixture),
+				ctx, db, LoadEnvelope(v3Fixture),
 				imex.ImportOptions{Parent: ontology.ID{Type: "group", Key: "g1"}},
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("parent: must be a project")),
@@ -298,7 +289,7 @@ var _ = Describe("ImEx", func() {
 					imexSvc.Import(
 						ctx,
 						db,
-						loadEnvelope(v3Fixture),
+						LoadEnvelope(v3Fixture),
 						imex.ImportOptions{Parent: proj.OntologyID()},
 					),
 				)
@@ -328,7 +319,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should reject a zero parent", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope(v3Fixture),
+				LoadEnvelope(v3Fixture),
 				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("parent")),
@@ -340,7 +331,7 @@ var _ = Describe("ImEx", func() {
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
-					loadEnvelope("versions/testdata/import_bad_version.json"),
+					LoadEnvelope("versions/testdata/import_bad_version.json"),
 					imex.ImportOptions{Parent: proj.OntologyID()},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("log version 99")),
@@ -353,7 +344,7 @@ var _ = Describe("ImEx", func() {
 			"Should return an error when a current-version body cannot be decoded",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, db,
-					loadEnvelope("versions/testdata/import_bad_v3.json"),
+					LoadEnvelope("versions/testdata/import_bad_v3.json"),
 					imex.ImportOptions{Parent: proj.OntologyID()},
 				)).Error().To(MatchError(ContainSubstring("decode")))
 			},

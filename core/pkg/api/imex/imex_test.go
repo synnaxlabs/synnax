@@ -49,6 +49,7 @@ func (*recordingImporter) Match(body map[string]any) bool {
 }
 
 func testEnvelope(name string) apiimex.ImportRequest {
+	GinkgoHelper()
 	var env imex.Envelope
 	Expect(json.Unmarshal(fmt.Appendf(nil,
 		`{"version":1,"type":%q,"name":%q}`, ontology.ResourceTypeChannel, name,

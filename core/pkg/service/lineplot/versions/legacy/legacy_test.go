@@ -21,6 +21,7 @@ import (
 )
 
 func jsonMap(raw string) msgpack.EncodedJSON {
+	GinkgoHelper()
 	var m map[string]any
 	Expect(json.Unmarshal([]byte(raw), &m)).To(Succeed())
 	return m

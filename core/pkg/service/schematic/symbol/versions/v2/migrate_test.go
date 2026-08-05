@@ -24,6 +24,7 @@ import (
 var _ = Describe("Migration", func() {
 	// seedV1 writes a symbol in the v1 storage shape, version field included.
 	seedV1 := func(ctx SpecContext, db *gorp.DB, s v1.Symbol) v1.Symbol {
+		GinkgoHelper()
 		t := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v1.Key, v1.Symbol]{DB: db},
 		))

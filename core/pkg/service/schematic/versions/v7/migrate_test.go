@@ -34,6 +34,7 @@ import (
 var fixtures embed.FS
 
 func loadFixture(name string) (msgpack.EncodedJSON, map[string]any) {
+	GinkgoHelper()
 	raw := MustSucceed(fixtures.ReadFile("testdata/" + name))
 	var m map[string]any
 	Expect(json.Unmarshal(raw, &m)).To(Succeed())
@@ -41,6 +42,7 @@ func loadFixture(name string) (msgpack.EncodedJSON, map[string]any) {
 }
 
 func jsonMap(raw string) msgpack.EncodedJSON {
+	GinkgoHelper()
 	var m map[string]any
 	Expect(json.Unmarshal([]byte(raw), &m)).To(Succeed())
 	return m
@@ -49,6 +51,7 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 // migrateSeed runs the v7 migration chain over a gorp-seeded v6 schematic and returns
 // the migrated typed Schematic.
 func migrateSeed(ctx SpecContext, seed v6.Schematic) v7.Schematic {
+	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(
 		ctx, gorp.TableConfig[v6.Key, v6.Schematic]{DB: db},
@@ -78,6 +81,7 @@ func stringOr(v any) string {
 // rewrites it if UPDATE_MIGRATED=1 is set. Outputs are canonicalized via
 // json.MarshalIndent (which sorts map keys) so diffs are deterministic.
 func assertMigrated(fixture string, got v7.Schematic) {
+	GinkgoHelper()
 	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")

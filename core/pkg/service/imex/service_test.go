@@ -41,6 +41,7 @@ func sampleResource(name string) testResource {
 }
 
 func sampleEnvelope(name string, typ ontology.ResourceType) imex.Envelope {
+	GinkgoHelper()
 	env := imex.Envelope{Version: testVersion, Type: string(typ)}
 	Expect(imex.Encode(&env, sampleResource(name))).To(Succeed())
 	return WireRoundTrip(env)
@@ -69,6 +70,7 @@ type testService struct {
 }
 
 func openTestService(ctx context.Context, db *gorp.DB) *testService {
+	GinkgoHelper()
 	table := MustSucceed(
 		gorp.OpenTable(ctx, gorp.TableConfig[string, testEntry]{DB: db}),
 	)
@@ -203,6 +205,7 @@ func (n noopExporter) Export(context.Context, ontology.ID) (imex.Envelope, error
 // newParent defines a fresh project resource in the ontology and returns its ID so
 // imports satisfy the registry's required-parent check.
 func newParent(ctx context.Context) ontology.ID {
+	GinkgoHelper()
 	id := project.OntologyID(uuid.New())
 	Expect(otg.NewWriter(nil).DefineResources(ctx, id)).To(Succeed())
 	return id
@@ -241,6 +244,7 @@ var _ = Describe("Service", func() {
 
 	Describe("ResolveType", func() {
 		typelessEnvelope := func(payload string) imex.Envelope {
+			GinkgoHelper()
 			var env imex.Envelope
 			Expect(json.Unmarshal([]byte(payload), &env)).To(Succeed())
 			return env
@@ -446,6 +450,7 @@ var _ = Describe("Service", func() {
 
 	Describe("Import Options", func() {
 		namelessEnvelope := func() imex.Envelope {
+			GinkgoHelper()
 			b := fmt.Appendf(
 				nil,
 				`{"version":%d,"type":%q,"field_one":"value","field_two":42}`,

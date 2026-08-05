@@ -10,9 +10,6 @@
 package symbol_test
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,15 +22,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// loadEnvelope reads a wire-format envelope fixture from versions/testdata and
-// unmarshals it into an imex.Envelope, binding the codec that Decode needs.
-func loadEnvelope(path string) imex.Envelope {
-	raw := MustSucceed(os.ReadFile(path))
-	var env imex.Envelope
-	Expect(json.Unmarshal(raw, &env)).To(Succeed())
-	return env
-}
 
 var _ = Describe("ImEx", func() {
 	DescribeTable("Match",
@@ -91,10 +79,11 @@ var _ = Describe("ImEx", func() {
 		// Imports run on the per-spec tx so created rows roll back and the shared
 		// DB's symbol counts stay intact for the other specs.
 		importAndRetrieve := func(ctx SpecContext, path string) symbol.Symbol {
+			GinkgoHelper()
 			id := MustSucceed(imexSvc.Import(
 				ctx,
 				tx,
-				loadEnvelope(path),
+				LoadEnvelope(path),
 				imex.ImportOptions{Parent: svc.Group().OntologyID()},
 			))
 			Expect(id.Type).To(Equal(ontology.ResourceTypeSchematicSymbol))
@@ -146,7 +135,7 @@ var _ = Describe("ImEx", func() {
 		It("Should reject a zero parent", func(ctx SpecContext) {
 			Expect(imexSvc.Import(
 				ctx, tx,
-				loadEnvelope("versions/testdata/import_v2.json"),
+				LoadEnvelope("versions/testdata/import_v2.json"),
 				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("parent")),
@@ -161,7 +150,7 @@ var _ = Describe("ImEx", func() {
 				Expect(otg.NewWriter(tx).DefineResources(ctx, parent)).To(Succeed())
 				id := MustSucceed(imexSvc.Import(
 					ctx, tx,
-					loadEnvelope("versions/testdata/import_v2.json"),
+					LoadEnvelope("versions/testdata/import_v2.json"),
 					imex.ImportOptions{Parent: parent},
 				))
 				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
@@ -175,7 +164,7 @@ var _ = Describe("ImEx", func() {
 		It("Should reject a parent that is not a group", func(ctx SpecContext) {
 			Expect(imexSvc.Import(
 				ctx, tx,
-				loadEnvelope("versions/testdata/import_v2.json"),
+				LoadEnvelope("versions/testdata/import_v2.json"),
 				imex.ImportOptions{Parent: ontology.ID{Type: "project", Key: "p1"}},
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("symbol parent must be a group")),
@@ -187,7 +176,7 @@ var _ = Describe("ImEx", func() {
 			"Should reject an envelope newer than the supported version",
 			func(ctx SpecContext) {
 				Expect(imexSvc.Import(ctx, tx,
-					loadEnvelope("versions/testdata/import_bad_version.json"),
+					LoadEnvelope("versions/testdata/import_bad_version.json"),
 					imex.ImportOptions{Parent: svc.Group().OntologyID()},
 				)).Error().To(SatisfyAll(
 					MatchError(ContainSubstring("schematic_symbol version 99")),
@@ -202,7 +191,7 @@ var _ = Describe("ImEx", func() {
 				id := MustSucceed(imexSvc.Import(
 					ctx,
 					tx,
-					loadEnvelope(
+					LoadEnvelope(
 						"versions/testdata/import_v2.json",
 					),
 					imex.ImportOptions{Parent: svc.Group().OntologyID()},
