@@ -14,7 +14,7 @@ import { project } from "@/project";
 import { createTestClient } from "@/testutil";
 
 const logEnvelope = (name: string) => ({
-  version: 2,
+  version: 3,
   type: "log",
   name,
   channels: [
