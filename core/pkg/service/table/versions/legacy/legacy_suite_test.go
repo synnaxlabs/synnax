@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package console_test
+package legacy_test
 
 import (
 	"testing"
@@ -19,7 +19,7 @@ import (
 
 func TestLegacy(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Console Suite")
+	RunSpecs(t, "Service Table Legacy Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

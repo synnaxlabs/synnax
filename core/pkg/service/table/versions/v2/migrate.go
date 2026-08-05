@@ -12,8 +12,8 @@ package v2
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/table/versions/console"
-	consolev0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/console/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions/legacy"
+	legacyv0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/legacy/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -22,8 +22,8 @@ import (
 // MigrateTable transforms the previous Table snapshot (v1) into the v2 strongly-typed
 // Table. autoMigrateTable handles the trivially-copyable Gorp-entry fields (Key, Name);
 // the structural fields (Rows, Columns, Cells) are sourced from the opaque blob the
-// Console used to persist alongside those fields, after console.MigrateData decodes it
-// as consolev0.Data. v0 is the last snapshot in which Table.Data is untyped; future
+// Console used to persist alongside those fields, after legacy.MigrateData decodes it
+// as legacyv0.Data. v0 is the last snapshot in which Table.Data is untyped; future
 // migrations
 // transform one typed snapshot into another and never need this blob handling.
 func MigrateTable(ctx context.Context, old v0.Table) (Table, error) {
@@ -31,7 +31,7 @@ func MigrateTable(ctx context.Context, old v0.Table) (Table, error) {
 	if err != nil {
 		return Table{}, err
 	}
-	d, err := console.MigrateData(old.Data)
+	d, err := legacy.MigrateData(old.Data)
 	if err != nil {
 		return Table{}, err
 	}
@@ -41,7 +41,7 @@ func MigrateTable(ctx context.Context, old v0.Table) (Table, error) {
 	return out, nil
 }
 
-func migrateRows(in []consolev0.Row) []Row {
+func migrateRows(in []legacyv0.Row) []Row {
 	out := make([]Row, len(in))
 	for i, r := range in {
 		cells := make([]string, len(r.Cells))
@@ -53,7 +53,7 @@ func migrateRows(in []consolev0.Row) []Row {
 	return out
 }
 
-func migrateColumns(in []consolev0.Column) []Column {
+func migrateColumns(in []legacyv0.Column) []Column {
 	out := make([]Column, len(in))
 	for i, c := range in {
 		out[i] = Column{Size: c.Size}
@@ -61,7 +61,7 @@ func migrateColumns(in []consolev0.Column) []Column {
 	return out
 }
 
-func migrateCells(in map[string]consolev0.Cell) map[string]Cell {
+func migrateCells(in map[string]legacyv0.Cell) map[string]Cell {
 	out := make(map[string]Cell, len(in))
 	for k, c := range in {
 		out[k] = Cell{

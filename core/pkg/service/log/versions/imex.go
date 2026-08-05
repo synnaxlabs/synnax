@@ -30,7 +30,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 		l, err = decodeMigrate(ctx, env)
 	} else {
 		// Console states embed the body inline: ride the storage lift, which decodes
-		// the body through the Console chain.
+		// the body through the legacy chain.
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
 			l, err = v2.MigrateLog(ctx, v0.Log{Name: env.Name, Data: body})

@@ -12,10 +12,10 @@ package v5
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/console"
-	consolev0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/console/v0"
-	consolev1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/console/v1"
-	consolev2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/console/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
+	legacyv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
+	legacyv1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v1"
+	legacyv2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v2"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
@@ -26,8 +26,8 @@ import (
 // MigrateLinePlot transforms the previous line plot snapshot (v5) into the v6
 // strongly-typed LinePlot. autoMigrateLinePlot handles the trivially-copyable
 // gorp-entry fields (Key, Name); the body fields are sourced from the per-plot blob the
-// Console used to persist alongside those gorp fields, after console.MigrateData walks
-// the Console migration chain up to v4.Data. UI-only fields (viewport, selection, mode,
+// Console used to persist alongside those gorp fields, after legacy.MigrateData walks
+// the legacy migration chain up to v4.Data. UI-only fields (viewport, selection, mode,
 // control, toolbar, measure, annotations, the wire-format key, remoteCreated) are
 // dropped; they live on the Console slice and never reach the server. v0 is the last
 // snapshot in which LinePlot.Data is untyped; future migrations transform one typed
@@ -37,7 +37,7 @@ func MigrateLinePlot(ctx context.Context, old v0.LinePlot) (LinePlot, error) {
 	if err != nil {
 		return LinePlot{}, err
 	}
-	d, err := console.MigrateData(old.Data)
+	d, err := legacy.MigrateData(old.Data)
 	if err != nil {
 		return LinePlot{}, err
 	}
@@ -51,15 +51,15 @@ func MigrateLinePlot(ctx context.Context, old v0.LinePlot) (LinePlot, error) {
 	return out, nil
 }
 
-func migrateTitle(t consolev0.Title) Title {
+func migrateTitle(t legacyv0.Title) Title {
 	return Title{Level: text.Level(t.Level), Visible: t.Visible}
 }
 
-func migrateLegend(l consolev1.Legend) Legend {
+func migrateLegend(l legacyv1.Legend) Legend {
 	return Legend{Hidden: !l.Visible, Position: migrateStickyXY(l.Position)}
 }
 
-func migrateStickyXY(p consolev1.LegendPosition) spatial.StickyXY {
+func migrateStickyXY(p legacyv1.LegendPosition) spatial.StickyXY {
 	return spatial.StickyXY{
 		X:     p.X,
 		Y:     p.Y,
@@ -68,29 +68,29 @@ func migrateStickyXY(p consolev1.LegendPosition) spatial.StickyXY {
 	}
 }
 
-func migrateStickyRoot(r *consolev1.StickyRoot) spatial.CornerLocation {
+func migrateStickyRoot(r *legacyv1.StickyRoot) spatial.CornerLocation {
 	if r == nil {
 		return spatial.CornerLocation{X: spatial.XLocationLeft, Y: spatial.YLocationTop}
 	}
 	return spatial.CornerLocation{X: spatial.XLocation(r.X), Y: spatial.YLocation(r.Y)}
 }
 
-func migrateStickyUnits(u *consolev1.StickyUnits) spatial.StickyUnits {
+func migrateStickyUnits(u *legacyv1.StickyUnits) spatial.StickyUnits {
 	if u == nil {
 		return spatial.StickyUnits{X: spatial.StickyUnitPx, Y: spatial.StickyUnitPx}
 	}
 	return spatial.StickyUnits{X: spatial.StickyUnit(u.X), Y: spatial.StickyUnit(u.Y)}
 }
 
-func migrateChannels(c consolev0.Channels) Channels {
+func migrateChannels(c legacyv0.Channels) Channels {
 	return Channels{X1: c.X1, X2: c.X2, Y1: c.Y1, Y2: c.Y2, Y3: c.Y3, Y4: c.Y4}
 }
 
-func migrateRanges(r consolev0.Ranges) Ranges {
+func migrateRanges(r legacyv0.Ranges) Ranges {
 	return Ranges{X1: r.X1, X2: r.X2}
 }
 
-func migrateAxes(a consolev2.Axes) Axes {
+func migrateAxes(a legacyv2.Axes) Axes {
 	return Axes{
 		X1: migrateAxis(a.X1),
 		X2: migrateAxis(a.X2),
@@ -101,7 +101,7 @@ func migrateAxes(a consolev2.Axes) Axes {
 	}
 }
 
-func migrateAxis(a consolev2.Axis) Axis {
+func migrateAxis(a legacyv2.Axis) Axis {
 	return Axis{
 		Key:            AxisKey(a.Key),
 		Label:          a.Label,
@@ -125,8 +125,8 @@ func migrateTickType(t string) *TickType {
 	return &tt
 }
 
-// colorPtr lifts a Console value-typed color into the optional pointer the
-// current schema uses. A zero color is the Console "unset" sentinel, which
+// colorPtr lifts a legacy value-typed color into the optional pointer the
+// current schema uses. A zero color is the legacy "unset" sentinel, which
 // maps to nil so the Console assigns a default at render time.
 func colorPtr(c color.Color) *color.Color {
 	if c.IsZero() {
@@ -135,7 +135,7 @@ func colorPtr(c color.Color) *color.Color {
 	return &c
 }
 
-func migrateLines(in []consolev0.Line) []Line {
+func migrateLines(in []legacyv0.Line) []Line {
 	out := make([]Line, len(in))
 	for i, l := range in {
 		out[i] = Line{
@@ -150,7 +150,7 @@ func migrateLines(in []consolev0.Line) []Line {
 	return out
 }
 
-func migrateRules(in []consolev0.Rule) []Rule {
+func migrateRules(in []legacyv0.Rule) []Rule {
 	out := make([]Rule, len(in))
 	for i, r := range in {
 		out[i] = Rule{

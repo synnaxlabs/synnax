@@ -19,8 +19,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/console"
-	consolev5 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/console/v5"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
+	legacyv5 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v5"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -150,7 +150,7 @@ var _ = Describe("MigrateSchematic", func() {
 		)
 
 		It(
-			"Should chain a Console v0 blob through every migration step on retrieve",
+			"Should chain a legacy v0 blob through every migration step on retrieve",
 			func(ctx SpecContext) {
 				got := migrateSeed(ctx, v0.Schematic{
 					Key: uuid.New(), Name: "Legacy", Data: jsonMap(`{
@@ -382,7 +382,7 @@ var _ = Describe("MigrateData", func() {
 	// counts, edge.data preservation, orphan filter, dispatch.
 	Describe("real-world fixtures", func() {
 		DescribeTable(
-			"Should walk the chain to consolev5.Data, preserving edge.data and dropping orphans",
+			"Should walk the chain to legacyv5.Data, preserving edge.data and dropping orphans",
 			func(fixture string, expectNodes, expectEdges, expectInputOrphans int) {
 				blob, raw := loadFixture(fixture)
 				rawNodes, _ := raw["nodes"].([]any)
@@ -400,8 +400,8 @@ var _ = Describe("MigrateData", func() {
 				}
 				Expect(len(rawEdges) - len(validRawEdges)).To(Equal(expectInputOrphans))
 
-				out := MustSucceed(console.MigrateData(blob))
-				Expect(out.Version).To(Equal(consolev5.Version))
+				out := MustSucceed(legacy.MigrateData(blob))
+				Expect(out.Version).To(Equal(legacyv5.Version))
 				Expect(out.Nodes).To(HaveLen(len(rawNodes)))
 				Expect(out.Edges).To(HaveLen(len(validRawEdges)))
 
@@ -439,13 +439,13 @@ var _ = Describe("MigrateData", func() {
 	// error paths.
 	Describe("synthesized inputs", func() {
 		It("Should chain a v0 blob through every step migration", func() {
-			out := MustSucceed(console.MigrateData(jsonMap(`{
+			out := MustSucceed(legacy.MigrateData(jsonMap(`{
 				"version": "0.0.0",
 				"nodes": [{"key": "n1", "position": {"x": 1, "y": 2}}],
 				"edges": [{"key": "e1", "source": "n1", "target": "n2", "sourceHandle": "out", "targetHandle": "in"}],
 				"props": {"n1": {"key": "valve"}}
 			}`)))
-			Expect(out.Version).To(Equal(consolev5.Version))
+			Expect(out.Version).To(Equal(legacyv5.Version))
 			Expect(out.Authority).To(BeEquivalentTo(1))
 			Expect(out.Mode).To(Equal("select"))
 			Expect(out.Legend.Visible).To(BeTrue())
@@ -453,13 +453,13 @@ var _ = Describe("MigrateData", func() {
 
 		It("Should fall back to v0 when the blob has no version field", func() {
 			out := MustSucceed(
-				console.MigrateData(jsonMap(`{"nodes": [], "edges": [], "props": {}}`)),
+				legacy.MigrateData(jsonMap(`{"nodes": [], "edges": [], "props": {}}`)),
 			)
-			Expect(out.Version).To(Equal(consolev5.Version))
+			Expect(out.Version).To(Equal(legacyv5.Version))
 		})
 
 		It("Should preserve user-set zIndex on nodes through the chain", func() {
-			out := MustSucceed(console.MigrateData(jsonMap(`{
+			out := MustSucceed(legacy.MigrateData(jsonMap(`{
 				"version": "0.0.0",
 				"nodes": [
 					{"key": "back", "position": {"x": 0, "y": 0}, "zIndex": -1},
@@ -472,9 +472,9 @@ var _ = Describe("MigrateData", func() {
 		})
 
 		It(
-			"Should preserve edge.data through a v0 blob into consolev5.Edge.Data",
+			"Should preserve edge.data through a v0 blob into legacyv5.Edge.Data",
 			func() {
-				out := MustSucceed(console.MigrateData(jsonMap(`{
+				out := MustSucceed(legacy.MigrateData(jsonMap(`{
 				"version": "0.0.0",
 				"nodes": [], "props": {},
 				"edges": [{
@@ -487,7 +487,7 @@ var _ = Describe("MigrateData", func() {
 		)
 
 		It("Should drop edges with empty source", func() {
-			out := MustSucceed(console.MigrateData(jsonMap(`{
+			out := MustSucceed(legacy.MigrateData(jsonMap(`{
 				"version": "5.0.0",
 				"nodes": [], "props": {},
 				"edges": [
@@ -500,7 +500,7 @@ var _ = Describe("MigrateData", func() {
 		})
 
 		It("Should drop edges with null source or target", func() {
-			out := MustSucceed(console.MigrateData(jsonMap(`{
+			out := MustSucceed(legacy.MigrateData(jsonMap(`{
 				"version": "5.0.0",
 				"nodes": [], "props": {},
 				"edges": [
@@ -512,17 +512,17 @@ var _ = Describe("MigrateData", func() {
 		})
 
 		It(
-			"Should walk the chain on a nil blob and produce a zero consolev5.Data",
+			"Should walk the chain on a nil blob and produce a zero legacyv5.Data",
 			func() {
-				out := MustSucceed(console.MigrateData(nil))
-				Expect(out.Version).To(Equal(consolev5.Version))
+				out := MustSucceed(legacy.MigrateData(nil))
+				Expect(out.Version).To(Equal(legacyv5.Version))
 				Expect(out.Nodes).To(BeEmpty())
 				Expect(out.Edges).To(BeEmpty())
 			},
 		)
 
 		It("Should error on an unknown declared version", func() {
-			Expect(console.MigrateData(jsonMap(`{"version": "99.0.0"}`))).Error().
+			Expect(legacy.MigrateData(jsonMap(`{"version": "99.0.0"}`))).Error().
 				To(MatchError(ContainSubstring("unknown schematic data version")))
 		})
 	})
