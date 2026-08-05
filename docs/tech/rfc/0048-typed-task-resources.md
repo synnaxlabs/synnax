@@ -1,4 +1,4 @@
-# 49 Strongly typed task resources
+# 48 Strongly typed task resources
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-08-03
@@ -8,10 +8,8 @@
   [RFC 0034 - Gorp in-memory indexes](./0034-gorp-indexes.md),
   [RFC 0039 - Server-side metadata import/export](./0039-server-side-import-export.md),
   [RFC 0042 - Core structure refactor](./0042-core-structure-refactor.md),
-  [RFC 0043 - Oracle support for struct unions](./0043-oracle-struct-unions.md),
-  [RFC 0047 - Oracle predecessor-chain type versioning](./0047-oracle-predecessor-chain-versioning.md),
-  the task draft/deploy RFC (PR #2595), and the superseded task/config split RFC (PR
-  #2471).
+  [RFC 0043 - Oracle support for struct unions](./0043-oracle-struct-unions.md), and
+  [RFC 0047 - Oracle predecessor-chain type versioning](./0047-oracle-predecessor-chain-versioning.md).
 
 ## 0 Summary
 
@@ -135,10 +133,9 @@ Five problems add up. All of them come from config opacity:
 The task stores a `config` field: the ontology ID of its parent resource
 (`http_read:<uuid>`). This heterogeneous reference is the only stored link between the
 two records, and it is never null. The resource's `task` field is not stored. The server
-resolves it at retrieve time from a Gorp index on `config` (RFC 0034) — the pattern that
-PR #2496 established for `Arc.Task`. The ontology keeps a `parent_of` edge from the
-resource to the task for the Console tree. The server stamps the edge in the same
-transaction that makes the task.
+resolves it at retrieve time from a Gorp index on `config` (RFC 0034). The ontology
+keeps a `parent_of` edge from the resource to the task for the Console tree. The server
+stamps the edge in the same transaction that makes the task.
 
 Invariant: **each task has exactly one parent resource.** The non-null `config` field
 enforces it. The scanner tasks and the rack-status task of the Driver obey this rule:
@@ -151,8 +148,8 @@ The task keeps only what execution needs:
 
 | Field         | Why it stays                                                     |
 | ------------- | ---------------------------------------------------------------- |
-| `key`         | UUID identity (PR #2603); the target of `sy_task_cmd` and status |
-| `rack`        | the deployment target; a mutable field, not key bits (PR #2603)  |
+| `key`         | UUID identity; the target of `sy_task_cmd` and status            |
+| `rack`        | the deployment target; a mutable field, not key bits             |
 | `config`      | the ontology ID of the parent resource; never null; carries type |
 | `internal`    | hides Driver-created tasks from users                            |
 | `auto_start`  | execution behavior, lifted out of each per-type config           |
@@ -172,19 +169,19 @@ the deploy path against `empty` resources.
 
 **One Oracle schema file per integration**: `schemas/synnax/ni.oracle`, `opc.oracle`,
 `labjack.oracle`, `modbus.oracle`, `ethercat.oracle`, `http.oracle`, plus `arc.oracle`
-(amended), `pagerduty.oracle`, `slack.oracle` (the Slack RFC lands directly in this
-shape), and the `empty` resource. A file defines the shared parts of an integration
-(channel unions, scales, endpoints) and its task-type resources. We rejected per-type
-files. The 19-variant AI channel union of NI, and its scale/CJC unions, are shared
-across its five task types. A split would cause heavy cross-file imports and give no
-isolation.
+(amended), `pagerduty.oracle`, `slack.oracle` (the Slack integration, SY-3995, lands
+directly in this shape), and the `empty` resource. A file defines the shared parts of an
+integration (channel unions, scales, endpoints) and its task-type resources. We rejected
+per-type files. The 19-variant AI channel union of NI, and its scale/CJC unions, are
+shared across its five task types. A split would cause heavy cross-file imports and give
+no isolation.
 
-The NI schema from PR #2433 (32 enums, 4 unions, 57 structs) is the start point. We
-adapt it so that the task configs become root resources, not embedded config shapes.
-Shared cross-integration bases (the `sample_rate` / `stream_rate` / `data_saving` read
-shapes and the write shapes) live in a common task schema. The per-integration files
-extend it. Oracle must first support the extension of a common shape across schema
-files. That is groundwork for this RFC.
+The NI schema draft (32 enums, 4 unions, 57 structs) is the start point. We adapt it so
+that the task configs become root resources, not embedded config shapes. Shared
+cross-integration bases (the `sample_rate` / `stream_rate` / `data_saving` read shapes
+and the write shapes) live in a common task schema. The per-integration files extend it.
+Oracle must first support the extension of a common shape across schema files. That is
+groundwork for this RFC.
 
 Each resource has the standard tags: `@ontology type "<task type>"`, `@retrieve`,
 `@search`, `@create`, `@go migrate`, `@pb`. The outputs go to
@@ -216,18 +213,18 @@ rack key. In one transaction, the service validates the config, examines the
 `integrations` list of the rack, mints the task with its `config` reference, and stamps
 the ontology edge. A rack without `ni` causes a hard error for an `ni_analog_read`
 deploy, because that deploy can never succeed. A deploy to a different rack writes the
-new value into the `rack` field of the task. The old Driver then tears down, as the
-draft/deploy RFC specifies for a rack move.
+new value into the `rack` field of the task. The old Driver then tears down, as the task
+draft/deploy design (SY-4488) specifies for a rack move.
 
-**Start / stop, deploy-on-start.** This RFC builds on the task draft/deploy RFC (PR
-#2595) and its SY-4488 implementation stack, and keeps its behavior: `sy_task_set` is
-metadata-only, and the `start` command absorbs configuration. The Core computes
-`config_hash` (xxhash64 over canonical bytes) when it writes the resource, and stores
-the hash on the task row. On `start`, the Driver compares the hash with its active
-instance. Only on a mismatch does it fetch the typed resource again. Drivers report the
-active hash in the status details. Drift is the difference between the two hashes. Two
-points change relative to that RFC: the input of the hash is the typed resource, and
-drafts are resources without tasks, not tasks without racks (Resolved Decision 6).
+**Start / stop, deploy-on-start.** This RFC builds on the draft/deploy design and keeps
+its behavior: `sy_task_set` is metadata-only, and the `start` command absorbs
+configuration. The Core computes `config_hash` (xxhash64 over canonical bytes) when it
+writes the resource, and stores the hash on the task row. On `start`, the Driver
+compares the hash with its active instance. Only on a mismatch does it fetch the typed
+resource again. Drivers report the active hash in the status details. Drift is the
+difference between the two hashes. Two points change relative to that design: the input
+of the hash is the typed resource, and drafts are resources without tasks, not tasks
+without racks (Resolved Decision 6).
 
 **Edit while deployed.** A write to the resource updates `config_hash` on its task row
 in the same transaction. The service finds the task row through the `config` index. The
@@ -274,8 +271,7 @@ The task service stays unaware of integrations. The `config` field is opaque dat
 an ontology ID that the service stores, indexes, and never dereferences. No registry and
 no composed payload exist at the API layer. A consumer that holds a task goes to the
 per-type endpoint that the `config` type names. A consumer that holds a resource reads
-its `task` field, which the resource service resolves from the Gorp index on `config` —
-the pattern that PR #2496 proved for `Arc.Task`.
+its `task` field, which the resource service resolves from the Gorp index on `config`.
 
 The flow of the Driver: `sy_task_set` and the task row give it the slim task. On `start`
 with a hash mismatch, the Driver fetches the typed resource from the per-type endpoint.
@@ -303,20 +299,20 @@ A one-time startup migration converts each stored task:
    log reports it clearly. The migration does not drop it, and also does not keep it
    active without a report.
 
-The migration composes with the UUID re-key migration from PR #2603, which must land
-first. The migration of this RFC assumes UUID task keys and rack-as-field.
+The migration composes with the UUID re-key migration from the SY-4488 stack, which must
+land first. The migration of this RFC assumes UUID task keys and rack-as-field.
 
 ### 4.7 Integration inventory
 
 - `ni_analog_read`, `ni_analog_write`, `ni_digital_read`, `ni_digital_write`,
-  `ni_counter_read`: schema from PR #2433.
+  `ni_counter_read`: schema from the NI draft (§4.2).
 - `opc_read`, `opc_write`.
 - `labjack_read`, `labjack_write`.
 - `modbus_read`, `modbus_write`.
 - `ethercat_read`, `ethercat_write`: channel maps become arrays.
 - `http_read`, `http_write`.
-- `arc`: retrofit — the standard edge replaces `config{arc_key}`. PR #2496 already moved
-  creation server-side.
+- `arc`: retrofit — the standard edge replaces `config{arc_key}`. Arc creation is
+  already server-side.
 - `pagerduty_alert`, `slack_alert`: Go-side factories. Slack lands in this shape.
 - `empty`: scanners (`*_scan`, `ni_scanner`) and rack status. Name only.
 
@@ -334,8 +330,8 @@ already types these by hand. The schemas make it official.
 ## 5 Implementation phases
 
 Prerequisite (external to this RFC): the SY-4488 stack — UUID task keys with rack as a
-field (#2603) and deploy-on-start (#2604). The Console autosave PR (#2605) must target
-the typed resource in Phase 6. It must not land against `task.config`.
+field, and deploy-on-start. The Console autosave work must target the typed resource in
+Phase 6. It must not land against `task.config`.
 
 Each numbered phase is a PR, or a short series where noted. At each boundary the tree
 builds, the tests pass, and the product can ship.
@@ -346,7 +342,7 @@ builds, the tests pass, and the product can ship.
    with generator tests. No schema consumes it yet.
 2. **Schema authorship.** The per-integration `.oracle` files and their generated
    Go/TypeScript/Python/C++/Protobuf artifacts, not yet wired (the NI file adapted from
-   #2433). One PR per integration or per small group. Each PR is a reviewable schema
+   the draft). One PR per integration or per small group. Each PR is a reviewable schema
    plus inert generated code.
 3. **Core services, additive.** The per-integration service packages, the `empty`
    resource, the per-type endpoints, the deploy verb, and the resolved `task` field on
@@ -367,15 +363,14 @@ builds, the tests pass, and the product can ship.
    moves to `empty`-resource deploys in the first wave.
 6. **Console migration.** Its own phase, one PR per integration. The forms bind to typed
    resources through generated Zod (the UI-only refinements stay). The tabs key on
-   resource UUIDs. Autosave (the flow of #2605) targets the resource. The drift and
-   deploy UX follows the draft/deploy RFC. We delete the `??` fallback lookups and the
-   client-side NI version chain.
+   resource UUIDs. Autosave targets the resource. The drift and deploy UX follows the
+   draft/deploy design. We delete the `??` fallback lookups and the client-side NI
+   version chain.
 7. **Python rewiring.** The generated Pydantic resource models replace the hand-written
    config models. The wrappers in the style of `StarterStopperMixin` stay as sugar over
    create, deploy, and start.
-8. **Arc + Slack alignment.** Complete the Arc retrofit on top of #2496 (drop
-   `config{arc_key}`, use the standard edge). Land `slack_alert` (SY-3995) directly in
-   the new shape.
+8. **Arc + Slack alignment.** Complete the Arc retrofit (drop `config{arc_key}`, use the
+   standard edge). Land `slack_alert` (SY-3995) directly in the new shape.
 
 **Compatibility:** the wire for task payloads breaks at Phase 4. The Core, the Driver,
 and the Console ship the cutover together (lockstep releases, no window of coexistence).
@@ -393,14 +388,14 @@ Phase 4. This is the standard position for storage migrations in this codebase.
    ontology presence or permissions. It gives no drafts. It gives no portable UUID
    identity for ImEx (task keys carry rack history). And snapshot and copy stay attached
    to execution.
-2. **The task/config split RFC (PR #2471) and its Phase 1 (#2472) — superseded.** That
-   draft split the same data but kept the task as the root, kept the wire format (config
-   as a composed resolved field), kept an embedded-blob fallback for types without a
-   registration, and used a three-release dual-write rollout. Its caution was its
-   purpose — and is the reason we supersede it. To keep the wire is to keep the open set
-   and the opaque payload that this RFC exists to remove. The stored `config` reference
-   and the per-type endpoints replace its provider registry, its writer dispatch, its
-   dual write, and its fallback machinery (§4.5).
+2. **The earlier task/config split draft and its Phase 1 implementation — superseded.**
+   That draft split the same data but kept the task as the root, kept the wire format
+   (config as a composed resolved field), kept an embedded-blob fallback for types
+   without a registration, and used a three-release dual-write rollout. Its caution was
+   its purpose — and is the reason we supersede it. To keep the wire is to keep the open
+   set and the opaque payload that this RFC exists to remove. The stored `config`
+   reference and the per-type endpoints replace its provider registry, its writer
+   dispatch, its dual write, and its fallback machinery (§4.5).
 3. **The task as the root aggregate (option 2) — rejected.** In that model, users create
    and own tasks, and the config is a satellite of the task. The identity of the
    portable artifact stays rack-bound. Drafts get no home. Snapshot and copy stay
@@ -413,11 +408,11 @@ Phase 4. This is the standard position for storage migrations in this codebase.
    current state that we remove.
 5. **Per-type schema files — rejected** in favor of per-integration files. These keep
    the shared channel and scale unions adjacent to their users (§4.2).
-6. **Draft tasks without racks (the draft/deploy RFC model) — replaced.** Two draft
+6. **Draft tasks without racks (the original draft/deploy model) — replaced.** Two draft
    representations (a task without a rack, a resource without a task) cannot exist
    together. A task now always has a rack. The resource without a task is the only
    draft. The deploy-on-start, hash, and metadata-only-set behavior of the draft/deploy
-   RFC stays.
+   design stays.
 7. **The node as a first-class deployment target — deferred.** Each node has exactly one
    embedded rack. A deploy to a node is thus sugar: the deploy endpoint resolves the
    node to its embedded rack. A polymorphic location type waits for the rack and device
