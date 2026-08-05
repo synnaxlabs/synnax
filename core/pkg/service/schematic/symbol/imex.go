@@ -23,10 +23,10 @@ import (
 
 var _ imex.ImportExporter = (*Service)(nil)
 
-// Match reports whether body is a legacy Console symbol file: main-era exports carry
-// the symbol spec as a data object with an inline svg, and no other typeless file
-// family nests its payload that way. The marker is frozen — it describes historical
-// file shapes; current exports carry a type header and never reach matching.
+// Match reports whether body is a legacy Console symbol file, which nests the symbol
+// spec in a data object with an inline svg; no other typeless file family nests its
+// payload that way. The marker is frozen — it describes historical file shapes; current
+// exports carry a type header and never reach matching.
 func (*Service) Match(body map[string]any) bool {
 	data, ok := body["data"].(map[string]any)
 	if !ok {
