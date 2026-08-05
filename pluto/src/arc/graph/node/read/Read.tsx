@@ -22,7 +22,8 @@ import { Text } from "@/text";
 export interface SymbolProps extends types.SymbolProps<Config> {}
 
 export const Symbol = ({ config: { channel } }: SymbolProps) => {
-  const name = Channel.useRetrieve({ key: channel }).data?.name ?? "Channel";
+  const name =
+    Channel.useCached(channel > 0 ? { key: channel } : null)?.name ?? "Channel";
 
   return (
     <Flex.Box

@@ -8,15 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, NotFoundError, type project } from "@synnaxlabs/client";
-import {
-  color,
-  compare,
-  DataType,
-  primitive,
-  type require,
-  uuid,
-  verbs,
-} from "@synnaxlabs/x";
+import { color, compare, DataType, type require, uuid, verbs } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -217,10 +209,7 @@ export const useSelectXAxis = Scope.bindHook(
       key: params.key,
       axisKey: params.axisKey,
     });
-    const { data: chan } = Channel.useRetrieve(
-      { key: channel },
-      { beforeRetrieve: ({ query: { key } }) => primitive.isNonZero(key) },
-    );
+    const chan = Channel.useCached(channel > 0 ? { key: channel } : null);
     return useMemo(() => {
       if (axis.type != null) return axis;
       let type: lineplot.TickType = "linear";
@@ -283,7 +272,7 @@ export const useSelectLine = Scope.bindHook(
     const raw = useSelectRawLine(params);
     const palette = Theming.use().colors.visualization.palettes.default;
     const { yChannel } = lineplot.parseLineKey(raw.line.key);
-    const { data: chan } = Channel.useRetrieve({ key: yChannel });
+    const chan = Channel.useCached(yChannel > 0 ? { key: yChannel } : null);
     return useMemo(
       () => ({
         ...raw.line,

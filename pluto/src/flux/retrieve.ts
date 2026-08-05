@@ -84,10 +84,10 @@ export interface BeforeRetrieveParams<Query extends query.Params> {
 
 // The observable idiom names its result callback onChange, colliding with the
 // definition's subscription member; the legacy internals take the params without it.
-type ObservableCreateParams<
-  Query extends query.Params,
-  Data extends query.Data,
-> = Omit<CreateRetrieveParams<Query, Data>, "onChange">;
+type ObservableCreateParams<Query extends query.Params, Data extends query.Data> = Omit<
+  CreateRetrieveParams<Query, Data>,
+  "onChange"
+>;
 
 export interface UseObservableBaseRetrieveParams<
   Query extends query.Params,
@@ -238,6 +238,20 @@ export interface UseSelect<Query extends query.Params, Selected> {
 }
 
 /**
+ * A reactive cached read for decorating fine-grained render loops (React Flow
+ * nodes, list rows) where suspension is illegal and no parent can enumerate the
+ * queried keys. Serves the cached answer, subscribes for changes, and kicks a
+ * deduped background fetch on a cold miss. Never suspends and never throws: a
+ * miss, a deleted record, a failed fetch, and a disconnected client all read as
+ * undefined. A null query skips the read entirely: pass null when the caller
+ * holds an empty reference (a zero channel key) instead of a dud query. Reach
+ * for `useRetrieve` wherever the caller may suspend.
+ */
+export interface UseCached<Query extends query.Params, Data extends state.State> {
+  (query: Query | null): Data | undefined;
+}
+
+/**
  * Mints a {@link UseSelect} sharing the definition's cache wiring. ExtendedQuery adds
  * selector-only fields (a node key, a tab key) the select projection needs; the cache
  * layer ignores them when addressing the record.
@@ -259,6 +273,7 @@ export interface CreateRetrieveReturn<
   useRetrieveObservable: UseRetrieveObservable<Query, Data>;
   useRetrieveSuspended: UseSuspendedRetrieve<Query, Data>;
   useEnsureRetrieved: UseEnsureRetrieved<Query>;
+  useCached: UseCached<Query, Data>;
   useInvalidate: UseInvalidate<Query>;
   useTombstone: UseTombstone<Query>;
   createSelector: CreateSelector<Query, Data>;
@@ -388,7 +403,8 @@ const useEffect = <Query extends query.Params, Data extends query.Data>({
   query,
   onChange,
   ...restParams
-}: UseRetrieveEffectParams<Query, Data> & ObservableCreateParams<Query, Data>): void => {
+}: UseRetrieveEffectParams<Query, Data> &
+  ObservableCreateParams<Query, Data>): void => {
   const resultRef = useRef<Result<Data>>(initialResult<Data>(restParams.name));
   const { retrieveAsync } = useObservableBase<Query, Data>({
     ...restParams,
@@ -533,27 +549,22 @@ const awaitCreation = <Query extends query.Params, Data extends query.Data>(
     }
   });
 
-const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
+interface EnsureFetchParams<
+  Query extends query.Params,
+  Data extends query.Data,
+> extends Pick<
+  CreateRetrieveParams<Query, Data>,
+  "name" | "retrieve" | "subscribe" | "getCached"
+> {
+  local: LocalCache<Data>;
+}
+
+/** Joins the query's in-flight fetch, starting one when none exists. */
+const ensureFetch = <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
-  {
-    name,
-    retrieve,
-    subscribe,
-    getCached,
-    local,
-  }: Pick<
-    CreateRetrieveParams<Query, Data>,
-    "name" | "retrieve" | "subscribe" | "getCached"
-  > & {
-    local: LocalCache<Data>;
-  },
-): Data => {
+  { name, retrieve, subscribe, getCached, local }: EnsureFetchParams<Query, Data>,
+): Promise<Data> => {
   const hash = query.hash(params.query);
-  const settled = local.settled.get(hash);
-  if (settled != null) {
-    if ("error" in settled) throw settled.error;
-    return settled.data;
-  }
   let promise = local.inFlight.get(hash);
   if (promise == null) {
     const epoch = local.epoch;
@@ -590,7 +601,19 @@ const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
     );
     local.inFlight.set(hash, promise);
   }
-  return use(promise);
+  return promise;
+};
+
+const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
+  params: RetrieveParams<Query>,
+  fetchParams: EnsureFetchParams<Query, Data>,
+): Data => {
+  const settled = fetchParams.local.settled.get(query.hash(params.query));
+  if (settled != null) {
+    if ("error" in settled) throw settled.error;
+    return settled.data;
+  }
+  return use(ensureFetch(params, fetchParams));
 };
 
 const useSuspended = <Query extends query.Params, Data extends query.Data>({
@@ -644,6 +667,63 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   const derived = deriveCached?.(params);
   if (derived != null) return derived;
   return suspendOnFetch(params, { name, retrieve, subscribe, getCached, local });
+};
+
+const useCachedValue = <Query extends query.Params, Data extends query.Data>({
+  query: q,
+  locals,
+  name,
+  retrieve,
+  subscribe,
+  getCached,
+  deriveCached,
+  equal,
+}: Omit<UseSuspendedParams<Query, Data>, "query"> &
+  CreateRetrieveParams<Query, Data> & { query: Query | null }): Data | undefined => {
+  const memoQuery = useMemoDeepEqual(q);
+  const client = Synnax.use();
+  const held = useRef<{ query: Query; value: Data } | null>(null);
+
+  const cached = useSyncExternalStore(
+    useCallback(
+      (notify) => {
+        if (subscribe == null || client == null || memoQuery == null)
+          return NOOP_SUBSCRIBE();
+        return subscribe({ client, query: memoQuery }, () => notify());
+      },
+      [client, memoQuery],
+    ),
+    useCallback(() => {
+      if (client == null || memoQuery == null) return undefined;
+      const next = getCached?.({ client, query: memoQuery });
+      if (equal == null || !isLive<Data>(next)) return next;
+      const prev = held.current;
+      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
+        return prev.value;
+      held.current = { query: memoQuery, value: next };
+      return next;
+    }, [client, memoQuery]),
+  );
+
+  if (client == null || memoQuery == null) return undefined;
+  if (cached !== undefined) return Deleted.matches<Data>(cached) ? undefined : cached;
+
+  const local = localFor(locals, client);
+  const params = { client, query: memoQuery };
+  const derived = deriveCached?.(params);
+  if (derived != null) return derived;
+  const settled = local.settled.get(query.hash(memoQuery));
+  if (settled != null) return "data" in settled ? settled.data : undefined;
+  ensureFetch(params, { name, retrieve, subscribe, getCached, local }).catch(
+    (exc: unknown) => {
+      const cause = exc instanceof Error && exc.cause != null ? exc.cause : exc;
+      // An absent or deleted record is a state this read renders as undefined,
+      // not a failure worth reporting.
+      if (NotFoundError.matches(cause) || DeletedError.matches(cause)) return;
+      console.error(exc);
+    },
+  );
+  return undefined;
 };
 
 const useEnsure = <Query extends query.Params, Data extends query.Data>({
@@ -813,6 +893,8 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
     useRetrieveSuspended: (query: Query) =>
       useSuspended({ ...createParams, query, locals }),
     useEnsureRetrieved: (query: Query) => useEnsure({ ...createParams, query, locals }),
+    useCached: (query: Query | null) =>
+      useCachedValue({ ...createParams, query, locals }),
     useInvalidate: () => useInvalidate<Query, Data>(locals),
     useTombstone: (query: Query) => useTombstone({ ...createParams, query }),
     createSelector: <Selected, ExtendedQuery extends Query = Query>(

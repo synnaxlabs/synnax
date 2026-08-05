@@ -60,6 +60,10 @@ log.
 - **Definition**: a domain's `{ retrieve, subscribe, getCached }` closures over the
   domain client. React-free by construction.
 - **Selector**: a named, projected render-path read minted from a definition.
+- **Decoration read**: a render-path read that decorates another domain's record (a
+  channel name on a graph node, a tick type on an axis) where suspension is illegal and
+  no boundary can enumerate the keys. Serves the cache, fetches in the background, and
+  reads absence as `undefined`.
 - **Base query**: a list query stripped of `offset` and `limit`.
 - **Window**: the slice of an ordered set a consumer currently renders. Filled by
   fetches; never part of cache identity.
@@ -89,7 +93,8 @@ strategy can later replace.
    client in an event. Nothing in between survives.
 2. **Suspension is a boundary concern.** Only boundary-level components suspend.
    Fine-grained render loops (React Flow nodes, list rows) read warm caches and never
-   suspend.
+   suspend. Where no boundary can enumerate the keys a loop will reference, the
+   decoration read (`useCached`) fetches from the leaf without suspending.
 3. **A mounted selector always returns `Selected`.** Deletion throws typed. A cold miss
    is a composition bug and throws loud. A transient invalidation holds the last live
    value until the maintained repair lands.
@@ -108,16 +113,16 @@ strategy can later replace.
 
 Every current read maps onto one idiom:
 
-| Today                               | Becomes                                  |
-| ----------------------------------- | ---------------------------------------- |
-| `useRetrieve` (`Result`, ~45 sites) | suspended `useRetrieve` or a selector    |
-| `useRetrieveStateful` (4)           | event read; query held as caller state   |
-| `useRetrieveObservable` (8)         | event read (`client.<domain>.retrieve`)  |
-| `useRetrieveEffect` (3)             | event read inside the effect             |
-| `useRetrieveSuspended` (3)          | renamed to `useRetrieve`                 |
-| `createSelector` closures (60)      | selectors minted from the definition     |
-| selector `useGet` element (~6)      | event read (`client.<domain>.getCached`) |
-| direct client calls (78 callbacks)  | unchanged; already the event idiom       |
+| Today                               | Becomes                                             |
+| ----------------------------------- | --------------------------------------------------- |
+| `useRetrieve` (`Result`, ~45 sites) | suspended `useRetrieve`, a selector, or `useCached` |
+| `useRetrieveStateful` (4)           | event read; query held as caller state              |
+| `useRetrieveObservable` (8)         | event read (`client.<domain>.retrieve`)             |
+| `useRetrieveEffect` (3)             | event read inside the effect                        |
+| `useRetrieveSuspended` (3)          | renamed to `useRetrieve`                            |
+| `createSelector` closures (60)      | selectors minted from the definition                |
+| selector `useGet` element (~6)      | event read (`client.<domain>.getCached`)            |
+| direct client calls (78 callbacks)  | unchanged; already the event idiom                  |
 
 `Result` survives only where pending state is genuinely inline: `createUpdate`,
 `createDispatch`, and the form save leg. The form retrieve leg suspends (carried from
@@ -134,6 +139,12 @@ RFC 0046). Lists stay imperative (RFC 0046 RD13, reaffirmed).
 - **`useEnsureRetrieved(query): void`**: warms the cache without subscribing. It is a
   correctness requirement for selector-reading subtrees (Principle 2) and a batching
   tool that collapses N child suspensions into one fetch.
+- **`useCached(query): Data | undefined`**: the decoration read. Serves the cached
+  answer, subscribes for changes, and kicks a deduped background fetch on a cold miss,
+  sharing the suspended path's in-flight and settled bookkeeping. Never suspends and
+  never throws: a miss, a deleted record, a failed fetch, and a disconnected client all
+  read as `undefined`, so a fine-grained loop renders its fallback and repairs live when
+  the fetch or a create broadcast lands.
 - **`useInvalidate`** and **`useTombstone`** survive unchanged: the first discards a
   settled error so a boundary retry can refetch, the second reads deletion as a value
   for tombstone UX.
@@ -276,12 +287,12 @@ query cache by design.
 2. **The React read cutover.** Suspended semantics under the primary name, variants and
    standalone selectors deleted, selector factory in, `useGet` dead, and the ~120 call
    sites migrated. Atomic, zero coexistence: no site is left on a legacy idiom and no
-   compatibility alias ships.
-This program ships the two phases above: the query-model cutover is the whole scope.
-The list set model (§5.4) is locked design but lands as its own follow-on program: list
-spaces in the query package, the flux list rebind, and the pager and dialog repairs.
-It follows the cutover so the new read substrate soaks first, and the ordered-retrieval
-core program (§5.4) is sequenced after that, swapping in behind the fill primitive.
+   compatibility alias ships. This program ships the two phases above: the query-model
+   cutover is the whole scope. The list set model (§5.4) is locked design but lands as
+   its own follow-on program: list spaces in the query package, the flux list rebind,
+   and the pager and dialog repairs. It follows the cutover so the new read substrate
+   soaks first, and the ordered-retrieval core program (§5.4) is sequenced after that,
+   swapping in behind the fill primitive.
 
 No wire formats, persisted schemas, or server behavior change; every phase is
 client-and-pluto internal, so no migration or compatibility window is needed.
@@ -334,6 +345,13 @@ client-and-pluto internal, so no migration or compatibility window is needed.
     silently. Cursor fills over server-declared sorted indexes are the contract; the
     core exposure is deferred, so wholesale hydration (small domains) and hardened rule
     3 (channels) bridge until it lands.
+12. **Boundary key enumeration for decoration reads, rejected.** The selector-plus-
+    `useEnsureRetrieved` shape requires the plot or graph boundary to enumerate every
+    channel key its loop references, and the ensure re-suspends the whole subtree each
+    time the set grows (picking a channel on a node blanks the editor). Hand-rolled
+    per-site fetch-and-subscribe effects were rejected as the stateful variant reborn.
+    `useCached` is the sanctioned middle: minted once from the definition, stateless
+    over the client cache, non-suspending, `undefined`-reading.
 
 # 9 - Open Questions
 

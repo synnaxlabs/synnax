@@ -12,7 +12,7 @@ import { errors } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
-import { useRetrieve, useUpdateAlias } from "@/channel/queries";
+import { useCached, useUpdateAlias } from "@/channel/queries";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Status } from "@/status/base";
@@ -38,7 +38,7 @@ export const AliasInput = ({
   const { value } = rest;
   const [loading, setLoading] = useState(false);
   const { update } = useUpdateAlias();
-  const { data } = useRetrieve({ key: channel, rangeKey: range });
+  const data = useCached(channel > 0 ? { key: channel, rangeKey: range } : null);
   const setAlias = async (value: string) => {
     update({ alias: value, range, channel });
   };

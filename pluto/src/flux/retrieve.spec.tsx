@@ -1531,3 +1531,167 @@ describe("createSelector", () => {
     expect(() => createSelector((data) => data.name)).toThrow(UnexpectedError);
   });
 });
+
+describe("useCached", () => {
+  interface Data {
+    name: string;
+    value: number;
+  }
+
+  interface Harness {
+    retrieve: ReturnType<typeof vi.fn<() => Promise<Data>>>;
+    set: (next: query.Cached<Data> | undefined) => void;
+    useCached: Flux.UseCached<{ key: string }, Data>;
+  }
+
+  const createHarness = (
+    initial?: query.Cached<Data>,
+    retrieveImpl?: () => Promise<Data>,
+  ): Harness => {
+    let cached = initial;
+    const handlers = new Set<query.ChangeHandler<Data>>();
+    const retrieve = vi.fn(
+      retrieveImpl ?? (async (): Promise<Data> => ({ name: "fetched", value: 0 })),
+    );
+    const { useCached } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve,
+      subscribe: (_, h) => {
+        handlers.add(h);
+        return () => handlers.delete(h);
+      },
+      getCached: () => cached,
+    });
+    return {
+      retrieve,
+      useCached,
+      set: (next) => {
+        cached = next;
+        handlers.forEach((h) => h(next));
+      },
+    };
+  };
+
+  it("serves the cached answer without fetching", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current).toEqual({ name: "cached", value: 1 });
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("returns undefined on a cold miss and serves the fetch once it lands", async () => {
+    let resolveRetrieve: (value: Data) => void = () => {};
+    const harness = createHarness(
+      undefined,
+      () =>
+        new Promise<Data>((resolve) => {
+          resolveRetrieve = resolve;
+        }),
+    );
+    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current).toBeUndefined();
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      const data = { name: "fetched", value: 2 };
+      resolveRetrieve(data);
+      harness.set(data);
+    });
+    expect(result.current).toEqual({ name: "fetched", value: 2 });
+  });
+
+  it("dedupes concurrent cold reads into one fetch", () => {
+    const harness = createHarness(undefined, () => new Promise<Data>(() => {}));
+    renderHook(
+      () => [harness.useCached({ key: "a" }), harness.useCached({ key: "a" })],
+      { wrapper: Wrapper },
+    );
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a failed fetch as undefined without refetching", async () => {
+    const harness = createHarness(undefined, async () => {
+      throw new Error("boom");
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { result, rerender } = renderHook(() => harness.useCached({ key: "a" }), {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      rerender();
+      expect(result.current).toBeUndefined();
+      expect(harness.retrieve).toHaveBeenCalledTimes(1);
+      expect(consoleError).toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("serves a record created after a not-found fetch without logging", async () => {
+    const harness = createHarness(undefined, async () => {
+      throw new NotFoundError("nope");
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(result.current).toBeUndefined();
+      await act(async () => {
+        harness.set({ name: "created", value: 3 });
+      });
+      expect(result.current).toEqual({ name: "created", value: 3 });
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("reads a deleted record as undefined without fetching", () => {
+    const harness = createHarness(
+      new query.Deleted<Data>({ name: "corpse", value: 1 }, TimeStamp.now()),
+    );
+    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current).toBeUndefined();
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("returns undefined when no client is connected", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const NullWrapper = createSynnaxWrapper({ client: null });
+    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+      wrapper: NullWrapper,
+    });
+    expect(result.current).toBeUndefined();
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("re-renders when the cached answer changes", async () => {
+    const harness = createHarness({ name: "one", value: 1 });
+    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      harness.set({ name: "two", value: 2 });
+    });
+    expect(result.current).toEqual({ name: "two", value: 2 });
+  });
+
+  it("skips the read entirely for a null query", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const { result } = renderHook(() => harness.useCached(null), { wrapper: Wrapper });
+    expect(result.current).toBeUndefined();
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+});

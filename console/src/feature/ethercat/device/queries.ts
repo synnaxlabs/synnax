@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type device, query } from "@synnaxlabs/client";
-import { Device, Flux, Status, Synnax } from "@synnaxlabs/pluto";
+import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, verbs } from "@synnaxlabs/x";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
@@ -18,6 +18,7 @@ import { type Channel } from "@/feature/ethercat/task/types";
 export const {
   useRetrieve: useRetrieveSlave,
   useRetrieveStateful: useRetrieveSlaveStateful,
+  useCached: useCachedSlave,
 } = Device.createRetrieve(SLAVE_SCHEMAS);
 
 export interface EnabledState {
@@ -62,25 +63,10 @@ export const useCommonNetwork = (channels: Channel[]) => {
     const keys = channels.map((ch) => ch.device).filter((c) => c != null);
     return keys.length > 0 ? keys[0] : "";
   }, [channels]);
-  const [network, setNetwork] = useState<string>("");
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  useEffect(() => {
-    setNetwork("");
-    if (primitive.isZero(firstDeviceKey) || client == null) return;
-    handleError(async () => {
-      const slave = await client.devices.retrieve({
-        key: firstDeviceKey,
-        schemas: SLAVE_SCHEMAS,
-      });
-      setNetwork(slave.properties.network ?? "");
-    }, "Failed to retrieve device");
-    return client.devices.onChange({ key: firstDeviceKey }, (res) => {
-      if (query.isLive(res))
-        setNetwork((res as unknown as SlaveDevice).properties?.network ?? "");
-    });
-  }, [client, firstDeviceKey, handleError]);
-  return network;
+  const slave = useCachedSlave(
+    primitive.isZero(firstDeviceKey) ? null : { key: firstDeviceKey },
+  );
+  return slave?.properties?.network ?? "";
 };
 
 export interface ToggleEnabledParams {

@@ -81,19 +81,17 @@ export const ZERO_FORM_VALUES: z.infer<
   ],
 };
 
-export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
+export const { useRetrieve, useRetrieveStateful, useRetrieveObservable, useCached } =
   Flux.createRetrieve<RetrieveQuery, channel.Channel>({
     ...retrieveDefinition,
     subscribe: retrieveDefinition.onChange,
   });
 
-export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
-  RetrieveMultipleQuery,
-  channel.Channel[]
->({
-  ...retrieveMultipleDefinition,
-  subscribe: retrieveMultipleDefinition.onChange,
-});
+export const { useRetrieve: useRetrieveMultiple, useCached: useCachedMultiple } =
+  Flux.createRetrieve<RetrieveMultipleQuery, channel.Channel[]>({
+    ...retrieveMultipleDefinition,
+    subscribe: retrieveMultipleDefinition.onChange,
+  });
 
 const retrieveInitialFormValues = async ({
   query: { key, rangeKey },
