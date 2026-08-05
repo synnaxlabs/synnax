@@ -15,83 +15,32 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
+	legacyv1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy/v1"
 )
 
-// consoleRegion mirrors Region as Console-written files serialize it: camelCase
-// keys. Frozen; Console files no longer evolve.
-type consoleRegion struct {
-	// Key is the region's unique key.
-	Key string `json:"key" msgpack:"key"`
-	// Name is the region name.
-	Name string `json:"name" msgpack:"name"`
-	// Selectors are the SVG selectors the region targets.
-	Selectors []string `json:"selectors" msgpack:"selectors"`
-	// StrokeColor is the optional stroke color override.
-	StrokeColor *string `json:"strokeColor" msgpack:"strokeColor"`
-	// FillColor is the optional fill color override.
-	FillColor *string `json:"fillColor" msgpack:"fillColor"`
-}
-
-func (r consoleRegion) region() Region {
-	return Region{
-		Key: r.Key, Name: r.Name, Selectors: r.Selectors,
-		StrokeColor: r.StrokeColor, FillColor: r.FillColor,
-	}
-}
-
-// consoleState mirrors State on the path to consoleRegion.
-type consoleState struct {
-	// Key is the state's unique key.
-	Key string `json:"key" msgpack:"key"`
-	// Name is the state name.
-	Name string `json:"name" msgpack:"name"`
-	// Regions are the SVG regions the state styles.
-	Regions []consoleRegion `json:"regions" msgpack:"regions"`
-}
-
-func (s consoleState) state() State {
-	return State{
-		Key: s.Key, Name: s.Name,
-		Regions: lo.Map(s.Regions, func(r consoleRegion, _ int) Region {
-			return r.region()
-		}),
-	}
-}
-
-// consoleSpec mirrors Spec as Console-written files serialize it.
-type consoleSpec struct {
-	// SVG is the symbol's SVG markup.
-	SVG string `json:"svg" msgpack:"svg"`
-	// States are the symbol's visual states.
-	States []consoleState `json:"states" msgpack:"states"`
-	// Variant is the symbol variant identifier.
-	Variant string `json:"variant" msgpack:"variant"`
-	// Handles are the connection handle definitions.
-	Handles []Handle `json:"handles" msgpack:"handles"`
-	// Scale is the symbol scale factor.
-	Scale float64 `json:"scale" msgpack:"scale"`
-	// ScaleStroke reports whether strokes scale with the symbol.
-	ScaleStroke bool `json:"scaleStroke" msgpack:"scaleStroke"`
-	// PreviewViewport is the optional preview viewport.
-	PreviewViewport *spatial.Viewport `json:"previewViewport" msgpack:"previewViewport"`
-}
-
-func (s consoleSpec) spec() Spec {
+// specFromConsole lifts the frozen Console v1 export into the current Spec.
+func specFromConsole(s legacyv1.Spec) Spec {
 	return Spec{
-		SVG: s.SVG, Variant: s.Variant, Handles: s.Handles, Scale: s.Scale,
+		SVG: s.SVG, Variant: s.Variant, Scale: s.Scale,
 		ScaleStroke: s.ScaleStroke, PreviewViewport: s.PreviewViewport,
-		States: lo.Map(s.States, func(st consoleState, _ int) State {
-			return st.state()
+		States: lo.Map(s.States, func(st legacyv1.State, _ int) State {
+			return State{
+				Key: st.Key, Name: st.Name,
+				Regions: lo.Map(st.Regions, func(r legacyv1.Region, _ int) Region {
+					return Region{
+						Key: r.Key, Name: r.Name, Selectors: r.Selectors,
+						StrokeColor: r.StrokeColor, FillColor: r.FillColor,
+					}
+				}),
+			}
+		}),
+		Handles: lo.Map(s.Handles, func(h legacyv1.Handle, _ int) Handle {
+			return Handle{
+				Key: h.Key, Position: h.Position, Orientation: h.Orientation,
+			}
 		}),
 	}
-}
-
-// consoleSymbol is the decode target for Console-written symbol files, which
-// stamp the symbol's old persisted version field ("1") as the envelope version.
-type consoleSymbol struct {
-	// Data is the persisted symbol specification.
-	Data consoleSpec `json:"data" msgpack:"data"`
 }
 
 // DecodeImExEnvelope materializes env's body as a current-version Symbol, keyless and
@@ -101,12 +50,12 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 		sym Symbol
 		err error
 	)
-	if env.Version >= Floor {
+	if env.Version > legacy.LastVersion {
 		sym, err = decodeMigrate(ctx, env)
 	} else {
-		var cs consoleSymbol
-		if cs, err = imex.Decode[consoleSymbol](ctx, env); err == nil {
-			sym.Data = cs.Data.spec()
+		var d legacyv1.Data
+		if d, err = imex.Decode[legacyv1.Data](ctx, env); err == nil {
+			sym.Data = specFromConsole(d.Spec)
 		}
 	}
 	if err != nil {

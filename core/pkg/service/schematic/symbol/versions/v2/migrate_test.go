@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v1"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -22,27 +22,21 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	// seedV1 writes a symbol in the v1 storage shape, version field included.
-	seedV1 := func(ctx SpecContext, db *gorp.DB, s v1.Symbol) v1.Symbol {
+	// seedV0 writes a symbol in the untyped v0 storage shape, exactly as the
+	// pre-SY-4504 server persisted it.
+	seedV0 := func(ctx SpecContext, db *gorp.DB, s v0.Symbol) v0.Symbol {
 		GinkgoHelper()
 		t := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v1.Key, v1.Symbol]{DB: db},
+			ctx, gorp.TableConfig[uuid.UUID, v0.Symbol]{DB: db},
 		))
 		Expect(t.NewCreate().Entry(&s).Exec(ctx, db)).To(Succeed())
 		return s
 	}
 
-	It("Should drop the persisted version field on retrieve", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		seed := seedV1(ctx, db, v1.Symbol{
-			Key:     uuid.New(),
-			Version: 1,
-			Name:    "pump",
-			Data: v1.Spec{
-				SVG: "<svg>x</svg>", Variant: "valve", Scale: 2, ScaleStroke: true,
-			},
-		})
-
+	// retrieveMigrated opens the v2 symbol table with the migration wired in, driving
+	// the v0 -> typed lift end-to-end through gorp.
+	retrieveMigrated := func(ctx SpecContext, db *gorp.DB, key v2.Key) v2.Symbol {
+		GinkgoHelper()
 		t := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v2.Key, v2.Symbol]{
 				DB:         db,
@@ -51,14 +45,62 @@ var _ = Describe("Migration", func() {
 		))
 		var got v2.Symbol
 		Expect(t.NewRetrieve().
-			Where(gorp.MatchKeys[v2.Key, v2.Symbol](seed.Key)).
+			Where(gorp.MatchKeys[v2.Key, v2.Symbol](key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
+		return got
+	}
 
-		Expect(got.Key).To(Equal(seed.Key))
-		Expect(got.Name).To(Equal("pump"))
-		Expect(got.Data.SVG).To(Equal("<svg>x</svg>"))
-		Expect(got.Data.Variant).To(Equal("valve"))
-		Expect(got.Data.Scale).To(Equal(2.0))
-		Expect(got.Data.ScaleStroke).To(BeTrue())
+	It(
+		"Should lift an untyped v0 symbol into the typed Symbol on retrieve",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			seed := seedV0(ctx, db, v0.Symbol{
+				Key:  uuid.New(),
+				Name: "pump",
+				Data: map[string]any{
+					"svg":          "<svg>x</svg>",
+					"variant":      "valve",
+					"scale":        2.0,
+					"scale_stroke": true,
+					"states": []any{
+						map[string]any{"key": "on", "name": "On", "regions": []any{
+							map[string]any{
+								"key":          "body",
+								"name":         "Body",
+								"stroke_color": "#ffffff",
+								"selectors":    []any{".body"},
+							},
+						}},
+					},
+				},
+			})
+
+			got := retrieveMigrated(ctx, db, seed.Key)
+
+			Expect(got.Key).To(Equal(seed.Key))
+			Expect(got.Name).To(Equal("pump"))
+			Expect(got.Data.SVG).To(Equal("<svg>x</svg>"))
+			Expect(got.Data.Variant).To(Equal("valve"))
+			Expect(got.Data.Scale).To(Equal(2.0))
+			Expect(got.Data.ScaleStroke).To(BeTrue())
+			Expect(got.Data.States).To(HaveLen(1))
+			Expect(got.Data.States[0].Key).To(Equal("on"))
+			Expect(got.Data.States[0].Regions).To(HaveLen(1))
+			region := got.Data.States[0].Regions[0]
+			Expect(region.Key).To(Equal("body"))
+			Expect(region.StrokeColor).To(HaveValue(Equal("#ffffff")))
+			Expect(region.Selectors).To(ConsistOf(".body"))
+		},
+	)
+
+	It("Should default the scale when unset in v0 data", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		seed := seedV0(ctx, db, v0.Symbol{
+			Key:  uuid.New(),
+			Name: "bare",
+			Data: map[string]any{"svg": "<svg/>", "variant": "sensor"},
+		})
+
+		Expect(retrieveMigrated(ctx, db, seed.Key).Data.Scale).To(Equal(1.0))
 	})
 })

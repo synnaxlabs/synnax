@@ -149,7 +149,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 		err error
 	)
 	switch {
-	case env.Version >= Floor:
+	case env.Version > legacy.LastVersion:
 		a, err = decodeMigrate(ctx, env)
 	case !env.Versioned():
 		// The v0.56 Console export taken from a closed Arc: the typed Arc it retrieved

@@ -24,9 +24,15 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v5"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v6"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 )
+
+// LastVersion is the highest version a Console-written file carries. Envelopes stamped
+// above it are server exports and route to the generated migration chain. v6 sits
+// outside the state chain: it is the Console's own export format, not a stored state.
+const LastVersion = v6.Version
 
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v5.Data

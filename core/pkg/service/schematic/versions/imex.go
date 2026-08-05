@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
 	legacyv6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v6"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
@@ -47,7 +48,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		err error
 	)
 	switch {
-	case env.Version >= Floor:
+	case env.Version > legacy.LastVersion:
 		sch, err = decodeMigrate(ctx, env)
 	case env.Version == legacyv6.Version:
 		// The v0.56 Console export: the typed schematic it retrieved from the Core,

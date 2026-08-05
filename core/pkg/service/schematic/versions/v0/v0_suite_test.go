@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestSchematicV6(t *testing.T) {
+func TestSchematicV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Schematic v6 Suite")
+	RunSpecs(t, "Service Schematic v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

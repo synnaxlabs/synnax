@@ -14,8 +14,8 @@ package v2
 import (
 	"strconv"
 
-	"github.com/google/uuid"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -23,7 +23,7 @@ import (
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
-type Key = uuid.UUID
+type Key = v0.Key
 
 // TimestampConfig is per-channel timestamp display configuration.
 type TimestampConfig struct {

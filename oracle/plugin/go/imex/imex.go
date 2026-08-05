@@ -9,11 +9,10 @@
 
 // Package imex generates the portable import/export machinery for any Oracle struct
 // that declares the bare `@go imex` marker. Every versions/vK package gains a Version
-// constant equal to K; the versions package root gains Latest, Floor (the earliest
-// version whose schema snapshot already carried the marker), and a decodeMigrate
-// ladder that lifts server-era envelopes through the per-version Migrate<Type>
-// steps. Latest keeps the wire envelope version and the storage schema version a
-// single sequence per resource, and the ladder extends itself on every version bump.
+// constant equal to K; the versions package root gains Latest and a decodeMigrate
+// ladder that lifts server-era envelopes through the per-version Migrate<Type> steps.
+// Latest keeps the wire envelope version and the storage schema version a single
+// sequence per resource, and the ladder extends itself on every version bump.
 package imex
 
 import (
@@ -24,8 +23,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"slices"
-	"strconv"
 	"strings"
 	"text/template"
 
@@ -70,10 +67,11 @@ var goPostWriter = &exec.PostWriter{Commands: [][]string{{"gofmt", "-w"}}}
 func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(files) }
 
 // Generate emits imex machinery into the versions tree of every output package whose
-// type declares @go imex: one Version constant per versions/vK package (the version
-// directories on disk, plus the current version), and Latest, Floor, and the
-// decodeMigrate ladder in the versions package root. It errors when a marked type lacks
-// a @go version or when two types at the same path both carry the marker.
+// type declares @go imex: one Version constant per versions/vK package the Core has
+// exported, and Latest plus the decodeMigrate ladder in the versions package root.
+// Versions below the floor predate Core export, so their constant is deleted instead.
+// It errors when a marked type lacks a @go version or when two types at the same path
+// both carry the marker.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	declared := make(map[string]string)
@@ -98,16 +96,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			)
 		}
 		declared[outputPath] = typ.QualifiedName
-		versions, err := versionDirs(req.RepoRoot, outputPath)
-		if err != nil {
-			return nil, err
-		}
-		if !slices.Contains(versions, version) {
-			versions = append(versions, version)
-			slices.Sort(versions)
-		}
 		goName := naming.GetGoName(typ)
-		for _, k := range versions {
+		floor := firstImexVersion(req, typ.QualifiedName, version)
+		for k := floor; k <= version; k++ {
 			path := versioning.VersionedPath(outputPath, k)
 			var buf bytes.Buffer
 			if err := versionTemplate.Execute(&buf, &versionData{
@@ -122,7 +113,21 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				Content: buf.Bytes(),
 			})
 		}
-		floor := firstImexVersion(req, typ.QualifiedName, version)
+		stale, err := versioning.VersionDirs(req.RepoRoot, outputPath)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range stale {
+			if k < floor {
+				resp.Deletions = append(
+					resp.Deletions,
+					versioning.VersionedPath(
+						outputPath,
+						k,
+					)+"/"+p.options.FileNamePattern,
+				)
+			}
+		}
 		arms, err := chainArms(req.RepoRoot, outputPath, goName, floor, version)
 		if err != nil {
 			return nil, err
@@ -130,7 +135,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		data := &chainData{
 			Type:       goName,
 			CurrentPkg: versioning.Dir(version),
-			FloorPkg:   versioning.Dir(floor),
 			Arms:       arms,
 		}
 		for k := floor; k <= version; k++ {
@@ -153,31 +157,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		)
 	}
 	return resp, nil
-}
-
-// versionDirs returns the numeric version sub-directories present under the output
-// package's versions/ tree on disk, ascending.
-func versionDirs(repoRoot, outputPath string) ([]int, error) {
-	entries, err := os.ReadDir(filepath.Join(repoRoot, outputPath, "versions"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var versions []int
-	for _, e := range entries {
-		if !e.IsDir() || !strings.HasPrefix(e.Name(), "v") {
-			continue
-		}
-		k, err := strconv.Atoi(e.Name()[1:])
-		if err != nil {
-			continue
-		}
-		versions = append(versions, k)
-	}
-	slices.Sort(versions)
-	return versions, nil
 }
 
 type versionData struct {
@@ -322,7 +301,6 @@ type chainArm struct {
 type chainData struct {
 	Type       string
 	CurrentPkg string
-	FloorPkg   string
 	Imports    []string
 	Arms       []chainArm
 }
@@ -345,13 +323,9 @@ import (
 // highest version import accepts. It equals the resource's current schema version.
 const Latest = {{.CurrentPkg}}.Version
 
-// Floor is the earliest server-exported schema version: the version the resource
-// carried when it first declared @go imex.
-const Floor = {{.FloorPkg}}.Version
-
-// decodeMigrate decodes an envelope stamped in [Floor, Latest] as its version's
-// {{.Type}} shape and lifts it through the per-version migration chain to the current
-// shape. Envelopes outside the window are rejected with a path-scoped validation error.
+// decodeMigrate decodes a server-exported envelope as its version's {{.Type}} shape and
+// lifts it through the per-version migration chain to the current shape. A version the
+// ladder does not cover is rejected with a path-scoped validation error.
 func decodeMigrate(ctx context.Context, env imex.Envelope) ({{.Type}}, error) {
 	switch env.Version {
 {{- range .Arms}}

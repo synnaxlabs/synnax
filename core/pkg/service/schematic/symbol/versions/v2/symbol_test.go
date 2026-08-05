@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 )
 
@@ -27,6 +28,15 @@ var _ = Describe("Symbol", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v2.Symbol{}.SetOptions()).To(BeNil())
+		})
+	})
+
+	Describe("OntologyID", func() {
+		It("Should return the symbol ontology identifier", func() {
+			k := uuid.New()
+			Expect(v2.Symbol{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeSchematicSymbol, Key: k.String(),
+			}))
 		})
 	})
 })

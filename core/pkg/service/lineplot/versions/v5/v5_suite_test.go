@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestLineplotV1(t *testing.T) {
+func TestLinePlotV5(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Line Plot v6 Suite")
+	RunSpecs(t, "Service Line Plot v5 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

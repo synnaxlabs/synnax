@@ -25,6 +25,159 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Handle", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.Handle) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.Handle
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.Handle{
+				Key:         "test_1",
+				Position:    spatial.XY{X: 3.5, Y: 4.5},
+				Orientation: spatial.OuterLocation("top"),
+			}),
+			Entry("zero values", v2.Handle{
+				Key:         "",
+				Position:    spatial.XY{X: 0, Y: 0},
+				Orientation: spatial.OuterLocation(""),
+			}),
+		)
+	})
+	Describe("Region", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.Region) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.Region
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.Region{
+				Key:         "test_1",
+				Name:        "test_2",
+				Selectors:   []string{"test_3"},
+				StrokeColor: new(string("test_4")),
+				FillColor:   new(string("test_5")),
+			}),
+			Entry("zero values", v2.Region{
+				Key:         "",
+				Name:        "",
+				Selectors:   nil,
+				StrokeColor: nil,
+				FillColor:   nil,
+			}),
+			Entry("empty collections", v2.Region{
+				Key:         "test_1",
+				Name:        "test_2",
+				Selectors:   []string{},
+				StrokeColor: new(string("test_4")),
+				FillColor:   new(string("test_5")),
+			}),
+		)
+	})
+	Describe("Spec", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.Spec) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.Spec
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.Spec{
+				SVG: "test_1",
+				States: []v2.State{
+					{
+						Key:  "test_3",
+						Name: "test_4",
+						Regions: []v2.Region{
+							{
+								Key:         "test_6",
+								Name:        "test_7",
+								Selectors:   []string{"test_8"},
+								StrokeColor: new(string("test_9")),
+								FillColor:   new(string("test_10")),
+							},
+						},
+					},
+				},
+				Variant: "test_11",
+				Handles: []v2.Handle{
+					{
+						Key:         "test_13",
+						Position:    spatial.XY{X: 15.5, Y: 16.5},
+						Orientation: spatial.OuterLocation("top"),
+					},
+				},
+				Scale:           18.5,
+				ScaleStroke:     true,
+				PreviewViewport: new(spatial.Viewport{Zoom: 21.5, Position: spatial.XY{X: 23.5, Y: 24.5}}),
+			}),
+			Entry("zero values", v2.Spec{
+				SVG:             "",
+				States:          nil,
+				Variant:         "",
+				Handles:         nil,
+				Scale:           0,
+				ScaleStroke:     false,
+				PreviewViewport: nil,
+			}),
+			Entry("empty collections", v2.Spec{
+				SVG:             "test_1",
+				States:          []v2.State{},
+				Variant:         "test_3",
+				Handles:         []v2.Handle{},
+				Scale:           5.5,
+				ScaleStroke:     false,
+				PreviewViewport: new(spatial.Viewport{Zoom: 8.5, Position: spatial.XY{X: 10.5, Y: 11.5}}),
+			}),
+		)
+	})
+	Describe("State", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.State) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.State
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.State{
+				Key:  "test_1",
+				Name: "test_2",
+				Regions: []v2.Region{
+					{
+						Key:         "test_4",
+						Name:        "test_5",
+						Selectors:   []string{"test_6"},
+						StrokeColor: new(string("test_7")),
+						FillColor:   new(string("test_8")),
+					},
+				},
+			}),
+			Entry("zero values", v2.State{
+				Key:     "",
+				Name:    "",
+				Regions: nil,
+			}),
+			Entry("empty collections", v2.State{
+				Key:     "test_1",
+				Name:    "test_2",
+				Regions: []v2.Region{},
+			}),
+		)
+	})
 	Describe("Symbol", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v2.Symbol) {
@@ -86,6 +239,124 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeHandle(b *testing.B) {
+	seed := v2.Handle{
+		Key:         "test_1",
+		Position:    spatial.XY{X: 3.5, Y: 4.5},
+		Orientation: spatial.OuterLocation("top"),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.Handle
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRegion(b *testing.B) {
+	seed := v2.Region{
+		Key:         "test_1",
+		Name:        "test_2",
+		Selectors:   []string{"test_3"},
+		StrokeColor: new(string("test_4")),
+		FillColor:   new(string("test_5")),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.Region
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSpec(b *testing.B) {
+	seed := v2.Spec{
+		SVG: "test_1",
+		States: []v2.State{
+			{
+				Key:  "test_3",
+				Name: "test_4",
+				Regions: []v2.Region{
+					{
+						Key:         "test_6",
+						Name:        "test_7",
+						Selectors:   []string{"test_8"},
+						StrokeColor: new(string("test_9")),
+						FillColor:   new(string("test_10")),
+					},
+				},
+			},
+		},
+		Variant: "test_11",
+		Handles: []v2.Handle{
+			{
+				Key:         "test_13",
+				Position:    spatial.XY{X: 15.5, Y: 16.5},
+				Orientation: spatial.OuterLocation("top"),
+			},
+		},
+		Scale:           18.5,
+		ScaleStroke:     true,
+		PreviewViewport: new(spatial.Viewport{Zoom: 21.5, Position: spatial.XY{X: 23.5, Y: 24.5}}),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.Spec
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeState(b *testing.B) {
+	seed := v2.State{
+		Key:  "test_1",
+		Name: "test_2",
+		Regions: []v2.Region{
+			{
+				Key:         "test_4",
+				Name:        "test_5",
+				Selectors:   []string{"test_6"},
+				StrokeColor: new(string("test_7")),
+				FillColor:   new(string("test_8")),
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.State
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeSymbol(b *testing.B) {
 	seed := v2.Symbol{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -133,6 +404,276 @@ func BenchmarkEncodeDecodeSymbol(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeHandle(f *testing.F) {
+	{
+		seed := v2.Handle{
+			Key:         "test_1",
+			Position:    spatial.XY{X: 3.5, Y: 4.5},
+			Orientation: spatial.OuterLocation("top"),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Handle{
+			Key:         "",
+			Position:    spatial.XY{X: 0, Y: 0},
+			Orientation: spatial.OuterLocation(""),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.Handle
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.Handle
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRegion(f *testing.F) {
+	{
+		seed := v2.Region{
+			Key:         "test_1",
+			Name:        "test_2",
+			Selectors:   []string{"test_3"},
+			StrokeColor: new(string("test_4")),
+			FillColor:   new(string("test_5")),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Region{
+			Key:         "",
+			Name:        "",
+			Selectors:   nil,
+			StrokeColor: nil,
+			FillColor:   nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Region{
+			Key:         "test_1",
+			Name:        "test_2",
+			Selectors:   []string{},
+			StrokeColor: new(string("test_4")),
+			FillColor:   new(string("test_5")),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.Region
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.Region
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSpec(f *testing.F) {
+	{
+		seed := v2.Spec{
+			SVG: "test_1",
+			States: []v2.State{
+				{
+					Key:  "test_3",
+					Name: "test_4",
+					Regions: []v2.Region{
+						{
+							Key:         "test_6",
+							Name:        "test_7",
+							Selectors:   []string{"test_8"},
+							StrokeColor: new(string("test_9")),
+							FillColor:   new(string("test_10")),
+						},
+					},
+				},
+			},
+			Variant: "test_11",
+			Handles: []v2.Handle{
+				{
+					Key:         "test_13",
+					Position:    spatial.XY{X: 15.5, Y: 16.5},
+					Orientation: spatial.OuterLocation("top"),
+				},
+			},
+			Scale:           18.5,
+			ScaleStroke:     true,
+			PreviewViewport: new(spatial.Viewport{Zoom: 21.5, Position: spatial.XY{X: 23.5, Y: 24.5}}),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Spec{
+			SVG:             "",
+			States:          nil,
+			Variant:         "",
+			Handles:         nil,
+			Scale:           0,
+			ScaleStroke:     false,
+			PreviewViewport: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Spec{
+			SVG:             "test_1",
+			States:          []v2.State{},
+			Variant:         "test_3",
+			Handles:         []v2.Handle{},
+			Scale:           5.5,
+			ScaleStroke:     false,
+			PreviewViewport: new(spatial.Viewport{Zoom: 8.5, Position: spatial.XY{X: 10.5, Y: 11.5}}),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.Spec
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.Spec
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeState(f *testing.F) {
+	{
+		seed := v2.State{
+			Key:  "test_1",
+			Name: "test_2",
+			Regions: []v2.Region{
+				{
+					Key:         "test_4",
+					Name:        "test_5",
+					Selectors:   []string{"test_6"},
+					StrokeColor: new(string("test_7")),
+					FillColor:   new(string("test_8")),
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.State{
+			Key:     "",
+			Name:    "",
+			Regions: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.State{
+			Key:     "test_1",
+			Name:    "test_2",
+			Regions: []v2.Region{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.State
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.State
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeSymbol(f *testing.F) {

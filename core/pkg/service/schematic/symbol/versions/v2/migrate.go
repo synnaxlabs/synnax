@@ -12,14 +12,26 @@ package v2
 import (
 	"context"
 
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v1"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Migration drops the persisted version field: envelope versioning now lives on the
-// imex wire format alone.
-var Migration = gorp.NewEntryMigration("v2_drop_symbol_version", migrateSymbol)
+// Migration lifts stored symbols out of the untyped v0 shape into the typed v2 shape.
+var Migration = gorp.NewEntryMigration("v2_typed_symbol", migrateSymbol)
 
-func migrateSymbol(_ context.Context, old v1.Symbol) (Symbol, error) {
-	return Symbol{Key: old.Key, Name: old.Name, Data: old.Data}, nil
+func migrateSymbol(_ context.Context, old v0.Symbol) (Symbol, error) {
+	out := Symbol{Key: old.Key, Name: old.Name}
+	if len(old.Data) > 0 {
+		b, err := msgpack.Marshal(old.Data)
+		if err != nil {
+			return Symbol{}, errors.Wrap(err, "encode v0 symbol data")
+		}
+		if err = msgpack.Unmarshal(b, &out.Data); err != nil {
+			return Symbol{}, errors.Wrap(err, "decode v0 symbol data")
+		}
+	}
+	out.ApplyDefaults()
+	return out, nil
 }

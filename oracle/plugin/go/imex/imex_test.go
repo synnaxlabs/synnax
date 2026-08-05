@@ -96,7 +96,6 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"package versions",
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions/v3"`,
 					"const Latest = v3.Version",
-					"const Floor = v3.Version",
 					"func decodeMigrate(ctx context.Context, env imex.Envelope) (Log, error)",
 					"case v3.Version:",
 					"return imex.Decode[Log](ctx, env)",
@@ -126,7 +125,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 		)
 
 		It(
-			"Should emit constants for version directories present on disk",
+			"Should delete constants in version directories below the floor",
 			func(ctx SpecContext) {
 				tmpDir := GinkgoT().TempDir()
 				diskLoader := NewMockFileLoaderWithRoot(tmpDir)
@@ -151,15 +150,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 				}
 			`
 				resp := MustGenerate(ctx, source, "log", diskLoader, p)
-				Expect(resp.Files).To(HaveLen(3))
-				ExpectContent(
-					resp,
-					"core/pkg/service/log/versions/v2/imex.gen.go",
-				).ToContain(
-					"package v2",
-					"const Version imex.Version = 2",
-				).
-					ToBeValidGoSource()
+				Expect(resp.Files).To(HaveLen(2))
 				ExpectContent(
 					resp,
 					"core/pkg/service/log/versions/v3/imex.gen.go",
@@ -175,6 +166,9 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"const Latest = v3.Version",
 				).
 					ToBeValidGoSource()
+				Expect(resp.Deletions).To(ContainElement(
+					"core/pkg/service/log/versions/v2/imex.gen.go",
+				))
 			},
 		)
 
@@ -258,7 +252,6 @@ var _ = Describe("Go ImEx Plugin", func() {
 					resp,
 					"core/pkg/service/log/versions/imex.gen.go",
 				).ToContain(
-					"const Floor = v2.Version",
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions/v2"`,
 					"case v2.Version:",
 					"t2, err := imex.Decode[v2.Log](ctx, env)",
@@ -352,7 +345,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 					resp,
 					"core/pkg/service/log/versions/imex.gen.go",
 				)
-				Expect(content).To(ContainSubstring("const Floor = v3.Version"))
+				Expect(content).To(ContainSubstring("const Latest = v3.Version"))
 				Expect(content).ToNot(ContainSubstring("case v2.Version:"))
 			},
 		)

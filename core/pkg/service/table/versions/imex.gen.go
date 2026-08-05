@@ -22,13 +22,9 @@ import (
 // highest version import accepts. It equals the resource's current schema version.
 const Latest = v1.Version
 
-// Floor is the earliest server-exported schema version: the version the resource
-// carried when it first declared @go imex.
-const Floor = v1.Version
-
-// decodeMigrate decodes an envelope stamped in [Floor, Latest] as its version's
-// Table shape and lifts it through the per-version migration chain to the current
-// shape. Envelopes outside the window are rejected with a path-scoped validation error.
+// decodeMigrate decodes a server-exported envelope as its version's Table shape and
+// lifts it through the per-version migration chain to the current shape. A version the
+// ladder does not cover is rejected with a path-scoped validation error.
 func decodeMigrate(ctx context.Context, env imex.Envelope) (Table, error) {
 	switch env.Version {
 	case v1.Version:

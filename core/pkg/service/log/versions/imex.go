@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -26,7 +27,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 		l   Log
 		err error
 	)
-	if env.Version >= Floor {
+	if env.Version > legacy.LastVersion {
 		l, err = decodeMigrate(ctx, env)
 	} else {
 		// Console states embed the body inline: ride the storage lift, which decodes

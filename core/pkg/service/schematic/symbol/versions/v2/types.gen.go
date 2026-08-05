@@ -12,26 +12,100 @@
 package v2
 
 import (
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v1"
+	"strconv"
+
+	"github.com/google/uuid"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a schematic symbol.
-type Key = v1.Key
+type Key = uuid.UUID
 
 // Region is a visual styling area within a symbol state, targeting specific SVG
 // elements for dynamic coloring.
-type Region = v1.Region
+type Region struct {
+	// Key is the region identifier.
+	Key string `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the region.
+	Name string `json:"name" msgpack:"name"`
+	// Selectors contains CSS selectors targeting SVG elements within the symbol.
+	Selectors []string `json:"selectors,omitzero" msgpack:"selectors,omitzero"`
+	// StrokeColor is an optional stroke color in hex format (#RRGGBB).
+	StrokeColor *string `json:"stroke_color,omitempty" msgpack:"stroke_color,omitempty"`
+	// FillColor is an optional fill color in hex format (#RRGGBB).
+	FillColor *string `json:"fill_color,omitempty" msgpack:"fill_color,omitempty"`
+}
 
 // State is a named visual state of a symbol with regional styling configurations.
-type State = v1.State
+type State struct {
+	// Key is the state identifier.
+	Key string `json:"key" msgpack:"key"`
+	// Name is a human-readable name for this state.
+	Name string `json:"name" msgpack:"name"`
+	// Regions contains style regions defining visual appearance for this state.
+	Regions []Region `json:"regions,omitzero" msgpack:"regions,omitzero"`
+}
 
 // Handle is a connection point on a symbol for linking to other diagram elements.
-type Handle = v1.Handle
+type Handle struct {
+	// Key is the handle identifier.
+	Key string `json:"key" msgpack:"key"`
+	// Position is the (x, y) coordinate within the symbol's local space.
+	Position spatial.XY `json:"position" msgpack:"position"`
+	// Orientation is the direction the handle faces (top, right, bottom, left).
+	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h Handle) Validate() error {
+	v := validate.New("Handle")
+	v.Ternaryf("orientation", !h.Orientation.IsValid(), "invalid orientation: %v", h.Orientation)
+	return v.Error()
+}
 
 // Spec is the complete symbol definition including geometry, states, handles, and
 // rendering properties.
-type Spec = v1.Spec
+type Spec struct {
+	// SVG is the SVG markup defining the symbol's visual geometry.
+	SVG string `json:"svg" msgpack:"svg"`
+	// States contains available visual states with regional styling configurations.
+	States []State `json:"states,omitzero" msgpack:"states,omitzero"`
+	// Variant is the symbol variant or category identifier (e.g., 'sensor', 'valve').
+	Variant string `json:"variant" msgpack:"variant"`
+	// Handles contains connection points for linking to other diagram elements.
+	Handles []Handle `json:"handles,omitzero" msgpack:"handles,omitzero"`
+	// Scale is the symbol scale factor.
+	Scale float64 `json:"scale" msgpack:"scale"`
+	// ScaleStroke indicates whether stroke width scales with the symbol size.
+	ScaleStroke bool `json:"scale_stroke" msgpack:"scale_stroke"`
+	// PreviewViewport is an optional viewport configuration for symbol preview
+	// rendering.
+	PreviewViewport *spatial.Viewport `json:"preview_viewport,omitempty" msgpack:"preview_viewport,omitempty"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *Spec) ApplyDefaults() {
+	if s.Scale == 0 {
+		s.Scale = 1
+	}
+	if s.PreviewViewport != nil {
+		s.PreviewViewport.ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s Spec) Validate() error {
+	v := validate.New("Spec")
+	validate.NotEmptyString(v, "svg", s.SVG)
+	validate.NotEmptyString(v, "variant", s.Variant)
+	for i := range s.Handles {
+		v.Exec(func() error { return validate.PathedError(s.Handles[i].Validate(), "handles", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
 
 // Symbol is a persisted schematic symbol defining reusable visual components for
 // diagrams.

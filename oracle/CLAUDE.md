@@ -52,11 +52,13 @@ or generator logic and schemas disagree.
   gorp wiring or auto-copies call it.
 - `@go imex` (bare marker, requires `@go version`) on an imex-registered resource's root
   struct emits `imex.gen.go` files across the versions tree: a `Version imex.Version`
-  constant in every `versions/vK` package, plus `Latest`, `Floor` (earliest snapshot
-  carrying the marker), and a `decodeMigrate` ladder in the versions root that lifts
-  server-era envelopes through the per-bump `Migrate<Type>` steps. The envelope version
-  and migration chain are never hand-maintained; hand `versions/imex.go` files route
-  `>= Floor` envelopes to the ladder and keep only frozen Console-era decoding.
+  constant in every `versions/vK` package the Core has exported (from the earliest
+  snapshot carrying the marker up to the current version), plus `Latest` and a
+  `decodeMigrate` ladder in the versions root that lifts server-era envelopes through
+  the per-bump `Migrate<Type>` steps. Earlier version packages predate Core export and
+  get no constant. The envelope version and migration chain are never hand-maintained;
+  hand `versions/imex.go` files route `> legacy.LastVersion` envelopes to the ladder and
+  keep only frozen Console-era decoding.
 
 ## Tag Minimization
 

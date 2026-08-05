@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestLogV2(t *testing.T) {
+func TestLogV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Log v2 Suite")
+	RunSpecs(t, "Service Log v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

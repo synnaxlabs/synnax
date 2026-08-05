@@ -25,6 +25,10 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// LastVersion is the highest version a Console-written file carries. Envelopes stamped
+// above it are server exports and route to the generated migration chain.
+const LastVersion = v4.Version
+
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v4.Data
 

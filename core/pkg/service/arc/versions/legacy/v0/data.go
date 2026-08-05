@@ -55,8 +55,8 @@ type Node struct {
 	Position spatial.XY `json:"position"`
 }
 
-// Edge is the v0 edge form: ReactFlow's node-key strings with optional sibling
-// handle fields.
+// Edge is the v0 edge form: ReactFlow's node-key strings with optional sibling handle
+// fields.
 type Edge struct {
 	// Key is the edge's unique key.
 	Key string `json:"key"`

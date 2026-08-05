@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -26,7 +27,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		t   Table
 		err error
 	)
-	if env.Version >= Floor {
+	if env.Version > legacy.LastVersion {
 		// v1 is the shape both producers wrote: Core stamps it on export, and the
 		// v0.56 Console export stamps the same number on the table it retrieved from
 		// Core. Every Table field name is a single word, so the Console's camelCase and

@@ -13,7 +13,7 @@
 package v1
 
 import (
-	"github.com/synnaxlabs/arc/ir"
+	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
@@ -46,7 +46,7 @@ type Edge struct {
 	// Key is the edge's unique key.
 	Key string `json:"key"`
 	// Source is the source handle (node and param).
-	Source ir.Handle `json:"source"`
+	Source irv0.Handle `json:"source"`
 	// Target is the target handle (node and param).
-	Target ir.Handle `json:"target"`
+	Target irv0.Handle `json:"target"`
 }

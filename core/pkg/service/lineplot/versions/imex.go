@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -26,7 +27,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		lp  LinePlot
 		err error
 	)
-	if env.Version >= Floor {
+	if env.Version > legacy.LastVersion {
 		lp, err = decodeMigrate(ctx, env)
 	} else {
 		// Every Console line plot file is a state: the exporter writes the slice entry,
