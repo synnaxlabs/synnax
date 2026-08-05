@@ -12,7 +12,7 @@
 #include <deque>
 #include <unordered_map>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "driver/common/common.h"
 #include "driver/task/task.h"
