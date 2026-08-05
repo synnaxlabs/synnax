@@ -110,11 +110,11 @@ that parent rather than a column the task repeats.
 ### 4.1 Schemas and services
 
 **One Oracle schema file per integration**: `schemas/synnax/ni.oracle`, `opc.oracle`,
-`labjack.oracle`, `modbus.oracle`, `ethercat.oracle`, `http.oracle`, plus `arc.oracle`
-(amended), `pagerduty.oracle`, and `slack.oracle`. A file defines the shared parts of an
-integration — channel unions, scales, endpoints — and one config type per task type. We
-rejected per-type files: the 19-variant AI channel union of NI and its scale and CJC
-unions are shared across its five task types.
+`labjack.oracle`, `modbus.oracle`, `ethercat.oracle`, `http.oracle`, `arc.oracle`
+(amended), and `pagerduty.oracle`. A file defines the shared parts of an integration —
+channel unions, scales, endpoints — and one config type per task type. We rejected
+per-type files: the 19-variant AI channel union of NI and its scale and CJC unions are
+shared across its five task types.
 
 The NI schema draft (32 enums, 4 unions, 57 structs) is the start point. Shared
 cross-integration bases, the `sample_rate` / `stream_rate` / `data_saving` read shape
@@ -148,7 +148,7 @@ same transaction as the task row, so no retrieve observes a task without its con
 
 The edge is additive. A task keeps the group parent the writer gives it today, and the
 config record is a second parent alongside it. Nothing about the existing tree shape
-changes.
+changes right now, but it will in the future.
 
 The config record also gains a UUID that survives export and import, and an ontology
 presence that per-type endpoints and access policies can name later.
@@ -256,7 +256,7 @@ resolves, not a mode the system runs in.
 `ni_analog_read`, `ni_analog_write`, `ni_digital_read`, `ni_digital_write`,
 `ni_counter_read`, `opc_read`, `opc_write`, `labjack_read`, `labjack_write`,
 `modbus_read`, `modbus_write`, `ethercat_read`, `ethercat_write`, `http_read`,
-`http_write`, `arc`, `pagerduty_alert`, and `slack_alert` (SY-3995).
+`http_write`, `arc`, and `pagerduty_alert`.
 
 The scanner types (`opc_scan`, `modbus_scan`, `ni_scanner`, …) and the rack status task
 have no meaningful configuration, but the closed set admits no exceptions: each gets its
