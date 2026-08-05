@@ -14,10 +14,10 @@ package v2
 import (
 	"context"
 
-	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 )
 
-func autoMigrateTable(_ context.Context, old v1.Table) (Table, error) {
+func autoMigrateTable(_ context.Context, old v0.Table) (Table, error) {
 	return Table{
 		Key:  old.Key,
 		Name: old.Name,

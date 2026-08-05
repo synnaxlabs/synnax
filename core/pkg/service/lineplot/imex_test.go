@@ -83,7 +83,7 @@ var _ = Describe("ImEx", func() {
 		It("Should import a current snake_case envelope", func(ctx SpecContext) {
 			res := importAndRetrieve(
 				ctx,
-				"versions/testdata/import_v6.json",
+				"versions/testdata/import_v5.json",
 				imex.ImportOptions{Parent: proj.OntologyID()},
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
@@ -135,7 +135,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should reject a zero parent", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
-				LoadEnvelope("versions/testdata/import_v6.json"),
+				LoadEnvelope("versions/testdata/import_v5.json"),
 				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("parent")),
@@ -163,7 +163,7 @@ var _ = Describe("ImEx", func() {
 					ctx,
 					db,
 					LoadEnvelope(
-						"versions/testdata/import_v6.json",
+						"versions/testdata/import_v5.json",
 					),
 					imex.ImportOptions{Parent: proj.OntologyID()},
 				))

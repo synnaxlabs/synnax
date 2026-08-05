@@ -14,10 +14,10 @@ import (
 	"encoding/json"
 	"math"
 
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
-	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
-	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v6"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/console"
+	consolev0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/console/v0"
+	consolev3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/console/v3"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -28,7 +28,7 @@ import (
 // strongly-typed Schematic. autoMigrateSchematic handles the trivially-copyable
 // Gorp-entry fields (Key, Name, Snapshot); the body fields are sourced from the
 // per-schematic blob the Console used to persist alongside those Gorp fields, after
-// legacy.MigrateData walks the legacy migration chain up to v5.Data. UI-only fields
+// console.MigrateData walks the Console migration chain up to v5.Data. UI-only fields
 // (editable, fitViewOnResize, viewport, mode, toolbar, control, viewportMode,
 // authority, legend, the wire-format key) are dropped; the latter live on the Console
 // slice and never reach the server. Edges flip from the flat source / sourceHandle pair
@@ -39,13 +39,13 @@ import (
 // snapshot into another and never need this blob handling.
 func MigrateSchematic(
 	ctx context.Context,
-	old v6.Schematic,
+	old v0.Schematic,
 ) (Schematic, error) {
 	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, err
 	}
-	d, err := legacy.MigrateData(old.Data)
+	d, err := console.MigrateData(old.Data)
 	if err != nil {
 		return Schematic{}, err
 	}
@@ -74,7 +74,7 @@ func MigrateSchematic(
 	return out, nil
 }
 
-func migrateNode(n v0.Node) Node {
+func migrateNode(n consolev0.Node) Node {
 	out := Node{
 		Key:      n.Key,
 		Position: spatial.XY{X: n.Position.X, Y: n.Position.Y},
@@ -93,7 +93,7 @@ func migrateNode(n v0.Node) Node {
 // variant defaults to "pipe") so the lifted shape always parses cleanly under the v6
 // EdgeProps schema. Returns the typed edge plus the payload (or nil when there is
 // nothing to lift).
-func migrateEdge(e v3.Edge) (Edge, msgpack.EncodedJSON, error) {
+func migrateEdge(e consolev3.Edge) (Edge, msgpack.EncodedJSON, error) {
 	out := Edge{
 		Key:    e.Key,
 		Source: Handle{Node: e.Source, Param: stringOrEmpty(e.SourceHandle)},
@@ -226,7 +226,8 @@ func segmentsToRaw(segs []segment) []any {
 }
 
 // migrateProps decodes each opaque prop entry from raw JSON bytes into the in-memory
-// map[string]any shape that msgpack.EncodedJSON wraps, renaming the v0..v5 node-prop
+// map[string]any shape that msgpack.EncodedJSON wraps, renaming the consolev0..v5
+// node-prop
 // "key" field to "variant" to match the v6 NodeProps schema declared in
 // schematic.oracle. Empty entries are dropped because msgpack.EncodedJSON is
 // nil-equivalent to "no entry".
@@ -245,8 +246,9 @@ func migrateProps(
 		if err := json.Unmarshal(raw, &m); err != nil {
 			return nil, errors.Wrapf(err, "decode props[%q]", k)
 		}
-		// Mirrors the Console v6 migrateProps: variant is always set from the v0..v5
-		// "key" field, overwriting any prior variant. v0..v5 NodeProps schemas declare
+		// Mirrors the Console v6 migrateProps: variant is always set from the
+		// consolev0..v5 "key" field, overwriting any prior variant. consolev0..v5
+		// NodeProps schemas declare
 		// key (not variant), so production data never carries both, but the
 		// always-overwrite contract matches the Console's single source of truth.
 		if v, ok := m["key"]; ok {

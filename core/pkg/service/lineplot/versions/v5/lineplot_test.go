@@ -14,11 +14,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 var _ = Describe("LinePlot", func() {
 	Describe("GorpKey", func() {
-		It("Should return the lineplot's key", func() {
+		It("Should return the linePlot's key", func() {
 			k := uuid.New()
 			Expect(v5.LinePlot{Key: k}.GorpKey()).To(Equal(k))
 		})
@@ -27,6 +28,14 @@ var _ = Describe("LinePlot", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v5.LinePlot{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("OntologyID", func() {
+		It("Should return the line plot ontology identifier", func() {
+			k := uuid.New()
+			Expect(v5.LinePlot{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeLineplot, Key: k.String(),
+			}))
 		})
 	})
 })

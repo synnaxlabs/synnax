@@ -19,9 +19,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
-	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v5"
-	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v6"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/console"
+	consolev5 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/console/v5"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -50,18 +50,18 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 
 // migrateSeed runs the v7 migration chain over a gorp-seeded v6 schematic and returns
 // the migrated typed Schematic.
-func migrateSeed(ctx SpecContext, seed v6.Schematic) v7.Schematic {
+func migrateSeed(ctx SpecContext, seed v0.Schematic) v7.Schematic {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(
-		ctx, gorp.TableConfig[v6.Key, v6.Schematic]{DB: db},
+		ctx, gorp.TableConfig[v0.Key, v0.Schematic]{DB: db},
 	))
-	Expect(gorp.NewCreate[v6.Key, v6.Schematic]().
+	Expect(gorp.NewCreate[v0.Key, v0.Schematic]().
 		Entry(&seed).Exec(ctx, db)).To(Succeed())
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Schematic",
-		Migrations: []migrate.Migration{v6.Migration, v7.Migration},
+		Migrations: []migrate.Migration{v0.Migration, v7.Migration},
 	})).To(Succeed())
 	var got v7.Schematic
 	Expect(gorp.NewRetrieve[v7.Key, v7.Schematic]().
@@ -104,7 +104,7 @@ var _ = Describe("MigrateSchematic", func() {
 		DescribeTable("Should produce the canonical typed Schematic",
 			func(ctx SpecContext, fixture string) {
 				blob, _ := loadFixture(fixture)
-				out := migrateSeed(ctx, v6.Schematic{
+				out := migrateSeed(ctx, v0.Schematic{
 					Key: fixedKey, Name: fixture, Data: blob,
 				})
 				assertMigrated(fixture, out)
@@ -120,7 +120,7 @@ var _ = Describe("MigrateSchematic", func() {
 			"Should produce the canonical output when called directly",
 			func(ctx SpecContext) {
 				blob, _ := loadFixture("v5_operator.json")
-				out := migrateSeed(ctx, v6.Schematic{
+				out := migrateSeed(ctx, v0.Schematic{
 					Key: fixedKey, Name: "v5_operator.json", Data: blob,
 				})
 				assertMigrated("v5_operator.json", out)
@@ -132,7 +132,7 @@ var _ = Describe("MigrateSchematic", func() {
 		It(
 			"Should lift a v5 wire-format blob into the typed Schematic on retrieve",
 			func(ctx SpecContext) {
-				got := migrateSeed(ctx, v6.Schematic{
+				got := migrateSeed(ctx, v0.Schematic{
 					Key: uuid.New(), Name: "Tank Farm", Data: jsonMap(`{
 					"version": "5.0.0",
 					"authority": 7,
@@ -150,9 +150,9 @@ var _ = Describe("MigrateSchematic", func() {
 		)
 
 		It(
-			"Should chain a legacy v0 blob through every migration step on retrieve",
+			"Should chain a Console v0 blob through every migration step on retrieve",
 			func(ctx SpecContext) {
-				got := migrateSeed(ctx, v6.Schematic{
+				got := migrateSeed(ctx, v0.Schematic{
 					Key: uuid.New(), Name: "Legacy", Data: jsonMap(`{
 					"version": "0.0.0",
 					"nodes": [{"key": "n1", "position": {"x": 0, "y": 0}}],
@@ -172,7 +172,7 @@ var _ = Describe("MigrateSchematic", func() {
 	// Console contract. Keep one concern per spec so failures localize.
 	Describe("v5 reshape semantics", func() {
 		migrateV5 := func(ctx SpecContext, body string) v7.Schematic {
-			return migrateSeed(ctx, v6.Schematic{
+			return migrateSeed(ctx, v0.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(
 					`{"version": "5.0.0", "nodes": [], "edges": [], "props": {}, ` + body + `}`,
@@ -183,7 +183,7 @@ var _ = Describe("MigrateSchematic", func() {
 		It(
 			"Should reshape edge endpoints into nested Handle{Node, Param}",
 			func(ctx SpecContext) {
-				out := migrateSeed(ctx, v6.Schematic{
+				out := migrateSeed(ctx, v0.Schematic{
 					Key: uuid.New(),
 					Data: jsonMap(`{
 					"version": "5.0.0",
@@ -203,7 +203,7 @@ var _ = Describe("MigrateSchematic", func() {
 		It(
 			"Should lift edge.data segments, color, and variant into props keyed by edge id",
 			func(ctx SpecContext) {
-				out := migrateSeed(ctx, v6.Schematic{
+				out := migrateSeed(ctx, v0.Schematic{
 					Key: uuid.New(),
 					Data: jsonMap(`{
 					"version": "5.0.0",
@@ -226,7 +226,7 @@ var _ = Describe("MigrateSchematic", func() {
 			// Real OX Pre-Valve -> OX MPV edge from a 0.55 schematic: the stored full
 			// path includes both stumps, which would double on render and fold a
 			// pigtail.
-			out := migrateSeed(ctx, v6.Schematic{
+			out := migrateSeed(ctx, v0.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0", "nodes": [], "props": {},
@@ -255,7 +255,7 @@ var _ = Describe("MigrateSchematic", func() {
 				// has no strippable middle; subtracting a full stump from each end
 				// would flip it into a self-crossing spur, so it is cleared to an empty
 				// (auto-routed) edge.
-				out := migrateSeed(ctx, v6.Schematic{
+				out := migrateSeed(ctx, v0.Schematic{
 					Key: uuid.New(),
 					Data: jsonMap(`{
 					"version": "5.0.0", "nodes": [], "props": {},
@@ -270,7 +270,7 @@ var _ = Describe("MigrateSchematic", func() {
 		It(
 			"Should default edge-prop variant to pipe when edge.data is non-null but empty",
 			func(ctx SpecContext) {
-				out := migrateSeed(ctx, v6.Schematic{
+				out := migrateSeed(ctx, v0.Schematic{
 					Key: uuid.New(),
 					Data: jsonMap(`{
 					"version": "5.0.0",
@@ -285,7 +285,7 @@ var _ = Describe("MigrateSchematic", func() {
 		It(
 			"Should produce no edge-prop entry when edge.data is missing or null",
 			func(ctx SpecContext) {
-				out := migrateSeed(ctx, v6.Schematic{
+				out := migrateSeed(ctx, v0.Schematic{
 					Key: uuid.New(),
 					Data: jsonMap(`{
 					"version": "5.0.0",
@@ -325,7 +325,7 @@ var _ = Describe("MigrateSchematic", func() {
 		)
 
 		It("Should preserve user-set zIndex on nodes", func(ctx SpecContext) {
-			out := migrateSeed(ctx, v6.Schematic{
+			out := migrateSeed(ctx, v0.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0", "edges": [], "props": {},
@@ -342,7 +342,7 @@ var _ = Describe("MigrateSchematic", func() {
 		It(
 			"Should default zIndex to 0 when the wire form omits it",
 			func(ctx SpecContext) {
-				out := migrateSeed(ctx, v6.Schematic{
+				out := migrateSeed(ctx, v0.Schematic{
 					Key: uuid.New(),
 					Data: jsonMap(`{
 					"version": "5.0.0", "edges": [], "props": {},
@@ -357,7 +357,7 @@ var _ = Describe("MigrateSchematic", func() {
 			"Should pass through the gorp-entry fields (key, name, snapshot)",
 			func(ctx SpecContext) {
 				key := uuid.New()
-				out := migrateSeed(ctx, v6.Schematic{
+				out := migrateSeed(ctx, v0.Schematic{
 					Key: key, Name: "tank-1", Snapshot: true,
 					Data: jsonMap(`{"version": "5.0.0"}`),
 				})
@@ -368,7 +368,7 @@ var _ = Describe("MigrateSchematic", func() {
 		)
 
 		It("Should handle a nil data blob without erroring", func(ctx SpecContext) {
-			out := migrateSeed(ctx, v6.Schematic{
+			out := migrateSeed(ctx, v0.Schematic{
 				Key: uuid.New(), Name: "empty", Data: nil,
 			})
 			Expect(out.Nodes).To(BeEmpty())
@@ -382,7 +382,7 @@ var _ = Describe("MigrateData", func() {
 	// counts, edge.data preservation, orphan filter, dispatch.
 	Describe("real-world fixtures", func() {
 		DescribeTable(
-			"Should walk the chain to v5.Data, preserving edge.data and dropping orphans",
+			"Should walk the chain to consolev5.Data, preserving edge.data and dropping orphans",
 			func(fixture string, expectNodes, expectEdges, expectInputOrphans int) {
 				blob, raw := loadFixture(fixture)
 				rawNodes, _ := raw["nodes"].([]any)
@@ -400,8 +400,8 @@ var _ = Describe("MigrateData", func() {
 				}
 				Expect(len(rawEdges) - len(validRawEdges)).To(Equal(expectInputOrphans))
 
-				out := MustSucceed(legacy.MigrateData(blob))
-				Expect(out.Version).To(Equal(v5.Version))
+				out := MustSucceed(console.MigrateData(blob))
+				Expect(out.Version).To(Equal(consolev5.Version))
 				Expect(out.Nodes).To(HaveLen(len(rawNodes)))
 				Expect(out.Edges).To(HaveLen(len(validRawEdges)))
 
@@ -439,13 +439,13 @@ var _ = Describe("MigrateData", func() {
 	// error paths.
 	Describe("synthesized inputs", func() {
 		It("Should chain a v0 blob through every step migration", func() {
-			out := MustSucceed(legacy.MigrateData(jsonMap(`{
+			out := MustSucceed(console.MigrateData(jsonMap(`{
 				"version": "0.0.0",
 				"nodes": [{"key": "n1", "position": {"x": 1, "y": 2}}],
 				"edges": [{"key": "e1", "source": "n1", "target": "n2", "sourceHandle": "out", "targetHandle": "in"}],
 				"props": {"n1": {"key": "valve"}}
 			}`)))
-			Expect(out.Version).To(Equal(v5.Version))
+			Expect(out.Version).To(Equal(consolev5.Version))
 			Expect(out.Authority).To(BeEquivalentTo(1))
 			Expect(out.Mode).To(Equal("select"))
 			Expect(out.Legend.Visible).To(BeTrue())
@@ -453,13 +453,13 @@ var _ = Describe("MigrateData", func() {
 
 		It("Should fall back to v0 when the blob has no version field", func() {
 			out := MustSucceed(
-				legacy.MigrateData(jsonMap(`{"nodes": [], "edges": [], "props": {}}`)),
+				console.MigrateData(jsonMap(`{"nodes": [], "edges": [], "props": {}}`)),
 			)
-			Expect(out.Version).To(Equal(v5.Version))
+			Expect(out.Version).To(Equal(consolev5.Version))
 		})
 
 		It("Should preserve user-set zIndex on nodes through the chain", func() {
-			out := MustSucceed(legacy.MigrateData(jsonMap(`{
+			out := MustSucceed(console.MigrateData(jsonMap(`{
 				"version": "0.0.0",
 				"nodes": [
 					{"key": "back", "position": {"x": 0, "y": 0}, "zIndex": -1},
@@ -471,8 +471,10 @@ var _ = Describe("MigrateData", func() {
 			Expect(*out.Nodes[1].ZIndex).To(Equal(7))
 		})
 
-		It("Should preserve edge.data through a v0 blob into v5.Edge.Data", func() {
-			out := MustSucceed(legacy.MigrateData(jsonMap(`{
+		It(
+			"Should preserve edge.data through a v0 blob into consolev5.Edge.Data",
+			func() {
+				out := MustSucceed(console.MigrateData(jsonMap(`{
 				"version": "0.0.0",
 				"nodes": [], "props": {},
 				"edges": [{
@@ -480,11 +482,12 @@ var _ = Describe("MigrateData", func() {
 					"data": {"segments": [{"direction": "x", "length": 10}], "color": "#ff0000"}
 				}]
 			}`)))
-			Expect(out.Edges[0].Data).NotTo(BeEmpty())
-		})
+				Expect(out.Edges[0].Data).NotTo(BeEmpty())
+			},
+		)
 
 		It("Should drop edges with empty source", func() {
-			out := MustSucceed(legacy.MigrateData(jsonMap(`{
+			out := MustSucceed(console.MigrateData(jsonMap(`{
 				"version": "5.0.0",
 				"nodes": [], "props": {},
 				"edges": [
@@ -497,7 +500,7 @@ var _ = Describe("MigrateData", func() {
 		})
 
 		It("Should drop edges with null source or target", func() {
-			out := MustSucceed(legacy.MigrateData(jsonMap(`{
+			out := MustSucceed(console.MigrateData(jsonMap(`{
 				"version": "5.0.0",
 				"nodes": [], "props": {},
 				"edges": [
@@ -508,15 +511,18 @@ var _ = Describe("MigrateData", func() {
 			Expect(out.Edges).To(BeEmpty())
 		})
 
-		It("Should walk the chain on a nil blob and produce a zero v5.Data", func() {
-			out := MustSucceed(legacy.MigrateData(nil))
-			Expect(out.Version).To(Equal(v5.Version))
-			Expect(out.Nodes).To(BeEmpty())
-			Expect(out.Edges).To(BeEmpty())
-		})
+		It(
+			"Should walk the chain on a nil blob and produce a zero consolev5.Data",
+			func() {
+				out := MustSucceed(console.MigrateData(nil))
+				Expect(out.Version).To(Equal(consolev5.Version))
+				Expect(out.Nodes).To(BeEmpty())
+				Expect(out.Edges).To(BeEmpty())
+			},
+		)
 
 		It("Should error on an unknown declared version", func() {
-			Expect(legacy.MigrateData(jsonMap(`{"version": "99.0.0"}`))).Error().
+			Expect(console.MigrateData(jsonMap(`{"version": "99.0.0"}`))).Error().
 				To(MatchError(ContainSubstring("unknown schematic data version")))
 		})
 	})

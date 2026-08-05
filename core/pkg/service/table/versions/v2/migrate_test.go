@@ -19,7 +19,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -45,22 +45,22 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 }
 
 // seedV1 stores a v1 wire-format table in a fresh gorp DB and returns the DB.
-func seedV1(ctx SpecContext, seed *v1.Table) *gorp.DB {
+func seedV1(ctx SpecContext, seed *v0.Table) *gorp.DB {
 	db := DeferClose(gorp.Wrap(memkv.New()))
-	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v1.Table]{DB: db}))
-	Expect(gorp.NewCreate[uuid.UUID, v1.Table]().Entry(seed).Exec(ctx, db)).
+	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v0.Table]{DB: db}))
+	Expect(gorp.NewCreate[uuid.UUID, v0.Table]().Entry(seed).Exec(ctx, db)).
 		To(Succeed())
 	return db
 }
 
 // migrateSeed runs the v2 migration chain over a seeded v1 table and returns the
 // migrated typed Table.
-func migrateSeed(ctx SpecContext, seed v1.Table) v2.Table {
+func migrateSeed(ctx SpecContext, seed v0.Table) v2.Table {
 	db := seedV1(ctx, &seed)
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Table",
-		Migrations: []migrate.Migration{v1.Migration, v2.Migration},
+		Migrations: []migrate.Migration{v0.Migration, v2.Migration},
 	})).To(Succeed())
 	var got v2.Table
 	Expect(gorp.NewRetrieve[v2.Key, v2.Table]().
@@ -95,7 +95,7 @@ var _ = Describe("MigrateTable", func() {
 		DescribeTable("Should produce the canonical typed Table",
 			func(ctx SpecContext, fixture string) {
 				blob := loadFixture(fixture)
-				out := migrateSeed(ctx, v1.Table{
+				out := migrateSeed(ctx, v0.Table{
 					Key: fixedKey, Name: fixture, Data: blob,
 				})
 				assertMigrated(fixture, out)
@@ -108,7 +108,7 @@ var _ = Describe("MigrateTable", func() {
 			"Should produce the canonical output when called directly",
 			func(ctx SpecContext) {
 				blob := loadFixture("v0_mixed_variants.json")
-				out := migrateSeed(ctx, v1.Table{
+				out := migrateSeed(ctx, v0.Table{
 					Key: fixedKey, Name: "v0_mixed_variants.json", Data: blob,
 				})
 				assertMigrated("v0_mixed_variants.json", out)
@@ -118,7 +118,7 @@ var _ = Describe("MigrateTable", func() {
 
 	Describe("v0 reshape semantics", func() {
 		migrateBody := func(ctx SpecContext, body string) v2.Table {
-			return migrateSeed(ctx, v1.Table{Key: uuid.New(), Data: jsonMap(body)})
+			return migrateSeed(ctx, v0.Table{Key: uuid.New(), Data: jsonMap(body)})
 		}
 
 		It(
@@ -182,7 +182,7 @@ var _ = Describe("MigrateTable", func() {
 			"Should pass through the gorp-entry fields (Key, Name)",
 			func(ctx SpecContext) {
 				key := uuid.New()
-				out := migrateSeed(ctx, v1.Table{
+				out := migrateSeed(ctx, v0.Table{
 					Key: key, Name: "trip-table", Data: jsonMap(`{"version": "0.0.0"}`),
 				})
 				Expect(out.Key).To(Equal(key))
@@ -192,7 +192,7 @@ var _ = Describe("MigrateTable", func() {
 
 		DescribeTable("Should produce empty (not nil) collections for empty inputs",
 			func(ctx SpecContext, data msgpack.EncodedJSON) {
-				out := migrateSeed(ctx, v1.Table{
+				out := migrateSeed(ctx, v0.Table{
 					Key: uuid.New(), Name: "empty", Data: data,
 				})
 				Expect(out.Rows).NotTo(BeNil())
@@ -264,13 +264,13 @@ var _ = Describe("MigrateTable", func() {
 
 	Describe("malformed input", func() {
 		It("Should return an error for an invalid Data shape", func(ctx SpecContext) {
-			db := seedV1(ctx, &v1.Table{
+			db := seedV1(ctx, &v0.Table{
 				Key: uuid.New(), Data: msgpack.EncodedJSON{"layout": "not-an-object"},
 			})
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "Table",
-				Migrations: []migrate.Migration{v1.Migration, v2.Migration},
+				Migrations: []migrate.Migration{v0.Migration, v2.Migration},
 			})).To(MatchError(ContainSubstring("table data")))
 		})
 	})
@@ -280,7 +280,7 @@ var _ = Describe("MigrateTable", func() {
 			"Should lift a v0 wire-format blob into the typed Table on retrieve",
 			func(ctx SpecContext) {
 				key := uuid.New()
-				got := migrateSeed(ctx, v1.Table{
+				got := migrateSeed(ctx, v0.Table{
 					Key: key, Name: "Pressure Readouts", Data: jsonMap(`{
 					"version": "0.0.0",
 					"editable": true,
@@ -311,7 +311,7 @@ var _ = Describe("MigrateTable", func() {
 		It(
 			"Should lift a minimal blob lacking layout / cells fields",
 			func(ctx SpecContext) {
-				got := migrateSeed(ctx, v1.Table{
+				got := migrateSeed(ctx, v0.Table{
 					Key:  uuid.New(),
 					Name: "Empty",
 					Data: jsonMap(`{"version": "0.0.0"}`),

@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
@@ -39,10 +39,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 	default:
 		// Console states embed the structural model inline: ride the storage lift,
 		// which
-		// decodes the body through the legacy chain.
+		// decodes the body through the Console chain.
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
-			t, err = v2.MigrateTable(ctx, v1.Table{Name: env.Name, Data: body})
+			t, err = v2.MigrateTable(ctx, v0.Table{Name: env.Name, Data: body})
 		}
 	}
 	if err != nil {

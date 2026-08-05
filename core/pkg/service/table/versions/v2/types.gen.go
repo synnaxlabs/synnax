@@ -12,13 +12,13 @@
 package v2
 
 import (
-	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
-type Key = v1.Key
+type Key = uuid.UUID
 
 // Cell is a single cell in a table, identified by key and variant.
 type Cell struct {

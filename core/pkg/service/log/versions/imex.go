@@ -14,11 +14,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy/v1"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
-	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 )
 
 // DecodeImExEnvelope materializes env's body as a current-version Log, keyless and
@@ -28,18 +26,14 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 		l   Log
 		err error
 	)
-	switch {
-	case env.Version >= Floor:
+	if env.Version >= Floor {
 		l, err = decodeMigrate(ctx, env)
-	// Console-era log wire formats cap at data version 1; versions between that and
-	// Floor never shipped. The guard lives here because MigrateLog swallows chain
-	// errors for boot-migration resilience.
-	case env.Version > v1.Version:
-		err = errors.Newf("unknown log data version %d", env.Version)
-	default:
+	} else {
+		// Console states embed the body inline: ride the storage lift, which decodes
+		// the body through the Console chain.
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
-			l, err = v3.MigrateLog(ctx, v2.Log{Name: env.Name, Data: body})
+			l, err = v2.MigrateLog(ctx, v0.Log{Name: env.Name, Data: body})
 		}
 	}
 	if err != nil {

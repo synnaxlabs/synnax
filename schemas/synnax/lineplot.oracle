@@ -16,7 +16,7 @@ import "schemas/x/text"
 @go output "core/pkg/service/lineplot"
 
 Key = uuid {
-    @go version 6
+    @go version 5
     @doc value  "is a unique identifier for a line plot, represented as a UUID."
 }
 
@@ -24,7 +24,7 @@ TickType enum {
     linear = "linear"
     time   = "time"
 
-    @go version 6
+    @go version 5
     @doc value  "selects how an axis renders its tick labels."
 }
 
@@ -32,7 +32,7 @@ DownsampleMode enum {
     average  = "average"
     decimate = "decimate"
 
-    @go version 6
+    @go version 5
     @doc value  "selects how a line condenses samples that map to the same pixel."
 }
 
@@ -40,7 +40,7 @@ XAxisKey enum {
     x1 = "x1"
     x2 = "x2"
 
-    @go version 6
+    @go version 5
     @doc value  "names one of the two x-axes. X-axes carry a single channel each."
 }
 
@@ -50,12 +50,12 @@ YAxisKey enum {
     y3 = "y3"
     y4 = "y4"
 
-    @go version 6
+    @go version 5
     @doc value  "names one of the four y-axes. Y-axes carry zero or more channels each."
 }
 
 AxisKey enum extends XAxisKey, YAxisKey {
-    @go version 6
+    @go version 5
     @doc value  "names one of the six fixed plot axes."
 }
 
@@ -67,7 +67,7 @@ Title struct {
         @doc value "is whether the title is shown above the plot."
     }
 
-    @go version 6
+    @go version 5
     @doc value  "is the plot title configuration."
 }
 
@@ -84,7 +84,7 @@ Legend struct {
         @doc value "is the anchor position of the legend within the plot container."
     }
 
-    @go version 6
+    @go version 5
     @doc value  "is the plot legend configuration."
 }
 
@@ -108,7 +108,7 @@ Channels struct {
         @doc value "are the channels rendered on the y4 axis."
     }
 
-    @go version 6
+    @go version 5
     @doc value  """
         binds channel keys to each axis. x1 and x2 are single-channel; y1
         through y4 carry zero or more channels each.
@@ -129,7 +129,7 @@ Ranges struct {
         @doc value "are the range keys plotted against the x2 axis."
     }
 
-    @go version 6
+    @go version 5
     @doc value  "binds range keys to each x-axis."
 }
 
@@ -141,7 +141,7 @@ ManualBounds struct {
         @doc value "is whether the upper bound is set manually rather than computed from data."
     }
 
-    @go version 6
+    @go version 5
     @doc value  """
         controls whether an axis uses a manually-set bound on each side
         independently. When a side is false (the default), the corresponding
@@ -184,7 +184,7 @@ Axis struct {
         """
     }
 
-    @go version 6
+    @go version 5
     @doc value  "is the configuration for a single plot axis."
 }
 
@@ -208,7 +208,7 @@ Axes struct {
         @doc value "is the y4 axis configuration."
     }
 
-    @go version 6
+    @go version 5
     @doc value  "bundles configuration for all six fixed plot axes."
 }
 
@@ -245,7 +245,7 @@ Line struct {
         @doc value "selects how the downsample factor is applied."
     }
 
-    @go version 6
+    @go version 5
     @doc value  "is the per-line styling and downsampling configuration."
 }
 
@@ -275,7 +275,7 @@ Rule struct {
         @doc value "is the value-space position of the rule along its anchored axis."
     }
 
-    @go version 6
+    @go version 5
     @doc value  "is a horizontal or vertical annotation line drawn over the plot."
 }
 
@@ -589,7 +589,7 @@ LinePlot struct {
         @doc value "removes the rule with the given key, if present."
     }
 
-    @go version    6
+    @go version    5
     @doc value     """
         is a time-series visualization component for plotting telemetry data.
         Line plots support multiple channels, real-time streaming, and

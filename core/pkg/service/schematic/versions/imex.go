@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v6"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
@@ -79,7 +79,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		snapshot, _ := env.Body()["snapshot"].(bool)
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
-			sch, err = v7.MigrateSchematic(ctx, v6.Schematic{
+			sch, err = v7.MigrateSchematic(ctx, v0.Schematic{
 				Name: env.Name, Snapshot: snapshot, Data: body,
 			})
 		}

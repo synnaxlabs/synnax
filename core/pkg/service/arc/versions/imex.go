@@ -19,7 +19,7 @@ import (
 	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	"github.com/synnaxlabs/arc/text"
 	typesv0 "github.com/synnaxlabs/arc/types/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/console"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
@@ -165,8 +165,8 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 		// the shipped Console never wrote a later state format.
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
-			var doc legacy.Document
-			if doc, err = legacy.MigrateData(body); err == nil {
+			var doc console.Document
+			if doc, err = console.MigrateData(body); err == nil {
 				a.Mode, a.Graph, a.Text = Mode(doc.Mode), doc.Graph, doc.Text
 			}
 		}
