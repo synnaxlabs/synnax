@@ -57,7 +57,7 @@ func (d consoleDocument) schematic() Schematic {
 
 // DecodeImport materializes the envelope's body as a current-version Schematic.
 // Envelopes stamped at or above Floor decode through the generated migration
-// chain; older ones are Console-era files — camelCase typed exports or console
+// chain; older ones are Console-era files — camelCase typed exports or Console
 // states — and are lifted forward. An envelope newer than Latest is rejected
 // with a path-scoped validation error.
 func DecodeImport(ctx context.Context, env imex.Envelope) (Schematic, error) {
@@ -65,7 +65,7 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Schematic, error) {
 		return decodeMigrate(ctx, env)
 	}
 	// Console-era typed exports ("6.0.0"-stamped or versionless) carry the current
-	// shape with camelCase keys; console states never carry a name.
+	// shape with camelCase keys; Console states never carry a name.
 	if env.BodyNamed() {
 		doc, err := imex.Decode[consoleDocument](ctx, env)
 		if err != nil {

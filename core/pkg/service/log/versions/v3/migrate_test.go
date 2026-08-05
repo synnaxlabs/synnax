@@ -128,7 +128,7 @@ var _ = Describe("MigrateLog", func() {
 	It(
 		"Should drop UI-only fields the console persisted alongside the typed body",
 		func(ctx SpecContext) {
-			// The console used to send `setData = { ...state, key: undefined }`, which
+			// The Console used to send `setData = { ...state, key: undefined }`, which
 			// included its toolbar state and persisted-state version. These must not
 			// appear on the typed Log.
 			old := v2.Log{

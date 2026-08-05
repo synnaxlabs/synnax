@@ -65,7 +65,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // Schematics are project children, so a non-zero opts.Parent must be a project; the
 // schematic is then created within it exactly as a regular create would be. Envelopes
 // older than versions.Latest are Console-era files — camelCase typed exports or
-// console states — and are lifted forward; an envelope newer than versions.Latest is
+// Console states — and are lifted forward; an envelope newer than versions.Latest is
 // rejected with a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,

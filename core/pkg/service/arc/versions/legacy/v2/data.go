@@ -17,9 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
-// Version is the ImEx schema version of arc state at this version. The Console
-// stamped it on the wire as the semver string "2.0.0", which legacy.MigrateData
-// decodes onto this numeric version.
+// Version is the version the Console stamped on this format.
 const Version imex.Version = 2
 
 // Data is the wire shape of a Console arc state at version 2.0.0, structurally

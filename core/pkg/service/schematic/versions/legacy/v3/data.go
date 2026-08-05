@@ -19,9 +19,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
 )
 
-// Version is the ImEx schema version of schematic data at this state. The Console
-// stamped it on the wire as the semver string "3.0.0", which legacy.MigrateData
-// decodes onto this numeric version.
+// Version is the version the Console stamped on this format.
 const Version imex.Version = 3
 
 // Segment is one orthogonal hop on an edge connector path.

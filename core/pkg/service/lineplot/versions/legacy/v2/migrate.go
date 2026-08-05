@@ -15,7 +15,7 @@ import (
 )
 
 // Migrate transforms v1 line plot data into v2 by setting the x-axes' Type to
-// "time" and flipping the y-axes' labelDirection to "y". Mirrors the console's
+// "time" and flipping the y-axes' labelDirection to "y". Mirrors the Console's
 // v1 to v2 stateMigration.
 func Migrate(old v1.Data) Data {
 	return Data{

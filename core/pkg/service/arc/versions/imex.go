@@ -142,14 +142,14 @@ type consoleTyped struct {
 
 // DecodeImport materializes the envelope's body as a current-version Arc. Envelopes
 // stamped at or above Floor decode through the generated migration chain; older
-// ones are Console-era files — camelCase typed exports or console states — and are
+// ones are Console-era files — camelCase typed exports or Console states — and are
 // lifted forward. An envelope newer than Latest is rejected with a path-scoped
 // validation error.
 func DecodeImport(ctx context.Context, env imex.Envelope) (Arc, error) {
 	if env.Version >= Floor {
 		return decodeMigrate(ctx, env)
 	}
-	// Typed exports always carry a top-level name; console states never do.
+	// Typed exports always carry a top-level name; Console states never do.
 	// Console typed exports are versionless with camelCase keys and the
 	// pre-lift v0 graph shape.
 	if env.BodyNamed() {
@@ -167,7 +167,7 @@ func DecodeImport(ctx context.Context, env imex.Envelope) (Arc, error) {
 		}
 		return Arc{Mode: mode, Graph: g, Text: ct.Text}, nil
 	}
-	// "0.0.0".."2.0.0" console states embed the graph inline. Nothing newer
+	// "0.0.0".."2.0.0" Console states embed the graph inline. Nothing newer
 	// exists: the shipped Console never wrote a later state format.
 	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
 	if err != nil {

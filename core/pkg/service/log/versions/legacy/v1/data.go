@@ -16,9 +16,7 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
-// Version is the ImEx schema version of log data at this state. The Console stamped it
-// on the wire as the semver string "1.0.0", which legacy.MigrateData decodes onto this
-// numeric version.
+// Version is the version the Console stamped on this format.
 const Version imex.Version = 1
 
 // TimestampConfig is per-channel timestamp display configuration. v1 was originally

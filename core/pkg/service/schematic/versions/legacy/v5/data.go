@@ -21,9 +21,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
 )
 
-// Version is the ImEx schema version of schematic data at this state. The Console
-// stamped it on the wire as the semver string "5.0.0", which legacy.MigrateData
-// decodes onto this numeric version.
+// Version is the version the Console stamped on this format.
 const Version imex.Version = 5
 
 // Data is the persisted per-schematic state at version 5.0.0. Drops the type literal

@@ -16,9 +16,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
 )
 
-// Version is the ImEx schema version of line plot data at this state. The Console
-// stamped it on the wire as the semver string "1.0.0", which legacy.MigrateData
-// decodes onto this numeric version.
+// Version is the version the Console stamped on this format.
 const Version imex.Version = 1
 
 // StickyUnits is the optional axis-by-axis unit hint for a legend position.

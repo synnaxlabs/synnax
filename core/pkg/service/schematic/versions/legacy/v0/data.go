@@ -9,7 +9,7 @@
 
 // Package v0 holds the frozen wire format for Console schematic state at version 0.0.0.
 // Per-version Data structs in this directory tree are immutable snapshots of what
-// consoles actually persisted at that version. They are the JSON-decode targets for the
+// Consoles actually persisted at that version. They are the JSON-decode targets for the
 // storage migration chain that lifts older blobs forward into the typed
 // schematic.Schematic.
 package v0
@@ -20,12 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
-// Version is the ImEx schema version of schematic data at this state. The Console
-// stamped it on the wire as the semver string "0.0.0", which legacy.MigrateData
-// decodes onto this numeric version.
+// Version is the version the Console stamped on this format.
 const Version imex.Version = 0
 
-// XY is the planar coordinate shape consoles persisted from version 0.0.0 onward.
+// XY is the planar coordinate shape Consoles persisted from version 0.0.0 onward.
 // Identical to spatial.XY at the wire level.
 type XY struct {
 	// X is the horizontal coordinate.

@@ -165,7 +165,7 @@ var _ = Describe("MigrateSchematic", func() {
 	})
 
 	// Each spec uses a v5-shaped blob and asserts a single reshape rule from the v6
-	// console contract. Keep one concern per spec so failures localize.
+	// Console contract. Keep one concern per spec so failures localize.
 	Describe("v5 reshape semantics", func() {
 		migrateV5 := func(ctx SpecContext, body string) v7.Schematic {
 			return migrateSeed(ctx, v6.Schematic{

@@ -9,22 +9,19 @@
 
 // Package v0 holds the frozen wire format for Console table per-table state at version
 // 0.0.0. Per-version Data structs in this directory tree are immutable snapshots of
-// what consoles actually persisted at that version. They are the JSON-decode targets
+// what Consoles actually persisted at that version. They are the JSON-decode targets
 // for the storage migration chain that lifts older blobs forward into the typed
 // table.Table.
 package v0
 
 import "github.com/synnaxlabs/synnax/pkg/service/imex"
 
-// Version is the ImEx schema version of table data at this state. The Console stamped
-// it on the wire as the semver string "0.0.0", which legacy.MigrateData decodes onto
-// this numeric version.
+// Version is the version the Console stamped on this format.
 const Version imex.Version = 0
 
-// Data mirrors the Console persisted state at console/src/table/types/v0.ts. Only the
-// structural fields (layout, cells) are decoded; UI-only fields the console happens to
-// ship in the blob (version, lastSelected, editable, remoteCreated, per-cell selected)
-// are ignored and never materialize on the typed Table.
+// Data is the persisted per-table Console state at version 0.0.0. Only the structural
+// fields (layout, cells) are decoded; UI-only fields the Console ships in the blob are
+// ignored and never materialize on the typed Table.
 type Data struct {
 	// Layout is the row and column geometry.
 	Layout Layout `json:"layout"`

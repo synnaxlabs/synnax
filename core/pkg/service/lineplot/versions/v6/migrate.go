@@ -26,10 +26,10 @@ import (
 // MigrateLinePlot transforms the previous line plot snapshot (v5) into the v6
 // strongly-typed LinePlot. autoMigrateLinePlot handles the trivially-copyable
 // gorp-entry fields (Key, Name); the body fields are sourced from the per-plot blob the
-// console used to persist alongside those gorp fields, after legacy.MigrateData walks
+// Console used to persist alongside those gorp fields, after legacy.MigrateData walks
 // the legacy migration chain up to v4.Data. UI-only fields (viewport, selection, mode,
 // control, toolbar, measure, annotations, the wire-format key, remoteCreated) are
-// dropped; they live on the console slice and never reach the server. v0 is the last
+// dropped; they live on the Console slice and never reach the server. v0 is the last
 // snapshot in which LinePlot.Data is untyped; future migrations transform one typed
 // snapshot into another and never need this blob handling.
 func MigrateLinePlot(ctx context.Context, old v5.LinePlot) (LinePlot, error) {

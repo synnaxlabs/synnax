@@ -196,7 +196,7 @@ func (e Envelope) Body() map[string]any { return e.body }
 
 // BodyNamed reports whether the envelope body carries a top-level `name` field.
 // Every typed export does (Encode enforces it); legacy Console-state files never do,
-// so importers use this to discriminate the two families at console-era versions.
+// so importers use this to discriminate the two families at Console-era versions.
 // Distinct from Envelope.Name, which the import service may have filled from the
 // caller-supplied file name.
 func (e Envelope) BodyNamed() bool {

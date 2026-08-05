@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package v0 holds the frozen wire format for console line plot per-plot state at
+// Package v0 holds the frozen wire format for Console line plot per-plot state at
 // version 0.0.0. Per-version Data structs in this directory tree are immutable
-// snapshots of what consoles actually persisted at that version. They are the
+// snapshots of what Consoles actually persisted at that version. They are the
 // JSON-decode targets for the storage migration chain that lifts older blobs forward
 // into the typed lineplot.LinePlot.
 package v0
@@ -20,12 +20,10 @@ import (
 	color "github.com/synnaxlabs/x/color/versions/v0"
 )
 
-// Version is the ImEx schema version of line plot data at this state. The Console
-// stamped it on the wire as the semver string "0.0.0", which legacy.MigrateData
-// decodes onto this numeric version.
+// Version is the version the Console stamped on this format.
 const Version imex.Version = 0
 
-// XY is the planar coordinate shape consoles persisted from version 0.0.0 onward.
+// XY is the planar coordinate shape Consoles persisted from version 0.0.0 onward.
 // Identical to spatial.XY at the wire level.
 type XY struct {
 	// X is the horizontal coordinate.
@@ -102,7 +100,7 @@ type Axes struct {
 	Y4 Axis `json:"y4"`
 }
 
-// AxesContainer mirrors the console's AxesState wrapper. RenderTrigger and
+// AxesContainer mirrors the Console's AxesState wrapper. RenderTrigger and
 // HasHadChannelSet are UI bookkeeping; only Axes survives into the typed body.
 type AxesContainer struct {
 	// RenderTrigger is UI-only render bookkeeping; dropped on lift.

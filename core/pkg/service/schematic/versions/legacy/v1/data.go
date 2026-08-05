@@ -18,9 +18,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 )
 
-// Version is the ImEx schema version of schematic data at this state. The Console
-// stamped it on the wire as the semver string "1.0.0", which legacy.MigrateData
-// decodes onto this numeric version.
+// Version is the version the Console stamped on this format.
 const Version imex.Version = 1
 
 // LegendUnits is the optional axis-by-axis unit hint for a legend position. May be

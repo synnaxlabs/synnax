@@ -62,7 +62,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // ontology.ID of the newly-created arc. The exported key is discarded and a fresh
 // one is generated so that importing always materializes a new resource. Arcs are
 // not parented on import, so opts.Parent does not apply. Envelopes older than
-// versions.Latest are Console-era files — camelCase typed exports or console states —
+// versions.Latest are Console-era files — camelCase typed exports or Console states —
 // and are lifted forward; an envelope newer than versions.Latest is rejected with a
 // path-scoped validation error.
 func (s *Service) Import(
