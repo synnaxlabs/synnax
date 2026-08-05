@@ -69,7 +69,12 @@ var _ = Describe("Ontology", func() {
 		It("Should return an error when an ID key is not a valid UUID", func() {
 			Expect(project.KeysFromOntologyIDs([]ontology.ID{{
 				Type: ontology.ResourceTypeProject, Key: "not-a-uuid",
-			}})).Error().To(MatchError(ContainSubstring("invalid UUID")))
+			}})).Error().To(MatchError(ContainSubstring("invalid project key")))
+		})
+		It("Should return an error when an ID is not a project", func() {
+			Expect(project.KeysFromOntologyIDs([]ontology.ID{
+				{Type: ontology.ResourceTypeGroup, Key: uuid.NewString()},
+			})).Error().To(MatchError(ContainSubstring("must be a project")))
 		})
 	})
 	Describe("Type", func() {

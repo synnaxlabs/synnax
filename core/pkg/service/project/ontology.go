@@ -41,7 +41,7 @@ func OntologyIDsFromProjects(projects []Project) []ontology.ID {
 
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
+		return KeyFromOntologyID(id)
 	})
 }
 
