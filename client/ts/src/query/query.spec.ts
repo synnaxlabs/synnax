@@ -355,6 +355,48 @@ describe("Answers", () => {
       off();
     });
 
+    it("interns a composed answer while subscribed even when compose allocates", async () => {
+      const table = newTable();
+      const answers = new Queries<Q, number[], string, Rec>({
+        name: "things",
+        table,
+        fetch: async () => {
+          table.set("a", rec("a", 1));
+          return ["a"];
+        },
+        compose: (records) => records.map((r) => r.value),
+        matches: () => true,
+      });
+      const off = answers.onChange(qA, () => {});
+      await answers.retrieve(qA);
+      const first = answers.getCached(qA);
+      expect(answers.getCached(qA)).toBe(first);
+      table.set("a", rec("a", 2));
+      const second = answers.getCached(qA);
+      expect(second).not.toBe(first);
+      expect(second).toEqual([2]);
+      off();
+    });
+
+    it("recomposes on every read once unsubscribed", async () => {
+      const table = newTable();
+      const answers = new Queries<Q, number[], string, Rec>({
+        name: "things",
+        table,
+        fetch: async () => {
+          table.set("a", rec("a", 1));
+          return ["a"];
+        },
+        compose: (records) => records.map((r) => r.value),
+        matches: () => true,
+      });
+      const off = answers.onChange(qA, () => {});
+      await answers.retrieve(qA);
+      off();
+      table.set("a", rec("a", 3));
+      expect(answers.getCached(qA)).toEqual([3]);
+    });
+
     it("resolves an exact-key query straight from the table without an entry", () => {
       const table = newTable();
       table.set("a", rec("a", 9));
