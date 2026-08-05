@@ -18,7 +18,7 @@ based automations served as a good starting point. These implementations allowed
 software savvy teams to perform almost any task, and gave us many months of valuable
 feedback to understand what future automation capabilities should look like.
 
-The earlier versions of Synnax are developer oriented, with the log-term goal of moving
+The earlier versions of Synnax are developer oriented, with the long-term goal of moving
 towards more technician friendly interfaces as our user base grows. Now is the time to
 start serious work towards this effort.
 
@@ -57,7 +57,7 @@ time interval.
 
 - A sensor value changing
 - An actuator being activated
-- A new data structure being create (i.e. range, channel, etc.)
+- A new data structure being created (i.e. range, channel, etc.)
 - Control transfers
 - State changes of tasks, sequences
 - Users pressing buttons on schematics
@@ -74,7 +74,7 @@ triggered by a channel receiving a timer message from a remote location.
 A key characteristic is that there are a fundamentally limited set of easily
 classifiable events.
 
-Actions are more varied. Most are implement by writing values to channels, such as:
+Actions are more varied. Most are implemented by writing values to channels, such as:
 
 - Sending alarm notifications
 - Commanding actuators
@@ -84,13 +84,13 @@ But they can also be:
 
 - Creating new data structures (i.e. range, channel, etc.)
 - Sending messages over arbitrary protocols (Modbus, MQTT, Kafka, etc.)
-- Performing jobs such as removing stale telemetry.
+- Performing jobs such as removing stale telemetry
 
 ### 2.1 Automation execution context & runtimes
 
 The `action -> event` flow does not provide a complete picture for the requirements of
 an automation in the context of Synnax. It's also critical to understand the environment
-an automation is executed in and the the constraints under which it must operate.
+an automation is executed in and the constraints under which it must operate.
 
 #### 2.1.0 General execution models
 
@@ -121,7 +121,7 @@ When building dynamically executed automations, there are four primary execution
 Different automations in Synnax benefit from different execution models.
 
 **Example 1 - Real-Time Control Loops**: A real-time control sequence such as a
-bang-bang vale control loop must execute at a predictable time interval. This,
+bang-bang valve control loop must execute at a predictable time interval. This
 step-based execution model is comparable to our current, Lua based embedded control
 sequences.
 
@@ -153,7 +153,7 @@ benefit from flexible, event oriented languages like Go.
 #### 2.1.3 Concurrency & distribution
 
 Larger scale automations, such as launch control systems or factories, contain dozens or
-more concurrent process across networked devices that need to be coordinated. Tighly
+more concurrent processes across networked devices that need to be coordinated. Tightly
 controlled state machines, master coordination sequences, operator intervention, and
 alarms/aborts all need to work in concert with each other.
 
@@ -161,14 +161,14 @@ When building an automation language for these use cases, it's critical to consi
 following:
 
 1. **Simple Deployment**: Concurrent automations should be deployable across multiple
-   target machines without the need for excessing manual configuration.
+   target machines without the need for excessive manual configuration.
 2. **Clear Process Flows**: The language should make it easy to understand the
    relationships between concurrent automation processes. Forking, controlling, and
-   joining process across machines should be intuitive.
+   joining processes across machines should be intuitive.
 3. **Isolation**: Concurrent processes should be able to operate in independent,
    isolated execution environments, and can be considered self-contained units that do
-   not require sharing of resources that restrict execution to a single machie (memory,
-   file handles, locks, etc.)
+   not require sharing of resources that restrict execution to a single machine (memory,
+   file handles, locks, etc.).
 
 ### 2.2 Multiple interfaces for defining automations
 
@@ -193,16 +193,16 @@ The conclusion here is that **we should** provide independent interfaces for per
 clearly distinct tasks. This doesn't necessarily mean that the implementation underneath
 the hood should not be consolidated.
 
-### 2.3 Separation between Interface, Specification, and runtime
+### 2.3 Separation between interface, specification, and runtime
 
 The next question is how to separate the interface, specification, and runtime of an
 automation.
 
-_Interface_ - How the user defines, monitors, and interacts with an automation.
-_Specification_ - How the automation is stored and retrieved from Synnax. _Runtime_ -
+_Interface_: How the user defines, monitors, and interacts with an automation.
+_Specification_: How the automation is stored and retrieved from Synnax. _Runtime_:
 Where and how the automation is executed.
 
-In this next sections, I'll propose multiple interfaces for defining automations, a
+In the next sections, I'll propose multiple interfaces for defining automations, a
 single specification format for storing them, and multiple runtimes for executing them.
 
 ### 2.4 A single specification & source of truth
@@ -225,9 +225,9 @@ This is beneficial for a number of reasons:
 #### 2.4.0 Text-based specification for version control
 
 Perhaps the most important aspect of a single specification format is the ability to
-version control arc automations in a single, consistent format. Text-based languages are
-the standard for version control, and arc should be no different. All interfaces for
-defining autoamtions should transpile into an underlying text-based representation.
+version control Arc automations in a single, consistent format. Text-based languages are
+the standard for version control, and Arc should be no different. All interfaces for
+defining automations should transpile into an underlying text-based representation.
 
 ### 2.5 Runtimes for executing Arc specifications
 
@@ -272,7 +272,7 @@ fundamental problem is: we have calculations and effects that execute on the ser
 real-time control loops executing on the device driver, and supervisory procedures that
 may execute in multiple locations. Building a single runtime that can execute across all
 of these environments in a consistent manner is a significant challenge. Each operating
-environment requires access to different primitives (channels in go, grpc sockets in
+environment requires access to different primitives (channels in Go, gRPC sockets in
 C++, etc.), so embedding external function calls for multiple languages is a path that
 simply doesn't make sense for such a small development team.
 
@@ -284,8 +284,8 @@ while relying on the embedding process for language and reactivity specific prim
 
 Take, for example, a tightly controlled bang-bang control loop executing in soft-real
 time on our device driver. The runtime would be responsible for the core logic: doing
-comparisons against sensor values and determing actuator output values. The embedding
-runtime (C++) would handle the timing of the the control loop, and would embed external
+comparisons against sensor values and determining actuator output values. The embedding
+runtime (C++) would handle the timing of the control loop, and would embed external
 function calls to perform tasks such as command actuator output values and/or feed back
 sensor values to the runtime.
 

@@ -159,10 +159,10 @@ constants fire and produce writes.
 
 With append semantics, all writes accumulate within a single `scheduler.Next()` call:
 
-1. `on` stage executes. Constants fire: `"on"` -> ss_stage_str, `0` -> ss_sim_stage, `1`
-   -> ss_heater_cmd. Interval fires, condition met, `=> pause` transition.
+1. `on` stage executes. Constants fire: `"on"` -> `ss_stage_str`, `0` -> `ss_sim_stage`,
+   `1` -> `ss_heater_cmd`. Interval fires, condition met, `=> pause` transition.
 2. Convergence loop: `pause` stage now active. Constants reset and fire: `"pause"` ->
-   ss_stage_str, `2` -> ss_sim_stage, `0` -> ss_heater_cmd.
+   `ss_stage_str`, `2` -> `ss_sim_stage`, `0` -> `ss_heater_cmd`.
 3. All writes from both stages accumulate in the write buffer.
 4. On flush, `ss_stage_str` contains `["on", "pause"]` instead of just one value.
 
@@ -176,7 +176,7 @@ flow belongs to the automation author, not the runtime.
 ### 2.3 Go/C++ interval reset divergence
 
 The C++ `Interval` class overrides `reset()` to make the interval fire immediately on
-the next TimerTick after stage re-entry:
+the next `TimerTick` after stage re-entry:
 
 ```cpp
 void reset() override { last_fired = -1 * cfg.interval; }
@@ -189,11 +189,11 @@ a no-op:
 func (n *Node) Reset() {}
 ```
 
-|                      | Go `Interval`                                         | C++ `Interval`                      |
-| -------------------- | ----------------------------------------------------- | ----------------------------------- |
-| Construction         | `lastFired: -period`                                  | `last_fired: -interval`             |
-| `Reset()`            | No-op (retains old `lastFired`)                       | `last_fired = -interval`            |
-| After stage re-entry | Fires only when wall-clock time elapses past `period` | Fires immediately on next TimerTick |
+|                      | Go `Interval`                                         | C++ `Interval`                        |
+| -------------------- | ----------------------------------------------------- | ------------------------------------- |
+| Construction         | `lastFired: -period`                                  | `last_fired: -interval`               |
+| `Reset()`            | No-op (retains old `lastFired`)                       | `last_fired = -interval`              |
+| After stage re-entry | Fires only when wall-clock time elapses past `period` | Fires immediately on next `TimerTick` |
 
 The same Arc program produces different execution traces on Go and C++. Within a
 convergence loop iteration where elapsed time hasn't changed, C++ fires the interval

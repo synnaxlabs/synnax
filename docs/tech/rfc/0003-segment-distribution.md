@@ -28,8 +28,8 @@ context if the caller wants to perform network optimization themselves.
 ## 1 Vocabulary
 
 - **Sample**: An arbitrary byte array recorded at a specific point in time.
-- **Channel**: A collection of samples across a time range. These samples typically
-  come from a single source (sensor, software metric, event, etc.).
+- **Channel**: A collection of samples across a time range. These samples typically come
+  from a single source (sensor, software metric, event, etc.).
 - **Segment**: A partitioned region of a channel's data.
 - **Node**: A machine in the cluster.
 - **Cluster**: A group of nodes that can communicate with each other.
@@ -41,7 +41,7 @@ context if the caller wants to perform network optimization themselves.
   and business intelligence purposes. Data warehouses typically involve long-running
   queries on much larger data sets than typical OLTP systems. Data warehouse queries
   fall into the OLAP category of workloads.
-- **OTN**: Over the Network.
+- **OTN**: over the network.
 
 ## 2 Motivation
 
@@ -49,7 +49,7 @@ Separating storage and compute has become a popular technique for scaling data i
 systems (see
 [The Firebolt Cloud Data Warehouse Whitepaper](https://www.firebolt.io/resources/firebolt-cloud-data-warehouse-whitepaper)).
 
-This decoupling is a double-edged sword. Processing engines and storage layers can de
+This decoupling is a double-edged sword. Processing engines and storage layers can be
 developed and deployed independently, allowing the data warehouse to flexibly scale to
 meet the needs of its users. However, processing engines must now retrieve data from
 storage OTN, which is a costly operation that can cause problems when retrieving large
@@ -92,20 +92,19 @@ architecture that answers these questions.
 ## 3 Design
 
 The proposed distribution layer (DL) architecture exposes cluster storage as a
-monolithic data space that provides _optional_ locality context to caller. A user can
-read and write data from the DL as a black box without any knowledge of the underlying
-cluster topology, but can also ask for additional context to perform optimizations
-within its own layer/domain.
+monolithic data space that provides _optional_ locality context to the caller. A user
+can read and write data from the DL as a black box without any knowledge of the
+underlying cluster topology, but can also ask for additional context to perform
+optimizations within its own layer/domain.
 
 This is a similar approach to CockroachDB's separation between their
 [Distributed SQL](https://github.com/cockroachdb/cockroach/blob/master/docs/RFCS/20160421_distributed_sql.md)
 and key-value layers. When executing a query, the SQL layer can turn a logical plan into
 a physical plan that executes on a single machine, performing unaware reads and writes
-from the distributed kv layer below. It can, however, also construct a physical plan
-that moves aggregation logic to the SQL layers' of _ other_ machines in the cluster.
-This distributed physical plan can perform aggregations on nodes where the data is
-stored, and then return a much smaller result OTN back to the SQL layer of the
-responsible node.
+from the distributed KV layer below. It can, however, also construct a physical plan
+that moves aggregation logic to the SQL layers of _other_ machines in the cluster. This
+distributed physical plan can perform aggregations on nodes where the data is stored,
+and then return a much smaller result OTN back to the SQL layer of the responsible node.
 
 Delta's distribution layer plays a similar role to the key-value layer in CRDB. Its main
 focus, however, will be to serve time-series segments instead of key-value pairs. Layers
@@ -119,7 +118,7 @@ while laying the groundwork for distributed query processing.
 ### 3.0 Principles
 
 - **Computation and Aggregation**: DL contains no computation or aggregation logic. Its
-  focus is completely on serving raw segments reads and writes efficiently.
+  focus is completely on serving raw segment reads and writes efficiently.
 - **Network Awareness**: DL's interface does _not_ require the caller to be aware of
   data locality or underlying network topology. The distribution layer provides optional
   context to the caller if they want to implement optimizations themselves.
@@ -127,11 +126,11 @@ while laying the groundwork for distributed query processing.
   do not have any components within DL.
 - **Domain Oriented**: DL does not expose a single facade as its interface. Instead, it
   composes a set of domain-separated services that rely on common distribution logic.
-- **Generic**: DL only supports rudimentary, low-level queries in a similar fashion to
-  a key-value store. It should not provide any support for specific data types or
+- **Generic**: DL only supports rudimentary, low-level queries in a similar fashion to a
+  key-value store. It should not provide any support for specific data types or
   specialty queries.
 - **Transport Abstraction**: DL is not partial to a particular network transport
-  implementation (GRPC, WS, HTTP, etc.). It's core logic does not interact with any
+  implementation (gRPC, WS, HTTP, etc.). Its core logic does not interact with any
   specific networking APIs.
 
 ### 3.1 Storage engine integration
@@ -168,10 +167,10 @@ This query returns the address of the node with an ID of `1`. The DL uses this t
 determine the location of a channel's lease and its corresponding segment data.
 
 The second piece of functionality is an eventually consistent distributed key-value
-store. The DL uses aspen to propagate two important pieces of metadata across the
+store. The DL uses Aspen to propagate two important pieces of metadata across the
 cluster:
 
-1. Channels in the cluster (name, key, data rate, leaseholder node, etc.)
+1. Channels in the cluster (name, key, data rate, leaseholder node, etc.).
 2. Segments for a channel (i.e. what ranges of a channel's data exist on which node).
 
 By performing lookups on this metadata, the DL can serve segment data for any channel
@@ -202,36 +201,35 @@ typically arrives from a single source. This can be a physical sensor, software 
 metric, event, or any other entity that emits regular, consistent, and time-ordered
 values. Channels have a few important fields:
 
-1. Data Rate - The number of samples per second of data (Hz). This data rate is fixed,
-   and cannot be changed without deleting and recreating a channel. All data written to
-   the channel have the same data rate.
-2. Name - A human-readable name for the channel. This name is not used for internal
-   purposes.
-3. Data Type - An alias for a channel's _density_ i.e. the number of bytes used by a
-   single sample. A Float64 channel would have a density of 8 bytes. This data type is
-   fixed, and cannot be changed without deleting and recreating a channel. All data
-   written to the channel will have the same data type.
-4. Key - A unique identifier for the channel across the entire cluster. This key is
-   automatically assigned and cannot be changed. See [Keys](#Keys) for more information
-   on how this value is selected.
-5. Node ID - The ID of the node that owns the channel. This node is known as the
-   leaseholder, and is the only node that can write _new_ channel data to disk. The
-   leaseholder is typically kept in proximity (physically) to the source generating the
-   channel's data (e.g. a sensor).
+- **Data Rate**: The number of samples per second of data (Hz). This data rate is fixed,
+  and cannot be changed without deleting and recreating a channel. All data written to
+  the channel have the same data rate.
+- **Name**: A human-readable name for the channel. This name is not used for internal
+  purposes.
+- **Data Type**: An alias for a channel's _density_ i.e. the number of bytes used by a
+  single sample. A `float64` channel would have a density of 8 bytes. This data type is
+  fixed, and cannot be changed without deleting and recreating a channel. All data
+  written to the channel will have the same data type.
+- **Key**: A unique identifier for the channel across the entire cluster. This key is
+  automatically assigned and cannot be changed. See [Keys](#Keys) for more information
+  on how this value is selected.
+- **Node ID**: The ID of the node that owns the channel. This node is known as the
+  leaseholder, and is the only node that can write _new_ channel data to disk. The
+  leaseholder is typically kept in proximity (physically) to the source generating the
+  channel's data (e.g. a sensor).
 
 Channel data is partitioned into entities called _segments_. A segment is a reasonably
-sized (roughly one byte to ten megabyte) sub range of a channel's data. When a client
+sized (roughly one byte to ten megabytes) sub range of a channel's data. When a client
 wants to add data to a channel, they submit a set of one or more segments in a write
 request. The size of these segments typically grows with the data rate.
 
-It's important to note the only one client can write to a channel at a time. This is
-accomplished by acquiring a lock within the cesium storage engine. This helps us to
+It's important to note that only one client can write to a channel at a time. This is
+accomplished by acquiring a lock within the Cesium storage engine. This helps us to
 solve a lot of complicated distributed systems problems (we don't need to implement SSI
 and transaction retries, for example).
 
-For more information on channel's and segments, see the
-[Cesium RFC](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/220517-cesium-segment-storage.md)
-.
+For more information on channels and segments, see the
+[Cesium RFC](https://github.com/synnaxlabs/delta/blob/main/docs/rfc/220517-cesium-segment-storage.md).
 
 #### 3.2.0 Keys
 
@@ -260,14 +258,14 @@ provide two pieces of information:
 
 After opening the query, the distribution layer returns a `segment.Iterator` that
 traverses the segments in the range. The caller can seek the iterator to different
-positions in the range using the `SeekFirst`, `SeekLast`, `SeekLT` , `SeekGE`, and
-`Seek` methods. Once in the correct position, the caller can get the next segment using
-the `Next` method, or the previous segment using the `Prev` method.
+positions in the range using the `SeekFirst`, `SeekLast`, `SeekLT`, `SeekGE`, and `Seek`
+methods. Once in the correct position, the caller can get the next segment using the
+`Next` method, or the previous segment using the `Prev` method.
 
 They can also traverse fixed time spans using the `NextSpan` and `PrevSpan` methods;
 these can return a partial segment, multiple segments, or no segments at all. These two
 methods are particularly useful for controlling data flow across the cluster. By
-altering the time span passed, the caller can control the amount of memory, cpu, and
+altering the time span passed, the caller can control the amount of memory, CPU, and
 network bandwidth used.
 
 Internally, the `segment.Iterator` implementation has the following structure:
@@ -314,8 +312,8 @@ and 7. The execution flow is as follows:
 
 1. The emitter translates the method call into a transportable request, and emits the
    value to the broadcaster. The iterator then makes a call to the synchronizer that
-   waits for all nodes (3,5,7) to acknowledge the request execution before returning to
-   the caller. This all occurs synchronously within the `First` method body.
+   waits for all nodes (3, 5, 7) to acknowledge the request execution before returning
+   to the caller. This all occurs synchronously within the `First` method body.
 2. The broadcaster receives the request, and distributes it to the remote sender and
    local iterator.
 3. The local iterator (Node 3) receives the request and executes it on the data store.
@@ -325,7 +323,7 @@ and 7. The execution flow is as follows:
 5. Nodes 5 and 7 receive the request and execute it on their data stores. They respond
    to the gateway with an acknowledgement that the request was executed successfully.
 6. Receivers for nodes 5 and 7 forward the acknowledgements back to the synchronizer.
-7. The synchronizer receives the acknowledgements and returns `true`from the `First`
+7. The synchronizer receives the acknowledgements and returns `true` from the `First`
    method. The caller is now free to make more method calls.
 8. The local iterator (node 3) finishes reading the segment from disk and returns it to
    the client.
@@ -346,8 +344,8 @@ used for flow control.
 Errors are communicated to the caller via iterator validity state during method calls.
 If any seeking or traversal calls return `false`, the iterator has either reached the
 edges of the range or has encountered an error. In either of these cases, the caller is
-expected to make a call to the `Error` or `Close` methods, both of which return error
-most recently accumulated by the iterator.
+expected to make a call to the `Error` or `Close` methods, both of which return the
+error most recently accumulated by the iterator.
 
 All errors are considered fatal i.e. any error encountered, whether on disk or over the
 network will result in the complete shutdown of the iterator. The caller is expected to
@@ -357,7 +355,7 @@ improvements may include automatic retries and transient error handling.
 #### 3.3.4 Closing an iterator
 
 There are two ways of closing an iterator: by cancelling the context provided to
-`iterator.New` or calling the `Close` method. Canceling the context immediately aborts
+`iterator.New` or calling the `Close` method. Cancelling the context immediately aborts
 operations and frees all resources. `Close`, on the other hand, shuts the iterator down
 gracefully. The process is as follows:
 
@@ -366,7 +364,7 @@ gracefully. The process is as follows:
 2. The emitter closes its output channel, which signals to the broadcaster and sender to
    shut down.
 3. Once all nodes return their last segment, they close their network transports.
-4. The Gateway node receivers detect the closures and close their output channels.
+4. The gateway node receivers detect the closures and close their output channels.
 5. These closures are propagated to the filter, which closes its output channel,
    signaling to the caller that the final segment was returned.
 6. `Close` waits for all components to exit before returning any accumulated errors.
@@ -408,8 +406,8 @@ When a client opens a `Writer`, the distribution layer assembles the writer comp
 in a multi-step process similar to the opening of an iterator:
 
 1. The DL validates the channel keys to ensure that they exist in the cluster.
-2. The DL resolves the leaseholder node for each. These nodes are grouped into two broad
-   categories: local and remote.
+2. The DL resolves the leaseholder node for each channel. These nodes are grouped into
+   two broad categories: local and remote.
 3. The DL acquires a **write lock** on each channel. This ensures that no other caller
    can write to the same channel while the writer is open. By acquiring a lock, we can
    avoid complex distributed concurrency issues.
@@ -422,7 +420,7 @@ in a multi-step process similar to the opening of an iterator:
 #### 3.4.1 Execution flow
 
 Writer execution is less complex than iteration. Let's say we're writing data to
-channels `strain-01`, whose data resides on node 3 (the gateway) and `strain-02` , whose
+channels `strain-01`, whose data resides on node 3 (the gateway) and `strain-02`, whose
 data resides on node 5. Let's work through the following scenario:
 
 1. The caller sends a segment for `strain-01` through the `Writer` input channel.
@@ -442,7 +440,7 @@ data resides on node 5. Let's work through the following scenario:
 #### 3.4.2 Closing a writer
 
 A `Writer` can be closed in two ways: by cancelling the context provided to `writer.New`
-or by closing the writers input channel and calling `Close`. Cancelling the context
+or by closing the writer's input channel and calling `Close`. Cancelling the context
 immediately aborts operations and frees all resources. Closing the input channel, on the
 other hand, shuts the writer down gracefully. The code for closing a writer gracefully
 resembles the following:

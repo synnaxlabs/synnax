@@ -6,15 +6,15 @@
 ## 0 Summary
 
 In this RFC I propose a redesign of Cesium's architecture in order to support irregular
-time series data. This is a major internal redesign, but it still aims to maintain a
+time-series data. This is a major internal redesign, but it still aims to maintain a
 similar external API that should result in minimal changes to the user experience.
 
 ## 1 Motivation
 
-Cesium works quite well for irregular time-series data, but as we start to roll out
-Synnax to more users, we're starting to see more and more requests for handling
-irregularly sampled data. In many cases, a lock of support for irregular data is a deal
-breaker for users.
+Cesium works quite well for regular time-series data, but as we start to roll out Synnax
+to more users, we're starting to see more and more requests for handling irregularly
+sampled data. In many cases, a lack of support for irregular data is a deal breaker for
+users.
 
 ## 2 Design
 
@@ -28,11 +28,11 @@ between timestamp values and data stored in a segment.
 Indexes define alignments between timestamps and stored segments. There are three types
 of indexes: the root index, channel based indexes, and rate based indexes. When
 explaining the indexes, it's useful to think about Cesium's data model as a very large
-excel spreadsheet.
+Excel spreadsheet.
 
 #### 2.0.0 Root index
 
-The root index can be though of as the row # in the spreadsheet. It's a channel that
+The root index can be thought of as the row # in the spreadsheet. It's a channel that
 represents the `array index` of a particular value. It's useful to think of it as a
 column of ordered nanosecond timestamps. The root index is used as an intermediary
 translator between other indexes (i.e. channel or rate based indexes) and the actual
@@ -136,7 +136,7 @@ written to before any data channels that use the index.
 Indexed data channels are data channels that rely on an index channel to align
 timestamps with the root index. Validation is performed on indexed data channels to
 ensure that timestamps are properly defined for all values, which means write
-performance is slower that rate based data channels. Indexed data channels must be
+performance is slower than rate based data channels. Indexed data channels must be
 written to after the index channel that they use.
 
 #### 2.1.2 Rate based data channels

@@ -5,7 +5,7 @@
 
 ## 0 Summary
 
-Live telemetry transportation lies at the foundation for any industrial control system.
+Live telemetry transportation lies at the foundation of any industrial control system.
 Until now, Synnax's focus has been solely on distributed telemetry storage and
 retrieval. While it has been used for plotting in real-time scenarios at rates of up to
 1 Hz, dedicated real-time infrastructure is necessary for supporting active control and
@@ -48,11 +48,11 @@ Event channels manage their own, independent index. As opposed to sensor data,
 supervisory and real-time control issues typically have high timestamp cardinality i.e.
 they are very unlikely to share timestamps with any other channel. As a result, it's
 difficult to justify maintaining a completely separate index channel on disk. Instead,
-we modify cesium to store the index for the channel with the channel's data itself.
+we modify Cesium to store the index for the channel with the channel's data itself.
 
 Writes for index channels are buffered in a serialized cache, allowing for multiple
 concurrent writers and minimizing the number of system calls to disk. Event channels
-also have no commit process. Writers are committed to the database immediately.
+also have no commit process. Writes are committed to the database immediately.
 
 #### 2.0.0 Sample ordering
 
@@ -101,8 +101,8 @@ exposing a monolithic telemetry streaming system to the service layer.
 
 ### 2.3 Relay - Storage layer
 
-The storage level relay listens to incoming writes to cesium. The simplest way to
-accomplish this is to have cesium implement the `observe.Observable` interface and
+The storage level relay listens to incoming writes to Cesium. The simplest way to
+accomplish this is to have Cesium implement the `observe.Observable` interface and
 notify arbitrary subscribers of changes via `Notify` and the `OnChange` handlers.
 
 Unfortunately, depending on which handlers are bound, synchronously notifying
@@ -177,19 +177,19 @@ may be executing at several kilohertz for extended periods of time.
 The distribution layer extends the storage layer to relay telemetry from other nodes. It
 leverages similar routing functionality to both the `framer.iterator` and
 `framer.writer` services, using channel keys to resolve leaseholders and open streaming
-connections. It's interface exposes a cluster-wide monolithic relay that allows callers
+connections. Its interface exposes a cluster-wide monolithic relay that allows callers
 in the service and API layers to access live channel data without being aware of the
 cluster topology.
 
 The distribution layer relay has one crucial difference from the two services mentioned
 above: it multiplexes requests for live telemetry across a single stream. Unlike writers
-or iterators, relay reads have no-cross node state to maintain, and all consumers of the
+or iterators, relay reads have no cross-node state to maintain, and all consumers of the
 relay are accessing filtered views of the same data. Instead of opening a socket for
 each reader that needs to consume from the relay, we keep track of the channels each
 reader wants to receive data for. These channels are called demands. When a new reader
 wants to consume frames, it sends the relay a demand request. The gateway relay
 normalizes the demands from each reader, and opens a new socket to a peer relay or the
-gateway's storage layer relay. Responses are then multiplied to each consumer relay,
+gateway's storage layer relay. Responses are then multiplexed to each consumer relay,
 where they are filtered only for the channels that the reader requested.
 
 <br />

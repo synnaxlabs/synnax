@@ -5,7 +5,7 @@
 
 ## 0 Summary
 
-As we move towards the Beta release of Synnax, the core architectural components will
+As we move towards the beta release of Synnax, the core architectural components will
 begin to solidify, and, for the more stable areas of the codebase, we will shift focus
 from building functional to stable and performant software. To improve these qualities,
 we'll need to profile the execution state of the cluster from various perspectives. This
@@ -23,13 +23,12 @@ Synnax's components.
   state of a Synnax cluster. This includes traces, metrics, and logs.
 - **Trace**: A record of the execution of a request through the Synnax cluster.
 - **Metric**: A measurement of a specific aspect of the execution of a request.
-- **Log**: A record of a specific event that occurred during the execution of a
-  request.
+- **Log**: A record of a specific event that occurred during the execution of a request.
 
 ## 2 Motivation
 
-Synnax is in stable Alpha (v0.4.2 as of this writing), and we're beginning to plan the
-road to Beta. This involves shifting our mindset from building a technical
+Synnax is in stable alpha (v0.4.2 as of this writing), and we're beginning to plan the
+road to beta. This involves shifting our mindset from building a technical
 proof-of-concept to creating a stable, performant, and maintainable product. These
 qualities are not emergent.
 
@@ -62,10 +61,10 @@ especially in regard to error handling.
 
 ### 3.1 X instrumentation
 
-Horizontal, or`X`, instrumentation collects and reports data about different layers (and
-partitions of those layers) of the Synnax architecture. Its role is to build a picture
-of how a layer behaves over time. For example, we need to measure the growth of the
-cesium's range pointer cache over time, track the network load on the distribution
+Horizontal, or `X`, instrumentation collects and reports data about different layers
+(and partitions of those layers) of the Synnax architecture. Its role is to build a
+picture of how a layer behaves over time. For example, we need to measure the growth of
+Cesium's range pointer cache over time, track the network load on the distribution
 layer, or track the balance of leased KV operations on different nodes over time.
 
 The tracing side of X instrumentation tracks goroutines and processes that aren't
@@ -108,7 +107,7 @@ execution state for several machines.
 #### 4.0.0 Instrumentation must support clients
 
 Many features exist above the server-side waterline. Our Python and TypeScript
-libraries, Synnax CLI, and User Interfaces play a role in delivering a quality user
+libraries, Synnax CLI, and user interfaces play a role in delivering a quality user
 experience. When designing a distributed instrumentation system, we must keep in mind
 how we tie together the execution state of both the server and client.
 
@@ -130,8 +129,8 @@ comes to debugging issues and improving performance.
 #### 4.1.1 Y metadata - Tracing
 
 Y metadata is bound to a specific request, and should be viewable at the level of an
-individual trace or an aggregated view of all traces. This includes protocols, user
-id's, etc.
+individual trace or an aggregated view of all traces. This includes protocols, user IDs,
+etc.
 
 #### 4.1.2 X metadata
 
@@ -185,7 +184,7 @@ to prevent data corruption
 </tr>
 </table>
 
-#### 4.2.1 Trace, Metric, and report environments
+#### 4.2.1 Trace, metric, and report environments
 
 Unlike logs, traces, metrics, and reports aren't typically bound to a specific level.
 Instead, they should be filtered based on the environment they're collected in.
@@ -225,7 +224,7 @@ detect and debug issues in near-real time.
 
 #### 4.4.0 Privacy and security
 
-Synnax is designed to operate in scenarios are operations critical and closely
+Synnax is designed to operate in scenarios that are operations critical and closely
 controlled by regulations such as ITAR or EAR. We're also holding confidential data and
 personally identifiable information (PII). When collecting telemetry, we **must** ensure
 that no sensitive or controlled data is collected or transmitted to our servers.
@@ -252,7 +251,7 @@ type Instrumentation struct {
 }
 ```
 
-The type's fields are intentionally terse and it's methods are kept unique in order to
+The type's fields are intentionally terse and its methods are kept unique in order to
 avoid potential conflicts when embedding it into a struct.
 
 ### 5.1 Propagation in the X direction - Embedded dependency injection
@@ -279,7 +278,7 @@ cfg.L.Debug("Hello World")
 
 ### 5.2 Zero value operation
 
-Instrumentation operates in the background, and it's footprint should be as small as
+Instrumentation operates in the background, and its footprint should be as small as
 possible. Part of this effort involves allowing for zero-value instrumentation to be
 valid as no-op instrumentation i.e. the following code is valid:
 
@@ -294,12 +293,13 @@ cfg.L.Debug("Hello World")
 
 ### 5.3 Trace propagation in the Y direction - Contexts
 
-Perhaps the most challenging part of designing this system is finding a sustainable away
+Perhaps the most challenging part of designing this system is finding a sustainable way
 to pass instrumentation between services and layers.
 
-The previous version of `alamos` was only focused on instrumenting a layer xly, and, as
-a result, metrics and loggers were dependency injected into a particular service. For
-example, the storage engine has the following section of its config (pseudo-code):
+The previous version of `alamos` was only focused on instrumenting a layer in the X
+direction, and, as a result, metrics and loggers were dependency injected into a
+particular service. For example, the storage engine has the following section of its
+config (pseudo-code):
 
 ```go
 package irrelevant
@@ -341,20 +341,20 @@ to take an instrumentation parameter increases interface footprint dramatically,
 chains the service to a specific instrumentation implementation. Remember, we're trying
 to keep the instrumentation footprint small. The alternative is to use contexts.
 
-Contexts in go are used for two purposes: cancellation and request-scoped data. The
+Contexts in Go are used for two purposes: cancellation and request-scoped data. The
 former is used in virtually every area of the Synnax code base. The latter is
-controversial within the go community. On the one hand, it's useful to implicitly attach
+controversial within the Go community. On the one hand, it's useful to implicitly attach
 dynamic data to a request. On the other hand, implicit code makes it difficult to reason
 about execution. A prime example is passing a database transaction through a context.
 This reduces interface footprint, but also makes it difficult to understand which parts
 of the code base are using the transaction and which are not. As a result, we've
-generally avoided using `context.WithValue` in the Synnax codebase. It's a pattern for
+generally avoided using `context.WithValue` in the Synnax codebase. It's a pattern far
 more difficult to abuse if it's not available.
 
 Tracing poses a particularly powerful use case for context propagation. Tracing is
 required by almost every area of the codebase. The more an implicit pattern is used the
 more explicit it becomes. This reduces the consequences of passing instrumentation
-through a context, as it's usage will remain clear to the reader. We can modify our
+through a context, as its usage will remain clear to the reader. We can modify our
 key-value interface to look like this:
 
 ```go
@@ -390,7 +390,7 @@ func (w *writer) Set(ctx context.Context, key []byte, value []byte) error {
 This pattern allows us to effectively move a trace through the call stack, but it
 creates a separation between X and Y instrumentation. We're now passing Y
 instrumentation down through the call stack, so where should we use X instrumentation?
-The solution is to only propagate traces through the callstack, and rely on the
+The solution is to only propagate traces through the call stack, and rely on the
 instrumentation stored in the service configuration to extend those traces. Our
 implementation now looks like this:
 
@@ -413,8 +413,8 @@ func (w *writer) Set(ctx context.Context, key []byte, value []byte) error {
 ```
 
 This pattern allows us to develop an integrated view of X and Y instrumentation. We can
-bind traces to both request verticals and layer bound-services. The most notable method
-for doing is adding the instrumentation key to the name of the span. So, instead of
+bind traces to both request verticals and layer-bound services. The most notable method
+for doing so is adding the instrumentation key to the name of the span. So, instead of
 `Set` our span would be named `writer.Set`. This allows us to evaluate the performance
 of a specific service over time, giving valuable insight into where our performance
 improvement efforts should be focused.
@@ -440,22 +440,22 @@ eventually need to collect information on latency between nodes. Piggybacking on
 Aspen's gossip system is an ideal way to do this. We can use lightweight, regular
 payloads to accumulate latency information. We can use this latency information to
 throttle the priority of less important services in operations critical scenarios. This
-process could occur in different parts of the code base that are unrelated to aspen. As
+process could occur in different parts of the code base that are unrelated to Aspen. As
 a result, Aspen would expose this metric through its top level interface, such as a
 struct, interface, or observable. The issue here is that we'd need to explicitly define
 and implement infrastructure for exposing metrics.
 
 Alamos would not be out of the picture entirely. It would still be considered a consumer
-of these explicit metrics, and would be responsible for exporting them to uptrace. This
+of these explicit metrics, and would be responsible for exporting them to Uptrace. This
 decision plays well with many of the other architectural choices we've made, such as the
 ontology.
 
 ### 5.5 Distribution
 
 Propagating metrics across services and client/server boundaries is easier than I
-originally assumed. We only need to attach a trace id to the metadata of each OTN
+originally assumed. We only need to attach a trace ID to the metadata of each OTN
 message. At a high level, this involves attaching a `Propagate` and `Depropagate` method
-to the`alamos.Tracer` type, as follows:
+to the `alamos.Tracer` type, as follows:
 
 ```go
 package alamos
@@ -483,7 +483,7 @@ subject of a different document.
 The (slightly) more relevant question for this RFC is whether analytics should
 (eventually) be included in the scope of Alamos. Observability and analytics
 instrumentation share enough similarities that it's worth seriously considering
-integrating them as part of the alamos interface.
+integrating them as part of the Alamos interface.
 
 This is a topic that has few implications on the design of the system, and should be
 addressed in a future RFC.

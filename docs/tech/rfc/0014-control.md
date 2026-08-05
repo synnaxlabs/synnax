@@ -19,13 +19,13 @@ and discuss its design in detail.
 
 ## 1 Vocabulary
 
-- **Sample**: An arbitrary byte array recorded at a specific point in time. Typically
-  an event or reading of a sensor or actuator.
+- **Sample**: An arbitrary byte array recorded at a specific point in time. Typically an
+  event or reading of a sensor or actuator.
 - **Channel**: A logical collection of samples across a time range. Most often emitted
   by a single source.
 - **Virtual**: Not persisted to disk - usually a channel.
 - **Leaseholder**: The node in a Synnax cluster responsible for accepting writes for a
-  specific/channel.
+  specific channel.
 
 ## 2 Motivation
 
@@ -42,9 +42,9 @@ principle of Synnax. By using the same underlying infrastructure, we can not onl
 internal complexity, but we can also simplify the APIs we provide to users.
 
 This is not to say that high-level fixtures that are control or data specific, such as
-auto sequences, cannot be built on top of the core data movement/storage systems. At
-it's core, however, Synnax should remain as a real-time, distributed time-series
-database that can be used effectively in scenarios that don't involve control.
+auto sequences, cannot be built on top of the core data movement/storage systems. At its
+core, however, Synnax should remain as a real-time, distributed time-series database
+that can be used effectively in scenarios that don't involve control.
 
 ## 4 Detailed design
 
@@ -78,9 +78,9 @@ scenario:
    data.
 3. After writer B is finished, it commits its domain, closes, and releases control back
    to writer A.
-4. Writer A adds more data to it's existing domain. Any subsequent writes will result in
+4. Writer A adds more data to its existing domain. Any subsequent writes will result in
    an overlap between writer A's domain and writer B's already committed domain, and
-   cesium will reject any new commits to writer A.
+   Cesium will reject any new commits to writer A.
 
 To clarify the above steps, see the following diagram showing the sequence of events
 resulting in the eventual overlap shown in shaded red:

@@ -24,7 +24,7 @@ network could also register itself as a driver.
 
 #### 0.1.0 Representation inside the Synnax server
 
-A driver persists some of its metadata inside the Synnax Server for access by other
+A driver persists some of its metadata inside the Synnax server for access by other
 parts of the platform, such as the UI. Here are the fields we're going to store inside
 Synnax:
 
@@ -38,7 +38,7 @@ type Driver struct {
 ```
 
 The `Key` field would represent two composite `uint16s` where the first `uint16` is the
-**leaseholder** of the driver i.e. which node the driver writes all of its data to. A
+**leaseholder** of the driver, i.e. which node the driver writes all of its data to. A
 driver can write or read data from channels on any node, but must use this node as its
 gateway for all communications. The second `uint16` is simply an incrementing counter
 identifying a particular driver within the scope of its leaseholder. For example, a
@@ -57,7 +57,7 @@ A driver has three responsibilities:
 #### 0.2.0 Heartbeat
 
 A driver emits a heartbeat over the `sy_driver_heartbeat` channel at a pre-determined
-rate (we're setting this at 1 second to start). The heartbeat is 64-bit number, where
+rate (we're setting this at 1 second to start). The heartbeat is a 64-bit number, where
 the first 32 bits are the key of the driver, and the second 32 bits are the version, a
 number that is incremented every time the driver emits a heartbeat. Naturally, this
 version resets to zero every time the driver restarts.
@@ -120,21 +120,21 @@ memory, and DAQ device resources (we'll touch more on timing later). From a high
 implementing this loop seems quite simple. There are three emergent details that make it
 far more difficult:
 
-1. **Error handling** - Happy path execution is simple, but errors can occur in any of
-   these steps. Some of these errors are critical and should halt pipeline execution,
-   while some are transient and require retries or pipeline restarts. Correctly
-   identifying, communicating, and handling these errors requires careful design.
+- **Error handling**: Happy path execution is simple, but errors can occur in any of
+  these steps. Some of these errors are critical and should halt pipeline execution,
+  while some are transient and require retries or pipeline restarts. Correctly
+  identifying, communicating, and handling these errors requires careful design.
 
-2. **Configuration** - Every pipeline requires detailed configuration information to
-   operate: channel names, physical device ports, calibrations, etc. These
-   configurations are dynamic, and need to be updated mid-driver operation. Invalid
-   configuration parameters are an additional source of errors, and need to be carefully
-   communicated to and resolved by the user.
+- **Configuration**: Every pipeline requires detailed configuration information to
+  operate: channel names, physical device ports, calibrations, etc. These configurations
+  are dynamic, and need to be updated mid-driver operation. Invalid configuration
+  parameters are an additional source of errors, and need to be carefully communicated
+  to and resolved by the user.
 
-3. **Hardware 'Polymorphism'** - We're aiming to support DAQ hardware from a growing
-   number of vendors, and, for the most part, the loop structure remains the same no
-   matter the device. Ideally we'd make it possible to keep the majority of the pipeline
-   code the same, and develop a standard interface for implementing step #1.
+- **Hardware 'polymorphism'**: We're aiming to support DAQ hardware from a growing
+  number of vendors, and, for the most part, the loop structure remains the same no
+  matter the device. Ideally we'd make it possible to keep the majority of the pipeline
+  code the same, and develop a standard interface for implementing step #1.
 
 ### 0.5 Configuration
 
@@ -147,10 +147,10 @@ There are important properties and patterns to examine.
 Adaptive teams are always making changes to their system configuration: adding and
 exchanging sensors, changing calibrations, and swapping DAQ tasks. From a user
 perspective, these changes are quite frequent. During setup batched configuration
-changes can come every few minutes. From a software, perspective, however, these changes
+changes can come every few minutes. From a software perspective, however, these changes
 are _very_ infrequent. If a pipeline runs at 200 Hz and a configuration change comes
 every ten minutes, that's 120,000 pipeline iterations between each application. Even
-using 100 pipeline iterations (0.5s) to fetch and apply configuration changes would be
+using 100 pipeline iterations (0.5 s) to fetch and apply configuration changes would be
 almost negligible to operation.
 
 In consequence, it's worthwhile to make the configuration process more expensive to
@@ -164,7 +164,7 @@ achieve the following:
 Different organizations configure different hardware in different ways. This makes it
 largely impossible to define a fixed schema for configuration parameters; attempting to
 do so would not only bloat the codebase, but result in very tight coupling between the
-driver, core, and frontend.
+Driver, Core, and frontend.
 
 ##### 0.5.0.2 Error variants and emergence
 
@@ -209,12 +209,12 @@ The `Key` field is two composite `uint32s`, where the first `uint32` is the key 
 task's driver, and the second is an incremented counter identifying a driver within its
 task. As with a Driver, a task could be identified as `Node 5 Driver 2 Task 5`.
 
-The`Type` field enables different task implementations to operate within the same
-driver, and serves as the identifier fora driver side abstract factory to select and
+The `Type` field enables different task implementations to operate within the same
+driver, and serves as the identifier for a driver-side abstract factory to select and
 configure the type's task class. The same pattern can be applied for any task specific
 interfaces on the frontend.
 
-Config is a JSON encoded string storing the configuration for that type of task. While
+`Config` is a JSON-encoded string storing the configuration for that type of task. While
 it reduces the amount of server side validation that can be completed on a task, it does
 enable us to expand the number of DAQ vendors and add custom hardware without needing to
 change Synnax Core.
@@ -228,8 +228,6 @@ affect the end user, so we can always move the config to its own struct if neces
 ### Working notes
 
 #### How do we communicate task configuration and runtime errors?
-
-1. Driver is in charge of starting, stopping, and
 
 ## 1 Build system and CI
 
@@ -247,13 +245,11 @@ haters on each side. Our team has the most experience working with Bazel, so tha
 system we decided to go with.
 
 The most relevant consequence of this decision is the challenge in distributing our C++
-library to non-bazel projects. For now, this is a low priority issue, but it may become
+library to non-Bazel projects. For now, this is a low priority issue, but it may become
 more important in the future.
 
 ### 1.1 Windows Driver build action
 
 The GitHub action steps are:
 
-1. Install the bazel-contrib/setup-bazel action.
-
-2.
+1. Install the `bazel-contrib/setup-bazel` action.

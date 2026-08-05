@@ -9,7 +9,7 @@ In this RFC I propose a design for a protocol agnostic transport abstraction tha
 used for both internal and client communications in a Delta cluster. The new package,
 named `freighter`, provides generic unary and streaming interfaces for exchanging
 messages between a client and server. These interfaces can be implemented by a variety
-of languages and protocols (gRPC, Websocket, WebRTC, HTTP).
+of languages and protocols (gRPC, WebSocket, WebRTC, HTTP).
 
 Freighter also defines standards for communicating errors between services, allowing
 exceptions to be communicated in a meaningful manner.
@@ -25,22 +25,22 @@ Unfortunately, the `x/transport` package defines no standards for cross-language
 communication, and focuses its implementation on the gRPC protocol.
 
 As we develop client libraries in Python, Rust, and TypeScript, we need to extend these
-transport standards to support other languages and protocols (such as Websockets for the
+transport standards to support other languages and protocols (such as WebSockets for the
 browser).
 
 These extensions should not only include definitions for how a client and server should
 behave when exchanging messages, but also how some of these messages should be
-structured. This is particularly import for exceptions, as it's critical to communicate
-errors in a meaningful manner (such as displaying help text when a user enters invalid
-data in a form).
+structured. This is particularly important for exceptions, as it's critical to
+communicate errors in a meaningful manner (such as displaying help text when a user
+enters invalid data in a form).
 
 ## 2 Design
 
-At its core, Freighter defines two behavioral interfaces for exchanging messages a
-client and a server. The unary interface defines a simple request-response cycle, while
-the streaming interface enables performant asynchronous communication over long periods
-of time. While I describe them using go idioms, these interfaces can be implemented in
-many languages.
+At its core, Freighter defines two behavioral interfaces for exchanging messages between
+a client and a server. The unary interface defines a simple request-response cycle,
+while the streaming interface enables performant asynchronous communication over long
+periods of time. While I describe them using Go idioms, these interfaces can be
+implemented in many languages.
 
 ### 2.0 Behavioral interface - Unary
 
@@ -70,7 +70,7 @@ The encoding of the payloads is left to the transport implementation.
 
 `error` is an error that occurs while executing the request. This error can be a client
 side validation error, a network failure, or an error returned by the server. Returning
-an error as a value resembles the go pattern for error handling, and some languages
+an error as a value resembles the Go pattern for error handling, and some languages
 typically raise exceptions instead of returning them. Clients and servers may use this
 error for control flow (such as displaying a message to the user), so I'm encouraging
 implementations to return errors as values. This allows the caller to parse the error as
@@ -92,9 +92,9 @@ transport will encode and return to the client.
 ### 2.1 Behavioral interface - Streaming
 
 The streaming interface enables non-blocking bidirectional communication between a
-client and a server. Streaming interface is complex, requiring delicate control flow.
-Unary communication should be preferred in cases where performance and asynchronicity
-are not essential.
+client and a server. The streaming interface is complex, requiring delicate control
+flow. Unary communication should be preferred in cases where performance and
+asynchronicity are not essential.
 
 #### 2.1.0 Client
 
@@ -108,7 +108,7 @@ or fails to assemble the stream networking infrastructure.
 
 The client-side `stream` provides three methods for communication:
 
-`send(requestPayload) error` - Sends a payload to the server. Send is non-blocking, so
+`send(requestPayload) error`: Sends a payload to the server. Send is non-blocking, so
 delivery of the payload is not guaranteed, as the stream may close before all payloads
 have been exchanged. Send returns an error when:
 
@@ -125,8 +125,8 @@ have been exchanged. Send returns an error when:
 3. The transport implementation fails -> Returns the error that caused the transport to
    fail.
 
-`receive() (responsePayload, error)` - Blocks until a payload is received from the
-server or the stream closes. Receive returns an error when:
+`receive() (responsePayload, error)`: Blocks until a payload is received from the server
+or the stream closes. Receive returns an error when:
 
 1. The server closes stream nominally (i.e. returns a nil error from the handler) ->
    Returns an `EOF` error letting the caller know that the server is no longer
@@ -135,11 +135,11 @@ server or the stream closes. Receive returns an error when:
 2. The server closes the stream abnormally (returns a non-nil error) -> Returns the
    error that caused the stream to close.
 
-3. The transport implementation fails -> Returns the error that caused the transport
-4. to fail.
+3. The transport implementation fails -> Returns the error that caused the transport to
+   fail.
 
-`closeSend() error` - Closes the sending direction of the stream, letting the server
-know the client will no issue new payloads. `closeSend` is idempotent, and will only
+`closeSend() error`: Closes the sending direction of the stream, letting the server know
+the client will no longer issue new payloads. `closeSend` is idempotent, and will only
 return an error if the underlying transport implementation fails.
 
 It's important to note that `closeSend` is purely for flow-control, and has no impact on
@@ -155,15 +155,15 @@ A server can bind a handler to the streaming transport using a `bindHandler` fun
 `handler` provides a stream that can communicate with the client using `send` and
 `receive` methods:
 
-`receive() (requestPayload, error)` - Blocks until a payload is received from the
-client. Returns an error when:
+`receive() (requestPayload, error)`: Blocks until a payload is received from the client.
+Returns an error when:
 
 1. The client calls `closeSend` -> Returns an `EOF` error letting the server know it
    should process remaining payloads and then close the stream.
 
 2. The handler returns -> Returns a `StreamClosed` error letting the server know the
    receiving direction of the stream is no longer accepting messages. This case
-   typically represent a bug in the application, and listening for a `StreamClosed`
+   typically represents a bug in the application, and listening for a `StreamClosed`
    error should not be used for control flow.
 
 3. The transport implementation fails -> Returns the error that caused the transport to
@@ -180,7 +180,7 @@ client. Returns an error when:
 2. If the transport implementation fails -> Returns the error that caused the transport
    to fail.
 
-Unlike a client stream, a server stream has no `closeSend` a method. Instead, the caller
+Unlike a client stream, a server stream has no `closeSend` method. Instead, the caller
 can close the stream by returning an error from the handler. If the error is nil, the
 client will receive an `EOF` error. If the error is non-nil, the transport
 implementation encodes the error and returns it to the client.

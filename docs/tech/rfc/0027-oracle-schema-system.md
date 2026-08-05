@@ -2,12 +2,12 @@
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-03-21
-- **Related**: [RFC 0026 - Meta Data Structures](./0026-meta-data.md)
+- **Related**: [RFC 0026 - Meta data structures](./0026-meta-data.md)
 
 ## 0 Summary
 
 Oracle is a schema-first code generation system that addresses the meta-data structure
-problems identified in RFC 0025. It provides a single source of truth for resource
+problems identified in RFC 0026. It provides a single source of truth for resource
 definitions, generating type-safe code across Go, TypeScript, and Python, along with
 query builders, indexes, validation, and migrations.
 
@@ -38,22 +38,22 @@ query builders, indexes, validation, and migrations.
 
 ## 1 Motivation
 
-RFC 0025 identifies several problems with the current meta-data toolchain:
+RFC 0026 identifies several problems with the current meta-data toolchain:
 
-1. **Boilerplate** - Similar code replicated across Go services, TypeScript client,
-   Python client (~4,500-7,500 lines of repeated patterns)
+- **Boilerplate**: Similar code replicated across Go services, TypeScript client, Python
+  client (~4,500-7,500 lines of repeated patterns)
 
-2. **Inconsistent Query Capabilities** - Each service implements its own query patterns
-   with no standardization for filtering, sorting, or pagination
+- **Inconsistent query capabilities**: Each service implements its own query patterns
+  with no standardization for filtering, sorting, or pagination
 
-3. **Client-Side Migrations** - Visualizations stored on server but migrated in Console,
-   causing SDK incompatibility
+- **Client-side migrations**: Visualizations stored on server but migrated in Console,
+  causing SDK incompatibility
 
-4. **Multiple Sources of Truth** - Types defined separately in Go, TypeScript, Python,
-   leading to drift and bugs
+- **Multiple sources of truth**: Types defined separately in Go, TypeScript, Python,
+  leading to drift and bugs
 
-5. **Inefficient Queries** - Gorp uses O(n) full scans for any non-key lookup; no
-   secondary indexes
+- **Inefficient queries**: Gorp uses `O(n)` full scans for any non-key lookup; no
+  secondary indexes
 
 Oracle solves these by making the schema the single source of truth from which all code
 is derived.
@@ -92,7 +92,7 @@ query.New("range").
 Core parses and validates schemas. Plugins handle language-specific code generation.
 This separation allows:
 
-- Adding new target languages without changing core
+- Adding new target languages without changing Core
 - Independent plugin versioning
 - Custom internal plugins for specific needs
 
@@ -100,7 +100,7 @@ This separation allows:
 
 The language separates concerns into **domains**. Each field can have multiple domain
 blocks that define different aspects of behavior (validation, querying, indexing, etc.).
-Plugins are associated with specific domains - they scan for structs/fields that have
+Plugins are associated with specific domains — they scan for structs/fields that have
 their domain and generate code accordingly.
 
 This enables:
@@ -129,7 +129,7 @@ No separate IR types that duplicate the AST structure.
 ### 3.1 Core syntax
 
 The language has minimal reserved keywords. Domain names (like `validate`, `query`,
-`index`) are not reserved - they are identifiers that plugins look for.
+`index`) are not reserved — they are identifiers that plugins look for.
 
 ```oracle
 // schema/ranger.oracle
@@ -238,8 +238,8 @@ Only these are reserved by the language:
 | `enum`   | Define an enumeration type                   |
 | `import` | Import other schema files                    |
 
-Everything else (like `validate`, `query`, `index`, `relation`) are just identifiers
-that plugins look for - they are not reserved by the language.
+Everything else (like `validate`, `query`, `index`, `relation`) are all just identifiers
+that plugins look for — they are not reserved by the language.
 
 ### 3.3 Primitive types
 
@@ -429,8 +429,8 @@ struct Range {
 }
 ```
 
-File at `schema/label.oracle` → namespace `label` File at `schema/schematic.oracle` →
-namespace `schematic`
+File at `schema/label.oracle` → namespace `label`. File at `schema/schematic.oracle` →
+namespace `schematic`.
 
 ### 3.10 Embedded structs
 
@@ -1088,11 +1088,11 @@ struct Range {
 
 This approach has several benefits:
 
-1. **Self-contained** - Each schema defines where its generated code goes
-2. **No separate config file** - One less file to maintain
-3. **Explicit** - Clear exactly where code lands when reading the schema
-4. **Follows existing patterns** - Uses the same domain syntax as other concerns
-5. **Per-struct control** - Different structs can output to different locations
+- **Self-contained**: Each schema defines where its generated code goes
+- **No separate config file**: One less file to maintain
+- **Explicit**: Clear exactly where code lands when reading the schema
+- **Follows existing patterns**: Uses the same domain syntax as other concerns
+- **Per-struct control**: Different structs can output to different locations
 
 Plugins read their domain's `output` expression to determine where to write generated
 files. If a struct doesn't have a domain for a particular plugin, that plugin skips
@@ -1249,7 +1249,7 @@ enum_value
 5. Implement analyzer (import resolution, reference resolution)
 6. Write tests with sample schemas
 
-**Deliverable:** Can parse `.oracle` files and report errors
+**Deliverable**: Can parse `.oracle` files and report errors
 
 ### Phase 2: Go plugins
 
@@ -1259,11 +1259,11 @@ Each Go plugin is implemented independently with clear separation of concerns:
 
 1. Implement struct type generation
 2. Handle `go` domain for output path
-3. Handle `id` domain for GorpKey() method
+3. Handle `id` domain for the `GorpKey()` method
 4. Generate proper import statements
 5. Generate JSON/msgpack struct tags
 
-**Deliverable:** `types.gen.go` with struct definitions
+**Deliverable**: `types.gen.go` with struct definitions
 
 #### 2.2: go/validate plugin
 
@@ -1272,7 +1272,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 3. Generate `Validate() error` method on structs
 4. Requires: `go/types`
 
-**Deliverable:** Validation methods in `types.gen.go`
+**Deliverable**: Validation methods in `types.gen.go`
 
 #### 2.3: go/query plugin
 
@@ -1282,7 +1282,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 4. Generate `And`/`Or` composition types
 5. Requires: `go/types`
 
-**Deliverable:** `query.gen.go` with type-safe query builders
+**Deliverable**: `query.gen.go` with type-safe query builders
 
 #### 2.4: go/index plugin
 
@@ -1292,7 +1292,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 4. Generate `ConfigureIndexes()` function
 5. Requires: `go/types`
 
-**Deliverable:** `index.gen.go` with Gorp index configuration
+**Deliverable**: `index.gen.go` with Gorp index configuration
 
 ### Phase 3: TypeScript plugins
 
@@ -1302,14 +1302,14 @@ Each Go plugin is implemented independently with clear separation of concerns:
 2. Handle `ts` domain for output path
 3. Generate proper naming conventions (camelCase)
 
-**Deliverable:** `types.gen.ts`
+**Deliverable**: `types.gen.ts`
 
 #### 3.2: zod plugin (existing)
 
 1. Already implemented
 2. Generates Zod validation schemas
 
-**Deliverable:** `schema.gen.ts`
+**Deliverable**: `schema.gen.ts`
 
 #### 3.3: ts/query plugin
 
@@ -1317,7 +1317,7 @@ Each Go plugin is implemented independently with clear separation of concerns:
 2. Generate filter interfaces and builder classes
 3. Requires: `ts/types`
 
-**Deliverable:** `query.gen.ts`
+**Deliverable**: `query.gen.ts`
 
 ### Phase 4: Python plugins
 
@@ -1326,21 +1326,21 @@ Each Go plugin is implemented independently with clear separation of concerns:
 1. Implement Python type generation
 2. Handle `python` domain for output path
 
-**Deliverable:** `types.gen.py`
+**Deliverable**: `types.gen.py`
 
 #### 4.2: py/pydantic plugin
 
 1. Implement Pydantic model generation
 2. Handle `validate` domain for Field constraints
 
-**Deliverable:** Pydantic models
+**Deliverable**: Pydantic models
 
 #### 4.3: py/query plugin
 
 1. Implement Python query builder generation
 2. Requires: `py/types`
 
-**Deliverable:** `query.gen.py`
+**Deliverable**: `query.gen.py`
 
 ### Phase 5: Integration
 
@@ -1350,9 +1350,9 @@ Each Go plugin is implemented independently with clear separation of concerns:
 4. Update Gorp to support index manager
 5. Deprecate old code paths
 
-**Deliverable:** Full adoption across codebase
+**Deliverable**: Full adoption across codebase
 
-### Phase 6: Migrations (Future)
+### Phase 6: Migrations (future)
 
 1. Design migration schema syntax
 2. Implement migration diffing
@@ -1378,8 +1378,8 @@ Page(cursor *RangeCursor, limit int)
 
 Should migrations be:
 
-1. **Declarative** - Version history in schema, migrations derived from diffs
-2. **Imperative** - Explicit migration functions
+- **Declarative**: Version history in schema, migrations derived from diffs
+- **Imperative**: Explicit migration functions
 
 ### 9.2 Nested type queries
 
@@ -1414,7 +1414,7 @@ struct Range {
 
 ## 10 References
 
-- [RFC 0026 - Meta Data Structures](./0026-meta-data.md)
+- [RFC 0026 - Meta data structures](./0026-meta-data.md)
 - [Prisma Schema Language](https://www.prisma.io/docs/orm/prisma-schema)
 - [ANTLR 4](https://www.antlr.org/)
 - [Arc Grammar (internal)](../../arc/go/parser/)

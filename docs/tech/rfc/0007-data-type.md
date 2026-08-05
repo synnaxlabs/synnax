@@ -13,29 +13,29 @@ We currently allow callers to write arbitrary byte slices to disk using only a d
 (i.e. the number of bytes per sample). This provides flexibility for users to define
 their own data types, and gives just enough context to perform range lookups
 efficiently, but a density doesn't give any information on what the bytes in a sample
-represent. An 8 byte sample may be a `float64`, `uint64`, timestamp, or something else
+represent. An 8-byte sample may be a `float64`, `uint64`, timestamp, or something else
 entirely. This poses a challenge when writing client libraries that aim to provide
-cleanly formatted data to users. To deliver a numpy array to a caller, we need more
+cleanly formatted data to users. To deliver a NumPy array to a caller, we need more
 information on the data type.
 
 ## 2 Design
 
 There are four aspects we need to consider when implementing data types:
 
-1. Flexibility -
+1. Flexibility:
    - How easily can we add new data types?
    - Can users define their own data types?
-2. Information Sufficiency -
+2. Information Sufficiency:
    - How much information do we need to provide clients, agents, and internal services
      with so that they can encode, decode, and operate on data?
    - How often do we need to send information on a data type?
    - Should we store the data type with each segment? With each channel?
    - How do we propagate this information across the cluster?
-3. Validation -
+3. Validation:
    - How do we ensure that data written is valid?
    - Where do we validate the data? Client side? Server side? If server side, where on
      the server?
-4. Complexity -
+4. Complexity:
    - How much complexity should we sacrifice in service of enabling points 1-3?
 
 This design does not attempt to answer these questions in one fell swoop. Achieving a
@@ -43,16 +43,16 @@ sustainable type system will require continuous iteration over extended periods 
 Instead, I focus on defining a starting point that places as few restrictions on
 extension as possible.
 
-### Potential solutions
+### 2.0 Potential solutions
 
 When assessing potential solutions, I'm thinking about the distinction between a
 self-defining type vs a keyed type. A self-defining type directly provides the caller
 with semantic information on how to parse the type. This is akin to saying, "this is a
 `float64`, it has eight bytes of data, and meets the IEEE 754 standard." On the other
-hand, a keyed type simply provides a unique identifier for the type, and leaves it to the
-consumer to provide a 'registry' of parsers for a particular key.
+hand, a keyed type simply provides a unique identifier for the type, and leaves it to
+the consumer to provide a 'registry' of parsers for a particular key.
 
-There are obvious advantages and disadvantages to each approach. A self-defining is
+There are obvious advantages and disadvantages to each approach. A self-defining type is
 easier to understand, and provides a more 'natural' way to parse the data. On the other
 hand, it adds storage and information complexity. What are the different fields we need
 to store for a particular type? Can we use the same structure for a `float64` as for a

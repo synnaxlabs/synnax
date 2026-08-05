@@ -28,8 +28,8 @@ should default to for existing data.
   migrations at startup via `OpenTable`. Replaces the earlier `EntryManager` concept.
 - **Migration**: A versioned transform that converts entries from one schema version to
   the next during server startup.
-- **Auto-migrate**: Oracle-generated helper function that copies all 1:1 fields from
-  the old type to the new type. Never edited by the developer. The developer calls this
+- **Auto-migrate**: Oracle-generated helper function that copies all 1:1 fields from the
+  old type to the new type. Never edited by the developer. The developer calls this
   helper explicitly from within their transform function.
 - **Transform**: Oracle-generated template called for each entry during migration. The
   developer calls the auto-migrate helper and sets default values for new fields.
@@ -113,7 +113,7 @@ magic header: old msgpack data is decoded via the fallback, new writes go out as
 Frozen binary codecs are available for post-transition steps that need to decode a
 specific historical format.
 
-### 3.3 Migrations are per-entry transforms (With escape Hatch)
+### 3.3 Migrations are per-entry transforms (with escape hatch)
 
 The primary migration model is a function on a single entry: decode one, transform it,
 write it back. This covers the vast majority of cases (field additions, removals, type
@@ -128,7 +128,7 @@ auto-migrate helper functions (field copying), migration registration. The devel
 writes only the transform function, which calls the generated auto-migrate helper and
 sets default values for new fields.
 
-### 3.5 Safety comes from Tests, not manual review
+### 3.5 Safety comes from tests, not manual review
 
 The auto-migrate helper is generated code. Oracle generates golden tests alongside each
 migration: seed known old data, run the migration, assert the output matches expected
@@ -180,7 +180,7 @@ Gorp's infrastructure.
 
 ### 4.1 Codec architecture
 
-#### 4.1.0 encoding.Codec is the interface
+#### 4.1.0 `encoding.Codec` is the interface
 
 The platform's universal serialization interface is `encoding.Codec` in `x/go/encoding`.
 No separate Gorp-specific codec abstraction.
@@ -233,7 +233,7 @@ generates `v1.SchematicCodec` that asserts `value.(v1.Schematic)`, separate from
 current `SchematicCodec` that asserts `value.(Schematic)`.
 
 The codec transition (msgpack to binary) does not need frozen types because it uses the
-current type for both input and output. MsgPack decodes by struct tags (name-based).
+current type for both input and output. msgpack decodes by struct tags (name-based).
 Binary encodes by field position. Both work with the current type.
 
 #### 4.1.4 Binary encoding format
@@ -969,7 +969,7 @@ to populate `Author.Name`, but the signature doesn't provide database access. Op
 accept incomplete data and backfill later, pass additional context via
 `context.Context`, or use the raw transaction escape hatch.
 
-### 5.6 Cross-type structural migration (Ranger Groups)
+### 5.6 Cross-type structural migration (ranger groups)
 
 **Context**: The existing `migrateRangeGroups` migration restructures ontology
 relationships. It reads groups, queries children, creates new parent ranges, and rewires
@@ -987,7 +987,7 @@ gorp.NewMigration("range_groups_1", func(ctx context.Context, tx gorp.Tx, ins al
 })
 ```
 
-### 5.7 Nested type change (Add field to graph.Node)
+### 5.7 Nested type change (add field to `graph.Node`)
 
 **Context**: Add a `label` field to `graph.Node`, which is serialized inside `Arc`.
 
@@ -1003,7 +1003,7 @@ else is generated. The parent auto-migrate calls both `graphv1.AutoMigrateV1ToV2
 `graphv1.PostMigrateV1ToV2` for each node. See Section 4.6.1 for the full generated
 code.
 
-### 5.8 Shared nested type change (ir.Edge used by multiple Entries)
+### 5.8 Shared nested type change (`ir.Edge` used by multiple entries)
 
 **Context**: `ir.Edge` is embedded in both `Arc` and `Schematic`. Adding a `weight`
 field to `ir.Edge` triggers migrations on both parent types.
@@ -1071,7 +1071,7 @@ execute within the parent's migration runner.
 
 ## 7 Scope and boundaries
 
-### 7.0 Non-oracle types
+### 7.0 Non-Oracle types
 
 Non-Oracle Gorp-stored types (Cesium internals, Aspen KV metadata, ontology resources)
 retain their existing migration mechanisms. This RFC covers only Oracle-managed types.
@@ -1180,7 +1180,7 @@ Build migration test helpers. Can start anytime after Phase 1.
 | 8   | ORC fallback replaces CodecTransition            | Magic header dispatch handles mixed-format data without explicit re-encoding. |
 | 9   | Key normalization as built-in migration          | Runs first via dependency declaration. Cheap no-op on subsequent startups.    |
 | 10  | Retry on failure, nothing more                   | Server refuses to start. Fix and restart.                                     |
-| 11  | oracle migrate runs sync internally              | One command. Correct ordering guaranteed.                                     |
+| 11  | `oracle migrate` runs sync internally            | One command. Correct ordering guaranteed.                                     |
 | 12  | Implicit cross-type ordering via service startup | Service dependency order handles it.                                          |
 | 13  | Single transaction, no batching                  | Metadata volumes are small. Simple and correct.                               |
 | 14  | Migrations sub-package, self-contained           | Never imports parent. Each version has own codec.                             |

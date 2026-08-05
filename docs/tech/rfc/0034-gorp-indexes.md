@@ -115,7 +115,7 @@ current workload requires them:
 
 The `lookupStorage` interface accepts further specializations at any point.
 
-#### 2.1.3 BytesLookup: The byte-keyed variant
+#### 2.1.3 `BytesLookup`: the byte-keyed variant
 
 Some tables (notably ontology relationships) store their primary key as a `[]byte`
 because the key is a composite encoded inline. Slices are not `comparable` in Go, so
@@ -140,7 +140,7 @@ Internally, `BytesLookup` keys its reverse map and per-tx delta on `string([]byt
 which is a no-allocation conversion in modern Go. Use `Lookup` whenever the table key is
 strictly comparable; reach for `BytesLookup` only when the key is genuinely `[]byte`.
 
-#### 2.1.4 Why not composite Indexes?
+#### 2.1.4 Why not composite indexes?
 
 Composite indexes (indexing on multiple fields simultaneously) add significant
 complexity: you need to define field ordering, handle partial prefix queries, and the
@@ -148,16 +148,16 @@ number of possible composites grows combinatorially. For our access patterns, ch
 sorted index with a post-filter on the remaining fields is sufficient. We can revisit
 composite indexes if profiling shows a real need.
 
-### 2.2 Two layers: Gorp primitives and oracle-generated wrappers
+### 2.2 Two layers: Gorp primitives and Oracle-generated wrappers
 
 The design has two layers. Gorp provides the index primitives (backing structures,
 registration, maintenance, the per-tx delta overlay). Oracle generates the ergonomic
 call-site code (a per-service `indexes` struct, `MatchX` / `MatchXs` filter
 constructors, sorted-index `Order` helpers, and the registration glue). You can use
-Gorp's primitives directly for hand-written indexes, but the intended path is oracle
+Gorp's primitives directly for hand-written indexes, but the intended path is Oracle
 generation.
 
-#### 2.2.0 Gorp layer: Index primitives
+#### 2.2.0 Gorp layer: index primitives
 
 Gorp exposes a sealed `Index[K, E]` interface plus the three concrete generic types that
 satisfy it (`Lookup`, `Sorted`, `BytesLookup`). The interface methods are unexported, so
@@ -226,16 +226,16 @@ func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E]
 `Sorted` adds `Ordered(dir Direction) SortedQuery[K, E, V]` and the `SortedQuery.After`
 cursor for use with `Retrieve.OrderBy`. See §2.5.3.
 
-The primitives are fully usable without oracle. Hand-written code can call
+The primitives are fully usable without Oracle. Hand-written code can call
 `idx.Filter(values...)` directly, or use `idx.Get(values...)` for raw key lookups
 against committed state. The sealed `Index` interface and the unexported observer
 contract mean only Gorp can drive a backing structure, but the public constructors and
 query methods are stable.
 
-#### 2.2.1 Oracle layer: Generated code
+#### 2.2.1 Oracle layer: generated code
 
 Oracle reads the `.oracle` schema files, which define struct fields, their types, and
-which fields are indexed via `@index lookup` or `@index sorted`. From this, oracle
+which fields are indexed via `@index lookup` or `@index sorted`. From this, Oracle
 generates four pieces per `@retrieve`-annotated struct in `retrieve.gen.go`:
 
 1. A package-private `indexes` struct that bundles the per-Service index instances.
@@ -298,7 +298,7 @@ each service package are one-line wrappers around `gorp.MatchBound` / `AndBound`
 `OrBound` / `NotBound`, which means the closure plumbing is written once in the Gorp
 layer rather than re-emitted per service.
 
-For sorted indexes, oracle additionally generates:
+For sorted indexes, Oracle additionally generates:
 
 ```go
 type Order func(r Retrieve) gorp.OrderQuery[Key, Channel]
@@ -392,7 +392,7 @@ call site; `MatchNames` happens to be index-backed because `name` carries
 `@index lookup` in the schema, while a `@filter`-only field generates the same shape but
 routes through a `gorp.Match` closure scan.
 
-#### 2.2.4 Self-contained filters: Deferred resolution against the open Tx
+#### 2.2.4 Self-contained filters: deferred resolution against the open `Tx`
 
 Indexed filters must resolve against the open tx, because the answer depends on both
 committed state and the per-tx delta (§2.4.3). Rather than hand the tx down into every
@@ -433,11 +433,11 @@ Adding or removing an `@index` annotation changes performance but never correctn
 resolver always returns the same effective key set; the slow path (full table scan with
 field comparison) is what callers fall back to when no index is registered.
 
-#### 2.2.5 Why this Design?
+#### 2.2.5 Why this design?
 
 1. **Oracle does the hard work.** The Go type system makes it awkward to have a single
    value that is both callable and interface-satisfying with access to internal state.
-   Instead of fighting the type system, oracle generates exactly the right concrete code
+   Instead of fighting the type system, Oracle generates exactly the right concrete code
    for each indexed field at compile time.
 
 2. **Compile-time type safety.** The value type is checked at every call site. No string
@@ -457,9 +457,9 @@ field comparison) is what callers fall back to when no index is registered.
 
 6. **Clean separation of concerns.** Gorp provides primitives, including the per-tx
    overlay that handles read-your-own-writes. Oracle generates the ergonomic call-site
-   shape. Hand-written code can use the primitives directly when oracle isn't available.
+   shape. Hand-written code can use the primitives directly when Oracle isn't available.
 
-#### 2.2.6 Why register at open Time?
+#### 2.2.6 Why register at open time?
 
 Registering indexes at open time (rather than lazily on first query) gives us:
 
@@ -516,7 +516,7 @@ Maintenance happens at two points:
    paths converge on the same committed-index update; the flush is a performance
    optimization that avoids re-decoding the entry.
 
-#### 2.4.0 Two hook points: Writer staging and the KV observer
+#### 2.4.0 Two hook points: `Writer` staging and the KV observer
 
 **Writer staging.** Table-bound queries (`Table.NewCreate` / `Table.NewUpdate` /
 `Table.NewDelete`) build a `Writer` via `wrapTableWriter` that carries the table's index
@@ -587,7 +587,7 @@ Across cluster nodes, the index reflects whatever Aspen has replicated so far. T
 the same consistency model as the primary data itself, so indexes do not introduce new
 inconsistency windows.
 
-#### 2.4.3 Transaction-local overlay (Read-Your-Own-Writes)
+#### 2.4.3 Transaction-local overlay (read-your-own-writes)
 
 Earlier drafts of this RFC deferred transaction-local overlays to a future revision. The
 implementation ships with the overlay because the calling code needs
@@ -714,7 +714,7 @@ memberships are probed during dedup.
 
 #### 2.5.3 Sorted index queries
 
-For ordered iteration and cursor-based pagination, oracle generates per-field `OrderByX`
+For ordered iteration and cursor-based pagination, Oracle generates per-field `OrderByX`
 constructors and a per-service `OrderBy` method on `Retrieve`:
 
 ```go
@@ -798,13 +798,13 @@ for index data.
 
 ## 3 What this RFC does not cover
 
-- **Detailed oracle generation logic.** The `@index lookup` / `@index sorted`
+- **Detailed Oracle generation logic.** The `@index lookup` / `@index sorted`
   annotations and the generated shape are described above; the specifics of the
   resolver, the import manager, and the template engine live in
   `/oracle/plugin/go/query/`.
 - **Composite indexes.** Deferred until measured need. The current API does not preclude
   them: a `Lookup[K, E, V]` where `V` is a struct value already works for fixed
-  composites, but oracle does not yet generate the extract function.
+  composites, but Oracle does not yet generate the extract function.
 - **Async index population.** Deferred until startup time becomes a measured problem.
 - **Sorted-index ordered iteration with the per-tx delta overlay.** The equality
   `Filter` path on `Sorted` merges the overlay; ordered cursor iteration via `OrderBy`
@@ -834,7 +834,7 @@ The MVP has shipped on `sy-4056-gorp-indexes`. The implementation lives in `x/go
   dispatch through `resolveFilter`, lazy membership, `OrderBy` / `OrderQuery` /
   `SortedQuery.After`, composition via `And` / `Or` / `Not` with `intersectKeys` /
   `unionKeys`, single-filter fast path on `Retrieve.Where`.
-- **Phase 3 (oracle generation):** `@index lookup` and `@index sorted` schema
+- **Phase 3 (Oracle generation):** `@index lookup` and `@index sorted` schema
   annotations, per-Service `indexes` struct, `MatchX` / `MatchXs` filter constructors
   (index-routed when the field also has `@index`), per-service `Filter` alias over
   `gorp.BoundFilter`, sorted-index `Order` closures with `OrderByX` constructors.
@@ -854,7 +854,7 @@ Beyond the original RFC scope, the implementation also includes:
 
 ## 5 Resolved decisions
 
-1. **Two-layer design: Gorp primitives + oracle generation.** Gorp provides sealed
+1. **Two-layer design: Gorp primitives + Oracle generation.** Gorp provides sealed
    generic structs (`Lookup[K, E, V]`, `Sorted[K, E, V]`, `BytesLookup[E, V]`) plus the
    `Index[K, E]` interface. Oracle generates the per-Service `indexes` struct, the
    `MatchX` / `MatchXs` filter constructors, and the sorted-index `OrderByX` closures.

@@ -18,7 +18,7 @@ Our current development workflow is simple. For any change, an engineer:
 2. Develops the feature, bug fix, or refactor.
 3. Pull requests the branch back into `main` for review and merge, bumping any relevant
    package versions.
-4. Receives feedback ad makes improvements until the pull request is approved.
+4. Receives feedback and makes improvements until the pull request is approved.
 5. Merges the branch into `main`, where CI automatically creates the relevant software
    releases.
 
@@ -63,9 +63,9 @@ branch or a critical bug fix branch.
 
 #### 2.0.1 RC
 
-The `rc` branch holds the current release candidate. Instead of naming this branch `rc`,
-I've chosen `rc` to indicate that the changes merged into this branch should be of
-release quality.
+The `rc` branch holds the current release candidate. Instead of naming this branch
+`develop`, I've chosen `rc` to indicate that the changes merged into this branch should
+be of release quality.
 
 When a new release is feature-ready, a pull request is opened from `rc` into `main`. At
 this point, new features are no longer merged into the `rc` branch, and the candidate
@@ -74,7 +74,7 @@ undergoes QA.
 #### 2.0.2 Feature branches
 
 Feature branches are checked out from and pull requested back into the `rc` branch.
-These branches maintain the same naming convention as the previous workflow i.e. they
+These branches maintain the same naming convention as the previous workflow, i.e. they
 are named according to the Linear issue they correspond to.
 
 ### 2.1 Fix branches
@@ -107,7 +107,7 @@ Console candidate builds are tagged and released with the tags `console-vX.Y.Z-r
 Additional installation instructions are in the user facing documentation for easy
 installation of candidate builds. Candidate builds have auto-update functionality
 configured to receive new versions from the candidate builds. This is a good way to
-easily get new versions and verify that the auto update functionality is working without
+easily get new versions and verify that the auto-update functionality is working without
 needing to wait until production.
 
 ## 4 Versioning
@@ -123,7 +123,7 @@ confusing for our users and our development team, as it's difficult to tell whic
 versions of which services are compatible with each other.
 
 From now on, all public facing packages will maintain the same **minor** version number.
-Internal packages are free to increment versions numbers as they see fit.
+Internal packages are free to increment version numbers as they see fit.
 
 ### 4.1 After 1.0.0
 
@@ -135,7 +135,7 @@ A new Synnax release is published every two weeks, and is coordinated via Linear
 cycles. Both weeks of a cycle will be dedicated to feature development and low priority
 bug fixes. On the first day of the subsequent cycle, QA begins on the release candidate,
 and new features will no longer be merged. We'll test the candidate for a maximum of
-three days, we'll release on the fourth day of the cycle.
+three days, and we'll release on the fourth day of the cycle.
 
 ## 6 QA process
 
@@ -154,12 +154,12 @@ To remedy this, we'll only run CI/CD actions on pull requests, and run CD action
 merges to `rc` and `main`. We'll open pull requests for release candidates at the time
 of checkout, and run CI actions on all pushes to the branch.
 
-Sometimes it is necessary to debug CI/CD workflows themselves. This is difficult do to
+Sometimes it is necessary to debug CI/CD workflows themselves. This is difficult to do
 when we're not running CI actions on every push. To address this, we'll make it possible
 to manually dispatch relevant workflows on any branch.
 
 ### 7.0 Removal of Driver build workflow
 
-The driver build workflow currently executes the same process as run in the server build
-workflow. I propose we remove the driver build workflow, and instead rely only on the
-server build workflow to build and release the driver.
+The Driver build workflow currently executes the same process as run in the server build
+workflow. I propose we remove the Driver build workflow, and instead rely only on the
+server build workflow to build and release the Driver.

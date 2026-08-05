@@ -9,7 +9,7 @@ In this RFC I propose an architecture for a gossip based network that can meet D
 distributed storage and cluster membership requirements. Gossip based dissemination is
 an efficient method for sharing cluster wide state in an eventually consistent fashion.
 Delta requires a relatively small distributed store that should ideally be available
-even on loss of connection to the rest of the cluster. A Gossip based network lays the
+even on loss of connection to the rest of the cluster. A gossip based network lays the
 foundations for dynamic cluster membership, failure detection, and the eventual
 construction of a strongly consistent store.
 
@@ -37,7 +37,7 @@ systems.
 Consider a set of redlines that execute when a node loses connection. Upon losing
 communication with the rest of the cluster, an ACID compliant distributed database would
 stop serving reads and writes in order to preserve data integrity. This could hinder a
-nodes' ability to shut down the system safely. In extreme scenarios, such as launch
+node's ability to shut down the system safely. In extreme scenarios, such as launch
 control systems, this can result in the loss of a vehicle or even a life.
 
 Delta requires a distributed data store capable of servicing queries even when the rest
@@ -47,13 +47,13 @@ of the cluster is unreachable.
 
 Aspen's design consists of two gossip layers:
 
-1. Layer 1 - Uses a Susceptible-Infected (SI) model to spread cluster state in a fashion
+1. Layer 1: Uses a Susceptible-Infected (SI) model to spread cluster state in a fashion
    resembling [Apache Cassandra](https://cassandra.apache.org/_/index.html). All nodes
    gossip their version of state at a regular interval. This is used to disseminate
    information about cluster membership and node health. This includes reporting
-   information about failed or suspected nodes
+   information about failed or suspected nodes.
 
-2. Layer 2 - Uses a Susceptible-Infected-Recovered (SIR) model to propagate key-value
+2. Layer 2: Uses a Susceptible-Infected-Recovered (SIR) model to propagate key-value
    sets and deletes in an eventually consistent manner. After receiving a set operation,
    the node will gossip the key-value pair to all other nodes until a certain number of
    redundant conversations (i.e. the node already received the update) have occurred.
@@ -166,9 +166,9 @@ The peer node makes no updates during this period.
 
 After receiving an ack message from the peer, the initiator updates its own state and
 responds with a final ack2 message. The initiator compares the heartbeat of every node
-in the `AckMessage.NodeMap` with its on state. If the peer sent a new node or a node
-with an older heartbeat, the initiator's will replace the node in its state with the
-node from the peer. It will them compose a new message:
+in the `AckMessage.NodeMap` with its own state. If the peer sent a new node or a node
+with an older heartbeat, the initiator will replace the node in its state with the node
+from the peer. It will then compose a new message:
 
 ```go
 package irrelevant
@@ -183,7 +183,8 @@ type Ack2Message struct {
 ##### 3.0.1.3 Closing the conversation
 
 After receiving the final ack2 message, the initiator will update its own state using
-the same policy as the peer in the section. It will then close the conversation.
+the same policy as the peer in the previous section. It will then close the
+conversation.
 
 #### 3.0.2 Propagation rate
 
@@ -200,7 +201,7 @@ overall network traffic by a significant amount. Node IDs are also used far and 
 across the rest of Delta, such as in the key for a channel `NodeID + ChannelID`. This
 results in a sample that is 40 percent smaller than with a `UUID`.
 
-The downside of using `int16` id's for nodes is that we need to design a distributed
+The downside of using `int16` IDs for nodes is that we need to design a distributed
 counter. Fortunately, this is a solved problem. The join process is as follows:
 
 #### 3.1.0 Request a peer to join
@@ -218,15 +219,15 @@ node is responsible for safely initiating the **pledge**.
 
 #### 3.1.1 Propose an ID
 
-The **responsible** node will begin the initiation process by finding the highest id of
+The **responsible** node will begin the initiation process by finding the highest ID of
 the nodes within its state. It will then select a quorum (>50%) of its peers and send a
-proposed id with a value one higher. It will then wait for all peers to approve the
+proposed ID with a value one higher. It will then wait for all peers to approve the
 proposed value (these peers are called **jurors**). A juror will approve the value if it
 does not have a node in its state with the given ID. A **juror** tracks the results of
 all accepted proposals until the state of the accepted **pledge** has been disseminated.
 The approval process is serialized by a mutex.
 
-If any node rejects the id, the **responsible** node will reissue the proposal with an
+If any node rejects the ID, the **responsible** node will reissue the proposal with an
 incremented value. This process continues until an ID is accepted. If the
 **responsible** node tries to contact an unresponsive peer, it will reselect a quorum of
 peers and try again. Once an ID is selected, the **responsible** node will send it to
@@ -252,13 +253,13 @@ property to consider in scenarios with extremely dynamic cluster membership.
 
 ### 3.2 Key-value store
 
-Aspen implements a leased driven key-value store on top of layer 1. The gossip protocol
-that disseminates kv updates and tombstones is known as layer 2.
+Aspen implements a lease driven key-value store on top of layer 1. The gossip protocol
+that disseminates KV updates and tombstones is known as layer 2.
 
 #### 3.2.0 Vocabulary
 
-- **Host**: The node that is responsible for serving the kv operation to the caller
-  (i.e. the node where `Get` or `Set` is called). \
+- **Host**: The node that is responsible for serving the KV operation to the caller
+  (i.e. the node where `Get` or `Set` is called).
 - **Leaseholder**: The only node that can accept writes for a particular key.
 
 #### 3.2.1 Interface
@@ -280,13 +281,13 @@ type KV interface {
 
 #### 3.2.2 Life of a set/delete
 
-A kv set is processed by the database as follows. It's important to note that deletes
+A KV set is processed by the database as follows. It's important to note that deletes
 and sets are both propagated using the same steps.
 
 ##### 3.2.2.0 Forward request to leaseholder
 
 If the node ID is non-zero, perform a layer 1 lookup for the leaseholder's address.
-Forward the request to the leaseholder. If the node ID is zero, allocate the least to
+Forward the request to the leaseholder. If the node ID is zero, allocate the lease to
 the host node.
 
 ##### 3.2.2.1 Process the forwarded set
@@ -333,7 +334,7 @@ type Update struct {
 type UpdatePropagationList map[interface{}]Update
 ```
 
-After adding the update to the propagation list, we persist the set to an underlying kv
+After adding the update to the propagation list, we persist the set to an underlying KV
 store, and send a durability acknowledgement to the host node.
 
 ##### 3.2.2.2 Propagate the update
@@ -341,9 +342,9 @@ store, and send a durability acknowledgement to the host node.
 A node will initiate layer 2 gossip at a set interval (default is 1 second). The gossip
 process is as follows:
 
-##### 3.2.2.3 Initiator propagates update (Sync)
+##### 3.2.2.3 Initiator propagates update (sync)
 
-The initiating node selects a random peer from layer 1, and set
+The initiating node selects a random peer from layer 1.
 
 1. Select a random peer from layer 1, and send a sync message:
 
@@ -357,7 +358,7 @@ type SyncMessage struct {
 }
 ```
 
-##### 3.2.2.4 Peer processes update and response (Ack)
+##### 3.2.2.4 Peer processes update and response (ack)
 
 After receiving a sync message, the peer node [merges](#merging-updates) the updates
 into its own state. The node also persists the updates to state. The peer node then
@@ -386,10 +387,10 @@ type AckMessage struct {
 
 ##### 3.2.2.5 Initiator processes update
 
-After receiving an ack message, the initiator [merges ](#merging-updates) the updates
+After receiving an ack message, the initiator [merges](#merging-updates) the updates
 into its own state. Then, for each feedback entry, it flips a coin with a `k`
 probability of returning true. If the coin is true, sets the state of the update with
-the matching key to `StateRemoved`. End of gossip.
+the matching key to `StateRecovered`. End of gossip.
 
 #### 3.2.3 Merging updates
 
@@ -408,11 +409,11 @@ After the updates to merge have been selected, the node must persist them to KV.
 #### 3.2.4 Life of a get
 
 Aspen does not support remote get requests. If a key cannot be found in underlying KV,
-returns a `ErrNotFound`. This decision was made for two reasons:
+returns an `ErrNotFound`. This decision was made for two reasons:
 
 1. We maintain a consistent view of storage even when other cluster members cannot be
    reached.
-2. We can simply extend the kv interface of an existing store, providing functionality
+2. We can simply extend the KV interface of an existing store, providing functionality
    such as prefix iteration.
 
 Providing consistent remote reads is an undertaking for future iterations.
@@ -422,8 +423,8 @@ Providing consistent remote reads is an undertaking for future iterations.
 An update only needs to be kept until it has propagated to all cluster members.
 Unfortunately, determining the interval of convergence is difficult. Aspen uses the
 equations presented in [Gossip](https://www.inf.u-szeged.hu/~jelasity/ddm/gossip.pdf) to
-estimate a interval of convergence. The following equation approximates the number of
-message (`m`) needed to update all but `s` proportion of the cluster:
+estimate an interval of convergence. The following equation approximates the number of
+messages (`m`) needed to update all but `s` proportion of the cluster:
 
 <p align="middle">
     <br />
@@ -436,8 +437,8 @@ message (`m`) needed to update all but `s` proportion of the cluster:
 
 This equation shows that the convergence interval is directly dependent on:
 
-1. The `k` parameter laid out in step c of the layer 2 gossip algorithm.
-2. The number of cluster members (`N`)
+1. The `k` parameter laid out in step C of the layer 2 gossip algorithm.
+2. The number of cluster members (`N`).
 3. Our consistency requirements (`s`) i.e. the probability that a node does not receive
    an update.
 4. The frequency at which infected nodes can send `m` update messages.
@@ -446,7 +447,7 @@ Aspen will tune these parameters to experimentally determine a suitable estimate
 interval of convergence. Future iterations will likely involve a more complex,
 mathematically driven approach.
 
-Once we've determined a suitable interval, we can them move on to the GC process itself.
+Once we've determined a suitable interval, we can then move on to the GC process itself.
 
 An update log for a particular key is replaced every time the key is updated (i.e. the
 version is incremented). We can store a timestamp along with the set metadata. If the
@@ -475,12 +476,12 @@ adding FD, it does not explicitly implement any processes.
 One of the most relevant elements of the FD mechanism design is providing an interface
 that can notify a consumer when a node fails. Aspen uses an observable copy-on-read
 store to accomplish this. When a cluster receives a state change update, Aspen will diff
-the old and new states, notifying an subscribers of the change.
+the old and new states, notifying any subscribers of the change.
 
 As far as future implementation goes, the high level plan follows theory laid out in
-["SWIM: Scalable Weakly-consistent Infection-style Process Group Membership Protocol"](https://ieeexplore.ieee.org/document/1028914)
-. This involves piggybacking on layer 1 cluster gossip to mark nodes as susceptible or
-failed. This is the same strategy that hashicorp's `memberlist` uses. Detailed designs
+["SWIM: Scalable Weakly-consistent Infection-style Process Group Membership Protocol"](https://ieeexplore.ieee.org/document/1028914).
+This involves piggybacking on layer 1 cluster gossip to mark nodes as susceptible or
+failed. This is the same strategy that HashiCorp's `memberlist` uses. Detailed designs
 are left for future RFCs.
 
 ### 3.4 Failure recovery
@@ -489,7 +490,7 @@ Recovering from failures gracefully follows as a natural extension of detecting 
 
 #### 3.4.0 Key-value storage
 
-Failure Recovery is particularly relevant with regard to maintaining a consistent
+Failure recovery is particularly relevant with regard to maintaining a consistent
 key-value store. If a node restarts after an extended outage, it will likely miss
 key-value operations that have already recovered. As a result, it's important for a
 recently revived node to receive all missed operations.
@@ -545,8 +546,8 @@ type HighWaterMarks map[node.ID]version.Counter
 Assigning an accurate high water mark to a node is far more challenging than it first
 seems. It's not given that a node will receive operations in sequential order. Recovery
 parameters or oddities in the network mean that node A may receive operation
-`version.Counter(3)` before it receives `version.Counter(2)` from node B.If Node A
-blindly updates its high water mark version for Node B to 3, it's inadvertently saying
+`version.Counter(3)` before it receives `version.Counter(2)` from node B. If node A
+blindly updates its high water mark version for node B to 3, it's inadvertently saying
 it has received operation 2, which is not true. This is a rare case, but must be handled
 properly in order to maintain effective eventual consistency.
 
@@ -578,7 +579,7 @@ nodeAHighWater := HighWaterMarks{B: {Mark: version.Counter(3), WAL: []version.Co
 
 High water marks can help in making Aspen's key-value failure recovery system more
 efficient. After the patient node receives a doctor's request, it can acknowledge the
-request with a list of operations that contain it's last remembered high water marks.
+request with a list of operations that contain its last remembered high water marks.
 
 The doctor node can now avoid sending all operations before the high water mark,
 reducing the amount of network traffic substantially.

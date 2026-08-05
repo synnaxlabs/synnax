@@ -43,7 +43,7 @@ the type level for it to interact with.
 
 ## 1 Goals
 
-**Eliminate the Config/Inputs dichotomy at the type level.** A function has one
+**Eliminate the `Config`/`Inputs` dichotomy at the type level.** A function has one
 parameter list. There is no per-param flag distinguishing "configuration" from "runtime
 input." Whatever conceptual distinction the original split was reaching for is
 recoverable from each symbol's own semantics; the type system does not need to encode
@@ -63,9 +63,9 @@ appears in (Section 4.1). This RFC strips `Exec` of structural meaning and keeps
 as that superficial gate.
 
 **Collapse the two analyzer call-validation paths.** `validateFunctionCall` (parens
-form) and `validateFuncConfig` (brace form) silently agree only because Inputs is
-mirrored to Config in every `ExecBoth` symbol. Replace both with a single `call.Analyze`
-routine.
+form) and `validateFuncConfig` (brace form) silently agree only because `Inputs` is
+mirrored to `Config` in every `ExecBoth` symbol. Replace both with a single
+`call.Analyze` routine.
 
 **Collapse the two analyzer hook surfaces.** A symbol that wants to validate its
 arguments (e.g. `status.set` constraining the `variant` literal; see
@@ -109,9 +109,9 @@ unified `[]Argument` view.
 
 Early Arc symbols were single-context: a flow node was flow-only (`time.interval`,
 `time.wait`), a function was func-only (early `math` and `op` symbols). In that world
-the Config/Inputs split read as load-bearing: each field corresponded to the context the
-symbol participated in, and the timing/binding semantics of its params were unambiguous
-within that context.
+the `Config`/`Inputs` split read as load-bearing: each field corresponded to the context
+the symbol participated in, and the timing/binding semantics of its params were
+unambiguous within that context.
 
 That assumption broke under the **parity tenet**: if a symbol works in one context, it
 should work the same in the other. The first attempt at parity was `ExecBoth` plus the
@@ -127,7 +127,7 @@ this is the change that first exercised `ExecBoth` on a symbol carrying actual p
 and it is what forced the trigger heuristic to grow a second discriminator (Section
 3.2).
 
-Once parity made symbols cross-context, the Config/Inputs split stopped being
+Once parity made symbols cross-context, the `Config`/`Inputs` split stopped being
 load-bearing. In the pre-parity world it carried real semantic weight: a symbol could
 appear in one context and one only, and the field it landed in named that context. Once
 a symbol could appear in both, the field could no longer name the context, and the
@@ -141,8 +141,8 @@ those are not two kinds of param. They are one param list with one entry singled
 the wire target. That single fact is the only thing worth preserving, and it now lives
 explicitly on `Symbol.Trigger`. The reframing is the whole RFC in one line: a symbol has
 an `Inputs` list, period, plus a `Trigger` that names which input (if any) a wire sets.
-Everything the Config/Inputs split and the `ExecBoth` mirror were reaching for falls out
-of those two pieces.
+Everything the `Config`/`Inputs` split and the `ExecBoth` mirror were reaching for falls
+out of those two pieces.
 
 This RFC finishes what `ExecBoth` started. The mirror trick was a tactical fix that
 exposed the strategic problem; the strategic fix is to collapse the field whose
@@ -227,9 +227,9 @@ that have nothing to do with `ExecBoth`.
 It happens to produce the right answer for every symbol today because of the mirror
 trick and the `AST` accident. But none of the three sites ever says "this function takes
 its wire as a trigger, not a value." The truth is implicit in structural properties
-(`Exec` mode, Config length, AST presence), none of which is the property being tested.
-A future function whose intent diverges from these patterns has no way to express that
-today.
+(`Exec` mode, `Config` length, AST presence), none of which is the property being
+tested. A future function whose intent diverges from these patterns has no way to
+express that today.
 
 ### 3.3 The two analyzer paths
 
@@ -237,7 +237,7 @@ today.
 [arc/go/analyzer/expression/expression.go](../../../arc/go/analyzer/expression/expression.go)
 and `validateFuncConfig` in
 [arc/go/analyzer/flow/flow.go](../../../arc/go/analyzer/flow/flow.go) implement two
-versions of the same validation. Reduced to essentials, the forms looks like this:
+versions of the same validation. Reduced to essentials, the forms look like this:
 
 ```go
 // validateFunctionCall (parens form). Reads from funcType.Inputs.
@@ -282,7 +282,7 @@ for _, param := range fnType.Config {
 Each routine does roughly the same work: argument-count check, per-argument type check,
 and (in the brace form) name resolution and required-coverage check. They reach into
 different fields on the same `Type`: `funcType.Inputs` vs `fnType.Config`. They silently
-agree only because Inputs mirrors Config in every `ExecBoth` symbol. The divergent
+agree only because `Inputs` mirrors `Config` in every `ExecBoth` symbol. The divergent
 capabilities make the duplication worse than pure repetition:
 
 - Only `validateFunctionCall` rejects multiple-named-outputs callables. A flow-form call
@@ -347,8 +347,8 @@ new optionality mechanism: the existing default-value optionality is preserved a
 
 Param ordering is preserved as the user declared it. The compiler already produces a
 deterministic order at the WASM ABI layer (`slices.Concat(Config, Inputs)`); the
-migration appends the old Config list before the old Inputs list to preserve that order
-byte-for-byte (Section 5).
+migration appends the old `Config` list before the old `Inputs` list to preserve that
+order byte-for-byte (Section 5).
 
 ### 4.1 Explicit trigger binding
 
@@ -388,7 +388,7 @@ implementer touches each set in a different file sweep.
 
 **Arc stdlib** (`arc/go/stl/`):
 
-| Symbol                                                            | Today (`Exec`, `Config`, `Inputs`)                | Trigger                       |
+| Symbol                                                            | Today (`Exec`, `Config`, `Inputs`)                | `Trigger`                     |
 | ----------------------------------------------------------------- | ------------------------------------------------- | ----------------------------- |
 | `time.interval`                                                   | `ExecFlow`, `[period]`, none                      | `TriggerOnly`                 |
 | `time.wait`                                                       | `ExecFlow`, `[duration]`, none                    | `TriggerOnly`                 |
@@ -411,7 +411,7 @@ implementer touches each set in a different file sweep.
 
 **Service layer** (`core/pkg/service/arc/`):
 
-| Symbol       | Today (`Exec`, `Config`, `Inputs`)                     | Trigger                     |
+| Symbol       | Today (`Exec`, `Config`, `Inputs`)                     | `Trigger`                   |
 | ------------ | ------------------------------------------------------ | --------------------------- |
 | `status.set` | `ExecBoth`, mirrored `[key_or_name, message, variant]` | `TriggerOnly` (post-dedupe) |
 
@@ -564,7 +564,7 @@ The schema change is a wire-format break. Persisted Arc programs (IR JSON, IR ms
 proto) deserialize through a codec migration that translates the pre-refactor shape into
 the unified shape.
 
-**Snapshot.** Bumping the codec version makes oracle freeze the pre-refactor
+**Snapshot.** Bumping the codec version makes Oracle freeze the pre-refactor
 `arc/go/types/types.gen.go` and `arc/go/ir/types.gen.go` under the respective
 `migrations/vN/` directories. The snapshot is generated
 (`Code generated by oracle. DO NOT EDIT.`), not hand-copied.
@@ -576,7 +576,7 @@ the unified shape.
   produces today.
 - For stdlib `ExecBoth` symbols where `Config == Inputs` (the mirror trick), the
   duplicate is detected and dedupes to a single list. The mirror was a workaround for
-  the Config/Inputs split; with the split gone, the workaround is no longer needed.
+  the `Config`/`Inputs` split; with the split gone, the workaround is no longer needed.
 
 **Verification.** `migrations/vN/migrate_test.go` round-trips a pre-vN snapshot through
 the migrator and asserts the resulting IR Type-shape matches what a fresh declaration in
@@ -602,9 +602,9 @@ migration.
 `arc/go/ir/node.go`, `arc/go/ir/migrations/vN/`
 
 `types.gen.go` (regenerated): drop `Config` from `FunctionProperties`. `type.go`: update
-`Equal` and `paramsEqual` to compare against the single Inputs list. `fresh.go`: drop
-Config freshen. `ir/types.gen.go` (regenerated): drop `Config` from `Function` and
-`Node`. `ir/function.go` and `ir/node.go`: drop the Config rendering branch from
+`Equal` and `paramsEqual` to compare against the single `Inputs` list. `fresh.go`: drop
+`Config` freshen. `ir/types.gen.go` (regenerated): drop `Config` from `Function` and
+`Node`. `ir/function.go` and `ir/node.go`: drop the `Config` rendering branch from
 `Type()` and string output. Both `migrations/vN/` directories snapshot the pre-refactor
 shape; the IR side additionally gains a hand-written `migrate.go` (Section 5).
 
@@ -693,9 +693,9 @@ directly. Param ordering is preserved across the migration, so WASM offsets stay
 
 **Files:** `arc/go/graph/analyze.go`, `arc/go/text/analyze.go`
 
-Merge Config+Inputs bindParams in graph compilation. In text-to-IR, `Config:` field
-assignments fold into `Inputs:`; the `upstreamIsTrigger` special case is deleted. IR
-rendering (covered in 6.0) emits the unified `Inputs` list.
+Merge `Config`+`Inputs` `bindParams` in graph compilation. In text-to-IR, `Config:`
+field assignments fold into `Inputs:`; the `upstreamIsTrigger` special case is deleted.
+IR rendering (covered in 6.0) emits the unified `Inputs` list.
 
 ### 6.5 Standard library
 
@@ -709,18 +709,18 @@ previously declared both `Config:` and `Inputs:` (the mirror-trick `ExecBoth` sy
 collapse to a single `Inputs:` list. Factory call sites that read
 `cfg.Node.Config.ValueMap()` become `cfg.Node.Inputs.ValueMap()`.
 
-`stl_test.go` deletes the "ExecBoth structural contract" test (the Inputs-mirrors-Config
-invariant is no longer expressible) and adds:
+`stl_test.go` deletes the "ExecBoth structural contract" test (the
+`Inputs`-mirrors-`Config` invariant is no longer expressible) and adds:
 
 - `AnalyzeArguments` hooks are only attached to `KindFunction` symbols.
-- `Trigger.Target`, if non-empty, names an existing param on the symbol's Inputs list.
+- `Trigger.Target`, if non-empty, names an existing param on the symbol's `Inputs` list.
 
 ### 6.6 LSP
 
 **Files:** `arc/go/lsp/hover.go`, `arc/go/lsp/completion.go`
 
 Hover renders the unified `Inputs` list. Completion proposes named-config keys from the
-same list. The Trigger target is shown in hover where set.
+same list. The `Trigger` target is shown in hover where set.
 
 ### 6.7 C++ runtime
 
@@ -747,9 +747,9 @@ declares `Trigger: TriggerOnly`.
 Mechanical fixture sweep. Every test that constructs a `types.FunctionProperties`,
 `ir.Function`, or `ir.Node` literal with a `Config:` (or `config:`) field folds it into
 `Inputs:` (or `inputs:`). Symbols that previously declared both `Config:` and `Inputs:`
-deduplicate to a single list. New fixtures cover `call.Analyze` validation, Trigger
-consult, the Trigger registration invariant, and the status.set hook collapse (Section
-10).
+deduplicate to a single list. New fixtures cover `call.Analyze` validation, `Trigger`
+consult, the `Trigger` registration invariant, and the `status.set` hook collapse
+(Section 10).
 
 ## 7 Implementation plan
 
@@ -757,7 +757,7 @@ The change ships as a **stack of PRs, one per logical step**, each branched off 
 previous and reviewed on its own diff. Schema sync and full codegen land **first**, in
 their own PR, so the large generated diff is isolated and every later PR is a pure
 hand-written change against the final generated shape. Bumping the codec version makes
-oracle freeze the pre-refactor snapshot under `migrations/vN/` as part of that codegen;
+Oracle freeze the pre-refactor snapshot under `migrations/vN/` as part of that codegen;
 there is no separate hand-copied snapshot step, and no generated file is hand-edited.
 
 Because codegen drops `Config` up front, the tree does not build until the last reader
@@ -789,7 +789,7 @@ implement on top of it, and a separate RFC will specify each (Sections 8.0 and 8
 Section 8.2 addresses where higher-order functions fit, and Section 8.3 records the
 long-term topics this refactor deliberately leaves untouched, and why.
 
-### 8.0 Trigger-as-argument syntax
+### 8.0 `Trigger`-as-argument syntax
 
 > **Syntax in this section is illustrative.** Grammar fragments and code examples sketch
 > how the feature would plug into `call.Analyze`; the follow-on RFC picks the actual
@@ -946,11 +946,11 @@ separate RFC picks the surface syntax.
 
 ### 8.3 Topics deliberately not considered
 
-A topic belongs in the future work above only if the Config/Input unification **opens,
-closes, or constrains a door** for it. The topics below do not: the refactor leaves each
-exactly as it found it, so each is the concern of a different RFC, if any. They are
-listed here only to answer why a function-call refactor does not reach them, not for any
-lack of merit:
+A topic belongs in the future work above only if the `Config`/`Inputs` unification
+**opens, closes, or constrains a door** for it. The topics below do not: the refactor
+leaves each exactly as it found it, so each is the concern of a different RFC, if any.
+They are listed here only to answer why a function-call refactor does not reach them,
+not for any lack of merit:
 
 - **Removing stateful variables.** An execution-model concern (persistence of values
   across reactive firings), orthogonal to how a call's parameters are bound. A
@@ -969,19 +969,13 @@ lack of merit:
   signature carries, not how the types within it are resolved; type-variable inference
   is neither simplified nor obstructed by the collapse.
 
-### Claude scratch pad
-
-```arc
-
-```
-
 ## 9 Change footprint
 
 Productive code (everything except codec migration scaffolding) is net-negative,
 matching the intuition for a tech-debt-paydown refactor: the analyzer collapse and the
-service-layer status cleanup dominate the deletions, while Config-to-Inputs renaming is
-a wash and the dual-list `ExecBoth` symbols dedupe. The codec migration scaffolding is
-one-time boilerplate (the oracle-generated pre-refactor snapshot plus a mechanical
+service-layer status cleanup dominate the deletions, while `Config`-to-`Inputs` renaming
+is a wash and the dual-list `ExecBoth` symbols dedupe. The codec migration scaffolding
+is one-time boilerplate (the Oracle-generated pre-refactor snapshot plus a mechanical
 `Migrate*`) and is the only thing that tips the gross total positive.
 
 ## 10 Test coverage
@@ -1002,11 +996,11 @@ New tests required by this change:
   unknown-name detection, duplicate-name detection, verified once against both parens
   and brace surface forms. Today's coverage duplicates each scenario across two test
   files.
-- **Trigger consult**: a flow call to a `TriggerOnly` symbol does not type-check the
+- **`Trigger` consult**: a flow call to a `TriggerOnly` symbol does not type-check the
   upstream; a flow call to a `TriggerInput("x")` symbol type-checks the upstream against
   the `x` param's type and rejects type mismatches.
-- **Trigger invariant**: the `stl_test.go` symbol walker fails when a registered symbol
-  declares `Trigger.Target = "missing_param"`.
+- **`Trigger` invariant**: the `stl_test.go` symbol walker fails when a registered
+  symbol declares `Trigger.Target = "missing_param"`.
 - **Surface-syntax preservation**: the smoke program in Section 11 parses, analyzes,
   compiles, and runs identically to the pre-refactor branch.
 - **`status.set` collapse**: the literal-validation `AnalyzeArguments` hook fires
@@ -1044,9 +1038,9 @@ currently legal in flow position, the smoke uses brace form for both.)
 Both must parse, analyze, compile, and run identically to the pre-refactor branch. The
 IR JSON for each source should be structurally the same.
 
-LSP smoke: hover over `status.set` in the console editor renders the unified Inputs list
-correctly. Completion proposes named-config keys for the brace form exactly as it does
-today.
+LSP smoke: hover over `status.set` in the Console editor renders the unified `Inputs`
+list correctly. Completion proposes named-config keys for the brace form exactly as it
+does today.
 
 ## 12 Risks and open questions
 
@@ -1057,8 +1051,8 @@ have to be found first.
 
 **WASM ABI ordering.** WASM offsets in
 [arc/go/stl/wasm/wasm.go](../../../arc/go/stl/wasm/wasm.go) depend on the order the
-compiler concat already produces (Config first, then Inputs). The migration appends in
-that same order, so offsets stay stable. The migration round-trip tests verify
+compiler concat already produces (`Config` first, then `Inputs`). The migration appends
+in that same order, so offsets stay stable. The migration round-trip tests verify
 byte-equal IR for the same source.
 
 **Hook ctx type assertion.** Today's hooks switch on the concrete `acontext.Context[T]`
@@ -1079,7 +1073,7 @@ implementing this RFC. Add new entries at the bottom; do not edit or reorder exi
 ones. Strict append-only keeps this section free of merge conflicts across the stacked
 phase branches and leaves the numbered sections above untouched. When a note hardens
 into a real design decision, promote it into the relevant section above (or §8 Future
-Work) and leave the note here as a record. Entry heading:
+work) and leave the note here as a record. Entry heading:
 `### <phase or date> - <short title>`.
 
 #### Phase 3 - Brace/parens surface convention may invert
@@ -1106,8 +1100,8 @@ my_channel -> my_func(inputs) -> output
 {ch1, ch2} -> my_func(inputs) -> output
 ```
 
-This is surface syntax only. The unified Inputs list and explicit `Trigger` binding from
-this RFC are unaffected either way, which is exactly why the foundation was kept
+This is surface syntax only. The unified `Inputs` list and explicit `Trigger` binding
+from this RFC are unaffected either way, which is exactly why the foundation was kept
 policy-free (see §8.0). Deferred; no decision yet.
 
 #### Phase 3 - Grammar still uses "config" terminology
@@ -1116,7 +1110,7 @@ Phase 1 removed the `Config` field from the type/IR model (Oracle schema). The A
 grammar, a separate generator, still names its productions `config`: the parser exposes
 `ConfigBlock()`, `ConfigValues()`, `NamedConfigValues()`, `AnonymousConfigValues()`,
 `ConfigList()`, and `AllConfig()`, which the analyzer calls to read the `{...}` form. §2
-currently lists the grammar as a Non-Goal, so these names survive this RFC.
+currently lists the grammar as a non-goal, so these names survive this RFC.
 
 Since `config` is being deprecated, the grammar terminology should follow. This is a
 standalone effort, not a sub-part of the analyzer collapse: the analyzer is indifferent
@@ -1128,13 +1122,13 @@ tree can lean on the compiler and tests to catch every missed caller; done mid-s
 the broken-by-design tree there is no such safety net. This is strictly better than
 doing it earlier, not just acceptable: the rename is independent of the type/analyzer
 collapse, so nothing in Phases 1 to 9 is blocked by the `config` names surviving, and
-nothing in the rename is blocked by the refactor. Promote §2 from Non-Goal to goal when
+nothing in the rename is blocked by the refactor. Promote §2 from non-goal to goal when
 it lands.
 
 Open question for that phase: what the rules rename to (e.g. `braceBlock` / `parenBlock`
 by surface form). Not just find-and-replace.
 
-#### Part 4 - `symbol.KindConfig` should be deprecated
+#### Phase 4 - `symbol.KindConfig` should be deprecated
 
 Distinct from both the type-level `Config` collapse (this RFC) and the grammar `config`
 rename (above): the symbol-table scope `Kind` still carries a `KindConfig` / `KindInput`
@@ -1142,7 +1136,7 @@ split. Plan §Phase 3 deliberately kept it ("the symbol `Kind` distinction stays
 block the param came from"). Since this RFC's intent is that "config" is no longer a
 load-bearing concept, the scope `Kind` should follow.
 
-Part 4 narrowed it without removing it: the graph analyzer now binds all params
+Phase 4 narrowed it without removing it: the graph analyzer now binds all params
 `KindInput`, and `KindInput` absorbed `KindConfig`'s channel behavior at the two sites
 where they diverged (`compiler/statement/variable.go` channel-source resolution and
 `analyzer/expression/expression.go` channel-read tracking). The remaining producer is
@@ -1157,12 +1151,12 @@ and its `kind_string.go` entry, and collapse the readers. Most are already trivi
 `analyzer/statement/statement.go` only special-cases `KindChannel`; the LSP sites
 (`lsp/semantic.go`, `lsp/hover.go`) are cosmetic.
 
-Do it after the tree is green (post-Part 9), same reasoning as the grammar rename: a
+Do it after the tree is green (post-Phase 9), same reasoning as the grammar rename: a
 mechanical `Kind` collapse on a compiling tree lets the compiler and tests catch every
 missed reader, whereas mid-stack on the broken-by-design tree there is no safety net.
 Independent of the grammar rename; neither blocks the other.
 
-#### Part 5 - Runtime inputs are addressed by name, retiring the config/input split
+#### Phase 5 - Runtime inputs are addressed by name, retiring the config/input split
 
 The plan scoped the runtime touch as a one-liner (`len(Config)` to `len(Inputs)`), but
 the merge broke more than that: the runtime read inputs by position and split params via
@@ -1181,7 +1175,7 @@ diagnostics sink directly, so it needs neither the analyzer context nor a type s
 
 Order is now cosmetic for the runtime, surviving only for positional argument binding
 and the self-consistent WASM param sequence. This is the first change to the runtime
-input files (`runtime/node/state.go`, `stl/wasm/node.go`), which Part 4's
+input files (`runtime/node/state.go`, `stl/wasm/node.go`), which Phase 4's
 node-construction change left reading positionally, and is the largest non-mechanical
 change in the stack; it is code-complete but unverifiable until the tree is green, and
 warrants focused review plus the Phase 7 fixture sweep.

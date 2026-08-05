@@ -15,13 +15,13 @@ In this RFC I propose an architecture for wrapping primitive arrays with identif
 metadata and organizing them into 'frames' of aligned arrays that streamline the
 telemetry transfer process.
 
-**A IMPORTANT NOTE (23-08-09)** -> Since the time of writing this RFC, the term 'Array'
+**AN IMPORTANT NOTE (23-08-09)** -> Since the time of writing this RFC, the term 'Array'
 has been changed to 'Series'.
 
 ## 1 Vocabulary
 
 - **Sample**: An arbitrary byte array recorded at a specific point in time.
-- **Channel**: A name collection of samples across a time range.
+- **Channel**: A named collection of samples across a time range.
 - **Density**: The number of bytes per sample.
 - **(Sample/Data) Rate**: The number of samples per second.
 
@@ -30,26 +30,25 @@ has been changed to 'Series'.
 The current version of Synnax uses a `Segment` type to represent telemetry. A segment
 contains a binary data array, a channel key, and a time range. This format has started
 to show its limitations. The most obvious issue is that the data type of the array is
-unknown. The idea was to find the data type by performing a lookup on a channel in the
+unknown. The idea was to find the data type by performing a lookup on a channel with the
 aim of removing a few bytes from the segment header. In reality, this most likely has a
 negligible impact on performance, as segments typically contain many thousands of
 samples or more. On the other hand, the lookups required to find the data type of
 segments do end up as a performance bottleneck for short-lived reads.
 
-The lack of a data type field is just a few of the many overlooked issues with the
-current segment format. The new `Array` type aims to restructure and improve the segment
-format.
+The lack of a data type field is just one of the many overlooked issues with the current
+segment format. The new `Array` type aims to restructure and improve the segment format.
 
 ### 2.0 Array data
 
 The requirements for data stored in an array are simple:
 
-1. Channel-tied - Arrays should contain samples for one and only one channel.
-2. Continuous - For an array containing samples for a time range x, the samples in the
-   array must represent all values in the channel for that time range.
-3. Time-ordered - Relatively obvious.
-4. Strongly typed - All data in the array is of the same data type, and the data type
-   has a fixed density. There are no plans to support variable data types.
+- **Channel-tied**: Arrays should contain samples for one and only one channel.
+- **Continuous**: For an array containing samples for a time range x, the samples in the
+  array must represent all values in the channel for that time range.
+- **Time-ordered**: Relatively obvious.
+- **Strongly typed**: All data in the array is of the same data type, and the data type
+  has a fixed density. There are no plans to support variable data types.
 
 All values are encoded in little-endian byte order, with floating point values following
 the IEEE 754 standard.
@@ -73,7 +72,7 @@ one and only one channel.
 
 #### 2.1.1 Time range
 
-On optional time range representing the span of time the array occupies. If provided,
+An optional time range representing the span of time the array occupies. If provided,
 the time range represents all values in the channel for that time range i.e. it must be
 continuous. Cesium automatically sets this field when reading arrays from the database,
 giving the caller a hint as to what time range the array occupies.
@@ -90,23 +89,23 @@ architectural boundaries between different layers of Synnax. Let's say we were t
 header field named `key` to the array. What should its data type be? Cesium considers
 all channel keys to have a string type, while the distribution layer assigns channel
 keys as byte arrays containing identifying information about the channel's lease. Should
-we set the key type to `distribution.ChannelKey`? If we do so, our cesium code must be
+we set the key type to `distribution.ChannelKey`? If we do so, our Cesium code must be
 aware of distribution layer semantics, which is a violation of architectural boundaries.
 Our other option would be to define different array types for each layer, and convert
-between them. This isn't very dry, and doing complex type conversions whenever we want
+between them. This isn't very DRY, and doing complex type conversions whenever we want
 to move telemetry between layers is not optimal.
 
 Perhaps the better approach is to define a common array whose metadata can be shared
 across layers, and then move our layer-specific metadata somewhere else. This is the
 approach taken by Apache Arrow's
 [Record](https://pkg.go.dev/github.com/apache/arrow/go/arrow@v0.0.0-20211112161151-bc219186db40/array#Record).
-Instead of storing metadata in the array itself, arrow moves it to a separate `Schema`
+Instead of storing metadata in the array itself, Arrow moves it to a separate `Schema`
 type which contains identifying information such as the column name (comparable to
 Synnax's channel key) outside the array definition itself.
 
 This solution is nice in terms of maintaining a clean architecture, but it also loosens
 the connection between data and metadata. Now we need a supplementary data structure
-(like apache arrow's `Record`) that holds information correlating arrays with their
+(like Apache Arrow's `Record`) that holds information correlating arrays with their
 metadata.
 
 The next question to answer is: Should we move all metadata to a separate data
@@ -175,14 +174,14 @@ unaligned, weakly aligned, or strongly aligned.
 
 #### 3.1.0 Weakly aligned
 
-A frame is weakly aligned if it meets the time range occupied by all arrays of a
-particular channel is the same for all channels. This means that the arrays for a
-particular channel can have gaps in time between them. The following is a representation
-of a weakly aligned frame:
+A frame is weakly aligned if the time range occupied by all arrays of a particular
+channel is the same for all channels. This means that the arrays for a particular
+channel can have gaps in time between them. The following is a representation of a
+weakly aligned frame:
 
 <p align="middle">
     <img src="img/0010-frame-spec/weakly-aligned.png" width="50%" />
-    <h6 align="middle">A simple channel ontology represented as a DAG</h6>
+    <h6 align="middle">A weakly aligned frame</h6>
 </p>
 
 A few things to note:
@@ -195,19 +194,18 @@ A few things to note:
 #### 3.1.1 Strongly aligned
 
 Strong alignment extends weak alignment by requiring that all channels share the same
-rate/index and that there are no gaps in time between arrays. The following is a
-representation of a strongly aligned frame:
+rate/index and that there are no gaps in time between arrays.
 
 Strongly aligned frames are natural to interpret, as the values in a particular 'row' in
-the frame share the stamp timestamp. Synnax requires that all frames written to database
-are strongly aligned (it wouldn't really make sense to write a weakly aligned or
-unaligned frame).
+the frame share the same timestamp. Synnax requires that all frames written to the
+database are strongly aligned (it wouldn't really make sense to write a weakly aligned
+or unaligned frame).
 
 #### 3.1.2 Unaligned
 
 An unaligned frame does not meet the requirements of either weak or strong alignment.
-Reading unaligned frames occur when the requested channels are continuous during
-different periods of the requested time range.
+Unaligned frames occur when the requested channels are continuous during different
+periods of the requested time range.
 
 ### 3.2 Frame orientation
 

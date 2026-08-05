@@ -102,12 +102,12 @@ docs/site/src/pages/reference/device-drivers/http/  # Documentation (NEW)
 - **nlohmann/json**: Already in codebase for JSON parsing
 - **cpp-httplib**: For mock HTTP server in tests (add to MODULE.bazel or vendor)
 - **Existing driver infrastructure**:
-  - `driver/task/` - Task, Factory, Context interfaces
-  - `driver/pipeline/` - Acquisition/Control pipelines
-  - `driver/task/common/` - Base task implementations
-  - `driver/errors/` - Error type hierarchy
-  - `x/cpp/json/` - Configuration parsing
-  - `x/cpp/breaker/` - Retry with exponential backoff
+  - `driver/task/`: Task, Factory, Context interfaces
+  - `driver/pipeline/`: Acquisition/Control pipelines
+  - `driver/task/common/`: Base task implementations
+  - `driver/errors/`: Error type hierarchy
+  - `x/cpp/json/`: Configuration parsing
+  - `x/cpp/breaker/`: Retry with exponential backoff
 
 ---
 
@@ -134,10 +134,10 @@ docs/site/src/pages/reference/device-drivers/http/  # Documentation (NEW)
 
 **Authentication Types:**
 
-- `"none"` - No authentication
-- `"api_key"` - `{"type": "api_key", "header": "X-API-Key", "key": "secret"}`
-- `"basic"` - `{"type": "basic", "username": "user", "password": "pass"}`
-- `"bearer"` - `{"type": "bearer", "token": "jwt-token"}`
+- `"none"`: No authentication
+- `"api_key"`: `{"type": "api_key", "header": "X-API-Key", "key": "secret"}`
+- `"basic"`: `{"type": "basic", "username": "user", "password": "pass"}`
+- `"bearer"`: `{"type": "bearer", "token": "jwt-token"}`
 
 ### Read task configuration (`synnax::Task.config`)
 
@@ -202,7 +202,7 @@ fields. All endpoints are polled at the same rate on each cycle.
   `int64` truncated to 3) cause the task to enter an error state. If false (default),
   truncation proceeds silently.
 - `endpoints`: Array of endpoints to poll. Each endpoint is an independent HTTP request.
-- `endpoints[].path`: URL path appended to the device's base_url
+- `endpoints[].path`: URL path appended to the device's `base_url`
 - `endpoints[].method`: `"GET"` or `"POST"`
 - `endpoints[].query_params`: Optional URL query parameters
 - `endpoints[].body`: Optional request body (for POST queries)
@@ -217,11 +217,11 @@ fields. All endpoints are polled at the same rate on each cycle.
 
 **Timestamp Formats (same five options used across read and write tasks):**
 
-- `"iso8601"` - ISO 8601 string (e.g., `"2024-01-15T10:30:00Z"`)
-- `"unix_sec"` - Unix timestamp in seconds
-- `"unix_ms"` - Unix timestamp in milliseconds
-- `"unix_us"` - Unix timestamp in microseconds
-- `"unix_ns"` - Unix timestamp in nanoseconds
+- `"iso8601"`: ISO 8601 string (e.g., `"2024-01-15T10:30:00Z"`)
+- `"unix_sec"`: Unix timestamp in seconds
+- `"unix_ms"`: Unix timestamp in milliseconds
+- `"unix_us"`: Unix timestamp in microseconds
+- `"unix_ns"`: Unix timestamp in nanoseconds
 
 If no `time_pointer` is configured for a field, the driver uses software timing:
 midpoint of `(request_start + response_received) / 2` for that channel's index.
@@ -238,7 +238,7 @@ midpoint of `(request_start + response_received) / 2` for that channel's index.
 
 - ✅ Direct/lossless conversion
 - ⚠️ Conversion possible but may warn (e.g., float→int truncation)
-- ❌ Error - conversion not supported
+- ❌ Error — conversion not supported
 
 **Notes on Read Conversions:**
 
@@ -377,7 +377,7 @@ When there's only one field with pointer at root (`""`), the body is the value i
 
 This produces request body: `25.5` (just the number, not an object)
 
-Write task fields are applied in order - if an earlier field sets a nested object and a
+Write task fields are applied in order — if an earlier field sets a nested object and a
 later field targets a path within it, the later field wins. Configuration fails if two
 fields have identical pointers within the same endpoint.
 
@@ -393,7 +393,7 @@ fields have identical pointers within the same endpoint.
 - `on_empty`: Behavior when a channel field hasn't received a value (see below)
 - `on_initial`: Behavior for the first request when using `on_empty: "last"` (see below)
 - `endpoints`: Array of endpoint definitions
-- `endpoints[].path`: URL path appended to the device's base_url
+- `endpoints[].path`: URL path appended to the device's `base_url`
 - `endpoints[].method`: `"POST"`, `"PUT"`, `"PATCH"`, or `"DELETE"`
 - `endpoints[].fields`: Array of field definitions for this endpoint's request body
 
@@ -407,9 +407,9 @@ fields have identical pointers within the same endpoint.
 
 **Format options for channel fields:**
 
-- `"number"` - Write as JSON number (default for numeric channels)
-- `"string"` - Write as JSON string (converts numbers to strings)
-- `"boolean"` - Write as JSON boolean (0→false, non-zero→true)
+- `"number"`: Write as JSON number (default for numeric channels)
+- `"string"`: Write as JSON string (converts numbers to strings)
+- `"boolean"`: Write as JSON boolean (0→false, non-zero→true)
 
 **Timestamp options for channel fields:**
 
@@ -418,28 +418,28 @@ fields have identical pointers within the same endpoint.
   channel value being written.
 - `time_format`: Required when `time_pointer` is set. Timestamp format, using the same
   five options as read task timestamps:
-  - `"iso8601"` - ISO 8601 formatted string
-  - `"unix_sec"` - Unix timestamp in seconds
-  - `"unix_ms"` - Unix timestamp in milliseconds
-  - `"unix_us"` - Unix timestamp in microseconds
-  - `"unix_ns"` - Unix timestamp in nanoseconds
+  - `"iso8601"`: ISO 8601 formatted string
+  - `"unix_sec"`: Unix timestamp in seconds
+  - `"unix_ms"`: Unix timestamp in milliseconds
+  - `"unix_us"`: Unix timestamp in microseconds
+  - `"unix_ns"`: Unix timestamp in nanoseconds
 
-**Missing value behavior (`on_empty`) - Task-level property:**
+**Missing value behavior (`on_empty`) — Task-level property:**
 
 Controls what happens when channel fields haven't received a value:
 
-- `"omit"` - Don't include the field in the JSON request body (default)
-- `"zero"` - Write the zero value for the field's format (0, "", false)
-- `"error"` - Raise an error and don't send the request
-- `"last"` - Use the last received value; if no value has ever been received, falls back
+- `"omit"`: Don't include the field in the JSON request body (default)
+- `"zero"`: Write the zero value for the field's format (0, "", false)
+- `"error"`: Raise an error and don't send the request
+- `"last"`: Use the last received value; if no value has ever been received, falls back
   to `on_initial`
 
-**Initial value behavior (`on_initial`) - Task-level property:**
+**Initial value behavior (`on_initial`) — Task-level property:**
 
 Only used when `on_empty: "last"` and no value has ever been received:
 
-- `"omit"` - Omit the field until first value is received (default)
-- `"zero"` - Use zero value until first value is received
+- `"omit"`: Omit the field until first value is received (default)
+- `"zero"`: Use zero value until first value is received
 
 **Type Conversion for Write Tasks (Synnax → JSON):**
 
@@ -451,7 +451,7 @@ Only used when `on_empty: "last"` and no value has ever been received:
 **Legend:**
 
 - ✅ Direct/lossless conversion
-- ❌ Error - conversion not supported
+- ❌ Error — conversion not supported
 
 **Notes on Write Conversions:**
 
@@ -474,14 +474,14 @@ When configuring a write task, the driver validates:
 
 **Generator options:**
 
-- `"uuid"` - Random UUID v4 (written as a JSON string)
-- `"timestamp"` - Timestamp value. Requires a `format` field with one of the same five
+- `"uuid"`: Random UUID v4 (written as a JSON string)
+- `"timestamp"`: Timestamp value. Requires a `format` field with one of the same five
   timestamp format options used by read task timestamps:
-  - `"iso8601"` - ISO 8601 formatted string (written as a JSON string)
-  - `"unix_sec"` - Unix timestamp in seconds (written as a JSON number)
-  - `"unix_ms"` - Unix timestamp in milliseconds (written as a JSON number)
-  - `"unix_us"` - Unix timestamp in microseconds (written as a JSON number)
-  - `"unix_ns"` - Unix timestamp in nanoseconds (written as a JSON number)
+  - `"iso8601"`: ISO 8601 formatted string (written as a JSON string)
+  - `"unix_sec"`: Unix timestamp in seconds (written as a JSON number)
+  - `"unix_ms"`: Unix timestamp in milliseconds (written as a JSON number)
+  - `"unix_us"`: Unix timestamp in microseconds (written as a JSON number)
+  - `"unix_ns"`: Unix timestamp in nanoseconds (written as a JSON number)
 
 ### Scan task configuration
 
@@ -567,10 +567,10 @@ re-parsing on the hot path.
 
 **JSON Pointer Syntax (RFC 6901):**
 
-- `""` - top level of the JSON (for non-object/array values)
-- `/foo` - field "foo"
-- `/foo/0` - first element of array "foo"
-- `/foo/bar/baz` - nested path
+- `""`: top level of the JSON (for non-object/array values)
+- `/foo`: field "foo"
+- `/foo/0`: first element of array "foo"
+- `/foo/bar/baz`: nested path
 - `~0` escapes `~`, `~1` escapes `/`
 
 ### JSON ↔ Synnax conversion (`x/cpp/json/convert.h`)
@@ -738,8 +738,9 @@ Each poll cycle:
 - If multiple endpoints are configured, requests are fired in parallel across endpoints
   on each cycle using libcurl's multi interface (`curl_multi_*`). This multiplexes
   multiple easy handles on a single thread with non-blocking I/O, and automatically
-  shares the connection pool across handles - so all endpoints hitting the same device
-  base_url reuse keep-alive connections. Results are collected before writing to Synnax.
+  shares the connection pool across handles — so all endpoints hitting the same device
+  `base_url` reuse keep-alive connections. Results are collected before writing to
+  Synnax.
 
 ### Write task main loop
 
@@ -1005,11 +1006,11 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 **Scope:** Type conversion between JSON values and Synnax telemetry types
 
 - `x/cpp/json/BUILD.bazel`
-- `x/cpp/json/convert.h` - `to_sample_value`, `from_sample_value`,
+- `x/cpp/json/convert.h`: `to_sample_value`, `from_sample_value`,
   `check_from_sample_value`, `from_timestamp`, `zero_value`
 - `x/cpp/json/convert.cpp`
-- `x/cpp/json/convert_test.cpp` - Tests for all supported conversions, strict mode,
-  error cases, timestamp formats, zero values
+- `x/cpp/json/convert_test.cpp`: Tests for all supported conversions, strict mode, error
+  cases, timestamp formats, zero values
 
 ---
 
@@ -1019,31 +1020,31 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 **Scope:** HTTP client infrastructure and driver skeleton
 
-- `MODULE.bazel` - Add libcurl and cpp-httplib dependencies
+- `MODULE.bazel`: Add libcurl and cpp-httplib dependencies
 - `driver/http/BUILD.bazel`
 - `driver/http/http.h` (constants, error types)
-- `driver/http/device/` - Client, Manager + tests
-- `driver/http/mock/` - Mock HTTP server for C++ unit tests
+- `driver/http/device/`: Client, Manager + tests
+- `driver/http/mock/`: Mock HTTP server for C++ unit tests
 
 #### PR 3: Console device connection
 
 **Scope:** Console UI for connecting to HTTP devices
 
-- `console/src/hardware/http/device/` - Device configuration UI
+- `console/src/hardware/http/device/`: Device configuration UI
 - Device properties form (base URL, auth, headers)
 - Connection testing UI
 
-#### PR 4: Python client - Device
+#### PR 4: Python client - device
 
 **Scope:** Python client support for HTTP devices
 
-- `client/py/synnax/http/__init__.py` - HTTP driver package
-- `client/py/synnax/http/types.py` - Device type definitions
-- `client/py/examples/http/connect_server.py` - Device connection example
-- `client/py/examples/http/server.py` - Mock server for examples
-- `client/py/tests/test_http.py` - Device unit tests
+- `client/py/synnax/http/__init__.py`: HTTP driver package
+- `client/py/synnax/http/types.py`: Device type definitions
+- `client/py/examples/http/connect_server.py`: Device connection example
+- `client/py/examples/http/server.py`: Mock server for examples
+- `client/py/tests/test_http.py`: Device unit tests
 
-#### PR 5: Documentation - Get started
+#### PR 5: Documentation - get started
 
 **Scope:** HTTP driver overview and device connection docs
 
@@ -1072,19 +1073,19 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - Channel mapping UI with JSON Pointer input
 - Poll rate and strict mode configuration
 
-#### PR 8: Python client - Read task
+#### PR 8: Python client - read task
 
 **Scope:** Python client support for HTTP read tasks
 
-- `client/py/synnax/http/read.py` - Read task configuration
-- `client/py/examples/http/read_task.py` - Read task example
+- `client/py/synnax/http/read.py`: Read task configuration
+- `client/py/examples/http/read_task.py`: Read task example
 - Unit tests for read task configuration
 
-#### PR 9: Integration tests - Read task
+#### PR 9: Integration tests - read task
 
 **Scope:** End-to-end read task testing
 
-- `integration/tests/driver/conftest.py` - Shared fixtures, mock HTTP server
+- `integration/tests/driver/conftest.py`: Shared fixtures, mock HTTP server
 - `integration/tests/driver/http_read.py`
   - Polling at various rates
   - Multiple endpoints per task
@@ -1096,7 +1097,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
     unix_ns)
   - Configuration-time validation errors (incompatible types, duplicate channels)
 
-#### PR 10: Documentation - Read task
+#### PR 10: Documentation - read task
 
 **Scope:** Read task documentation
 
@@ -1126,15 +1127,15 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - Request body builder UI (static, channel, generated fields)
 - Throttle rate and missing value behavior configuration
 
-#### PR 13: Python client - Write task
+#### PR 13: Python client - write task
 
 **Scope:** Python client support for HTTP write tasks
 
-- `client/py/synnax/http/write.py` - Write task configuration
-- `client/py/examples/http/write_task.py` - Write task example
+- `client/py/synnax/http/write.py`: Write task configuration
+- `client/py/examples/http/write_task.py`: Write task example
 - Unit tests for write task configuration
 
-#### PR 14: Integration tests - Write task
+#### PR 14: Integration tests - write task
 
 **Scope:** End-to-end write task testing
 
@@ -1148,7 +1149,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
   - `on_initial` behavior (zero vs omit)
   - Configuration-time validation errors (incompatible types, duplicate pointers)
 
-#### PR 15: Documentation - Write task
+#### PR 15: Documentation - write task
 
 **Scope:** Write task documentation
 
@@ -1175,15 +1176,15 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 - Health endpoint configuration UI
 - Expected response validation UI
 
-#### PR 18: Python client - Scan task
+#### PR 18: Python client - scan task
 
 **Scope:** Python client support for HTTP scan tasks
 
-- `client/py/synnax/http/scan.py` - Scan task configuration
-- `client/py/examples/http/scan_task.py` - Scan task example
+- `client/py/synnax/http/scan.py`: Scan task configuration
+- `client/py/examples/http/scan_task.py`: Scan task example
 - Unit tests for scan task configuration
 
-#### PR 19: Integration tests - Scan task
+#### PR 19: Integration tests - scan task
 
 **Scope:** End-to-end scan task testing
 
@@ -1192,7 +1193,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
   - Health checks with response validation
   - Device status updates on success/failure
 
-#### PR 20: Documentation - Scan task
+#### PR 20: Documentation - scan task
 
 **Scope:** Scan task documentation
 
@@ -1205,26 +1206,26 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 ### Driver patterns
 
-- `/driver/modbus/` - Modbus TCP/IP (similar network protocol)
-- `/driver/opc/` - OPC UA (connection pooling pattern)
-- `/driver/task/common/read_task.h` - Base read task
-- `/driver/task/common/write_task.h` - Base write task
-- `/driver/task/common/sample_clock.h` - SoftwareTimedSampleClock
-- `/driver/task/task.h` - Task, Factory, Context interfaces
-- `/driver/pipeline/acquisition.h` - Acquisition pipeline
-- `/driver/errors/errors.h` - Error hierarchy
-- `/x/cpp/json/json.h` - JSON configuration parsing
+- `/driver/modbus/`: Modbus TCP/IP (similar network protocol)
+- `/driver/opc/`: OPC UA (connection pooling pattern)
+- `/driver/task/common/read_task.h`: Base read task
+- `/driver/task/common/write_task.h`: Base write task
+- `/driver/task/common/sample_clock.h`: SoftwareTimedSampleClock
+- `/driver/task/task.h`: Task, Factory, Context interfaces
+- `/driver/pipeline/acquisition.h`: Acquisition pipeline
+- `/driver/errors/errors.h`: Error hierarchy
+- `/x/cpp/json/json.h`: JSON configuration parsing
 
 ### Console patterns
 
-- `/console/src/hardware/opc/` - OPC UA device/task UI
-- `/console/src/hardware/modbus/` - Modbus device/task UI
-- `/console/src/hardware/ni/` - National Instruments UI patterns
+- `/console/src/hardware/opc/`: OPC UA device/task UI
+- `/console/src/hardware/modbus/`: Modbus device/task UI
+- `/console/src/hardware/ni/`: National Instruments UI patterns
 
 ### Documentation patterns
 
-- `/docs/site/src/pages/reference/device-drivers/opc-ua/` - OPC UA docs structure
-- `/docs/site/src/pages/reference/device-drivers/` - Other driver docs
+- `/docs/site/src/pages/reference/device-drivers/opc-ua/`: OPC UA docs structure
+- `/docs/site/src/pages/reference/device-drivers/`: Other driver docs
 
 ---
 

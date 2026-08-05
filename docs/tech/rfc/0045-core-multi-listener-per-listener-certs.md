@@ -8,14 +8,14 @@
 ## 0 Summary
 
 A Synnax Core node opens exactly one TCP socket and fronts it with exactly one TLS
-certificate. Every kind of traffic (hardware drivers, console users, and node-to-node
+certificate. Every kind of traffic (hardware drivers, Console users, and node-to-node
 cluster gossip) arrives on that port and is proven by that certificate. This RFC lets a
 node serve multiple listeners, each bound to its own address and presenting its own
 certificate.
 
 The design comes from an enterprise customer: drivers should reach a node at a corporate
 address like `core01.example.com:9090` with the customer's production PKI certificate,
-while console users reach the same node at `node01.<tailnet>.ts.net:9091` over Tailscale
+while Console users reach the same node at `node01.<tailnet>.ts.net:9091` over Tailscale
 with a Tailscale-issued certificate. Routing users through Tailscale lets the customer
 enforce per-user network ACLs instead of a broad subnet-wide rule.
 
@@ -116,7 +116,7 @@ combined-port position today.
 A single socket is multiplexed into branches. In secure mode the root `cmux` peels
 plaintext HTTP/1 (for the HTTP-to-HTTPS redirect) off the front, wraps the remainder in
 a `tls.NewListener` using the one `*tls.Config`, and runs a second `cmux` inside the
-TLS-terminated stream to separate gRPC (HTTP/2) from HTTPS/1 API and console traffic.
+TLS-terminated stream to separate gRPC (HTTP/2) from HTTPS/1 API and Console traffic.
 Inter-node Aspen and distribution transports register as gRPC services on that branch,
 so cluster gossip shares the client port.
 
@@ -189,7 +189,7 @@ v1 implementations:
    config. Requires a running `tailscaled` with HTTPS enabled on the tailnet.
 
 Sources are chosen per listener and freely mixed; the motivating deployment runs `file`
-on the driver listener and `tailscale` on the console listener. `auto` and `tailscale`
+on the driver listener and `tailscale` on the Console listener. `auto` and `tailscale`
 manage their own renewal, so `file` is the only source needing explicit hot-reload.
 
 #### The source space, and why `tailscale` is first-class
@@ -197,9 +197,9 @@ manage their own renewal, so `file` is the only source needing explicit hot-relo
 `Source` is an open extension point, so the built-in set is a choice, not a limit.
 Nearly every enterprise certificate mechanism reduces to one of four shapes:
 
-- **static** (`file`): any agent that writes a PEM to disk: cert-manager, a Vault
-  agent, a `tailscale cert` cron, a cloud secret-store sync. With hot-reload, `file`
-  absorbs this whole class.
+- **static** (`file`): any agent that writes a PEM to disk: cert-manager, a Vault agent,
+  a `tailscale cert` cron, a cloud secret-store sync. With hot-reload, `file` absorbs
+  this whole class.
 - **self-signed** (`auto`): Synnax's own CA.
 - **an authority the node talks to**: public or private ACME, Vault PKI, SPIFFE SVIDs,
   EST/SCEP/CMP; a native source buys automatic renewal inside Core.
@@ -280,7 +280,7 @@ Scalar form, identical to today:
 listen: localhost:9090
 ```
 
-List form (the motivating deployment: drivers on a corporate address, console users over
+List form (the motivating deployment: drivers on a corporate address, Console users over
 Tailscale):
 
 ```yaml
@@ -303,10 +303,10 @@ peers: [core02.example.com:9090, core03.example.com:9090]
 synnax start --config /etc/synnax/synnax.yaml
 ```
 
-Drivers reach `:9090` with the production certificate; console users reach `:9091` over
+Drivers reach `:9090` with the production certificate; Console users reach `:9091` over
 Tailscale with the auto-provisioned `ts.net` certificate; nodes gossip via the
 advertised `core01.example.com:9090` address; Tailscale enforces per-user ACLs on the
-console path.
+Console path.
 
 Design rules:
 
@@ -372,7 +372,7 @@ Client-certificate mTLS is out of scope for v1, but two properties keep it addit
    of the muxed connection). It becomes per-listener for free once listeners own their
    config.
 
-The eventual shape: the driver listener requires machine certificates while the console
+The eventual shape: the driver listener requires machine certificates while the Console
 listener relies on Tailscale plus Synnax login.
 
 ---
@@ -444,10 +444,10 @@ exposure, per-listener plaintext.
 ## 9 Future work
 
 1. **Per-listener service exposure.** Let a listener choose which services it exposes
-   (client API, console assets, gossip), mirroring the CockroachDB split; keeps gossip
+   (client API, Console assets, gossip), mirroring the CockroachDB split; keeps gossip
    off client-facing listeners.
 2. **Client mTLS.** Per-listener `clientAuth` with a per-listener client CA (Section
-   4.7).
+   4.6).
 3. **`acme` source.** Direct Let's Encrypt for public DNS names without Tailscale.
 4. **Per-listener plaintext.** A listener behind a terminating proxy while the node
    otherwise runs secure.

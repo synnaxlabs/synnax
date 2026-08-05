@@ -10,7 +10,7 @@
   - [0.0 Function overview](#00-function-overview)
 - [1 Vocabulary](#1-vocabulary)
 - [2 Motivation](#2-motivation)
-- [3 Prerequisite: Empty string as non-truthy](#3-prerequisite-empty-string-as-non-truthy)
+- [3 Prerequisite: empty string as non-truthy](#3-prerequisite-empty-string-as-non-truthy)
 - [4 Arc syntax](#4-arc-syntax)
   - [4.0 `status.set`](#40-statusset)
   - [4.1 `status.delete`](#41-statusdelete)
@@ -34,11 +34,11 @@
 - [6 Implementation plan](#6-implementation-plan)
   - [6.0 Modified files](#60-modified-files)
   - [6.1 Implementation sequence](#61-implementation-sequence)
-- [7 Trade study: Upsert API shape and update expression syntax](#7-trade-study-upsert-api-shape-and-update-expression-syntax)
+- [7 Trade study: upsert API shape and update expression syntax](#7-trade-study-upsert-api-shape-and-update-expression-syntax)
   - [7.0 Context](#70-context)
   - [7.1 Background: first-class records](#71-background-first-class-records)
-  - [7.2 Axis 1: Upsert API shape](#72-axis-1-upsert-api-shape)
-  - [7.3 Axis 2: Update expression syntax](#73-axis-2-update-expression-syntax)
+  - [7.2 Axis 1: upsert API shape](#72-axis-1-upsert-api-shape)
+  - [7.3 Axis 2: update expression syntax](#73-axis-2-update-expression-syntax)
   - [7.4 Natural pairings](#74-natural-pairings)
   - [7.5 Evaluation](#75-evaluation)
   - [7.6 Conclusion](#76-conclusion)
@@ -48,7 +48,7 @@
 
 > **v1 scope note (2026-05-11):** For the v1 implementation, **all `status.set`
 > arguments are required** (`key_or_name`, `message`, and `variant`). The
-> optional-parameter mechanism (Section 5.0.0, "Preserve-on-Omit Parameters") and the
+> optional-parameter mechanism (Section 5.0.0, "Preserve-on-omit parameters") and the
 > preserve-on-omit / touch / literal-default semantics that depend on it — described
 > throughout Sections 4.0, 5.2.1, 5.3, and the implementation plan — are **deferred to a
 > future v2 RFC**. Read the `?` markers on `message` and `variant`, the "supplied vs
@@ -118,7 +118,7 @@ call). The semantics are explicit per call: if the caller wants the message or v
 to change, they pass the new value; otherwise the prior value stands.
 
 This dynamic dispatch is what makes `set` powerful. A single function, with the same
-key_or_name and the same call site shape, expresses the **full range** of status
+`key_or_name` and the same call site shape, expresses the **full range** of status
 lifecycle operations (initial registration, touch, message-only update, variant-only
 update, full overwrite), and the caller writes only the parts that change. There is no
 read-modify-write dance and no separate registration step: the caller does not have to
@@ -141,7 +141,7 @@ model, every kind of update.
   equilibrium" are transient. Operators remove them once the condition passes rather
   than setting them to a neutral variant that still occupies screen space.
 
-## 3 Prerequisite: Empty string as non-truthy
+## 3 Prerequisite: empty string as non-truthy
 
 `status.set` returns the status key as a string handle so the caller can reference the
 status later for further updates or deletion by key (avoiding name-resolution overhead
@@ -753,7 +753,7 @@ serializes concurrent callers on one node through the transaction's commit order
 matching the guarantee level the channel service provides today.
 
 The cross-node case is not eliminated by per-node transactions: `gorp.Tx` is bound to
-the local node's lease holders, and Aspen does not provide CAS or distributed locks
+the local node's leaseholders, and Aspen does not provide CAS or distributed locks
 across leaseholders, so two callers on different nodes can still both observe zero
 matches and both commit. The existing multi-match handling (Section 5.3.0) is the
 recovery path for that residual case: subsequent `set` calls return an error-level task
@@ -955,7 +955,7 @@ The transaction serializes concurrent callers on the same node through commit or
 a second caller's `WhereNames` runs only after the first transaction has committed, so
 it observes the row the first caller created and falls into the update-existing branch
 instead of creating a duplicate. The cross-node case is not serialized by this
-transaction (Gorp transactions are local to a node's lease holder); the multi-match path
+transaction (Gorp transactions are local to a node's leaseholder); the multi-match path
 (Section 5.3.0) is the recovery for the residual cross-node race. This pattern matches
 what the channel service does for its analogous name-uniqueness check on create.
 
@@ -1022,8 +1022,8 @@ package, in `set.go` and `delete.go` respectively.
    5.2.1; the by-key path delegates to `Writer.Update`; the by-name path delegates to
    `Writer.UpsertByName` (Section 5.5), which scopes the retrieve and the subsequent
    update or create inside a single Gorp transaction; on by-key miss emit an error-level
-   task status and return handle 0; on by-name multi-match (errMultipleMatches) emit an
-   error-level task status and return handle 0; the touch path (no `message` or
+   task status and return handle 0; on by-name multi-match (`errMultipleMatches`) emit
+   an error-level task status and return handle 0; the touch path (no `message` or
    `variant` supplied against an existing status) refreshes only the row's `time`
 6. Implement `deleteStatus` in `delete.go` with `key_or_name` config and the dispatch
    from Sections 4.1 and 5.2.2
@@ -1055,7 +1055,7 @@ package, in `set.go` and `delete.go` respectively.
    status and returns handle 0); LSP end-to-end (the analyzer error for an invalid
    variant literal appears as a `protocol.Diagnostic` at the literal's range)
 
-## 7 Trade study: Upsert API shape and update expression syntax
+## 7 Trade study: upsert API shape and update expression syntax
 
 This section records the alternatives considered for the upsert API shape and update
 expression syntax for `status.set`, and the reasoning behind the choices this RFC makes.
@@ -1130,9 +1130,9 @@ A multi-week, RFC-sized undertaking. **Shapes 4 and 5** on Axis 1, and **Options
 G, and H** on Axis 2, all presuppose it. Their Arc examples are written in a
 hypothetical Arc that has records.
 
-### 7.2 Axis 1: Upsert API shape
+### 7.2 Axis 1: upsert API shape
 
-#### Shape 1: Shared payload, preserve-on-omit (current RFC)
+#### Shape 1: shared payload, preserve-on-omit (current RFC)
 
 One field set, applied as overrides on update or as defaults on create. Used by MongoDB
 (`{$set: {...}}` with `upsert: true`) and by Synnax's existing Python and TS clients
@@ -1184,7 +1184,7 @@ update doesn't clobber existing state, which Section 4.0 already specifies. Matc
 API shape of the Synnax Python and TS clients, so callers crossing language boundaries
 see one mental model.
 
-#### Shape 2: Split payloads (Prisma)
+#### Shape 2: split payloads (Prisma)
 
 Caller writes two distinct field sets, one applied on update and one on create. Lets
 them diverge: create-time defaults can differ from what an update touches.
@@ -1216,7 +1216,7 @@ shapes. Most flexible, most verbose. Useful when create and update genuinely div
 which is rare for status updates, where the same fields are meaningful in both
 directions.
 
-#### Shape 3: Lookup + defaults (Django, Postgres `ON CONFLICT`)
+#### Shape 3: lookup + defaults (Django, Postgres `ON CONFLICT`)
 
 Identity args are syntactically distinct from content args; content acts as
 defaults-on-create and as overrides-on-update. Django writes
@@ -1254,10 +1254,10 @@ is the rest. Shape 3 earns its weight when the lookup is multi-field (e.g.,
 `WHERE rack_key = X AND name = Y`), which the status module does not need: statuses live
 in one flat cluster-global namespace, identified by a single `name` (or its derived
 `key`), with no scoping axis like rack, device, or task. If statuses ever grow such an
-axis (e.g. per-rack statuses where two racks can each have their own "Pressure Alert"),
+axis (e.g., per-rack statuses where two racks can each have their own "Pressure Alert"),
 Shape 3 becomes the right answer.
 
-#### Shape 4: Whole-object merge (SQLAlchemy, TypeORM)
+#### Shape 4: whole-object merge (SQLAlchemy, TypeORM)
 
 Caller builds a status value, hands it to a `merge` or `save` primitive, and the
 persistence layer figures out create-vs-update from primary-key presence.
@@ -1295,7 +1295,7 @@ _how to express a partial change to a record value_ (e.g.,
 `Status{my_status | message="High"}`); Shape 4 is _what API call persists that value_.
 They compose, but each is an independent decision.
 
-#### Shape 5: Find-then-modify (Rails ActiveRecord)
+#### Shape 5: find-then-modify (Rails ActiveRecord)
 
 Caller fetches an existing-or-fresh value, mutates it, then saves. Rails exposes this as
 `find_or_initialize_by(...)` plus block-style mutation plus `save`.
@@ -1322,9 +1322,9 @@ The most language-heavy shape: first-class records _and_ mutable refs _and_ a sa
 primitive. Pairs naturally with imperative styles (Options D, E, F on Axis 2) but
 doesn't compose with pipe-style (C1, C2) without extra machinery.
 
-### 7.3 Axis 2: Update expression syntax
+### 7.3 Axis 2: update expression syntax
 
-#### Option A: Polymorphism (current RFC, with `set`-as-upsert)
+#### Option A: polymorphism (current RFC, with `set`-as-upsert)
 
 `set` takes a name (or key) plus named optional fields. Supplied fields overwrite,
 omitted fields preserve. If the name doesn't exist, create.
@@ -1348,7 +1348,7 @@ One symbol, several call shapes, all reading the same at the surface.
 **Natural shape pairing:** Shape 1 (shared payload). The polymorphism on field presence
 _is_ the preserve-on-omit semantics; pairing with any other shape strips the benefit.
 
-#### Option B: Functional options (Go)
+#### Option B: functional options (Go)
 
 Each "option" is a function that mutates a config value. `set` takes a name plus a
 variadic list of options. Idiomatic Go; used by gRPC, the standard `http` server,
@@ -1465,7 +1465,7 @@ the pipeline.
 **Natural shape pairing:** Shape 4 (whole-object merge), same as C1. The pipe carries a
 status record; partial-update branching wraps the pipeline rather than living inside it.
 
-#### Option D: Object-oriented method chaining (Java, Ruby, JavaScript, Rust builders)
+#### Option D: object-oriented method chaining (Java, Ruby, JavaScript, Rust builders)
 
 Status is an object with methods. Each setter returns the receiver (or a new value),
 enabling top-down chains via the dot operator. No new operator; the dot already exists.
@@ -1496,7 +1496,7 @@ language commitment than it sounds; "just methods" is rarely just methods.
 mutate, save". Shape 4 also fits if methods are pure (return a new value); the choice
 depends on whether Arc's records are mutable or persistent.
 
-#### Option E: Scope functions (Kotlin: `apply` / `with` / `let`)
+#### Option E: scope functions (Kotlin: `apply` / `with` / `let`)
 
 A block scoped to one object, where field assignments inside the block bind to that
 object implicitly. Familiar to anyone who's written Kotlin or Groovy. Pairs naturally
@@ -1527,7 +1527,7 @@ system, since the body has to type-check against the receiver's fields.
 **Natural shape pairing:** Shape 5 (find-then-modify). The `apply` block needs a held
 receiver, and the receiver originates from a `find_or_init`-style call.
 
-#### Option F: Cascade operator (Smalltalk, Dart)
+#### Option F: cascade operator (Smalltalk, Dart)
 
 A new operator (`..` in Dart) sends each call to the same receiver, instead of relying
 on each method returning `self`. Reads like a block of mutations on one object.
@@ -1557,7 +1557,7 @@ loses the value-transformation semantics that make pipes composable.
 Flow the cascade collapses back onto Shape 1 because edges don't carry an implicit
 receiver across nodes.
 
-#### Option G: Record-update syntax (Haskell, F#, OCaml, Elixir)
+#### Option G: record-update syntax (Haskell, F#, OCaml, Elixir)
 
 Status is a record value, and a literal-update form produces a new record with a subset
 of fields replaced. No pipe, no methods, just one expression that says "this status, but
@@ -1594,7 +1594,7 @@ flow node configs).
 **Natural shape pairing:** Shape 4 (whole-object merge). The record-update literal
 produces a status value; that value is persisted by a terminal `save`/`merge` primitive.
 
-#### Option H: Lenses / optics (Haskell, Scala Monocle)
+#### Option H: lenses / optics (Haskell, Scala Monocle)
 
 First-class field accessors that compose. A lens is a value that knows how to focus on
 one field of a structure; setting via a lens produces a new structure with that field

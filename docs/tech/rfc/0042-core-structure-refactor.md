@@ -22,16 +22,16 @@ This RFC restructures `core/pkg` along five axes:
    naming the resolution source and generating a batched resolver is explicitly out of
    scope** and deferred to a separate relationship-management RFC (see §7).
 
-3. **Uniform versioned type layout, with core-release snapshots for schema sources.**
+3. **Uniform versioned type layout, with Core-release snapshots for schema sources.**
    Metadata services lay out versioned types inconsistently (`migrations/legacy/`,
    `migrations/v55/`, typed `migrations/v0,v1/`, or nothing). This RFC standardizes on
    `<resource>/versions/vN/` for generated Go — one package per per-resource integer
    version, current included; the top-level `versions/` re-exports current and owns the
-   `Decode` dispatch. Schema sources reorganize into core-release snapshots:
+   `Decode` dispatch. Schema sources reorganize into Core-release snapshots:
    `schemas/current/<resource>.oracle` is the active WIP, and `schemas/vN/` is an
-   immutable copy taken at each core release. Each `.oracle` file declares its own
+   immutable copy taken at each Core release. Each `.oracle` file declares its own
    `@version N`, which is what the imex service uses on the wire — wire version stays
-   per-resource and is decoupled from the core release. The snapshot folder is the
+   per-resource and is decoupled from the Core release. The snapshot folder is the
    compatibility group: every schema inside it composes with every other by
    construction. Supersedes the `migrations/vN/` layout in RFC 0033/0039; modernizes the
    `migrations/v55/` snapshot convention rather than discarding it.
@@ -54,9 +54,8 @@ the layer realignment, which unblocks the rest.
 - **Distribution layer**: `core/pkg/distribution`. Operations that must be aware of
   cluster topology: channel key allocation and lease routing, and frame
   read/write/stream across nodes.
-- **Service layer**: `core/pkg/service`. Business logic built on the distribution
-  layer: metadata CRUD, relationships, search, CDC, and the higher-level channel/node
-  services.
+- **Service layer**: `core/pkg/service`. Business logic built on the distribution layer:
+  metadata CRUD, relationships, search, CDC, and the higher-level channel/node services.
 - **Metadata substrate**: `ontology`, `group`, and `search`: the relationship graph,
   hierarchical grouping, and full-text index that other services register with. Not
   topology-aware; relocated to the service layer by this RFC.
@@ -136,7 +135,7 @@ adoption is partial and the historical reality is messier:
 
 The entity's own methods are scattered too: `GorpKey` in `helpers.go`, `OntologyID` in
 `ontology.go`, `EncodeOrc`/`DecodeOrc` in the Oracle-generated `codec.gen.go`. Two
-version _schemes_ coexist (legacy semver `"5.0.0"` and core-release snapshots `v55`),
+version _schemes_ coexist (legacy semver `"5.0.0"` and Core-release snapshots `v55`),
 which makes "what version is this?" ambiguous.
 
 **Cross-package dependency tracking is unsolved.** Core-release snapshots (`v55`) gave
@@ -147,7 +146,7 @@ is no rule for what happens to `schematic` when `spatial.Direction` reshapes, an
 nothing in the schema layer recording which version of `spatial` that was. This RFC
 keeps the snapshot guarantee but moves it onto the working surface (§4.3.3) — the folder
 is the compatibility group, and a per-resource `@version` constant decouples the wire
-version from the core release.
+version from the Core release.
 
 ### 2.3 Import decodes before it knows the version
 
@@ -172,10 +171,10 @@ entirely. There is no single guaranteed pre-store check.
 
 ## 3 Principles
 
-1. **Distribution is only about topology.** A package belongs in `distribution` iff its
+1. **Distribution is only about topology** — a package belongs in `distribution` iff its
    correctness depends on cluster topology. Metadata CRUD, relationships, indexing, and
    CDC are service concerns even when they describe topology-aware entities.
-2. **One Go type per entity**, owned by its service. API and transport serialize that
+2. **One Go type per entity** — owned by its service. API and transport serialize that
    type; they do not redefine it. Fields a client considers part of the entity but that
    are not stored are part of that one type, marked resolved.
 3. **Stored vs. resolved is declared, not improvised** — a schema property generated
@@ -183,9 +182,9 @@ entirely. There is no single guaranteed pre-store check.
 4. **A version is a self-contained package** — frozen struct, codec, and key/ontology
    methods, importing nothing from the parent service. The current version is the
    highest-numbered one, re-exported as the canonical type.
-5. **Know the version before decoding the body.** Peek `{version, type}` first; decode
+5. **Know the version before decoding the body** — peek `{version, type}` first; decode
    the body exactly once, directly into the version-specific frozen type.
-6. **Validation happens once, at the write seam.** Every entry is validated immediately
+6. **Validation happens once, at the write seam** — every entry is validated immediately
    before encode + store, regardless of which path produced it. A service cannot opt
    out, and cannot forget.
 
@@ -200,7 +199,7 @@ consolidated in 4.6.
 
 Out of scope: the query-engine, pagination, indexing, and undo/redo explorations in RFC
 0026 §2; YAML/TOML portable codecs (RFC 0039 §7.0); multi-resource bundle import (RFC
-0034 §7.5). Gorp's startup-batch migration runner is unchanged (RFC 0033 §4.2.3).
+0039 §7.5). Gorp's startup-batch migration runner is unchanged (RFC 0033 §4.2.3).
 
 ### 4.1 Layer realignment
 
@@ -284,7 +283,7 @@ arc/runtime                                                  (reactive executor;
 Substrate (`ontology`, `search`, `group`) opens first because every wrapper and entity
 service registers with it. `service/channel` opens **before** `arc`: the
 channel→`arc.symbol.Symbol` projection (today's `service/arc/symbol/resolver.go`) is
-pure channel-metadata projection — no arc state — and relocates to
+pure channel-metadata projection — no `arc` state — and relocates to
 `service/channel/calculation/symbol/`. The channel writer builds its own resolver from
 the standalone `synnaxlabs/arc` library and drops its `service/arc` import; `arc` then
 becomes a one-way consumer of `service/channel` (for symbol resolution, program rename
@@ -309,7 +308,7 @@ split is behavioral: `framer` re-sources storage-shape from the storage layer, t
 metadata table moves to `service/channel`, and existing records migrate. The relocation
 lands first; the channel split is its own phase (Section 6).
 
-### 4.2 One type per Entity, with resolved fields
+### 4.2 One type per entity, with resolved fields
 
 #### 4.2.0 Scope
 
@@ -357,7 +356,7 @@ This solves the persisted-vs-derived split named in RFC 0026 §1.1.12 at the sch
 level. The validation seam (§4.5) skips these fields — they are validated by their
 owning services, not by the entity's `Validate()`.
 
-#### 4.2.3 Resolution stays in the API Layer, hand-written for now
+#### 4.2.3 Resolution stays in the API layer, hand-written for now
 
 Resolution stays in the API layer after `Retrieve`. The service reads only Gorp-backed
 fields and leaves resolved fields at zero values; the API handler fills them from
@@ -551,7 +550,7 @@ Tests are co-located but unlisted above — `<resource>_test.go`,
 `<resource>_suite_test.go`, `codec_gen_test.go`, `retrieve_test.go`, `writer_test.go`,
 `migration_test.go`. These sit next to the file they test.
 
-Version bumps are owned by Oracle — see §4.3.3 for the schema-source side (core-release
+Version bumps are owned by Oracle — see §4.3.3 for the schema-source side (Core-release
 snapshot folders, per-resource `@version` constants) and §4.6.0 for the generator steps.
 This supersedes RFC 0033 §4.3.0's rule that the current type lives in the service
 package; per RFC 0033 §3.6, each `vN/` still imports nothing from the parent.
@@ -576,7 +575,7 @@ struct
 `vN/migrate.go` chain to current. Because each version owns its key extractor and
 validator, a migration step needs nothing from outside its own package (RFC 0033 §3.6).
 
-#### 4.3.2 Versions, data Payloads, and legacy
+#### 4.3.2 Versions, data payloads, and legacy
 
 Versions are per-type dense integers from `0` (RFC 0039 §4.3.0), unchanged. Each
 resource has a single contiguous integer namespace. Two patterns:
@@ -606,13 +605,13 @@ Resources with a single modern version simply have `versions/v0/`. `view` gains 
 (its schema gets `@go marshal`); `workspace`'s duplicate `OntologyID` collapses to the
 generated one.
 
-#### 4.3.3 Schema source layout and core-release snapshots
+#### 4.3.3 Schema source layout and Core-release snapshots
 
 _(Amended during Phase 2 implementation, SY-4232.)_ The Go output layout
 (`service/<resource>/versions/vN/`) of §4.3.0 is per-resource integer versioning. The
-schema-source side organizes those resources into **core-release snapshots**: the
+schema-source side organizes those resources into **Core-release snapshots**: the
 working tree (`schemas/{synnax,x,arc}/`) is the active WIP, and each
-`schemas/snapshots/vN/` directory is an immutable copy taken at core release N. An
+`schemas/snapshots/vN/` directory is an immutable copy taken at Core release N. An
 earlier draft proposed wrapping the WIP in a `schemas/current/` directory; the
 implementation kept the WIP where it lives and made the pre-existing hidden
 `.snapshots/` directory visible instead — same compatibility property, no import-path
@@ -637,7 +636,7 @@ spelling can happen then if other generators need it.
 **Within a snapshot folder, unqualified type references resolve by name to that folder's
 version of the dep.** No `@uses` pin syntax is needed because the folder is the
 compatibility group: every file inside a snapshot composes with every other file in that
-snapshot, by construction. This is the property core-release snapshots provided in RFC
+snapshot, by construction. This is the property Core-release snapshots provided in RFC
 0033/0039 (`migrations/v55/`) and that per-resource integer chains alone could not. In
 the generated Go, the pins are materialized: a frozen `versions/vN/` package imports its
 dependencies' `versions/vM/` packages at the versions the snapshot held.
@@ -709,7 +708,7 @@ Gorp's startup-batch migration (RFC 0033 §4.2.3) is unchanged and shares the pe
 distinct: Gorp migrates all rows at `OpenTable`, import migrates one payload per
 request.
 
-#### 4.4.2 Envelope, service Interfaces, and registration
+#### 4.4.2 Envelope, service interfaces, and registration
 
 The imex service owns the peek, registry, and codec; each service owns a small
 importer/exporter that decodes and persists its own type. The interfaces (in
@@ -979,8 +978,8 @@ structured error from `Migrate` itself, surfaced under the same abort with the s
 row-key context. Silently relying on `Validate` to catch the mismatch is forbidden;
 `Validate`'s job is to enforce, `Migrate`'s job is to produce input it can enforce.
 
-ImEx import (§4.4) is equally intolerant — same `Validate`, same seam, errors propagated
-back through the HTTP request instead of the startup log.
+The imex import (§4.4) is equally intolerant — same `Validate`, same seam, errors
+propagated back through the HTTP request instead of the startup log.
 
 ### 4.6 Oracle generator changes
 
@@ -1000,7 +999,7 @@ lives inside a committed snapshot folder (`schemas/v55/`, `schemas/v56/`, …);
 `schemas/current/` holds the active WIP for every resource. CI enforces immutability by
 re-running Oracle on a clean checkout and diffing against the committed
 `service/<resource>/versions/vN/` packages — any divergence on a snapshot file is a
-build failure. The core-release build pipeline owns the snapshot step: at release time
+build failure. The Core-release build pipeline owns the snapshot step: at release time
 it copies `current/` into `schemas/v(N+1)/` and commits it; from that point `v(N+1)/` is
 immutable. Within a release, the WIP version of a given resource is whatever
 `current/<resource>.oracle` declares via `@version`.
@@ -1049,7 +1048,7 @@ surface the bug.
 
 ## 5 Resolved design decisions
 
-### 5.0 Substrate moves to the service Layer, not a new sub-layer
+### 5.0 Substrate moves to the service layer, not a new sub-layer
 
 `ontology`, `group`, and `search` become service-layer packages rather than a new named
 layer between distribution and service — they are peers of the entity services that
@@ -1063,7 +1062,7 @@ built on it (§4.1.1). The alternative — leaving the metadata table in distrib
 moving only the wiring — strands service-level fields (`Expression`, `Operations`) on a
 distribution struct. Moving the whole table up is the cleaner cut.
 
-### 5.2 Resolution stays in the API Layer, Hand-Written, opt-in preserved
+### 5.2 Resolution stays in the API layer, hand-written, opt-in preserved
 
 The service `Retrieve` reads only Gorp-backed fields; the API handler fills
 `Labels`/`Parent`/`Status` under the existing `Include<Field>` flags (§4.2.3). The
@@ -1072,7 +1071,7 @@ fan-out, calc-channel watchers) that don't need the resolved fields. What this R
 change is the type returned: one service type with resolved fields as zero values,
 instead of a duplicate API type that embeds the service type to bolt them on (§4.2.1).
 
-### 5.3 Uniform `versions/vN/` for every Version, with oracle-moved `helpers.go`
+### 5.3 Uniform `versions/vN/` for every version, with Oracle-moved `helpers.go`
 
 _(Amended by [RFC 0047](./0047-oracle-predecessor-chain-versioning.md): method files no
 longer move at a bump — they stay in the version package that defines their receiver
@@ -1097,12 +1096,12 @@ dropped record may not be recoverable at all.
 `Validate() error` joins `GorpKey` and `SetOptions` on the `gorp.Entry` interface,
 rather than being an optional interface Gorp type-asserts on. This guarantees no entry
 can silently skip validation at the write seam. Entries with nothing to check return
-nil; the cost is every Gorp entry across the repo (aspen, cesium, …) must implement it.
+nil; the cost is every Gorp entry across the repo (Aspen, Cesium, …) must implement it.
 
 ### 5.6 Core-release snapshots for cross-package compatibility
 
 Schema sources stay in the working tree (`schemas/{synnax,x,arc}/`) with immutable
-`schemas/snapshots/vN/` copies taken at each core release (§4.3.3); each storable
+`schemas/snapshots/vN/` copies taken at each Core release (§4.3.3); each storable
 `.oracle` file declares its own per-resource version (`@go version N`), which the imex
 service will use on the wire once §4.4 lands. Within a snapshot folder, unqualified type
 references resolve by name to that folder's version of the dep, so the snapshot folder
@@ -1139,7 +1138,7 @@ decoder still reads old bytes (the `msgpack_to_orc` precedent), a hand-declared
 no golden fixtures; the cost is that forgetting the sweep on a codec-format change is
 caught only by the generated round-trip codec tests.
 
-Per-resource `@go version` decouples wire version from the core release: a `schematic`
+Per-resource `@go version` decouples wire version from the Core release: a `schematic`
 that doesn't change between releases keeps the same version even though it appears in
 two snapshot folders.
 
@@ -1175,22 +1174,22 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   predecessors per RFC 0047. Descoped from this phase: generated `versions/decode.go`
   dispatch (deferred to Phase 3, which has its only consumer), byte-divergence detection
   (dropped — see §5.6), the immutability-by-CI rule on snapshot folders (open parameter,
-  along with making the advisory oracle CI check required), and stored-but-keyless
+  along with making the advisory Oracle CI check required), and stored-but-keyless
   packages with hand-computed composite Gorp keys (`ranger/alias`, `ranger/kv`), which
   keep root emission.
 - **Phase 3 — Peek import (§4.4).** Peek front door (the `imex.Envelope` peek already
   exists and `log` imports through it); generate `versions/decode.go` version dispatch
   and `versions/types.gen.go` selectors, port `log`'s hand-written switch onto them,
-  register the remaining resources with imex, and move the console off client-side zod
+  register the remaining resources with imex, and move the Console off client-side Zod
   migration imports onto `/imex/import`.
-- **Phase 4 — Single-type collapse + storage-exclusion marker (§4.2, §4.6.1).** Add the
+- **Phase 4 — Single-type collapse + storage-exclusion marker (§4.2, §4.6).** Add the
   per-field "skip from storage codec" marker to Oracle; mark `Labels`/`Parent`/`Status`
   on `range`/`task`/`device`/`rack`; drop the duplicate API types and serialize the
   service type directly. Existing hand-written API-layer resolvers keep their current
   shape and `Include<Field>` flags — no generator changes. Schema-driven resolution and
   the resolution-source syntax are deferred to the follow-up relationship-management RFC
   (§7).
-- **Phase 5 — Validation chokepoint (§4.5, §4.6.2).** Add a `Validate` method to every
+- **Phase 5 — Validation chokepoint (§4.5, §4.6).** Add a `Validate` method to every
   entity type, call it at the Gorp write seam, and extend the Oracle `validate` domain
   (numeric bounds, enum variants). Migration write-back validates stored data through
   the same seam; any failure aborts boot with a structured error per §4.5.3 / §5.4 — no
@@ -1199,7 +1198,7 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
 ## 7 Open questions
 
 - **Resolution-source syntax and schema-driven resolution (follow-up RFC).** This RFC
-  commits only to the storage-exclusion marker (§4.6.1) and the single-type collapse
+  commits only to the storage-exclusion marker (§4.6) and the single-type collapse
   (§4.2). The richer questions — naming the resolution source per field (label service
   vs. status service vs. ontology parent), expressing a self-referential
   `parent *Range`, generating a batched API-layer resolver, and the cascading-delete /

@@ -31,7 +31,7 @@ low-frequency control (< 10 Hz), this design works well.
 The problem emerges at higher control rates. A 1 kHz control loop has a 1 ms budget per
 cycle. The Core round-trip consumes a significant and variable portion of that budget,
 leaving insufficient headroom for the control logic itself. At 10 kHz, the budget drops
-to 100 μs, making the round-trip untenable.
+to 100 µs, making the round-trip untenable.
 
 ### 0.1 Sources of non-determinism
 
@@ -45,7 +45,7 @@ The Arc WASM runtime executes inside the Synnax Core, which is a Go process. Go'
 garbage collector runs concurrently but still introduces stop-the-world pauses on the
 order of hundreds of microseconds to low milliseconds. These pauses are invisible to the
 Arc program and occur at unpredictable intervals. A control loop running at 1 kHz cannot
-tolerate a 500 μs GC pause mid-cycle.
+tolerate a 500 µs GC pause mid-cycle.
 
 #### 0.1.1 Go goroutine scheduling
 
@@ -80,14 +80,14 @@ distribution with a long tail that makes real-time guarantees impossible.
 
 | Source                   | Typical Latency | Worst Case    |
 | ------------------------ | --------------- | ------------- |
-| Network (loopback)       | 50-200 μs       | 1-5 ms        |
-| Go GC pause              | 100-500 μs      | 1-3 ms        |
+| Network (loopback)       | 50-200 µs       | 1-5 ms        |
+| Go GC pause              | 100-500 µs      | 1-3 ms        |
 | Goroutine scheduling     | 0-1 ms          | 10+ ms        |
-| Flush + write pipeline   | 200-500 μs      | 2-5 ms        |
+| Flush + write pipeline   | 200-500 µs      | 2-5 ms        |
 | **Total (single cycle)** | **~1 ms**       | **10-20+ ms** |
 
 For context, the C++ Driver's internal acquisition loop (hardware read, transform, write
-to Synnax) operates with < 100 μs determinism when the Core is not in the critical path.
+to Synnax) operates with < 100 µs determinism when the Core is not in the critical path.
 The Driver is already built for real-time. The bottleneck is that the control
 intelligence lives in the Core, not alongside the hardware.
 
@@ -247,7 +247,7 @@ layer, which every hardware integration uses. The bypass leverages this existing
 abstraction by wrapping the factories rather than modifying the pipelines or hardware
 integrations. No hardware-specific code changes.
 
-### 1.1 Always Present, automatically effective
+### 1.1 Always present, automatically effective
 
 The bypass is not a mode, a configuration flag, or an opt-in feature. It is
 infrastructure that is always present in the Driver. When local routes exist (a local
@@ -256,7 +256,7 @@ automatically short-circuits data through the local path. When no local routes e
 the overhead is effectively zero. The system gets faster when local routing is possible
 without anyone asking for it.
 
-### 1.2 Authority is the Filter, not the router
+### 1.2 Authority is the filter, not the router
 
 The bypass does not participate in the authority system. It does not open writers or
 hold gates. Existing tasks continue to manage their own authority through the standard
@@ -363,7 +363,7 @@ layer (`common::ReadTask`, `common::WriteTask`) already accepts `WriterFactory` 
 these factories that add bus integration without modifying the pipeline or hardware
 code.
 
-#### 2.1.0 Acquisition side (Read Tasks)
+#### 2.1.0 Acquisition side (read tasks)
 
 For read tasks, the acquisition pipeline reads from a hardware `Source` and writes to a
 `Writer` provided by the `WriterFactory`. The bypass wraps the `WriterFactory` to
@@ -436,7 +436,7 @@ publish time: the writer checks the local mirror and only publishes channels whe
 subject holds authority, matching Cesium's behavior of stripping unauthorized channels
 before relaying.
 
-#### 2.1.1 Control side (Write Tasks)
+#### 2.1.1 Control side (write tasks)
 
 For write tasks, the control pipeline reads from a `Streamer` provided by the
 `StreamerFactory` and writes to a hardware `Sink`. The bypass wraps the
@@ -667,7 +667,7 @@ difference is that the authority state may be up to one relay cycle stale (Secti
 the `Streamer`, matching Cesium's behavior of stripping unauthorized channels before
 relaying frames.
 
-### 2.3 Deduplication via core-side group exclusion
+### 2.3 Deduplication via Core-side group exclusion
 
 When an Arc task writes a command frame, the data flows through two paths:
 
@@ -676,8 +676,8 @@ When an Arc task writes a command frame, the data flows through two paths:
    Cesium relay -> write task's Core streamer -> `Sink`
 
 Both paths terminate at the same write task. The fast path arrives first. The slow path
-arrives later with the same data. Without deduplication, the Sink would execute the same
-command twice.
+arrives later with the same data. Without deduplication, the `Sink` would execute the
+same command twice.
 
 #### 2.3.0 Group identity
 
@@ -723,7 +723,7 @@ Frames originating from the same rack are dropped before they ever reach the Dri
 Core streamer. The bus already delivered them locally. Frames from other groups (remote
 Console, other Drivers) pass through normally.
 
-#### 2.3.2 Why core-side Exclusion?
+#### 2.3.2 Why Core-side exclusion?
 
 The Driver never sees the same frame twice, so it does not need sequence numbers,
 timestamp tracking, or source tags. The Core relay already processes every frame, and
@@ -962,7 +962,7 @@ Key observations:
 ### 5.2 End-to-end path
 
 Full path: `bus::Writer::write` -> `Bus::publish` -> `Subscription` ->
-``control::States`::filter`.
+`control::States::filter`.
 
 | Workload             | Time      | Throughput |
 | -------------------- | --------- | ---------- |
@@ -987,7 +987,7 @@ The three `deep_copy` operations account for roughly 54% of the measured end-to-
 time. In production, the mock Core writer's `deep_copy` is replaced by Protobuf
 serialization (comparable cost), so the production breakdown is similar.
 
-### 5.4 Optimization: Move-based authority filter
+### 5.4 Optimization: move-based authority filter
 
 The first optimization target was the authority filter's redundant `deep_copy()`. The
 bus already deep-copies frames in `publish()` to give each subscriber its own copy. The
@@ -1044,7 +1044,7 @@ larger fraction of the total cost at small sizes.
 | Mutex + deque + hash map + dedup overhead    | ~2 µs     | 3%             |
 | Measurement overhead / other                 | ~17 µs    | 29%            |
 
-### 5.5 Optimization: Copy-on-write series data
+### 5.5 Optimization: copy-on-write series data
 
 The remaining `deep_copy` in `Bus::publish()` existed because the publisher still needs
 the frame for `server->write(fr)` after publishing. A traditional `deep_copy` was
@@ -1114,7 +1114,7 @@ End-to-end comparison (all optimizations combined):
 | ~~`deep_copy` in `Bus::publish`~~         | ~~13 µs~~ | **eliminated** |
 | `shallow_copy` in `Bus::publish`          | ~0.5 µs   | 1%             |
 | `deep_copy` in mock Core writer           | ~13 µs    | 27%            |
-| Move in `control::States`::filter         | ~1 µs     | 2%             |
+| Move in `control::States::filter`         | ~1 µs     | 2%             |
 | Frame construction (`make_frame` in mock) | ~13 µs    | 27%            |
 | Mutex + deque + hash map + dedup overhead | ~2 µs     | 4%             |
 | Measurement overhead / other              | ~19 µs    | 39%            |
@@ -1159,7 +1159,7 @@ core). Expected differences on target platforms:
   differ but the relative cost structure is the same.
 
 The key insight is architecture-independent: **copies dominate, synchronization is
-cheap.** This holds across all targets because memcpy scales with data size while
+cheap.** This holds across all targets because `memcpy` scales with data size while
 mutex/CV operations have fixed cost.
 
 ## 6 Open problems
@@ -1185,7 +1185,7 @@ staleness window of 1-5 ms on loopback.
 These two filters are not coordinated. Together they can block all delivery paths during
 an authority transition.
 
-#### 6.0.1 The scenario: Hotfire with abort and manual override
+#### 6.0.1 The scenario: hotfire with abort and manual override
 
 A realistic test stand deployment has three controllers competing for the same actuator
 channels (e.g., `main_fuel_valve`, `main_ox_valve`, `igniter`):
@@ -1206,7 +1206,7 @@ Override runs in Console on a separate machine.
 
 The authority hierarchy is: Abort (255) > Manual Override (200) > Nominal Hotfire (100).
 
-##### Scenario A: Abort during nominal operation
+##### Scenario A: abort during nominal operation
 
 The most safety-critical scenario. The hotfire sequence is running at 1 kHz. The abort
 listener detects an overpressure condition and must close all valves within a bounded
@@ -1241,7 +1241,7 @@ Between T=1 and T=5 (1-5 ms on loopback):
 For a rocket engine test stand, 1-5 ms of continued fuel flow during an overpressure
 event can mean the difference between a controlled shutdown and a catastrophic failure.
 
-##### Scenario B: Operator takeover during nominal operation
+##### Scenario B: operator takeover during nominal operation
 
 The operator grabs control from Console to manually safe the system.
 
@@ -1272,7 +1272,7 @@ This is less dangerous than Scenario A (the operator's commands do get through),
 conflicting commands create unpredictable actuator behavior during the transition. This
 is a serious problem for a safety-critical system.
 
-##### Scenario C: Abort while operator has manual control
+##### Scenario C: abort while operator has manual control
 
 The operator is manually controlling valves (authority=200). The abort listener detects
 a hazard.
@@ -1377,7 +1377,7 @@ be stale during transitions). This tradeoff is acceptable for the data path (fra
 cycle) but creates a safety gap for authority transitions, particularly when the gaining
 controller is local and the losing controller is local or remote.
 
-### 6.1 Proposed solution: Short-circuit authority increases through the mirror
+### 6.1 Proposed solution: short-circuit authority increases through the mirror
 
 #### 6.1.0 Key observation
 
@@ -1424,10 +1424,10 @@ are needed.
    earlier gate wins ties.
 
 2. **Bypass `Writer` holds `control::States` reference.** The `Writer` is constructed
-   with a `shared_ptr<control::States>`, the `WriterConfig` (which carries the subject
-   and channel keys). When `set_authority` is called with empty keys (meaning "all
-   channels"), the Writer expands to the config's full channel list. For each channel,
-   it calls `apply_increase` before forwarding the request to the Core.
+   with a `shared_ptr<control::States>` and the `WriterConfig` (which carries the
+   subject and channel keys). When `set_authority` is called with empty keys (meaning
+   "all channels"), the Writer expands to the config's full channel list. For each
+   channel, it calls `apply_increase` before forwarding the request to the Core.
 
 3. **Bypass `WriterFactory` threads `control::States`.** The factory accepts a
    `shared_ptr<control::States>` and passes it through to each Writer it creates.
@@ -1504,7 +1504,7 @@ less time-sensitive because the remote controller's commands arrive via the Core
 the local mirror is stale. The only consequence is a brief window of conflicting
 commands from the old local controller, which resolves when the mirror catches up.
 
-#### 6.1.6 Alternative considered: Synchronous Core round-trip
+#### 6.1.6 Alternative considered: synchronous Core round-trip
 
 An earlier design made `set_authority` synchronous (`ack=true`), waiting for the Core's
 response before returning. The response would carry the authority transfer, and the

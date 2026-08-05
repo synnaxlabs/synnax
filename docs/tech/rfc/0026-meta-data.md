@@ -7,7 +7,7 @@
 
 In this RFC I propose a set of standard practices, patterns, and tools for working with
 metadata structures in Synnax. Metadata structures are any permanently stored resources
-with a Synnax deployment that are not telemetry. This generally includes any data
+within a Synnax deployment that are not telemetry. This generally includes any data
 structure stored in Pebble/Aspen as opposed to Cesium: users, access control policies,
 schematics, logs, tables, etc.
 
@@ -15,7 +15,7 @@ schematics, logs, tables, etc.
 
 Although generally considered somewhat secondary in importance and complexity when
 compared to Synnax's core telemetry engine, the significant increase in functionality,
-logic, and code volume related to meta-data structures in the Synnax codebase means they
+logic, and code volume related to metadata structures in the Synnax codebase means they
 form a critical part of every user workflow.
 
 Although some patterns (Gorp, services, clients, Flux queries, slices) have been
@@ -24,13 +24,13 @@ high variability in their presentation and core logic has resulted in a number o
 practices that are now significantly hindering the maintainability and stability of the
 Synnax platform.
 
-### 1.0 Toolchain for a meta-data structure
+### 1.0 Toolchain for a metadata structure
 
 A "toolchain" for a data structure represents the set of services (in the Core, client
 libraries, Driver, Pluto, and Console) used to support the feature set that data
 structure aims to implement.
 
-For examples, the toolchain for a range includes:
+For example, the toolchain for a range includes:
 
 1. The service in the Core used to create, retrieve, and validate ranges
    (`core/service`).
@@ -44,7 +44,7 @@ For examples, the toolchain for a range includes:
    (`freighter`).
 7. Client libraries for adding language-native wrappers around API calls, and exposing
    standardized data structures (`client/ts`, `client/py`, `client/cpp`).
-8. Reactive queries for updating UI's in real-time (Flux)
+8. Reactive queries for updating UIs in real-time (Flux).
 9. General purpose components for exposing functionality (Pluto).
 10. Specific UI views for user interaction (Console).
 
@@ -131,7 +131,7 @@ This pattern introduces a number of problems:
 #### 1.1.5 Inefficient network transport for complex data structure sync
 
 Some of our more complex data structures in the Console leverage partial state updates
-in ordered to selectively mutate specific properties or fields. Tasks and ranges use the
+in order to selectively mutate specific properties or fields. Tasks and ranges use the
 form API and visualizations such as schematics and line plots use reducers.
 
 In all of these examples, even minor changes result in the **entire** data structure
@@ -144,9 +144,9 @@ schematics makes it difficult to merge changes across concurrent user editing.
 
 #### 1.1.6 Limited support for collaborative editing
 
-The limitations of synchronizing entire data structures also makes real-time
+The limitations of synchronizing entire data structures also make real-time
 collaboration challenging, as efficiently identifying, merging, and communicating
-concurrent changes to state
+concurrent changes to state is difficult.
 
 #### 1.1.7 Data structure complexity due to negligence and technical debt
 
@@ -154,7 +154,7 @@ Many of our data structures have duplicated fields with different names, badly m
 properties, and lack standardized conventions across the codebase.
 
 Our schematics are, once again, notable examples of this. The `Edge` type in the diagram
-has both `key` and an `id` field. The `Edge` type also has a `data` field that is
+has both a `key` and an `id` field. The `Edge` type also has a `data` field that is
 optionally populated.
 
 This lack of discipline when defining data structures has resulted in a number of
@@ -167,15 +167,15 @@ strings on the backend. Doing so provides a high degree of flexibility for intro
 additional variants of these structures, but it also means that we're sacrificing a
 significant amount of compile-time safety.
 
-#### 1.1.9 Multiple sources of truth in console-side state
+#### 1.1.9 Multiple sources of truth in Console-side state
 
 There are two primary locations where we store data structures in global state: Flux and
 Redux. Not all data structures are stored in Redux, but for the ones that are,
 synchronizing state between Flux queries and the global Redux store is a major
 challenge. Doing so typically requires effect-heavy code that introduces unpredictable
-delays and sudden synchronization bugs. Notable example include:
+delays and sudden synchronization bugs. Notable examples include:
 
-1. **Ranges**: Keeping the range toolbar synchronized with ranges store in flux.
+1. **Ranges**: Keeping the range toolbar synchronized with ranges stored in Flux.
 2. **Visualizations**: Delayed synchronization leads to `undefined` errors being thrown
    in the toolbar. Complex `useLoadRemote` and `useSyncDispatch` are patches.
 
@@ -210,7 +210,7 @@ introduces key problems:
    structure itself. This means we need to write Flux code to synchronize everything,
    adding complexity.
 
-#### 1.1.12 Poor behavior of queries that mix Filtering, Sorting, and pagination
+#### 1.1.12 Poor behavior of queries that mix filtering, sorting, and pagination
 
 Our query mechanisms for metadata structures are quite primitive. We run into a number
 of issues when we attempt to handle a mix of filtering, sorting, and pagination
@@ -237,7 +237,7 @@ data is equal to the limit. If it's not, then there must be no more data left.
 
 ##### 1.1.12.2 Unstable caching of queries
 
-We have the ability to do primitive caching of list queries through flux. This is
+We have the ability to do primitive caching of list queries through Flux. This is
 awesome because it reduces the time to interaction for many components. The problem is
 that whenever we do a remote fetch to replace stale data, we end up with this weird
 visual 'jumping' that replaces data in the list. This is jarring for the user.
@@ -260,20 +260,20 @@ We have our definition of the current user `viewport` as a field right next to t
 of `lines` that belong in a plot. These are all saved to the Core together, even though
 we don't really want `viewport` to be saved as part of the configuration.
 
-## 2 Very loose thoughts on improving the Toolchain. to be collected
+## 2 Very loose thoughts on improving the toolchain (to be collected)
 
-### 2.0 Sorting, Filtering, pagination improvements
+### 2.0 Sorting, filtering, and pagination improvements
 
 Sorting, filtering, and pagination are some of the most poorly implemented pieces of
-meta-data functionality in Synnax.
+metadata functionality in Synnax.
 
 ### 2.1 Faster, more efficient query engine
 
 #### 2.1.0 Indexing architecture
 
 The `gorp.Table[K, E]` owns and maintains indexes for a particular entry type. Indexes
-are **local materialized views** - they are not replicated through Aspen and are rebuilt
-on Code startup from primary data.
+are **local materialized views** — they are not replicated through Aspen and are rebuilt
+on Core startup from primary data.
 
 ##### One-way decisions (Commitments)
 
@@ -293,10 +293,10 @@ on Code startup from primary data.
 
 Implementation details that can change without breaking the architecture:
 
-- Storage structure (map vs sorted slice vs B-tree)
-- GC-friendly encoding (compact byte arrays vs standard Go structures)
-- Sync vs async index updates
-- Full rebuild vs incremental startup
+- Storage structure (map vs. sorted slice vs. B-tree)
+- GC-friendly encoding (compact byte arrays vs. standard Go structures)
+- Sync vs. async index updates
+- Full rebuild vs. incremental startup
 
 ##### Index types
 
@@ -365,7 +365,7 @@ Core types across languages should be generated from a single source of truth.
 
 ### 2.3 Core-side migrations for all primary data structures
 
-Any data structure that is stored in the core should be migrated on the core.
+Any data structure that is stored in the Core should be migrated on the Core.
 
 ### 2.4 No more stringified JSON configurations
 
@@ -381,15 +381,15 @@ code paths, reduce duplicated state, and improve performance.
 
 We should standardize relationships between data structures to leverage the ontology
 instead of fields. We need to build better mechanisms for modifying, validating, and
-querying these relationships in an efficient mannger.
+querying these relationships in an efficient manner.
 
-### Research on migrations
+### 2.7 Research on migrations
 
 Generally speaking, there are two classes of migration engines:
 
-1. Model as truth - The current state of the data structure is the source of truth.
-   Migrations are created via code generation in order to evolve the model from its
-   first structure to the current structure. This is more declarative. Data shape yields
-   migrations.
-2. Migrations as truth - An imperative approach, where the chain of functions that
-   perform the migration are the source of truth. Migrations yield data shape.
+- **Model as truth**: The current state of the data structure is the source of truth.
+  Migrations are created via code generation in order to evolve the model from its first
+  structure to the current structure. This is more declarative. Data shape yields
+  migrations.
+- **Migrations as truth**: An imperative approach, where the chain of functions that
+  perform the migration are the source of truth. Migrations yield data shape.

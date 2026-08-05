@@ -9,7 +9,7 @@ In this RFC I propose a framework for managing collections of goroutines in a CS
 system. Virtually all of Delta's queries are served using a collection of long-lived
 streams. Multiple goroutines inject values into, transform values through, and extract
 values from these streams. Defining constructs for controlling and observing the
-lifecycle of these routines is essential mitigating complexity and maintaining high
+lifecycle of these routines is essential to mitigating complexity and maintaining high
 availability across the Delta cluster.
 
 ## 1 Vocabulary and abbreviations
@@ -21,7 +21,7 @@ availability across the Delta cluster.
 
 The Go language provides several primitives for managing the lifecycle of a goroutine.
 `sync.WaitGroup` and `errgroup.Group` prevent a goroutine from exiting until all of its
-dependent routines have exited. `context.Context`and `context.CancelFunc` allow a GR to
+dependent routines have exited. `context.Context` and `context.CancelFunc` allow a GR to
 exit when a request/process is completed or aborted. Separating these two constructs is
 useful for abstraction and modularity, but can result in the misuse of context
 variables, leading to leaky goroutines and unpredictable concurrency. We need an
@@ -100,8 +100,8 @@ Stopped() <-chan struct{}
 }
 ```
 
-Wait implements the same semantics as `sync.WaitGroup.Wait`. `Stopped` returns a channel
-that is closed when all routines have exited.
+`Wait` implements the same semantics as `sync.WaitGroup.Wait`. `Stopped` returns a
+channel that is closed when all routines have exited.
 
 ### 3.2 Transient errors
 
