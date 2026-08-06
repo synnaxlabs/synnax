@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, location } from "@synnaxlabs/x";
+import { box, location, type state as xstate } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type ReactElement,
@@ -46,7 +46,7 @@ export interface FrameProps extends Omit<
 > {
   initialVisible?: boolean;
   visible?: boolean;
-  onVisibleChange?: state.Setter<boolean>;
+  onVisibleChange?: xstate.Setter<boolean>;
   location?: LocationPreference;
   variant?: Variant;
   maxHeight?: Component.Size | number;

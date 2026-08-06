@@ -9,7 +9,6 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
-import { type Pluto } from "@synnaxlabs/pluto";
 
 import { ingestComponent } from "@/platform/import/import";
 import { type DirectoryIngester, type FileIngesters } from "@/platform/import/ingester";
@@ -69,19 +68,11 @@ interface DataTransferItemContext {
   ingestDirectory: DirectoryIngester;
   openTab: Panel.OpenTab;
   store: Store;
-  fluxStore: Pluto.FluxStore;
 }
 
 export const dataTransferItem = async (
   item: DataTransferItem,
-  {
-    client,
-    fileIngesters,
-    ingestDirectory,
-    openTab,
-    store,
-    fluxStore,
-  }: DataTransferItemContext,
+  { client, fileIngesters, ingestDirectory, openTab, store }: DataTransferItemContext,
 ) => {
   const entry = await parseDataTransferItem(item);
   if (entry == null) throw new Error("path is null");
@@ -97,7 +88,6 @@ export const dataTransferItem = async (
     await ingestComponent(parsedData, fileIngesters, {
       name,
       openTab,
-      store: fluxStore,
       client,
       projectKey,
       fileName: entry.name,
@@ -118,6 +108,5 @@ export const dataTransferItem = async (
     fileIngesters,
     openTab,
     store,
-    fluxStore,
   });
 };

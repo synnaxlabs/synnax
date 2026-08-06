@@ -62,11 +62,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
     beforeSave: useCallback(
       async ({
         value,
-      }: Flux.FormBeforeSaveParams<
-        PView.FormQuery,
-        typeof PView.formSchema,
-        PView.FluxSubStore
-      >) => {
+      }: Flux.FormBeforeSaveParams<PView.FormQuery, typeof PView.formSchema>) => {
         const { key, query } = value();
         // if this is a static view we need to handle it here. Otherwise, the
         // useSetSynchronizer will handle it as it also needs to handle remote updates.

@@ -23,7 +23,6 @@ import {
   Rack,
   Select,
   Status,
-  Task,
   Text,
 } from "@synnaxlabs/pluto";
 import { json } from "@synnaxlabs/x";
@@ -67,17 +66,12 @@ const useForm = PDevice.createForm(SCHEMAS);
 const beforeSave = async ({
   client,
   get,
-  store,
   set,
-}: Flux.FormBeforeSaveParams<
-  PDevice.RetrieveQuery,
-  typeof PDevice.formSchema,
-  PDevice.FluxSubStore
->) => {
-  const scanTask = await Task.retrieveSingle({
-    client,
-    store,
-    query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
+}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
+  const scanTask = await client.tasks.retrieve({
+    type: SCAN_TYPE,
+    rack: get<rack.Key>("rack").value,
+    includeStatus: true,
     schemas: SCAN_SCHEMAS,
   });
   const props = get<Properties>("properties").value;

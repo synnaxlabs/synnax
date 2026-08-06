@@ -30,6 +30,7 @@
         { "case": "console/log/log_lifecycle" },
         { "case": "console/pages/open_close" },
         { "case": "console/pages/rename_synchronization" },
+        { "case": "console/pages/tombstone" },
         { "case": "console/plot/line_plot" },
         { "case": "console/range/range_explorer" },
         { "case": "console/range/range_details" },

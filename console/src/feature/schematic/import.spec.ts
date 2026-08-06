@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, expectLive } from "@synnaxlabs/client/testutil";
 import { color, type record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import { type Panel } from "@/platform/panel";
-import { createGrantedFluxStore, createTestFluxStore, uniqueName } from "@/testutil";
+import { assertDefined, awaitGranted, uniqueName } from "@/testutil";
 
 const V0_ZERO = {
   version: "0.0.0",
@@ -389,11 +389,7 @@ describe("schematic import", () => {
   describe("ingest", () => {
     it("creates the schematic on the cluster and opens its tab", async () => {
       const client = createTestClient();
-      const store = await createGrantedFluxStore(
-        client,
-        schematic.TYPE_ONTOLOGY_ID,
-        "update",
-      );
+      await awaitGranted(client, schematic.TYPE_ONTOLOGY_ID, "update");
       const project = await client.projects.create({
         name: uniqueName("proj"),
         layout: {},
@@ -403,27 +399,25 @@ describe("schematic import", () => {
       const id = await Schematic.ingest(TYPED_EXPORT, {
         name,
         openTab,
-        store,
         client,
         projectKey: project.key,
         fileName: "test.json",
       });
-      if (id == null) throw new Error("ingest did not return an ontology id");
+      assertDefined(id, "ingest did not return an ontology id");
       expect(openTab).toHaveBeenCalledTimes(1);
       expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });
-      const created = await client.schematics.retrieve({ key: id.key });
+      const created = await client.schematics.retrieve(id.key);
       expect(created.name).toBe(name);
       expect(created.nodes).toHaveLength(1);
-      expect(store.schematics.get(id.key)?.name).toBe(name);
+      const cached = client.schematics.getCached(id.key);
+      expect(expectLive(cached).name).toBe(name);
     });
 
     it("rejects the import when the permission cache has no grant", async () => {
-      const store = createTestFluxStore(null);
       await expect(
         Schematic.ingest(TYPED_EXPORT, {
           name: "denied",
           openTab: vi.fn<Panel.OpenTab>(),
-          store,
           client: null,
           projectKey: "project-1",
           fileName: "test.json",

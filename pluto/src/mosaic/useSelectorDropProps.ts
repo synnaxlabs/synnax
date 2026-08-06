@@ -58,7 +58,13 @@ export const useSelectorDropProps = ({
     ({ items, index }: Tabs.SelectorOnDropParams): Haul.Item[] => {
       const dropped = filterTabDropHaulItems(items);
       if (dropped.length > 0)
-        onDrop?.({ nodeKey, tabKey: dropped[0].key, location: "center", index });
+        onDrop?.({
+          nodeKey,
+          tabKey: dropped[0].key,
+          data: dropped[0].data,
+          location: "center",
+          index,
+        });
       const created = filterTabCreateHaulItems(items);
       if (created.length > 0)
         onCreate?.({

@@ -17,22 +17,22 @@ import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";
 import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
-import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
+import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { CSS } from "@/platform/css";
-import { Range } from "@/platform/range";
-import { Status } from "@/platform/status";
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});
-  Cluster.useSyncClusterKey();
   Device.useListenForChanges();
-  Range.useListenForChanges();
-  Project.useCheckCore();
-  Status.useListenForChanges();
   Link.useDeep();
   Triggers.use();
+  return null;
+};
+
+// Tear-off reads the required project selectors, so it mounts inside Project.Guard.
+const ProjectSideEffect = (): null => {
+  Panel.useTearOff();
   return null;
 };
 
@@ -44,19 +44,22 @@ export const Primary = (): ReactElement => (
   <>
     <SideEffect />
     <Auth.Guard>
-      <Project.Guard>
-        <Nav.Bar.Top />
-        <Flex.Box x gap="tiny" grow className={CSS.BE("main", "content")}>
-          <Nav.Bar.Left />
-          <Flex.Box gap="tiny" grow className={CSS.BE("main", "column")}>
-            <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
-              <Nav.Drawer.Left />
-              <Mosaic.Mosaic />
+      <Auth.ConnectionGuard>
+        <Project.Guard>
+          <ProjectSideEffect />
+          <Nav.Bar.Top />
+          <Flex.Box x gap="tiny" grow className={CSS.BE("main", "content")}>
+            <Nav.Bar.Left />
+            <Flex.Box gap="tiny" grow className={CSS.BE("main", "column")}>
+              <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
+                <Nav.Drawer.Left />
+                <Mosaic.Mosaic />
+              </Flex.Box>
+              <Nav.Drawer.Bottom />
             </Flex.Box>
-            <Nav.Drawer.Bottom />
           </Flex.Box>
-        </Flex.Box>
-      </Project.Guard>
+        </Project.Guard>
+      </Auth.ConnectionGuard>
     </Auth.Guard>
   </>
 );

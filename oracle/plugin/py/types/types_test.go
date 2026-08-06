@@ -1954,6 +1954,38 @@ var _ = Describe("Python Union Generation", func() {
 		},
 	)
 
+	It(
+		"Should inherit a union base class imported from another module",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@py output "client/py/synnax/common"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+		`)
+			source := `
+			import "schemas/common"
+
+			@py output "client/py/synnax/ni"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			content := MustContentOf(resp, "ni/types_gen.py")
+			Expect(content).To(ContainSubstring(`from synnax import common`))
+			Expect(content).To(ContainSubstring(
+				"class AIVoltageChannel(common.BaseAIChan, VoltageFields):" +
+					"\n    type: Literal[\"ai_voltage\"]\n",
+			))
+		},
+	)
+
 	It("Should resolve a union-typed field to the union alias", func(ctx SpecContext) {
 		source := `
 			@py output "out"

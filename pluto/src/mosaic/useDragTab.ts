@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type record } from "@synnaxlabs/x";
 import { type DragEvent, useCallback } from "react";
 
 import { Haul } from "@/haul";
@@ -15,9 +16,10 @@ import { createTabDropHaulItem } from "@/mosaic/haul";
 export interface UseDragTabReturn {
   /**
    * startDrag begins hauling the tab with the given key. Call from a draggable
-   * tab element's onDragStart handler.
+   * tab element's onDragStart handler. Anything passed as data reaches the drop
+   * handler untouched, including a handler in another window.
    */
-  startDrag: (e: DragEvent<HTMLElement>, tabKey: string) => void;
+  startDrag: (e: DragEvent<HTMLElement>, tabKey: string, data?: record.Unknown) => void;
   /** onDragEnd resolves the drag. Spread onto the same draggable tab element. */
   onDragEnd: (e: DragEvent<HTMLElement>) => void;
 }
@@ -30,8 +32,8 @@ export interface UseDragTabReturn {
 export const useDragTab = (): UseDragTabReturn => {
   const { startDrag, onDragEnd } = Haul.useDrag({ type: "Mosaic" });
   const handleStart = useCallback(
-    (e: DragEvent<HTMLElement>, tabKey: string) =>
-      startDrag([createTabDropHaulItem(tabKey, e.currentTarget.id)]),
+    (e: DragEvent<HTMLElement>, tabKey: string, data?: record.Unknown) =>
+      startDrag([createTabDropHaulItem(tabKey, e.currentTarget.id, data)]),
     [startDrag],
   );
   return { startDrag: handleStart, onDragEnd };

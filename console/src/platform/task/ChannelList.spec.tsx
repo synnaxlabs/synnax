@@ -144,7 +144,7 @@ describe("ChannelList", () => {
         { values: { ...twoChannels, snapshot: true } },
       );
       fireEvent.contextMenu(await screen.findByText("item-a"));
-      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText("Reload console")).toBeTruthy());
       expect(screen.queryByText("Remove")).toBeNull();
       expect(screen.queryByText("Duplicate")).toBeNull();
       expect(screen.queryByText("Disable")).toBeNull();

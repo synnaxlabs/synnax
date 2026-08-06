@@ -66,7 +66,7 @@ const useDelete = () => {
         handleRemove(keys);
         return true;
       },
-      [],
+      [confirm, ranges],
     ),
   });
   return update;

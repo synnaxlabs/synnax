@@ -8,17 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type arc } from "@synnaxlabs/client";
-import {
-  Arc,
-  Flex,
-  Form,
-  Input,
-  List,
-  Select,
-  stopPropagation,
-  Text,
-} from "@synnaxlabs/pluto";
-import { useMemo } from "react";
+import { Flex, Input, List, Select, stopPropagation, Text } from "@synnaxlabs/pluto";
 
 export interface ItemProps extends List.ItemProps<arc.Key> {
   onRename?: (name: string) => void;
@@ -29,25 +19,8 @@ export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) =
   const { itemKey } = props;
   const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
   const { onSelect, selected, hovered } = Select.useItemState(itemKey);
-  const initialValues = useMemo(() => {
-    if (arc == null) return undefined;
-    return {
-      key: arc.key,
-      name: arc.name,
-      graph: arc.graph,
-      text: arc.text,
-      mode: arc.mode,
-    };
-  }, [arc]);
 
-  if (initialValues == null || arc == null) return null;
-
-  const { form } = Arc.useForm({
-    query: { key: itemKey },
-    initialValues,
-    sync: true,
-    autoSave: true,
-  });
+  if (arc == null) return null;
   const { name } = arc;
 
   return (
@@ -60,22 +33,20 @@ export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) =
       justify="between"
       align="center"
     >
-      <Form.Form<typeof Arc.formSchema> {...form}>
-        <Flex.Box x align="center">
-          <Input.Checkbox
-            value={selected}
-            onChange={onSelect}
-            onClick={stopPropagation}
-          />
-          <Text.MaybeEditable
-            id={`${textIdPrefix}-${itemKey}`}
-            level="p"
-            value={name}
-            onChange={onRename}
-            allowDoubleClick={false}
-          />
-        </Flex.Box>
-      </Form.Form>
+      <Flex.Box x align="center">
+        <Input.Checkbox
+          value={selected}
+          onChange={onSelect}
+          onClick={stopPropagation}
+        />
+        <Text.MaybeEditable
+          id={`${textIdPrefix}-${itemKey}`}
+          level="p"
+          value={name}
+          onChange={onRename}
+          allowDoubleClick={false}
+        />
+      </Flex.Box>
     </List.Item>
   );
 };

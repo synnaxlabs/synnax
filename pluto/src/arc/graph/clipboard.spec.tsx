@@ -54,7 +54,7 @@ const createGraphArc = async (): Promise<arc.Arc> =>
     text: { raw: "" },
   });
 
-// loadArc primes the flux store with the arc at key via the suspending
+// loadArc primes the client cache with the arc at key via the suspending
 // useEnsureRetrieved. A single-hook bootstrap keeps the suspending hook from
 // being followed by additional hooks, which trips a React 19 replay warning.
 const loadArc = async (key: string): Promise<void> => {
@@ -109,7 +109,7 @@ describe("arc graph clipboard", () => {
     return { key, result };
   };
 
-  it("should copy a selected subgraph and paste it into the store as a fresh subgraph", async () => {
+  it("should copy a selected subgraph and paste it into the cache as a fresh subgraph", async () => {
     const { result } = await setup([N1, N2, EDGE_KEY]);
     expect(result.current.nodes).toHaveLength(2);
 
@@ -144,7 +144,7 @@ describe("arc graph clipboard", () => {
     expect(result.current.edges).toHaveLength(1);
   });
 
-  it("should not change the store when the selection copies nothing", async () => {
+  it("should not change the cache when the selection copies nothing", async () => {
     const { result } = await setup(["does-not-exist"]);
 
     const e = fakeClipboardEvent();
