@@ -10,7 +10,7 @@
   [RFC 0039 - Server-side metadata import/export](0039-server-side-import-export.md),
   [RFC 0042 - Core structure refactor](0042-core-structure-refactor.md),
   [RFC 0043 - Oracle support for struct unions](0043-oracle-struct-unions.md), and
-  [RFC 0047 - Oracle predecessor-chain type versioning](0047-oracle-predecessor-chain-versioning.md).
+  [RFC 0048 - Oracle predecessor-chain type versioning](0048-oracle-predecessor-chain-versioning.md).
 
 ## 0 Summary
 
@@ -43,41 +43,41 @@ and composes with it in either order.
 
 ## 1 Motivation
 
-1. **The Core cannot migrate persisted data**: config shapes are persisted data, but
+1. **The Core cannot migrate persisted data**: Config shapes are persisted data, but
    their version chains live in clients. The Console holds a private NI chain
    (`console/src/feature/ni/task/types/v0.ts` and `v1.ts`), the Python client misreads
    old shapes, and the Driver fails to parse them.
 2. **Server-side import is blocked**: RFC 0039 moved metadata import into the Core, but
    the task service implements only `imex.Exporter`, and that exporter flattens an
    opaque map into the envelope body. SY-4524 waits on a config the Core can read.
-3. **A config shape has no single definition**: each one is written by hand three times,
+3. **A config shape has no single definition**: Each one is written by hand three times,
    in Console Zod, Python Pydantic, and C++ `parser.field<T>()`. No tool reports when
    the copies disagree. NI multiplies this across roughly 50 channel variants.
-4. **The Core cannot reject bad data**: a malformed config is accepted, stored, and
+4. **The Core cannot reject bad data**: A malformed config is accepted, stored, and
    fails later at the Driver, far from the client that wrote it.
 
 ---
 
 ## 2 Vocabulary
 
-- **Config record**: the typed row that holds one task's configuration. It lives in a
+- **Config record**: The typed row that holds one task's configuration. It lives in a
   Gorp table specific to the task type and has its own UUID key.
-- **Resolved field**: a field the API returns but no row stores. The service computes it
+- **Resolved field**: A field the API returns but no row stores. The service computes it
   on retrieve. `type` and `config` both become resolved fields on the task.
-- **Decompose**: to split an incoming task payload into a task row and a config record.
-- **Compose**: to rebuild the resolved fields from a config record on retrieve.
+- **Decompose**: To split an incoming task payload into a task row and a config record.
+- **Compose**: To rebuild the resolved fields from a config record on retrieve.
 
 ---
 
 ## 3 Principles
 
-1. **The Core owns persisted data and its migrations**: a config shape is persisted
+1. **The Core owns persisted data and its migrations**: A config shape is persisted
    data, so its schema and version chain belong to the Core, not to each client.
-2. **Write the shape one time**: one Oracle schema per task type generates the Go,
+2. **Write the shape one time**: One Oracle schema per task type generates the Go,
    TypeScript, Python, C++, and Protobuf code. Hand parsing is a defect.
-3. **The client contract does not move**: this RFC changes storage and adds server-side
+3. **The client contract does not move**: This RFC changes storage and adds server-side
    behavior. The task payload on the wire keeps its shape, field for field.
-4. **A closed set, loudly enforced**: every task type has a schema. Task types are
+4. **A closed set, loudly enforced**: Every task type has a schema. Task types are
    first-party dispatch keys, and the Core and the Driver ship together, so an unknown
    type is a bug and the Core rejects it.
 
@@ -199,7 +199,7 @@ registry, decodes the blob into the generated Go struct, validates it, writes th
 record, and defines the relationship, all in the caller's transaction. An unknown type
 is a validation error on the write, and so is a config that does not decode.
 
-**Compose (read)**: the reader resolves the config parent, decodes the record, and
+**Compose (read)**: The reader resolves the config parent, decodes the record, and
 stamps `type` and `config` back onto the payload. §4.3 names the call sites.
 
 A decode failure on retrieve means a corrupt record, not a stale one: the record was
@@ -209,7 +209,7 @@ reader reports it as an internal error rather than serving a partial task.
 ### 4.5 Versions and migrations
 
 Each config type carries its own `@go version` and its own `versions/vN` chain, the
-standard Oracle mechanism (RFC 0033, RFC 0047). Nothing about the chain is
+standard Oracle mechanism (RFC 0033, RFC 0048). Nothing about the chain is
 task-specific: a config type is an ordinary versioned Oracle type that happens to be
 keyed by a task type string.
 
@@ -234,10 +234,10 @@ The two halves land in different services, because the registry routes them by d
 keys. `Export` routes by the ontology type of the ID it is given, and `Import` routes by
 the type string the envelope carries.
 
-- **The task service stays an `imex.Exporter`**: it keeps the `task` export
+- **The task service stays an `imex.Exporter`**: It keeps the `task` export
   registration, resolves the task's type, asks that type's service for the encoded
   config record, and stamps `type` and `name` on top. It gains no import half.
-- **Each config type gets an `imex.ImportExporter`**: the per-integration service
+- **Each config type gets an `imex.ImportExporter`**: The per-integration service
   registers one for every type it owns, so an `ni_analog_read` envelope routes straight
   to it. It decodes and migrates the body, then writes the config record, the task row,
   and the relationship in the supplied transaction. Its export half serves the config
@@ -266,18 +266,18 @@ the config needs a version.
 
 Every operation stays where it is; only the transaction contents grow.
 
-- **Create**: decompose, write the task row and the config record, define the
+- **Create**: Decompose, write the task row and the config record, define the
   relationship.
-- **Update**: rewrite the config record in place. The task key and the relationship do
+- **Update**: Rewrite the config record in place. The task key and the relationship do
   not change.
-- **Delete**: delete the task row, the config record, and the relationship together. The
+- **Delete**: Delete the task row, the config record, and the relationship together. The
   writer deletes every parent of the task that is not a group, so a config record never
   outlives the task it configures.
-- **Copy**: copy the config record under a new UUID and relate it to the new task. The
+- **Copy**: Copy the config record under a new UUID and relate it to the new task. The
   existing `Writer.Copy` gains one step.
-- **Snapshot**: a snapshot task gets its own frozen config record. Snapshots never share
+- **Snapshot**: A snapshot task gets its own frozen config record. Snapshots never share
   a record with a live task.
-- **Rename**: task row only. The name is not part of the config.
+- **Rename**: Task row only. The name is not part of the config.
 
 ### 4.8 Migration of stored tasks
 
@@ -331,39 +331,38 @@ types these by hand today.
 
 ## 5 Implementation phases
 
-Each numbered phase is a PR, or a short series where noted. At each boundary the tree
-builds, the tests pass, and the product can ship. No phase changes the task payload.
+Each phase is a PR, or a short series where noted. At each boundary the tree builds, the
+tests pass, and the product can ship. No phase changes the task payload.
 
-1. **Oracle groundwork — complete**: cross-file extension of a common shape already
-   works, covered by analyzer and generator tests. The Gorp table and ontology
-   registration stay hand-written per service, on the pattern of
-   `core/pkg/service/view`; generating them is deferred until the pattern settles
-   across a few integrations.
-2. **Schema authorship**: the per-integration `.oracle` files and their generated
-   artifacts, not yet wired. One PR per integration or small group, each a reviewable
-   schema plus inert generated code. Every task type in §4.10 is covered before Phase 4
-   lands, because the closed set has no fallback.
-3. **Tables and services**: the per-integration service packages, the Gorp tables, the
-   `ontology.ResourceType` members (§4.9), the ontology registration, and the config
-   registry the task writer will consult. Additive and unconsumed; Ginkgo suites
-   exercise the packages directly.
-4. **Decompose and compose**: the storage cutover. The task writer decomposes on write;
-   retrieve, `OnChange`, and `sy_task_set` compose on read; the config record becomes a
-   second parent of the task; internal tasks gain an ontology resource; and the §4.8
-   startup migration runs. `type` and `config` become resolved. The task payload keeps
-   its shape, so no client needs a new field, but the parent readers of §4.2 gain their
-   type filter in the same phase.
-5. **Import and export**: each config type registers an `imex.ImportExporter`, `imex`
-   keys importers by ontology resource type, the task service delegates its export body,
-   and the built-in role policies gain the config types (§4.6, §4.9). This unblocks
-   SY-4524 and lands with that work, after Phase 4. Export never regresses in the
-   interim: from the cutover on, the task exporter reads the composed payload, so the
-   flattened body it writes today is unchanged.
-6. **Client compat deletion**: one PR per client, no wire change. The Console loses its
-   NI version chain, the Python client loses its old-shape readers, and the Driver loses
-   its legacy parse tolerance.
+- **Phase 1: Oracle groundwork — complete.** Cross-file extension of a common shape
+  already works, covered by analyzer and generator tests. The Gorp table and ontology
+  registration stay hand-written per service, on the pattern of `core/pkg/service/view`;
+  generating them is deferred until the pattern settles across a few integrations.
+- **Phase 2: Schema authorship.** The per-integration `.oracle` files and their
+  generated artifacts, not yet wired. One PR per integration or small group, each a
+  reviewable schema plus inert generated code. Every task type in §4.10 is covered
+  before Phase 4 lands, because the closed set has no fallback.
+- **Phase 3: Tables and services.** The per-integration service packages, the Gorp
+  tables, the `ontology.ResourceType` members (§4.9), the ontology registration, and the
+  config registry the task writer will consult. Additive and unconsumed; Ginkgo suites
+  exercise the packages directly.
+- **Phase 4: Decompose and compose.** The storage cutover. The task writer decomposes on
+  write; retrieve, `OnChange`, and `sy_task_set` compose on read; the config record
+  becomes a second parent of the task; internal tasks gain an ontology resource; and the
+  §4.8 startup migration runs. `type` and `config` become resolved. The task payload
+  keeps its shape, so no client needs a new field, but the parent readers of §4.2 gain
+  their type filter in the same phase.
+- **Phase 5: Import and export.** Each config type registers an `imex.ImportExporter`,
+  `imex` keys importers by ontology resource type, the task service delegates its export
+  body, and the built-in role policies gain the config types (§4.6, §4.9). This unblocks
+  SY-4524 and lands with that work, after Phase 4. Export never regresses in the
+  interim: from the cutover on, the task exporter reads the composed payload, so the
+  flattened body it writes today is unchanged.
+- **Phase 6: Client compat deletion.** One PR per client, no wire change. The Console
+  loses its NI version chain, the Python client loses its old-shape readers, and the
+  Driver loses its legacy parse tolerance.
 
-**Compatibility**: no phase breaks the wire. Phase 4 migrates persisted data with no
+**Compatibility**: No phase breaks the wire. Phase 4 migrates persisted data with no
 downgrade path, the standard position for storage migrations in this codebase. A client
 that never updates keeps working through every phase; the benefit of Phase 6 is deleted
 code, not new behavior.
@@ -372,40 +371,40 @@ code, not new behavior.
 
 ## 6 Resolved decisions
 
-1. **Typed task resources as root aggregates — deferred**: an earlier draft made each
+1. **Typed task resources as root aggregates — deferred**: An earlier draft made each
    task type a first-class resource with a UUID, drafts, a deploy verb, and action
    dispatch. It repairs the ownership model, but it rewrites every client. The config
    record here is the storage half of that design and does not foreclose it.
-2. **A typed config union on the wire — rejected**: it solves the hand-written parser
+2. **A typed config union on the wire — rejected**: It solves the hand-written parser
    problem, and that trade is real. It also breaks the Console, the Python client, and
    the Driver at once, which is the cost this RFC exists to avoid.
-3. **`type` stored on the task row — rejected**: the parent relationship already names
+3. **`type` stored on the task row — rejected**: The parent relationship already names
    the type, and a stored column would be a second source of truth that can drift from
    the record it describes.
-4. **A dedicated relationship type — rejected**: in favor of `parent_of`. The config
+4. **A dedicated relationship type — rejected**: In favor of `parent_of`. The config
    record is the task's parent in every sense the ontology models, and reusing the
    existing type inherits the tree walk and the index. The cost is that a task now has
    two parents, which §4.2 handles.
-5. **A `config` ontology ID field on the task — rejected**: in favor of the
+5. **A `config` ontology ID field on the task — rejected**: In favor of the
    relationship, which gives the config record ontology standing for later per-type
    endpoints and policies. A field would only serve composition.
-6. **Keying the config record by the task key — rejected**: a shared key makes the
+6. **Keying the config record by the task key — rejected**: A shared key makes the
    relationship redundant, but it denies the config a portable identity across export
    and import and couples the record to the SY-4488 re-key.
-7. **A legacy passthrough for types without schemas — rejected**: every task type is
+7. **A legacy passthrough for types without schemas — rejected**: Every task type is
    first-party and ships with the Core, so an untyped escape hatch would preserve the
    problem this RFC removes. Migration quarantines what it cannot convert (§4.8).
 8. **Migrating stored records on decode — rejected**: Gorp migrations are startup
    rewrite passes, and the stored codec carries no per-record version stamp, so
-   decode-time migration would need new `x/go/gorp` and codec machinery. Config
-   versions bump through bootup rewrites like every other Gorp table (§4.5).
-9. **Per-type schema files — rejected**: in favor of per-integration files, which keep
+   decode-time migration would need new `x/go/gorp` and codec machinery. Config versions
+   bump through bootup rewrites like every other Gorp table (§4.5).
+9. **Per-type schema files — rejected**: In favor of per-integration files, which keep
    the shared channel and scale unions adjacent to their users (§4.1).
-10. **A task-service importer — rejected**: import routes on the envelope's type string,
+10. **A task-service importer — rejected**: Import routes on the envelope's type string,
     so each config type registers its own `imex.ImportExporter` and the task service
     keeps only its `task` exporter (§4.6). A central handler would relearn every config
     shape.
-11. **One envelope version for every task — rejected**: the `task` ontology type is a
+11. **One envelope version for every task — rejected**: The `task` ontology type is a
     routing key, not a schema, so it carries no version. Each config type stamps its own
     (§4.6), which replaces the single `task.Version` constant used today.
 
@@ -413,7 +412,7 @@ code, not new behavior.
 
 ## 7 What this RFC does not cover
 
-- **Typed configs on the client wire**: the Console, the Python client, and the C++
+- **Typed configs on the client wire**: The Console, the Python client, and the C++
   Driver keep their hand-written config parsers. This RFC removes the version chains,
   not the parsers.
 - **Device properties, in any form**: `device.properties` stays an opaque blob, with no
@@ -421,7 +420,7 @@ code, not new behavior.
   NodeIds that camelCase conversion corrupts live there, so the `getChannelByMapKey`
   fallback in the Console stays. Repairing that class is its own effort, and the pattern
   here transfers to it directly.
-- **Drafts, deploy, and the resource lifecycle**: Resolved Decision 1.
+- **Drafts, deploy, and the resource lifecycle**: §6, decision 1.
 - **Typed command args**: `Command.args` stays opaque.
 
 ---
