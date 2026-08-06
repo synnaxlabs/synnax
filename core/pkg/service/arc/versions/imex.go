@@ -54,9 +54,9 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 // decodeConsole lifts either Console-written file shape into a Document.
 func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, error) {
 	if !env.Versioned() {
-		// The v0.56 Console export taken from a closed Arc: the typed Arc it retrieved
-		// from the Core, spread into the file with no version stamp. Console states
-		// always carry one, so an absent header is the discriminator.
+		// The Console export taken from an Arc that was not open: the typed Arc it
+		// retrieved from the Core, spread into the file with no version stamp. Console
+		// states always carry one, so an absent header is the discriminator.
 		e, err := imex.Decode[legacy.Export](ctx, env)
 		if err != nil {
 			return legacy.Document{}, err

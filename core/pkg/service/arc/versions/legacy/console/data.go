@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package console holds the frozen wire format of the v0.56 Console Arc export: the
-// typed Arc the Console retrieved from the Core, spread into the file in camelCase with
-// no version stamp. It sits outside the state chain and so carries no version; Lift
+// Package console holds the frozen wire format of the Console Arc export: the typed Arc
+// the Console retrieved from the Core, spread into the file in camelCase with no
+// version stamp. Releases 0.54.0 onward write it whenever the exported Arc was not open
+// in the Console. It sits outside the state chain and so carries no version; Lift
 // converts it into the graph shape the Arc migrations consume.
 package console
 
