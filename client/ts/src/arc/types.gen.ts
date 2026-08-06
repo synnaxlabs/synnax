@@ -17,10 +17,22 @@ import { program } from "@/arc/program";
 import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
 import { status } from "@/status";
+import { task } from "@/task";
 
 export const MODES = ["text", "graph"] as const;
 export const modeZ = z.enum(MODES);
 export type Mode = z.infer<typeof modeZ>;
+
+export const EXECUTION_MODES = [
+  "AUTO",
+  "BUSY_WAIT",
+  "HIGH_RATE",
+  "RT_EVENT",
+  "HYBRID",
+  "EVENT_DRIVEN",
+] as const;
+export const executionModeZ = z.enum(EXECUTION_MODES);
+export type ExecutionMode = z.infer<typeof executionModeZ>;
 
 /** StatusDetails contains Arc-specific status details for execution state. */
 export const statusDetailsZ = z.object({
@@ -34,6 +46,15 @@ export type Key = z.infer<typeof keyZ>;
 
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
+
+export const taskConfigZ = task.baseConfigZ.extend({
+  arcKey: keyZ,
+  executionMode: executionModeZ.default("AUTO"),
+  rtPriority: z.int32().default(47),
+  cpuAffinity: z.int32().default(-1),
+  lockMemory: z.boolean().default(false),
+});
+export interface TaskConfig extends z.infer<typeof taskConfigZ> {}
 
 /**
  * Arc is an Arc module combining visual graph representation and text-based source code
