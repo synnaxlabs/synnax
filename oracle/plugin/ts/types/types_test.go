@@ -3288,6 +3288,39 @@ var _ = Describe("TS Union Generation", func() {
 	)
 
 	It(
+		"Should compose a union base schema imported from another namespace",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@ts output "client/ts/src/common"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+		`)
+			source := `
+			import "schemas/common"
+
+			@ts output "client/ts/src/ni"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			content := MustContentOf(resp, "ni/types.gen.ts")
+			Expect(content).To(ContainSubstring(`import { common } from "@/common"`))
+			Expect(content).To(ContainSubstring(
+				"export const aiVoltageChannelZ = common.baseAIChanZ" +
+					".extend(voltageFieldsZ.shape).extend({\n" +
+					"  type: z.literal(\"ai_voltage\"),\n});",
+			))
+		},
+	)
+
+	It(
 		"Should resolve a union-typed struct field to the union schema",
 		func(ctx SpecContext) {
 			source := `
