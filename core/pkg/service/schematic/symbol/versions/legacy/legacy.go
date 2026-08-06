@@ -13,9 +13,7 @@
 // migration chain here — v1 is the single Console format, decoded directly by ImEx.
 package legacy
 
-import (
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy/v1"
-)
+import v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy/v1"
 
 // LastVersion is the highest version a Console-written file carries. Envelopes stamped
 // above it are server exports and route to the generated migration chain.

@@ -20,12 +20,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
+	legacyv6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v6"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -529,3 +531,40 @@ var _ = Describe("MigrateData", func() {
 
 // Each step is fed nonZeroV0() chained up to its input version. Tests assert the step's
 // *new* fields and that every prior field passes through unchanged.
+
+var _ = Describe("SchematicFromConsole", func() {
+	It("Should lift the Console export into the current Schematic", func() {
+		out := v7.SchematicFromConsole(legacyv6.Data{
+			Snapshot: true,
+			Nodes: []legacyv6.Node{
+				{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
+			},
+			Edges: []legacyv6.Edge{{
+				Key:    "e1",
+				Source: legacyv6.Handle{Node: "n1", Param: "out"},
+				Target: legacyv6.Handle{Node: "n2", Param: "in"},
+			}},
+			Configs: map[string]msgpack.EncodedJSON{"n1": {"variant": "valve"}},
+		})
+
+		Expect(out.Snapshot).To(BeTrue())
+		Expect(out.Nodes).To(Equal([]v7.Node{
+			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
+		}))
+		Expect(out.Edges).To(Equal([]v7.Edge{{
+			Key:    "e1",
+			Source: v7.Handle{Node: "n1", Param: "out"},
+			Target: v7.Handle{Node: "n2", Param: "in"},
+		}}))
+		Expect(out.Configs).To(HaveKey("n1"))
+	})
+
+	It("Should produce an empty Schematic from an empty export", func() {
+		out := v7.SchematicFromConsole(legacyv6.Data{})
+
+		Expect(out.Snapshot).To(BeFalse())
+		Expect(out.Nodes).To(BeEmpty())
+		Expect(out.Edges).To(BeEmpty())
+		Expect(out.Configs).To(BeEmpty())
+	})
+})

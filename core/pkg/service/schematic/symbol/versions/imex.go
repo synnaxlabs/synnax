@@ -13,37 +13,10 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 )
-
-// specFromConsole lifts the frozen Console v1 export into the current Spec.
-func specFromConsole(s legacy.Spec) Spec {
-	return Spec{
-		SVG: s.SVG, Variant: s.Variant, Scale: s.Scale,
-		ScaleStroke: s.ScaleStroke, PreviewViewport: s.PreviewViewport,
-		States: lo.Map(s.States, func(st legacy.State, _ int) State {
-			return State{
-				Key: st.Key, Name: st.Name,
-				Regions: lo.Map(st.Regions, func(r legacy.Region, _ int) Region {
-					return Region{
-						Key:         r.Key,
-						Name:        r.Name,
-						Selectors:   r.Selectors,
-						StrokeColor: r.StrokeColor,
-						FillColor:   r.FillColor,
-					}
-				}),
-			}
-		}),
-		Handles: lo.Map(s.Handles, func(h legacy.Handle, _ int) Handle {
-			return Handle{
-				Key: h.Key, Position: h.Position, Orientation: h.Orientation,
-			}
-		}),
-	}
-}
 
 // DecodeImExEnvelope materializes env's body as a current-version Symbol, keyless and
 // named after the envelope. An unknown version is a path-scoped validation error.
@@ -57,7 +30,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 	} else {
 		var d legacy.Data
 		if d, err = imex.Decode[legacy.Data](ctx, env); err == nil {
-			sym.Data = specFromConsole(d.Spec)
+			sym.Data = v2.SpecFromConsole(d.Spec)
 		}
 	}
 	if err != nil {

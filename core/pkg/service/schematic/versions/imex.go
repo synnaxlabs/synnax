@@ -20,25 +20,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// schematicFromConsole lifts the frozen Console export into the current Schematic.
-func schematicFromConsole(d legacy.Export) Schematic {
-	nodes := make([]Node, len(d.Nodes))
-	for i, n := range d.Nodes {
-		nodes[i] = Node{Key: n.Key, Position: n.Position, ZIndex: n.ZIndex}
-	}
-	edges := make([]Edge, len(d.Edges))
-	for i, e := range d.Edges {
-		edges[i] = Edge{
-			Key:    e.Key,
-			Source: Handle{Node: e.Source.Node, Param: e.Source.Param},
-			Target: Handle{Node: e.Target.Node, Param: e.Target.Param},
-		}
-	}
-	return Schematic{
-		Snapshot: d.Snapshot, Nodes: nodes, Edges: edges, Configs: d.Configs,
-	}
-}
-
 // DecodeImExEnvelope materializes env's body as a current-version Schematic, keyless
 // and named after the envelope. An unknown version is a path-scoped validation error.
 func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, error) {
@@ -54,7 +35,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		// written back out in camelCase under the Console's own version stamp.
 		var doc legacy.Export
 		if doc, err = imex.Decode[legacy.Export](ctx, env); err == nil {
-			sch = schematicFromConsole(doc)
+			sch = v7.SchematicFromConsole(doc)
 		}
 	default:
 		// Console states embed the document inline: ride the storage lift, which

@@ -12,6 +12,8 @@ package v2
 import (
 	"context"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -34,4 +36,36 @@ func migrateSymbol(_ context.Context, old v0.Symbol) (Symbol, error) {
 	}
 	out.ApplyDefaults()
 	return out, nil
+}
+
+// SpecFromConsole lifts the frozen Console export's specification into the current
+// Spec.
+func SpecFromConsole(spec legacy.Spec) Spec {
+	return Spec{
+		SVG:             spec.SVG,
+		Variant:         spec.Variant,
+		Scale:           spec.Scale,
+		ScaleStroke:     spec.ScaleStroke,
+		PreviewViewport: spec.PreviewViewport,
+		States: lo.Map(spec.States, func(s legacy.State, _ int) State {
+			return State{
+				Key:  s.Key,
+				Name: s.Name,
+				Regions: lo.Map(s.Regions, func(r legacy.Region, _ int) Region {
+					return Region{
+						Key:         r.Key,
+						Name:        r.Name,
+						Selectors:   r.Selectors,
+						StrokeColor: r.StrokeColor,
+						FillColor:   r.FillColor,
+					}
+				}),
+			}
+		}),
+		Handles: lo.Map(spec.Handles, func(h legacy.Handle, _ int) Handle {
+			return Handle{
+				Key: h.Key, Position: h.Position, Orientation: h.Orientation,
+			}
+		}),
+	}
 }

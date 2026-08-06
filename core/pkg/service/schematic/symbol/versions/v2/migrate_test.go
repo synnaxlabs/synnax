@@ -13,12 +13,14 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	legacyv1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -105,5 +107,62 @@ var _ = Describe("Migration", func() {
 		})
 
 		Expect(retrieveMigrated(ctx, db, seed.Key).Data.Scale).To(Equal(1.0))
+	})
+})
+
+var _ = Describe("SpecFromConsole", func() {
+	It("Should lift the Console specification into the current Spec", func() {
+		out := v2.SpecFromConsole(legacyv1.Spec{
+			SVG:             "<svg/>",
+			Variant:         "valve",
+			Scale:           2,
+			ScaleStroke:     true,
+			PreviewViewport: &spatial.Viewport{Zoom: 3},
+			States: []legacyv1.State{{
+				Key:  "base",
+				Name: "Base",
+				Regions: []legacyv1.Region{{
+					Key:         "r1",
+					Name:        "Body",
+					Selectors:   []string{"#body"},
+					StrokeColor: new(color.MustFromHex("#ff0000")),
+				}},
+			}},
+			Handles: []legacyv1.Handle{{
+				Key:         "h1",
+				Position:    spatial.XY{X: 1, Y: 2},
+				Orientation: spatial.OuterLocationLeft,
+			}},
+		})
+
+		Expect(out.SVG).To(Equal("<svg/>"))
+		Expect(out.Variant).To(Equal("valve"))
+		Expect(out.Scale).To(Equal(2.0))
+		Expect(out.ScaleStroke).To(BeTrue())
+		Expect(out.PreviewViewport).To(HaveValue(Equal(spatial.Viewport{Zoom: 3})))
+		Expect(out.States).To(Equal([]v2.State{{
+			Key:  "base",
+			Name: "Base",
+			Regions: []v2.Region{{
+				Key:         "r1",
+				Name:        "Body",
+				Selectors:   []string{"#body"},
+				StrokeColor: new(color.MustFromHex("#ff0000")),
+			}},
+		}}))
+		Expect(out.Handles).To(Equal([]v2.Handle{{
+			Key:         "h1",
+			Position:    spatial.XY{X: 1, Y: 2},
+			Orientation: spatial.OuterLocationLeft,
+		}}))
+	})
+
+	It("Should produce an empty Spec from an empty Console body", func() {
+		out := v2.SpecFromConsole(legacyv1.Spec{})
+
+		Expect(out.SVG).To(BeEmpty())
+		Expect(out.States).To(BeEmpty())
+		Expect(out.Handles).To(BeEmpty())
+		Expect(out.PreviewViewport).To(BeNil())
 	})
 })

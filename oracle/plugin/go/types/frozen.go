@@ -181,9 +181,9 @@ func normalizeQualifiers(file *ast.File) {
 	})
 }
 
-// pkgDecls is the comparable surface of a package: declarations grouped by owning
-// type, the identifiers each owner references, printed type specs, and printed
-// constant values keyed by constant name.
+// pkgDecls is the comparable surface of a package: declarations grouped by owning type,
+// the identifiers each owner references, printed type specs, and printed constant
+// values keyed by constant name.
 type pkgDecls struct {
 	owners map[string][]string
 	refs   map[string][]string
@@ -543,10 +543,10 @@ func (r *chainResolver) load(dir string) {
 	r.specs[dir], r.consts[dir] = d.specs, d.consts
 }
 
-// canonicalize rewrites every selector in decl to the import path that
-// ultimately defines its name, following same-name alias hops. A selector naming a
-// constant resolves the whole way to the literal its chain ends in, so a predecessor
-// that re-exports an enum's values compares equal to one that spells them out.
+// canonicalize rewrites every selector in decl to the import path that ultimately
+// defines its name, following same-name alias hops. A selector naming a constant
+// resolves the whole way to the literal its chain ends in, so a predecessor that
+// re-exports an enum's values compares equal to one that spells them out.
 func (r *chainResolver) canonicalize(decl string) string {
 	return selectorRe.ReplaceAllStringFunc(decl, func(sel string) string {
 		m := selectorRe.FindStringSubmatch(sel)
