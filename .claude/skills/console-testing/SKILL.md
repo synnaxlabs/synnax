@@ -183,7 +183,7 @@ document.querySelector = (sel) => { /* be more forgiving */ };                 /
 A test helper may cross a package boundary (published from `@synnaxlabs/pluto`, imported
 by console) and **may freely import from `vitest`.** Use real `vi.fn()` and real `Mock`
 types. The published entry's build externalizes vitest, so a `vi` import stays a clean
-external reference (the pluto `testutil` bundle is 6 KB, not 537 KB) that the consumer
+external reference (the pluto `testutil` bundle is 6 kB, not 537 kB) that the consumer
 resolves. The consumer is always a spec running under vitest, so vitest is present at
 runtime and in types.
 

@@ -738,7 +738,7 @@ Generated module contains:
 
 - **Imports**: Host functions for channel ops, series ops, state persistence, builtins
 - **Exports**: One exported WASM function per Arc function
-- **Memory**: Optional linear memory for multi-output functions (1 page = 64KB)
+- **Memory**: Optional linear memory for multi-output functions (1 page = 64 kB)
 
 Example imports:
 
