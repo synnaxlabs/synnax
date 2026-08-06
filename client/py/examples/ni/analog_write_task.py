@@ -78,13 +78,10 @@ tsk = sy.ni.AnalogWriteTask(
     # The rate at which the task will sample the current state of the analog
     # outputs on the device.
     state_rate=sy.Rate.HZ * 10,
-    # Whether to save the states of the analog outputs to disk. If set to False,
-    # the data will be streamed into Synnax for real-time consumption but not saved
-    # to disk.
-    data_saving=True,
     # The mapping of the analog output channels on the device to the Synnax channels.
     channels=[
-        sy.ni.AOVoltageChan(
+        sy.ni.AOVoltageChannel(
+            type="ao_voltage",
             # The cmd channel will be used to send commands to the device.
             cmd_channel=ao_0_cmd.key,
             # The state channel will be used to store the state of the analog output
@@ -95,13 +92,16 @@ tsk = sy.ni.AnalogWriteTask(
             # The minimum and maximum voltage values for the output.
             min_val=-10.0,
             max_val=10.0,
+            custom_scale=sy.ni.ScaleNone(type="none"),
         ),
-        sy.ni.AOVoltageChan(
+        sy.ni.AOVoltageChannel(
+            type="ao_voltage",
             cmd_channel=ao_1_cmd.key,
             state_channel=ao_1_state.key,
             port=1,
             min_val=-10.0,
             max_val=10.0,
+            custom_scale=sy.ni.ScaleNone(type="none"),
         ),
     ],
 )

@@ -7,46 +7,46 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Final, Literal, TypeAlias, get_args
+from typing import Literal
 from uuid import uuid4
 
 from synnax import device, task
-from synnax.labjack.types_gen import (
-    InputChannel,
-    OutputChannel,
-    ReadConfig,
-    WriteConfig,
-)
+from synnax.opc.types_gen import InputChannel, OutputChannel, ReadConfig, WriteConfig
 from synnax.telem import CrudeRate, Rate
 
-# Device identifiers - must match Console expectations
-MAKE = "LabJack"
-# Supported models
-T4: Final = "LJM_dtT4"
-T7: Final = "LJM_dtT7"
-T8: Final = "LJM_dtT8"
-SUPPORTED_MODELS: TypeAlias = Literal["LJM_dtT4", "LJM_dtT7", "LJM_dtT8"]
+SecurityMode = Literal["None", "Sign", "SignAndEncrypt"]
+
+SecurityPolicy = Literal[
+    "None",
+    "Basic128Rsa15",
+    "Basic256",
+    "Basic256Sha256",
+    "Aes128_Sha256_RsaOaep",
+    "Aes256_Sha256_RsaPss",
+]
 
 
 class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
-    """A read task for sampling data from LabJack devices and writing the data to a
-    Synnax cluster. For detailed information on configuring and operating a LabJack
-    read task, see https://docs.synnaxlabs.com/reference/driver/labjack/read-task
+    """A read task for sampling data from OPC UA devices and writing the data to a
+    Synnax cluster. For detailed information on configuring and operating an OPC UA
+    read task, see https://docs.synnaxlabs.com/reference/driver/opc-ua/read-task
 
-    :param device: The key of the Synnax LabJack device to read from.
+    :param device: The key of the Synnax OPC UA device to read from.
     :param name: A human-readable name for the task.
-    :param sample_rate: The rate at which to sample data from the LabJack device.
+    :param sample_rate: The rate at which to sample data from the OPC UA device.
     :param stream_rate: The rate at which acquired data will be streamed to the Synnax
-        cluster. For example, a sample rate of 100Hz and a stream rate of 25Hz will
-        result in groups of 4 samples being streamed to the cluster every 40ms.
+        cluster. Only relevant when array_mode is False.
     :param data_saving_disabled: Whether to only stream data for real-time consumption
         instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when it is created.
-    :param channels: The input channels to acquire data from (InputChannel variants:
-        InputChannelAI, InputChannelDI, InputChannelTc).
+    :param array_mode: Whether to sample data in array mode, where each read returns an
+        array of array_size samples per node.
+    :param array_size: The number of samples in each array when array_mode is True.
+    :param channels: The OPC UA nodes to read from and the Synnax channels to write
+        their data to.
     """
 
-    TYPE = "labjack_read"
+    TYPE = "opc_read"
     config: ReadConfig
     _internal: task.Task
 
@@ -60,6 +60,8 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
+        array_mode: bool = False,
+        array_size: int = 1,
         channels: list[InputChannel] | None = None,
     ) -> None:
         if internal is not None:
@@ -73,6 +75,8 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             stream_rate=Rate(stream_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
+            array_mode=array_mode,
+            array_size=array_size,
             channels=channels if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
@@ -84,29 +88,25 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         if "read" not in props:
             props["read"] = {"index": 0, "channels": {}}
         for ch in self.config.channels:
-            # Map port location -> channel key for Console
-            props["read"]["channels"][ch.port] = ch.channel
+            if ch.node_id:
+                props["read"]["channels"][ch.node_id] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
 
 class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
-    """A write task for sending commands to LabJack devices. For detailed information
-    on configuring and operating a LabJack write task, see
-    https://docs.synnaxlabs.com/reference/driver/labjack/write-task
+    """A write task for sending commands to OPC UA devices. For detailed information on
+    configuring and operating an OPC UA write task, see
+    https://docs.synnaxlabs.com/reference/driver/opc-ua/write-task
 
-    :param device: The key of the Synnax LabJack device to write to.
+    :param device: The key of the Synnax OPC UA device to write to.
     :param name: A human-readable name for the task.
-    :param state_rate: The rate at which to write task channel states to the Synnax
-        cluster.
-    :param data_saving_disabled: Whether to only stream state data for real-time
-        consumption instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when it is created.
-    :param channels: The output channels to write to (OutputChannel variants:
-        OutputChannelAO, OutputChannelDO).
+    :param channels: The OPC UA nodes to write to and the Synnax channels to read
+        command values from.
     """
 
-    TYPE = "labjack_write"
+    TYPE = "opc_write"
     config: WriteConfig
     _internal: task.Task
 
@@ -116,8 +116,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         *,
         device: device.Key = "",
         name: str = "",
-        state_rate: CrudeRate = 10,
-        data_saving_disabled: bool = False,
         auto_start: bool = False,
         channels: list[OutputChannel] | None = None,
     ) -> None:
@@ -128,8 +126,6 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         self._internal = task.Task(name=name, type=self.TYPE)
         self.config = WriteConfig(
             device=device,
-            state_rate=Rate(state_rate),
-            data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
             channels=channels if channels is not None else [],
         )
@@ -142,19 +138,27 @@ class WriteTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
         if "write" not in props:
             props["write"] = {"channels": {}}
         for ch in self.config.channels:
-            # Map port location -> state_channel key for Console
-            props["write"]["channels"][ch.port] = ch.state_channel
+            if ch.node_id:
+                props["write"]["channels"][ch.node_id] = ch.cmd_channel
         dev.properties = props
         return device_client.create(dev)
 
 
-class Device(device.Device):
-    """A LabJack device.
+MAKE = "opc"
+MODEL = "OPC UA"
 
-    :param model: LabJack model. Use the module constants T4, T7, or T8.
-    :param identifier: Device identifier: serial number, IP address, or device name.
-    :param connection_type: Connection method: "ANY", "USB", "TCP", "ETHERNET", or
-        "WIFI".
+
+class Device(device.Device):
+    """An OPC UA server device.
+
+    :param endpoint: The OPC UA server endpoint URL (e.g. "opc.tcp://localhost:4840/").
+    :param username: Username for authentication.
+    :param password: Password for authentication.
+    :param security_mode: Security mode: "None", "Sign", or "SignAndEncrypt".
+    :param security_policy: Security policy name.
+    :param client_cert: Client certificate for secure connections.
+    :param client_private_key: Client private key for secure connections.
+    :param server_cert: Trusted server certificate for secure connections.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.
     :param rack: Rack key this device belongs to.
@@ -165,28 +169,42 @@ class Device(device.Device):
     def __init__(
         self,
         *,
-        model: SUPPORTED_MODELS,
-        identifier: str,
-        connection_type: str = "ANY",
+        endpoint: str,
+        username: str = "",
+        password: str = "",
+        security_mode: SecurityMode = "None",
+        security_policy: SecurityPolicy = "None",
+        client_cert: str = "",
+        client_private_key: str = "",
+        server_cert: str = "",
         name: str = "",
         location: str = "",
         rack: int = 0,
         key: str = "",
-        configured: bool = False,
+        configured: bool = True,
     ):
-        valid_models = get_args(SUPPORTED_MODELS)
-        if model not in valid_models:
-            raise ValueError(
-                f"Invalid model '{model}'. Must be one of: {list(valid_models)}"
-            )
         if not key:
             key = str(uuid4())
+        # The Driver expects snake_case property names.
+        connection = {
+            "endpoint": endpoint,
+            "security_mode": security_mode,
+            "security_policy": security_policy,
+        }
+        if username:
+            connection["username"] = username
+        if password:
+            connection["password"] = password
+        if client_cert:
+            connection["client_certificate"] = client_cert
+        if client_private_key:
+            connection["client_private_key"] = client_private_key
+        if server_cert:
+            connection["server_certificate"] = server_cert
         props = {
-            "connection": {
-                "identifier": identifier,
-                "connection_type": connection_type,
-            },
-            "read": {"index": 0, "channels": {}},
+            "version": "1.0.0",
+            "connection": connection,
+            "read": {"indexes": [], "channels": {}},
             "write": {"channels": {}},
         }
         super().__init__(
@@ -195,7 +213,7 @@ class Device(device.Device):
             rack=rack,
             name=name,
             make=MAKE,
-            model=model,
+            model=MODEL,
             configured=configured,
             properties=props,
         )

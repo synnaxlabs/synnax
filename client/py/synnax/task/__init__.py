@@ -8,17 +8,19 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.task.client import (
-    BaseConfig,
-    BaseReadConfig,
-    BaseWriteConfig,
     Client,
     JSONConfigMixin,
     Protocol,
     StarterStopperMixin,
     Task,
+    assign_keys,
 )
 from synnax.task.types_gen import (
     ONTOLOGY_TYPE,
+    BaseConfig,
+    BaseReadConfig,
+    BaseScanConfig,
+    BaseWriteConfig,
     ConfigRecord,
     Key,
     Payload,
@@ -49,8 +51,10 @@ __all__ = [
     "StatusDetails",
     "ONTOLOGY_TYPE",
     "ontology_id",
+    "assign_keys",
     "BaseConfig",
     "BaseReadConfig",
+    "BaseScanConfig",
     "BaseWriteConfig",
     "ConfigRecord",
     "JSONConfigMixin",

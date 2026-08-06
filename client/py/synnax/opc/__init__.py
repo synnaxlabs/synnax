@@ -7,18 +7,36 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.opc.types import (
+    MAKE,
+    MODEL,
+    Device,
+    ReadTask,
+    SecurityMode,
+    SecurityPolicy,
+    WriteTask,
+)
 from synnax.opc.types_gen import (
     BaseChannel,
     InputChannel,
     OutputChannel,
     ReadConfig,
+    ScanConfig,
     WriteConfig,
 )
 
 __all__ = [
     "BaseChannel",
+    "Device",
     "InputChannel",
+    "MAKE",
+    "MODEL",
     "OutputChannel",
     "ReadConfig",
+    "ReadTask",
+    "ScanConfig",
+    "SecurityMode",
+    "SecurityPolicy",
     "WriteConfig",
+    "WriteTask",
 ]

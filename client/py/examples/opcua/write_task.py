@@ -86,16 +86,16 @@ cmd_channel_2 = client.channels.create(
 # Create and configure the OPC UA write task
 # NOTE: Update these node IDs with the actual values from your server output!
 # The server prints them on startup like: "command_0: ns=2;i=42"
-tsk = sy.opcua.WriteTask(
+tsk = sy.opc.WriteTask(
     name="OPC UA Write Task Example",
     device=dev.key,
     auto_start=False,  # We'll start it manually for this example
     channels=[
         # Map Synnax command channels to OPC UA node IDs
         # Replace these node_id values with the actual IDs from your server
-        sy.opcua.WriteChannel(cmd_channel=cmd_channel_0.key, node_id="NS=2;I=18"),
-        sy.opcua.WriteChannel(cmd_channel=cmd_channel_1.key, node_id="NS=2;I=19"),
-        sy.opcua.WriteChannel(cmd_channel=cmd_channel_2.key, node_id="NS=2;I=20"),
+        sy.opc.OutputChannel(cmd_channel=cmd_channel_0.key, node_id="NS=2;I=18"),
+        sy.opc.OutputChannel(cmd_channel=cmd_channel_1.key, node_id="NS=2;I=19"),
+        sy.opc.OutputChannel(cmd_channel=cmd_channel_2.key, node_id="NS=2;I=20"),
     ],
 )
 
