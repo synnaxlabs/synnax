@@ -171,8 +171,8 @@ describe("schematic clipboard", () => {
             selected: ["n1", "n2", "e1"],
             onPaste,
           }),
-          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
-          edges: Schematic.useSelectAllEdges({ key: schem.key }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
+          edges: Schematic.useAllEdges({ key: schem.key }),
         }),
         { wrapper: scoped(Wrapper, schem.key) },
       );
@@ -218,7 +218,7 @@ describe("schematic clipboard", () => {
       const { result } = renderHook(
         () => ({
           clipboard: Schematic.useClipboard({ selected: [] }),
-          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
         }),
         { wrapper: scoped(Wrapper, schem.key) },
       );
@@ -239,7 +239,7 @@ describe("schematic clipboard", () => {
       const { result } = renderHook(
         () => ({
           clipboard: Schematic.useClipboard({ selected: [] }),
-          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          nodes: Schematic.useAllNodes({ key: schem.key }),
         }),
         { wrapper: scoped(Wrapper, schem.key) },
       );

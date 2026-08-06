@@ -65,16 +65,16 @@ export const { use: useKeysByProject } = Flux.createRetrieve<
   equal: (prev, next) => compare.primitiveArrays(prev, next) === compare.EQUAL,
 });
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: panel.Key;
 }
 
-export interface SelectTabContentParams {
+export interface TabContentParams {
   key: panel.Key;
   tabKey: panel.TabKey;
 }
 
-const requireTab = (root: panel.Node, { key, tabKey }: SelectTabContentParams) => {
+const requireTab = (root: panel.Node, { key, tabKey }: TabContentParams) => {
   const tab = panel.findTab(root, tabKey);
   if (tab == null)
     throw new NotFoundError(`Tab with key ${tabKey} not found in panel ${key}`);
@@ -84,22 +84,20 @@ const requireTab = (root: panel.Node, { key, tabKey }: SelectTabContentParams) =
 // bindTabHook lifts a hook needing both a panel key and a tab key into one whose keys are
 // sourced from the surrounding Panel and Tab scopes; either may be overridden explicitly.
 // The two-level analogue of scope.bindHook.
-type BoundTabHook<Args extends SelectTabContentParams, R> = optional.Arg<
+type BoundTabHook<Args extends TabContentParams, R> = optional.Arg<
   optional.Optional<Args, "key" | "tabKey">,
   R
 >;
 
 const bindTabHook =
-  <Args extends SelectTabContentParams, R>(
-    hook: (args: Args) => R,
-  ): BoundTabHook<Args, R> =>
+  <Args extends TabContentParams, R>(hook: (args: Args) => R): BoundTabHook<Args, R> =>
   (args?: optional.Optional<Args, "key" | "tabKey">): R => {
     const key = Scope.use(args?.key);
     const tabKey = TabScope.use(args?.tabKey);
     return hook({ ...args, key, tabKey } as Args);
   };
 
-export interface SelectNodeParams extends SelectKeyParams {
+export interface NodeParams extends KeyParams {
   nodeKey: number;
 }
 
@@ -109,31 +107,31 @@ const requireNode = (root: panel.Node, nodeKey: number): panel.Node => {
   return node;
 };
 
-// useSelectNodeVariant selects only the variant of the node at the given path, so a
+// useNodeVariant selects only the variant of the node at the given path, so a
 // component that branches on split-vs-leaf does not re-render on structure changes
 // within the same variant.
-export const useSelectNodeVariant = Scope.bindHook(
-  createSelector<panel.Node["variant"], SelectNodeParams>(
+export const useNodeVariant = Scope.bindHook(
+  createSelector<panel.Node["variant"], NodeParams>(
     ({ root }, { nodeKey }) => requireNode(root, nodeKey).variant,
   ),
 );
 
-// useSelectLeafNode selects the leaf node at the given path, including its tab keys.
-export const useSelectLeafNode = Scope.bindHook(
-  createSelector<
-    Omit<panel.NodeLeaf, "tabs"> & { tabs: panel.TabKey[] },
-    SelectNodeParams
-  >(({ root }, { nodeKey }) => {
-    const node = requireNode(root, nodeKey);
-    if (node.variant !== "leaf") throw new UnexpectedError("node is not a leaf");
-    return { ...node, tabs: node.tabs.map((t) => t.key) };
-  }, deep.equal),
+// useLeafNode selects the leaf node at the given path, including its tab keys.
+export const useLeafNode = Scope.bindHook(
+  createSelector<Omit<panel.NodeLeaf, "tabs"> & { tabs: panel.TabKey[] }, NodeParams>(
+    ({ root }, { nodeKey }) => {
+      const node = requireNode(root, nodeKey);
+      if (node.variant !== "leaf") throw new UnexpectedError("node is not a leaf");
+      return { ...node, tabs: node.tabs.map((t) => t.key) };
+    },
+    deep.equal,
+  ),
 );
 
-// useSelectSplitNode selects the split node at the given path, including its direction
+// useSplitNode selects the split node at the given path, including its direction
 // and size.
-export const useSelectSplitNode = Scope.bindHook(
-  createSelector<panel.NodeSplit, SelectNodeParams>(({ root }, { nodeKey }) => {
+export const useSplitNode = Scope.bindHook(
+  createSelector<panel.NodeSplit, NodeParams>(({ root }, { nodeKey }) => {
     const node = requireNode(root, nodeKey);
     if (node.variant !== "split") throw new UnexpectedError("node is not a split");
     return node;
@@ -153,66 +151,64 @@ const tabKeysOf = (root: panel.Node): string[] => {
   return tabKeys.sort();
 };
 
-// useSelectTabKeys selects every leaf's tab keys, array-equal compared so the mosaic
+// useTabKeys selects every leaf's tab keys, array-equal compared so the mosaic
 // root re-renders only when tab membership changes, not on a resize or a content
 // change.
-export const useSelectTabKeys = Scope.bindHook(
+export const useTabKeys = Scope.bindHook(
   createSelector<string[]>(
     ({ root }) => tabKeysOf(root),
     (a, b) => compare.arraysEqual(a, b),
   ),
 );
 
-// useSelectRoot selects the panel's raw stored tree root.
-export const useSelectRoot = Scope.bindHook(createSelector(({ root }) => root));
+// useRoot selects the panel's raw stored tree root.
+export const useRoot = Scope.bindHook(createSelector(({ root }) => root));
 
-export const useSelectName = Scope.bindHook(createSelector(({ name }) => name));
+export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
-export const useSelectTab = bindTabHook(
-  createSelector<panel.Tab, SelectTabContentParams>(({ root }, params) =>
+export const useTab = bindTabHook(
+  createSelector<panel.Tab, TabContentParams>(({ root }, params) =>
     requireTab(root, params),
   ),
 );
 
-// useSelectTabLeaf selects the leaf node holding the active tab. The leaf is a live
+// useTabLeaf selects the leaf node holding the active tab. The leaf is a live
 // reference into the stored tree, so immer's structural sharing gives it stable
 // identity across dispatches that don't touch it.
-export const useSelectTabLeaf = bindTabHook(
-  createSelector<panel.NodeLeaf, SelectTabContentParams>(
-    ({ root }, { key, tabKey }) => {
-      const leaf = panel.findTabLeaf(root, tabKey);
-      if (leaf == null)
-        throw new NotFoundError(`Leaf holding tab ${tabKey} not found in panel ${key}`);
-      return leaf;
-    },
-  ),
+export const useTabLeaf = bindTabHook(
+  createSelector<panel.NodeLeaf, TabContentParams>(({ root }, { key, tabKey }) => {
+    const leaf = panel.findTabLeaf(root, tabKey);
+    if (leaf == null)
+      throw new NotFoundError(`Leaf holding tab ${tabKey} not found in panel ${key}`);
+    return leaf;
+  }),
 );
 
-// useSelectTabVariant selects only the content variant of the active tab, so a
+// useTabVariant selects only the content variant of the active tab, so a
 // component that branches on resource-vs-view does not re-render on content edits
 // within the same variant.
-export const useSelectTabVariant = bindTabHook(
-  createSelector<panel.TabType, SelectTabContentParams>(
+export const useTabVariant = bindTabHook(
+  createSelector<panel.TabType, TabContentParams>(
     ({ root }, params) => requireTab(root, params).variant,
   ),
 );
 
-// useSelectTabType selects the renderer type of the active tab: the resource's
+// useTabType selects the renderer type of the active tab: the resource's
 // ontology type for resource tabs, the view type for view tabs. Components that
 // render by type do not re-render when a view's args change.
-export const useSelectTabType = bindTabHook(
-  createSelector<string, SelectTabContentParams>(({ root }, params) => {
+export const useTabType = bindTabHook(
+  createSelector<string, TabContentParams>(({ root }, params) => {
     const tab = requireTab(root, params);
     return tab.variant === "resource" ? tab.resource.type : tab.type;
   }),
 );
 
-// useSelectTabResource selects the ontology ID displayed by the active resource tab.
+// useTabResource selects the ontology ID displayed by the active resource tab.
 // Resource renderers call this to learn their own document key. Throws
 // UnexpectedError when the active tab is not a resource tab: only renderers mounted
 // for a resource tab may call this, so a wrong-variant read is a programmer bug.
-export const useSelectTabResource = bindTabHook(
-  createSelector<ontology.ID, SelectTabContentParams>(({ root }, params) => {
+export const useTabResource = bindTabHook(
+  createSelector<ontology.ID, TabContentParams>(({ root }, params) => {
     const tab = requireTab(root, params);
     if (tab.variant !== "resource")
       throw new UnexpectedError(`attempted to select resource on view tab ${tab.key}`);
@@ -220,11 +216,11 @@ export const useSelectTabResource = bindTabHook(
   }, deep.equal),
 );
 
-// useSelectTabArgs selects only the opaque args of the active view tab, deep-equal
+// useTabArgs selects only the opaque args of the active view tab, deep-equal
 // compared so it re-renders only when the args contents actually change. Throws
-// UnexpectedError when the active tab is not a view tab (see useSelectTabResource).
-export const useSelectTabArgs = bindTabHook(
-  createSelector<record.Unknown, SelectTabContentParams>(({ root }, params) => {
+// UnexpectedError when the active tab is not a view tab (see useTabResource).
+export const useTabArgs = bindTabHook(
+  createSelector<record.Unknown, TabContentParams>(({ root }, params) => {
     const tab = requireTab(root, params);
     if (tab.variant !== "view")
       throw new UnexpectedError(`attempted to select args on resource tab ${tab.key}`);
@@ -238,7 +234,7 @@ export const useSelectTabArgs = bindTabHook(
 export const createSelectTabArgs =
   <Z extends z.ZodType>(schema: Z): (() => z.output<Z>) =>
   () => {
-    const args = useSelectTabArgs({});
+    const args = useTabArgs({});
     return useMemo(() => schema.parse(args), [args, schema]);
   };
 

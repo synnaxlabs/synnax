@@ -36,11 +36,11 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
 
 export const { use, useEnsure, createSelector } = createRetrieve();
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: task.Key;
 }
 
-export const useSelectName = createSelector(({ name }) => name);
+export const useName = createSelector(({ name }) => name);
 
 export type ListQuery = task.RetrieveMultipleParams;
 

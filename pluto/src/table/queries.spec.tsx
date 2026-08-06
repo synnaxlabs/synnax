@@ -552,7 +552,7 @@ describe("table queries", () => {
         cells: { a: { key: "a", variant: "text", props: { value: "A" } } },
       });
       await loadTable(wrapper, created.key);
-      const { result } = renderHook(() => Table.useSelectName({ key: created.key }), {
+      const { result } = renderHook(() => Table.useName({ key: created.key }), {
         wrapper,
       });
       expect(result.current).toEqual("ensure_test");
@@ -625,10 +625,10 @@ describe("table queries", () => {
       return renderHook(hook, { wrapper });
     };
 
-    it("useSelectName returns the table's name and updates after a rename", async () => {
+    it("useName returns the table's name and updates after a rename", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () => ({
-        name: Table.useSelectName({ key: created.key }),
+        name: Table.useName({ key: created.key }),
         rename: Table.useRename(),
       }));
       expect(result.current.name).toEqual("selector_test");
@@ -641,10 +641,10 @@ describe("table queries", () => {
       await waitFor(() => expect(result.current.name).toEqual("selector_renamed"));
     });
 
-    it("useSelectRows returns the table's rows and updates after addRow", async () => {
+    it("useRows returns the table's rows and updates after addRow", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () => ({
-        rows: Table.useSelectRows({ key: created.key }),
+        rows: Table.useRows({ key: created.key }),
         dispatch: Table.useDispatch(),
       }));
       expect(result.current.rows).toHaveLength(2);
@@ -670,10 +670,10 @@ describe("table queries", () => {
       });
     });
 
-    it("useSelectColumns returns the table's columns and updates after a resize", async () => {
+    it("useColumns returns the table's columns and updates after a resize", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () => ({
-        columns: Table.useSelectColumns({ key: created.key }),
+        columns: Table.useColumns({ key: created.key }),
         dispatch: Table.useDispatch(),
       }));
       expect(result.current.columns).toHaveLength(2);
@@ -687,10 +687,10 @@ describe("table queries", () => {
       await waitFor(() => expect(result.current.columns[0].size).toEqual(200));
     });
 
-    it("useSelectCell returns the cell for a known key and updates after setCell", async () => {
+    it("useCell returns the cell for a known key and updates after setCell", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () => ({
-        cell: Table.useSelectCell({ key: created.key, cellKey: "a" }),
+        cell: Table.useCell({ key: created.key, cellKey: "a" }),
         dispatch: Table.useDispatch(),
       }));
       const initial = result.current.cell;
@@ -713,18 +713,18 @@ describe("table queries", () => {
       });
     });
 
-    it("useSelectCell returns undefined for an unknown cell key", async () => {
+    it("useCell returns undefined for an unknown cell key", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () =>
-        Table.useSelectCell({ key: created.key, cellKey: "ghost" }),
+        Table.useCell({ key: created.key, cellKey: "ghost" }),
       );
       expect(result.current).toBeUndefined();
     });
 
-    it("useSelectCells returns the requested cells keyed by id", async () => {
+    it("useCells returns the requested cells keyed by id", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () =>
-        Table.useSelectCells({ key: created.key, cellKeys: ["a", "c"] }),
+        Table.useCells({ key: created.key, cellKeys: ["a", "c"] }),
       );
       expect(Array.from(result.current.keys())).toEqual(["a", "c"]);
       const a = result.current.get("a");
@@ -733,27 +733,27 @@ describe("table queries", () => {
       if (c?.variant === "text") expect(c.props.value).toEqual("C");
     });
 
-    it("useSelectCells omits missing keys without throwing", async () => {
+    it("useCells omits missing keys without throwing", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () =>
-        Table.useSelectCells({ key: created.key, cellKeys: ["a", "ghost", "c"] }),
+        Table.useCells({ key: created.key, cellKeys: ["a", "ghost", "c"] }),
       );
       expect(Array.from(result.current.keys())).toEqual(["a", "c"]);
       expect(result.current.has("ghost")).toBe(false);
     });
 
-    it("useSelectCells returns an empty map when cellKeys is empty", async () => {
+    it("useCells returns an empty map when cellKeys is empty", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () =>
-        Table.useSelectCells({ key: created.key, cellKeys: [] }),
+        Table.useCells({ key: created.key, cellKeys: [] }),
       );
       expect(result.current.size).toBe(0);
     });
 
-    it("useSelectCells keeps its reference when an unrelated cell changes", async () => {
+    it("useCells keeps its reference when an unrelated cell changes", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () => ({
-        cells: Table.useSelectCells({ key: created.key, cellKeys: ["a", "b"] }),
+        cells: Table.useCells({ key: created.key, cellKeys: ["a", "b"] }),
         dispatch: Table.useDispatch(),
       }));
       const initial = result.current.cells;
@@ -771,10 +771,10 @@ describe("table queries", () => {
       expect(result.current.cells).toBe(initial);
     });
 
-    it("useSelectCells returns a new map when one of the requested cells changes", async () => {
+    it("useCells returns a new map when one of the requested cells changes", async () => {
       const created = await createTable();
       const { result } = await loadAndSelect(created.key, () => ({
-        cells: Table.useSelectCells({ key: created.key, cellKeys: ["a", "b"] }),
+        cells: Table.useCells({ key: created.key, cellKeys: ["a", "b"] }),
         dispatch: Table.useDispatch(),
       }));
       const initial = result.current.cells;

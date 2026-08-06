@@ -36,7 +36,7 @@ export const useUndo = Scope.bindHook(useUndoBase);
 export const useRedo = Scope.bindHook(useRedoBase);
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: arc.Key;
 }
 
@@ -55,23 +55,23 @@ export const { use, useEnsure, useTombstone, useResult, createSelector } =
       client.arcs.getCached({ key, includeStatus }),
   });
 
-// useSelectAllNodes returns every graph node of the Arc with the given key as diagram
+// useAllNodes returns every graph node of the Arc with the given key as diagram
 // nodes. graph.Node is a structural superset of Diagram.Node, so the cached array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated cache updates.
-export const useSelectAllNodes = Scope.bindHook(
+export const useAllNodes = Scope.bindHook(
   createSelector<Diagram.Node[]>(({ graph }) => graph.nodes),
 );
 
-export interface SelectNodesParams extends SelectKeyParams {
+export interface NodesParams extends KeyParams {
   keys: string[];
 }
 
-// useSelectNodes returns only the graph nodes whose keys are in the given set. The
+// useNodes returns only the graph nodes whose keys are in the given set. The
 // result is compared by value, so a consumer that tracks a selection re-renders only
 // when its nodes change, not on every node mutation.
-export const useSelectNodes = Scope.bindHook(
-  createSelector<Diagram.Node[], SelectNodesParams>(
+export const useNodes = Scope.bindHook(
+  createSelector<Diagram.Node[], NodesParams>(
     ({ graph }, { keys }) => {
       if (keys.length === 0) return [];
       const keySet = new Set(keys);
@@ -81,39 +81,39 @@ export const useSelectNodes = Scope.bindHook(
   ),
 );
 
-// useSelectAllEdges returns every graph edge of the Arc with the given key as diagram
+// useAllEdges returns every graph edge of the Arc with the given key as diagram
 // edges. graph.Edge is a structural superset of Diagram.Edge, so the cached array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated cache updates.
-export const useSelectAllEdges = Scope.bindHook(
+export const useAllEdges = Scope.bindHook(
   createSelector<Diagram.Edge[]>(({ graph }) => graph.edges),
 );
 
-export interface SelectNodePropsParams extends SelectKeyParams {
+export interface NodePropsParams extends KeyParams {
   nodeKey: string;
 }
 
-// useSelectNodeConfig returns the typed config for a single graph node. Returned by
+// useNodeConfig returns the typed config for a single graph node. Returned by
 // reference, so the selection only re-runs when that node's config changes.
-export const useSelectNodeConfig = Scope.bindHook(
-  createSelector<Node.Config, SelectNodePropsParams>(
+export const useNodeConfig = Scope.bindHook(
+  createSelector<Node.Config, NodePropsParams>(
     ({ graph }, { nodeKey }) => graph.inputs[nodeKey] as Node.Config,
   ),
 );
 
-// useSelectMode returns the representation mode of the Arc with the given key. It
+// useMode returns the representation mode of the Arc with the given key. It
 // requires the arc to be cached, so callers must render it beneath an Arc.Suspended
 // boundary that has retrieved the arc.
-export const useSelectMode = Scope.bindHook(createSelector(({ mode }) => mode));
+export const useMode = Scope.bindHook(createSelector(({ mode }) => mode));
 
-// useSelectHasText reports whether the Arc with the given key has a cached document.
+// useHasText reports whether the Arc with the given key has a cached document.
 // It returns a stable boolean, so an editor that drives its document imperatively
 // re-renders only when the document first becomes available, not on every edit.
-export const useSelectHasText = Scope.bindHook(
+export const useHasText = Scope.bindHook(
   createSelector(({ text }) => text.doc != null),
 );
 
-export const useSelectName = Scope.bindHook(createSelector(({ name }) => name));
+export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export interface AddNodeProps {
   key: string;

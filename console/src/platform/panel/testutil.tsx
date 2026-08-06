@@ -40,7 +40,7 @@ export interface ResourceTab {
 
 /**
  * Creates a single-leaf panel holding one resource tab for the given resource, so the
- * panel scope hooks a mounted tab content reads (useSelectTabResource) resolve to it.
+ * panel scope hooks a mounted tab content reads (useTabResource) resolve to it.
  */
 export const createResourceTab = async (
   client: Synnax,

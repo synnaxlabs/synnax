@@ -101,7 +101,7 @@ const Tab = ({ tabKey }: TabProps): ReactElement => (
 
 const TabContent = ({ tabKey }: TabProps): ReactElement => {
   Panel.useEnsure({ key: tabKey });
-  const name = Panel.useSelectName({ key: tabKey });
+  const name = Panel.useName({ key: tabKey });
   const { update: rename } = Panel.useRename();
   const handleChange = useCallback(
     (name: string) => rename({ key: tabKey, name }),

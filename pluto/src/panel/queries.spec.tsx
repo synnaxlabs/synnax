@@ -166,7 +166,7 @@ describe("Panel queries", () => {
       });
       await within(utils.container).findByTestId("loaded");
 
-      const { result } = renderHook(() => Panel.useSelectRoot({ key: created.key }), {
+      const { result } = renderHook(() => Panel.useRoot({ key: created.key }), {
         wrapper,
       });
       expect(result.current.variant).toEqual("leaf");
@@ -242,9 +242,7 @@ describe("Panel queries", () => {
         await result.current.updateAsync({ key, name: "stored-panel" });
       });
 
-      const { result: root } = await loadAndUse(key, () =>
-        Panel.useSelectRoot({ key }),
-      );
+      const { result: root } = await loadAndUse(key, () => Panel.useRoot({ key }));
       expect(root.current).toEqual({ variant: "leaf", tabs: [] });
     });
 
@@ -875,10 +873,10 @@ describe("Panel queries", () => {
   });
 
   describe("selectors", () => {
-    it("useSelectRoot returns the stored tree and updates after a split", async () => {
+    it("useRoot returns the stored tree and updates after a split", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
-        root: Panel.useSelectRoot({ key: created.key }),
+        root: Panel.useRoot({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       expect(result.current.root.variant).toEqual("leaf");
@@ -897,14 +895,14 @@ describe("Panel queries", () => {
       await waitFor(() => expect(result.current.root.variant).toEqual("split"));
     });
 
-    it("useSelectRoot keeps a stable reference across a rename", async () => {
+    it("useRoot keeps a stable reference across a rename", async () => {
       const created = await createPanel();
       const ops = await loadAndUse(created.key, () => ({
         retrieve: Panel.use({ key: created.key }),
         rename: Panel.useRename(),
       }));
       const { result, renderCount } = await loadAndCount(created.key, () =>
-        Panel.useSelectRoot({ key: created.key }),
+        Panel.useRoot({ key: created.key }),
       );
       const firstRoot = result.current;
       const countBefore = renderCount();
@@ -923,7 +921,7 @@ describe("Panel queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectTab returns the tab and updates after set_tab_view", async () => {
+    it("useTab returns the tab and updates after set_tab_view", async () => {
       const created = await createPanel();
       const tab = newTab();
       const ops = await loadAndUse(created.key, () => ({
@@ -937,7 +935,7 @@ describe("Panel queries", () => {
       });
 
       const { result } = renderHook(
-        () => Panel.useSelectTab({ key: created.key, tabKey: tab.key }),
+        () => Panel.useTab({ key: created.key, tabKey: tab.key }),
         { wrapper },
       );
       expect(result.current.key).toEqual(tab.key);
@@ -957,7 +955,7 @@ describe("Panel queries", () => {
       await waitFor(() => expect(asView(result.current)?.type).toEqual("docs"));
     });
 
-    it("useSelectTab keeps a stable reference when a different tab changes", async () => {
+    it("useTab keeps a stable reference when a different tab changes", async () => {
       const created = await createPanel();
       const [tabA, tabB] = [newTab(), newTab()];
       const ops = await loadAndUse(created.key, () => ({
@@ -974,7 +972,7 @@ describe("Panel queries", () => {
       });
 
       const { result, renderCount } = await loadAndCount(created.key, () =>
-        Panel.useSelectTab({ key: created.key, tabKey: tabA.key }),
+        Panel.useTab({ key: created.key, tabKey: tabA.key }),
       );
       const firstTab = result.current;
       const countBefore = renderCount();
@@ -1004,12 +1002,12 @@ describe("Panel queries", () => {
       return { created, ops };
     };
 
-    it("useSelectTabType does not re-render when only the args change", async () => {
+    it("useTabType does not re-render when only the args change", async () => {
       const tab = newTab();
       const { created, ops } = await createTab(tab);
 
       const type = await loadAndCount(created.key, () =>
-        Panel.useSelectTabType({ key: created.key, tabKey: tab.key }),
+        Panel.useTabType({ key: created.key, tabKey: tab.key }),
       );
       const typeCountBefore = type.renderCount();
 
@@ -1029,13 +1027,13 @@ describe("Panel queries", () => {
       expect(type.renderCount()).toEqual(typeCountBefore);
     });
 
-    it("useSelectTabType resolves a resource tab to its ontology type", async () => {
+    it("useTabType resolves a resource tab to its ontology type", async () => {
       const tab = newTab();
       const { created, ops } = await createTab(tab);
       const resource = { type: "schematic", key: uuid.create() } as const;
 
       const type = await loadAndCount(created.key, () =>
-        Panel.useSelectTabType({ key: created.key, tabKey: tab.key }),
+        Panel.useTabType({ key: created.key, tabKey: tab.key }),
       );
       expect(type.result.current).toEqual("selector");
 
@@ -1068,7 +1066,7 @@ describe("Panel queries", () => {
       const { result } = renderHook(
         () => ({
           setView: Panel.useSetCurrentTabView(),
-          args: Panel.useSelectTabArgs({}),
+          args: Panel.useTabArgs({}),
         }),
         { wrapper: composed },
       );
@@ -1097,13 +1095,13 @@ describe("Panel queries", () => {
         );
       };
 
-      // useSelectTabResource throws on a view tab, so the resource is read from the
+      // useTabResource throws on a view tab, so the resource is read from the
       // client cache only after the variant has flipped, the same way a resource
       // renderer only mounts once its tab is a resource tab.
       const { result } = renderHook(
         () => ({
           setResource: Panel.useSetCurrentTabResource(),
-          variant: Panel.useSelectTabVariant({}),
+          variant: Panel.useTabVariant({}),
         }),
         { wrapper: composed },
       );
@@ -1127,10 +1125,10 @@ describe("Panel queries", () => {
     const firstLeaf = panel.childNodeKey(panel.ROOT_NODE_KEY, "first");
     const lastLeaf = panel.childNodeKey(panel.ROOT_NODE_KEY, "last");
 
-    it("useSelectNodeVariant reports the root variant and updates on a split", async () => {
+    it("useNodeVariant reports the root variant and updates on a split", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
-        variant: Panel.useSelectNodeVariant({
+        variant: Panel.useNodeVariant({
           key: created.key,
           nodeKey: panel.ROOT_NODE_KEY,
         }),
@@ -1152,10 +1150,10 @@ describe("Panel queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("split"));
     });
 
-    it("useSelectNodeVariant does not re-render while the variant is unchanged", async () => {
+    it("useNodeVariant does not re-render while the variant is unchanged", async () => {
       const { created, ops } = await createSplitPanel();
       const { result, renderCount } = await loadAndCount(created.key, () =>
-        Panel.useSelectNodeVariant({ key: created.key, nodeKey: panel.ROOT_NODE_KEY }),
+        Panel.useNodeVariant({ key: created.key, nodeKey: panel.ROOT_NODE_KEY }),
       );
       expect(result.current).toEqual("split");
       const countBefore = renderCount();
@@ -1171,15 +1169,15 @@ describe("Panel queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectLeafNode returns the leaf node with its tab keys", async () => {
+    it("useLeafNode returns the leaf node with its tab keys", async () => {
       const { created, tabA } = await createSplitPanel();
       const { result } = await loadAndUse(created.key, () =>
-        Panel.useSelectLeafNode({ key: created.key, nodeKey: lastLeaf }),
+        Panel.useLeafNode({ key: created.key, nodeKey: lastLeaf }),
       );
       expect(result.current).toEqual({ variant: "leaf", tabs: [tabA.key] });
     });
 
-    it("useSelectLeafNode resolves the panel key from scope", async () => {
+    it("useLeafNode resolves the panel key from scope", async () => {
       const { created, tabA } = await createSplitPanel();
       const composed = ({ children }: PropsWithChildren): ReactElement => {
         const Synnax = wrapper;
@@ -1189,17 +1187,16 @@ describe("Panel queries", () => {
           </Synnax>
         );
       };
-      const { result } = renderHook(
-        () => Panel.useSelectLeafNode({ nodeKey: lastLeaf }),
-        { wrapper: composed },
-      );
+      const { result } = renderHook(() => Panel.useLeafNode({ nodeKey: lastLeaf }), {
+        wrapper: composed,
+      });
       expect(result.current.tabs).toEqual([tabA.key]);
     });
 
-    it("useSelectLeafNode stays stable across a tab content change", async () => {
+    it("useLeafNode stays stable across a tab content change", async () => {
       const { created, ops, tabA } = await createSplitPanel();
       const { result, renderCount } = await loadAndCount(created.key, () =>
-        Panel.useSelectLeafNode({ key: created.key, nodeKey: lastLeaf }),
+        Panel.useLeafNode({ key: created.key, nodeKey: lastLeaf }),
       );
       const first = result.current;
       const countBefore = renderCount();
@@ -1220,30 +1217,29 @@ describe("Panel queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectLeafNode throws when the target node is a split", async () => {
+    it("useLeafNode throws when the target node is a split", async () => {
       const { created } = await createSplitPanel();
       expect(() =>
         renderHook(
-          () =>
-            Panel.useSelectLeafNode({ key: created.key, nodeKey: panel.ROOT_NODE_KEY }),
+          () => Panel.useLeafNode({ key: created.key, nodeKey: panel.ROOT_NODE_KEY }),
           { wrapper },
         ),
       ).toThrow("not a leaf");
     });
 
-    it("useSelectSplitNode returns the split node's direction", async () => {
+    it("useSplitNode returns the split node's direction", async () => {
       const { created } = await createSplitPanel();
       const { result } = await loadAndUse(created.key, () =>
-        Panel.useSelectSplitNode({ key: created.key, nodeKey: panel.ROOT_NODE_KEY }),
+        Panel.useSplitNode({ key: created.key, nodeKey: panel.ROOT_NODE_KEY }),
       );
       expect(result.current.variant).toEqual("split");
       expect(result.current.direction).toEqual("x");
     });
 
-    it("useSelectSplitNode updates the size after a resize", async () => {
+    it("useSplitNode updates the size after a resize", async () => {
       const { created, ops } = await createSplitPanel();
       const { result } = await loadAndUse(created.key, () =>
-        Panel.useSelectSplitNode({ key: created.key, nodeKey: panel.ROOT_NODE_KEY }),
+        Panel.useSplitNode({ key: created.key, nodeKey: panel.ROOT_NODE_KEY }),
       );
       await act(async () => {
         await ops.result.current.dispatchAsync({
@@ -1254,30 +1250,29 @@ describe("Panel queries", () => {
       await waitFor(() => expect(result.current.size).toEqual(0.25));
     });
 
-    it("useSelectSplitNode throws when the target node is a leaf", async () => {
+    it("useSplitNode throws when the target node is a leaf", async () => {
       const { created } = await createSplitPanel();
       expect(() =>
-        renderHook(
-          () => Panel.useSelectSplitNode({ key: created.key, nodeKey: firstLeaf }),
-          { wrapper },
-        ),
+        renderHook(() => Panel.useSplitNode({ key: created.key, nodeKey: firstLeaf }), {
+          wrapper,
+        }),
       ).toThrow("not a split");
     });
   });
 
   describe("tree selectors", () => {
-    it("useSelectTabKeys returns every tab key sorted", async () => {
+    it("useTabKeys returns every tab key sorted", async () => {
       const { created, tabA, tabB } = await createSplitPanel();
       const { result } = await loadAndUse(created.key, () =>
-        Panel.useSelectTabKeys({ key: created.key }),
+        Panel.useTabKeys({ key: created.key }),
       );
       expect(result.current).toEqual([tabA.key, tabB.key].sort());
     });
 
-    it("useSelectTabKeys does not re-render on a resize", async () => {
+    it("useTabKeys does not re-render on a resize", async () => {
       const { created, ops } = await createSplitPanel();
       const { renderCount } = await loadAndCount(created.key, () =>
-        Panel.useSelectTabKeys({ key: created.key }),
+        Panel.useTabKeys({ key: created.key }),
       );
       const countBefore = renderCount();
 
@@ -1291,10 +1286,10 @@ describe("Panel queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectTabKeys recomputes when tab membership changes", async () => {
+    it("useTabKeys recomputes when tab membership changes", async () => {
       const { created, ops, tabA, tabB } = await createSplitPanel();
       const { result } = await loadAndUse(created.key, () =>
-        Panel.useSelectTabKeys({ key: created.key }),
+        Panel.useTabKeys({ key: created.key }),
       );
       expect(result.current).toEqual([tabA.key, tabB.key].sort());
 
@@ -1308,11 +1303,11 @@ describe("Panel queries", () => {
       await waitFor(() => expect(result.current).toEqual([tabB.key]));
     });
 
-    it("useSelectName returns the name and updates after a rename", async () => {
+    it("useName returns the name and updates after a rename", async () => {
       const created = await client.panels.create({ name: "name-before" });
       const ops = await loadAndUse(created.key, () => Panel.useRename());
       const { result } = await loadAndUse(created.key, () =>
-        Panel.useSelectName({ key: created.key }),
+        Panel.useName({ key: created.key }),
       );
       expect(result.current).toEqual("name-before");
 
@@ -1322,19 +1317,19 @@ describe("Panel queries", () => {
       await waitFor(() => expect(result.current).toEqual("name-after"));
     });
 
-    it("useSelectTabLeaf returns the leaf holding the given tab", async () => {
+    it("useTabLeaf returns the leaf holding the given tab", async () => {
       const { created, tabA } = await createSplitPanel();
       const { result } = await loadAndUse(created.key, () =>
-        Panel.useSelectTabLeaf({ key: created.key, tabKey: tabA.key }),
+        Panel.useTabLeaf({ key: created.key, tabKey: tabA.key }),
       );
       expect(result.current.variant).toEqual("leaf");
       expect(result.current.tabs.map((t) => t.key)).toEqual([tabA.key]);
     });
 
-    it("useSelectTabLeaf keeps a stable reference when another leaf changes", async () => {
+    it("useTabLeaf keeps a stable reference when another leaf changes", async () => {
       const { created, ops, tabA, tabB } = await createSplitPanel();
       const { result, renderCount } = await loadAndCount(created.key, () =>
-        Panel.useSelectTabLeaf({ key: created.key, tabKey: tabA.key }),
+        Panel.useTabLeaf({ key: created.key, tabKey: tabA.key }),
       );
       const first = result.current;
       const countBefore = renderCount();
@@ -1441,7 +1436,7 @@ describe("Panel queries", () => {
     it("applies dispatches from other writers through the action channel", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () =>
-        Panel.useSelectRoot({ key: created.key }),
+        Panel.useRoot({ key: created.key }),
       );
       expect(result.current.variant).toEqual("leaf");
 

@@ -225,7 +225,7 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
 };
 
 export const Channels = (): ReactElement => {
-  const entries = Log.useSelectChannels();
+  const entries = Log.useChannels();
   const key = Log.useKey();
   const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
   const keys = useMemo(

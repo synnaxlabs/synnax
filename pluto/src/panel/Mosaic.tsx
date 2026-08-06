@@ -30,12 +30,12 @@ import { Mosaic as Base } from "@/mosaic";
 import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
 import {
   useDispatch,
-  useSelectLeafNode,
-  useSelectNodeVariant,
-  useSelectRoot,
-  useSelectSplitNode,
-  useSelectTabKeys,
+  useLeafNode,
+  useNodeVariant,
+  useRoot,
   useSingleDispatch,
+  useSplitNode,
+  useTabKeys,
 } from "@/panel/queries";
 import { Scope, TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
@@ -124,7 +124,7 @@ const Leaf = memo(
     emptyContent,
     ...rest
   }: NodeProps): ReactElement => {
-    const { tabs } = useSelectLeafNode({ nodeKey });
+    const { tabs } = useLeafNode({ nodeKey });
     const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
     const { onSelect } = Select.useContext();
     const handleAdd = useCallback(() => onAdd(nodeKey), [nodeKey, onAdd]);
@@ -176,7 +176,7 @@ const Leaf = memo(
 Leaf.displayName = "Panel.Mosaic.Leaf";
 
 const Split = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
-  const { direction, size } = useSelectSplitNode({ nodeKey });
+  const { direction, size } = useSplitNode({ nodeKey });
   return (
     <Base.Split nodeKey={nodeKey} direction={direction} size={size}>
       <Node nodeKey={panel.childNodeKey(nodeKey, "first")} {...rest} />
@@ -187,7 +187,7 @@ const Split = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
 Split.displayName = "Panel.Mosaic.Split";
 
 const Node = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
-  const C = useSelectNodeVariant({ nodeKey }) == "split" ? Split : Leaf;
+  const C = useNodeVariant({ nodeKey }) == "split" ? Split : Leaf;
   return <C nodeKey={nodeKey} {...rest} />;
 });
 Node.displayName = "Panel.Mosaic.Node";
@@ -262,7 +262,7 @@ export const CloseTabMenuItem = (): ReactElement => {
 export const SplitTabMenuItems = (): ReactElement | null => {
   const tabKey = TabScope.use();
   const dispatch = useSingleDispatch();
-  const root = useSelectRoot({});
+  const root = useRoot({});
   const handleSplit = useCallback(
     (direction: direction.Direction) =>
       dispatch(panel.splitTab({ key: tabKey, direction })),
@@ -305,7 +305,7 @@ PortalIn.displayName = "Panel.Mosaic.PortalIn";
 // contexts.
 const PortaledContents = memo(
   ({ children }: Pick<MosaicProps, "children">): ReactElement => {
-    const keys = useSelectTabKeys();
+    const keys = useTabKeys();
     return (
       <>
         {keys.map((key) => (

@@ -490,10 +490,10 @@ describe("lineplot queries", () => {
       return renderHook(hook, { wrapper });
     };
 
-    it("useSelectName returns the name and updates after a rename", async () => {
+    it("useName returns the name and updates after a rename", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        name: LinePlot.useSelectName({ key: created.key }),
+        name: LinePlot.useName({ key: created.key }),
         rename: LinePlot.useRename(),
       }));
       expect(result.current.name).toEqual("selector_test");
@@ -506,10 +506,10 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.name).toEqual("selector_renamed"));
     });
 
-    it("useSelectTitle returns the title and updates after a setTitle dispatch", async () => {
+    it("useTitle returns the title and updates after a setTitle dispatch", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        title: LinePlot.useSelectTitle({ key: created.key }),
+        title: LinePlot.useTitle({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.title.visible).toBe(false);
@@ -528,10 +528,10 @@ describe("lineplot queries", () => {
       });
     });
 
-    it("useSelectLegend updates after a setLegend dispatch", async () => {
+    it("useLegend updates after a setLegend dispatch", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        legend: LinePlot.useSelectLegend({ key: created.key }),
+        legend: LinePlot.useLegend({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const original = result.current.legend;
@@ -546,10 +546,10 @@ describe("lineplot queries", () => {
       );
     });
 
-    it("useSelectRanges updates after addRange", async () => {
+    it("useRanges updates after addRange", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        ranges: LinePlot.useSelectRanges({ key: created.key }),
+        ranges: LinePlot.useRanges({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.ranges.x1).toEqual([]);
@@ -563,10 +563,10 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.ranges.x1).toEqual([rangeKey]));
     });
 
-    it("useSelectYAxisChannels returns one axis's channels and updates after setChannels", async () => {
+    it("useYAxisChannels returns one axis's channels and updates after setChannels", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        channels: LinePlot.useSelectYAxisChannels({ key: created.key, axisKey: "y1" }),
+        channels: LinePlot.useYAxisChannels({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.channels).toEqual([]);
@@ -579,10 +579,10 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.channels).toEqual([1, 2]));
     });
 
-    it("useSelectXAxisChannel returns the single x channel and updates after setXChannel", async () => {
+    it("useXAxisChannel returns the single x channel and updates after setXChannel", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        channel: LinePlot.useSelectXAxisChannel({ key: created.key, axisKey: "x1" }),
+        channel: LinePlot.useXAxisChannel({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.channel).toEqual(0);
@@ -595,10 +595,10 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.channel).toEqual(99));
     });
 
-    it("useSelectXAxisRanges returns one axis's ranges and updates after setRanges", async () => {
+    it("useXAxisRanges returns one axis's ranges and updates after setRanges", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        ranges: LinePlot.useSelectXAxisRanges({ key: created.key, axisKey: "x1" }),
+        ranges: LinePlot.useXAxisRanges({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.ranges).toEqual([]);
@@ -612,10 +612,10 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.ranges).toEqual([rangeKey]));
     });
 
-    it("useSelectAxisKeys returns displayed axes and updates as channels appear", async () => {
+    it("useAxisKeys returns displayed axes and updates as channels appear", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        axisKeys: LinePlot.useSelectAxisKeys({ key: created.key }),
+        axisKeys: LinePlot.useAxisKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.axisKeys).toEqual(["x1", "y1"]);
@@ -628,11 +628,11 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.axisKeys).toEqual(["x1", "y1", "y2"]));
     });
 
-    it("useSelectAxes / useSelectAxis return per-axis data and update on dispatch", async () => {
+    it("useAxes / useAxis return per-axis data and update on dispatch", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        axes: LinePlot.useSelectAxes({ key: created.key }),
-        axis: LinePlot.useSelectAxis({ key: created.key, axisKey: "y1" }),
+        axes: LinePlot.useAxes({ key: created.key }),
+        axis: LinePlot.useAxis({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.axis.key).toEqual("y1");
@@ -654,11 +654,11 @@ describe("lineplot queries", () => {
       });
     });
 
-    it("useSelectLines / useSelectLine / useSelectLineKeys reflect setLine", async () => {
+    it("useLines / useLine / useLineKeys reflect setLine", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        lines: LinePlot.useSelectLines({ key: created.key }),
-        keys: LinePlot.useSelectLineKeys({ key: created.key }),
+        lines: LinePlot.useLines({ key: created.key }),
+        keys: LinePlot.useLineKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.lines).toEqual([]);
@@ -685,16 +685,16 @@ describe("lineplot queries", () => {
       });
 
       const { result: line } = renderHook(
-        () => LinePlot.useSelectLine({ key: created.key, lineKey: "ln-1" }),
+        () => LinePlot.useLine({ key: created.key, lineKey: "ln-1" }),
         { wrapper },
       );
       expect(line.current.color).toEqual(color.construct("#00aaff"));
     });
 
-    it("useSelectRules / useSelectRule reflect setRule and removeRule", async () => {
+    it("useRules / useRule reflect setRule and removeRule", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        rules: LinePlot.useSelectRules({ key: created.key }),
+        rules: LinePlot.useRules({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.rules).toEqual([]);
@@ -720,7 +720,7 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.rules).toHaveLength(1));
 
       const { result: rule, unmount } = renderHook(
-        () => LinePlot.useSelectRule({ key: created.key, ruleKey: "rl-1" }),
+        () => LinePlot.useRule({ key: created.key, ruleKey: "rl-1" }),
         { wrapper },
       );
       expect(rule.current.position).toEqual(4.5);
@@ -735,10 +735,10 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.rules).toEqual([]));
     });
 
-    it("useSelectRule resolves a palette color for a rule with no stored color", async () => {
+    it("useRule resolves a palette color for a rule with no stored color", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        rules: LinePlot.useSelectRules({ key: created.key }),
+        rules: LinePlot.useRules({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
@@ -762,16 +762,16 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.rules).toHaveLength(1));
 
       const { result: rule } = renderHook(
-        () => LinePlot.useSelectRule({ key: created.key, ruleKey: "rl-1" }),
+        () => LinePlot.useRule({ key: created.key, ruleKey: "rl-1" }),
         { wrapper },
       );
       expect(rule.current.color).toBeDefined();
     });
 
-    it("useSelectLineCount reflects the number of lines", async () => {
+    it("useLineCount reflects the number of lines", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        count: LinePlot.useSelectLineCount({ key: created.key }),
+        count: LinePlot.useLineCount({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.count).toEqual(0);
@@ -794,11 +794,11 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.count).toEqual(1));
     });
 
-    it("useSelectXAxisKeys / useSelectYAxisKeys reflect the displayed axes", async () => {
+    it("useXAxisKeys / useYAxisKeys reflect the displayed axes", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        xKeys: LinePlot.useSelectXAxisKeys({ key: created.key }),
-        yKeys: LinePlot.useSelectYAxisKeys({ key: created.key }),
+        xKeys: LinePlot.useXAxisKeys({ key: created.key }),
+        yKeys: LinePlot.useYAxisKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xKeys).toEqual(["x1"]);
@@ -818,10 +818,10 @@ describe("lineplot queries", () => {
       });
     });
 
-    it("useSelectXAxis returns a resolved axis config and updates on dispatch", async () => {
+    it("useXAxis returns a resolved axis config and updates on dispatch", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        xAxis: LinePlot.useSelectXAxis({ key: created.key, axisKey: "x1" }),
+        xAxis: LinePlot.useXAxis({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xAxis.key).toEqual("x1");
@@ -836,7 +836,7 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.xAxis.label).toEqual("Time"));
     });
 
-    it("useSelectXAxis derives a linear tick type from a non-timestamp channel", async () => {
+    it("useXAxis derives a linear tick type from a non-timestamp channel", async () => {
       const suffix = uuid.create().replace(/-/g, "");
       const index = await client.channels.create({
         name: `lp_idx_${suffix}`,
@@ -850,7 +850,7 @@ describe("lineplot queries", () => {
       });
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        xAxis: LinePlot.useSelectXAxis({ key: created.key, axisKey: "x1" }),
+        xAxis: LinePlot.useXAxis({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xAxis.type).toEqual("time");
@@ -863,7 +863,7 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.xAxis.type).toEqual("linear"));
     });
 
-    it("useSelectYAxis returns axis, channels, and lineKeys", async () => {
+    it("useYAxis returns axis, channels, and lineKeys", async () => {
       const created = await createPlot();
       const lineKey = lineplotClient.lineKey({
         yAxis: "y1",
@@ -873,7 +873,7 @@ describe("lineplot queries", () => {
         yChannel: 5,
       });
       const { result } = await loadAndUse(created.key, () => ({
-        yAxis: LinePlot.useSelectYAxis({ key: created.key, axisKey: "y1" }),
+        yAxis: LinePlot.useYAxis({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.yAxis.axis.key).toEqual("y1");
@@ -902,11 +902,11 @@ describe("lineplot queries", () => {
       });
     });
 
-    it("useSelectAxisRuleKeys returns the keys of rules on the given axis", async () => {
+    it("useAxisRuleKeys returns the keys of rules on the given axis", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        y1Keys: LinePlot.useSelectAxisRuleKeys({ key: created.key, axisKey: "y1" }),
-        y2Keys: LinePlot.useSelectAxisRuleKeys({ key: created.key, axisKey: "y2" }),
+        y1Keys: LinePlot.useAxisRuleKeys({ key: created.key, axisKey: "y1" }),
+        y2Keys: LinePlot.useAxisRuleKeys({ key: created.key, axisKey: "y2" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.y1Keys).toEqual([]);
@@ -959,10 +959,10 @@ describe("lineplot queries", () => {
       return { result, renderCount: () => renderCount };
     };
 
-    it("useSelectTitle keeps a stable reference across an unrelated edit", async () => {
+    it("useTitle keeps a stable reference across an unrelated edit", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        title: LinePlot.useSelectTitle({ key: created.key }),
+        title: LinePlot.useTitle({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstTitle = result.current.title;
@@ -977,10 +977,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectYAxisKeys stays stable when a channel is added to an already-displayed axis", async () => {
+    it("useYAxisKeys stays stable when a channel is added to an already-displayed axis", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        yKeys: LinePlot.useSelectYAxisKeys({ key: created.key }),
+        yKeys: LinePlot.useYAxisKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.yKeys).toEqual(["y1"]);
@@ -996,10 +996,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectLineKeys stays stable when a line's style changes", async () => {
+    it("useLineKeys stays stable when a line's style changes", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        keys: LinePlot.useSelectLineKeys({ key: created.key }),
+        keys: LinePlot.useLineKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
@@ -1036,10 +1036,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectAxisRuleKeys stays stable when a rule's position changes", async () => {
+    it("useAxisRuleKeys stays stable when a rule's position changes", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        keys: LinePlot.useSelectAxisRuleKeys({ key: created.key, axisKey: "y1" }),
+        keys: LinePlot.useAxisRuleKeys({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
@@ -1076,10 +1076,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectName stays stable across an unrelated edit", async () => {
+    it("useName stays stable across an unrelated edit", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        name: LinePlot.useSelectName({ key: created.key }),
+        name: LinePlot.useName({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstName = result.current.name;
@@ -1097,10 +1097,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectLegend keeps a stable reference across an unrelated edit", async () => {
+    it("useLegend keeps a stable reference across an unrelated edit", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        legend: LinePlot.useSelectLegend({ key: created.key }),
+        legend: LinePlot.useLegend({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstLegend = result.current.legend;
@@ -1115,10 +1115,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectRanges keeps a stable reference across an unrelated edit", async () => {
+    it("useRanges keeps a stable reference across an unrelated edit", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        ranges: LinePlot.useSelectRanges({ key: created.key }),
+        ranges: LinePlot.useRanges({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstRanges = result.current.ranges;
@@ -1136,10 +1136,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectAxes keeps a stable reference across an unrelated edit", async () => {
+    it("useAxes keeps a stable reference across an unrelated edit", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        axes: LinePlot.useSelectAxes({ key: created.key }),
+        axes: LinePlot.useAxes({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstAxes = result.current.axes;
@@ -1157,10 +1157,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectAxis keeps a stable reference when a different axis changes", async () => {
+    it("useAxis keeps a stable reference when a different axis changes", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        axis: LinePlot.useSelectAxis({ key: created.key, axisKey: "y1" }),
+        axis: LinePlot.useAxis({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstAxis = result.current.axis;
@@ -1175,10 +1175,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectXAxisKeys stays stable when a channel is added to an already-displayed axis", async () => {
+    it("useXAxisKeys stays stable when a channel is added to an already-displayed axis", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        xKeys: LinePlot.useSelectXAxisKeys({ key: created.key }),
+        xKeys: LinePlot.useXAxisKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xKeys).toEqual(["x1"]);
@@ -1194,10 +1194,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectXAxis keeps a stable reference across an unrelated edit", async () => {
+    it("useXAxis keeps a stable reference across an unrelated edit", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        xAxis: LinePlot.useSelectXAxis({ key: created.key, axisKey: "x1" }),
+        xAxis: LinePlot.useXAxis({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xAxis.type).toEqual("time");
@@ -1213,10 +1213,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectYAxis keeps a stable reference across an unrelated edit", async () => {
+    it("useYAxis keeps a stable reference across an unrelated edit", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        yAxis: LinePlot.useSelectYAxis({ key: created.key, axisKey: "y1" }),
+        yAxis: LinePlot.useYAxis({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstYAxis = result.current.yAxis;
@@ -1234,10 +1234,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectLineCount stays stable across an edit that does not change the count", async () => {
+    it("useLineCount stays stable across an edit that does not change the count", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        count: LinePlot.useSelectLineCount({ key: created.key }),
+        count: LinePlot.useLineCount({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
@@ -1273,10 +1273,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectLines keeps a stable reference across an unrelated edit", async () => {
+    it("useLines keeps a stable reference across an unrelated edit", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        lines: LinePlot.useSelectLines({ key: created.key }),
+        lines: LinePlot.useLines({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
@@ -1311,10 +1311,10 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectRules keeps a stable reference across an unrelated edit", async () => {
+    it("useRules keeps a stable reference across an unrelated edit", async () => {
       const created = await createPlot();
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        rules: LinePlot.useSelectRules({ key: created.key }),
+        rules: LinePlot.useRules({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
@@ -1352,7 +1352,7 @@ describe("lineplot queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectLine keeps a stable reference when a different line changes", async () => {
+    it("useLine keeps a stable reference when a different line changes", async () => {
       const suffix = uuid.create().replace(/-/g, "");
       const index = await client.channels.create({
         name: `lnstab_idx_${suffix}`,
@@ -1423,7 +1423,7 @@ describe("lineplot queries", () => {
         () => {
           renderCount++;
           return {
-            line: LinePlot.useSelectLine({ key: created.key, lineKey: lineA }),
+            line: LinePlot.useLine({ key: created.key, lineKey: lineA }),
             dispatch: LinePlot.useDispatch(),
           };
         },
@@ -1449,7 +1449,7 @@ describe("lineplot queries", () => {
       expect(renderCount).toEqual(countBefore);
     });
 
-    it("useSelectRule keeps a stable reference when a different rule changes", async () => {
+    it("useRule keeps a stable reference when a different rule changes", async () => {
       const created = await createPlot();
       const setup = await renderHookSuspended(
         () => ({
@@ -1495,7 +1495,7 @@ describe("lineplot queries", () => {
         () => {
           renderCount++;
           return {
-            rule: LinePlot.useSelectRule({ key: created.key, ruleKey: "rl-a" }),
+            rule: LinePlot.useRule({ key: created.key, ruleKey: "rl-a" }),
             dispatch: LinePlot.useDispatch(),
           };
         },

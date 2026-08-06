@@ -29,50 +29,48 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   getCached: ({ client, query }) => client.logs.getCached(query),
 });
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: log.Key;
 }
 
-export const useSelectName = Scope.bindHook(createSelector(({ name }) => name));
+export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
-export const useSelectChannels = Scope.bindHook(
-  createSelector(({ channels }) => channels),
-);
+export const useChannels = Scope.bindHook(createSelector(({ channels }) => channels));
 
-// useSelectChannelKeys returns the ordered channel keys, re-rendering only
+// useChannelKeys returns the ordered channel keys, re-rendering only
 // when the set or order of channels changes, not when an entry's display
 // config is edited. Iterate the toolbar list off this and read each row via
-// useSelectChannelEntry.
-export const useSelectChannelKeys = Scope.bindHook(
+// useChannelEntry.
+export const useChannelKeys = Scope.bindHook(
   createSelector(
     ({ channels }) => channels.map((e) => e.channel),
     (a, b) => compare.arraysEqual(a, b),
   ),
 );
 
-export interface SelectChannelEntryParams extends SelectKeyParams {
+export interface ChannelEntryParams extends KeyParams {
   channel: channel.Key;
 }
 
-// useSelectChannelEntry returns the entry for a single channel, or null when
+// useChannelEntry returns the entry for a single channel, or null when
 // the channel has no entry. Structural sharing keeps the entry reference
 // stable across dispatches that don't touch it, so editing one channel does
 // not re-render the rows of the others.
-export const useSelectChannelEntry = Scope.bindHook(
-  createSelector<log.ChannelEntry | null, SelectChannelEntryParams>(
+export const useChannelEntry = Scope.bindHook(
+  createSelector<log.ChannelEntry | null, ChannelEntryParams>(
     ({ channels }, { channel }) => channels.find((e) => e.channel === channel) ?? null,
   ),
 );
 
-export const useSelectTimestampPrecision = Scope.bindHook(
+export const useTimestampPrecision = Scope.bindHook(
   createSelector(({ timestampPrecision }) => timestampPrecision),
 );
 
-export const useSelectHideChannelNames = Scope.bindHook(
+export const useIsHidingChannelNames = Scope.bindHook(
   createSelector(({ hideChannelNames }) => hideChannelNames),
 );
 
-export const useSelectHideReceiptTimestamp = Scope.bindHook(
+export const useIsHidingReceiptTimestamp = Scope.bindHook(
   createSelector(({ hideReceiptTimestamp }) => hideReceiptTimestamp),
 );
 

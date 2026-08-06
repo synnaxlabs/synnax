@@ -30,19 +30,19 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   getCached: ({ client, query }) => client.lineplots.getCached(query),
 });
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: lineplot.Key;
 }
 
-export const useSelectName = Scope.bindHook(createSelector(({ name }) => name));
+export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
-export const useSelectTitle = Scope.bindHook(createSelector(({ title }) => title));
+export const useTitle = Scope.bindHook(createSelector(({ title }) => title));
 
-export const useSelectLegend = Scope.bindHook(createSelector(({ legend }) => legend));
+export const useLegend = Scope.bindHook(createSelector(({ legend }) => legend));
 
-export const useSelectRanges = Scope.bindHook(createSelector(({ ranges }) => ranges));
+export const useRanges = Scope.bindHook(createSelector(({ ranges }) => ranges));
 
-export const useSelectAxes = Scope.bindHook(createSelector(({ axes }) => axes));
+export const useAxes = Scope.bindHook(createSelector(({ axes }) => axes));
 
 const shouldDisplayAxis = (
   key: lineplot.AxisKey,
@@ -65,21 +65,19 @@ const createAxisKeysSelector = <K extends lineplot.AxisKey>(keys: readonly K[]) 
     ),
   );
 
-export const useSelectXAxisKeys = createAxisKeysSelector(lineplot.X_AXIS_KEYS);
+export const useXAxisKeys = createAxisKeysSelector(lineplot.X_AXIS_KEYS);
 
-export const useSelectYAxisKeys = createAxisKeysSelector(lineplot.Y_AXIS_KEYS);
+export const useYAxisKeys = createAxisKeysSelector(lineplot.Y_AXIS_KEYS);
 
-export const useSelectAxisKeys = createAxisKeysSelector(lineplot.AXIS_KEYS);
+export const useAxisKeys = createAxisKeysSelector(lineplot.AXIS_KEYS);
 
-export interface SelectAxisParams {
+export interface AxisParams {
   key: lineplot.Key;
   axisKey: lineplot.AxisKey;
 }
 
-export const useSelectAxis = Scope.bindHook(
-  createSelector<lineplot.Axis, SelectAxisParams>(
-    ({ axes }, { axisKey }) => axes[axisKey],
-  ),
+export const useAxis = Scope.bindHook(
+  createSelector<lineplot.Axis, AxisParams>(({ axes }, { axisKey }) => axes[axisKey]),
 );
 
 // RawDerivedLine is a stored line enriched with its decoded identity (axis,
@@ -106,88 +104,84 @@ const resolvePaletteColor = (
 ): color.Color =>
   stored ?? color.construct(palette[index % Math.max(palette.length, 1)] ?? color.ZERO);
 
-const useSelectStoredLines = createSelector(({ lines }) => lines);
+const useStoredLines = createSelector(({ lines }) => lines);
 
-// useSelectRawLines selects the plot's stored lines enriched with their decoded
+// useRawLines selects the plot's stored lines enriched with their decoded
 // identity, memoized on the stored lines reference so it only re-derives when
 // the lines actually change.
-const useSelectRawLines = (params: SelectKeyParams): RawDerivedLine[] => {
-  const lines = useSelectStoredLines(params);
+const useRawLines = (params: KeyParams): RawDerivedLine[] => {
+  const lines = useStoredLines(params);
   return useMemo(
     () => lines.map((l) => ({ ...l, ...lineplot.parseLineKey(l.key) })),
     [lines],
   );
 };
 
-// useSelectLines returns the plot's lines, each enriched with its decoded
+// useLines returns the plot's lines, each enriched with its decoded
 // identity and its render color resolved from the active palette (a line with
 // no stored color is assigned one by its position). Lines are materialized
 // eagerly by the reducer, so this is the complete set of plotted lines.
-export const useSelectLines = Scope.bindHook(
-  (params: SelectKeyParams): DerivedLine[] => {
-    const lines = useSelectRawLines(params);
-    const palette = Theming.use().colors.visualization.palettes.default;
-    return useMemo(
-      () =>
-        lines.map(({ color, ...line }, i) => ({
-          ...line,
-          color: resolvePaletteColor(color, i, palette),
-          isDefaultLabel: line.label == null,
-        })),
-      [lines, palette],
-    );
-  },
-);
+export const useLines = Scope.bindHook((params: KeyParams): DerivedLine[] => {
+  const lines = useRawLines(params);
+  const palette = Theming.use().colors.visualization.palettes.default;
+  return useMemo(
+    () =>
+      lines.map(({ color, ...line }, i) => ({
+        ...line,
+        color: resolvePaletteColor(color, i, palette),
+        isDefaultLabel: line.label == null,
+      })),
+    [lines, palette],
+  );
+});
 
-export const useSelectLineKeys = Scope.bindHook(
+export const useLineKeys = Scope.bindHook(
   createSelector(({ lines }) => lines.map((l) => l.key), compare.arraysEqual),
 );
 
-export const useSelectLineCount = Scope.bindHook(
-  createSelector(({ lines }) => lines.length),
-);
+export const useLineCount = Scope.bindHook(createSelector(({ lines }) => lines.length));
 
-export interface SelectYAxisParams {
+export interface YAxisParams {
   key: lineplot.Key;
   axisKey: lineplot.YAxisKey;
 }
 
-export interface SelectXAxisParams {
+export interface XAxisParams {
   key: lineplot.Key;
   axisKey: lineplot.XAxisKey;
 }
 
-// useSelectYAxisChannels selects the channels plotted on a single y-axis. It
+// useYAxisChannels selects the channels plotted on a single y-axis. It
 // subscribes at axis granularity, so editing one y-axis's channel set does not
 // re-render controls bound to a different axis.
-export const useSelectYAxisChannels = Scope.bindHook(
-  createSelector<lineplot.Channels[lineplot.YAxisKey], SelectYAxisParams>(
+export const useYAxisChannels = Scope.bindHook(
+  createSelector<lineplot.Channels[lineplot.YAxisKey], YAxisParams>(
     ({ channels }, { axisKey }) => channels[axisKey],
     compare.arraysEqual,
   ),
 );
 
-// useSelectXAxisChannel selects the single channel plotted on an x-axis.
-export const useSelectXAxisChannel = Scope.bindHook(
-  createSelector<lineplot.Channels[lineplot.XAxisKey], SelectXAxisParams>(
+// useXAxisChannel selects the single channel plotted on an x-axis.
+export const useXAxisChannel = Scope.bindHook(
+  createSelector<lineplot.Channels[lineplot.XAxisKey], XAxisParams>(
     ({ channels }, { axisKey }) => channels[axisKey],
   ),
 );
 
-// useSelectXAxisRanges selects the range keys plotted against an x-axis.
-export const useSelectXAxisRanges = Scope.bindHook(
-  createSelector<lineplot.Ranges[lineplot.XAxisKey], SelectXAxisParams>(
+// useXAxisRanges selects the range keys plotted against an x-axis.
+export const useXAxisRanges = Scope.bindHook(
+  createSelector<lineplot.Ranges[lineplot.XAxisKey], XAxisParams>(
     ({ ranges }, { axisKey }) => ranges[axisKey],
     compare.arraysEqual,
   ),
 );
 
-interface SelectXAxisBaseReturn {
+interface XAxisBaseReturn {
   axis: lineplot.Axis;
   channel: lineplot.Channels[lineplot.XAxisKey];
 }
 
-const useSelectXAxisBase = createSelector<SelectXAxisBaseReturn, SelectXAxisParams>(
+const useXAxisBase = createSelector<XAxisBaseReturn, XAxisParams>(
   ({ axes, channels }, { axisKey }) => ({
     axis: axes[axisKey],
     channel: channels[axisKey],
@@ -195,35 +189,33 @@ const useSelectXAxisBase = createSelector<SelectXAxisBaseReturn, SelectXAxisPara
   (a, b) => a.axis === b.axis && a.channel === b.channel,
 );
 
-// useSelectXAxis returns the x-axis configuration with its tick type resolved:
+// useXAxis returns the x-axis configuration with its tick type resolved:
 // a null stored type is derived from the plotted channel's data type (timestamp
 // maps to time, otherwise linear), defaulting to time while the channel loads.
 // A non-null stored type is an explicit user override.
-export const useSelectXAxis = Scope.bindHook(
-  (params: SelectXAxisParams): lineplot.Axis => {
-    const { axis, channel } = useSelectXAxisBase({
-      key: params.key,
-      axisKey: params.axisKey,
-    });
-    const { data: chan } = Channel.useResult(channel > 0 ? { key: channel } : null);
-    return useMemo(() => {
-      if (axis.type != null) return axis;
-      let type: lineplot.TickType = "linear";
-      if (channel == 0 || chan == null || chan.dataType.equals(DataType.TIMESTAMP))
-        type = "time";
-      return { ...axis, type };
-    }, [axis, channel, chan]);
-  },
-);
+export const useXAxis = Scope.bindHook((params: XAxisParams): lineplot.Axis => {
+  const { axis, channel } = useXAxisBase({
+    key: params.key,
+    axisKey: params.axisKey,
+  });
+  const { data: chan } = Channel.useResult(channel > 0 ? { key: channel } : null);
+  return useMemo(() => {
+    if (axis.type != null) return axis;
+    let type: lineplot.TickType = "linear";
+    if (channel == 0 || chan == null || chan.dataType.equals(DataType.TIMESTAMP))
+      type = "time";
+    return { ...axis, type };
+  }, [axis, channel, chan]);
+});
 
-interface SelectYAxisReturn {
+interface YAxisReturn {
   axis: lineplot.Axis;
   channels: lineplot.Channels[lineplot.YAxisKey];
   lineKeys: string[];
 }
 
-export const useSelectYAxis = Scope.bindHook(
-  createSelector<SelectYAxisReturn, SelectYAxisParams>(
+export const useYAxis = Scope.bindHook(
+  createSelector<YAxisReturn, YAxisParams>(
     ({ axes, channels, lines }, { axisKey }) => {
       const lineKeys = lines
         .filter((l) => lineplot.parseLineKey(l.key).yAxis === axisKey)
@@ -237,7 +229,7 @@ export const useSelectYAxis = Scope.bindHook(
   ),
 );
 
-export interface SelectLineParams {
+export interface LineParams {
   key: lineplot.Key;
   lineKey: string;
 }
@@ -247,11 +239,11 @@ interface RawLine {
   index: number;
 }
 
-// useSelectRawLine selects a single line and its position by key. The equality
+// useRawLine selects a single line and its position by key. The equality
 // compares the stored line reference (kept stable across unrelated edits by
 // Immer) and the index, so it re-renders only when that line or its position
 // changes, not when other lines on the plot do.
-const useSelectRawLine = createSelector<RawLine, SelectLineParams>(
+const useRawLine = createSelector<RawLine, LineParams>(
   ({ lines }, { lineKey }) => {
     const index = lines.findIndex((l) => l.key === lineKey);
     if (index === -1) throw new NotFoundError(`line with key ${lineKey} not found`);
@@ -260,12 +252,12 @@ const useSelectRawLine = createSelector<RawLine, SelectLineParams>(
   (a, b) => a.line === b.line && a.index === b.index,
 );
 
-// useSelectLine returns a single line, enriched with its identity and its color
-// resolved by position the same way as useSelectLines, subscribing narrowly so
+// useLine returns a single line, enriched with its identity and its color
+// resolved by position the same way as useLines, subscribing narrowly so
 // it re-renders only when that line, its position, or the palette changes.
-export const useSelectLine = Scope.bindHook(
-  (params: SelectLineParams): require.Require<DerivedLine, "label"> => {
-    const raw = useSelectRawLine(params);
+export const useLine = Scope.bindHook(
+  (params: LineParams): require.Require<DerivedLine, "label"> => {
+    const raw = useRawLine(params);
     const palette = Theming.use().colors.visualization.palettes.default;
     const { yChannel } = lineplot.parseLineKey(raw.line.key);
     const { data: chan } = Channel.useResult(yChannel > 0 ? { key: yChannel } : null);
@@ -288,27 +280,25 @@ export interface DerivedRule extends Omit<lineplot.Rule, "color"> {
   color: color.Color;
 }
 
-const useSelectRawRules = createSelector(({ rules }) => rules);
+const useRawRules = createSelector(({ rules }) => rules);
 
-// useSelectRules returns the plot's rules, each with its render color resolved
+// useRules returns the plot's rules, each with its render color resolved
 // from the active palette (a rule with no stored color is assigned one by its
 // position, the same way lines are).
-export const useSelectRules = Scope.bindHook(
-  (params: SelectKeyParams): DerivedRule[] => {
-    const rules = useSelectRawRules(params);
-    const palette = Theming.use().colors.visualization.palettes.default;
-    return useMemo(
-      () =>
-        rules.map(({ color, ...rule }, i) => ({
-          ...rule,
-          color: resolvePaletteColor(color, i, palette),
-        })),
-      [rules, palette],
-    );
-  },
-);
+export const useRules = Scope.bindHook((params: KeyParams): DerivedRule[] => {
+  const rules = useRawRules(params);
+  const palette = Theming.use().colors.visualization.palettes.default;
+  return useMemo(
+    () =>
+      rules.map(({ color, ...rule }, i) => ({
+        ...rule,
+        color: resolvePaletteColor(color, i, palette),
+      })),
+    [rules, palette],
+  );
+});
 
-export interface SelectRuleParams {
+export interface RuleParams {
   key: lineplot.Key;
   ruleKey: string;
 }
@@ -318,7 +308,7 @@ interface RawRule {
   index: number;
 }
 
-const useSelectRawRule = createSelector<RawRule, SelectRuleParams>(
+const useRawRule = createSelector<RawRule, RuleParams>(
   ({ rules }, { ruleKey }) => {
     const index = rules.findIndex((r) => r.key === ruleKey);
     if (index === -1) throw new NotFoundError(`rule with key ${ruleKey} not found`);
@@ -327,11 +317,11 @@ const useSelectRawRule = createSelector<RawRule, SelectRuleParams>(
   (a, b) => a.rule === b.rule && a.index === b.index,
 );
 
-// useSelectRule returns a single rule with its color resolved by position the
-// same way as useSelectRules. It throws NotFoundError when no rule with ruleKey
+// useRule returns a single rule with its color resolved by position the
+// same way as useRules. It throws NotFoundError when no rule with ruleKey
 // exists, so callers must only request rules they know are present.
-export const useSelectRule = Scope.bindHook((params: SelectRuleParams): DerivedRule => {
-  const raw = useSelectRawRule(params);
+export const useRule = Scope.bindHook((params: RuleParams): DerivedRule => {
+  const raw = useRawRule(params);
   const palette = Theming.use().colors.visualization.palettes.default;
   return useMemo(
     () => ({
@@ -342,16 +332,16 @@ export const useSelectRule = Scope.bindHook((params: SelectRuleParams): DerivedR
   );
 });
 
-export interface SelectAxisRulesParams {
+export interface AxisRulesParams {
   key: lineplot.Key;
   axisKey: lineplot.AxisKey;
 }
 
-// useSelectAxisRuleKeys returns the keys of the rules attached to the given axis.
+// useAxisRuleKeys returns the keys of the rules attached to the given axis.
 // Stable across edits to individual rules (only changes when rules are added or
 // removed) so an axis re-renders only when its rule membership changes.
-export const useSelectAxisRuleKeys = Scope.bindHook(
-  createSelector<string[], SelectAxisRulesParams>(
+export const useAxisRuleKeys = Scope.bindHook(
+  createSelector<string[], AxisRulesParams>(
     ({ rules }, { axisKey }) =>
       rules.filter((r) => r.axis === axisKey).map((r) => r.key),
     (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),

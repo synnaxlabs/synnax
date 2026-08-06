@@ -25,7 +25,7 @@ import { Session } from "@/session";
 const Internal = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const selected = Session.Log.useSelectSelectedToolbarTab();
-  const name = Log.useSelectName();
+  const name = Log.useName();
   const key = Log.useKey();
   const handleTabSelect = useCallback(
     (tab: string) =>
@@ -71,7 +71,7 @@ const Internal = (): ReactElement => {
 };
 
 export const Toolbar: Panel.Toolbar = () => {
-  const { key } = PPanel.useSelectTabResource();
+  const { key } = PPanel.useTabResource();
   return (
     <Log.Suspended logKey={key}>
       <Internal />

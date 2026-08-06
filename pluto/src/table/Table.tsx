@@ -36,10 +36,10 @@ import {
   cellsInRegion,
   findCellPosition,
   nextCellPosition,
+  useColumns,
   useDispatch,
   useRedo,
-  useSelectColumns,
-  useSelectRows,
+  useRows,
   useUndo,
 } from "@/table/queries";
 import { Row } from "@/table/Row";
@@ -130,8 +130,8 @@ export const Table = ({
   ...rest
 }: TableProps): ReactElement => {
   const key = useKey();
-  const rows = useSelectRows({ key });
-  const columns = useSelectColumns({ key });
+  const rows = useRows({ key });
+  const columns = useColumns({ key });
   const { dispatch } = useDispatch();
   const theme = Theming.use();
 

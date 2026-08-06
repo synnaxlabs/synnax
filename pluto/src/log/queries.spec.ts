@@ -74,44 +74,44 @@ describe("log queries", () => {
   };
 
   describe("selectors", () => {
-    it("useSelectName reads the name", async () => {
+    it("useName reads the name", async () => {
       const created = await createLog({ name: "Sensors" });
       const { result } = await loadAndSelect(created.key, () =>
-        Log.useSelectName({ key: created.key }),
+        Log.useName({ key: created.key }),
       );
       expect(result.current).toBe("Sensors");
     });
 
-    it("useSelectChannels reads the channel entries", async () => {
+    it("useChannels reads the channel entries", async () => {
       const created = await createLog({ channels: [entry(1), entry(2)] });
       const { result } = await loadAndSelect(created.key, () =>
-        Log.useSelectChannels({ key: created.key }),
+        Log.useChannels({ key: created.key }),
       );
       expect(result.current.map((e) => e.channel)).toEqual([1, 2]);
     });
 
-    it("useSelectChannelKeys reads the ordered keys", async () => {
+    it("useChannelKeys reads the ordered keys", async () => {
       const created = await createLog({ channels: [entry(3), entry(7)] });
       const { result } = await loadAndSelect(created.key, () =>
-        Log.useSelectChannelKeys({ key: created.key }),
+        Log.useChannelKeys({ key: created.key }),
       );
       expect(result.current).toEqual([3, 7]);
     });
 
-    it("useSelectChannelEntry reads a single entry", async () => {
+    it("useChannelEntry reads a single entry", async () => {
       const created = await createLog({
         channels: [entry(1), entry(2, { alias: "pressure" })],
       });
       const { result } = await loadAndSelect(created.key, () =>
-        Log.useSelectChannelEntry({ key: created.key, channel: 2 }),
+        Log.useChannelEntry({ key: created.key, channel: 2 }),
       );
       expect(result.current?.alias).toBe("pressure");
     });
 
-    it("useSelectChannelEntry returns null when the channel is absent", async () => {
+    it("useChannelEntry returns null when the channel is absent", async () => {
       const created = await createLog({ channels: [entry(1)] });
       const { result } = await loadAndSelect(created.key, () =>
-        Log.useSelectChannelEntry({ key: created.key, channel: 99 }),
+        Log.useChannelEntry({ key: created.key, channel: 99 }),
       );
       expect(result.current).toBeNull();
     });
@@ -123,9 +123,9 @@ describe("log queries", () => {
         hideReceiptTimestamp: true,
       });
       const { result } = await loadAndSelect(created.key, () => ({
-        precision: Log.useSelectTimestampPrecision({ key: created.key }),
-        names: Log.useSelectHideChannelNames({ key: created.key }),
-        receipt: Log.useSelectHideReceiptTimestamp({ key: created.key }),
+        precision: Log.useTimestampPrecision({ key: created.key }),
+        names: Log.useIsHidingChannelNames({ key: created.key }),
+        receipt: Log.useIsHidingReceiptTimestamp({ key: created.key }),
       }));
       expect(result.current.precision).toBe(3);
       expect(result.current.names).toBe(true);
@@ -134,10 +134,10 @@ describe("log queries", () => {
   });
 
   describe("memoization / reference stability", () => {
-    it("useSelectChannelKeys keeps a stable reference when only config changes", async () => {
+    it("useChannelKeys keeps a stable reference when only config changes", async () => {
       const created = await createLog({ channels: [entry(1), entry(2)] });
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        keys: Log.useSelectChannelKeys({ key: created.key }),
+        keys: Log.useChannelKeys({ key: created.key }),
         dispatch: Log.useDispatch(),
       }));
       const first = result.current.keys;
@@ -152,10 +152,10 @@ describe("log queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectChannelKeys yields a new value when the key set changes", async () => {
+    it("useChannelKeys yields a new value when the key set changes", async () => {
       const created = await createLog({ channels: [entry(1), entry(2)] });
       const { result } = await loadAndSelect(created.key, () => ({
-        keys: Log.useSelectChannelKeys({ key: created.key }),
+        keys: Log.useChannelKeys({ key: created.key }),
         dispatch: Log.useDispatch(),
       }));
       const first = result.current.keys;
@@ -171,12 +171,12 @@ describe("log queries", () => {
       });
     });
 
-    it("useSelectChannelEntry keeps a stable reference when its entry object is unchanged", async () => {
+    it("useChannelEntry keeps a stable reference when its entry object is unchanged", async () => {
       const created = await createLog({
         channels: [entry(1), entry(2, { alias: "shared" })],
       });
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        entry: Log.useSelectChannelEntry({ key: created.key, channel: 2 }),
+        entry: Log.useChannelEntry({ key: created.key, channel: 2 }),
         dispatch: Log.useDispatch(),
       }));
       const first = result.current.entry;
@@ -191,10 +191,10 @@ describe("log queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectTimestampPrecision is stable across unrelated edits", async () => {
+    it("useTimestampPrecision is stable across unrelated edits", async () => {
       const created = await createLog({ timestampPrecision: 2 });
       const { result, renderCount } = await loadAndCount(created.key, () => ({
-        precision: Log.useSelectTimestampPrecision({ key: created.key }),
+        precision: Log.useTimestampPrecision({ key: created.key }),
         dispatch: Log.useDispatch(),
       }));
       const first = result.current.precision;
@@ -291,9 +291,7 @@ describe("log queries", () => {
       });
       expect(result.current.variant).toEqual("success");
       expect((await client.logs.retrieve(key)).name).toEqual("created_log");
-      const { result: name } = await loadAndSelect(key, () =>
-        Log.useSelectName({ key }),
-      );
+      const { result: name } = await loadAndSelect(key, () => Log.useName({ key }));
       expect(name.current).toEqual("created_log");
     });
   });

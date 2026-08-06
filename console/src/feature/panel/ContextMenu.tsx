@@ -20,7 +20,7 @@ const RENAME_TRIGGER: Triggers.Trigger = ["Control", "E"];
 
 const RenameItem = (): ReactElement | null => {
   const tabKey = Panel.useTabKey();
-  const isResource = Panel.useSelectTabVariant({}) === "resource";
+  const isResource = Panel.useTabVariant({}) === "resource";
   if (!isResource) return null;
   return (
     <CMenu.RenameItem

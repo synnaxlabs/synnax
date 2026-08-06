@@ -18,7 +18,7 @@ import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 
 export const Overview: Panel.Content = () => {
-  const { key } = PlutoPanel.useSelectTabResource();
+  const { key } = PlutoPanel.useTabResource();
   // A subscribed read, so a delete throws to the tab's boundary instead of
   // leaving the stale form on screen. Also warms the cache the sections share.
   Ranger.use({ key });

@@ -35,48 +35,45 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   getCached: ({ client, query }) => client.schematics.getCached(query),
 });
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: schematic.Key;
 }
 
-export const useSelectAllNodes = Scope.bindHook(createSelector(({ nodes }) => nodes));
+export const useAllNodes = Scope.bindHook(createSelector(({ nodes }) => nodes));
 
-export const useSelectAllEdges = Scope.bindHook(createSelector(({ edges }) => edges));
+export const useAllEdges = Scope.bindHook(createSelector(({ edges }) => edges));
 
-export interface SelectConfigParams extends SelectKeyParams {
+export interface ConfigParams extends KeyParams {
   elKey: string;
 }
 
-export const useSelectElementConfig = Scope.bindHook(
-  createSelector<ElementConfig | undefined, SelectConfigParams>(
+export const useElementConfig = Scope.bindHook(
+  createSelector<ElementConfig | undefined, ConfigParams>(
     ({ configs }, { elKey }) => configs[elKey] as ElementConfig | undefined,
   ),
 );
 
-export interface SelectConfigsParams extends SelectKeyParams {
+export interface ConfigsParams extends KeyParams {
   keys: string[];
 }
 
-export const useSelectConfigs = Scope.bindHook(
-  createSelector<Map<string, ElementConfig>, SelectConfigsParams>(
-    ({ configs }, { keys }) => {
-      const result = new Map<string, ElementConfig>();
-      for (const elKey of keys) {
-        const cfg = configs?.[elKey];
-        if (cfg != null) result.set(elKey, cfg as ElementConfig);
-      }
-      return result;
-    },
-    compare.mapsEqual,
-  ),
+export const useConfigs = Scope.bindHook(
+  createSelector<Map<string, ElementConfig>, ConfigsParams>(({ configs }, { keys }) => {
+    const result = new Map<string, ElementConfig>();
+    for (const elKey of keys) {
+      const cfg = configs?.[elKey];
+      if (cfg != null) result.set(elKey, cfg as ElementConfig);
+    }
+    return result;
+  }, compare.mapsEqual),
 );
 
-export interface SelectNodesParams extends SelectKeyParams {
+export interface NodesParams extends KeyParams {
   keys: string[];
 }
 
-export const useSelectNodes = Scope.bindHook(
-  createSelector<schematic.Node[], SelectNodesParams>(
+export const useNodes = Scope.bindHook(
+  createSelector<schematic.Node[], NodesParams>(
     ({ nodes }, { keys }) => {
       if (keys.length === 0) return [];
       const keySet = new Set(keys);
@@ -86,11 +83,9 @@ export const useSelectNodes = Scope.bindHook(
   ),
 );
 
-export const useSelectSnapshot = Scope.bindHook(
-  createSelector(({ snapshot }) => snapshot),
-);
+export const useIsSnapshot = Scope.bindHook(createSelector(({ snapshot }) => snapshot));
 
-export const useSelectName = Scope.bindHook(createSelector(({ name }) => name));
+export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
 export type DeleteParams = schematic.Key | schematic.Key[];
 

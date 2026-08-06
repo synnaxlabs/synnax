@@ -177,7 +177,7 @@ The `createRetrieve` return gains a selector factory. A selector shares the defi
 wiring and projects the answer:
 
 ```ts
-export const useSelectName = retrieve.createSelector((panel) => panel.name);
+export const useName = retrieve.createSelector((panel) => panel.name);
 ```
 
 - Same subscription and cache access as `useRetrieve`; re-renders only when the selected

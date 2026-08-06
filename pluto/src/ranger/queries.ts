@@ -295,8 +295,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: ranger.Key;
 }
 
-export const useSelectName = createSelector(({ name }) => name);
+export const useName = createSelector(({ name }) => name);

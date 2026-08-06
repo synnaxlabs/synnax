@@ -34,48 +34,43 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   getCached: ({ client, query }) => client.tables.getCached(query),
 });
 
-export interface SelectKeyParams {
+export interface KeyParams {
   key: table.Key;
 }
 
-export const useSelectName = Scope.bindHook(createSelector(({ name }) => name));
+export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
-export const useSelectRows = Scope.bindHook(createSelector(({ rows }) => rows));
+export const useRows = Scope.bindHook(createSelector(({ rows }) => rows));
 
-export const useSelectColumns = Scope.bindHook(
-  createSelector(({ columns }) => columns),
-);
+export const useColumns = Scope.bindHook(createSelector(({ columns }) => columns));
 
-export interface SelectCellParams extends SelectKeyParams {
+export interface CellParams extends KeyParams {
   cellKey: string;
 }
 
-export const useSelectCell = Scope.bindHook(
-  createSelector<Cell.Config | undefined, SelectCellParams>(
+export const useCell = Scope.bindHook(
+  createSelector<Cell.Config | undefined, CellParams>(
     ({ cells }, { cellKey }) => cells?.[cellKey] as Cell.Config | undefined,
   ),
 );
 
-export interface SelectCellsParams extends SelectKeyParams {
+export interface CellsParams extends KeyParams {
   cellKeys: string[];
 }
 
-// useSelectCells returns a Map<cellKey, Cell.Config> for the given cellKeys,
+// useCells returns a Map<cellKey, Cell.Config> for the given cellKeys,
 // omitting keys that don't resolve to a cell. The map preserves
 // caller-provided key order; consumers that need positional iteration should
 // iterate cellKeys and look up via the map.
-export const useSelectCells = Scope.bindHook(
-  createSelector<Map<string, Cell.Config>, SelectCellsParams>(
-    ({ cells }, { cellKeys }) => {
-      const result = new Map<string, Cell.Config>();
-      for (const cellKey of cellKeys) {
-        const cell = cells?.[cellKey] as Cell.Config | undefined;
-        if (cell != null) result.set(cellKey, cell);
-      }
-      return result;
-    },
-    compare.mapsEqual,
-  ),
+export const useCells = Scope.bindHook(
+  createSelector<Map<string, Cell.Config>, CellsParams>(({ cells }, { cellKeys }) => {
+    const result = new Map<string, Cell.Config>();
+    for (const cellKey of cellKeys) {
+      const cell = cells?.[cellKey] as Cell.Config | undefined;
+      if (cell != null) result.set(cellKey, cell);
+    }
+    return result;
+  }, compare.mapsEqual),
 );
 
 export type DeleteParams = table.Key | table.Key[];
@@ -230,8 +225,8 @@ export const cellsInRegion = (
 };
 
 export const useCellPosition = Scope.bindHook(
-  ({ key, cellKey }: SelectCellParams): xy.XY | null => {
-    const rows = useSelectRows({ key });
+  ({ key, cellKey }: CellParams): xy.XY | null => {
+    const rows = useRows({ key });
     return useMemo(() => findCellPosition(rows, cellKey), [rows, cellKey]);
   },
 );

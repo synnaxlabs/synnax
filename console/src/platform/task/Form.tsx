@@ -253,7 +253,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const tabKey = PlutoPanel.useTabKey();
     const isEditTarget = Panel.useIsNameEditTarget();
     PTask.useEnsure({ key: taskKey });
-    const name = PTask.useSelectName({ key: taskKey });
+    const name = PTask.useName({ key: taskKey });
     const { update } = PTask.useRename();
     const handleChange = useCallback(
       (name: string) => update({ key: taskKey, name }),

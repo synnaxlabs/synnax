@@ -100,8 +100,8 @@ describe("arc graph clipboard", () => {
     await loadArc(key);
     const { result } = renderHook(
       () => ({
-        nodes: Arc.useSelectAllNodes({ key }),
-        edges: Arc.useSelectAllEdges({ key }),
+        nodes: Arc.useAllNodes({ key }),
+        edges: Arc.useAllEdges({ key }),
         clipboard: useClipboard({ key, selected, onPaste }),
       }),
       { wrapper },
