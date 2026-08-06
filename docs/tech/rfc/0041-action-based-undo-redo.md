@@ -2,9 +2,8 @@
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-05-08
-- **Related**:
-  [PR #2290 - Schematic Action Codec and Dispatch Endpoint](https://github.com/synnaxlabs/synnax/pull/2290),
-  [RFC 0036 - Flux suspense architecture](0036-flux-suspense.md)
+- **Related**: [RFC 0036 - Flux suspense architecture](0036-flux-suspense.md),
+  [PR #2290 - Schematic Action Codec and Dispatch Endpoint](https://github.com/synnaxlabs/synnax/pull/2290)
 
 ## 0 Summary
 

@@ -10,7 +10,10 @@ Rules for writing and editing RFCs in this directory.
   `- **Author**: Name`, `- **Date**: YYYY-MM-DD`,
   `- **Related**: [RFC NNNN - Title](NNNN-slug.md)` (Related is optional). A Related
   title matches the target's H1; for a `Component - Subtitle` H1 the component alone is
-  enough.
+  enough. A Related entry can also cite a pull request that implements or supersedes the
+  design: `[PR #2290 - Title](https://github.com/synnaxlabs/synnax/pull/2290)`. A PR
+  title keeps the real casing GitHub shows. Cite more than one target as a
+  comma-separated list, RFCs first.
 - Headings are numbered hierarchically from zero: `## 0 Summary`, `### 0.0 ...`. Every
   heading below the H1 carries a number — appendix and working-notes sections too.
 - Implementation stages are labeled `Phase N` — never `Part N`.

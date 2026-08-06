@@ -592,7 +592,7 @@ and the host function returns the appropriate sentinel (handle 0 for string-retu
 functions, void for `delete`). Fatal errors (e.g., a bug in handle resolution) panic via
 the `error.panic` mechanism.
 
-The pseudocode in 5.2.1 and 5.2.2 calls three helpers (`reportError`, `reportWarning`,
+The pseudocode in §5.2.1 and §5.2.2 calls three helpers (`reportError`, `reportWarning`,
 and `reportInfo`) defined in `core/pkg/service/arc/status/report.go`. This is the
 initial home; promote to a shared `arc/go/runtime/hostfunc` package once a second module
 needs them.
@@ -709,7 +709,7 @@ already uses for the analogous name-uniqueness check on create
 wrap the by-name retrieve and the subsequent update or create in a single Gorp
 transaction, so the two operations are atomic with respect to other callers on the same
 node. §5.5 introduces an `UpsertByName` method on `Writer[D]` that encapsulates this
-scoping; the host function in 5.2.1 dispatches to it on the by-name path. This
+scoping; the host function in §5.2.1 dispatches to it on the by-name path. This
 serializes concurrent callers on one node through the transaction's commit ordering,
 matching the guarantee level the channel service provides today.
 
@@ -821,7 +821,7 @@ func (r Retrieve[D]) WhereNames(names ...string) Retrieve[D] {
 ```
 
 Variadic shape future-proofs for batch lookups even though the status module's initial
-use is single-name. The pseudocode in 5.2.1 and 5.2.2 calls `WhereNames(key_or_name)`
+use is single-name. The pseudocode in §5.2.1 and §5.2.2 calls `WhereNames(key_or_name)`
 accordingly.
 
 **Performance note**: Status keys are UUIDs, so the `set` and `delete` host functions
@@ -838,8 +838,8 @@ The current status service in
 [core/pkg/service/status/writer.go](../../../core/pkg/service/status/writer.go) exposes
 `Set` (which already does upsert-by-key via `gorp.NewCreate[...].Entry(s)`), `Delete`,
 and their multi-row variants, but no by-key `Update` and no by-name upsert. The host
-function in 5.2.1 needs both: an atomic retrieve-modify-write for the by-key path, and a
-transaction-scoped retrieve-then-update-or-create for the by-name path. Rather than
+function in §5.2.1 needs both: an atomic retrieve-modify-write for the by-key path, and
+a transaction-scoped retrieve-then-update-or-create for the by-name path. Rather than
 open-coding either pattern in the host function, this RFC adds two methods to the status
 `Writer[D]` builder.
 

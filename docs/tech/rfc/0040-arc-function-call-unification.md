@@ -694,7 +694,7 @@ directly. Param ordering is preserved across the migration, so WASM offsets stay
 
 Merge `Config`+`Inputs` `bindParams` in graph compilation. In text-to-IR, `Config:`
 field assignments fold into `Inputs:`; the `upstreamIsTrigger` special case is deleted.
-IR rendering (covered in 6.0) emits the unified `Inputs` list.
+IR rendering (covered in §6.0) emits the unified `Inputs` list.
 
 ### 6.5 Standard library
 

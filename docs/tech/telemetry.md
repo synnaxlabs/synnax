@@ -199,11 +199,11 @@ a precise volume of propellant from a tank).
 Real-time commands require both low latency and jitter. Reducing latency and writing
 anti-jitter algorithms is a complex task, and consumes a large amount of resources.
 
-#### 4.1.4 Execution acknowledgement
+#### 4.1.4 Execution acknowledgment
 
-One of the unique challenges in command telemetry is execution acknowledgement. It's not
+One of the unique challenges in command telemetry is execution acknowledgment. It's not
 sufficient to simply send a command to an actuator and assume it was received and
-executed, some sort of acknowledgement must be sent back to the source of the command.
+executed, some sort of acknowledgment must be sent back to the source of the command.
 This execute-acknowledge cycle adds complexity and places additional importance on low
 latency.
 

@@ -11,7 +11,7 @@ Synnax codebase.
 
 The purpose of this document, and the entire `docs/tech` directory, is to:
 
-1. Characterise the core elements that make up the platform, and how they work together
+1. Characterize the core elements that make up the platform, and how they work together
    to provide a cohesive solution. Note that this information is high-level, and
    **deeper explanations are provided in directories related to specific components.**
 2. Provide a guide for **navigating the codebase**, and to explain the rationale behind

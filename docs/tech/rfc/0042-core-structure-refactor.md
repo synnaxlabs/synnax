@@ -193,9 +193,9 @@ entirely. There is no single guaranteed pre-store check.
 ### 4.0 Scope
 
 In scope: the package moves and dependency inversions of §4.1; the resolved-field
-mechanism of 4.2; the `versions/vN/` layout of 4.3; the import peek of 4.4; the
-validation chokepoint of 4.5; and the Oracle generator changes those require,
-consolidated in 4.6.
+mechanism of §4.2; the `versions/vN/` layout of §4.3; the import peek of §4.4; the
+validation chokepoint of §4.5; and the Oracle generator changes those require,
+consolidated in §4.6.
 
 Out of scope: the query-engine, pagination, indexing, and undo/redo explorations in RFC
 0026 §2; YAML/TOML portable codecs (RFC 0039 §7.0); multi-resource bundle import (RFC
