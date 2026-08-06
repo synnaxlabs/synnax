@@ -10,29 +10,11 @@
 #pragma once
 
 #include "client/cpp/framer/framer.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/task/task.h"
 
 namespace driver::common {
-/// @brief a common base configuration for tasks.
-struct BaseTaskConfig {
-    /// @brief whether data saving is enabled for the task.
-    bool data_saving;
-    /// @brief whether the task should be auto-started after configuration. This
-    /// includes automatic start on driver start.
-    bool auto_start;
-
-    BaseTaskConfig(BaseTaskConfig &&other) noexcept:
-        data_saving(other.data_saving), auto_start(other.auto_start) {}
-
-    BaseTaskConfig(const BaseTaskConfig &other) = delete;
-    const BaseTaskConfig &operator=(const BaseTaskConfig &other) = delete;
-
-    explicit BaseTaskConfig(x::json::Parser &parser):
-        data_saving(parser.field<bool>("data_saving", true)),
-        auto_start(parser.field<bool>("auto_start", false)) {}
-};
-
 /// @brief a common base configuration result for tasks that is used across various
 /// helper functions.
 struct ConfigureResult {
@@ -47,5 +29,12 @@ struct ConfigureResult {
 inline synnax::framer::WriterMode data_saving_writer_mode(const bool data_saving) {
     if (data_saving) return synnax::framer::WriterMode::PersistStream;
     return synnax::framer::WriterMode::StreamOnly;
+}
+
+/// @brief maps the legacy data_saving wire key onto the schema's
+/// data_saving_disabled for configs stored before the polarity flip.
+inline bool legacy_data_saving_disabled(x::json::Parser &cfg, const bool disabled) {
+    if (disabled) return true;
+    return !cfg.field<bool>("data_saving", true);
 }
 }

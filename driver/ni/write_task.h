@@ -25,10 +25,7 @@
 
 namespace driver::ni {
 /// @brief WriteTaskConfig is the configuration for creating an NI Write Task.
-struct WriteTaskConfig : common::BaseWriteTaskConfig {
-    /// @brief the rate at which the task will publish the states of the outputs
-    /// back to the Synnax cluster.
-    const x::telem::Rate state_rate;
+struct WriteTaskConfig : ::synnax::ni::WriteConfig {
     /// @brief a map of command channel keys to the configurations for each output
     /// channel in the task.
     std::map<synnax::channel::Key, std::unique_ptr<channel::Output>> channels;
@@ -42,8 +39,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
     /// @brief move constructor to deal with output channel unique pointers.
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        common::BaseWriteTaskConfig(std::move(other)),
-        state_rate(other.state_rate),
+        ::synnax::ni::WriteConfig(std::move(other)),
         channels(std::move(other.channels)),
         state_index_keys(std::move(other.state_index_keys)),
         buf_indexes(std::move(other.buf_indexes)) {}
@@ -63,12 +59,16 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// cfg.error() after this constructor in order to check for these errors.
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
-        x::json::Parser &cfg
+        x::json::Parser &cfg,
+        const std::string &task_type
     ):
-        common::BaseWriteTaskConfig(cfg),
-        state_rate(x::telem::Rate(cfg.field<float>("state_rate"))) {
+        ::synnax::ni::WriteConfig(::synnax::ni::WriteConfig::parse(cfg)) {
+        this->data_saving_disabled = common::legacy_data_saving_disabled(
+            cfg,
+            this->data_saving_disabled
+        );
         cfg.iter("channels", [&](x::json::Parser &ch_cfg) {
-            auto ch = channel::parse_output(ch_cfg);
+            auto ch = channel::parse_output(ch_cfg, task_type);
             if (ch != nullptr && ch->enabled)
                 this->channels[ch->cmd_ch_key] = std::move(ch);
         });
@@ -76,7 +76,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             cfg.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->devices.retrieve(this->device_key);
+        auto [dev, err] = client->devices.retrieve(this->device);
         if (err) {
             cfg.field_err("device", "failed to retrieve device " + err.message());
             return;
@@ -141,7 +141,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         common::TimingConfig
     ) {
         auto parser = x::json::Parser(task.config);
-        return {WriteTaskConfig(client, parser), parser.error()};
+        return {WriteTaskConfig(client, parser, task.type), parser.error()};
     }
 
     /// @brief applies the configuration to the given DAQmx task.
@@ -170,7 +170,7 @@ public:
             cfg.state_indexes(),
             cfg.state_channels(),
             cfg.cmd_channels(),
-            cfg.data_saving
+            !cfg.data_saving_disabled
         ),
         cfg(std::move(cfg)),
         hw_writer(std::move(hw_writer)),

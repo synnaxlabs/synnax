@@ -24,7 +24,7 @@
 namespace driver::ni {
 x::json::json base_analog_config() {
     return {
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"channels",
@@ -32,7 +32,7 @@ x::json::json base_analog_config() {
              {"type", "ai_accel"},
              {"key", "ks1VnWdrSVA"},
              {"port", 0},
-             {"enabled", true},
+             {"disabled", false},
              {"name", ""},
              {"channel", ""}, // Will be overridden
              {"terminal_config", "Cfg_Default"},
@@ -172,11 +172,45 @@ TEST(ReadTaskConfigTest, testNoEnabledChannels) {
     auto j = base_analog_config();
     j["channels"][0]["device"] = dev.key;
     j["channels"][0]["channel"] = ch.key;
+    j["channels"][0]["disabled"] = true;
+
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+}
+
+/// @brief it should honor the legacy enabled and data_saving keys on configs
+/// written before the polarity flip.
+TEST(ReadTaskConfigTest, testLegacyPolarityKeys) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "my_device",
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("virtual"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+
+    auto j = base_analog_config();
+    j.erase("data_saving_disabled");
+    j["data_saving"] = false;
+    j["channels"][0]["device"] = dev.key;
+    j["channels"][0]["channel"] = ch.key;
+    j["channels"][0].erase("disabled");
     j["channels"][0]["enabled"] = false;
 
     auto p = x::json::Parser(j);
     auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    EXPECT_TRUE(cfg->data_saving_disabled);
 }
 
 /// @brief it should return a validation error if a channel has an unknown type.
@@ -256,7 +290,7 @@ protected:
         };
 
         x::json::json j{
-            {"data_saving", false},
+            {"data_saving_disabled", true},
             {"sample_rate", 25},
             {"stream_rate", 25},
             {"channels",
@@ -264,7 +298,7 @@ protected:
                  {{{"type", "ai_accel"},
                    {"key", "ks1VnWdrSVA"},
                    {"port", 0},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"name", ""},
                    {"channel", data_channel.key},
                    {"terminal_config", "Cfg_Default"},
@@ -559,7 +593,7 @@ protected:
         };
 
         x::json::json j{
-            {"data_saving", true},
+            {"data_saving_disabled", false},
             {"sample_rate", 25},
             {"stream_rate", 25},
             {"device", dev.key},
@@ -568,7 +602,7 @@ protected:
                  {"type", "digital_input"},
                  {"key", "hCzuNC9glqc"},
                  {"port", 0},
-                 {"enabled", true},
+                 {"disabled", false},
                  {"line", 1},
                  {"channel", data_channel.key},
              }})}
@@ -749,7 +783,7 @@ protected:
         };
 
         x::json::json j{
-            {"data_saving", true},
+            {"data_saving_disabled", false},
             {"sample_rate", 25},
             {"stream_rate", 25},
             {"device", dev.key},
@@ -758,7 +792,7 @@ protected:
                  {"type", "ci_frequency"},
                  {"key", "counter_freq_key"},
                  {"port", 0},
-                 {"enabled", true},
+                 {"disabled", false},
                  {"channel", data_channel.key},
                  {"min_val", 2},
                  {"max_val", 10000},
@@ -1000,7 +1034,7 @@ TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
     ));
 
     x::json::json j{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"device", dev.key},
@@ -1009,7 +1043,7 @@ TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
              {"type", "ci_edge_count"},
              {"key", "edge_count_key"},
              {"port", 0},
-             {"enabled", true},
+             {"disabled", false},
              {"channel", ch.key},
              {"active_edge", "Rising"},
              {"count_direction", "CountUp"},
@@ -1048,7 +1082,7 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
     ));
 
     x::json::json j{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"device", dev.key},
@@ -1057,7 +1091,7 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
              {"type", "ci_period"},
              {"key", "period_key"},
              {"port", 0},
-             {"enabled", true},
+             {"disabled", false},
              {"channel", ch.key},
              {"min_val", 0.000001},
              {"max_val", 0.1},
@@ -1122,7 +1156,7 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     ));
 
     x::json::json j{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"device", "cross-device"},
@@ -1131,7 +1165,7 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
              {{{"type", "ai_voltage"},
                {"key", "key1"},
                {"port", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", ch1.key},
                {"terminal_config", "Cfg_Default"},
                {"min_val", -10},
@@ -1141,7 +1175,7 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
               {{"type", "ai_voltage"},
                {"key", "key2"},
                {"port", 0},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", ch2.key},
                {"terminal_config", "Cfg_Default"},
                {"min_val", -10},
@@ -1167,6 +1201,91 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     EXPECT_EQ(unique_locs.size(), 2);
     EXPECT_TRUE(unique_locs.count("cDAQ1Mod1") > 0);
     EXPECT_TRUE(unique_locs.count("cDAQ1Mod2") > 0);
+}
+
+/// @brief Verify a counter read config without a top-level device binds each
+/// channel's own device, the wire shape produced by per-channel-device consoles.
+TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
+
+    auto dev1 = synnax::device::Device{
+        .key = "ci_d1",
+        .rack = rack.key,
+        .location = "cDAQ2Mod1",
+        .make = "ni",
+        .model = "NI 9361",
+        .name = "ci_dev1",
+    };
+    ASSERT_NIL(client->devices.create(dev1));
+
+    auto dev2 = synnax::device::Device{
+        .key = "ci_d2",
+        .rack = rack.key,
+        .location = "cDAQ2Mod2",
+        .make = "ni",
+        .model = "NI 9361",
+        .name = "ci_dev2",
+    };
+    ASSERT_NIL(client->devices.create(dev2));
+
+    auto ch1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ci_ch1"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    auto ch2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ci_ch2"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+
+    x::json::json j{
+        {"data_saving_disabled", true},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "ci_frequency"},
+               {"key", "ci_key1"},
+               {"port", 0},
+               {"disabled", false},
+               {"channel", ch1.key},
+               {"min_val", 2},
+               {"max_val", 10000},
+               {"units", "Hz"},
+               {"edge", "Rising"},
+               {"meas_method", "DynamicAvg"},
+               {"meas_time", 0.001},
+               {"divisor", 4},
+               {"terminal", ""},
+               {"custom_scale", {{"type", "none"}}},
+               {"device", dev1.key}},
+              {{"type", "ci_frequency"},
+               {"key", "ci_key2"},
+               {"port", 1},
+               {"disabled", false},
+               {"channel", ch2.key},
+               {"min_val", 2},
+               {"max_val", 10000},
+               {"units", "Hz"},
+               {"edge", "Rising"},
+               {"meas_method", "DynamicAvg"},
+               {"meas_time", 0.001},
+               {"divisor", 4},
+               {"terminal", ""},
+               {"custom_scale", {{"type", "none"}}},
+               {"device", dev2.key}}}
+         )}
+    };
+
+    auto p = x::json::Parser(j);
+    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_counter_read");
+    ASSERT_NIL(p.error());
+
+    ASSERT_EQ(cfg->channels.size(), 2);
+    EXPECT_EQ(cfg->channels[0]->dev_loc, "cDAQ2Mod1");
+    EXPECT_EQ(cfg->channels[1]->dev_loc, "cDAQ2Mod2");
 }
 
 /// @brief Test that the minimum sample rate error message is formatted correctly
@@ -1276,7 +1395,7 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     ));
 
     auto j = base_analog_config();
-    j["data_saving"] = true;
+    j["data_saving_disabled"] = false;
     j["channels"][0]["device"] = dev.key;
     j["channels"][0]["channel"] = ch.key;
 

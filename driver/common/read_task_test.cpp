@@ -496,7 +496,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
 /// @brief it should parse valid base read task configuration.
 TEST(BaseReadTaskConfigTest, testValidConfig) {
     const x::json::json j{
-        {"data_saving", true},
+        {"data_saving_disabled", true},
         {"sample_rate", 100.0},
         {"stream_rate", 50.0}
     };
@@ -504,21 +504,35 @@ TEST(BaseReadTaskConfigTest, testValidConfig) {
     auto p = x::json::Parser(j);
     const auto cfg = BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
-    EXPECT_TRUE(cfg.data_saving);
+    EXPECT_TRUE(cfg.data_saving_disabled);
     EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, x::telem::Rate(50.0));
 }
 
-/// @brief it should default data_saving to true when not specified.
+/// @brief it should default data_saving_disabled to false when not specified.
 TEST(BaseReadTaskConfigTest, testDefaultDataSaving) {
     const x::json::json j{{"sample_rate", 100.0}, {"stream_rate", 50.0}};
 
     auto p = x::json::Parser(j);
     const auto cfg = BaseReadTaskConfig(p);
     ASSERT_FALSE(p.error()) << p.error();
-    EXPECT_TRUE(cfg.data_saving);
+    EXPECT_FALSE(cfg.data_saving_disabled);
     EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
     EXPECT_EQ(cfg.stream_rate, x::telem::Rate(50.0));
+}
+
+/// @brief it should map the legacy data_saving key onto data_saving_disabled.
+TEST(BaseReadTaskConfigTest, testLegacyDataSavingKey) {
+    const x::json::json j{
+        {"sample_rate", 100.0},
+        {"stream_rate", 50.0},
+        {"data_saving", false}
+    };
+
+    auto p = x::json::Parser(j);
+    const auto cfg = BaseReadTaskConfig(p);
+    ASSERT_FALSE(p.error()) << p.error();
+    EXPECT_TRUE(cfg.data_saving_disabled);
 }
 
 /// @brief it should accept equal sample and stream rates.
@@ -532,22 +546,26 @@ TEST(BaseReadTaskConfigTest, testEqualRates) {
     EXPECT_EQ(cfg.stream_rate, x::telem::Rate(100.0));
 }
 
-/// @brief it should return validation error when sample_rate is missing.
+/// @brief it should fall back to the schema default when sample_rate is missing.
 TEST(BaseReadTaskConfigTest, testMissingSampleRate) {
-    const x::json::json j{{"stream_rate", 50.0}};
+    const x::json::json j{{"stream_rate", 5.0}};
 
     auto p = x::json::Parser(j);
-    [[maybe_unused]] auto _ = BaseReadTaskConfig(p);
-    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
+    const auto cfg = BaseReadTaskConfig(p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(cfg.sample_rate, x::telem::Rate(10));
+    EXPECT_EQ(cfg.stream_rate, x::telem::Rate(5));
 }
 
-/// @brief it should return validation error when stream_rate is missing.
+/// @brief it should fall back to the schema default when stream_rate is missing.
 TEST(BaseReadTaskConfigTest, testMissingStreamRate) {
     const x::json::json j{{"sample_rate", 100.0}};
 
     auto p = x::json::Parser(j);
-    [[maybe_unused]] auto _ = BaseReadTaskConfig(p);
-    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
+    const auto cfg = BaseReadTaskConfig(p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100));
+    EXPECT_EQ(cfg.stream_rate, x::telem::Rate(5));
 }
 
 /// @brief it should return validation error for negative sample_rate.
@@ -581,7 +599,7 @@ TEST(BaseReadTaskConfigTest, testSampleRateLessThanStreamRate) {
 TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
     const x::json::json j{
         {"sample_rate", 100.0},
-        {"data_saving", true}
+        {"data_saving_disabled", true}
         // No stream_rate provided
     };
 
@@ -589,7 +607,7 @@ TEST(BaseReadTaskConfigTest, testStreamRateOptional) {
     const auto cfg = BaseReadTaskConfig(p, TimingConfig(), false);
     ASSERT_NIL(p.error());
     EXPECT_EQ(cfg.sample_rate, x::telem::Rate(100.0));
-    EXPECT_TRUE(cfg.data_saving);
+    EXPECT_TRUE(cfg.data_saving_disabled);
 }
 
 /// @brief it should transfer buffer data to frame for single channel.

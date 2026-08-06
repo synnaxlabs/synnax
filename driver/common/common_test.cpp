@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/task/common/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/common/common.h"
@@ -26,55 +27,74 @@ TEST(DataSavingWriterMode, testDataSavingFalse) {
     EXPECT_EQ(mode, synnax::framer::WriterMode::StreamOnly);
 }
 
-/// @brief it should parse BaseTaskConfig with both fields present.
-TEST(BaseTaskConfig, testParseWithBothFields) {
-    const auto json = nlohmann::json{{"data_saving", false}, {"auto_start", true}};
+/// @brief it should parse the generated BaseConfig with both fields present.
+TEST(BaseConfig, testParseWithBothFields) {
+    const auto json = nlohmann::json{
+        {"data_saving_disabled", true},
+        {"auto_start", true}
+    };
     auto parser = x::json::Parser(json);
-    const auto config = BaseTaskConfig(parser);
+    const auto config = ::synnax::common::BaseConfig::parse(parser);
 
-    EXPECT_FALSE(config.data_saving);
+    EXPECT_TRUE(config.data_saving_disabled);
     EXPECT_TRUE(config.auto_start);
 }
 
 /// @brief it should use default values when fields are missing.
-TEST(BaseTaskConfig, testParseWithDefaults) {
+TEST(BaseConfig, testParseWithDefaults) {
     const auto json = nlohmann::json{};
     auto parser = x::json::Parser(json);
-    const auto config = BaseTaskConfig(parser);
+    const auto config = ::synnax::common::BaseConfig::parse(parser);
 
-    EXPECT_TRUE(config.data_saving); // defaults to true
-    EXPECT_FALSE(config.auto_start); // defaults to false
+    EXPECT_FALSE(config.data_saving_disabled);
+    EXPECT_FALSE(config.auto_start);
 }
 
-/// @brief it should parse with only data_saving present.
-TEST(BaseTaskConfig, testParseWithDataSavingOnly) {
-    const auto json = nlohmann::json{{"data_saving", false}};
+/// @brief it should parse with only data_saving_disabled present.
+TEST(BaseConfig, testParseWithDataSavingDisabledOnly) {
+    const auto json = nlohmann::json{{"data_saving_disabled", true}};
     auto parser = x::json::Parser(json);
-    const auto config = BaseTaskConfig(parser);
+    const auto config = ::synnax::common::BaseConfig::parse(parser);
 
-    EXPECT_FALSE(config.data_saving);
-    EXPECT_FALSE(config.auto_start); // defaults to false
+    EXPECT_TRUE(config.data_saving_disabled);
+    EXPECT_FALSE(config.auto_start);
 }
 
 /// @brief it should parse with only auto_start present.
-TEST(BaseTaskConfig, testParseWithAutoStartOnly) {
+TEST(BaseConfig, testParseWithAutoStartOnly) {
     const auto json = nlohmann::json{{"auto_start", true}};
     auto parser = x::json::Parser(json);
-    const auto config = BaseTaskConfig(parser);
+    const auto config = ::synnax::common::BaseConfig::parse(parser);
 
-    EXPECT_TRUE(config.data_saving); // defaults to true
+    EXPECT_FALSE(config.data_saving_disabled);
     EXPECT_TRUE(config.auto_start);
 }
 
-/// @brief it should support move construction.
-TEST(BaseTaskConfig, testMoveConstruction) {
-    const auto json = nlohmann::json{{"data_saving", false}, {"auto_start", true}};
+/// @brief it should map a legacy data_saving=false onto data_saving_disabled.
+TEST(LegacyDataSavingDisabled, testLegacyFalseDisables) {
+    const auto json = nlohmann::json{{"data_saving", false}};
     auto parser = x::json::Parser(json);
-    auto config1 = BaseTaskConfig(parser);
+    EXPECT_TRUE(legacy_data_saving_disabled(parser, false));
+}
 
-    auto config2 = BaseTaskConfig(std::move(config1));
+/// @brief it should keep saving enabled for a legacy data_saving=true.
+TEST(LegacyDataSavingDisabled, testLegacyTrueStaysEnabled) {
+    const auto json = nlohmann::json{{"data_saving", true}};
+    auto parser = x::json::Parser(json);
+    EXPECT_FALSE(legacy_data_saving_disabled(parser, false));
+}
 
-    EXPECT_FALSE(config2.data_saving);
-    EXPECT_TRUE(config2.auto_start);
+/// @brief it should keep saving enabled when neither key is present.
+TEST(LegacyDataSavingDisabled, testAbsentKeysStayEnabled) {
+    const auto json = nlohmann::json{};
+    auto parser = x::json::Parser(json);
+    EXPECT_FALSE(legacy_data_saving_disabled(parser, false));
+}
+
+/// @brief it should preserve an explicit data_saving_disabled=true.
+TEST(LegacyDataSavingDisabled, testExplicitDisabledWins) {
+    const auto json = nlohmann::json{{"data_saving", true}};
+    auto parser = x::json::Parser(json);
+    EXPECT_TRUE(legacy_data_saving_disabled(parser, true));
 }
 }

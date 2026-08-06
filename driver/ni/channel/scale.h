@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "client/cpp/ni/types.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/ni/channel/units.h"
@@ -47,10 +48,10 @@ struct BaseScale : Scale {
 
     bool is_none() override { return false; }
 
-    explicit BaseScale(x::json::Parser &cfg):
-        type(cfg.field<std::string>("type")),
-        scaled_units(cfg.field<std::string>("scaled_units", "Volts")),
-        pre_scaled_units(parse_units(cfg, "pre_scaled_units")) {}
+    BaseScale(std::string type, std::string scaled_units, const int pre_scaled_units):
+        type(std::move(type)),
+        scaled_units(std::move(scaled_units)),
+        pre_scaled_units(pre_scaled_units) {}
 };
 
 /// @brief Linear scaling that applies y = mx + b transformation
@@ -62,10 +63,10 @@ struct LinearScale final : BaseScale {
     /// @brief The y-intercept (b) in the linear equation
     const double offset;
 
-    explicit LinearScale(x::json::Parser &cfg):
-        BaseScale(cfg),
-        slope(cfg.field<double>("slope")),
-        offset(cfg.field<double>("y_intercept")) {}
+    LinearScale(const ::synnax::ni::ScaleLinear &s, const int pre_scaled_units):
+        BaseScale("linear", s.scaled_units, pre_scaled_units),
+        slope(s.slope),
+        offset(s.y_intercept) {}
 
     std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
@@ -96,12 +97,12 @@ struct MapScale final : BaseScale {
     /// @brief Maximum value in the scaled range
     const double scaled_max;
 
-    explicit MapScale(x::json::Parser &cfg):
-        BaseScale(cfg),
-        pre_scaled_min(cfg.field<double>("pre_scaled_min")),
-        pre_scaled_max(cfg.field<double>("pre_scaled_max")),
-        scaled_min(cfg.field<double>("scaled_min")),
-        scaled_max(cfg.field<double>("scaled_max")) {}
+    MapScale(const ::synnax::ni::ScaleMap &s, const int pre_scaled_units):
+        BaseScale("map", s.scaled_units, pre_scaled_units),
+        pre_scaled_min(s.pre_scaled_min),
+        pre_scaled_max(s.pre_scaled_max),
+        scaled_min(s.scaled_min),
+        scaled_max(s.scaled_max) {}
 
     std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
@@ -123,53 +124,31 @@ struct MapScale final : BaseScale {
 
 /// @brief the default mode for calculating the reverse polynomial is to use the
 /// same number of coefficients as the forward polynomial.
-constexpr int REVERSE_POLY_ORDER_SAME_AS_FORWARD = -1;
-
 /// @brief Polynomial scaling that applies an nth-order polynomial transformation
 /// @details Transforms values using both forward and reverse polynomial
 /// coefficients
 struct PolynomialScale final : BaseScale {
     /// @brief Coefficients for the forward polynomial transformation
-    std::vector<double> forward_coeffs;
-    /// @brief Minimum input value for the polynomial
-    const double min_x;
-    /// @brief Maximum input value for the polynomial
-    const double max_x;
-    /// @brief Order of the reverse polynomial (or -1 to match forward order)
-    const int reverse_poly_order;
-    /// @brief Number of points used to compute reverse coefficients
-    const size_t num_points_to_compute;
+    const std::vector<double> forward_coeffs;
+    /// @brief Coefficients for the reverse polynomial transformation
+    const std::vector<double> reverse_coeffs;
 
-    explicit PolynomialScale(x::json::Parser &cfg):
-        BaseScale(cfg),
-        forward_coeffs(cfg.field<std::vector<double>>("forward_coeffs")),
-        min_x(cfg.field<double>("min_x")),
-        max_x(cfg.field<double>("max_x")),
-        reverse_poly_order(cfg.field<int>("poly_order", -1)),
-        num_points_to_compute(cfg.field<size_t>("num_points_to_compute", 100)) {}
+    PolynomialScale(const ::synnax::ni::ScalePolynomial &s, const int pre_scaled_units):
+        BaseScale("polynomial", s.scaled_units, pre_scaled_units),
+        forward_coeffs(s.forward_coeffs),
+        reverse_coeffs(s.reverse_coeffs) {}
 
     std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
-        std::vector<double> reverse_coeffs(this->forward_coeffs.size());
-        if (const auto err = dmx->CalculateReversePolyCoeff(
-                this->forward_coeffs.data(),
-                this->forward_coeffs.size(),
-                this->min_x,
-                this->max_x,
-                this->num_points_to_compute,
-                this->reverse_poly_order,
-                reverse_coeffs.data()
-            ))
-            return {key, err};
         return {
             key,
             dmx->CreatePolynomialScale(
                 key.c_str(),
                 this->forward_coeffs.data(),
                 this->forward_coeffs.size(),
-                reverse_coeffs.data(),
-                reverse_coeffs.size(),
+                this->reverse_coeffs.data(),
+                this->reverse_coeffs.size(),
                 this->pre_scaled_units,
                 this->scaled_units.c_str()
             )
@@ -186,16 +165,10 @@ struct TableScale final : BaseScale {
     /// @brief Output values for the lookup table
     const std::vector<double> scaled;
 
-    explicit TableScale(x::json::Parser &cfg):
-        BaseScale(cfg),
-        pre_scaled(cfg.field<std::vector<double>>("pre_scaled")),
-        scaled(cfg.field<std::vector<double>>("scaled")) {
-        if (pre_scaled.size() == scaled.size()) return;
-        cfg.field_err(
-            "pre_scaled_vals",
-            "pre_scaled and scaled values must be the same size"
-        );
-    }
+    TableScale(const ::synnax::ni::ScaleTable &s, const int pre_scaled_units):
+        BaseScale("table", s.scaled_units, pre_scaled_units),
+        pre_scaled(s.pre_scaled_vals),
+        scaled(s.scaled_vals) {}
 
     std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
@@ -215,20 +188,49 @@ struct TableScale final : BaseScale {
     }
 };
 
-/// @brief Creates a Scale object based on configuration
-/// @param parent_cfg The parent configuration parser
-/// @param path The path to the scale configuration within the parent
-/// @return A unique pointer to the created Scale object
-inline std::unique_ptr<Scale>
-parse_scale(const x::json::Parser &parent_cfg, const std::string &path) {
-    auto cfg = parent_cfg.child(path);
-    const auto type = cfg.field<std::string>("type");
-    if (type == "linear") return std::make_unique<LinearScale>(cfg);
-    if (type == "map") return std::make_unique<MapScale>(cfg);
-    if (type == "polynomial") return std::make_unique<PolynomialScale>(cfg);
-    if (type == "table") return std::make_unique<TableScale>(cfg);
-    if (type == "none") return std::make_unique<Scale>();
-    cfg.field_err("type", "invalid scale type");
-    return nullptr;
+/// @brief Creates a Scale from a generated scale union value, validating units
+/// and structural invariants.
+inline std::pair<std::unique_ptr<Scale>, x::errors::Error>
+make_scale(const ::synnax::ni::Scale &s) {
+    return std::visit(
+        [](const auto &v) -> std::pair<std::unique_ptr<Scale>, x::errors::Error> {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, ::synnax::ni::ScaleNone>)
+                return {std::make_unique<Scale>(), x::errors::NIL};
+            else {
+                auto [units, err] = ni_units(v.pre_scaled_units);
+                if (err) return {nullptr, err};
+                if constexpr (std::is_same_v<T, ::synnax::ni::ScaleLinear>)
+                    return {std::make_unique<LinearScale>(v, units), x::errors::NIL};
+                else if constexpr (std::is_same_v<T, ::synnax::ni::ScaleMap>)
+                    return {std::make_unique<MapScale>(v, units), x::errors::NIL};
+                else if constexpr (std::is_same_v<T, ::synnax::ni::ScaleTable>) {
+                    if (v.pre_scaled_vals.size() != v.scaled_vals.size())
+                        return {
+                            nullptr,
+                            x::errors::Error(
+                                x::errors::VALIDATION,
+                                "pre_scaled and scaled values must be the same size"
+                            )
+                        };
+                    return {std::make_unique<TableScale>(v, units), x::errors::NIL};
+                } else {
+                    if (v.reverse_coeffs.empty())
+                        return {
+                            nullptr,
+                            x::errors::Error(
+                                x::errors::VALIDATION,
+                                "polynomial scale requires reverse coefficients"
+                            )
+                        };
+                    return {
+                        std::make_unique<PolynomialScale>(v, units),
+                        x::errors::NIL
+                    };
+                }
+            }
+        },
+        s
+    );
 }
 }
