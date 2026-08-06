@@ -106,7 +106,7 @@ var resolver = []symbol.Symbol{
 	{
 		Name: "start_cmd",
 		Kind: symbol.KindChannel,
-		Type: types.Chan(types.U8()),
+		Type: types.Chan(types.Bool()),
 	},
 }
 
@@ -1423,7 +1423,7 @@ sequence main {
 					{
 						Name: "flag",
 						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
+						Type: types.Chan(types.Bool()),
 					},
 					{
 						Name: "log_str",
@@ -1444,7 +1444,7 @@ sequence main {
 
 		It("Should accept select{} with => chain bodies", func(bCtx SpecContext) {
 			customResolver := StaticResolver{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
 				{
 					Name: "log_str",
 					Kind: symbol.KindChannel,
@@ -2549,7 +2549,7 @@ sequence main {
 					{
 						Name: "inner_flag",
 						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
+						Type: types.Chan(types.Bool()),
 					},
 					{
 						Name: "log_str",
@@ -2576,7 +2576,7 @@ sequence main {
 					{
 						Name: "outer_flag",
 						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
+						Type: types.Chan(types.Bool()),
 					},
 					{
 						Name: "inner_flag",
@@ -3019,7 +3019,7 @@ sequence main {
 			"Should compile sequences with stage targets and mixed flow operators",
 			func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
-			func threshold{} (val f32) u8 {
+			func threshold{} (val f32) bool {
 			    return val > 100
 			}
 
@@ -3173,7 +3173,7 @@ var _ = Describe("Trigger in select routing branches", func() {
 		"Should accept a select branch chaining time.now into an i64 channel",
 		func(bCtx SpecContext) {
 			customResolver := StaticResolver{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
 				{
 					Name: "i64_ch",
 					Kind: symbol.KindChannel,

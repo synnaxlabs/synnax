@@ -1832,9 +1832,9 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        1 -> select{} -> {
+				        true -> select{} -> {
 				            true: stage {
-				                1 -> select{} -> {
+				                true -> select{} -> {
 				                    true: stage { 1 -> inner_out }
 				                }
 				            }
@@ -1866,11 +1866,11 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        1 -> select{} -> {
+				        true -> select{} -> {
 				            true: stage {
-				                1 -> select{} -> {
+				                true -> select{} -> {
 				                    true: stage {
-				                        1 -> select{} -> {
+				                        true -> select{} -> {
 				                            true: stage { 1 -> innermost_out }
 				                        }
 				                    }
@@ -1904,13 +1904,13 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        1 -> select{} -> {
+				        true -> select{} -> {
 				            true: stage {
-				                1 -> select{} -> {
+				                true -> select{} -> {
 				                    true: stage {
-				                        1 -> select{} -> {
+				                        true -> select{} -> {
 				                            true: stage {
-				                                1 -> select{} -> {
+				                                true -> select{} -> {
 				                                    true: stage { 1 -> innermost_out }
 				                                }
 				                            }
@@ -2288,7 +2288,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage hold {
 				        1 -> stage {
-				            1 -> select{} -> {
+				            true -> select{} -> {
 				                true: stage { 1 -> inner_out }
 				            }
 				        }
@@ -2319,7 +2319,7 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        1 -> select{} -> {
+				        true -> select{} -> {
 				            true: stage {
 				                1 -> stage { 1 -> inner_out }
 				            }
@@ -2352,7 +2352,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage hold {
 				        1 -> stage {
-				            1 -> select{} -> {
+				            true -> select{} -> {
 				                true: stage {
 				                    1 -> stage { 1 -> innermost_out }
 				                }

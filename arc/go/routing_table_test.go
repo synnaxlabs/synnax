@@ -575,7 +575,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				    }
 				}
 
-				func check_pressure(p f32) u8 {
+				func check_pressure(p f32) bool {
 				    return p > 100
 				}
 

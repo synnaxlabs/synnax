@@ -426,11 +426,11 @@ sequence main {
 		mod := compile(ctx, `
 		start_seq_cmd => main
 
-		func expr(in f32) u8 {
+		func expr(in f32) bool {
 		    return in > 2
 		}
 
-		func expr2(in f32) u8 {
+		func expr2(in f32) bool {
 		    return in < 0.3
 		}
 
