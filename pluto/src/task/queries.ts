@@ -100,10 +100,10 @@ export interface InitialValues<
 }
 
 export type FormQuery = {
-  key?: task.Key;
+  key: task.Key;
 };
 
-const taskToFormValues = <S extends task.Schemas = task.Schemas>(
+export const toFormValues = <S extends task.Schemas = task.Schemas>(
   t: InitialValues<S>,
 ): z.infer<FormSchema<S>> => ({
   key: t.key,
@@ -121,7 +121,7 @@ const resetFormValues = <S extends task.Schemas = task.Schemas>(
   set: Form.UseReturn<FormSchema<S>>["set"],
   payload: task.Payload<S>,
 ) => {
-  const values = taskToFormValues(payload);
+  const values = toFormValues(payload);
   set("key", values.key, RESET_OPTIONS);
   set("name", values.name, RESET_OPTIONS);
   set("type", values.type, RESET_OPTIONS);
@@ -135,15 +135,19 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
   initialValues,
 }: CreateFormParams<S>) => {
   const schema = createFormSchema(schemas);
-  const actualInitialValues = taskToFormValues(initialValues);
+  const actualInitialValues = toFormValues(initialValues);
   return Flux.createForm<FormQuery, FormSchema<S>>({
     name: RESOURCE_NAME,
     schema,
     initialValues: actualInitialValues,
-    retrieve: async ({ client, query: { key }, reset }): Promise<void> => {
-      if (key == null) return;
-      const tsk = await client.tasks.retrieve({ ...BASE_QUERY, key, schemas });
-      reset(taskToFormValues(tsk.payload));
+    retrieve: async ({ client, query: { key } }) =>
+      toFormValues(
+        (await client.tasks.retrieve({ ...BASE_QUERY, key, schemas })).payload,
+      ),
+    getCached: ({ client, query: { key } }) => {
+      const cached = client.tasks.getCached({ ...BASE_QUERY, key });
+      if (!query.isLive(cached)) return undefined;
+      return toFormValues(cached.payload as task.Payload<S>);
     },
     update: async ({ client, ...form }) => {
       const value = form.value();
@@ -161,9 +165,8 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
       resetFormValues(form.set, task.payload);
       form.setCurrentStateAsInitialValues();
     },
-    mountListeners: ({ client, query: { key }, set }) => {
-      if (key == null) return [];
-      return client.tasks.onChange(key, (result) => {
+    mountListeners: ({ client, query: { key }, set }) =>
+      client.tasks.onChange(key, (result) => {
         if (!query.isLive(result)) return;
         resetFormValues(set, result.payload as task.Payload<S>);
         if (result.status != null)
@@ -172,8 +175,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
             task.statusZ(z.unknown().optional()).parse(result.status),
             RESET_OPTIONS,
           );
-      });
-    },
+      }),
   });
 };
 

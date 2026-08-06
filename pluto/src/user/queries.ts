@@ -71,8 +71,8 @@ export const formSchema = user.newZ.extend({
   role: access.role.keyZ,
 });
 
-export type UseFormParams = {
-  key?: user.Key;
+export type FormQuery = {
+  key: user.Key;
 };
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
@@ -83,15 +83,15 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   role: "",
 };
 
-export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
+export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: "User",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (key == null) return;
-    const user = await client.users.retrieve(key);
-    reset({ ...user, password: "", role: "" });
-  },
+  retrieve: async ({ client, query: { key } }) => ({
+    ...(await client.users.retrieve(key)),
+    password: "",
+    role: "",
+  }),
   update: async ({ client, value }) => {
     const v = value();
     const createdUser = await client.users.create({ key: uuid.create(), ...v });

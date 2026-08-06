@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, project, type Synnax } from "@synnaxlabs/client";
+import { ontology, project, query, type Synnax } from "@synnaxlabs/client";
 import { array, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -90,13 +90,14 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
   layout: {},
 };
 
-export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema>({
+export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (key == null) return;
-    reset(await client.projects.retrieve(key));
+  retrieve: async ({ client, query: { key } }) => await client.projects.retrieve(key),
+  getCached: ({ client, query: { key } }) => {
+    const cached = client.projects.getCached(key);
+    return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, set }) => {
     const res = await client.projects.create(value());

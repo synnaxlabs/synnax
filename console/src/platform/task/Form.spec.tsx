@@ -108,9 +108,17 @@ describe("wrapForm", () => {
     });
 
     it("should derive it from the task key when no rackKey arg is given", async () => {
-      const taskKey = ((7n << 32n) | 1n).toString();
-      await renderProbe({ taskKey });
-      await waitFor(() => expect(screen.getByText("rack-key:7")).toBeTruthy());
+      const client = createTestClient();
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const tsk = await rack.createTask({
+        name: uniqueName("task"),
+        type: "test_task",
+        config: { device: "", channels: [] },
+      });
+      await renderProbe({ taskKey: tsk.key });
+      await waitFor(() =>
+        expect(screen.getByText(`rack-key:${rack.key}`)).toBeTruthy(),
+      );
     });
 
     it("should default to zero when neither rackKey nor taskKey is given", async () => {

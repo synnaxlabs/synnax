@@ -46,7 +46,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
     };
   }, [item]);
   const { form } = Status.useForm({
-    query: {},
+    query: null,
     initialValues,
     autoSave: true,
     sync: true,

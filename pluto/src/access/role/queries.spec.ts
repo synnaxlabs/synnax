@@ -283,7 +283,7 @@ describe("queries", () => {
         role: role.key,
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
         { wrapper },
       );
@@ -300,7 +300,7 @@ describe("queries", () => {
         password: "password123",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
         { wrapper },
       );
@@ -329,7 +329,7 @@ describe("queries", () => {
         role: role1.key,
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
         { wrapper },
       );
@@ -370,7 +370,7 @@ describe("queries", () => {
         password: "password123",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Role.useChangeRoleForm({ query: { key: testUser.key } }),
         { wrapper },
       );

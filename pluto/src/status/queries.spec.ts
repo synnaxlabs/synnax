@@ -596,7 +596,7 @@ describe("Status queries", () => {
 
   describe("useForm", () => {
     it("should initialize with default values for new status", async () => {
-      const { result } = renderHook(() => Status.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => Status.useForm({ query: null }), { wrapper });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const v = result.current.form.value();
       expect(v.key).toEqual("");
@@ -608,7 +608,7 @@ describe("Status queries", () => {
     });
 
     it("should create a new status on save", async () => {
-      const { result } = renderHook(() => Status.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => Status.useForm({ query: null }), { wrapper });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       act(() => {
         result.current.form.set("name", "Form Test Status");
@@ -639,9 +639,10 @@ describe("Status queries", () => {
         description: "Existing description",
         time: TimeStamp.now(),
       });
-      const { result } = renderHook(() => Status.useForm({ query: { key } }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Status.useForm({ query: { key } }),
+        { wrapper },
+      );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const v = result.current.form.value();
       expect(v.key).toEqual(key);
@@ -692,7 +693,7 @@ describe("Status queries", () => {
     it("should handle status with labels", async () => {
       const label1 = await client.labels.create({ name: "Label 1", color: "#FF0000" });
       const label2 = await client.labels.create({ name: "Label 2", color: "#00FF00" });
-      const { result } = renderHook(() => Status.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => Status.useForm({ query: null }), { wrapper });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       act(() => {
         result.current.form.set("name", "Status with Labels");
@@ -723,9 +724,10 @@ describe("Status queries", () => {
         message: "Initial",
         time: TimeStamp.now(),
       });
-      const { result } = renderHook(() => Status.useForm({ query: { key } }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Status.useForm({ query: { key } }),
+        { wrapper },
+      );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.value().name).toEqual("Initial");
       await act(async () => {
@@ -745,7 +747,7 @@ describe("Status queries", () => {
     });
 
     it("should generate UUID for new status if key not provided", async () => {
-      const { result } = renderHook(() => Status.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => Status.useForm({ query: null }), { wrapper });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       act(() => {
         result.current.form.set("name", "Auto UUID Status");
@@ -762,7 +764,7 @@ describe("Status queries", () => {
     });
 
     it("should update timestamp on save", async () => {
-      const { result } = renderHook(() => Status.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => Status.useForm({ query: null }), { wrapper });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       const initialTime = result.current.form.value().time;
       act(() => {
@@ -789,7 +791,7 @@ describe("Status queries", () => {
         "disabled",
       ] as const;
       for (const variant of variants) {
-        const { result } = renderHook(() => Status.useForm({ query: {} }), {
+        const { result } = renderHook(() => Status.useForm({ query: null }), {
           wrapper,
         });
         await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -831,9 +833,10 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
       await client.labels.label(status.ontologyID(key), [label1.key]);
-      const { result } = renderHook(() => Status.useForm({ query: { key } }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Status.useForm({ query: { key } }),
+        { wrapper },
+      );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       await waitFor(() =>
         expect(result.current.form.value().labels).toContain(label1.key),
@@ -872,9 +875,10 @@ describe("Status queries", () => {
         message: "Testing label sync",
         time: TimeStamp.now(),
       });
-      const { result } = renderHook(() => Status.useForm({ query: { key } }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Status.useForm({ query: { key } }),
+        { wrapper },
+      );
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.form.value().labels).toEqual([]);
       await act(async () => {

@@ -404,7 +404,7 @@ describe("queries", () => {
 
   describe("useForm", () => {
     it("should create a new label", async () => {
-      const { result } = renderHook(() => Label.useForm({ query: {} }), {
+      const { result } = renderHook(() => Label.useForm({ query: null }), {
         wrapper,
       });
 
@@ -472,7 +472,7 @@ describe("queries", () => {
     });
 
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Label.useForm({ query: {} }), {
+      const { result } = renderHook(() => Label.useForm({ query: null }), {
         wrapper,
       });
 

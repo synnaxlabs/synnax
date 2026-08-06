@@ -194,7 +194,7 @@ describe("User queries", () => {
   describe("useForm", () => {
     describe("create mode", () => {
       it("should initialize with default values for new user", async () => {
-        const { result } = renderHook(() => User.useForm({ query: {} }), {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
         });
 
@@ -209,7 +209,7 @@ describe("User queries", () => {
       });
 
       it("should create a new user on save", async () => {
-        const { result } = renderHook(() => User.useForm({ query: {} }), {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
         });
 
@@ -233,7 +233,7 @@ describe("User queries", () => {
       });
 
       it("should validate required fields", async () => {
-        const { result } = renderHook(() => User.useForm({ query: {} }), {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
         });
 
@@ -257,7 +257,7 @@ describe("User queries", () => {
 
     describe("validation", () => {
       it("should validate username field", async () => {
-        const { result } = renderHook(() => User.useForm({ query: {} }), {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
         });
 
@@ -276,7 +276,7 @@ describe("User queries", () => {
       });
 
       it("should validate all required fields", async () => {
-        const { result } = renderHook(() => User.useForm({ query: {} }), {
+        const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,
         });
 

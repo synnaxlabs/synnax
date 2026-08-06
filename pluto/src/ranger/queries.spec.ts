@@ -653,7 +653,7 @@ describe("queries", () => {
     it("should create a new range", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -684,7 +684,7 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -709,7 +709,7 @@ describe("queries", () => {
       });
       const childTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -941,7 +941,7 @@ describe("queries", () => {
     });
 
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -963,7 +963,7 @@ describe("queries", () => {
         color: "#123456",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -990,7 +990,7 @@ describe("queries", () => {
 
     it("should handle time range modifications", async () => {
       const initialTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -1027,7 +1027,7 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 

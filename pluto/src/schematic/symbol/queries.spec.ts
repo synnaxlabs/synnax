@@ -266,7 +266,7 @@ describe("Symbol queries", () => {
         name: "test-symbol-create",
       });
 
-      const { result } = renderHook(() => Symbol.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => Symbol.useForm({ query: null }), { wrapper });
 
       await act(async () => {
         result.current.form.set("name", "created-symbol");
@@ -313,7 +313,7 @@ describe("Symbol queries", () => {
         },
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () =>
           Symbol.useForm({
             query: { key: symbol.key },

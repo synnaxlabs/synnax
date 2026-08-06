@@ -97,10 +97,10 @@ export const useChangeRoleForm = Flux.createForm<
   name: RESOURCE_NAME,
   schema: changeRoleFormSchema,
   initialValues: { key: "", role: "" },
-  retrieve: async ({ client, query: { key: userKey }, reset }) => {
-    const roleKey = await retrieveUserRole(client, userKey);
-    reset({ key: userKey, role: roleKey ?? "" });
-  },
+  retrieve: async ({ client, query: { key: userKey } }) => ({
+    key: userKey,
+    role: (await retrieveUserRole(client, userKey)) ?? "",
+  }),
   update: async ({ client, value }) => {
     const { key: userKey, role: newRoleKey } = value();
     const oldRoleKey = await retrieveUserRole(client, userKey);
@@ -125,10 +125,6 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
     description: "",
     internal: false,
     policies: [],
-  },
-  retrieve: async ({ client, query }) => {
-    if (query.key == null) return;
-    await client.access.roles.retrieve(query.key);
   },
   update: async ({ client, value, set }) => {
     const v = value();

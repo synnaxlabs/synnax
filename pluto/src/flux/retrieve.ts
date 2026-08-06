@@ -15,14 +15,7 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { type destructor, type state, TimeSpan } from "@synnaxlabs/x";
-import {
-  use,
-  useCallback,
-  useMemo,
-  useReducer,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useMemo, useReducer, useRef, useSyncExternalStore } from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
 import { type flux } from "@/flux/aether";
@@ -35,16 +28,21 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
+import {
+  ensureFetch,
+  type EnsureFetchParams,
+  type LocalCache,
+  localFor,
+  type RetrieveParams,
+  suspendOnFetch,
+} from "@/flux/suspend";
 import { useMemoDeepEqual } from "@/memo";
 import { Synnax } from "@/synnax";
 
 // Bound at module scope: hooks bind `query` to the caller's params object.
 const { Deleted, isLive } = query;
 
-export interface RetrieveParams<Query extends query.Params> {
-  client: Client;
-  query: Query;
-}
+export { type RetrieveParams };
 
 /**
  * Binds a query definition onto its domain client's read surface: fetch =
@@ -168,45 +166,10 @@ export interface CreateRetrieveReturn<
   createSelector: CreateSelector<Query, Data>;
 }
 
-/**
- * Fetch dedup and settled answers for queries the domain client does not
- * cache. Entries persist until the next fetch of the same query replaces
- * them; an answer the cache serves never populates `settled`. Scoped per
- * client so a settled error never outlives the client whose fetch produced
- * it, and settled errors are dropped when the connection epoch advances.
- */
-interface LocalCache<Data> {
-  epoch: number;
-  inFlight: Map<string, Promise<Data>>;
-  settled: Map<string, { data: Data } | { error: Error }>;
-}
-
 interface UseSuspendedParams<Query extends query.Params, Data extends query.Data> {
   query: Query;
   locals: WeakMap<Client, LocalCache<Data>>;
 }
-
-const localFor = <Data extends query.Data>(
-  locals: WeakMap<Client, LocalCache<Data>>,
-  client: Client,
-): LocalCache<Data> => {
-  const { epoch } = client.connection.status.details;
-  const existing = locals.get(client);
-  if (existing == null) {
-    const local = { epoch, inFlight: new Map(), settled: new Map() };
-    locals.set(client, local);
-    return local;
-  }
-  if (existing.epoch !== epoch) {
-    existing.epoch = epoch;
-    // A reconnected cluster may well answer a query the dead one could not.
-    // Settled data survives: it is still the best answer until refetched.
-    existing.settled.forEach((entry, hash) => {
-      if ("error" in entry) existing.settled.delete(hash);
-    });
-  }
-  return existing;
-};
 
 const NOOP_SUBSCRIBE = () => () => {};
 
@@ -270,7 +233,7 @@ const awaitCreation = <Query extends query.Params, Data extends query.Data>(
     }
   });
 
-interface EnsureFetchParams<
+interface FetchParamsSource<
   Query extends query.Params,
   Data extends query.Data,
 > extends Pick<
@@ -280,62 +243,25 @@ interface EnsureFetchParams<
   local: LocalCache<Data>;
 }
 
-/** Joins the query's in-flight fetch, starting one when none exists. */
-const ensureFetch = <Query extends query.Params, Data extends query.Data>(
-  params: RetrieveParams<Query>,
-  { name, retrieve, onChange, getCached, local }: EnsureFetchParams<Query, Data>,
-): Promise<Data> => {
-  const hash = query.hash(params.query);
-  let promise = local.inFlight.get(hash);
-  if (promise == null) {
-    const epoch = local.epoch;
-    promise = retrieve(params).then(
-      (data) => {
-        // An answer the domain cache serves is read from there on the next
-        // render; one that never reaches it is kept locally instead.
-        if (getCached?.(params) === undefined) local.settled.set(hash, { data });
-        local.inFlight.delete(hash);
-        return data;
-      },
-      (cause: unknown) => {
-        const error = new Error(`Failed to retrieve ${name}`, { cause });
-        // A domain-cached not-found stays pending: the reference may have
-        // outrun its document's create broadcast, which the subscription will
-        // deliver. Everything else settles.
-        if (onChange != null && getCached != null && NotFoundError.matches(cause))
-          return awaitCreation(params, {
-            name,
-            error,
-            hash,
-            onChange,
-            getCached,
-            local,
-          });
-        // A failed fetch writes nothing getCached can serve, so the error must
-        // settle locally or the next render refetches forever. A later cache
-        // hit short-circuits before this entry is read. A reconnect that
-        // landed mid-fetch discards the failure instead.
-        if (local.epoch === epoch) local.settled.set(hash, { error });
-        local.inFlight.delete(hash);
-        throw error;
-      },
-    );
-    local.inFlight.set(hash, promise);
-  }
-  return promise;
-};
-
-const suspendOnFetch = <Query extends query.Params, Data extends query.Data>(
-  params: RetrieveParams<Query>,
-  fetchParams: EnsureFetchParams<Query, Data>,
-): Data => {
-  const settled = fetchParams.local.settled.get(query.hash(params.query));
-  if (settled != null) {
-    if ("error" in settled) throw settled.error;
-    return settled.data;
-  }
-  return use(ensureFetch(params, fetchParams));
-};
+const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
+  name,
+  retrieve,
+  onChange,
+  getCached,
+  local,
+}: FetchParamsSource<Query, Data>): EnsureFetchParams<Query, Data> => ({
+  name,
+  retrieve,
+  getCached,
+  local,
+  // A domain-cached not-found stays pending: the reference may have outrun its
+  // document's create broadcast, which the subscription will deliver.
+  // Everything else settles.
+  onFetchError: (params, { cause, error, hash }) =>
+    onChange != null && getCached != null && NotFoundError.matches(cause)
+      ? awaitCreation(params, { name, error, hash, onChange, getCached, local })
+      : null,
+});
 
 const useSuspended = <Query extends query.Params, Data extends query.Data>({
   query,
@@ -387,7 +313,10 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   }
   const derived = deriveCached?.(params);
   if (derived != null) return derived;
-  return suspendOnFetch(params, { name, retrieve, onChange, getCached, local });
+  return suspendOnFetch(
+    params,
+    fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+  );
 };
 
 const useResultValue = <Query extends query.Params, Data extends query.Data>({
@@ -449,7 +378,10 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>({
     return "data" in settled
       ? successResult(`retrieved ${name}`, settled.data)
       : errorResult(`retrieve ${name}`, settled.error);
-  ensureFetch(params, { name, retrieve, onChange, getCached, local }).then(bump, bump);
+  ensureFetch(
+    params,
+    fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+  ).then(bump, bump);
   return loadingResult<Data>(`retrieving ${name}`);
 };
 
@@ -478,7 +410,10 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
     return;
   }
   if (deriveCached?.(params) != null) return;
-  suspendOnFetch(params, { name, retrieve, onChange, getCached, local });
+  suspendOnFetch(
+    params,
+    fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+  );
 };
 
 const useInvalidate = <Query extends query.Params, Data extends query.Data>(

@@ -84,7 +84,7 @@ export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbo
 });
 
 export type FormQuery = {
-  key?: string;
+  key: string;
 };
 
 export const formSchema = schematic.symbol.symbolZ
@@ -108,36 +108,33 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     parent: ontology.ROOT_ID,
   },
   schema: formSchema,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (key == null) return;
+  retrieve: async ({ client, query: { key } }) => {
     const symbol = await client.schematics.symbols.retrieve(key);
     const parents = await client.ontology.parents.retrieve({
       ids: schematic.symbol.ontologyID(key),
     });
-    reset({
+    return {
       version: 1,
       name: symbol.name,
       data: symbol.data,
       key: symbol.key,
       parent: parents[0]?.id ?? ontology.ROOT_ID,
-    });
+    };
   },
   update: async ({ client, value, reset }) => {
     const payload = value();
     const created = await client.schematics.symbols.create(payload);
     reset({ ...created, parent: payload.parent });
   },
-  mountListeners: ({ client, query: { key }, reset, get }) => {
-    if (key == null) return [];
-    return client.schematics.symbols.onChange(key, (result) => {
+  mountListeners: ({ client, query: { key }, reset, get }) =>
+    client.schematics.symbols.onChange(key, (result) => {
       if (!query.isLive(result)) return;
       reset({
         ...result,
         parent:
           get<ontology.ID>("parent", { optional: true })?.value ?? ontology.ROOT_ID,
       });
-    });
-  },
+    }),
 });
 
 export interface RenameParams extends Pick<schematic.symbol.Symbol, "key" | "name"> {}

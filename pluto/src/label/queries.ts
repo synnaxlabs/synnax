@@ -62,7 +62,7 @@ export const useList = Flux.createList<ListQuery, label.Key, label.Label>({
 });
 
 type FormQuery = {
-  key?: label.Key;
+  key: label.Key;
 };
 
 export const formSchema = label.labelZ.partial({ key: true });
@@ -76,20 +76,19 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   initialValues: INITIAL_VALUES,
   schema: formSchema,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (key == null) return;
-    reset(await client.labels.retrieve(key));
+  retrieve: async ({ client, query: { key } }) => await client.labels.retrieve(key),
+  getCached: ({ client, query: { key } }) => {
+    const cached = client.labels.getCached(key);
+    return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, reset }) => {
     const updated = await client.labels.create(value());
     reset(updated);
   },
-  mountListeners: ({ client, query: { key }, reset }) => {
-    if (key == null) return [];
-    return client.labels.onChange(key, (result) => {
+  mountListeners: ({ client, query: { key }, reset }) =>
+    client.labels.onChange(key, (result) => {
       if (query.isLive(result)) reset(result);
-    });
-  },
+    }),
 });
 
 export type DeleteParams = label.Key | label.Key[];

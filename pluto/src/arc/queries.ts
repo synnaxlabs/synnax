@@ -192,7 +192,6 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async () => {},
   update: async ({ client, value, set }) => {
     const res = await client.arcs.create(value());
     set("key", res.key);

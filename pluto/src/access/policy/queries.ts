@@ -84,7 +84,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema>({
+export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: {
@@ -93,10 +93,8 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
     objects: [],
     actions: [],
   },
-  retrieve: async ({ client, query, reset }) => {
-    if (query.key == null) return;
-    reset(await client.access.policies.retrieve(query.key));
-  },
+  retrieve: async ({ client, query: { key } }) =>
+    await client.access.policies.retrieve(key),
   update: async ({ client, value, set }) => {
     const p = await client.access.policies.create(value());
     set("key", p.key);

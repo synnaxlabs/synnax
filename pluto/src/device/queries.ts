@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, ontology, type query } from "@synnaxlabs/client";
+import { device, ontology, query as clientQuery, type query } from "@synnaxlabs/client";
 import { primitive, type record, uuid, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -158,19 +158,20 @@ export const createForm = <
       configured: true,
       properties: {},
     },
-    retrieve: async ({ query, client, reset, set }) => {
-      if (primitive.isZero(query.key)) {
-        set("key", uuid.create());
-        return;
-      }
-      reset(
-        schemas != null
-          ? await client.devices.retrieve({ ...BASE_QUERY, ...query, schemas })
-          : await client.devices.retrieve({ ...BASE_QUERY, ...query }),
-      );
+    retrieve: async ({ query, client }) =>
+      schemas != null
+        ? await client.devices.retrieve({ ...BASE_QUERY, ...query, schemas })
+        : await client.devices.retrieve({ ...BASE_QUERY, ...query }),
+    getCached: ({ client, query }) => {
+      const cached = client.devices.getCached({ ...BASE_QUERY, ...query });
+      return clientQuery.isLive(cached) ? cached : undefined;
     },
-    update: async ({ value, client }) => {
+    update: async ({ value, client, set }) => {
       const data = value();
+      if (primitive.isZero(data.key)) {
+        data.key = uuid.create();
+        set("key", data.key);
+      }
       if (schemas != null)
         await client.devices.create(
           data as device.New<Properties, Make, Model>,

@@ -124,6 +124,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   showHeader = true,
   showControls = true,
 }: WrapFormParams<S>): Panel.Tab => {
+  const useForm = PTask.createForm({ schemas, initialValues: getInitialValues({}) });
   const defaultName = getInitialValues({}).name;
   const useSyncName = (
     form: PForm.ContextValue<PTask.FormSchema<S>>,
@@ -153,16 +154,17 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const setView = PlutoPanel.useSetCurrentTabView();
     const initialValues = useMemo(() => {
       const base = getInitialValues({ deviceKey, config });
-      return {
+      return PTask.toFormValues({
         ...base,
         name: name ?? base.name,
         key: taskKey,
         rackKey: rackKey ?? (taskKey == null ? 0 : task.rackKey(taskKey)),
-      };
+      });
     }, [deviceKey, config, name, taskKey, rackKey]);
     const confirm = Modals.useConfirm();
-    const { form, status, save } = PTask.createForm({ schemas, initialValues })({
-      query: { key: taskKey },
+    const { form, status, save } = useForm({
+      query: taskKey == null ? null : { key: taskKey },
+      initialValues,
       beforeSave: async ({ client, ...form }) => {
         const { name, config } = form.value();
         const [newConfig, rackKey] = await onConfigure(client, config, name);

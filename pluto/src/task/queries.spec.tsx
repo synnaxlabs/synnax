@@ -10,11 +10,12 @@
 import { group, ontology, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
+import { Errors } from "@/errors";
 import { Task } from "@/task";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -723,7 +724,7 @@ describe("queries", () => {
           config: {},
         },
       });
-      const { result } = renderHook(() => useForm({ query: {} }), {
+      const { result } = renderHook(() => useForm({ query: null }), {
         wrapper,
       });
       await waitFor(() => {
@@ -751,7 +752,7 @@ describe("queries", () => {
           rackKey: testRack.key,
         },
       });
-      const { result } = renderHook(() => useForm({ query: {} }), {
+      const { result } = renderHook(() => useForm({ query: null }), {
         wrapper,
       });
       await waitFor(() => {
@@ -781,7 +782,7 @@ describe("queries", () => {
           rackKey: otherRack.key,
         },
       });
-      const { result } = renderHook(() => useForm({ query: {} }), {
+      const { result } = renderHook(() => useForm({ query: null }), {
         wrapper,
       });
       await waitFor(() => {
@@ -885,7 +886,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ query: {} }), {
+      const { result } = renderHook(() => useForm({ query: null }), {
         wrapper,
       });
 
@@ -1093,7 +1094,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ query: {} }), {
+      const { result } = renderHook(() => useForm({ query: null }), {
         wrapper,
       });
 
@@ -1365,18 +1366,31 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(
-        () =>
-          useForm({
-            query: { key: "999999" },
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("error");
-        expect(result.current.status.message).toEqual("Failed to retrieve task");
+      const Wrapper = wrapper;
+      const Display = (): ReactElement => {
+        useForm({ query: { key: "999999" } });
+        return <div />;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div />}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
       });
+      await waitFor(() =>
+        expect(utils.queryByTestId("error")?.textContent).toEqual(
+          "Failed to retrieve task",
+        ),
+      );
     });
 
     it("should handle autoSave functionality", async () => {

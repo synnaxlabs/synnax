@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, type ontology, query, ranger } from "@synnaxlabs/client";
-import { type optional, primitive, verbs } from "@synnaxlabs/x";
+import { primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -135,7 +135,7 @@ export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> =>
   labels: range.labels?.map((l) => l.key) ?? [],
 });
 
-export type FormQuery = optional.Optional<RetrieveQuery, "key">;
+export type FormQuery = RetrieveQuery;
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
@@ -148,9 +148,11 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (key == null) return;
-    reset(toFormValues(await client.ranges.retrieve(key)));
+  retrieve: async ({ client, query: { key } }) =>
+    toFormValues(await client.ranges.retrieve(key)),
+  getCached: ({ client, query: { key } }) => {
+    const cached = client.ranges.getCached(key);
+    return query.isLive(cached) ? toFormValues(cached) : undefined;
   },
   update: async ({ client, value: getValue, reset }) => {
     const value = getValue();
@@ -171,12 +173,10 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       parent: value.parent,
     });
   },
-  mountListeners: ({ client, query: { key }, reset }) => {
-    if (key == null) return [];
-    return client.ranges.onChange(key, (result) => {
+  mountListeners: ({ client, query: { key }, reset }) =>
+    client.ranges.onChange(key, (result) => {
       if (query.isLive(result)) reset(toFormValues(result));
-    });
-  },
+    }),
 });
 
 export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
@@ -230,7 +230,6 @@ const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
 export const useKVPairForm = Flux.createForm<KVFormQuery, typeof kvPairFormSchema>({
   name: KV_RESOURCE_NAME,
   schema: kvPairFormSchema,
-  retrieve: async () => undefined,
   initialValues: ZERO_KV_PAIR_FORM_VALUES,
   update: async ({ client, value: getPair }) => {
     const { key, value, range } = getPair();

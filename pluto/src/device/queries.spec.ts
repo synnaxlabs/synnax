@@ -1057,7 +1057,7 @@ describe("queries", () => {
   describe("useForm", () => {
     describe("create mode", () => {
       it("should initialize with default values for new device", async () => {
-        const { result } = renderHook(() => Device.useForm({ query: { key: "" } }), {
+        const { result } = renderHook(() => Device.useForm({ query: null }), {
           wrapper,
         });
 
@@ -1076,7 +1076,7 @@ describe("queries", () => {
           name: "test form rack",
         });
         const useForm = Device.createForm();
-        const { result } = renderHook(() => useForm({ query: { key: "" } }), {
+        const { result } = renderHook(() => useForm({ query: null }), {
           wrapper,
         });
 
@@ -1120,7 +1120,7 @@ describe("queries", () => {
 
       it("should validate required fields", async () => {
         const useForm = Device.createForm();
-        const { result } = renderHook(() => useForm({ query: { key: "" } }), {
+        const { result } = renderHook(() => useForm({ query: null }), {
           wrapper,
         });
 
@@ -1154,7 +1154,7 @@ describe("queries", () => {
           make: z.string(),
           model: z.string(),
         });
-        const { result } = renderHook(() => useForm({ query: { key: "" } }), {
+        const { result } = renderHook(() => useForm({ query: null }), {
           wrapper,
         });
 
@@ -1303,7 +1303,7 @@ describe("queries", () => {
 
     describe("validation", () => {
       it("should validate name field", async () => {
-        const { result } = renderHook(() => Device.useForm({ query: { key: "" } }), {
+        const { result } = renderHook(() => Device.useForm({ query: null }), {
           wrapper,
         });
 

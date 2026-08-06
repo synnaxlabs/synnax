@@ -250,7 +250,7 @@ describe("queries", () => {
 
   describe("useForm", () => {
     it("should create a new policy", async () => {
-      const { result } = renderHook(() => Policy.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => Policy.useForm({ query: null }), { wrapper });
 
       await act(async () => {
         result.current.form.set("name", "formPolicy");
@@ -279,7 +279,7 @@ describe("queries", () => {
         actions: ["delete", "update"],
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Policy.useForm({ query: { key: existingPolicy.key } }),
         {
           wrapper,

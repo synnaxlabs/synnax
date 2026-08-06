@@ -124,15 +124,14 @@ const INITIAL_VALUES: z.infer<typeof formSchema> = {
   labels: [],
 };
 
-export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema>({
+export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (primitive.isZero(key)) return;
+  retrieve: async ({ client, query: { key } }) => {
     const stat = await client.statuses.retrieve({ ...BASE_QUERY, key });
     const labels = await client.labels.retrieve({ for: status.ontologyID(stat.key) });
-    reset({ ...stat, labels: labels.map((l) => l.key) });
+    return { ...stat, labels: labels.map((l) => l.key) };
   },
   update: async ({ client, value, set }) => {
     set("time", TimeStamp.now());
@@ -147,14 +146,12 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
       });
     set("key", res.key);
   },
-  mountListeners: ({ client, query: { key }, reset }) => {
-    if (primitive.isZero(key)) return [];
-    return client.statuses.onChange(key, (result) => {
+  mountListeners: ({ client, query: { key }, reset }) =>
+    client.statuses.onChange(key, (result) => {
       if (!query.isLive(result)) return;
       const { labels, ...rest } = result;
       reset({ ...rest, labels: labels?.map((l) => l.key) ?? [] });
-    });
-  },
+    }),
 });
 
 export interface RenameParams extends Pick<status.Status, "key" | "name"> {}

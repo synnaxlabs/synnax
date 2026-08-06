@@ -100,13 +100,15 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 const retrieveInitialFormValues = async ({
   query: { key, rangeKey },
   client,
-  reset,
-}: Flux.FormRetrieveParams<
-  FormQuery,
-  typeof formSchema | typeof calculatedFormSchema
->) => {
-  if (key == null) return;
-  reset(channelToFormValues(await client.channels.retrieve(key, { rangeKey })));
+}: Flux.RetrieveParams<FormQuery>) =>
+  channelToFormValues(await client.channels.retrieve(key, { rangeKey }));
+
+const getCachedFormValues = ({
+  client,
+  query: { key, rangeKey },
+}: Flux.RetrieveParams<FormQuery>) => {
+  const cached = client.channels.getCached({ key, rangeKey });
+  return query.isLive(cached) ? channelToFormValues(cached) : undefined;
 };
 
 const updateForm = async ({
@@ -120,23 +122,22 @@ const updateForm = async ({
   set("key", ch.key);
 };
 
-export type FormQuery = optional.Optional<RetrieveQuery, "key">;
+export type FormQuery = RetrieveQuery;
 
 const formMountListeners: Flux.CreateFormParams<
   FormQuery,
   typeof formSchema | typeof calculatedFormSchema
->["mountListeners"] = ({ client, query: { key, rangeKey }, reset }) => {
-  if (key == null) return [];
-  return client.channels.onChange({ key, rangeKey }, (result) => {
+>["mountListeners"] = ({ client, query: { key, rangeKey }, reset }) =>
+  client.channels.onChange({ key, rangeKey }, (result) => {
     if (query.isLive(result)) reset(channelToFormValues(result));
   });
-};
 
 export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: retrieveInitialFormValues,
+  getCached: getCachedFormValues,
   update: updateForm,
   mountListeners: formMountListeners,
 });
@@ -149,6 +150,7 @@ export const useCalculatedForm = Flux.createForm<
   schema: calculatedFormSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: retrieveInitialFormValues,
+  getCached: getCachedFormValues,
   update: updateForm,
   mountListeners: formMountListeners,
 });
