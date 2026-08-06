@@ -90,4 +90,16 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			`file is not a schematic: no "props" field`,
 		)))
 	})
+
+	// The typed export names its per-node bag configs, so the state chain's props
+	// marker would reject every valid one.
+	It("Should reject a typed export carrying no schematic structure", func(
+		ctx SpecContext,
+	) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_unrecognized_typed.json"),
+		)).Error().To(MatchError(ContainSubstring(
+			`file is not a schematic: no "configs" field`,
+		)))
+	})
 })

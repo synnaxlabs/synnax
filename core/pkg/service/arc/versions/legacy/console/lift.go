@@ -23,7 +23,13 @@ func (g Graph) Lift() graph.Graph {
 		Functions: lo.Map(g.Functions, func(f Function, _ int) ir.Function {
 			return f.lift()
 		}),
-		Edges: g.Edges,
+		// Payloads before 0.54 carried no kind; every edge they wrote was continuous.
+		Edges: lo.Map(g.Edges, func(e ir.Edge, _ int) ir.Edge {
+			if e.Kind == ir.EdgeKindUnspecified {
+				e.Kind = ir.EdgeKindContinuous
+			}
+			return e
+		}),
 		Nodes: g.Nodes,
 	}
 }

@@ -33,6 +33,15 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	case env.Version == legacy.LastVersion:
 		// The v0.56 Console export: the typed schematic it retrieved from the Core,
 		// written back out in camelCase under the Console's own version stamp.
+		var body msgpack.EncodedJSON
+		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err != nil {
+			break
+		}
+		if err = imex.RequireFields(
+			body, "a schematic", "nodes", "configs",
+		); err != nil {
+			break
+		}
 		var doc legacy.Export
 		if doc, err = imex.Decode[legacy.Export](ctx, env); err == nil {
 			sch = v7.SchematicFromConsole(doc)

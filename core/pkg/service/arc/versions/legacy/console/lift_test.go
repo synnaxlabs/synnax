@@ -22,7 +22,7 @@ import (
 )
 
 var _ = Describe("Lift", func() {
-	It("Should carry the viewport, edges, and nodes across untouched", func() {
+	It("Should carry the viewport, edges, and nodes across", func() {
 		g := console.Graph{
 			Viewport: graph.Viewport{Position: spatial.XY{X: 5, Y: 6}, Zoom: 2},
 			Edges: ir.Edges{{
@@ -43,6 +43,22 @@ var _ = Describe("Lift", func() {
 		Expect(out.Nodes).To(Equal(g.Nodes))
 		Expect(out.Viewport).To(Equal(g.Viewport))
 	})
+
+	DescribeTable("Should default the edge kind, keeping one already set",
+		func(in, expected ir.EdgeKind) {
+			out := console.Graph{Edges: ir.Edges{{
+				Source: ir.Handle{Node: "n1", Param: "out"},
+				Target: ir.Handle{Node: "n2", Param: "in"},
+				Kind:   in,
+			}}}.Lift()
+
+			Expect(out.Edges[0].Kind).To(Equal(expected))
+		},
+		// Payloads before 0.54 wrote no kind field at all.
+		Entry("unspecified", ir.EdgeKindUnspecified, ir.EdgeKindContinuous),
+		Entry("continuous", ir.EdgeKindContinuous, ir.EdgeKindContinuous),
+		Entry("conditional", ir.EdgeKindConditional, ir.EdgeKindConditional),
+	)
 
 	It("Should lift a function's params into the typed form", func() {
 		out := console.Graph{Functions: []console.Function{

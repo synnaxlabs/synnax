@@ -54,6 +54,35 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(inputs(a, "n9")).To(HaveKeyWithValue("keyOrName", "kept"))
 	})
 
+	// Consoles 0.46 through 0.53 stamped "0.0.0" on the Arc itself, so an export of a
+	// closed Arc carries a version header over the typed server payload.
+	It("Should decode a version-stamped Console export", func(ctx SpecContext) {
+		a := decode(ctx, "testdata/import_typed_console_stamped.json")
+		Expect(a.Mode).To(Equal(versions.ModeGraph))
+		Expect(a.Graph.Nodes).To(HaveLen(2))
+		Expect(a.Graph.Nodes[0].Key).To(Equal("n1"))
+		Expect(a.Graph.Edges[0].Source).To(Equal(ir.Handle{Node: "n1", Param: "out"}))
+		Expect(a.Graph.Edges[0].Target).To(Equal(ir.Handle{Node: "n2", Param: "in"}))
+		// The payload had no kind field, and every edge it wrote was continuous.
+		Expect(a.Graph.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
+		Expect(inputs(a, "n1")).To(SatisfyAll(
+			HaveKeyWithValue("type", "constant"),
+			HaveKeyWithValue("keyOrName", "sensor_1"),
+		))
+	})
+
+	It("Should keep node configs on an edgeless version-stamped export", func(
+		ctx SpecContext,
+	) {
+		a := decode(ctx, "testdata/import_typed_console_stamped_edgeless.json")
+		Expect(a.Graph.Nodes).To(HaveLen(1))
+		Expect(a.Graph.Edges).To(BeEmpty())
+		Expect(inputs(a, "n1")).To(SatisfyAll(
+			HaveKeyWithValue("type", "constant"),
+			HaveKeyWithValue("keyOrName", "sensor_1"),
+		))
+	})
+
 	It(
 		"Should lift a v0 Console state, nesting edges and renaming set_status",
 		func(ctx SpecContext) {

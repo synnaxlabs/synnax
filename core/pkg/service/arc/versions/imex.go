@@ -61,10 +61,9 @@ func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, err
 	if err = imex.RequireFields(body, "an Arc", "graph"); err != nil {
 		return legacy.Document{}, err
 	}
-	if !env.Versioned() {
-		// The Console export taken from an Arc that was not open: the typed Arc it
-		// retrieved from the Core, spread into the file with no version stamp. Console
-		// states always carry one, so an absent header is the discriminator.
+	if !isConsoleState(body) {
+		// The export taken from an Arc that was not open: the typed Arc the Console
+		// retrieved from the Core, spread into the file.
 		e, err := imex.Decode[legacy.Export](ctx, env)
 		if err != nil {
 			return legacy.Document{}, err
@@ -74,4 +73,17 @@ func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, err
 	// "0.0.0".."2.0.0" Console states embed the graph inline. Nothing newer exists: the
 	// shipped Console never wrote a later state format.
 	return legacy.MigrateData(body)
+}
+
+// isConsoleState reports whether body is a Console editor state rather than a typed Arc
+// from the Core. Every released Console state carries graph.props; neither server
+// payload does. The version header cannot decide it: Arcs stored before 0.54 carried a
+// "0.0.0" version, so their exports look version-stamped too.
+func isConsoleState(body msgpack.EncodedJSON) bool {
+	g, ok := body["graph"].(map[string]any)
+	if !ok {
+		return false
+	}
+	_, ok = g["props"]
+	return ok
 }

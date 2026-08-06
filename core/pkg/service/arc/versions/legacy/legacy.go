@@ -41,7 +41,7 @@ const LastVersion = v2.Version
 type Data = v2.Data
 
 // Export is the Console's own export format. It sits outside the state chain: the
-// Console wrote back the typed Arc it retrieved from the Core, with no version stamp.
+// Console wrote back the typed Arc it retrieved from the Core.
 type Export = console.Data
 
 type (

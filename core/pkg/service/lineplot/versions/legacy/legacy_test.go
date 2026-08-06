@@ -27,7 +27,53 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 	return m
 }
 
+// dataAt renders one Console line plot state stamped at the given semver major. The
+// chain shares the v0 field names, so the same body enters at any version. Its legend
+// and axes hold the values the v1 and v2 steps overwrite, so the result says which
+// steps ran.
+func dataAt(version string) msgpack.EncodedJSON {
+	GinkgoHelper()
+	return jsonMap(`{
+		"version": "` + version + `",
+		"key": "lp1",
+		"title": {"level": "h3", "visible": true},
+		"legend": {"visible": false, "position": {"x": 1, "y": 2}},
+		"lines": [{"key": "l1", "color": "#ff0000", "strokeWidth": 3}],
+		"axes": {"axes": {
+			"x1": {"key": "x1", "labelDirection": "x", "tickSpacing": 75},
+			"y1": {"key": "y1", "labelDirection": "x", "tickSpacing": 75}
+		}}
+	}`)
+}
+
 var _ = Describe("MigrateData", func() {
+	DescribeTable(
+		"Should run only the steps above the blob's declared version",
+		func(version string, legendVisible bool, legendX float64, x1Type, y1Dir string) {
+			d := MustSucceed(legacy.MigrateData(dataAt(version)))
+
+			Expect(d.Version).To(Equal(v4.Version))
+			Expect(d.Legend.Visible).To(Equal(legendVisible))
+			Expect(d.Legend.Position.X).To(Equal(legendX))
+			Expect(d.Axes.Axes.X1.Type).To(Equal(x1Type))
+			Expect(d.Axes.Axes.Y1.LabelDirection).To(Equal(y1Dir))
+			// No step touches these, so a field any arm drops surfaces here.
+			Expect(d.Key).To(Equal("lp1"))
+			Expect(d.Title.Level).To(Equal("h3"))
+			Expect(d.Lines).To(HaveLen(1))
+			Expect(d.Lines[0].Key).To(Equal("l1"))
+			Expect(d.Lines[0].StrokeWidth).To(Equal(3.0))
+		},
+		// v0 loses its legend to the v1 default and takes the v2 axis stamps.
+		Entry("v0", "0.0.0", true, 50.0, "time", "y"),
+		// v1 keeps its own legend; the axis stamps still apply.
+		Entry("v1", "1.0.0", false, 1.0, "time", "y"),
+		// v2 onward is already stamped, so the body carries through verbatim.
+		Entry("v2", "2.0.0", false, 1.0, "", "x"),
+		Entry("v3", "3.0.0", false, 1.0, "", "x"),
+		Entry("v4", "4.0.0", false, 1.0, "", "x"),
+	)
+
 	It("Should walk a v0 blob through every step to v4.Data", func() {
 		out := MustSucceed(legacy.MigrateData(jsonMap(`{
 			"version": "0.0.0",

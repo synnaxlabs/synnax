@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 // Package console holds the frozen wire format of the Console Arc export: the typed Arc
-// the Console retrieved from the Core, spread into the file in camelCase with no
-// version stamp. Releases 0.54.0 onward write it whenever the exported Arc was not open
-// in the Console. It sits outside the state chain and so carries no version; Lift
-// converts it into the graph shape the Arc migrations consume.
+// the Console retrieved from the Core, spread into the file in camelCase. Releases
+// 0.46.0 onward write it whenever the exported Arc was not open; those before 0.54.0
+// also carry the Arc's own "0.0.0" version. Lift converts it into the shape the Arc
+// migrations take.
 package console
 
 import (
