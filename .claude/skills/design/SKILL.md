@@ -228,11 +228,12 @@ Load it before the first question. Design adds these gates on top:
 
 ## Rule 9: The deliverable takes the house RFC form
 
-RFCs live in `docs/tech/rfc/`, filename `NNNN-YYMMDD-kebab-title.md` (next sequence
-number, start date). The corpus spine, sections numbered from 0:
+RFCs live in `docs/tech/rfc/`. Read `docs/tech/rfc/CLAUDE.md` before you write one: it
+holds the file name, front matter, heading, definition-list, and prose rules for the
+corpus. The spine, in order:
 
-`# 0 - Summary` -> `Motivation` and/or `Vocabulary` -> `Principles` -> `Design` ->
-`Implementation Phases` -> `Resolved Decisions` -> `Open Questions`.
+`0 Summary` -> `Motivation` and/or `Vocabulary` -> `Principles` -> `Design` ->
+`Implementation phases` -> `Resolved decisions` -> `Open questions`.
 
 Conventions that matter:
 
