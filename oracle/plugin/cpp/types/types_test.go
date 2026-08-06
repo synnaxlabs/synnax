@@ -1963,6 +1963,36 @@ var _ = Describe("C++ Union Generation", func() {
 	)
 
 	It(
+		"Should inherit a union base struct from another namespace with include",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@cpp output "x/cpp/common"
+
+			BaseAIChan struct { port int32 }
+		`)
+			source := `
+			import "schemas/common"
+
+			@cpp output "client/cpp/ni"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "ni/types.gen.h").
+				ToContain(
+					`#include "x/cpp/common/types.gen.h"`,
+					`struct AIVoltageChannel : public ::x::common::BaseAIChan, `+
+						`public VoltageFields {`,
+					`using AIChannel = std::variant<AIVoltageChannel>;`,
+				)
+		},
+	)
+
+	It(
 		"Should resolve a union-typed field to the variant alias",
 		func(ctx SpecContext) {
 			source := `
