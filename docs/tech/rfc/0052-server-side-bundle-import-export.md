@@ -1,4 +1,4 @@
-# 48 - Server-Side Bundle Import/Export
+# 52 - Server-Side Bundle Import/Export
 
 **Feature Name:** Server-Side Bundle Import/Export (Projects and Symbol Groups) <br/>
 **Status:** Draft <br/> **Start Date:** 2026-08-03 <br/> **Authors:** Patrick Dotson
