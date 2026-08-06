@@ -61,6 +61,6 @@ on the correct processes for working on the codebase in that language.
 
 ## 7 Requests for comment
 
-The [RFCs](rfc/README.md) record the design decisions behind the platform: the problem,
-the options weighed, and the alternatives rejected. Read the RFC for a component before
-you change it, and write one before you re-architect it.
+The [RFCs](rfc) record the design decisions behind the platform: the problem, the
+options weighed, and the alternatives rejected. Read the RFC for a component before you
+change it, and write one before you re-architect it.

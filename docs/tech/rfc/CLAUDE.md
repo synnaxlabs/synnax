@@ -4,6 +4,9 @@ Rules for writing and editing RFCs in this directory.
 
 ## Files and structure
 
+- The file name is `NNNN-slug.md`, with the number zero-padded to four digits and no
+  date. Numbers are permanent and gapless. Claim the next free number when you open the
+  pull request.
 - The H1 is `# NN Title` in sentence case, using the unpadded number. A
   `Component - Subtitle` H1 capitalizes the subtitle: `# 4 Signal - Goroutine manager`.
 - Front matter is a bullet list directly under the H1, in this order:

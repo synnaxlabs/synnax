@@ -635,7 +635,7 @@ walk(s):
 
 execute(member):
     if member.scope: walk(member.scope)
-    else: run the node, honouring changed / selfChanged gates
+    else: run the node, honoring changed / selfChanged gates
 ```
 
 The stratifier emits parallel-scope members in phase-flattened order so that

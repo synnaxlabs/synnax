@@ -20,7 +20,7 @@ package format
 //	.proto           license, buf format
 //
 // For TS, eslint --fix runs before prettier so that simple-import-sort
-// reorders imports first; prettier then normalises the whitespace it
+// reorders imports first; prettier then normalizes the whitespace it
 // leaves behind (e.g. `import { a,b }` -> `import { a, b }`). Running
 // prettier first and eslint second produces the inverse output that
 // never converges across syncs.

@@ -167,7 +167,7 @@ var _ = Describe("Render", func() {
 		var buf bytes.Buffer
 		// FormatText path is the default fallback, so any unknown
 		// string just renders as text without error. Confirm the
-		// behaviour is documented: unknown -> text-format render.
+		// behavior is documented: unknown -> text-format render.
 		Expect(check.Render(&buf, r, check.Format("xml"), false)).To(Succeed())
 		Expect(strings.TrimSpace(buf.String())).NotTo(BeEmpty())
 	})

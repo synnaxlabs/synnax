@@ -43,7 +43,7 @@ means we must:
 1. Find an existing embedded storage engine written in Go.
 2. Write a new storage engine tailored towards Delta's specific use case.
 
-Writing a database storage engine is quite an endeavour, so we'd ideally use an existing
+Writing a database storage engine is quite an endeavor, so we'd ideally use an existing
 one (or at least extend its functionality). The following analysis on existing solutions
 ultimately led to a design that extends CockroachDB's
 [pebble](https://github.com/cockroachdb/pebble).

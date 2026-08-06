@@ -23,7 +23,7 @@ import (
 // using their pre-format bytes, which means format drift (e.g. an extra
 // trailing newline) would silently slip through analysis when in fact the
 // formatter rewrote the file. Analyzing the formatted bytes is the only
-// behaviour consistent with what sync would write to disk on the next run.
+// behavior consistent with what sync would write to disk on the next run.
 type overlayLoader struct {
 	inner   analyzer.FileLoader
 	overlay map[string][]byte
