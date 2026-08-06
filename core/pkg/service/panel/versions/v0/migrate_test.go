@@ -381,60 +381,57 @@ var _ = Describe("Project layout to panel migration", func() {
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
 	})
 
-	It(
-		"Should convert staged task layout tabs into resource tabs",
-		func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			legacy := "4294967395"
-			taskKey := uuid.New()
-			stageTaskKey(ctx, db, legacy, taskKey)
-			stageLayout(ctx, db, project.Project{
-				Key:  uuid.New(),
-				Name: "Ops",
-				Layout: msgpack.EncodedJSON{
-					"mosaics": map[string]any{
-						"main": map[string]any{
-							"root": map[string]any{
-								"key": 1,
-								"tabs": []any{
-									mosaicTab(legacy),
-									// Inline app view: not a task, dropped.
-									mosaicTab("docs"),
-								},
+	It("Should convert staged task tabs into resource tabs", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		legacy := "4294967395"
+		taskKey := uuid.New()
+		stageTaskKey(ctx, db, legacy, taskKey)
+		stageLayout(ctx, db, project.Project{
+			Key:  uuid.New(),
+			Name: "Ops",
+			Layout: msgpack.EncodedJSON{
+				"mosaics": map[string]any{
+					"main": map[string]any{
+						"root": map[string]any{
+							"key": 1,
+							"tabs": []any{
+								mosaicTab(legacy),
+								// Inline app view: not a task, dropped.
+								mosaicTab("docs"),
 							},
 						},
 					},
-					"layouts": map[string]any{
-						legacy: vizLayout(legacy, "ni_analog_read"),
-						"docs": map[string]any{
-							"key":      "docs",
-							"type":     "docs",
-							"name":     "Documentation",
-							"location": "mosaic",
-						},
+				},
+				"layouts": map[string]any{
+					legacy: vizLayout(legacy, "ni_analog_read"),
+					"docs": map[string]any{
+						"key":      "docs",
+						"type":     "docs",
+						"name":     "Documentation",
+						"location": "mosaic",
 					},
 				},
-			})
+			},
+		})
 
-			openPanelTable(ctx, db)
-			panels := collectPanels(ctx, db)
-			Expect(panels).To(HaveLen(1))
-			lf, ok := panels[0].Root.Variant.(v0.NodeLeaf)
-			Expect(ok).To(BeTrue())
-			Expect(lf.Tabs).To(HaveLen(1))
-			rt, ok := lf.Tabs[0].Variant.(v0.TabResource)
-			Expect(ok).To(BeTrue())
-			Expect(rt.Key).ToNot(Equal(uuid.Nil))
-			Expect(rt.Resource).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeTask,
-				Key:  taskKey.String(),
-			}))
+		openPanelTable(ctx, db)
+		panels := collectPanels(ctx, db)
+		Expect(panels).To(HaveLen(1))
+		lf, ok := panels[0].Root.Variant.(v0.NodeLeaf)
+		Expect(ok).To(BeTrue())
+		Expect(lf.Tabs).To(HaveLen(1))
+		rt, ok := lf.Tabs[0].Variant.(v0.TabResource)
+		Expect(ok).To(BeTrue())
+		Expect(rt.Key).ToNot(Equal(uuid.Nil))
+		Expect(rt.Resource).To(Equal(ontology.ID{
+			Type: ontology.ResourceTypeTask,
+			Key:  taskKey.String(),
+		}))
 
-			By("Draining the staging entry")
-			Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
-				To(MatchError(query.ErrNotFound))
-		},
-	)
+		By("Draining the staging entry")
+		Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
+			To(MatchError(query.ErrNotFound))
+	})
 
 	It(
 		"Should convert legacy-keyed task view tabs into resource tabs",
