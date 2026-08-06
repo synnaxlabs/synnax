@@ -32,12 +32,12 @@ If you make a change to an upstream dependency, you will need to rebuild it in o
 the changes to reflect in the development server. For more information on this process,
 see the [TypeScript Build Guide](../docs/tech/typescript/build.md).
 
-In Console, it's particularly common to make a change to [pluto](../pluto/README.md),
-rebuild it, and see that change reflected in Console.
+In Console, it's particularly common to make a change to [Pluto](../pluto), rebuild it,
+and see that change reflected in Console.
 
-Typically, you'l also want to run Console in conjunction with the synnax
-[database](../core/README.md) database itself, so you can read/write data, create
-visualizations, etc. For information on how to start up a synnax dev database, see the
+Typically, you'll also want to run Console in conjunction with the Synnax
+[database](../core/README.md) itself, so you can read/write data, create visualizations,
+etc. For information on how to start up a Synnax dev database, see the
 [contributing guide](../core/CONTRIBUTING.md).
 
 ## Building the Application

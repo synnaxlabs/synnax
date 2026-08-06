@@ -112,7 +112,7 @@ Assemble the criteria in force for the touched areas and treat every 🚨 / "nev
 - `docs/claude/toolchains/<language>.md` for every touched language.
 - The `console-testing` skill for any `console/src/**/*.spec.ts[x]` in the diff;
   `oracle/CLAUDE.md` for schemas or generated code.
-- The Resolved Decisions sections of related RFCs (`docs/tech/rfc/`). A diff that
+- The Resolved decisions sections of related RFCs (`docs/tech/rfc/`). A diff that
   re-proposes a rejected alternative gets flagged with the RFC number.
 - Session memories for the touched area — but re-verify any file:line they cite before
   repeating it (Rule 5).
