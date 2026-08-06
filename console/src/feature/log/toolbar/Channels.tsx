@@ -232,7 +232,7 @@ export const Channels = (): ReactElement => {
     () => entries.map((c) => c.channel).filter((k) => !primitive.isZero(k)),
     [entries],
   );
-  const channels = Channel.useRetrieveMultiple({ keys });
+  const channels = Channel.useMultiple({ keys });
   return (
     <Flex.Box y full="y" className={CSS.BE("log", "toolbar", "channels")}>
       {entries.map((entry, i) =>

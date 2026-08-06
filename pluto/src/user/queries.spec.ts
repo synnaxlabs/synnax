@@ -113,11 +113,14 @@ describe("User queries", () => {
     });
   });
 
-  describe("useCachedGroupID", () => {
+  describe("useResultGroupID", () => {
     it("should retrieve the Users group ID", async () => {
-      const { result } = await renderHookSuspended(() => User.useCachedGroupID({}), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => User.useResultGroupID({}).data,
+        {
+          wrapper,
+        },
+      );
 
       await waitFor(() => expect(result.current).toBeDefined());
       const res = await client.ontology.retrieve(result.current as ontology.ID);
@@ -125,7 +128,7 @@ describe("User queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a user by key", async () => {
       const testUser = await client.users.create({
         username: `retrieve-test-${Date.now()}`,
@@ -135,7 +138,7 @@ describe("User queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => User.useRetrieve({ key: testUser.key }),
+        () => User.use({ key: testUser.key }),
         {
           wrapper,
         },
@@ -152,7 +155,7 @@ describe("User queries", () => {
     });
 
     it("should retrieve the current authenticated user when no key provided", async () => {
-      const { result } = await renderHookSuspended(() => User.useRetrieve({}), {
+      const { result } = await renderHookSuspended(() => User.use({}), {
         wrapper,
       });
 
@@ -174,13 +177,13 @@ describe("User queries", () => {
       });
 
       const { result: result1 } = await renderHookSuspended(
-        () => User.useRetrieve({ key: testUser.key }),
+        () => User.use({ key: testUser.key }),
         { wrapper },
       );
       await waitFor(() => expect(result1.current).not.toBeNull());
 
       const { result: result2 } = await renderHookSuspended(
-        () => User.useRetrieve({ key: testUser.key }),
+        () => User.use({ key: testUser.key }),
         { wrapper },
       );
       await waitFor(() => expect(result2.current).not.toBeNull());

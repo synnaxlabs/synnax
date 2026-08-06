@@ -165,7 +165,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a single role by key", async () => {
       const testRole = await client.access.roles.create({
         name: "singleRole",
@@ -173,7 +173,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Role.useRetrieve({ key: testRole.key }),
+        () => Role.use({ key: testRole.key }),
         {
           wrapper,
         },
@@ -191,12 +191,9 @@ describe("queries", () => {
         description: "Valid description",
       });
 
-      const { result } = await renderHookSuspended(
-        () => Role.useRetrieve({ key: role.key }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = await renderHookSuspended(() => Role.use({ key: role.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).not.toBeNull());
 
       expect(result.current).not.toBeNull();
@@ -214,7 +211,7 @@ describe("queries", () => {
 
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Role.useRetrieve({ key: role.key }),
+          retrieve: Role.use({ key: role.key }),
           rename: Role.useRename(),
         }),
         { wrapper },

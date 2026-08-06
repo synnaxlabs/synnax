@@ -28,7 +28,7 @@ import { CSS } from "@/platform/css";
 export const MissingForm = (): ReactElement => {
   const form = Form.useContext();
   const openEditModal = Edit.useModal();
-  const symbolGroup = Schematic.Symbol.useCachedGroup({});
+  const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});
   const [createGroupKey, setCreateGroupKey] = useState<group.Key | undefined>(
     undefined,
   );

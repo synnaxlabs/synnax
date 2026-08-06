@@ -20,13 +20,15 @@ const RESOURCE_NAME = "line plot";
 
 export type RetrieveQuery = lineplot.RetrieveSingleParams;
 
-export const { useRetrieve, useEnsureRetrieved, useTombstone, createSelector } =
-  Flux.createRetrieve<RetrieveQuery, lineplot.LinePlot>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.lineplots.retrieve(query),
-    onChange: ({ client, query }, handler) => client.lineplots.onChange(query, handler),
-    getCached: ({ client, query }) => client.lineplots.getCached(query),
-  });
+export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetrieve<
+  RetrieveQuery,
+  lineplot.LinePlot
+>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.lineplots.retrieve(query),
+  onChange: ({ client, query }, handler) => client.lineplots.onChange(query, handler),
+  getCached: ({ client, query }) => client.lineplots.getCached(query),
+});
 
 export interface SelectKeyParams {
   key: lineplot.Key;
@@ -203,7 +205,7 @@ export const useSelectXAxis = Scope.bindHook(
       key: params.key,
       axisKey: params.axisKey,
     });
-    const chan = Channel.useCached(channel > 0 ? { key: channel } : null);
+    const { data: chan } = Channel.useResult(channel > 0 ? { key: channel } : null);
     return useMemo(() => {
       if (axis.type != null) return axis;
       let type: lineplot.TickType = "linear";
@@ -266,7 +268,7 @@ export const useSelectLine = Scope.bindHook(
     const raw = useSelectRawLine(params);
     const palette = Theming.use().colors.visualization.palettes.default;
     const { yChannel } = lineplot.parseLineKey(raw.line.key);
-    const chan = Channel.useCached(yChannel > 0 ? { key: yChannel } : null);
+    const { data: chan } = Channel.useResult(yChannel > 0 ? { key: yChannel } : null);
     return useMemo(
       () => ({
         ...raw.line,

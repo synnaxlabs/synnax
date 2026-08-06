@@ -1055,7 +1055,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieve cached fast-path", () => {
+  describe("use cached fast-path", () => {
     it("resolves synchronously from the warm store without suspending", async () => {
       const rng = await client.ranges.create({
         name: "cached_fastpath",
@@ -1064,14 +1064,13 @@ describe("queries", () => {
 
       // Warm the flux store (range + labels + parent relationship) through the
       // async retrieve path so the composed cache fast-path can resolve.
-      const warm = await renderHookSuspended(
-        () => Ranger.useRetrieve({ key: rng.key }),
-        { wrapper },
-      );
+      const warm = await renderHookSuspended(() => Ranger.use({ key: rng.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(warm.result.current).toBeDefined());
 
       const Display = (): ReactElement => {
-        const range = Ranger.useRetrieve({ key: rng.key });
+        const range = Ranger.use({ key: rng.key });
         return createElement("span", { "data-testid": "name" }, range.name);
       };
 

@@ -30,7 +30,7 @@ describe("lineplot queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a line plot by key", async () => {
       const project = await client.projects.create({
         name: "test_project",
@@ -41,7 +41,7 @@ describe("lineplot queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => LinePlot.useRetrieve({ key: plot.key }),
+        () => LinePlot.use({ key: plot.key }),
         {
           wrapper,
         },
@@ -63,13 +63,13 @@ describe("lineplot queries", () => {
       });
 
       const { result: result1 } = await renderHookSuspended(
-        () => LinePlot.useRetrieve({ key: plot.key }),
+        () => LinePlot.use({ key: plot.key }),
         { wrapper },
       );
       await waitFor(() => expect(result1.current).not.toBeNull());
 
       const { result: result2 } = await renderHookSuspended(
-        () => LinePlot.useRetrieve({ key: plot.key }),
+        () => LinePlot.use({ key: plot.key }),
         { wrapper },
       );
       await waitFor(() => expect(result2.current).not.toBeNull());
@@ -123,7 +123,7 @@ describe("lineplot queries", () => {
       });
 
       const { result: retrieveResult } = await renderHookSuspended(
-        () => LinePlot.useRetrieve({ key }),
+        () => LinePlot.use({ key }),
         { wrapper },
       );
       await waitFor(() => expect(retrieveResult.current).not.toBeNull());
@@ -143,7 +143,7 @@ describe("lineplot queries", () => {
 
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = LinePlot.useRetrieve({ key: plot.key });
+          const retrieve = LinePlot.use({ key: plot.key });
           const rename = LinePlot.useRename();
           return { retrieve, rename };
         },
@@ -178,7 +178,7 @@ describe("lineplot queries", () => {
 
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: LinePlot.useRetrieve({ key: plot.key }),
+          retrieve: LinePlot.use({ key: plot.key }),
           rename: LinePlot.useRename(),
         }),
         { wrapper },
@@ -252,7 +252,7 @@ describe("lineplot queries", () => {
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
-      const retrieve = await renderHookSuspended(() => LinePlot.useRetrieve({ key }), {
+      const retrieve = await renderHookSuspended(() => LinePlot.use({ key }), {
         wrapper,
       });
       await waitFor(() => expect(retrieve.result.current).toBeDefined());
@@ -262,7 +262,7 @@ describe("lineplot queries", () => {
     it("applies a rename dispatch and updates the cached plot", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: created.key }),
+        retrieve: LinePlot.use({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
@@ -279,7 +279,7 @@ describe("lineplot queries", () => {
     it("restores prior axis bounds after undoing a setAxis dispatch", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: created.key }),
+        retrieve: LinePlot.use({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
         undo: LinePlot.useUndo({ key: created.key }),
       }));
@@ -311,7 +311,7 @@ describe("lineplot queries", () => {
     it("re-applies an axis change after undo then redo", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: created.key }),
+        retrieve: LinePlot.use({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
         undo: LinePlot.useUndo({ key: created.key }),
         redo: LinePlot.useRedo({ key: created.key }),
@@ -348,7 +348,7 @@ describe("lineplot queries", () => {
     it("coalesces a stream of setAxis on the same axis into a single undo step", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: created.key }),
+        retrieve: LinePlot.use({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
         undo: LinePlot.useUndo({ key: created.key }),
       }));
@@ -381,7 +381,7 @@ describe("lineplot queries", () => {
     it("does not coalesce setAxis across different axes", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: created.key }),
+        retrieve: LinePlot.use({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
         undo: LinePlot.useUndo({ key: created.key }),
       }));
@@ -429,7 +429,7 @@ describe("lineplot queries", () => {
     it("keeps setLine creates out of the undo stack so Cmd+Z never silently no-ops", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: created.key }),
+        retrieve: LinePlot.use({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
         undo: LinePlot.useUndo({ key: created.key }),
       }));
@@ -483,7 +483,7 @@ describe("lineplot queries", () => {
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
-      const retrieve = await renderHookSuspended(() => LinePlot.useRetrieve({ key }), {
+      const retrieve = await renderHookSuspended(() => LinePlot.use({ key }), {
         wrapper,
       });
       await waitFor(() => expect(retrieve.result.current).toBeDefined());
@@ -944,7 +944,7 @@ describe("lineplot queries", () => {
     };
 
     const loadAndCount = async <T>(key: string, hook: () => T) => {
-      const retrieve = await renderHookSuspended(() => LinePlot.useRetrieve({ key }), {
+      const retrieve = await renderHookSuspended(() => LinePlot.use({ key }), {
         wrapper,
       });
       await waitFor(() => expect(retrieve.result.current).toBeDefined());
@@ -1387,7 +1387,7 @@ describe("lineplot queries", () => {
       const created = await createPlot();
       const setup = await renderHookSuspended(
         () => ({
-          retrieve: LinePlot.useRetrieve({ key: created.key }),
+          retrieve: LinePlot.use({ key: created.key }),
           dispatch: LinePlot.useDispatch(),
         }),
         { wrapper },
@@ -1453,7 +1453,7 @@ describe("lineplot queries", () => {
       const created = await createPlot();
       const setup = await renderHookSuspended(
         () => ({
-          retrieve: LinePlot.useRetrieve({ key: created.key }),
+          retrieve: LinePlot.use({ key: created.key }),
           dispatch: LinePlot.useDispatch(),
         }),
         { wrapper },

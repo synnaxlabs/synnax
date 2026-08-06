@@ -28,18 +28,13 @@ const PLURAL_RESOURCE_NAME = "panels";
 
 export type RetrieveQuery = { key: panel.Key };
 
-export const {
-  useRetrieve,
-  useEnsureRetrieved,
-  useInvalidate,
-  useCached,
-  createSelector,
-} = Flux.createRetrieve<RetrieveQuery, panel.Panel>({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.panels.retrieve(query),
-  onChange: ({ client, query }, handler) => client.panels.onChange(query, handler),
-  getCached: ({ client, query }) => client.panels.getCached(query),
-});
+export const { use, useEnsure, useInvalidate, useResult, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, panel.Panel>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.panels.retrieve(query),
+    onChange: ({ client, query }, handler) => client.panels.onChange(query, handler),
+    getCached: ({ client, query }) => client.panels.getCached(query),
+  });
 
 export type RetrieveKeysByProjectQuery = { project: project.Key };
 
@@ -52,7 +47,7 @@ const keysOf = (panels: panel.Panel[]): panel.Key[] => panels.map(({ key }) => k
 // A panel's parent lives in the ontology graph and is absent from the panel record, so
 // membership is resolved through the project's children. The answer carries keys alone:
 // consumers read each panel's own fields, so a rename must not re-answer the query.
-export const { useRetrieve: useRetrieveKeysByProject } = Flux.createRetrieve<
+export const { use: useKeysByProject } = Flux.createRetrieve<
   RetrieveKeysByProjectQuery,
   panel.Key[]
 >({

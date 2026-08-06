@@ -71,35 +71,32 @@ export type RetrieveParentQuery = {
   id: ontology.ID;
 };
 
-export const { useRetrieve: useRetrieveParent, useCached: useCachedParent } =
-  Flux.createRetrieve<RetrieveParentQuery, ranger.Range | null>({
-    name: PARENT_RESOURCE_NAME,
-    retrieve: async ({ client, query: { id } }) =>
-      await client.ranges.parent.retrieve(id),
-    onChange: ({ client, query: { id } }, handler) =>
-      client.ranges.parent.onChange(id, handler),
-    getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
-  });
-
-export const {
-  useRetrieve,
-  useEnsureRetrieved,
-  useTombstone,
-  createSelector,
-  useCached,
-} = Flux.createRetrieve<RetrieveQuery, ranger.Range>({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
-  onChange: ({ client, query: { key } }, handler) =>
-    client.ranges.onChange(key, handler),
-  getCached: ({ client, query: { key } }) => client.ranges.getCached(key),
+export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
+  RetrieveParentQuery,
+  ranger.Range | null
+>({
+  name: PARENT_RESOURCE_NAME,
+  retrieve: async ({ client, query: { id } }) =>
+    await client.ranges.parent.retrieve(id),
+  onChange: ({ client, query: { id } }, handler) =>
+    client.ranges.parent.onChange(id, handler),
+  getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
 });
+
+export const { use, useEnsure, useTombstone, createSelector, useResult } =
+  Flux.createRetrieve<RetrieveQuery, ranger.Range>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
+    onChange: ({ client, query: { key } }, handler) =>
+      client.ranges.onChange(key, handler),
+    getCached: ({ client, query: { key } }) => client.ranges.getCached(key),
+  });
 
 export type RetrieveMultipleQuery = {
   keys: ranger.Key[];
 };
 
-export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+export const { use: useMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
   ranger.Range[]
 >({
@@ -183,7 +180,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
 });
 
 export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
-  Label.useCachedLabelsOf(key == null ? null : { id: ranger.ontologyID(key) });
+  Label.useResultLabelsOf(key == null ? null : { id: ranger.ontologyID(key) }).data;
 
 export { type ListQuery } from "@/ranger/aether/queries";
 

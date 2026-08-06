@@ -100,7 +100,7 @@ const Tab = ({ tabKey }: TabProps): ReactElement => (
 );
 
 const TabContent = ({ tabKey }: TabProps): ReactElement => {
-  Panel.useEnsureRetrieved({ key: tabKey });
+  Panel.useEnsure({ key: tabKey });
   const name = Panel.useSelectName({ key: tabKey });
   const { update: rename } = Panel.useRename();
   const handleChange = useCallback(
@@ -135,7 +135,7 @@ const Internal = (): ReactElement => {
   const dispatch = useDispatch();
   const selected = Session.Panel.useSelectSelected();
   const projectKey = Session.Project.useSelectSelected();
-  const keys = Panel.useRetrieveKeysByProject({ project: projectKey });
+  const keys = Panel.useKeysByProject({ project: projectKey });
 
   const handleSelect = useCallback(
     (key: string) => dispatch(Session.Panel.select({ key })),

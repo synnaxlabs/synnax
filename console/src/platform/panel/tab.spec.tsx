@@ -189,7 +189,7 @@ describe("Panel tab", () => {
       const ensureRetrieved = vi.fn();
       const rename = vi.fn();
       const service: Panel.EditableTabNameService = {
-        useEnsureRetrieved: ensureRetrieved,
+        useEnsure: ensureRetrieved,
         useSelectName: () => "Resolved Name",
         useRename: () => ({ update: rename }),
       };

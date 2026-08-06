@@ -22,7 +22,7 @@ interface InternalProps {
 }
 
 const Internal = ({ taskKey }: InternalProps) => {
-  const parent = Ranger.useRetrieveParent({ id: task.ontologyID(taskKey) });
+  const parent = Ranger.useParent({ id: task.ontologyID(taskKey) });
   const openTab = Panel.useOpenTab();
   if (parent == null) return null;
   const { key, name } = parent;

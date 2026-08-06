@@ -18,7 +18,7 @@ import { Tree } from "@/platform/tree";
 import { User as PlatformUser } from "@/platform/user";
 
 const Content = (): ReactElement => {
-  const groupID = User.useCachedGroupID({});
+  const { data: groupID } = User.useResultGroupID({});
   const openRegister = PlatformUser.useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (

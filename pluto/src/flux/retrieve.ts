@@ -27,6 +27,14 @@ import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-s
 
 import { type flux } from "@/flux/aether";
 import { DeletedError, type Tombstone, tombstoneOf } from "@/flux/errors";
+import {
+  errorResult,
+  loadingResult,
+  noQueryResult,
+  nullClientResult,
+  type Result,
+  successResult,
+} from "@/flux/result";
 import { useMemoDeepEqual } from "@/memo";
 import { Synnax } from "@/synnax";
 
@@ -68,7 +76,7 @@ export interface CreateRetrieveParams<
 /// Concurrent reads of the same query share one fetch via the domain client's
 /// query cache. Client-side listeners push new values into the cache, which
 /// notifies subscribed consumers without re-suspending.
-export interface UseRetrieve<Query extends query.Params, Data extends state.State> {
+export interface Use<Query extends query.Params, Data extends state.State> {
   (query: Query): Data;
 }
 
@@ -87,9 +95,9 @@ export interface UseRetrieve<Query extends query.Params, Data extends state.Stat
 ///      suspend independently; pre-warming the cache here collapses them into
 ///      a single fetch.
 ///
-/// Reach for `useRetrieve` instead if the caller itself needs the data or
+/// Reach for `use` instead if the caller itself needs the data or
 /// needs to re-render when it changes.
-export interface UseEnsureRetrieved<Query extends query.Params> {
+export interface UseEnsure<Query extends query.Params> {
   (query: Query): void;
 }
 
@@ -114,7 +122,7 @@ export interface UseTombstone<Query extends query.Params> {
 /**
  * A warm-cache projected read: returns the selected slice of the query's cached
  * answer and re-renders only when that slice changes. Never suspends and never
- * fetches; a parent must have retrieved the query (see useEnsureRetrieved).
+ * fetches; a parent must have retrieved the query (see useEnsure).
  * @throws {NotFoundError} when nothing is cached for the query.
  * @throws {DeletedError} when the cached answer is a tombstone.
  * @throws {DisconnectedError} when no Core is connected.
@@ -124,16 +132,16 @@ export interface UseSelect<Query extends query.Params, Selected> {
 }
 
 /**
- * A reactive cached read for fine-grained render loops where suspension is illegal and
- * no parent can enumerate the queried keys. Serves the cached answer, subscribes for
- * changes, and kicks a deduped background fetch on a cold miss. Never suspends and
- * never throws: a miss, a deleted record, a failed fetch, and a disconnected client all
- * read as undefined, and a null query skips the read. An answer the domain cache never
- * holds is served once, from the fetch. Reach for `useRetrieve` wherever the caller may
- * suspend.
+ * A reactive read for callers that must handle loading and failure themselves, where
+ * suspension is illegal or absence is a state to render rather than an error. Serves
+ * the cached answer, subscribes for changes, and kicks a deduped background fetch on a
+ * cold miss. Never suspends and never throws: the variant reports loading, success, and
+ * failure, a null query or absent client reads as disabled, and an answer the domain
+ * cache never holds is served once, from the fetch. Reach for `use` wherever the caller
+ * may suspend.
  */
-export interface UseCached<Query extends query.Params, Data extends state.State> {
-  (query: Query | null): Data | undefined;
+export interface UseResult<Query extends query.Params, Data extends state.State> {
+  (query: Query | null): Result<Data>;
 }
 
 /**
@@ -152,9 +160,9 @@ export interface CreateRetrieveReturn<
   Query extends query.Params,
   Data extends state.State,
 > {
-  useRetrieve: UseRetrieve<Query, Data>;
-  useEnsureRetrieved: UseEnsureRetrieved<Query>;
-  useCached: UseCached<Query, Data>;
+  use: Use<Query, Data>;
+  useEnsure: UseEnsure<Query>;
+  useResult: UseResult<Query, Data>;
   useInvalidate: UseInvalidate<Query>;
   useTombstone: UseTombstone<Query>;
   createSelector: CreateSelector<Query, Data>;
@@ -382,7 +390,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   return suspendOnFetch(params, { name, retrieve, onChange, getCached, local });
 };
 
-const useCachedValue = <Query extends query.Params, Data extends query.Data>({
+const useResultValue = <Query extends query.Params, Data extends query.Data>({
   query: q,
   locals,
   name,
@@ -392,7 +400,7 @@ const useCachedValue = <Query extends query.Params, Data extends query.Data>({
   deriveCached,
   equal,
 }: Omit<UseSuspendedParams<Query, Data>, "query"> &
-  CreateRetrieveParams<Query, Data> & { query: Query | null }): Data | undefined => {
+  CreateRetrieveParams<Query, Data> & { query: Query | null }): Result<Data> => {
   const memoQuery = useMemoDeepEqual(q);
   // A retrieve whose answer never reaches the domain cache is served from the local
   // settled entry, which no subscription announces, so settling re-renders by hand.
@@ -421,27 +429,28 @@ const useCachedValue = <Query extends query.Params, Data extends query.Data>({
     }, [client, memoQuery]),
   );
 
-  if (client == null || memoQuery == null) return undefined;
-  if (cached !== undefined) return Deleted.matches<Data>(cached) ? undefined : cached;
+  if (client == null) return nullClientResult<Data>(`retrieve ${name}`);
+  if (memoQuery == null) return noQueryResult<Data>(`retrieve ${name}`);
+  if (cached !== undefined) {
+    if (!Deleted.matches<Data>(cached))
+      return successResult(`retrieved ${name}`, cached);
+    return errorResult(
+      `retrieve ${name}`,
+      new DeletedError(`${name} was deleted`, cached.corpse),
+    );
+  }
 
   const local = localFor(locals, client);
   const params = { client, query: memoQuery };
   const derived = deriveCached?.(params);
-  if (derived != null) return derived;
+  if (derived != null) return successResult(`retrieved ${name}`, derived);
   const settled = local.settled.get(query.hash(memoQuery));
-  if (settled != null) return "data" in settled ? settled.data : undefined;
-  ensureFetch(params, { name, retrieve, onChange, getCached, local }).then(
-    () => bump(),
-    (exc: unknown) => {
-      bump();
-      const cause = exc instanceof Error && exc.cause != null ? exc.cause : exc;
-      // An absent or deleted record is a state this read renders as undefined,
-      // not a failure worth reporting.
-      if (NotFoundError.matches(cause) || DeletedError.matches(cause)) return;
-      console.error(exc);
-    },
-  );
-  return undefined;
+  if (settled != null)
+    return "data" in settled
+      ? successResult(`retrieved ${name}`, settled.data)
+      : errorResult(`retrieve ${name}`, settled.error);
+  ensureFetch(params, { name, retrieve, onChange, getCached, local }).then(bump, bump);
+  return loadingResult<Data>(`retrieving ${name}`);
 };
 
 const useEnsure = <Query extends query.Params, Data extends query.Data>({
@@ -515,7 +524,7 @@ const useTombstone = <Query extends query.Params, Data extends query.Data>({
   );
 };
 
-const createUseSelect = <
+const createSelector = <
   Query extends query.Params,
   Data extends query.Data,
   Selected,
@@ -597,10 +606,10 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
 ): CreateRetrieveReturn<Query, Data> => {
   const locals = new WeakMap<Client, LocalCache<Data>>();
   return {
-    useRetrieve: (query: Query) => useSuspended({ ...createParams, query, locals }),
-    useEnsureRetrieved: (query: Query) => useEnsure({ ...createParams, query, locals }),
-    useCached: (query: Query | null) =>
-      useCachedValue({ ...createParams, query, locals }),
+    use: (query: Query) => useSuspended({ ...createParams, query, locals }),
+    useEnsure: (query: Query) => useEnsure({ ...createParams, query, locals }),
+    useResult: (query: Query | null) =>
+      useResultValue({ ...createParams, query, locals }),
     useInvalidate: () => useInvalidate<Query, Data>(locals),
     useTombstone: (query: Query) => useTombstone({ ...createParams, query }),
     createSelector: <Selected, ExtendedQuery extends Query = Query>(
@@ -612,7 +621,7 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
         throw new UnexpectedError(
           `Cannot create a selector for ${createParams.name}: no getCached defined.`,
         );
-      return createUseSelect({ ...createParams, getCached }, select, equal);
+      return createSelector({ ...createParams, getCached }, select, equal);
     },
   };
 };

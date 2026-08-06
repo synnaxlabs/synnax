@@ -17,7 +17,7 @@ import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
 const Internal = ({ keys }: Menu.ContextMenuMenuProps) => {
-  const statuses = Status.useRetrieveMultiple({ keys });
+  const statuses = Status.useMultiple({ keys });
   const dispatch = Session.useDispatch();
   const favoriteSet = Session.Status.useSelectFavoriteSet();
   const ids = status.ontologyID(keys);

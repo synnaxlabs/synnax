@@ -297,7 +297,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a task by key", async () => {
       const rack = await client.racks.create({
         name: "retrieveRack",
@@ -309,7 +309,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Task.useRetrieve({ key: testTask.key }),
+        () => Task.use({ key: testTask.key }),
         {
           wrapper,
         },
@@ -348,7 +348,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Task.useRetrieve({ key: testTask.key, includeStatus: true }),
+        () => Task.use({ key: testTask.key, includeStatus: true }),
         { wrapper },
       );
       await waitFor(() => {
@@ -370,7 +370,7 @@ describe("queries", () => {
 
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Task.useRetrieve({ key: testTask.key });
+          const retrieve = Task.use({ key: testTask.key });
           const rename = Task.useRename();
           return { retrieve, rename };
         },
@@ -401,7 +401,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Task.useRetrieve({ key: testTask.key }),
+        () => Task.use({ key: testTask.key }),
         {
           wrapper,
         },
@@ -453,14 +453,11 @@ describe("queries", () => {
         statusData: z.any().optional(),
       };
 
-      const { useRetrieve } = Task.createRetrieve(schemas);
+      const { use } = Task.createRetrieve(schemas);
 
-      const { result } = await renderHookSuspended(
-        () => useRetrieve({ key: testTask.key }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = await renderHookSuspended(() => use({ key: testTask.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.type).toEqual("typedTask");
       expect(result.current?.config.port).toEqual(8080);

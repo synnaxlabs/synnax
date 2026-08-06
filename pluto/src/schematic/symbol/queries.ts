@@ -14,12 +14,29 @@ import {
   query,
   schematic,
 } from "@synnaxlabs/client";
-import { errors, verbs } from "@synnaxlabs/x";
-import { useEffect, useState } from "react";
+import { verbs } from "@synnaxlabs/x";
+import { useMemo } from "react";
 
 import { Flux } from "@/flux";
-import { Status } from "@/status/base";
-import { Synnax } from "@/synnax";
+
+const RESOURCE_NAME = "schematic symbol";
+const PLURAL_RESOURCE_NAME = "schematic symbols";
+
+export type RetrieveQuery = {
+  key: string;
+};
+
+export const { use, useResult } = Flux.createRetrieve<
+  RetrieveQuery,
+  schematic.symbol.Symbol
+>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) =>
+    await client.schematics.symbols.retrieve(query),
+  onChange: ({ client, query }, handler) =>
+    client.schematics.symbols.onChange(query, handler),
+  getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
+});
 
 export interface Resolved {
   symbol?: schematic.symbol.Symbol;
@@ -34,47 +51,15 @@ export interface Resolved {
  * true only once the reference is known to be dangling.
  */
 export const useResolved = (key: string | null): Resolved => {
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const [resolved, setResolved] = useState<Resolved>({ missing: false });
-  useEffect(() => {
-    setResolved({ missing: false });
-    if (client == null || key == null) return;
-    handleError(async () => {
-      try {
-        const symbol = await client.schematics.symbols.retrieve({ key });
-        setResolved({ symbol, missing: false });
-      } catch (e) {
-        if (NotFoundError.matches(e)) return setResolved({ missing: true });
-        throw errors.fromUnknown(e);
-      }
-    }, "Failed to retrieve schematic symbol");
-    return client.schematics.symbols.onChange({ key }, (res) => {
-      if (query.isLive(res)) setResolved({ symbol: res, missing: false });
-      else if (query.Deleted.matches(res)) setResolved({ missing: true });
-    });
-  }, [client, key, handleError]);
-  return resolved;
+  const res = useResult(key == null ? null : { key });
+  return useMemo(() => {
+    if (res.variant !== "error") return { symbol: res.data, missing: false };
+    const { error } = res.status.details;
+    return {
+      missing: NotFoundError.matches(error.cause) || Flux.DeletedError.matches(error),
+    };
+  }, [res]);
 };
-
-const RESOURCE_NAME = "schematic symbol";
-const PLURAL_RESOURCE_NAME = "schematic symbols";
-
-export type RetrieveQuery = {
-  key: string;
-};
-
-export const { useRetrieve } = Flux.createRetrieve<
-  RetrieveQuery,
-  schematic.symbol.Symbol
->({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) =>
-    await client.schematics.symbols.retrieve(query),
-  onChange: ({ client, query }, handler) =>
-    client.schematics.symbols.onChange(query, handler),
-  getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
-});
 
 export type ListQuery = {
   keys?: string[];
@@ -179,7 +164,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
-export const { useCached: useCachedGroup } = Flux.createRetrieve<{}, group.Group>({
+export const { useResult: useResultGroup } = Flux.createRetrieve<{}, group.Group>({
   name: RESOURCE_NAME,
   retrieve: async ({ client }) => await client.schematics.symbols.retrieveGroup(),
 });

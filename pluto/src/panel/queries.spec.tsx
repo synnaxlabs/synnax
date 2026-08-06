@@ -70,7 +70,7 @@ describe("Panel queries", () => {
     node?.variant === "leaf" ? node.tabs.map((t) => t.key) : undefined;
 
   const loadAndUse = async <T,>(key: panel.Key, hook: () => T) => {
-    const retrieve = await renderHookSuspended(() => Panel.useRetrieve({ key }), {
+    const retrieve = await renderHookSuspended(() => Panel.use({ key }), {
       wrapper,
     });
     await waitFor(() => expect(retrieve.result.current).toBeDefined());
@@ -78,7 +78,7 @@ describe("Panel queries", () => {
   };
 
   const loadAndCount = async <T,>(key: panel.Key, hook: () => T) => {
-    const retrieve = await renderHookSuspended(() => Panel.useRetrieve({ key }), {
+    const retrieve = await renderHookSuspended(() => Panel.use({ key }), {
       wrapper,
     });
     await waitFor(() => expect(retrieve.result.current).toBeDefined());
@@ -112,11 +112,11 @@ describe("Panel queries", () => {
     return { created, ops, tabA, tabB };
   };
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should fetch a panel by key", async () => {
       const created = await client.panels.create({ name: "retrieve-target" });
       const { result } = await renderHookSuspended(
-        () => Panel.useRetrieve({ key: created.key }),
+        () => Panel.use({ key: created.key }),
         {
           wrapper,
         },
@@ -129,13 +129,13 @@ describe("Panel queries", () => {
     it("should cache retrieved panels", async () => {
       const created = await createPanel();
       const { result: first } = await renderHookSuspended(
-        () => Panel.useRetrieve({ key: created.key }),
+        () => Panel.use({ key: created.key }),
         { wrapper },
       );
       await waitFor(() => expect(first.current).not.toBeNull());
 
       const { result: second } = await renderHookSuspended(
-        () => Panel.useRetrieve({ key: created.key }),
+        () => Panel.use({ key: created.key }),
         { wrapper },
       );
       await waitFor(() => expect(second.current).not.toBeNull());
@@ -143,14 +143,14 @@ describe("Panel queries", () => {
     });
   });
 
-  describe("useEnsureRetrieved", () => {
-    // Single-hook bootstrap component so the suspending useEnsureRetrieved is
+  describe("useEnsure", () => {
+    // Single-hook bootstrap component so the suspending useEnsure is
     // not followed by additional hooks; that shape trips a React 19
     // concurrent-replay warning.
     it("populates the cache so downstream selectors resolve", async () => {
       const created = await createPanel();
       const Bootstrap = (): ReactElement => {
-        Panel.useEnsureRetrieved({ key: created.key });
+        Panel.useEnsure({ key: created.key });
         return <div data-testid="loaded" />;
       };
       const Wrapper = wrapper;
@@ -176,7 +176,7 @@ describe("Panel queries", () => {
       const created = await createPanel();
       const Wrapper = wrapper;
       const Bootstrap = (): ReactElement => {
-        Panel.useEnsureRetrieved({ key: created.key });
+        Panel.useEnsure({ key: created.key });
         return <div data-testid="loaded" />;
       };
       // Warm the store through the production retrieve path.
@@ -194,7 +194,7 @@ describe("Panel queries", () => {
 
       // With the store warm, the fast-path resolves without suspending.
       const Probe = (): ReactElement => {
-        Panel.useEnsureRetrieved({ key: created.key });
+        Panel.useEnsure({ key: created.key });
         return <div data-testid="ready" />;
       };
       let utils!: ReturnType<typeof render>;
@@ -225,7 +225,7 @@ describe("Panel queries", () => {
       expect(result.current.data?.name).toEqual("created-panel");
 
       const { result: retrieved } = await renderHookSuspended(
-        () => Panel.useRetrieve({ key }),
+        () => Panel.use({ key }),
         {
           wrapper,
         },
@@ -296,7 +296,7 @@ describe("Panel queries", () => {
     });
   });
 
-  describe("useRetrieveKeysByProject", () => {
+  describe("useKeysByProject", () => {
     const newProject = async (): Promise<project.Key> =>
       (
         await client.projects.create({
@@ -317,7 +317,7 @@ describe("Panel queries", () => {
       let rendered!: RenderHookResult<panel.Key[], unknown>;
       await act(async () => {
         rendered = await renderHookSuspended(
-          () => Panel.useRetrieveKeysByProject({ project: key }),
+          () => Panel.useKeysByProject({ project: key }),
           {
             wrapper: suspended,
           },
@@ -476,7 +476,7 @@ describe("Panel queries", () => {
     it("applies insert_tab and persists it to the server", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       const tab = newTab();
@@ -497,7 +497,7 @@ describe("Panel queries", () => {
     it("splits the target leaf when insert_tab carries an edge location", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       const [tabA, tabB] = [newTab(), newTab()];
@@ -531,7 +531,7 @@ describe("Panel queries", () => {
     it("resizes a split and round-trips the new ratio", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       const [tabA, tabB] = [newTab(), newTab()];
@@ -560,7 +560,7 @@ describe("Panel queries", () => {
     it("splits a tab off into a new sibling pane", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       const [tabA, tabB] = [newTab(), newTab()];
@@ -591,7 +591,7 @@ describe("Panel queries", () => {
     it("ignores moving a leaf's only tab to an edge of its own leaf", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       const tab = newTab();
@@ -624,7 +624,7 @@ describe("Panel queries", () => {
     it("collapses the emptied leaf after remove_tab", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       const [tabA, tabB] = [newTab(), newTab()];
@@ -659,7 +659,7 @@ describe("Panel queries", () => {
       const created = await createPanel();
       const tab = newTab();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       await act(async () => {
@@ -692,7 +692,7 @@ describe("Panel queries", () => {
       const tab = newTab();
       const resource = { type: "lineplot", key: uuid.create() } as const;
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       await act(async () => {
@@ -900,7 +900,7 @@ describe("Panel queries", () => {
     it("useSelectRoot keeps a stable reference across a rename", async () => {
       const created = await createPanel();
       const ops = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         rename: Panel.useRename(),
       }));
       const { result, renderCount } = await loadAndCount(created.key, () =>
@@ -1355,7 +1355,7 @@ describe("Panel queries", () => {
     it("dispatches a single action for the given key", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useSingleDispatch({ key: created.key }),
       }));
       const tab = newTab();
@@ -1372,7 +1372,7 @@ describe("Panel queries", () => {
     it("dispatches an array of actions in one call", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useSingleDispatch({ key: created.key }),
       }));
       const [tabA, tabB] = [newTab(), newTab()];
@@ -1402,7 +1402,7 @@ describe("Panel queries", () => {
       };
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Panel.useRetrieve({ key: created.key }),
+          retrieve: Panel.use({ key: created.key }),
           dispatch: Panel.useSingleDispatch(),
         }),
         { wrapper: composed },
@@ -1422,10 +1422,10 @@ describe("Panel queries", () => {
   });
 
   describe("reactive sync", () => {
-    it("should propagate rename through the channel listener to useRetrieve", async () => {
+    it("should propagate rename through the channel listener to use", async () => {
       const target = await client.panels.create({ name: "reactive-before" });
       const { result } = await renderHookSuspended(
-        () => Panel.useRetrieve({ key: target.key }),
+        () => Panel.use({ key: target.key }),
         {
           wrapper,
         },
@@ -1506,7 +1506,7 @@ describe("Panel queries", () => {
         newResourceTab(survivor),
       ];
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       await insert(result.current.dispatch, created.key, doomedTab, survivorTab);
@@ -1530,7 +1530,7 @@ describe("Panel queries", () => {
       const resource = await createLabel();
       const tab = newResourceTab(resource);
       const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
+        retrieve: Panel.use({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
       await insert(result.current.dispatch, created.key, tab);

@@ -245,7 +245,7 @@ describe("Symbol queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Symbol.useRetrieve({ key: symbol.key }),
+        () => Symbol.use({ key: symbol.key }),
         {
           wrapper,
         },
@@ -410,9 +410,9 @@ describe("Symbol queries", () => {
     });
   });
 
-  describe("useCachedGroup", () => {
+  describe("useResultGroup", () => {
     it("should retrieve the symbol group", async () => {
-      const { result } = renderHook(() => Symbol.useCachedGroup({}), { wrapper });
+      const { result } = renderHook(() => Symbol.useResultGroup({}).data, { wrapper });
       await waitFor(() => expect(result.current?.name).toBe("Schematic Symbols"));
     });
   });

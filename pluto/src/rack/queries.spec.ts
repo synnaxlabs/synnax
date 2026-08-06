@@ -26,11 +26,11 @@ describe("queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a rack by its key", async () => {
       const testRack = await client.racks.create({ name: "testRack" });
       const { result } = await renderHookSuspended(
-        () => Rack.useRetrieve({ key: testRack.key }),
+        () => Rack.use({ key: testRack.key }),
         {
           wrapper,
         },
@@ -43,7 +43,7 @@ describe("queries", () => {
     it("should include the status of the rack by default", async () => {
       const testRack = await client.racks.create({ name: "testRack" });
       const { result } = await renderHookSuspended(
-        () => Rack.useRetrieve({ key: testRack.key }),
+        () => Rack.use({ key: testRack.key }),
         {
           wrapper,
         },
@@ -56,7 +56,7 @@ describe("queries", () => {
     it("should include the status of the rack even when the query is cached", async () => {
       const testRack = await client.racks.create({ name: "testRack2" });
       const { result: result1 } = await renderHookSuspended(
-        () => Rack.useRetrieve({ key: testRack.key }),
+        () => Rack.use({ key: testRack.key }),
         { wrapper },
       );
       await waitFor(() => expect(result1.current).not.toBeNull());
@@ -72,7 +72,7 @@ describe("queries", () => {
         await client.statuses.set(rackStatus);
       });
       const { result: result2 } = await renderHookSuspended(
-        () => Rack.useRetrieve({ key: testRack.key }),
+        () => Rack.use({ key: testRack.key }),
         { wrapper },
       );
       await waitFor(() => expect(result2.current).not.toBeNull());
@@ -430,7 +430,7 @@ describe("queries", () => {
       });
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Rack.useRetrieve({ key: testRack.key });
+          const retrieve = Rack.use({ key: testRack.key });
           const rename = Rack.useRename();
           return { retrieve, rename };
         },

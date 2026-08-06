@@ -39,14 +39,14 @@ const createTestSchematic = async (projectKey: string): Promise<schematic.Schema
   });
 
 // Loads the schematic at `key` into the cache. Uses a single-hook bootstrap
-// component so the suspending `useEnsureRetrieved` is not followed by
+// component so the suspending `useEnsure` is not followed by
 // additional hooks; that shape trips a React 19 concurrent-replay warning.
 const loadSchematic = async (
   Wrapper: FC<PropsWithChildren>,
   key: string,
 ): Promise<ReturnType<typeof render>> => {
   const Bootstrap = (): ReactElement => {
-    Schematic.useEnsureRetrieved({ key });
+    Schematic.useEnsure({ key });
     return <div data-testid="loaded" />;
   };
   let utils!: ReturnType<typeof render>;
@@ -73,12 +73,12 @@ describe("schematic queries", () => {
     ]);
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("suspends until the schematic loads, then returns it", async () => {
       const schem = await createTestSchematic(proj.key);
 
       const Display = (): ReactElement => {
-        const s = Schematic.useRetrieve({ key: schem.key });
+        const s = Schematic.use({ key: schem.key });
         return <div data-testid="name">{s.name}</div>;
       };
 
@@ -103,7 +103,7 @@ describe("schematic queries", () => {
       await loadSchematic(Wrapper, schem.key);
 
       const Display = (): ReactElement => {
-        const s = Schematic.useRetrieve({ key: schem.key });
+        const s = Schematic.use({ key: schem.key });
         return <div data-testid="name">{s.name}</div>;
       };
 
@@ -123,7 +123,7 @@ describe("schematic queries", () => {
     });
   });
 
-  describe("useEnsureRetrieved", () => {
+  describe("useEnsure", () => {
     it("populates the store so downstream selectors resolve", async () => {
       const schem = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, schem.key);

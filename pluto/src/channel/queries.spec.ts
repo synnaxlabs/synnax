@@ -793,7 +793,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a channel by key", async () => {
       const name = id.create();
       const ch = await client.channels.create({
@@ -801,12 +801,9 @@ describe("queries", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      const { result } = await renderHookSuspended(
-        () => Channel.useRetrieve({ key: ch.key }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = await renderHookSuspended(() => Channel.use({ key: ch.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(ch.key);
       expect(result.current?.name).toEqual(name);
@@ -830,7 +827,7 @@ describe("queries", () => {
       await client.ranges.setAlias(range.key, ch.key, "custom_alias");
 
       const { result } = await renderHookSuspended(
-        () => Channel.useRetrieve({ key: ch.key, rangeKey: range.key }),
+        () => Channel.use({ key: ch.key, rangeKey: range.key }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).not.toBeNull());
@@ -846,7 +843,7 @@ describe("queries", () => {
       });
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Channel.useRetrieve({ key: ch.key });
+          const retrieve = Channel.use({ key: ch.key });
           const rename = Channel.useRename();
           return { retrieve, rename };
         },
@@ -892,7 +889,7 @@ describe("queries", () => {
         details: { channel: calc.key },
       });
       const { result } = await renderHookSuspended(
-        () => Channel.useRetrieve({ key: calc.key }),
+        () => Channel.use({ key: calc.key }),
         {
           wrapper,
         },
@@ -917,7 +914,7 @@ describe("queries", () => {
         expression: `return ${source.name} * 2`,
       });
       const { result } = await renderHookSuspended(
-        () => Channel.useRetrieve({ key: calc.key }),
+        () => Channel.use({ key: calc.key }),
         {
           wrapper,
         },
@@ -939,7 +936,7 @@ describe("queries", () => {
         expression: `return ${source.name} * 2`,
       });
       const { result } = await renderHookSuspended(
-        () => Channel.useRetrieve({ key: calc.key }),
+        () => Channel.use({ key: calc.key }),
         {
           wrapper,
         },
@@ -967,7 +964,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieveMultiple", () => {
+  describe("useMultiple", () => {
     it("should retrieve multiple channels by keys", async () => {
       const ch1 = await client.channels.create({
         name: id.create(),
@@ -980,7 +977,7 @@ describe("queries", () => {
         virtual: true,
       });
       const { result } = await renderHookSuspended(
-        () => Channel.useRetrieveMultiple({ keys: [ch1.key, ch2.key] }),
+        () => Channel.useMultiple({ keys: [ch1.key, ch2.key] }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).not.toBeNull());
@@ -1014,7 +1011,7 @@ describe("queries", () => {
 
       const { result } = await renderHookSuspended(
         () =>
-          Channel.useRetrieveMultiple({
+          Channel.useMultiple({
             keys: [ch1.key, ch2.key],
             rangeKey: range.key,
           }),
@@ -1041,7 +1038,7 @@ describe("queries", () => {
       });
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Channel.useRetrieveMultiple({ keys: [ch1.key, ch2.key] });
+          const retrieve = Channel.useMultiple({ keys: [ch1.key, ch2.key] });
           const rename = Channel.useRename();
           return { retrieve, rename };
         },
@@ -1164,7 +1161,7 @@ describe("queries", () => {
 
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Channel.useRetrieve({ key: ch.key, rangeKey: range.key });
+          const retrieve = Channel.use({ key: ch.key, rangeKey: range.key });
           const updateAlias = Channel.useUpdateAlias();
           return { retrieve, updateAlias };
         },
@@ -1216,7 +1213,7 @@ describe("queries", () => {
 
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Channel.useRetrieve({ key: ch.key, rangeKey: range.key });
+          const retrieve = Channel.use({ key: ch.key, rangeKey: range.key });
           const deleteAlias = Channel.useDeleteAlias();
           return { retrieve, deleteAlias };
         },
@@ -1261,7 +1258,7 @@ describe("queries", () => {
 
       const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Channel.useRetrieveMultiple({
+          const retrieve = Channel.useMultiple({
             keys: [ch1.key, ch2.key],
             rangeKey: range.key,
           });
@@ -1293,22 +1290,22 @@ describe("queries", () => {
     });
   });
 
-  describe("useCachedGroup", () => {
+  describe("useResultGroup", () => {
     it("should retrieve the channel group", async () => {
-      const { result } = renderHook(() => Channel.useCachedGroup({}), { wrapper });
+      const { result } = renderHook(() => Channel.useResultGroup({}).data, { wrapper });
       await waitFor(() => expect(result.current).toBeDefined());
       expect(result.current?.key).toBeDefined();
       expect(result.current?.name).toEqual("Channels");
     });
 
     it("should serve the same group to a second caller", async () => {
-      const { result: result1 } = renderHook(() => Channel.useCachedGroup({}), {
+      const { result: result1 } = renderHook(() => Channel.useResultGroup({}).data, {
         wrapper,
       });
       await waitFor(() => expect(result1.current).toBeDefined());
       const firstGroup = result1.current;
 
-      const { result: result2 } = renderHook(() => Channel.useCachedGroup({}), {
+      const { result: result2 } = renderHook(() => Channel.useResultGroup({}).data, {
         wrapper,
       });
       await waitFor(() => expect(result2.current?.key).toEqual(firstGroup?.key));

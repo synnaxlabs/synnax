@@ -145,7 +145,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
-  const channels = PChannel.useRetrieveMultiple({
+  const channels = PChannel.useMultiple({
     rangeKey: activeRange?.key,
     keys: channelKeys,
   });
@@ -233,7 +233,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const activeRange = Session.Range.useSelectState();
-  const res = PChannel.useCached({
+  const { data: res } = PChannel.useResult({
     key: Number(resource.id.key),
     rangeKey: activeRange?.key,
   });

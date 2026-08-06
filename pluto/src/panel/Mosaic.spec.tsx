@@ -133,7 +133,7 @@ const children: Panel.MosaicProps["children"] = () => <TabContentProbe />;
 // trips a React 19 dev-mode replay bug for hooks declared after the
 // suspension point.
 const Bootstrap = ({ panelKey }: { panelKey: panel.Key }): ReactElement => {
-  Panel.useEnsureRetrieved({ key: panelKey });
+  Panel.useEnsure({ key: panelKey });
   return <p>loaded</p>;
 };
 

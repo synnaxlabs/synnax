@@ -54,7 +54,7 @@ export const createRetrieve = <
         query.Cached<device.Device<Properties, Make, Model>> | undefined,
   });
 
-export const { useRetrieve, useCached } = createRetrieve();
+export const { use, useResult } = createRetrieve();
 
 export type ListParams = device.RetrieveMultipleParams;
 
@@ -109,7 +109,7 @@ export const { useUpdate: useCreate } = createCreate();
 
 export type UseRetrieveGroupParams = Record<string, never>;
 
-export const { useCached: useCachedGroupID } = Flux.createRetrieve<
+export const { useResult: useResultGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
   ontology.ID | undefined
 >({

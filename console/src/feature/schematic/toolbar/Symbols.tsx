@@ -571,7 +571,7 @@ export const Symbols = (): ReactElement => {
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
 
   const [searchTerm, setSearchTerm] = useState("");
-  const symbolGroup = Schematic.Symbol.useCachedGroup({});
+  const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});
   const searchMode = searchTerm.length > 0;
   let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
   if (isRemoteGroup)

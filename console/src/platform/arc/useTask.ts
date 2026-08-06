@@ -22,7 +22,7 @@ const notDeployedYet = (name: string) =>
   status.create({ name, variant: "disabled", message: "Not deployed yet" });
 
 export const useTask = (key: arc.Key, name: string): UseTaskReturn => {
-  const tsk = Arc.useCachedTask({ arcKey: key });
+  const { data: tsk } = Arc.useResultTask({ arcKey: key });
   const cmd = Task.useCommand();
   const isRunning = tsk?.status?.details.running ?? false;
   const taskKey = tsk?.key;

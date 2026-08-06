@@ -39,7 +39,7 @@ export const setLabelsFor = async ({
   return await client.labels.retrieve({ keys: labels });
 };
 
-export const { useCached: useCachedLabelsOf } = Flux.createRetrieve<
+export const { useResult: useResultLabelsOf } = Flux.createRetrieve<
   LabelsOfQuery,
   label.Label[]
 >({
@@ -107,10 +107,12 @@ export type RetrieveMultipleParams = {
   keys: label.Key[];
 };
 
-export const { useRetrieve: useRetrieveMultiple, useCached: useCachedMultiple } =
-  Flux.createRetrieve<RetrieveMultipleParams, label.Label[]>({
-    name: PLURAL_RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.labels.retrieve(query),
-    onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
-    getCached: ({ client, query }) => client.labels.getCached(query),
-  });
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
+  RetrieveMultipleParams,
+  label.Label[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.labels.retrieve(query),
+  onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
+  getCached: ({ client, query }) => client.labels.getCached(query),
+});

@@ -26,7 +26,7 @@ import {
   Tree,
   useCombinedStateAndRef,
 } from "@synnaxlabs/pluto";
-import { array, errors, type optional } from "@synnaxlabs/x";
+import { array, type optional } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { retrieveScanTask } from "@/feature/opc/device/retrieveScanTask";
@@ -138,7 +138,7 @@ export const Browser = ({ device }: BrowserProps) => {
           );
         } catch (e) {
           setStat(status.fromException(e, "Failed to browse OPC UA nodes"));
-          throw errors.fromUnknown(e);
+          return;
         }
         setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
         const isRoot = id === "";

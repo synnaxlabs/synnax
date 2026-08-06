@@ -9,7 +9,7 @@
 
 import "@/schematic/node/common/custom/Overrides.css";
 
-import { query, type schematic } from "@synnaxlabs/client";
+import { type schematic } from "@synnaxlabs/client";
 import { caseconv, color, deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
@@ -19,9 +19,8 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Icon } from "@/icon";
+import { Symbol } from "@/schematic/symbol";
 import { Select } from "@/select";
-import { Status } from "@/status";
-import { Synnax } from "@/synnax";
 import { Text } from "@/text";
 
 interface RegionControlsProps {
@@ -166,7 +165,6 @@ export const StateOverrideForm = (): ReactElement => {
   );
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
-  const client = Synnax.use();
   const applySymbol = useCallback(
     (symbol: schematic.symbol.Symbol) => {
       if (symbol.data == null) return;
@@ -186,16 +184,8 @@ export const StateOverrideForm = (): ReactElement => {
     },
     [form],
   );
-  const handleError = Status.useErrorHandler();
-  useEffect(() => {
-    if (client == null) return;
-    handleError(async () => {
-      applySymbol(await client.schematics.symbols.retrieve({ key: specKey }));
-    }, "Failed to retrieve symbol");
-    return client.schematics.symbols.onChange({ key: specKey }, (res) => {
-      if (query.isLive(res)) applySymbol(res);
-    });
-  }, [client, specKey, applySymbol, handleError]);
+  const symbol = Symbol.use({ key: specKey });
+  useEffect(() => applySymbol(symbol), [symbol, applySymbol]);
 
   const resetRegion = useCallback(
     (path: string) => {

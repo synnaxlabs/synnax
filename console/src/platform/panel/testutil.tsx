@@ -113,7 +113,9 @@ export const primePanel = async (
   wrapper: FC<PropsWithChildren>,
   key: panel.Key,
 ): Promise<void> => {
-  const { result, unmount } = renderHook(() => PPanel.useCached({ key }), { wrapper });
+  const { result, unmount } = renderHook(() => PPanel.useResult({ key }).data, {
+    wrapper,
+  });
   await waitFor(() => {
     if (result.current == null) throw new Error(`panel ${key} failed to load`);
   });

@@ -34,7 +34,7 @@ const useRename = Tree.createUseRename({
 
 const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const status = Rack.useCached({ key: Number(resource.id.key) })?.status;
+  const status = Rack.useResult({ key: Number(resource.id.key) }).data?.status;
 
   return (
     <PTree.Item {...rest}>
@@ -64,7 +64,7 @@ interface NIScannerItemProps {
 }
 
 const NIScannerItem = ({ rackKey }: NIScannerItemProps): ReactElement | null => {
-  const { integrations } = Rack.useRetrieve({ key: rackKey });
+  const { integrations } = Rack.use({ key: rackKey });
   const toggleScanner = NI.Task.useToggleScanner(rackKey);
   if (!integrations.includes(NI_INTEGRATION_NAME)) return null;
   return (

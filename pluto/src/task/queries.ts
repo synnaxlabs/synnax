@@ -34,7 +34,7 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
       client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined,
   });
 
-export const { useRetrieve, useEnsureRetrieved, createSelector } = createRetrieve();
+export const { use, useEnsure, createSelector } = createRetrieve();
 
 export interface SelectKeyParams {
   key: task.Key;

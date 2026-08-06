@@ -263,7 +263,7 @@ describe("Ontology Queries", () => {
     });
   });
 
-  describe("useRetrieveChildren", () => {
+  describe("useChildren", () => {
     it("should retrieve children of a parent", async () => {
       const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
@@ -279,7 +279,7 @@ describe("Ontology Queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Ontology.useRetrieveChildren({ id: group.ontologyID(parent.key) }),
+        () => Ontology.useChildren({ id: group.ontologyID(parent.key) }),
         { wrapper },
       );
 
@@ -296,7 +296,7 @@ describe("Ontology Queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Ontology.useRetrieveChildren({ id: group.ontologyID(parent.key) }),
+        () => Ontology.useChildren({ id: group.ontologyID(parent.key) }),
         { wrapper },
       );
 
@@ -306,7 +306,7 @@ describe("Ontology Queries", () => {
     it("should throw when no client is connected", () => {
       const noClientWrapper = createSynnaxWrapper({ client: null });
       expect(() =>
-        renderHook(() => Ontology.useRetrieveChildren({ id: ontology.ROOT_ID }), {
+        renderHook(() => Ontology.useChildren({ id: ontology.ROOT_ID }), {
           wrapper: noClientWrapper,
         }),
       ).toThrow(DisconnectedError);
@@ -336,7 +336,7 @@ describe("Ontology Queries", () => {
       });
 
       const { result, rerender } = await renderHookSuspended(
-        ({ id }) => Ontology.useRetrieveChildren({ id }),
+        ({ id }) => Ontology.useChildren({ id }),
         {
           wrapper,
           initialProps: { id: group.ontologyID(parent1.key) },

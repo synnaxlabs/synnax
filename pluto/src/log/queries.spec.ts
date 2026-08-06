@@ -50,7 +50,7 @@ describe("log queries", () => {
     key: log.Key,
     hook: () => T,
   ): Promise<ReturnType<typeof renderHook<T, unknown>>> => {
-    const retrieve = await renderHookSuspended(() => Log.useRetrieve({ key }), {
+    const retrieve = await renderHookSuspended(() => Log.use({ key }), {
       wrapper,
     });
     await waitFor(() => expect(retrieve.result.current).toBeDefined());
@@ -58,7 +58,7 @@ describe("log queries", () => {
   };
 
   const loadAndCount = async <T>(key: log.Key, hook: () => T) => {
-    const retrieve = await renderHookSuspended(() => Log.useRetrieve({ key }), {
+    const retrieve = await renderHookSuspended(() => Log.use({ key }), {
       wrapper,
     });
     await waitFor(() => expect(retrieve.result.current).toBeDefined());
@@ -210,11 +210,11 @@ describe("log queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a log by key", async () => {
       const created = await createLog({ name: "retrieve_test" });
       const { result } = await renderHookSuspended(
-        () => Log.useRetrieve({ key: created.key }),
+        () => Log.use({ key: created.key }),
         {
           wrapper,
         },
@@ -227,14 +227,14 @@ describe("log queries", () => {
     it("should cache retrieved logs", async () => {
       const created = await createLog({ name: "cached_log" });
       const { result: r1 } = await renderHookSuspended(
-        () => Log.useRetrieve({ key: created.key }),
+        () => Log.use({ key: created.key }),
         {
           wrapper,
         },
       );
       await waitFor(() => expect(r1.current).not.toBeNull());
       const { result: r2 } = await renderHookSuspended(
-        () => Log.useRetrieve({ key: created.key }),
+        () => Log.use({ key: created.key }),
         {
           wrapper,
         },
@@ -246,14 +246,13 @@ describe("log queries", () => {
     it("resolves synchronously without suspending when already in the store", async () => {
       const created = await createLog({ name: "fastpath_log" });
       // Warm the flux store through the production retrieve path.
-      const warm = await renderHookSuspended(
-        () => Log.useRetrieve({ key: created.key }),
-        { wrapper },
-      );
+      const warm = await renderHookSuspended(() => Log.use({ key: created.key }), {
+        wrapper,
+      });
       await waitFor(() => expect(warm.result.current).toBeDefined());
 
       const Display = (): ReactElement => {
-        const log = Log.useRetrieve({ key: created.key });
+        const log = Log.use({ key: created.key });
         return createElement("span", { "data-testid": "name" }, log.name);
       };
       let utils!: ReturnType<typeof render>;
@@ -304,7 +303,7 @@ describe("log queries", () => {
       const created = await createLog({ name: "original_name" });
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Log.useRetrieve({ key: created.key }),
+          retrieve: Log.use({ key: created.key }),
           rename: Log.useRename(),
         }),
         { wrapper },
@@ -323,7 +322,7 @@ describe("log queries", () => {
       const created = await createLog({ name: "dispatch_test" });
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Log.useRetrieve({ key: created.key }),
+          retrieve: Log.use({ key: created.key }),
           dispatch: Log.useDispatch(),
         }),
         { wrapper },

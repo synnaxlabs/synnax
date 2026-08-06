@@ -81,22 +81,21 @@ export const ZERO_FORM_VALUES: z.infer<
   ],
 };
 
-export const { useRetrieve, useCached } = Flux.createRetrieve<
-  RetrieveQuery,
-  channel.Channel
->({
+export const { use, useResult } = Flux.createRetrieve<RetrieveQuery, channel.Channel>({
   ...retrieveDefinition,
   onChange: retrieveDefinition.onChange,
 });
 
-export const { useRetrieve: useRetrieveMultiple, useCached: useCachedMultiple } =
-  Flux.createRetrieve<RetrieveMultipleQuery, channel.Channel[]>({
-    ...retrieveMultipleDefinition,
-    onChange: retrieveMultipleDefinition.onChange,
-    // Until the query is fetched, the client approximates the answer from the record
-    // store, allocating a fresh array of stable rows per read.
-    equal: (a, b) => a.length === b.length && a.every((ch, i) => ch === b[i]),
-  });
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  channel.Channel[]
+>({
+  ...retrieveMultipleDefinition,
+  onChange: retrieveMultipleDefinition.onChange,
+  // Until the query is fetched, the client approximates the answer from the record
+  // store, allocating a fresh array of stable rows per read.
+  equal: (a, b) => a.length === b.length && a.every((ch, i) => ch === b[i]),
+});
 
 const retrieveInitialFormValues = async ({
   query: { key, rangeKey },
@@ -243,7 +242,7 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
 
 type RetrieveGroupQuery = Record<string, never>;
 
-export const { useCached: useCachedGroup } = Flux.createRetrieve<
+export const { useResult: useResultGroup } = Flux.createRetrieve<
   RetrieveGroupQuery,
   group.Group
 >({

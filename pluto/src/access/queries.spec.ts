@@ -560,7 +560,9 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result } = renderHook(() => Access.useLoadPermissions({}), { wrapper });
+      const { result } = renderHook(() => Access.useLoadPermissions({}).data, {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).toBeDefined());
       expect(result.current!.length).toBeGreaterThan(0);
       const policy = result.current!.find((p) => p.name === policyName);
@@ -595,7 +597,7 @@ describe("Access Queries", () => {
       });
       const wrapper = await createAsyncSynnaxWrapper({ client });
       const { result } = renderHook(
-        () => Access.useLoadPermissions({ subject: user.ontologyID(u.key) }),
+        () => Access.useLoadPermissions({ subject: user.ontologyID(u.key) }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
@@ -614,7 +616,7 @@ describe("Access Queries", () => {
       });
       const wrapper = await createAsyncSynnaxWrapper({ client });
       const { result } = renderHook(
-        () => Access.useLoadPermissions({ subject: user.ontologyID(u.key) }),
+        () => Access.useLoadPermissions({ subject: user.ontologyID(u.key) }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
@@ -629,7 +631,9 @@ describe("Access Queries", () => {
         actions: ["retrieve", "create"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result } = renderHook(() => Access.useLoadPermissions({}), { wrapper });
+      const { result } = renderHook(() => Access.useLoadPermissions({}).data, {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).toBeDefined());
       const policies = cachedPoliciesOf(userClient).filter(
         (p) => p.name === policyName,
@@ -648,7 +652,9 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result } = renderHook(() => Access.useLoadPermissions({}), { wrapper });
+      const { result } = renderHook(() => Access.useLoadPermissions({}).data, {
+        wrapper,
+      });
       await waitFor(() => expect(result.current).toBeDefined());
       const policy = result.current!.find((p) => p.name === policyName);
       expect(policy).toBeDefined();

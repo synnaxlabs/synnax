@@ -15,13 +15,10 @@ import { useMemo } from "react";
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
-export const { useRetrieve: useRetrieveSlave, useCached: useCachedSlave } =
+export const { use: useSlave, useResult: useResultSlave } =
   Device.createRetrieve(SLAVE_SCHEMAS);
 
-const { useRetrieve: useRetrieveSlaves } = Flux.createRetrieve<
-  { keys: device.Key[] },
-  SlaveDevice[]
->({
+const { use: useSlaves } = Flux.createRetrieve<{ keys: device.Key[] }, SlaveDevice[]>({
   name: "EtherCAT slaves",
   retrieve: async ({ client, query: { keys } }) =>
     await client.devices.retrieve({ keys, schemas: SLAVE_SCHEMAS }),
@@ -46,7 +43,7 @@ export interface EnabledStateParams {
 }
 
 export const useEnabledState = ({ keys }: EnabledStateParams): EnabledState => {
-  const slaves = useRetrieveSlaves({ keys });
+  const slaves = useSlaves({ keys });
   return useMemo(() => {
     const disabledCount = slaves.filter((d) => !d.properties?.enabled).length;
     return {
@@ -61,7 +58,7 @@ export const useCommonNetwork = (channels: Channel[]) => {
     const keys = channels.map((ch) => ch.device).filter((c) => c != null);
     return keys.length > 0 ? keys[0] : "";
   }, [channels]);
-  const slave = useCachedSlave(
+  const { data: slave } = useResultSlave(
     primitive.isZero(firstDeviceKey) ? null : { key: firstDeviceKey },
   );
   return slave?.properties?.network ?? "";

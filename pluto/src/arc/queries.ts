@@ -45,20 +45,15 @@ export type RetrieveQuery = {
   includeStatus?: boolean;
 };
 
-export const {
-  useRetrieve,
-  useEnsureRetrieved,
-  useTombstone,
-  useCached,
-  createSelector,
-} = Flux.createRetrieve<RetrieveQuery, arc.Arc>({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
-  onChange: ({ client, query: { key, includeStatus } }, handler) =>
-    client.arcs.onChange({ key, includeStatus }, handler),
-  getCached: ({ client, query: { key, includeStatus } }) =>
-    client.arcs.getCached({ key, includeStatus }),
-});
+export const { use, useEnsure, useTombstone, useResult, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, arc.Arc>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
+    onChange: ({ client, query: { key, includeStatus } }, handler) =>
+      client.arcs.onChange({ key, includeStatus }, handler),
+    getCached: ({ client, query: { key, includeStatus } }) =>
+      client.arcs.getCached({ key, includeStatus }),
+  });
 
 // useSelectAllNodes returns every graph node of the Arc with the given key as diagram
 // nodes. graph.Node is a structural superset of Diagram.Node, so the cached array
@@ -233,12 +228,13 @@ export type RetrieveTaskParams = {
   arcKey: arc.Key;
 };
 
-export const { useRetrieve: useRetrieveTask, useCached: useCachedTask } =
-  Flux.createRetrieve<RetrieveTaskParams, task.Task | null>({
-    name: "Task",
-    retrieve: async ({ client, query }) =>
-      await client.arcs.task.retrieve(query.arcKey),
-    onChange: ({ client, query }, handler) =>
-      client.arcs.task.onChange(query.arcKey, handler),
-    getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
-  });
+export const { use: useTask, useResult: useResultTask } = Flux.createRetrieve<
+  RetrieveTaskParams,
+  task.Task | null
+>({
+  name: "Task",
+  retrieve: async ({ client, query }) => await client.arcs.task.retrieve(query.arcKey),
+  onChange: ({ client, query }, handler) =>
+    client.arcs.task.onChange(query.arcKey, handler),
+  getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
+});

@@ -258,7 +258,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a single project by key", async () => {
       const testProject = await client.projects.create({
         name: "singleProject",
@@ -273,7 +273,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Project.useRetrieve({ key: testProject.key }),
+        () => Project.use({ key: testProject.key }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).not.toBeNull());
@@ -291,7 +291,7 @@ describe("queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Project.useRetrieve({ key: project.key }),
+        () => Project.use({ key: project.key }),
         {
           wrapper,
         },
@@ -314,7 +314,7 @@ describe("queries", () => {
       const newName = `newName-${id.create()}`;
       const { result } = await renderHookSuspended(
         () => ({
-          retrieve: Project.useRetrieve({ key: proj.key }),
+          retrieve: Project.use({ key: proj.key }),
           rename: Project.useRename(),
         }),
         { wrapper },
@@ -326,9 +326,9 @@ describe("queries", () => {
     });
   });
 
-  describe("useCachedGroupID", () => {
+  describe("useResultGroupID", () => {
     it("should correctly retrieve group ID", async () => {
-      const { result } = renderHook(() => Project.useCachedGroupID({}), {
+      const { result } = renderHook(() => Project.useResultGroupID({}).data, {
         wrapper,
       });
       await waitFor(() => {
@@ -365,7 +365,7 @@ describe("queries", () => {
       const { result } = await renderHookSuspended(
         () => ({
           saveLayout: Project.useSaveLayout(),
-          retrieve: Project.useRetrieve({ key: proj.key }),
+          retrieve: Project.use({ key: proj.key }),
         }),
         { wrapper },
       );
@@ -393,7 +393,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieveChildren", () => {
+  describe("useChildren", () => {
     it("should return children filtered by a single type", async () => {
       const proj = await client.projects.create({ name: "single_type_ws", layout: {} });
       const s1 = await client.schematics.create(proj.key, {

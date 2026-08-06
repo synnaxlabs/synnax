@@ -77,7 +77,7 @@ interface TagsProps {
 }
 
 const Tags = ({ keys }: TagsProps) => {
-  const labels = PLabel.useRetrieveMultiple({ keys });
+  const labels = PLabel.useMultiple({ keys });
   return labels.map(({ color, key, name }) => (
     <Tag.Tag key={key} color={color} size="small" textColor={9}>
       {name}

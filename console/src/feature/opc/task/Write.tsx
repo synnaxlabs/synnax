@@ -15,7 +15,7 @@ import { type FC } from "react";
 import { type HaulItem } from "@/feature/opc/device/Browser";
 import { Select } from "@/feature/opc/device/Select";
 import * as Device from "@/feature/opc/device/types";
-import { type ChannelKeyAndIDGetter, Form } from "@/feature/opc/task/Form";
+import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opc/task/Form";
 import {
   type OutputChannel,
   WRITE_SCHEMAS,
@@ -77,13 +77,11 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const TaskForm: FC<Task.FormProps<WriteSchemas>> = () => (
-  <Form
-    convertHaulItemToChannel={convertHaulItemToChannel}
-    getChannelKeyAndID={getChannelKeyAndID}
-    contextMenuItems={contextMenuItems}
-  />
-);
+const TaskForm: FC<Task.FormProps<WriteSchemas>> = createForm<OutputChannel>({
+  convertHaulItemToChannel,
+  getChannelKeyAndID,
+  contextMenuItems,
+});
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string) =>
   props.write.channels[nodeId] ?? props.write.channels[caseconv.snakeToCamel(nodeId)];

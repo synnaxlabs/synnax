@@ -502,7 +502,7 @@ describe("Status queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => Status.useRetrieve({ key: testStatus.key }),
+        () => Status.use({ key: testStatus.key }),
         {
           wrapper,
         },
@@ -524,7 +524,7 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      const { result } = await renderHookSuspended(() => Status.useRetrieve({ key }), {
+      const { result } = await renderHookSuspended(() => Status.use({ key }), {
         wrapper,
       });
 
@@ -663,7 +663,7 @@ describe("Status queries", () => {
       const { result } = await renderHookSuspended(
         () => ({
           form: Status.useForm({ query: { key } }),
-          retrieve: Status.useRetrieve({ key }),
+          retrieve: Status.use({ key }),
         }),
         {
           wrapper,
@@ -708,7 +708,7 @@ describe("Status queries", () => {
         expect(result.current.variant).toEqual("success");
       });
       const q = await renderHookSuspended(
-        () => Status.useRetrieve({ key: result.current.form.value().key }),
+        () => Status.use({ key: result.current.form.value().key }),
         { wrapper },
       );
       await waitFor(() => expect(q.result.current?.labels).toEqual([label1, label2]));
@@ -913,7 +913,7 @@ describe("Status queries", () => {
       const { result } = await renderHookSuspended(
         () => ({
           form: Status.useForm({ query: { key } }),
-          retrieve: Status.useRetrieve({ key }),
+          retrieve: Status.use({ key }),
         }),
         {
           wrapper,
@@ -935,7 +935,7 @@ describe("Status queries", () => {
       });
     });
   });
-  describe("useRetrieveMultiple", () => {
+  describe("useMultiple", () => {
     it("should retrieve multiple statuses by keys", async () => {
       const status1 = await client.statuses.set({
         name: "Retrieve Multiple 1",
@@ -952,7 +952,7 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
       const { result } = await renderHookSuspended(
-        () => Status.useRetrieveMultiple({ keys: [status1.key, status2.key] }),
+        () => Status.useMultiple({ keys: [status1.key, status2.key] }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).not.toBeNull());
@@ -976,7 +976,7 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
       const { result } = await renderHookSuspended(
-        () => Status.useRetrieveMultiple({ keys: [status1.key, status2.key] }),
+        () => Status.useMultiple({ keys: [status1.key, status2.key] }),
         { wrapper },
       );
       await waitFor(() => expect(result.current).not.toBeNull());

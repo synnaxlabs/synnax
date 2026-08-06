@@ -21,7 +21,7 @@ export const Overview: Panel.Content = () => {
   const { key } = PlutoPanel.useSelectTabResource();
   // A subscribed read, so a delete throws to the tab's boundary instead of
   // leaving the stale form on screen. Also warms the cache the sections share.
-  Ranger.useRetrieve({ key });
+  Ranger.use({ key });
   return (
     <Flex.Box key={key} y className={CSS.BE("range", "overview")} empty>
       <Flex.Box y grow gap="large">

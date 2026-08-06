@@ -10,6 +10,7 @@
 export * from "@/feature/opc/device/Browser";
 export * from "@/feature/opc/device/commands";
 export * from "@/feature/opc/device/ContextMenuItems";
+export * from "@/feature/opc/device/queries";
 export * from "@/feature/opc/device/Select";
 export * from "@/feature/opc/device/types";
 export * from "@/feature/opc/device/useConnectModal";

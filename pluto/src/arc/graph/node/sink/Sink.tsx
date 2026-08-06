@@ -28,7 +28,7 @@ const FUCHSIA_TEXT = color.setAlpha(FUCHSIA, 1);
 
 export const Symbol = ({ config: { channel, value } }: SymbolProps) => {
   const name =
-    Channel.useCached(channel > 0 ? { key: channel } : null)?.name ?? "Channel";
+    Channel.useResult(channel > 0 ? { key: channel } : null).data?.name ?? "Channel";
 
   return (
     <Base

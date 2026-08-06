@@ -11,7 +11,7 @@ import { Form as PForm, Select } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { useCachedSlave } from "@/feature/ethercat/device/queries";
+import { useResultSlave } from "@/feature/ethercat/device/queries";
 import { type PDOEntry } from "@/feature/ethercat/device/types";
 
 export interface SelectPDOFieldProps {
@@ -29,7 +29,9 @@ export const SelectPDOField = ({
   pdoType,
 }: SelectPDOFieldProps): ReactElement => {
   const slaveKey = PForm.useFieldValue<string>(`${path}.device`);
-  const slave = useCachedSlave(primitive.isZero(slaveKey) ? null : { key: slaveKey });
+  const { data: slave } = useResultSlave(
+    primitive.isZero(slaveKey) ? null : { key: slaveKey },
+  );
 
   const pdoOptions = useMemo((): PDOOption[] => {
     if (slave == null) return [];

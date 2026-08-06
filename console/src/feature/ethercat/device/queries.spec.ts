@@ -33,7 +33,7 @@ describe("EtherCAT Device queries", () => {
     rack = await client.racks.create({ name: `test-ethercat-rack-${id.create()}` });
   });
 
-  describe("useRetrieveSlave", () => {
+  describe("useSlave", () => {
     it("should retrieve a slave device by key", async () => {
       const dev = await createSlaveDevice(rack.key, {
         name: "Test Slave",
@@ -42,7 +42,7 @@ describe("EtherCAT Device queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => EtherCAT.Device.useRetrieveSlave({ key: dev.key }),
+        () => EtherCAT.Device.useSlave({ key: dev.key }),
         { wrapper },
       );
 
@@ -57,7 +57,7 @@ describe("EtherCAT Device queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => EtherCAT.Device.useRetrieveSlave({ key: dev.key }),
+        () => EtherCAT.Device.useSlave({ key: dev.key }),
         { wrapper },
       );
 
@@ -106,7 +106,7 @@ describe("EtherCAT Device queries", () => {
       });
 
       const { result } = await renderHookSuspended(
-        () => EtherCAT.Device.useRetrieveSlave({ key: dev.key }),
+        () => EtherCAT.Device.useSlave({ key: dev.key }),
         { wrapper },
       );
 
@@ -119,12 +119,12 @@ describe("EtherCAT Device queries", () => {
     });
   });
 
-  describe("useCachedSlave", () => {
+  describe("useResultSlave", () => {
     it("should serve the slave from the cache", async () => {
       const dev = await createSlaveDevice(rack.key, { name: "Cached Test" });
 
       const { result } = renderHook(
-        () => EtherCAT.Device.useCachedSlave({ key: dev.key }),
+        () => EtherCAT.Device.useResultSlave({ key: dev.key }).data,
         { wrapper },
       );
 
@@ -133,7 +133,7 @@ describe("EtherCAT Device queries", () => {
     });
 
     it("should skip the read for a null query", () => {
-      const { result } = renderHook(() => EtherCAT.Device.useCachedSlave(null), {
+      const { result } = renderHook(() => EtherCAT.Device.useResultSlave(null).data, {
         wrapper,
       });
       expect(result.current).toBeUndefined();

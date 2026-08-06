@@ -20,7 +20,7 @@ interface ContentProps {
 }
 
 const Content = ({ taskKey }: ContentProps): ReactElement => {
-  const rack = PRack.useRetrieve({ key: task.rackKey(taskKey) });
+  const rack = PRack.use({ key: task.rackKey(taskKey) });
   return (
     <Tooltip.Dialog>
       <Text.Text level="small" color={10} weight={450}>

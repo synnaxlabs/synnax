@@ -97,7 +97,7 @@ const retrieveForSubject = async (
   return policies;
 };
 
-const { useCached: useCachedGranted } = Flux.createRetrieve<PermissionsQuery, boolean>({
+const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, boolean>({
   name: PERMISSION_PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { subject, objects, action } }) => {
     subject = await resolveSubjectAsync(client, subject);
@@ -134,7 +134,8 @@ const { useCached: useCachedGranted } = Flux.createRetrieve<PermissionsQuery, bo
   },
 });
 
-export const useGranted = (query: PermissionsQuery) => useCachedGranted(query) ?? false;
+export const useGranted = (query: PermissionsQuery): boolean =>
+  useResultGranted(query).data ?? false;
 
 export const useRetrieveGranted = (id: ontology.ID | ontology.ID[]): boolean =>
   useGranted({ objects: id, action: "retrieve" });
@@ -168,7 +169,7 @@ export type LoadPermissionsQuery = {
   subject?: ontology.ID;
 };
 
-export const { useCached: useLoadPermissions } = Flux.createRetrieve<
+export const { useResult: useLoadPermissions } = Flux.createRetrieve<
   LoadPermissionsQuery,
   access.policy.Policy[]
 >({

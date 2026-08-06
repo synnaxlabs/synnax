@@ -172,7 +172,7 @@ export const editTabName = (tabKey: string): void => {
 };
 
 export interface EditableTabNameService {
-  useEnsureRetrieved: (args: { key: string }) => void;
+  useEnsure: (args: { key: string }) => void;
   useSelectName: (args: { key: string }) => string;
   useRename: () => { update: (args: { key: string; name: string }) => void };
 }
@@ -185,7 +185,7 @@ export const createEditableTabName = (
     const tabKey = Panel.useTabKey();
     const isEditTarget = useIsNameEditTarget();
     const { key } = Panel.useSelectTabResource();
-    service.useEnsureRetrieved({ key });
+    service.useEnsure({ key });
     const name = service.useSelectName({ key });
     const { update } = service.useRename();
     return (

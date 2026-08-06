@@ -14,4 +14,3 @@ export * from "@/log/Log";
 export * from "@/log/queries";
 export { Scope } from "@/log/scope";
 export * from "@/log/Suspended";
-export * from "@/log/use";

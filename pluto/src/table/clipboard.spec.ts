@@ -86,13 +86,13 @@ describe("table clipboard", () => {
   };
 
   const loadAndUse = async (key: table.Key, selected: string[]) => {
-    const retrieve = await renderHookSuspended(() => Table.useRetrieve({ key }), {
+    const retrieve = await renderHookSuspended(() => Table.use({ key }), {
       wrapper,
     });
     await waitFor(() => expect(retrieve.result.current).toBeDefined());
     return renderHook(
       () => ({
-        retrieve: Table.useRetrieve({ key }),
+        retrieve: Table.use({ key }),
         clipboard: Table.useClipboard({ key, selected }),
       }),
       { wrapper },
@@ -252,7 +252,7 @@ describe("table clipboard", () => {
     it("fires onPaste with the keys that were overwritten", async () => {
       const created = await createTable();
       const retrieve = await renderHookSuspended(
-        () => Table.useRetrieve({ key: created.key }),
+        () => Table.use({ key: created.key }),
         {
           wrapper,
         },
@@ -286,7 +286,7 @@ describe("table clipboard", () => {
     it("copy then paste at a new anchor reproduces the source region", async () => {
       const created = await createTable();
       const retrieve = await renderHookSuspended(
-        () => Table.useRetrieve({ key: created.key }),
+        () => Table.use({ key: created.key }),
         {
           wrapper,
         },

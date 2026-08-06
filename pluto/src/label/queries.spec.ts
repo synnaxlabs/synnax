@@ -213,7 +213,7 @@ describe("queries", () => {
       ]);
 
       const { result } = renderHook(
-        () => Label.useCachedLabelsOf({ id: label.ontologyID(targetLabel.key) }),
+        () => Label.useResultLabelsOf({ id: label.ontologyID(targetLabel.key) }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
@@ -231,9 +231,9 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useCachedLabelsOf({
+          Label.useResultLabelsOf({
             id: label.ontologyID(targetLabel.key),
-          }),
+          }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
@@ -265,9 +265,9 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useCachedLabelsOf({
+          Label.useResultLabelsOf({
             id: label.ontologyID(targetLabel.key),
-          }),
+          }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
@@ -296,9 +296,9 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useCachedLabelsOf({
+          Label.useResultLabelsOf({
             id: label.ontologyID(targetLabel.key),
-          }),
+          }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
@@ -332,9 +332,9 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () =>
-          Label.useCachedLabelsOf({
+          Label.useResultLabelsOf({
             id: label.ontologyID(targetLabel.key),
-          }),
+          }).data,
         { wrapper },
       );
       await waitFor(() => expect(result.current).toBeDefined());
@@ -354,7 +354,7 @@ describe("queries", () => {
             { name: "label2", color: "#00FF00" },
           ]);
           const { result } = await renderHookSuspended(
-            () => Label.useRetrieveMultiple({ keys: labels.map((l) => l.key) }),
+            () => Label.useMultiple({ keys: labels.map((l) => l.key) }),
             { wrapper },
           );
           await waitFor(() => expect(result.current).not.toBeNull());
@@ -366,7 +366,7 @@ describe("queries", () => {
             { name: "label2", color: "#00FF00" },
           ]);
           const { result } = await renderHookSuspended(
-            () => Label.useRetrieveMultiple({ keys: labels.map((l) => l.key) }),
+            () => Label.useMultiple({ keys: labels.map((l) => l.key) }),
             { wrapper },
           );
           await waitFor(() => expect(result.current).not.toBeNull());

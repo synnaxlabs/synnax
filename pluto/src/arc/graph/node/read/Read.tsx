@@ -23,7 +23,7 @@ export interface SymbolProps extends types.SymbolProps<Config> {}
 
 export const Symbol = ({ config: { channel } }: SymbolProps) => {
   const name =
-    Channel.useCached(channel > 0 ? { key: channel } : null)?.name ?? "Channel";
+    Channel.useResult(channel > 0 ? { key: channel } : null).data?.name ?? "Channel";
 
   return (
     <Flex.Box

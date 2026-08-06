@@ -22,7 +22,7 @@ import {
 import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { Errors } from "@/errors";
@@ -63,10 +63,10 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
   return Live;
 };
 
-describe("useRetrieve", () => {
+describe("use", () => {
   it("suspends until the retrieve resolves, then returns the value", async () => {
     let resolveRetrieve: (value: number) => void = () => {};
-    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: () =>
         new Promise<number>((resolve) => {
@@ -75,7 +75,7 @@ describe("useRetrieve", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "first-test" });
+      const value = use({ key: "first-test" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -108,13 +108,13 @@ describe("useRetrieve", () => {
           resolveRetrieve = resolve;
         }),
     );
-    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "dedupe-test" });
+      const value = use({ key: "dedupe-test" });
       return <div>{value}</div>;
     };
 
@@ -138,7 +138,7 @@ describe("useRetrieve", () => {
   });
 
   it("routes a thrown error to the error fallback", async () => {
-    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: async () => {
         throw new Error("boom");
@@ -146,7 +146,7 @@ describe("useRetrieve", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "error-test" });
+      const value = use({ key: "error-test" });
       return <div>{value}</div>;
     };
 
@@ -178,14 +178,14 @@ describe("useRetrieve", () => {
     const retrieve = vi.fn(async (): Promise<number> => {
       throw new Error("boom");
     });
-    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => undefined,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "cached-error-test" });
+      const value = use({ key: "cached-error-test" });
       return <div>{value}</div>;
     };
 
@@ -216,14 +216,14 @@ describe("useRetrieve", () => {
   it("resolves synchronously without suspending when the cache hits", async () => {
     const retrieve = vi.fn(async () => 99);
     const cached: query.Cached<number> = 42;
-    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => cached,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "cached-hit" });
+      const value = use({ key: "cached-hit" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -245,7 +245,7 @@ describe("useRetrieve", () => {
 
   it("resolves from deriveCached when the query's own cache misses", async () => {
     const retrieve = vi.fn(async () => 99);
-    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => undefined,
@@ -253,7 +253,7 @@ describe("useRetrieve", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "derived" });
+      const value = use({ key: "derived" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -285,7 +285,7 @@ describe("useRetrieve", () => {
           };
         }),
     );
-    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       onChange: () => () => {},
@@ -293,7 +293,7 @@ describe("useRetrieve", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "cached-miss" });
+      const value = use({ key: "cached-miss" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -326,7 +326,7 @@ describe("useRetrieve", () => {
       cached = value;
       return value;
     });
-    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       onChange: (_, handler) => {
@@ -337,7 +337,7 @@ describe("useRetrieve", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "invalidate-test" });
+      const value = use({ key: "invalidate-test" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -379,7 +379,7 @@ describe("useRetrieve", () => {
     const renderProjection = async (key: string): Promise<Harness> => {
       let source: number[] = [1, 2];
       let handler: query.ChangeHandler<number[]> | null = null;
-      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { use } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve: async () => [...source],
         onChange: (_, h) => {
@@ -392,7 +392,7 @@ describe("useRetrieve", () => {
 
       const seen: number[][] = [];
       const Display = (): ReactElement => {
-        const value = useRetrieve({ key });
+        const value = use({ key });
         seen.push(value);
         return <div data-testid="value">{value.join(",")}</div>;
       };
@@ -457,7 +457,7 @@ describe("useRetrieve", () => {
 
     it("still throws a deleted error for a tombstoned answer", async () => {
       const tombstone = new query.Deleted<number[]>([1, 2], TimeStamp.now());
-      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { use } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve: async () => [1, 2],
         onChange: () => () => {},
@@ -466,7 +466,7 @@ describe("useRetrieve", () => {
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieve({ key: "equal-deleted" });
+        const value = use({ key: "equal-deleted" });
         return <div data-testid="value">{value.join(",")}</div>;
       };
 
@@ -496,7 +496,7 @@ describe("useRetrieve", () => {
         cached = [retrieve.mock.calls.length];
         return cached;
       });
-      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { use } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve,
         onChange: (_, h) => {
@@ -508,7 +508,7 @@ describe("useRetrieve", () => {
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieve({ key: "equal-invalidate" });
+        const value = use({ key: "equal-invalidate" });
         return <div data-testid="value">{value.join(",")}</div>;
       };
 
@@ -539,7 +539,7 @@ describe("useRetrieve", () => {
 
     it("passes the cached answer straight through when no comparator is given", async () => {
       const cached = [4, 5];
-      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { use } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve: async () => [],
         getCached: () => cached,
@@ -547,7 +547,7 @@ describe("useRetrieve", () => {
 
       const seen: number[][] = [];
       const Display = (): ReactElement => {
-        seen.push(useRetrieve({ key: "no-equal" }));
+        seen.push(use({ key: "no-equal" }));
         return <div data-testid="value">{seen[seen.length - 1].join(",")}</div>;
       };
 
@@ -582,7 +582,7 @@ describe("useRetrieve", () => {
       const retrieve = vi.fn(async (): Promise<number> => {
         throw new NotFoundError("no such number");
       });
-      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
         onChange: (_, h) => {
@@ -593,7 +593,7 @@ describe("useRetrieve", () => {
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieve({ key });
+        const value = use({ key });
         return <div data-testid="value">{value}</div>;
       };
 
@@ -667,17 +667,14 @@ describe("useRetrieve", () => {
         cached = 42;
         return 42;
       });
-      const { useRetrieve, useInvalidate } = Flux.createRetrieve<
-        { key: string },
-        number
-      >({
+      const { use, useInvalidate } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
         onChange: () => () => {},
         getCached: () => cached,
       });
       const Display = (): ReactElement => (
-        <div data-testid="value">{useRetrieve({ key: "invalidate" })}</div>
+        <div data-testid="value">{use({ key: "invalidate" })}</div>
       );
       const Retry = ({ onRetry }: { onRetry: () => void }): ReactElement => {
         const invalidate = useInvalidate();
@@ -769,7 +766,7 @@ describe("useRetrieve", () => {
       const retrieve = vi.fn(async (): Promise<number> => {
         throw new NotFoundError("no such number");
       });
-      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
         // A row tombstoned between the failed fetch and the subscription
@@ -784,7 +781,7 @@ describe("useRetrieve", () => {
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieve({ key: "nf-sync-tombstone" });
+        const value = use({ key: "nf-sync-tombstone" });
         return <div data-testid="value">{value}</div>;
       };
 
@@ -814,14 +811,14 @@ describe("useRetrieve", () => {
       const retrieve = vi.fn(async (): Promise<number> => {
         throw new NotFoundError("no such number");
       });
-      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
         getCached: () => undefined,
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieve({ key: "nf-unsubscribed" });
+        const value = use({ key: "nf-unsubscribed" });
         return <div>{value}</div>;
       };
 
@@ -859,13 +856,13 @@ describe("useRetrieve", () => {
         { name: `first-${id.create()}`, color: "#000000" },
         { name: `second-${id.create()}`, color: "#000000" },
       ]);
-      const { useRetrieve } = Flux.createRetrieve<{ key: string }, string>({
+      const { use } = Flux.createRetrieve<{ key: string }, string>({
         name: "Label",
         retrieve: async ({ client, query }) =>
           (await client.labels.retrieve(query.key)).name,
       });
       const Display = ({ labelKey }: { labelKey: string }): ReactElement => (
-        <div>{useRetrieve({ key: labelKey })}</div>
+        <div>{use({ key: labelKey })}</div>
       );
       const Live = createLiveWrapper(proxy.port);
       const tree = (labelKey: string): ReactElement => (
@@ -899,17 +896,17 @@ describe("useRetrieve", () => {
   }, 30000);
 });
 
-describe("useEnsureRetrieved", () => {
+describe("useEnsure", () => {
   it("does not suspend when the cache hits", async () => {
     const retrieve = vi.fn(async () => 5);
-    const { useEnsureRetrieved } = Flux.createRetrieve<{ key: string }, number>({
+    const { useEnsure } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => 5,
     });
 
     const Display = (): ReactElement => {
-      useEnsureRetrieved({ key: "ensure-cached" });
+      useEnsure({ key: "ensure-cached" });
       return <div data-testid="ready">ready</div>;
     };
 
@@ -933,14 +930,14 @@ describe("useEnsureRetrieved", () => {
     const retrieve = vi.fn(async (): Promise<number> => {
       throw new Error("boom");
     });
-    const { useEnsureRetrieved } = Flux.createRetrieve<{ key: string }, number>({
+    const { useEnsure } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => undefined,
     });
 
     const Display = (): ReactElement => {
-      useEnsureRetrieved({ key: "ensure-error" });
+      useEnsure({ key: "ensure-error" });
       return <div data-testid="ready">ready</div>;
     };
 
@@ -969,15 +966,15 @@ describe("useEnsureRetrieved", () => {
   });
 });
 
-describe("useRetrieve connection changes", () => {
+describe("use connection changes", () => {
   it("surfaces a disconnect that lands after the read resolved", async () => {
-    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: async () => 42,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "disconnect-test" });
+      const value = use({ key: "disconnect-test" });
       const label = useMemo(() => `value-${value}`, [value]);
       return <div data-testid="value">{label}</div>;
     };
@@ -1264,7 +1261,7 @@ describe("createSelector", () => {
   });
 });
 
-describe("useCached", () => {
+describe("useResult", () => {
   interface Data {
     name: string;
     value: number;
@@ -1273,7 +1270,7 @@ describe("useCached", () => {
   interface Harness {
     retrieve: ReturnType<typeof vi.fn<() => Promise<Data>>>;
     set: (next: query.Cached<Data> | undefined) => void;
-    useCached: Flux.UseCached<{ key: string }, Data>;
+    useResult: Flux.UseResult<{ key: string }, Data>;
   }
 
   const createHarness = (
@@ -1285,7 +1282,7 @@ describe("useCached", () => {
     const retrieve = vi.fn(
       retrieveImpl ?? (async (): Promise<Data> => ({ name: "fetched", value: 0 })),
     );
-    const { useCached } = Flux.createRetrieve<{ key: string }, Data>({
+    const { useResult } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",
       retrieve,
       onChange: (_, h) => {
@@ -1296,7 +1293,7 @@ describe("useCached", () => {
     });
     return {
       retrieve,
-      useCached,
+      useResult,
       set: (next) => {
         cached = next;
         handlers.forEach((h) => h(next));
@@ -1306,14 +1303,15 @@ describe("useCached", () => {
 
   it("serves the cached answer without fetching", () => {
     const harness = createHarness({ name: "cached", value: 1 });
-    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
       wrapper: Wrapper,
     });
-    expect(result.current).toEqual({ name: "cached", value: 1 });
+    expect(result.current.variant).toEqual("success");
+    expect(result.current.data).toEqual({ name: "cached", value: 1 });
     expect(harness.retrieve).not.toHaveBeenCalled();
   });
 
-  it("returns undefined on a cold miss and serves the fetch once it lands", async () => {
+  it("reports loading on a cold miss and serves the fetch once it lands", async () => {
     let resolveRetrieve: (value: Data) => void = () => {};
     const harness = createHarness(
       undefined,
@@ -1322,44 +1320,48 @@ describe("useCached", () => {
           resolveRetrieve = resolve;
         }),
     );
-    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
       wrapper: Wrapper,
     });
-    expect(result.current).toBeUndefined();
+    expect(result.current.variant).toEqual("loading");
+    expect(result.current.data).toBeUndefined();
     expect(harness.retrieve).toHaveBeenCalledTimes(1);
     await act(async () => {
       const data = { name: "fetched", value: 2 };
       resolveRetrieve(data);
       harness.set(data);
     });
-    expect(result.current).toEqual({ name: "fetched", value: 2 });
+    expect(result.current.variant).toEqual("success");
+    expect(result.current.data).toEqual({ name: "fetched", value: 2 });
   });
 
   it("dedupes concurrent cold reads into one fetch", () => {
     const harness = createHarness(undefined, () => new Promise<Data>(() => {}));
     renderHook(
-      () => [harness.useCached({ key: "a" }), harness.useCached({ key: "a" })],
+      () => [harness.useResult({ key: "a" }), harness.useResult({ key: "a" })],
       { wrapper: Wrapper },
     );
     expect(harness.retrieve).toHaveBeenCalledTimes(1);
   });
 
-  it("reads a failed fetch as undefined without refetching", async () => {
+  it("surfaces a failed fetch as an error without refetching or logging", async () => {
     const harness = createHarness(undefined, async () => {
       throw new Error("boom");
     });
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      const { result, rerender } = renderHook(() => harness.useCached({ key: "a" }), {
+      const { result, rerender } = renderHook(() => harness.useResult({ key: "a" }), {
         wrapper: Wrapper,
       });
       await act(async () => {
         await Promise.resolve();
       });
       rerender();
-      expect(result.current).toBeUndefined();
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.data).toBeUndefined();
+      expect(result.current.status.description).toContain("boom");
       expect(harness.retrieve).toHaveBeenCalledTimes(1);
-      expect(consoleError).toHaveBeenCalled();
+      expect(consoleError).not.toHaveBeenCalled();
     } finally {
       consoleError.mockRestore();
     }
@@ -1371,71 +1373,80 @@ describe("useCached", () => {
     });
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+      const { result } = renderHook(() => harness.useResult({ key: "a" }), {
         wrapper: Wrapper,
       });
       await act(async () => {
         await Promise.resolve();
       });
-      expect(result.current).toBeUndefined();
+      expect(result.current.variant).toEqual("loading");
       await act(async () => {
         harness.set({ name: "created", value: 3 });
       });
-      expect(result.current).toEqual({ name: "created", value: 3 });
+      expect(result.current.variant).toEqual("success");
+      expect(result.current.data).toEqual({ name: "created", value: 3 });
       expect(consoleError).not.toHaveBeenCalled();
     } finally {
       consoleError.mockRestore();
     }
   });
 
-  it("reads a deleted record as undefined without fetching", () => {
+  it("reports a deleted record as an error without fetching", () => {
     const harness = createHarness(
       new query.Deleted<Data>({ name: "corpse", value: 1 }, TimeStamp.now()),
     );
-    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
       wrapper: Wrapper,
     });
-    expect(result.current).toBeUndefined();
+    assert(result.current.variant === "error");
+    expect(result.current.data).toBeUndefined();
+    expect(Flux.DeletedError.matches(result.current.status.details.error)).toBe(true);
     expect(harness.retrieve).not.toHaveBeenCalled();
   });
 
-  it("returns undefined when no client is connected", () => {
+  it("reports disabled when no client is connected", () => {
     const harness = createHarness({ name: "cached", value: 1 });
     const NullWrapper = createSynnaxWrapper({ client: null });
-    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
       wrapper: NullWrapper,
     });
-    expect(result.current).toBeUndefined();
+    expect(result.current.variant).toEqual("disabled");
+    expect(result.current.data).toBeUndefined();
     expect(harness.retrieve).not.toHaveBeenCalled();
   });
 
   it("re-renders when the cached answer changes", async () => {
     const harness = createHarness({ name: "one", value: 1 });
-    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
       wrapper: Wrapper,
     });
     await act(async () => {
       harness.set({ name: "two", value: 2 });
     });
-    expect(result.current).toEqual({ name: "two", value: 2 });
+    expect(result.current.variant).toEqual("success");
+    expect(result.current.data).toEqual({ name: "two", value: 2 });
   });
 
   it("skips the read entirely for a null query", () => {
     const harness = createHarness({ name: "cached", value: 1 });
-    const { result } = renderHook(() => harness.useCached(null), { wrapper: Wrapper });
-    expect(result.current).toBeUndefined();
+    const { result } = renderHook(() => harness.useResult(null), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("disabled");
+    expect(result.current.data).toBeUndefined();
     expect(harness.retrieve).not.toHaveBeenCalled();
   });
 
   it("serves a settled answer once for a definition without getCached", async () => {
     const retrieve = vi.fn(async (): Promise<Data> => ({ name: "one-shot", value: 4 }));
-    const { useCached } = Flux.createRetrieve<{ key: string }, Data>({
+    const { useResult } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",
       retrieve,
     });
-    const { result } = renderHook(() => useCached({ key: "a" }), { wrapper: Wrapper });
-    expect(result.current).toBeUndefined();
-    await waitFor(() => expect(result.current).toEqual({ name: "one-shot", value: 4 }));
+    const { result } = renderHook(() => useResult({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("loading");
+    await waitFor(() =>
+      expect(result.current.data).toEqual({ name: "one-shot", value: 4 }),
+    );
+    expect(result.current.variant).toEqual("success");
     expect(retrieve).toHaveBeenCalledTimes(1);
   });
 
@@ -1444,12 +1455,12 @@ describe("useCached", () => {
       name: "off-cache",
       value: 5,
     }));
-    const { result } = renderHook(() => harness.useCached({ key: "a" }), {
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
       wrapper: Wrapper,
     });
-    expect(result.current).toBeUndefined();
+    expect(result.current.variant).toEqual("loading");
     await waitFor(() =>
-      expect(result.current).toEqual({ name: "off-cache", value: 5 }),
+      expect(result.current.data).toEqual({ name: "off-cache", value: 5 }),
     );
     expect(harness.retrieve).toHaveBeenCalledTimes(1);
   });

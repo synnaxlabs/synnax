@@ -139,7 +139,9 @@ const EmptyActionContent = ({ onAdd }: EmptyActionContentProps) => (
 const AlertListItem = (props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const statusKey = PForm.useFieldValue<status.Key>(`config.alerts.${itemKey}.status`);
-  const status = Status.useCached(statusKey.length > 0 ? { key: statusKey } : null);
+  const { data: status } = Status.useResult(
+    statusKey.length > 0 ? { key: statusKey } : null,
+  );
   const isNotDefined = status == null;
   return (
     <Select.ListItem {...props} justify="between" align="center" x>

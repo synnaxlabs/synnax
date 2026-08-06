@@ -184,6 +184,6 @@ export const Configure = <
   deviceKey,
   ...rest
 }: ConfigureProps<Properties, Make, Model>) => {
-  const device = Device.useRetrieve({ key: deviceKey });
+  const device = Device.use({ key: deviceKey });
   return <Internal device={device} {...rest} />;
 };

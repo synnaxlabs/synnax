@@ -125,7 +125,7 @@ export type RetrieveChildrenQuery = {
   id: ontology.ID;
 };
 
-export const { useRetrieve: useRetrieveChildren } = Flux.createRetrieve<
+export const { use: useChildren } = Flux.createRetrieve<
   RetrieveChildrenQuery,
   ontology.Resource[]
 >({
@@ -142,7 +142,7 @@ type RetrieveResourceQuery = {
   ids: ontology.ID[];
 };
 
-export const { useRetrieve: useRetrieveResource } = Flux.createRetrieve<
+export const { use: useResource } = Flux.createRetrieve<
   RetrieveResourceQuery,
   ontology.Resource[]
 >({

@@ -16,7 +16,7 @@ import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 export const Badge = (): ReactElement | null => {
-  const u = User.useCached({});
+  const { data: u } = User.useResult({});
   const cluster = Session.Cluster.useSelectState();
   const handleLogout = Session.useLogout();
   const username = u?.username ?? cluster?.username ?? "";

@@ -9,22 +9,14 @@
 
 import "@/platform/task/Form.css";
 
+import { type device, panel, type rack, type Synnax, task } from "@synnaxlabs/client";
 import {
-  type device,
-  panel,
-  query,
-  type rack,
-  type Synnax,
-  task,
-} from "@synnaxlabs/client";
-import {
+  Device,
   Flex,
   type Flux,
   Form as PForm,
   Input,
   Panel as PlutoPanel,
-  Status,
-  Synnax as PSynnax,
   Task as PTask,
   Text,
 } from "@synnaxlabs/pluto";
@@ -33,6 +25,7 @@ import { type FC, useCallback, useEffect, useMemo, useRef } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Controls } from "@/platform/task/controls";
@@ -209,18 +202,12 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         setView(panel.viewZ.parse({ type, args: { taskKey: key } }));
       },
     });
-    const client = PSynnax.use();
-    const handleError = Status.useErrorHandler();
+    const { data: dev } = Device.useResult(
+      deviceKey == null ? null : { key: deviceKey },
+    );
     useEffect(() => {
-      if (deviceKey == null || client == null) return;
-      handleError(async () => {
-        const device = await client.devices.retrieve({ key: deviceKey });
-        form.set("rackKey", device.rack);
-      }, "Failed to retrieve device");
-      return client.devices.onChange({ key: deviceKey }, (res) => {
-        if (query.isLive(res)) form.set("rackKey", res.rack);
-      });
-    }, [client, deviceKey, handleError]);
+      if (dev != null) form.set("rackKey", dev.rack);
+    }, [dev]);
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
     useSyncName(form, { deviceKey, taskKey, rackKey, config, name });
@@ -249,7 +236,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               grow
               empty
             >
-              <Form status={status} onConfigure={save} {...form} />
+              <Errors.SuspenseBoundary>
+                <Form status={status} onConfigure={save} {...form} />
+              </Errors.SuspenseBoundary>
             </Flex.Box>
             {showControls && (
               <Controls.Controls formStatus={status} onConfigure={save} />
@@ -263,7 +252,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   const RemoteName = ({ taskKey }: { taskKey: task.Key }) => {
     const tabKey = PlutoPanel.useTabKey();
     const isEditTarget = Panel.useIsNameEditTarget();
-    PTask.useEnsureRetrieved({ key: taskKey });
+    PTask.useEnsure({ key: taskKey });
     const name = PTask.useSelectName({ key: taskKey });
     const { update } = PTask.useRename();
     const handleChange = useCallback(

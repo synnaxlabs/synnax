@@ -54,7 +54,9 @@ const DynamicListItem = Component.renderProp(
 const StaticListItem = Component.renderProp(
   (props: List.ItemProps<string> & { range: Session.Range.StaticState }) => {
     const { range } = props;
-    const parent = Ranger.useCachedParent({ id: ranger.ontologyID(range.key) });
+    const { data: parent } = Ranger.useResultParent({
+      id: ranger.ontologyID(range.key),
+    });
     return (
       <Select.ListItem {...props} justify="between">
         <Ranger.Breadcrumb

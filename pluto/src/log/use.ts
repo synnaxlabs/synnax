@@ -66,7 +66,9 @@ export const use = ({
         .filter((ch): ch is number => typeof ch === "number" && ch > 0),
     [channels],
   );
-  const retrievedChannels = Channel.useCachedMultiple({ keys: numericChannels });
+  const { data: retrievedChannels } = Channel.useResultMultiple({
+    keys: numericChannels,
+  });
   const channelNames = useMemo(() => {
     const names: Record<string, string> = {};
     if (retrievedChannels != null)

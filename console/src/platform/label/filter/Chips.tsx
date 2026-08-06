@@ -20,7 +20,7 @@ interface TagsProps {
 }
 
 const Tags = ({ keys, onClose }: TagsProps): ReactElement => {
-  const labels = Label.useRetrieveMultiple({ keys });
+  const labels = Label.useMultiple({ keys });
   return (
     <>
       {labels.map(({ color, key, name }) => (
