@@ -13,12 +13,13 @@ bundles: projects with their children, and symbol groups with their symbols. Thi
 designs that bundle layer.
 
 A bundle is a directory on disk: one flat envelope file for each member resource, plus a
-`manifest.json` that types, names, and versions the bundle. On the wire, a bundle is
-that directory zipped. Each bundle root gets its own typed endpoint pair. The bundle
-code composes the existing single-resource leaf registry. Cross-references inside a
-bundle use file names. Importers always mint fresh keys. The Core owns the full format,
-including migration of all legacy directory layouts. Bundle import is all-or-nothing in
-one transaction.
+`manifest.json` that types, names, and versions the bundle and maps each exported
+resource to its file. On the wire, a bundle is that directory zipped. Each bundle root
+gets its own typed endpoint pair. The bundle code composes the existing single-resource
+leaf registry. Members keep the shape they have in the cluster, cross-references
+included; import resolves those references through the manifest map. Importers always
+mint fresh keys. The Core owns the full format, including migration of all legacy
+directory layouts. Bundle import is all-or-nothing in one transaction.
 
 ## 1 Motivation
 
@@ -43,12 +44,13 @@ the artifact shape.
 
 - **Bundle**: A multi-resource portable artifact. A directory on disk, a zip on the
   wire.
-- **Manifest**: The `manifest.json` file at the bundle root. Its `{version, type, name}`
-  body versions the bundle, states its kind (`project` or `symbol_group`), and names it.
+- **Manifest**: The `manifest.json` file at the bundle root. Its
+  `{version, type, name, files}` body versions the bundle, states its kind (`project` or
+  `symbol_group`), names it, and maps each exported resource to its file.
 - **Member**: Any file beside the manifest in a supported serialization extension. Each
   member is a self-describing flat envelope.
-- **Bundle-local key**: A file name. All cross-references between bundle members use
-  file names.
+- **File map**: The manifest's `files` object, from a source-cluster `ontology.ID` to
+  the file holding that resource. Import resolves every cross-reference through it.
 - **Leaf registry**: The single-resource `Importer`/`Exporter` registry on
   `imex.Service` (`core/pkg/service/imex/service.go:28`).
 
@@ -58,12 +60,14 @@ the artifact shape.
    zip and unzip at the disk boundary. Nothing else lives in a client.
 2. **Leaf interfaces do not change.** RFC 0039 §7.5 requires a composite layer above the
    leaf interface. Bundle code composes leaf importers and exporters.
-3. **Envelopes carry no identity.** `imex.Encode` strips `key`
+3. **Envelopes carry no identity of their own.** `imex.Encode` strips `key`
    (`core/pkg/service/imex/imex.go:250`). Importers mint fresh keys (RFC 0039 §6.6).
-   Each file in a bundle stays importable through the single-resource path.
+   Each file in a bundle stays importable through the single-resource path. A reference
+   to another member is not the member's own key: it keeps the source `ontology.ID` and
+   resolves through the manifest file map.
 4. **Members self-describe.** Every member file carries its own `{version, type, name}`
-   headers. The manifest holds no member index; the server routes and runs access checks
-   from header peeks.
+   headers. The server routes and runs access checks from header peeks, never from the
+   manifest; the file map exists to resolve references, not to describe members.
 5. **Ownership defines the bundle.** A project bundle is the project and its ontology
    children, not what its panels reference.
 
@@ -81,19 +85,27 @@ Test Stand 12/
   chamber_pressure.json  (lineplot)
 ```
 
-`manifest.json` types, names, and versions the bundle:
+`manifest.json` types, names, and versions the bundle, and maps each exported resource
+to its file:
 
 ```json
 {
   "version": 1,
   "type": "project",
-  "name": "Test Stand 12"
+  "name": "Test Stand 12",
+  "files": {
+    "panel:1a4e...": "controls.json",
+    "schematic:8f3c...": "pressurization.json",
+    "lineplot:c091...": "chamber_pressure.json"
+  }
 }
 ```
 
 The `type` field states the bundle kind: `project` or `symbol_group`. Each import
 endpoint (§4.1) rejects a manifest whose type does not match its bundle kind. The
-manifest holds no member index: membership is the directory (§6.6).
+`files` map is keyed by the resource's `ontology.ID` in the source cluster and valued by
+its file name. It resolves cross-references. It does not define membership; the
+directory does (§6.6). A member absent from the map is legal and simply unreferenceable.
 
 The file extension names the serialization and defines membership. Every file beside the
 manifest in a supported extension is a member. This RFC implements JSON only; YAML and
@@ -108,10 +120,9 @@ Each member self-describes through its `{version, type, name}` headers. The serv
 the headers of every member — the existing envelope peek, no body decode — to resolve
 importers and run access checks up front.
 
-Resource files are ordinary single-resource envelopes, byte-identical to `imex/export`
-output. Panel files are envelopes of type `"panel"`. The panel envelope is the `panel`
-schema with one substitution: a resource tab's `resource` field, an `ontology.ID` in the
-cluster, becomes a `file` field naming a bundle member.
+Every member is an ordinary single-resource envelope, byte-identical to `imex/export`
+output. Panels included: a panel file is the `panel` schema unaltered, so a resource tab
+holds the `ontology.ID` it holds in the cluster.
 
 ```json
 {
@@ -120,15 +131,25 @@ cluster, becomes a `file` field naming a bundle member.
   "name": "Controls",
   "root": {
     "variant": "leaf",
-    "tabs": [{ "variant": "resource", "file": "pressurization.json" }]
+    "tabs": [
+      {
+        "variant": "resource",
+        "resource": { "type": "schematic", "key": "8f3c..." }
+      }
+    ]
   }
 }
 ```
 
-An `ontology.ID` means nothing outside the cluster that minted it. Its key is opaque,
-and the import mints a fresh one (principle 3), so a bundled ID is dead on arrival: it
-names a resource in the source cluster, never one in the bundle. A file name is the only
-reference form the bundle can resolve on its own. It is also the readable one in a diff.
+The manifest's `files` map is the only place identity indirection lives. No member needs
+a portable mirror of its schema, and no member needs an export-side rewrite. Import
+creates the mapped members first, records each source `ontology.ID` against the fresh ID
+its importer minted, then walks every member body and substitutes. The walk matches
+values against the map, not against a schema, so a resource type that grows a new
+reference field needs no bundle code.
+
+A reference the map does not name cannot be resolved. §4.3 strips those on export and
+rejects them on import.
 
 The exporter owns file naming: sanitized resource names. It never emits a reserved base
 name. Name-collision rules for export and import live in §4.8.
@@ -161,7 +182,7 @@ The endpoints are HTTP-only, like the existing imex pair
 ### 4.2 Shared helpers
 
 There is no new registry, no new interface, and no shared bundle type. The shared code
-is three small helpers:
+is four small helpers:
 
 - A zip codec between raw bytes and `map[string][]byte` (standard library
   `archive/zip`). This is domain-blind and lives in `x/go`. Decode rejects illegal and
@@ -170,11 +191,13 @@ is three small helpers:
   `core/pkg/service/imex/imex.go:141`), applied per member file, with the version guard
   (`imex.NewErrUnsupportedVersion`).
 - An access-check helper in `imex`: `ActionCreate` for each distinct member type.
+- An `ontology.ID` substitution walk over a decoded member body, driven by a
+  `map[ontology.ID]ontology.ID` table. Domain-blind, so it lives beside the zip codec.
 
-Each service defines its own manifest struct (`{Version, Type, Name}`) beside its bundle
-code. The API services call the owning domain services directly: `api/project` calls
-`project.Service.Export`/`Import`, and `api/schematic` calls the symbol service's group
-methods.
+Each service defines its own manifest struct (`{Version, Type, Name, Files}`) beside its
+bundle code. The API services call the owning domain services directly: `api/project`
+calls `project.Service.Export`/`Import`, and `api/schematic` calls the symbol service's
+group methods.
 
 ### 4.3 Project bundles
 
@@ -185,23 +208,24 @@ reorder is free.
 **Export** (`project.Service.Export`):
 
 1. Retrieve the project and its ontology children.
-2. Encode each child panel as a panel envelope. Rewrite each resource tab that targets a
-   bundled file to `{file}` form. Strip tabs that target anything else: `range` tabs and
-   documents owned by other projects. The strip is silent; the export response does not
-   report dropped tabs. View-variant tabs are inline and export as-is.
-3. Export each child document through the leaf registry. The bundle code consults the
-   registry it composes. This removes the Console's `EXPORTABLE_TYPES` copy.
-4. Emit `manifest.json`.
+2. Export each child document through the leaf registry. The bundle code consults the
+   registry it composes. This removes the Console's `EXPORTABLE_TYPES` copy. Record each
+   source `ontology.ID` → file name pair.
+3. Encode each child panel as a panel envelope, unaltered. Strip each resource tab whose
+   target is absent from the file map: `range` tabs and documents owned by other
+   projects. The strip is silent; the export response does not report dropped tabs.
+   View-variant tabs are inline and export as-is.
+4. Emit `manifest.json`, `files` map included.
 
 **Import** (`project.Service.Import`):
 
 1. Create a fresh project. Use the manifest name, then the `file_name` fallback.
 2. Import each non-panel member through the leaf registry with `ImportOptions.Project`
    set to the new project key. Leaf importers own parenting
-   (`core/pkg/service/log/writer.go:69`). Record each file-name → new `ontology.ID`
-   pair.
-3. Decode panel envelopes, resolve `{file}` references through the map, and create the
-   panels under the project. Any reference that is not a bundle file, including any
+   (`core/pkg/service/log/writer.go:69`). Build the substitution table: each mapped
+   source `ontology.ID` → the ID its importer minted.
+3. Decode panel envelopes, run the substitution walk over each body, and create the
+   panels under the project. An `ontology.ID` the table does not hold, including any
    `range` reference, is a validation error.
 
 The full import runs on one `gorp.Tx` (the `fgorp.CreateWriteUnaryHandler` pattern in
@@ -226,7 +250,9 @@ through the leaf registry and writes `manifest.json`.
 **Import** creates a fresh group under the permanent "Schematic Symbols" group
 (`core/pkg/service/schematic/symbol/service.go:116`), named from the manifest, and
 imports each symbol under it through the leaf symbol importer (new in Phase 1). Symbol
-bundles have no cross-references, so there is no rewrite pass.
+bundles have no cross-references, so the substitution walk runs over an empty table. The
+`files` map is still written: it is manifest schema, not a per-kind option, and the
+legacy v1 format already carried a key-to-file mapping of its own (§4.5).
 
 ### 4.5 Legacy formats
 
@@ -285,17 +311,19 @@ client methods for the four endpoints.
 
 ### 4.8 Name collisions
 
-File names are bundle-local keys, so both sides of the wire validate them. Names are
-compared case-folded and Unicode-normalized, because the Console extracts bundles onto
-case-insensitive filesystems.
+The file map keys on `ontology.ID`, so a collision never breaks a reference. It still
+breaks the artifact: the bundle namespace is flat, and the Console extracts onto
+case-insensitive filesystems. Both sides of the wire validate. Names are compared
+case-folded and Unicode-normalized.
 
 - **Export**: Two members whose sanitized names compare equal are an export error that
   names the colliding resources; rename one and re-export.
 - **Zip decode**: An entry name that is empty, is `.` or `..`, contains a path separator
   (`/` or `\`), or repeats an earlier entry name is a decode error.
 - **Import validation**: Two member names that compare equal are a validation error; zip
-  decode already rejects exact repeats. A crafted archive cannot bypass the export
-  rules.
+  decode already rejects exact repeats. A `files` entry naming a missing file, or two
+  entries naming the same file, is a validation error. A crafted archive cannot bypass
+  the export rules.
 
 ## 5 Implementation phases
 
@@ -337,13 +365,15 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   service defines its own manifest struct.
 - **6.3 Leaf import parity is a dependency.** Phase 1 implements it per RFC 0042, not
   redesigned here.
-- **6.4 File names are the bundle-local keys.** Bundle-local keys never become creation
-  keys. Opaque local IDs were rejected: two identifier spaces and worse hand-editing.
-  Renaming a file breaks references to it; import fails loud and names the file. Keeping
-  the in-cluster `ontology.ID` on a resource tab and adding a side map from ID to file
-  name was also rejected. It keeps the panel envelope identical to the `panel` schema,
-  but an `ontology.ID` carries no meaning outside its cluster (§4.0), so the map becomes
-  the real reference and the ID becomes dead weight the reader must hop through.
+- **6.4 References keep the source `ontology.ID`; the manifest maps it to a file.**
+  Members stay byte-identical to their in-cluster schema, so no type needs a portable
+  mirror, no type needs an export-side rewrite, and identity indirection lives in one
+  place. Import substitutes through a map-driven walk that matches on values, not on a
+  schema, so a new reference field anywhere costs no bundle code. Rewriting each
+  reference to a file name was rejected: it puts a second reference form in every
+  reference-carrying type, and the count of those types only grows. Bundle-local opaque
+  IDs were rejected too, as a third identifier space. Neither the source ID nor the file
+  name ever becomes a creation key.
 - **6.5 One envelope file per panel.** A single `PANELS.json` was rejected as a
   special-cased blob. Panels are bundle-internal and never leaf-registered.
 - **6.6 Inferred membership.** Membership is every supported-extension file beside the
@@ -353,16 +383,16 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   a member deleted outside the export path imports silently; a missing file is a smaller
   bundle, not an error. Version control is the stated target (§1), and the merge
   behavior matters more there than the deletion check.
-- **6.7 A fixed `manifest.json`.** The body is `{version, type, name}`. Type-named
-  manifests (`project.json`, `group.json`) were rejected: one fixed name gives every
-  format, including the legacy symbol format, a single recognition point on disk. The
-  `type` field lets each endpoint reject a bundle of the wrong kind.
+- **6.7 A fixed `manifest.json`.** The body is `{version, type, name, files}`.
+  Type-named manifests (`project.json`, `group.json`) were rejected: one fixed name
+  gives every format, including the legacy symbol format, a single recognition point on
+  disk. The `type` field lets each endpoint reject a bundle of the wrong kind.
 - **6.8 Symbol groups only.** Generic group bundling was rejected for scope. Export
   errors on a group with non-symbol children.
 - **6.9 Ranges are stripped on export and rejected on import.** Bundling ranges was
   rejected: a range is a shared cluster entity, and additive import duplicates it on
-  every round-trip. Raw ontology-ID pass-through was also rejected; bundles have one
-  reference form.
+  every round-trip. A range is therefore never in the file map, which is what makes the
+  strip and the rejection fall out of §4.0 rather than needing a rule of their own.
 - **6.10 Ownership-based membership.** Panel-walk membership was rejected: it loses
   owned documents no panel shows, and it copies other projects' documents.
 - **6.11 The server migrates all legacy formats.** RFC 0039 §3.0 requires it.
