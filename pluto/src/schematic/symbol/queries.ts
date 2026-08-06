@@ -15,14 +15,9 @@ import {
   schematic,
 } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
+import { useMemo } from "react";
 
 import { Flux } from "@/flux";
-
-/// isMissing reports whether a schematic symbol retrieve resolved to a missing
-/// reference. Lets canvas and property-panel call sites branch on the existing
-/// Flux Result without inventing a parallel state type.
-export const isMissing = (res: Flux.Result<schematic.symbol.Symbol>): boolean =>
-  res.variant === "error" && NotFoundError.matches(res.status.details.error);
 
 const RESOURCE_NAME = "schematic symbol";
 const PLURAL_RESOURCE_NAME = "schematic symbols";
@@ -31,17 +26,40 @@ export type RetrieveQuery = {
   key: string;
 };
 
-export const { useRetrieve, useRetrieveEffect } = Flux.createRetrieve<
+export const { use, useResult } = Flux.createRetrieve<
   RetrieveQuery,
   schematic.symbol.Symbol
 >({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) =>
     await client.schematics.symbols.retrieve(query),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.schematics.symbols.onChange(query, handler),
   getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
 });
+
+export interface Resolved {
+  symbol?: schematic.symbol.Symbol;
+  // missing reports whether the key points at a symbol that no longer exists
+  // (or never did), as opposed to one still loading.
+  missing: boolean;
+}
+
+/**
+ * Resolves a symbol specification by key, kept live across edits and deletes.
+ * Loading and missing are distinct: `symbol` is unset for both, `missing` is
+ * true only once the reference is known to be dangling.
+ */
+export const useResolved = (key: string | null): Resolved => {
+  const res = useResult(key == null ? null : { key });
+  return useMemo(() => {
+    if (res.variant !== "error") return { symbol: res.data, missing: false };
+    const { error } = res.status.details;
+    return {
+      missing: NotFoundError.matches(error.cause) || Flux.DeletedError.matches(error),
+    };
+  }, [res]);
+};
 
 export type ListQuery = {
   keys?: string[];
@@ -58,15 +76,15 @@ export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbo
     await client.schematics.symbols.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
     await client.schematics.symbols.retrieve(key),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.schematics.symbols.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) =>
+  onChangeByKey: ({ client, key }, handler) =>
     client.schematics.symbols.onChange(key, handler),
   getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
 });
 
 export type FormQuery = {
-  key?: string;
+  key: string;
 };
 
 export const formSchema = schematic.symbol.symbolZ
@@ -90,36 +108,33 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     parent: ontology.ROOT_ID,
   },
   schema: formSchema,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (key == null) return;
+  retrieve: async ({ client, query: { key } }) => {
     const symbol = await client.schematics.symbols.retrieve(key);
     const parents = await client.ontology.parents.retrieve({
       ids: schematic.symbol.ontologyID(key),
     });
-    reset({
+    return {
       version: 1,
       name: symbol.name,
       data: symbol.data,
       key: symbol.key,
       parent: parents[0]?.id ?? ontology.ROOT_ID,
-    });
+    };
   },
   update: async ({ client, value, reset }) => {
     const payload = value();
     const created = await client.schematics.symbols.create(payload);
     reset({ ...created, parent: payload.parent });
   },
-  mountListeners: ({ client, query: { key }, reset, get }) => {
-    if (key == null) return [];
-    return client.schematics.symbols.onChange(key, (result) => {
+  mountListeners: ({ client, query: { key }, reset, get }) =>
+    client.schematics.symbols.onChange(key, (result) => {
       if (!query.isLive(result)) return;
       reset({
         ...result,
         parent:
           get<ontology.ID>("parent", { optional: true })?.value ?? ontology.ROOT_ID,
       });
-    });
-  },
+    }),
 });
 
 export interface RenameParams extends Pick<schematic.symbol.Symbol, "key" | "name"> {}
@@ -146,7 +161,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
-export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<{}, group.Group>({
+export const { useResult: useResultGroup } = Flux.createRetrieve<{}, group.Group>({
   name: RESOURCE_NAME,
   retrieve: async ({ client }) => await client.schematics.symbols.retrieveGroup(),
 });

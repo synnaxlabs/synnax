@@ -10,7 +10,7 @@
 import { panel, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Modals } from "@/platform/modals";
@@ -19,7 +19,12 @@ import { Range } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import { createCluster } from "@/session/cluster/testutil";
-import { createConsoleWrapper, stubClipboardWriteText, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  renderSuspended,
+  stubClipboardWriteText,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -35,7 +40,7 @@ const buttonWithIcon = (label: string): HTMLElement => {
 
 const renderDetails = async (rangeKey: string) => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  const result = render(
+  const result = await renderSuspended(
     <>
       <Range.Details rangeKey={rangeKey} />
       <Modals.Stack />
@@ -74,7 +79,7 @@ describe("Range.Details", () => {
       client,
       preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
     });
-    render(
+    await renderSuspended(
       <>
         <Range.Details rangeKey={child.key} />
         <Modals.Stack />
@@ -116,7 +121,7 @@ describe("Range.Details", () => {
         },
       },
     });
-    render(<Range.Details rangeKey={range.key} />, { wrapper });
+    await renderSuspended(<Range.Details rangeKey={range.key} />, { wrapper });
     await screen.findByDisplayValue(range.name, {});
     fireEvent.click(buttonWithIcon("link"));
     await waitFor(() => expect(writeText).toHaveBeenCalled());

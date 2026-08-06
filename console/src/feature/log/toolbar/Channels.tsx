@@ -225,14 +225,14 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
 };
 
 export const Channels = (): ReactElement => {
-  const entries = Log.useSelectChannels();
+  const entries = Log.useChannels();
   const key = Log.useKey();
   const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
   const keys = useMemo(
     () => entries.map((c) => c.channel).filter((k) => !primitive.isZero(k)),
     [entries],
   );
-  const { data: channels } = Channel.useRetrieveMultiple({ keys });
+  const channels = Channel.useMultiple({ keys });
   return (
     <Flex.Box y full="y" className={CSS.BE("log", "toolbar", "channels")}>
       {entries.map((entry, i) =>
@@ -240,7 +240,7 @@ export const Channels = (): ReactElement => {
           <ChannelRow
             key={entry.channel}
             index={i}
-            ch={channels?.find((c) => c.key === entry.channel)}
+            ch={channels.find((c) => c.key === entry.channel)}
             config={entry}
             disabled={!hasUpdatePermission}
           />
