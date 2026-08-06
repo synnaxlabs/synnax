@@ -13,9 +13,9 @@
 package v0
 
 import (
-	textv0 "github.com/synnaxlabs/arc/text/versions/v0"
+	text "github.com/synnaxlabs/arc/text/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/x/spatial"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
 // Version is the version the Console stamped on this format.
@@ -27,7 +27,7 @@ type Data struct {
 	// Graph is the graph-mode program body.
 	Graph Graph `json:"graph"`
 	// Text is the text-mode program body.
-	Text textv0.Text `json:"text"`
+	Text text.Text `json:"text"`
 	// Mode selects graph or text mode.
 	Mode string `json:"mode"`
 }

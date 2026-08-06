@@ -13,8 +13,8 @@
 package v1
 
 import (
-	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
-	textv0 "github.com/synnaxlabs/arc/text/versions/v0"
+	ir "github.com/synnaxlabs/arc/ir/versions/v0"
+	text "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
@@ -27,7 +27,7 @@ type Data struct {
 	// Graph is the graph-mode program body.
 	Graph Graph `json:"graph"`
 	// Text is the text-mode program body.
-	Text textv0.Text `json:"text"`
+	Text text.Text `json:"text"`
 	// Mode selects graph or text mode.
 	Mode string `json:"mode"`
 }
@@ -47,7 +47,7 @@ type Edge struct {
 	// Key is the edge's unique key.
 	Key string `json:"key"`
 	// Source is the source handle (node and param).
-	Source irv0.Handle `json:"source"`
+	Source ir.Handle `json:"source"`
 	// Target is the target handle (node and param).
-	Target irv0.Handle `json:"target"`
+	Target ir.Handle `json:"target"`
 }
