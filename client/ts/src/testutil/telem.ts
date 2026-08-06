@@ -7,7 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { DataType, type Series, TimeStamp } from "@synnaxlabs/x";
+
+import { type telem } from "@/telem";
 
 export const secondsLinspace = (start: number, n: number): TimeStamp[] =>
   Array.from({ length: n }, (_, i) => start + i).map((n) => TimeStamp.seconds(n));
+
+/** Narrows every numeric series to float32, anchoring bigints on an offset. Mirrors
+ * the transform the visualization layer injects for WebGL rendering. */
+export const glTransform: telem.Transform = {
+  resolveDataType: (dt: DataType) =>
+    dt.isVariable || dt.equals(DataType.UINT8) ? dt : DataType.FLOAT32,
+  convert: (series: Series, offset) => {
+    if (series.dataType.isVariable || series.dataType.equals(DataType.UINT8))
+      return series;
+    if (offset == null && series.dataType.usesBigInt && series.length > 0)
+      offset = BigInt(series.data[0]);
+    return series.convert(DataType.FLOAT32, offset);
+  },
+};

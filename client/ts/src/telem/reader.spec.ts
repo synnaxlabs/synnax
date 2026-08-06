@@ -1,0 +1,186 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { describe, expect, it, type Mock, vi } from "vitest";
+
+import { UnexpectedError } from "@/errors";
+import { Frame } from "@/framer/frame";
+import { Series } from "@/index";
+import { Cache } from "@/telem/cache/cache";
+import { Reader, type ReadRemoteFunc } from "@/telem/reader";
+
+const basicRemoteReadFunc =
+  (fn: Mock): ReadRemoteFunc =>
+  async (tr, keys) => {
+    fn(tr, keys);
+    return new Frame(
+      keys,
+      keys.map(
+        () =>
+          new Series({
+            data: new Float32Array([1, 2, 3]),
+            alignment: 0n,
+            timeRange: tr,
+          }),
+      ),
+    );
+  };
+
+describe("read", () => {
+  it("should correctly execute a simple read", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    const res = await reader.read(tr, 1);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [1]);
+    expect(res.length).toEqual(3);
+    expect(res.at(0)).toEqual(1);
+    cache.close();
+  });
+
+  it("should skip a read if the value is in the cache", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    const res = await reader.read(tr, 1);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [1]);
+    expect(res).toHaveLength(3);
+    expect(res.at(0)).toEqual(1);
+    const res2 = await reader.read(tr, 1);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    expect(res2).toHaveLength(3);
+    expect(res2.at(0)).toEqual(1);
+    cache.close();
+  });
+
+  it("should correctly batch multiple read requests with exactly the same time range", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    const res = await Promise.all([
+      reader.read(tr, 1),
+      reader.read(tr, 2),
+      reader.read(tr, 3),
+      reader.read(tr, 4),
+      reader.read(tr, 5),
+    ]);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [1, 2, 3, 4, 5]);
+    res.forEach((r) => expect(r).toHaveLength(3));
+    cache.close();
+  });
+
+  it("should correctly batch multiple read requests with different time ranges", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
+    const tr1 = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    const tr2 = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(4));
+    const res = await Promise.all([
+      reader.read(tr1, 1),
+      reader.read(tr1, 2),
+      reader.read(tr2, 3),
+      reader.read(tr2, 4),
+      reader.read(tr2, 5),
+    ]);
+    expect(remoteReadF).toHaveBeenCalledTimes(2);
+    expect(remoteReadF).toHaveBeenCalledWith(tr1, [1, 2]);
+    expect(remoteReadF).toHaveBeenCalledWith(tr2, [3, 4, 5]);
+    expect(res[0].timeRange.equals(tr1)).toBe(true);
+    expect(res[2].timeRange.equals(tr2)).toBe(true);
+    cache.close();
+  });
+
+  it("should correctly batch multiple read requests with time ranges within 5 milliseconds of each other", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
+    const tr1 = new TimeRange(TimeSpan.milliseconds(999), TimeSpan.milliseconds(1001));
+    const tr2 = new TimeRange(TimeSpan.milliseconds(998), TimeSpan.seconds(1));
+    const res = await Promise.all([
+      reader.read(tr1, 1),
+      reader.read(tr1, 2),
+      reader.read(tr2, 3),
+      reader.read(tr2, 4),
+      reader.read(tr2, 5),
+    ]);
+    // We expected the read time range to have the maximum breadth possible of the two
+    // time ranges.
+    const expectedReadTr = new TimeRange(
+      TimeSpan.milliseconds(998),
+      TimeSpan.milliseconds(1001),
+    );
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    expect(remoteReadF).toHaveBeenCalledWith(expectedReadTr, [1, 2, 3, 4, 5]);
+    res.forEach((r) => {
+      expect(r).toHaveLength(3);
+      expect(r.timeRange.equals(expectedReadTr)).toBe(true);
+      expect(r.at(0)).toEqual(1);
+    });
+    cache.close();
+  });
+
+  it("should fail only the reads whose batch failed", async () => {
+    const cache = new Cache();
+    const failing = new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(12));
+    const readRemote: ReadRemoteFunc = async (tr, keys) => {
+      if (tr.equals(failing)) throw new Error("read exploded");
+      return new Frame(
+        keys,
+        keys.map(
+          () =>
+            new Series({
+              data: new Float32Array([1, 2, 3]),
+              alignment: 0n,
+              timeRange: tr,
+            }),
+        ),
+      );
+    };
+    const reader = new Reader({ cache, readRemote });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    const [ok, bad] = await Promise.allSettled([
+      reader.read(tr, 1),
+      reader.read(failing, 2),
+    ]);
+    expect(ok.status).toEqual("fulfilled");
+    expect(bad.status).toEqual("rejected");
+    if (bad.status === "rejected") expect(bad.reason.message).toEqual("read exploded");
+    cache.close();
+  });
+
+  it("should reject pending reads when closed", async () => {
+    const cache = new Cache();
+    const reader = new Reader({
+      cache,
+      readRemote: basicRemoteReadFunc(vi.fn()),
+      batchDebounce: TimeSpan.seconds(10),
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    const pending = reader.read(tr, 1);
+    await new Promise((r) => setTimeout(r, 5));
+    await reader.close();
+    await expect(pending).rejects.toThrow(UnexpectedError);
+    cache.close();
+  });
+
+  it("should reject reads issued after close", async () => {
+    const cache = new Cache();
+    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(vi.fn()) });
+    await reader.close();
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    await expect(reader.read(tr, 1)).rejects.toThrow(UnexpectedError);
+    cache.close();
+  });
+});

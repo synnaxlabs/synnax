@@ -22,9 +22,26 @@ import { Mutex } from "async-mutex";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { framer } from "@/framer";
+import { type framer } from "@/framer";
 import { status } from "@/status";
 import { type Cache } from "@/telem/cache/cache";
+
+/** Stream lifecycle hooks the streamer uses to track connection health. */
+export interface StreamHooks {
+  /** Called after every successful reconnect of the underlying stream. */
+  onReopen: () => void;
+  /** Called when the underlying stream fails and reconnection begins. */
+  onDrop: (error: Error) => void;
+}
+
+/**
+ * Opens the underlying frame stream. Production wires this to
+ * {@link framer.HardenedStreamer.open} so the stream self-heals; the hooks report
+ * reconnect transitions back to the streamer.
+ */
+export interface StreamOpener {
+  (config: framer.StreamerConfig, hooks: StreamHooks): Promise<framer.Streamer>;
+}
 
 /** Receives buffers allocated for the handler's subscribed channels. */
 export type StreamHandler = (data: Map<channel.Key, MultiSeries>) => void;
@@ -54,7 +71,7 @@ interface Entry {
 
 export interface StreamerProps {
   cache: Cache;
-  openStreamer: framer.StreamOpener;
+  openStreamer: StreamOpener;
   instrumentation?: alamos.Instrumentation;
   /**
    * How long a closed subscription's keys stay on the stream, damping churn from
@@ -94,7 +111,7 @@ export class Streamer {
   private readonly statuses = new Map<channel.Key, status.Status>();
   private reconcileTimer: ReturnType<typeof setTimeout> | null = null;
   private runLoop: Promise<void> | null = null;
-  private streamer: framer.HardenedStreamer | null = null;
+  private streamer: framer.Streamer | null = null;
   // The key set last accepted by the stream. Kept separately from the streamer so a
   // mid-reconnect streamer cannot be consulted for it.
   private sentKeys = new Set<channel.Key>();
@@ -102,7 +119,7 @@ export class Streamer {
 
   constructor(props: StreamerProps) {
     this.props = {
-      instrumentation: alamos.NOOP,
+      instrumentation: props.instrumentation ?? alamos.NOOP,
       cache: props.cache,
       openStreamer: props.openStreamer,
       removalDelay: new TimeSpan(props.removalDelay ?? TimeSpan.seconds(5)),
@@ -244,14 +261,15 @@ export class Streamer {
         )
           return;
         const arrKeys = Array.from(desired);
+        const fresh = arrKeys.filter((k) => !this.sentKeys.has(k));
         if (this.streamer == null) {
           ins.L.info("creating new streamer", { keys: arrKeys });
-          const streamer = await framer.HardenedStreamer.open(
-            this.props.openStreamer,
+          const streamer = await this.props.openStreamer(
             { channels: arrKeys, throttleRate: THROTTLE_RATE },
-            undefined,
-            () => this.handleReopen(),
-            () => this.handleDrop(),
+            {
+              onReopen: () => this.handleReopen(),
+              onDrop: () => this.handleDrop(),
+            },
           );
           this.streamer = streamer;
           this.runLoop = this.run(streamer);
@@ -263,7 +281,10 @@ export class Streamer {
           await this.streamer.update(arrKeys);
         }
         this.sentKeys = desired;
-        desired.forEach((key) => this.setStatus(key, STREAMING));
+        // Keys already on the stream keep their status: the run loop and the
+        // drop/reopen hooks own it, and an unrelated demand change must not clear a
+        // per-key error.
+        fresh.forEach((key) => this.setStatus(key, STREAMING));
         this.statuses.forEach((_, key) => {
           if (!desired.has(key)) this.statuses.delete(key);
         });
@@ -289,7 +310,7 @@ export class Streamer {
     this.sentKeys.forEach((key) => this.setStatus(key, STREAMING));
   }
 
-  private async run(streamer: framer.HardenedStreamer): Promise<void> {
+  private async run(streamer: framer.Streamer): Promise<void> {
     const { cache, instrumentation: ins } = this.props;
     try {
       for await (const frame of streamer) {
@@ -297,6 +318,7 @@ export class Streamer {
         for (const k of frame.keys)
           try {
             changed.set(k, cache.get(k).writeDynamic(frame.get(k)));
+            this.setStatus(k, STREAMING);
           } catch (e) {
             // One channel's write failure must not stop the stream for the rest.
             this.setStatus(k, status.fromException(e, "failed to buffer channel"));

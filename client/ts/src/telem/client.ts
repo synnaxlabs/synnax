@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { type framer } from "@/framer";
+import { framer } from "@/framer";
 import { Cache } from "@/telem/cache/cache";
 import { Reader, type ReadRemoteFunc } from "@/telem/reader";
 import { Streamer, type StreamHandler, type Subscription } from "@/telem/streamer";
@@ -87,7 +87,14 @@ export class Client {
     });
     this.streamer = new Streamer({
       cache: this.cache,
-      openStreamer,
+      openStreamer: async (config, { onReopen, onDrop }) =>
+        await framer.HardenedStreamer.open(
+          openStreamer,
+          config,
+          breaker,
+          onReopen,
+          onDrop,
+        ),
       removalDelay,
       breaker,
       instrumentation: instrumentation?.child("streamer"),
