@@ -15,7 +15,7 @@ uv sync
 ## Testing
 
 Unit tests are held in the [`tests`](tests) directory. To run the test suite, you need a
-running instance of the [Freighter integration server](../integration/README.md).
+running instance of the [Freighter integration server](../integration).
 
 Once the integration server is running, you can run the test suite with:
 

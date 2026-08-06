@@ -25,7 +25,7 @@ var _ = Describe("Buf Formatter", func() {
 		}
 	})
 
-	It("Should normalise spacing in a .proto file", func(ctx SpecContext) {
+	It("Should normalize spacing in a .proto file", func(ctx SpecContext) {
 		raw := []byte(`syntax = "proto3";
 package x;
 message  M { int32   a=1;  }

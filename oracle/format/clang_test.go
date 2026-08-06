@@ -25,7 +25,7 @@ var _ = Describe("Clang Formatter", func() {
 		}
 	})
 
-	It("Should normalise spacing in C++ source", func(ctx SpecContext) {
+	It("Should normalize spacing in C++ source", func(ctx SpecContext) {
 		raw := []byte("int   main(  ) {return  0 ;}\n")
 		out := MustSucceed(format.NewClang().Format(ctx, raw, "/abs/main.cpp"))
 		Expect(string(out)).To(ContainSubstring("int main()"))
