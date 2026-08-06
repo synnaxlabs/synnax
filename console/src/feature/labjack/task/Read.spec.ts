@@ -21,6 +21,7 @@ import {
 import {
   awaitTaskKey,
   clickConfigure,
+  findChannelListItem,
   findDialogTriggerByText,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -40,6 +41,17 @@ const createConfig = (
 ): unknown => ({ ...LabJack.Task.ZERO_READ_PAYLOAD.config, device, channels });
 
 describe("LabJack Read", () => {
+  it("should prompt for a selection when the form carries no device", async () => {
+    await renderRead();
+    await waitFor(() => expect(screen.getByText("No device selected.")).toBeTruthy());
+  });
+
+  it("should prompt to configure an unconfigured device", async () => {
+    const dev = await createLabJackDevice(client, { configured: false });
+    await renderRead({ config: createConfig(dev.key, []) });
+    await waitFor(() => expect(screen.getByText(`Configure ${dev.name}`)).toBeTruthy());
+  });
+
   it("should render channel ports using their model aliases when available", async () => {
     const dev = await createLabJackDevice(client);
     await renderRead({
@@ -49,9 +61,9 @@ describe("LabJack Read", () => {
         createDIChannel("DIO8"),
       ]),
     });
-    await waitFor(() => expect(screen.getByText("AIN0")).toBeTruthy());
-    expect(screen.getByText("FIO4")).toBeTruthy();
-    expect(screen.getByText("EIO0")).toBeTruthy();
+    await findChannelListItem("AIN0");
+    await findChannelListItem("FIO4");
+    await findChannelListItem("EIO0");
   });
 
   it("should fall back to the raw port when the model does not list it", async () => {
@@ -59,7 +71,7 @@ describe("LabJack Read", () => {
     await renderRead({
       config: createConfig(dev.key, [createAIChannel("AIN999")]),
     });
-    await waitFor(() => expect(screen.getByText("AIN999")).toBeTruthy());
+    await findChannelListItem("AIN999");
   });
 
   it("should show the AI detail form with its scale editor", async () => {
@@ -67,7 +79,7 @@ describe("LabJack Read", () => {
     await renderRead({
       config: createConfig(dev.key, [createAIChannel("AIN0")]),
     });
-    fireEvent.click(await screen.findByText("AIN0"));
+    fireEvent.click(await findChannelListItem("AIN0"));
     await waitFor(() => expect(screen.getByText("Max Voltage")).toBeTruthy());
     expect(screen.getByText("Scale")).toBeTruthy();
     expect(screen.queryByText("Slope")).toBeNull();
@@ -82,7 +94,7 @@ describe("LabJack Read", () => {
         }),
       ]),
     });
-    fireEvent.click(await screen.findByText("AIN0"));
+    fireEvent.click(await findChannelListItem("AIN0"));
     await waitFor(() => expect(screen.getByText("Slope")).toBeTruthy());
     expect(screen.getByText("Offset")).toBeTruthy();
   });
@@ -92,7 +104,7 @@ describe("LabJack Read", () => {
     await renderRead({
       config: createConfig(dev.key, [createTCChannel("AIN0")]),
     });
-    fireEvent.click(await screen.findByText("AIN0"));
+    fireEvent.click(await findChannelListItem("AIN0"));
     await waitFor(() => expect(screen.getByText("Thermocouple Type")).toBeTruthy());
     expect(screen.getByText("Temperature Units")).toBeTruthy();
     expect(screen.getByText("Positive Channel")).toBeTruthy();
@@ -107,7 +119,7 @@ describe("LabJack Read", () => {
     await renderRead({
       config: createConfig(dev.key, [createDIChannel("DIO8")]),
     });
-    fireEvent.click(await screen.findByText("EIO0"));
+    fireEvent.click(await findChannelListItem("EIO0"));
     await waitFor(() => expect(screen.getByText("Channel Type")).toBeTruthy());
     expect(screen.queryByText("Max Voltage")).toBeNull();
     expect(screen.queryByText("Thermocouple Type")).toBeNull();
@@ -118,7 +130,7 @@ describe("LabJack Read", () => {
     await renderRead({
       config: createConfig(dev.key, [createAIChannel("AIN0")]),
     });
-    fireEvent.click(await screen.findByText("AIN0"));
+    fireEvent.click(await findChannelListItem("AIN0"));
     await waitFor(() => expect(screen.getByText("Max Voltage")).toBeTruthy());
     fireEvent.click(await findDialogTriggerByText("Analog Input"));
     fireEvent.click(await screen.findByText("Digital Input"));

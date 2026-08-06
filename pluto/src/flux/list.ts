@@ -82,9 +82,9 @@ export interface CreateListParams<
   retrieveByKey: (params: RetrieveByKeyParams<Query, K>) => Promise<E | undefined>;
   /**
    * Live updates for items fetched through retrieveByKey. Page members get
-   * their updates from `subscribe`; this covers lookups outside any page.
+   * their updates from `onChange`; this covers lookups outside any page.
    */
-  subscribeByKey?: (
+  onChangeByKey?: (
     params: RetrieveByKeyParams<Query, K>,
     handler: query.ChangeHandler<E>,
   ) => destructor.Destructor;
@@ -125,8 +125,8 @@ export const createList =
     name,
     retrieve,
     retrieveByKey,
-    subscribe: subscribeToQuery,
-    subscribeByKey,
+    onChange: subscribeToQuery,
+    onChangeByKey,
     getCached,
     sort: defaultSort,
   }: CreateListParams<Query, Key, Data>): UseList<Query, Key, Data> =>
@@ -244,11 +244,11 @@ export const createList =
 
     const openItemSub = useCallback(
       (key: Key): void => {
-        if (subscribeByKey == null || client == null) return;
+        if (onChangeByKey == null || client == null) return;
         if (itemSubsRef.current.has(key)) return;
         itemSubsRef.current.set(
           key,
-          subscribeByKey(
+          onChangeByKey(
             {
               client,
               key,

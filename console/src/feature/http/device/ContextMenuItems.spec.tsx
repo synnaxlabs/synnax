@@ -23,16 +23,28 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
+import {
+  clickAndSettle,
+  createConsoleWrapper,
+  resolveFocusedTab,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
 const renderContextMenuItems = async (configured: boolean) => {
-  const resource = createDeviceResource({
+  const rack = await client.racks.create({ name: uniqueName("rack") });
+  const dev = await client.devices.create({
     key: id.create(),
     name: "http_dev",
+    make: "http",
+    model: "HTTP server",
+    location: "http://localhost",
+    rack: rack.key,
     configured,
+    properties: HTTP.Device.ZERO_PROPERTIES,
   });
+  const resource = createDeviceResource({ key: dev.key, name: dev.name, configured });
   const { wrapper, store } = await createConsoleWrapper({ client });
   const proj = await client.projects.create({
     name: uniqueName("proj"),
@@ -81,7 +93,7 @@ describe("HTTP device ContextMenuItems", () => {
 
   it("should open the connect modal from the edit connection item", async () => {
     await renderContextMenuItems(true);
-    fireEvent.click(await screen.findByText("Edit connection"));
+    await clickAndSettle("Edit connection");
     await screen.findByText("Server");
     expect(screen.getByPlaceholderText("www.example.com")).toBeTruthy();
   });

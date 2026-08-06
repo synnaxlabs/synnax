@@ -23,7 +23,7 @@ const Internal: Panel.Content = () => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
   const visible = Session.Panel.useSelectIsTabVisible();
-  const channelKeys = Base.useSelectChannelKeys();
+  const channelKeys = Base.useChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
   const hold = Session.Log.useSelectHold();
 
@@ -66,7 +66,7 @@ const Internal: Panel.Content = () => {
 };
 
 export const Log: Panel.Content = () => {
-  const { key } = PPanel.useSelectTabResource();
+  const { key } = PPanel.useTabResource();
   return (
     <Base.Suspended logKey={key}>
       <Internal />

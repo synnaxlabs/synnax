@@ -20,7 +20,6 @@ import { Form as PForm, Panel as PlutoPanel, type Status } from "@synnaxlabs/plu
 import { id, type record, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   fireEvent,
-  render,
   type RenderResult,
   screen,
   waitFor,
@@ -30,6 +29,7 @@ import { act, type FC, type PropsWithChildren, type ReactElement } from "react";
 import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
+import { CSS } from "@/platform/css";
 import { type Panel } from "@/platform/panel";
 import { type FormViewParams } from "@/platform/task/Form";
 import { Session } from "@/session";
@@ -39,6 +39,7 @@ import {
   createConsoleWrapper,
   createTestStore,
   renderHookWithConsole,
+  renderSuspended,
   renderWithConsole,
   type RenderWithConsoleOptions,
   type TestStore,
@@ -242,7 +243,7 @@ export const renderInTaskFormWithClient = async (
   });
   const panelKey = uuid.create();
   const tabKey = uuid.create();
-  const result = render(
+  const result = await renderSuspended(
     <PanelScopes panelKey={panelKey} tabKey={tabKey}>
       <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
         {ui}
@@ -291,7 +292,7 @@ export const renderTaskFormTab = async (
     args: params,
   };
   const created = await createSelectedPanel(store, client, [tab]);
-  const result = render(
+  const result = await renderSuspended(
     <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
       <Tab.Content />
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
@@ -327,6 +328,19 @@ export const awaitTaskKey = async (created: CreatedPanel): Promise<task.Key> =>
     if (taskKey == null || typeof taskKey !== "string")
       throw new Error("task key not set on view args");
     return taskKey;
+  });
+
+/**
+ * Finds the channel list row showing the given port. The details form for the selected
+ * channel shows the same port, so a plain text query is ambiguous.
+ */
+export const findChannelListItem = async (port: string): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const match = screen
+      .getAllByText(port)
+      .find((el) => el.closest(`.${CSS.B("channel-item")}`) != null);
+    assertDefined(match, `channel list item for port "${port}" not found`);
+    return match;
   });
 
 /**

@@ -13,6 +13,7 @@ import { Triggers } from "@synnaxlabs/pluto";
 import { type aether } from "@synnaxlabs/pluto/ether";
 import { deep } from "@synnaxlabs/x";
 import {
+  act,
   fireEvent,
   render,
   renderHook,
@@ -160,7 +161,11 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   );
   const reopen = () =>
     fireEvent.click(screen.getByRole("button", { name: "open modal" }));
-  reopen();
+  // Modal content that suspends is discarded when it does so inside a synchronous act
+  // scope, so the opening click needs an awaited one.
+  await act(async () => {
+    reopen();
+  });
   return { ...rendered, store: resolvedStore, result: () => box.current, reopen };
 };
 

@@ -31,6 +31,7 @@ import { type FC, useCallback, useEffect, useMemo, useRef } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Controls } from "@/platform/task/controls";
@@ -129,6 +130,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   showHeader = true,
   showControls = true,
 }: WrapFormParams<S>): Panel.Tab => {
+  const useForm = PTask.createForm({ schemas, initialValues: getInitialValues({}) });
   const defaultName = getInitialValues({}).name;
   const useSyncName = (
     form: PForm.ContextValue<PTask.FormSchema<S>>,
@@ -158,16 +160,17 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const setView = PlutoPanel.useSetCurrentTabView();
     const initialValues = useMemo(() => {
       const base = getInitialValues({ deviceKey, config });
-      return {
+      return PTask.toFormValues({
         ...base,
         name: name ?? base.name,
         key: taskKey,
         rackKey: rackKey ?? 0,
-      };
+      });
     }, [deviceKey, config, name, taskKey, rackKey]);
     const confirm = Modals.useConfirm();
-    const { form, status, save } = PTask.createForm({ schemas, initialValues })({
-      query: { key: taskKey },
+    const { form, status, save } = useForm({
+      query: taskKey == null ? null : { key: taskKey },
+      initialValues,
       beforeSave: async ({ client, ...form }) => {
         const { name, config, rackKey: currentRackKey } = form.value();
         const [newConfig, newRackKey] = await onConfigure(client, config, name);
@@ -211,14 +214,12 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         setView(panel.viewZ.parse({ type, args: { taskKey: key } }));
       },
     });
-    // The effect fires for loading and error results too, which carry no device. Only
-    // a real device answers what rack the task belongs on.
-    Device.useRetrieveEffect({
-      onChange: ({ data }) => {
-        if (data != null) form.set("rackKey", data.rack);
-      },
-      query: deviceKey == null ? undefined : { key: deviceKey },
-    });
+    const { data: dev } = Device.useResult(
+      deviceKey == null ? null : { key: deviceKey },
+    );
+    useEffect(() => {
+      if (dev != null) form.set("rackKey", dev.rack);
+    }, [dev]);
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
     useSyncName(form, { deviceKey, taskKey, rackKey, config, name });
@@ -247,7 +248,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               grow
               empty
             >
-              <Form status={status} onConfigure={save} {...form} />
+              <Errors.SuspenseBoundary>
+                <Form status={status} onConfigure={save} {...form} />
+              </Errors.SuspenseBoundary>
             </Flex.Box>
             {showControls && (
               <Controls.Controls formStatus={status} onConfigure={save} />
@@ -261,8 +264,8 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   const RemoteName = ({ taskKey }: { taskKey: task.Key }) => {
     const tabKey = PlutoPanel.useTabKey();
     const isEditTarget = Panel.useIsNameEditTarget();
-    PTask.useEnsureRetrieved({ key: taskKey });
-    const name = PTask.useSelectName({ key: taskKey });
+    PTask.useEnsure({ key: taskKey });
+    const name = PTask.useName({ key: taskKey });
     const { update } = PTask.useRename();
     const handleChange = useCallback(
       (name: string) => update({ key: taskKey, name }),

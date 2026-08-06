@@ -10,12 +10,14 @@
 import { group, ontology, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
+import { Errors } from "@/errors";
 import { Task } from "@/task";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -298,7 +300,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieve", () => {
+  describe("use", () => {
     it("should retrieve a task by key", async () => {
       const rack = await client.racks.create({
         name: "retrieveRack",
@@ -309,14 +311,17 @@ describe("queries", () => {
         config: { value: "test" },
       });
 
-      const { result } = renderHook(() => Task.useRetrieve({ key: testTask.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.key).toEqual(testTask.key);
-      expect(result.current.data?.name).toEqual("retrieve_test");
-      expect(result.current.data?.type).toEqual("testType");
-      expect(result.current.data?.config).toEqual({ value: "test" });
+      const { result } = await renderHookSuspended(
+        () => Task.use({ key: testTask.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.key).toEqual(testTask.key);
+      expect(result.current?.name).toEqual("retrieve_test");
+      expect(result.current?.type).toEqual("testType");
+      expect(result.current?.config).toEqual({ value: "test" });
     });
 
     it("should retrieve task with status", async () => {
@@ -347,14 +352,14 @@ describe("queries", () => {
         await client.statuses.set(taskStatus);
       });
 
-      const { result } = renderHook(
-        () => Task.useRetrieve({ key: testTask.key, includeStatus: true }),
+      const { result } = await renderHookSuspended(
+        () => Task.use({ key: testTask.key, includeStatus: true }),
         { wrapper },
       );
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data?.status?.variant).toEqual("success");
-        expect(result.current.data?.status?.message).toEqual("Task running");
+        expect(result.current).not.toBeNull();
+        expect(result.current?.status?.variant).toEqual("success");
+        expect(result.current?.status?.message).toEqual("Task running");
       });
     });
 
@@ -368,16 +373,16 @@ describe("queries", () => {
         config: {},
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
-          const retrieve = Task.useRetrieve({ key: testTask.key });
+          const retrieve = Task.use({ key: testTask.key });
           const rename = Task.useRename();
           return { retrieve, rename };
         },
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
-      expect(result.current.retrieve.data?.name).toEqual("original_retrieve");
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
+      expect(result.current.retrieve?.name).toEqual("original_retrieve");
 
       await act(async () => {
         await result.current.rename.updateAsync({
@@ -386,7 +391,7 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve.data?.name).toEqual("renamed_retrieve");
+        expect(result.current.retrieve?.name).toEqual("renamed_retrieve");
       });
     });
 
@@ -400,10 +405,13 @@ describe("queries", () => {
         config: {},
       });
 
-      const { result } = renderHook(() => Task.useRetrieve({ key: testTask.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = await renderHookSuspended(
+        () => Task.use({ key: testTask.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
 
       const _errorStatusDetailsZ = task.statusDetailsZ(z.object({ error: z.string() }));
       const newStatus = status.create<typeof _errorStatusDetailsZ>({
@@ -425,9 +433,9 @@ describe("queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.data?.status?.variant).toEqual("error");
-        expect(result.current.data?.status?.message).toEqual("Task failed");
-        expect(result.current.data?.status?.details.data).toEqual({
+        expect(result.current?.status?.variant).toEqual("error");
+        expect(result.current?.status?.message).toEqual("Task failed");
+        expect(result.current?.status?.details.data).toEqual({
           error: "Test error",
         });
       });
@@ -452,15 +460,15 @@ describe("queries", () => {
         statusData: z.any().optional(),
       };
 
-      const { useRetrieve } = Task.createRetrieve(schemas);
+      const { use } = Task.createRetrieve(schemas);
 
-      const { result } = renderHook(() => useRetrieve({ key: testTask.key }), {
+      const { result } = await renderHookSuspended(() => use({ key: testTask.key }), {
         wrapper,
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.type).toEqual("typedTask");
-      expect(result.current.data?.config.port).toEqual(8080);
-      expect(result.current.data?.config.host).toEqual("localhost");
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.type).toEqual("typedTask");
+      expect(result.current?.config.port).toEqual(8080);
+      expect(result.current?.config.host).toEqual("localhost");
     });
   });
 
@@ -722,7 +730,7 @@ describe("queries", () => {
           config: {},
         },
       });
-      const { result } = renderHook(() => useForm({ query: {} }), {
+      const { result } = renderHook(() => useForm({ query: null }), {
         wrapper,
       });
       await waitFor(() => {
@@ -750,7 +758,7 @@ describe("queries", () => {
           rackKey: testRack.key,
         },
       });
-      const { result } = renderHook(() => useForm({ query: {} }), {
+      const { result } = renderHook(() => useForm({ query: null }), {
         wrapper,
       });
       await waitFor(() => {
@@ -781,7 +789,7 @@ describe("queries", () => {
           rackKey: otherRack.key,
         },
       });
-      const { result } = renderHook(() => useForm({ query: {} }), {
+      const { result } = renderHook(() => useForm({ query: null }), {
         wrapper,
       });
       await waitFor(() => {
@@ -883,7 +891,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ query: {} }), {
+      const { result } = renderHook(() => useForm({ query: null }), {
         wrapper,
       });
 
@@ -1093,7 +1101,7 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(() => useForm({ query: {} }), {
+      const { result } = renderHook(() => useForm({ query: null }), {
         wrapper,
       });
 
@@ -1368,18 +1376,31 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(
-        () =>
-          useForm({
-            query: { key: missingKey },
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("error");
-        expect(result.current.status.message).toEqual("Failed to retrieve task");
+      const Wrapper = wrapper;
+      const Display = (): ReactElement => {
+        useForm({ query: { key: missingKey } });
+        return <div />;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div />}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
       });
+      await waitFor(() =>
+        expect(utils.queryByTestId("error")?.textContent).toEqual(
+          "Failed to retrieve task",
+        ),
+      );
     });
 
     it("should handle autoSave functionality", async () => {
