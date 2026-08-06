@@ -13,17 +13,14 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
+import { staleness } from "@/vis/staleness/aether";
 
-export const stateZ = z.object({
+export const stateZ = staleness.stateZ.extend({
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   // value is written by the worker and read by the DOM, which does the actual text
   // rendering. Arbitrary text needs font fallback and shaping that a monospaced
   // canvas atlas can't provide.
   value: z.string().default(""),
-  // stale reports that no sample has arrived within stalenessTimeout.
-  stale: z.boolean().default(false),
-  // Seconds without a sample before the value is considered stale.
-  stalenessTimeout: z.number().default(5),
 });
 
 export interface State extends z.input<typeof stateZ> {}
@@ -31,7 +28,7 @@ export interface State extends z.input<typeof stateZ> {}
 interface InternalState {
   source: telem.StringSource;
   stopListening: destructor.Destructor;
-  staleTimeout?: ReturnType<typeof setTimeout>;
+  staleness: staleness.Registration;
 }
 
 export class StringValue
@@ -46,37 +43,29 @@ export class StringValue
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.source = telem.useSource(ctx, this.state.telem, i.source);
-    this.publish(false);
+    i.staleness = staleness.useRegistration(ctx, i.staleness, {
+      timeout: () => this.state.stalenessTimeout,
+      onChange: (stale) => this.setState((p) => ({ ...p, stale })),
+    });
+    this.publish();
     i.stopListening?.();
-    i.stopListening = i.source.onChange(() => this.publish(true));
+    i.stopListening = i.source.onChange(() => {
+      i.staleness.received();
+      this.publish();
+    });
   }
 
-  /**
-   * Pushes the source's current value into aether state, where the DOM reads it.
-   * A received value clears staleness and restarts the countdown; a value read
-   * because props changed leaves staleness alone.
-   */
-  private publish(received: boolean): void {
+  /** Pushes the source's current value into aether state, where the DOM reads it. */
+  private publish(): void {
     const value = this.internal.source.value();
-    if (received) this.restartStaleTimeout();
-    const stale = received ? false : this.state.stale;
-    if (value === this.state.value && stale === this.state.stale) return;
-    this.setState((p) => ({ ...p, value, stale }));
-  }
-
-  private restartStaleTimeout(): void {
-    const { internal: i } = this;
-    clearTimeout(i.staleTimeout);
-    i.staleTimeout = setTimeout(
-      () => this.setState((p) => ({ ...p, stale: true })),
-      this.state.stalenessTimeout * 1000,
-    );
+    if (value === this.state.value) return;
+    this.setState((p) => ({ ...p, value }));
   }
 
   afterDelete(): void {
     const { internal: i } = this;
-    clearTimeout(i.staleTimeout);
     i.stopListening?.();
+    i.staleness?.cleanup();
     i.source.cleanup?.();
   }
 }

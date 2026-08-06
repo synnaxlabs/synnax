@@ -23,6 +23,8 @@ import { Theming } from "@/theming";
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   matchedOptionKey?: string | null;
+  /** Overrides the matched option's color while the state channel is stale. */
+  staleColor?: color.Crude;
 }
 
 export const StateIndicator = ({
@@ -32,9 +34,10 @@ export const StateIndicator = ({
   options,
   color: colorVal,
   inlineSize,
+  staleColor,
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
-  const stateColor = matched?.color;
+  const stateColor = staleColor ?? matched?.color;
   const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
   const theme = Theming.use();
   const textColor =

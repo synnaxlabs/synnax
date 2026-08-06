@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { noopBooleanSinkSpec, noopBooleanSourceSpec } from "@/telem/aether/noop";
 import { telemTest } from "@/telem/aether/test";
@@ -23,7 +23,12 @@ import { toggle } from "@/vis/toggle/aether";
 const setup = ({
   enabled = false,
   sourceValue = false,
-}: { enabled?: boolean; sourceValue?: boolean } = {}) => {
+  stalenessTimeout,
+}: {
+  enabled?: boolean;
+  sourceValue?: boolean;
+  stalenessTimeout?: number;
+} = {}) => {
   const sink = telemTest.sink<boolean>();
   const source = telemTest.source<boolean>(sourceValue);
   const h = renderAether(toggle.Toggle, {
@@ -31,6 +36,7 @@ const setup = ({
       enabled,
       sink: telemTest.booleanSinkSpec(sink),
       source: telemTest.booleanSourceSpec(source),
+      ...(stalenessTimeout != null ? { stalenessTimeout } : {}),
     }),
   });
   return { h, sink, source };
@@ -128,6 +134,53 @@ describe("toggle/aether/Toggle", () => {
       const { h, source } = setup({ sourceValue: false });
       h.unmount();
       expect(() => source.setValue(true)).not.toThrow();
+    });
+  });
+
+  describe("staleness", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("should start out live", () => {
+      const { h } = setup({ stalenessTimeout: 1 });
+      expect(h.state.stale).toBe(false);
+    });
+
+    it("should turn stale when the source stops sending", () => {
+      const { h } = setup({ stalenessTimeout: 1 });
+      vi.advanceTimersByTime(1250);
+      expect(h.state.stale).toBe(true);
+    });
+
+    it("should stay live while the source keeps sending", () => {
+      const { h, source } = setup({ stalenessTimeout: 5 });
+      for (let i = 0; i < 10; i++) {
+        vi.advanceTimersByTime(1000);
+        source.setValue(i % 2 === 0);
+      }
+      expect(h.state.stale).toBe(false);
+    });
+
+    it("should turn live again when the source sends after going stale", () => {
+      const { h, source } = setup({ stalenessTimeout: 1 });
+      vi.advanceTimersByTime(1250);
+      source.setValue(true);
+      expect(h.state.stale).toBe(false);
+    });
+
+    it("should keep reporting the last known enabled state while stale", () => {
+      const { h, source } = setup({ sourceValue: false, stalenessTimeout: 1 });
+      source.setValue(true);
+      vi.advanceTimersByTime(1250);
+      expect(h.state.stale).toBe(true);
+      expect(h.state.enabled).toBe(true);
+    });
+
+    it("should release its registration on delete", () => {
+      const { h } = setup({ stalenessTimeout: 1 });
+      h.unmount();
+      vi.advanceTimersByTime(1250);
+      expect(vi.getTimerCount()).toEqual(0);
     });
   });
 

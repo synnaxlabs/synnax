@@ -20,12 +20,14 @@ import { telemTest } from "@/telem/aether/test";
 import { theming } from "@/theming/aether";
 import { SYNNAX_LIGHT } from "@/theming/base/theme";
 import { canvasTest } from "@/vis/render/test";
+import { staleness } from "@/vis/staleness/aether";
 
 const ALAMOS_KEY = "alamos";
 const STATUS_KEY = "status";
 const SYNNAX_KEY = "synnax";
 const THEMING_KEY = "theming";
 const TELEM_KEY = "telem";
+const STALENESS_KEY = "staleness";
 const RENDER_KEY = "render";
 
 /**
@@ -35,8 +37,9 @@ const RENDER_KEY = "render";
  * to override its initial state.
  *
  * The providers form a fixed nesting order (`alamos → status → synnax → theming →
- * telem → render`); disabling one mounts the next directly under the previous enabled
- * provider. A component that reads context from a provider it disabled will not find it.
+ * telem → staleness → render`); disabling one mounts the next directly under the
+ * previous enabled provider. A component that reads context from a provider it disabled
+ * will not find it.
  */
 export interface ProviderOptions {
   /** Alamos instrumentation provider. Defaults on. */
@@ -49,6 +52,8 @@ export interface ProviderOptions {
   theming?: false | z.input<typeof theming.Provider.z>;
   /** Telemetry provider. Defaults on with `TestFactory` + `NoopFactory`. */
   telem?: false | { factories?: telem.Factory[] };
+  /** Staleness tracker. Defaults on with a 250ms sweep. */
+  staleness?: false | z.input<typeof staleness.Provider.z>;
   /** Canvas render context. Off by default. `true` injects a fresh recorder; pass a
    * {@link canvasTest.Recorder} (or any `render.Context`-shaped value) to supply your
    * own and assert on it afterward. */
@@ -67,6 +72,7 @@ export interface MountedProviders {
   synnax: synnax.Provider | null;
   theming: theming.Provider | null;
   telem: aether.Composite<typeof telem.providerStateZ> | null;
+  staleness: staleness.Provider | null;
   render: canvasTest.RenderProvider | null;
 }
 
@@ -121,6 +127,7 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     ...synnax.REGISTRY,
     ...theming.REGISTRY,
     [telem.PROVIDER_TYPE]: buildTelemProvider(telemFactories),
+    ...staleness.REGISTRY,
     [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider,
     [aetherTest.Leaf.TYPE]: aetherTest.Leaf,
     [aetherTest.Composite.TYPE]: aetherTest.Composite,
@@ -135,6 +142,7 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     synnax: null,
     theming: null,
     telem: null,
+    staleness: null,
     render: null,
   };
   const path: string[] = [aetherTest.ROOT_KEY];
@@ -183,6 +191,15 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     providers.telem = driver.find<aether.Composite<typeof telem.providerStateZ>>([
       ...path,
     ]);
+  }
+  if (isOn(options.staleness)) {
+    path.push(STALENESS_KEY);
+    driver.update(
+      path,
+      staleness.Provider.TYPE,
+      staleness.Provider.z.parse(stateOf(options.staleness, {})),
+    );
+    providers.staleness = driver.find<staleness.Provider>([...path]);
   }
   if (recorder != null) {
     path.push(RENDER_KEY);

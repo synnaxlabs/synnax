@@ -29,5 +29,7 @@ export const configZ = Label.labeledConfigZ.extend({
   color: color.crudeZ.optional(),
   inlineSize: z.number().optional(),
   options: z.array(stateMappingZ),
+  stalenessTimeout: z.number().optional(),
+  stalenessColor: color.colorZ.optional(),
 });
 export type Config = z.infer<typeof configZ>;
