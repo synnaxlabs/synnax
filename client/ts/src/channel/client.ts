@@ -13,7 +13,6 @@ import {
   control,
   type CrudeDensity,
   type CrudeTimeRange,
-  type CrudeTimeSpan,
   type CrudeTimeStamp,
   DataType,
   deep,
@@ -21,7 +20,6 @@ import {
   errors,
   type MultiSeries,
   primitive,
-  TimeSpan,
   type TypedArray,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -29,7 +27,6 @@ import { z } from "zod";
 import { type Params, type PrimitiveParams, statusKey } from "@/channel/payload";
 import {
   analyzeParams,
-  DebouncedBatchRetriever,
   type RetrieveOptions,
   type Retriever,
   type RetrieveRequest,
@@ -689,25 +686,6 @@ export class Client extends query.Retriever<
     return this.store.set(key, (p) =>
       p == null ? undefined : this.sugar({ ...p.payload, name }),
     );
-  }
-
-  createDebouncedBatchRetriever(
-    deb: CrudeTimeSpan = TimeSpan.milliseconds(10),
-  ): Retriever {
-    const cached: Retriever = {
-      retrieve: async (
-        channels: Params | RetrieveRequest,
-        options?: RetrieveOptions,
-      ): Promise<Payload[]> => {
-        if (!Array.isArray(channels) && typeof channels === "object")
-          return await this.retriever.retrieve(channels);
-        const { variant, normalized } = analyzeParams(channels);
-        if (variant === "keys" && options == null)
-          return (await this.store.retrieve(normalized)).map((ch) => ch.payload);
-        return await this.retriever.retrieve(channels, options);
-      },
-    };
-    return new DebouncedBatchRetriever(cached, deb);
   }
 
   sugar(payload: Payload): Channel;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { Client, type ClientProps } from "@/telem/client";
+export { Client, type ClientProps, type Options } from "@/telem/client";
 export { type ReadRemoteFunc } from "@/telem/reader";
 export {
   type StatusHandler,

@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, TimeRange } from "@synnaxlabs/client";
 import {
-  bounds,
-  type destructor,
-  id,
-  MultiSeries,
-  Series,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+  channel,
+  DataType,
+  status as cstatus,
+  type telem,
+  TimeRange,
+} from "@synnaxlabs/client";
+import { bounds, id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   ChannelData,
   type ChannelDataProps,
+  type Client,
   StreamChannelData,
   type StreamChannelDataProps,
   StreamChannelStringValue,
@@ -29,7 +28,6 @@ import {
   type StreamChannelValueProps,
 } from "@/telem/aether/remote";
 import { type Source } from "@/telem/aether/telem";
-import { type client } from "@/telem/client";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
@@ -39,13 +37,19 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   return source.value();
 };
 
+const mockSubscription = (close: () => void): telem.Subscription => ({
+  close,
+  status: () => cstatus.create({ variant: "loading", message: "subscribing" }),
+  onStatusChange: () => () => {},
+});
+
 describe("remote", () => {
   describe("StreamChannelValue", () => {
-    class MockClient implements client.Client {
+    class MockClient implements Client {
       key: string = id.create();
 
       // Stream
-      streamHandler: client.StreamHandler | null = null;
+      streamHandler: telem.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -61,25 +65,20 @@ describe("remote", () => {
       // Data
       response: MultiSeries = new MultiSeries([]);
 
-      async retrieveChannel(): Promise<channel.Channel> {
-        return this.channel;
-      }
+      channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
 
-      async read(): Promise<MultiSeries> {
-        return this.response;
-      }
-
-      async stream(
-        handler: client.StreamHandler,
-        keys: channel.Key[],
-      ): Promise<destructor.Async> {
-        this.streamHandler = handler;
-        this.streamKeys = keys;
-        this.streamF(handler, keys);
-        return this.streamDestructorF;
-      }
-
-      async close(): Promise<void> {}
+      telem = {
+        read: async (): Promise<MultiSeries> => this.response,
+        stream: (
+          handler: telem.StreamHandler,
+          keys: channel.Key[],
+        ): telem.Subscription => {
+          this.streamHandler = handler;
+          this.streamKeys = keys;
+          this.streamF(handler, keys);
+          return mockSubscription(this.streamDestructorF);
+        },
+      };
     }
 
     let c: MockClient;
@@ -199,10 +198,10 @@ describe("remote", () => {
   });
 
   describe("StreamChannelStringValue", () => {
-    class MockClient implements client.Client {
+    class MockClient implements Client {
       key: string = id.create();
 
-      streamHandler: client.StreamHandler | null = null;
+      streamHandler: telem.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -216,25 +215,20 @@ describe("remote", () => {
 
       response: MultiSeries = new MultiSeries([]);
 
-      async retrieveChannel(): Promise<channel.Channel> {
-        return this.channel;
-      }
+      channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
 
-      async read(): Promise<MultiSeries> {
-        return this.response;
-      }
-
-      async stream(
-        handler: client.StreamHandler,
-        keys: channel.Key[],
-      ): Promise<destructor.Async> {
-        this.streamHandler = handler;
-        this.streamKeys = keys;
-        this.streamF(handler, keys);
-        return this.streamDestructorF;
-      }
-
-      async close(): Promise<void> {}
+      telem = {
+        read: async (): Promise<MultiSeries> => this.response,
+        stream: (
+          handler: telem.StreamHandler,
+          keys: channel.Key[],
+        ): telem.Subscription => {
+          this.streamHandler = handler;
+          this.streamKeys = keys;
+          this.streamF(handler, keys);
+          return mockSubscription(this.streamDestructorF);
+        },
+      };
     }
 
     let c: MockClient;
@@ -351,35 +345,19 @@ describe("remote", () => {
     // next line lands between the awaits. Without the generation guard the resumed
     // read subscribes a source that nothing will clean up again.
     describe("cleanup during an in-flight read", () => {
-      it("should unsubscribe when cleaned up while retrieving the channel", async () => {
-        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-        scsv.value();
-        scsv.cleanup();
-        await expect.poll(() => c.streamF.mock.calls.length).toBe(1);
-        expect(c.streamDestructorF).toHaveBeenCalledTimes(1);
-      });
-
-      it("should unsubscribe when cleaned up while opening the stream", async () => {
-        let releaseStream = (): void => {};
-        const gate = new Promise<void>((resolve) => (releaseStream = resolve));
-        c.stream = async (
-          handler: client.StreamHandler,
-          keys: channel.Key[],
-        ): Promise<destructor.Async> => {
-          c.streamHandler = handler;
-          c.streamKeys = keys;
-          c.streamF(handler, keys);
+      it("should not subscribe when cleaned up while retrieving the channel", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.channels.retrieve = async (): Promise<channel.Channel> => {
           await gate;
-          return c.streamDestructorF;
+          return c.channel;
         };
         const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
         scsv.value();
-        await expect.poll(() => c.streamF.mock.calls.length).toBe(1);
-        // cleanup cannot unsubscribe here, because the destructor does not exist yet.
         scsv.cleanup();
-        expect(c.streamDestructorF).not.toHaveBeenCalled();
-        releaseStream();
-        await expect.poll(() => c.streamDestructorF.mock.calls.length).toBe(1);
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(c.streamF).not.toHaveBeenCalled();
       });
 
       it("should not acquire buffers delivered to a stale handler", async () => {
@@ -436,7 +414,7 @@ describe("remote", () => {
   });
 
   describe("ChannelData", () => {
-    class MockClient implements client.ReadClient, client.ChannelClient {
+    class MockClient implements Client {
       key: string = id.create();
       readMock = vi.fn();
       retrieveChannelMock = vi.fn();
@@ -463,19 +441,22 @@ describe("remote", () => {
         [this.channel.index]: new MultiSeries([]),
       };
 
-      async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
-        this.retrieveChannelMock(key);
-        if (key === this.channel.key) return this.channel;
-        if (key === this.channel.index) return this.indexChannel;
-        throw new Error(`Channel with key ${key} not found`);
-      }
+      channels = {
+        retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
+          this.retrieveChannelMock(key);
+          if (key === this.channel.key) return this.channel;
+          if (key === this.channel.index) return this.indexChannel;
+          throw new Error(`Channel with key ${key} not found`);
+        },
+      };
 
-      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
-        this.readMock(tr, key);
-        return this.response[key];
-      }
-
-      close(): void {}
+      telem = {
+        read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
+          this.readMock(tr, key);
+          return this.response[key];
+        },
+        stream: (): telem.Subscription => mockSubscription(vi.fn()),
+      };
     }
 
     let c: MockClient;
@@ -572,11 +553,11 @@ describe("remote", () => {
   });
 
   describe("StreamChannelData", () => {
-    class MockClient implements client.Client {
+    class MockClient implements Client {
       key: string = id.create();
 
       // Stream
-      streamHandler: client.StreamHandler | null = null;
+      streamHandler: telem.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -601,28 +582,29 @@ describe("remote", () => {
         isIndex: true,
       });
 
-      async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
-        if (key === this.channel.key) return this.channel;
-        if (key === this.channel.index) return this.indexChannel;
-        throw new Error(`Channel with key ${key} not found`);
-      }
+      channels = {
+        retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
+          if (key === this.channel.key) return this.channel;
+          if (key === this.channel.index) return this.indexChannel;
+          throw new Error(`Channel with key ${key} not found`);
+        },
+      };
 
-      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
-        this.readMock(tr, key);
-        return this.response;
-      }
-
-      async stream(
-        handler: client.StreamHandler,
-        keys: channel.Key[],
-      ): Promise<destructor.Async> {
-        this.streamHandler = handler;
-        this.streamKeys = keys;
-        this.streamF(handler, keys);
-        return this.streamDestructorF;
-      }
-
-      async close(): Promise<void> {}
+      telem = {
+        read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
+          this.readMock(tr, key);
+          return this.response;
+        },
+        stream: (
+          handler: telem.StreamHandler,
+          keys: channel.Key[],
+        ): telem.Subscription => {
+          this.streamHandler = handler;
+          this.streamKeys = keys;
+          this.streamF(handler, keys);
+          return mockSubscription(this.streamDestructorF);
+        },
+      };
     }
 
     let c: MockClient;

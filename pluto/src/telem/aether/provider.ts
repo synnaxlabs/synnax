@@ -7,75 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Instrumentation } from "@synnaxlabs/alamos";
 import { type Synnax } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { alamos } from "@/alamos/aether";
-import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { Context, CONTEXT_KEY, setContext } from "@/telem/aether/context";
 import { CompoundFactory, createFactory, type Factory } from "@/telem/aether/factory";
 import { NoopFactory } from "@/telem/aether/noop";
 import { PipelineFactory } from "@/telem/aether/pipeline";
-import { RemoteFactory } from "@/telem/aether/remote";
+import { type Client, RemoteFactory } from "@/telem/aether/remote";
 import { StaticFactory } from "@/telem/aether/static";
 import { TransformerFactory } from "@/telem/aether/transformers";
-import { client } from "@/telem/client";
 
 export type ProviderState = z.input<typeof providerStateZ>;
 export const providerStateZ = z.object({});
 
-interface InternalState {
-  instrumentation: Instrumentation;
-  /** Error handler bound from the current afterUpdate's context, reused by afterDelete
-   * (which has no update-triggering context of its own to derive one from). */
-  runAsync: status.ErrorHandler;
-}
-
 export const PROVIDER_TYPE = "telem.Provider";
 
 export const createProvider = (
-  createFactory: (client?: client.Client) => CompoundFactory,
+  createFactory: (client: Client | null) => CompoundFactory,
 ): aether.ComponentConstructor => {
-  class BaseProvider extends aether.Composite<typeof providerStateZ, InternalState> {
+  class BaseProvider extends aether.Composite<typeof providerStateZ> {
     static readonly TYPE = PROVIDER_TYPE;
     static readonly stateZ = providerStateZ;
     schema = BaseProvider.stateZ;
     prevCore: Synnax | null = null;
-    client: client.Client | null = null;
 
     afterUpdate(ctx: aether.Context): void {
-      const { internal: i } = this;
       const core = synnax.use(ctx);
-      i.instrumentation = alamos.useInstrumentation(ctx, "telem").child("provider");
-      i.runAsync = status.useErrorHandler(ctx);
       const shouldSwap = core !== this.prevCore || !ctx.wasSetPreviously(CONTEXT_KEY);
       if (!shouldSwap) return;
       this.prevCore = core;
-      this.closeClient();
-
-      this.client =
-        core == null
-          ? new client.NoopClient()
-          : new client.Core({ core, instrumentation: i.instrumentation });
-      const f = createFactory(this.client);
-      const value = new Context(f);
-      setContext(ctx, value);
-    }
-
-    afterDelete(): void {
-      this.closeClient();
-    }
-
-    private closeClient(): void {
-      const { client: current } = this;
-      if (current == null) return;
-      this.client = null;
-      this.internal.runAsync(async () => {
-        await current.close();
-      }, "failed to close client");
+      setContext(ctx, new Context(createFactory(core)));
     }
   }
   return BaseProvider;
@@ -87,18 +51,16 @@ export const REGISTRY: aether.ComponentRegistry = {
   [PROVIDER_TYPE]: Provider,
 };
 
-export type FactoryConstructor = (client: client.Client) => Factory;
+export type FactoryConstructor = (client: Client | null) => Factory;
 
 export const createRegistry = (
   ...factoryConstructors: FactoryConstructor[]
 ): aether.ComponentRegistry => {
-  const create = (cl?: client.Client): CompoundFactory => {
+  const create = (client: Client | null): CompoundFactory => {
     const base = [new TransformerFactory(), new StaticFactory(), new NoopFactory()];
     const f = new CompoundFactory(base);
-    if (cl != null) {
-      f.add(new RemoteFactory(cl));
-      for (const constructor of factoryConstructors) f.add(constructor(cl));
-    }
+    f.add(new RemoteFactory(client));
+    for (const constructor of factoryConstructors) f.add(constructor(client));
     f.add(new PipelineFactory(f));
     return f;
   };

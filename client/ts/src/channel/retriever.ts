@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type CrudeTimeSpan, DataType, debounce, zod } from "@synnaxlabs/x";
-import { Mutex } from "async-mutex";
+import { DataType, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Params, type PrimitiveParams } from "@/channel/payload";
@@ -90,59 +89,6 @@ export class ClusterRetriever implements Retriever {
       resZ,
     );
     return res.channels;
-  }
-}
-
-export interface PromiseFns<T> {
-  resolve: (value: T) => void;
-  reject: (reason?: unknown) => void;
-}
-
-// no interval
-export class DebouncedBatchRetriever implements Retriever {
-  private readonly mu = new Mutex();
-  private readonly requests = new Map<Key[], PromiseFns<Payload[]>>();
-  private readonly wrapped: Retriever;
-  private readonly debouncedRun: () => void;
-
-  constructor(wrapped: Retriever, deb: CrudeTimeSpan) {
-    this.wrapped = wrapped;
-    this.debouncedRun = debounce(() => {
-      void this.run();
-    }, deb);
-  }
-
-  async retrieve(channels: Params | RetrieveRequest): Promise<Payload[]> {
-    if (!Array.isArray(channels) && typeof channels === "object")
-      return await this.wrapped.retrieve(channels);
-    const { normalized, variant } = analyzeParams(channels);
-    // Bypass on name fetches for now.
-    if (variant === "names") return await this.wrapped.retrieve(normalized);
-
-    const a = new Promise<Payload[]>((resolve, reject) => {
-      void this.mu.runExclusive(() => {
-        this.requests.set(normalized, { resolve, reject });
-        this.debouncedRun();
-      });
-    });
-    return await a;
-  }
-
-  async run(): Promise<void> {
-    await this.mu.runExclusive(async () => {
-      const allKeys = new Set<Key>();
-      this.requests.forEach((_, keys) => keys.forEach((k) => allKeys.add(k)));
-      try {
-        const channels = await this.wrapped.retrieve(Array.from(allKeys));
-        this.requests.forEach((fns, keys) =>
-          fns.resolve(channels.filter((c) => keys.includes(c.key))),
-        );
-      } catch (e) {
-        this.requests.forEach((fns) => fns.reject(e));
-      } finally {
-        this.requests.clear();
-      }
-    });
   }
 }
 

@@ -72,7 +72,13 @@ export const synnaxParamsZ = z.object({
     .optional(),
 });
 
-export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
+export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {
+  /**
+   * Tuning for the telemetry client, e.g. a series transform applied on cache
+   * entry. Construction-site only: never serialized with the connection params.
+   */
+  telem?: telem.Options;
+}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
@@ -297,6 +303,7 @@ export default class Synnax extends framer.Client {
     this.telem = new telem.Client({
       readRemote: async (tr, keys) => await this.read(tr, keys),
       openStreamer: async (config) => await this.openStreamer(config),
+      transform: params.telem?.transform,
     });
   }
 

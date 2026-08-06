@@ -47,6 +47,9 @@ export interface ClientProps {
   overlapThreshold?: TimeSpan;
 }
 
+/** The subset of {@link ClientProps} an owner may tune from the outside. */
+export interface Options extends Pick<ClientProps, "transform"> {}
+
 /**
  * Cached, demand-managed access to channel telemetry: durable streaming
  * subscriptions multiplexed onto one frame stream, and batched historical reads

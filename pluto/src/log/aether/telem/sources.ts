@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, status as cstatus } from "@synnaxlabs/client";
+import { channel, status as cstatus, type telem } from "@synnaxlabs/client";
 import {
   compare,
   DataType,
@@ -25,8 +25,8 @@ import {
 } from "@/log/aether/telem/types";
 import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
+import { type Client, DISCONNECTED_STATUS } from "@/telem/aether/remote";
 import { AbstractSource } from "@/telem/aether/telem";
-import { type client } from "@/telem/client";
 
 const MAX_ENTRIES = 100_000;
 
@@ -53,7 +53,7 @@ export class StreamMultiChannelLog
   static readonly TYPE = "stream-multi-channel-log";
   schema = streamMultiChannelLogPropsZ;
 
-  private readonly client: client.Client;
+  private readonly client: Client | null;
   private readonly onStatusChange?: status.Adder;
   private readonly now: () => TimeStamp;
   private readonly maxEntries: number;
@@ -70,7 +70,7 @@ export class StreamMultiChannelLog
   }
 
   constructor(
-    client: client.Client,
+    client: Client | null,
     props: unknown,
     options?: CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
@@ -107,15 +107,20 @@ export class StreamMultiChannelLog
   }
 
   private async read(): Promise<void> {
+    this.valid = true;
+    const { client } = this;
+    if (client == null) {
+      this.onStatusChange?.(DISCONNECTED_STATUS);
+      return;
+    }
     try {
-      this.valid = true;
       // Generation counter prevents stale async completions: if setChannels() triggers
       // a new read() while this one is awaiting, the older read bails out.
       const generation = ++this.readGeneration;
       this.stopStreaming?.();
 
       const channels = await Promise.all(
-        this._channels.map((ch) => this.client.retrieveChannel(ch)),
+        this._channels.map(async (ch) => await client.channels.retrieve(ch)),
       );
       // Superseded by a newer read() call while we were awaiting.
       if (generation !== this.readGeneration) return;
@@ -143,7 +148,7 @@ export class StreamMultiChannelLog
         });
 
       const streamKeys = channels.map((ch) => ch.key);
-      this.stopStreaming = await this.client.stream((res) => {
+      const handler: telem.StreamHandler = (res) => {
         const now = this.now();
         let pushed = 0;
         for (const [key, chMeta] of this.channelMeta) {
@@ -202,7 +207,9 @@ export class StreamMultiChannelLog
         }
         this._evictedCount = this.gcEntries();
         if (pushed > 0) this.notify();
-      }, streamKeys);
+      };
+      const sub = client.telem.stream(handler, streamKeys);
+      this.stopStreaming = () => sub.close();
       this.notify();
     } catch (e) {
       this.valid = false;
