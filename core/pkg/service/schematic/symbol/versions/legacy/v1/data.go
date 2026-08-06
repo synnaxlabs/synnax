@@ -16,8 +16,8 @@ package v1
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/spatial"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
 // Version is the version the Console stamped on this format.

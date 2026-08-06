@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/x/spatial"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
 // Version is the version the Console stamped on this format.

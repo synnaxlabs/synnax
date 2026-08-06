@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v1"
-	"github.com/synnaxlabs/x/spatial"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
 // Version is the version the Console stamped on this format.
