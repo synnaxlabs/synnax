@@ -12,15 +12,28 @@ package testutil
 
 import (
 	"encoding/json"
+	"os"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/testutil"
 )
 
+// LoadEnvelope reads the wire-format envelope fixture at path and unmarshals it into an
+// imex.Envelope, binding the codec Decode needs.
+func LoadEnvelope(path string) imex.Envelope {
+	ginkgo.GinkgoHelper()
+	raw := testutil.MustSucceed(os.ReadFile(path))
+	var env imex.Envelope
+	gomega.Expect(json.Unmarshal(raw, &env)).To(gomega.Succeed())
+	return env
+}
+
 // WireRoundTrip marshals env to JSON and back, binding the codec Decode needs. Exported
 // envelopes carry a body but no codec, so a decode must first pass through the wire.
 func WireRoundTrip(env imex.Envelope) imex.Envelope {
+	ginkgo.GinkgoHelper()
 	b := testutil.MustSucceed(json.Marshal(env))
 	var out imex.Envelope
 	gomega.Expect(json.Unmarshal(b, &out)).To(gomega.Succeed())

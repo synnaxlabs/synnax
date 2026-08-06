@@ -22,6 +22,7 @@ import (
 )
 
 func findField(fields []resolution.Field, name string) resolution.Field {
+	GinkgoHelper()
 	for _, f := range fields {
 		if f.Name == name {
 			return f
@@ -113,6 +114,62 @@ var _ = Describe("Analyzer", func() {
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
+		})
+	})
+
+	Describe("ImEx marker", func() {
+		It("Should accept a bare @go imex on a versioned type", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 2
+					@go imex
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+
+		It("Should error when @go imex carries arguments", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 2
+					@go imex 2
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("malformed @go imex"))
+		})
+
+		It("Should error when @go imex lacks a @go version", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go imex
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("@go imex without @go version"))
+		})
+
+		It("Should error when @go imex is declared file-level", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				@go imex
+				Entry struct {
+					value int32
+					@go version 2
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("declare it per type"))
 		})
 	})
 
@@ -1742,6 +1799,7 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Action Extension", func() {
 		findAction := func(table *resolution.Table, qname, name string) resolution.Action {
+			GinkgoHelper()
 			form := table.MustGet(qname).Form.(resolution.StructForm)
 			for _, a := range form.Actions {
 				if a.Name == name {
@@ -2442,6 +2500,7 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Field Defaults", func() {
 		defaultOf := func(ctx SpecContext, fieldDecl string) *resolution.ExpressionValue {
+			GinkgoHelper()
 			source := "Item struct {\n\t" + fieldDecl + "\n}\n"
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
@@ -3425,6 +3484,7 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Struct Defaults", func() {
 		structDefaultOf := func(ctx SpecContext, source string) *resolution.ExpressionValue {
+			GinkgoHelper()
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("test.Outer").Form.(resolution.StructForm)

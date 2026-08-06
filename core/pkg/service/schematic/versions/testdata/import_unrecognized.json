@@ -1,0 +1,7 @@
+{
+  "version": "3.0.0",
+  "type": "schematic",
+  "name": "Foreign",
+  "nodes": [{ "key": "n1", "position": { "x": 1, "y": 2 } }],
+  "configs": { "n1": { "variant": "valve" } }
+}

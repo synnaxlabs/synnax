@@ -16,6 +16,12 @@ telemetry. Monorepo:
 - **Oracle** (`/oracle/`, Go) generates Go/TS/Python/C++/proto bindings from `.oracle`
   schemas in `/schemas/`. Never hand-edit generated code. See `oracle/CLAUDE.md`.
 
+## Release model
+
+Users only ever run builds released from `main`; `rc` is pre-release integration and
+never ships. Backward compatibility — file formats, stored shapes, wire quirks,
+migrations — is owed only to what `main` released. rc-era formats may be dropped freely.
+
 ## Documentation
 
 Language and component rules auto-load from package-root `CLAUDE.md` stubs when you
