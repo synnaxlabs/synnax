@@ -13,6 +13,7 @@
 #include <set>
 #include <vector>
 
+#include "client/cpp/ethercat/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
 
@@ -68,8 +69,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         std::string first_network;
 
         cfg.iter("channels", [&](x::json::Parser &ch) {
-            auto slave_key = ch.field<std::string>("device");
+            const auto parsed = ::synnax::ethercat::parse_input_channel(ch);
             if (ch.error()) return;
+            const auto &slave_key = channel::base(parsed).device;
             if (!slave_cache.contains(slave_key)) {
                 auto [slave_dev, slave_err] = client->devices.retrieve(slave_key);
                 if (slave_err) {
@@ -91,9 +93,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 }
             }
             const auto &slave = slave_cache.at(slave_key);
-            auto channel_ptr = channel::parse_input(ch, slave);
-            if (channel_ptr && channel_ptr->enabled)
-                this->channels.push_back(std::move(channel_ptr));
+            auto channel_ptr = channel::make_input(parsed, slave, ch);
+            if (channel_ptr->enabled) this->channels.push_back(std::move(channel_ptr));
         });
 
         if (cfg.error()) return;

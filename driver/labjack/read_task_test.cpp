@@ -22,7 +22,7 @@ namespace driver::labjack {
 TEST(TestInputChannelParse, testAIChan) {
     const x::json::json cfg{
         {"port", "AIN0"},
-        {"enabled", true},
+        {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 1},
         {"type", "AI"},
@@ -44,7 +44,7 @@ TEST(TestInputChannelParse, testAIChan) {
 TEST(TestInputChannelParse, testDIChan) {
     const x::json::json cfg{
         {"port", "DIO0"},
-        {"enabled", true},
+        {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 1},
         {"type", "DI"}
@@ -63,7 +63,7 @@ TEST(TestInputChannelParse, testDIChan) {
 TEST(TestInputChannelParse, testTCChan) {
     const x::json::json cfg{
         {"port", "AIN0"},
-        {"enabled", true},
+        {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 0},
         {"type", "TC"},
@@ -98,7 +98,7 @@ TEST(TestInputChannelParse, testTCChan) {
 TEST(TestInputChannelParse, testInvalidChannelType) {
     const x::json::json cfg{
         {"port", "AIN0"},
-        {"enabled", true},
+        {"disabled", false},
         {"key", "8hYJO9zt6eS"},
         {"channel", 1},
         {"type", "INVALID_TYPE"}, // Invalid channel type
@@ -119,7 +119,7 @@ x::json::json basic_read_task_config() {
         {"channels",
          x::json::json::array(
              {{{"port", "AIN0"},
-               {"enabled", true},
+               {"disabled", false},
                {"key", "8hYJO9zt6eS"},
                {"channel", 0},
                {"type", "TC"},
@@ -133,12 +133,12 @@ x::json::json basic_read_task_config() {
                {"cjc_slope", 1},
                {"cjc_offset", 0}},
               {{"port", "DIO4"},
-               {"enabled", true},
+               {"disabled", false},
                {"key", "DYFpBBDlpRt"},
                {"channel", 0},
                {"type", "DI"}},
               {{"port", "AIN6"},
-               {"enabled", true},
+               {"disabled", false},
                {"key", "rHb0YjmhUq3"},
                {"channel", 0},
                {"type", "AI"},
@@ -190,7 +190,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 
     ASSERT_EQ(cfg->sample_rate, x::telem::HERTZ * 10);
     ASSERT_EQ(cfg->stream_rate, x::telem::HERTZ * 5);
-    ASSERT_EQ(cfg->data_saving, true);
+    ASSERT_EQ(cfg->data_saving_disabled, false);
     ASSERT_EQ(cfg->channels.size(), 3);
 
     const auto tc_chan = dynamic_cast<ThermocoupleChan *>(cfg->channels[0].get());
@@ -245,7 +245,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto j = basic_read_task_config();
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
-          {"enabled", true},
+          {"disabled", false},
           {"key", "8hYJO9zt6eS"},
           {"channel", ch.key},
           {"type", "UNKNOWN_CHANNEL_TYPE"}, // Invalid channel type
@@ -281,7 +281,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     j["data_saving_disabled"] = false;
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
-          {"enabled", true},
+          {"disabled", false},
           {"key", "8hYJO9zt6eS"},
           {"channel", ch.key},
           {"type", "AI"},

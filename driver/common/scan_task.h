@@ -16,6 +16,7 @@
 
 #include "absl/log/log.h"
 
+#include "client/cpp/task/common/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
@@ -49,21 +50,15 @@ inline x::json::json merge_device_properties(
     return merged;
 }
 
-/// @brief Base configuration for scan tasks with rate and enabled settings.
-struct ScanTaskConfig {
-    x::telem::Rate scan_rate = DEFAULT_SCAN_RATE;
-    bool enabled = true;
-
+/// @brief common scan task configuration shared across device discovery tasks.
+/// Wraps the schema-generated scan config (rate, disabled) so the field set has a
+/// single definition in the oracle schema.
+struct ScanTaskConfig : ::synnax::common::BaseScanConfig {
     ScanTaskConfig() = default;
 
     explicit ScanTaskConfig(x::json::Parser &cfg):
-        scan_rate(
-            x::telem::Rate(cfg.field<double>(
-                std::vector<std::string>{"scan_rate", "rate"},
-                DEFAULT_SCAN_RATE.hz()
-            ))
-        ),
-        enabled(cfg.field<bool>("enabled", true)) {}
+        ::synnax::common::BaseScanConfig(::synnax::common::BaseScanConfig::parse(cfg)) {
+    }
 };
 
 struct ScannerContext {

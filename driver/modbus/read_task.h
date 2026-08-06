@@ -10,6 +10,9 @@
 #pragma once
 
 #include <set>
+#include <variant>
+
+#include "client/cpp/modbus/json.gen.h"
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
@@ -204,19 +207,34 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
 
         cfg.iter("channels", [&, this](x::json::Parser &ch) {
-            const auto type = ch.field<std::string>("type");
-            if (type == "holding_register_input")
-                holding_registers.emplace_back(ch);
-            else if (type == "register_input")
-                input_registers.emplace_back(ch);
-            else if (type == "coil_input")
-                coils.emplace_back(ch);
-            else if (type == "discrete_input")
-                discrete_inputs.emplace_back(ch);
-            else {
-                cfg.field_err("channels", "invalid channel type: " + type);
-                return;
-            }
+            const auto parsed = ::synnax::modbus::parse_input_channel(ch);
+            const auto &base = std::visit(
+                [](const auto &c) -> const ::synnax::modbus::BaseInputChannel & {
+                    return c;
+                },
+                parsed
+            );
+            if (base.channel == 0)
+                return ch.field_err("channel", "channel must be specified");
+            if (base.disabled) return;
+            if (const auto *c = std::get_if<
+                    ::synnax::modbus::InputChannelHoldingRegisterInput>(&parsed))
+                holding_registers.emplace_back(*c);
+            else if (
+                const auto *c = std::get_if<
+                    ::synnax::modbus::InputChannelRegisterInput>(&parsed)
+            )
+                input_registers.emplace_back(*c);
+            else if (
+                const auto *c = std::get_if<::synnax::modbus::InputChannelCoilInput>(
+                    &parsed
+                )
+            )
+                coils.emplace_back(*c);
+            else
+                discrete_inputs.emplace_back(
+                    std::get<::synnax::modbus::InputChannelDiscreteInput>(parsed)
+                );
             this->data_channel_count++;
         });
 

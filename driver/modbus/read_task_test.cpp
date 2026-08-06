@@ -79,11 +79,11 @@ protected:
         const std::string &type,
         const synnax::channel::Channel &channel,
         uint16_t address,
-        bool enabled = true
+        bool disabled = false
     ) {
         x::json::json cfg = {
             {"type", type},
-            {"enabled", enabled},
+            {"disabled", disabled},
             {"channel", channel.key},
             {"address", address}
         };
@@ -135,7 +135,7 @@ TEST_F(ModbusReadTest, testInvalidChannelType) {
     ));
     cfg["channels"].push_back(
         {{"type", "invalid_type"},
-         {"enabled", true},
+         {"disabled", false},
          {"channel", ch.key},
          {"address", 0}}
     );
@@ -247,7 +247,7 @@ TEST(ReadTask, testBasicReadTask) {
         {"channels",
          x::json::json::array(
              {{{"type", "coil_input"},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", data_channel.key},
                {"address", 0}}}
          )}
@@ -703,7 +703,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
         {"channels",
          x::json::json::array(
              {{{"type", "register_input"},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", data_channel.key},
                {"address", 0},
                {"data_type", "uint8"}}}
@@ -770,7 +770,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
         {"channels",
          x::json::json::array(
              {{{"type", "register_input"},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", data_channel.key},
                {"address", 0},
                {"data_type", "uint8"}}}

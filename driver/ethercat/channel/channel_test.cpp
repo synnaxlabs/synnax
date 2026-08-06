@@ -13,7 +13,7 @@
 
 namespace driver::ethercat::channel {
 
-TEST(AutomaticInput, ResolvesPdoFromSlaveProperties) {
+TEST(Input, ResolvesAutomaticPdoFromSlaveProperties) {
     slave::Properties slave{
         .position = 3,
         .input_pdos = {
@@ -35,7 +35,7 @@ TEST(AutomaticInput, ResolvesPdoFromSlaveProperties) {
     };
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-001"},
         {"channel", 42},
         {"type", "automatic"},
@@ -43,22 +43,23 @@ TEST(AutomaticInput, ResolvesPdoFromSlaveProperties) {
     };
 
     auto parser = x::json::Parser(j);
-    AutomaticInput ch(parser, slave);
+    const auto parsed = ::synnax::ethercat::parse_input_channel(parser);
+    ASSERT_EQ(base(parsed).device, "dev-001");
+    const auto ch = make_input(parsed, slave, parser);
 
     ASSERT_TRUE(parser.ok());
-    ASSERT_TRUE(ch.enabled);
-    ASSERT_EQ(ch.device_key, "dev-001");
-    ASSERT_EQ(ch.synnax_key, 42);
-    ASSERT_EQ(ch.pdo_name, "Velocity");
-    ASSERT_EQ(ch.slave_position, 3);
-    ASSERT_EQ(ch.index, 0x6000);
-    ASSERT_EQ(ch.sub_index, 2);
-    ASSERT_EQ(ch.bit_length, 32);
-    ASSERT_EQ(ch.data_type, x::telem::INT32_T);
-    ASSERT_TRUE(ch.is_input);
+    ASSERT_TRUE(ch->enabled);
+    ASSERT_EQ(ch->device_key, "dev-001");
+    ASSERT_EQ(ch->synnax_key, 42);
+    ASSERT_EQ(ch->slave_position, 3);
+    ASSERT_EQ(ch->index, 0x6000);
+    ASSERT_EQ(ch->sub_index, 2);
+    ASSERT_EQ(ch->bit_length, 32);
+    ASSERT_EQ(ch->data_type, x::telem::INT32_T);
+    ASSERT_TRUE(ch->is_input);
 }
 
-TEST(AutomaticInput, ReportsErrorWhenPdoNotFound) {
+TEST(Input, ReportsErrorWhenPdoNotFound) {
     slave::Properties slave{
         .position = 1,
         .input_pdos = {
@@ -73,7 +74,7 @@ TEST(AutomaticInput, ReportsErrorWhenPdoNotFound) {
     };
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-001"},
         {"channel", 42},
         {"type", "automatic"},
@@ -81,16 +82,17 @@ TEST(AutomaticInput, ReportsErrorWhenPdoNotFound) {
     };
 
     auto parser = x::json::Parser(j);
-    AutomaticInput ch(parser, slave);
+    const auto parsed = ::synnax::ethercat::parse_input_channel(parser);
+    make_input(parsed, slave, parser);
 
     ASSERT_FALSE(parser.ok());
 }
 
-TEST(ManualInput, ParsesPdoAddressFromJson) {
+TEST(Input, ParsesManualPdoAddressFromJson) {
     slave::Properties slave{.position = 5};
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-002"},
         {"channel", 100},
         {"type", "manual"},
@@ -101,21 +103,22 @@ TEST(ManualInput, ParsesPdoAddressFromJson) {
     };
 
     auto parser = x::json::Parser(j);
-    ManualInput ch(parser, slave);
+    const auto parsed = ::synnax::ethercat::parse_input_channel(parser);
+    const auto ch = make_input(parsed, slave, parser);
 
     ASSERT_TRUE(parser.ok());
-    ASSERT_TRUE(ch.enabled);
-    ASSERT_EQ(ch.device_key, "dev-002");
-    ASSERT_EQ(ch.synnax_key, 100);
-    ASSERT_EQ(ch.slave_position, 5);
-    ASSERT_EQ(ch.index, 0x6010);
-    ASSERT_EQ(ch.sub_index, 3);
-    ASSERT_EQ(ch.bit_length, 32);
-    ASSERT_EQ(ch.data_type, x::telem::FLOAT32_T);
-    ASSERT_TRUE(ch.is_input);
+    ASSERT_TRUE(ch->enabled);
+    ASSERT_EQ(ch->device_key, "dev-002");
+    ASSERT_EQ(ch->synnax_key, 100);
+    ASSERT_EQ(ch->slave_position, 5);
+    ASSERT_EQ(ch->index, 0x6010);
+    ASSERT_EQ(ch->sub_index, 3);
+    ASSERT_EQ(ch->bit_length, 32);
+    ASSERT_EQ(ch->data_type, x::telem::FLOAT32_T);
+    ASSERT_TRUE(ch->is_input);
 }
 
-TEST(ParseInput, CreatesAutomaticInputForAutomaticType) {
+TEST(MakeInput, ResolvesAutomaticChannel) {
     slave::Properties slave{
         .position = 2,
         .input_pdos = {
@@ -130,7 +133,7 @@ TEST(ParseInput, CreatesAutomaticInputForAutomaticType) {
     };
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-003"},
         {"channel", 200},
         {"type", "automatic"},
@@ -138,20 +141,23 @@ TEST(ParseInput, CreatesAutomaticInputForAutomaticType) {
     };
 
     auto parser = x::json::Parser(j);
-    auto ch = parse_input(parser, slave);
+    const auto ch = make_input(
+        ::synnax::ethercat::parse_input_channel(parser),
+        slave,
+        parser
+    );
 
     ASSERT_TRUE(parser.ok());
     ASSERT_NE(ch, nullptr);
-    ASSERT_NE(dynamic_cast<AutomaticInput *>(ch.get()), nullptr);
     ASSERT_EQ(ch->index, 0x6000);
     ASSERT_EQ(ch->data_type, x::telem::UINT16_T);
 }
 
-TEST(ParseInput, CreatesManualInputForManualType) {
+TEST(MakeInput, BindsManualChannel) {
     slave::Properties slave{.position = 4};
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-004"},
         {"channel", 300},
         {"type", "manual"},
@@ -162,35 +168,35 @@ TEST(ParseInput, CreatesManualInputForManualType) {
     };
 
     auto parser = x::json::Parser(j);
-    auto ch = parse_input(parser, slave);
+    const auto ch = make_input(
+        ::synnax::ethercat::parse_input_channel(parser),
+        slave,
+        parser
+    );
 
     ASSERT_TRUE(parser.ok());
     ASSERT_NE(ch, nullptr);
-    ASSERT_NE(dynamic_cast<ManualInput *>(ch.get()), nullptr);
     ASSERT_EQ(ch->index, 0x6020);
     ASSERT_EQ(ch->sub_index, 5);
     ASSERT_EQ(ch->bit_length, 64);
     ASSERT_EQ(ch->data_type, x::telem::UINT64_T);
 }
 
-TEST(ParseInput, ReportsErrorForUnknownType) {
-    slave::Properties slave{.position = 1};
-
+TEST(MakeInput, ReportsErrorForUnknownType) {
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-005"},
         {"channel", 400},
         {"type", "invalid"}
     };
 
     auto parser = x::json::Parser(j);
-    auto ch = parse_input(parser, slave);
+    ::synnax::ethercat::parse_input_channel(parser);
 
     ASSERT_FALSE(parser.ok());
-    ASSERT_EQ(ch, nullptr);
 }
 
-TEST(AutomaticOutput, ResolvesPdoFromSlaveProperties) {
+TEST(Output, ResolvesAutomaticPdoFromSlaveProperties) {
     slave::Properties slave{
         .position = 7,
         .output_pdos = {
@@ -212,7 +218,7 @@ TEST(AutomaticOutput, ResolvesPdoFromSlaveProperties) {
     };
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-006"},
         {"cmd_channel", 500},
         {"state_channel", 501},
@@ -221,23 +227,24 @@ TEST(AutomaticOutput, ResolvesPdoFromSlaveProperties) {
     };
 
     auto parser = x::json::Parser(j);
-    AutomaticOutput ch(parser, slave);
+    const auto parsed = ::synnax::ethercat::parse_output_channel(parser);
+    ASSERT_EQ(base(parsed).device, "dev-006");
+    const auto ch = make_output(parsed, slave, parser);
 
     ASSERT_TRUE(parser.ok());
-    ASSERT_TRUE(ch.enabled);
-    ASSERT_EQ(ch.device_key, "dev-006");
-    ASSERT_EQ(ch.command_key, 500);
-    ASSERT_EQ(ch.state_key, 501);
-    ASSERT_EQ(ch.pdo_name, "ControlWord");
-    ASSERT_EQ(ch.slave_position, 7);
-    ASSERT_EQ(ch.index, 0x7000);
-    ASSERT_EQ(ch.sub_index, 2);
-    ASSERT_EQ(ch.bit_length, 8);
-    ASSERT_EQ(ch.data_type, x::telem::UINT8_T);
-    ASSERT_FALSE(ch.is_input);
+    ASSERT_TRUE(ch->enabled);
+    ASSERT_EQ(ch->device_key, "dev-006");
+    ASSERT_EQ(ch->command_key, 500);
+    ASSERT_EQ(ch->state_key, 501);
+    ASSERT_EQ(ch->slave_position, 7);
+    ASSERT_EQ(ch->index, 0x7000);
+    ASSERT_EQ(ch->sub_index, 2);
+    ASSERT_EQ(ch->bit_length, 8);
+    ASSERT_EQ(ch->data_type, x::telem::UINT8_T);
+    ASSERT_FALSE(ch->is_input);
 }
 
-TEST(AutomaticOutput, ReportsErrorWhenPdoNotFound) {
+TEST(Output, ReportsErrorWhenPdoNotFound) {
     slave::Properties slave{
         .position = 1,
         .output_pdos = {
@@ -252,7 +259,7 @@ TEST(AutomaticOutput, ReportsErrorWhenPdoNotFound) {
     };
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-007"},
         {"cmd_channel", 600},
         {"type", "automatic"},
@@ -260,16 +267,17 @@ TEST(AutomaticOutput, ReportsErrorWhenPdoNotFound) {
     };
 
     auto parser = x::json::Parser(j);
-    AutomaticOutput ch(parser, slave);
+    const auto parsed = ::synnax::ethercat::parse_output_channel(parser);
+    make_output(parsed, slave, parser);
 
     ASSERT_FALSE(parser.ok());
 }
 
-TEST(ManualOutput, ParsesPdoAddressFromJson) {
+TEST(Output, ParsesManualPdoAddressFromJson) {
     slave::Properties slave{.position = 9};
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-008"},
         {"cmd_channel", 700},
         {"state_channel", 701},
@@ -281,22 +289,26 @@ TEST(ManualOutput, ParsesPdoAddressFromJson) {
     };
 
     auto parser = x::json::Parser(j);
-    ManualOutput ch(parser, slave);
+    const auto ch = make_output(
+        ::synnax::ethercat::parse_output_channel(parser),
+        slave,
+        parser
+    );
 
     ASSERT_TRUE(parser.ok());
-    ASSERT_TRUE(ch.enabled);
-    ASSERT_EQ(ch.device_key, "dev-008");
-    ASSERT_EQ(ch.command_key, 700);
-    ASSERT_EQ(ch.state_key, 701);
-    ASSERT_EQ(ch.slave_position, 9);
-    ASSERT_EQ(ch.index, 0x7010);
-    ASSERT_EQ(ch.sub_index, 4);
-    ASSERT_EQ(ch.bit_length, 16);
-    ASSERT_EQ(ch.data_type, x::telem::INT16_T);
-    ASSERT_FALSE(ch.is_input);
+    ASSERT_TRUE(ch->enabled);
+    ASSERT_EQ(ch->device_key, "dev-008");
+    ASSERT_EQ(ch->command_key, 700);
+    ASSERT_EQ(ch->state_key, 701);
+    ASSERT_EQ(ch->slave_position, 9);
+    ASSERT_EQ(ch->index, 0x7010);
+    ASSERT_EQ(ch->sub_index, 4);
+    ASSERT_EQ(ch->bit_length, 16);
+    ASSERT_EQ(ch->data_type, x::telem::INT16_T);
+    ASSERT_FALSE(ch->is_input);
 }
 
-TEST(ParseOutput, CreatesAutomaticOutputForAutomaticType) {
+TEST(MakeOutput, ResolvesAutomaticChannel) {
     slave::Properties slave{
         .position = 2,
         .output_pdos = {
@@ -311,7 +323,7 @@ TEST(ParseOutput, CreatesAutomaticOutputForAutomaticType) {
     };
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-009"},
         {"cmd_channel", 800},
         {"state_channel", 801},
@@ -320,20 +332,23 @@ TEST(ParseOutput, CreatesAutomaticOutputForAutomaticType) {
     };
 
     auto parser = x::json::Parser(j);
-    auto ch = parse_output(parser, slave);
+    const auto ch = make_output(
+        ::synnax::ethercat::parse_output_channel(parser),
+        slave,
+        parser
+    );
 
     ASSERT_TRUE(parser.ok());
     ASSERT_NE(ch, nullptr);
-    ASSERT_NE(dynamic_cast<AutomaticOutput *>(ch.get()), nullptr);
     ASSERT_EQ(ch->index, 0x7000);
     ASSERT_EQ(ch->data_type, x::telem::INT32_T);
 }
 
-TEST(ParseOutput, CreatesManualOutputForManualType) {
+TEST(MakeOutput, BindsManualChannel) {
     slave::Properties slave{.position = 6};
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-010"},
         {"cmd_channel", 900},
         {"state_channel", 901},
@@ -345,32 +360,32 @@ TEST(ParseOutput, CreatesManualOutputForManualType) {
     };
 
     auto parser = x::json::Parser(j);
-    auto ch = parse_output(parser, slave);
+    const auto ch = make_output(
+        ::synnax::ethercat::parse_output_channel(parser),
+        slave,
+        parser
+    );
 
     ASSERT_TRUE(parser.ok());
     ASSERT_NE(ch, nullptr);
-    ASSERT_NE(dynamic_cast<ManualOutput *>(ch.get()), nullptr);
     ASSERT_EQ(ch->index, 0x7020);
     ASSERT_EQ(ch->sub_index, 2);
     ASSERT_EQ(ch->bit_length, 8);
     ASSERT_EQ(ch->data_type, x::telem::UINT8_T);
 }
 
-TEST(ParseOutput, ReportsErrorForUnknownType) {
-    slave::Properties slave{.position = 1};
-
+TEST(MakeOutput, ReportsErrorForUnknownType) {
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-011"},
         {"cmd_channel", 1000},
         {"type", "unknown"}
     };
 
     auto parser = x::json::Parser(j);
-    auto ch = parse_output(parser, slave);
+    ::synnax::ethercat::parse_output_channel(parser);
 
     ASSERT_FALSE(parser.ok());
-    ASSERT_EQ(ch, nullptr);
 }
 
 TEST(SortByPosition, SortsBySlavePositionThenByIndex) {
@@ -379,7 +394,7 @@ TEST(SortByPosition, SortsBySlavePositionThenByIndex) {
     slave::Properties slave3{.position = 1};
 
     nlohmann::json j1 = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-a"},
         {"channel", 1},
         {"type", "manual"},
@@ -390,7 +405,7 @@ TEST(SortByPosition, SortsBySlavePositionThenByIndex) {
     };
 
     nlohmann::json j2 = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-b"},
         {"channel", 2},
         {"type", "manual"},
@@ -401,7 +416,7 @@ TEST(SortByPosition, SortsBySlavePositionThenByIndex) {
     };
 
     nlohmann::json j3 = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-c"},
         {"channel", 3},
         {"type", "manual"},
@@ -416,9 +431,15 @@ TEST(SortByPosition, SortsBySlavePositionThenByIndex) {
     auto parser3 = x::json::Parser(j3);
 
     std::vector<std::unique_ptr<Input>> channels;
-    channels.push_back(std::make_unique<ManualInput>(parser1, slave1));
-    channels.push_back(std::make_unique<ManualInput>(parser2, slave2));
-    channels.push_back(std::make_unique<ManualInput>(parser3, slave3));
+    channels.push_back(
+        make_input(::synnax::ethercat::parse_input_channel(parser1), slave1, parser1)
+    );
+    channels.push_back(
+        make_input(::synnax::ethercat::parse_input_channel(parser2), slave2, parser2)
+    );
+    channels.push_back(
+        make_input(::synnax::ethercat::parse_input_channel(parser3), slave3, parser3)
+    );
 
     sort_by_position(channels);
 
@@ -452,10 +473,14 @@ TEST(Channel, EnabledDefaultsToTrue) {
     };
 
     auto parser = x::json::Parser(j);
-    AutomaticInput ch(parser, slave);
+    const auto ch = make_input(
+        ::synnax::ethercat::parse_input_channel(parser),
+        slave,
+        parser
+    );
 
     ASSERT_TRUE(parser.ok());
-    ASSERT_TRUE(ch.enabled);
+    ASSERT_TRUE(ch->enabled);
 }
 
 TEST(Output, StateKeyDefaultsToZero) {
@@ -473,7 +498,7 @@ TEST(Output, StateKeyDefaultsToZero) {
     };
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-013"},
         {"cmd_channel", 1200},
         {"type", "automatic"},
@@ -481,10 +506,14 @@ TEST(Output, StateKeyDefaultsToZero) {
     };
 
     auto parser = x::json::Parser(j);
-    AutomaticOutput ch(parser, slave);
+    const auto ch = make_output(
+        ::synnax::ethercat::parse_output_channel(parser),
+        slave,
+        parser
+    );
 
     ASSERT_TRUE(parser.ok());
-    ASSERT_EQ(ch.state_key, 0);
+    ASSERT_EQ(ch->state_key, 0);
 }
 
 TEST(Input, BindRemoteInfoCopiesChannelInformation) {
@@ -502,7 +531,7 @@ TEST(Input, BindRemoteInfoCopiesChannelInformation) {
     };
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-014"},
         {"channel", 1300},
         {"type", "automatic"},
@@ -510,18 +539,22 @@ TEST(Input, BindRemoteInfoCopiesChannelInformation) {
     };
 
     auto parser = x::json::Parser(j);
-    AutomaticInput ch(parser, slave);
+    const auto ch = make_input(
+        ::synnax::ethercat::parse_input_channel(parser),
+        slave,
+        parser
+    );
 
     synnax::channel::Channel remote_ch;
     remote_ch.key = 1300;
     remote_ch.name = "test_channel";
     remote_ch.data_type = x::telem::UINT16_T;
 
-    ch.bind_remote_info(remote_ch);
+    ch->bind_remote_info(remote_ch);
 
-    ASSERT_EQ(ch.ch.key, 1300);
-    ASSERT_EQ(ch.ch.name, "test_channel");
-    ASSERT_EQ(ch.ch.data_type, x::telem::UINT16_T);
+    ASSERT_EQ(ch->ch.key, 1300);
+    ASSERT_EQ(ch->ch.name, "test_channel");
+    ASSERT_EQ(ch->ch.data_type, x::telem::UINT16_T);
 }
 
 TEST(Output, BindRemoteInfoCopiesStateChannelInformation) {
@@ -539,7 +572,7 @@ TEST(Output, BindRemoteInfoCopiesStateChannelInformation) {
     };
 
     nlohmann::json j = {
-        {"enabled", true},
+        {"disabled", false},
         {"device", "dev-015"},
         {"cmd_channel", 1400},
         {"state_channel", 1401},
@@ -548,18 +581,22 @@ TEST(Output, BindRemoteInfoCopiesStateChannelInformation) {
     };
 
     auto parser = x::json::Parser(j);
-    AutomaticOutput ch(parser, slave);
+    const auto ch = make_output(
+        ::synnax::ethercat::parse_output_channel(parser),
+        slave,
+        parser
+    );
 
     synnax::channel::Channel state_ch;
     state_ch.key = 1401;
     state_ch.name = "state_channel";
     state_ch.data_type = x::telem::UINT8_T;
 
-    ch.bind_remote_info(state_ch);
+    ch->bind_remote_info(state_ch);
 
-    ASSERT_EQ(ch.state_ch.key, 1401);
-    ASSERT_EQ(ch.state_ch.name, "state_channel");
-    ASSERT_EQ(ch.state_ch.data_type, x::telem::UINT8_T);
+    ASSERT_EQ(ch->state_ch.key, 1401);
+    ASSERT_EQ(ch->state_ch.name, "state_channel");
+    ASSERT_EQ(ch->state_ch.data_type, x::telem::UINT8_T);
 }
 
 }

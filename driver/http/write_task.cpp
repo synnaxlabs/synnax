@@ -9,6 +9,7 @@
 
 #include <set>
 
+#include "client/cpp/http/json.gen.h"
 #include "x/cpp/strings/strings.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -18,57 +19,34 @@
 
 namespace driver::http {
 namespace {
-/// @brief parses a json::Type from a string ("number", "string", "boolean").
-/// @param parser the JSON parser.
-/// @param path the field path.
-/// @returns the parsed Type.
-x::json::Type parse_json_type(x::json::Parser &parser, const std::string &path) {
-    const auto str = parser.field<std::string>(path);
-    if (str == "number") return x::json::Type::Number;
-    if (str == "string") return x::json::Type::String;
-    if (str == "boolean") return x::json::Type::Boolean;
-    parser.field_err(path, "unknown JSON type '" + str + "'");
-    return x::json::Type::Number;
+/// @brief parses an x::json::Type from its string form.
+/// @param str the type string ("number", "string", "boolean").
+/// @returns the parsed type paired with an error when the string is unknown.
+std::pair<x::json::Type, x::errors::Error> parse_json_type(const std::string &str) {
+    if (str == ::synnax::http::JSON_TYPE_NUMBER)
+        return {x::json::Type::Number, x::errors::NIL};
+    if (str == ::synnax::http::JSON_TYPE_STRING)
+        return {x::json::Type::String, x::errors::NIL};
+    if (str == ::synnax::http::JSON_TYPE_BOOLEAN)
+        return {x::json::Type::Boolean, x::errors::NIL};
+    return {
+        x::json::Type::Number,
+        x::errors::Error(x::errors::VALIDATION, "unknown JSON type '" + str + "'"),
+    };
 }
 
-/// @brief parses a GeneratorType from a string ("uuid", "timestamp").
-/// @param parser the JSON parser.
-/// @param path the field path.
-/// @returns the parsed GeneratorType.
-GeneratorType parse_generator_type(x::json::Parser &parser, const std::string &path) {
-    const auto str = parser.field<std::string>(path);
-    if (str == "uuid") return GeneratorType::UUID;
-    if (str == "timestamp") return GeneratorType::Timestamp;
-    parser.field_err(path, "unknown generator type '" + str + "'");
-    return GeneratorType::UUID;
-}
-
-/// @brief builds the JSON body for a write endpoint from a sample value.
-/// @param ep the write endpoint configuration.
-/// @param sample_val the channel value as JSON.
-/// @returns the serialized JSON body string.
-std::string build_body(const WriteEndpoint &ep, const x::json::json &sample_val) {
-    // Bare primitive: if channel pointer is root and no other fields, body IS the value
-    // directly.
-    if (ep.channel.pointer == x::json::json::json_pointer("") &&
-        ep.static_fields.empty() && ep.generated_fields.empty())
-        return sample_val.dump();
-
-    x::json::json body;
-    body[ep.channel.pointer] = sample_val;
-
-    for (const auto &sf: ep.static_fields)
-        body[sf.pointer] = sf.value;
-
-    const auto now = x::telem::TimeStamp::now();
-    for (const auto &gf: ep.generated_fields) {
-        if (gf.generator == GeneratorType::UUID)
-            body[gf.pointer] = x::uuid::create().to_string();
-        else
-            body[gf.pointer] = x::json::from_timestamp(now, gf.time_format);
-    }
-
-    return body.dump();
+/// @brief parses a GeneratorType from its string form.
+/// @param str the generator string ("uuid", "timestamp").
+/// @returns the parsed generator paired with an error when the string is unknown.
+std::pair<GeneratorType, x::errors::Error> parse_generator(const std::string &str) {
+    if (str == ::synnax::http::GENERATOR_TYPE_UUID)
+        return {GeneratorType::UUID, x::errors::NIL};
+    if (str == ::synnax::http::GENERATOR_TYPE_TIMESTAMP)
+        return {GeneratorType::Timestamp, x::errors::NIL};
+    return {
+        GeneratorType::UUID,
+        x::errors::Error(x::errors::VALIDATION, "unknown generator type '" + str + "'"),
+    };
 }
 }
 
@@ -78,140 +56,99 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 ) {
     auto parser = x::json::Parser(task.config);
     WriteTaskConfig cfg;
-    cfg.device = parser.field<std::string>("device");
-    cfg.auto_start = parser.field<bool>("auto_start", false);
+    static_cast<::synnax::http::WriteConfig &>(
+        cfg
+    ) = ::synnax::http::WriteConfig::parse(parser);
+    if (cfg.device.empty()) parser.field_err("device", "this field is required");
 
     std::set<std::string> all_pointers;
 
     bool some_enabled = false;
-    parser.iter("endpoints", [&](x::json::Parser &ep) {
-        WriteEndpoint endpoint;
-        endpoint.enabled = ep.field<bool>("enabled", true);
-        endpoint.request.method = parse_method(ep, "method");
-        endpoint.request.path = ep.field<std::string>("path");
-        endpoint.request.request_content_type = "application/json";
-        if (ep.has("headers"))
-            ep.iter("headers", [&](x::json::Parser &h) {
-                auto name = h.field<std::string>("name");
-                auto val = h.field<std::string>("value");
-                if (!name.empty() &&
-                    !endpoint.request.headers.emplace(name, val).second)
-                    h.field_err("name", "duplicate header '" + name + "'");
-            });
-        if (ep.has("query_params"))
-            ep.iter("query_params", [&](x::json::Parser &qp) {
-                auto param = qp.field<std::string>("parameter");
-                auto val = qp.field<std::string>("value");
-                if (!param.empty() &&
-                    !endpoint.request.query_params.emplace(param, val).second)
-                    qp.field_err(
-                        "parameter",
-                        "duplicate query parameter '" + param + "'"
-                    );
-            });
+    for (const auto &ep: cfg.endpoints) {
+        validate_request(ep, parser);
 
         all_pointers.clear();
-
-        auto ch_parser = ep.child("channel");
-        endpoint.channel.pointer = x::json::json::json_pointer(
-            ch_parser.field<std::string>("pointer")
-        );
-        endpoint.channel.json_type = parse_json_type(ch_parser, "json_type");
-        endpoint.channel.channel_key = ch_parser.field<synnax::channel::Key>("channel");
-
-        const auto ch_ptr_str = endpoint.channel.pointer.to_string();
-        all_pointers.insert(ch_ptr_str);
-
-        // Parse optional time format for timestamp channels.
-        const auto tf_str = ch_parser.field<std::string>("time_format", "");
-        if (!tf_str.empty()) {
-            auto [fmt, fmt_err] = x::json::parse_time_format(tf_str);
-            if (fmt_err)
-                ch_parser.field_err("time_format", fmt_err.message());
-            else
-                endpoint.channel.time_format = fmt;
+        validate_pointer(ep.channel.pointer, parser, "endpoints.channel.pointer");
+        all_pointers.insert(ep.channel.pointer);
+        if (auto [t, type_err] = parse_json_type(ep.channel.json_type); type_err)
+            parser.field_err("endpoints.channel.json_type", type_err);
+        if (ep.channel.channel == 0)
+            parser.field_err("endpoints.channel.channel", "this field is required");
+        if (ep.channel.time_format.has_value())
+            if (auto [fmt, fmt_err] = x::json::parse_time_format(
+                    *ep.channel.time_format
+                );
+                fmt_err)
+                parser.field_err("endpoints.channel.time_format", fmt_err);
+        if (ep.channel.enum_values.has_value()) {
+            std::set<double> values;
+            for (const auto &entry: *ep.channel.enum_values)
+                if (!values.insert(entry.value).second)
+                    parser.field_err(
+                        "endpoints.channel.enum_values.value",
+                        "duplicate enum value " + x::json::json(entry.value).dump()
+                    );
+            if (!ep.channel.enum_values->empty() &&
+                ep.channel.json_type != ::synnax::http::JSON_TYPE_STRING)
+                parser.field_err(
+                    "endpoints.channel.enum_values",
+                    "enum values are only supported when json_type is 'string'"
+                );
         }
 
-        // Parse optional enum values for numeric-to-string mapping.
-        if (ch_parser.has("enum_values"))
-            ch_parser.iter("enum_values", [&](x::json::Parser &ev) {
-                auto value = ev.field<x::json::json>("value");
-                auto label = ev.field<std::string>("label");
-                if (!endpoint.channel.enum_values.emplace(value, std::move(label))
-                         .second)
-                    ev.field_err("value", "duplicate enum value " + value.dump());
-            });
-        if (!endpoint.channel.enum_values.empty() &&
-            endpoint.channel.json_type != x::json::Type::String)
-            ch_parser.field_err(
-                "enum_values",
-                "enum values are only supported when json_type is 'string'"
-            );
-
-        ep.iter("fields", [&](x::json::Parser &fp) {
-            const auto type = fp.field<std::string>("type");
-            if (type == "static") {
-                StaticField sf;
-                sf.pointer = x::json::json::json_pointer(
-                    fp.field<std::string>("pointer")
-                );
-                sf.value = fp.field<x::json::json>("value");
-                const auto sf_ptr_str = sf.pointer.to_string();
-                if (sf.pointer == x::json::json::json_pointer(""))
-                    fp.field_err("pointer", "static field pointer cannot be empty");
-                else if (!all_pointers.insert(sf_ptr_str).second)
-                    fp.field_err(
-                        "pointer",
-                        "pointer '" + sf_ptr_str + "' is already used"
+        for (const auto &field: ep.fields) {
+            const std::string *pointer = nullptr;
+            if (const auto *sf = std::get_if<::synnax::http::WriteFieldStatic>(
+                    &field
+                )) {
+                pointer = &sf->pointer;
+                if (!sf->value.has_value())
+                    parser.field_err(
+                        "endpoints.fields.value",
+                        "this field is required"
                     );
-                endpoint.static_fields.push_back(std::move(sf));
-            } else if (type == "generated") {
-                GeneratedField gf;
-                gf.pointer = x::json::json::json_pointer(
-                    fp.field<std::string>("pointer")
-                );
-                gf.generator = parse_generator_type(fp, "generator");
-                if (gf.generator == GeneratorType::Timestamp) {
-                    const auto gf_fmt_str = fp.field<std::string>(
-                        "time_format",
-                        "iso8601"
-                    );
-                    auto [gf_fmt, gf_err] = x::json::parse_time_format(gf_fmt_str);
-                    if (gf_err)
-                        fp.field_err("time_format", gf_err.message());
-                    else
-                        gf.time_format = gf_fmt;
-                }
-                const auto gf_ptr_str = gf.pointer.to_string();
-                if (gf.pointer == x::json::json::json_pointer(""))
-                    fp.field_err("pointer", "generated field pointer cannot be empty");
-                else if (!all_pointers.insert(gf_ptr_str).second)
-                    fp.field_err(
-                        "pointer",
-                        "pointer '" + gf_ptr_str + "' is already used"
-                    );
-                endpoint.generated_fields.push_back(std::move(gf));
-            } else {
-                fp.field_err("type", "unknown field type '" + type + "'");
+            } else if (
+                const auto *gf = std::get_if<::synnax::http::WriteFieldGenerated>(
+                    &field
+                )
+            ) {
+                pointer = &gf->pointer;
+                if (auto [g, gen_err] = parse_generator(gf->generator); gen_err)
+                    parser.field_err("endpoints.fields.generator", gen_err);
+                if (gf->time_format.has_value())
+                    if (auto [fmt, fmt_err] = x::json::parse_time_format(
+                            *gf->time_format
+                        );
+                        fmt_err)
+                        parser.field_err("endpoints.fields.time_format", fmt_err);
             }
-        });
+            if (pointer == nullptr) continue;
+            validate_pointer(*pointer, parser, "endpoints.fields.pointer");
+            if (pointer->empty())
+                parser.field_err(
+                    "endpoints.fields.pointer",
+                    "field pointer cannot be empty"
+                );
+            else if (!all_pointers.insert(*pointer).second)
+                parser.field_err(
+                    "endpoints.fields.pointer",
+                    "pointer '" + *pointer + "' is already used"
+                );
+        }
 
         // Validate bare primitive: if channel pointer is root, no other fields.
-        if (endpoint.channel.pointer == x::json::json::json_pointer("") &&
-            (!endpoint.static_fields.empty() || !endpoint.generated_fields.empty())) {
-            ep.field_err(
-                "channel",
+        if (ep.channel.pointer.empty() && !ep.fields.empty())
+            parser.field_err(
+                "endpoints.channel",
                 "bare primitive body (root pointer) cannot have additional "
                 "fields"
             );
-        }
 
-        if (endpoint.enabled) {
+        if (!ep.disabled) {
             some_enabled = true;
-            cfg.cmd_keys.push_back(endpoint.channel.channel_key);
+            cfg.cmd_keys.push_back(ep.channel.channel);
         }
-        cfg.endpoints.push_back(std::move(endpoint));
-    });
+    }
 
     if (!some_enabled)
         parser.field_err("endpoints", "at least one enabled endpoint is required");
@@ -225,13 +162,13 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
     for (const auto &ch: sy_channels)
         ch_map[ch.key] = ch;
 
-    for (auto &ep: cfg.endpoints) {
-        if (!ep.enabled) continue;
-        auto it = ch_map.find(ep.channel.channel_key);
+    for (const auto &ep: cfg.endpoints) {
+        if (ep.disabled) continue;
+        auto it = ch_map.find(ep.channel.channel);
         if (it == ch_map.end()) {
             parser.field_err(
                 "endpoints",
-                "channel " + std::to_string(ep.channel.channel_key) + " not found"
+                "channel " + std::to_string(ep.channel.channel) + " not found"
             );
             continue;
         }
@@ -240,7 +177,7 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
         // Validate data type vs json_type.
         if (auto conv_err = x::json::check_from_sample_value(
                 ch.data_type,
-                ep.channel.json_type
+                parse_json_type(ep.channel.json_type).first
             );
             conv_err) {
             parser.field_err(
@@ -274,9 +211,73 @@ WriteTaskSink::WriteTaskSink(
     cfg(std::move(cfg)),
     processor(std::move(processor)),
     base_requests(std::move(base_requests)) {
-    for (size_t i = 0; i < this->cfg.endpoints.size(); i++)
-        if (this->cfg.endpoints[i].enabled)
-            channel_to_endpoint[this->cfg.endpoints[i].channel.channel_key] = i;
+    this->endpoints.reserve(this->cfg.endpoints.size());
+    for (size_t i = 0; i < this->cfg.endpoints.size(); i++) {
+        const auto &ep = this->cfg.endpoints[i];
+        Endpoint state;
+        state.method = parse_method(ep.method).first;
+        state.pointer = x::json::json::json_pointer(ep.channel.pointer);
+        state.json_type = parse_json_type(ep.channel.json_type).first;
+        if (ep.channel.time_format.has_value())
+            if (auto [fmt, fmt_err] = x::json::parse_time_format(
+                    *ep.channel.time_format
+                );
+                !fmt_err)
+                state.time_format = fmt;
+        if (ep.channel.enum_values.has_value())
+            for (const auto &entry: *ep.channel.enum_values)
+                state.enum_values.emplace(x::json::json(entry.value), entry.label);
+        for (const auto &field: ep.fields)
+            if (const auto *sf = std::get_if<::synnax::http::WriteFieldStatic>(
+                    &field
+                )) {
+                StaticField state_field;
+                state_field.pointer = x::json::json::json_pointer(sf->pointer);
+                state_field.value = sf->value.value_or(x::json::json());
+                state.static_fields.push_back(std::move(state_field));
+            } else if (
+                const auto *gf = std::get_if<::synnax::http::WriteFieldGenerated>(
+                    &field
+                )
+            ) {
+                GeneratedField gen_field;
+                gen_field.pointer = x::json::json::json_pointer(gf->pointer);
+                gen_field.generator = parse_generator(gf->generator).first;
+                if (gf->time_format.has_value())
+                    if (auto [fmt, fmt_err] = x::json::parse_time_format(
+                            *gf->time_format
+                        );
+                        !fmt_err)
+                        gen_field.time_format = fmt;
+                state.generated_fields.push_back(std::move(gen_field));
+            }
+        if (!ep.disabled) this->channel_to_endpoint[ep.channel.channel] = i;
+        this->endpoints.push_back(std::move(state));
+    }
+}
+
+std::string
+WriteTaskSink::build_body(const Endpoint &ep, const x::json::json &sample_val) {
+    // Bare primitive: if channel pointer is root and no other fields, body IS the value
+    // directly.
+    if (ep.pointer.empty() && ep.static_fields.empty() && ep.generated_fields.empty())
+        return sample_val.dump();
+
+    x::json::json body;
+    body[ep.pointer] = sample_val;
+
+    for (const auto &sf: ep.static_fields)
+        body[sf.pointer] = sf.value;
+
+    const auto now = x::telem::TimeStamp::now();
+    for (const auto &gf: ep.generated_fields) {
+        if (gf.generator == GeneratorType::UUID)
+            body[gf.pointer] = x::uuid::create().to_string();
+        else
+            body[gf.pointer] = x::json::from_timestamp(now, gf.time_format);
+    }
+
+    return body.dump();
 }
 
 x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
@@ -292,25 +293,24 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
         auto it = channel_to_endpoint.find(ch_key);
         if (it == channel_to_endpoint.end()) continue;
         const auto ep_idx = it->second;
-        const auto &ep = cfg.endpoints[ep_idx];
+        const auto &ep = this->endpoints[ep_idx];
 
         const auto sample_val = series.at(-1);
 
-        const auto *enum_ptr = ep.channel.enum_values.empty() ? nullptr
-                                                              : &ep.channel.enum_values;
+        const auto *enum_ptr = ep.enum_values.empty() ? nullptr : &ep.enum_values;
         auto [json_val, conv_err] = x::json::from_sample_value(
             sample_val,
-            ep.channel.json_type,
+            ep.json_type,
             enum_ptr
         );
         if (conv_err)
             return {
                 conv_err.type,
-                "failed to convert value for endpoint " + ep.request.path + ": " +
-                    conv_err.data,
+                "failed to convert value for endpoint " +
+                    this->cfg.endpoints[ep_idx].path + ": " + conv_err.data,
             };
 
-        if (ep.channel.time_format.has_value()) {
+        if (ep.time_format.has_value()) {
             const auto ts_val = std::visit(
                 [](auto &&v) -> int64_t {
                     using T = std::decay_t<decltype(v)>;
@@ -323,7 +323,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             );
             json_val = x::json::from_timestamp(
                 x::telem::TimeStamp(ts_val),
-                *ep.channel.time_format
+                *ep.time_format
             );
         }
 
@@ -355,7 +355,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
 
         for (size_t i = 0; i < results.size(); i++) {
             const auto &p = pending[i];
-            const auto &ep = cfg.endpoints[p.ep_idx];
+            const auto &ep = this->endpoints[p.ep_idx];
             auto &[resp, req_err] = results[i];
 
             x::errors::Error err = x::errors::NIL;
@@ -377,7 +377,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             } else {
                 made_progress = true;
                 if (first_error_type.empty()) first_error_type = err.type;
-                auto msg = std::string(to_string(ep.request.method)) + " " +
+                auto msg = std::string(to_string(ep.method)) + " " +
                            base_requests[p.ep_idx].url;
                 if (req_err)
                     msg += ": " + req_err.data;
@@ -396,10 +396,10 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
 
     for (const auto &p: pending) {
         if (first_error_type.empty()) first_error_type = errors::TEMPORARY_ERROR.type;
-        const auto &ep = cfg.endpoints[p.ep_idx];
+        const auto &ep = this->endpoints[p.ep_idx];
         error_msgs.push_back(
-            std::string(to_string(ep.request.method)) + " " +
-            base_requests[p.ep_idx].url + ": timed out"
+            std::string(to_string(ep.method)) + " " + base_requests[p.ep_idx].url +
+            ": timed out"
         );
     }
 
@@ -423,8 +423,11 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
 
     std::vector<Request> base_requests;
     base_requests.reserve(cfg.endpoints.size());
-    for (const auto &ep: cfg.endpoints)
-        base_requests.push_back(device::build_request(conn, ep.request));
+    for (const auto &ep: cfg.endpoints) {
+        auto req_cfg = request_config(ep);
+        req_cfg.request_content_type = "application/json";
+        base_requests.push_back(device::build_request(conn, req_cfg));
+    }
 
     const bool auto_start = cfg.auto_start;
     auto sink = std::make_unique<WriteTaskSink>(

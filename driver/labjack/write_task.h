@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "client/cpp/labjack/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
 
@@ -22,26 +23,15 @@
 namespace driver::labjack {
 /// @brief configuration for an output channel on a LabJack device.
 struct OutputChan {
-    /// @brief the port location of the output channel e.g. "DIO4"
-    const std::string port;
+    /// @brief the parsed generated wire configuration for the channel.
+    const ::synnax::labjack::BaseOutputChannel cfg;
     /// @brief whether the channel is enabled.
     const bool enabled;
-    /// @brief the key of the synnax channel to receive commands from.
-    const synnax::channel::Key cmd_ch_key;
-    //// @brief the key fo the synnax channel to propagate state changes to.
-    const synnax::channel::Key state_ch_key;
     /// @brief the synnax channel object for the state channel.
     synnax::channel::Channel state_ch;
 
-    explicit OutputChan(x::json::Parser &parser):
-        port(parser.field<std::string>("port", "")),
-        enabled(parser.field<bool>("enabled", true)),
-        cmd_ch_key(
-            parser.field<uint32_t>(std::vector<std::string>{"cmd_key", "cmd_channel"})
-        ),
-        state_ch_key(parser.field<uint32_t>(
-            std::vector<std::string>{"state_key", "state_channel"}
-        )) {}
+    explicit OutputChan(const ::synnax::labjack::BaseOutputChannel &cfg):
+        cfg(cfg), enabled(!cfg.disabled) {}
 
     /// @brief binds cluster information about the channel after it has been
     /// externally fetched.
@@ -51,25 +41,16 @@ struct OutputChan {
 };
 
 /// @brief the configuration for opening a write task.
-struct WriteTaskConfig : common::BaseWriteTaskConfig {
-    /// @brief the rate at which to propagate state updates back to Synnax.
-    const x::telem::Rate state_rate;
-    /// @brief the connection method to the device.
-    const std::string conn_method;
-    /// @brief the model of the device. Dynamically populated by querying the core.
-    std::string dev_model;
-    /// @brief configurations for the enabled channels on the device.
-    std::map<synnax::channel::Key, std::unique_ptr<OutputChan>> channels;
+struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
+    /// @brief configurations for the enabled channels, keyed by command channel.
+    std::map<synnax::channel::Key, std::unique_ptr<OutputChan>> outputs;
     /// @brief the set of index channel keys for the state channels.
     /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> state_index_keys;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
-        common::BaseWriteTaskConfig(std::move(other)),
-        state_rate(other.state_rate),
-        conn_method(other.conn_method),
-        dev_model(std::move(other.dev_model)),
-        channels(std::move(other.channels)),
+        ::synnax::labjack::WriteConfig(std::move(other)),
+        outputs(std::move(other.outputs)),
         state_index_keys(std::move(other.state_index_keys)) {}
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
@@ -80,31 +61,37 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &parser
     ):
-        common::BaseWriteTaskConfig(parser),
-        state_rate(x::telem::Rate(parser.field<int>("state_rate", 1))),
-        conn_method(parser.field<std::string>("connection_type", "")) {
+        ::synnax::labjack::WriteConfig(::synnax::labjack::WriteConfig::parse(parser)) {
         std::unordered_map<synnax::channel::Key, synnax::channel::Key> state_to_cmd;
-        parser.iter("channels", [this, &state_to_cmd](x::json::Parser &p) {
-            auto ch = std::make_unique<OutputChan>(p);
-            if (!ch->enabled) return;
-            state_to_cmd[ch->state_ch_key] = ch->cmd_ch_key;
-            this->channels[ch->cmd_ch_key] = std::move(ch);
-        });
-        if (this->channels.empty()) {
+        for (const auto &parsed: this->channels) {
+            auto ch = std::visit(
+                [](const auto &c) { return std::make_unique<OutputChan>(c); },
+                parsed
+            );
+            if (!ch->enabled) continue;
+            if (ch->cfg.cmd_channel == 0 || ch->cfg.state_channel == 0) {
+                parser.field_err(
+                    "channels",
+                    "output channels must set cmd_channel and state_channel"
+                );
+                continue;
+            }
+            state_to_cmd[ch->cfg.state_channel] = ch->cfg.cmd_channel;
+            this->outputs[ch->cfg.cmd_channel] = std::move(ch);
+        }
+        if (this->outputs.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->devices.retrieve(this->device);
-        if (err) {
+        if (const auto err = client->devices.retrieve(this->device).second) {
             parser.field_err("device", "failed to retrieve device: " + err.message());
             return;
         }
-        this->dev_model = dev.model;
         std::vector<synnax::channel::Key> state_channels;
-        state_channels.reserve(this->channels.size());
-        for (const auto &[_, ch]: this->channels)
-            state_channels.push_back(ch->state_ch_key);
-        const auto [channels, ch_err] = client->channels.retrieve(state_channels);
+        state_channels.reserve(this->outputs.size());
+        for (const auto &[_, ch]: this->outputs)
+            state_channels.push_back(ch->cfg.state_channel);
+        const auto [sy_channels, ch_err] = client->channels.retrieve(state_channels);
         if (ch_err) {
             parser.field_err(
                 "channels",
@@ -112,9 +99,9 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             );
             return;
         }
-        for (const auto &state_ch: channels) {
+        for (const auto &state_ch: sy_channels) {
             if (state_ch.index != 0) this->state_index_keys.insert(state_ch.index);
-            auto &ch = this->channels[state_to_cmd[state_ch.key]];
+            auto &ch = this->outputs[state_to_cmd[state_ch.key]];
             ch->bind_remote_info(state_ch);
         }
     }
@@ -132,19 +119,19 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
     /// @brief returns the list of state channels used in the task.
     [[nodiscard]] std::vector<synnax::channel::Channel> state_channels() const {
-        std::vector<synnax::channel::Channel> state_channels;
-        state_channels.reserve(this->channels.size());
-        for (const auto &[_, ch]: this->channels)
-            state_channels.push_back(ch->state_ch);
-        return state_channels;
+        std::vector<synnax::channel::Channel> chs;
+        chs.reserve(this->outputs.size());
+        for (const auto &[_, ch]: this->outputs)
+            chs.push_back(ch->state_ch);
+        return chs;
     }
 
     /// @brief returns the list of command channel keys used in the task.
     [[nodiscard]] std::vector<synnax::channel::Key> cmd_channels() const {
         std::vector<synnax::channel::Key> keys;
-        keys.reserve(this->channels.size());
-        for (const auto &[_, ch]: this->channels)
-            keys.push_back(ch->cmd_ch_key);
+        keys.reserve(this->outputs.size());
+        for (const auto &[_, ch]: this->outputs)
+            keys.push_back(ch->cfg.cmd_channel);
         return keys;
     }
 };
@@ -190,11 +177,11 @@ public:
 
     x::errors::Error write_curr_state_to_dev() {
         /// pull all values to the initial state (which is the current state).
-        this->reset_buffer(this->cfg.channels.size());
-        for (const auto &[_, ch]: this->cfg.channels) {
-            this->ports_buf.push_back(ch->port.c_str());
+        this->reset_buffer(this->cfg.outputs.size());
+        for (const auto &[_, ch]: this->cfg.outputs) {
+            this->ports_buf.push_back(ch->cfg.port.c_str());
             this->values_buf.push_back(
-                x::telem::cast<double>(this->chan_state[ch->state_ch_key])
+                x::telem::cast<double>(this->chan_state[ch->cfg.state_channel])
             );
         }
         return this->write_buf_to_dev();
@@ -215,12 +202,12 @@ public:
 
     /// @brief implements pipeline::Sink to write to the LabJack device.
     x::errors::Error write(x::telem::Frame &frame) override {
-        this->reset_buffer(this->cfg.channels.size());
+        this->reset_buffer(this->cfg.outputs.size());
         for (const auto &[cmd_key, s]: frame)
-            if (const auto it = this->cfg.channels.find(cmd_key);
-                it != this->cfg.channels.end()) {
+            if (const auto it = this->cfg.outputs.find(cmd_key);
+                it != this->cfg.outputs.end()) {
                 const auto &ch = it->second;
-                this->ports_buf.push_back(ch->port.c_str());
+                this->ports_buf.push_back(ch->cfg.port.c_str());
                 this->values_buf.push_back(x::telem::cast<double>(s.at(-1)));
             }
         const auto prev_flush_err = this->curr_dev_err;
