@@ -381,7 +381,7 @@ var _ = Describe("Project layout to panel migration", func() {
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
 	})
 
-	It("Should convert staged task layout tabs into resource tabs", func(ctx SpecContext) {
+	It("Should convert staged task tabs into resource tabs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		legacy := "4294967395"
 		taskKey := uuid.New()
