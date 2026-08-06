@@ -39,7 +39,7 @@ export const StringDisplay = ({
   const style = useMemo<CSSProperties>(
     () => ({
       [CSS.var("symbol-color")]: symbolColorVar(colorVal),
-      minWidth: inlineSize,
+      width: inlineSize,
     }),
     [colorVal, inlineSize],
   );
@@ -56,6 +56,7 @@ export const StringDisplay = ({
             resolvedTextColor != null ? color.cssString(resolvedTextColor) : undefined
           }
           variant="code"
+          overflow="ellipsis"
         >
           {value}
         </Text.Text>
