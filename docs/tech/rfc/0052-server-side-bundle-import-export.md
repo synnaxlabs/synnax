@@ -430,7 +430,8 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   idempotent re-import. That is a cross-cluster identity design, excluded here as in RFC
   0039 §6.6.
 - **Bundle size limits**: Beyond transport defaults.
-- **Import errors**: Whether bundle import is atomic or not.
+- **Import errors**: Whether bundle import is atomic or not. Do we fail fast, allow for
+  partial success, or prompt on import failures.
 
 ## 8 What this RFC does not cover
 
