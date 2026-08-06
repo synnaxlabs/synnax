@@ -112,10 +112,10 @@ that parent rather than a column the task repeats.
 
 **One Oracle schema file per integration**: `schemas/synnax/ni.oracle`, `opc.oracle`,
 `labjack.oracle`, `modbus.oracle`, `ethercat.oracle`, `http.oracle`, `arc.oracle`
-(amended), and `pagerduty.oracle`. A file defines the shared parts of an integration —
-channel unions, scales, endpoints — and one config type per task type. We rejected
-per-type files: the 19-variant AI channel union of NI and its scale and CJC unions are
-shared across its five task types.
+(amended), `pagerduty.oracle`, and `rack.oracle`. A file defines the shared parts of an
+integration — channel unions, scales, endpoints — and one config type per task type. We
+rejected per-type files: the 19-variant AI channel union of NI and its scale and CJC
+unions are shared across its five task types.
 
 The NI schema draft (32 enums, 4 unions, 57 structs) is the start point. Shared
 cross-integration bases, the `sample_rate` / `stream_rate` / `data_saving` read shape
@@ -154,9 +154,9 @@ record has no parent of its own and no walk from the root reaches it.
 
 A task therefore has more than one parent, and every caller that reads a task's parents
 must filter by ontology type. `Task.snapshottedTo` in the TypeScript client returns the
-first parent it gets, so it filters to `range`. The ontology cache of that client also
-gives a `parentID` helper that returns one parent, which makes it unsafe for a task.
-Phase 4 audits the parent readers in every client.
+first parent it gets, so it must filter to `range`. The ontology cache of that client
+also gives a `parentID` helper that returns one parent, which makes it unsafe for a
+task. Phase 4 audits the parent readers in every client.
 
 Internal tasks gain an ontology resource. The task writer creates none for them today,
 so a scanner has nothing to relate and its `type` cannot resolve. Phase 4 removes that
@@ -167,9 +167,11 @@ presence that per-type endpoints and access policies can name later.
 
 ### 4.3 Resolving `type` and `config`
 
-The parent is an `ontology.ID` of the form `ni_analog_read:<uuid>`, so it already
-carries the task type. Resolving `type` reads the parent's type part; resolving `config`
-reads the record and encodes it.
+The config parent is an `ontology.ID` of the form `ni_analog_read:<uuid>`, so it already
+carries the task type. A task has more than one parent (§4.2), so the reader selects the
+one whose ontology type is a registered config type, never the first parent it gets.
+Resolving `type` then reads that parent's type part; resolving `config` reads the record
+and encodes it. Exactly one parent matches, which §4.2 enforces on write.
 
 Three call sites must resolve, not just the retrieve builder:
 
@@ -270,11 +272,18 @@ Every operation stays where it is; only the transaction contents grow.
   relationship.
 - **Update**: Rewrite the config record in place. The task key and the relationship do
   not change.
-- **Delete**: Delete the task row, the config record, and the relationship together. The
-  writer deletes every parent of the task that is not a group, so a config record never
-  outlives the task it configures.
-- **Copy**: Copy the config record under a new UUID and relate it to the new task. The
-  existing `Writer.Copy` gains one step.
+- **Delete**: Delete the task row, the config record, and the relationship together.
+  `Writer.Delete` today deletes only the task's own ontology resource, which drops the
+  task's relationships but reaches no parent, so this is new work. The rule is positive:
+  delete the one parent whose ontology type is a registered config type, and leave every
+  other parent alone — the group the task hangs under, the range a snapshot is attached
+  to, and any parent a later feature adds. Deleting the ontology resource does not
+  remove the record from its per-type Gorp table, so the config service deletes that row
+  in the same transaction.
+- **Copy**: Copy the config record under a new UUID and relate it to the new task.
+  `Writer.Copy` today defines a resource for the new key and no relationship at all, so
+  it gains both the record copy and the edge. Without the edge the copied task resolves
+  no `type`, which fails the retrieve rather than degrading it.
 - **Snapshot**: A snapshot task gets its own frozen config record. Snapshots never share
   a record with a live task.
 - **Rename**: Task row only. The name is not part of the config.
@@ -285,11 +294,15 @@ A one-time startup migration walks every stored task. It decodes the blob throug
 legacy chain, writes the config record, defines the relationship, and clears `type` and
 `config` from the task row.
 
-A row the migration cannot convert — an unknown type string, or a config that fails to
-decode — is quarantined: the task row and its raw blob are preserved untouched, the task
-is not served or configured, and the log names it once. The migration never drops a
-config and never writes a partial record. Quarantine is a loud failure that an operator
-resolves, not a mode the system runs in.
+A user task the migration cannot convert — an unknown type string, or a config that
+fails to decode — is quarantined: the task row and its raw blob are preserved untouched,
+the task is not served or configured, and the log names it once. The migration never
+drops a user config and never writes a partial record. Quarantine is a loud failure that
+an operator resolves, not a mode the system runs in.
+
+An internal task is deleted instead. Its configuration holds no operator intent and the
+Driver recreates it on boot, so quarantining one would keep a dead row that nothing can
+repair. This is the path the stale `heartbeat` and `Rack Status` rows of §4.10 take.
 
 ### 4.9 Access control
 
@@ -313,15 +326,30 @@ then joins all three roles as a consequence of its schema.
 
 ### 4.10 Integration inventory
 
-`ni_analog_read`, `ni_analog_write`, `ni_digital_read`, `ni_digital_write`,
-`ni_counter_read`, `opc_read`, `opc_write`, `labjack_read`, `labjack_write`,
-`modbus_read`, `modbus_write`, `ethercat_read`, `ethercat_write`, `http_read`,
-`http_write`, `arc`, and `pagerduty_alert`.
+The closed set is twenty-four types. This list is the whole of it, because a set with a
+fallback is not closed:
 
-The scanner types (`opc_scan`, `modbus_scan`, `ni_scanner`, …) and the rack status task
-have no meaningful configuration, but the closed set admits no exceptions: each gets its
-own schema type over a shared empty base, so its type resolves like any other. The
-schemas are one line each.
+- **NI**: `ni_analog_read`, `ni_analog_write`, `ni_digital_read`, `ni_digital_write`,
+  `ni_counter_read`, `ni_scanner`.
+- **OPC UA**: `opc_read`, `opc_write`, `opc_scan`.
+- **LabJack**: `labjack_read`, `labjack_write`, `labjack_scan`.
+- **Modbus**: `modbus_read`, `modbus_write`, `modbus_scan`.
+- **EtherCAT**: `ethercat_read`, `ethercat_write`, `ethercat_scan`.
+- **HTTP**: `http_read`, `http_write`, `http_scan`.
+- **Arc**: `arc`.
+- **PagerDuty**: `pagerduty_alert`.
+- **Rack**: `rack_status`.
+
+The six scanners and `rack_status` have no meaningful configuration, but the closed set
+admits no exceptions: each gets its own schema type over a shared empty base, so its
+type resolves like any other. The schemas are one line each.
+
+The rack status task needs a rename before Phase 4. The Driver configures it under the
+literal type string `Rack Status`, and it still deletes a legacy `heartbeat` task on
+boot. A type string names a schema type, an ontology type, and a Gorp table, so
+`Rack Status` cannot stand. Phase 2 renames it to `rack_status`, which the Driver
+already uses as the integration name. Both old names then leave through the legacy
+deletion path the Driver carries today.
 
 Per-type `StatusData` — the `errors[]` of NI, the read status of EtherCAT — gets a type
 in each integration schema and threads through the status details generic. The Console
@@ -407,6 +435,11 @@ code, not new behavior.
 11. **One envelope version for every task — rejected**: The `task` ontology type is a
     routing key, not a schema, so it carries no version. Each config type stamps its own
     (§4.6), which replaces the single `task.Version` constant used today.
+12. **The config registry is an injected input**: The wiring site builds it from the
+    per-integration services and passes it on the task service `Config`, which
+    `Validate` requires. A package-level registry that the integration packages
+    self-populate through the import graph is the alternative, and it is a mutable
+    global that hides the dependency and orders itself by import.
 
 ---
 
@@ -430,8 +463,6 @@ code, not new behavior.
 1. Whether composition belongs in the retrieve builder or behind an explicit
    `.WithConfigs()` option, so callers who only need a task name skip the join. Making
    `type` resolved raises the stakes: a caller that filters by type always needs it.
-2. Whether the config registry is injected into the task service at construction or
-   assembled by the per-integration packages at wiring time.
-3. The surface for a quarantined row (§4.8): whether it carries an error status, and
+2. The surface for a quarantined row (§4.8): whether it carries an error status, and
    whether the Console lists it.
-4. The order of integrations across Phases 2 and 6.
+3. The order of integrations across Phases 2 and 6.
