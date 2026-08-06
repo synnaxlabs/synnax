@@ -1364,16 +1364,16 @@ var _ = Describe("Sequence", func() {
 		mk := func(ctx SpecContext, body string) *runtimeHarness {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
-				"trigger":   {types.U8(), 101},
+				"trigger":   {types.Bool(), 101},
 				"cpu":       {types.F64(), 102},
-				"out":       {types.U8(), 103},
+				"out":       {types.Bool(), 103},
 			})
 			prog := "\nsequence WU {\n stage watcher {\n trigger -> select{} -> {\n true: " + body + "\n }\n }\n}\nstart_cmd => WU"
 			return newRuntimeHarness(ctx, prog, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
-				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.BoolT},
 				channels.Digest{Key: 102, DataType: telem.Float64T},
-				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.BoolT},
 			)
 		}
 		enter := func(h *runtimeHarness, ctx SpecContext) {
@@ -1382,7 +1382,7 @@ var _ = Describe("Sequence", func() {
 			h.Ingest(102, telem.NewSeriesV[float64](5)) // cpu > 0
 			h.Ingest(
 				101,
-				telem.NewSeriesV[uint8](1),
+				telem.NewSeriesV[bool](true),
 			) // trigger -> select true -> enter body
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
@@ -1395,7 +1395,7 @@ var _ = Describe("Sequence", func() {
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
 			h.Tick(ctx, telem.Millisecond)
 			h.Ingest(102, telem.NewSeriesV[float64](5))
-			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			h.Ingest(101, telem.NewSeriesV[bool](true))
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 			out, _ := h.Flush()
@@ -1417,7 +1417,7 @@ var _ = Describe("Sequence", func() {
 				defer h.Close(ctx)
 				enter(h, ctx)
 				for range 9 { // spam trigger -> re-activate the already-active stage
-					h.Ingest(101, telem.NewSeriesV[uint8](1))
+					h.Ingest(101, telem.NewSeriesV[bool](true))
 					h.Tick(ctx, telem.Millisecond)
 					h.channelState.ClearReads()
 				}
@@ -1469,16 +1469,16 @@ var _ = Describe("Sequence", func() {
 
 		DescribeTable(
 			"select routes the => transition to the stage picked by the input",
-			func(ctx SpecContext, flag uint8, hit, miss uint32) {
+			func(ctx SpecContext, flag bool, hit, miss uint32) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
-					"flag":      {types.U8(), 101},
+					"flag":      {types.Bool(), 101},
 					"high_out":  {types.U8(), 102},
 					"low_out":   {types.U8(), 103},
 				})
 				h := newRuntimeHarness(ctx, selectProg, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BoolT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 					channels.Digest{Key: 103, DataType: telem.Uint8T},
 				)
@@ -1486,15 +1486,15 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1)) // activate WU -> router
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[uint8](flag))
+				h.Ingest(101, telem.NewSeriesV[bool](flag))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, hit)).To(Equal(uint8(1)))
 				Expect(out.Get(miss).Series).To(BeEmpty())
 			},
-			Entry("flag 1 jumps to high_stage", uint8(1), uint32(102), uint32(103)),
-			Entry("flag 0 jumps to low_stage", uint8(0), uint32(103), uint32(102)),
+			Entry("flag 1 jumps to high_stage", true, uint32(102), uint32(103)),
+			Entry("flag 0 jumps to low_stage", false, uint32(103), uint32(102)),
 		)
 
 		// A custom 3-output router jumps to one of three sibling stages.
@@ -1564,7 +1564,7 @@ var _ = Describe("Sequence", func() {
 			"Anonymous top-level stage dispatches into the inline branch matching the routed output",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
-					"flag":      {types.U8(), 100},
+					"flag":      {types.Bool(), 100},
 					"true_out":  {types.U8(), 101},
 					"false_out": {types.U8(), 102},
 				})
@@ -1575,13 +1575,13 @@ var _ = Describe("Sequence", func() {
 				        false: stage { 1 -> false_out }
 				    }
 				}`, resolver,
-					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 100, DataType: telem.BoolT},
 					channels.Digest{Key: 101, DataType: telem.Uint8T},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 				)
 				defer h.Close(ctx)
 
-				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				h.Ingest(100, telem.NewSeriesV[bool](true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
@@ -1596,7 +1596,7 @@ var _ = Describe("Sequence", func() {
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
-					"flag":      {types.U8(), 101},
+					"flag":      {types.Bool(), 101},
 					"true_out":  {types.U8(), 102},
 				})
 				h := newRuntimeHarness(ctx, `
@@ -1608,12 +1608,12 @@ var _ = Describe("Sequence", func() {
 				    }
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BoolT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 				)
 				defer h.Close(ctx)
 
-				h.Ingest(101, telem.NewSeriesV[uint8](1))
+				h.Ingest(101, telem.NewSeriesV[bool](true))
 				advance(h, ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(out.Get(102).Series).To(BeEmpty(),
@@ -1621,7 +1621,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[uint8](1))
+				h.Ingest(101, telem.NewSeriesV[bool](true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ = h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
@@ -1633,7 +1633,7 @@ var _ = Describe("Sequence", func() {
 			"Inline sequence body in a top-level stage runs its sequential steps in order",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
-					"flag":  {types.U8(), 100},
+					"flag":  {types.Bool(), 100},
 					"out_a": {types.U8(), 101},
 					"out_b": {types.U8(), 102},
 				})
@@ -1646,13 +1646,13 @@ var _ = Describe("Sequence", func() {
 				        }
 				    }
 				}`, resolver,
-					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 100, DataType: telem.BoolT},
 					channels.Digest{Key: 101, DataType: telem.Uint8T},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 				)
 				defer h.Close(ctx)
 
-				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				h.Ingest(100, telem.NewSeriesV[bool](true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 101)).To(Equal(uint8(1)),
@@ -1667,7 +1667,7 @@ var _ = Describe("Sequence", func() {
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
-					"flag":      {types.U8(), 101},
+					"flag":      {types.Bool(), 101},
 					"true_out":  {types.U8(), 102},
 				})
 				h := newRuntimeHarness(ctx, `
@@ -1679,14 +1679,14 @@ var _ = Describe("Sequence", func() {
 				    }
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BoolT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 				)
 				defer h.Close(ctx)
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[uint8](1))
+				h.Ingest(101, telem.NewSeriesV[bool](true))
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
 				Expect(lastU8(out, 102)).To(Equal(uint8(1)),
@@ -1699,7 +1699,7 @@ var _ = Describe("Sequence", func() {
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":  {types.U8(), 100},
-					"flag":       {types.U8(), 101},
+					"flag":       {types.Bool(), 101},
 					"first_out":  {types.U8(), 102},
 					"second_out": {types.U8(), 103},
 				})
@@ -1720,7 +1720,7 @@ var _ = Describe("Sequence", func() {
 				    }
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BoolT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 					channels.Digest{Key: 103, DataType: telem.Uint8T},
 				)
@@ -1728,7 +1728,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[uint8](1))
+				h.Ingest(101, telem.NewSeriesV[bool](true))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -1744,7 +1744,7 @@ var _ = Describe("Sequence", func() {
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":   {types.U8(), 100},
-					"flag":        {types.U8(), 101},
+					"flag":        {types.Bool(), 101},
 					"reached_out": {types.U8(), 102},
 				})
 				h := newRuntimeHarness(ctx, `
@@ -1761,14 +1761,14 @@ var _ = Describe("Sequence", func() {
 				    }
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BoolT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 				)
 				defer h.Close(ctx)
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[uint8](1))
+				h.Ingest(101, telem.NewSeriesV[bool](true))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
@@ -1782,7 +1782,7 @@ var _ = Describe("Sequence", func() {
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":  {types.U8(), 100},
-					"flag":       {types.U8(), 101},
+					"flag":       {types.Bool(), 101},
 					"inline_out": {types.U8(), 102},
 					"second_out": {types.U8(), 103},
 				})
@@ -1800,7 +1800,7 @@ var _ = Describe("Sequence", func() {
 				    }
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
-					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BoolT},
 					channels.Digest{Key: 102, DataType: telem.Uint8T},
 					channels.Digest{Key: 103, DataType: telem.Uint8T},
 				)
@@ -1808,7 +1808,7 @@ var _ = Describe("Sequence", func() {
 
 				h.Ingest(100, telem.NewSeriesV[uint8](1))
 				h.Tick(ctx, telem.Millisecond)
-				h.Ingest(101, telem.NewSeriesV[uint8](1))
+				h.Ingest(101, telem.NewSeriesV[bool](true))
 				h.Tick(ctx, telem.Millisecond)
 				h.Tick(ctx, telem.Millisecond)
 				out, _ := h.Flush()
