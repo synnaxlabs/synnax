@@ -553,4 +553,47 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			},
 		)
 	})
+
+	Describe("Inline union variants with own defaults", func() {
+		const source = `
+			@go output "core/pkg/service/x"
+
+			Kind enum { number = "number" text = "text" }
+
+			Field union on type {
+				static {
+					kind Kind = KindNumber
+				}
+				generated {}
+			}
+
+			Container struct { fields Field[] }
+		`
+
+		It(
+			"Should fill and validate inline fields on the variant",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (f *FieldStatic) ApplyDefaults() {",
+					"f.Kind = KindNumber",
+					"func (f FieldStatic) Validate() error {",
+					"!f.Kind.IsValid()",
+				)
+			},
+		)
+
+		It(
+			"Should dispatch the wrapper methods the container recurses into",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (u *Field) ApplyDefaults() {",
+					"func (u Field) Validate() error {",
+					"func (c *Container) ApplyDefaults() {",
+					"c.Fields[i].ApplyDefaults()",
+				)
+			},
+		)
+	})
 })
