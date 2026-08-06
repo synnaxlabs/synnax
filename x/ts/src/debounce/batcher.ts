@@ -11,10 +11,11 @@ import { type CrudeTimeSpan, TimeSpan } from "@/telem/telem";
 
 /** A request queued in a {@link Batcher} window, carrying the handles the executor
  *  uses to settle the caller's enqueue promise. */
-export interface Entry<Req, Res = void> {
+export interface Entry<Req, Res = void> extends Pick<
+  PromiseWithResolvers<Res>,
+  "resolve" | "reject"
+> {
   req: Req;
-  resolve: (res: Res) => void;
-  reject: (reason?: unknown) => void;
 }
 
 export interface BatcherProps<Req, Res = void> {
@@ -47,25 +48,25 @@ export class Batcher<Req, Res = void> {
    * @returns A promise settled by the executor for this request.
    */
   enqueue(req: Req): Promise<Res> {
-    return new Promise<Res>((resolve, reject) => {
-      if (this.pending == null) {
-        this.pending = [];
-        this.timer = setTimeout(() => {
-          const batch = this.pending;
-          this.pending = null;
-          this.timer = null;
-          if (batch == null || batch.length === 0) return;
-          void (async () => {
-            try {
-              await this.exec(batch);
-            } catch (exc) {
-              batch.forEach(({ reject }) => reject(exc));
-            }
-          })();
-        }, this.interval.milliseconds);
-      }
-      this.pending.push({ req, resolve, reject });
-    });
+    const { promise, resolve, reject } = Promise.withResolvers<Res>();
+    if (this.pending == null) {
+      this.pending = [];
+      this.timer = setTimeout(() => {
+        const batch = this.pending;
+        this.pending = null;
+        this.timer = null;
+        if (batch == null || batch.length === 0) return;
+        void (async () => {
+          try {
+            await this.exec(batch);
+          } catch (exc) {
+            batch.forEach(({ reject }) => reject(exc));
+          }
+        })();
+      }, this.interval.milliseconds);
+    }
+    this.pending.push({ req, resolve, reject });
+    return promise;
   }
 
   /**

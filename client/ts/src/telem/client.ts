@@ -7,44 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type alamos } from "@synnaxlabs/alamos";
-import {
-  type breaker,
-  type CrudeTimeSpan,
-  type MultiSeries,
-  type TimeRange,
-  type TimeSpan,
-} from "@synnaxlabs/x";
+import { type MultiSeries, type TimeRange } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
-import { Cache } from "@/telem/cache/cache";
-import { Reader, type ReadRemoteFunc } from "@/telem/reader";
-import { Streamer, type StreamHandler, type Subscription } from "@/telem/streamer";
-import { type Transform } from "@/telem/transform";
+import { Cache, type CacheProps } from "@/telem/cache/cache";
+import { Reader, type ReaderProps } from "@/telem/reader";
+import {
+  Streamer,
+  type StreamerProps,
+  type StreamHandler,
+  type Subscription,
+} from "@/telem/streamer";
 
-export interface ClientProps {
-  /** Reads a frame of historical data from the cluster. */
-  readRemote: ReadRemoteFunc;
+export interface ClientProps
+  extends
+    CacheProps,
+    Omit<ReaderProps, "cache">,
+    Omit<StreamerProps, "cache" | "openStreamer"> {
   /** Opens the underlying frame stream. */
   openStreamer: framer.StreamOpener;
-  /** Applied to every series before it enters cache buffers. Defaults to identity. */
-  transform?: Transform;
-  instrumentation?: alamos.Instrumentation;
-  /** See {@link Cache} */
-  dynamicBufferSize?: number | TimeSpan;
-  /** See {@link Cache} */
-  gcInterval?: TimeSpan;
-  /** See {@link Cache} */
-  staleEntryThreshold?: TimeSpan;
-  /** See {@link Streamer} */
-  removalDelay?: CrudeTimeSpan;
-  /** See {@link Streamer} */
-  breaker?: breaker.Config;
-  /** See {@link Reader} */
-  batchDebounce?: TimeSpan;
-  /** See {@link Reader} */
-  overlapThreshold?: TimeSpan;
 }
 
 /** The subset of {@link ClientProps} an owner may tune from the outside. */

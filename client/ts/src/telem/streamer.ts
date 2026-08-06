@@ -16,9 +16,9 @@ import {
   MultiSeries,
   Rate,
   type Series,
+  sync,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { Mutex } from "async-mutex";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -105,7 +105,7 @@ export class Streamer {
 
   // Serializes stream open, update, and close against each other. Never held while
   // waiting on retry backoff so close() stays prompt.
-  private readonly connMu = new Mutex();
+  private readonly connMu = sync.newMutex({ closed: false });
   private readonly breaker: breaker.Breaker;
   private readonly entries = new Set<Entry>();
   private readonly statuses = new Map<channel.Key, status.Status>();
@@ -115,7 +115,6 @@ export class Streamer {
   // The key set last accepted by the stream. Kept separately from the streamer so a
   // mid-reconnect streamer cannot be consulted for it.
   private sentKeys = new Set<channel.Key>();
-  private closed = false;
 
   constructor(props: StreamerProps) {
     const {
@@ -153,7 +152,7 @@ export class Streamer {
    * @throws {UnexpectedError} if the streamer has been closed.
    */
   stream(handler: StreamHandler, keys: channel.Key[]): Subscription {
-    if (this.closed)
+    if (this.connMu.closed)
       throw new UnexpectedError("stream() called on a closed telemetry streamer");
     const { cache, instrumentation: ins } = this.props;
     ins.L.debug("adding stream handler", { keys });
@@ -193,7 +192,7 @@ export class Streamer {
     if (this.reconcileTimer != null) clearTimeout(this.reconcileTimer);
     this.reconcileTimer = null;
     await this.connMu.runExclusive(async () => {
-      this.closed = true;
+      this.connMu.closed = true;
       const prev = this.streamer;
       const prevLoop = this.runLoop;
       this.streamer = null;
@@ -216,7 +215,7 @@ export class Streamer {
   }
 
   private scheduleReconcile(delay: TimeSpan = RECONCILE_DELAY): void {
-    if (this.closed || this.reconcileTimer != null) return;
+    if (this.connMu.closed || this.reconcileTimer != null) return;
     this.reconcileTimer = setTimeout(() => {
       this.reconcileTimer = null;
       void this.reconcile();
@@ -257,7 +256,7 @@ export class Streamer {
     const { instrumentation: ins } = this.props;
     let retry = false;
     await this.connMu.runExclusive(async () => {
-      if (this.closed) return;
+      if (this.connMu.closed) return;
       const desired = this.desiredKeys();
       try {
         if (desired.size === 0) {
@@ -316,7 +315,7 @@ export class Streamer {
         retry = true;
       }
     });
-    if (!retry || this.closed) return;
+    if (!retry || this.connMu.closed) return;
     if (await this.breaker.wait()) this.scheduleReconcile(TimeSpan.ZERO);
   }
 
@@ -357,7 +356,7 @@ export class Streamer {
     } finally {
       // A loop that ends while demand remains is an outage, not a shutdown:
       // schedule a repair instead of leaving the stream silently dead.
-      if (!this.closed && this.streamer === streamer) {
+      if (!this.connMu.closed && this.streamer === streamer) {
         this.streamer = null;
         this.runLoop = null;
         this.sentKeys = new Set();

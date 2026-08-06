@@ -36,7 +36,6 @@
     "@synnaxlabs/alamos": "workspace:^",
     "@synnaxlabs/freighter": "workspace:^",
     "@synnaxlabs/x": "workspace:^",
-    "async-mutex": "catalog:",
     "immer": "catalog:",
     "zod": "catalog:"
   },
