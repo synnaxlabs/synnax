@@ -154,6 +154,23 @@ RFC 0046). Lists stay imperative (RFC 0046 RD13, reaffirmed).
 The create-broadcast wait (a cached not-found briefly awaiting its create event) and the
 typed-error contract carry over from RFC 0046 §5.5 unchanged.
 
+Two rules the implementation forced, both about answers the domain cache does not hold:
+
+- **Settled answers.** A definition whose `retrieve` result never lands in the cache
+  (the current user, a group's ID) is kept in the per-client settled map and served from
+  there. `useCached` re-renders itself on settle, since no subscription announces an
+  answer the cache never saw. Such an answer is served once and never updated.
+- **Answers built per call need `equal`.** A `getCached` that allocates a fresh array or
+  object every call breaks `useSyncExternalStore`; the definition supplies `equal` so
+  the previous answer is held when the next compares equal. The same pressure applies to
+  the client: an approximation it cannot fully serve (channels under a range alias) must
+  return undefined rather than a partial answer, or the read never fetches the rest.
+
+**Testing.** A hook that suspends on its first render never commits under RTL's
+`renderHook`, leaving `result.current` null forever. Pluto's testutil gains
+`renderHookSuspended`, which renders inside an awaited `act` and returns the same result
+object.
+
 ## 5.2 - Selectors
 
 The `createRetrieve` return gains a selector factory. A selector shares the definition's
