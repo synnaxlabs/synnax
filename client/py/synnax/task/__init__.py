@@ -19,6 +19,7 @@ from synnax.task.client import (
 )
 from synnax.task.types_gen import (
     ONTOLOGY_TYPE,
+    ConfigRecord,
     Key,
     Payload,
     Status,
@@ -51,6 +52,7 @@ __all__ = [
     "BaseConfig",
     "BaseReadConfig",
     "BaseWriteConfig",
+    "ConfigRecord",
     "JSONConfigMixin",
     "StarterStopperMixin",
     "Protocol",
