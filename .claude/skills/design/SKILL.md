@@ -80,7 +80,7 @@ Before designing, assemble the governing principles for the affected area from f
 sources:
 
 1. **Written law** -> root and component CLAUDE.mds, `docs/claude/*`, and the Principles
-   and Resolved Decisions sections of related RFCs. Resolved Decisions especially: past
+   and Resolved decisions sections of related RFCs. Resolved decisions especially: past
    designs already rejected alternatives this design may be about to re-propose.
 2. **Grid placement** -> the cell(s) the change occupies on the three axes (layer ×
    domain/feature × general-purpose-vs-Synnax-specific), and the invariants each axis
@@ -240,8 +240,7 @@ Conventions that matter:
 - **Resolved decisions ledger**: Every rejected alternative is recorded with its
   enumerated downsides and an honest "the trade is real" acknowledgment. Inline prose
   rejection right after a decision is the dominant style for smaller calls.
-- **What this RFC does not cover**: Explicit scope exclusion, its own section, under
-  that heading.
+- **What this RFC does not cover**: Explicit scope exclusion, in its own section.
 - **Interview-locked register**: Decisions read terse and settled, rejections folded in;
   the open-questions tail is short and bounded, each item a parameter choice.
 - **Evidence style**: Claims cite actual code (file:line) and sibling RFCs by number.
