@@ -1,28 +1,28 @@
 # 28 HTTP driver specification
 
 - **Author**: Patrick Dotson
-- **Date**: 2026-02-13
+- **Date**: 2026-02-03
 
 ## 0 Overview
 
 Add an HTTP driver integration to the Synnax Driver system that enables:
 
-- **Read Tasks**: Poll REST API endpoints and write response data to Synnax channels
-- **Write Tasks**: Receive data from Synnax channels and send HTTP requests to control
+- **Read tasks**: Poll REST API endpoints and write response data to Synnax channels
+- **Write tasks**: Receive data from Synnax channels and send HTTP requests to control
   devices
-- **Scan Tasks**: Proactive health monitoring of HTTP endpoints
+- **Scan tasks**: Proactive health monitoring of HTTP endpoints
 
 Integration name: `http` (task types: `http_read`, `http_write`, `http_scan`)
 
 ### 0.0 Supported types
 
-**JSON types per endpoint:** `number`, `string`, `boolean`
+**JSON types per endpoint**: `number`, `string`, `boolean`
 
 Objects, arrays, and nulls are not supported as field-level values. The overall request
 and response bodies are JSON objects, but individual extracted/inserted fields must be
 one of the three types above.
 
-**Synnax channel data types:** Numeric types (`int8` through `float64`) and String.
+**Synnax channel data types**: Numeric types (`int8` through `float64`) and String.
 
 UUID, Bytes, and JSON Synnax types are not supported by this driver.
 
@@ -101,7 +101,7 @@ docs/site/src/pages/reference/device-drivers/http/  # Documentation (NEW)
 - **libcurl**: HTTP client library (add via Bazel Central Registry in MODULE.bazel)
 - **nlohmann/json**: Already in codebase for JSON parsing
 - **cpp-httplib**: For mock HTTP server in tests (add to MODULE.bazel or vendor)
-- **Existing driver infrastructure**:
+- **Existing Driver infrastructure**:
   - `driver/task/`: Task, Factory, Context interfaces
   - `driver/pipeline/`: Acquisition/Control pipelines
   - `driver/task/common/`: Base task implementations
@@ -132,7 +132,7 @@ docs/site/src/pages/reference/device-drivers/http/  # Documentation (NEW)
 }
 ```
 
-**Authentication Types:**
+**Authentication types:**
 
 - `"none"`: No authentication
 - `"api_key"`: `{"type": "api_key", "header": "X-API-Key", "key": "secret"}`
@@ -191,11 +191,11 @@ fields. All endpoints are polled at the same rate on each cycle.
 }
 ```
 
-**Read Task Fields:**
+**Read task fields:**
 
 - `device`: Device key to retrieve connection config
 - `data_saving`: Whether to persist data to disk
-- `auto_start`: Whether to start the task automatically when the driver starts
+- `auto_start`: Whether to start the task automatically when the Driver starts
 - `rate`: Polling frequency in Hz (e.g., 1.0 = once per second). All endpoints are
   polled on each cycle.
 - `strict`: Task-level setting. If true, lossy numeric conversions (e.g., float 3.7 →
@@ -215,7 +215,7 @@ fields. All endpoints are polled at the same rate on each cycle.
 - `endpoints[].fields[].time_format`: Required when `time_pointer` is set. Timestamp
   format (see below).
 
-**Timestamp Formats (same five options used across read and write tasks):**
+**Timestamp formats (same five options used across read and write tasks):**
 
 - `"iso8601"`: ISO 8601 string (e.g., `"2024-01-15T10:30:00Z"`)
 - `"unix_sec"`: Unix timestamp in seconds
@@ -223,10 +223,10 @@ fields. All endpoints are polled at the same rate on each cycle.
 - `"unix_us"`: Unix timestamp in microseconds
 - `"unix_ns"`: Unix timestamp in nanoseconds
 
-If no `time_pointer` is configured for a field, the driver uses software timing:
+If no `time_pointer` is configured for a field, the Driver uses software timing:
 midpoint of `(request_start + response_received) / 2` for that channel's index.
 
-**Type Conversion for Read Tasks (JSON → Synnax):**
+**Type conversion for read tasks (JSON → Synnax):**
 
 | JSON Type | → Synnax Numeric                        | → Synnax String          |
 | --------- | --------------------------------------- | ------------------------ |
@@ -240,7 +240,7 @@ midpoint of `(request_start + response_received) / 2` for that channel's index.
 - ⚠️ Conversion possible but may warn (e.g., float→int truncation)
 - ❌ Error: conversion not supported
 
-**Notes on Read Conversions:**
+**Notes on read conversions:**
 
 - JSON `string` → Synnax Numeric is not supported. Parsing arbitrary strings as numbers
   is error-prone and adds complexity. If an API returns numeric values as strings, users
@@ -261,14 +261,14 @@ midpoint of `(request_start + response_received) / 2` for that channel's index.
 
 **Configuration-time validation:**
 
-When configuring a read task, the driver validates:
+When configuring a read task, the Driver validates:
 
 1. **Channel type**: Each channel's Synnax DataType must be a numeric type or String.
    Unsupported types (UUID, Bytes, JSON) are rejected at configuration time.
 2. **Channel uniqueness**: No Synnax channel key may appear more than once across all
    endpoints in the task.
-3. **Index resolution**: The driver determines which index channels need to be written
-   and where their timestamps come from. For each field, the driver looks up the
+3. **Index resolution**: The Driver determines which index channels need to be written
+   and where their timestamps come from. For each field, the Driver looks up the
    channel's index key. An index channel's timestamp source can be specified in multiple
    ways:
    - A field whose `channel` **is** the index channel directly (the field's `pointer`
@@ -292,7 +292,7 @@ Write task uses a unified `fields` array per endpoint where each field specifies
 - `type`: `"static"`, `"channel"`, or `"generated"`
 - Type-specific properties
 
-**Example: Multiple Endpoints**
+**Example: Multiple endpoints**
 
 ```json
 {
@@ -349,7 +349,7 @@ Write task uses a unified `fields` array per endpoint where each field specifies
 }
 ```
 
-**Example: Primitive Body (single value)**
+**Example: Primitive body (single value)**
 
 When there's only one field with pointer at root (`""`), the body is the value itself:
 
@@ -381,11 +381,11 @@ Write task fields are applied in order — if an earlier field sets a nested obj
 later field targets a path within it, the later field wins. Configuration fails if two
 fields have identical pointers within the same endpoint.
 
-**Write Task Fields:**
+**Write task fields:**
 
 - `device`: Device key for connection config
 - `data_saving`: Whether to persist data to disk
-- `auto_start`: Whether to start the task automatically when the driver starts
+- `auto_start`: Whether to start the task automatically when the Driver starts
 - `throttle_rate`: Maximum iterations per second of the main write task loop. Each
   iteration processes all pending channel values and sends requests to all endpoints.
   The task is event-driven (triggered by new channel values) but will not iterate faster
@@ -397,7 +397,7 @@ fields have identical pointers within the same endpoint.
 - `endpoints[].method`: `"POST"`, `"PUT"`, `"PATCH"`, or `"DELETE"`
 - `endpoints[].fields`: Array of field definitions for this endpoint's request body
 
-**Field Types:**
+**Field types:**
 
 | Type        | Properties                                         | Description                                             |
 | ----------- | -------------------------------------------------- | ------------------------------------------------------- |
@@ -441,7 +441,7 @@ Only used when `on_empty: "last"` and no value has ever been received:
 - `"omit"`: Omit the field until first value is received (default)
 - `"zero"`: Use zero value until first value is received
 
-**Type Conversion for Write Tasks (Synnax → JSON):**
+**Type conversion for write tasks (Synnax → JSON):**
 
 | Synnax Type         | → JSON `number` | → JSON `string`          | → JSON `boolean`      |
 | ------------------- | --------------- | ------------------------ | --------------------- |
@@ -453,7 +453,7 @@ Only used when `on_empty: "last"` and no value has ever been received:
 - ✅ Direct/lossless conversion
 - ❌ Error: conversion not supported
 
-**Notes on Write Conversions:**
+**Notes on write conversions:**
 
 - Synnax String → JSON `number` is not supported (same rationale as read: parsing
   arbitrary strings as numbers is error-prone).
@@ -462,7 +462,7 @@ Only used when `on_empty: "last"` and no value has ever been received:
 
 **Configuration-time validation:**
 
-When configuring a write task, the driver validates:
+When configuring a write task, the Driver validates:
 
 1. **Type compatibility**: For each channel field, look up the Synnax DataType and check
    against the specified `format` using the conversion table. If the conversion is ❌
@@ -485,7 +485,7 @@ When configuring a write task, the driver validates:
 
 ### 2.3 Scan task configuration
 
-**Example: HTTP Status Only**
+**Example: HTTP status only**
 
 ```json
 {
@@ -499,7 +499,7 @@ When configuring a write task, the driver validates:
 
 Health is determined by HTTP 2xx status code only.
 
-**Example: With Response Validation**
+**Example: With response validation**
 
 ```json
 {
@@ -517,10 +517,10 @@ Health is determined by HTTP 2xx status code only.
 
 Health requires HTTP 2xx AND response field matches expected value.
 
-**Scan Task Fields:**
+**Scan task fields:**
 
 - `device`: Device key for connection config
-- `auto_start`: Whether to start the task automatically when the driver starts
+- `auto_start`: Whether to start the task automatically when the Driver starts
 - `rate`: Health check frequency in Hz
 - `path`: Endpoint path for health check (e.g., `/health`)
 - `method`: HTTP method (default: `"GET"`)
@@ -528,11 +528,11 @@ Health requires HTTP 2xx AND response field matches expected value.
 - `response.field`: JSON Pointer to validate in response (e.g., `/status`)
 - `response.expected_value`: Expected value for the field (e.g., `"ok"`)
 
-**HTTP Scan Task Pattern Differs from Other Drivers**
+**The HTTP scan task pattern differs from other drivers**
 
 For other drivers (Modbus, OPC UA, LabJack, NI), scan tasks are:
 
-- Automatically created and managed by the driver
+- Automatically created and managed by the Driver
 - Not configurable by users in the Console
 - Used for device discovery and automatic health monitoring
 
@@ -554,8 +554,8 @@ users.
 
 ### 3.0 JSON pointer handling
 
-JSON Pointer (RFC 6901) is used throughout the driver for field extraction and request
-body construction. Rather than a custom utility, the driver uses
+JSON Pointer (RFC 6901) is used throughout the Driver for field extraction and request
+body construction. Rather than a custom utility, the Driver uses
 `nlohmann::json_pointer` directly, which is built into the nlohmann/json library already
 in the codebase.
 
@@ -565,7 +565,7 @@ on the field structs. At runtime, these pre-parsed pointers are used for O(depth
 lookups via `json.at(pointer)` and assignments via `json[pointer] = value` — no string
 re-parsing on the hot path.
 
-**JSON Pointer Syntax (RFC 6901):**
+**JSON Pointer syntax (RFC 6901):**
 
 - `""`: top level of the JSON (for non-object/array values)
 - `/foo`: field "foo"
@@ -948,7 +948,7 @@ used by Modbus and OPC UA. The mock HTTP server is registered as a simulator in
   task-specific configuration.
 - **Test classes**: `HTTPRead`, `HTTPReadMultiEndpoint`, `HTTPWrite`, `HTTPScan`, etc.
   Each creates channels, configures endpoints/fields, and validates data flow through
-  the driver.
+  the Driver.
 
 ---
 
@@ -992,7 +992,7 @@ configure_http(*this, factories);
 PRs are organized by feature: **Utilities → Device → Read Task → Write Task → Scan
 Task**
 
-The first PR establishes the reusable `x::json` conversion utility that the driver
+The first PR establishes the reusable `x::json` conversion utility that the Driver
 depends on. JSON Pointer functionality is handled by `nlohmann::json_pointer` (built
 into nlohmann/json, already in the codebase) and does not need a separate PR. Then each
 feature goes through all layers: C++ → Console → Python → Tests → Docs.
@@ -1003,7 +1003,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.0.0 PR 1: JSON ↔ Synnax conversion utility
 
-**Scope:** Type conversion between JSON values and Synnax telemetry types
+**Scope**: Type conversion between JSON values and Synnax telemetry types
 
 - `x/cpp/json/BUILD.bazel`
 - `x/cpp/json/convert.h`: `to_sample_value`, `from_sample_value`,
@@ -1018,7 +1018,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.1.0 PR 2: C++ device foundation
 
-**Scope:** HTTP client infrastructure and driver skeleton
+**Scope**: HTTP client infrastructure and driver skeleton
 
 - `MODULE.bazel`: Add libcurl and cpp-httplib dependencies
 - `driver/http/BUILD.bazel`
@@ -1028,7 +1028,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.1.1 PR 3: Console device connection
 
-**Scope:** Console UI for connecting to HTTP devices
+**Scope**: Console UI for connecting to HTTP devices
 
 - `console/src/hardware/http/device/`: Device configuration UI
 - Device properties form (base URL, auth, headers)
@@ -1036,7 +1036,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.1.2 PR 4: Python client - device
 
-**Scope:** Python client support for HTTP devices
+**Scope**: Python client support for HTTP devices
 
 - `client/py/synnax/http/__init__.py`: HTTP driver package
 - `client/py/synnax/http/types.py`: Device type definitions
@@ -1046,7 +1046,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.1.3 PR 5: documentation - get started
 
-**Scope:** HTTP driver overview and device connection docs
+**Scope**: HTTP driver overview and device connection docs
 
 - `docs/site/src/pages/reference/device-drivers/http/get-started.mdx`
 - Overview, connection setup, authentication options, headers
@@ -1057,7 +1057,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.2.0 PR 6: C++ read task
 
-**Scope:** Read task implementation with multi-endpoint support
+**Scope**: Read task implementation with multi-endpoint support
 
 - `driver/http/read_task.h/.cpp`
 - `driver/http/factory.cpp` (partial - read task only)
@@ -1066,7 +1066,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.2.1 PR 7: Console read task
 
-**Scope:** Console UI for read task configuration
+**Scope**: Console UI for read task configuration
 
 - `console/src/hardware/http/task/Read.tsx`
 - Multi-endpoint configuration UI
@@ -1075,7 +1075,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.2.2 PR 8: Python client - read task
 
-**Scope:** Python client support for HTTP read tasks
+**Scope**: Python client support for HTTP read tasks
 
 - `client/py/synnax/http/read.py`: Read task configuration
 - `client/py/examples/http/read_task.py`: Read task example
@@ -1083,7 +1083,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.2.3 PR 9: integration tests - read task
 
-**Scope:** End-to-end read task testing
+**Scope**: End-to-end read task testing
 
 - `integration/tests/driver/conftest.py`: Shared fixtures, mock HTTP server
 - `integration/tests/driver/http_read.py`
@@ -1099,7 +1099,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.2.4 PR 10: documentation - read task
 
-**Scope:** Read task documentation
+**Scope**: Read task documentation
 
 - `docs/site/src/pages/reference/device-drivers/http/read-task.mdx`
 - Configuration reference, JSON Pointer syntax, type conversions, timestamp formats,
@@ -1111,7 +1111,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.3.0 PR 11: C++ write task
 
-**Scope:** Write task implementation with multi-endpoint support
+**Scope**: Write task implementation with multi-endpoint support
 
 - `driver/http/write_task.h/.cpp`
 - `driver/http/util/request_builder.h/.cpp` + tests
@@ -1120,7 +1120,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.3.1 PR 12: Console write task
 
-**Scope:** Console UI for write task configuration
+**Scope**: Console UI for write task configuration
 
 - `console/src/hardware/http/task/Write.tsx`
 - Multi-endpoint configuration UI
@@ -1129,7 +1129,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.3.2 PR 13: Python client - write task
 
-**Scope:** Python client support for HTTP write tasks
+**Scope**: Python client support for HTTP write tasks
 
 - `client/py/synnax/http/write.py`: Write task configuration
 - `client/py/examples/http/write_task.py`: Write task example
@@ -1137,7 +1137,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.3.3 PR 14: integration tests - write task
 
-**Scope:** End-to-end write task testing
+**Scope**: End-to-end write task testing
 
 - `integration/tests/driver/http_write.py`
   - Event-driven writes with throttling
@@ -1151,7 +1151,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.3.4 PR 15: documentation - write task
 
-**Scope:** Write task documentation
+**Scope**: Write task documentation
 
 - `docs/site/src/pages/reference/device-drivers/http/write-task.mdx`
 - Configuration reference, field types, request body construction, examples
@@ -1162,7 +1162,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.4.0 PR 16: C++ scan task
 
-**Scope:** Health monitoring scan task
+**Scope**: Health monitoring scan task
 
 - `driver/http/scan_task.h/.cpp`
 - Update factory for scan task
@@ -1170,7 +1170,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.4.1 PR 17: Console scan task
 
-**Scope:** Console UI for scan task configuration
+**Scope**: Console UI for scan task configuration
 
 - `console/src/hardware/http/task/Scan.tsx`
 - Health endpoint configuration UI
@@ -1178,7 +1178,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.4.2 PR 18: Python client - scan task
 
-**Scope:** Python client support for HTTP scan tasks
+**Scope**: Python client support for HTTP scan tasks
 
 - `client/py/synnax/http/scan.py`: Scan task configuration
 - `client/py/examples/http/scan_task.py`: Scan task example
@@ -1186,7 +1186,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.4.3 PR 19: integration tests - scan task
 
-**Scope:** End-to-end scan task testing
+**Scope**: End-to-end scan task testing
 
 - `integration/tests/driver/http_scan.py`
   - Health checks with HTTP status only
@@ -1195,7 +1195,7 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 
 #### 10.4.4 PR 20: documentation - scan task
 
-**Scope:** Scan task documentation
+**Scope**: Scan task documentation
 
 - `docs/site/src/pages/reference/device-drivers/http/scan-task.mdx`
 - Health check configuration, response validation, monitoring setup
@@ -1232,14 +1232,14 @@ feature goes through all layers: C++ → Console → Python → Tests → Docs.
 ## 12 Open questions / future enhancements
 
 1. **Array-to-Series**: Support mapping JSON arrays to multiple samples in a series
-2. **Per-Endpoint Headers**: Allow header overrides per endpoint
-3. **Write Response Parsing**: Optionally parse write responses for state feedback
-4. **Webhook Support**: HTTP server mode for receiving push notifications
-5. **WebSocket Support**: Streaming data over WebSocket connections
-6. **Certificate Configuration**: Custom CA certs, client certs for mTLS
-7. **More Granular Timeouts**: Separate connect, read, total timeouts
-8. **JSON/UUID/Bytes Synnax Types**: Support additional Synnax channel types
-9. **String-to-Number Parsing**: Parse numeric strings if demand warrants the complexity
+2. **Per-endpoint headers**: Allow header overrides per endpoint
+3. **Write response parsing**: Optionally parse write responses for state feedback
+4. **Webhook support**: HTTP server mode for receiving push notifications
+5. **WebSocket support**: Streaming data over WebSocket connections
+6. **Certificate configuration**: Custom CA certs, client certs for mTLS
+7. **More granular timeouts**: Separate connect, read, total timeouts
+8. **JSON/UUID/Bytes Synnax types**: Support additional Synnax channel types
+9. **String-to-number parsing**: Parse numeric strings if demand warrants the complexity
 
 ---
 

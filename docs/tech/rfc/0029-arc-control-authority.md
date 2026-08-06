@@ -21,11 +21,11 @@ The design introduces two complementary mechanisms:
 
 - **Authority**: An 8-bit unsigned integer (0-255) representing control precedence over
   a channel. Higher values take precedence.
-- **Control Subject**: An entity (sequence, operator, task) identified by a unique key
+- **Control subject**: An entity (sequence, operator, task) identified by a unique key
   and name that can hold authority over channels.
-- **Control Transfer**: A change in which subject holds authority over a resource.
+- **Control transfer**: A change in which subject holds authority over a resource.
 - **Gate**: A subject's authority claim over a channel within a time region.
-- **Silent Skip**: When a write is ignored due to insufficient authority, without
+- **Silent skip**: When a write is ignored due to insufficient authority, without
   raising an error.
 
 ## 2 Motivation
@@ -43,12 +43,12 @@ ControlSubject: control.Subject{Name: t.p.Name, Key: t.p.Key.String()},
 
 This prevents several critical control scenarios:
 
-1. **Emergency Override**: An abort sequence cannot forcibly take control from a nominal
+1. **Emergency override**: An abort sequence cannot forcibly take control from a nominal
    sequence
-2. **Cooperative Handoff**: Sequences cannot voluntarily transfer control to each other
-3. **Operator Intervention**: Human operators cannot take control from running Arc
+2. **Cooperative handoff**: Sequences cannot voluntarily transfer control to each other
+3. **Operator intervention**: Human operators cannot take control from running Arc
    sequences via the Console
-4. **Multi-Sequence Coordination**: Multiple Arc sequences cannot share control of
+4. **Multi-sequence coordination**: Multiple Arc sequences cannot share control of
    overlapping channels with different priorities
 
 ### 2.1 Existing Python patterns

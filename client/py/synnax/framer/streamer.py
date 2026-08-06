@@ -250,7 +250,7 @@ class AsyncStreamer:
 
     async def close_loop(self) -> None:
         """Closes the sending end of the streamer, requiring the caller to process all
-        remaining frames and close acknowledgements by calling read. This method is
+        remaining frames and close acknowledgments by calling read. This method is
         useful for managing the lifecycle of a streamer within a separate event loop or
         thread.
         """
@@ -266,7 +266,7 @@ class AsyncStreamer:
         except EOF:
             return
         raise UnexpectedError(
-            "Unexpected missing close acknowledgement from server. "
+            "Unexpected missing close acknowledgment from server. "
             "Please report this issue to the Synnax team."
         )
 

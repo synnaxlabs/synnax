@@ -220,14 +220,14 @@ great video explaining how excessive abstraction can be dangerous.
 We use uv for managing packages and virtual environments in our Python code. Make sure
 you've familiarized yourself with some of the basic commands. Documentation is available
 [here](https://docs.astral.sh/uv/). As a supplement to this, make sure you've read our
-[Python build system guide](./python/python.md).
+[Python build system guide](python/python.md).
 
 ### 8.1 pnpm
 
 pnpm is the package manager we use for all of our TypeScript code. Make sure you've
 familiarized yourself with some of the basic commands. Documentation is available
 [here](https://pnpm.io/). As a supplement to this, make sure you've read our
-[frontend build system guide](./typescript/build.md).
+[frontend build system guide](typescript/build.md).
 
 ## 9 Build systems and infrastructure
 
@@ -244,7 +244,7 @@ benefits they provide, check out
 We use Turborepo as our monorepo build system tool for our front end code. It improves
 the developer experience by allowing us to build and test multiple packages at once, all
 while caching dependencies and build artifacts. Here's a good introduction video called
-[turbo repo in 2 minutes](https://www.youtube.com/watch?v=vE3LOHU0OV8&ab_channel=Vercel).
+[Turborepo in 2 minutes](https://www.youtube.com/watch?v=vE3LOHU0OV8&ab_channel=Vercel).
 Also, make sure you've familiarized yourself with some of the basic commands.
 Documentation is available [here](https://turbo.fyi/).
 

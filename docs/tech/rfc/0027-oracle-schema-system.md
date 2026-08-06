@@ -1,7 +1,7 @@
 # 27 Oracle schema system
 
 - **Author**: Emiliano Bonilla
-- **Date**: 2026-03-21
+- **Date**: 2025-12-29
 - **Related**: [RFC 0026 - Meta data structures](0026-meta-data.md)
 
 ## 0 Summary

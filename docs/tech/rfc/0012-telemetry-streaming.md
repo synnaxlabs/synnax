@@ -189,13 +189,13 @@ each reader that needs to consume from the relay, we keep track of the channels 
 reader wants to receive data for. These channels are called demands. When a new reader
 wants to consume frames, it sends the relay a demand request. The gateway relay
 normalizes the demands from each reader, and opens a new socket to a peer relay or the
-gateway's storage layer relay. Responses are then multiplexed to each consumer relay,
-where they are filtered only for the channels that the reader requested.
+gateway's storage layer relay. Responses are then copied to each consumer relay, where
+they are filtered only for the channels that the reader requested.
 
 <br />
 <p align="middle">
     <img
-        src="./img/0012-telemetry-streaming/distribution-relay.png"
+        src="img/0012-telemetry-streaming/distribution-relay.png"
         width="70%"
     />
     <h5 align="middle">Distribution Relay</h5>

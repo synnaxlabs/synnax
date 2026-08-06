@@ -72,7 +72,7 @@ Each consumer works around the gap locally. A shared type removes the workaround
 ### 2.1 Digital traffic is significant at the wire layer
 
 Industrial deployments routinely create hundreds or thousands of digital channels, and
-the driver layer surfaces each bit as its own channel. A Modbus `readCoils(addr, 16)`
+the Driver layer surfaces each bit as its own channel. A Modbus `readCoils(addr, 16)`
 call reads sixteen bits in a single protocol request and fans them out to sixteen
 separate `Uint8T` channels in Synnax. A deployment with a thousand such channels
 sampling at one kilohertz produces one megabyte per second of digital traffic in the

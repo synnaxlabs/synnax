@@ -18,7 +18,7 @@ starts and stops tasks, and deletes them when they are no longer needed.
 
 A driver represents a set of data acquisition and control tasks running within a single
 program. A driver can interact with one or more devices. For example, a running instance
-of the Synnax driver program would be represented by a driver data structure in the
+of the Synnax Driver program would be represented by a driver data structure in the
 cluster. A custom flight computer that communicates directly with Synnax over the
 network could also register itself as a driver.
 
@@ -182,8 +182,8 @@ pace with the system.
 A task is an independent acquisition or control loop within a driver. Each task
 communicates with a single device from a single vendor, and operates a command or
 acquisition pipeline. The pipelines of a task have a consistent acquisition and command
-acknowledgement rate. For example, a task could represent a continuous 100 Hz
-acquisition process from a National Instruments cDAQ.
+acknowledgment rate. For example, a task could represent a continuous 100 Hz acquisition
+process from a National Instruments cDAQ.
 
 By guaranteeing a single sample rate, a single device, and a single vendor, we can
 considerably reduce the complexity ceiling of a task. We won't need to write code that

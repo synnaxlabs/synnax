@@ -1,4 +1,4 @@
-# 48 Client cache, unified reads, and Console session state
+# 47 Client cache, unified reads, and Console session state
 
 - **Author**: Emiliano Bonilla
 - **Date**: 2026-07-16

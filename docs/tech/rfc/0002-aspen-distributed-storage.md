@@ -335,7 +335,7 @@ type UpdatePropagationList map[interface{}]Update
 ```
 
 After adding the update to the propagation list, we persist the set to an underlying KV
-store, and send a durability acknowledgement to the host node.
+store, and send a durability acknowledgment to the host node.
 
 ##### 3.2.2.2 Propagate the update
 

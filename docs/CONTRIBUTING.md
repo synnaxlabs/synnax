@@ -18,11 +18,10 @@ contribute to. There are a few ways to do this:
    something that catches your eye. Issues marked
    ["good first issue"](https://github.com/synnaxlabs/synnax/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
    are a great place to start.
-2. Read our product strategy documents, our
-   [architecture overview](./tech/architecture.md) document, and our technical
-   [requests for comments (RFCs)](tech/rfc). These documents outline critical product
-   strategies and technical design decisions we've made, and provide insight into the
-   different product focuses we're delivering.
+2. Read our [architecture overview](./tech/architecture.md) document and our technical
+   [requests for comments (RFCs)](tech/rfc). These documents outline critical technical
+   design decisions we've made, and provide insight into the different product focuses
+   we're delivering.
 3. Explore the codebase! Read the
    [repository organization](../README.md#repository-organization) section of our
    [README](../README.md) and start digging through the code we've written; there are

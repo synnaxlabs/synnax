@@ -2,14 +2,17 @@
 
 ## 0 How the build system works
 
-Synnax is organized as a monorepo. Our front end software consists of five different
+Synnax is organized as a monorepo. Our front end software consists of eight different
 libraries:
 
 - `@synnaxlabs/x` (`x/ts`): Common utilities and types used by all other packages.
 - `@synnaxlabs/media` (`x/media`): Synnax specific media, including logos and icons. The
   smallest library.
+- `@synnaxlabs/alamos` (`alamos/ts`): Distributed instrumentation - logs, traces, and
+  metrics.
+- `@synnaxlabs/arc` (`arc/ts`): TypeScript utilities for the Arc language.
 - `@synnaxlabs/freighter` (`freighter/ts`): A transport adapter protocol for
-  communicating with Synnax server.
+  communicating with a Core.
 - `@synnaxlabs/client` (`client/ts`): The client library for communicating with a Synnax
   cluster.
 - `@synnaxlabs/pluto` (`pluto`): The Synnax component library.
@@ -18,35 +21,47 @@ libraries:
 
 We have two main applications:
 
-- `@synnaxlabs/console` - path `console` - The exploratory data analysis, cluster
-  management, and control application.
-- `@synnaxlabs/docs` - path `docs/site` - The Synnax documentation website.
+- `@synnaxlabs/console` (`console`): The exploratory data analysis, cluster management,
+  and control application.
+- `@synnaxlabs/docs` (`docs/site`): The Synnax documentation website.
 
 There are also a few packages that are specifically for defining configurations for
 various build/developments tools:
 
-- `@synnaxlabs/eslint-config` - path `configs/eslint` - The ESLint configuration for
-  Synnax TypeScript software.
-- `@synnaxlabs/stylelint-config` - path `configs/stylelint` - The Stylelint
-  configuration for Synnax TypeScript software.
-- `@synnaxlabs/tsconfig` - path `configs/ts` - The TypeScript configuration for Synnax
+- `@synnaxlabs/eslint-config` (`configs/eslint`): The ESLint configuration for Synnax
   TypeScript software.
-- `@synnaxlabs/vite-plugin` - path `configs/vite` - A custom plugin for building
-  TypeScript applications using [Vite](https://vitejs.dev/). We'll discuss Vite in more
-  detail later.
+- `@synnaxlabs/stylelint-config` (`configs/stylelint`): The Stylelint configuration for
+  Synnax TypeScript software.
+- `@synnaxlabs/tsconfig` (`configs/ts`): The TypeScript configuration for Synnax
+  TypeScript software.
+- `@synnaxlabs/vite-plugin` (`configs/vite`): A custom plugin for building TypeScript
+  applications using [Vite](https://vitejs.dev/). We'll discuss Vite in more detail
+  later.
 
 Each of these packages are developed and built independently. Note that the
 configuration packages above are marked private and are not published to npm — they are
-only used within this monorepo. The current dependency hierarchy for these packages is
-as follows:
+only used within this monorepo.
 
-<p align="middle">
-    <img src="./img/build/deps.png" width="500px">
-    <h6 align="Middle">Synnax Front End Dependency Graph</h6>
-</p>
+The dependency hierarchy between these packages is as follows. An arrow points from a
+package to the packages it depends on. Turbo follows the arrows transitively, so
+`console` also depends on `x` through `pluto`.
 
-**Understanding/referencing this dependency graph is critical when developing Synnax
-front end software.** We'll revisit this graph in a moment.
+```mermaid
+graph TD
+    console --> pluto
+    console --> drift
+    docs --> pluto
+    pluto --> client
+    pluto --> arc
+    pluto --> media
+    client --> freighter
+    freighter --> alamos
+    alamos --> x
+    drift --> x
+```
+
+**Understanding this hierarchy is critical when developing Synnax front end software.**
+We'll revisit it in a moment.
 
 ## 1 pnpm
 
@@ -67,12 +82,12 @@ run tests, and start development servers.
 
 ## 2 Turborepo
 
-If we refer back to the dependency graph above, we can see that `@synnaxlabs/console`
-depends on `@synnaxlabs/pluto` and `@synnaxlabs/pluto` depends on `@synnaxlabs/x` and
-`@synnaxlabs/client`. This has two implications:
+If we refer back to the dependency hierarchy above, we can see that
+`@synnaxlabs/console` depends on `@synnaxlabs/pluto` and `@synnaxlabs/pluto` depends on
+`@synnaxlabs/x` and `@synnaxlabs/client`. This has two implications:
 
 1. If we make a change to `x` that we want reflected in `console`, we'd need to rebuild
-   `x` and all of it's downstream dependencies (`pluto` and `console`).
+   `x` and all of its downstream dependencies (`pluto` and `console`).
 2. We need to have built versions of all upstream dependencies before we can build the
    downstream dependency.
 
@@ -102,6 +117,11 @@ pnpm build:pluto
 ```
 
 This will build `pluto` and all of its dependencies. If we want to build all packages,
+we run
+
+```bash
+pnpm build
+```
 
 Generally speaking, you'll be building `pluto` and `x` most often. We almost never build
 `console` or `docs` locally, and instead rely on the CI/CD pipeline to build and publish
@@ -115,7 +135,7 @@ manually build dependencies whose changes we want reflected in our tests or deve
 servers.
 
 The most common case here is when we're developing `pluto` and want to see our changes
-reflected in `console`. To start the console dev server, we run:
+reflected in `console`. To start the Console dev server, we run:
 
 ```bash
 pnpm dev:console

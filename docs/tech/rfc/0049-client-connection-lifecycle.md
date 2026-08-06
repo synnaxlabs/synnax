@@ -54,7 +54,7 @@ password. The only recovery was a logout that destroyed the workspace.
   (`Session.Settled.use`). Until then the Console has nothing trustworthy to render.
 - **Takeover**: The single full-screen connection surface the Console shows while
   unsettled.
-- **Epoch**: As defined in RFC 0048: one contiguous interval of healthy change-stream
+- **Epoch**: As defined in RFC 0047: one contiguous interval of healthy change-stream
   delivery.
 
 ## 3 Prior art
@@ -262,7 +262,7 @@ Fail fast everywhere; no offline queues. Flux and the Console stay connection-bl
 degradation arrives only as typed errors through the queries they already use.
 
 - **Reads, warm path**: Subscribed cached reads keep serving through reconnects and
-  `error(unreachable)`; the epoch pass repairs them on reconnect (RFC 0048).
+  `error(unreachable)`; the epoch pass repairs them on reconnect (RFC 0047).
 - **Reads, miss path**: A fetch that must hit the network while unreachable is
   short-circuited by the middleware: immediate `DisconnectedError`, because the client
   already knows the answer.
@@ -274,7 +274,7 @@ degradation arrives only as typed errors through the queries they already use.
   hardware-adjacent state after a gap is the local-first pattern applied exactly where
   it is wrong.
 - **Recovery**: On re-entering `success` the cache reconciles and maintained queries
-  refetch (RFC 0048).
+  refetch (RFC 0047).
 
 ### 5.4 Pluto
 

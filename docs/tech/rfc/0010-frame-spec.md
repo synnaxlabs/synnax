@@ -15,7 +15,7 @@ In this RFC I propose an architecture for wrapping primitive arrays with identif
 metadata and organizing them into 'frames' of aligned arrays that streamline the
 telemetry transfer process.
 
-**AN IMPORTANT NOTE (23-08-09)** -> Since the time of writing this RFC, the term 'Array'
+**AN IMPORTANT NOTE (23-08-09)**: Since the time of writing this RFC, the term 'Array'
 has been changed to 'Series'.
 
 ## 1 Vocabulary
@@ -23,7 +23,7 @@ has been changed to 'Series'.
 - **Sample**: An arbitrary byte array recorded at a specific point in time.
 - **Channel**: A named collection of samples across a time range.
 - **Density**: The number of bytes per sample.
-- **(Sample/Data) Rate**: The number of samples per second.
+- **(Sample/data) rate**: The number of samples per second.
 
 ## 2 Array specification
 

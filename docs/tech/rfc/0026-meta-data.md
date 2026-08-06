@@ -1,7 +1,7 @@
 # 26 Meta data structures
 
 - **Author**: Emiliano Bonilla
-- **Date**: 2026-03-23
+- **Date**: 2025-12-14
 
 ## 0 Summary
 
@@ -117,7 +117,7 @@ booting up the Console.
 
 This pattern introduces a number of problems:
 
-1. **Migration Code is Brittle**: Migrations require this delicate dance of
+1. **Migration code is brittle**: Migrations require this delicate dance of
    synchronizing state between the Core, Flux queries, and Redux store. We commonly have
    to have a number of different version checks, strange synchronization mechanisms, and
    other error-prone code in order to properly keep migrations in sync across data
@@ -185,11 +185,11 @@ There hasn't been any established rule for defining, managing, and querying
 relationships between data structures. A few of the following patterns have been used or
 are still being used:
 
-1. **Ontology Relationships**: Good because they provide a high degree of flexibility
+1. **Ontology relationships**: Good because they provide a high degree of flexibility
    and a clear separation between data structures and the tooling defining their
    relationships. Bad because they allow pretty much anything to be related to anything
    and the performance is not that great.
-2. **Explicit Fields**: The most performant and explicit, but are quite inflexible, and
+2. **Explicit fields**: The most performant and explicit, but are quite inflexible, and
    require strong dependencies for managing things like deletion waterfalls.
 3. **Keys**: Certain explicit parent to child relationships have their parent resource
    as part of their key. Examples include range aliases, statuses, and range key-value
@@ -202,7 +202,7 @@ and a curse. It allows for efficient display of non-homogeneous items in places 
 ontology toolbars and makes it easy to add general purpose search indexes, but it also
 introduces key problems:
 
-1. **More Code to Maintain**: We now need to maintain `zyn` schemas, complex
+1. **More code to maintain**: We now need to maintain `zyn` schemas, complex
    `ontology.Service` implementations with lots of boilerplate, and the ontology
    retrieval code itself which takes a performance hit.
 2. **Synchronization**: Right now every data structure can have potentially two copies
@@ -399,8 +399,8 @@ Generally speaking, there are two classes of migration engines:
 Raised as worth pursuing, but not yet written up:
 
 - More efficient encoding mechanisms.
-- Single source of truth in Console-side state.
+- Single source of truth in client-side state.
 - Partial update tooling.
-- Console-side queues and transaction mechanics.
+- Client-side queues and transaction mechanics.
 - Support for Core-side undo and redo.
 - Implementation order for the work above.

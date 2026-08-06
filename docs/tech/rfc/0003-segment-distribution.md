@@ -32,7 +32,7 @@ context if the caller wants to perform network optimization themselves.
   leaseholder is the only node that can modify the data.
 - **Gateway**: The node that receives a query, and is responsible for executing it on
   the cluster.
-- **Data Warehouse (DWH)**: A system used for storing and reporting data for analysis
+- **Data warehouse (DWH)**: A system used for storing and reporting data for analysis
   and business intelligence purposes. Data warehouses typically involve long-running
   queries on much larger data sets than typical OLTP systems. Data warehouse queries
   fall into the OLAP category of workloads.
@@ -112,19 +112,19 @@ while laying the groundwork for distributed query processing.
 
 ### 3.0 Principles
 
-- **Computation and Aggregation**: DL contains no computation or aggregation logic. Its
+- **Computation and aggregation**: DL contains no computation or aggregation logic. Its
   focus is completely on serving raw segment reads and writes efficiently.
-- **Network Awareness**: DL's interface does _not_ require the caller to be aware of
+- **Network awareness**: DL's interface does _not_ require the caller to be aware of
   data locality or underlying network topology. The distribution layer provides optional
   context to the caller if they want to implement optimizations themselves.
-- **Layer Boundary**: Services/domains that do _not_ require custom distribution logic
+- **Layer boundary**: Services/domains that do _not_ require custom distribution logic
   do not have any components within DL.
-- **Domain Oriented**: DL does not expose a single facade as its interface. Instead, it
+- **Domain oriented**: DL does not expose a single facade as its interface. Instead, it
   composes a set of domain-separated services that rely on common distribution logic.
 - **Generic**: DL only supports rudimentary, low-level queries in a similar fashion to a
   key-value store. It should not provide any support for specific data types or
   specialty queries.
-- **Transport Abstraction**: DL is not partial to a particular network transport
+- **Transport abstraction**: DL is not partial to a particular network transport
   implementation (gRPC, WS, HTTP, etc.). Its core logic does not interact with any
   specific networking APIs.
 
@@ -194,12 +194,12 @@ typically arrives from a single source. This can be a physical sensor, software 
 metric, event, or any other entity that emits regular, consistent, and time-ordered
 values. Channels have a few important fields:
 
-- **Data Rate**: The number of samples per second of data (Hz). This data rate is fixed,
+- **Data rate**: The number of samples per second of data (Hz). This data rate is fixed,
   and cannot be changed without deleting and recreating a channel. All data written to
   the channel have the same data rate.
 - **Name**: A human-readable name for the channel. This name is not used for internal
   purposes.
-- **Data Type**: An alias for a channel's _density_ i.e. the number of bytes used by a
+- **Data type**: An alias for a channel's _density_ i.e. the number of bytes used by a
   single sample. A `float64` channel would have a density of 8 bytes. This data type is
   fixed, and cannot be changed without deleting and recreating a channel. All data
   written to the channel will have the same data type.
@@ -310,13 +310,13 @@ and 7. The execution flow is as follows:
 2. The broadcaster receives the request, and distributes it to the remote sender and
    local iterator.
 3. The local iterator (Node 3) receives the request and executes it on the data store.
-   The local iterator responds to the synchronizer with an acknowledgement that the
+   The local iterator responds to the synchronizer with an acknowledgment that the
    request was executed successfully.
 4. The remote sender receives the request and sends it to Nodes 5 and 7.
 5. Nodes 5 and 7 receive the request and execute it on their data stores. They respond
-   to the gateway with an acknowledgement that the request was executed successfully.
-6. Receivers for nodes 5 and 7 forward the acknowledgements back to the synchronizer.
-7. The synchronizer receives the acknowledgements and returns `true` from the `First`
+   to the gateway with an acknowledgment that the request was executed successfully.
+6. Receivers for nodes 5 and 7 forward the acknowledgments back to the synchronizer.
+7. The synchronizer receives the acknowledgments and returns `true` from the `First`
    method. The caller is now free to make more method calls.
 8. The local iterator (node 3) finishes reading the segment from disk and returns it to
    the client.
@@ -324,9 +324,9 @@ and 7. The execution flow is as follows:
    the gateway.
 10. The gateway receives the segments from nodes 5 and 7 and returns them to the client.
 
-Two distinct processes occur during a method call: acknowledgement and data transfer.
-Acknowledgement, which coordinates iterator validity state across the cluster, is done
-synchronously before the method returns. Acknowledgement requires no disk IO and only
+Two distinct processes occur during a method call: acknowledgment and data transfer.
+Acknowledgment, which coordinates iterator validity state across the cluster, is done
+synchronously before the method returns. Acknowledgment requires no disk IO and only
 small network payloads, making it efficient to do synchronously. Data transfer, on the
 other hand, is IO and network intensive. This process is done concurrently; batches of
 segments are returned to the caller via a channel. Transport and channel buffers are
@@ -347,8 +347,8 @@ improvements may include automatic retries and transient error handling.
 
 #### 3.3.4 Closing an iterator
 
-There are two ways of closing an iterator: by cancelling the context provided to
-`iterator.New` or calling the `Close` method. Cancelling the context immediately aborts
+There are two ways of closing an iterator: by canceling the context provided to
+`iterator.New` or calling the `Close` method. Canceling the context immediately aborts
 operations and frees all resources. `Close`, on the other hand, shuts the iterator down
 gracefully. The process is as follows:
 
@@ -432,8 +432,8 @@ data resides on node 5. Let's work through the following scenario:
 
 #### 3.4.2 Closing a writer
 
-A `Writer` can be closed in two ways: by cancelling the context provided to `writer.New`
-or by closing the writer's input channel and calling `Close`. Cancelling the context
+A `Writer` can be closed in two ways: by canceling the context provided to `writer.New`
+or by closing the writer's input channel and calling `Close`. Canceling the context
 immediately aborts operations and frees all resources. Closing the input channel, on the
 other hand, shuts the writer down gracefully. The code for closing a writer gracefully
 resembles the following:

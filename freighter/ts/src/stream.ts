@@ -60,7 +60,7 @@ export interface StreamSenderCloser<RQ extends z.ZodType> extends StreamSender<R
   * will do nothing.
 
   * After calling close_send, the client is responsible for calling receive() to
-  * successfully receive the server's acknowledgement.
+  * successfully receive the server's acknowledgment.
    */
   closeSend: () => void;
 }

@@ -90,39 +90,39 @@ range. Therefore, the important things to test for are:
 #### 3.0.0 Data layout
 
 Some important factors to consider are that **keys** are represented as a `uint32`. The
-**Time Range** is represented with a start and end time, both of which are `uint64`.
+**time range** is represented with a start and end time, both of which are `uint64`.
 Finally, the **data array size** will currently be bound by a `uint32` but this may be
 changed in further iterations if discovered to be unnecessary and costly.
 
 The first byte of every frame (represented as a byte array) will contain the flags for
-the array. Currently, the three flags are listed above: Equal Data Size, Strongly
-Aligned Timestamp, All Channels Requested. Therefore, the first byte will look like the
+the array. Currently, the three flags are listed above: equal data size, strongly
+aligned timestamp, all channels requested. Therefore, the first byte will look like the
 following
 
 ```python
 [0, 0, 0, 0, 0, equalDataSize, stronglyAlignedTimestamp, allChannels]
 ```
 
-If the **Equal Data Size Flag** is set to true, the next 4 bytes will include the size
-representing the size of all Series data arrays. <br /> If the **Strongly Aligned
-Timestamp Flag** is set to true, the following 16 bytes will include information about
+If the **equal data size flag** is set to true, the next 4 bytes will include the size
+representing the size of all Series data arrays. <br /> If the **strongly aligned
+timestamp flag** is set to true, the following 16 bytes will include information about
 the timestamp for all Series arrays, with the startTime going first, and the endTime
 going second. <br /> If `allChannels` is set to true, nothing will be different. <br />
 
-All conditions above are read from left to right, for example, if both the **Equal Data
-Size Flag** and **Strongly Aligned Timestamp Flag** are set, then the 4 bytes following
-the first byte would include the **Equal Data Size**, then the following 16 bytes would
+All conditions above are read from left to right, for example, if both the **equal data
+size flag** and **strongly aligned timestamp flag** are set, then the 4 bytes following
+the first byte would include the **equal data size**, then the following 16 bytes would
 include timestamp information.
 
 For the rest of the byte array, the following rules apply: <br />
 
 - Iterate through series sequentially (0, 1, 2, ... n)
-- If **Equal Data Size Flag** is not set, then the first four bytes should include the
+- If **equal data size flag** is not set, then the first four bytes should include the
   size of the data array
-- If **All Channels Flag** is not set, then the next four bytes include the `uint32` key
+- If **all channels flag** is not set, then the next four bytes include the `uint32` key
   for the designated series
 - Then, all values within the data array should be sent
-- If **Strongly Aligned Timestamp Flag** is not set, then the next 16 bytes should
+- If **strongly aligned timestamp flag** is not set, then the next 16 bytes should
   include timestamp information
 
 #### 3.0.1 Decoding

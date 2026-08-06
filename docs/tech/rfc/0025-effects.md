@@ -96,22 +96,22 @@ an automation is executed in and the constraints under which it must operate.
 
 When building dynamically executed automations, there are four primary execution models:
 
-1. **Step-Based Execution**: Automations are evaluated on a fixed time interval or
+1. **Step-based execution**: Automations are evaluated on a fixed time interval or
    "tick." At each tick, the system checks for event conditions and executes
    corresponding actions. This model is ideal for real-time control and monitoring
    scenarios where timing consistency is critical.
 
-2. **Event-Driven Execution**: Automations are triggered immediately in response to
+2. **Event-driven execution**: Automations are triggered immediately in response to
    event occurrences. For instance, when a value changes on a specific channel, the
    associated actions execute. This model excels in reactive systems that respond to
    sensor data, user input, or external messages with minimal latency.
 
-3. **Fixed-Point Iteration**: Automations are continuously evaluated in a loop until a
+3. **Fixed-point iteration**: Automations are continuously evaluated in a loop until a
    stable state is reached—i.e., until further evaluation produces no changes in state
    or outputs. This model is useful in scenarios where logic must converge, such as
    dependency resolution or stable control loops.
 
-4. **Control Flow Interpretation**: Automations are represented as structured programs,
+4. **Control flow interpretation**: Automations are represented as structured programs,
    with explicit logic constructs such as `if`, `while`, and `switch`. Execution follows
    the control path, allowing for complex procedural logic. This model is suited for
    implementing sophisticated logic flows and user-defined scripts.
@@ -120,21 +120,19 @@ When building dynamically executed automations, there are four primary execution
 
 Different automations in Synnax benefit from different execution models.
 
-**Example 1 - Real-Time Control Loops**: A real-time control sequence such as a
-bang-bang valve control loop must execute at a predictable time interval. This
-step-based execution model is comparable to our current, Lua based embedded control
-sequences.
+**Example 1: Real-time control loops**: A real-time control sequence such as a bang-bang
+valve control loop must execute at a predictable time interval. This step-based
+execution model is comparable to our current, Lua based embedded control sequences.
 
-**Example 2 - Calculations**: A calculated channel must be executed when any of its
-input parameters change. Running on a fixed time interval has the risk for
-over-calculation on stale values or under-calculation by not re-running the calculation
-if the values change too fast for the fixed time interval. An event-driven model is much
-better suited for this use case, as it will re-run the calculation whenever values
-change.
+**Example 2: Calculations**: A calculated channel must be executed when any of its input
+parameters change. Running on a fixed time interval has the risk for over-calculation on
+stale values or under-calculation by not re-running the calculation if the values change
+too fast for the fixed time interval. An event-driven model is much better suited for
+this use case, as it will re-run the calculation whenever values change.
 
-**Example 3 - Effects**: Pretty much the same story as calculations.
+**Example 3: Effects**: Pretty much the same story as calculations.
 
-**Example 4 - Supervisory Procedures**: Supervisory procedures control overall execution
+**Example 4: Supervisory procedures**: Supervisory procedures control overall execution
 of an operation through a step of steps. A rocket engine test, for example, would have
 setup, pressurization, redline checks, ignition, steady state, and shutdown steps. While
 these can be modeled as separate states within a control loop, it's more natural to
@@ -160,9 +158,9 @@ alarms/aborts all need to work in concert with each other.
 When building an automation language for these use cases, it's critical to consider the
 following:
 
-1. **Simple Deployment**: Concurrent automations should be deployable across multiple
+1. **Simple deployment**: Concurrent automations should be deployable across multiple
    target machines without the need for excessive manual configuration.
-2. **Clear Process Flows**: The language should make it easy to understand the
+2. **Clear process flows**: The language should make it easy to understand the
    relationships between concurrent automation processes. Forking, controlling, and
    joining processes across machines should be intuitive.
 3. **Isolation**: Concurrent processes should be able to operate in independent,
@@ -211,7 +209,7 @@ If there is a limited set of possible events and actions, then it's natural to d
 single specification that can encapsulate every automated flow a user may want to run.
 This is beneficial for a number of reasons:
 
-1. **Single Source of Truth**: A single specification format allows for a single source
+1. **Single source of truth**: A single specification format allows for a single source
    of truth for all automations, regardless of the underlying runtime or superlying
    interface (graphical, table, text, etc.).
 2. **Validation**: A single specification format allows for validation of all common
@@ -245,17 +243,17 @@ executing Arc specifications depending on the automation type.
 While runtimes will be implemented over time, the following three execution models will
 cover all envisioned use cases for automations within Synnax:
 
-1. **Event-Driven Runtime**: Used for calculations and effects, the event driven runtime
+1. **Event-driven runtime**: Used for calculations and effects, the event driven runtime
    will execute on the server to respond to changes in channel values and other events
    that occur throughout the cluster. **This will be the first runtime to be implemented
    for our alarms functionality.**
 
-2. **Fixed-Point Iteration Runtime**: Used for real-time control loops, the fixed-point
+2. **Fixed-point iteration runtime**: Used for real-time control loops, the fixed-point
    iteration runtime will execute on Synnax's device driver using a C++ runtime, and
    will be designed as a replacement for our current Lua based embedded control
    sequences that run on real-time operating systems.
 
-3. **Control Flow Interpretation Runtime**: Used for supervisory procedures, the control
+3. **Control flow interpretation runtime**: Used for supervisory procedures, the control
    flow runtime will allow for the execution of procedural logic that requires a higher
    degree of flexibility, but a lower degree of performance than the fixed-point
    iteration runtime. As this runtime is the closest to a general purpose programming

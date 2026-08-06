@@ -768,7 +768,7 @@ moves to contain the next `span` time span.
 The two main types of operations of a unary iterator are `Seek`s — i.e. moving the
 iterator to a specific position of the domain index and `Next`/`Prev` — i.e. reading
 data. The `Seek` operations are simple forwarding calls to `Seek` calls in `domainDB`,
-so the race conditions mentioned in 3.2.1.0 apply here as well.
+so the race conditions mentioned in §3.2.1.0 apply here as well.
 
 `Next` is the means of reading data of the iterator — and note that `Prev` is exactly
 congruent, but in the opposite direction. We will analyze the race conditions that might

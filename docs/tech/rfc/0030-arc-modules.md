@@ -11,7 +11,7 @@ organizing primitive for analyzer symbols, compiler imports, runtime host functi
 reactive graph nodes. The design replaces the current brittle, index-based WASM binding
 architecture with a name-based import contract, eliminates ~11,000 lines of generated
 code, and establishes clear architectural boundaries between the language library
-(`arc/`) and its host processes (`core/`, the C++ driver).
+(`arc/`) and its host processes (`core/`, the C++ Driver).
 
 The module system has two layers: an internal infrastructure layer (the focus of this
 RFC) that restructures how STL items are defined, resolved, compiled, and executed, and
@@ -21,16 +21,16 @@ this effort.
 
 ## 1 Vocabulary
 
-- **Host Function**: A function implemented in Go or C++ and callable from compiled WASM
+- **Host function**: A function implemented in Go or C++ and callable from compiled WASM
   bytecode via the `call` instruction. Examples: `channel_read_f64`, `math.pow`.
-- **Reactive Node**: A Go-native node in the dataflow graph, executed by the scheduler.
+- **Reactive node**: A Go-native node in the dataflow graph, executed by the scheduler.
   Never touches WASM. Examples: `set_authority`, `stable_for`, `select`.
-- **Compiler Primitive**: A host function emitted implicitly by the compiler for
+- **Compiler primitive**: A host function emitted implicitly by the compiler for
   language constructs (variable access, assignment, operators). Users never call these
   directly.
-- **STL Item**: Any standard library artifact: host function, reactive node, or symbol
+- **STL item**: Any standard library artifact: host function, reactive node, or symbol
   definition.
-- **WASM Import Contract**: The set of `(module, name, signature)` tuples declared in a
+- **WASM import contract**: The set of `(module, name, signature)` tuples declared in a
   compiled WASM binary's import section. This is the interface between the compiler and
   all runtimes.
 
@@ -104,7 +104,7 @@ that name. Order is irrelevant. The Go and C++ runtimes resolve imports independ
 ### 3.3 Dependency injection at the module level
 
 `arc/` is a language library. It defines the `Module` interface and the machinery that
-consumes modules. Host processes (`core/`, the C++ driver) instantiate concrete modules
+consumes modules. Host processes (`core/`, the C++ Driver) instantiate concrete modules
 with their dependencies and pass them to the `arc/` pipeline. There is no hardcoded STL
 inside `arc/`. The set of available modules is determined entirely by the host process.
 
@@ -401,7 +401,7 @@ dependencies:
 - `status`: set_status (needs `status.Service`)
 
 `core/` assembles the full module list: all of `arc/`'s built-in modules plus its own
-server-specific modules. The C++ driver does the same with its own set.
+server-specific modules. The C++ Driver does the same with its own set.
 
 #### 4.6.2 Package layout
 

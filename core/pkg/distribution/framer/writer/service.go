@@ -60,11 +60,11 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool
-	// Sync is set to true if the writer should send acknowledgements for every write
+	// Sync is set to true if the writer should send acknowledgments for every write
 	// request, not just on failed requests.
 	//
 	// This only applies to write operations, as the writer will always send
-	// acknowledgements for calls to Commit and SetAuthority.
+	// acknowledgments for calls to Commit and SetAuthority.
 	//
 	// This setting is good for testing and debugging purposes, as it provides
 	// guarantees that a writer has successfully processed a frame, but can have a
