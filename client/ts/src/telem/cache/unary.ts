@@ -50,6 +50,7 @@ export class Unary {
   }
 
   get leadingBuffer(): Series | null {
+    this.checkOpen("leadingBuffer");
     return this.dynamic.leadingBuffer;
   }
 

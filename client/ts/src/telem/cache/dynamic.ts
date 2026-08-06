@@ -179,7 +179,6 @@ export class Dynamic {
         this.flushCurr(res);
       }
     }
-    // This only happens on the first write to the cache
     if (this.curr == null) {
       this.curr = this.allocate(
         cap,
@@ -196,14 +195,10 @@ export class Dynamic {
         this.curr.alignment + BigInt(this.curr.length) - series.alignment,
       );
       if (overlap > 1) {
-        // The stream re-sent samples we already have. Drop the duplicated leading
-        // samples and continue the current buffer rather than allocating a new,
-        // overlapping fragment. Without this, an overlapping frame on every cycle
-        // fragments the cache into dozens of overlapping series that the renderer
-        // must draw: the source of the console freeze and the tangled line plot.
-        // sub (not slice) returns a zero-copy view; only the non-duplicate tail is
-        // written to the buffer below, so this does strictly less work than a
-        // contiguous frame.
+        // The stream re-sent samples the buffer already holds. Drop the duplicate
+        // leading samples and continue the buffer; allocating a new series here
+        // would fragment the cache into overlapping fragments on every cycle.
+        // sub() returns a zero-copy view.
         if (overlap >= series.length) return res;
         series = series.sub(overlap);
       } else if (overlap < -1) {

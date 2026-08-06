@@ -42,7 +42,7 @@ export interface ReaderProps {
   /** Will read from and populate the given cache with fetched data. */
   cache: Cache;
   /**
-   * Used to batch read request to the server to minimize traffic. Larger
+   * Used to batch read requests to the server to minimize traffic. Larger
    * values mean slower response times but less traffic. Smaller values mean faster
    * response times but more traffic.
    * @default TimeSpan.milliseconds(50)
