@@ -9,9 +9,9 @@
 
 package format
 
-// Default returns the canonical Registry mapping each generated file
-// extension to its formatter chain. The license-header formatter runs
-// first, then the language-specific formatter(s):
+// Default returns the canonical Registry mapping each generated file extension to its
+// formatter chain. The license-header formatter runs first, then the language-specific
+// formatter(s):
 //
 //	.go              license, gofmt -s
 //	.cpp / .h        license, clang-format
@@ -19,14 +19,13 @@ package format
 //	.py              license, ruff format, ruff check --fix
 //	.proto           license, buf format
 //
-// For TS, eslint --fix runs before prettier so that simple-import-sort
-// reorders imports first; prettier then normalizes the whitespace it
-// leaves behind (e.g. `import { a,b }` -> `import { a, b }`). Running
-// prettier first and eslint second produces the inverse output that
-// never converges across syncs.
+// For TS, eslint --fix runs before prettier so that simple-import-sort reorders imports
+// first; prettier then normalizes the whitespace it leaves behind (e.g. `import { a,b
+// }` -> `import { a, b }`). Running prettier first and eslint second produces the
+// inverse output that never converges across syncs.
 //
-// Files with extensions not listed pass through with header only (or
-// unchanged if the extension is also unknown to the License formatter).
+// Files with extensions not listed pass through with header only (or unchanged if the
+// extension is also unknown to the License formatter).
 func Default(repoRoot string) (*Registry, error) {
 	license, err := NewLicense(repoRoot)
 	if err != nil {

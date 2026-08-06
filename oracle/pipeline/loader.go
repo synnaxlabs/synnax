@@ -14,16 +14,15 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 )
 
-// overlayLoader serves the freshly formatted in-memory schema bytes when the
-// analyzer asks for one of the top-level inputs, and falls through to the
-// underlying loader for everything else (transitive imports that aren't in
-// the input set).
+// overlayLoader serves the freshly formatted in-memory schema bytes when the analyzer
+// asks for one of the top-level inputs, and falls through to the underlying loader for
+// everything else (transitive imports that aren't in the input set).
 //
-// Without this overlay, the analyzer would re-read schema files from disk
-// using their pre-format bytes, which means format drift (e.g. an extra
-// trailing newline) would silently slip through analysis when in fact the
-// formatter rewrote the file. Analyzing the formatted bytes is the only
-// behavior consistent with what sync would write to disk on the next run.
+// Without this overlay, the analyzer would re-read schema files from disk using their
+// pre-format bytes, which means format drift (e.g. an extra trailing newline) would
+// silently slip through analysis when in fact the formatter rewrote the file. Analyzing
+// the formatted bytes is the only behavior consistent with what sync would write to
+// disk on the next run.
 type overlayLoader struct {
 	inner   analyzer.FileLoader
 	overlay map[string][]byte
