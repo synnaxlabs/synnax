@@ -179,7 +179,15 @@ routingTable
     ;
 
 routingEntry
-    : IDENTIFIER COLON flowNode (flowOperator flowNode)* (COLON IDENTIFIER)?
+    : routingKey COLON flowNode (flowOperator flowNode)* (COLON IDENTIFIER)?
+    ;
+
+// TRUE and FALSE are lexer keywords but also valid routing-table keys
+// (select's outputs). Without these the IDENTIFIER-only rule rejects them.
+routingKey
+    : IDENTIFIER
+    | TRUE
+    | FALSE
     ;
 
 flowNode

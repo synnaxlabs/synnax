@@ -115,6 +115,10 @@ func (v *BaseArcParserVisitor) VisitRoutingEntry(ctx *RoutingEntryContext) inter
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitRoutingKey(ctx *RoutingKeyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitFlowNode(ctx *FlowNodeContext) interface{} {
 	return v.VisitChildren(ctx)
 }

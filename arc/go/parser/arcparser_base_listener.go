@@ -182,6 +182,12 @@ func (s *BaseArcParserListener) EnterRoutingEntry(ctx *RoutingEntryContext) {}
 // ExitRoutingEntry is called when production routingEntry is exited.
 func (s *BaseArcParserListener) ExitRoutingEntry(ctx *RoutingEntryContext) {}
 
+// EnterRoutingKey is called when production routingKey is entered.
+func (s *BaseArcParserListener) EnterRoutingKey(ctx *RoutingKeyContext) {}
+
+// ExitRoutingKey is called when production routingKey is exited.
+func (s *BaseArcParserListener) ExitRoutingKey(ctx *RoutingKeyContext) {}
+
 // EnterFlowNode is called when production flowNode is entered.
 func (s *BaseArcParserListener) EnterFlowNode(ctx *FlowNodeContext) {}
 

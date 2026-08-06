@@ -623,7 +623,7 @@ func analyzeOutputRoutingTable(
 
 	// Analyze each routing entry
 	for _, entry := range ctx.AST.AllRoutingEntry() {
-		outputName := entry.IDENTIFIER(0).GetText()
+		outputName := entry.RoutingKey().GetText()
 
 		outputType, exists := fnType.Type.Outputs.Get(outputName)
 		if !exists {
@@ -637,8 +637,8 @@ func analyzeOutputRoutingTable(
 		}
 
 		var targetParamName string
-		if len(entry.AllIDENTIFIER()) > 1 {
-			targetParamName = entry.IDENTIFIER(1).GetText()
+		if entry.IDENTIFIER() != nil {
+			targetParamName = entry.IDENTIFIER().GetText()
 
 			if nextFunc == nil {
 				ctx.Diagnostics.Add(diagnostics.Errorf(

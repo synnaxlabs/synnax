@@ -88,6 +88,9 @@ type ArcParserListener interface {
 	// EnterRoutingEntry is called when entering the routingEntry production.
 	EnterRoutingEntry(c *RoutingEntryContext)
 
+	// EnterRoutingKey is called when entering the routingKey production.
+	EnterRoutingKey(c *RoutingKeyContext)
+
 	// EnterFlowNode is called when entering the flowNode production.
 	EnterFlowNode(c *FlowNodeContext)
 
@@ -324,6 +327,9 @@ type ArcParserListener interface {
 
 	// ExitRoutingEntry is called when exiting the routingEntry production.
 	ExitRoutingEntry(c *RoutingEntryContext)
+
+	// ExitRoutingKey is called when exiting the routingKey production.
+	ExitRoutingKey(c *RoutingKeyContext)
 
 	// ExitFlowNode is called when exiting the flowNode production.
 	ExitFlowNode(c *FlowNodeContext)

@@ -88,6 +88,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#routingEntry.
 	VisitRoutingEntry(ctx *RoutingEntryContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#routingKey.
+	VisitRoutingKey(ctx *RoutingKeyContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#flowNode.
 	VisitFlowNode(ctx *FlowNodeContext) interface{}
 
