@@ -353,11 +353,12 @@ builds, the tests pass, and the product can ship. No phase changes the task payl
    startup migration runs. `type` and `config` become resolved. The task payload keeps
    its shape, so no client needs a new field, but the parent readers of §4.2 gain their
    type filter in the same phase.
-5. **Import and export — deferred**: each config type registers an
-   `imex.ImportExporter`, `imex` keys importers by ontology resource type, the task
-   service delegates its export body, and the built-in role policies gain the config
-   types (§4.6, §4.9). This unblocks SY-4524 and ships with that work, outside this
-   program.
+5. **Import and export**: each config type registers an `imex.ImportExporter`, `imex`
+   keys importers by ontology resource type, the task service delegates its export body,
+   and the built-in role policies gain the config types (§4.6, §4.9). This unblocks
+   SY-4524 and lands with that work, after Phase 4. Export never regresses in the
+   interim: from the cutover on, the task exporter reads the composed payload, so the
+   flattened body it writes today is unchanged.
 6. **Client compat deletion**: one PR per client, no wire change. The Console loses its
    NI version chain, the Python client loses its old-shape readers, and the Driver loses
    its legacy parse tolerance.
