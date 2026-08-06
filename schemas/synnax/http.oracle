@@ -28,7 +28,8 @@ Method enum {
     trace   = "TRACE"
     connect = "CONNECT"
 
-    @doc value "is the HTTP method used when requesting an endpoint."
+    @doc value  "is the HTTP method used when requesting an endpoint."
+    @go version 0
 }
 
 TimeFormat enum {
@@ -38,7 +39,8 @@ TimeFormat enum {
     unix_us  = "unix_us"
     unix_ns  = "unix_ns"
 
-    @doc value "is the encoding of a timestamp value within a JSON body."
+    @doc value  "is the encoding of a timestamp value within a JSON body."
+    @go version 0
 }
 
 Header struct {
@@ -49,7 +51,8 @@ Header struct {
         @doc value "is the header value."
     }
 
-    @doc value "is a single HTTP header sent with a request."
+    @doc value  "is a single HTTP header sent with a request."
+    @go version 0
 }
 
 QueryParam struct {
@@ -60,7 +63,8 @@ QueryParam struct {
         @doc value "is the parameter value."
     }
 
-    @doc value "is a single URL query parameter sent with a request."
+    @doc value  "is a single URL query parameter sent with a request."
+    @go version 0
 }
 
 EnumEntry struct {
@@ -71,10 +75,11 @@ EnumEntry struct {
         @doc value "is the numeric channel value the label maps to."
     }
 
-    @doc value """
+    @doc value  """
         maps a string label in a JSON body to a numeric channel value for
         enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
     """
+    @go version 0
 }
 
 ReadField struct {
@@ -108,7 +113,8 @@ ReadField struct {
         @doc value "maps string labels in the response to numeric channel values."
     }
 
-    @doc value "is a single value extracted from an endpoint's JSON response."
+    @doc value  "is a single value extracted from an endpoint's JSON response."
+    @go version 0
 }
 
 ReadEndpoint struct {
@@ -141,7 +147,8 @@ ReadEndpoint struct {
         """
     }
 
-    @doc value "is a single HTTP endpoint polled by a read task."
+    @doc value  "is a single HTTP endpoint polled by a read task."
+    @go version 0
 }
 
 ReadConfig struct extends task.BaseConfig {
@@ -156,10 +163,13 @@ ReadConfig struct extends task.BaseConfig {
         @doc value "contains the endpoints to poll."
     }
 
-    @doc value """
+    @doc value  """
         configures an HTTP read task, which polls one or more endpoints on an
         HTTP server device and writes extracted JSON values to Synnax channels.
     """
+    @go version 0
+    @go marshal
+    @go migrate
 }
 
 JSONType enum {
@@ -167,14 +177,16 @@ JSONType enum {
     string  = "string"
     boolean = "boolean"
 
-    @doc value "is the JSON type a channel value is serialized as in a request body."
+    @doc value  "is the JSON type a channel value is serialized as in a request body."
+    @go version 0
 }
 
 GeneratorType enum {
     uuid      = "uuid"
     timestamp = "timestamp"
 
-    @doc value "is the kind of value produced for a generated write field."
+    @doc value  "is the kind of value produced for a generated write field."
+    @go version 0
 }
 
 ChannelField struct {
@@ -211,7 +223,8 @@ ChannelField struct {
         """
     }
 
-    @doc value "is the command channel value placed into a write endpoint's body."
+    @doc value  "is the command channel value placed into a write endpoint's body."
+    @go version 0
 }
 
 BaseWriteField struct {
@@ -223,7 +236,8 @@ BaseWriteField struct {
         @doc value "is the JSON Pointer where the value is placed in the body."
     }
 
-    @doc value "carries the fields every write body field shares."
+    @doc value  "carries the fields every write body field shares."
+    @go version 0
 }
 
 WriteField union on type extends BaseWriteField {
@@ -251,10 +265,11 @@ WriteField union on type extends BaseWriteField {
         @doc value "places a freshly generated UUID or timestamp in the body."
     }
 
-    @doc value """
+    @doc value  """
         is an additional body field on a write endpoint. The type field selects
         whether the value is fixed or generated per request.
     """
+    @go version 0
 }
 
 WriteEndpoint struct {
@@ -284,10 +299,11 @@ WriteEndpoint struct {
         @doc value "contains additional static or generated body fields."
     }
 
-    @doc value "is a single HTTP endpoint written to by a write task."
+    @doc value  "is a single HTTP endpoint written to by a write task."
+    @go version 0
 }
 
-WriteConfig struct {
+WriteConfig struct extends task.ConfigRecord {
     device     device.Key = "" {
         @doc value "is the key of the HTTP server device to write to."
     }
@@ -298,8 +314,18 @@ WriteConfig struct {
         @doc value "contains the endpoints to write to."
     }
 
-    @doc value """
+    @doc value  """
         configures an HTTP write task, which sends an HTTP request whenever a
         value is written to an endpoint's command channel.
     """
+    @go version 0
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.ConfigRecord {
+    @doc value  "configures an HTTP scan task, which carries no settings."
+    @go version 0
+    @go marshal
+    @go migrate
 }

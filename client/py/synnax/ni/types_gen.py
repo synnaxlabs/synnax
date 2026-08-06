@@ -780,6 +780,16 @@ class WriteConfig(task.BaseWriteConfig):
 
     state_rate: telem.Rate = telem.Rate(10)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ScannerConfig(task.ConfigRecord):
+    """Configures the NI device scanner task, which carries no settings."""
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class DigitalInputChannel(BaseModel):
     """Carries the fields of an NI digital input channel."""
@@ -859,6 +869,9 @@ class DigitalReadConfig(task.BaseReadConfig):
     device: device_.Key = ""
     channels: list[DIChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class DigitalWriteConfig(WriteConfig):
     """Configures an NI digital write task.
@@ -868,6 +881,9 @@ class DigitalWriteConfig(WriteConfig):
     """
 
     channels: list[DOChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class CustomScale(BaseModel):
@@ -1417,6 +1433,9 @@ class AnalogReadConfig(task.BaseReadConfig):
 
     channels: list[AIChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class CounterReadConfig(task.BaseReadConfig):
     """Configures an NI counter read task. Each channel carries its own device.
@@ -1427,6 +1446,9 @@ class CounterReadConfig(task.BaseReadConfig):
 
     channels: list[CIChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class AnalogWriteConfig(WriteConfig):
     """Configures an NI analog write task.
@@ -1436,3 +1458,6 @@ class AnalogWriteConfig(WriteConfig):
     """
 
     channels: list[AOChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

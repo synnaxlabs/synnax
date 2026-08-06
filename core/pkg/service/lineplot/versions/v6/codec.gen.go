@@ -91,28 +91,28 @@ func (a Axis) EncodeOrc(w *orc.Writer) error {
 func (a *Axis) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		a.Key = AxisKey(v)
+		a.Key = AxisKey(rawV)
 	}
 	if a.Label, err = r.String(); err != nil {
 		return err
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		a.LabelDirection = spatial.Direction(v)
+		a.LabelDirection = spatial.Direction(rawV)
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		a.LabelLevel = text.Level(v)
+		a.LabelLevel = text.Level(rawV)
 	}
 	if a.Bounds.Lower, err = r.Float64(); err != nil {
 		return err
@@ -134,11 +134,11 @@ func (a *Axis) DecodeOrc(r *orc.Reader) error {
 		if present {
 			var hv TickType
 			{
-				v, err := r.String()
+				rawV, err := r.String()
 				if err != nil {
 					return err
 				}
-				hv = TickType(v)
+				hv = TickType(rawV)
 			}
 			a.Type = &hv
 		}
@@ -184,18 +184,18 @@ func (c Channels) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (c *Channels) DecodeOrc(r *orc.Reader) error {
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		c.X1 = channel.Key(v)
+		c.X1 = channel.Key(rawV)
 	}
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		c.X2 = channel.Key(v)
+		c.X2 = channel.Key(rawV)
 	}
 	{
 		present, err := r.Bool()
@@ -210,11 +210,11 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 			c.Y1 = make([]channel.Key, n)
 			for i := range c.Y1 {
 				{
-					v, err := r.Uint32()
+					rawV, err := r.Uint32()
 					if err != nil {
 						return err
 					}
-					c.Y1[i] = channel.Key(v)
+					c.Y1[i] = channel.Key(rawV)
 				}
 			}
 		}
@@ -232,11 +232,11 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 			c.Y2 = make([]channel.Key, n)
 			for i := range c.Y2 {
 				{
-					v, err := r.Uint32()
+					rawV, err := r.Uint32()
 					if err != nil {
 						return err
 					}
-					c.Y2[i] = channel.Key(v)
+					c.Y2[i] = channel.Key(rawV)
 				}
 			}
 		}
@@ -254,11 +254,11 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 			c.Y3 = make([]channel.Key, n)
 			for i := range c.Y3 {
 				{
-					v, err := r.Uint32()
+					rawV, err := r.Uint32()
 					if err != nil {
 						return err
 					}
-					c.Y3[i] = channel.Key(v)
+					c.Y3[i] = channel.Key(rawV)
 				}
 			}
 		}
@@ -276,11 +276,11 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 			c.Y4 = make([]channel.Key, n)
 			for i := range c.Y4 {
 				{
-					v, err := r.Uint32()
+					rawV, err := r.Uint32()
 					if err != nil {
 						return err
 					}
-					c.Y4[i] = channel.Key(v)
+					c.Y4[i] = channel.Key(rawV)
 				}
 			}
 		}
@@ -371,11 +371,11 @@ func (lv *Line) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		lv.DownsampleMode = DownsampleMode(v)
+		lv.DownsampleMode = DownsampleMode(rawV)
 	}
 	return nil
 }
@@ -605,11 +605,11 @@ func (rv *Rule) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		rv.Axis = AxisKey(v)
+		rv.Axis = AxisKey(rawV)
 	}
 	if rv.LineWidth, err = r.Float64(); err != nil {
 		return err
@@ -637,11 +637,11 @@ func (t Title) EncodeOrc(w *orc.Writer) error {
 func (t *Title) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		t.Level = text.Level(v)
+		t.Level = text.Level(rawV)
 	}
 	if t.Visible, err = r.Bool(); err != nil {
 		return err

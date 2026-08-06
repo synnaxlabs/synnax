@@ -29,7 +29,8 @@ RegisterValue struct {
         @doc value "is true when the word order of multi-register values is swapped."
     }
 
-    @doc value "interprets one or more 16-bit registers as a single typed value."
+    @doc value  "interprets one or more 16-bit registers as a single typed value."
+    @go version 0
 }
 
 BaseInputChannel struct {
@@ -50,7 +51,8 @@ BaseInputChannel struct {
         @doc value "is the Modbus address the channel reads from."
     }
 
-    @doc value "carries the fields every Modbus input channel shares."
+    @doc value  "carries the fields every Modbus input channel shares."
+    @go version 0
 }
 
 InputChannel union on type extends BaseInputChannel {
@@ -75,10 +77,11 @@ InputChannel union on type extends BaseInputChannel {
         @doc value "reads a typed value from one or more input registers."
     }
 
-    @doc value """
+    @doc value  """
         is a single Modbus input channel. The type field selects the register
         space the channel reads from and the fields that accompany it.
     """
+    @go version 0
 }
 
 BaseOutputChannel struct {
@@ -99,7 +102,8 @@ BaseOutputChannel struct {
         @doc value "is the Modbus address the channel writes to."
     }
 
-    @doc value "carries the fields every Modbus output channel shares."
+    @doc value  "carries the fields every Modbus output channel shares."
+    @go version 0
 }
 
 OutputChannel union on type extends BaseOutputChannel {
@@ -110,10 +114,11 @@ OutputChannel union on type extends BaseOutputChannel {
         @doc value "writes a typed value to one or more holding registers."
     }
 
-    @doc value """
+    @doc value  """
         is a single Modbus output channel. The type field selects the register
         space the channel writes to and the fields that accompany it.
     """
+    @go version 0
 }
 
 ReadConfig struct extends task.BaseReadConfig {
@@ -124,7 +129,10 @@ ReadConfig struct extends task.BaseReadConfig {
         @doc value "are the input channels the task acquires."
     }
 
-    @doc value "configures a Modbus read task."
+    @doc value  "configures a Modbus read task."
+    @go version 0
+    @go marshal
+    @go migrate
 }
 
 WriteConfig struct extends task.BaseWriteConfig {
@@ -132,5 +140,15 @@ WriteConfig struct extends task.BaseWriteConfig {
         @doc value "are the output channels the task drives."
     }
 
-    @doc value "configures a Modbus write task."
+    @doc value  "configures a Modbus write task."
+    @go version 0
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.ConfigRecord {
+    @doc value  "configures a Modbus scan task, which carries no settings."
+    @go version 0
+    @go marshal
+    @go migrate
 }

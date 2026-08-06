@@ -229,18 +229,38 @@ inline x::json::json WriteEndpoint::to_json() const {
 }
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
-    return WriteConfig{
-        .device = parser.field<::synnax::device::Key>("device", ""),
-        .auto_start = parser.field<bool>("auto_start", false),
-        .endpoints = parser.field<std::vector<WriteEndpoint>>("endpoints"),
-    };
+    WriteConfig result;
+    static_cast<::synnax::common::ConfigRecord &>(
+        result
+    ) = ::synnax::common::ConfigRecord::parse(parser);
+    result.device = parser.field<::synnax::device::Key>("device", "");
+    result.auto_start = parser.field<bool>("auto_start", false);
+    result.endpoints = parser.field<std::vector<WriteEndpoint>>("endpoints");
+    return result;
 }
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
+    for (auto &[k, v]: ::synnax::common::ConfigRecord::to_json().items())
+        j[k] = v;
     j["device"] = this->device;
     j["auto_start"] = this->auto_start;
     j["endpoints"] = x::json::to_array(this->endpoints);
+    return j;
+}
+
+inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
+    ScanConfig result;
+    static_cast<::synnax::common::ConfigRecord &>(
+        result
+    ) = ::synnax::common::ConfigRecord::parse(parser);
+    return result;
+}
+
+inline x::json::json ScanConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: ::synnax::common::ConfigRecord::to_json().items())
+        j[k] = v;
     return j;
 }
 

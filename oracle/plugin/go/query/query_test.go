@@ -87,6 +87,37 @@ var _ = Describe("Go Query Plugin", func() {
 			)
 		})
 
+		Context("inherited key", func() {
+			It(
+				"Should find the @key field on a base struct",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/foo"
+
+					Base struct {
+						key uuid {
+							@key
+						}
+					}
+
+					Foo struct extends Base {
+						name string
+						@ontology type "foo"
+						@retrieve
+					}
+				`
+					resp := MustGenerate(ctx, source, "foo", loader, p)
+					Expect(resp.Files).To(HaveLen(1))
+
+					ExpectContent(resp, "retrieve.gen.go").
+						ToContain(
+							"gorp.Retrieve[uuid.UUID, Foo]",
+							"func MatchKeys(keys ...uuid.UUID) Filter",
+						)
+				},
+			)
+		})
+
 		Context("search", func() {
 			It(
 				"Should generate search methods with ontology type inferred from @ontology",

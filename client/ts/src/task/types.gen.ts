@@ -17,28 +17,21 @@ import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { status } from "@/status";
 
-/** BaseConfig carries the configuration fields shared by every hardware task. */
-export const baseConfigZ = z.object({
-  /** autoStart is true when the task should start as soon as it is configured. */
-  autoStart: z.boolean().default(false),
-  /** dataSavingDisabled is true when task telemetry is not persisted to disk. */
-  dataSavingDisabled: z.boolean().default(false),
+/** ConfigRecord is the base for every stored task configuration record. */
+export const configRecordZ = z.object({
+  /** key is the unique identifier for the stored configuration record. */
+  key: z.uuid().default(uuid.create),
 });
-export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
+export interface ConfigRecord extends z.infer<typeof configRecordZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const baseReadConfigZ = baseConfigZ.extend({
-  sampleRate: z.number().default(10),
-  streamRate: z.number().default(5),
+export const baseConfigZ = configRecordZ.extend({
+  autoStart: z.boolean().default(false),
+  dataSavingDisabled: z.boolean().default(false),
 });
-export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
-
-export const baseWriteConfigZ = baseConfigZ.extend({
-  device: device.keyZ.default(""),
-});
-export interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
+export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
 
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
   task: typeof keyZ;
@@ -85,6 +78,17 @@ export const commandZ = z.object({
   args: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });
 export interface Command extends z.infer<typeof commandZ> {}
+
+export const baseReadConfigZ = baseConfigZ.extend({
+  sampleRate: z.number().default(10),
+  streamRate: z.number().default(5),
+});
+export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
+
+export const baseWriteConfigZ = baseConfigZ.extend({
+  device: device.keyZ.default(""),
+});
+export interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
 
 export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
   status.statusZ({ details: statusDetailsZ(data) });

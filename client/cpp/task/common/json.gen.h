@@ -15,18 +15,34 @@
 #include "client/cpp/task/common/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::common {
 
-inline BaseConfig BaseConfig::parse(x::json::Parser parser) {
-    return BaseConfig{
-        .auto_start = parser.field<bool>("auto_start", false),
-        .data_saving_disabled = parser.field<bool>("data_saving_disabled", false),
+inline ConfigRecord ConfigRecord::parse(x::json::Parser parser) {
+    return ConfigRecord{
+        .key = parser.field<x::uuid::UUID>("key"),
     };
+}
+
+inline x::json::json ConfigRecord::to_json() const {
+    x::json::json j;
+    j["key"] = this->key.to_json();
+    return j;
+}
+
+inline BaseConfig BaseConfig::parse(x::json::Parser parser) {
+    BaseConfig result;
+    static_cast<ConfigRecord &>(result) = ConfigRecord::parse(parser);
+    result.auto_start = parser.field<bool>("auto_start", false);
+    result.data_saving_disabled = parser.field<bool>("data_saving_disabled", false);
+    return result;
 }
 
 inline x::json::json BaseConfig::to_json() const {
     x::json::json j;
+    for (auto &[k, v]: ConfigRecord::to_json().items())
+        j[k] = v;
     j["auto_start"] = this->auto_start;
     j["data_saving_disabled"] = this->data_saving_disabled;
     return j;

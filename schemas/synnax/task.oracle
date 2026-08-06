@@ -149,7 +149,20 @@ Command struct {
     @doc value "is a command to execute on a task in the Driver system."
 }
 
-BaseConfig struct {
+ConfigRecord struct {
+    key uuid = create {
+        @key
+        @doc value "is the unique identifier for the stored configuration record."
+    }
+
+    @doc value  "is the base for every stored task configuration record."
+    @go version 0
+    @go output  "core/pkg/service/task/common"
+    @cpp output "client/cpp/task/common"
+    @pb omit
+}
+
+BaseConfig struct extends ConfigRecord {
     auto_start           bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }
@@ -158,6 +171,7 @@ BaseConfig struct {
     }
 
     @doc value  "carries the configuration fields shared by every hardware task."
+    @go version 0
     @go output  "core/pkg/service/task/common"
     @cpp output "client/cpp/task/common"
     @pb omit
@@ -174,6 +188,7 @@ BaseReadConfig struct extends BaseConfig {
     }
 
     @doc value  "carries the configuration fields shared by hardware acquisition tasks."
+    @go version 0
     @go output  "core/pkg/service/task/common"
     @cpp output "client/cpp/task/common"
     @pb omit
@@ -185,6 +200,7 @@ BaseWriteConfig struct extends BaseConfig {
     }
 
     @doc value  "carries the configuration fields shared by hardware control tasks."
+    @go version 0
     @go output  "core/pkg/service/task/common"
     @cpp output "client/cpp/task/common"
     @pb omit

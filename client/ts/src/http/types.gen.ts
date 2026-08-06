@@ -87,6 +87,9 @@ export const baseWriteFieldZ = z.object({
 });
 export interface BaseWriteField extends z.infer<typeof baseWriteFieldZ> {}
 
+export const scanConfigZ = task.configRecordZ;
+export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
+
 /** ReadField is a single value extracted from an endpoint's JSON response. */
 export const readFieldZ = z.object({
   /** key uniquely identifies the field within the endpoint. */
@@ -235,16 +238,9 @@ export const readConfigZ = task.baseConfigZ.extend({
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-/**
- * WriteConfig configures an HTTP write task, which sends an HTTP request whenever a
- * value is written to an endpoint's command channel.
- */
-export const writeConfigZ = z.object({
-  /** device is the key of the HTTP server device to write to. */
+export const writeConfigZ = task.configRecordZ.extend({
   device: device.keyZ.default(""),
-  /** autoStart starts the task automatically after configuration. */
   autoStart: z.boolean().default(false),
-  /** endpoints contains the endpoints to write to. */
   endpoints: writeEndpointZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

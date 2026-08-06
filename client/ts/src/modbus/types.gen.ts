@@ -57,6 +57,9 @@ export const baseOutputChannelZ = z.object({
 });
 export interface BaseOutputChannel extends z.infer<typeof baseOutputChannelZ> {}
 
+export const scanConfigZ = task.configRecordZ;
+export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
+
 /** InputChannelCoilInput reads a single bit from a coil. */
 export const inputChannelCoilInputZ = baseInputChannelZ.extend({
   type: z.literal("coil_input"),

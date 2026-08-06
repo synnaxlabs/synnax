@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from synnax import task
+
 
 class Alert(BaseModel):
     """Maps a Synnax status to a PagerDuty event routing rule.
@@ -42,7 +44,7 @@ class Alert(BaseModel):
         return hash(self.key)
 
 
-class TaskConfig(BaseModel):
+class TaskConfig(task.ConfigRecord):
     """Configures a PagerDuty alert task, which forwards Synnax status changes to
     PagerDuty as events.
 
@@ -55,3 +57,6 @@ class TaskConfig(BaseModel):
     routing_key: str = ""
     auto_start: bool = False
     alerts: list[Alert] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

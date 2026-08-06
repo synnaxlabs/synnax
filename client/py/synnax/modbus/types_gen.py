@@ -77,6 +77,13 @@ class BaseOutputChannel(BaseModel):
         return hash(self.key)
 
 
+class ScanConfig(task.ConfigRecord):
+    """Configures a Modbus scan task, which carries no settings."""
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class InputChannelCoilInput(BaseInputChannel):
     """Reads a single bit from a coil."""
 
@@ -147,6 +154,9 @@ class ReadConfig(task.BaseReadConfig):
     device: device_.Key = ""
     channels: list[InputChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class WriteConfig(task.BaseWriteConfig):
     """Configures a Modbus write task.
@@ -156,3 +166,6 @@ class WriteConfig(task.BaseWriteConfig):
     """
 
     channels: list[OutputChannel] = Field(default_factory=list)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

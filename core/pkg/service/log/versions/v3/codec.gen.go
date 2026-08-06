@@ -37,21 +37,21 @@ func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
 func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		ce.Channel = channel.Key(v)
+		ce.Channel = channel.Key(rawV)
 	}
 	if err = ce.Color.DecodeOrc(r); err != nil {
 		return err
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		ce.Notation = notation.Notation(v)
+		ce.Notation = notation.Notation(rawV)
 	}
 	if ce.Precision, err = r.Int32(); err != nil {
 		return err
@@ -133,18 +133,18 @@ func (tc TimestampConfig) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (tc *TimestampConfig) DecodeOrc(r *orc.Reader) error {
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		tc.Format = telem.TimestampFormat(v)
+		tc.Format = telem.TimestampFormat(rawV)
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		tc.Tz = telem.TimeZone(v)
+		tc.Tz = telem.TimeZone(rawV)
 	}
 	return nil
 }

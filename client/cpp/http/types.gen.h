@@ -28,6 +28,7 @@ struct Header;
 struct QueryParam;
 struct EnumEntry;
 struct BaseWriteField;
+struct ScanConfig;
 struct ReadField;
 struct ChannelField;
 struct ReadEndpoint;
@@ -100,6 +101,13 @@ struct BaseWriteField {
     std::string pointer = "";
 
     static BaseWriteField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfig configures an HTTP scan task, which carries no settings.
+struct ScanConfig : public ::synnax::common::ConfigRecord {
+
+    static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -252,7 +260,7 @@ struct ReadConfig : public ::synnax::common::BaseConfig {
 
 /// @brief WriteConfig configures an HTTP write task, which sends an HTTP request
 /// whenever a value is written to an endpoint's command channel.
-struct WriteConfig {
+struct WriteConfig : public ::synnax::common::ConfigRecord {
     /// @brief device is the key of the HTTP server device to write to.
     ::synnax::device::Key device = "";
     /// @brief auto_start starts the task automatically after configuration.

@@ -150,11 +150,11 @@ func (s *Split) DecodeOrc(r *orc.Reader) error {
 	defer r.PopDepth()
 	var err error
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		s.Direction = spatial.Direction(v)
+		s.Direction = spatial.Direction(rawV)
 	}
 	if s.Size, err = r.Float64(); err != nil {
 		return err
