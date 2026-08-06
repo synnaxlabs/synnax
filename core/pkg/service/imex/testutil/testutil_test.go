@@ -22,6 +22,19 @@ type resource struct {
 	Field string `json:"field"`
 }
 
+var _ = Describe("LoadEnvelope", func() {
+	It("Should read a fixture and bind a codec so the envelope decodes", func(
+		ctx SpecContext,
+	) {
+		env := LoadEnvelope("testdata/envelope.json")
+		Expect(env.Version).To(Equal(imex.Version(1)))
+		Expect(env.Type).To(Equal("test"))
+		Expect(env.Name).To(Equal("fixture"))
+		Expect(MustSucceed(imex.Decode[resource](ctx, env))).
+			To(Equal(resource{Name: "fixture", Field: "value"}))
+	})
+})
+
 var _ = Describe("WireRoundTrip", func() {
 	It("Should preserve headers and bind a codec so the envelope decodes", func(
 		ctx SpecContext,
