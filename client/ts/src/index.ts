@@ -24,6 +24,7 @@ export {
 export * from "@/connection";
 export { control } from "@/control";
 export { device } from "@/device";
+export { ethercat } from "@/ethercat";
 export {
   AuthError,
   ContiguityError,
@@ -39,10 +40,13 @@ export {
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
 export { group } from "@/group";
+export { http } from "@/http";
 export { imex } from "@/imex";
 export { label } from "@/label";
+export { labjack } from "@/labjack";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
+export { modbus } from "@/modbus";
 export { ni } from "@/ni";
 export { node } from "@/node";
 export { ontology } from "@/ontology";

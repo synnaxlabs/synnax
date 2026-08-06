@@ -1,0 +1,136 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/device"
+import "schemas/synnax/task"
+import "schemas/x/telem"
+
+@ts output  "client/ts/src/modbus"
+@py output  "client/py/synnax/modbus"
+@cpp output "client/cpp/modbus"
+@go output  "core/pkg/service/modbus"
+
+RegisterValue struct {
+    data_type  telem.DataType = "uint8" {
+        @doc value "is the data type the register contents are interpreted as."
+        @ts type   "string"
+    }
+    swap_bytes bool = false {
+        @doc value "is true when the byte order within each 16-bit word is swapped."
+    }
+    swap_words bool = false {
+        @doc value "is true when the word order of multi-register values is swapped."
+    }
+
+    @doc value "interprets one or more 16-bit registers as a single typed value."
+}
+
+BaseInputChannel struct {
+    key      string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable channel name."
+    }
+    disabled bool = false {
+        @doc value "is true when the channel is excluded from acquisition."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel that samples are written to."
+    }
+    address  uint16 = 0 {
+        @doc value "is the Modbus address the channel reads from."
+    }
+
+    @doc value "carries the fields every Modbus input channel shares."
+}
+
+InputChannel union on type extends BaseInputChannel {
+    coil_input {
+        @doc value "reads a single bit from a coil."
+    }
+    discrete_input {
+        @doc value "reads a single bit from a discrete input."
+    }
+    holding_register_input extends RegisterValue {
+        string_length int32 = 0 {
+            @doc value "is the length, in characters, when data_type is a string."
+        }
+
+        @doc value "reads a typed value from one or more holding registers."
+    }
+    register_input extends RegisterValue {
+        string_length int32 = 0 {
+            @doc value "is the length, in characters, when data_type is a string."
+        }
+
+        @doc value "reads a typed value from one or more input registers."
+    }
+
+    @doc value """
+        is a single Modbus input channel. The type field selects the register
+        space the channel reads from and the fields that accompany it.
+    """
+}
+
+BaseOutputChannel struct {
+    key      string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable channel name."
+    }
+    disabled bool = false {
+        @doc value "is true when the channel is excluded from the task."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel commands are read from."
+    }
+    address  uint16 = 0 {
+        @doc value "is the Modbus address the channel writes to."
+    }
+
+    @doc value "carries the fields every Modbus output channel shares."
+}
+
+OutputChannel union on type extends BaseOutputChannel {
+    coil_output {
+        @doc value "writes a single bit to a coil."
+    }
+    holding_register_output extends RegisterValue {
+        @doc value "writes a typed value to one or more holding registers."
+    }
+
+    @doc value """
+        is a single Modbus output channel. The type field selects the register
+        space the channel writes to and the fields that accompany it.
+    """
+}
+
+ReadConfig struct extends task.BaseReadConfig {
+    device   device.Key = "" {
+        @doc value "is the key of the device the task acquires from."
+    }
+    channels InputChannel[] {
+        @doc value "are the input channels the task acquires."
+    }
+
+    @doc value "configures a Modbus read task."
+}
+
+WriteConfig struct extends task.BaseWriteConfig {
+    channels OutputChannel[] {
+        @doc value "are the output channels the task drives."
+    }
+
+    @doc value "configures a Modbus write task."
+}
