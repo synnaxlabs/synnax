@@ -1,13 +1,12 @@
-# 52 - Server-Side Bundle Import/Export
+# 52 Server-side bundle import/export
 
-**Feature Name:** Server-Side Bundle Import/Export (Projects and Symbol Groups) <br/>
-**Status:** Draft <br/> **Start Date:** 2026-08-03 <br/> **Authors:** Patrick Dotson
-<br/> **Related:** [RFC 0039](./0039-260409-server-side-import-export.md),
-[RFC 0041](./0041-260527-core-structure-refactor.md)
+- **Author**: Patrick Dotson
+- **Date**: 2026-08-03
+- **Related**:
+  [RFC 0039 - Server-side metadata import/export](0039-server-side-import-export.md),
+  [RFC 0042 - Core structure refactor](0042-core-structure-refactor.md)
 
----
-
-## 0 - Summary
+## 0 Summary
 
 RFC 0039 moved single-resource import/export to the server. It deferred multi-resource
 bundles: projects with their children, and symbol groups with their symbols. This RFC
@@ -21,7 +20,7 @@ Cross-references inside a bundle use file names. Importers always mint fresh key
 Core owns the full format, including migration of all legacy directory layouts. Bundle
 import is all-or-nothing in one transaction.
 
-## 1 - Motivation
+## 1 Motivation
 
 Project and symbol-group import/export are the last client-orchestrated flows:
 
@@ -40,21 +39,21 @@ Exported configuration must also work with version control in the future. A dire
 small files supports diffs and reviews. An opaque blob does not. This constraint drives
 the artifact shape.
 
-## 2 - Vocabulary
+## 2 Vocabulary
 
-- **Bundle**: a multi-resource portable artifact. A directory on disk, a zip on the
+- **Bundle**: A multi-resource portable artifact. A directory on disk, a zip on the
   wire.
-- **Manifest**: the `manifest.json` file at the bundle root. Its
+- **Manifest**: The `manifest.json` file at the bundle root. Its
   `{version, type, name, members}` body versions the bundle, states its kind (`project`
   or `symbol_group`), names it, and lists the member files.
-- **Member**: a file named in the manifest's `members` list. Each member is a
+- **Member**: A file named in the manifest's `members` list. Each member is a
   self-describing flat envelope.
-- **Bundle-local key**: a file name. All cross-references between bundle members use
+- **Bundle-local key**: A file name. All cross-references between bundle members use
   file names.
-- **Leaf registry**: the single-resource `Importer`/`Exporter` registry on
+- **Leaf registry**: The single-resource `Importer`/`Exporter` registry on
   `imex.Service` (`core/pkg/service/imex/service.go:28`).
 
-## 3 - Principles
+## 3 Principles
 
 1. **The Core is the single authority for portable formats** (RFC 0039 §3.0). Clients
    zip and unzip at the disk boundary. Nothing else lives in a client.
@@ -69,9 +68,9 @@ the artifact shape.
 5. **Ownership defines the bundle.** A project bundle is the project and its ontology
    children, not what its panels reference.
 
-## 4 - Design
+## 4 Design
 
-### 4.0 - The Bundle Artifact
+### 4.0 The bundle artifact
 
 An exported project named "Test Stand 12":
 
@@ -130,7 +129,7 @@ and import live in §4.8. The `manifest` base name is reserved in every supporte
 extension. `LAYOUT.json` is a legal member name: recognition checks `manifest.json`
 first (§4.5).
 
-### 4.1 - Endpoints
+### 4.1 Endpoints
 
 Each bundle root gets its own typed endpoint pair:
 
@@ -155,7 +154,7 @@ extension-stripped file name is the name fallback for legacy bundles without a m
 The endpoints are HTTP-only, like the existing imex pair
 (`core/pkg/transport/grpc/grpc.go:159`).
 
-### 4.2 - Shared Helpers
+### 4.2 Shared helpers
 
 There is no new registry, no new interface, and no shared bundle type. The shared code
 is three small helpers:
@@ -173,7 +172,7 @@ its bundle code. The API services call the owning domain services directly:
 `api/project` calls `project.Service.Export`/`Import`, and `api/schematic` calls the
 symbol service's group methods.
 
-### 4.3 - Project Bundles
+### 4.3 Project bundles
 
 `project.ServiceConfig` gains `ImEx *imex.Service` and `Panel *panel.Service`. Panel
 must open before project in `layer.go`; neither package imports the other, so the
@@ -211,7 +210,7 @@ resource-tab subset of the Console renderer registry
 (`console/src/app/panel/Context.tsx:24-35`), promoted to a schema invariant; the
 registry's view-tab types stay Console-only.
 
-### 4.4 - Symbol Group Bundles
+### 4.4 Symbol group bundles
 
 The symbol service (`core/pkg/service/schematic/symbol`) already holds `ImEx`, `Group`,
 and `Ontology`.
@@ -225,7 +224,7 @@ through the leaf registry and writes `manifest.json`.
 imports each symbol under it through the leaf symbol importer (new in Phase 1). Symbol
 bundles have no cross-references, so there is no rewrite pass.
 
-### 4.5 - Legacy Formats
+### 4.5 Legacy formats
 
 The Console zips the picked directory's top-level files and uploads the archive
 unconditionally. The server recognizes each historical layout:
@@ -246,7 +245,7 @@ it gets no migration path.
 Legacy migration lives in frozen per-version packages, following the log importer's
 chain (`core/pkg/service/log/imex.go:80`). The Console deletes all legacy ingest code.
 
-### 4.6 - Versioning and Access Control
+### 4.6 Versioning and access control
 
 Each bundle kind owns its manifest version sequence (RFC 0039 §6.1):
 
@@ -264,7 +263,7 @@ Access control follows `core/pkg/api/imex/imex.go:66-79`: import checks `ActionC
 for the root type and each distinct member type before any body decodes; export checks
 `ActionRetrieve` on the root and its children.
 
-### 4.7 - Console Changes
+### 4.7 Console changes
 
 The Console's role shrinks to: pick a directory, zip or unzip, stream, report status.
 Once all phases land, the Console deletes:
@@ -280,46 +279,46 @@ Once all phases land, the Console deletes:
 New Console code: a zip utility at the runtime boundary (library choice in §6) and
 client methods for the four endpoints.
 
-### 4.8 - Name Collisions
+### 4.8 Name collisions
 
 File names are bundle-local keys, so both sides of the wire validate them. Names are
 compared case-folded and Unicode-normalized, because the Console extracts bundles onto
 case-insensitive filesystems.
 
-- **Export**: two members whose sanitized names compare equal are an export error that
+- **Export**: Two members whose sanitized names compare equal are an export error that
   names the colliding resources; rename one and re-export.
-- **Zip decode**: an entry name that is empty, is `.` or `..`, contains a path separator
+- **Zip decode**: An entry name that is empty, is `.` or `..`, contains a path separator
   (`/` or `\`), or repeats an earlier entry name is a decode error.
-- **Import validation**: a `members` list that repeats an entry, or that holds two
+- **Import validation**: A `members` list that repeats an entry, or that holds two
   entries that compare equal, is a validation error. A crafted archive cannot bypass the
   export rules.
 
-## 5 - Implementation Phases
+## 5 Implementation phases
 
 Each phase leaves the system green.
 
-**Phase 1 — Leaf import parity.** Register importers for `schematic`, `lineplot`,
-`table`, `task`, `arc`, and `schematic_symbol`, per RFC 0041's peek-import design. Log
+**Phase 1: Leaf import parity.** Register importers for `schematic`, `lineplot`,
+`table`, `task`, `arc`, and `schematic_symbol`, per RFC 0042's peek-import design. Log
 (`core/pkg/service/log/imex.go`) is the template. Port each Console zod ladder to frozen
 Go version packages. Cut single-resource Console import over to `client.imex.import` and
 delete the client ingesters. This phase is a prerequisite and carries the bulk of the
 migration work.
 
-**Phase 2 — Shared helpers.** The `x/go` zip codec and the imex access-check helper.
-Pure additive plumbing.
+**Phase 2: Shared helpers.** The `x/go` zip codec and the imex access-check helper. Pure
+additive plumbing.
 
-**Phase 3 — Project bundles.** Reorder `layer.go`; add `ImEx` and `Panel` to
+**Phase 3: Project bundles.** Reorder `layer.go`; add `ImEx` and `Panel` to
 `project.ServiceConfig`; implement `Export`/`Import`; add the `/project/export` and
 `/project/import` endpoints; add panel tab-type validation; implement `LAYOUT.json`
 migration. Cut the Console over and delete its project orchestration.
 
-**Phase 4 — Symbol group bundles.** Implement the group export/import methods and
+**Phase 4: Symbol group bundles.** Implement the group export/import methods and
 endpoints, with legacy v1 manifest migration. Cut the Console over and delete its group
 manifest code.
 
 Phases 3 and 4 are independent after Phase 2 and can land in either order.
 
-## 6 - Resolved Decisions
+## 6 Resolved decisions
 
 - **6.0 Directory artifact, zip wire format.** A single composite JSON file was
   rejected: it fights version control, and it removes per-file reuse.
@@ -328,11 +327,11 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   entry point knows its type, and the registry forced a symbol-group handler onto the
   generic `group` ontology type. A unified surface can be added later without breaking
   these endpoints.
-- **6.2 Bundle logic lives in the owning services** (`project`, `schematic/symbol`),
-  composing the leaf registry. Bundling inside `imex` was rejected: it leaks domain
+- **6.2 Bundle logic lives in the owning services.** `project` and `schematic/symbol`
+  compose the leaf registry. Bundling inside `imex` was rejected: it leaks domain
   semantics into a domain-blind package. There is no shared `imex.Bundle` type; each
   service defines its own manifest struct.
-- **6.3 Leaf import parity is a dependency** (Phase 1), implemented per RFC 0041, not
+- **6.3 Leaf import parity is a dependency.** Phase 1 implements it per RFC 0042, not
   redesigned here.
 - **6.4 File names are the bundle-local keys.** Bundle-local keys never become creation
   keys. Opaque local IDs were rejected: two identifier spaces and worse hand-editing.
@@ -344,7 +343,7 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   file beside the manifest) was rejected: a stray non-envelope file would fail import.
   Unlisted files are ignored; a listed file that is missing or fails to decode is a
   validation error.
-- **6.7 A fixed `manifest.json`** with a `{version, type, name, members}` body.
+- **6.7 A fixed `manifest.json`.** The body is `{version, type, name, members}`.
   Type-named manifests (`project.json`, `group.json`) were rejected: one fixed name
   gives every format, including the legacy symbol format, a single recognition point on
   disk. The `type` field lets each endpoint reject a bundle of the wrong kind.
@@ -356,31 +355,31 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   reference form.
 - **6.10 Ownership-based membership.** Panel-walk membership was rejected: it loses
   owned documents no panel shows, and it copies other projects' documents.
-- **6.11 The server migrates all legacy formats** (RFC 0039 §3.0).
-- **6.12 Per-kind manifest versions**: project starts at 1, symbol group at 2 (§4.6).
-- **6.13 All-or-nothing import** in one transaction. Partial success was rejected: a
+- **6.11 The server migrates all legacy formats.** RFC 0039 §3.0 requires it.
+- **6.12 Per-kind manifest versions.** Project starts at 1, symbol group at 2 (§4.6).
+- **6.13 All-or-nothing import in one transaction.** Partial success was rejected: a
   half-imported project is worse than fix-and-rerun.
 - **6.14 Strictly additive import.** Duplicate names are allowed. Auto-rename and merge
   were rejected (RFC 0039 §6.6).
 - **6.15 Console UX is directory-in, directory-out.** The zip is wire-only.
-- **6.16 Import returns the full created resource** (`project.Project`, `group.Group`),
-  not just a key.
+- **6.16 Import returns the full created resource.** `project.Project` and
+  `group.Group`, not just a key.
 - **6.17 Serialization is a file-extension property.** The layout, the file-name
   reference form, and the manifest rules are serialization-agnostic. JSON is the only
   codec this RFC implements; YAML and TOML land later as new extensions.
 
-## 7 - Open Questions
+## 7 Open questions
 
-- **Console zip library**: a small TS dependency (e.g. `fflate`) or a Tauri-side Rust
+- **Console zip library**: A small TS dependency (e.g. `fflate`) or a Tauri-side Rust
   implementation behind `Runtime`. Decide in Phase 2.
-- **`.zip` picker paths**: accept a `.zip` in the import picker and offer "save as zip".
+- **`.zip` picker paths**: Accept a `.zip` in the import picker and offer "save as zip".
   Cheap; deferred until there is demand.
-- **Re-import as update**: the version-control direction wants stable identity and
+- **Re-import as update**: The version-control direction wants stable identity and
   idempotent re-import. That is a cross-cluster identity design, excluded here as in RFC
   0039 §6.6.
-- **Bundle size limits** beyond transport defaults.
+- **Bundle size limits**: Beyond transport defaults.
 
-## 8 - What This RFC Does Not Cover
+## 8 What this RFC does not cover
 
 - **Generic group bundling** and a unified bundle endpoint/registry.
 - **Standalone range import/export.**
