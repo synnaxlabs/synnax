@@ -95,6 +95,10 @@ func NewSymbols() []*symbol.Symbol {
 		symbol.InternalHostFunc("compare_le_scalar", scalarArithIn, resultOut),
 		symbol.InternalHostFunc("compare_eq_scalar", scalarArithIn, resultOut),
 		symbol.InternalHostFunc("compare_ne_scalar", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("and", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("or", seriesBinIn, resultOut),
+		symbol.InternalHostFunc("and_scalar", scalarArithIn, resultOut),
+		symbol.InternalHostFunc("or_scalar", scalarArithIn, resultOut),
 		symbol.InternalHostFunc(
 			"create_empty",
 			types.Params{{Name: "len", Type: i32}},
@@ -120,7 +124,7 @@ func NewSymbols() []*symbol.Symbol {
 			resultOut,
 		),
 		symbol.InternalHostFunc(
-			"not_u8",
+			"not_bool",
 			types.Params{{Name: "handle", Type: i32}},
 			resultOut,
 		),
@@ -212,9 +216,9 @@ func NewHost(
 				return 0
 			}
 			result := telem.Series{DataType: telem.BoolT}
-			op.NotU8(ser, &result)
+			op.NotBool(ser, &result)
 			return s.Store(result)
-		}).Export("not_u8")
+		}).Export("not_bool")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
@@ -258,6 +262,54 @@ func bindBool(
 			}
 			return 0
 		}).Export("index_bool")
+	for _, entry := range []struct {
+		name string
+		fn   func(telem.Series, telem.Series, *telem.Series)
+	}{
+		{"and_bool", op.AndBool},
+		{"or_bool", op.OrBool},
+	} {
+		fn := entry.fn
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, h1, h2 uint32) uint32 {
+				s1, ok1 := s.Get(h1)
+				s2, ok2 := s.Get(h2)
+				if !ok1 || !ok2 {
+					return 0
+				}
+				result := telem.Series{DataType: telem.BoolT}
+				fn(s1, s2, &result)
+				return s.Store(result)
+			}).Export(entry.name)
+	}
+	for _, entry := range []struct {
+		name string
+		or   bool
+	}{
+		{"and_scalar_bool", false},
+		{"or_scalar_bool", true},
+	} {
+		isOr := entry.or
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, handle, scalar uint32) uint32 {
+				ser, ok := s.Get(handle)
+				if !ok {
+					return 0
+				}
+				sv := scalar != 0
+				result := telem.MakeSeries(telem.BoolT, int(ser.Len()))
+				for i := 0; i < int(ser.Len()); i++ {
+					v := telem.ValueAt[bool](ser, i)
+					if isOr {
+						v = v || sv
+					} else {
+						v = v && sv
+					}
+					telem.SetValueAt[bool](result, i, v)
+				}
+				return s.Store(result)
+			}).Export(entry.name)
+	}
 	return builder
 }
 

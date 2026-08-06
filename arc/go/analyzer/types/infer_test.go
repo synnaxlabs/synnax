@@ -231,6 +231,22 @@ var _ = Describe("Type Inference", func() {
 			Entry("logical not", "not (temp_sensor > 100)", types.KindBool),
 		)
 
+		DescribeTable("series-producing logical and unary expressions",
+			func(bCtx SpecContext, expr string, expectedElem types.Kind) {
+				t := inferExprType(bCtx, testResolver, expr)
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(expectedElem))
+			},
+			Entry("series and series",
+				"data_series > 100 and data_series < 200", types.KindBool),
+			Entry("series or series",
+				"data_series > 100 or data_series < 200", types.KindBool),
+			Entry("series and scalar", "(data_series > 100) and true", types.KindBool),
+			Entry("not series", "not (data_series > 100)", types.KindBool),
+			Entry("negate series", "-data_series", types.KindI64),
+		)
+
 		DescribeTable(
 			"complex expressions",
 			func(bCtx SpecContext, expr string, expectedKind types.Kind) {

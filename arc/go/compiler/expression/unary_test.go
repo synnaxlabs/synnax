@@ -12,6 +12,7 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -197,6 +198,20 @@ var _ = Describe("Unary Operations", func() {
 			OpI32Const,
 			int32(3),
 			OpI32Mul,
+		),
+	)
+
+	DescribeTable("should compile series unary expressions",
+		expectSeriesExpression,
+		Entry("not bool series", "not a",
+			[]symbol.Symbol{seriesSymbol("a", types.Bool(), 0)},
+			types.Series(types.Bool()),
+			OpLocalGet, 0, OpCall, uint32(0),
+		),
+		Entry("negate signed series", "-a",
+			[]symbol.Symbol{seriesSymbol("a", types.I32(), 0)},
+			types.Series(types.I32()),
+			OpLocalGet, 0, OpCall, uint32(0),
 		),
 	)
 })

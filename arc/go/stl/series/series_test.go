@@ -947,29 +947,93 @@ var _ = Describe("Series", func() {
 		})
 	})
 
-	Describe("not_u8", func() {
-		It("Should bitwise-NOT a u8 series", func(ctx SpecContext) {
-			h := callU32(ctx, "create_empty_u8", testutil.U32(2))
+	Describe("not_bool", func() {
+		It("Should logically negate a bool series", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_bool", testutil.U32(2))
 			callU32(
 				ctx,
-				"set_element_u8",
+				"set_element_bool",
 				testutil.U32(h),
 				testutil.U32(0),
 				testutil.U32(0),
 			)
 			callU32(
 				ctx,
-				"set_element_u8",
+				"set_element_bool",
 				testutil.U32(h),
 				testutil.U32(1),
-				testutil.U32(255),
+				testutil.U32(1),
 			)
-			rh := callU32(ctx, "not_u8", testutil.U32(h))
+			rh := callU32(ctx, "not_bool", testutil.U32(h))
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
-			Expect(telem.ValueAt[uint8](ser, 0)).To(Equal(uint8(255)))
-			Expect(telem.ValueAt[uint8](ser, 1)).To(Equal(uint8(0)))
+			Expect(telem.ValueAt[bool](ser, 0)).To(BeTrue())
+			Expect(telem.ValueAt[bool](ser, 1)).To(BeFalse())
 		})
+	})
+
+	Describe("logical and/or", func() {
+		mkBool := func(ctx SpecContext, vals ...uint32) uint32 {
+			h := callU32(ctx, "create_empty_bool", testutil.U32(uint32(len(vals))))
+			for i, v := range vals {
+				callU32(
+					ctx,
+					"set_element_bool",
+					testutil.U32(h),
+					testutil.U32(uint32(i)),
+					testutil.U32(v),
+				)
+			}
+			return h
+		}
+
+		DescribeTable("series-series",
+			func(ctx SpecContext, fn string, lhs, rhs, expected []uint32) {
+				out := callU32(
+					ctx, fn, testutil.U32(mkBool(ctx, lhs...)), testutil.U32(mkBool(ctx, rhs...)),
+				)
+				ser := MustBeOk(ss.Get(out))
+				for i, e := range expected {
+					Expect(telem.ValueAt[bool](ser, i)).To(Equal(e != 0), "index %d", i)
+				}
+			},
+			Entry("and truth table", "and_bool",
+				[]uint32{0, 0, 1, 1}, []uint32{0, 1, 0, 1}, []uint32{0, 0, 0, 1}),
+			Entry("or truth table", "or_bool",
+				[]uint32{0, 0, 1, 1}, []uint32{0, 1, 0, 1}, []uint32{0, 1, 1, 1}),
+			Entry("and broadcasts shorter rhs", "and_bool",
+				[]uint32{1, 1, 1}, []uint32{0}, []uint32{0, 0, 0}),
+			Entry("or broadcasts shorter lhs", "or_bool",
+				[]uint32{1}, []uint32{0, 1, 0}, []uint32{1, 1, 1}),
+		)
+
+		DescribeTable("series-scalar",
+			func(ctx SpecContext, fn string, series []uint32, scalar uint32, expected []uint32) {
+				out := callU32(ctx, fn, testutil.U32(mkBool(ctx, series...)), testutil.U32(scalar))
+				ser := MustBeOk(ss.Get(out))
+				for i, e := range expected {
+					Expect(telem.ValueAt[bool](ser, i)).To(Equal(e != 0), "index %d", i)
+				}
+			},
+			Entry("and true is identity", "and_scalar_bool",
+				[]uint32{0, 1}, uint32(1), []uint32{0, 1}),
+			Entry("and false zeroes", "and_scalar_bool",
+				[]uint32{0, 1}, uint32(0), []uint32{0, 0}),
+			Entry("or true fills", "or_scalar_bool",
+				[]uint32{0, 1}, uint32(1), []uint32{1, 1}),
+			Entry("or false is identity", "or_scalar_bool",
+				[]uint32{0, 1}, uint32(0), []uint32{0, 1}),
+		)
+
+		DescribeTable("invalid handles return zero",
+			func(ctx SpecContext, fn string) {
+				Expect(callU32(ctx, fn, testutil.U32(9999), testutil.U32(9998))).To(BeZero())
+			},
+			Entry("and_bool", "and_bool"),
+			Entry("or_bool", "or_bool"),
+			Entry("and_scalar_bool", "and_scalar_bool"),
+			Entry("or_scalar_bool", "or_scalar_bool"),
+		)
 	})
 
 	Describe("len", func() {

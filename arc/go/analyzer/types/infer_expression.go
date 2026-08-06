@@ -39,6 +39,11 @@ func InferLogicalOr(
 ) types.Type {
 	ands := ctx.AST.AllLogicalAndExpression()
 	if len(ands) > 1 {
+		for _, a := range ands {
+			if InferLogicalAnd(context.Child(ctx, a)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
 		return types.Bool()
 	}
 	if len(ands) == 1 {
@@ -52,6 +57,11 @@ func InferLogicalAnd(
 ) types.Type {
 	equalities := ctx.AST.AllEqualityExpression()
 	if len(equalities) > 1 {
+		for _, e := range equalities {
+			if InferEquality(context.Child(ctx, e)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
 		return types.Bool()
 	}
 	if len(equalities) == 1 {
@@ -268,10 +278,10 @@ func InferFromUnaryExpression(
 	ctx context.Context[parser.IUnaryExpressionContext],
 ) types.Type {
 	if ctx.AST.UnaryExpression() != nil {
-		// Unary operator (- or not) - unwrap channels in the operand
+		// Unwrap channels but keep series: not/- on a series stays a series.
 		return InferFromUnaryExpression(
 			context.Child(ctx, ctx.AST.UnaryExpression()),
-		).Unwrap()
+		).UnwrapChan()
 	}
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return inferPostfixType(context.Child(ctx, postfix))

@@ -12,6 +12,7 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -266,6 +267,36 @@ var _ = Describe("Logical Operations", func() {
 			// Normalize to 1
 			OpI32Const, int32(0), OpI32Ne,
 			OpEnd,
+		),
+	)
+
+	DescribeTable("should compile series logical expressions",
+		expectSeriesExpression,
+		Entry("series and series", "a and b",
+			[]symbol.Symbol{
+				seriesSymbol("a", types.Bool(), 0),
+				seriesSymbol("b", types.Bool(), 1),
+			},
+			types.Series(types.Bool()),
+			OpLocalGet, 0, OpLocalGet, 1, OpCall, uint32(0),
+		),
+		Entry("series or series", "a or b",
+			[]symbol.Symbol{
+				seriesSymbol("a", types.Bool(), 0),
+				seriesSymbol("b", types.Bool(), 1),
+			},
+			types.Series(types.Bool()),
+			OpLocalGet, 0, OpLocalGet, 1, OpCall, uint32(0),
+		),
+		Entry("series and scalar", "a and true",
+			[]symbol.Symbol{seriesSymbol("a", types.Bool(), 0)},
+			types.Series(types.Bool()),
+			OpLocalGet, 0, OpI32Const, int32(1), OpCall, uint32(0),
+		),
+		Entry("series or scalar", "a or false",
+			[]symbol.Symbol{seriesSymbol("a", types.Bool(), 0)},
+			types.Series(types.Bool()),
+			OpLocalGet, 0, OpI32Const, int32(0), OpCall, uint32(0),
 		),
 	)
 })

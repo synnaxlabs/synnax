@@ -234,6 +234,20 @@ var _ = Describe("Expressions", func() {
 					z := x or y
 				}
 			`, "i32", "or"),
+			Entry("AND on i32 series", `
+				func testFunc() {
+					x series i32 := [1, 2, 3]
+					y series i32 := [4, 5, 6]
+					z := x and y
+				}
+			`, "i32", "and"),
+			Entry("OR on i32 series", `
+				func testFunc() {
+					x series i32 := [1, 2, 3]
+					y series i32 := [4, 5, 6]
+					z := x or y
+				}
+			`, "i32", "or"),
 		)
 
 		DescribeTable("type mismatch errors",
@@ -403,6 +417,36 @@ var _ = Describe("Expressions", func() {
 					}
 				`),
 			)
+
+			DescribeTable("valid series logical operations",
+				func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
+				Entry("series and series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						b series f64 := [3.0, 3.0, 3.0]
+						c := (a > b) and (a < 20.0)
+					}
+				`),
+				Entry("series or series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						b series f64 := [3.0, 3.0, 3.0]
+						c := (a > b) or (a < b)
+					}
+				`),
+				Entry("series and scalar", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := (a > 3.0) and true
+					}
+				`),
+				Entry("not series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := not (a > 3.0)
+					}
+				`),
+			)
 		})
 	})
 
@@ -461,6 +505,18 @@ var _ = Describe("Expressions", func() {
 					y := -x
 				}
 			`),
+			Entry("logical not on bool series", `
+				func testFunc() {
+					a series f64 := [1.0, 5.0, 10.0]
+					y := not (a > 3.0)
+				}
+			`),
+			Entry("negation on signed series", `
+				func testFunc() {
+					x series i64 := [1, 2, 3]
+					y := -x
+				}
+			`),
 		)
 
 		DescribeTable("invalid unary operations",
@@ -485,6 +541,12 @@ var _ = Describe("Expressions", func() {
 					y := not x
 				}
 			`, "boolean operand"),
+			Entry("not on non-bool series", `
+				func testFunc() {
+					x series i64 := [1, 2, 3]
+					y := not x
+				}
+			`, "operator 'not' requires boolean operand"),
 		)
 	})
 
