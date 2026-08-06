@@ -489,7 +489,7 @@ describe("queries", () => {
       });
     });
 
-    describe("retrieveCached", () => {
+    describe("getCached", () => {
       it("should use cached data on initial mount", async () => {
         const rack = await client.racks.create({
           name: "test",
