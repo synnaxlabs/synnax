@@ -9,20 +9,10 @@
 
 import { Form, Input } from "@synnaxlabs/pluto";
 
-import { type Polarity } from "@/platform/task/types";
-
-export interface DataSavingProps {
-  polarity?: Polarity;
-}
-
-export const DataSaving = ({ polarity = "enabled" }: DataSavingProps) => {
-  if (polarity === "enabled")
-    return <Form.SwitchField label="Data saving" path="config.dataSaving" />;
-  return (
+export const DataSaving = () => (
     <Form.Field<boolean> label="Data saving" path="config.dataSavingDisabled">
       {({ value, onChange, ...rest }) => (
         <Input.Switch {...rest} value={!value} onChange={(v) => onChange(!v)} />
       )}
     </Form.Field>
-  );
-};
+);

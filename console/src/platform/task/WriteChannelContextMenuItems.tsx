@@ -13,12 +13,11 @@ import { type ContextMenuItemProps } from "@/platform/task/ChannelList";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
 import {
   type Channel,
-  type DisabledChannel,
   type WriteChannelType,
 } from "@/platform/task/types";
 
 export interface WriteChannelContextMenuItemsProps extends ContextMenuItemProps<
-  Channel | DisabledChannel
+  Channel
 > {}
 
 export const WriteChannelContextMenuItems: React.FC<

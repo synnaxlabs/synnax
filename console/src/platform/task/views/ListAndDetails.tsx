@@ -11,11 +11,11 @@ import { type Component, Divider, Flex } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Channel, type DisabledChannel } from "@/platform/task/types";
+import { type Channel } from "@/platform/task/types";
 import { ChannelList, type ChannelListProps } from "@/platform/task/views/ChannelList";
 import { DetailsHeader } from "@/platform/task/views/DetailsHeader";
 
-export interface CreateChannel<C extends Channel | DisabledChannel> {
+export interface CreateChannel<C extends Channel> {
   (channels: C[], channelKeyToCopy?: string): C | null;
 }
 
@@ -23,15 +23,15 @@ export interface DetailsProps {
   path: string;
 }
 
-export interface ListAndDetailsProps<C extends Channel | DisabledChannel> extends Pick<
+export interface ListAndDetailsProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "onTare" | "allowTare" | "listItem" | "contextMenuItems" | "polarity"
+  "onTare" | "allowTare" | "listItem" | "contextMenuItems"
 > {
   details: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
 }
 
-export const ListAndDetails = <C extends Channel | DisabledChannel>({
+export const ListAndDetails = <C extends Channel>({
   details,
   createChannel,
   ...rest

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { modbus } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
@@ -14,12 +15,17 @@ import { type InputChannelType } from "@/feature/modbus/task/types";
 
 export interface InputChannelTypeEntry extends record.KeyedNamed<InputChannelType> {}
 
-const DATA: InputChannelTypeEntry[] = [
-  { key: "coil_input", name: "Coil" },
-  { key: "discrete_input", name: "Discrete" },
-  { key: "holding_register_input", name: "Holding Register" },
-  { key: "register_input", name: "Register" },
-];
+const NAMES: Record<InputChannelType, string> = {
+  coil_input: "Coil",
+  discrete_input: "Discrete",
+  holding_register_input: "Holding Register",
+  register_input: "Register",
+};
+
+const DATA: InputChannelTypeEntry[] = modbus.INPUT_CHANNEL_TYPES.map((key) => ({
+  key,
+  name: NAMES[key],
+}));
 
 export interface SelectInputChannelTypeFieldProps extends Omit<
   Form.SelectFieldProps<InputChannelType, InputChannelTypeEntry>,

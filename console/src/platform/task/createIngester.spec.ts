@@ -19,7 +19,7 @@ import { createConsoleWrapper } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
-const TYPE = "myTask";
+const TYPE = "opc_read";
 
 const schemas = {
   type: z.literal(TYPE),

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
@@ -219,5 +219,42 @@ describe("draft configs", () => {
         EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
       ).success,
     ).toBe(true);
+  });
+});
+
+describe("legacy shapes", () => {
+  it("should not migrate legacy v0 enabled/subindex shapes", () => {
+    // The Core migrates stored configs; the console only speaks generated shapes, so
+    // legacy enabled, subindex, and dataSaving fields are stripped rather than
+    // translated.
+    const v0Config = {
+      sampleRate: 1000,
+      streamRate: 25,
+      dataSaving: true,
+      channels: [
+        {
+          key: "1",
+          type: "manual",
+          device: "dev",
+          enabled: true,
+          index: 0x6000,
+          subindex: 5,
+          bitLength: 16,
+          dataType: "uint16",
+          channel: 0,
+          name: "",
+        },
+      ],
+    };
+    const result = EtherCAT.Task.READ_SCHEMAS.config.safeParse(v0Config);
+    expect(result.success).toBe(true);
+    const [ch] = result.data?.channels as EtherCAT.Task.InputChannel[];
+    assert(ch.type === "manual");
+    expect(ch.disabled).toBe(false);
+    expect(ch.subIndex).toBe(0);
+    expect(ch).not.toHaveProperty("enabled");
+    expect(ch).not.toHaveProperty("subindex");
+    expect(result.data).not.toHaveProperty("dataSaving");
+    expect(result.data?.dataSavingDisabled).toBe(false);
   });
 });

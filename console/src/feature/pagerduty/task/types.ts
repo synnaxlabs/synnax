@@ -7,60 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { pagerduty, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const PREFIX = "pagerduty";
 export const ALERT_TYPE = `${PREFIX}_alert`;
 
-const alertConfigZ = z.object({
-  key: z.string(),
-  status: z.string(),
-  treatErrorAsCritical: z.boolean().default(false),
-  component: z.string().default(""),
-  group: z.string().default(""),
-  class: z.string().default(""),
-  enabled: z.boolean().default(true),
-});
+export interface AlertConfig extends pagerduty.Alert {}
 
-const deployAlertConfigZ = alertConfigZ.extend({
+export const ZERO_ALERT_CONFIG: AlertConfig = pagerduty.alertZ.parse({});
+
+const alertTaskConfigZ = pagerduty.taskConfigZ;
+
+const deployAlertConfigZ = pagerduty.alertZ.extend({
   status: z.string().min(1, "Status key is required"),
-});
-
-export interface AlertConfig extends z.infer<typeof alertConfigZ> {}
-
-export const ZERO_ALERT_CONFIG: AlertConfig = {
-  key: "",
-  status: "",
-  treatErrorAsCritical: false,
-  component: "",
-  group: "",
-  class: "",
-  enabled: true,
-};
-
-const alertTaskConfigZ = z.object({
-  routingKey: z.string(),
-  autoStart: z.boolean().default(false),
-  alerts: z.array(alertConfigZ).default([]),
 });
 
 export const deployAlertTaskConfigZ = alertTaskConfigZ.extend({
   routingKey: z.string().length(32, "Routing key must be 32 characters"),
   alerts: z
     .array(deployAlertConfigZ)
-    .refine((alerts) => alerts.some(({ enabled }) => enabled), {
+    .refine((alerts) => alerts.some(({ disabled }) => !disabled), {
       message: "At least one alert must be enabled",
     }),
 });
 
 export interface AlertTaskConfig extends z.infer<typeof alertTaskConfigZ> {}
 
-export const ZERO_ALERT_TASK_CONFIG: AlertTaskConfig = {
-  routingKey: "",
-  autoStart: false,
-  alerts: [],
-};
+export const ZERO_ALERT_TASK_CONFIG: AlertTaskConfig = alertTaskConfigZ.parse({});
 
 export const ALERT_SCHEMAS = {
   type: z.literal(ALERT_TYPE),

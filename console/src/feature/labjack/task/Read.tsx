@@ -67,12 +67,12 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
   const path = `config.channels.${rest.itemKey}`;
   const channel = PForm.useFieldValue<channel.Key>(`${path}.channel`);
   const port = PForm.useFieldValue<string>(`${path}.port`);
-  const enabled = PForm.useFieldValue<boolean>(`${path}.enabled`);
+  const disabled = PForm.useFieldValue<boolean>(`${path}.disabled`);
   const type = PForm.useFieldValue<InputChannelType>(`${path}.type`);
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && type === "AI" && !isSnapshot;
-  const canTare = enabled && isRunning;
+  const canTare = !disabled && isRunning;
   const renderedPort = getRenderedPort(port, deviceModel, type);
   return (
     <Task.Views.ListAndDetailsChannelItem

@@ -55,7 +55,7 @@ export const SelectChannelModeField = ({
         key: prevParent.key,
         device: prevParent.device,
         name: prevParent.name,
-        enabled: prevParent.enabled,
+        disabled: prevParent.disabled,
         type: value,
       });
     },

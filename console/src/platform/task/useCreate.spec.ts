@@ -19,7 +19,7 @@ import { createConsoleWrapper, createTestStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const TYPE = "test_create";
+const TYPE = "opc_read";
 
 const schemas = {
   type: z.literal(TYPE),
@@ -83,7 +83,7 @@ describe("createUseCreate", () => {
   });
 
   it("should bind each minted hook to its own task type", async () => {
-    const otherType = "test_create_other";
+    const otherType = "opc_write";
     const useCreateOther = Task.createUseCreate({
       getInitialValues: () => ({
         name: "Other Create Task",
