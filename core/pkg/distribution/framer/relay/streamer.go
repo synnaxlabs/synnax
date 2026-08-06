@@ -36,7 +36,7 @@ type streamer struct {
 
 // StreamerConfig is the configuration for creating a new streamer.
 type StreamerConfig struct {
-	// SendOpenAck sets whether to send an acknowledgement when the streamer has
+	// SendOpenAck sets whether to send an acknowledgment when the streamer has
 	// successfully connected to the relay and is ready to start streaming data.
 	// [OPTIONAL] - defaults to false
 	SendOpenAck *bool
