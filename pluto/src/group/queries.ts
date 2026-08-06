@@ -42,7 +42,7 @@ export const useList = Flux.createList<ListQuery, group.Key, group.Group>({
     return await client.groups.retrieve({ ...query, parent });
   },
   retrieveByKey: async ({ client, key }) => await client.groups.retrieve(key),
-  subscribe: ({ client, query }, handler) => {
+  onChange: ({ client, query }, handler) => {
     const { parent } = query;
     if (parent == null) return () => {};
     return client.groups.onChange({ ...query, parent }, handler);
@@ -52,7 +52,7 @@ export const useList = Flux.createList<ListQuery, group.Key, group.Group>({
     if (parent == null) return undefined;
     return client.groups.getCached({ ...query, parent });
   },
-  subscribeByKey: ({ client, key }, handler) => client.groups.onChange(key, handler),
+  onChangeByKey: ({ client, key }, handler) => client.groups.onChange(key, handler),
 });
 
 export interface DeleteParams {

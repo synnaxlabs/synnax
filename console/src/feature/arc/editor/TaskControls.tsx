@@ -22,19 +22,19 @@ const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
 
 export const TaskControls = () => {
   const key = Arc.useKey();
-  const name = Arc.useSelectName();
+  const name = Arc.useName();
   const { running, onStartStop, taskStatus, taskRack } = PlatformArc.useTask(key, name);
   const [pickedRack, setPickedRack] = useState<rack.Key | undefined>();
   const selectedRack =
     pickedRack ?? (primitive.isNonZero(taskRack) ? taskRack : undefined);
   const [expanded, setExpanded] = useState(false);
   const { update } = Arc.useCreate();
-  const { data: remote } = Arc.useRetrieve({ key }, { addStatusOnFailure: false });
+  const remote = Arc.use({ key });
 
-  const handleConfigure = useCallback(() => {
-    if (remote == null) return;
-    update({ ...remote, name, key, rack: selectedRack });
-  }, [key, update, name, selectedRack, remote]);
+  const handleConfigure = useCallback(
+    () => update({ ...remote, name, key, rack: selectedRack }),
+    [key, update, name, selectedRack, remote],
+  );
 
   const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
   const handleContract = useCallback(() => setExpanded(false), []);

@@ -14,6 +14,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Symbol } from "@/schematic/symbol";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("Symbol queries", () => {
@@ -243,14 +244,17 @@ describe("Symbol queries", () => {
         },
       });
 
-      const { result } = renderHook(() => Symbol.useRetrieve({ key: symbol.key }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Symbol.use({ key: symbol.key }),
+        {
+          wrapper,
+        },
+      );
 
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data?.name).toBe("retrieve-test");
-        expect(result.current.data?.data.svg).toBe("<svg>test</svg>");
+        expect(result.current).not.toBeNull();
+        expect(result.current?.name).toBe("retrieve-test");
+        expect(result.current?.data.svg).toBe("<svg>test</svg>");
       });
     });
   });
@@ -262,7 +266,7 @@ describe("Symbol queries", () => {
         name: "test-symbol-create",
       });
 
-      const { result } = renderHook(() => Symbol.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => Symbol.useForm({ query: null }), { wrapper });
 
       await act(async () => {
         result.current.form.set("name", "created-symbol");
@@ -309,7 +313,7 @@ describe("Symbol queries", () => {
         },
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () =>
           Symbol.useForm({
             query: { key: symbol.key },
@@ -406,16 +410,10 @@ describe("Symbol queries", () => {
     });
   });
 
-  describe("useGroup", () => {
+  describe("useResultGroup", () => {
     it("should retrieve the symbol group", async () => {
-      const { result } = renderHook(() => Symbol.useRetrieveGroup({ params: {} }), {
-        wrapper,
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toBeDefined();
-        expect(result.current.data?.name).toBe("Schematic Symbols");
-      });
+      const { result } = renderHook(() => Symbol.useResultGroup({}).data, { wrapper });
+      await waitFor(() => expect(result.current?.name).toBe("Schematic Symbols"));
     });
   });
 });

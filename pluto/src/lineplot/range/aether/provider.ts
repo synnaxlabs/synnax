@@ -12,15 +12,17 @@ import {
   bounds,
   box,
   color,
-  type destructor,
   type scale,
   TimeRange,
   TimeSpan,
+  type TimeStamp,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { flux } from "@/flux/aether";
+import { ranger as aetherRanger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
@@ -42,13 +44,12 @@ export const providerStateZ = z.object({
 export type ProviderState = z.infer<typeof providerStateZ>;
 
 interface InternalState {
-  ranges: Map<string, ranger.Range>;
+  retrieve: flux.Retrieve<aetherRanger.ListQuery, ranger.Range[]>;
   client: Synnax | null;
   render: render.Context;
   requestRender: render.Requestor;
   draw: Draw2D;
   runAsync: status.ErrorHandler;
-  removeListener: destructor.Destructor | null;
 }
 
 interface ProviderProps {
@@ -58,10 +59,19 @@ interface ProviderProps {
   timeRange: TimeRange;
 }
 
+// Widens fetch boundaries to whole minutes so panning does not requery on every
+// viewport nudge.
+const QUANTUM = TimeSpan.minutes(1);
+
+const quantize = (timeRange: TimeRange): TimeRange => {
+  const ceil = (ts: TimeStamp): TimeStamp =>
+    ts.remainder(QUANTUM).isZero ? ts : ts.truncate(QUANTUM).add(QUANTUM);
+  return new TimeRange(timeRange.start.truncate(QUANTUM), ceil(timeRange.end));
+};
+
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
   schema = providerStateZ;
-  fetchedInitial: TimeRange = TimeRange.ZERO;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
@@ -69,50 +79,30 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.draw = new Draw2D(i.render.upper2d, theming.use(ctx));
     i.requestRender = render.useRequestor(ctx);
     i.runAsync = status.useErrorHandler(ctx);
-    i.ranges ??= new Map();
+    i.retrieve ??= new flux.Retrieve({
+      definition: aetherRanger.listDefinition,
+      onChange: () => i.requestRender("tool"),
+      onError: (error) =>
+        i.runAsync(async () => {
+          throw error;
+        }, "failed to retrieve ranges"),
+    });
     const client = synnax.use(ctx);
+    if (client != null) i.client = client;
     i.requestRender("tool");
-    if (client == null) return;
-    i.client = client;
-    i.removeListener?.();
-    const removeOnSet = client.ranges.onSet((changed) => {
-      if (color.isCrude(changed.color)) i.ranges.set(changed.key, changed);
-      i.requestRender("tool");
-    });
-    const removeOnDelete = client.ranges.onDelete((key) => {
-      i.ranges.delete(key);
-      i.requestRender("tool");
-    });
-    i.removeListener = () => {
-      removeOnSet();
-      removeOnDelete();
-    };
   }
 
   afterDelete(): void {
-    this.internal.removeListener?.();
-  }
-
-  private fetchInitial(timeRange: TimeRange): void {
-    const { internal: i } = this;
-    const { client, runAsync } = i;
-    if (client == null || this.fetchedInitial.equals(timeRange, TimeSpan.minutes(1)))
-      return;
-
-    this.fetchedInitial = timeRange;
-    runAsync(async () => {
-      const ranges = await client.ranges.retrieve(timeRange);
-      ranges.forEach((r) => {
-        if (color.isCrude(r.color)) i.ranges.set(r.key, r);
-      });
-      i.requestRender("tool");
-    }, "failed to fetch initial ranges");
+    this.internal.retrieve.close();
   }
 
   render(props: ProviderProps): void {
     const { dataToDecimalScale, region, viewport, timeRange } = props;
-    this.fetchInitial(timeRange);
-    const { draw, ranges } = this.internal;
+    const { internal: i } = this;
+    if (i.client != null)
+      i.retrieve.update(i.client, { overlapsWith: quantize(timeRange) });
+    const { draw } = i;
+    const ranges = i.retrieve.value ?? [];
     const visible = this.state.visible !== false;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;

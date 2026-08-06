@@ -68,6 +68,23 @@ describe("ChannelName", () => {
       await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
     });
 
+    // A key with no channel behind it settles only after the retrieve's not-found
+    // grace period, so the name has to hold through both the wait and the failure.
+    it("should keep showing the form name for a channel that never resolves", async () => {
+      await renderInTaskFormWithClient(
+        <Task.ChannelName channel={123456789} namePath="name" />,
+        { client, values: { name: "form_name" } },
+      );
+      expect(screen.getByText("form_name")).toBeTruthy();
+      await waitFor(
+        () =>
+          expect(
+            screen.getByText("form_name").closest(".pluto--status-error"),
+          ).toBeTruthy(),
+        { timeout: 15000 },
+      );
+    }, 20000);
+
     it("should rename the channel on the cluster when an edit is committed", async () => {
       const ch = await createChannel();
       const editID = Task.getChannelNameID("live_ch");

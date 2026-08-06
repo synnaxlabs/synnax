@@ -56,7 +56,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
     [retrieve],
   );
   const { form } = PView.useForm({
-    query: {},
+    query: null,
     initialValues: getInitialView(),
     autoSave: true,
     beforeSave: useCallback(

@@ -10,11 +10,14 @@
 import { query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, testutil } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { Errors } from "@/errors";
 import { Flux } from "@/flux";
+import { renderHookSuspended } from "@/testutil/render";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const formSchema = z.object({
@@ -28,7 +31,7 @@ type Params = {
 };
 
 const client = createTestClient();
-const wrapper = createSynnaxWrapper({ client });
+const Wrapper = createSynnaxWrapper({ client });
 
 describe("useForm", () => {
   let controller: AbortController;
@@ -54,8 +57,8 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-          })({ query: {} }),
-        { wrapper },
+          })({ query: null }),
+        { wrapper: Wrapper },
       );
       expect(result.current.form.value()).toEqual({
         key: "",
@@ -63,7 +66,7 @@ describe("useForm", () => {
         age: 25,
       });
       await waitFor(() => {
-        expect(retrieve).toHaveBeenCalledTimes(1);
+        expect(retrieve).not.toHaveBeenCalled();
         expect(update).not.toHaveBeenCalled();
       });
     });
@@ -71,37 +74,130 @@ describe("useForm", () => {
 
   describe("existing entity", () => {
     it("should return the existing entity as the form values", async () => {
-      const retrieve = vi.fn(
-        async ({ reset }: Flux.FormRetrieveParams<Params, typeof formSchema>) =>
-          reset({
-            key: "123",
-            name: "Apple Cat",
-            age: 30,
-          }),
-      );
-      const { result } = renderHook(
-        () =>
-          Flux.createForm<Params, typeof formSchema>({
-            initialValues: {
-              key: "",
-              name: "",
-              age: 0,
-            },
-            schema: formSchema,
-            name: "test",
-            retrieve,
-            update: vi.fn(),
-          })({ query: {} }),
-        { wrapper },
-      );
-      await waitFor(() => {
-        expect(retrieve).toHaveBeenCalledTimes(1);
+      const retrieve = vi.fn(async () => ({
+        key: "123",
+        name: "Apple Cat",
+        age: 30,
+      }));
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: {
+          key: "",
+          name: "",
+          age: 0,
+        },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        update: vi.fn(),
       });
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      expect(retrieve).toHaveBeenCalledTimes(1);
       expect(result.current.form.value()).toEqual({
         key: "123",
         name: "Apple Cat",
         age: 30,
       });
+    });
+
+    it("should route a failed read to the error boundary", async () => {
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: async () => {
+          throw new Error("boom");
+        },
+        update: vi.fn(),
+      });
+      const Display = (): ReactElement => {
+        useForm({ query: { key: "gone" } });
+        return <div data-testid="loaded" />;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div>loading</div>}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(utils.queryByTestId("error")?.textContent).toBe("Failed to retrieve test");
+    });
+
+    it("should serve a cached answer without fetching", () => {
+      const retrieve = vi.fn();
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        getCached: () => ({ key: "123", name: "Cached Cat", age: 30 }),
+        update: vi.fn(),
+      });
+      const { result } = renderHook(() => useForm({ query: { key: "123" } }), {
+        wrapper: Wrapper,
+      });
+      expect(retrieve).not.toHaveBeenCalled();
+      expect(result.current.form.value()).toEqual({
+        key: "123",
+        name: "Cached Cat",
+        age: 30,
+      });
+    });
+
+    it("should read the cache once per query rather than once per render", () => {
+      const getCached = vi.fn(() => ({ key: "123", name: "Cached Cat", age: 30 }));
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: vi.fn(),
+        getCached,
+        update: vi.fn(),
+      });
+      const { rerender } = renderHook(() => useForm({ query: { key: "123" } }), {
+        wrapper: Wrapper,
+      });
+      const onMount = getCached.mock.calls.length;
+      rerender();
+      rerender();
+      expect(getCached).toHaveBeenCalledTimes(onMount);
+    });
+
+    it("should replace the form values when the query points at another record", async () => {
+      const cats: Record<string, z.infer<typeof formSchema>> = {
+        "1": { key: "1", name: "Apple Cat", age: 30 },
+        "2": { key: "2", name: "Banana Cat", age: 12 },
+      };
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: async ({ query: { key } }) => cats[key as string],
+        update: vi.fn(),
+      });
+      const { result, rerender } = await renderHookSuspended(
+        ({ key }: { key: string }) => useForm({ query: { key } }),
+        { wrapper: Wrapper, initialProps: { key: "1" } },
+      );
+      expect(result.current.form.value().name).toEqual("Apple Cat");
+      await act(async () => {
+        rerender({ key: "2" });
+      });
+      expect(result.current.form.value()).toEqual(cats["2"]);
     });
   });
 
@@ -120,8 +216,8 @@ describe("useForm", () => {
           name: "test",
           retrieve,
           update,
-        })({ query: {} }),
-      { wrapper },
+        })({ query: null }),
+      { wrapper: Wrapper },
     );
 
     act(() => {
@@ -148,8 +244,8 @@ describe("useForm", () => {
           name: "test",
           retrieve,
           update,
-        })({ query: {} }),
-      { wrapper },
+        })({ query: null }),
+      { wrapper: Wrapper },
     );
     act(() => {
       result.current.save({ signal: controller.signal });
@@ -157,7 +253,7 @@ describe("useForm", () => {
     const status = result.current.form.get("name").status;
     expect(status.variant).toEqual("success");
     await waitFor(() => {
-      expect(retrieve).toHaveBeenCalledTimes(1);
+      expect(retrieve).not.toHaveBeenCalled();
       expect(update).not.toHaveBeenCalled();
       const fieldStatus = result.current.form.get("name").status;
       expect(fieldStatus.variant).toEqual("error");
@@ -180,8 +276,8 @@ describe("useForm", () => {
             name: "test",
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn(),
-          })({ query: {}, afterSave }),
-        { wrapper },
+          })({ query: null, afterSave }),
+        { wrapper: Wrapper },
       );
       act(() => {
         result.current.save({ signal: controller.signal });
@@ -205,8 +301,8 @@ describe("useForm", () => {
             name: "test",
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn().mockRejectedValue(new Error("Update failed")),
-          })({ query: {}, afterSave }),
-        { wrapper },
+          })({ query: null, afterSave }),
+        { wrapper: Wrapper },
       );
       act(() => result.current.save({ signal: controller.signal }));
       await testutil.expectAlways(() => expect(afterSave).not.toHaveBeenCalled());
@@ -226,8 +322,8 @@ describe("useForm", () => {
             name: "test",
             retrieve: vi.fn().mockReturnValue(null),
             update: vi.fn(),
-          })({ query: {}, afterSave }),
-        { wrapper },
+          })({ query: null, afterSave }),
+        { wrapper: Wrapper },
       );
       act(() => {
         result.current.save({ signal: controller.signal });
@@ -254,8 +350,8 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update,
-          })({ query: {} }),
-        { wrapper },
+          })({ query: null }),
+        { wrapper: Wrapper },
       );
       expect(result.current.form.value()).toEqual({
         key: "",
@@ -272,7 +368,7 @@ describe("useForm", () => {
         age: 25,
       });
       await waitFor(() => {
-        expect(retrieve).toHaveBeenCalledTimes(1);
+        expect(retrieve).not.toHaveBeenCalled();
         expect(update).not.toHaveBeenCalled();
       });
     });
@@ -293,15 +389,15 @@ describe("useForm", () => {
           name: "test",
           retrieve,
           update,
-        })({ query: {} }),
-      { wrapper },
+        })({ query: null }),
+      { wrapper: Wrapper },
     );
     act(() => {
       result.current.form.set("name", "Jane Doe");
       result.current.save({ signal: controller.signal });
     });
     await waitFor(() => {
-      expect(retrieve).toHaveBeenCalledTimes(1);
+      expect(retrieve).not.toHaveBeenCalled();
       expect(update).toHaveBeenCalledTimes(1);
     });
   });
@@ -322,14 +418,14 @@ describe("useForm", () => {
             name: "test",
             retrieve,
             update: ({ get }) => update(get("name").value),
-          })({ query: {}, autoSave: true }),
-        { wrapper },
+          })({ query: null, autoSave: true }),
+        { wrapper: Wrapper },
       );
       act(() => {
         result.current.form.set("name", "Jane Doe");
       });
       await waitFor(() => {
-        expect(retrieve).toHaveBeenCalledTimes(1);
+        expect(retrieve).not.toHaveBeenCalled();
         expect(update).toHaveBeenCalledTimes(1);
         expect(update).toHaveBeenCalledWith("Jane Doe");
       });
@@ -337,25 +433,25 @@ describe("useForm", () => {
 
     it("should not call update when initial values are resolved via retrieve", async () => {
       const update = vi.fn();
-      const retrieve = vi.fn().mockReturnValue({
+      const retrieve = vi.fn().mockResolvedValue({
         key: "123",
         name: "Apple Cat",
         age: 30,
       });
-      renderHook(
-        () =>
-          Flux.createForm<Params, typeof formSchema>({
-            initialValues: {
-              key: "",
-              name: "",
-              age: 0,
-            },
-            schema: formSchema,
-            name: "test",
-            retrieve,
-            update: ({ value }) => update(value.name),
-          })({ query: {} }),
-        { wrapper },
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: {
+          key: "",
+          name: "",
+          age: 0,
+        },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        update: ({ value }) => update(value.name),
+      });
+      await renderHookSuspended(
+        () => useForm({ query: { key: "123" }, autoSave: true }),
+        { wrapper: Wrapper },
       );
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
@@ -377,29 +473,28 @@ describe("useForm", () => {
         age: 25,
       };
 
-      const retrieve = async ({
-        reset,
-      }: Flux.FormRetrieveParams<Params, typeof formSchema>) => reset(initialValues);
+      const retrieve = async () => initialValues;
       const update = vi.fn();
 
-      const { result } = renderHook(
-        () =>
-          Flux.createForm<Params, typeof formSchema>({
-            initialValues: {
-              key: label.key.toString(),
-              name: "",
-              age: 0,
-            },
-            schema: formSchema,
-            name: "test",
-            retrieve,
-            update,
-            mountListeners: ({ client, set }) =>
-              client.labels.onChange(label.key, (result) => {
-                if (query.isLive(result)) set("name", result.name);
-              }),
-          })({ query: { key: label.key } }),
-        { wrapper },
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: {
+          key: label.key.toString(),
+          name: "",
+          age: 0,
+        },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        update,
+        mountListeners: ({ client, set }) =>
+          client.labels.onChange(label.key, (result) => {
+            if (query.isLive(result)) set("name", result.name);
+          }),
+      });
+
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: label.key } }),
+        { wrapper: Wrapper },
       );
 
       await waitFor(() => {
@@ -432,29 +527,28 @@ describe("useForm", () => {
         age: 25,
       };
 
-      const retrieve = async ({
-        reset,
-      }: Flux.FormRetrieveParams<Params, typeof formSchema>) => reset(initialValues);
+      const retrieve = async () => initialValues;
       const update = vi.fn();
 
-      const { result } = renderHook(
-        () =>
-          Flux.createForm<Params, typeof formSchema>({
-            initialValues: {
-              key: label.key.toString(),
-              name: "",
-              age: 0,
-            },
-            schema: formSchema,
-            name: "test",
-            retrieve,
-            update,
-            mountListeners: ({ client, set }) =>
-              client.labels.onChange(label.key, (result) => {
-                if (query.isLive(result)) set("name", result.name);
-              }),
-          })({ query: { key: label.key } }),
-        { wrapper },
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: {
+          key: label.key.toString(),
+          name: "",
+          age: 0,
+        },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        update,
+        mountListeners: ({ client, set }) =>
+          client.labels.onChange(label.key, (result) => {
+            if (query.isLive(result)) set("name", result.name);
+          }),
+      });
+
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: label.key } }),
+        { wrapper: Wrapper },
       );
 
       await waitFor(() => {
