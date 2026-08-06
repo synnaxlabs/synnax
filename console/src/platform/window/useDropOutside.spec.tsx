@@ -19,7 +19,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import { Haul } from "@synnaxlabs/pluto";
-import { xy } from "@synnaxlabs/x";
+import type { xy } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
