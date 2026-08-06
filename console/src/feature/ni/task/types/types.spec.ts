@@ -442,3 +442,114 @@ describe("draft configs", () => {
     ).toBe(true);
   });
 });
+
+describe("legacy config migration", () => {
+  const legacyAIChannel = (key: string, enabled: boolean) => {
+    const { disabled: _disabled, device: _device, ...rest } = NI.Task.ZERO_AI_CHANNEL;
+    return { ...rest, key, enabled };
+  };
+
+  it("should migrate a v0 analog read config with a config-level device", () => {
+    const parsed = NI.Task.analogReadConfigZ.parse({
+      device: "dev1",
+      sampleRate: 100,
+      streamRate: 25,
+      dataSaving: true,
+      channels: [legacyAIChannel("c1", true), legacyAIChannel("c2", false)],
+    });
+    expect(parsed.dataSavingDisabled).toBe(false);
+    expect(parsed.sampleRate).toBe(100);
+    expect(parsed.channels.map((c) => c.device)).toEqual(["dev1", "dev1"]);
+    expect(parsed.channels.map((c) => c.disabled)).toEqual([false, true]);
+  });
+
+  it("should migrate a v1 analog read config with per-channel devices", () => {
+    const parsed = NI.Task.analogReadConfigZ.parse({
+      sampleRate: 100,
+      streamRate: 25,
+      dataSaving: false,
+      channels: [{ ...legacyAIChannel("c1", false), device: "dev2" }],
+    });
+    expect(parsed.dataSavingDisabled).toBe(true);
+    expect(parsed.channels[0].device).toBe("dev2");
+    expect(parsed.channels[0].disabled).toBe(true);
+  });
+
+  it("should migrate a v0 counter read config with a config-level device", () => {
+    const {
+      disabled: _disabled,
+      device: _device,
+      ...channel
+    } = NI.Task.ZERO_CI_CHANNEL;
+    const parsed = NI.Task.counterReadConfigZ.parse({
+      device: "dev1",
+      sampleRate: 100,
+      streamRate: 25,
+      dataSaving: true,
+      channels: [{ ...channel, key: "c1", enabled: true }],
+    });
+    expect(parsed.channels[0].device).toBe("dev1");
+    expect(parsed.channels[0].disabled).toBe(false);
+  });
+
+  it("should migrate a legacy analog write config", () => {
+    const { disabled: _disabled, ...channel } = NI.Task.ZERO_AO_CHANNEL;
+    const parsed = NI.Task.analogWriteConfigZ.parse({
+      device: "dev1",
+      stateRate: 10,
+      dataSaving: true,
+      channels: [{ ...channel, key: "c1", enabled: false }],
+    });
+    expect(parsed.device).toBe("dev1");
+    expect(parsed.dataSavingDisabled).toBe(false);
+    expect(parsed.channels[0].disabled).toBe(true);
+  });
+
+  it("should migrate a legacy digital read config", () => {
+    const { disabled: _disabled, ...channel } = NI.Task.ZERO_DI_CHANNEL;
+    const parsed = NI.Task.digitalReadConfigZ.parse({
+      device: "dev1",
+      sampleRate: 100,
+      streamRate: 25,
+      dataSaving: false,
+      channels: [{ ...channel, key: "c1", enabled: true }],
+    });
+    expect(parsed.dataSavingDisabled).toBe(true);
+    expect(parsed.channels[0].disabled).toBe(false);
+  });
+
+  it("should migrate a legacy digital write config", () => {
+    const { disabled: _disabled, ...channel } = NI.Task.ZERO_DO_CHANNEL;
+    const parsed = NI.Task.digitalWriteConfigZ.parse({
+      device: "dev1",
+      stateRate: 10,
+      dataSaving: true,
+      channels: [{ ...channel, key: "c1", enabled: false }],
+    });
+    expect(parsed.dataSavingDisabled).toBe(false);
+    expect(parsed.channels[0].disabled).toBe(true);
+  });
+
+  it("should default enablement when a legacy channel omits enabled", () => {
+    const { enabled: _enabled, ...channel } = legacyAIChannel("c1", true);
+    const parsed = NI.Task.analogReadConfigZ.parse({
+      device: "dev1",
+      sampleRate: 100,
+      streamRate: 25,
+      dataSaving: true,
+      channels: [channel],
+    });
+    expect(parsed.channels[0].disabled).toBe(false);
+  });
+
+  it("should not rewrite a current-shape config", () => {
+    const current = {
+      ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      dataSavingDisabled: true,
+      channels: [{ ...NI.Task.ZERO_AI_CHANNEL, key: "c1", disabled: true }],
+    };
+    const parsed = NI.Task.analogReadConfigZ.parse(current);
+    expect(parsed.dataSavingDisabled).toBe(true);
+    expect(parsed.channels[0].disabled).toBe(true);
+  });
+});

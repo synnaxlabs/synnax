@@ -320,7 +320,8 @@ const VelocitySensitivityUnitsField = Form.buildSelectField<
   },
 });
 
-const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
+// Partial: the console only offers the types in AI_CHANNEL_TYPE_NAMES.
+const CHANNEL_FORMS: Partial<Record<AIChannelType, FC<FormProps>>> = {
   ai_accel: ({ prefix }) => (
     <>
       <TerminalConfigField path={prefix} />
@@ -978,6 +979,7 @@ export interface AIChannelFormProps {
 
 export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
   const Form = CHANNEL_FORMS[type];
+  if (Form == null) throw new Error(`No form for AI channel type ${type}`);
   return (
     <>
       <Flex.Box x wrap>
