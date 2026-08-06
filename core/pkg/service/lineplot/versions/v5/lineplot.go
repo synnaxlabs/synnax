@@ -9,8 +9,20 @@
 
 package v5
 
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/gorp"
+)
+
+var _ gorp.Entry[Key] = LinePlot{}
+
 // GorpKey implements gorp.Entry.
 func (l LinePlot) GorpKey() Key { return l.Key }
 
 // SetOptions implements gorp.Entry.
 func (LinePlot) SetOptions() []any { return nil }
+
+// OntologyID returns the unique ontology identifier for the line plot.
+func (l LinePlot) OntologyID() ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeLineplot, Key: l.Key.String()}
+}

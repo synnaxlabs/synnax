@@ -10,46 +10,32 @@
 package v3
 
 import (
+	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v2"
 )
 
 // Migrate transforms v2 schematic data into v3 by attaching an empty segments slice to
 // every edge. Mirrors the Console's v2 -> v3 step. The opaque Data bag carried on every
-// v0/v1/v2 edge is passed through unchanged so the v5 -> v6 lift step can recover
-// ReactFlow's per-edge segments / color / variant from blobs that predate the v3
-// schema.
+// v0/v1/v2 edge is passed through unchanged so the lift into the typed Schematic can
+// recover ReactFlow's per-edge segments / color / variant from blobs that predate the
+// v3 schema.
 func Migrate(old v2.Data) Data {
-	edges := make([]Edge, len(old.Edges))
-	for i, e := range old.Edges {
-		edges[i] = upgradeEdge(e)
-	}
 	return Data{
-		Version:         Version,
-		Editable:        old.Editable,
-		FitViewOnResize: old.FitViewOnResize,
-		Snapshot:        old.Snapshot,
-		RemoteCreated:   old.RemoteCreated,
-		Viewport:        old.Viewport,
-		Nodes:           old.Nodes,
-		Edges:           edges,
-		Props:           old.Props,
-		Control:         old.Control,
-		Legend:          old.Legend,
-		Key:             old.Key,
-		Type:            old.Type,
-		ViewportMode:    old.ViewportMode,
-	}
-}
-
-func upgradeEdge(e v0.Edge) Edge {
-	return Edge{
-		Key:          e.Key,
-		Source:       e.Source,
-		Target:       e.Target,
-		SourceHandle: e.SourceHandle,
-		TargetHandle: e.TargetHandle,
-		Segments:     []Segment{},
-		Data:         e.Data,
+		Version:  Version,
+		Snapshot: old.Snapshot,
+		Nodes:    old.Nodes,
+		Edges: lo.Map(old.Edges, func(e v0.Edge, _ int) Edge {
+			return Edge{
+				Key:          e.Key,
+				Source:       e.Source,
+				Target:       e.Target,
+				SourceHandle: e.SourceHandle,
+				TargetHandle: e.TargetHandle,
+				Segments:     []Segment{},
+				Data:         e.Data,
+			}
+		}),
+		Props: old.Props,
 	}
 }

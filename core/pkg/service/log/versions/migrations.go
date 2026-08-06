@@ -10,10 +10,10 @@
 package versions
 
 import (
+	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
-	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored logs.
-var Migrations = []migrate.Migration{v2.Migration, v3.Migration}
+var Migrations = []migrate.Migration{v0.Migration, v2.Migration}
