@@ -83,8 +83,7 @@ check. Replace both with a single `AnalyzeArguments` hook that receives a unifie
   fixed keeps the change non-breaking for customers and bounds the test churn to the
   refactor itself rather than a grammar migration layered on top of an already large
   diff. Which bracket should mean what in the long term is the natural next decision,
-  explored but deliberately not taken in
-  [§8.2](#82-higher-order-functions-and-the-syntax-question).
+  explored but deliberately not taken in §8.2.
 - **The trigger-as-argument feature**: `{message: incoming_ch} -> status.set(...)` is
   out of scope. This RFC only lands the structural foundation it will sit on. A
   follow-on RFC will specify the grammar and analyzer for the override.
@@ -101,7 +100,7 @@ check. Replace both with a single `AnalyzeArguments` hook that receives a unifie
   `Optional` field, and changes nothing about how defaults are substituted or
   dispatched. Completing optional semantics (an explicit field, reliable call-site
   default substitution, preserve-on-omit dispatch) is future work that the unification
-  makes easier; see [§8.1](#81-optional-parameters).
+  makes easier; see §8.1.
 
 ## 3 The problem
 
@@ -342,7 +341,7 @@ No `BindMode` field, no `Captures()` / `Arguments()` helpers, no per-param tag. 
 "config" vs "input" was trying to encode at the type level is gone. A function has
 params; each param has a name, a type, and an optional default value. This RFC adds no
 new optionality mechanism: the existing default-value optionality is preserved and no
-`Optional` field is introduced (see [§2](#2-non-goals)).
+`Optional` field is introduced (see §2).
 
 Param ordering is preserved as the user declared it. The compiler already produces a
 deterministic order at the WASM ABI layer (`slices.Concat(Config, Inputs)`); the

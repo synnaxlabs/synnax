@@ -72,3 +72,6 @@ Rules for writing and editing RFCs in this directory.
 - Cite a section with the section sign and no space: `§4.2` within the same RFC,
   `RFC 0033 §4.2` across RFCs. Never spell out `Section 4.2`. Match the target's real
   number — renumbering a section breaks references elsewhere; check for them.
+- A citation is plain text, never a link. A heading anchor embeds the heading title, so
+  a linked citation breaks when anyone rewords a heading, while `§4.2` breaks only on
+  renumbering. Numbers are the stable contract.

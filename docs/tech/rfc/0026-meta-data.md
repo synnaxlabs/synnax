@@ -399,8 +399,8 @@ Generally speaking, there are two classes of migration engines:
 Raised as worth pursuing, but not yet written up:
 
 - More efficient encoding mechanisms.
-- Single source of truth in Console-side state.
+- Single source of truth in client-side state.
 - Partial update tooling.
-- Console-side queues and transaction mechanics.
+- Client-side queues and transaction mechanics.
 - Support for Core-side undo and redo.
 - Implementation order for the work above.

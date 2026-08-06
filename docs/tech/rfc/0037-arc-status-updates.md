@@ -25,10 +25,10 @@ removing a status by key or name. Both functions support both WASM and Flow exec
 
 ### 0.0 Function overview
 
-| Function        | Signature                                                                | Summary                                                                                                                                                                                                                                                                                                            |
-| --------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `status.set`    | `set(key_or_name: string, message?: string, variant?: string) -> string` | Upsert a status by name or key. Creates the status if no match exists for a name; updates supplied fields and preserves omitted ones if a match does. Returns the key (handle 0 on failure). String literals passed for `variant` are constrained to a fixed set at compile time (see [§4.2](#42-variant-values)). |
-| `status.delete` | `delete(key_or_name: string)`                                            | Delete a status by key or name.                                                                                                                                                                                                                                                                                    |
+| Function        | Signature                                                                | Summary                                                                                                                                                                                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status.set`    | `set(key_or_name: string, message?: string, variant?: string) -> string` | Upsert a status by name or key. Creates the status if no match exists for a name; updates supplied fields and preserves omitted ones if a match does. Returns the key (handle 0 on failure). String literals passed for `variant` are constrained to a fixed set at compile time (see §4.2). |
+| `status.delete` | `delete(key_or_name: string)`                                            | Delete a status by key or name.                                                                                                                                                                                                                                                              |
 
 ## 1 Vocabulary
 
@@ -140,11 +140,11 @@ and omitted fields take their literal defaults (`message = ""`, `variant = "info
 status.set(key_or_name: string, message?: string, variant?: string) -> string
 ```
 
-| Param         | Type     | Required | Default                                | Description                                                                                                                                                                                                        |
-| ------------- | -------- | -------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `key_or_name` | `string` | yes      | n/a                                    | Status key (UUID) or name                                                                                                                                                                                          |
-| `message`     | `string` | no       | preserve existing / `""` on create     | If supplied, overwrites; if omitted, preserves the existing value (or `""` on create).                                                                                                                             |
-| `variant`     | `string` | no       | preserve existing / `"info"` on create | If supplied, overwrites; if omitted, preserves the existing value (or `"info"` on create). A string-literal argument is validated against the six allowed values at compile time (see [§4.2](#42-variant-values)). |
+| Param         | Type     | Required | Default                                | Description                                                                                                                                                                                  |
+| ------------- | -------- | -------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `key_or_name` | `string` | yes      | n/a                                    | Status key (UUID) or name                                                                                                                                                                    |
+| `message`     | `string` | no       | preserve existing / `""` on create     | If supplied, overwrites; if omitted, preserves the existing value (or `""` on create).                                                                                                       |
+| `variant`     | `string` | no       | preserve existing / `"info"` on create | If supplied, overwrites; if omitted, preserves the existing value (or `"info"` on create). A string-literal argument is validated against the six allowed values at compile time (see §4.2). |
 
 **Returns**: Status key string. In WASM form, returned as a string handle (handle 0 on
 failure; see §3). In Flow form, `set` is a sink and the return value is discarded.
@@ -329,7 +329,7 @@ call returns handle 0, joining the rest of `status.set`'s failure surface (§5.3
 compile-time check is a fast-path safety net for the case the analyzer can see; it does
 not change the parameter's underlying type.
 
-The mechanism is described in [§5.0.1](#501-literal-value-constraints).
+The mechanism is described in §5.0.1.
 
 **Examples:**
 
@@ -425,9 +425,9 @@ default-substituted optionality.
 #### 5.0.1 Literal-value constraints
 
 `variant` is a plain `string` at the Arc type level, but only the six values listed in
-[§4.2](#42-variant-values) are meaningful. The analyzer needs a way to recognize that
-the `variant` parameter of `status.set` carries an "allowed values" list so that a
-string-literal argument can be checked against it at compile time.
+§4.2 are meaningful. The analyzer needs a way to recognize that the `variant` parameter
+of `status.set` carries an "allowed values" list so that a string-literal argument can
+be checked against it at compile time.
 
 This RFC adds an `AllowedLiterals []string` field to `types.Param` (in
 [arc/go/types/types.gen.go](../../../arc/go/types/types.gen.go), via the schema in
