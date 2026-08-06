@@ -79,7 +79,7 @@ type freeWriter struct {
 	freeWrites confluence.Inlet[relay.Response]
 	// mode is the mode of the writer.
 	mode Mode
-	// sync is true if the writer should receive acknowledgements for all requests,
+	// sync is true if the writer should receive acknowledgments for all requests,
 	// including Write commands.
 	sync bool
 	// group is the writer group identifier, used for server-side deduplication.

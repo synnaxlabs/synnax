@@ -149,7 +149,7 @@ class TestController:
                     lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
                 )
                 # Keep publishing closed-valve samples until the sequence has observed
-                # the acknowledgement, so the second wait_until always fires, then keep
+                # the acknowledgment, so the second wait_until always fires, then keep
                 # publishing open-valve samples until the sequence finishes, so the
                 # observation window is guaranteed to see the condition fail no matter
                 # when it starts.
@@ -302,7 +302,7 @@ class TestController:
                     lambda c: not c[press_en_cmd.key], timeout=5 * sy.TimeSpan.SECOND
                 )
                 # Keep publishing closed-valve samples until the sequence has observed
-                # the acknowledgement, so the second wait_until always fires. Then keep
+                # the acknowledgment, so the second wait_until always fires. Then keep
                 # the valve closed for three out of every four samples (75% closed,
                 # comfortably above the 50% target) until the sequence finishes.
                 # Starting the pattern with its closed run right as the observation
