@@ -59,8 +59,10 @@ interface ElementGroup {
   colorPair: ColorPair;
 }
 
-/// normalizeColor resolves an SVG paint value to a Color. A missing or unparseable
-/// paint reads as fully transparent, which is how an unpainted element renders.
+/**
+ * Resolves an SVG paint value to a Color. A missing or unparseable paint reads as
+ * fully transparent, which is how an unpainted element renders.
+ */
 const normalizeColor = (colorStr: string | null | undefined): color.Color => {
   if (colorStr == null || colorStr === "") return color.ZERO;
   return color.fromCSS(colorStr) ?? color.ZERO;

@@ -92,7 +92,7 @@ func notFoundError[T ~string](typ T, kind string) error {
 // non-empty envelope.Type passes through; a typeless envelope's body is offered to
 // every Importer's Match in sorted type order, first claim winning. It returns a
 // validation error scoped to the "type" field when nothing claims the body.
-func (s *Service) ResolveType(ctx context.Context, envelope Envelope) (string, error) {
+func (s *Service) ResolveType(envelope Envelope) (string, error) {
 	if envelope.Type != "" {
 		return envelope.Type, nil
 	}
@@ -122,7 +122,7 @@ func (s *Service) Import(
 		return ontology.ID{}, validate.PathedError(validate.ErrRequired, "parent")
 	}
 	if envelope.Type == "" {
-		typ, err := s.ResolveType(ctx, envelope)
+		typ, err := s.ResolveType(envelope)
 		if err != nil {
 			return ontology.ID{}, err
 		}

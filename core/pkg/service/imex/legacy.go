@@ -12,7 +12,29 @@ package imex
 import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// RequireFields errors when body omits any of fields, which name the structural members
+// of resource's Console state — the same markers Importer.Match tests. Import-only: the
+// legacy chain decodes an unrecognized body to an empty resource, so without this a
+// misrouted file imports as a blank one instead of failing. A Console state serialized
+// every member, so a genuinely empty resource still carries the keys and passes. The
+// storage migration keeps riding the chain unchecked, since a stored blob may be nil.
+func RequireFields(body msgpack.EncodedJSON, resource string, fields ...string) error {
+	for _, f := range fields {
+		if _, ok := body[f]; !ok {
+			return validate.PathedError(
+				errors.Wrapf(
+					validate.ErrValidation,
+					"file is not a %s: no %q field", resource, f,
+				),
+				f,
+			)
+		}
+	}
+	return nil
+}
 
 // PeekVersion extracts the Version stamped inside an opaque legacy data blob. A nil
 // blob and a blob without a version field both report version 0, so callers dispatch

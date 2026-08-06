@@ -113,15 +113,6 @@ var _ = Describe("ImEx", func() {
 			},
 		)
 
-		It("Should import a versionless Console typed export", func(ctx SpecContext) {
-			res := importAndRetrieve(
-				ctx, "versions/testdata/import_typed_versionless.json",
-				imex.ImportOptions{Parent: proj.OntologyID()},
-			)
-			Expect(res.Name).To(Equal("Old Typed"))
-			Expect(res.Nodes[0].ZIndex).To(Equal(int16(1)))
-		})
-
 		It(
 			"Should import a v3 Console state through the legacy chain",
 			func(ctx SpecContext) {

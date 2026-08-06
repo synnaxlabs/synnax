@@ -59,7 +59,7 @@ func (s *Service) Import(
 ) (ImportResponse, error) {
 	// Typeless envelopes (legacy Console state files) must be resolved to a concrete
 	// registration type before access control can name the resource being created.
-	typ, err := s.internal.ResolveType(ctx, req)
+	typ, err := s.internal.ResolveType(req)
 	if err != nil {
 		return ImportResponse{}, err
 	}

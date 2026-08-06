@@ -38,7 +38,11 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		// which decodes the body through the legacy chain.
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
-			t, err = v1.MigrateTable(ctx, v0.Table{Name: env.Name, Data: body})
+			if err = imex.RequireFields(
+				body, "table", "layout", "cells",
+			); err == nil {
+				t, err = v1.MigrateTable(ctx, v0.Table{Name: env.Name, Data: body})
+			}
 		}
 	}
 	if err != nil {

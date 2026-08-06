@@ -54,7 +54,7 @@ func KeyFromOntologyID(id ontology.ID) (Key, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return uuid.Nil, errors.Wrapf(
-			validate.ErrValidation, "invalid project key %q", id.Key,
+			validate.ErrValidation, "invalid project key %q: %v", id.Key, err,
 		)
 	}
 	return key, nil

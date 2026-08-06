@@ -41,12 +41,18 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		// Console states embed the document inline: ride the storage lift, which
 		// dispatches on the version stamped inside the body.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
-			snapshot, _ := body["snapshot"].(bool)
-			sch, err = v7.MigrateSchematic(ctx, v0.Schematic{
-				Name: env.Name, Snapshot: snapshot, Data: body,
-			})
+		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err != nil {
+			break
 		}
+		if err = imex.RequireFields(
+			body, "schematic", "nodes", "props",
+		); err != nil {
+			break
+		}
+		snapshot, _ := body["snapshot"].(bool)
+		sch, err = v7.MigrateSchematic(ctx, v0.Schematic{
+			Name: env.Name, Snapshot: snapshot, Data: body,
+		})
 	}
 	if err != nil {
 		return Schematic{}, err

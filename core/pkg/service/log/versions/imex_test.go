@@ -84,4 +84,12 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			ctx, LoadEnvelope("testdata/import_bad_v2.json"),
 		)).Error().To(MatchError(ContainSubstring("decode")))
 	})
+
+	It("Should reject a body carrying no log structure", func(ctx SpecContext) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_unrecognized.json"),
+		)).Error().To(MatchError(ContainSubstring(
+			`file is not a log: no "channels" field`,
+		)))
+	})
 })

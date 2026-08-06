@@ -93,4 +93,12 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			MatchError(ContainSubstring("newer than this Core supports")),
 		))
 	})
+
+	It("Should reject a body carrying no symbol structure", func(ctx SpecContext) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_unrecognized.json"),
+		)).Error().To(MatchError(ContainSubstring(
+			`file is not a symbol: no "data" field`,
+		)))
+	})
 })

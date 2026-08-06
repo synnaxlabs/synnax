@@ -82,8 +82,8 @@ func newFieldError(field, format string, args ...any) error {
 }
 
 // Envelope is the portable format for one importable or exportable resource. The public
-// fields hold the wire headers; the body is private. Import handlers discriminate with
-// Body and BodyNamed and call Decode once; exporters call Encode.
+// fields hold the wire headers; the body is private. Import handlers discriminate on
+// Version and Versioned, then call Decode once; exporters call Encode.
 type Envelope struct {
 	// Version is the per-schema integer version stamped on every envelope.
 	Version Version

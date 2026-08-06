@@ -251,7 +251,7 @@ var _ = Describe("Service", func() {
 		}
 
 		It("Should return a non-empty envelope type as-is", func(ctx SpecContext) {
-			Expect(svc.ResolveType(ctx, imex.Envelope{Type: "anything"})).To(
+			Expect(svc.ResolveType(imex.Envelope{Type: "anything"})).To(
 				Equal("anything"),
 			)
 		})
@@ -267,7 +267,7 @@ var _ = Describe("Service", func() {
 					noopImporter{typ: ontology.ResourceTypeSchematic}, "nodes",
 				})
 				Expect(s.ResolveType(
-					ctx, typelessEnvelope(`{"version":"1.0.0","nodes":[]}`),
+					typelessEnvelope(`{"version":"1.0.0","nodes":[]}`),
 				)).To(Equal("bbb"))
 			},
 		)
@@ -283,7 +283,7 @@ var _ = Describe("Service", func() {
 					noopImporter{typ: ontology.ResourceTypeLog}, "marker",
 				})
 				Expect(s.ResolveType(
-					ctx, typelessEnvelope(`{"marker":true}`),
+					typelessEnvelope(`{"marker":true}`),
 				)).To(Equal("aaa"))
 			},
 		)
@@ -292,7 +292,7 @@ var _ = Describe("Service", func() {
 			"Should reject a typeless envelope no matcher claims",
 			func(ctx SpecContext) {
 				Expect(svc.ResolveType(
-					ctx, typelessEnvelope(`{"version":"1.0.0","foo":1}`),
+					typelessEnvelope(`{"version":"1.0.0","foo":1}`),
 				)).Error().To(SatisfyAll(
 					MatchError(
 						ContainSubstring("does not match any known resource format"),

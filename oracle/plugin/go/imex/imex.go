@@ -150,11 +150,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Path:    outputPath + "/versions/" + p.options.FileNamePattern,
 			Content: buf.Bytes(),
 		})
-		// The constants used to be emitted at the package root; clean the old location
-		// up.
-		resp.Deletions = append(
-			resp.Deletions, outputPath+"/"+p.options.FileNamePattern,
-		)
 	}
 	return resp, nil
 }
@@ -227,8 +222,6 @@ func chainArms(
 		}
 		if hasStep {
 			steps.Add(j)
-		} else {
-			steps.Remove(j)
 		}
 	}
 	arms := make([]chainArm, 0, current-floor)

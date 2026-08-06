@@ -69,5 +69,8 @@ func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, err
 	if err != nil {
 		return legacy.Document{}, err
 	}
+	if err = imex.RequireFields(body, "arc", "graph"); err != nil {
+		return legacy.Document{}, err
+	}
 	return legacy.MigrateData(body)
 }

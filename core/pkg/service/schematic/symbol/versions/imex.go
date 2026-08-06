@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // DecodeImExEnvelope materializes env's body as a current-version Symbol, keyless and
@@ -28,9 +29,14 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 	if env.Version > legacy.LastVersion {
 		sym, err = autoDecodeEnvelope(ctx, env)
 	} else {
-		var d legacy.Data
-		if d, err = imex.Decode[legacy.Data](ctx, env); err == nil {
-			sym.Data = v2.SpecFromConsole(d.Spec)
+		var body msgpack.EncodedJSON
+		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+			if err = imex.RequireFields(body, "symbol", "data"); err == nil {
+				var d legacy.Data
+				if d, err = imex.Decode[legacy.Data](ctx, env); err == nil {
+					sym.Data = v2.SpecFromConsole(d.Spec)
+				}
+			}
 		}
 	}
 	if err != nil {

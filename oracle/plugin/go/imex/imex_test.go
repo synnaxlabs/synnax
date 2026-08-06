@@ -105,26 +105,6 @@ var _ = Describe("Go ImEx Plugin", func() {
 		)
 
 		It(
-			"Should request deletion of the legacy package-root constant",
-			func(ctx SpecContext) {
-				source := `
-				@go output "core/pkg/service/log"
-
-				Log struct {
-					key  uuid
-					name string
-					@go version 3
-					@go imex
-				}
-			`
-				resp := MustGenerate(ctx, source, "log", loader, p)
-				Expect(resp.Deletions).To(
-					ConsistOf("core/pkg/service/log/imex.gen.go"),
-				)
-			},
-		)
-
-		It(
 			"Should delete constants in version directories below the floor",
 			func(ctx SpecContext) {
 				tmpDir := GinkgoT().TempDir()
@@ -166,7 +146,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"const Latest = v3.Version",
 				).
 					ToBeValidGoSource()
-				Expect(resp.Deletions).To(ContainElement(
+				Expect(resp.Deletions).To(ConsistOf(
 					"core/pkg/service/log/versions/v2/imex.gen.go",
 				))
 			},

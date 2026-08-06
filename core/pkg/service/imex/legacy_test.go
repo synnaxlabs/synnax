@@ -14,7 +14,50 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
+
+var _ = Describe("RequireFields", func() {
+	It("Should accept a body carrying every named field", func() {
+		body := msgpack.EncodedJSON{"nodes": []any{}, "props": map[string]any{}}
+		Expect(imex.RequireFields(body, "schematic", "nodes", "props")).To(Succeed())
+	})
+
+	It("Should accept fields present but empty", func() {
+		body := msgpack.EncodedJSON{"channels": []any{}}
+		Expect(imex.RequireFields(body, "log", "channels")).To(Succeed())
+	})
+
+	It("Should accept a field explicitly set to null", func() {
+		body := msgpack.EncodedJSON{"channels": nil}
+		Expect(imex.RequireFields(body, "log", "channels")).To(Succeed())
+	})
+
+	It("Should reject a body missing a named field", func() {
+		body := msgpack.EncodedJSON{"nodes": []any{}, "configs": map[string]any{}}
+		Expect(imex.RequireFields(body, "schematic", "nodes", "props")).To(SatisfyAll(
+			MatchError(ContainSubstring("validation error")),
+			MatchError(ContainSubstring(`file is not a schematic: no "props" field`)),
+		))
+	})
+
+	It("Should reject an empty body", func() {
+		Expect(imex.RequireFields(msgpack.EncodedJSON{}, "table", "layout")).
+			To(MatchError(ContainSubstring(`file is not a table: no "layout" field`)))
+	})
+
+	It("Should scope the error to the first missing field", func() {
+		err := imex.RequireFields(msgpack.EncodedJSON{}, "table", "layout", "cells")
+		var pathed validate.PathError
+		Expect(errors.As(err, &pathed)).To(BeTrue())
+		Expect(pathed.Path).To(Equal([]string{"layout"}))
+	})
+
+	It("Should accept any body when no fields are named", func() {
+		Expect(imex.RequireFields(msgpack.EncodedJSON{}, "table")).To(Succeed())
+	})
+})
 
 var _ = Describe("PeekVersion", func() {
 	It("Should report version 0 for a nil blob", func() {

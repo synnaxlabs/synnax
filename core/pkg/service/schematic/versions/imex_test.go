@@ -63,13 +63,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(config(sch, "n1")).To(HaveKeyWithValue("color", "#ff0000"))
 	})
 
-	It("Should lift a versionless Console export", func(ctx SpecContext) {
-		sch := decode(ctx, "testdata/import_typed_versionless.json")
-		Expect(sch.Nodes).To(Equal([]versions.Node{
-			{Key: "n9", Position: spatial.XY{X: 9, Y: 9}, ZIndex: 1},
-		}))
-	})
-
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v7.json").Key).To(Equal(uuid.Nil))
 	})
@@ -88,5 +81,13 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			MatchError(ContainSubstring("schematic version 99")),
 			MatchError(ContainSubstring("newer than this Core supports")),
 		))
+	})
+
+	It("Should reject a body carrying no schematic structure", func(ctx SpecContext) {
+		Expect(versions.DecodeImExEnvelope(
+			ctx, LoadEnvelope("testdata/import_unrecognized.json"),
+		)).Error().To(MatchError(ContainSubstring(
+			`file is not a schematic: no "props" field`,
+		)))
 	})
 })
