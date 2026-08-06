@@ -15,6 +15,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Label } from "@/label";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -352,30 +353,30 @@ describe("queries", () => {
             { name: "label1", color: "#FF0000" },
             { name: "label2", color: "#00FF00" },
           ]);
-          const { result } = renderHook(
+          const { result } = await renderHookSuspended(
             () => Label.useRetrieveMultiple({ keys: labels.map((l) => l.key) }),
             { wrapper },
           );
-          await waitFor(() => expect(result.current.variant).toEqual("success"));
-          expect(result.current.data).toEqual(labels);
+          await waitFor(() => expect(result.current).not.toBeNull());
+          expect(result.current).toEqual(labels);
         });
         it("should update when a label changes", async () => {
           const labels = await client.labels.create([
             { name: "label1", color: "#FF0000" },
             { name: "label2", color: "#00FF00" },
           ]);
-          const { result } = renderHook(
+          const { result } = await renderHookSuspended(
             () => Label.useRetrieveMultiple({ keys: labels.map((l) => l.key) }),
             { wrapper },
           );
-          await waitFor(() => expect(result.current.variant).toEqual("success"));
-          expect(result.current.data).toEqual(labels);
+          await waitFor(() => expect(result.current).not.toBeNull());
+          expect(result.current).toEqual(labels);
           labels[0] = await client.labels.create({
             ...labels[0],
             name: "updatedLabel",
           });
           await waitFor(() => {
-            expect(result.current.data).toEqual(expect.arrayContaining(labels));
+            expect(result.current).toEqual(expect.arrayContaining(labels));
           });
         });
       });

@@ -25,18 +25,14 @@ export type RetrieveQuery = schematic.RetrieveSingleParams;
 
 // Prefers the cached copy: it may hold locally replayed edits ahead of the
 // server.
-export const {
-  useRetrieveSuspended,
-  useRetrieveObservable,
-  useEnsureRetrieved,
-  useTombstone,
-  createSelector,
-} = Flux.createRetrieve<RetrieveQuery, schematic.Schematic>({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.schematics.onChange(query, handler),
-  getCached: ({ client, query }) => client.schematics.getCached(query),
-});
+export const { useRetrieve, useEnsureRetrieved, useTombstone, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, schematic.Schematic>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
+    onChange: ({ client, query }, handler) =>
+      client.schematics.onChange(query, handler),
+    getCached: ({ client, query }) => client.schematics.getCached(query),
+  });
 
 export interface SelectKeyParams {
   key: schematic.Key;

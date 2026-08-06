@@ -14,6 +14,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Policy } from "@/access/policy";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -146,14 +147,17 @@ describe("queries", () => {
         actions: ["create", "retrieve", "update"],
       });
 
-      const { result } = renderHook(() => Policy.useRetrieve({ key: testPolicy.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = await renderHookSuspended(
+        () => Policy.useRetrieve({ key: testPolicy.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
 
-      expect(result.current.data?.key).toEqual(testPolicy.key);
-      expect(result.current.data?.name).toEqual("singlePolicy");
-      expect(result.current.data?.actions).toContain("create");
+      expect(result.current?.key).toEqual(testPolicy.key);
+      expect(result.current?.name).toEqual("singlePolicy");
+      expect(result.current?.actions).toContain("create");
     });
 
     it("should handle retrieve with valid policy key", async () => {
@@ -163,13 +167,16 @@ describe("queries", () => {
         actions: ["delete"],
       });
 
-      const { result } = renderHook(() => Policy.useRetrieve({ key: policy.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = await renderHookSuspended(
+        () => Policy.useRetrieve({ key: policy.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
 
-      expect(result.current.data).toBeDefined();
-      expect(result.current.data?.key).toEqual(policy.key);
+      expect(result.current).not.toBeNull();
+      expect(result.current?.key).toEqual(policy.key);
     });
   });
 
@@ -181,7 +188,7 @@ describe("queries", () => {
         actions: ["create"],
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Policy.useRetrieve({ key: policy.key }),
           rename: Policy.useRename(),
@@ -191,9 +198,7 @@ describe("queries", () => {
       act(() => {
         result.current.rename.update({ key: policy.key, name: "newName" });
       });
-      await waitFor(() =>
-        expect(result.current.retrieve.data?.name).toEqual("newName"),
-      );
+      await waitFor(() => expect(result.current.retrieve?.name).toEqual("newName"));
     });
   });
 

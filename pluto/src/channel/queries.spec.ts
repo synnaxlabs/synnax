@@ -15,6 +15,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("queries", () => {
@@ -800,12 +801,15 @@ describe("queries", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      const { result } = renderHook(() => Channel.useRetrieve({ key: ch.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.key).toEqual(ch.key);
-      expect(result.current.data?.name).toEqual(name);
+      const { result } = await renderHookSuspended(
+        () => Channel.useRetrieve({ key: ch.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.key).toEqual(ch.key);
+      expect(result.current?.name).toEqual(name);
     });
 
     it("should retrieve channel with range alias", async () => {
@@ -825,12 +829,12 @@ describe("queries", () => {
       });
       await client.ranges.setAlias(range.key, ch.key, "custom_alias");
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Channel.useRetrieve({ key: ch.key, rangeKey: range.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.alias).toEqual("custom_alias");
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.alias).toEqual("custom_alias");
     });
 
     it("should update when channel is renamed", async () => {
@@ -840,7 +844,7 @@ describe("queries", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
           const retrieve = Channel.useRetrieve({ key: ch.key });
           const rename = Channel.useRename();
@@ -848,8 +852,8 @@ describe("queries", () => {
         },
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
-      expect(result.current.retrieve.data?.name).toEqual(name);
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
+      expect(result.current.retrieve?.name).toEqual(name);
 
       const updatedName = id.create();
 
@@ -860,7 +864,7 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve.data?.name).toEqual(updatedName);
+        expect(result.current.retrieve?.name).toEqual(updatedName);
       });
     });
 
@@ -887,13 +891,16 @@ describe("queries", () => {
         time: TimeStamp.now(),
         details: { channel: calc.key },
       });
-      const { result } = renderHook(() => Channel.useRetrieve({ key: calc.key }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Channel.useRetrieve({ key: calc.key }),
+        {
+          wrapper,
+        },
+      );
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data?.status?.variant).toEqual("error");
-        expect(result.current.data?.status?.message).toEqual("invalid expression");
+        expect(result.current).not.toBeNull();
+        expect(result.current?.status?.variant).toEqual("error");
+        expect(result.current?.status?.message).toEqual("invalid expression");
       });
     });
 
@@ -909,11 +916,14 @@ describe("queries", () => {
         virtual: true,
         expression: `return ${source.name} * 2`,
       });
-      const { result } = renderHook(() => Channel.useRetrieve({ key: calc.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.status).toBeUndefined();
+      const { result } = await renderHookSuspended(
+        () => Channel.useRetrieve({ key: calc.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.status).toBeUndefined();
     });
 
     it("should react to status changes on a calculated channel", async () => {
@@ -928,11 +938,14 @@ describe("queries", () => {
         virtual: true,
         expression: `return ${source.name} * 2`,
       });
-      const { result } = renderHook(() => Channel.useRetrieve({ key: calc.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.status).toBeUndefined();
+      const { result } = await renderHookSuspended(
+        () => Channel.useRetrieve({ key: calc.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.status).toBeUndefined();
 
       // The core clears a calculated channel's status shortly after creation;
       // let that settle so it does not race the status set below.
@@ -948,8 +961,8 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.data?.status?.variant).toEqual("error");
-        expect(result.current.data?.status?.message).toEqual("broken expression");
+        expect(result.current?.status?.variant).toEqual("error");
+        expect(result.current?.status?.message).toEqual("broken expression");
       });
     });
   });
@@ -966,14 +979,14 @@ describe("queries", () => {
         dataType: DataType.INT32,
         virtual: true,
       });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Channel.useRetrieveMultiple({ keys: [ch1.key, ch2.key] }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(2);
-      expect(result.current.data?.map((c) => c.key)).toContain(ch1.key);
-      expect(result.current.data?.map((c) => c.key)).toContain(ch2.key);
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current).toHaveLength(2);
+      expect(result.current?.map((c) => c.key)).toContain(ch1.key);
+      expect(result.current?.map((c) => c.key)).toContain(ch2.key);
     });
 
     it("should retrieve channels with range aliases", async () => {
@@ -999,7 +1012,7 @@ describe("queries", () => {
       await client.ranges.setAlias(range.key, ch1.key, "alias_1");
       await client.ranges.setAlias(range.key, ch2.key, "alias_2");
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () =>
           Channel.useRetrieveMultiple({
             keys: [ch1.key, ch2.key],
@@ -1007,9 +1020,9 @@ describe("queries", () => {
           }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const ch1Result = result.current.data?.find((c) => c.key === ch1.key);
-      const ch2Result = result.current.data?.find((c) => c.key === ch2.key);
+      await waitFor(() => expect(result.current).not.toBeNull());
+      const ch1Result = result.current?.find((c) => c.key === ch1.key);
+      const ch2Result = result.current?.find((c) => c.key === ch2.key);
       expect(ch1Result?.alias).toEqual("alias_1");
       expect(ch2Result?.alias).toEqual("alias_2");
     });
@@ -1026,7 +1039,7 @@ describe("queries", () => {
         dataType: DataType.INT64,
         virtual: true,
       });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
           const retrieve = Channel.useRetrieveMultiple({ keys: [ch1.key, ch2.key] });
           const rename = Channel.useRename();
@@ -1034,7 +1047,7 @@ describe("queries", () => {
         },
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
 
       const renamed1 = id.create();
 
@@ -1045,10 +1058,10 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        const updated = result.current.retrieve.data?.find((c) => c.key === ch1.key);
+        const updated = result.current.retrieve?.find((c) => c.key === ch1.key);
         expect(updated?.name).toEqual(renamed1);
       });
-      const unchanged = result.current.retrieve.data?.find((c) => c.key === ch2.key);
+      const unchanged = result.current.retrieve?.find((c) => c.key === ch2.key);
       expect(unchanged?.name).toEqual(orig2);
     });
   });
@@ -1149,7 +1162,7 @@ describe("queries", () => {
         timeRange: new TimeRange({ start: 1n, end: 3000n }),
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
           const retrieve = Channel.useRetrieve({ key: ch.key, rangeKey: range.key });
           const updateAlias = Channel.useUpdateAlias();
@@ -1157,7 +1170,7 @@ describe("queries", () => {
         },
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
 
       await act(async () => {
         await result.current.updateAlias.updateAsync({
@@ -1167,7 +1180,7 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve.data?.alias).toEqual("new_alias");
+        expect(result.current.retrieve?.alias).toEqual("new_alias");
       });
 
       await act(async () => {
@@ -1178,7 +1191,7 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve.data?.alias).toEqual("updated_alias");
+        expect(result.current.retrieve?.alias).toEqual("updated_alias");
       });
     });
   });
@@ -1201,7 +1214,7 @@ describe("queries", () => {
       });
       await client.ranges.setAlias(range.key, ch.key, "to_delete");
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
           const retrieve = Channel.useRetrieve({ key: ch.key, rangeKey: range.key });
           const deleteAlias = Channel.useDeleteAlias();
@@ -1209,8 +1222,8 @@ describe("queries", () => {
         },
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
-      expect(result.current.retrieve.data?.alias).toEqual("to_delete");
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
+      expect(result.current.retrieve?.alias).toEqual("to_delete");
 
       await act(async () => {
         await result.current.deleteAlias.updateAsync({
@@ -1219,7 +1232,7 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve.data?.alias).toBeUndefined();
+        expect(result.current.retrieve?.alias).toBeUndefined();
       });
     });
 
@@ -1246,7 +1259,7 @@ describe("queries", () => {
       await client.ranges.setAlias(range.key, ch1.key, "multi_alias_1");
       await client.ranges.setAlias(range.key, ch2.key, "multi_alias_2");
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
           const retrieve = Channel.useRetrieveMultiple({
             keys: [ch1.key, ch2.key],
@@ -1258,10 +1271,10 @@ describe("queries", () => {
         { wrapper },
       );
       await waitFor(() => {
-        expect(result.current.retrieve.variant).toEqual("success");
+        expect(result.current.retrieve).not.toBeNull();
       });
-      const ch1Before = result.current.retrieve.data?.find((c) => c.key === ch1.key);
-      const ch2Before = result.current.retrieve.data?.find((c) => c.key === ch2.key);
+      const ch1Before = result.current.retrieve?.find((c) => c.key === ch1.key);
+      const ch2Before = result.current.retrieve?.find((c) => c.key === ch2.key);
       expect(ch1Before?.alias).toEqual("multi_alias_1");
       expect(ch2Before?.alias).toEqual("multi_alias_2");
 
@@ -1272,8 +1285,8 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        const ch1After = result.current.retrieve.data?.find((c) => c.key === ch1.key);
-        const ch2After = result.current.retrieve.data?.find((c) => c.key === ch2.key);
+        const ch1After = result.current.retrieve?.find((c) => c.key === ch1.key);
+        const ch2After = result.current.retrieve?.find((c) => c.key === ch2.key);
         expect(ch1After?.alias).toBeUndefined();
         expect(ch2After?.alias).toBeUndefined();
       });

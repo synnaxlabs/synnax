@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, status, task } from "@synnaxlabs/client";
+import { arc, query, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
@@ -16,6 +16,7 @@ import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "
 
 import { Arc } from "@/arc";
 import { Errors } from "@/errors";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("Arc queries", () => {
@@ -734,16 +735,19 @@ describe("Arc queries", () => {
         mode: "text",
       });
 
-      const { result } = renderHook(() => Arc.useRetrieve({ key: testArc.key }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Arc.useRetrieve({ key: testArc.key }),
+        {
+          wrapper,
+        },
+      );
 
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
+        expect(result.current).not.toBeNull();
       });
 
-      expect(result.current.data?.key).toBe(testArc.key);
-      expect(result.current.data?.name).toBe(testArc.name);
+      expect(result.current?.key).toBe(testArc.key);
+      expect(result.current?.name).toBe(testArc.name);
     });
 
     it("does not suspend when the arc is already in the store", async () => {
@@ -802,16 +806,12 @@ describe("Arc queries", () => {
         mode: "text",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Arc.useRetrieveTask({ arcKey: testArc.key }),
         { wrapper },
       );
 
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      expect(result.current.data).toBeNull();
+      expect(result.current).toBeNull();
     });
 
     it("should retrieve task associated with arc", async () => {
@@ -832,19 +832,16 @@ describe("Arc queries", () => {
         task.ontologyID(testTask.key),
       );
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Arc.useRetrieveTask({ arcKey: testArc.key }),
         { wrapper },
       );
 
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toBeDefined();
+      await waitFor(() => expect(result.current?.key).toEqual(testTask.key), {
+        timeout: 5000,
       });
-
-      expect(result.current.data?.key).toEqual(testTask.key);
-      expect(result.current.data?.name).toEqual("arc-task");
-      expect(result.current.data?.config).toEqual({ value: "test" });
+      expect(result.current?.name).toEqual("arc-task");
+      expect(result.current?.config).toEqual({ value: "test" });
     });
 
     it("should update when a task is associated with arc", async () => {
@@ -853,15 +850,12 @@ describe("Arc queries", () => {
         mode: "text",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Arc.useRetrieveTask({ arcKey: testArc.key }),
         { wrapper },
       );
 
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.data).toBeNull();
+      expect(result.current).toBeNull();
 
       const rack = await client.racks.create({ name: "test-rack-add" });
       const testTask = await rack.createTask({
@@ -877,11 +871,16 @@ describe("Arc queries", () => {
         );
       });
 
-      await waitFor(() => {
-        expect(result.current.data).toBeDefined();
-        expect(result.current.data?.key).toEqual(testTask.key);
-      });
-    });
+      await waitFor(
+        () => {
+          const cached = client.arcs.task.getCached(testArc.key);
+          expect(query.isLive(cached) && cached?.key).toEqual(testTask.key);
+        },
+        { timeout: 15000 },
+      );
+      await act(async () => {});
+      expect(result.current?.key).toEqual(testTask.key);
+    }, 20000);
 
     it("should update when task status changes", async () => {
       const testArc = await client.arcs.create({
@@ -901,15 +900,10 @@ describe("Arc queries", () => {
         task.ontologyID(testTask.key),
       );
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Arc.useRetrieveTask({ arcKey: testArc.key }),
         { wrapper },
       );
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toBeDefined();
-      });
 
       const taskStatus: task.Status = status.create<
         ReturnType<typeof task.statusDetailsZ>
@@ -930,8 +924,8 @@ describe("Arc queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.data?.status?.variant).toEqual("error");
-        expect(result.current.data?.status?.message).toEqual("Task failed");
+        expect(result.current?.status?.variant).toEqual("error");
+        expect(result.current?.status?.message).toEqual("Task failed");
       });
     });
 
@@ -953,14 +947,14 @@ describe("Arc queries", () => {
         task.ontologyID(testTask.key),
       );
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Arc.useRetrieveTask({ arcKey: testArc.key }),
         { wrapper },
       );
 
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data?.name).toEqual("original-task-name");
+        expect(result.current).not.toBeNull();
+        expect(result.current?.name).toEqual("original-task-name");
       });
 
       await act(async () => {
@@ -971,7 +965,7 @@ describe("Arc queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.data?.name).toEqual("renamed-task-name");
+        expect(result.current?.name).toEqual("renamed-task-name");
       });
     });
   });
@@ -1519,32 +1513,24 @@ describe("Arc queries", () => {
     });
   });
 
-  describe("useRetrieveObservable", () => {
-    it("fires onChange with the arc initially and on each change", async () => {
+  describe("useRetrieve", () => {
+    it("serves the arc initially and on each change", async () => {
       const isolated = await createTestArc();
-      const seen: string[] = [];
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
-          obs: Arc.useRetrieveObservable({
-            onChange: (res) => {
-              if (res.variant === "success") seen.push(res.data.name);
-            },
-          }),
+          arc: Arc.useRetrieve({ key: isolated.key }),
           rename: Arc.useRename(),
         }),
         { wrapper },
       );
-      await act(async () => {
-        await result.current.obs.retrieveAsync({ key: isolated.key });
-      });
-      await waitFor(() => expect(seen).toContain(isolated.name));
+      await waitFor(() => expect(result.current.arc.name).toEqual(isolated.name));
       await act(async () => {
         await result.current.rename.updateAsync({
           key: isolated.key,
-          name: "obs_renamed",
+          name: "renamed",
         });
       });
-      await waitFor(() => expect(seen).toContain("obs_renamed"));
+      await waitFor(() => expect(result.current.arc.name).toEqual("renamed"));
     });
   });
 });

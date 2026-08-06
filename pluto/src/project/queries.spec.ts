@@ -15,6 +15,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Project } from "@/project";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -271,16 +272,16 @@ describe("queries", () => {
         },
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Project.useRetrieve({ key: testProject.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      await waitFor(() => expect(result.current).not.toBeNull());
 
-      expect(result.current.data?.key).toEqual(testProject.key);
-      expect(result.current.data?.name).toEqual("singleProject");
-      expect(result.current.data?.layout.title).toEqual("My Dashboard");
-      expect(result.current.data?.layout.widgets).toHaveLength(2);
+      expect(result.current?.key).toEqual(testProject.key);
+      expect(result.current?.name).toEqual("singleProject");
+      expect(result.current?.layout.title).toEqual("My Dashboard");
+      expect(result.current?.layout.widgets).toHaveLength(2);
     });
 
     it("should handle retrieve with valid project key", async () => {
@@ -289,14 +290,17 @@ describe("queries", () => {
         layout: { config: { setting1: "value1" } },
       });
 
-      const { result } = renderHook(() => Project.useRetrieve({ key: project.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = await renderHookSuspended(
+        () => Project.useRetrieve({ key: project.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
 
-      expect(result.current.data).toBeDefined();
-      expect(result.current.data?.key).toEqual(project.key);
-      expect((result.current.data?.layout as any).config.setting1).toEqual("value1");
+      expect(result.current).not.toBeNull();
+      expect(result.current?.key).toEqual(project.key);
+      expect((result.current?.layout as any).config.setting1).toEqual("value1");
     });
   });
 
@@ -308,7 +312,7 @@ describe("queries", () => {
       });
 
       const newName = `newName-${id.create()}`;
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Project.useRetrieve({ key: proj.key }),
           rename: Project.useRename(),
@@ -318,7 +322,7 @@ describe("queries", () => {
       await act(async () => {
         await result.current.rename.updateAsync({ key: proj.key, name: newName });
       });
-      await waitFor(() => expect(result.current.retrieve.data?.name).toEqual(newName));
+      await waitFor(() => expect(result.current.retrieve?.name).toEqual(newName));
     });
   });
 
@@ -358,7 +362,7 @@ describe("queries", () => {
         layout: { config: { setting1: "value1" } },
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           saveLayout: Project.useSaveLayout(),
           retrieve: Project.useRetrieve({ key: proj.key }),
@@ -366,9 +370,9 @@ describe("queries", () => {
         { wrapper },
       );
       await waitFor(() => {
-        expect(result.current.retrieve.variant).toEqual("success");
-        expect(result.current.retrieve.data?.key).toEqual(proj.key);
-        expect(result.current.retrieve.data?.layout).toEqual({
+        expect(result.current.retrieve).not.toBeNull();
+        expect(result.current.retrieve?.key).toEqual(proj.key);
+        expect(result.current.retrieve?.layout).toEqual({
           config: { setting1: "value1" },
         });
       });
@@ -381,8 +385,8 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.saveLayout.variant).toEqual("success");
-        expect(result.current.retrieve.data?.key).toEqual(proj.key);
-        expect(result.current.retrieve.data?.layout).toEqual({
+        expect(result.current.retrieve?.key).toEqual(proj.key);
+        expect(result.current.retrieve?.layout).toEqual({
           config: { setting1: "value2" },
         });
       });

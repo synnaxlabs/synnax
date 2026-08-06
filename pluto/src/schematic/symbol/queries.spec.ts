@@ -14,6 +14,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Symbol } from "@/schematic/symbol";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("Symbol queries", () => {
@@ -243,14 +244,17 @@ describe("Symbol queries", () => {
         },
       });
 
-      const { result } = renderHook(() => Symbol.useRetrieve({ key: symbol.key }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Symbol.useRetrieve({ key: symbol.key }),
+        {
+          wrapper,
+        },
+      );
 
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data?.name).toBe("retrieve-test");
-        expect(result.current.data?.data.svg).toBe("<svg>test</svg>");
+        expect(result.current).not.toBeNull();
+        expect(result.current?.name).toBe("retrieve-test");
+        expect(result.current?.data.svg).toBe("<svg>test</svg>");
       });
     });
   });

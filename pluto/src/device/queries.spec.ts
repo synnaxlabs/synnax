@@ -17,6 +17,7 @@ import { z } from "zod";
 
 import { Device } from "@/device";
 import { Status } from "@/status";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -41,11 +42,14 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = renderHook(() => Device.useRetrieve({ key: dev.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.key).toEqual(dev.key);
+      const { result } = await renderHookSuspended(
+        () => Device.useRetrieve({ key: dev.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.key).toEqual(dev.key);
     });
 
     it("should update the query when the device is updated", async () => {
@@ -59,11 +63,14 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = renderHook(() => Device.useRetrieve({ key: dev.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.key).toEqual(dev.key);
+      const { result } = await renderHookSuspended(
+        () => Device.useRetrieve({ key: dev.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.key).toEqual(dev.key);
       await act(async () => {
         await client.devices.create({
           ...dev,
@@ -71,7 +78,7 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.data?.name).toEqual("test2");
+        expect(result.current?.name).toEqual("test2");
       });
     });
 
@@ -88,11 +95,14 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = renderHook(() => Device.useRetrieve({ key: dev.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.key).toEqual(dev.key);
+      const { result } = await renderHookSuspended(
+        () => Device.useRetrieve({ key: dev.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.key).toEqual(dev.key);
       const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
         key: device.statusKey(dev.key),
         variant: "success",
@@ -104,11 +114,9 @@ describe("queries", () => {
       });
       await client.statuses.set(devStatus);
       await waitFor(() => {
-        expect(result.current.data?.status?.variant).toEqual("success");
-        expect(result.current.data?.status?.details.device).toEqual(dev.key);
-        expect(result.current.data?.status?.message).toEqual(
-          "Device is happy as a clam",
-        );
+        expect(result.current?.status?.variant).toEqual("success");
+        expect(result.current?.status?.details.device).toEqual(dev.key);
+        expect(result.current?.status?.message).toEqual("Device is happy as a clam");
       });
     });
 
@@ -123,10 +131,13 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result } = renderHook(() => Device.useRetrieve({ key: dev.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = await renderHookSuspended(
+        () => Device.useRetrieve({ key: dev.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
       const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
         key: device.statusKey(dev.key),
         variant: "success",
@@ -138,7 +149,7 @@ describe("queries", () => {
       });
       await client.statuses.set(devStatus);
       await waitFor(() => {
-        expect(result.current.data?.status?.variant).toEqual("success");
+        expect(result.current?.status?.variant).toEqual("success");
       });
       await act(async () => {
         await client.devices.create({
@@ -147,8 +158,8 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.data?.name).toEqual("updated-name");
-        expect(result.current.data?.status).not.toBeUndefined();
+        expect(result.current?.name).toEqual("updated-name");
+        expect(result.current?.status).not.toBeUndefined();
       });
     });
 
@@ -163,13 +174,13 @@ describe("queries", () => {
         model: "test",
         properties: {},
       });
-      const { result: result1 } = renderHook(
+      const { result: result1 } = await renderHookSuspended(
         () => Device.useRetrieve({ key: dev.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result1.current.variant).toEqual("success"));
-      expect(result1.current.data?.key).toEqual(dev.key);
-      expect(result1.current.data?.status).toBeDefined();
+      await waitFor(() => expect(result1.current).not.toBeNull());
+      expect(result1.current?.key).toEqual(dev.key);
+      expect(result1.current?.status).toBeDefined();
       await act(async () => {
         await client.statuses.set(
           status.create<typeof device.statusDetailsZ>({
@@ -180,16 +191,14 @@ describe("queries", () => {
           }),
         );
       });
-      const { result: result2 } = renderHook(
+      const { result: result2 } = await renderHookSuspended(
         () => Device.useRetrieve({ key: dev.key }),
         { wrapper },
       );
       await waitFor(() => {
-        expect(result2.current.variant).toEqual("success");
-        expect(result2.current.data?.status?.variant).toEqual("success");
-        expect(result2.current.data?.status?.message).toEqual(
-          "Device is happy as a clam",
-        );
+        expect(result2.current).not.toBeNull();
+        expect(result2.current?.status?.variant).toEqual("success");
+        expect(result2.current?.status?.message).toEqual("Device is happy as a clam");
       });
     });
   });
@@ -1355,12 +1364,15 @@ describe("queries", () => {
         );
 
         const { useRetrieve } = Device.createRetrieve(schemas);
-        const { result } = renderHook(() => useRetrieve({ key: dev.key }), { wrapper });
+        const { result } = await renderHookSuspended(
+          () => useRetrieve({ key: dev.key }),
+          { wrapper },
+        );
 
-        await waitFor(() => expect(result.current.variant).toEqual("success"));
-        expect(result.current.data?.properties.sampleRate).toBe(1000);
-        expect(result.current.data?.properties.channels).toEqual({ ai0: 1, ai1: 2 });
-        expect(result.current.data?.make).toBe("custom_make");
+        await waitFor(() => expect(result.current).not.toBeNull());
+        expect(result.current?.properties.sampleRate).toBe(1000);
+        expect(result.current?.properties.channels).toEqual({ ai0: 1, ai1: 2 });
+        expect(result.current?.make).toBe("custom_make");
       });
 
       it("should update typed device when properties change", async () => {
@@ -1379,10 +1391,13 @@ describe("queries", () => {
         );
 
         const { useRetrieve } = Device.createRetrieve(schemas);
-        const { result } = renderHook(() => useRetrieve({ key: dev.key }), { wrapper });
+        const { result } = await renderHookSuspended(
+          () => useRetrieve({ key: dev.key }),
+          { wrapper },
+        );
 
-        await waitFor(() => expect(result.current.variant).toEqual("success"));
-        expect(result.current.data?.properties.sampleRate).toBe(100);
+        await waitFor(() => expect(result.current).not.toBeNull());
+        expect(result.current?.properties.sampleRate).toBe(100);
 
         await act(async () => {
           await client.devices.create(
@@ -1395,8 +1410,8 @@ describe("queries", () => {
         });
 
         await waitFor(() => {
-          expect(result.current.data?.properties.sampleRate).toBe(500);
-          expect(result.current.data?.properties.channels).toEqual({ ch1: 10 });
+          expect(result.current?.properties.sampleRate).toBe(500);
+          expect(result.current?.properties.channels).toEqual({ ch1: 10 });
         });
       });
     });

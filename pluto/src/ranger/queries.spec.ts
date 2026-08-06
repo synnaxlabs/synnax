@@ -20,6 +20,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Ranger } from "@/ranger";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -1054,7 +1055,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieveSuspended cached fast-path", () => {
+  describe("useRetrieve cached fast-path", () => {
     it("resolves synchronously from the warm store without suspending", async () => {
       const rng = await client.ranges.create({
         name: "cached_fastpath",
@@ -1063,11 +1064,14 @@ describe("queries", () => {
 
       // Warm the flux store (range + labels + parent relationship) through the
       // async retrieve path so the composed cache fast-path can resolve.
-      const warm = renderHook(() => Ranger.useRetrieve({ key: rng.key }), { wrapper });
-      await waitFor(() => expect(warm.result.current.variant).toEqual("success"));
+      const warm = await renderHookSuspended(
+        () => Ranger.useRetrieve({ key: rng.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(warm.result.current).toBeDefined());
 
       const Display = (): ReactElement => {
-        const range = Ranger.useRetrieveSuspense({ key: rng.key });
+        const range = Ranger.useRetrieve({ key: rng.key });
         return createElement("span", { "data-testid": "name" }, range.name);
       };
 

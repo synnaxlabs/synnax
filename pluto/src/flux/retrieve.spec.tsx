@@ -19,17 +19,9 @@ import {
   createTestClient,
   TEST_CLIENT_PARAMS,
 } from "@synnaxlabs/client/testutil";
-import { Unreachable } from "@synnaxlabs/freighter";
 import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
-import {
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
@@ -71,270 +63,10 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
   return Live;
 };
 
-describe("retrieve", () => {
-  describe("useDirect", () => {
-    describe("basic retrieval", () => {
-      it("should return a loading result as its initial state", () => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number>({
-          name: "Resource",
-          retrieve: async () => 0,
-        });
-
-        const { result } = renderHook(() => useRetrieve({ params: {} }), {
-          wrapper: Wrapper,
-        });
-        expect(result.current.variant).toEqual("loading");
-        expect(result.current.data).toEqual(undefined);
-        expect(result.current.status.message).toEqual("Retrieving Resource");
-      });
-
-      it("should return a success result when the data is fetched", async () => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number>({
-          name: "Resource",
-          retrieve: async () => 12,
-        });
-
-        const { result } = renderHook(() => useRetrieve({ params: {} }), {
-          wrapper: Wrapper,
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("success");
-          expect(result.current.data).toEqual(12);
-          expect(result.current.status.message).toEqual(
-            "Successfully retrieved Resource",
-          );
-        });
-      });
-
-      it("should return an error result when the retrieve function throws an error", async () => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number>({
-          name: "Resource",
-          retrieve: async () => {
-            throw new Error("test");
-          },
-        });
-
-        const { result } = renderHook(() => useRetrieve({ params: {} }), {
-          wrapper: Wrapper,
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("error");
-          expect(result.current.data).toEqual(undefined);
-          expect(result.current.status.message).toEqual("Failed to retrieve Resource");
-          expect(result.current.status.description).toEqual("test");
-        });
-      });
-
-      it("should return an error result when no client is connected", async () => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number>({
-          name: "Resource",
-          retrieve: async () => 0,
-        });
-
-        const { result } = renderHook(() => useRetrieve({ params: {} }), {
-          wrapper: createSynnaxWrapper({ client: null }),
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("disabled");
-          expect(result.current.data).toEqual(undefined);
-          expect(result.current.status.message).toEqual("Failed to retrieve Resource");
-          expect(result.current.status.description).toEqual(
-            "Cannot retrieve Resource because no Core is connected.",
-          );
-        });
-      });
-    });
-
-    describe("failure notifications", () => {
-      const renderFailing = (error: Error) => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number>({
-          name: "Resource",
-          retrieve: async () => {
-            throw error;
-          },
-        });
-        return renderHook(
-          () => ({
-            retrieve: useRetrieve({ params: {} }),
-            notifications: Status.useNotifications(),
-          }),
-          { wrapper: Wrapper },
-        );
-      };
-
-      it("should add a status when the retrieve fails for an ordinary reason", async () => {
-        const { result } = renderFailing(new Error("test"));
-        await waitFor(() => {
-          expect(result.current.retrieve.variant).toEqual("error");
-          expect(result.current.notifications.statuses).toHaveLength(1);
-          expect(result.current.notifications.statuses[0].message).toEqual(
-            "Failed to retrieve Resource",
-          );
-        });
-      });
-
-      it("should not add a status when the Core is unreachable", async () => {
-        const { result } = renderFailing(new Unreachable());
-        await waitFor(() => expect(result.current.retrieve.variant).toEqual("error"));
-        expect(result.current.notifications.statuses).toHaveLength(0);
-      });
-
-      it("should not add a status when the retrieve short circuits as disconnected", async () => {
-        const { result } = renderFailing(new DisconnectedError());
-        await waitFor(() => expect(result.current.retrieve.variant).toEqual("error"));
-        expect(result.current.notifications.statuses).toHaveLength(0);
-      });
-    });
-
-    describe("subscriptions", () => {
-      it("should update the result when the subscription pushes a change", async () => {
-        const ch = await client.labels.create({
-          name: "Test Label",
-          color: color.construct("#000000"),
-        });
-        let handler: query.ChangeHandler<label.Label> | null = null;
-        const { useRetrieve } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
-          name: "Resource",
-          retrieve: async ({ client, query: { key } }) =>
-            await client.labels.retrieve(key),
-          subscribe: (_, h) => {
-            handler = h;
-            return () => {};
-          },
-        });
-
-        const { result } = renderHook(() => useRetrieve({ key: ch.key }), {
-          wrapper: Wrapper,
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("success");
-          expect(result.current.data).toEqual(ch);
-          expect(handler).not.toBeNull();
-        });
-        act(() => {
-          handler?.({ ...ch, name: "Test Label 2" });
-        });
-        await waitFor(
-          () => {
-            expect(result.current.data?.name).toEqual("Test Label 2");
-            expect(
-              result.current.variant,
-              `${result.current.status.message}:${result.current.status.description}`,
-            ).toEqual("success");
-          },
-          { timeout: 1000 },
-        );
-      });
-
-      it("should move to an error result when the subscription reports a deletion", async () => {
-        const ch = await client.labels.create({
-          name: "Corpse Label",
-          color: color.construct("#000000"),
-        });
-        let handler: query.ChangeHandler<label.Label> | null = null;
-        const { useRetrieve } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
-          name: "Resource",
-          retrieve: async ({ client, query: { key } }) =>
-            await client.labels.retrieve(key),
-          subscribe: (_, h) => {
-            handler = h;
-            return () => {};
-          },
-        });
-
-        const { result } = renderHook(() => useRetrieve({ key: ch.key }), {
-          wrapper: Wrapper,
-        });
-        await waitFor(() => expect(result.current.variant).toEqual("success"));
-        act(() => {
-          handler?.(new query.Deleted(ch, TimeStamp.now()));
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("error");
-          expect(result.current.status.description).toEqual("Resource was deleted");
-        });
-      });
-    });
-  });
-
-  describe("useObservable", () => {
-    it("should drop the subscription of a query superseded mid-fetch", async () => {
-      const handlers = new Map<string, query.ChangeHandler<string>>();
-      let resolveSlow: ((value: string) => void) | null = null;
-      const { useRetrieveObservable } = Flux.createRetrieve<{ key: string }, string>({
-        name: "Resource",
-        retrieve: async ({ query: { key } }) =>
-          key === "slow"
-            ? await new Promise<string>((resolve) => (resolveSlow = resolve))
-            : key,
-        subscribe: ({ query: { key } }, h) => {
-          handlers.set(key, h);
-          return () => handlers.delete(key);
-        },
-      });
-      const onChange = vi.fn();
-      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
-        wrapper: Wrapper,
-      });
-      let slow: Promise<void> | null = null;
-      await act(async () => {
-        slow = result.current.retrieveAsync({ key: "slow" });
-        await result.current.retrieveAsync({ key: "fast" });
-      });
-      await act(async () => {
-        resolveSlow?.("slow");
-        await slow;
-      });
-      expect(handlers.has("slow")).toBe(false);
-      act(() => handlers.get("fast")?.("updated"));
-      const [lastResult, lastQuery] = onChange.mock.calls.at(-1) as [
-        Flux.Result<string>,
-        { key: string },
-      ];
-      expect(lastResult.data).toEqual("updated");
-      expect(lastQuery.key).toEqual("fast");
-    });
-  });
-
-  describe("useEffect", () => {
-    it("should call the onChange handler when the data is fetched", async () => {
-      const onChangeMock = vi.fn();
-      const { result } = renderHook(
-        () => {
-          const [result, setResult] = useState<Flux.Result<number>>(
-            Flux.loadingResult<number>("retrieving Resource", undefined),
-          );
-          const handleChange = useCallback(
-            (value: Flux.Result<number>) => {
-              setResult(value);
-              onChangeMock(value);
-            },
-            [onChangeMock],
-          );
-          const { useRetrieveEffect } = Flux.createRetrieve<{ key: string }, number>({
-            name: "Resource",
-            retrieve: async () => 12,
-          });
-          useRetrieveEffect({
-            query: { key: "test" },
-            onChange: handleChange,
-          });
-          return result;
-        },
-        { wrapper: Wrapper },
-      );
-      await waitFor(() => {
-        expect(onChangeMock).toHaveBeenCalledTimes(2);
-        expect(result.current.data).toEqual(12);
-      });
-    });
-  });
-});
-
-describe("useRetrieveSuspended", () => {
+describe("useRetrieve", () => {
   it("suspends until the retrieve resolves, then returns the value", async () => {
     let resolveRetrieve: (value: number) => void = () => {};
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: () =>
         new Promise<number>((resolve) => {
@@ -343,7 +75,7 @@ describe("useRetrieveSuspended", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "first-test" });
+      const value = useRetrieve({ key: "first-test" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -376,13 +108,13 @@ describe("useRetrieveSuspended", () => {
           resolveRetrieve = resolve;
         }),
     );
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "dedupe-test" });
+      const value = useRetrieve({ key: "dedupe-test" });
       return <div>{value}</div>;
     };
 
@@ -406,7 +138,7 @@ describe("useRetrieveSuspended", () => {
   });
 
   it("routes a thrown error to the error fallback", async () => {
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: async () => {
         throw new Error("boom");
@@ -414,7 +146,7 @@ describe("useRetrieveSuspended", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "error-test" });
+      const value = useRetrieve({ key: "error-test" });
       return <div>{value}</div>;
     };
 
@@ -446,14 +178,14 @@ describe("useRetrieveSuspended", () => {
     const retrieve = vi.fn(async (): Promise<number> => {
       throw new Error("boom");
     });
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => undefined,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "cached-error-test" });
+      const value = useRetrieve({ key: "cached-error-test" });
       return <div>{value}</div>;
     };
 
@@ -484,14 +216,14 @@ describe("useRetrieveSuspended", () => {
   it("resolves synchronously without suspending when the cache hits", async () => {
     const retrieve = vi.fn(async () => 99);
     const cached: query.Cached<number> = 42;
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => cached,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "cached-hit" });
+      const value = useRetrieve({ key: "cached-hit" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -513,7 +245,7 @@ describe("useRetrieveSuspended", () => {
 
   it("resolves from deriveCached when the query's own cache misses", async () => {
     const retrieve = vi.fn(async () => 99);
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => undefined,
@@ -521,7 +253,7 @@ describe("useRetrieveSuspended", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "derived" });
+      const value = useRetrieve({ key: "derived" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -553,15 +285,15 @@ describe("useRetrieveSuspended", () => {
           };
         }),
     );
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
-      subscribe: () => () => {},
+      onChange: () => () => {},
       getCached: () => cached,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "cached-miss" });
+      const value = useRetrieve({ key: "cached-miss" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -594,10 +326,10 @@ describe("useRetrieveSuspended", () => {
       cached = value;
       return value;
     });
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
-      subscribe: (_, handler) => {
+      onChange: (_, handler) => {
         capturedHandler = handler;
         return () => {};
       },
@@ -605,7 +337,7 @@ describe("useRetrieveSuspended", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "invalidate-test" });
+      const value = useRetrieve({ key: "invalidate-test" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -647,10 +379,10 @@ describe("useRetrieveSuspended", () => {
     const renderProjection = async (key: string): Promise<Harness> => {
       let source: number[] = [1, 2];
       let handler: query.ChangeHandler<number[]> | null = null;
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve: async () => [...source],
-        subscribe: (_, h) => {
+        onChange: (_, h) => {
           handler = h;
           return () => {};
         },
@@ -660,7 +392,7 @@ describe("useRetrieveSuspended", () => {
 
       const seen: number[][] = [];
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key });
+        const value = useRetrieve({ key });
         seen.push(value);
         return <div data-testid="value">{value.join(",")}</div>;
       };
@@ -725,16 +457,16 @@ describe("useRetrieveSuspended", () => {
 
     it("still throws a deleted error for a tombstoned answer", async () => {
       const tombstone = new query.Deleted<number[]>([1, 2], TimeStamp.now());
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve: async () => [1, 2],
-        subscribe: () => () => {},
+        onChange: () => () => {},
         getCached: () => tombstone,
         equal: sameNumbers,
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key: "equal-deleted" });
+        const value = useRetrieve({ key: "equal-deleted" });
         return <div data-testid="value">{value.join(",")}</div>;
       };
 
@@ -764,10 +496,10 @@ describe("useRetrieveSuspended", () => {
         cached = [retrieve.mock.calls.length];
         return cached;
       });
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve,
-        subscribe: (_, h) => {
+        onChange: (_, h) => {
           handler = h;
           return () => {};
         },
@@ -776,7 +508,7 @@ describe("useRetrieveSuspended", () => {
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key: "equal-invalidate" });
+        const value = useRetrieve({ key: "equal-invalidate" });
         return <div data-testid="value">{value.join(",")}</div>;
       };
 
@@ -807,7 +539,7 @@ describe("useRetrieveSuspended", () => {
 
     it("passes the cached answer straight through when no comparator is given", async () => {
       const cached = [4, 5];
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve: async () => [],
         getCached: () => cached,
@@ -815,7 +547,7 @@ describe("useRetrieveSuspended", () => {
 
       const seen: number[][] = [];
       const Display = (): ReactElement => {
-        seen.push(useRetrieveSuspended({ key: "no-equal" }));
+        seen.push(useRetrieve({ key: "no-equal" }));
         return <div data-testid="value">{seen[seen.length - 1].join(",")}</div>;
       };
 
@@ -850,10 +582,10 @@ describe("useRetrieveSuspended", () => {
       const retrieve = vi.fn(async (): Promise<number> => {
         throw new NotFoundError("no such number");
       });
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
-        subscribe: (_, h) => {
+        onChange: (_, h) => {
           handler = h;
           return () => {};
         },
@@ -861,7 +593,7 @@ describe("useRetrieveSuspended", () => {
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key });
+        const value = useRetrieve({ key });
         return <div data-testid="value">{value}</div>;
       };
 
@@ -935,17 +667,17 @@ describe("useRetrieveSuspended", () => {
         cached = 42;
         return 42;
       });
-      const { useRetrieveSuspended, useInvalidate } = Flux.createRetrieve<
+      const { useRetrieve, useInvalidate } = Flux.createRetrieve<
         { key: string },
         number
       >({
         name: "Number",
         retrieve,
-        subscribe: () => () => {},
+        onChange: () => () => {},
         getCached: () => cached,
       });
       const Display = (): ReactElement => (
-        <div data-testid="value">{useRetrieveSuspended({ key: "invalidate" })}</div>
+        <div data-testid="value">{useRetrieve({ key: "invalidate" })}</div>
       );
       const Retry = ({ onRetry }: { onRetry: () => void }): ReactElement => {
         const invalidate = useInvalidate();
@@ -1037,13 +769,13 @@ describe("useRetrieveSuspended", () => {
       const retrieve = vi.fn(async (): Promise<number> => {
         throw new NotFoundError("no such number");
       });
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
         // A row tombstoned between the failed fetch and the subscription
         // mounting answers during onChange itself, so the handler fires
         // before the destructor is returned.
-        subscribe: (_, h) => {
+        onChange: (_, h) => {
           cached = tombstone;
           h(tombstone);
           return disconnect;
@@ -1052,7 +784,7 @@ describe("useRetrieveSuspended", () => {
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key: "nf-sync-tombstone" });
+        const value = useRetrieve({ key: "nf-sync-tombstone" });
         return <div data-testid="value">{value}</div>;
       };
 
@@ -1082,14 +814,14 @@ describe("useRetrieveSuspended", () => {
       const retrieve = vi.fn(async (): Promise<number> => {
         throw new NotFoundError("no such number");
       });
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
         getCached: () => undefined,
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key: "nf-unsubscribed" });
+        const value = useRetrieve({ key: "nf-unsubscribed" });
         return <div>{value}</div>;
       };
 
@@ -1127,13 +859,13 @@ describe("useRetrieveSuspended", () => {
         { name: `first-${id.create()}`, color: "#000000" },
         { name: `second-${id.create()}`, color: "#000000" },
       ]);
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, string>({
+      const { useRetrieve } = Flux.createRetrieve<{ key: string }, string>({
         name: "Label",
         retrieve: async ({ client, query }) =>
           (await client.labels.retrieve(query.key)).name,
       });
       const Display = ({ labelKey }: { labelKey: string }): ReactElement => (
-        <div>{useRetrieveSuspended({ key: labelKey })}</div>
+        <div>{useRetrieve({ key: labelKey })}</div>
       );
       const Live = createLiveWrapper(proxy.port);
       const tree = (labelKey: string): ReactElement => (
@@ -1237,15 +969,15 @@ describe("useEnsureRetrieved", () => {
   });
 });
 
-describe("useRetrieveSuspended connection changes", () => {
+describe("useRetrieve connection changes", () => {
   it("surfaces a disconnect that lands after the read resolved", async () => {
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { useRetrieve } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: async () => 42,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "disconnect-test" });
+      const value = useRetrieve({ key: "disconnect-test" });
       const label = useMemo(() => `value-${value}`, [value]);
       return <div data-testid="value">{label}</div>;
     };
@@ -1291,7 +1023,7 @@ describe("useTombstone", () => {
     const { useTombstone } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
       name: "Resource",
       retrieve: async ({ client, query: { key } }) => await client.labels.retrieve(key),
-      subscribe: (_, h) => {
+      onChange: (_, h) => {
         handler = h;
         return () => {};
       },
@@ -1337,7 +1069,7 @@ describe("createSelector", () => {
     const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",
       retrieve,
-      subscribe: (_, h) => {
+      onChange: (_, h) => {
         handler = h;
         return () => {};
       },
@@ -1489,7 +1221,7 @@ describe("createSelector", () => {
     const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",
       retrieve: async () => byKey.a,
-      subscribe: (_, h) => {
+      onChange: (_, h) => {
         handler = h;
         return () => {};
       },
@@ -1556,7 +1288,7 @@ describe("useCached", () => {
     const { useCached } = Flux.createRetrieve<{ key: string }, Data>({
       name: "Resource",
       retrieve,
-      subscribe: (_, h) => {
+      onChange: (_, h) => {
         handlers.add(h);
         return () => handlers.delete(h);
       },

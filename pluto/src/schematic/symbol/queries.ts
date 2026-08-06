@@ -64,14 +64,14 @@ export type RetrieveQuery = {
   key: string;
 };
 
-export const { useRetrieve, useRetrieveEffect } = Flux.createRetrieve<
+export const { useRetrieve } = Flux.createRetrieve<
   RetrieveQuery,
   schematic.symbol.Symbol
 >({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) =>
     await client.schematics.symbols.retrieve(query),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.schematics.symbols.onChange(query, handler),
   getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
 });
@@ -91,9 +91,9 @@ export const useList = Flux.createList<ListQuery, string, schematic.symbol.Symbo
     await client.schematics.symbols.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
     await client.schematics.symbols.retrieve(key),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.schematics.symbols.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) =>
+  onChangeByKey: ({ client, key }, handler) =>
     client.schematics.symbols.onChange(key, handler),
   getCached: ({ client, query }) => client.schematics.symbols.getCached(query),
 });

@@ -21,6 +21,7 @@ import {
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Log } from "@/log";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -49,14 +50,18 @@ describe("log queries", () => {
     key: log.Key,
     hook: () => T,
   ): Promise<ReturnType<typeof renderHook<T, unknown>>> => {
-    const retrieve = renderHook(() => Log.useRetrieve({ key }), { wrapper });
-    await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+    const retrieve = await renderHookSuspended(() => Log.useRetrieve({ key }), {
+      wrapper,
+    });
+    await waitFor(() => expect(retrieve.result.current).toBeDefined());
     return renderHook(hook, { wrapper });
   };
 
   const loadAndCount = async <T>(key: log.Key, hook: () => T) => {
-    const retrieve = renderHook(() => Log.useRetrieve({ key }), { wrapper });
-    await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+    const retrieve = await renderHookSuspended(() => Log.useRetrieve({ key }), {
+      wrapper,
+    });
+    await waitFor(() => expect(retrieve.result.current).toBeDefined());
     let renderCount = 0;
     const { result } = renderHook(
       () => {
@@ -208,35 +213,47 @@ describe("log queries", () => {
   describe("useRetrieve", () => {
     it("should retrieve a log by key", async () => {
       const created = await createLog({ name: "retrieve_test" });
-      const { result } = renderHook(() => Log.useRetrieve({ key: created.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.key).toEqual(created.key);
-      expect(result.current.data?.name).toEqual("retrieve_test");
+      const { result } = await renderHookSuspended(
+        () => Log.useRetrieve({ key: created.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.key).toEqual(created.key);
+      expect(result.current?.name).toEqual("retrieve_test");
     });
 
     it("should cache retrieved logs", async () => {
       const created = await createLog({ name: "cached_log" });
-      const { result: r1 } = renderHook(() => Log.useRetrieve({ key: created.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(r1.current.variant).toEqual("success"));
-      const { result: r2 } = renderHook(() => Log.useRetrieve({ key: created.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(r2.current.variant).toEqual("success"));
-      expect(r2.current.data).toEqual(r1.current.data);
+      const { result: r1 } = await renderHookSuspended(
+        () => Log.useRetrieve({ key: created.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(r1.current).not.toBeNull());
+      const { result: r2 } = await renderHookSuspended(
+        () => Log.useRetrieve({ key: created.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(r2.current).not.toBeNull());
+      expect(r2.current).toEqual(r1.current);
     });
 
     it("resolves synchronously without suspending when already in the store", async () => {
       const created = await createLog({ name: "fastpath_log" });
       // Warm the flux store through the production retrieve path.
-      const warm = renderHook(() => Log.useRetrieve({ key: created.key }), { wrapper });
-      await waitFor(() => expect(warm.result.current.variant).toEqual("success"));
+      const warm = await renderHookSuspended(
+        () => Log.useRetrieve({ key: created.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(warm.result.current).toBeDefined());
 
       const Display = (): ReactElement => {
-        const log = Log.useRetrieveSuspended({ key: created.key });
+        const log = Log.useRetrieve({ key: created.key });
         return createElement("span", { "data-testid": "name" }, log.name);
       };
       let utils!: ReturnType<typeof render>;
@@ -285,35 +302,33 @@ describe("log queries", () => {
   describe("useRename", () => {
     it("should rename a log and update the cache", async () => {
       const created = await createLog({ name: "original_name" });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Log.useRetrieve({ key: created.key }),
           rename: Log.useRename(),
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       await act(async () => {
         await result.current.rename.updateAsync({ key: created.key, name: "renamed" });
       });
       expect((await client.logs.retrieve(created.key)).name).toEqual("renamed");
-      await waitFor(() =>
-        expect(result.current.retrieve.data?.name).toEqual("renamed"),
-      );
+      await waitFor(() => expect(result.current.retrieve?.name).toEqual("renamed"));
     });
   });
 
   describe("useDispatch", () => {
     it("should round-trip an action through the server", async () => {
       const created = await createLog({ name: "dispatch_test" });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Log.useRetrieve({ key: created.key }),
           dispatch: Log.useDispatch(),
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -321,9 +336,7 @@ describe("log queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.channels.map((e) => e.channel)).toContain(
-          1,
-        ),
+        expect(result.current.retrieve?.channels.map((e) => e.channel)).toContain(1),
       );
       const onServer = await client.logs.retrieve(created.key);
       expect(onServer.channels.map((e) => e.channel)).toContain(1);

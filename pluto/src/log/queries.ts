@@ -19,19 +19,13 @@ export type UseDeleteParams = log.Key | log.Key[];
 
 export type RetrieveQuery = log.RetrieveSingleParams;
 
-export const {
-  useRetrieve,
-  useRetrieveObservable,
-  useRetrieveSuspended,
-  useEnsureRetrieved,
-  useTombstone,
-  createSelector,
-} = Flux.createRetrieve<RetrieveQuery, log.Log>({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.logs.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.logs.onChange(query, handler),
-  getCached: ({ client, query }) => client.logs.getCached(query),
-});
+export const { useRetrieve, useEnsureRetrieved, useTombstone, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, log.Log>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.logs.retrieve(query),
+    onChange: ({ client, query }, handler) => client.logs.onChange(query, handler),
+    getCached: ({ client, query }) => client.logs.getCached(query),
+  });
 
 export interface SelectKeyParams {
   key: log.Key;

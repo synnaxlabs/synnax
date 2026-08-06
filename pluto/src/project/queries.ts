@@ -23,7 +23,7 @@ export type RetrieveQuery = {
 export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.projects.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.projects.onChange(query, handler),
   getCached: ({ client, query }) => client.projects.getCached(query),
 });
 
@@ -36,9 +36,9 @@ export const useList = Flux.createList<ListParams, project.Key, project.Project>
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.projects.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.projects.retrieve(key),
-  subscribe: ({ client, query }, handler) => client.projects.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.projects.onChange(query, handler),
   getCached: ({ client, query }) => client.projects.getCached(query),
-  subscribeByKey: ({ client, key }, handler) => client.projects.onChange(key, handler),
+  onChangeByKey: ({ client, key }, handler) => client.projects.onChange(key, handler),
 });
 
 export type DeleteParams = project.Key | project.Key[];

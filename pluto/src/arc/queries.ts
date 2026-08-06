@@ -47,7 +47,6 @@ export type RetrieveQuery = {
 
 export const {
   useRetrieve,
-  useRetrieveObservable,
   useEnsureRetrieved,
   useTombstone,
   useCached,
@@ -55,7 +54,7 @@ export const {
 } = Flux.createRetrieve<RetrieveQuery, arc.Arc>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
-  subscribe: ({ client, query: { key, includeStatus } }, handler) =>
+  onChange: ({ client, query: { key, includeStatus } }, handler) =>
     client.arcs.onChange({ key, includeStatus }, handler),
   getCached: ({ client, query: { key, includeStatus } }) =>
     client.arcs.getCached({ key, includeStatus }),
@@ -164,7 +163,7 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
   retrieve: async ({ client, query }) =>
     await client.arcs.retrieve({ ...query, includeStatus: true }),
   retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.arcs.onChange({ ...query, includeStatus: true }, handler),
   getCached: ({ client, query }) =>
     client.arcs.getCached({ ...query, includeStatus: true }),
@@ -239,7 +238,7 @@ export const { useRetrieve: useRetrieveTask, useCached: useCachedTask } =
     name: "Task",
     retrieve: async ({ client, query }) =>
       await client.arcs.task.retrieve(query.arcKey),
-    subscribe: ({ client, query }, handler) =>
+    onChange: ({ client, query }, handler) =>
       client.arcs.task.onChange(query.arcKey, handler),
     getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
   });

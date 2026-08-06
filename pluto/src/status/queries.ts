@@ -25,7 +25,7 @@ export const useList = Flux.createList<ListParams, status.Key, status.Status>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.statuses.retrieve(key),
-  subscribe: ({ client, query }, handler) => client.statuses.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.statuses.onChange(query, handler),
   getCached: ({ client, query }) => client.statuses.getCached(query),
 });
 
@@ -68,7 +68,7 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) =>
       await client.statuses.retrieve({ ...BASE_QUERY, ...query, detailsSchema }),
-    subscribe: ({ client, query }, handler) =>
+    onChange: ({ client, query }, handler) =>
       client.statuses.onChange(query, handler as query.ChangeHandler<status.Status>),
     getCached: ({ client, query }) =>
       client.statuses.getCached(query) as
@@ -86,7 +86,7 @@ export const { useRetrieve: useRetrieveMultiple, useCached: useCachedMultiple } 
       if (keys.length === 0) return [];
       return await client.statuses.retrieve({ keys });
     },
-    subscribe: ({ client, query: { keys } }, handler) => {
+    onChange: ({ client, query: { keys } }, handler) => {
       if (keys.length === 0) return () => {};
       return client.statuses.onChange({ keys }, handler);
     },

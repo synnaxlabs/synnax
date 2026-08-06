@@ -10,8 +10,7 @@
 import "@/platform/task/ParentRangeButton.css";
 
 import { ranger, task } from "@synnaxlabs/client";
-import { Button, Flex, type Flux, Icon, Ranger, Text } from "@synnaxlabs/pluto";
-import { useCallback, useState } from "react";
+import { Button, Flex, Icon, Ranger, Text } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
@@ -19,14 +18,9 @@ import { useKey } from "@/platform/task/useKey";
 
 export const ParentRangeButton = () => {
   const taskKey = useKey();
-  const [parent, setParent] = useState<ranger.Payload | null>(null);
-  Ranger.useRetrieveParentEffect({
-    query: taskKey != null ? { id: task.ontologyID(taskKey) } : undefined,
-    onChange: useCallback(
-      (p: Flux.Result<ranger.Range | null>) => setParent(p.data ?? null),
-      [],
-    ),
-  });
+  const parent = Ranger.useCachedParent(
+    taskKey != null ? { id: task.ontologyID(taskKey) } : null,
+  );
   const openTab = Panel.useOpenTab();
   if (parent == null) return null;
   const { key, name } = parent;

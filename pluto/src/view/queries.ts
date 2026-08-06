@@ -24,8 +24,8 @@ export const useList = Flux.createList<ListQuery, view.Key, view.View>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.views.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.views.retrieve(key),
-  subscribe: ({ client, query }, handler) => client.views.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) => client.views.onChange(key, handler),
+  onChange: ({ client, query }, handler) => client.views.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.views.onChange(key, handler),
   getCached: ({ client, query }) => client.views.getCached(query),
 });
 

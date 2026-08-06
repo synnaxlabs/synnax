@@ -32,9 +32,8 @@ interface SlaveLoaderProps {
   deviceKey: device.Key;
 }
 
-const SlaveLoader = ({ deviceKey }: SlaveLoaderProps): ReactElement | null => {
-  const { data } = EtherCAT.Device.useRetrieveSlave({ key: deviceKey });
-  if (data == null) return null;
+const SlaveLoader = ({ deviceKey }: SlaveLoaderProps): ReactElement => {
+  EtherCAT.Device.useRetrieveSlave({ key: deviceKey });
   return <span>{`loaded:${deviceKey}`}</span>;
 };
 

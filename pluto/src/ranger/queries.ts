@@ -57,7 +57,7 @@ export const useListChildren = Flux.createList<
     return await client.ranges.children.retrieve(key);
   },
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  subscribe: ({ client, query: { key } }, handler) => {
+  onChange: ({ client, query: { key } }, handler) => {
     if (key == null) return () => {};
     return client.ranges.children.onChange(key, handler);
   },
@@ -71,23 +71,18 @@ export type RetrieveParentQuery = {
   id: ontology.ID;
 };
 
-export const {
-  useRetrieve: useRetrieveParent,
-  useRetrieveEffect: useRetrieveParentEffect,
-  useCached: useCachedParent,
-} = Flux.createRetrieve<RetrieveParentQuery, ranger.Range | null>({
-  name: PARENT_RESOURCE_NAME,
-  retrieve: async ({ client, query: { id } }) =>
-    await client.ranges.parent.retrieve(id),
-  subscribe: ({ client, query: { id } }, handler) =>
-    client.ranges.parent.onChange(id, handler),
-  getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
-});
+export const { useRetrieve: useRetrieveParent, useCached: useCachedParent } =
+  Flux.createRetrieve<RetrieveParentQuery, ranger.Range | null>({
+    name: PARENT_RESOURCE_NAME,
+    retrieve: async ({ client, query: { id } }) =>
+      await client.ranges.parent.retrieve(id),
+    onChange: ({ client, query: { id } }, handler) =>
+      client.ranges.parent.onChange(id, handler),
+    getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
+  });
 
 export const {
   useRetrieve,
-  useRetrieveObservable,
-  useRetrieveSuspended: useRetrieveSuspense,
   useEnsureRetrieved,
   useTombstone,
   createSelector,
@@ -95,7 +90,7 @@ export const {
 } = Flux.createRetrieve<RetrieveQuery, ranger.Range>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
-  subscribe: ({ client, query: { key } }, handler) =>
+  onChange: ({ client, query: { key } }, handler) =>
     client.ranges.onChange(key, handler),
   getCached: ({ client, query: { key } }) => client.ranges.getCached(key),
 });
@@ -104,13 +99,13 @@ export type RetrieveMultipleQuery = {
   keys: ranger.Key[];
 };
 
-export const {
-  useRetrieve: useRetrieveMultiple,
-  useRetrieveObservable: useRetrieveObservableMultiple,
-} = Flux.createRetrieve<RetrieveMultipleQuery, ranger.Range[]>({
+export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  ranger.Range[]
+>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { keys } }) => await client.ranges.retrieve(keys),
-  subscribe: ({ client, query: { keys } }, handler) =>
+  onChange: ({ client, query: { keys } }, handler) =>
     client.ranges.onChange(keys, handler),
   getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
   deriveCached: ({ client, query: { keys } }) => {
@@ -194,7 +189,7 @@ export { type ListQuery } from "@/ranger/aether/queries";
 
 export const useList = Flux.createList<ListQuery, ranger.Key, ranger.Range>({
   ...listDefinition,
-  subscribe: listDefinition.onChange,
+  onChange: listDefinition.onChange,
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
 });
 
@@ -220,7 +215,7 @@ export const useListMetaData = Flux.createList<
     const value = await kv.get(key);
     return { key, value, range: rangeKey };
   },
-  subscribe: ({ client, query: { rangeKey } }, handler) =>
+  onChange: ({ client, query: { rangeKey } }, handler) =>
     client.ranges.kv.onChange(rangeKey, handler),
   getCached: ({ client, query: { rangeKey } }) => client.ranges.kv.getCached(rangeKey),
 });

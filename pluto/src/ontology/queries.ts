@@ -66,7 +66,7 @@ export const createDependentsListHook = (
     },
     retrieveByKey: async ({ client, key }) =>
       await client.ontology.retrieve(ontology.idZ.parse(key)),
-    subscribe: ({ client, query: { id } }, handler) => {
+    onChange: ({ client, query: { id } }, handler) => {
       if (id == null) return () => {};
       return dependentSpace(client, direction).onChange({ ids: id }, handler);
     },
@@ -74,7 +74,7 @@ export const createDependentsListHook = (
       if (id == null) return undefined;
       return dependentSpace(client, direction).getCached({ ids: id });
     },
-    subscribeByKey: ({ client, key }, handler) =>
+    onChangeByKey: ({ client, key }, handler) =>
       client.ontology.onChange(ontology.idZ.parse(key), handler),
   });
 
@@ -90,9 +90,9 @@ export const useResourceList = Flux.createList<ListQuery, string, ontology.Resou
   retrieve: async ({ client, query }) => await client.ontology.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
     await client.ontology.retrieve(ontology.idZ.parse(key)),
-  subscribe: ({ client, query }, handler) => client.ontology.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.ontology.onChange(query, handler),
   getCached: ({ client, query }) => client.ontology.getCached(query),
-  subscribeByKey: ({ client, key }, handler) =>
+  onChangeByKey: ({ client, key }, handler) =>
     client.ontology.onChange(ontology.idZ.parse(key), handler),
 });
 
@@ -125,14 +125,14 @@ export type RetrieveChildrenQuery = {
   id: ontology.ID;
 };
 
-export const {
-  useRetrieve: useRetrieveChildren,
-  useRetrieveObservable: useRetrieveObservableChildren,
-} = Flux.createRetrieve<RetrieveChildrenQuery, ontology.Resource[]>({
+export const { useRetrieve: useRetrieveChildren } = Flux.createRetrieve<
+  RetrieveChildrenQuery,
+  ontology.Resource[]
+>({
   name: RESOURCE_RESOURCE_NAME,
   retrieve: async ({ client, query: { id, ...options } }) =>
     await client.ontology.children.retrieve({ ids: id, ...options }),
-  subscribe: ({ client, query: { id, ...options } }, handler) =>
+  onChange: ({ client, query: { id, ...options } }, handler) =>
     client.ontology.children.onChange({ ids: id, ...options }, handler),
   getCached: ({ client, query: { id, ...options } }) =>
     client.ontology.children.getCached({ ids: id, ...options }),
@@ -142,12 +142,12 @@ type RetrieveResourceQuery = {
   ids: ontology.ID[];
 };
 
-export const {
-  useRetrieve: useRetrieveResource,
-  useRetrieveObservable: useRetrieveObservableResource,
-} = Flux.createRetrieve<RetrieveResourceQuery, ontology.Resource[]>({
+export const { useRetrieve: useRetrieveResource } = Flux.createRetrieve<
+  RetrieveResourceQuery,
+  ontology.Resource[]
+>({
   name: RESOURCE_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.ontology.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.ontology.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.ontology.onChange(query, handler),
   getCached: ({ client, query }) => client.ontology.getCached(query),
 });

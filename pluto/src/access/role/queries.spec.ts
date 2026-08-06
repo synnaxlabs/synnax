@@ -14,6 +14,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Role } from "@/access/role";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -171,14 +172,17 @@ describe("queries", () => {
         description: "Single role description",
       });
 
-      const { result } = renderHook(() => Role.useRetrieve({ key: testRole.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = await renderHookSuspended(
+        () => Role.useRetrieve({ key: testRole.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
 
-      expect(result.current.data?.key).toEqual(testRole.key);
-      expect(result.current.data?.name).toEqual("singleRole");
-      expect(result.current.data?.description).toEqual("Single role description");
+      expect(result.current?.key).toEqual(testRole.key);
+      expect(result.current?.name).toEqual("singleRole");
+      expect(result.current?.description).toEqual("Single role description");
     });
 
     it("should handle retrieve with valid role key", async () => {
@@ -187,14 +191,17 @@ describe("queries", () => {
         description: "Valid description",
       });
 
-      const { result } = renderHook(() => Role.useRetrieve({ key: role.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const { result } = await renderHookSuspended(
+        () => Role.useRetrieve({ key: role.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
 
-      expect(result.current.data).toBeDefined();
-      expect(result.current.data?.key).toEqual(role.key);
-      expect(result.current.data?.description).toEqual("Valid description");
+      expect(result.current).not.toBeNull();
+      expect(result.current?.key).toEqual(role.key);
+      expect(result.current?.description).toEqual("Valid description");
     });
   });
 
@@ -205,7 +212,7 @@ describe("queries", () => {
         description: "Test description",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Role.useRetrieve({ key: role.key }),
           rename: Role.useRename(),
@@ -215,9 +222,7 @@ describe("queries", () => {
       act(() => {
         result.current.rename.update({ key: role.key, name: "newName" });
       });
-      await waitFor(() =>
-        expect(result.current.retrieve.data?.name).toEqual("newName"),
-      );
+      await waitFor(() => expect(result.current.retrieve?.name).toEqual("newName"));
     });
   });
 

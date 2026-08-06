@@ -24,6 +24,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Errors } from "@/errors";
 import { Ontology } from "@/ontology";
 import { Panel } from "@/panel";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -69,14 +70,18 @@ describe("Panel queries", () => {
     node?.variant === "leaf" ? node.tabs.map((t) => t.key) : undefined;
 
   const loadAndUse = async <T,>(key: panel.Key, hook: () => T) => {
-    const retrieve = renderHook(() => Panel.useRetrieve({ key }), { wrapper });
-    await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+    const retrieve = await renderHookSuspended(() => Panel.useRetrieve({ key }), {
+      wrapper,
+    });
+    await waitFor(() => expect(retrieve.result.current).toBeDefined());
     return renderHook(hook, { wrapper });
   };
 
   const loadAndCount = async <T,>(key: panel.Key, hook: () => T) => {
-    const retrieve = renderHook(() => Panel.useRetrieve({ key }), { wrapper });
-    await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+    const retrieve = await renderHookSuspended(() => Panel.useRetrieve({ key }), {
+      wrapper,
+    });
+    await waitFor(() => expect(retrieve.result.current).toBeDefined());
     let renderCount = 0;
     const { result } = renderHook(
       () => {
@@ -110,28 +115,31 @@ describe("Panel queries", () => {
   describe("useRetrieve", () => {
     it("should fetch a panel by key", async () => {
       const created = await client.panels.create({ name: "retrieve-target" });
-      const { result } = renderHook(() => Panel.useRetrieve({ key: created.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.key).toEqual(created.key);
-      expect(result.current.data?.name).toEqual("retrieve-target");
+      const { result } = await renderHookSuspended(
+        () => Panel.useRetrieve({ key: created.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.key).toEqual(created.key);
+      expect(result.current?.name).toEqual("retrieve-target");
     });
 
     it("should cache retrieved panels", async () => {
       const created = await createPanel();
-      const { result: first } = renderHook(
+      const { result: first } = await renderHookSuspended(
         () => Panel.useRetrieve({ key: created.key }),
         { wrapper },
       );
-      await waitFor(() => expect(first.current.variant).toEqual("success"));
+      await waitFor(() => expect(first.current).not.toBeNull());
 
-      const { result: second } = renderHook(
+      const { result: second } = await renderHookSuspended(
         () => Panel.useRetrieve({ key: created.key }),
         { wrapper },
       );
-      await waitFor(() => expect(second.current.variant).toEqual("success"));
-      expect(second.current.data).toEqual(first.current.data);
+      await waitFor(() => expect(second.current).not.toBeNull());
+      expect(second.current).toEqual(first.current);
     });
   });
 
@@ -206,7 +214,9 @@ describe("Panel queries", () => {
 
   describe("useCreate", () => {
     it("should create a panel with a defaulted empty root", async () => {
-      const { result } = renderHook(() => Panel.useCreate(), { wrapper });
+      const { result } = await renderHookSuspended(() => Panel.useCreate(), {
+        wrapper,
+      });
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({ key, name: "created-panel" });
@@ -214,12 +224,15 @@ describe("Panel queries", () => {
       expect(result.current.variant).toEqual("success");
       expect(result.current.data?.name).toEqual("created-panel");
 
-      const { result: retrieved } = renderHook(() => Panel.useRetrieve({ key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(retrieved.current.variant).toEqual("success"));
-      expect(retrieved.current.data?.name).toEqual("created-panel");
-      expect(retrieved.current.data?.root).toEqual({ variant: "leaf", tabs: [] });
+      const { result: retrieved } = await renderHookSuspended(
+        () => Panel.useRetrieve({ key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(retrieved.current).not.toBeNull());
+      expect(retrieved.current?.name).toEqual("created-panel");
+      expect(retrieved.current?.root).toEqual({ variant: "leaf", tabs: [] });
     });
 
     it("should cache the created panel", async () => {
@@ -303,9 +316,12 @@ describe("Panel queries", () => {
       );
       let rendered!: RenderHookResult<panel.Key[], unknown>;
       await act(async () => {
-        rendered = renderHook(() => Panel.useRetrieveKeysByProject({ project: key }), {
-          wrapper: suspended,
-        });
+        rendered = await renderHookSuspended(
+          () => Panel.useRetrieveKeysByProject({ project: key }),
+          {
+            wrapper: suspended,
+          },
+        );
       });
       await waitFor(() => expect(rendered.result.current).not.toBeNull());
       return rendered;
@@ -471,11 +487,11 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]),
+        expect(leafTabKeys(result.current.retrieve?.root)).toEqual([tab.key]),
       );
 
       const fresh = await client.panels.retrieve(created.key);
-      expect(fresh.root).toEqual(result.current.retrieve.data?.root);
+      expect(fresh.root).toEqual(result.current.retrieve?.root);
     });
 
     it("splits the target leaf when insert_tab carries an edge location", async () => {
@@ -502,14 +518,14 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() => {
-        const root = asSplit(result.current.retrieve.data?.root);
+        const root = asSplit(result.current.retrieve?.root);
         expect(root?.direction).toEqual("x");
         expect(leafTabKeys(root?.first)).toEqual([tabA.key]);
         expect(leafTabKeys(root?.last)).toEqual([tabB.key]);
       });
 
       const fresh = await client.panels.retrieve(created.key);
-      expect(fresh.root).toEqual(result.current.retrieve.data?.root);
+      expect(fresh.root).toEqual(result.current.retrieve?.root);
     });
 
     it("resizes a split and round-trips the new ratio", async () => {
@@ -534,7 +550,7 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() =>
-        expect(asSplit(result.current.retrieve.data?.root)?.size).toEqual(0.25),
+        expect(asSplit(result.current.retrieve?.root)?.size).toEqual(0.25),
       );
 
       const fresh = await client.panels.retrieve(created.key);
@@ -562,14 +578,14 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() => {
-        const root = asSplit(result.current.retrieve.data?.root);
+        const root = asSplit(result.current.retrieve?.root);
         expect(root?.direction).toEqual("x");
         expect(leafTabKeys(root?.first)).toEqual([tabB.key]);
         expect(leafTabKeys(root?.last)).toEqual([tabA.key]);
       });
 
       const fresh = await client.panels.retrieve(created.key);
-      expect(fresh.root).toEqual(result.current.retrieve.data?.root);
+      expect(fresh.root).toEqual(result.current.retrieve?.root);
     });
 
     it("ignores moving a leaf's only tab to an edge of its own leaf", async () => {
@@ -596,13 +612,13 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() => {
-        const root = result.current.retrieve.data?.root;
+        const root = result.current.retrieve?.root;
         expect(root?.variant).toEqual("leaf");
         expect(leafTabKeys(root)).toEqual([tab.key]);
       });
 
       const fresh = await client.panels.retrieve(created.key);
-      expect(fresh.root).toEqual(result.current.retrieve.data?.root);
+      expect(fresh.root).toEqual(result.current.retrieve?.root);
     });
 
     it("collapses the emptied leaf after remove_tab", async () => {
@@ -630,13 +646,13 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() => {
-        const root = result.current.retrieve.data?.root;
+        const root = result.current.retrieve?.root;
         expect(root?.variant).toEqual("leaf");
         expect(leafTabKeys(root)).toEqual([tabB.key]);
       });
 
       const fresh = await client.panels.retrieve(created.key);
-      expect(fresh.root).toEqual(result.current.retrieve.data?.root);
+      expect(fresh.root).toEqual(result.current.retrieve?.root);
     });
 
     it("set_tab_view replaces a tab's view content and persists it", async () => {
@@ -661,9 +677,7 @@ describe("Panel queries", () => {
           ],
         });
       });
-      const updated = asView(
-        panel.findTab(result.current.retrieve.data!.root, tab.key),
-      );
+      const updated = asView(panel.findTab(result.current.retrieve.root, tab.key));
       expect(updated?.type).toEqual("docs");
       expect(updated?.args).toEqual({ path: "/intro" });
 
@@ -691,7 +705,7 @@ describe("Panel queries", () => {
           actions: [panel.setTabResource({ key: tab.key, resource })],
         });
       });
-      const updated = panel.findTab(result.current.retrieve.data!.root, tab.key);
+      const updated = panel.findTab(result.current.retrieve.root, tab.key);
       expect(updated).toEqual({ variant: "resource", key: tab.key, resource });
 
       const fresh = await client.panels.retrieve(created.key);
@@ -902,7 +916,7 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() =>
-        expect(ops.result.current.retrieve.data?.name).toEqual("root-stable"),
+        expect(ops.result.current.retrieve?.name).toEqual("root-stable"),
       );
 
       expect(result.current).toBe(firstRoot);
@@ -1351,7 +1365,7 @@ describe("Panel queries", () => {
         );
       });
       await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]),
+        expect(leafTabKeys(result.current.retrieve?.root)).toEqual([tab.key]),
       );
     });
 
@@ -1369,7 +1383,7 @@ describe("Panel queries", () => {
         ]);
       });
       await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
+        expect(leafTabKeys(result.current.retrieve?.root)).toEqual([
           tabA.key,
           tabB.key,
         ]),
@@ -1386,14 +1400,14 @@ describe("Panel queries", () => {
           </Synnax>
         );
       };
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Panel.useRetrieve({ key: created.key }),
           dispatch: Panel.useSingleDispatch(),
         }),
         { wrapper: composed },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
 
       const tab = newTab();
       await act(async () => {
@@ -1402,7 +1416,7 @@ describe("Panel queries", () => {
         );
       });
       await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]),
+        expect(leafTabKeys(result.current.retrieve?.root)).toEqual([tab.key]),
       );
     });
   });
@@ -1410,15 +1424,18 @@ describe("Panel queries", () => {
   describe("reactive sync", () => {
     it("should propagate rename through the channel listener to useRetrieve", async () => {
       const target = await client.panels.create({ name: "reactive-before" });
-      const { result } = renderHook(() => Panel.useRetrieve({ key: target.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.name).toEqual("reactive-before");
+      const { result } = await renderHookSuspended(
+        () => Panel.useRetrieve({ key: target.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.name).toEqual("reactive-before");
 
       await writer.panels.rename(target.key, "reactive-after");
 
-      await waitFor(() => expect(result.current.data?.name).toEqual("reactive-after"));
+      await waitFor(() => expect(result.current?.name).toEqual("reactive-after"));
     });
 
     it("applies dispatches from other writers through the action channel", async () => {
@@ -1494,7 +1511,7 @@ describe("Panel queries", () => {
       }));
       await insert(result.current.dispatch, created.key, doomedTab, survivorTab);
       await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
+        expect(leafTabKeys(result.current.retrieve?.root)).toEqual([
           doomedTab.key,
           survivorTab.key,
         ]),
@@ -1504,9 +1521,7 @@ describe("Panel queries", () => {
       act(() => close.result.current(doomed));
 
       await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
-          survivorTab.key,
-        ]),
+        expect(leafTabKeys(result.current.retrieve?.root)).toEqual([survivorTab.key]),
       );
     });
 
@@ -1520,7 +1535,7 @@ describe("Panel queries", () => {
       }));
       await insert(result.current.dispatch, created.key, tab);
       await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]),
+        expect(leafTabKeys(result.current.retrieve?.root)).toEqual([tab.key]),
       );
 
       const deleted: string[] = [];
@@ -1536,7 +1551,7 @@ describe("Panel queries", () => {
       });
 
       await waitFor(() => expect(deleted).toContain(resource.key));
-      expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]);
+      expect(leafTabKeys(result.current.retrieve?.root)).toEqual([tab.key]);
     });
   });
 });

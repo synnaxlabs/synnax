@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Base";
-import { useRedo, useRetrieveSuspended, useUndo } from "@/log/queries";
+import { useRedo, useRetrieve, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";
 import { Triggers } from "@/triggers";
 
@@ -43,7 +43,7 @@ export interface LogProps extends Omit<
 export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null => {
   const key = useKey();
   const { channels, hideChannelNames, hideReceiptTimestamp, timestampPrecision } =
-    useRetrieveSuspended({ key });
+    useRetrieve({ key });
   useUndoRedoTriggers(key, enableTriggers);
   // A channel entry with key 0 is an unconfigured placeholder row; the telem source
   // must not subscribe to it.

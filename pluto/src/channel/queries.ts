@@ -81,16 +81,18 @@ export const ZERO_FORM_VALUES: z.infer<
   ],
 };
 
-export const { useRetrieve, useRetrieveStateful, useRetrieveObservable, useCached } =
-  Flux.createRetrieve<RetrieveQuery, channel.Channel>({
-    ...retrieveDefinition,
-    subscribe: retrieveDefinition.onChange,
-  });
+export const { useRetrieve, useCached } = Flux.createRetrieve<
+  RetrieveQuery,
+  channel.Channel
+>({
+  ...retrieveDefinition,
+  onChange: retrieveDefinition.onChange,
+});
 
 export const { useRetrieve: useRetrieveMultiple, useCached: useCachedMultiple } =
   Flux.createRetrieve<RetrieveMultipleQuery, channel.Channel[]>({
     ...retrieveMultipleDefinition,
-    subscribe: retrieveMultipleDefinition.onChange,
+    onChange: retrieveMultipleDefinition.onChange,
     // Until the query is fetched, the client approximates the answer from the record
     // store, allocating a fresh array of stable rows per read.
     equal: (a, b) => a.length === b.length && a.every((ch, i) => ch === b[i]),
@@ -170,7 +172,7 @@ export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>(
     await client.channels.retrieve({ ...DEFAULT_LIST_PARAMS, ...query }),
   retrieveByKey: async ({ client, key, query: { rangeKey } }) =>
     await client.channels.retrieve(key, { rangeKey }),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.channels.onChange({ ...DEFAULT_LIST_PARAMS, ...query }, handler),
   getCached: ({ client, query }) =>
     client.channels.getCached({ ...DEFAULT_LIST_PARAMS, ...query }),

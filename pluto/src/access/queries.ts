@@ -105,7 +105,7 @@ const { useCached: useCachedGranted } = Flux.createRetrieve<PermissionsQuery, bo
     const policies = await retrieveForSubject(client, subject);
     return access.allowRequest({ subject, objects, action }, policies);
   },
-  subscribe: ({ client, query: { subject, objects, action } }, handler) => {
+  onChange: ({ client, query: { subject, objects, action } }, handler) => {
     const sub = resolveSubject(client, subject);
     if (sub == null) return () => {};
     const evaluate = (policies: access.policy.Policy[]): boolean =>
@@ -178,7 +178,7 @@ export const { useCached: useLoadPermissions } = Flux.createRetrieve<
     if (subject == null) return [];
     return await retrieveForSubject(client, subject);
   },
-  subscribe: ({ client, query }, handler) => {
+  onChange: ({ client, query }, handler) => {
     const subject = resolveSubject(client, query.subject);
     if (subject == null) return () => {};
     return client.access.policies.onChange({ for: subject }, handler);

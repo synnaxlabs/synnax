@@ -16,6 +16,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
 import { Table } from "@/table";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -36,14 +37,17 @@ describe("table queries", () => {
         name: "retrieve_test",
       });
 
-      const { result } = renderHook(() => Table.useRetrieve({ key: created.key }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => Table.useRetrieve({ key: created.key }),
+        {
+          wrapper,
+        },
+      );
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
+        expect(result.current).not.toBeNull();
       });
-      expect(result.current.data?.key).toEqual(created.key);
-      expect(result.current.data?.name).toEqual("retrieve_test");
+      expect(result.current?.key).toEqual(created.key);
+      expect(result.current?.name).toEqual("retrieve_test");
     });
 
     it("should cache retrieved tables", async () => {
@@ -55,18 +59,18 @@ describe("table queries", () => {
         name: "cached_table",
       });
 
-      const { result: result1 } = renderHook(
+      const { result: result1 } = await renderHookSuspended(
         () => Table.useRetrieve({ key: created.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result1.current.variant).toEqual("success"));
+      await waitFor(() => expect(result1.current).not.toBeNull());
 
-      const { result: result2 } = renderHook(
+      const { result: result2 } = await renderHookSuspended(
         () => Table.useRetrieve({ key: created.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result2.current.variant).toEqual("success"));
-      expect(result2.current.data).toEqual(result1.current.data);
+      await waitFor(() => expect(result2.current).not.toBeNull());
+      expect(result2.current).toEqual(result1.current);
     });
   });
 
@@ -115,11 +119,14 @@ describe("table queries", () => {
         });
       });
 
-      const { result: retrieveResult } = renderHook(() => Table.useRetrieve({ key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(retrieveResult.current.variant).toEqual("success"));
-      expect(retrieveResult.current.data?.name).toEqual("stored_table");
+      const { result: retrieveResult } = await renderHookSuspended(
+        () => Table.useRetrieve({ key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(retrieveResult.current).not.toBeNull());
+      expect(retrieveResult.current?.name).toEqual("stored_table");
     });
 
     it("should initialize a 2x2 layout of empty text cells when rows and columns are empty", async () => {
@@ -208,7 +215,7 @@ describe("table queries", () => {
         name: "original_name",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
           const retrieve = Table.useRetrieve({ key: created.key });
           const rename = Table.useRename();
@@ -217,8 +224,8 @@ describe("table queries", () => {
         { wrapper },
       );
 
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
-      expect(result.current.retrieve.data?.name).toEqual("original_name");
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
+      expect(result.current.retrieve?.name).toEqual("original_name");
 
       await act(async () => {
         await result.current.rename.updateAsync({
@@ -240,14 +247,14 @@ describe("table queries", () => {
         name: "cache_original",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Table.useRetrieve({ key: created.key }),
           rename: Table.useRename(),
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
 
       await act(async () => {
         await result.current.rename.updateAsync({
@@ -257,7 +264,7 @@ describe("table queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.retrieve.data?.name).toEqual("cache_renamed");
+        expect(result.current.retrieve?.name).toEqual("cache_renamed");
       });
     });
   });
@@ -325,14 +332,14 @@ describe("table queries", () => {
 
     it("should apply a dispatched action and update the cached table", async () => {
       const created = await createTable();
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -340,13 +347,13 @@ describe("table queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.name).toEqual("after_dispatch"),
+        expect(result.current.retrieve?.name).toEqual("after_dispatch"),
       );
     });
 
     it("should restore prior state after a set_cell dispatch is undone", async () => {
       const created = await createTable();
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
@@ -354,7 +361,7 @@ describe("table queries", () => {
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -366,18 +373,18 @@ describe("table queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.cells.a.variant).toEqual("value"),
+        expect(result.current.retrieve?.cells.a.variant).toEqual("value"),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() => {
-        expect(result.current.retrieve.data?.cells.a.variant).toEqual("text");
-        expect(result.current.retrieve.data?.cells.a.props).toEqual({ value: "A" });
+        expect(result.current.retrieve?.cells.a.variant).toEqual("text");
+        expect(result.current.retrieve?.cells.a.props).toEqual({ value: "A" });
       });
     });
 
     it("should re-apply a set_cell dispatch after undo and redo", async () => {
       const created = await createTable();
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
@@ -386,7 +393,7 @@ describe("table queries", () => {
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -398,22 +405,22 @@ describe("table queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.cells.a.variant).toEqual("value"),
+        expect(result.current.retrieve?.cells.a.variant).toEqual("value"),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve.data?.cells.a.variant).toEqual("text"),
+        expect(result.current.retrieve?.cells.a.variant).toEqual("text"),
       );
       await act(async () => result.current.redo.redo());
       await waitFor(() => {
-        expect(result.current.retrieve.data?.cells.a.variant).toEqual("value");
-        expect(result.current.retrieve.data?.cells.a.props).toEqual({ units: "psi" });
+        expect(result.current.retrieve?.cells.a.variant).toEqual("value");
+        expect(result.current.retrieve?.cells.a.props).toEqual({ units: "psi" });
       });
     });
 
     it("should coalesce successive set_cell dispatches on the same cell into one undo step", async () => {
       const created = await createTable();
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
@@ -421,7 +428,7 @@ describe("table queries", () => {
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       for (const value of ["A1", "A2", "A3"])
         await act(async () => {
           await result.current.dispatch.dispatchAsync({
@@ -434,17 +441,17 @@ describe("table queries", () => {
           });
         });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.cells.a.props.value).toEqual("A3"),
+        expect(result.current.retrieve?.cells.a.props.value).toEqual("A3"),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve.data?.cells.a.props.value).toEqual("A"),
+        expect(result.current.retrieve?.cells.a.props.value).toEqual("A"),
       );
     });
 
     it("should not coalesce set_cell dispatches across different cells", async () => {
       const created = await createTable();
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
@@ -452,7 +459,7 @@ describe("table queries", () => {
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -474,19 +481,19 @@ describe("table queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve.data?.cells.a.props.value).toEqual("A1");
-        expect(result.current.retrieve.data?.cells.b.props.value).toEqual("B1");
+        expect(result.current.retrieve?.cells.a.props.value).toEqual("A1");
+        expect(result.current.retrieve?.cells.b.props.value).toEqual("B1");
       });
       await act(async () => result.current.undo.undo());
       await waitFor(() => {
-        expect(result.current.retrieve.data?.cells.a.props.value).toEqual("A1");
-        expect(result.current.retrieve.data?.cells.b.props.value).toEqual("B");
+        expect(result.current.retrieve?.cells.a.props.value).toEqual("A1");
+        expect(result.current.retrieve?.cells.b.props.value).toEqual("B");
       });
     });
 
     it("should coalesce successive resize_row dispatches under the resize kind", async () => {
       const created = await createTable();
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
@@ -494,7 +501,7 @@ describe("table queries", () => {
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
       for (const size of [40, 50, 60])
         await act(async () => {
           await result.current.dispatch.dispatchAsync({
@@ -502,13 +509,9 @@ describe("table queries", () => {
             actions: [table.resizeRow({ index: 0, size })],
           });
         });
-      await waitFor(() =>
-        expect(result.current.retrieve.data?.rows[0].size).toEqual(60),
-      );
+      await waitFor(() => expect(result.current.retrieve?.rows[0].size).toEqual(60));
       await act(async () => result.current.undo.undo());
-      await waitFor(() =>
-        expect(result.current.retrieve.data?.rows[0].size).toEqual(36),
-      );
+      await waitFor(() => expect(result.current.retrieve?.rows[0].size).toEqual(36));
     });
   });
 
@@ -615,8 +618,10 @@ describe("table queries", () => {
       key: table.Key,
       hook: () => T,
     ): Promise<ReturnType<typeof renderHook<T, unknown>>> => {
-      const retrieve = renderHook(() => Table.useRetrieve({ key }), { wrapper });
-      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      const retrieve = await renderHookSuspended(() => Table.useRetrieve({ key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(retrieve.result.current).toBeDefined());
       return renderHook(hook, { wrapper });
     };
 

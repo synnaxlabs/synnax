@@ -9,12 +9,10 @@
 
 import { type ontology, query, type rack, task } from "@synnaxlabs/client";
 import { array, type optional, verbs } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { type Form } from "@/form";
-import { useSyncedRef } from "@/hooks/ref";
 
 export const RESOURCE_NAME = "task";
 export const PLURAL_RESOURCE_NAME = "tasks";
@@ -30,36 +28,19 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) =>
       await client.tasks.retrieve({ ...BASE_QUERY, ...query, schemas }),
-    subscribe: ({ client, query }, handler) =>
+    onChange: ({ client, query }, handler) =>
       client.tasks.onChange(query, handler as query.ChangeHandler<task.Task>),
     getCached: ({ client, query }) =>
       client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined,
   });
 
-export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved, createSelector } =
-  createRetrieve();
+export const { useRetrieve, useEnsureRetrieved, createSelector } = createRetrieve();
 
 export interface SelectKeyParams {
   key: task.Key;
 }
 
 export const useSelectName = createSelector(({ name }) => name);
-
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, task.Task>, "onChange"> & {
-  onChange: (name: string) => void;
-}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback((result) => {
-      if (result.variant !== "success" || result.data == null) return;
-      onChangeRef.current(result.data.name);
-    }, []),
-  });
-};
 
 export type ListQuery = task.RetrieveMultipleParams;
 
@@ -75,9 +56,9 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
     await client.tasks.retrieve(listRequest(query)),
   retrieveByKey: async ({ client, key }) =>
     await client.tasks.retrieve({ ...BASE_QUERY, key }),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.tasks.onChange(listRequest(query), handler),
-  subscribeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
+  onChangeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
   getCached: ({ client, query }) => client.tasks.getCached(listRequest(query)),
 });
 

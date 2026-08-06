@@ -19,6 +19,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/lineplot";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -39,14 +40,17 @@ describe("lineplot queries", () => {
         name: "retrieve_test",
       });
 
-      const { result } = renderHook(() => LinePlot.useRetrieve({ key: plot.key }), {
-        wrapper,
-      });
+      const { result } = await renderHookSuspended(
+        () => LinePlot.useRetrieve({ key: plot.key }),
+        {
+          wrapper,
+        },
+      );
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
+        expect(result.current).not.toBeNull();
       });
-      expect(result.current.data?.key).toEqual(plot.key);
-      expect(result.current.data?.name).toEqual("retrieve_test");
+      expect(result.current?.key).toEqual(plot.key);
+      expect(result.current?.name).toEqual("retrieve_test");
     });
 
     it("should cache retrieved line plots", async () => {
@@ -58,18 +62,18 @@ describe("lineplot queries", () => {
         name: "cached_plot",
       });
 
-      const { result: result1 } = renderHook(
+      const { result: result1 } = await renderHookSuspended(
         () => LinePlot.useRetrieve({ key: plot.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result1.current.variant).toEqual("success"));
+      await waitFor(() => expect(result1.current).not.toBeNull());
 
-      const { result: result2 } = renderHook(
+      const { result: result2 } = await renderHookSuspended(
         () => LinePlot.useRetrieve({ key: plot.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result2.current.variant).toEqual("success"));
-      expect(result2.current.data).toEqual(result1.current.data);
+      await waitFor(() => expect(result2.current).not.toBeNull());
+      expect(result2.current).toEqual(result1.current);
     });
   });
 
@@ -118,12 +122,12 @@ describe("lineplot queries", () => {
         });
       });
 
-      const { result: retrieveResult } = renderHook(
+      const { result: retrieveResult } = await renderHookSuspended(
         () => LinePlot.useRetrieve({ key }),
         { wrapper },
       );
-      await waitFor(() => expect(retrieveResult.current.variant).toEqual("success"));
-      expect(retrieveResult.current.data?.name).toEqual("stored_plot");
+      await waitFor(() => expect(retrieveResult.current).not.toBeNull());
+      expect(retrieveResult.current?.name).toEqual("stored_plot");
     });
   });
 
@@ -137,7 +141,7 @@ describe("lineplot queries", () => {
         name: "original_name",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
           const retrieve = LinePlot.useRetrieve({ key: plot.key });
           const rename = LinePlot.useRename();
@@ -146,8 +150,8 @@ describe("lineplot queries", () => {
         { wrapper },
       );
 
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
-      expect(result.current.retrieve.data?.name).toEqual("original_name");
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
+      expect(result.current.retrieve?.name).toEqual("original_name");
 
       await act(async () => {
         await result.current.rename.updateAsync({
@@ -157,7 +161,7 @@ describe("lineplot queries", () => {
       });
 
       await waitFor(() =>
-        expect(result.current.retrieve.data?.name).toEqual("renamed_plot"),
+        expect(result.current.retrieve?.name).toEqual("renamed_plot"),
       );
       const retrieved = await client.lineplots.retrieve(plot.key);
       expect(retrieved.name).toEqual("renamed_plot");
@@ -172,14 +176,14 @@ describe("lineplot queries", () => {
         name: "cache_original",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => ({
           retrieve: LinePlot.useRetrieve({ key: plot.key }),
           rename: LinePlot.useRename(),
         }),
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
 
       await act(async () => {
         await result.current.rename.updateAsync({
@@ -189,7 +193,7 @@ describe("lineplot queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.retrieve.data?.name).toEqual("cache_renamed");
+        expect(result.current.retrieve?.name).toEqual("cache_renamed");
       });
     });
   });
@@ -248,8 +252,10 @@ describe("lineplot queries", () => {
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
-      const retrieve = renderHook(() => LinePlot.useRetrieve({ key }), { wrapper });
-      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      const retrieve = await renderHookSuspended(() => LinePlot.useRetrieve({ key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(retrieve.result.current).toBeDefined());
       return renderHook(hook, { wrapper });
     };
 
@@ -266,7 +272,7 @@ describe("lineplot queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.name).toEqual("after_dispatch"),
+        expect(result.current.retrieve?.name).toEqual("after_dispatch"),
       );
     });
 
@@ -277,8 +283,8 @@ describe("lineplot queries", () => {
         dispatch: LinePlot.useDispatch(),
         undo: LinePlot.useUndo({ key: created.key }),
       }));
-      await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
-      const original = result.current.retrieve.data!.axes.x1;
+      await waitFor(() => expect(result.current.retrieve?.axes.x1).toBeDefined());
+      const original = result.current.retrieve.axes.x1;
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -292,11 +298,11 @@ describe("lineplot queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(100),
+        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(100),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(
+        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(
           original.bounds.upper,
         ),
       );
@@ -310,8 +316,8 @@ describe("lineplot queries", () => {
         undo: LinePlot.useUndo({ key: created.key }),
         redo: LinePlot.useRedo({ key: created.key }),
       }));
-      await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
-      const original = result.current.retrieve.data!.axes.x1;
+      await waitFor(() => expect(result.current.retrieve?.axes.x1).toBeDefined());
+      const original = result.current.retrieve.axes.x1;
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -325,17 +331,17 @@ describe("lineplot queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(25),
+        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(25),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(
+        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(
           original.bounds.upper,
         ),
       );
       await act(async () => result.current.redo.redo());
       await waitFor(() =>
-        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(25),
+        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(25),
       );
     });
 
@@ -346,8 +352,8 @@ describe("lineplot queries", () => {
         dispatch: LinePlot.useDispatch(),
         undo: LinePlot.useUndo({ key: created.key }),
       }));
-      await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
-      const original = result.current.retrieve.data!.axes.x1;
+      await waitFor(() => expect(result.current.retrieve?.axes.x1).toBeDefined());
+      const original = result.current.retrieve.axes.x1;
       for (const upper of [20, 30, 40])
         await act(async () => {
           await result.current.dispatch.dispatchAsync({
@@ -362,11 +368,11 @@ describe("lineplot queries", () => {
           });
         });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(40),
+        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(40),
       );
       await act(async () => result.current.undo.undo());
       await waitFor(() =>
-        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(
+        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(
           original.bounds.upper,
         ),
       );
@@ -379,9 +385,9 @@ describe("lineplot queries", () => {
         dispatch: LinePlot.useDispatch(),
         undo: LinePlot.useUndo({ key: created.key }),
       }));
-      await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
-      const x1Orig = result.current.retrieve.data!.axes.x1;
-      const x2Orig = result.current.retrieve.data!.axes.x2;
+      await waitFor(() => expect(result.current.retrieve?.axes.x1).toBeDefined());
+      const x1Orig = result.current.retrieve.axes.x1;
+      const x2Orig = result.current.retrieve.axes.x2;
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -407,14 +413,14 @@ describe("lineplot queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(50);
-        expect(result.current.retrieve.data?.axes.x2.bounds.upper).toEqual(70);
+        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(50);
+        expect(result.current.retrieve?.axes.x2.bounds.upper).toEqual(70);
       });
       // One undo reverts only the most recent gesture (x2).
       await act(async () => result.current.undo.undo());
       await waitFor(() => {
-        expect(result.current.retrieve.data?.axes.x1.bounds.upper).toEqual(50);
-        expect(result.current.retrieve.data?.axes.x2.bounds.upper).toEqual(
+        expect(result.current.retrieve?.axes.x1.bounds.upper).toEqual(50);
+        expect(result.current.retrieve?.axes.x2.bounds.upper).toEqual(
           x2Orig.bounds.upper,
         );
       });
@@ -437,9 +443,7 @@ describe("lineplot queries", () => {
           ],
         });
       });
-      await waitFor(() =>
-        expect(result.current.retrieve.data?.title.visible).toBe(true),
-      );
+      await waitFor(() => expect(result.current.retrieve?.title.visible).toBe(true));
       // setLine create — should NOT push to the undo stack.
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
@@ -460,14 +464,12 @@ describe("lineplot queries", () => {
       });
       await waitFor(() =>
         expect(
-          result.current.retrieve.data?.lines.find((l) => l.key === "line-new"),
+          result.current.retrieve?.lines.find((l) => l.key === "line-new"),
         ).toBeDefined(),
       );
       // Undo must revert the title change, NOT silently no-op the line create.
       await act(async () => result.current.undo.undo());
-      await waitFor(() =>
-        expect(result.current.retrieve.data?.title.visible).toBe(false),
-      );
+      await waitFor(() => expect(result.current.retrieve?.title.visible).toBe(false));
     });
   });
 
@@ -481,8 +483,10 @@ describe("lineplot queries", () => {
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
-      const retrieve = renderHook(() => LinePlot.useRetrieve({ key }), { wrapper });
-      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      const retrieve = await renderHookSuspended(() => LinePlot.useRetrieve({ key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(retrieve.result.current).toBeDefined());
       return renderHook(hook, { wrapper });
     };
 
@@ -940,8 +944,10 @@ describe("lineplot queries", () => {
     };
 
     const loadAndCount = async <T>(key: string, hook: () => T) => {
-      const retrieve = renderHook(() => LinePlot.useRetrieve({ key }), { wrapper });
-      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      const retrieve = await renderHookSuspended(() => LinePlot.useRetrieve({ key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(retrieve.result.current).toBeDefined());
       let renderCount = 0;
       const { result } = renderHook(
         () => {
@@ -1379,16 +1385,14 @@ describe("lineplot queries", () => {
         yChannel: chB.key,
       });
       const created = await createPlot();
-      const setup = renderHook(
+      const setup = await renderHookSuspended(
         () => ({
           retrieve: LinePlot.useRetrieve({ key: created.key }),
           dispatch: LinePlot.useDispatch(),
         }),
         { wrapper },
       );
-      await waitFor(() =>
-        expect(setup.result.current.retrieve.variant).toEqual("success"),
-      );
+      await waitFor(() => expect(setup.result.current.retrieve).toBeDefined());
       await act(async () => {
         await setup.result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -1447,16 +1451,14 @@ describe("lineplot queries", () => {
 
     it("useSelectRule keeps a stable reference when a different rule changes", async () => {
       const created = await createPlot();
-      const setup = renderHook(
+      const setup = await renderHookSuspended(
         () => ({
           retrieve: LinePlot.useRetrieve({ key: created.key }),
           dispatch: LinePlot.useDispatch(),
         }),
         { wrapper },
       );
-      await waitFor(() =>
-        expect(setup.result.current.retrieve.variant).toEqual("success"),
-      );
+      await waitFor(() => expect(setup.result.current.retrieve).toBeDefined());
       await act(async () => {
         await setup.result.current.dispatch.dispatchAsync({
           key: created.key,

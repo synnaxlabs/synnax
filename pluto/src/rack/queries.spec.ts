@@ -15,6 +15,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Rack } from "@/rack";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -28,33 +29,39 @@ describe("queries", () => {
   describe("useRetrieve", () => {
     it("should retrieve a rack by its key", async () => {
       const testRack = await client.racks.create({ name: "testRack" });
-      const { result } = renderHook(() => Rack.useRetrieve({ key: testRack.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.key).toEqual(testRack.key);
-      expect(result.current.data?.name).toEqual("testRack");
+      const { result } = await renderHookSuspended(
+        () => Rack.useRetrieve({ key: testRack.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.key).toEqual(testRack.key);
+      expect(result.current?.name).toEqual("testRack");
     });
 
     it("should include the status of the rack by default", async () => {
       const testRack = await client.racks.create({ name: "testRack" });
-      const { result } = renderHook(() => Rack.useRetrieve({ key: testRack.key }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.status).toBeDefined();
-      expect(result.current.data?.status?.time.nanoseconds).toBeGreaterThan(0);
+      const { result } = await renderHookSuspended(
+        () => Rack.useRetrieve({ key: testRack.key }),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result.current).not.toBeNull());
+      expect(result.current?.status).toBeDefined();
+      expect(result.current?.status?.time.nanoseconds).toBeGreaterThan(0);
     });
 
     it("should include the status of the rack even when the query is cached", async () => {
       const testRack = await client.racks.create({ name: "testRack2" });
-      const { result: result1 } = renderHook(
+      const { result: result1 } = await renderHookSuspended(
         () => Rack.useRetrieve({ key: testRack.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result1.current.variant).toEqual("success"));
-      expect(result1.current.data?.status).toBeDefined();
-      expect(result1.current.data?.status?.time.nanoseconds).toBeGreaterThan(0);
+      await waitFor(() => expect(result1.current).not.toBeNull());
+      expect(result1.current?.status).toBeDefined();
+      expect(result1.current?.status?.time.nanoseconds).toBeGreaterThan(0);
       const rackStatus: rack.Status = status.create<typeof rack.statusDetailsZ>({
         key: rack.statusKey(testRack.key),
         variant: "success",
@@ -64,16 +71,14 @@ describe("queries", () => {
       await act(async () => {
         await client.statuses.set(rackStatus);
       });
-      const { result: result2 } = renderHook(
+      const { result: result2 } = await renderHookSuspended(
         () => Rack.useRetrieve({ key: testRack.key }),
         { wrapper },
       );
-      await waitFor(() => expect(result2.current.variant).toEqual("success"));
+      await waitFor(() => expect(result2.current).not.toBeNull());
       await waitFor(() => {
-        expect(result2.current.data?.status?.variant).toEqual("success");
-        expect(result2.current.data?.status?.message).toEqual(
-          "Rack is happy as a clam",
-        );
+        expect(result2.current?.status?.variant).toEqual("success");
+        expect(result2.current?.status?.message).toEqual("Rack is happy as a clam");
       });
     });
   });
@@ -423,7 +428,7 @@ describe("queries", () => {
       const testRack = await client.racks.create({
         name: "original_name",
       });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => {
           const retrieve = Rack.useRetrieve({ key: testRack.key });
           const rename = Rack.useRename();
@@ -431,8 +436,8 @@ describe("queries", () => {
         },
         { wrapper },
       );
-      await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
-      expect(result.current.retrieve.data?.name).toEqual("original_name");
+      await waitFor(() => expect(result.current.retrieve).not.toBeNull());
+      expect(result.current.retrieve?.name).toEqual("original_name");
 
       await act(async () => {
         await result.current.rename.updateAsync({
@@ -441,7 +446,7 @@ describe("queries", () => {
         });
       });
       await waitFor(() => {
-        expect(result.current.retrieve.data?.name).toEqual("renamed_rack");
+        expect(result.current.retrieve?.name).toEqual("renamed_rack");
       });
     });
 

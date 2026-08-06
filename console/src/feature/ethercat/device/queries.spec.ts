@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { createSlaveDevice as createSlave } from "@/feature/ethercat/testutil";
-import { createAsyncSynnaxWrapper } from "@/testutil";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 
@@ -41,16 +41,13 @@ describe("EtherCAT Device queries", () => {
         position: 1,
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => EtherCAT.Device.useRetrieveSlave({ key: dev.key }),
-        {
-          wrapper,
-        },
+        { wrapper },
       );
 
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.key).toEqual(dev.key);
-      expect(result.current.data?.name).toEqual("Test Slave");
+      await waitFor(() => expect(result.current?.key).toEqual(dev.key));
+      expect(result.current?.name).toEqual("Test Slave");
     });
 
     it("should update when device properties change", async () => {
@@ -59,15 +56,12 @@ describe("EtherCAT Device queries", () => {
         network: "eth0",
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => EtherCAT.Device.useRetrieveSlave({ key: dev.key }),
-        {
-          wrapper,
-        },
+        { wrapper },
       );
 
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.name).toEqual("Original Name");
+      await waitFor(() => expect(result.current?.name).toEqual("Original Name"));
 
       await act(async () => {
         await client.devices.create({
@@ -77,7 +71,7 @@ describe("EtherCAT Device queries", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.data?.name).toEqual("Updated Name");
+        expect(result.current?.name).toEqual("Updated Name");
       });
     });
 
@@ -111,37 +105,38 @@ describe("EtherCAT Device queries", () => {
         enabled: true,
       });
 
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => EtherCAT.Device.useRetrieveSlave({ key: dev.key }),
-        {
-          wrapper,
-        },
+        { wrapper },
       );
 
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.properties?.pdos?.inputs).toHaveLength(1);
-      expect(result.current.data?.properties?.pdos?.outputs).toHaveLength(1);
-      expect(result.current.data?.properties?.pdos?.inputs[0].name).toEqual("Status");
-      expect(result.current.data?.properties?.enabled).toBe(true);
+      await waitFor(() =>
+        expect(result.current?.properties?.pdos?.inputs).toHaveLength(1),
+      );
+      expect(result.current?.properties?.pdos?.outputs).toHaveLength(1);
+      expect(result.current?.properties?.pdos?.inputs[0].name).toEqual("Status");
+      expect(result.current?.properties?.enabled).toBe(true);
     });
   });
 
-  describe("useRetrieveSlaveStateful", () => {
-    it("should provide stateful retrieval with loading states", async () => {
-      const dev = await createSlaveDevice(rack.key, { name: "Stateful Test" });
+  describe("useCachedSlave", () => {
+    it("should serve the slave from the cache", async () => {
+      const dev = await createSlaveDevice(rack.key, { name: "Cached Test" });
 
-      const { result } = renderHook(() => EtherCAT.Device.useRetrieveSlaveStateful(), {
+      const { result } = renderHook(
+        () => EtherCAT.Device.useCachedSlave({ key: dev.key }),
+        { wrapper },
+      );
+
+      await waitFor(() => expect(result.current?.key).toEqual(dev.key));
+      expect(result.current?.name).toEqual("Cached Test");
+    });
+
+    it("should skip the read for a null query", () => {
+      const { result } = renderHook(() => EtherCAT.Device.useCachedSlave(null), {
         wrapper,
       });
-
-      expect(result.current.variant).toEqual("loading");
-
-      await act(async () => {
-        result.current.retrieve({ key: dev.key });
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data?.key).toEqual(dev.key);
+      expect(result.current).toBeUndefined();
     });
   });
 

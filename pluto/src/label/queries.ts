@@ -46,7 +46,7 @@ export const { useCached: useCachedLabelsOf } = Flux.createRetrieve<
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { id } }) =>
     await client.labels.retrieve({ for: id }),
-  subscribe: ({ client, query: { id } }, handler) =>
+  onChange: ({ client, query: { id } }, handler) =>
     client.labels.onChange({ for: id }, handler),
   getCached: ({ client, query: { id } }) => client.labels.getCached({ for: id }),
 });
@@ -57,7 +57,7 @@ export const useList = Flux.createList<ListQuery, label.Key, label.Label>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.labels.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve(key),
-  subscribe: ({ client, query }, handler) => client.labels.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
   getCached: ({ client, query }) => client.labels.getCached(query),
 });
 
@@ -111,6 +111,6 @@ export const { useRetrieve: useRetrieveMultiple, useCached: useCachedMultiple } 
   Flux.createRetrieve<RetrieveMultipleParams, label.Label[]>({
     name: PLURAL_RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.labels.retrieve(query),
-    subscribe: ({ client, query }, handler) => client.labels.onChange(query, handler),
+    onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
     getCached: ({ client, query }) => client.labels.getCached(query),
   });

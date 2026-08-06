@@ -20,19 +20,13 @@ const RESOURCE_NAME = "line plot";
 
 export type RetrieveQuery = lineplot.RetrieveSingleParams;
 
-export const {
-  useRetrieve,
-  useRetrieveSuspended,
-  useRetrieveObservable,
-  useEnsureRetrieved,
-  useTombstone,
-  createSelector,
-} = Flux.createRetrieve<RetrieveQuery, lineplot.LinePlot>({
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.lineplots.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.lineplots.onChange(query, handler),
-  getCached: ({ client, query }) => client.lineplots.getCached(query),
-});
+export const { useRetrieve, useEnsureRetrieved, useTombstone, createSelector } =
+  Flux.createRetrieve<RetrieveQuery, lineplot.LinePlot>({
+    name: RESOURCE_NAME,
+    retrieve: async ({ client, query }) => await client.lineplots.retrieve(query),
+    onChange: ({ client, query }, handler) => client.lineplots.onChange(query, handler),
+    getCached: ({ client, query }) => client.lineplots.getCached(query),
+  });
 
 export interface SelectKeyParams {
   key: lineplot.Key;

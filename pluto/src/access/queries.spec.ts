@@ -27,6 +27,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
 
 import { Access } from "@/access";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const subjectOf = (c: Synnax): ontology.ID => {
@@ -314,7 +315,7 @@ describe("Access Queries", () => {
         objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
         actions: ["retrieve"],
       });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
@@ -329,7 +330,7 @@ describe("Access Queries", () => {
         objects: [...baseObjects],
         actions: ["retrieve"],
       });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
       );
@@ -344,7 +345,7 @@ describe("Access Queries", () => {
         objects: [ranger.TYPE_ONTOLOGY_ID, channel.TYPE_ONTOLOGY_ID, ...baseObjects],
         actions: ["retrieve"],
       });
-      const { result } = renderHook(
+      const { result } = await renderHookSuspended(
         () =>
           Access.useRetrieveGranted([
             ranger.TYPE_ONTOLOGY_ID,
@@ -463,7 +464,7 @@ describe("Access Queries", () => {
         actions: ["retrieve"],
       });
       const wrapper = await createAsyncSynnaxWrapper({ client: userClient });
-      const { result: grantedResult } = renderHook(
+      const { result: grantedResult } = await renderHookSuspended(
         () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID),
         { wrapper },
       );

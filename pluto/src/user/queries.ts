@@ -125,7 +125,7 @@ export const { useRetrieve, useCached } = Flux.createRetrieve<
     if (key == null) return await retrieveCurrent(client);
     return await client.users.retrieve(key);
   },
-  subscribe: ({ client, query: { key } }, handler) => {
+  onChange: ({ client, query: { key } }, handler) => {
     key ??= client.auth?.user?.key;
     if (key == null) return () => {};
     return client.users.onChange(key, handler);

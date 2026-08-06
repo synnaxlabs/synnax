@@ -32,7 +32,7 @@ export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, access.policy.
   {
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
-    subscribe: ({ client, query }, handler) =>
+    onChange: ({ client, query }, handler) =>
       client.access.policies.onChange(query, handler),
     getCached: ({ client, query }) => client.access.policies.getCached(query),
   },
@@ -48,9 +48,9 @@ export const useList = Flux.createList<
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.access.policies.retrieve(key),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.access.policies.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) =>
+  onChangeByKey: ({ client, key }, handler) =>
     client.access.policies.onChange(key, handler),
   getCached: ({ client, query }) => client.access.policies.getCached(query),
 });

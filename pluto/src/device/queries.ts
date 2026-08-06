@@ -44,7 +44,7 @@ export const createRetrieve = <
       const dev = await client.devices.retrieve({ ...BASE_QUERY, ...query });
       return dev as unknown as device.Device<Properties, Make, Model>;
     },
-    subscribe: ({ client, query }, handler) =>
+    onChange: ({ client, query }, handler) =>
       client.devices.onChange(
         { ...BASE_QUERY, ...query },
         handler as unknown as query.ChangeHandler<device.Device>,
@@ -54,13 +54,7 @@ export const createRetrieve = <
         query.Cached<device.Device<Properties, Make, Model>> | undefined,
   });
 
-export const {
-  useRetrieve,
-  useRetrieveStateful: useStatefulRetrieve,
-  useRetrieveEffect,
-  useRetrieveSuspended,
-  useCached,
-} = createRetrieve();
+export const { useRetrieve, useCached } = createRetrieve();
 
 export type ListParams = device.RetrieveMultipleParams;
 
@@ -70,7 +64,7 @@ export const useList = Flux.createList<ListParams, device.Key, device.Device>({
     await client.devices.retrieve({ ...BASE_QUERY, ...query }),
   retrieveByKey: async ({ client, key }) =>
     await client.devices.retrieve({ ...BASE_QUERY, key }),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.devices.onChange({ ...BASE_QUERY, ...query }, handler),
   getCached: ({ client, query }) =>
     client.devices.getCached({ ...BASE_QUERY, ...query }),

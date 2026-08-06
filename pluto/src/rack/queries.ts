@@ -30,21 +30,22 @@ export const useList = Flux.createList<ListQuery, rack.Key, rack.Rack>({
     await client.racks.retrieve({ ...BASE_QUERY, ...query }),
   retrieveByKey: async ({ client, key }) =>
     await client.racks.retrieve({ ...BASE_QUERY, key }),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.racks.onChange({ ...BASE_QUERY, ...query }, handler),
   getCached: ({ client, query }) => client.racks.getCached({ ...BASE_QUERY, ...query }),
 });
 
-export const { useRetrieve, useRetrieveStateful, useRetrieveSuspended, useCached } =
-  Flux.createRetrieve<RetrieveQuery, rack.Rack>({
+export const { useRetrieve, useCached } = Flux.createRetrieve<RetrieveQuery, rack.Rack>(
+  {
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) =>
       await client.racks.retrieve({ ...BASE_QUERY, ...query }),
-    subscribe: ({ client, query }, handler) =>
+    onChange: ({ client, query }, handler) =>
       client.racks.onChange({ ...BASE_QUERY, ...query }, handler),
     getCached: ({ client, query }) =>
       client.racks.getCached({ ...BASE_QUERY, ...query }),
-  });
+  },
+);
 
 export type UseDeleteParams = rack.Key | rack.Key[];
 

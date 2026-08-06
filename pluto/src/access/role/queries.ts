@@ -24,7 +24,7 @@ export type RetrieveQuery = {
 export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, access.role.Role>({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.access.roles.onChange(query, handler),
   getCached: ({ client, query }) => client.access.roles.getCached(query),
 });
@@ -35,9 +35,9 @@ export const useList = Flux.createList<ListQuery, access.role.Key, access.role.R
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.roles.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.access.roles.retrieve(key),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.access.roles.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) =>
+  onChangeByKey: ({ client, key }, handler) =>
     client.access.roles.onChange(key, handler),
   getCached: ({ client, query }) => client.access.roles.getCached(query),
 });
