@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { type location } from "@synnaxlabs/x";
+import { color, type location } from "@synnaxlabs/x";
 import { act, render, renderHook } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -41,8 +41,8 @@ describe("Custom.useRender", () => {
             key: "main",
             name: "Main",
             selectors: [".main"],
-            strokeColor: "#333",
-            fillColor: "#ccc",
+            strokeColor: color.construct("#333333"),
+            fillColor: color.construct("#cccccc"),
           },
         ],
       },
@@ -54,8 +54,8 @@ describe("Custom.useRender", () => {
             key: "main",
             name: "Main",
             selectors: [".main"],
-            strokeColor: "#0f0",
-            fillColor: "#0f03",
+            strokeColor: color.construct("#00ff00"),
+            fillColor: color.construct("#00ff0033"),
           },
         ],
       },
@@ -265,8 +265,8 @@ describe("Custom.useRender", () => {
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(rect.getAttribute("stroke")).toBe("#333");
-      expect(rect.getAttribute("fill")).toBe("#ccc");
+      expect(rect.getAttribute("stroke")).toBe("#333333");
+      expect(rect.getAttribute("fill")).toBe("#cccccc");
     });
 
     it("should apply active state when activeState is 'active'", () => {
@@ -284,8 +284,8 @@ describe("Custom.useRender", () => {
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(rect.getAttribute("stroke")).toBe("#0f0");
-      expect(rect.getAttribute("fill")).toBe("#0f03");
+      expect(rect.getAttribute("stroke")).toBe("#00ff00");
+      expect(rect.getAttribute("fill")).toBe("#00ff0033");
     });
 
     it("should store original attributes before applying state", () => {
@@ -304,7 +304,7 @@ describe("Custom.useRender", () => {
 
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("data-original-stroke")).toBe("black");
-      expect(rect.getAttribute("fill")).toBe("#ccc");
+      expect(rect.getAttribute("fill")).toBe("#cccccc");
     });
 
     it("should transition between states correctly", () => {
@@ -326,13 +326,13 @@ describe("Custom.useRender", () => {
       result.current(container);
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(rect.getAttribute("stroke")).toBe("#333");
+      expect(rect.getAttribute("stroke")).toBe("#333333");
 
       rerender({ activeState: "active" });
-      expect(rect.getAttribute("stroke")).toBe("#0f0");
+      expect(rect.getAttribute("stroke")).toBe("#00ff00");
 
       rerender({ activeState: "inactive" });
-      expect(rect.getAttribute("stroke")).toBe("#333");
+      expect(rect.getAttribute("stroke")).toBe("#333333");
     });
 
     it("should handle multiple selectors in a region", () => {
@@ -348,7 +348,7 @@ describe("Custom.useRender", () => {
                 key: "all",
                 name: "All",
                 selectors: [".main", ".secondary"],
-                strokeColor: "#f00",
+                strokeColor: color.construct("#ff0000"),
               },
             ],
           },
@@ -360,7 +360,7 @@ describe("Custom.useRender", () => {
                 key: "all",
                 name: "All",
                 selectors: [".main", ".secondary"],
-                strokeColor: "#0f0",
+                strokeColor: color.construct("#00ff00"),
               },
             ],
           },
@@ -379,8 +379,8 @@ describe("Custom.useRender", () => {
 
       const rect = container.querySelector(".main") as SVGRectElement;
       const circle = container.querySelector(".secondary") as SVGCircleElement;
-      expect(rect.getAttribute("stroke")).toBe("#f00");
-      expect(circle.getAttribute("stroke")).toBe("#f00");
+      expect(rect.getAttribute("stroke")).toBe("#ff0000");
+      expect(circle.getAttribute("stroke")).toBe("#ff0000");
     });
   });
 
@@ -828,7 +828,7 @@ describe("Custom.useRender", () => {
                 key: "nonexistent",
                 name: "Nonexistent",
                 selectors: [".does-not-exist"],
-                strokeColor: "#f00",
+                strokeColor: color.construct("#ff0000"),
               },
             ],
           },
@@ -840,7 +840,7 @@ describe("Custom.useRender", () => {
                 key: "nonexistent",
                 name: "Nonexistent",
                 selectors: [".does-not-exist"],
-                strokeColor: "#0f0",
+                strokeColor: color.construct("#00ff00"),
               },
             ],
           },
@@ -933,7 +933,7 @@ describe("Custom.useRender", () => {
                 key: "main",
                 name: "Main",
                 selectors: [".main"],
-                fillColor: "#ff0000",
+                fillColor: color.construct("#ff0000"),
               },
             ],
           },
@@ -977,8 +977,8 @@ describe("Custom.useRender", () => {
                 key: "main",
                 name: "Main",
                 selectors: [".main"],
-                strokeColor: "#333",
-                fillColor: "#ccc",
+                strokeColor: color.construct("#333333"),
+                fillColor: color.construct("#cccccc"),
               },
             ],
           },
@@ -990,8 +990,8 @@ describe("Custom.useRender", () => {
                 key: "both",
                 name: "Both",
                 selectors: [".main", ".secondary"],
-                strokeColor: "#f00",
-                fillColor: "#ff0000",
+                strokeColor: color.construct("#ff0000"),
+                fillColor: color.construct("#ff0000"),
               },
             ],
           },
@@ -1015,20 +1015,20 @@ describe("Custom.useRender", () => {
       const rect = container.querySelector(".main") as SVGRectElement;
       const circle = container.querySelector(".secondary") as SVGCircleElement;
 
-      expect(rect.getAttribute("stroke")).toBe("#333");
-      expect(rect.getAttribute("fill")).toBe("#ccc");
+      expect(rect.getAttribute("stroke")).toBe("#333333");
+      expect(rect.getAttribute("fill")).toBe("#cccccc");
       expect(circle.getAttribute("stroke")).toBe("blue");
       expect(circle.getAttribute("fill")).toBe("yellow");
 
       rerender({ activeState: "active" });
-      expect(rect.getAttribute("stroke")).toBe("#f00");
+      expect(rect.getAttribute("stroke")).toBe("#ff0000");
       expect(rect.getAttribute("fill")).toBe("#ff0000");
-      expect(circle.getAttribute("stroke")).toBe("#f00");
+      expect(circle.getAttribute("stroke")).toBe("#ff0000");
       expect(circle.getAttribute("fill")).toBe("#ff0000");
 
       rerender({ activeState: "inactive" });
-      expect(rect.getAttribute("stroke")).toBe("#333");
-      expect(rect.getAttribute("fill")).toBe("#ccc");
+      expect(rect.getAttribute("stroke")).toBe("#333333");
+      expect(rect.getAttribute("fill")).toBe("#cccccc");
       expect(circle.getAttribute("stroke")).toBe("blue");
       expect(circle.getAttribute("fill")).toBe("yellow");
     });
@@ -1046,7 +1046,7 @@ describe("Custom.useRender", () => {
                 key: "main",
                 name: "Main",
                 selectors: [".main"],
-                fillColor: "#ff0000",
+                fillColor: color.construct("#ff0000"),
               },
             ],
           },
@@ -1058,7 +1058,7 @@ describe("Custom.useRender", () => {
                 key: "main",
                 name: "Main",
                 selectors: [".main"],
-                fillColor: "#00ff00",
+                fillColor: color.construct("#00ff00"),
               },
             ],
           },
@@ -1134,11 +1134,11 @@ describe("Custom.useRender", () => {
       result.current(container);
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      expect(rect.getAttribute("stroke")).toBe("#333");
+      expect(rect.getAttribute("stroke")).toBe("#333333");
 
-      spec.states[0].regions[0].strokeColor = "#abc";
+      spec.states[0].regions[0].strokeColor = color.construct("#aabbcc");
       rerender();
-      expect(rect.getAttribute("stroke")).toBe("#abc");
+      expect(rect.getAttribute("stroke")).toBe(color.hex(color.construct("#aabbcc")));
     });
 
     it("should toggle stroke scaling when scaleStroke is mutated in place", () => {
@@ -1183,7 +1183,7 @@ describe("Custom.useRender", () => {
 
       expect(
         (container.querySelector(".main") as SVGRectElement).getAttribute("stroke"),
-      ).toBe("#333");
+      ).toBe("#333333");
 
       rerender({
         spec: createMockSpec({
@@ -1192,8 +1192,8 @@ describe("Custom.useRender", () => {
       });
 
       const rebuilt = container.querySelector(".main") as SVGRectElement;
-      expect(rebuilt.getAttribute("stroke")).toBe("#333");
-      expect(rebuilt.getAttribute("fill")).toBe("#ccc");
+      expect(rebuilt.getAttribute("stroke")).toBe("#333333");
+      expect(rebuilt.getAttribute("fill")).toBe("#cccccc");
     });
 
     it("should re-apply stroke scaling to a rebuilt SVG with unchanged scaleStroke", () => {
@@ -1288,8 +1288,8 @@ describe("custom symbol editor preview", () => {
       key: "region-1",
       name: "Region 1",
       selectors: ['[data-region-id="rect-1"]'],
-      strokeColor: "#000000",
-      fillColor: "#ffffff",
+      strokeColor: color.construct("#000000"),
+      fillColor: color.construct("#ffffff"),
     };
     act(() => {
       form.set("data.states.base.regions", [region]);

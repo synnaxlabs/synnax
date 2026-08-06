@@ -98,7 +98,7 @@ func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle appends the character insertion to the arc's replicated text document. The
+// Handle appends the character insertion to the Arc's replicated text document. The
 // document is an op-log; materialization (see text.Text.Materialize) deduplicates and
 // orders, so applying an operation is appending it.
 func (p InsertCharPayload) Handle(state Arc) (Arc, error) {
@@ -148,7 +148,7 @@ func (p ReconnectEdgePayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle appends the character deletion to the arc's replicated text document. See
+// Handle appends the character deletion to the Arc's replicated text document. See
 // InsertCharPayload.Handle.
 func (p DeleteCharPayload) Handle(state Arc) (Arc, error) {
 	state.Text.Doc.Deletes = append(state.Text.Doc.Deletes, crdt.Delete{ID: p.ID})
@@ -156,7 +156,7 @@ func (p DeleteCharPayload) Handle(state Arc) (Arc, error) {
 }
 
 // Handle drops the insert and delete operations of the given already-deleted characters
-// from the arc's replicated text document. Because the characters are tombstoned, and
+// from the Arc's replicated text document. Because the characters are tombstoned, and
 // so invisible, removing their operations does not change the materialized text. It is
 // emitted by the server's text sweeper to reclaim the space held by tombstones.
 func (p ForgetCharsPayload) Handle(state Arc) (Arc, error) {
@@ -182,11 +182,11 @@ func (p ForgetCharsPayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// lastEdits records the cluster time of each arc's most recent character edit. The
+// lastEdits records the cluster time of each Arc's most recent character edit. The
 // timestamp only gates the text sweeper's quiescence check; it never replicates and
 // need not survive a node restart, so it is held in memory rather than persisted on the
-// arc. A restarted node reads the zero time for every arc, which is safe: a zero last
-// edit reads as quiet, and a quiet arc is exactly one whose tombstones are eligible to
+// Arc. A restarted node reads the zero time for every Arc, which is safe: a zero last
+// edit reads as quiet, and a quiet Arc is exactly one whose tombstones are eligible to
 // be forgotten. lastEdits is safe for concurrent use.
 type lastEdits struct {
 	mu    sync.Mutex
@@ -197,7 +197,7 @@ func newLastEdits() *lastEdits {
 	return &lastEdits{times: make(map[Key]telem.TimeStamp)}
 }
 
-// get returns the recorded last-edit time for the arc, or the zero time if none has
+// get returns the recorded last-edit time for the Arc, or the zero time if none has
 // been recorded.
 func (l *lastEdits) get(key Key) telem.TimeStamp {
 	l.mu.Lock()
@@ -205,14 +205,14 @@ func (l *lastEdits) get(key Key) telem.TimeStamp {
 	return l.times[key]
 }
 
-// set records ts as the arc's most recent character-edit time.
+// set records ts as the Arc's most recent character-edit time.
 func (l *lastEdits) set(key Key, ts telem.TimeStamp) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.times[key] = ts
 }
 
-// forget drops the recorded last-edit time for the arc. It is called when the arc is
+// forget drops the recorded last-edit time for the Arc. It is called when the Arc is
 // deleted so the map does not retain keys for arcs that no longer exist.
 func (l *lastEdits) forget(key Key) {
 	l.mu.Lock()
@@ -220,7 +220,7 @@ func (l *lastEdits) forget(key Key) {
 	delete(l.times, key)
 }
 
-// textSweeper reclaims the space held by tombstoned characters in an arc's replicated
+// textSweeper reclaims the space held by tombstoned characters in an Arc's replicated
 // text document. Deleting a character leaves both its insert and delete operation in
 // the op-log forever, so a heavily edited document grows without bound; the sweeper
 // drops those operations once it is safe to do so.
@@ -228,14 +228,14 @@ func (l *lastEdits) forget(key Key) {
 // Safety hinges on quiescence. A tombstoned character can only be forgotten once every
 // editor has observed its deletion: an editor that still sees the character could
 // anchor a new insertion to it, and that insertion would be orphaned if the character
-// were already gone. The sweeper treats an arc as safe to sweep when no edit has
+// were already gone. The sweeper treats an Arc as safe to sweep when no edit has
 // reached it for the quiescence window, by which point every outstanding delete has
 // propagated to every editor.
 type textSweeper struct {
 	now        func() telem.TimeStamp
 	quiescence telem.TimeSpan
 	threshold  int
-	// edits tracks the most recent character-edit time per arc, gating the quiescence
+	// edits tracks the most recent character-edit time per Arc, gating the quiescence
 	// check below.
 	edits *lastEdits
 }
@@ -253,17 +253,17 @@ func newTextSweeper(
 	}
 }
 
-// quiet reports whether enough time has elapsed since the arc's most recent character
+// quiet reports whether enough time has elapsed since the Arc's most recent character
 // edit that its tombstoned characters are safe to forget.
 func (s textSweeper) quiet(key Key) bool {
 	return s.edits.get(key).Span(s.now()) > s.quiescence
 }
 
-// recordEdit marks the current time as the arc's most recent character edit, restarting
+// recordEdit marks the current time as the Arc's most recent character edit, restarting
 // its quiescence window.
 func (s textSweeper) recordEdit(key Key) { s.edits.set(key, s.now()) }
 
-// forget discards the arc's tracked edit time. It is called when the arc is deleted so
+// forget discards the Arc's tracked edit time. It is called when the Arc is deleted so
 // the tracker does not retain keys for arcs that no longer exist.
 func (s textSweeper) forget(key Key) { s.edits.forget(key) }
 
@@ -286,7 +286,7 @@ func (s textSweeper) forgettable(doc text.Document) []crdt.ID {
 }
 
 // containsTextEdit reports whether actions includes a character insertion or deletion,
-// the edits that restart an arc's quiescence window.
+// the edits that restart an Arc's quiescence window.
 func containsTextEdit(actions []Action) bool {
 	for _, a := range actions {
 		if a.Type == ActionTypeInsertChar || a.Type == ActionTypeDeleteChar {

@@ -16,9 +16,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../dist"),
-      "@synnaxlabs/pluto": path.resolve(__dirname, "../src"),
-      "@synnaxlabs/drift/dist": path.resolve(__dirname, "../dist"),
+      "@synnaxlabs/pluto/dist": path.resolve(import.meta.dirname, "../dist"),
+      "@synnaxlabs/pluto": path.resolve(import.meta.dirname, "../src"),
+      "@synnaxlabs/drift/dist": path.resolve(import.meta.dirname, "../dist"),
     },
   },
 });
