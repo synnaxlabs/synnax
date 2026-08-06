@@ -202,9 +202,9 @@ type Viewport struct {
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (v *Viewport) ApplyDefaults() {
-	if v.Zoom == 0 {
-		v.Zoom = 1
+func (vi *Viewport) ApplyDefaults() {
+	if vi.Zoom == 0 {
+		vi.Zoom = 1
 	}
 }
 

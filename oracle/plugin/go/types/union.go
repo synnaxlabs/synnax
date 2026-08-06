@@ -120,7 +120,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}
-		vd.Receiver = strings.ToLower(vd.TypeName[:1])
+		vd.Receiver = receiverName(vd.TypeName)
 		embeds := append([]variantEmbed{}, baseEmbeds...)
 		var inlineFields []resolution.Field
 		if v.Inline {
