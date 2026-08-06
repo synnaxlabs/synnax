@@ -572,9 +572,9 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("chained logical operations", `
 				func testFunc() {
-					a u8 := 1
-					b u8 := 0
-					c u8 := 1
+					a bool := true
+					b bool := false
+					c bool := true
 					result := a and b or c
 					result2 := a or b and c
 				}
@@ -584,8 +584,8 @@ var _ = Describe("Expressions", func() {
 					x i32 := 10
 					y i32 := 20
 					z i32 := 30
-					a u8 := x < y
-					b u8 := y > z
+					a := x < y
+					b := y > z
 					result := a and b or (x + y == z)
 				}
 			`),

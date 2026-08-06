@@ -464,6 +464,170 @@ var _ = Describe("Vectorized Operations", func() {
 		})
 	})
 
+	Describe("Boolean Logical Operations", func() {
+		Context("AND Operation", func() {
+			It("should perform logical AND on equal length series", func() {
+				a := telem.NewSeriesV[bool](true, true, false, false)
+				b := telem.NewSeriesV[bool](true, false, true, false)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.AndBool(a, b, &output)
+
+				// Truth table: T&&T=T, T&&F=F, F&&T=F, F&&F=F
+				expected := []bool{true, false, false, false}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+			})
+
+			It(
+				"should handle different length series with last value repetition",
+				func() {
+					a := telem.NewSeriesV[bool](true, false)
+					b := telem.NewSeriesV[bool](true, true, true, true, true)
+					output := telem.Series{DataType: telem.BoolT}
+
+					op.AndBool(a, b, &output)
+
+					// a values: [T, F, F, F, F] (F repeats)
+					// b values: [T, T, T, T, T]
+					// result:   [T, F, F, F, F]
+					expected := []bool{true, false, false, false, false}
+					Expect(output.Len()).To(Equal(int64(5)))
+					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				},
+			)
+
+			It("should work with an all-true operand", func() {
+				a := telem.NewSeriesV[bool](true, true, true)
+				b := telem.NewSeriesV[bool](true, false, true)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.AndBool(a, b, &output)
+
+				expected := []bool{true, false, true}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+			})
+		})
+
+		Context("OR Operation", func() {
+			It("should perform logical OR on equal length series", func() {
+				a := telem.NewSeriesV[bool](true, true, false, false)
+				b := telem.NewSeriesV[bool](true, false, true, false)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.OrBool(a, b, &output)
+
+				// Truth table: T||T=T, T||F=T, F||T=T, F||F=F
+				expected := []bool{true, true, true, false}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+			})
+
+			It(
+				"should handle different length series with last value repetition",
+				func() {
+					a := telem.NewSeriesV[bool](true, false)
+					b := telem.NewSeriesV[bool](false, false, false, false, false)
+					output := telem.Series{DataType: telem.BoolT}
+
+					op.OrBool(a, b, &output)
+
+					// a values: [T, F, F, F, F] (F repeats)
+					// b values: [F, F, F, F, F]
+					// result:   [T, F, F, F, F]
+					expected := []bool{true, false, false, false, false}
+					Expect(output.Len()).To(Equal(int64(5)))
+					Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+				},
+			)
+
+			It("should work with an all-true operand", func() {
+				a := telem.NewSeriesV[bool](true, true, true)
+				b := telem.NewSeriesV[bool](false, true, false)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.OrBool(a, b, &output)
+
+				expected := []bool{true, true, true}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+			})
+		})
+
+		Context("NOT Operation", func() {
+			It("should perform logical NOT", func() {
+				input := telem.NewSeriesV[bool](true, false, true, false)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.NotBool(input, &output)
+
+				// Logical NOT: !T=F, !F=T
+				expected := []bool{false, true, false, true}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+			})
+
+			It("should handle empty series", func() {
+				input := telem.Series{DataType: telem.BoolT}
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.NotBool(input, &output)
+
+				Expect(output.Len()).To(Equal(int64(0)))
+			})
+
+			It("should handle single element", func() {
+				input := telem.NewSeriesV[bool](true)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.NotBool(input, &output)
+
+				expected := []bool{false}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+			})
+
+			It("should work with all value combinations", func() {
+				input := telem.NewSeriesV[bool](true, false, true, false, true, false)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.NotBool(input, &output)
+
+				expected := []bool{false, true, false, true, false, true}
+				Expect(telem.UnmarshalSeries[bool](output)).To(Equal(expected))
+			})
+		})
+
+		Context("Combined Logical Operations", func() {
+			It("should allow combining AND and OR operations", func() {
+				a := telem.NewSeriesV[bool](true, true, false, false)
+				b := telem.NewSeriesV[bool](true, false, true, false)
+				c := telem.NewSeriesV[bool](true, true, true, true)
+
+				// (a AND b) OR c
+				andResult := telem.Series{DataType: telem.BoolT}
+				op.AndBool(a, b, &andResult)
+
+				orResult := telem.Series{DataType: telem.BoolT}
+				op.OrBool(andResult, c, &orResult)
+
+				expected := []bool{true, true, true, true}
+				Expect(telem.UnmarshalSeries[bool](orResult)).To(Equal(expected))
+			})
+
+			It("should allow NOT of AND result", func() {
+				a := telem.NewSeriesV[bool](true, true, false, false)
+				b := telem.NewSeriesV[bool](true, false, true, false)
+
+				andResult := telem.Series{DataType: telem.BoolT}
+				op.AndBool(a, b, &andResult)
+
+				notResult := telem.Series{DataType: telem.BoolT}
+				op.NotBool(andResult, &notResult)
+
+				// AND: [T, F, F, F]
+				// NOT: [F, T, T, T]
+				expected := []bool{false, true, true, true}
+				Expect(telem.UnmarshalSeries[bool](notResult)).To(Equal(expected))
+			})
+		})
+	})
+
 	Describe("Scalar Operations", func() {
 		Describe("Scalar Arithmetic", func() {
 			It("should add scalar to all elements for F64", func() {

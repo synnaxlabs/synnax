@@ -16,17 +16,13 @@ import (
 	"github.com/synnaxlabs/x/lsp/doc"
 )
 
-func binaryOp(name string, outputs types.Params, body doc.Doc) *symbol.Symbol {
-	constraint := types.NumericConstraint()
+func binaryOp(name string, inputs, outputs types.Params, body doc.Doc) *symbol.Symbol {
 	return &symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
-			Inputs: types.Params{
-				{Name: ir.LHSInputParam, Type: types.Variable("T", &constraint)},
-				{Name: ir.RHSInputParam, Type: types.Variable("T", &constraint)},
-			},
+			Inputs:  inputs,
 			Outputs: outputs,
 		}),
 		Trigger: symbol.TriggerInput(ir.LHSInputParam),
@@ -35,20 +31,26 @@ func binaryOp(name string, outputs types.Params, body doc.Doc) *symbol.Symbol {
 }
 
 func comparison(name string, body doc.Doc) *symbol.Symbol {
+	constraint := types.NumericConstraint()
 	return binaryOp(
 		name,
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		types.Params{
+			{Name: ir.LHSInputParam, Type: types.Variable("T", &constraint)},
+			{Name: ir.RHSInputParam, Type: types.Variable("T", &constraint)},
+		},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
 		body,
 	)
 }
 
 func logical(name string, body doc.Doc) *symbol.Symbol {
-	constraint := types.NumericConstraint()
 	return binaryOp(
 		name,
 		types.Params{
-			{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
+			{Name: ir.LHSInputParam, Type: types.Bool()},
+			{Name: ir.RHSInputParam, Type: types.Bool()},
 		},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
 		body,
 	)
 }
@@ -59,8 +61,8 @@ func not(name string, body doc.Doc) *symbol.Symbol {
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.U8()}},
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Bool()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
 		}),
 		Trigger: symbol.TriggerInput(ir.DefaultInputParam),
 		Doc:     body,
@@ -82,54 +84,68 @@ const (
 var (
 	geDoc = doc.New(
 		doc.Paragraph(
-			"Greater-than-or-equal comparison. Returns 1 if `a >= b`, 0 otherwise.",
+			"Greater-than-or-equal comparison. Returns `true` if `a >= b`, `false` "+
+				"otherwise.",
 		),
 		doc.Divider(),
 		doc.Code("arc", "ge(a, b)  // equivalent to: a >= b"),
 	)
 	gtDoc = doc.New(
-		doc.Paragraph("Greater-than comparison. Returns 1 if `a > b`, 0 otherwise."),
+		doc.Paragraph(
+			"Greater-than comparison. Returns `true` if `a > b`, `false` otherwise.",
+		),
 		doc.Divider(),
 		doc.Code("arc", "gt(a, b)  // equivalent to: a > b"),
 	)
 	leDoc = doc.New(
 		doc.Paragraph(
-			"Less-than-or-equal comparison. Returns 1 if `a <= b`, 0 otherwise.",
+			"Less-than-or-equal comparison. Returns `true` if `a <= b`, `false` "+
+				"otherwise.",
 		),
 		doc.Divider(),
 		doc.Code("arc", "le(a, b)  // equivalent to: a <= b"),
 	)
 	ltDoc = doc.New(
-		doc.Paragraph("Less-than comparison. Returns 1 if `a < b`, 0 otherwise."),
+		doc.Paragraph(
+			"Less-than comparison. Returns `true` if `a < b`, `false` otherwise.",
+		),
 		doc.Divider(),
 		doc.Code("arc", "lt(a, b)  // equivalent to: a < b"),
 	)
 	eqDoc = doc.New(
-		doc.Paragraph("Equality comparison. Returns 1 if `a == b`, 0 otherwise."),
+		doc.Paragraph(
+			"Equality comparison. Returns `true` if `a == b`, `false` otherwise.",
+		),
 		doc.Divider(),
 		doc.Code("arc", "eq(a, b)  // equivalent to: a == b"),
 	)
 	neDoc = doc.New(
-		doc.Paragraph("Inequality comparison. Returns 1 if `a != b`, 0 otherwise."),
+		doc.Paragraph(
+			"Inequality comparison. Returns `true` if `a != b`, `false` otherwise.",
+		),
 		doc.Divider(),
 		doc.Code("arc", "ne(a, b)  // equivalent to: a != b"),
 	)
 	andDoc = doc.New(
 		doc.Paragraph(
-			"Logical AND. Returns a nonzero value if both inputs are nonzero, 0 otherwise.",
+			"Logical AND. Returns `true` if both inputs are `true`, `false` "+
+				"otherwise.",
 		),
 		doc.Divider(),
 		doc.Code("arc", "and(a, b)  // equivalent to: a && b"),
 	)
 	orDoc = doc.New(
 		doc.Paragraph(
-			"Logical OR. Returns a nonzero value if either input is nonzero, 0 otherwise.",
+			"Logical OR. Returns `true` if either input is `true`, `false` "+
+				"otherwise.",
 		),
 		doc.Divider(),
 		doc.Code("arc", "or(a, b)  // equivalent to: a || b"),
 	)
 	notDoc = doc.New(
-		doc.Paragraph("Logical NOT. Returns 1 if the input is 0, 0 otherwise."),
+		doc.Paragraph(
+			"Logical NOT. Returns `true` if the input is `false`, `false` otherwise.",
+		),
 		doc.Divider(),
 		doc.Code("arc", "not(a)  // equivalent to: !a"),
 	)

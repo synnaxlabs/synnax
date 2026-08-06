@@ -244,13 +244,13 @@ func compileBinaryRelational(
 		); err != nil {
 			return types.Type{}, err
 		}
-		return types.Series(types.U8()), nil
+		return types.Series(types.Bool()), nil
 	}
 
 	if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 		return types.Type{}, err
 	}
-	return types.U8(), nil
+	return types.Bool(), nil
 }
 
 func compileBinaryEquality(
@@ -298,7 +298,7 @@ func compileBinaryEquality(
 		); err != nil {
 			return types.Type{}, err
 		}
-		return types.Series(types.U8()), nil
+		return types.Series(types.Bool()), nil
 	}
 
 	if hintType.Kind == types.KindString {
@@ -306,11 +306,11 @@ func compileBinaryEquality(
 		if op == "!=" {
 			ctx.Writer.WriteI32Eqz()
 		}
-		return types.U8(), nil
+		return types.Bool(), nil
 	}
 
 	if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 		return types.Type{}, err
 	}
-	return types.U8(), nil
+	return types.Bool(), nil
 }

@@ -2138,8 +2138,8 @@ var _ = Describe("Compiler", func() {
 			Entry("series-series comparison", `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 2.0, 2.0]
-				t series u8 := a > b
-				return t[1]
+				t := a > b
+				return u8(t[1])
 			}`, uint8(1)),
 
 			// Integer series operations (i32)

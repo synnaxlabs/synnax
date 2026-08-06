@@ -221,11 +221,9 @@ func (t Type) IsFloat() bool {
 	}
 }
 
-// IsBool reports whether the type is boolean. u8 is accepted transitionally
-// while comparison and logical operators still yield u8.
+// IsBool reports whether the type is boolean.
 func (t Type) IsBool() bool {
-	k := t.Unwrap().Kind
-	return k == KindBool || k == KindU8
+	return t.Unwrap().Kind == KindBool
 }
 
 // Unwrap returns the value type of chan/series types, or the type itself otherwise.

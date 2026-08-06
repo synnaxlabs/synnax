@@ -39,7 +39,7 @@ func InferLogicalOr(
 ) types.Type {
 	ands := ctx.AST.AllLogicalAndExpression()
 	if len(ands) > 1 {
-		return types.U8()
+		return types.Bool()
 	}
 	if len(ands) == 1 {
 		return InferLogicalAnd(context.Child(ctx, ands[0]))
@@ -52,7 +52,7 @@ func InferLogicalAnd(
 ) types.Type {
 	equalities := ctx.AST.AllEqualityExpression()
 	if len(equalities) > 1 {
-		return types.U8()
+		return types.Bool()
 	}
 	if len(equalities) == 1 {
 		return InferEquality(context.Child(ctx, equalities[0]))
@@ -63,7 +63,7 @@ func InferLogicalAnd(
 func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types.Type {
 	relExpressions := ctx.AST.AllRelationalExpression()
 	if len(relExpressions) > 1 {
-		return types.U8()
+		return types.Bool()
 	}
 	if len(relExpressions) == 1 {
 		return InferRelational(context.Child(ctx, relExpressions[0]))
@@ -76,7 +76,7 @@ func InferRelational(
 ) types.Type {
 	additives := ctx.AST.AllAdditiveExpression()
 	if len(additives) > 1 {
-		return types.U8()
+		return types.Bool()
 	}
 	if len(additives) == 1 {
 		return InferAdditive(context.Child(ctx, additives[0]))

@@ -5614,6 +5614,108 @@ func NotU8(input telem.Series, output *telem.Series) {
 	}
 }
 
+func AndBool(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := unsafe.CastSlice[uint8, bool](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, bool](rhs.Data)
+	outData := unsafe.CastSlice[uint8, bool](output.Data)
+
+	// Equal-length fast path: avoids the per-iteration branches in the broadcast
+	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	if lhsLen == rhsLen {
+		for i := int64(0); i < lhsLen; i++ {
+			outData[i] = lhsData[i] && rhsData[i]
+		}
+		return
+	}
+
+	var lhsLast, rhsLast bool
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal && rhsVal
+	}
+}
+
+func OrBool(lhs, rhs telem.Series, output *telem.Series) {
+	lhsLen := lhs.Len()
+	rhsLen := rhs.Len()
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
+	}
+	output.Resize(maxLen)
+
+	lhsData := unsafe.CastSlice[uint8, bool](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, bool](rhs.Data)
+	outData := unsafe.CastSlice[uint8, bool](output.Data)
+
+	// Equal-length fast path: avoids the per-iteration branches in the broadcast
+	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	if lhsLen == rhsLen {
+		for i := int64(0); i < lhsLen; i++ {
+			outData[i] = lhsData[i] || rhsData[i]
+		}
+		return
+	}
+
+	var lhsLast, rhsLast bool
+	if lhsLen > 0 {
+		lhsLast = lhsData[lhsLen-1]
+	}
+	if rhsLen > 0 {
+		rhsLast = rhsData[rhsLen-1]
+	}
+
+	for i := int64(0); i < maxLen; i++ {
+		lhsVal := lhsLast
+		if i < lhsLen {
+			lhsVal = lhsData[i]
+			lhsLast = lhsVal
+		}
+		rhsVal := rhsLast
+		if i < rhsLen {
+			rhsVal = rhsData[i]
+			rhsLast = rhsVal
+		}
+		outData[i] = lhsVal || rhsVal
+	}
+}
+
+func NotBool(input telem.Series, output *telem.Series) {
+	inputLen := input.Len()
+	output.Resize(inputLen)
+
+	inData := unsafe.CastSlice[uint8, bool](input.Data)
+	outData := unsafe.CastSlice[uint8, bool](output.Data)
+
+	for i := int64(0); i < inputLen; i++ {
+		outData[i] = !inData[i]
+	}
+}
+
 func NegateF64(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
 	output.Resize(inputLen)

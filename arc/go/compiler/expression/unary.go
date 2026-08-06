@@ -75,7 +75,7 @@ func compileUnary(
 		}
 
 		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
-		return types.U8(), nil
+		return types.Bool(), nil
 	}
 
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
