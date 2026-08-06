@@ -10,7 +10,7 @@
 import { type Action, type UnknownAction } from "@reduxjs/toolkit";
 import {
   box,
-  debounce as debounceF,
+  debounce as debounceX,
   deep,
   dimensions,
   runtime,
@@ -217,7 +217,7 @@ export class TauriRuntime<
     for (const { key, handler, debounce } of propsHandlers)
       this.unsubscribe[key] = await this.win.listen(
         key,
-        debounceF(() => {
+        debounceX.debounce(() => {
           handler(this.win)
             .then((action) => {
               if (action != null)

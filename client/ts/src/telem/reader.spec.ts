@@ -131,6 +131,30 @@ describe("read", () => {
     cache.close();
   });
 
+  it("should fire a batch even while reads keep arriving", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({
+      cache,
+      readRemote: basicRemoteReadFunc(remoteReadF),
+      batchDebounce: TimeSpan.milliseconds(30),
+    });
+    const readAt = (offset: number): Promise<unknown> =>
+      reader.read(
+        new TimeRange(TimeSpan.seconds(offset), TimeSpan.seconds(offset + 1)),
+        offset + 1,
+      );
+    const pending = [readAt(0)];
+    for (let i = 1; i <= 5; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+      pending.push(readAt(i * 10));
+    }
+    // A timer reset by each read would still be waiting for 30ms of silence.
+    expect(remoteReadF).toHaveBeenCalled();
+    await Promise.all(pending);
+    cache.close();
+  });
+
   it("should fail only the reads whose batch failed", async () => {
     const cache = new Cache();
     const failing = new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(12));

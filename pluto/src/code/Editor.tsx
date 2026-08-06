@@ -250,7 +250,7 @@ const useRenameAvailable = (
           if (!ctrl.signal.aborted) void exec(svc);
         });
     };
-    const debounced = debounce(run, RENAME_CHECK_DEBOUNCE);
+    const debounced = debounce.debounce(run, RENAME_CHECK_DEBOUNCE);
     const cursorDispose = editor.onDidChangeCursorPosition(debounced);
     run();
     return () => {

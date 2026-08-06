@@ -23,14 +23,12 @@ export interface ReadRemoteFunc {
 interface ReadRequest {
   channel: channel.Key;
   gaps: TimeRange[];
-  resolve: () => void;
-  reject: (reason?: unknown) => void;
 }
 
 interface BatchFetch {
   gap: TimeRange;
   channels: Set<channel.Key>;
-  requests: Set<ReadRequest>;
+  entries: Set<debounce.Entry<ReadRequest>>;
 }
 
 export interface ReaderProps {
@@ -44,7 +42,8 @@ export interface ReaderProps {
   /**
    * Used to batch read requests to the server to minimize traffic. Larger
    * values mean slower response times but less traffic. Smaller values mean faster
-   * response times but more traffic.
+   * response times but more traffic. The window is not extended by later reads, so
+   * it is also the maximum wait before a batch fires.
    * @default TimeSpan.milliseconds(50)
    */
   batchDebounce?: TimeSpan;
@@ -68,12 +67,10 @@ export interface ReaderProps {
  */
 export class Reader {
   private readonly props: Required<ReaderProps>;
-  private readonly debouncedRead: ReturnType<typeof debounce>;
-  /** A mutex for serializing access to requests. */
-  private readonly mu = sync.newMutex({
-    requests: new Set<ReadRequest>(),
-    closed: false,
-  });
+  private readonly batcher: debounce.Batcher<ReadRequest>;
+  // Serializes batch execution against close, so close waits for the batch in
+  // flight.
+  private readonly mu = sync.newMutex({ closed: false });
 
   constructor(props: ReaderProps) {
     const {
@@ -90,10 +87,14 @@ export class Reader {
       batchDebounce,
       overlapThreshold,
     };
-    this.debouncedRead = debounce(
-      () => void this.batchRead(),
-      this.props.batchDebounce,
-    );
+    this.batcher = new debounce.Batcher({
+      interval: batchDebounce,
+      exec: async (entries) =>
+        await this.mu.runExclusive(async () => {
+          if (this.mu.closed) throw new UnexpectedError("telemetry reader is closed");
+          await this.batchRead(entries);
+        }),
+    });
   }
 
   /**
@@ -105,70 +106,56 @@ export class Reader {
     const unary = cache.get(channel);
     const { series, gaps } = unary.read(tr);
     if (gaps.length === 0) return series;
-    const { mu } = this;
-    await new Promise<void>((resolve, reject) => {
-      void mu.runExclusive(async () => {
-        if (mu.closed) return reject(new UnexpectedError("telemetry reader is closed"));
-        mu.requests.add({ channel, gaps, resolve, reject });
-        this.debouncedRead();
-      });
-    });
+    if (this.mu.closed) throw new UnexpectedError("telemetry reader is closed");
+    await this.batcher.enqueue({ channel, gaps });
     return unary.read(tr).series;
   }
 
-  private async batchRead(): Promise<void> {
+  private async batchRead(entries: Array<debounce.Entry<ReadRequest>>): Promise<void> {
     const { readRemote, cache, overlapThreshold } = this.props;
-    const { mu } = this;
-    await mu.runExclusive(async () => {
-      if (mu.closed) return;
-      const batched: BatchFetch[] = [];
-      mu.requests.forEach((req) =>
-        req.gaps.forEach((gap) => {
-          const g = batched.find((r) => r.gap.equals(gap, overlapThreshold));
-          if (g == null)
-            batched.push({
-              gap,
-              channels: new Set([req.channel]),
-              requests: new Set([req]),
-            });
-          else {
-            g.channels.add(req.channel);
-            g.gap = TimeRange.max(g.gap, gap);
-            g.requests.add(req);
-          }
-        }),
-      );
-      const failures = new Map<ReadRequest, unknown>();
-      await Promise.all(
-        batched.map(async ({ gap, channels, requests }) => {
-          try {
-            const frame = await readRemote(gap, Array.from(channels));
-            channels.forEach((key) => cache.get(key).writeStatic(frame.get(key)));
-          } catch (err) {
-            // Fail only the reads served by this batch; sibling batches settle on
-            // their own results.
-            requests.forEach((req) => {
-              if (!failures.has(req)) failures.set(req, err);
-            });
-          }
-        }),
-      );
-      mu.requests.forEach((req) => {
-        const err = failures.get(req);
-        if (err == null) req.resolve();
-        else req.reject(err);
-      });
-      mu.requests.clear();
+    const batched: BatchFetch[] = [];
+    entries.forEach((entry) =>
+      entry.req.gaps.forEach((gap) => {
+        const g = batched.find((r) => r.gap.equals(gap, overlapThreshold));
+        if (g == null)
+          batched.push({
+            gap,
+            channels: new Set([entry.req.channel]),
+            entries: new Set([entry]),
+          });
+        else {
+          g.channels.add(entry.req.channel);
+          g.gap = TimeRange.max(g.gap, gap);
+          g.entries.add(entry);
+        }
+      }),
+    );
+    const failures = new Map<debounce.Entry<ReadRequest>, unknown>();
+    await Promise.all(
+      batched.map(async ({ gap, channels, entries: served }) => {
+        try {
+          const frame = await readRemote(gap, Array.from(channels));
+          channels.forEach((key) => cache.get(key).writeStatic(frame.get(key)));
+        } catch (err) {
+          // Fail only the reads served by this batch; sibling batches settle on
+          // their own results.
+          served.forEach((entry) => {
+            if (!failures.has(entry)) failures.set(entry, err);
+          });
+        }
+      }),
+    );
+    entries.forEach((entry) => {
+      const err = failures.get(entry);
+      if (err == null) entry.resolve();
+      else entry.reject(err);
     });
   }
 
   async close(): Promise<void> {
-    this.debouncedRead.cancel();
+    this.batcher.close(new UnexpectedError("telemetry reader is closed"));
     await this.mu.runExclusive(async () => {
       this.mu.closed = true;
-      const err = new UnexpectedError("telemetry reader is closed");
-      this.mu.requests.forEach(({ reject }) => reject(err));
-      this.mu.requests.clear();
     });
   }
 }

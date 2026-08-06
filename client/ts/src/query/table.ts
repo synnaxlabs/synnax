@@ -10,6 +10,7 @@
 import {
   array,
   type CrudeTimeSpan,
+  debounce,
   deep,
   destructor,
   errors,
@@ -118,13 +119,6 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
 
 const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
 
-interface FetchWindow<Key extends record.Key, Value extends state.State> {
-  keys: Set<Key>;
-  promise: Promise<Array<Keyed<Key, Value>>>;
-  resolve: (rows: Array<Keyed<Key, Value>>) => void;
-  reject: (reason: unknown) => void;
-}
-
 /**
  * The sole owner of one resource's record content and tombstones. Everything
  * else in the cache holds keys into it: answers store key lists, dispatch
@@ -148,8 +142,10 @@ export class Table<
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
   private readonly fetchRows?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   private readonly hydrateMode: HydrateMode;
-  private readonly fetchDebounce: TimeSpan;
-  private pendingFetch: FetchWindow<Key, Value> | null = null;
+  private readonly fetchBatcher: debounce.Batcher<
+    Key[],
+    Array<Keyed<Key, Value>>
+  > | null;
   private gen = 0;
 
   constructor({
@@ -163,7 +159,18 @@ export class Table<
     this.equal = equal;
     this.fetchRows = fetch;
     this.hydrateMode = hydrate;
-    this.fetchDebounce = new TimeSpan(fetchDebounce);
+    this.fetchBatcher =
+      fetch == null
+        ? null
+        : new debounce.Batcher({
+            interval: fetchDebounce,
+            exec: async (entries) => {
+              const keys = new Set<Key>();
+              entries.forEach(({ req }) => req.forEach((key) => keys.add(key)));
+              const rows = await fetch(Array.from(keys));
+              entries.forEach(({ resolve }) => resolve(rows));
+            },
+          });
   }
 
   private setOne(
@@ -315,37 +322,13 @@ export class Table<
 
   /**
    * Joins the open fetch window, creating one if none exists. A window unions
-   * miss keys across concurrent retrieves into one fetch call; its timer is not
-   * reset by later joins, so sustained retrieving cannot starve the fetch. A
-   * failed fetch rejects every caller in the window and hydrates nothing, so
-   * failures are never cached.
+   * miss keys across concurrent retrieves into one fetch call. A failed fetch
+   * rejects every caller in the window and hydrates nothing, so failures are
+   * never cached.
    */
   private fetchMisses(keys: Key[]): Promise<Array<Keyed<Key, Value>>> {
-    const { fetchRows } = this;
-    if (fetchRows == null) return Promise.resolve([]);
-    let win = this.pendingFetch;
-    if (win == null) {
-      let resolve!: (rows: Array<Keyed<Key, Value>>) => void;
-      let reject!: (reason: unknown) => void;
-      const promise = new Promise<Array<Keyed<Key, Value>>>((res, rej) => {
-        resolve = res;
-        reject = rej;
-      });
-      const opened: FetchWindow<Key, Value> = {
-        keys: new Set(),
-        promise,
-        resolve,
-        reject,
-      };
-      win = opened;
-      this.pendingFetch = opened;
-      setTimeout(() => {
-        this.pendingFetch = null;
-        fetchRows(Array.from(opened.keys)).then(opened.resolve, opened.reject);
-      }, this.fetchDebounce.milliseconds);
-    }
-    keys.forEach((key) => win.keys.add(key));
-    return win.promise;
+    if (this.fetchBatcher == null) return Promise.resolve([]);
+    return this.fetchBatcher.enqueue(keys);
   }
 
   /**
