@@ -32,12 +32,12 @@ export const TaskControls = () => {
     if (taskKeyDefined) setSelectedRack(task.rackKey(taskKey));
   }, [taskKey, taskKeyDefined]);
   const { update } = Arc.useCreate();
-  const remote = Arc.useCached({ key });
+  const remote = Arc.useRetrieve({ key });
 
-  const handleConfigure = useCallback(() => {
-    if (remote == null) return;
-    update({ ...remote, name, key, rack: selectedRack });
-  }, [key, update, name, selectedRack, remote]);
+  const handleConfigure = useCallback(
+    () => update({ ...remote, name, key, rack: selectedRack }),
+    [key, update, name, selectedRack, remote],
+  );
 
   const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
   const handleContract = useCallback(() => setExpanded(false), []);
