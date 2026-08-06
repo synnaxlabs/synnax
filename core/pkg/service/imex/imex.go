@@ -340,10 +340,11 @@ func flattenStruct(rv reflect.Value, m map[string]any) {
 // from the envelope body — transport metadata like the source file's name and the
 // desired parent resource.
 type ImportOptions struct {
-	// FileName is the name of the file the envelope was read from. When the envelope
-	// body carries no `name` field, the file name — with any trailing extension
-	// stripped — becomes the envelope's name. A `name` in the body always wins. The
-	// fallback is applied by the registry before the envelope reaches an Importer.
+	// FileName is the name of the file the envelope was read from, possibly carrying
+	// directory segments. When the envelope body has no `name` field, the file's base
+	// name — with any trailing extension stripped — becomes the envelope's name. A
+	// `name` in the body always wins. The registry applies the fallback before the
+	// envelope reaches an Importer.
 	FileName string
 	// Parent is the ontology resource to create the imported resource under — a project
 	// for workspace items, a group for symbols. Required: Service.Import rejects a zero

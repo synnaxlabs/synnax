@@ -1,4 +1,4 @@
-# The Synnax Git Workflow in three instructions.
+# The Synnax Git workflow in three instructions
 
 1. Branch names are tied to GitHub/Linear issues. The name of your branch should be
    prefixed by the issue it belongs to i.e. `sy-175-line-plot-rules`. For long issue

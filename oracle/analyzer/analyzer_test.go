@@ -2739,6 +2739,35 @@ var _ = Describe("Analyzer", func() {
 		)
 
 		It(
+			"Should flatten variants inherited from a union in an imported schema",
+			func(ctx SpecContext) {
+				loader.Add("schemas/common", `
+				TankConfig struct {}
+
+				NodeConfig union on variant {
+					tank TankConfig
+				}
+			`)
+				source := `
+				import "schemas/common"
+
+				GroupConfig struct {}
+
+				ElementConfig union on variant extends common.NodeConfig {
+					group GroupConfig
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
+				Expect(form.Variants).To(HaveLen(2))
+				Expect(form.Variants[0].Name).To(Equal("tank"))
+				Expect(form.Variants[0].Type.Name).To(Equal("common.TankConfig"))
+				Expect(form.Variants[1].Name).To(Equal("group"))
+			},
+		)
+
+		It(
 			"Should synthesize suppressed payload types for inline variants",
 			func(ctx SpecContext) {
 				source := `
@@ -2917,6 +2946,41 @@ var _ = Describe("Analyzer", func() {
 					"port", "enabled", "name",
 					"terminalConfig", "minVal", "maxVal",
 				}))
+			},
+		)
+
+		It(
+			"Should resolve a union base struct from an imported schema",
+			func(ctx SpecContext) {
+				loader.Add("schemas/common", `
+				BaseChan struct {
+					port    int32
+					enabled bool
+				}
+			`)
+				source := `
+				import "schemas/common"
+
+				VoltageFields struct { minVal float64 }
+
+				AIChannel union on type extends common.BaseChan {
+					ai_voltage VoltageFields
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				ch := table.MustGet("ni.AIChannel")
+				form := ch.Form.(resolution.UnionForm)
+				Expect(form.Extends).To(HaveLen(1))
+				Expect(form.Extends[0].Name).To(Equal("common.BaseChan"))
+
+				fields := resolution.UnifiedVariantFields(ch, form.Variants[0], table)
+				fieldNames := make([]string, len(fields))
+				for i, f := range fields {
+					fieldNames[i] = f.Name
+				}
+				Expect(fieldNames).To(Equal([]string{"port", "enabled", "minVal"}))
 			},
 		)
 

@@ -108,7 +108,7 @@ using Synnax-generated timestamps.
 | `node_id` | string | Yes      | -       | OPC UA NodeId containing server timestamps               |
 
 **Note** -> If timestamp channels are not added to the task, Synnax automatically
-generates timestamps with ~ 100μs precision using software timing.
+generates timestamps with ~100 µs precision using software timing.
 
 </ChannelType>
 
@@ -120,7 +120,7 @@ generates timestamps with ~ 100μs precision using software timing.
 
 - **Sample rates** -> All channels in a task sample at the same rate. Create separate
   tasks for different rates.
-- **Software timing** -> Synnax uses software timing with ~100μs precision. Under heavy
+- **Software timing** -> Synnax uses software timing with ~100 µs precision. Under heavy
   load, timing precision may degrade.
 - **One running task per channel** -> A channel can only receive live data from one task
   at a time.

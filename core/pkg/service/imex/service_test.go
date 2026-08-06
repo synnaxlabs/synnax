@@ -497,6 +497,23 @@ var _ = Describe("Service", func() {
 				},
 			)
 
+			DescribeTable("Should strip directory segments from the file name",
+				func(ctx SpecContext, fileName, expected string) {
+					id := MustSucceed(svc.Import(
+						ctx,
+						db,
+						namelessEnvelope(),
+						imex.ImportOptions{FileName: fileName, Parent: newParent(ctx)},
+					))
+					entry := MustSucceed(ts.Retrieve(ctx, expected))
+					Expect(entry.Key).To(Equal(id.Key))
+				},
+				Entry("slash-separated path", "symbols/Pump.json", "Pump"),
+				Entry("backslash-separated path", `symbols\Valve.json`, "Valve"),
+				Entry("nested path", "a/b/c/Tank.json", "Tank"),
+				Entry("no extension", "symbols/Gauge", "Gauge"),
+			)
+
 			It(
 				"Should reject an envelope with neither a name nor a file name",
 				func(ctx SpecContext) {
@@ -509,6 +526,23 @@ var _ = Describe("Service", func() {
 						MatchError(ContainSubstring("name must be a non-empty string")),
 						MatchError(ContainSubstring("validation error")),
 					))
+				},
+			)
+
+			It(
+				"Should reject a file name that is only a directory path",
+				func(ctx SpecContext) {
+					Expect(svc.Import(
+						ctx,
+						db,
+						namelessEnvelope(),
+						imex.ImportOptions{
+							FileName: "symbols/",
+							Parent:   newParent(ctx),
+						},
+					)).Error().To(
+						MatchError(ContainSubstring("name must be a non-empty string")),
+					)
 				},
 			)
 		})

@@ -99,7 +99,7 @@ type Response struct {
 	// Variant is the type of response returned.
 	Variant ResponseVariant `json:"variant" msgpack:"variant"`
 	// Command is the command that produced this response. It is non-zero only for
-	// acknowledgement responses.
+	// acknowledgment responses.
 	Command Command `json:"command" msgpack:"command"`
 	// Ack is only relevant for variant AckResponse. Is true if the Iterator
 	// successfully executed the request.

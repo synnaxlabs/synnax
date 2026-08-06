@@ -1,14 +1,16 @@
-## Python Version
+# Python
+
+## 0 Python version
 
 Synnax uses **Python 3.12 or greater**, although we highly recommend always using the
 **latest version of Python**.
 
-## Monorepo Organization
+## 1 Monorepo organization
 
 Synnax is organized as a monorepo. Our Python-based software consists of the following
 packages:
 
-- `alamos` - path `alamos/py` - A library for instrumenting python code with logs,
+- `alamos` - path `alamos/py` - A library for instrumenting Python code with logs,
   traces, and metrics.
 - `synnax-freighter` - path `freighter/py` - A transport adapter protocol for
   communicating with the Synnax server.
@@ -19,11 +21,11 @@ Each of these packages is developed, built, and published independently. The cur
 dependency hierarchy for these packages is as follows:
 
 <p align="middle">
-    <img src="./img/python/deps.png" width="300px">
+    <img src="img/python/deps.png" width="300px">
     <h6 align="Middle">Synnax Python Dependency Graph</h6>
 </p>
 
-## uv - Synnax's Package Manager of Choice
+## 2 uv - Synnax's package manager of choice
 
 We use [uv](https://docs.astral.sh/uv/) as our package manager of choice. It helps us:
 
@@ -35,7 +37,7 @@ We use [uv](https://docs.astral.sh/uv/) as our package manager of choice. It hel
 uv is a fast, modern Python package manager written in Rust that replaces pip,
 pip-tools, virtualenv, and more.
 
-## Workspace Configuration
+## 3 Workspace configuration
 
 The monorepo uses uv workspaces defined in the root `pyproject.toml`:
 
@@ -52,15 +54,15 @@ synnax-freighter = { workspace = true }
 synnax = { workspace = true }
 ```
 
-## The Development Process
+## 4 The development process
 
-### 0 - Prerequisites
+### 4.0 Prerequisites
 
 Once you've set up your development environment (see [setup macOS](../setup-macos.md)
 and [setup windows](../setup-windows.md)), have an issue you're ready to work, and have
 checked out a [branch](../git.md), you're ready to start developing.
 
-### 1 - Installing Dependencies
+### 4.1 Installing dependencies
 
 To install the Python dependencies, run the following command from the repository root
 or from any package directory (`client/py`, `freighter/py`, `alamos/py`, `integration`):
@@ -69,7 +71,7 @@ or from any package directory (`client/py`, `freighter/py`, `alamos/py`, `integr
 uv sync
 ```
 
-### 2 - Running Commands
+### 4.2 Running commands
 
 uv automatically manages virtual environments. To run any Python command within the
 project environment, use `uv run`:
@@ -81,13 +83,13 @@ uv run mypy .    # Type check
 uv run sy --help # Run the CLI (in client/py)
 ```
 
-### 3 - You're Ready to Go
+### 4.3 You're ready to go
 
 You're ready to start developing with Python in Synnax. Note that certain libraries have
 specific development instructions. These instructions can be found in the `README.md`
 files in each library's directory.
 
-## BEFORE YOU SUBMIT A PULL REQUEST
+## 5 Before you submit a pull request
 
 Once you're ready to submit a pull request, do two things:
 

@@ -80,7 +80,7 @@ Before designing, assemble the governing principles for the affected area from f
 sources:
 
 1. **Written law** -> root and component CLAUDE.mds, `docs/claude/*`, and the Principles
-   and Resolved Decisions sections of related RFCs. Resolved Decisions especially: past
+   and Resolved decisions sections of related RFCs. Resolved decisions especially: past
    designs already rejected alternatives this design may be about to re-propose.
 2. **Grid placement** -> the cell(s) the change occupies on the three axes (layer ×
    domain/feature × general-purpose-vs-Synnax-specific), and the invariants each axis
@@ -228,21 +228,22 @@ Load it before the first question. Design adds these gates on top:
 
 ## Rule 9: The deliverable takes the house RFC form
 
-RFCs live in `docs/tech/rfc/`, filename `NNNN-YYMMDD-kebab-title.md` (next sequence
-number, start date). The corpus spine, sections numbered from 0:
+RFCs live in `docs/tech/rfc/`. Read `docs/tech/rfc/CLAUDE.md` before you write one: it
+holds the file name, front matter, heading, definition-list, and prose rules for the
+corpus. The spine, in order:
 
-`# 0 - Summary` -> `Motivation` and/or `Vocabulary` -> `Principles` -> `Design` ->
-`Implementation Phases` -> `Resolved Decisions` -> `Open Questions`.
+`0 Summary` -> `Motivation` and/or `Vocabulary` -> `Principles` -> `Design` ->
+`Implementation phases` -> `Resolved decisions` -> `Open questions`.
 
 Conventions that matter:
 
-- **Resolved Decisions ledger.** Every rejected alternative is recorded with its
+- **Resolved decisions ledger**: Every rejected alternative is recorded with its
   enumerated downsides and an honest "the trade is real" acknowledgment. Inline prose
   rejection right after a decision is the dominant style for smaller calls.
-- **"What This RFC Does Not Cover."** Explicit scope exclusion, its own section.
-- **Interview-locked register.** Decisions read terse and settled, rejections folded in;
+- **What this RFC does not cover**: Explicit scope exclusion, in its own section.
+- **Interview-locked register**: Decisions read terse and settled, rejections folded in;
   the open-questions tail is short and bounded, each item a parameter choice.
-- **Evidence style.** Claims cite actual code (file:line) and sibling RFCs by number.
+- **Evidence style**: Claims cite actual code (file:line) and sibling RFCs by number.
   Never reference RFCs from production code comments.
 - Tables for enumerable matrices (state × action); prose for rationale.
 - Short RFCs are fine when they justify their existence. A plan persisted in the

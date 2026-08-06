@@ -831,7 +831,7 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		data.imports.AddExternal(strconvImportPath)
 	}
 	if len(sd.Name) > 0 {
-		sd.Receiver = strings.ToLower(sd.Name[:1])
+		sd.Receiver = receiverName(sd.Name)
 	}
 
 	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
@@ -841,6 +841,19 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	}
 
 	return sd
+}
+
+// receiverName derives a method receiver from the type name. It widens to two letters
+// when the first would be "v", which generated Validate bodies use for their validator.
+func receiverName(name string) string {
+	r := strings.ToLower(name[:1])
+	if r != "v" {
+		return r
+	}
+	if len(name) > 1 {
+		return strings.ToLower(name[:2])
+	}
+	return "vv"
 }
 
 func processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
