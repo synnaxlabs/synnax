@@ -148,7 +148,7 @@ export class Streamer {
 
   /**
    * Registers demand for the given keys. Registration is synchronous: the handler
-   * is seeded with any existing leading buffers, and the stream converges to the
+   * is called with any existing leading buffers, and the stream converges to the
    * new demand in the background.
    * @throws {UnexpectedError} if the streamer has been closed.
    */
@@ -157,6 +157,16 @@ export class Streamer {
       throw new UnexpectedError("stream() called on a closed telemetry streamer");
     const { cache, instrumentation: ins } = this.props;
     ins.L.debug("adding stream handler", { keys });
+    // Hand the handler existing dynamic buffers so late subscribers render buffered
+    // data immediately. This runs before registration so a throwing handler leaves
+    // no demand behind.
+    const initial: Map<channel.Key, MultiSeries> = new Map(
+      keys.map((key) => [
+        key,
+        new MultiSeries(array.toArray<Series>(cache.get(key).leadingBuffer)),
+      ]),
+    );
+    handler(initial);
     const entry: Entry = {
       handler,
       keys: new Set(keys),
@@ -167,15 +177,6 @@ export class Streamer {
     keys.forEach((key) => {
       if (!this.statuses.has(key)) this.statuses.set(key, status.create(LOADING));
     });
-    // Seed the handler with existing dynamic buffers so late subscribers render
-    // buffered data immediately.
-    const seed: Map<channel.Key, MultiSeries> = new Map(
-      keys.map((key) => [
-        key,
-        new MultiSeries(array.toArray<Series>(cache.get(key).leadingBuffer)),
-      ]),
-    );
-    handler(seed);
     this.scheduleReconcile();
     return {
       close: () => this.remove(entry),
@@ -237,7 +238,18 @@ export class Streamer {
     this.statuses.set(key, next);
     this.entries.forEach((e) => {
       if (e.removed || !e.keys.has(key)) return;
-      e.statusHandlers.forEach((handler) => handler(key, next));
+      e.statusHandlers.forEach((handler) => {
+        try {
+          handler(key, next);
+        } catch (err) {
+          // A subscriber bug must not be mistaken for a stream failure.
+          this.props.instrumentation.L.error(
+            "status handler failed",
+            { error: err },
+            true,
+          );
+        }
+      });
     });
   }
 
@@ -331,7 +343,13 @@ export class Streamer {
           }
         if (changed.size !== 0)
           this.entries.forEach((e) => {
-            if (!e.removed) e.handler(changed);
+            if (e.removed) return;
+            try {
+              e.handler(changed);
+            } catch (err) {
+              // A subscriber bug must not restart the shared stream.
+              ins.L.error("stream handler failed", { error: err }, true);
+            }
           });
       }
     } catch (e) {

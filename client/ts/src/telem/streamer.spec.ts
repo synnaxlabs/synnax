@@ -148,7 +148,7 @@ describe("Streamer", () => {
 
       const responses: Map<channel.Key, MultiSeries>[] = [];
       const sub = streamer.stream((d) => responses.push(d), [1]);
-      // The seed lands synchronously, before any stream is opened.
+      // The initial buffers land synchronously, before any stream is opened.
       expect(responses).toHaveLength(1);
       expect(responses[0].get(1)?.series.length).toEqual(0);
       expect(sub.status(1).variant).toEqual("loading");
@@ -271,6 +271,36 @@ describe("Streamer", () => {
     });
   });
 
+  describe("registration atomicity", () => {
+    it("should register no demand when the handler throws on its initial call", async () => {
+      const openedWith: unknown[] = [];
+      const opener = async (
+        config: framer.StreamerConfig,
+      ): Promise<framer.Streamer> => {
+        if (typeof config === "object" && "channels" in config)
+          openedWith.push(config.channels);
+        return pendingStreamer([2]);
+      };
+      const streamer = new Streamer({ cache: new Cache(), openStreamer: opener });
+
+      expect(() =>
+        streamer.stream(() => {
+          throw new Error("broken handler");
+        }, [1]),
+      ).toThrow("broken handler");
+      await vi.advanceTimersByTimeAsync(500);
+      expect(openedWith).toHaveLength(0);
+
+      // A later subscriber must not drag the failed registration's keys onto the
+      // stream.
+      const responses: Map<channel.Key, MultiSeries>[] = [];
+      streamer.stream((d) => responses.push(d), [2]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(openedWith).toEqual([[2]]);
+      expect(responses).toHaveLength(1);
+    });
+  });
+
   describe("update path", () => {
     it("should not call update again when the merged key set is unchanged", async () => {
       const ms1 = pendingStreamer([1]);
@@ -357,6 +387,64 @@ describe("Streamer", () => {
       expect(replacement.iteratorVi).toHaveBeenCalled();
       expect(sub.status(1).variant).toEqual("success");
       sub.close();
+    });
+  });
+
+  describe("subscriber isolation", () => {
+    it("should keep the stream alive when a handler throws on live delivery", async () => {
+      let i = 0;
+      let openCalls = 0;
+      const opener = async (): Promise<framer.Streamer> => {
+        openCalls++;
+        return new MockStreamer([1], async () => {
+          await sleep.sleep(TimeSpan.milliseconds(5));
+          i++;
+          return {
+            done: false,
+            value: new Frame({
+              1: new Series({ data: new Float32Array([1]), alignment: BigInt(i) }),
+            }),
+          };
+        });
+      };
+      const streamer = new Streamer({ cache: new Cache(), openStreamer: opener });
+
+      let brokenCalls = 0;
+      const broken = streamer.stream(() => {
+        brokenCalls++;
+        // Survive the initial synchronous call so registration completes, then
+        // throw on every live delivery.
+        if (brokenCalls > 1) throw new Error("broken live handler");
+      }, [1]);
+      const responses: Map<channel.Key, MultiSeries>[] = [];
+      const good = streamer.stream((d) => responses.push(d), [1]);
+      await vi.advanceTimersByTimeAsync(300);
+      broken.close();
+      good.close();
+
+      expect(brokenCalls).toBeGreaterThan(5);
+      expect(responses.length).toBeGreaterThan(5);
+      expect(openCalls).toBe(1);
+    });
+
+    it("should notify remaining status handlers when one throws", async () => {
+      const streamer = new Streamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+
+      const broken = streamer.stream(() => {}, [1]);
+      broken.onStatusChange(() => {
+        throw new Error("broken status handler");
+      });
+      const good = streamer.stream(() => {}, [1]);
+      const statuses: string[] = [];
+      good.onStatusChange((_, s) => statuses.push(s.variant));
+      await vi.advanceTimersByTimeAsync(300);
+      broken.close();
+      good.close();
+
+      expect(statuses).toContain("success");
     });
   });
 
