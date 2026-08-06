@@ -221,6 +221,21 @@ var _ = Describe("Transform", func() {
 				"alerts":      []any{map[string]any{"disabled": true}},
 			},
 		),
+		Entry("renames scan_rate and flips enabled on scan tasks",
+			"opc_scan",
+			msgpack.EncodedJSON{"scan_rate": float64(0.5), "enabled": false},
+			msgpack.EncodedJSON{"rate": float64(0.5), "disabled": true},
+		),
+		Entry("keeps the LabJack scan tcp_scan_multiplier",
+			"labjack_scan",
+			msgpack.EncodedJSON{"enabled": true, "tcp_scan_multiplier": float64(5)},
+			msgpack.EncodedJSON{"disabled": false, "tcp_scan_multiplier": float64(5)},
+		),
+		Entry("renames scan_rate on the NI scanner",
+			"ni_scanner",
+			msgpack.EncodedJSON{"scan_rate": float64(1)},
+			msgpack.EncodedJSON{"rate": float64(1)},
+		),
 	)
 	It("Should not mutate the input config", func() {
 		in := msgpack.EncodedJSON{"data_saving": true}

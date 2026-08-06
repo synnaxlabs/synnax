@@ -94,6 +94,13 @@ func transformHTTPRequest(ep msgpack.EncodedJSON) {
 	recordToList(ep, "query_params", "parameter", "value")
 }
 
+// transformScan renames the legacy "scan_rate" key to "rate" and flips the enabled
+// polarity.
+func transformScan(config msgpack.EncodedJSON) {
+	renameKey(config, "scan_rate", "rate")
+	flipBool(config, "enabled", "disabled")
+}
+
 // transformPagerDuty flips the legacy per-alert enabled polarity.
 func transformPagerDuty(config msgpack.EncodedJSON) {
 	eachChild(config, "alerts", func(a msgpack.EncodedJSON) {

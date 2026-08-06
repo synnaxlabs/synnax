@@ -129,8 +129,15 @@ class BaseOutputChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.ConfigRecord):
-    """Configures a LabJack scan task, which carries no settings."""
+class ScanConfig(task.BaseScanConfig):
+    """Configures a LabJack scan task.
+
+    Attributes:
+        tcp_scan_multiplier: Is the number of scan cycles between TCP device scans. USB
+            devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
+    """
+
+    tcp_scan_multiplier: int = Field(default=10, ge=-2147483648, le=2147483647)
 
     def __hash__(self) -> int:
         return hash(self.key)

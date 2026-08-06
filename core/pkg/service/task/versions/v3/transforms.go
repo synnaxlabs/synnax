@@ -27,6 +27,12 @@ var transforms = map[string]transform{
 	"http_read":       transformHTTPRead,
 	"http_write":      transformHTTPWrite,
 	"pagerduty_alert": transformPagerDuty,
+	"opc_scan":        transformScan,
+	"labjack_scan":    transformScan,
+	"modbus_scan":     transformScan,
+	"ethercat_scan":   transformScan,
+	"http_scan":       transformScan,
+	"ni_scanner":      transformScan,
 }
 
 // Transform returns config normalized for the given task type: common legacy keys

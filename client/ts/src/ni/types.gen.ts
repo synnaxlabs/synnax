@@ -502,7 +502,7 @@ export const writeConfigZ = task.baseWriteConfigZ.extend({
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
-export const scannerConfigZ = task.configRecordZ;
+export const scannerConfigZ = task.baseScanConfigZ;
 export interface ScannerConfig extends z.infer<typeof scannerConfigZ> {}
 
 /** DigitalInputChannel carries the fields of an NI digital input channel. */

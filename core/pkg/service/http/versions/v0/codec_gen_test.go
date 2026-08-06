@@ -22,7 +22,6 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v0"
 	common "github.com/synnaxlabs/synnax/pkg/service/task/common/versions/v0"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
@@ -306,9 +305,19 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.ScanConfig{
-				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				BaseScanConfig: common.BaseScanConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					Rate:         telem.Rate(2.5),
+					Disabled:     true,
+				},
 			}),
-			Entry("zero values", v0.ScanConfig{ConfigRecord: common.ConfigRecord{Key: uuid.Nil}}),
+			Entry("zero values", v0.ScanConfig{
+				BaseScanConfig: common.BaseScanConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+					Rate:         telem.Rate(0),
+					Disabled:     false,
+				},
+			}),
 		)
 	})
 	Describe("WriteConfig", func() {
@@ -347,7 +356,7 @@ var _ = Describe("Codec", func() {
 							{Variant: v0.WriteFieldStatic{
 								BaseWriteField: fullyPopulatedBaseWriteField,
 								JSONType:       v0.JSONType("number"),
-								Value:          msgpack.EncodedJSON{"key_27": "value_27"},
+								Value:          map[string]interface{}{"key_27": "value_27"},
 							}},
 						},
 					},
@@ -398,7 +407,7 @@ var _ = Describe("Codec", func() {
 					{Variant: v0.WriteFieldStatic{
 						BaseWriteField: fullyPopulatedBaseWriteField,
 						JSONType:       v0.JSONType("number"),
-						Value:          msgpack.EncodedJSON{"key_23": "value_23"},
+						Value:          map[string]interface{}{"key_23": "value_23"},
 					}},
 				},
 			}),
@@ -454,7 +463,7 @@ var _ = Describe("Codec", func() {
 			Entry("static variant", v0.WriteField{Variant: v0.WriteFieldStatic{
 				BaseWriteField: fullyPopulatedBaseWriteField,
 				JSONType:       v0.JSONType("number"),
-				Value:          msgpack.EncodedJSON{"key_2": "value_2"},
+				Value:          map[string]interface{}{"key_2": "value_2"},
 			}}),
 			Entry("generated variant", v0.WriteField{Variant: v0.WriteFieldGenerated{
 				BaseWriteField: fullyPopulatedBaseWriteField,
@@ -671,7 +680,11 @@ func BenchmarkEncodeDecodeReadField(b *testing.B) {
 
 func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 	seed := v0.ScanConfig{
-		ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+		BaseScanConfig: common.BaseScanConfig{
+			ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			Rate:         telem.Rate(2.5),
+			Disabled:     true,
+		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -714,7 +727,7 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 					{Variant: v0.WriteFieldStatic{
 						BaseWriteField: fullyPopulatedBaseWriteField,
 						JSONType:       v0.JSONType("number"),
-						Value:          msgpack.EncodedJSON{"key_27": "value_27"},
+						Value:          map[string]interface{}{"key_27": "value_27"},
 					}},
 				},
 			},
@@ -756,7 +769,7 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 			{Variant: v0.WriteFieldStatic{
 				BaseWriteField: fullyPopulatedBaseWriteField,
 				JSONType:       v0.JSONType("number"),
-				Value:          msgpack.EncodedJSON{"key_23": "value_23"},
+				Value:          map[string]interface{}{"key_23": "value_23"},
 			}},
 		},
 	}
@@ -779,7 +792,7 @@ func BenchmarkEncodeDecodeWriteField(b *testing.B) {
 	seed := v0.WriteField{Variant: v0.WriteFieldStatic{
 		BaseWriteField: fullyPopulatedBaseWriteField,
 		JSONType:       v0.JSONType("number"),
-		Value:          msgpack.EncodedJSON{"key_2": "value_2"},
+		Value:          map[string]interface{}{"key_2": "value_2"},
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1281,7 +1294,11 @@ func FuzzDecodeReadField(f *testing.F) {
 func FuzzDecodeScanConfig(f *testing.F) {
 	{
 		seed := v0.ScanConfig{
-			ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			BaseScanConfig: common.BaseScanConfig{
+				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				Rate:         telem.Rate(2.5),
+				Disabled:     true,
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1290,7 +1307,13 @@ func FuzzDecodeScanConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.ScanConfig{ConfigRecord: common.ConfigRecord{Key: uuid.Nil}}
+		seed := v0.ScanConfig{
+			BaseScanConfig: common.BaseScanConfig{
+				ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+				Rate:         telem.Rate(0),
+				Disabled:     false,
+			},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1346,7 +1369,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 						{Variant: v0.WriteFieldStatic{
 							BaseWriteField: fullyPopulatedBaseWriteField,
 							JSONType:       v0.JSONType("number"),
-							Value:          msgpack.EncodedJSON{"key_27": "value_27"},
+							Value:          map[string]interface{}{"key_27": "value_27"},
 						}},
 					},
 				},
@@ -1428,7 +1451,7 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 				{Variant: v0.WriteFieldStatic{
 					BaseWriteField: fullyPopulatedBaseWriteField,
 					JSONType:       v0.JSONType("number"),
-					Value:          msgpack.EncodedJSON{"key_23": "value_23"},
+					Value:          map[string]interface{}{"key_23": "value_23"},
 				}},
 			},
 		}
@@ -1515,7 +1538,7 @@ func FuzzDecodeWriteField(f *testing.F) {
 		seed := v0.WriteField{Variant: v0.WriteFieldStatic{
 			BaseWriteField: fullyPopulatedBaseWriteField,
 			JSONType:       v0.JSONType("number"),
-			Value:          msgpack.EncodedJSON{"key_2": "value_2"},
+			Value:          map[string]interface{}{"key_2": "value_2"},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

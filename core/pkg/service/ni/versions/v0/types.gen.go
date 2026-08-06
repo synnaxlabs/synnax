@@ -4393,5 +4393,5 @@ type DigitalWriteConfig struct {
 
 // ScannerConfig configures the NI device scanner task, which carries no settings.
 type ScannerConfig struct {
-	common.ConfigRecord
+	common.BaseScanConfig
 }

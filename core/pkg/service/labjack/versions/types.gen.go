@@ -116,5 +116,5 @@ type ReadConfig = v0.ReadConfig
 // WriteConfig configures a LabJack write task.
 type WriteConfig = v0.WriteConfig
 
-// ScanConfig configures a LabJack scan task, which carries no settings.
+// ScanConfig configures a LabJack scan task.
 type ScanConfig = v0.ScanConfig

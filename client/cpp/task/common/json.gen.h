@@ -21,13 +21,30 @@ namespace synnax::common {
 
 inline ConfigRecord ConfigRecord::parse(x::json::Parser parser) {
     return ConfigRecord{
-        .key = parser.field<x::uuid::UUID>("key"),
+        .key = parser.field<x::uuid::UUID>("key", x::uuid::create()),
     };
 }
 
 inline x::json::json ConfigRecord::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
+    return j;
+}
+
+inline BaseScanConfig BaseScanConfig::parse(x::json::Parser parser) {
+    BaseScanConfig result;
+    static_cast<ConfigRecord &>(result) = ConfigRecord::parse(parser);
+    result.rate = parser.field<::x::telem::Rate>("rate", x::telem::Rate(0.200000));
+    result.disabled = parser.field<bool>("disabled", false);
+    return result;
+}
+
+inline x::json::json BaseScanConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: ConfigRecord::to_json().items())
+        j[k] = v;
+    j["rate"] = this->rate;
+    j["disabled"] = this->disabled;
     return j;
 }
 

@@ -65,7 +65,7 @@ export const baseOutputChannelZ = z.object({
 });
 export interface BaseOutputChannel extends z.infer<typeof baseOutputChannelZ> {}
 
-export const scanConfigZ = task.configRecordZ;
+export const scanConfigZ = task.baseScanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 /** InputChannelAutomatic resolves its PDO address from the slave's discovered PDOs. */

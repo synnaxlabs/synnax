@@ -319,5 +319,5 @@ type WriteConfig struct {
 
 // ScanConfig configures an EtherCAT scan task, which carries no settings.
 type ScanConfig struct {
-	common.ConfigRecord
+	common.BaseScanConfig
 }

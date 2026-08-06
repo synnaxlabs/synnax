@@ -75,6 +75,21 @@ class Command(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
+class BaseScanConfig(ConfigRecord):
+    """Carries the fields shared by every scan task configuration.
+
+    Attributes:
+        rate: Is the rate at which the scan runs, in hertz.
+        disabled: Is true when scanning is paused.
+    """
+
+    rate: telem.Rate = 0.200000
+    disabled: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class BaseConfig(ConfigRecord):
     """Carries the configuration fields shared by every hardware task.
 

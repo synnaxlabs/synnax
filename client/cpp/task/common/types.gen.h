@@ -19,6 +19,7 @@
 namespace synnax::common {
 
 struct ConfigRecord;
+struct BaseScanConfig;
 struct BaseConfig;
 struct BaseReadConfig;
 struct BaseWriteConfig;
@@ -29,6 +30,17 @@ struct ConfigRecord {
     x::uuid::UUID key;
 
     static ConfigRecord parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BaseScanConfig carries the fields shared by every scan task configuration.
+struct BaseScanConfig : public ConfigRecord {
+    /// @brief rate is the rate at which the scan runs, in hertz.
+    ::x::telem::Rate rate = x::telem::Rate(0.200000);
+    /// @brief disabled is true when scanning is paused.
+    bool disabled = false;
+
+    static BaseScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

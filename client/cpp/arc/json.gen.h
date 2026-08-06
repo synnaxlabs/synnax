@@ -39,7 +39,7 @@ inline x::json::json StatusDetails::to_json() const {
 
 inline Arc Arc::parse(x::json::Parser parser) {
     return Arc{
-        .key = parser.field<Key>("key"),
+        .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
         .mode = parser.field<std::string>("mode"),
         .graph = parser.field<::arc::graph::Graph>("graph"),

@@ -79,5 +79,5 @@ type WriteConfig struct {
 
 // ScanConfig configures an OPC UA scan task, which carries no settings.
 type ScanConfig struct {
-	common.ConfigRecord
+	common.BaseScanConfig
 }

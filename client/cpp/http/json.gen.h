@@ -251,15 +251,15 @@ inline x::json::json WriteConfig::to_json() const {
 
 inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     ScanConfig result;
-    static_cast<::synnax::common::ConfigRecord &>(
+    static_cast<::synnax::common::BaseScanConfig &>(
         result
-    ) = ::synnax::common::ConfigRecord::parse(parser);
+    ) = ::synnax::common::BaseScanConfig::parse(parser);
     return result;
 }
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::ConfigRecord::to_json().items())
+    for (auto &[k, v]: ::synnax::common::BaseScanConfig::to_json().items())
         j[k] = v;
     return j;
 }
@@ -268,7 +268,7 @@ inline WriteFieldStatic WriteFieldStatic::parse(x::json::Parser parser) {
     WriteFieldStatic result;
     static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
     result.json_type = parser.field<std::string>("json_type", "number");
-    result.value = parser.field<std::optional<x::json::json::object_t>>("value");
+    result.value = parser.field<std::optional<x::json::json>>("value");
     result.type = parser.field<std::string>("type");
     return result;
 }

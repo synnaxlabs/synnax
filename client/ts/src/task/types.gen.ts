@@ -27,6 +27,12 @@ export interface ConfigRecord extends z.infer<typeof configRecordZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+export const baseScanConfigZ = configRecordZ.extend({
+  rate: z.number().default(0.2),
+  disabled: z.boolean().default(false),
+});
+export interface BaseScanConfig extends z.infer<typeof baseScanConfigZ> {}
+
 export const baseConfigZ = configRecordZ.extend({
   autoStart: z.boolean().default(false),
   dataSavingDisabled: z.boolean().default(false),

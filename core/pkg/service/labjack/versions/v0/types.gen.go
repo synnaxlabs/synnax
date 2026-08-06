@@ -581,7 +581,10 @@ type WriteConfig struct {
 	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
-// ScanConfig configures a LabJack scan task, which carries no settings.
+// ScanConfig configures a LabJack scan task.
 type ScanConfig struct {
-	common.ConfigRecord
+	common.BaseScanConfig
+	// TCPScanMultiplier is the number of scan cycles between TCP device scans. USB
+	// devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
+	TCPScanMultiplier int32 `json:"tcp_scan_multiplier" msgpack:"tcp_scan_multiplier"`
 }

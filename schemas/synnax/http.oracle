@@ -245,7 +245,7 @@ WriteField union on type extends BaseWriteField {
         json_type JSONType = number {
             @doc value "is the JSON type the value is serialized as."
         }
-        value     record?  {
+        value     any?     {
             @doc value "is the fixed JSON value placed at the pointer."
         }
 
@@ -323,7 +323,7 @@ WriteConfig struct extends task.ConfigRecord {
     @go migrate
 }
 
-ScanConfig struct extends task.ConfigRecord {
+ScanConfig struct extends task.BaseScanConfig {
     @doc value  "configures an HTTP scan task, which carries no settings."
     @go version 0
     @go marshal

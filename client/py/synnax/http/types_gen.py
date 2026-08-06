@@ -125,7 +125,7 @@ class BaseWriteField(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.ConfigRecord):
+class ScanConfig(task.BaseScanConfig):
     """Configures an HTTP scan task, which carries no settings."""
 
     def __hash__(self) -> int:
@@ -191,7 +191,7 @@ class WriteFieldStatic(BaseWriteField):
 
     type: Literal["static"]
     json_type: JSONType = "number"
-    value: dict[str, Any] | None = None
+    value: Any | None = None
 
 
 class WriteFieldGenerated(BaseWriteField):

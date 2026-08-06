@@ -784,7 +784,7 @@ class WriteConfig(task.BaseWriteConfig):
         return hash(self.key)
 
 
-class ScannerConfig(task.ConfigRecord):
+class ScannerConfig(task.BaseScanConfig):
     """Configures the NI device scanner task, which carries no settings."""
 
     def __hash__(self) -> int:

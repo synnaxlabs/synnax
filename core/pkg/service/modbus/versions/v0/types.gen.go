@@ -347,5 +347,5 @@ type WriteConfig struct {
 
 // ScanConfig configures a Modbus scan task, which carries no settings.
 type ScanConfig struct {
-	common.ConfigRecord
+	common.BaseScanConfig
 }
