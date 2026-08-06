@@ -109,8 +109,9 @@ the headers of every member — the existing envelope peek, no body decode — t
 importers and run access checks up front.
 
 Resource files are ordinary single-resource envelopes, byte-identical to `imex/export`
-output. Panel files are envelopes of type `"panel"`. Their resource tabs reference
-bundle files by name:
+output. Panel files are envelopes of type `"panel"`. The panel envelope is the `panel`
+schema with one substitution: a resource tab's `resource` field, an `ontology.ID` in the
+cluster, becomes a `file` field naming a bundle member.
 
 ```json
 {
@@ -123,6 +124,11 @@ bundle files by name:
   }
 }
 ```
+
+An `ontology.ID` means nothing outside the cluster that minted it. Its key is opaque,
+and the import mints a fresh one (principle 3), so a bundled ID is dead on arrival: it
+names a resource in the source cluster, never one in the bundle. A file name is the only
+reference form the bundle can resolve on its own. It is also the readable one in a diff.
 
 The exporter owns file naming: sanitized resource names. It never emits a reserved base
 name. Name-collision rules for export and import live in §4.8.
@@ -333,7 +339,11 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   redesigned here.
 - **6.4 File names are the bundle-local keys.** Bundle-local keys never become creation
   keys. Opaque local IDs were rejected: two identifier spaces and worse hand-editing.
-  Renaming a file breaks references to it; import fails loud and names the file.
+  Renaming a file breaks references to it; import fails loud and names the file. Keeping
+  the in-cluster `ontology.ID` on a resource tab and adding a side map from ID to file
+  name was also rejected. It keeps the panel envelope identical to the `panel` schema,
+  but an `ontology.ID` carries no meaning outside its cluster (§4.0), so the map becomes
+  the real reference and the ID becomes dead weight the reader must hop through.
 - **6.5 One envelope file per panel.** A single `PANELS.json` was rejected as a
   special-cased blob. Panels are bundle-internal and never leaf-registered.
 - **6.6 Inferred membership.** Membership is every supported-extension file beside the
