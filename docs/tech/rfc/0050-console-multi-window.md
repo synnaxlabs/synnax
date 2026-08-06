@@ -7,7 +7,7 @@
 
 The panel refactor left the Console with working multi-window plumbing and no way to
 reach it: secondary windows rendered a viewport shell, per-window session state existed,
-and window arrangement persisted per project through the Drift partition (RFC 0048), but
+and window arrangement persisted per project through the Drift partition (RFC 0047), but
 nothing in the UI created a window. This RFC restores window creation and tab movement
 on top of panels. A window is an unbound viewport: it carries its own panel selector
 strip and can show any panel in the project, including one another window is already
@@ -112,7 +112,7 @@ position come from drift's default window props; tear-offs pass a cursor-relativ
 position (offset `{ x: -80, y: -45 }`) so the torn tab lands where the pointer released
 it.
 
-Window titles are owned by the session panel synchronizer (RFC 0048): a window is titled
+Window titles are owned by the session panel synchronizer (RFC 0047): a window is titled
 by its stable identity plus the selected panel's name (`Main - Ops`, `2 - Ops`), falling
 back to `Synnax` or `Window N` when nothing is selected. Ordinals live in drift,
 increment monotonically, and survive restarts, so the OS window list stays legible and
@@ -168,7 +168,7 @@ window and deleted only through the pill's existing Delete item. A torn-off pane
 outlives its window is ordinary project clutter, not a special case.
 
 Window keys are stable across a restart because `Drift.restoreWindows` reopens stored
-windows with their stored props and ordinals (RFC 0048), so a restored window keeps its
+windows with their stored props and ordinals (RFC 0047), so a restored window keeps its
 panel selection and its drawer sizing. Per-window session entries (`panels.windows`,
 `nav.windows`) are keyed by window key and are not pruned when a window closes; see open
 questions. No persisted-state migration was required: the per-window slices and the
@@ -190,7 +190,7 @@ hook, and the move-to-new-window menu flow.
 - **Detaching a single tab into a chrome-less window**: Every window is a panel
   viewport.
 - **Cross-project windows**: A window shows a panel of the active project; project
-  switch swaps every window's context through the scoped persistence swap (RFC 0048).
+  switch swaps every window's context through the scoped persistence swap (RFC 0047).
 - **Undo across a cross-panel move**: See open questions.
 
 ## 8 Resolved decisions

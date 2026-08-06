@@ -237,13 +237,14 @@ corpus. The spine, in order:
 
 Conventions that matter:
 
-- **Resolved Decisions ledger.** Every rejected alternative is recorded with its
+- **Resolved decisions ledger**: Every rejected alternative is recorded with its
   enumerated downsides and an honest "the trade is real" acknowledgment. Inline prose
   rejection right after a decision is the dominant style for smaller calls.
-- **"What This RFC Does Not Cover."** Explicit scope exclusion, its own section.
-- **Interview-locked register.** Decisions read terse and settled, rejections folded in;
+- **What this RFC does not cover**: Explicit scope exclusion, its own section, under
+  that heading.
+- **Interview-locked register**: Decisions read terse and settled, rejections folded in;
   the open-questions tail is short and bounded, each item a parameter choice.
-- **Evidence style.** Claims cite actual code (file:line) and sibling RFCs by number.
+- **Evidence style**: Claims cite actual code (file:line) and sibling RFCs by number.
   Never reference RFCs from production code comments.
 - Tables for enumerable matrices (state × action); prose for rationale.
 - Short RFCs are fine when they justify their existence. A plan persisted in the

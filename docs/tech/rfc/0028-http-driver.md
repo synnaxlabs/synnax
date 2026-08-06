@@ -132,7 +132,7 @@ docs/site/src/pages/reference/device-drivers/http/  # Documentation (NEW)
 }
 ```
 
-**Authentication Types:**
+**Authentication types:**
 
 - `"none"`: No authentication
 - `"api_key"`: `{"type": "api_key", "header": "X-API-Key", "key": "secret"}`
@@ -191,7 +191,7 @@ fields. All endpoints are polled at the same rate on each cycle.
 }
 ```
 
-**Read Task Fields:**
+**Read task fields:**
 
 - `device`: Device key to retrieve connection config
 - `data_saving`: Whether to persist data to disk
@@ -215,7 +215,7 @@ fields. All endpoints are polled at the same rate on each cycle.
 - `endpoints[].fields[].time_format`: Required when `time_pointer` is set. Timestamp
   format (see below).
 
-**Timestamp Formats (same five options used across read and write tasks):**
+**Timestamp formats (same five options used across read and write tasks):**
 
 - `"iso8601"`: ISO 8601 string (e.g., `"2024-01-15T10:30:00Z"`)
 - `"unix_sec"`: Unix timestamp in seconds
@@ -226,7 +226,7 @@ fields. All endpoints are polled at the same rate on each cycle.
 If no `time_pointer` is configured for a field, the Driver uses software timing:
 midpoint of `(request_start + response_received) / 2` for that channel's index.
 
-**Type Conversion for Read Tasks (JSON → Synnax):**
+**Type conversion for read tasks (JSON → Synnax):**
 
 | JSON Type | → Synnax Numeric                        | → Synnax String          |
 | --------- | --------------------------------------- | ------------------------ |
@@ -240,7 +240,7 @@ midpoint of `(request_start + response_received) / 2` for that channel's index.
 - ⚠️ Conversion possible but may warn (e.g., float→int truncation)
 - ❌ Error: conversion not supported
 
-**Notes on Read Conversions:**
+**Notes on read conversions:**
 
 - JSON `string` → Synnax Numeric is not supported. Parsing arbitrary strings as numbers
   is error-prone and adds complexity. If an API returns numeric values as strings, users
@@ -292,7 +292,7 @@ Write task uses a unified `fields` array per endpoint where each field specifies
 - `type`: `"static"`, `"channel"`, or `"generated"`
 - Type-specific properties
 
-**Example: Multiple Endpoints**
+**Example: Multiple endpoints**
 
 ```json
 {
@@ -349,7 +349,7 @@ Write task uses a unified `fields` array per endpoint where each field specifies
 }
 ```
 
-**Example: Primitive Body (single value)**
+**Example: Primitive body (single value)**
 
 When there's only one field with pointer at root (`""`), the body is the value itself:
 
@@ -381,7 +381,7 @@ Write task fields are applied in order — if an earlier field sets a nested obj
 later field targets a path within it, the later field wins. Configuration fails if two
 fields have identical pointers within the same endpoint.
 
-**Write Task Fields:**
+**Write task fields:**
 
 - `device`: Device key for connection config
 - `data_saving`: Whether to persist data to disk
@@ -397,7 +397,7 @@ fields have identical pointers within the same endpoint.
 - `endpoints[].method`: `"POST"`, `"PUT"`, `"PATCH"`, or `"DELETE"`
 - `endpoints[].fields`: Array of field definitions for this endpoint's request body
 
-**Field Types:**
+**Field types:**
 
 | Type        | Properties                                         | Description                                             |
 | ----------- | -------------------------------------------------- | ------------------------------------------------------- |
@@ -441,7 +441,7 @@ Only used when `on_empty: "last"` and no value has ever been received:
 - `"omit"`: Omit the field until first value is received (default)
 - `"zero"`: Use zero value until first value is received
 
-**Type Conversion for Write Tasks (Synnax → JSON):**
+**Type conversion for write tasks (Synnax → JSON):**
 
 | Synnax Type         | → JSON `number` | → JSON `string`          | → JSON `boolean`      |
 | ------------------- | --------------- | ------------------------ | --------------------- |
@@ -453,7 +453,7 @@ Only used when `on_empty: "last"` and no value has ever been received:
 - ✅ Direct/lossless conversion
 - ❌ Error: conversion not supported
 
-**Notes on Write Conversions:**
+**Notes on write conversions:**
 
 - Synnax String → JSON `number` is not supported (same rationale as read: parsing
   arbitrary strings as numbers is error-prone).
@@ -485,7 +485,7 @@ When configuring a write task, the Driver validates:
 
 ### 2.3 Scan task configuration
 
-**Example: HTTP Status Only**
+**Example: HTTP status only**
 
 ```json
 {
@@ -499,7 +499,7 @@ When configuring a write task, the Driver validates:
 
 Health is determined by HTTP 2xx status code only.
 
-**Example: With Response Validation**
+**Example: With response validation**
 
 ```json
 {
@@ -517,7 +517,7 @@ Health is determined by HTTP 2xx status code only.
 
 Health requires HTTP 2xx AND response field matches expected value.
 
-**Scan Task Fields:**
+**Scan task fields:**
 
 - `device`: Device key for connection config
 - `auto_start`: Whether to start the task automatically when the Driver starts
@@ -528,7 +528,7 @@ Health requires HTTP 2xx AND response field matches expected value.
 - `response.field`: JSON Pointer to validate in response (e.g., `/status`)
 - `response.expected_value`: Expected value for the field (e.g., `"ok"`)
 
-**HTTP Scan Task Pattern Differs from Other Drivers**
+**The HTTP scan task pattern differs from other drivers**
 
 For other drivers (Modbus, OPC UA, LabJack, NI), scan tasks are:
 
@@ -565,7 +565,7 @@ on the field structs. At runtime, these pre-parsed pointers are used for O(depth
 lookups via `json.at(pointer)` and assignments via `json[pointer] = value` — no string
 re-parsing on the hot path.
 
-**JSON Pointer Syntax (RFC 6901):**
+**JSON Pointer syntax (RFC 6901):**
 
 - `""`: top level of the JSON (for non-object/array values)
 - `/foo`: field "foo"

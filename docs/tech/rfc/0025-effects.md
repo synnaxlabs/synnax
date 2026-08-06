@@ -120,21 +120,19 @@ When building dynamically executed automations, there are four primary execution
 
 Different automations in Synnax benefit from different execution models.
 
-**Example 1 - Real-Time Control Loops**: A real-time control sequence such as a
-bang-bang valve control loop must execute at a predictable time interval. This
-step-based execution model is comparable to our current, Lua based embedded control
-sequences.
+**Example 1: Real-time control loops**: A real-time control sequence such as a bang-bang
+valve control loop must execute at a predictable time interval. This step-based
+execution model is comparable to our current, Lua based embedded control sequences.
 
-**Example 2 - Calculations**: A calculated channel must be executed when any of its
-input parameters change. Running on a fixed time interval has the risk for
-over-calculation on stale values or under-calculation by not re-running the calculation
-if the values change too fast for the fixed time interval. An event-driven model is much
-better suited for this use case, as it will re-run the calculation whenever values
-change.
+**Example 2: Calculations**: A calculated channel must be executed when any of its input
+parameters change. Running on a fixed time interval has the risk for over-calculation on
+stale values or under-calculation by not re-running the calculation if the values change
+too fast for the fixed time interval. An event-driven model is much better suited for
+this use case, as it will re-run the calculation whenever values change.
 
-**Example 3 - Effects**: Pretty much the same story as calculations.
+**Example 3: Effects**: Pretty much the same story as calculations.
 
-**Example 4 - Supervisory Procedures**: Supervisory procedures control overall execution
+**Example 4: Supervisory procedures**: Supervisory procedures control overall execution
 of an operation through a step of steps. A rocket engine test, for example, would have
 setup, pressurization, redline checks, ignition, steady state, and shutdown steps. While
 these can be modeled as separate states within a control loop, it's more natural to

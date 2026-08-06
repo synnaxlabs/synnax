@@ -1,4 +1,4 @@
-# 47 Oracle predecessor-chain type versioning
+# 48 Oracle predecessor-chain type versioning
 
 - **Author**: Patrick Dotson
 - **Date**: 2026-07-20

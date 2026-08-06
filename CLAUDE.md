@@ -28,6 +28,8 @@ needing broader context:
 - `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
 - `docs/claude/scripts.md` — repo scripts in `/scripts/` (formatting, copyright headers,
   codegen checks, release/CI tooling)
+- `docs/tech/rfc/CLAUDE.md` — RFC file names, front matter, headings, definition lists,
+  and citations (also auto-loads)
 - `core/CLAUDE.md`, `console/CLAUDE.md`, `driver/CLAUDE.md`, `pluto/CLAUDE.md`,
   `arc/CLAUDE.md`, `oracle/CLAUDE.md` — component deep dives (also auto-load)
 
