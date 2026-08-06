@@ -179,40 +179,6 @@ TEST(ReadTaskConfigTest, testNoEnabledChannels) {
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
-/// @brief it should honor the legacy enabled and data_saving keys on configs
-/// written before the polarity flip.
-TEST(ReadTaskConfigTest, testLegacyPolarityKeys) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device{
-        .key = "abc123",
-        .rack = rack.key,
-        .location = "dev1",
-        .make = "ni",
-        .model = "PXI-6255",
-        .name = "my_device",
-    };
-    ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("virtual"),
-        x::telem::FLOAT64_T,
-        true
-    ));
-
-    auto j = base_analog_config();
-    j.erase("data_saving_disabled");
-    j["data_saving"] = false;
-    j["channels"][0]["device"] = dev.key;
-    j["channels"][0]["channel"] = ch.key;
-    j["channels"][0].erase("disabled");
-    j["channels"][0]["enabled"] = false;
-
-    auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
-    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
-    EXPECT_TRUE(cfg->data_saving_disabled);
-}
-
 /// @brief it should return a validation error if a channel has an unknown type.
 TEST(ReadTaskConfigTest, testUnknownChannelType) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());

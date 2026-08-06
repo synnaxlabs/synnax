@@ -122,7 +122,7 @@ protected:
 
     x::json::json create_base_config() {
         return {
-            {"data_saving", false},
+            {"data_saving_disabled", true},
             {"device", network_device.key},
             {"state_rate", 10.0},
             {"channels", x::json::json::array()}
@@ -349,7 +349,7 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
     ));
 
     x::json::json cfg = {
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"state_rate", 10.0},
         {"channels",
          {{{"type", "manual"},

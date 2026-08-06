@@ -70,31 +70,4 @@ TEST(BaseConfig, testParseWithAutoStartOnly) {
     EXPECT_TRUE(config.auto_start);
 }
 
-/// @brief it should map a legacy data_saving=false onto data_saving_disabled.
-TEST(LegacyDataSavingDisabled, testLegacyFalseDisables) {
-    const auto json = nlohmann::json{{"data_saving", false}};
-    auto parser = x::json::Parser(json);
-    EXPECT_TRUE(legacy_data_saving_disabled(parser, false));
-}
-
-/// @brief it should keep saving enabled for a legacy data_saving=true.
-TEST(LegacyDataSavingDisabled, testLegacyTrueStaysEnabled) {
-    const auto json = nlohmann::json{{"data_saving", true}};
-    auto parser = x::json::Parser(json);
-    EXPECT_FALSE(legacy_data_saving_disabled(parser, false));
-}
-
-/// @brief it should keep saving enabled when neither key is present.
-TEST(LegacyDataSavingDisabled, testAbsentKeysStayEnabled) {
-    const auto json = nlohmann::json{};
-    auto parser = x::json::Parser(json);
-    EXPECT_FALSE(legacy_data_saving_disabled(parser, false));
-}
-
-/// @brief it should preserve an explicit data_saving_disabled=true.
-TEST(LegacyDataSavingDisabled, testExplicitDisabledWins) {
-    const auto json = nlohmann::json{{"data_saving", true}};
-    auto parser = x::json::Parser(json);
-    EXPECT_TRUE(legacy_data_saving_disabled(parser, true));
-}
 }

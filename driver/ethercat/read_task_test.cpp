@@ -120,7 +120,7 @@ protected:
 
     x::json::json create_base_config() {
         return {
-            {"data_saving", false},
+            {"data_saving_disabled", true},
             {"sample_rate", 100},
             {"stream_rate", 10},
             {"channels", x::json::json::array()}
@@ -349,7 +349,7 @@ TEST_F(EtherCATReadTest, InvalidSlaveDevice) {
     ));
 
     x::json::json cfg = {
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 100},
         {"stream_rate", 10},
         {"channels",

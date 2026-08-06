@@ -10,7 +10,6 @@
 #pragma once
 
 #include "client/cpp/framer/framer.h"
-#include "x/cpp/json/json.h"
 
 #include "driver/task/task.h"
 
@@ -31,10 +30,4 @@ inline synnax::framer::WriterMode data_saving_writer_mode(const bool data_saving
     return synnax::framer::WriterMode::StreamOnly;
 }
 
-/// @brief maps the legacy data_saving wire key onto the schema's
-/// data_saving_disabled for configs stored before the polarity flip.
-inline bool legacy_data_saving_disabled(x::json::Parser &cfg, const bool disabled) {
-    if (disabled) return true;
-    return !cfg.field<bool>("data_saving", true);
-}
 }

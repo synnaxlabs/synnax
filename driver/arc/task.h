@@ -54,12 +54,7 @@ struct TaskConfig : ::synnax::common::BaseConfig {
     explicit TaskConfig(x::json::Parser &parser):
         ::synnax::common::BaseConfig(::synnax::common::BaseConfig::parse(parser)),
         arc_key(parser.field<x::uuid::UUID>("arc_key")),
-        loop(parser) {
-        this->data_saving_disabled = common::legacy_data_saving_disabled(
-            parser,
-            this->data_saving_disabled
-        );
-    }
+        loop(parser) {}
 
     static std::pair<TaskConfig, x::errors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {

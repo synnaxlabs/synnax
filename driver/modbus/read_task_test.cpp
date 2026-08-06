@@ -67,7 +67,7 @@ protected:
     // Helper to create a basic task configuration
     x::json::json create_base_config() {
         return {
-            {"data_saving", false},
+            {"data_saving_disabled", true},
             {"sample_rate", 25},
             {"stream_rate", 25},
             {"device", device.key},
@@ -240,7 +240,7 @@ TEST(ReadTask, testBasicReadTask) {
     };
 
     x::json::json j{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"device", dev.key},
@@ -500,7 +500,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
 /// reads.
 TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
     auto cfg = create_base_config();
-    cfg["data_saving"] = true;
+    cfg["data_saving_disabled"] = false;
 
     auto coil_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("coil"),
@@ -695,7 +695,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
 
     // Create task with auto_start=true
     x::json::json config{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"device", device.key},
@@ -762,7 +762,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Create task with auto_start=false
     x::json::json config{
-        {"data_saving", false},
+        {"data_saving_disabled", true},
         {"sample_rate", 25},
         {"stream_rate", 25},
         {"device", device.key},

@@ -27,12 +27,7 @@ struct BaseWriteTaskConfig : ::synnax::common::BaseWriteConfig {
     explicit BaseWriteTaskConfig(x::json::Parser &cfg):
         ::synnax::common::BaseWriteConfig(
             ::synnax::common::BaseWriteConfig::parse(cfg)
-        ) {
-        this->data_saving_disabled = legacy_data_saving_disabled(
-            cfg,
-            this->data_saving_disabled
-        );
-    }
+        ) {}
 };
 
 class Sink : public pipeline::Sink, public pipeline::Source {

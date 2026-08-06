@@ -2217,29 +2217,6 @@ struct Output {
     }
 };
 
-/// @brief normalizes wire keys written by legacy consoles into the schema's
-/// fields, so configs persisted before the schema migration keep their exact
-/// behavior.
-template<typename V>
-void normalize_legacy_keys(V &v, x::json::Parser &cfg) {
-    if constexpr (requires { v.disabled; }) {
-        if (!v.disabled) v.disabled = !cfg.field<bool>("enabled", true);
-    }
-    if constexpr (requires { v.terminal_a; }) {
-        if (v.terminal_a.empty())
-            v.terminal_a = cfg.field<std::string>("terminalA", "");
-        if (v.terminal_b.empty())
-            v.terminal_b = cfg.field<std::string>("terminalB", "");
-    }
-    if constexpr (requires { v.terminal_z; }) {
-        if (v.terminal_z.empty())
-            v.terminal_z = cfg.field<std::string>("terminalZ", "");
-    }
-    if constexpr (requires { v.active_edge; }) {
-        v.active_edge = cfg.field<std::string>("activeEdge", v.active_edge);
-    }
-}
-
 /// @brief parses an input channel for the given read task type, dispatching to
 /// the channel family the task accepts.
 inline std::unique_ptr<Input>
@@ -2247,13 +2224,7 @@ parse_input(x::json::Parser &cfg, const std::string &task_type) {
     auto out = std::make_unique<Input>();
     out->cfg_path = format_cfg_path(cfg.path_prefix);
     if (task_type == "ni_analog_read") {
-        // Legacy wire alias for the schema's ai_freq_voltage discriminator.
-        if (cfg.field<std::string>("type") == "ai_frequency_voltage")
-            out->channel = ::synnax::ni::AIChannel{
-                ::synnax::ni::AIFreqVoltageChannel::parse(cfg)
-            };
-        else
-            out->channel = ::synnax::ni::parse_ai_channel(cfg);
+        out->channel = ::synnax::ni::parse_ai_channel(cfg);
     } else if (task_type == "ni_counter_read") {
         out->channel = ::synnax::ni::parse_ci_channel(cfg);
     } else if (task_type == "ni_digital_read") {
@@ -2263,10 +2234,9 @@ parse_input(x::json::Parser &cfg, const std::string &task_type) {
         return nullptr;
     }
     std::visit(
-        [&](auto &u) {
+        [&](const auto &u) {
             std::visit(
-                [&](auto &v) {
-                    normalize_legacy_keys(v, cfg);
+                [&](const auto &v) {
                     out->enabled = !v.disabled;
                     out->synnax_key = v.channel;
                     if constexpr (requires { v.device; }) out->dev_key = v.device;
@@ -2294,10 +2264,9 @@ parse_output(x::json::Parser &cfg, const std::string &task_type) {
         return nullptr;
     }
     std::visit(
-        [&](auto &u) {
+        [&](const auto &u) {
             std::visit(
-                [&](auto &v) {
-                    normalize_legacy_keys(v, cfg);
+                [&](const auto &v) {
                     out->enabled = !v.disabled;
                     out->cmd_ch_key = v.cmd_channel;
                     out->state_ch_key = v.state_channel;

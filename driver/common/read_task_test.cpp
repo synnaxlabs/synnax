@@ -521,20 +521,6 @@ TEST(BaseReadTaskConfigTest, testDefaultDataSaving) {
     EXPECT_EQ(cfg.stream_rate, x::telem::Rate(50.0));
 }
 
-/// @brief it should map the legacy data_saving key onto data_saving_disabled.
-TEST(BaseReadTaskConfigTest, testLegacyDataSavingKey) {
-    const x::json::json j{
-        {"sample_rate", 100.0},
-        {"stream_rate", 50.0},
-        {"data_saving", false}
-    };
-
-    auto p = x::json::Parser(j);
-    const auto cfg = BaseReadTaskConfig(p);
-    ASSERT_FALSE(p.error()) << p.error();
-    EXPECT_TRUE(cfg.data_saving_disabled);
-}
-
 /// @brief it should accept equal sample and stream rates.
 TEST(BaseReadTaskConfigTest, testEqualRates) {
     const x::json::json j{{"sample_rate", 100.0}, {"stream_rate", 100.0}};

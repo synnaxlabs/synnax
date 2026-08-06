@@ -63,10 +63,6 @@ struct WriteTaskConfig : ::synnax::common::BaseConfig {
         ::synnax::common::BaseConfig(::synnax::common::BaseConfig::parse(cfg)),
         state_rate(x::telem::Rate(cfg.field<float>("state_rate", 1.0f))),
         execution_rate(x::telem::Rate(cfg.field<float>("execution_rate", 1000.0f))) {
-        this->data_saving_disabled = common::legacy_data_saving_disabled(
-            cfg,
-            this->data_saving_disabled
-        );
         std::unordered_map<std::string, slave::Properties> slave_cache;
         std::string first_network;
 

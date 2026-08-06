@@ -38,10 +38,6 @@ struct BaseReadTaskConfig : ::synnax::common::BaseReadConfig {
     ):
         ::synnax::common::BaseReadConfig(::synnax::common::BaseReadConfig::parse(cfg)),
         timing(timing_cfg) {
-        this->data_saving_disabled = legacy_data_saving_disabled(
-            cfg,
-            this->data_saving_disabled
-        );
         if (this->sample_rate <= x::telem::Rate(0))
             cfg.field_err("sample_rate", "must be greater than 0");
         if (stream_rate_required && this->stream_rate <= x::telem::Rate(0))
