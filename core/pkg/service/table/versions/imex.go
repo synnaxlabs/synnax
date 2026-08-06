@@ -39,7 +39,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
 			if err = imex.RequireFields(
-				body, "table", "layout", "cells",
+				body, "a table", "layout", "cells",
 			); err == nil {
 				t, err = v1.MigrateTable(ctx, v0.Table{Name: env.Name, Data: body})
 			}

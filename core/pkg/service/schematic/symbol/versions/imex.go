@@ -31,7 +31,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 	} else {
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
-			if err = imex.RequireFields(body, "symbol", "data"); err == nil {
+			if err = imex.RequireFields(body, "a symbol", "data.svg"); err == nil {
 				var d legacy.Data
 				if d, err = imex.Decode[legacy.Data](ctx, env); err == nil {
 					sym.Data = v2.SpecFromConsole(d.Spec)

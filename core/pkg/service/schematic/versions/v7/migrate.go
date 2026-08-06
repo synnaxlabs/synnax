@@ -219,9 +219,8 @@ func segmentsToRaw(segs []segment) []any {
 }
 
 // migrateProps decodes each opaque prop entry from raw JSON bytes into the in-memory
-// map[string]any shape that msgpack.EncodedJSON wraps, renaming the legacy..v5
-// node-prop
-// "key" field to "variant" to match the v6 NodeProps schema declared in
+// map[string]any shape that msgpack.EncodedJSON wraps, renaming the legacy v0..v5
+// node-prop "key" field to "variant" to match the v6 NodeProps schema declared in
 // schematic.oracle. Empty entries are dropped because msgpack.EncodedJSON is
 // nil-equivalent to "no entry".
 func migrateProps(
@@ -239,10 +238,9 @@ func migrateProps(
 		if err := json.Unmarshal(raw, &m); err != nil {
 			return nil, errors.Wrapf(err, "decode props[%q]", k)
 		}
-		// Mirrors the Console v6 migrateProps: variant is always set from the
-		// legacy..v5 "key" field, overwriting any prior variant. legacy..v5
-		// NodeProps schemas declare
-		// key (not variant), so production data never carries both, but the
+		// Mirrors the Console v6 migrateProps: variant is always set from the legacy
+		// v0..v5 "key" field, overwriting any prior variant. Those NodeProps schemas
+		// declare key (not variant), so production data never carries both, but the
 		// always-overwrite contract matches the Console's single source of truth.
 		if v, ok := m["key"]; ok {
 			m["variant"] = v

@@ -53,10 +53,13 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 	return env, nil
 }
 
-// Import decodes env into an Arc and persists it on tx. Arcs are not parented on
-// import, so opts.Parent does not apply. The key on the wire is discarded so every
-// import mints a new resource. An unknown envelope version is a path-scoped validation
-// error.
+// Import decodes env into an Arc and persists it on tx. The key on the wire is
+// discarded so every import mints a new resource. An unknown envelope version is a
+// path-scoped validation error.
+//
+// opts.Parent is ignored: an Arc is never parented — the writer defines the ontology
+// resource with no container relationship — so there is nothing to attach it under. The
+// API layer still enforces update access on the parent the caller declared.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,

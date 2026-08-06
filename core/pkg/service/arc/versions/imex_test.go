@@ -108,11 +108,17 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		))
 	})
 
-	It("Should reject a body carrying no arc structure", func(ctx SpecContext) {
-		Expect(versions.DecodeImExEnvelope(
-			ctx, LoadEnvelope("testdata/import_unrecognized.json"),
-		)).Error().To(MatchError(ContainSubstring(
-			`file is not a arc: no "graph" field`,
-		)))
-	})
+	DescribeTable("Should reject a body carrying no Arc structure",
+		func(ctx SpecContext, path string) {
+			Expect(versions.DecodeImExEnvelope(
+				ctx, LoadEnvelope(path),
+			)).Error().To(MatchError(ContainSubstring(
+				`file is not an Arc: no "graph" field`,
+			)))
+		},
+		Entry("version-stamped state", "testdata/import_unrecognized.json"),
+		// The versionless arm decodes into a struct, so an unrecognized body would
+		// otherwise lift to a blank Arc instead of failing.
+		Entry("versionless export", "testdata/import_unrecognized_versionless.json"),
+	)
 })

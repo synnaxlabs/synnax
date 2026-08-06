@@ -94,11 +94,15 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		))
 	})
 
-	It("Should reject a body carrying no symbol structure", func(ctx SpecContext) {
-		Expect(versions.DecodeImExEnvelope(
-			ctx, LoadEnvelope("testdata/import_unrecognized.json"),
-		)).Error().To(MatchError(ContainSubstring(
-			`file is not a symbol: no "data" field`,
-		)))
-	})
+	DescribeTable("Should reject a body carrying no symbol structure",
+		func(ctx SpecContext, path string) {
+			Expect(versions.DecodeImExEnvelope(
+				ctx, LoadEnvelope(path),
+			)).Error().To(MatchError(ContainSubstring(
+				`file is not a symbol: no "data.svg" field`,
+			)))
+		},
+		Entry("no data object", "testdata/import_unrecognized.json"),
+		Entry("data object without an svg", "testdata/import_dataless.json"),
+	)
 })

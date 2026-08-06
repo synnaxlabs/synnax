@@ -51,8 +51,16 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	return a, nil
 }
 
-// decodeConsole lifts either Console-written file shape into a Document.
+// decodeConsole lifts either Console-written file shape into a Document. Both shapes
+// carry the graph at the top level, so the structural guard runs ahead of the split.
 func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, error) {
+	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
+	if err != nil {
+		return legacy.Document{}, err
+	}
+	if err = imex.RequireFields(body, "an Arc", "graph"); err != nil {
+		return legacy.Document{}, err
+	}
 	if !env.Versioned() {
 		// The Console export taken from an Arc that was not open: the typed Arc it
 		// retrieved from the Core, spread into the file with no version stamp. Console
@@ -65,12 +73,5 @@ func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, err
 	}
 	// "0.0.0".."2.0.0" Console states embed the graph inline. Nothing newer exists: the
 	// shipped Console never wrote a later state format.
-	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
-	if err != nil {
-		return legacy.Document{}, err
-	}
-	if err = imex.RequireFields(body, "arc", "graph"); err != nil {
-		return legacy.Document{}, err
-	}
 	return legacy.MigrateData(body)
 }

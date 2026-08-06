@@ -34,7 +34,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
 		// the body through the legacy chain.
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
-			if err = imex.RequireFields(body, "log", "channels"); err == nil {
+			if err = imex.RequireFields(body, "a log", "channels"); err == nil {
 				l, err = v2.MigrateLog(ctx, v0.Log{Name: env.Name, Data: body})
 			}
 		}

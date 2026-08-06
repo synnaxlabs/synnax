@@ -45,7 +45,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 			break
 		}
 		if err = imex.RequireFields(
-			body, "schematic", "nodes", "props",
+			body, "a schematic", "nodes", "props",
 		); err != nil {
 			break
 		}

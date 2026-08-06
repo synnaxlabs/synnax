@@ -362,12 +362,12 @@ type Importer interface {
 	// re-deriving one from the body. The importer owns all ontology writes for the
 	// resource, including attaching it under opts.Parent when one is given.
 	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (ontology.ID, error)
-	// Match reports whether the envelope body decoded as a flat map, is this importer's
-	// resource. It routes envelopes carrying no `type` header: some legacy Console
-	// state files never carried one, so Service.ResolveType offers the body to every
-	// registered importer's Match. Markers tested by Match are frozen — they describe
-	// historical file shapes — and must be mutually exclusive across importers.
-	// Importers with no typeless legacy formats return false.
+	// Match reports whether the envelope body, decoded as a flat map, is this
+	// importer's resource. It routes envelopes carrying no `type` header: some legacy
+	// Console state files never carried one, so Service.ResolveType offers the body to
+	// every registered importer's Match in sorted type order, first claim winning. The
+	// markers Match tests are frozen — they describe historical file shapes. Importers
+	// with no typeless legacy formats return false.
 	Match(map[string]any) bool
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under

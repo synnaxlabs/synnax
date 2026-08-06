@@ -21,42 +21,68 @@ import (
 var _ = Describe("RequireFields", func() {
 	It("Should accept a body carrying every named field", func() {
 		body := msgpack.EncodedJSON{"nodes": []any{}, "props": map[string]any{}}
-		Expect(imex.RequireFields(body, "schematic", "nodes", "props")).To(Succeed())
+		Expect(imex.RequireFields(body, "a schematic", "nodes", "props")).To(Succeed())
 	})
 
 	It("Should accept fields present but empty", func() {
 		body := msgpack.EncodedJSON{"channels": []any{}}
-		Expect(imex.RequireFields(body, "log", "channels")).To(Succeed())
+		Expect(imex.RequireFields(body, "a log", "channels")).To(Succeed())
 	})
 
 	It("Should accept a field explicitly set to null", func() {
 		body := msgpack.EncodedJSON{"channels": nil}
-		Expect(imex.RequireFields(body, "log", "channels")).To(Succeed())
+		Expect(imex.RequireFields(body, "a log", "channels")).To(Succeed())
 	})
 
 	It("Should reject a body missing a named field", func() {
 		body := msgpack.EncodedJSON{"nodes": []any{}, "configs": map[string]any{}}
-		Expect(imex.RequireFields(body, "schematic", "nodes", "props")).To(SatisfyAll(
+		Expect(imex.RequireFields(body, "a schematic", "nodes", "props")).To(SatisfyAll(
 			MatchError(ContainSubstring("validation error")),
 			MatchError(ContainSubstring(`file is not a schematic: no "props" field`)),
 		))
 	})
 
 	It("Should reject an empty body", func() {
-		Expect(imex.RequireFields(msgpack.EncodedJSON{}, "table", "layout")).
+		Expect(imex.RequireFields(msgpack.EncodedJSON{}, "a table", "layout")).
 			To(MatchError(ContainSubstring(`file is not a table: no "layout" field`)))
 	})
 
 	It("Should scope the error to the first missing field", func() {
-		err := imex.RequireFields(msgpack.EncodedJSON{}, "table", "layout", "cells")
+		err := imex.RequireFields(msgpack.EncodedJSON{}, "a table", "layout", "cells")
 		var pathed validate.PathError
 		Expect(errors.As(err, &pathed)).To(BeTrue())
 		Expect(pathed.Path).To(Equal([]string{"layout"}))
 	})
 
 	It("Should accept any body when no fields are named", func() {
-		Expect(imex.RequireFields(msgpack.EncodedJSON{}, "table")).To(Succeed())
+		Expect(imex.RequireFields(msgpack.EncodedJSON{}, "a table")).To(Succeed())
 	})
+
+	DescribeTable("Should resolve a dotted path through nested objects",
+		func(body msgpack.EncodedJSON, ok bool) {
+			err := imex.RequireFields(body, "a symbol", "data.svg")
+			if ok {
+				Expect(err).To(Succeed())
+				return
+			}
+			Expect(err).To(MatchError(
+				ContainSubstring(`file is not a symbol: no "data.svg" field`),
+			))
+		},
+		Entry(
+			"nested field present",
+			msgpack.EncodedJSON{"data": map[string]any{"svg": "<svg/>"}},
+			true,
+		),
+		Entry(
+			"nested field missing",
+			msgpack.EncodedJSON{"data": map[string]any{"states": []any{}}},
+			false,
+		),
+		Entry("parent missing", msgpack.EncodedJSON{"svg": "<svg/>"}, false),
+		Entry("parent is not an object", msgpack.EncodedJSON{"data": "<svg/>"}, false),
+		Entry("parent is null", msgpack.EncodedJSON{"data": nil}, false),
+	)
 })
 
 var _ = Describe("PeekVersion", func() {

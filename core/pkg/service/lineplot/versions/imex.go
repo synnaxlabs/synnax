@@ -36,7 +36,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		var body msgpack.EncodedJSON
 		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
 			if err = imex.RequireFields(
-				body, "line plot", "axes", "channels",
+				body, "a line plot", "axes", "channels",
 			); err == nil {
 				lp, err = v5.MigrateLinePlot(
 					ctx, v0.LinePlot{Name: env.Name, Data: body},

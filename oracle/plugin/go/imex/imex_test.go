@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/imex"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -43,6 +44,19 @@ var _ = Describe("Go ImEx Plugin", func() {
 
 		It("Should require go/types", func() {
 			Expect(p.Requires()).To(Equal([]string{"go/types"}))
+		})
+	})
+
+	Describe("Check", func() {
+		It("Should pass with the default runtime import path", func() {
+			Expect(p.Check(nil)).To(Succeed())
+		})
+
+		It("Should error when no runtime import path is configured", func() {
+			bare := imex.New(imex.Options{FileNamePattern: "imex.gen.go"})
+			Expect(bare.Check(nil)).To(MatchError(
+				ContainSubstring("go/imex requires Options.RuntimeImportPath"),
+			))
 		})
 	})
 
@@ -327,6 +341,99 @@ var _ = Describe("Go ImEx Plugin", func() {
 				)
 				Expect(content).To(ContainSubstring("const Latest = v3.Version"))
 				Expect(content).ToNot(ContainSubstring("case v2.Version:"))
+			},
+		)
+
+		It("Should import the configured runtime package", func(ctx SpecContext) {
+			custom := imex.New(imex.Options{
+				FileNamePattern:   "imex.gen.go",
+				RuntimeImportPath: "github.com/acme/portable/imex",
+			})
+			source := `
+				@go output "core/pkg/service/log"
+
+				Log struct {
+					key  uuid
+					name string
+					@go version 3
+					@go imex
+				}
+			`
+			resp := MustGenerate(ctx, source, "log", loader, custom)
+			ExpectContent(
+				resp, "core/pkg/service/log/versions/v3/imex.gen.go",
+			).ToContain(`import "github.com/acme/portable/imex"`).ToBeValidGoSource()
+			ExpectContent(
+				resp, "core/pkg/service/log/versions/imex.gen.go",
+			).ToContain(`"github.com/acme/portable/imex"`).ToBeValidGoSource()
+		})
+
+		It("Should error when a snapshot fails to load", func(ctx SpecContext) {
+			req := MustGenerateRequest(ctx, `
+				@go output "core/pkg/service/log"
+
+				Log struct {
+					key  uuid
+					name string
+					@go version 3
+					@go imex
+				}
+			`, "log", loader)
+			req.SnapshotVersion = 1
+			req.LoadSnapshot = func(int) (*resolution.Table, error) {
+				return nil, errors.New("snapshot on fire")
+			}
+			Expect(p.Generate(req)).Error().To(SatisfyAll(
+				MatchError(ContainSubstring("load schema snapshot 1")),
+				MatchError(ContainSubstring("snapshot on fire")),
+			))
+		})
+
+		It(
+			"Should error when a version package does not parse",
+			func(ctx SpecContext) {
+				tmpDir := GinkgoT().TempDir()
+				diskLoader := NewMockFileLoaderWithRoot(tmpDir)
+				for _, dir := range []string{"v2", "v3"} {
+					Expect(os.MkdirAll(
+						filepath.Join(tmpDir, "core/pkg/service/log/versions", dir),
+						0o755,
+					)).To(Succeed())
+				}
+				Expect(os.WriteFile(
+					filepath.Join(
+						tmpDir, "core/pkg/service/log/versions/v3/migrate.go",
+					),
+					[]byte("package v3\n\nfunc MigrateLog( {\n"),
+					0o644,
+				)).To(Succeed())
+				snapshot := MustGenerateRequest(ctx, `
+				@go output "core/pkg/service/log"
+
+				Log struct {
+					key  uuid
+					name string
+					@go version 2
+					@go imex
+				}
+			`, "log", diskLoader)
+				req := MustGenerateRequest(ctx, `
+				@go output "core/pkg/service/log"
+
+				Log struct {
+					key  uuid
+					name string
+					@go version 3
+					@go imex
+				}
+			`, "log", diskLoader)
+				req.SnapshotVersion = 1
+				req.LoadSnapshot = func(int) (*resolution.Table, error) {
+					return snapshot.Resolutions, nil
+				}
+				Expect(p.Generate(req)).Error().To(MatchError(
+					ContainSubstring("versions/v3/migrate.go"),
+				))
 			},
 		)
 

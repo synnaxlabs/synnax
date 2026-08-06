@@ -45,10 +45,20 @@ const goModulePrefix = "github.com/synnaxlabs/synnax/"
 type Options struct {
 	// FileNamePattern is the basename written for each output package.
 	FileNamePattern string
+	// RuntimeImportPath is the Go package supplying the Version type, Envelope, Decode,
+	// and NewErrUnsupportedVersion the generated files call. Its package name must be
+	// imex — the templates qualify every call with that identifier. Required.
+	RuntimeImportPath string
 }
 
-// DefaultOptions returns the production defaults: imex.gen.go.
-func DefaultOptions() Options { return Options{FileNamePattern: "imex.gen.go"} }
+// DefaultOptions returns the production defaults: imex.gen.go against the Core's imex
+// service package.
+func DefaultOptions() Options {
+	return Options{
+		FileNamePattern:   "imex.gen.go",
+		RuntimeImportPath: "github.com/synnaxlabs/synnax/pkg/service/imex",
+	}
+}
 
 // Plugin emits the generated imex version constants.
 type Plugin struct{ options Options }
@@ -56,10 +66,18 @@ type Plugin struct{ options Options }
 // New constructs a Plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{options: opts} }
 
-func (*Plugin) Name() string                { return "go/imex" }
-func (*Plugin) Domains() []string           { return []string{"go"} }
-func (*Plugin) Requires() []string          { return []string{"go/types"} }
-func (*Plugin) Check(*plugin.Request) error { return nil }
+func (*Plugin) Name() string       { return "go/imex" }
+func (*Plugin) Domains() []string  { return []string{"go"} }
+func (*Plugin) Requires() []string { return []string{"go/types"} }
+
+// Check reports a Plugin constructed without a runtime import path, which would emit
+// files that do not compile.
+func (p *Plugin) Check(*plugin.Request) error {
+	if p.options.RuntimeImportPath == "" {
+		return errors.New("go/imex requires Options.RuntimeImportPath")
+	}
+	return nil
+}
 
 var goPostWriter = &exec.PostWriter{Commands: [][]string{{"gofmt", "-w"}}}
 
@@ -68,10 +86,11 @@ func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(f
 
 // Generate emits imex machinery into the versions tree of every output package whose
 // type declares @go imex: one Version constant per versions/vK package the Core has
-// exported, and Latest plus the autoDecodeEnvelope ladder in the versions package
-// root. Versions below the floor predate Core export, so their constant is deleted
-// instead. It errors when a marked type lacks a @go version or when two types at the
-// same path both carry the marker.
+// exported, and Latest plus the autoDecodeEnvelope ladder in the versions package root.
+// Versions below the floor predate Core export, so their constant is deleted instead.
+// It errors when a marked type lacks a @go version, when two types at the same path
+// both carry the marker, when a schema snapshot fails to load, or when a version
+// package on disk does not parse.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	declared := make(map[string]string)
@@ -97,7 +116,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		declared[outputPath] = typ.QualifiedName
 		goName := naming.GetGoName(typ)
-		floor := firstImexVersion(req, typ.QualifiedName, version)
+		floor, err := firstImexVersion(req, typ.QualifiedName, version)
+		if err != nil {
+			return nil, err
+		}
 		for k := floor; k <= version; k++ {
 			path := versioning.VersionedPath(outputPath, k)
 			var buf bytes.Buffer
@@ -105,6 +127,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				Package: naming.DerivePackageName(path),
 				Type:    goName,
 				Version: k,
+				Runtime: p.options.RuntimeImportPath,
 			}); err != nil {
 				return nil, err
 			}
@@ -136,6 +159,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Type:       goName,
 			CurrentPkg: versioning.Dir(version),
 			Arms:       arms,
+			Runtime:    p.options.RuntimeImportPath,
 		}
 		for k := floor; k <= version; k++ {
 			data.Imports = append(data.Imports, gomod.ResolveImportPath(
@@ -158,6 +182,7 @@ type versionData struct {
 	Package string
 	Type    string
 	Version int
+	Runtime string
 }
 
 var versionTemplate = template.Must(
@@ -165,7 +190,7 @@ var versionTemplate = template.Must(
 
 package {{.Package}}
 
-import "github.com/synnaxlabs/synnax/pkg/service/imex"
+import "{{.Runtime}}"
 
 // Version is the portable schema version of the {{.Type}} shape this package defines.
 const Version imex.Version = {{.Version}}
@@ -174,17 +199,26 @@ const Version imex.Version = {{.Version}}
 
 // firstImexVersion returns the earliest @go version at which the type already carried
 // the @go imex marker, walking schema snapshots newest-first. The walk ends at the
-// first snapshot that is unparseable, predates per-resource versioning, or lacks the
-// marker: marker history is contiguous. With no marked snapshot the floor is the
-// current version.
-func firstImexVersion(req *plugin.Request, qualifiedName string, current int) int {
+// first snapshot that predates per-resource versioning or lacks the marker: marker
+// history is contiguous. With no marked snapshot the floor is the current version. A
+// snapshot that fails to load is an error, not the end of the walk — swallowing it
+// would raise the floor and silently drop ladder arms and version constants that
+// released Cores still need.
+func firstImexVersion(
+	req *plugin.Request,
+	qualifiedName string,
+	current int,
+) (int, error) {
 	floor := current
 	if req.LoadSnapshot == nil || req.SnapshotVersion <= 0 {
-		return floor
+		return floor, nil
 	}
 	for s := req.SnapshotVersion; s >= 1; s-- {
 		t, err := req.LoadSnapshot(s)
-		if err != nil || t == nil || versioning.PreVersioning(t) {
+		if err != nil {
+			return 0, errors.Wrapf(err, "load schema snapshot %d", s)
+		}
+		if t == nil || versioning.PreVersioning(t) {
 			break
 		}
 		typ, ok := t.Get(qualifiedName)
@@ -199,7 +233,7 @@ func firstImexVersion(req *plugin.Request, qualifiedName string, current int) in
 			floor = v
 		}
 	}
-	return floor
+	return floor, nil
 }
 
 // chainArms builds one ladder arm per version in [floor, current): each decodes the
@@ -254,7 +288,9 @@ func chainArms(
 }
 
 // migrateStepExists reports whether the version package at dir declares the scaffolded
-// per-bump lift Migrate<goName>.
+// per-bump lift Migrate<goName>. An unparseable file is an error: treating it as
+// stepless would silently drop that bump from the ladder, so an envelope stamped below
+// it would lift to the current shape without ever running the migration.
 func migrateStepExists(dir, goName string) (bool, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -270,11 +306,10 @@ func migrateStepExists(dir, goName string) (bool, error) {
 			strings.HasSuffix(e.Name(), "_test.go") {
 			continue
 		}
-		f, err := parser.ParseFile(
-			fset, filepath.Join(dir, e.Name()), nil, parser.SkipObjectResolution,
-		)
+		path := filepath.Join(dir, e.Name())
+		f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
 		if err != nil {
-			continue
+			return false, errors.Wrapf(err, "parse %s", path)
 		}
 		for _, d := range f.Decls {
 			if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv == nil &&
@@ -296,6 +331,7 @@ type chainData struct {
 	CurrentPkg string
 	Imports    []string
 	Arms       []chainArm
+	Runtime    string
 }
 
 var chainTemplate = template.Must(
@@ -306,7 +342,7 @@ package versions
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"{{.Runtime}}"
 {{- range .Imports}}
 	"{{.}}"
 {{- end}}
