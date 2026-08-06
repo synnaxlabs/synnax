@@ -120,7 +120,8 @@ shared across its five task types.
 The NI schema draft (32 enums, 4 unions, 57 structs) is the start point. Shared
 cross-integration bases, the `sample_rate` / `stream_rate` / `data_saving` read shape
 and the write shape, live in a common task schema that the per-integration files extend.
-Oracle must first support extending a common shape across schema files.
+Oracle already supports this: struct and union bases resolve across schema files in the
+analyzer and all four generators, covered by generator tests.
 
 Each config type declares `@ontology type "<task type>"`, `@go version`, `@go migrate`,
 and `@pb`. The type name is the task type string, so `ni_analog_read` names the schema
@@ -198,11 +199,11 @@ registry, decodes the blob into the generated Go struct, validates it, writes th
 record, and defines the relationship, all in the caller's transaction. An unknown type
 is a validation error on the write, and so is a config that does not decode.
 
-**Compose (read)**: the reader resolves the config parent, decodes and migrates the
-record, and stamps `type` and `config` back onto the payload. §4.3 names the call sites.
+**Compose (read)**: the reader resolves the config parent, decodes the record, and
+stamps `type` and `config` back onto the payload. §4.3 names the call sites.
 
 A decode failure on retrieve means a corrupt record, not a stale one: the record was
-validated before storage, and the migration chain covers older stored versions. The
+validated before storage, and the startup rewrite keeps stored versions current. The
 reader reports it as an internal error rather than serving a partial task.
 
 ### 4.5 Versions and migrations
@@ -212,9 +213,10 @@ standard Oracle mechanism (RFC 0033, RFC 0047). Nothing about the chain is
 task-specific: a config type is an ordinary versioned Oracle type that happens to be
 keyed by a task type string.
 
-Stored records migrate on decode, so a record written under `v0` is served as the
-current version without a rewrite pass. The Core therefore always serves the latest
-shape, and that is the property the clients depend on.
+Stored records migrate at startup, the standard Gorp mechanism: a version bump ships a
+bootup pass that rewrites its table to the current shape. Decode therefore always reads
+the current version, no record carries a version stamp, and the Core always serves the
+latest shape, which is the property the clients depend on.
 
 Clients delete their own chains. The Console loses its NI `v0`/`v1` types, the Python
 client loses its old-shape readers, and the Driver loses the tolerance it carries for
@@ -332,9 +334,11 @@ types these by hand today.
 Each numbered phase is a PR, or a short series where noted. At each boundary the tree
 builds, the tests pass, and the product can ship. No phase changes the task payload.
 
-1. **Oracle groundwork**: cross-file extension of a common shape for the shared config
-   bases, and Gorp table plus ontology registration output for a config type. Pure
-   generator work with generator tests. No schema consumes it yet.
+1. **Oracle groundwork — complete**: cross-file extension of a common shape already
+   works, covered by analyzer and generator tests. The Gorp table and ontology
+   registration stay hand-written per service, on the pattern of
+   `core/pkg/service/view`; generating them is deferred until the pattern settles
+   across a few integrations.
 2. **Schema authorship**: the per-integration `.oracle` files and their generated
    artifacts, not yet wired. One PR per integration or small group, each a reviewable
    schema plus inert generated code. Every task type in §4.10 is covered before Phase 4
@@ -349,10 +353,11 @@ builds, the tests pass, and the product can ship. No phase changes the task payl
    startup migration runs. `type` and `config` become resolved. The task payload keeps
    its shape, so no client needs a new field, but the parent readers of §4.2 gain their
    type filter in the same phase.
-5. **Import and export**: each config type registers an `imex.ImportExporter`, `imex`
-   keys importers by ontology resource type, the task service delegates its export body,
-   and the built-in role policies gain the config types (§4.6, §4.9). This unblocks
-   SY-4524.
+5. **Import and export — deferred**: each config type registers an
+   `imex.ImportExporter`, `imex` keys importers by ontology resource type, the task
+   service delegates its export body, and the built-in role policies gain the config
+   types (§4.6, §4.9). This unblocks SY-4524 and ships with that work, outside this
+   program.
 6. **Client compat deletion**: one PR per client, no wire change. The Console loses its
    NI version chain, the Python client loses its old-shape readers, and the Driver loses
    its legacy parse tolerance.
@@ -389,8 +394,10 @@ code, not new behavior.
 7. **A legacy passthrough for types without schemas — rejected**: every task type is
    first-party and ships with the Core, so an untyped escape hatch would preserve the
    problem this RFC removes. Migration quarantines what it cannot convert (§4.8).
-8. **Rewriting stored records at migration time — rejected**: records migrate on decode,
-   so the startup migration only decomposes. No rewrite pass, no version sweep.
+8. **Migrating stored records on decode — rejected**: Gorp migrations are startup
+   rewrite passes, and the stored codec carries no per-record version stamp, so
+   decode-time migration would need new `x/go/gorp` and codec machinery. Config
+   versions bump through bootup rewrites like every other Gorp table (§4.5).
 9. **Per-type schema files — rejected**: in favor of per-integration files, which keep
    the shared channel and scale unions adjacent to their users (§4.1).
 10. **A task-service importer — rejected**: import routes on the envelope's type string,
