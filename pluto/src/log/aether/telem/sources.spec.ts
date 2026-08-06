@@ -100,6 +100,24 @@ describe("StreamMultiChannelLog", () => {
     vi.resetAllMocks();
   });
 
+  it("should not subscribe when cleaned up while retrieving channels", async () => {
+    let release = (): void => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    c.channels.retrieve = async (): Promise<channel.Channel> => {
+      await gate;
+      return c.channelA;
+    };
+    const log = new StreamMultiChannelLog(c, {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+    });
+    log.value();
+    log.cleanup();
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(c.streamF).not.toHaveBeenCalled();
+  });
+
   it("should return an empty array when no channels are configured", () => {
     const props: StreamMultiChannelLogProps = {
       channels: [],

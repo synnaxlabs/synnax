@@ -114,8 +114,8 @@ export class StreamMultiChannelLog
       return;
     }
     try {
-      // Generation counter prevents stale async completions: if setChannels() triggers
-      // a new read() while this one is awaiting, the older read bails out.
+      // Generation counter prevents stale async completions: a newer read() or a
+      // cleanup() bumps it, and the older read bails out after its await.
       const generation = ++this.readGeneration;
       this.stopStreaming?.();
 
@@ -241,6 +241,7 @@ export class StreamMultiChannelLog
   }
 
   cleanup(): void {
+    this.readGeneration++;
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     this.entries = [];

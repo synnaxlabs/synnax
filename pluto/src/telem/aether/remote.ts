@@ -77,6 +77,7 @@ export class StreamChannelValue
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
+  private generation = 0;
   private valid = false;
   private readonly onStatusChange?: status.Adder;
   constructor(client: Client | null, props: unknown, options?: CreateOptions) {
@@ -96,6 +97,7 @@ export class StreamChannelValue
   }
 
   cleanup(): void {
+    this.generation++;
     // Start off by stopping telemetry streaming.
     this.removeStreamHandler?.();
     // Set valid to false so if we read again, we know to update the buffer.
@@ -117,6 +119,7 @@ export class StreamChannelValue
   }
 
   private async read(): Promise<void> {
+    const generation = this.generation;
     this.valid = true;
     const { client } = this;
     if (client == null) {
@@ -127,6 +130,7 @@ export class StreamChannelValue
       this.removeStreamHandler?.();
       const ch = await client.channels.retrieve(this.props.channel);
       const handler: telem.StreamHandler = (res) => {
+        if (generation !== this.generation) return;
         const data = res.get(ch.key);
         if (data == null) return;
         const first = data.series.at(-1);
@@ -138,6 +142,7 @@ export class StreamChannelValue
         // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
         this.notify();
       };
+      if (generation !== this.generation) return;
       const sub = client.telem.stream(handler, [ch.key]);
       this.removeStreamHandler = () => sub.close();
       this.notify();
@@ -188,6 +193,7 @@ export class ChannelData
 
   private data: MultiSeries = new MultiSeries();
   private valid: boolean = false;
+  private generation = 0;
   private channel: SelectedChannelProperties | null = null;
   private readonly onStatusChange?: status.Adder;
 
@@ -198,6 +204,7 @@ export class ChannelData
   }
 
   cleanup(): void {
+    this.generation++;
     this.data.release();
     this.valid = false;
     this.channel = null;
@@ -218,6 +225,7 @@ export class ChannelData
   }
 
   private async read(): Promise<void> {
+    const generation = this.generation;
     this.valid = true;
     const { client } = this;
     if (client == null) {
@@ -226,8 +234,11 @@ export class ChannelData
     }
     try {
       const { timeRange, channel, useIndexOfChannel } = this.props;
-      this.channel = await fetchChannelProperties(client, channel, useIndexOfChannel);
-      const series = await client.telem.read(timeRange, this.channel.key);
+      const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
+      if (generation !== this.generation) return;
+      this.channel = ch;
+      const series = await client.telem.read(timeRange, ch.key);
+      if (generation !== this.generation) return;
       series.acquire();
       this.data = series;
       this.notify();
@@ -260,6 +271,7 @@ export class StreamChannelData
   private channel: SelectedChannelProperties | null = null;
   private stopStreaming?: destructor.Destructor;
   private valid: boolean = false;
+  private generation = 0;
   schema = streamChannelDataPropsZ;
 
   constructor(
@@ -291,6 +303,7 @@ export class StreamChannelData
   }
 
   private async read(): Promise<void> {
+    const generation = this.generation;
     this.valid = true;
     const { client } = this;
     if (client == null) {
@@ -299,11 +312,14 @@ export class StreamChannelData
     }
     try {
       const { channel, useIndexOfChannel, timeSpan } = this.props;
-      this.channel = await fetchChannelProperties(client, channel, useIndexOfChannel);
+      const fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
+      if (generation !== this.generation) return;
+      this.channel = fetched;
       const tr = this.now().spanRange(-timeSpan);
       if (!this.channel.virtual || this.channel.isCalculated)
         try {
           const res = await client.telem.read(tr, this.channel.key);
+          if (generation !== this.generation) return;
           res.acquire();
           this.data.push(res);
         } catch (e) {
@@ -321,7 +337,7 @@ export class StreamChannelData
 
       this.stopStreaming?.();
       const handler: telem.StreamHandler = (res) => {
-        if (this.channel == null) return;
+        if (generation !== this.generation || this.channel == null) return;
         const series = res.get(this.channel.key);
         if (series == null) return;
         series.acquire();
@@ -329,6 +345,7 @@ export class StreamChannelData
         this.notify();
         this.gcOutOfRangeData();
       };
+      if (generation !== this.generation) return;
       const sub = client.telem.stream(handler, [this.channel.key]);
       this.stopStreaming = () => sub.close();
       this.notify();
@@ -347,6 +364,7 @@ export class StreamChannelData
   }
 
   cleanup(): void {
+    this.generation++;
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     this.data.release();

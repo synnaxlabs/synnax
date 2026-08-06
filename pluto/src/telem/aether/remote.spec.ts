@@ -192,6 +192,21 @@ describe("remote", () => {
       expect(scv.value()).toBe(6);
       expect(newSeriesTwo.refCount).toBe(1);
     });
+
+    it("should not subscribe when cleaned up while retrieving the channel", async () => {
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      c.channels.retrieve = async (): Promise<channel.Channel> => {
+        await gate;
+        return c.channel;
+      };
+      const scv = new StreamChannelValue(c, { channel: c.channel.key });
+      scv.value();
+      scv.cleanup();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(c.streamF).not.toHaveBeenCalled();
+    });
   });
 
   describe("StreamChannelStringValue", () => {
@@ -547,6 +562,25 @@ describe("remote", () => {
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(series);
     });
+
+    it("should not retain data when cleaned up while reading", async () => {
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      c.telem.read = async (): Promise<MultiSeries> => {
+        await gate;
+        return new MultiSeries([series]);
+      };
+      const cd = new ChannelData(c, {
+        timeRange: TimeRange.MAX,
+        channel: c.channel.key,
+      });
+      cd.value();
+      cd.cleanup();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(series.refCount).toBe(0);
+    });
   });
 
   describe("StreamChannelData", () => {
@@ -653,6 +687,26 @@ describe("remote", () => {
       expect(c.streamHandler).not.toBeNull();
       expect(c.streamF).toHaveBeenCalled();
       expect(c.streamF).toHaveBeenCalledWith(c.streamHandler, [c.channel.key]);
+    });
+
+    it("should not subscribe or retain data when cleaned up while reading", async () => {
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      c.telem.read = async (): Promise<MultiSeries> => {
+        await gate;
+        return new MultiSeries([series]);
+      };
+      const cd = new StreamChannelData(c, {
+        timeSpan: TimeSpan.MAX,
+        channel: c.channel.key,
+      });
+      cd.value();
+      cd.cleanup();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(c.streamF).not.toHaveBeenCalled();
+      expect(series.refCount).toBe(0);
     });
 
     it("should garbage collect data that goes out of range", async () => {
