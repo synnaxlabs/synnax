@@ -1,0 +1,16 @@
+{
+  "version": "6.0.0",
+  "type": "schematic",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Console Typed",
+  "snapshot": false,
+  "nodes": [{ "key": "n1", "position": { "x": 1, "y": 2 }, "zIndex": 4 }],
+  "edges": [
+    {
+      "key": "e1",
+      "source": { "node": "n1", "param": "out" },
+      "target": { "node": "n2", "param": "in" }
+    }
+  ],
+  "configs": { "n1": { "variant": "valve", "strokeWidth": 2 } }
+}
