@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, status as cstatus, type telem } from "@synnaxlabs/client";
+import {
+  channel,
+  DataType,
+  type status as cstatus,
+  type telem,
+} from "@synnaxlabs/client";
 import { id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,6 +22,7 @@ import {
 } from "@/log/aether/telem/sources";
 import { type Client } from "@/telem/aether/remote";
 import { type Source } from "@/telem/aether/telem";
+import { telemTest } from "@/telem/aether/test";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
@@ -25,12 +31,6 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
   return source.value();
 };
-
-const mockSubscription = (close: () => void): telem.Subscription => ({
-  close,
-  status: () => cstatus.create({ variant: "loading", message: "subscribing" }),
-  onStatusChange: () => () => {},
-});
 
 describe("StreamMultiChannelLog", () => {
   class MockClient implements Client {
@@ -88,7 +88,7 @@ describe("StreamMultiChannelLog", () => {
         this.streamHandler = handler;
         this.streamKeys = keys;
         this.streamF(handler, keys);
-        return mockSubscription(this.streamDestructorF);
+        return telemTest.mockSubscription(this.streamDestructorF);
       },
     };
   }
@@ -826,6 +826,22 @@ describe("StreamMultiChannelLog", () => {
       expect(entries).toHaveLength(2);
       expect(entries[0].value).toBe("10");
       expect(entries[1].value).toBe("20");
+    });
+  });
+
+  describe("disconnected", () => {
+    it("should report a disconnected status once instead of throwing", () => {
+      const statuses: cstatus.Crude[] = [];
+      const log = new StreamMultiChannelLog(
+        null,
+        { channels: [1], timeSpan: TimeSpan.seconds(30) },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      expect(log.value()).toHaveLength(0);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].variant).toEqual("warning");
+      expect(log.value()).toHaveLength(0);
+      expect(statuses).toHaveLength(1);
     });
   });
 });

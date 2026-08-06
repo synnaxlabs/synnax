@@ -10,13 +10,14 @@
 import {
   channel,
   DataType,
-  status as cstatus,
+  type status as cstatus,
   type telem,
   TimeRange,
 } from "@synnaxlabs/client";
 import { bounds, id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createFactory } from "@/telem/aether/factory";
 import {
   ChannelData,
   type ChannelDataProps,
@@ -25,9 +26,11 @@ import {
   type StreamChannelDataProps,
   StreamChannelStringValue,
   StreamChannelValue,
+  streamChannelValue,
   type StreamChannelValueProps,
 } from "@/telem/aether/remote";
 import { type Source } from "@/telem/aether/telem";
+import { telemTest } from "@/telem/aether/test";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
@@ -36,12 +39,6 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
   return source.value();
 };
-
-const mockSubscription = (close: () => void): telem.Subscription => ({
-  close,
-  status: () => cstatus.create({ variant: "loading", message: "subscribing" }),
-  onStatusChange: () => () => {},
-});
 
 describe("remote", () => {
   describe("StreamChannelValue", () => {
@@ -76,7 +73,7 @@ describe("remote", () => {
           this.streamHandler = handler;
           this.streamKeys = keys;
           this.streamF(handler, keys);
-          return mockSubscription(this.streamDestructorF);
+          return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
     }
@@ -226,7 +223,7 @@ describe("remote", () => {
           this.streamHandler = handler;
           this.streamKeys = keys;
           this.streamF(handler, keys);
-          return mockSubscription(this.streamDestructorF);
+          return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
     }
@@ -455,7 +452,7 @@ describe("remote", () => {
           this.readMock(tr, key);
           return this.response[key];
         },
-        stream: (): telem.Subscription => mockSubscription(vi.fn()),
+        stream: (): telem.Subscription => telemTest.mockSubscription(vi.fn()),
       };
     }
 
@@ -602,7 +599,7 @@ describe("remote", () => {
           this.streamHandler = handler;
           this.streamKeys = keys;
           this.streamF(handler, keys);
-          return mockSubscription(this.streamDestructorF);
+          return telemTest.mockSubscription(this.streamDestructorF);
         },
       };
     }
@@ -891,6 +888,43 @@ describe("remote", () => {
       expect(b).toStrictEqual(bounds.ZERO);
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(d);
+    });
+  });
+
+  describe("disconnected", () => {
+    it("should still create remote sources from a null-client factory", () => {
+      const factory = createFactory(null);
+      const source = factory.create(streamChannelValue({ channel: 1 }));
+      expect(source).not.toBeNull();
+    });
+
+    it("should report a disconnected status once instead of throwing", () => {
+      const statuses: cstatus.Crude[] = [];
+      const scv = new StreamChannelValue(
+        null,
+        { channel: 1 },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      expect(scv.value()).toBe(NaN);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].variant).toEqual("warning");
+      // A repeated read must not re-report: the source is rebuilt on reconnect.
+      expect(scv.value()).toBe(NaN);
+      expect(statuses).toHaveLength(1);
+    });
+
+    it("should return empty data from a disconnected ChannelData source", () => {
+      const statuses: cstatus.Crude[] = [];
+      const cd = new ChannelData(
+        null,
+        { timeRange: TimeRange.MAX, channel: 1 },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      const [b, data] = cd.value();
+      expect(b).toStrictEqual(bounds.ZERO);
+      expect(data).toHaveLength(0);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].variant).toEqual("warning");
     });
   });
 });

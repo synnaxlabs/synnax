@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
+import { MultiSeries } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/test";
 
 const { mockUse } = vi.hoisted(() => ({ mockUse: vi.fn() }));
 
@@ -36,6 +38,18 @@ const update = (provider: aether.Component, key: string): void => {
   });
 };
 
+const stubCore = (): telem.Client => ({
+  telem: {
+    read: async () => new MultiSeries([]),
+    stream: () => telemTest.mockSubscription(() => {}),
+  },
+  channels: {
+    retrieve: async () => {
+      throw new Error("unused");
+    },
+  },
+});
+
 const makeProvider = (
   createFactory: (client: telem.Client | null) => telem.CompoundFactory,
   key: string,
@@ -57,7 +71,7 @@ describe("telem.Provider", () => {
   });
 
   it("builds the telemetry context from the current core", () => {
-    const core = { telem: {}, channels: {} } as unknown as telem.Client;
+    const core = stubCore();
     mockUse.mockReturnValue(core);
     const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));
     const provider = makeProvider(spy, "telem-provider");
@@ -73,7 +87,7 @@ describe("telem.Provider", () => {
     update(provider, "telem-provider-swap");
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenLastCalledWith(null);
-    const core = { telem: {}, channels: {} } as unknown as telem.Client;
+    const core = stubCore();
     mockUse.mockReturnValue(core);
     update(provider, "telem-provider-swap");
     expect(spy).toHaveBeenCalledTimes(2);
@@ -81,7 +95,7 @@ describe("telem.Provider", () => {
   });
 
   it("does not rebuild the context when the core is unchanged", () => {
-    const core = { telem: {}, channels: {} } as unknown as telem.Client;
+    const core = stubCore();
     mockUse.mockReturnValue(core);
     const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));
     const provider = makeProvider(spy, "telem-provider-stable");

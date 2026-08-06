@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/telem/aether/test/factory";
-export * from "@/telem/aether/test/sink";
-export * from "@/telem/aether/test/source";
-export * from "@/telem/aether/test/subscription";
+import { status, type telem } from "@synnaxlabs/client";
+
+/** @returns a telemetry subscription stub whose close is the given function. */
+export const mockSubscription = (close: () => void): telem.Subscription => ({
+  close,
+  status: () => status.create({ variant: "loading", message: "subscribing" }),
+  onStatusChange: () => () => {},
+});
