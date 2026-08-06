@@ -319,6 +319,14 @@ leaves the lie on screen: the customer's frozen valve would render identically.
 The minimal "no data" treatment is the smallest scope at which the redesign's
 honesty reaches the operator.
 
+**A main-thread GL transform, rejected.** Only the worker Synnax injects the GL
+transform, so series cached on the aether thread arrive render-ready while the
+main-thread `telem.Client` serves full-fidelity series. Applying the transform on
+both threads would lossily downcast float64 for exactly the consumers (export,
+analysis) that need raw values, and the two caches share no memory regardless. The
+asymmetry is intentional: the transform is a rendering concern, owned by the
+thread that renders.
+
 # 8 - Open Questions
 
 1. Parameter values: metadata coalescing window and max-wait, streamer update
