@@ -13,12 +13,12 @@ bundles: projects with their children, and symbol groups with their symbols. Thi
 designs that bundle layer.
 
 A bundle is a directory on disk: one flat envelope file for each member resource, plus a
-`manifest.json` that types, names, and versions the bundle and lists its members. On the
-wire, a bundle is that directory zipped. Each bundle root gets its own typed endpoint
-pair. The bundle code composes the existing single-resource leaf registry.
-Cross-references inside a bundle use file names. Importers always mint fresh keys. The
-Core owns the full format, including migration of all legacy directory layouts. Bundle
-import is all-or-nothing in one transaction.
+`manifest.json` that types, names, and versions the bundle. On the wire, a bundle is
+that directory zipped. Each bundle root gets its own typed endpoint pair. The bundle
+code composes the existing single-resource leaf registry. Cross-references inside a
+bundle use file names. Importers always mint fresh keys. The Core owns the full format,
+including migration of all legacy directory layouts. Bundle import is all-or-nothing in
+one transaction.
 
 ## 1 Motivation
 
@@ -43,11 +43,10 @@ the artifact shape.
 
 - **Bundle**: A multi-resource portable artifact. A directory on disk, a zip on the
   wire.
-- **Manifest**: The `manifest.json` file at the bundle root. Its
-  `{version, type, name, members}` body versions the bundle, states its kind (`project`
-  or `symbol_group`), names it, and lists the member files.
-- **Member**: A file named in the manifest's `members` list. Each member is a
-  self-describing flat envelope.
+- **Manifest**: The `manifest.json` file at the bundle root. Its `{version, type, name}`
+  body versions the bundle, states its kind (`project` or `symbol_group`), and names it.
+- **Member**: Any file beside the manifest in a supported serialization extension. Each
+  member is a self-describing flat envelope.
 - **Bundle-local key**: A file name. All cross-references between bundle members use
   file names.
 - **Leaf registry**: The single-resource `Importer`/`Exporter` registry on
@@ -63,8 +62,8 @@ the artifact shape.
    (`core/pkg/service/imex/imex.go:250`). Importers mint fresh keys (RFC 0039 §6.6).
    Each file in a bundle stays importable through the single-resource path.
 4. **Members self-describe.** Every member file carries its own `{version, type, name}`
-   headers. The manifest lists member file names, nothing else; the server routes and
-   runs access checks from header peeks.
+   headers. The manifest holds no member index; the server routes and runs access checks
+   from header peeks.
 5. **Ownership defines the bundle.** A project bundle is the project and its ontology
    children, not what its panels reference.
 
@@ -82,27 +81,28 @@ Test Stand 12/
   chamber_pressure.json  (lineplot)
 ```
 
-`manifest.json` types, names, and versions the bundle, and lists its members:
+`manifest.json` types, names, and versions the bundle:
 
 ```json
 {
   "version": 1,
   "type": "project",
-  "name": "Test Stand 12",
-  "members": ["controls.json", "pressurization.json", "chamber_pressure.json"]
+  "name": "Test Stand 12"
 }
 ```
 
 The `type` field states the bundle kind: `project` or `symbol_group`. Each import
 endpoint (§4.1) rejects a manifest whose type does not match its bundle kind. The
-`members` list names every member file — file names only, no types or keys.
+manifest holds no member index: membership is the directory (§6.6).
 
-The file extension names the serialization. This RFC implements JSON only; YAML and TOML
-add extensions and codecs later, with no change to the layout, the reference form, or
-the migration rules. Files the `members` list does not name (`README.md`, `.gitignore`,
-a stray legacy `LAYOUT.json`) are ignored, so a bundle can live in a repository. A
-listed file that is missing, in an unsupported extension, or does not decode to a valid
-envelope is a validation error.
+The file extension names the serialization and defines membership. Every file beside the
+manifest in a supported extension is a member. This RFC implements JSON only; YAML and
+TOML add extensions and codecs later, with no change to the layout, the reference form,
+or the migration rules. Files in every other extension (`README.md`, `.gitignore`) are
+ignored, so a bundle can live in a repository. Two base names are reserved and never
+members: `manifest`, in every supported extension, and `LAYOUT.json`, so a
+stable-release project directory migrated in place keeps working (§4.5). A member that
+does not decode to a valid envelope is a validation error naming the file.
 
 Each member self-describes through its `{version, type, name}` headers. The server peeks
 the headers of every member — the existing envelope peek, no body decode — to resolve
@@ -124,10 +124,8 @@ bundle files by name:
 }
 ```
 
-The exporter owns file naming: sanitized resource names. Name-collision rules for export
-and import live in §4.8. The `manifest` base name is reserved in every supported
-extension. `LAYOUT.json` is a legal member name: recognition checks `manifest.json`
-first (§4.5).
+The exporter owns file naming: sanitized resource names. It never emits a reserved base
+name. Name-collision rules for export and import live in §4.8.
 
 ### 4.1 Endpoints
 
@@ -136,9 +134,9 @@ Each bundle root gets its own typed endpoint pair:
 - `POST /api/v1/project/export` — request `project.Key`, response a zip stream.
 - `POST /api/v1/project/import` — request a zip upload, response the created
   `project.Project`.
-- `POST /api/v1/schematic/symbol/export-group` — request `group.Key`, response a zip
+- `POST /api/v1/schematic/symbol/group/export` — request `group.Key`, response a zip
   stream.
-- `POST /api/v1/schematic/symbol/import-group` — request a zip upload, response the
+- `POST /api/v1/schematic/symbol/group/import` — request a zip upload, response the
   created `group.Group`.
 
 A unified `imex/import-bundle` endpoint with a bundle registry was rejected for this
@@ -167,10 +165,10 @@ is three small helpers:
   (`imex.NewErrUnsupportedVersion`).
 - An access-check helper in `imex`: `ActionCreate` for each distinct member type.
 
-Each service defines its own manifest struct (`{Version, Type, Name, Members}`) beside
-its bundle code. The API services call the owning domain services directly:
-`api/project` calls `project.Service.Export`/`Import`, and `api/schematic` calls the
-symbol service's group methods.
+Each service defines its own manifest struct (`{Version, Type, Name}`) beside its bundle
+code. The API services call the owning domain services directly: `api/project` calls
+`project.Service.Export`/`Import`, and `api/schematic` calls the symbol service's group
+methods.
 
 ### 4.3 Project bundles
 
@@ -187,7 +185,7 @@ reorder is free.
    report dropped tabs. View-variant tabs are inline and export as-is.
 3. Export each child document through the leaf registry. The bundle code consults the
    registry it composes. This removes the Console's `EXPORTABLE_TYPES` copy.
-4. Emit `manifest.json` with the member list.
+4. Emit `manifest.json`.
 
 **Import** (`project.Service.Import`):
 
@@ -289,9 +287,9 @@ case-insensitive filesystems.
   names the colliding resources; rename one and re-export.
 - **Zip decode**: An entry name that is empty, is `.` or `..`, contains a path separator
   (`/` or `\`), or repeats an earlier entry name is a decode error.
-- **Import validation**: A `members` list that repeats an entry, or that holds two
-  entries that compare equal, is a validation error. A crafted archive cannot bypass the
-  export rules.
+- **Import validation**: Two member names that compare equal are a validation error; zip
+  decode already rejects exact repeats. A crafted archive cannot bypass the export
+  rules.
 
 ## 5 Implementation phases
 
@@ -338,15 +336,17 @@ Phases 3 and 4 are independent after Phase 2 and can land in either order.
   Renaming a file breaks references to it; import fails loud and names the file.
 - **6.5 One envelope file per panel.** A single `PANELS.json` was rejected as a
   special-cased blob. Panels are bundle-internal and never leaf-registered.
-- **6.6 Declared membership.** The manifest's `members` list names the member files;
-  types stay in the envelope headers. Inferred membership (every supported-extension
-  file beside the manifest) was rejected: a stray non-envelope file would fail import.
-  Unlisted files are ignored; a listed file that is missing or fails to decode is a
-  validation error.
-- **6.7 A fixed `manifest.json`.** The body is `{version, type, name, members}`.
-  Type-named manifests (`project.json`, `group.json`) were rejected: one fixed name
-  gives every format, including the legacy symbol format, a single recognition point on
-  disk. The `type` field lets each endpoint reject a bundle of the wrong kind.
+- **6.6 Inferred membership.** Membership is every supported-extension file beside the
+  manifest, minus the reserved base names (§4.0). A declared `members` list in the
+  manifest was rejected: it duplicates the directory, so adding a file by hand takes two
+  edits, and two branches that each add a member conflict in the list. The cost is that
+  a member deleted outside the export path imports silently; a missing file is a smaller
+  bundle, not an error. Version control is the stated target (§1), and the merge
+  behavior matters more there than the deletion check.
+- **6.7 A fixed `manifest.json`.** The body is `{version, type, name}`. Type-named
+  manifests (`project.json`, `group.json`) were rejected: one fixed name gives every
+  format, including the legacy symbol format, a single recognition point on disk. The
+  `type` field lets each endpoint reject a bundle of the wrong kind.
 - **6.8 Symbol groups only.** Generic group bundling was rejected for scope. Export
   errors on a group with non-symbol children.
 - **6.9 Ranges are stripped on export and rejected on import.** Bundling ranges was
