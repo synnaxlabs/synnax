@@ -172,6 +172,7 @@ func NewHost(
 	builder = bindI64(builder, s)
 	builder = bindF32(builder, s)
 	builder = bindF64(builder, s)
+	builder = bindBool(builder, s)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle uint32) uint64 {
 			if ser, ok := s.Get(handle); ok {
@@ -210,7 +211,7 @@ func NewHost(
 			if !ok {
 				return 0
 			}
-			result := telem.Series{DataType: telem.Uint8T}
+			result := telem.Series{DataType: telem.BoolT}
 			op.NotU8(ser, &result)
 			return s.Store(result)
 		}).Export("not_u8")
@@ -218,6 +219,46 @@ func NewHost(
 		return nil, err
 	}
 	return h, nil
+}
+
+// bindCreateEmpty registers create_empty_<suffix>, the allocator shared by
+// every series element type.
+func bindCreateEmpty(
+	builder wazero.HostModuleBuilder,
+	s *ProgramState,
+	suffix string,
+	dt telem.DataType,
+) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, length uint32) uint32 {
+			return s.Store(telem.MakeSeries(dt, int(length)))
+		}).Export("create_empty_" + suffix)
+}
+
+// bindBool registers the series operations valid on a bool series: allocation,
+// element access, and indexing. Bool series arise from element-wise comparisons
+// and support no arithmetic.
+func bindBool(
+	builder wazero.HostModuleBuilder,
+	s *ProgramState,
+) wazero.HostModuleBuilder {
+	builder = bindCreateEmpty(builder, s, "bool", telem.BoolT)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
+			if ser, ok := s.Get(handle); ok && int64(index) < ser.Len() {
+				telem.SetValueAt[bool](ser, int(index), value != 0)
+			}
+			return handle
+		}).Export("set_element_bool")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle, index uint32) uint32 {
+			if ser, ok := s.Get(handle); ok && int64(index) < ser.Len() &&
+				telem.ValueAt[bool](ser, int(index)) {
+				return 1
+			}
+			return 0
+		}).Export("index_bool")
+	return builder
 }
 
 // i32Scalar is used for types that map to i32 in WASM.
@@ -263,10 +304,7 @@ func bindI32Type[T i32Scalar](
 	ops seriesOps[T],
 ) wazero.HostModuleBuilder {
 	dt := ops.dt
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, length uint32) uint32 {
-			return s.Store(telem.MakeSeries(dt, int(length)))
-		}).Export("create_empty_" + suffix)
+	builder = bindCreateEmpty(builder, s, suffix, dt)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index, value uint32) uint32 {
 			if ser, ok := s.Get(handle); ok {
@@ -392,7 +430,7 @@ func bindCompareScalarI32[T i32Scalar](
 				if !ok {
 					return 0
 				}
-				result := telem.Series{DataType: telem.Uint8T}
+				result := telem.Series{DataType: telem.BoolT}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)
@@ -465,7 +503,7 @@ func bindCompareOps[T any](
 				if s1.Len() != s2.Len() {
 					panic("arc panic: series length mismatch in comparison")
 				}
-				result := telem.Series{DataType: telem.Uint8T}
+				result := telem.Series{DataType: telem.BoolT}
 				fn(s1, s2, &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)
@@ -500,10 +538,7 @@ func bindI64Type[T uint64 | int64](
 	dt telem.DataType,
 	ops seriesOps[T],
 ) wazero.HostModuleBuilder {
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, length uint32) uint32 {
-			return s.Store(telem.MakeSeries(dt, int(length)))
-		}).Export("create_empty_" + suffix)
+	builder = bindCreateEmpty(builder, s, suffix, dt)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index uint32, value uint64) uint32 {
 			if ser, ok := s.Get(handle); ok {
@@ -606,7 +641,7 @@ func bindI64Type[T uint64 | int64](
 				if !ok {
 					return 0
 				}
-				result := telem.Series{DataType: telem.Uint8T}
+				result := telem.Series{DataType: telem.BoolT}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)
@@ -628,10 +663,7 @@ func bindFloatType[T float32 | float64](
 	dt telem.DataType,
 	ops seriesOps[T],
 ) wazero.HostModuleBuilder {
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, length uint32) uint32 {
-			return s.Store(telem.MakeSeries(dt, int(length)))
-		}).Export("create_empty_" + suffix)
+	builder = bindCreateEmpty(builder, s, suffix, dt)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, index uint32, value T) uint32 {
 			if ser, ok := s.Get(handle); ok {
@@ -734,7 +766,7 @@ func bindFloatType[T float32 | float64](
 				if !ok {
 					return 0
 				}
-				result := telem.Series{DataType: telem.Uint8T}
+				result := telem.Series{DataType: telem.BoolT}
 				fn(ser, scalar, &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)

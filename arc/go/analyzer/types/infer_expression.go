@@ -63,6 +63,11 @@ func InferLogicalAnd(
 func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types.Type {
 	relExpressions := ctx.AST.AllRelationalExpression()
 	if len(relExpressions) > 1 {
+		for _, r := range relExpressions {
+			if InferRelational(context.Child(ctx, r)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
 		return types.Bool()
 	}
 	if len(relExpressions) == 1 {
@@ -71,11 +76,18 @@ func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types
 	return types.Type{}
 }
 
+// InferRelational types a comparison. A series operand makes it element-wise,
+// yielding a bool series.
 func InferRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) types.Type {
 	additives := ctx.AST.AllAdditiveExpression()
 	if len(additives) > 1 {
+		for _, a := range additives {
+			if InferAdditive(context.Child(ctx, a)).Kind == types.KindSeries {
+				return types.Series(types.Bool())
+			}
+		}
 		return types.Bool()
 	}
 	if len(additives) == 1 {
