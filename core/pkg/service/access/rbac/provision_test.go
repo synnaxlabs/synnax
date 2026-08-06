@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	taskcommon "github.com/synnaxlabs/synnax/pkg/service/task/common"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -164,14 +165,17 @@ var _ = Describe("Provision", func() {
 					Entry(&p).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(p.Actions).To(ConsistOf(access.AllActions))
-				Expect(p.Objects).To(ConsistOf(
-					ontology.ID{Type: ontology.ResourceTypeRange},
-					ontology.ID{Type: ontology.ResourceTypeRack},
-					ontology.ID{Type: ontology.ResourceTypeDevice},
-					ontology.ID{Type: ontology.ResourceTypeTask},
-					ontology.ID{Type: ontology.ResourceTypeArc},
-					ontology.ID{Type: ontology.ResourceTypeStatus},
-				))
+				Expect(p.Objects).To(ConsistOf(append(
+					[]ontology.ID{
+						{Type: ontology.ResourceTypeRange},
+						{Type: ontology.ResourceTypeRack},
+						{Type: ontology.ResourceTypeDevice},
+						{Type: ontology.ResourceTypeTask},
+						{Type: ontology.ResourceTypeArc},
+						{Type: ontology.ResourceTypeStatus},
+					},
+					taskcommon.ConfigResourceIDs()...,
+				)))
 			},
 		)
 	})
