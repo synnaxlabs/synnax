@@ -116,6 +116,30 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		},
 	)
 
+	It(
+		"Should widen the receiver when the type name would collide with the validator",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Level enum {
+				h1 = "h1"
+				h2 = "h2"
+			}
+
+			Volume struct {
+				level Level = LevelH2
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (vo Volume) Validate() error {",
+				`v := validate.New("Volume")`,
+				"!vo.Level.IsValid()",
+			)
+		},
+	)
+
 	Describe("@validate skip", func() {
 		It(
 			"Should exclude a reference field from Validate recursion",

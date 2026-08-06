@@ -94,7 +94,6 @@ export const formSchema = schematic.symbol.symbolZ
 export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   initialValues: {
-    version: 1,
     name: "",
     data: {
       svg: "",
@@ -114,7 +113,6 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       ids: schematic.symbol.ontologyID(key),
     });
     return {
-      version: 1,
       name: symbol.name,
       data: symbol.data,
       key: symbol.key,

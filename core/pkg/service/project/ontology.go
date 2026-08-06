@@ -19,9 +19,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -39,9 +41,28 @@ func OntologyIDsFromProjects(projects []Project) []ontology.ID {
 	})
 }
 
+// KeyFromOntologyID converts id to the Key of the project it identifies. It returns an
+// error wrapping validate.ErrValidation if id is not a project or its key is not a
+// valid UUID. Callers that resolve a caller-supplied field scope the returned error to
+// that field with validate.PathedError.
+func KeyFromOntologyID(id ontology.ID) (Key, error) {
+	if id.Type != ontology.ResourceTypeProject {
+		return uuid.Nil, errors.Wrapf(
+			validate.ErrValidation, "must be a project, got %q", id.Type,
+		)
+	}
+	key, err := uuid.Parse(id.Key)
+	if err != nil {
+		return uuid.Nil, errors.Wrapf(
+			validate.ErrValidation, "invalid project key %q: %v", id.Key, err,
+		)
+	}
+	return key, nil
+}
+
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
-		return uuid.Parse(id.Key)
+		return KeyFromOntologyID(id)
 	})
 }
 
