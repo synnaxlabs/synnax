@@ -9,8 +9,8 @@
   [RFC 0034 - Gorp in-memory indexes](0034-gorp-indexes.md),
   [RFC 0039 - Server-side metadata import/export](0039-server-side-import-export.md),
   [RFC 0042 - Core structure refactor](0042-core-structure-refactor.md),
-  [RFC 0043 - Oracle support for struct unions](0043-oracle-struct-unions.md), and
-  [RFC 0048 - Oracle predecessor-chain type versioning](0048-oracle-predecessor-chain-versioning.md).
+  [RFC 0043 - Oracle support for struct unions](0043-oracle-struct-unions.md),
+  [RFC 0048 - Oracle predecessor-chain type versioning](0048-oracle-predecessor-chain-versioning.md)
 
 ## 0 Summary
 
@@ -30,8 +30,8 @@ current shape on every wire.
 
 Two capabilities follow. The Core owns the version chain for every config type, so
 stored configs migrate server-side and clients only ever see the latest shape. Each
-config type becomes an `imex.ImportExporter`, which unblocks server-side task import
-(SY-4524) and lets export encode a typed struct instead of flattening a blob.
+config type becomes an `imex.Importer`, which unblocks server-side task import (SY-4524)
+and lets export encode a typed struct instead of flattening a blob.
 
 Task types become a closed set. Every type has a schema, and the Core rejects a type it
 does not know rather than storing an untyped blob for it.
@@ -199,7 +199,9 @@ The task service is the only place that splits and rejoins a payload.
 and a `type`, exactly as they do today. The writer looks up the type in its config
 registry, decodes the blob into the generated Go struct, validates it, writes the config
 record, and defines the relationship, all in the caller's transaction. An unknown type
-is a validation error on the write, and so is a config that does not decode.
+is a validation error on the write, and so is a config that does not decode. A write to
+an existing snapshot task skips the config record: `Create` freezes a snapshot's
+configuration today, and that rule moves with the storage.
 
 **Compose (read)**: The reader resolves the config parent, decodes the record, and
 stamps `type` and `config` back onto the payload. §4.3 names the call sites.
@@ -236,25 +238,28 @@ The two halves land in different services, because the registry routes them by d
 keys. `Export` routes by the ontology type of the ID it is given, and `Import` routes by
 the type string the envelope carries.
 
-- **The task service stays an `imex.Exporter`**: It keeps the `task` export
+- **The task service stays the only `imex.Exporter`**: It keeps the `task` export
   registration, resolves the task's type, asks that type's service for the encoded
   config record, and stamps `type` and `name` on top. It gains no import half.
-- **Each config type gets an `imex.ImportExporter`**: The per-integration service
-  registers one for every type it owns, so an `ni_analog_read` envelope routes straight
-  to it. It decodes and migrates the body, then writes the config record, the task row,
-  and the relationship in the supplied transaction. Its export half serves the config
-  record on its own UUID.
+- **Each config type gets an `imex.Importer`**: The per-integration service registers
+  one for every type it owns, so an `ni_analog_read` envelope routes straight to it. It
+  decodes and migrates the body, then writes the config record, the task row, and the
+  relationship in the supplied transaction. It registers no export half.
+
+Export stays single-headed. `task:<key>` is the ID the ontology tree holds and every
+export caller passes, and the envelope name lives on the task row, so a config record
+has no export identity of its own: a second export half would answer a UUID no caller
+holds and emit a second body shape under one envelope type.
 
 An envelope naming an unknown type fails the import with a clear error, because no
 importer is registered under that string.
 
-The registration keys then converge. `imex` keys exporters by ontology resource type but
-importers by a plain string, and the two differ only because a task type is not an
-ontology type today. This RFC makes every task type an ontology type, so importers key
-on `ontology.ResourceType` as well, and the asymmetric-registration indirection retires
-with it: `Importer.Type` and the `ImporterType` lookup behind it exist to map a
-fine-grained string onto a coarse type, and the enforcer can read the registration key
-instead.
+Importers then key on `ontology.ResourceType` too. `imex` keys exporters by ontology
+resource type but importers by a plain string, and the two differ only because a task
+type is not an ontology type today. This RFC makes every task type an ontology type, so
+the asymmetric-registration indirection retires: `Importer.Type` and the `ImporterType`
+lookup behind it exist to map a fine-grained string onto a coarse type, and the enforcer
+can read the registration key instead.
 
 Envelope versions follow the unified numbering, one chain per config type. The coarse
 `task` ontology type carries no version of its own. The service that encodes the config
@@ -285,7 +290,7 @@ Every operation stays where it is; only the transaction contents grow.
   it gains both the record copy and the edge. Without the edge the copied task resolves
   no `type`, which fails the retrieve rather than degrading it.
 - **Snapshot**: A snapshot task gets its own frozen config record. Snapshots never share
-  a record with a live task.
+  a record with a live task, and a later write does not rewrite one (§4.4).
 - **Rename**: Task row only. The name is not part of the config.
 
 ### 4.8 Migration of stored tasks
@@ -380,9 +385,9 @@ tests pass, and the product can ship. No phase changes the task payload.
   §4.8 startup migration runs. `type` and `config` become resolved. The task payload
   keeps its shape, so no client needs a new field, but the parent readers of §4.2 gain
   their type filter in the same phase.
-- **Phase 5: Import and export.** Each config type registers an `imex.ImportExporter`,
-  `imex` keys importers by ontology resource type, the task service delegates its export
-  body, and the built-in role policies gain the config types (§4.6, §4.9). This unblocks
+- **Phase 5: Import and export.** Each config type registers an `imex.Importer`, `imex`
+  keys importers by ontology resource type, the task service delegates its export body,
+  and the built-in role policies gain the config types (§4.6, §4.9). This unblocks
   SY-4524 and lands with that work, after Phase 4. Export never regresses in the
   interim: from the cutover on, the task exporter reads the composed payload, so the
   flattened body it writes today is unchanged.
@@ -429,9 +434,8 @@ code, not new behavior.
 9. **Per-type schema files — rejected**: In favor of per-integration files, which keep
    the shared channel and scale unions adjacent to their users (§4.1).
 10. **A task-service importer — rejected**: Import routes on the envelope's type string,
-    so each config type registers its own `imex.ImportExporter` and the task service
-    keeps only its `task` exporter (§4.6). A central handler would relearn every config
-    shape.
+    so each config type registers its own `imex.Importer` and the task service keeps
+    only its `task` exporter (§4.6). A central handler would relearn every config shape.
 11. **One envelope version for every task — rejected**: The `task` ontology type is a
     routing key, not a schema, so it carries no version. Each config type stamps its own
     (§4.6), which replaces the single `task.Version` constant used today.
@@ -440,6 +444,10 @@ code, not new behavior.
     `Validate` requires. A package-level registry that the integration packages
     self-populate through the import graph is the alternative, and it is a mutable
     global that hides the dependency and orders itself by import.
+13. **A per-config-type export half — rejected**: Export routes on the ontology ID the
+    caller holds, which is the task's, and the envelope name lives on the task row. A
+    config exporter would answer a UUID no caller holds and emit a second body shape
+    under one envelope type (§4.6).
 
 ---
 
