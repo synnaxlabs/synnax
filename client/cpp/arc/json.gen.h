@@ -69,6 +69,7 @@ inline TaskConfig TaskConfig::parse(x::json::Parser parser) {
         result
     ) = ::synnax::common::BaseConfig::parse(parser);
     result.arc_key = parser.field<Key>("arc_key");
+    result.hash = parser.field<std::string>("hash", "");
     result.execution_mode = parser.field<std::string>("execution_mode", "AUTO");
     result.rt_priority = parser.field<std::int32_t>("rt_priority", 47);
     result.cpu_affinity = parser.field<std::int32_t>("cpu_affinity", -1);
@@ -81,6 +82,7 @@ inline x::json::json TaskConfig::to_json() const {
     for (auto &[k, v]: ::synnax::common::BaseConfig::to_json().items())
         j[k] = v;
     j["arc_key"] = this->arc_key.to_json();
+    j["hash"] = this->hash;
     j["execution_mode"] = this->execution_mode;
     j["rt_priority"] = this->rt_priority;
     j["cpu_affinity"] = this->cpu_affinity;

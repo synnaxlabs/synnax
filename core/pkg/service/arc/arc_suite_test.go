@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskcommon "github.com/synnaxlabs/synnax/pkg/service/task/common"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -95,6 +97,11 @@ var (
 			Search:              searchIdx,
 		}))
 		imexSvc := imex.NewService()
+		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
+		configs := MustSucceed(taskcommon.NewConfigRegistry(arcTaskSvc.Stores()...))
 		taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -103,6 +110,7 @@ var (
 			Status:   statusSvc,
 			Search:   searchIdx,
 			ImEx:     imexSvc,
+			Configs:  configs,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())

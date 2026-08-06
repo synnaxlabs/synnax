@@ -24,7 +24,7 @@ namespace driver::rack::status {
 const std::string INTEGRATION_NAME = "rack_status";
 const std::string LEGACY_HEARTBEAT_TYPE = "heartbeat";
 const std::string TASK_NAME = "Rack Status";
-const std::string TASK_TYPE = TASK_NAME;
+const std::string TASK_TYPE = "rack_status";
 const auto EMISSION_RATE = x::telem::HERTZ * 1;
 
 class Source final : public driver::pipeline::Base {

@@ -177,7 +177,7 @@ describe("arc", () => {
       const tsk = await client.arcs.deploy(created.key, rack.key);
       expect(tsk).not.toBeNull();
       expect(tsk?.rack).toEqual(rack.key);
-      expect(tsk?.type).toEqual("arc");
+      expect(tsk?.type).toEqual("arc_task");
       expect(tsk?.config.arcKey).toEqual(created.key);
       expect(tsk?.config.hash).not.toEqual("");
       expect(await client.arcs.task.retrieve(created.key)).not.toBeNull();

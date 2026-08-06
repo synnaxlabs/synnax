@@ -166,6 +166,30 @@ func (o *Ontology) RelationshipExists(
 		Exists(ctx, o.cfg.DB.OverrideTx(tx))
 }
 
+// RetrieveParents returns the parents of each of the given IDs, keyed by child ID.
+// Reads are executed against tx, falling back to the underlying database when tx is
+// nil. IDs with no parents are absent from the result.
+func (o *Ontology) RetrieveParents(tx gorp.Tx, ids ...ID) (map[ID][]ID, error) {
+	tx = o.cfg.DB.OverrideTx(tx)
+	parents := make(map[ID][]ID, len(ids))
+	for _, id := range ids {
+		keys, err := o.relIndexes.byTo.Get(tx, id)
+		if err != nil {
+			return nil, err
+		}
+		for _, key := range keys {
+			rel, err := ParseRelationship(key)
+			if err != nil {
+				return nil, err
+			}
+			if rel.Type == RelationshipTypeParentOf {
+				parents[id] = append(parents[id], rel.From)
+			}
+		}
+	}
+	return parents, nil
+}
+
 // RegisterService registers a Service for a particular [Type] with the [Ontology].
 // Ontology will execute queries for Entity information for the given Type using the
 // provided Service. RegisterService panics if a Service is already registered for the

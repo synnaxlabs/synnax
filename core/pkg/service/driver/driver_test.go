@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -59,7 +60,7 @@ var _ = Describe("Driver", func() {
 			Key:  uuid.New(),
 			Rack: rackKey,
 			Name: "Test Task",
-			Type: "test",
+			Type: pagerduty.AlertTaskType,
 		}
 	}
 
@@ -231,7 +232,7 @@ var _ = Describe("Driver", func() {
 				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"rate": 50}
+				t.Config = map[string]any{"routing_key": "rk-1"}
 				taskKey.Store(t.Key)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 
@@ -253,7 +254,7 @@ var _ = Describe("Driver", func() {
 				).Should(Equal(int32(1)))
 				Expect(stopCount.Load()).To(BeZero())
 
-				t.Config = map[string]any{"rate": 100}
+				t.Config = map[string]any{"routing_key": "rk-2"}
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 
 				writeCommand(
@@ -297,7 +298,7 @@ var _ = Describe("Driver", func() {
 				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"rate": 50}
+				t.Config = map[string]any{"routing_key": "rk-1"}
 				taskKey.Store(t.Key)
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 
@@ -804,7 +805,7 @@ var _ = Describe("Driver", func() {
 				time.Sleep(50 * time.Millisecond)
 
 				t := newTask(embeddedRackKey(ctx))
-				t.Config = map[string]any{"rate": 50}
+				t.Config = map[string]any{"routing_key": "rk-1"}
 				taskKey.Store(t.Key)
 				countBeforeCreate := configCount.Load()
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
@@ -817,7 +818,7 @@ var _ = Describe("Driver", func() {
 					func() int32 { return configCount.Load() },
 				).Should(BeNumerically(">", countBeforeCreate))
 
-				t.Config = map[string]any{"rate": 100}
+				t.Config = map[string]any{"routing_key": "rk-2"}
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 				writeCommand(
 					ctx,
@@ -857,12 +858,12 @@ var _ = Describe("Driver", func() {
 			t1 := task.Task{
 				Rack: rackKey,
 				Name: "Pre-existing Task 1",
-				Type: "test",
+				Type: pagerduty.AlertTaskType,
 			}
 			t2 := task.Task{
 				Rack: rackKey,
 				Name: "Pre-existing Task 2",
-				Type: "test",
+				Type: pagerduty.AlertTaskType,
 			}
 			Expect(taskWriter.Create(ctx, &t1)).To(Succeed())
 			Expect(taskWriter.Create(ctx, &t2)).To(Succeed())
@@ -1711,7 +1712,7 @@ var _ = Describe("Driver", func() {
 					t := task.Task{
 						Rack: rackKey,
 						Name: "Parallel Task",
-						Type: "test",
+						Type: pagerduty.AlertTaskType,
 					}
 					Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 				}

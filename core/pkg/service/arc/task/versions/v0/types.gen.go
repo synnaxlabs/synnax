@@ -44,6 +44,8 @@ type TaskConfig struct {
 	common.BaseConfig
 	// ArcKey is the key of the Arc module the task executes.
 	ArcKey arc.Key `json:"arc_key" msgpack:"arc_key"`
+	// Hash is the semantic hash of the Arc module at deploy time.
+	Hash string `json:"hash" msgpack:"hash"`
 	// ExecutionMode overrides the runtime's automatic loop mode selection.
 	ExecutionMode ExecutionMode `json:"execution_mode" msgpack:"execution_mode"`
 	// RtPriority is the thread priority used by real-time loop modes.

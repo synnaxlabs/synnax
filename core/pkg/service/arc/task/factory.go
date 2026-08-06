@@ -33,7 +33,7 @@ import (
 )
 
 // Type is the type identifier for Arc tasks.
-const Type = "arc"
+const Type = "arc_task"
 
 // Config is the configuration for an Arc task.
 type Config struct {

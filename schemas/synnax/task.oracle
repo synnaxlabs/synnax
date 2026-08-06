@@ -123,7 +123,6 @@ Task struct<
         coalesce_type_params
     }
     @ontology type "task"
-    @retrieve
     @search
     @go marshal
     @go migrate

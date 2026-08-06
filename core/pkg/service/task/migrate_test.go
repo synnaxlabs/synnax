@@ -16,16 +16,20 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/task/common"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -71,7 +75,15 @@ var _ = Describe("Migrations", func() {
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 
 			legacyKey := v1.Key(uint64(testRack.Key)<<32 | 99)
-			legacyTask := v1.Task{Key: legacyKey, Name: "Legacy Task"}
+			legacyTask := v1.Task{
+				Key:  legacyKey,
+				Name: "Legacy Task",
+				Type: pagerduty.AlertTaskType,
+				Config: msgpack.EncodedJSON{
+					"routing_key": "rk-legacy",
+					"data_saving": false,
+				},
+			}
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
 				Entry(&legacyTask).
 				Exec(ctx, db)).To(Succeed())
@@ -99,6 +111,11 @@ var _ = Describe("Migrations", func() {
 				status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus),
 			).To(Succeed())
 
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+			}))
+			configs := MustSucceed(common.NewConfigRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -107,6 +124,7 @@ var _ = Describe("Migrations", func() {
 				Status:   stat,
 				Search:   searchIdx,
 				ImEx:     imex.NewService(),
+				Configs:  configs,
 			}))
 
 			var migrated task.Task
@@ -116,6 +134,10 @@ var _ = Describe("Migrations", func() {
 				Exec(ctx, nil)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
+			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-legacy"))
+			Expect(migrated.Config).ToNot(HaveKey("data_saving"))
+			Expect(migrated.Config).To(HaveKey("key"))
+			Expect(migrated.ConfigHash).ToNot(BeEmpty())
 
 			var restoredStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
@@ -133,6 +155,139 @@ var _ = Describe("Migrations", func() {
 
 			staged, closer := MustSucceed2(db.Get(ctx, v2.LegacyKeyKVKey(legacyKey)))
 			Expect(string(staged)).To(Equal(migrated.Key.String()))
+			Expect(closer.Close()).To(Succeed())
+		},
+	)
+
+	It(
+		"Should decompose stored configs, rename types, and quarantine unknowns",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			searchIdx := MustOpen(search.OpenIndex())
+			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   searchIdx,
+			}))
+			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Search:   searchIdx,
+			}))
+			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    g,
+				Label:    labelSvc,
+				Search:   searchIdx,
+			}))
+			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:           db,
+				Ontology:     otg,
+				Group:        g,
+				HostProvider: mock.NewStaticHostProvider(1),
+				Status:       stat,
+				Search:       searchIdx,
+			}))
+			testRack := &rack.Rack{Name: "Decompose Test Rack"}
+			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+
+			arcModuleKey := uuid.New().String()
+			pdTask := v1.Task{
+				Key:  v1.Key(uint64(testRack.Key)<<32 | 1),
+				Name: "Stored PD Task",
+				Type: pagerduty.AlertTaskType,
+				Config: msgpack.EncodedJSON{
+					"routing_key": "rk-stored",
+					"data_saving": false,
+				},
+			}
+			arcTask := v1.Task{
+				Key:  v1.Key(uint64(testRack.Key)<<32 | 2),
+				Name: "Stored Arc Task",
+				Type: "arc",
+				Config: msgpack.EncodedJSON{
+					"arc_key": arcModuleKey,
+					"hash":    "abc123",
+				},
+			}
+			bogusTask := v1.Task{
+				Key:    v1.Key(uint64(testRack.Key)<<32 | 3),
+				Name:   "Bogus Task",
+				Type:   "bogus",
+				Config: msgpack.EncodedJSON{"anything": true},
+			}
+			Expect(gorp.NewCreate[v1.Key, v1.Task]().
+				Entries(&[]v1.Task{pdTask, arcTask, bogusTask}).
+				Exec(ctx, db)).To(Succeed())
+
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+			}))
+			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+			}))
+			configs := MustSucceed(common.NewConfigRegistry(
+				append(pd.Stores(), at.Stores()...)...,
+			))
+			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Rack:     rackSvc,
+				Status:   stat,
+				Search:   searchIdx,
+				ImEx:     imex.NewService(),
+				Configs:  configs,
+			}))
+
+			var migratedPD task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Stored PD Task")).
+				Entry(&migratedPD).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migratedPD.Config).To(
+				HaveKeyWithValue("routing_key", "rk-stored"),
+			)
+			Expect(migratedPD.Config).ToNot(HaveKey("data_saving"))
+			Expect(migratedPD.Config).To(HaveKey("key"))
+			Expect(migratedPD.ConfigHash).ToNot(BeEmpty())
+			parents := MustSucceed(otg.RetrieveParents(
+				nil, task.OntologyID(migratedPD.Key),
+			))
+			ids := parents[task.OntologyID(migratedPD.Key)]
+			Expect(ids).To(HaveLen(1))
+			Expect(ids[0].Type).To(
+				Equal(ontology.ResourceType(pagerduty.AlertTaskType)),
+			)
+
+			var migratedArc task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Stored Arc Task")).
+				Entry(&migratedArc).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migratedArc.Type).To(Equal("arc_task"))
+			Expect(migratedArc.Config).To(
+				HaveKeyWithValue("arc_key", arcModuleKey),
+			)
+			Expect(migratedArc.Config).To(HaveKeyWithValue("hash", "abc123"))
+
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Bogus Task")).
+				Exists(ctx, nil)).To(BeFalse())
+			rekeyed, rekeyCloser := MustSucceed2(
+				db.Get(ctx, v2.LegacyKeyKVKey(bogusTask.Key)),
+			)
+			bogusKey := MustSucceed(uuid.Parse(string(rekeyed)))
+			Expect(rekeyCloser.Close()).To(Succeed())
+			staged, closer := MustSucceed2(
+				db.Get(ctx, v3.QuarantineKVKey(bogusKey)),
+			)
+			Expect(string(staged)).To(ContainSubstring("Bogus Task"))
 			Expect(closer.Close()).To(Succeed())
 		},
 	)

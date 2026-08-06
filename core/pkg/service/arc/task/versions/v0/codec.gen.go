@@ -19,6 +19,7 @@ func (tc TaskConfig) EncodeOrc(w *orc.Writer) error {
 	w.Bool(tc.AutoStart)
 	w.Bool(tc.DataSavingDisabled)
 	w.Write(tc.ArcKey[:])
+	w.String(tc.Hash)
 	w.String(string(tc.ExecutionMode))
 	w.Int32(int32(tc.RtPriority))
 	w.Int32(int32(tc.CPUAffinity))
@@ -39,6 +40,9 @@ func (tc *TaskConfig) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if _, err := r.Read(tc.ArcKey[:]); err != nil {
+		return err
+	}
+	if tc.Hash, err = r.String(); err != nil {
 		return err
 	}
 	{
