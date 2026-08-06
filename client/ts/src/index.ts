@@ -55,6 +55,7 @@ export { status } from "@/status";
 export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";
 export { task } from "@/task";
+export { telem } from "@/telem";
 export { user } from "@/user";
 export { view } from "@/view";
 export {

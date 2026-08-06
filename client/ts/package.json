@@ -33,6 +33,7 @@
     "madge": "madge --circular src"
   },
   "dependencies": {
+    "@synnaxlabs/alamos": "workspace:^",
     "@synnaxlabs/freighter": "workspace:^",
     "@synnaxlabs/x": "workspace:^",
     "async-mutex": "catalog:",

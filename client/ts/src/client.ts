@@ -42,6 +42,7 @@ import { schematic } from "@/schematic";
 import { status } from "@/status";
 import { table } from "@/table";
 import { task } from "@/task";
+import { telem } from "@/telem";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { view } from "@/view";
@@ -109,6 +110,7 @@ export default class Synnax extends framer.Client {
   readonly tables: table.Client;
   readonly groups: group.Client;
   readonly imex: imex.Client;
+  readonly telem: telem.Client;
   private readonly cache: query.Cache;
   private readonly transport: Transport;
   private readonly conn: connection.Client;
@@ -292,6 +294,10 @@ export default class Synnax extends framer.Client {
       cache,
     });
     this.imex = new imex.Client({ file: this.transport.file });
+    this.telem = new telem.Client({
+      readRemote: async (tr, keys) => await this.read(tr, keys),
+      openStreamer: async (config) => await this.openStreamer(config),
+    });
   }
 
   /**
@@ -313,6 +319,13 @@ export default class Synnax extends framer.Client {
   }
 
   close(): void {
+    this.telem
+      .close()
+      .catch((err: unknown) =>
+        this.cache.onError(
+          new Error("failed to close the telemetry client", { cause: err }),
+        ),
+      );
     this.conn
       .close()
       .catch((err: unknown) =>

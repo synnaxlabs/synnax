@@ -202,6 +202,9 @@ importers:
 
   client/ts:
     dependencies:
+      '@synnaxlabs/alamos':
+        specifier: workspace:^
+        version: link:../../alamos/ts
       '@synnaxlabs/freighter':
         specifier: workspace:^
         version: link:../../freighter/ts
