@@ -20,7 +20,6 @@ import { Form as PForm, Panel as PlutoPanel, type Status } from "@synnaxlabs/plu
 import { id, type record, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   fireEvent,
-  render,
   type RenderResult,
   screen,
   waitFor,
@@ -39,6 +38,7 @@ import {
   createConsoleWrapper,
   createTestStore,
   renderHookWithConsole,
+  renderSuspended,
   renderWithConsole,
   type RenderWithConsoleOptions,
   type TestStore,
@@ -242,7 +242,7 @@ export const renderInTaskFormWithClient = async (
   });
   const panelKey = uuid.create();
   const tabKey = uuid.create();
-  const result = render(
+  const result = await renderSuspended(
     <PanelScopes panelKey={panelKey} tabKey={tabKey}>
       <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
         {ui}
@@ -291,7 +291,7 @@ export const renderTaskFormTab = async (
     args: params,
   };
   const created = await createSelectedPanel(store, client, [tab]);
-  const result = render(
+  const result = await renderSuspended(
     <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
       <Tab.Content />
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}

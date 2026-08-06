@@ -43,6 +43,7 @@ import {
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
+import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
 import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
 import { DefaultItem, type Item } from "@/platform/tree/item";
@@ -513,7 +514,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [getResource, selectedRef],
   );
 
-  const handleContextMenu = useCallback(
+  const renderContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => {
       if (client == null) return <FallbackContextMenu />;
       if (keys.length === 0)
@@ -563,6 +564,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       return M == null ? <FallbackContextMenu /> : <M {...props} />;
     },
     [client, setNodes, resolveItem, openTab, nodesRef, setSelected],
+  );
+  const handleContextMenu = useCallback(
+    (props: Menu.ContextMenuMenuProps) => (
+      <Errors.SuspenseBoundary loading={null}>
+        {renderContextMenu(props)}
+      </Errors.SuspenseBoundary>
+    ),
+    [renderContextMenu],
   );
   const menuProps = Menu.useContextMenu();
   const contextValue = useMemo(

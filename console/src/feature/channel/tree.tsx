@@ -145,11 +145,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
-  const channels = PChannel.useCachedMultiple({
+  const channels = PChannel.useRetrieveMultiple({
     rangeKey: activeRange?.key,
     keys: channelKeys,
   });
-  const showDeleteAlias = channels?.some((c) => c.alias != null) ?? false;
+  const showDeleteAlias = channels.some((c) => c.alias != null);
   const first = resources[0];
   const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);

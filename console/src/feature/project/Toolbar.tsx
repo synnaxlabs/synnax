@@ -42,7 +42,9 @@ const Content = (): ReactElement => {
         <Toolbar.Title icon={<Icon.Project />}>Projects</Toolbar.Title>
         <Actions />
       </Toolbar.Header>
-      <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
+      <Toolbar.Body>
+        <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
+      </Toolbar.Body>
     </Toolbar.Content>
   );
 };

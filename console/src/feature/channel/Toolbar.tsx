@@ -51,7 +51,9 @@ const Content = (): ReactElement => {
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Actions />
       </Toolbar.Header>
-      <Tree.Tree root={root} emptyContent={<EmptyContent />} />
+      <Toolbar.Body>
+        <Tree.Tree root={root} emptyContent={<EmptyContent />} />
+      </Toolbar.Body>
     </Toolbar.Content>
   );
 };

@@ -232,7 +232,7 @@ export const Channels = (): ReactElement => {
     () => entries.map((c) => c.channel).filter((k) => !primitive.isZero(k)),
     [entries],
   );
-  const channels = Channel.useCachedMultiple({ keys });
+  const channels = Channel.useRetrieveMultiple({ keys });
   return (
     <Flex.Box y full="y" className={CSS.BE("log", "toolbar", "channels")}>
       {entries.map((entry, i) =>
@@ -240,7 +240,7 @@ export const Channels = (): ReactElement => {
           <ChannelRow
             key={entry.channel}
             index={i}
-            ch={channels?.find((c) => c.key === entry.channel)}
+            ch={channels.find((c) => c.key === entry.channel)}
             config={entry}
             disabled={!hasUpdatePermission}
           />

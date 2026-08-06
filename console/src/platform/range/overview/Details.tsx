@@ -27,6 +27,7 @@ import { type FC, type ReactElement, useCallback } from "react";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { CSV } from "@/platform/csv";
+import { Errors } from "@/platform/errors";
 import { Label } from "@/platform/label";
 import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
@@ -35,10 +36,8 @@ interface ParentRangeButtonProps {
   rangeKey: string;
 }
 
-const ParentRangeButton = ({
-  rangeKey,
-}: ParentRangeButtonProps): ReactElement | null => {
-  const parent = Ranger.useCachedParent({ id: ranger.ontologyID(rangeKey) });
+const Internal = ({ rangeKey }: ParentRangeButtonProps): ReactElement | null => {
+  const parent = Ranger.useRetrieveParent({ id: ranger.ontologyID(rangeKey) });
   const openTab = Panel.useOpenTab();
   if (parent == null) return null;
   const Icon = Ranger.STAGE_ICONS[Ranger.getStage(parent.timeRange)];
@@ -63,6 +62,12 @@ const ParentRangeButton = ({
     </Flex.Box>
   );
 };
+
+const ParentRangeButton = (props: ParentRangeButtonProps): ReactElement => (
+  <Errors.SuspenseBoundary loading={null}>
+    <Internal {...props} />
+  </Errors.SuspenseBoundary>
+);
 
 export interface DetailsProps {
   rangeKey: string;

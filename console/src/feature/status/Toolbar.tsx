@@ -118,7 +118,9 @@ const Content = (): ReactElement => (
       <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
       <Actions />
     </Toolbar.Header>
-    <List />
+    <Toolbar.Body>
+      <List />
+    </Toolbar.Body>
   </Toolbar.Content>
 );
 

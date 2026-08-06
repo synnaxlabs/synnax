@@ -9,7 +9,7 @@
 
 import "@/feature/range/list/List.css";
 
-import { type ranger } from "@synnaxlabs/client";
+import { type label, type ranger } from "@synnaxlabs/client";
 import {
   Dialog,
   Flex,
@@ -22,6 +22,7 @@ import {
 import { location, state } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 import { Label } from "@/platform/label";
 import { View } from "@/platform/view";
 
@@ -71,20 +72,30 @@ interface HasLabelsFilterProps {
   request: ranger.RetrieveRequest;
 }
 
-const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
-  const labels = PLabel.useCachedMultiple({ keys: request.hasLabels ?? [] }) ?? [];
-  if (request.hasLabels == null || request.hasLabels.length === 0) return null;
+interface TagsProps {
+  keys: label.Key[];
+}
+
+const Tags = ({ keys }: TagsProps) => {
+  const labels = PLabel.useRetrieveMultiple({ keys });
+  return labels.map(({ color, key, name }) => (
+    <Tag.Tag key={key} color={color} size="small" textColor={9}>
+      {name}
+    </Tag.Tag>
+  ));
+};
+
+const HasLabelsFilter = ({ request: { hasLabels } }: HasLabelsFilterProps) => {
+  if (hasLabels == null || hasLabels.length === 0) return null;
   return (
     <Flex.Box x pack background={0}>
       <View.FilterChip el="span" background={0} color={9}>
         <Icon.Label />
         Labels
       </View.FilterChip>
-      {labels.map(({ color, key, name }) => (
-        <Tag.Tag key={key} color={color} size="small" textColor={9}>
-          {name}
-        </Tag.Tag>
-      ))}
+      <Errors.SuspenseBoundary loading={null}>
+        <Tags keys={hasLabels} />
+      </Errors.SuspenseBoundary>
     </Flex.Box>
   );
 };

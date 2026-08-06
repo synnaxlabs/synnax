@@ -18,7 +18,7 @@ import { type Channel } from "@/feature/ethercat/task/types";
 export const { useRetrieve: useRetrieveSlave, useCached: useCachedSlave } =
   Device.createRetrieve(SLAVE_SCHEMAS);
 
-const { useCached: useCachedSlaves } = Flux.createRetrieve<
+const { useRetrieve: useRetrieveSlaves } = Flux.createRetrieve<
   { keys: device.Key[] },
   SlaveDevice[]
 >({
@@ -45,10 +45,8 @@ export interface EnabledStateParams {
   keys: device.Key[];
 }
 
-const EMPTY_SLAVES: SlaveDevice[] = [];
-
 export const useEnabledState = ({ keys }: EnabledStateParams): EnabledState => {
-  const slaves = useCachedSlaves({ keys }) ?? EMPTY_SLAVES;
+  const slaves = useRetrieveSlaves({ keys });
   return useMemo(() => {
     const disabledCount = slaves.filter((d) => !d.properties?.enabled).length;
     return {

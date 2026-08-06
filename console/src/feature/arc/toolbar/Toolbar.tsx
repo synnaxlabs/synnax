@@ -77,31 +77,33 @@ const Content = () => {
           <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
           <Actions handleCreate={create} />
         </Toolbar.Header>
-        <Select.Frame
-          multiple
-          data={data}
-          getItem={getItem}
-          subscribe={subscribe}
-          value={selected}
-          onChange={setSelected}
-          onFetchMore={fetchMore}
-          replaceOnSingle
-        >
-          <List.Items<arc.Key, arc.Arc>
-            full="y"
-            emptyContent={<EmptyContent onCreate={create} />}
-            onContextMenu={menuProps.open}
+        <Toolbar.Body>
+          <Select.Frame
+            multiple
+            data={data}
+            getItem={getItem}
+            subscribe={subscribe}
+            value={selected}
+            onChange={setSelected}
+            onFetchMore={fetchMore}
+            replaceOnSingle
           >
-            {({ key, ...p }) => (
-              <ArcListItem
-                key={key}
-                {...p}
-                onRename={(name) => handleRename({ key, name })}
-                onDoubleClick={() => handleEdit(key)}
-              />
-            )}
-          </List.Items>
-        </Select.Frame>
+            <List.Items<arc.Key, arc.Arc>
+              full="y"
+              emptyContent={<EmptyContent onCreate={create} />}
+              onContextMenu={menuProps.open}
+            >
+              {({ key, ...p }) => (
+                <ArcListItem
+                  key={key}
+                  {...p}
+                  onRename={(name) => handleRename({ key, name })}
+                  onDoubleClick={() => handleEdit(key)}
+                />
+              )}
+            </List.Items>
+          </Select.Frame>
+        </Toolbar.Body>
       </Toolbar.Content>
     </Menu.ContextMenu>
   );

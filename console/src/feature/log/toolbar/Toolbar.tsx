@@ -57,12 +57,14 @@ const Internal = (): ReactElement => {
             </Tabs.Selector>
           </Flex.Box>
         </Base.Header>
-        <Tabs.Content itemKey="channels">
-          <Channels />
-        </Tabs.Content>
-        <Tabs.Content itemKey="properties">
-          <Properties />
-        </Tabs.Content>
+        <Base.Body>
+          <Tabs.Content itemKey="channels">
+            <Channels />
+          </Tabs.Content>
+          <Tabs.Content itemKey="properties">
+            <Properties />
+          </Tabs.Content>
+        </Base.Body>
       </Tabs.Frame>
     </Base.Content>
   );

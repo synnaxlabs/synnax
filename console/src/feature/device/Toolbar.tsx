@@ -22,7 +22,9 @@ const Content = (): ReactElement => {
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
       </Toolbar.Header>
-      <Tree.Tree root={groupID} />
+      <Toolbar.Body>
+        <Tree.Tree root={groupID} />
+      </Toolbar.Body>
     </Toolbar.Content>
   );
 };

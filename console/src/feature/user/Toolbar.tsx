@@ -37,7 +37,9 @@ const Content = (): ReactElement => {
           </Toolbar.Actions>
         )}
       </Toolbar.Header>
-      <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
+      <Toolbar.Body>
+        <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
+      </Toolbar.Body>
     </Toolbar.Content>
   );
 };

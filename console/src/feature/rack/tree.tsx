@@ -11,7 +11,7 @@ import "@/feature/rack/tree.css";
 
 import { arc, rack, task } from "@synnaxlabs/client";
 import { Access, Icon, List, Menu, Rack, Text, Tree as PTree } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Arc } from "@/feature/arc";
 import { NI } from "@/feature/ni";
@@ -59,6 +59,22 @@ const useDelete = Tree.createUseDelete({
   convertKey: Number,
 });
 
+interface NIScannerItemProps {
+  rackKey: rack.Key;
+}
+
+const NIScannerItem = ({ rackKey }: NIScannerItemProps): ReactElement | null => {
+  const { integrations } = Rack.useRetrieve({ key: rackKey });
+  const toggleScanner = NI.Task.useToggleScanner(rackKey);
+  if (!integrations.includes(NI_INTEGRATION_NAME)) return null;
+  return (
+    <Menu.Item itemKey="toggleNIScanner" onClick={toggleScanner}>
+      <Icon.Logo.NI />
+      Toggle NI Device Scanner
+    </Menu.Item>
+  );
+};
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection,
@@ -79,11 +95,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const create = Arc.useCreate();
   const isSingle = ids.length === 1;
   const rackKey = Number(ids[0]?.key ?? 0);
-  const integrations = Rack.useCached(
-    rackKey > 0 ? { key: rackKey } : null,
-  )?.integrations;
-  const hasNIIntegration = integrations?.includes(NI_INTEGRATION_NAME) ?? false;
-  const toggleNIScanner = NI.Task.useToggleScanner(rackKey);
   const handleCreate = useCallback(() => create(), [create]);
   return (
     <ContextMenu.Menu>
@@ -105,12 +116,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               Create Arc automation
             </Menu.Item>
           )}
-          {hasTaskUpdatePermission && hasNIIntegration && (
-            <Menu.Item itemKey="toggleNIScanner" onClick={toggleNIScanner}>
-              <Icon.Logo.NI />
-              Toggle NI Device Scanner
-            </Menu.Item>
-          )}
+          {hasTaskUpdatePermission && <NIScannerItem rackKey={rackKey} />}
         </>
       )}
       <Menu.Divider />
