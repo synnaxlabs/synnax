@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/device"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/telem"
 
 @ts output  "client/ts/src/task"
 @py output  "client/py/synnax/task"
@@ -145,4 +147,45 @@ Command struct {
     }
 
     @doc value "is a command to execute on a task in the Driver system."
+}
+
+BaseConfig struct {
+    auto_start           bool = false {
+        @doc value "is true when the task should start as soon as it is configured."
+    }
+    data_saving_disabled bool = false {
+        @doc value "is true when task telemetry is not persisted to disk."
+    }
+
+    @doc value  "carries the configuration fields shared by every hardware task."
+    @go output  "core/pkg/service/task/common"
+    @cpp output "client/cpp/task/common"
+    @pb omit
+}
+
+BaseReadConfig struct extends BaseConfig {
+    sample_rate telem.Rate = 10 {
+        @doc value "is the per-channel hardware sample rate, in hertz."
+        @ts type   "number"
+    }
+    stream_rate telem.Rate = 5 {
+        @doc value "is the rate at which samples are streamed to Synnax, in hertz."
+        @ts type   "number"
+    }
+
+    @doc value  "carries the configuration fields shared by hardware acquisition tasks."
+    @go output  "core/pkg/service/task/common"
+    @cpp output "client/cpp/task/common"
+    @pb omit
+}
+
+BaseWriteConfig struct extends BaseConfig {
+    device device.Key = "" {
+        @doc value "is the key of the device the task writes to."
+    }
+
+    @doc value  "carries the configuration fields shared by hardware control tasks."
+    @go output  "core/pkg/service/task/common"
+    @cpp output "client/cpp/task/common"
+    @pb omit
 }

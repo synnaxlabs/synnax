@@ -1,0 +1,17 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "ni",
+    hdrs = [
+        "json.gen.h",
+        "types.gen.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/channel",
+        "//client/cpp/device",
+        "//client/cpp/task/common",
+        "//x/cpp/json",
+        "//x/cpp/telem",
+    ],
+)
