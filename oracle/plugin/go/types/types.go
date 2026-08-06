@@ -14,7 +14,6 @@ import (
 	"cmp"
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -215,7 +214,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // predecessor identifies the version package that a current version package's
 // unchanged types alias.
 type predecessor struct {
-	// path is the repo-relative predecessor package directory (…/versions/vN-1).
+	// path is the repo-relative predecessor package directory (…/versions/vN).
 	path string
 	// aliased holds qualified names of types emitted as aliases.
 	aliased set.Set[string]
@@ -258,11 +257,11 @@ func (c *captureGenerator) GenerateFile(
 	return "", nil
 }
 
-// computeSplit resolves the alias split for every version-laid-out current
-// package. Snapshot-declared baselines decide first; for paths the snapshots
-// cannot anchor (history predating per-resource versioning), the frozen
-// predecessor package on disk is the baseline: a type aliases only when its
-// declarations are identical to the frozen ones.
+// computeSplit resolves the alias split for every version-laid-out current package.
+// Snapshot-declared baselines decide first; for paths the snapshots cannot anchor
+// (history predating per-resource versioning), the highest version package below the
+// current one on disk is the baseline: a type aliases only when its declarations are
+// identical to the frozen ones.
 func computeSplit(
 	req *plugin.Request, rewritten *resolution.Table,
 ) (map[string]predecessor, error) {
@@ -310,12 +309,15 @@ func computeSplit(
 		if !ok {
 			continue
 		}
-		predDir := filepath.Join(
-			req.RepoRoot, versioning.VersionedPath(origPath, version-1),
-		)
-		if _, err := os.Stat(predDir); err != nil {
+		pred, ok, err := versioning.Predecessor(req.RepoRoot, origPath, version)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
 			continue
 		}
+		predPath := versioning.VersionedPath(origPath, pred)
+		predDir := filepath.Join(req.RepoRoot, predPath)
 		candidate, err := generateGoFile(
 			current, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
 			rewritten, req.RepoRoot, predecessor{},
@@ -329,10 +331,7 @@ func computeSplit(
 			return nil, errors.Wrapf(err, "frozen baseline for %s", origPath)
 		}
 		if len(aliased) > 0 {
-			preds[current] = predecessor{
-				path:    versioning.VersionedPath(origPath, version-1),
-				aliased: aliased,
-			}
+			preds[current] = predecessor{path: predPath, aliased: aliased}
 		}
 	}
 	return preds, nil
@@ -832,7 +831,7 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		data.imports.AddExternal(strconvImportPath)
 	}
 	if len(sd.Name) > 0 {
-		sd.Receiver = strings.ToLower(sd.Name[:1])
+		sd.Receiver = receiverName(sd.Name)
 	}
 
 	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
@@ -842,6 +841,19 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	}
 
 	return sd
+}
+
+// receiverName derives a method receiver from the type name. It widens to two letters
+// when the first would be "v", which generated Validate bodies use for their validator.
+func receiverName(name string) string {
+	r := strings.ToLower(name[:1])
+	if r != "v" {
+		return r
+	}
+	if len(name) > 1 {
+		return strings.ToLower(name[:2])
+	}
+	return "vv"
 }
 
 func processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {

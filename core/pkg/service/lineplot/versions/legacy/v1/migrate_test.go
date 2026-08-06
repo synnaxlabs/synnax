@@ -16,6 +16,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v1"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // nonZeroV0 builds a v0.Data with every model field populated so passthrough
@@ -23,11 +24,10 @@ import (
 func nonZeroV0() v0.Data {
 	label := "pressure"
 	return v0.Data{
-		Version:       v0.Version,
-		Key:           "plot-1",
-		RemoteCreated: true,
-		Title:         v0.Title{Level: "h4", Visible: true},
-		Legend:        v0.Legend{Visible: false},
+		Version: v0.Version,
+		Key:     "plot-1",
+		Title:   v0.Title{Level: "h4", Visible: true},
+		Legend:  v0.Legend{Visible: false},
 		Channels: v0.Channels{
 			X1: 1, X2: 2,
 			Y1: []channel.Key{10, 11}, Y2: []channel.Key{12},
@@ -35,15 +35,13 @@ func nonZeroV0() v0.Data {
 		},
 		Ranges: v0.Ranges{X1: []string{"00000000-0000-0000-0000-000000000010"}},
 		Axes: v0.AxesContainer{
-			RenderTrigger:    7,
-			HasHadChannelSet: true,
 			Axes: v0.Axes{
 				X1: v0.Axis{
 					Key:            "x1",
 					Label:          "time",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 100},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 100},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -52,7 +50,7 @@ func nonZeroV0() v0.Data {
 					Label:          "",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -61,7 +59,7 @@ func nonZeroV0() v0.Data {
 					Label:          "p",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: -1, Upper: 5},
+					Bounds:         spatial.Bounds{Lower: -1, Upper: 5},
 					AutoBounds:     v0.AutoBounds{Lower: false, Upper: false},
 					TickSpacing:    60,
 				},
@@ -70,7 +68,7 @@ func nonZeroV0() v0.Data {
 					Label:          "",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -79,7 +77,7 @@ func nonZeroV0() v0.Data {
 					Label:          "",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -88,7 +86,7 @@ func nonZeroV0() v0.Data {
 					Label:          "",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -143,7 +141,6 @@ var _ = Describe("Migrate", func() {
 		in := nonZeroV0()
 		out := v1.Migrate(in)
 		Expect(out.Key).To(Equal(in.Key))
-		Expect(out.RemoteCreated).To(Equal(in.RemoteCreated))
 		Expect(out.Title).To(Equal(in.Title))
 		Expect(out.Channels).To(Equal(in.Channels))
 		Expect(out.Ranges).To(Equal(in.Ranges))
