@@ -1,8 +1,8 @@
-# VSCode Configuration
+# VS Code configuration
 
-VSCode is tricky to set up with a monorepo like Synnax. The editor can have trouble
-detecting package installations like eslint and typescript, run into issues with python
-virtual environments, etc. Luckily, VSCode has a feature called workspaces that lets us
+VS Code is tricky to set up with a monorepo like Synnax. The editor can have trouble
+detecting package installations like ESLint and TypeScript, run into issues with Python
+virtual environments, etc. Luckily, VS Code has a feature called workspaces that lets us
 open different directories under separate contexts/configurations.
 
 Our workspace file is located at

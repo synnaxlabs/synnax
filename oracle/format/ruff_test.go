@@ -43,7 +43,7 @@ var _ = Describe("Ruff Formatter", func() {
 		}
 	})
 
-	It("Should normalise quoting and spacing", func(ctx SpecContext) {
+	It("Should normalize quoting and spacing", func(ctx SpecContext) {
 		absFile, _ := installRuffFixture()
 		raw := []byte("def foo( ):\n  return  'hi'\n")
 		r := &format.Ruff{Bin: "ruff"}

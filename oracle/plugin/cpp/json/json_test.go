@@ -1133,6 +1133,36 @@ var _ = Describe("C++ JSON Union Generation", func() {
 	})
 
 	It(
+		"Should parse through a union base struct from another namespace",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@cpp output "x/cpp/common"
+
+			BaseAIChan struct { port int32 }
+		`)
+			source := `
+			import "schemas/common"
+
+			@cpp output "client/cpp/ni"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			ExpectContent(resp, "ni/json.gen.h").
+				ToContain(
+					`#include "x/cpp/common/json.gen.h"`,
+					`static_cast<::x::common::BaseAIChan&>(result) = `+
+						`::x::common::BaseAIChan::parse(parser);`,
+					`static_cast<VoltageFields&>(result) = VoltageFields::parse(parser);`,
+				)
+		},
+	)
+
+	It(
 		"Should dispatch a union-typed field through the free functions",
 		func(ctx SpecContext) {
 			source := `
