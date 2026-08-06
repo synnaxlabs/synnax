@@ -784,7 +784,9 @@ describe("Task", async () => {
       const params = { key: t.key };
       const off = remote.tasks.onChange(params, vi.fn());
       try {
-        expect((await remote.tasks.retrieve(params)).config).toStrictEqual({ a: "dog" });
+        expect((await remote.tasks.retrieve(params)).config).toStrictEqual({
+          a: "dog",
+        });
         await client.tasks.create({ ...t.payload, config: { a: "cat" } });
         await expect
           .poll(() => {
