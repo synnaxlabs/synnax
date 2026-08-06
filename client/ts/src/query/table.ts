@@ -9,11 +9,13 @@
 
 import {
   array,
+  type CrudeTimeSpan,
   deep,
   destructor,
   errors,
   type record,
   state,
+  TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 import type z from "zod";
@@ -78,6 +80,12 @@ export interface TableParams<
    * "if-absent" so fetches never clobber locally replayed edits.
    */
   hydrate?: HydrateMode;
+  /**
+   * Window for coalescing concurrent miss fetches into one fetch call. The
+   * window's timer is not reset by later joins, so it is also the max wait.
+   * @default TimeSpan.milliseconds(10)
+   */
+  fetchDebounce?: CrudeTimeSpan;
 }
 
 /**
@@ -108,6 +116,15 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
   return probed.flat();
 };
 
+const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
+
+interface FetchWindow<Key extends record.Key, Value extends state.State> {
+  keys: Set<Key>;
+  promise: Promise<Array<Keyed<Key, Value>>>;
+  resolve: (rows: Array<Keyed<Key, Value>>) => void;
+  reject: (reason: unknown) => void;
+}
+
 /**
  * The sole owner of one resource's record content and tombstones. Everything
  * else in the cache holds keys into it: answers store key lists, dispatch
@@ -131,6 +148,8 @@ export class Table<
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
   private readonly fetchRows?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   private readonly hydrateMode: HydrateMode;
+  private readonly fetchDebounce: TimeSpan;
+  private pendingFetch: FetchWindow<Key, Value> | null = null;
   private gen = 0;
 
   constructor({
@@ -138,11 +157,13 @@ export class Table<
     equal = deep.equal,
     fetch,
     hydrate = "set",
+    fetchDebounce = DEFAULT_FETCH_DEBOUNCE,
   }: TableParams<Key, Value>) {
     this.onError = onError;
     this.equal = equal;
     this.fetchRows = fetch;
     this.hydrateMode = hydrate;
+    this.fetchDebounce = new TimeSpan(fetchDebounce);
   }
 
   private setOne(
@@ -265,16 +286,20 @@ export class Table<
    * cached rows only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
-    const { fetchRows } = this;
-    if (fetchRows != null) {
+    if (this.fetchRows != null) {
       const misses =
         opts.refresh === true ? keys : keys.filter((key) => !this.rows.has(key));
       if (misses.length > 0) {
         const gen = this.gen;
-        const fetched = await fetchRows(misses);
-        if (gen === this.gen && fetched.length > 0)
-          if (opts.refresh === true) this.set(fetched);
-          else this.ingest(fetched);
+        const fetched = await this.fetchMisses(misses);
+        // The window's fetch carries other callers' keys too: hydrating them
+        // here would apply this call's refresh/hydrate mode to rows the other
+        // callers own.
+        const mine = new Set(misses);
+        const rows = fetched.filter(({ key }) => mine.has(key));
+        if (gen === this.gen && rows.length > 0)
+          if (opts.refresh === true) this.set(rows);
+          else this.ingest(rows);
       }
     }
     const seen = new Set<Key>();
@@ -286,6 +311,41 @@ export class Table<
       if (row != null) results.push(row);
     }
     return results;
+  }
+
+  /**
+   * Joins the open fetch window, creating one if none exists. A window unions
+   * miss keys across concurrent retrieves into one fetch call; its timer is not
+   * reset by later joins, so sustained retrieving cannot starve the fetch. A
+   * failed fetch rejects every caller in the window and hydrates nothing, so
+   * failures are never cached.
+   */
+  private fetchMisses(keys: Key[]): Promise<Array<Keyed<Key, Value>>> {
+    const { fetchRows } = this;
+    if (fetchRows == null) return Promise.resolve([]);
+    let win = this.pendingFetch;
+    if (win == null) {
+      let resolve!: (rows: Array<Keyed<Key, Value>>) => void;
+      let reject!: (reason: unknown) => void;
+      const promise = new Promise<Array<Keyed<Key, Value>>>((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      const opened: FetchWindow<Key, Value> = {
+        keys: new Set(),
+        promise,
+        resolve,
+        reject,
+      };
+      win = opened;
+      this.pendingFetch = opened;
+      setTimeout(() => {
+        this.pendingFetch = null;
+        fetchRows(Array.from(opened.keys)).then(opened.resolve, opened.reject);
+      }, this.fetchDebounce.milliseconds);
+    }
+    keys.forEach((key) => win.keys.add(key));
+    return win.promise;
   }
 
   /**

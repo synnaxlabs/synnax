@@ -76,11 +76,12 @@ export class Dynamic {
   private now = () => TimeStamp.now();
 
   constructor(props: DynamicProps) {
-    this.props = {
-      transform: IDENTITY_TRANSFORM,
-      instrumentation: alamos.NOOP,
-      ...props,
-    };
+    const {
+      dynamicBufferSize,
+      transform = IDENTITY_TRANSFORM,
+      instrumentation = alamos.NOOP,
+    } = props;
+    this.props = { dynamicBufferSize, transform, instrumentation };
     this.curr = null;
     if (props.now != null) this.now = props.now;
     this.timeOfLastWrite = this.now();

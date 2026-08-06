@@ -76,11 +76,19 @@ export class Reader {
   });
 
   constructor(props: ReaderProps) {
+    const {
+      readRemote,
+      cache,
+      instrumentation = alamos.NOOP,
+      batchDebounce = TimeSpan.milliseconds(50),
+      overlapThreshold = TimeSpan.milliseconds(5),
+    } = props;
     this.props = {
-      ...props,
-      instrumentation: props.instrumentation ?? alamos.NOOP,
-      batchDebounce: props.batchDebounce ?? TimeSpan.milliseconds(50),
-      overlapThreshold: props.overlapThreshold ?? TimeSpan.milliseconds(5),
+      readRemote,
+      cache,
+      instrumentation,
+      batchDebounce,
+      overlapThreshold,
     };
     this.debouncedRead = debounce(
       () => void this.batchRead(),

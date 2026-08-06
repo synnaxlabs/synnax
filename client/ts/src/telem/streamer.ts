@@ -118,11 +118,17 @@ export class Streamer {
   private closed = false;
 
   constructor(props: StreamerProps) {
+    const {
+      cache,
+      openStreamer,
+      instrumentation = alamos.NOOP,
+      removalDelay = TimeSpan.seconds(5),
+    } = props;
     this.props = {
-      instrumentation: props.instrumentation ?? alamos.NOOP,
-      cache: props.cache,
-      openStreamer: props.openStreamer,
-      removalDelay: new TimeSpan(props.removalDelay ?? TimeSpan.seconds(5)),
+      instrumentation,
+      cache,
+      openStreamer,
+      removalDelay: new TimeSpan(removalDelay),
     };
     const {
       maxRetries = Infinity,

@@ -43,13 +43,21 @@ export class Cache {
   private closed = false;
 
   constructor(props: CacheProps = {}) {
+    const {
+      dynamicBufferSize = CACHE_BUFFER_SIZE,
+      gcInterval = TimeSpan.seconds(30),
+      instrumentation = DEFAULT_STATIC_PROPS.instrumentation,
+      transform = DEFAULT_STATIC_PROPS.transform,
+      staleEntryThreshold = DEFAULT_STATIC_PROPS.staleEntryThreshold,
+    } = props;
     this.props = {
-      dynamicBufferSize: CACHE_BUFFER_SIZE,
-      gcInterval: TimeSpan.seconds(30),
-      ...DEFAULT_STATIC_PROPS,
-      ...props,
+      dynamicBufferSize,
+      gcInterval,
+      instrumentation,
+      transform,
+      staleEntryThreshold,
     };
-    this.gcInterval = setInterval(() => this.gc(), this.props.gcInterval.milliseconds);
+    this.gcInterval = setInterval(() => this.gc(), gcInterval.milliseconds);
   }
 
   /**

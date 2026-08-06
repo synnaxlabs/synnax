@@ -68,7 +68,12 @@ export class Static {
   private readonly props: Required<StaticProps>;
 
   constructor(props: StaticProps) {
-    this.props = { ...DEFAULT_STATIC_PROPS, ...props };
+    const {
+      instrumentation = DEFAULT_STATIC_PROPS.instrumentation,
+      transform = DEFAULT_STATIC_PROPS.transform,
+      staleEntryThreshold = DEFAULT_STATIC_PROPS.staleEntryThreshold,
+    } = props;
+    this.props = { instrumentation, transform, staleEntryThreshold };
   }
 
   /**

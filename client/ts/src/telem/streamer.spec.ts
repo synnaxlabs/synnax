@@ -16,7 +16,7 @@ import { UnexpectedError } from "@/errors";
 import { type framer } from "@/framer";
 import { Frame } from "@/framer/frame";
 import { Cache } from "@/telem/cache/cache";
-import { Streamer,type StreamHooks } from "@/telem/streamer";
+import { Streamer, type StreamHooks } from "@/telem/streamer";
 
 class MockStreamer implements framer.Streamer {
   private keysI: channel.Params[];
@@ -99,7 +99,6 @@ const createStreamOpener =
     config: framer.StreamerConfig,
     hooks: StreamHooks,
   ) => Promise<framer.Streamer>) =>
-   
   async (_, hooks) => {
     hooksOut?.push(hooks);
     const streamer = streamers.shift();
