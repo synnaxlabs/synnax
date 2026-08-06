@@ -12,7 +12,6 @@ package symbol
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -32,29 +31,6 @@ func (*Service) Match(body map[string]any) bool {
 	}
 	_, ok = data["svg"]
 	return ok
-}
-
-// Export serializes the symbol identified by id, stamping versions.Latest. It returns
-// query.ErrNotFound if no symbol has id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
-	key, err := uuid.Parse(id.Key)
-	if err != nil {
-		return imex.Envelope{}, err
-	}
-	var sym Symbol
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&sym).
-		Exec(ctx, nil); err != nil {
-		return imex.Envelope{}, err
-	}
-	env := imex.Envelope{
-		Version: versions.Latest, Type: string(s.Type()), Name: sym.Name,
-	}
-	if err = imex.Encode(&env, sym); err != nil {
-		return imex.Envelope{}, err
-	}
-	return env, nil
 }
 
 // Import decodes env into a Symbol created under opts.Parent, which must be a group.

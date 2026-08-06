@@ -81,6 +81,8 @@ const ingestComponents = async (
     const { data } = file;
     if (typeof data !== "object" || data == null || !("type" in data)) continue;
     if (typeof data.type !== "string") continue;
+    // TEMPORARY: a type the Core cannot import fails the whole directory, where it was
+    // skipped before. Server-side project import replaces this loop before release.
     const ingestFile = fileIngesters[data.type] ?? Import.ingestServer;
     const id = await ingestFile(data, {
       ...ctx,

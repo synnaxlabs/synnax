@@ -10,9 +10,11 @@
 // Package imex generates the portable import/export machinery for any Oracle struct
 // that declares the bare `@go imex` marker. Every versions/vK package gains a Version
 // constant equal to K; the versions package root gains Latest and an autoDecodeEnvelope
-// ladder that lifts server-era envelopes through the per-version Migrate<Type> steps.
-// Latest keeps the wire envelope version and the storage schema version a single
-// sequence per resource, and the ladder extends itself on every version bump.
+// ladder that lifts server-era envelopes through the per-version Migrate<Type> steps;
+// the service package gains the Service.Export half of imex.ImportExporter. Latest
+// keeps the wire envelope version and the storage schema version a single sequence per
+// resource, and the ladder extends itself on every version bump. Import stays
+// hand-written: every resource parents and persists differently.
 package imex
 
 import (
@@ -49,18 +51,22 @@ type Options struct {
 	// and NewErrUnsupportedVersion the generated files call. Its package name must be
 	// imex — the templates qualify every call with that identifier. Required.
 	RuntimeImportPath string
+	// OntologyImportPath is the Go package supplying the ID the generated Export takes.
+	// Its package name must be ontology. Required.
+	OntologyImportPath string
 }
 
 // DefaultOptions returns the production defaults: imex.gen.go against the Core's imex
 // service package.
 func DefaultOptions() Options {
 	return Options{
-		FileNamePattern:   "imex.gen.go",
-		RuntimeImportPath: "github.com/synnaxlabs/synnax/pkg/service/imex",
+		FileNamePattern:    "imex.gen.go",
+		RuntimeImportPath:  "github.com/synnaxlabs/synnax/pkg/service/imex",
+		OntologyImportPath: "github.com/synnaxlabs/synnax/pkg/service/ontology",
 	}
 }
 
-// Plugin emits the generated imex version constants.
+// Plugin emits the generated imex version constants and Export methods.
 type Plugin struct{ options Options }
 
 // New constructs a Plugin with the given options.
@@ -70,11 +76,14 @@ func (*Plugin) Name() string       { return "go/imex" }
 func (*Plugin) Domains() []string  { return []string{"go"} }
 func (*Plugin) Requires() []string { return []string{"go/types"} }
 
-// Check reports a Plugin constructed without a runtime import path, which would emit
-// files that do not compile.
+// Check reports a Plugin constructed without one of the import paths the templates
+// qualify against, which would emit files that do not compile.
 func (p *Plugin) Check(*plugin.Request) error {
 	if p.options.RuntimeImportPath == "" {
 		return errors.New("go/imex requires Options.RuntimeImportPath")
+	}
+	if p.options.OntologyImportPath == "" {
+		return errors.New("go/imex requires Options.OntologyImportPath")
 	}
 	return nil
 }
@@ -84,13 +93,17 @@ var goPostWriter = &exec.PostWriter{Commands: [][]string{{"gofmt", "-w"}}}
 // PostWrite runs gofmt on the generated files.
 func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(files) }
 
-// Generate emits imex machinery into the versions tree of every output package whose
-// type declares @go imex: one Version constant per versions/vK package the Core has
-// exported, and Latest plus the autoDecodeEnvelope ladder in the versions package root.
-// Versions below the floor predate Core export, so their constant is deleted instead.
-// It errors when a marked type lacks a @go version, when two types at the same path
-// both carry the marker, when a schema snapshot fails to load, or when a version
-// package on disk does not parse.
+// Generate emits imex machinery for every output package whose type declares @go imex:
+// one Version constant per versions/vK package the Core has exported, Latest plus the
+// autoDecodeEnvelope ladder in the versions package root, and Service.Export in the
+// service package. Versions below the floor predate Core export, so their constant is
+// deleted instead. It errors when a marked type lacks a @go version, when two types at
+// the same path both carry the marker, or when a version package on disk does not
+// parse.
+//
+// The emitted Export calls the service's NewRetrieve, MatchKeys, and Type, and parses
+// id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
+// to compile.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{}
 	declared := make(map[string]string)
@@ -116,10 +129,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		declared[outputPath] = typ.QualifiedName
 		goName := naming.GetGoName(typ)
-		floor, err := firstImexVersion(req, typ.QualifiedName, version)
-		if err != nil {
-			return nil, err
-		}
+		floor := firstImexVersion(req, typ.QualifiedName, version)
 		for k := floor; k <= version; k++ {
 			path := versioning.VersionedPath(outputPath, k)
 			var buf bytes.Buffer
@@ -174,9 +184,74 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Path:    outputPath + "/versions/" + p.options.FileNamePattern,
 			Content: buf.Bytes(),
 		})
+		// A fresh buffer: plugin.File.Content aliases the backing array, so reusing buf
+		// would overwrite the chain file appended above.
+		var exportBuf bytes.Buffer
+		if err := exportTemplate.Execute(&exportBuf, &exportData{
+			Package: naming.DerivePackageName(outputPath),
+			Type:    goName,
+			Versions: gomod.ResolveImportPath(
+				outputPath+"/versions", req.RepoRoot, goModulePrefix,
+			),
+			Runtime:  p.options.RuntimeImportPath,
+			Ontology: p.options.OntologyImportPath,
+		}); err != nil {
+			return nil, err
+		}
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    outputPath + "/" + p.options.FileNamePattern,
+			Content: exportBuf.Bytes(),
+		})
 	}
 	return resp, nil
 }
+
+type exportData struct {
+	Package  string
+	Type     string
+	Versions string
+	Runtime  string
+	Ontology string
+}
+
+var exportTemplate = template.Must(
+	template.New("go-imex-export").Parse(`// Code generated by oracle. DO NOT EDIT.
+
+package {{.Package}}
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"{{.Runtime}}"
+	"{{.Ontology}}"
+	"{{.Versions}}"
+)
+
+// Export retrieves the {{.Type}} identified by id and serializes it, stamping
+// versions.Latest. It returns query.ErrNotFound if no {{.Type}} has id.Key.
+func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
+	key, err := uuid.Parse(id.Key)
+	if err != nil {
+		return imex.Envelope{}, err
+	}
+	var v {{.Type}}
+	if err = s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&v).
+		Exec(ctx, nil); err != nil {
+		return imex.Envelope{}, err
+	}
+	env := imex.Envelope{
+		Version: versions.Latest, Type: string(s.Type()), Name: v.Name,
+	}
+	if err = imex.Encode(&env, v); err != nil {
+		return imex.Envelope{}, err
+	}
+	return env, nil
+}
+`),
+)
 
 type versionData struct {
 	Package string
@@ -199,26 +274,22 @@ const Version imex.Version = {{.Version}}
 
 // firstImexVersion returns the earliest @go version at which the type already carried
 // the @go imex marker, walking schema snapshots newest-first. The walk ends at the
-// first snapshot that predates per-resource versioning or lacks the marker: marker
-// history is contiguous. With no marked snapshot the floor is the current version. A
-// snapshot that fails to load is an error, not the end of the walk — swallowing it
-// would raise the floor and silently drop ladder arms and version constants that
-// released Cores still need.
-func firstImexVersion(
-	req *plugin.Request,
-	qualifiedName string,
-	current int,
-) (int, error) {
+// first snapshot that predates per-resource versioning, lacks the marker, or fails to
+// load; marker history is contiguous. With no marked snapshot the floor is the current
+// version.
+//
+// TEMPORARY: snapshots frozen under earlier grammar and analyzer rules no longer
+// analyze, so erroring on a failed load blocks every sync. Ending the walk early can
+// only raise the floor and drop ladder arms, which is harmless while server-side export
+// is unreleased. The snapshots folder goes away before it ships.
+func firstImexVersion(req *plugin.Request, qualifiedName string, current int) int {
 	floor := current
 	if req.LoadSnapshot == nil || req.SnapshotVersion <= 0 {
-		return floor, nil
+		return floor
 	}
 	for s := req.SnapshotVersion; s >= 1; s-- {
 		t, err := req.LoadSnapshot(s)
-		if err != nil {
-			return 0, errors.Wrapf(err, "load schema snapshot %d", s)
-		}
-		if t == nil || versioning.PreVersioning(t) {
+		if err != nil || t == nil || versioning.PreVersioning(t) {
 			break
 		}
 		typ, ok := t.Get(qualifiedName)
@@ -233,7 +304,7 @@ func firstImexVersion(
 			floor = v
 		}
 	}
-	return floor, nil
+	return floor
 }
 
 // chainArms builds one ladder arm per version in [floor, current): each decodes the

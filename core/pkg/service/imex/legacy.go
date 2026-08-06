@@ -17,16 +17,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// RequireFields errors when body omits any of fields, which name the structural members
-// Importer.Match requires of resource's Console state. A field may be a dotted path
-// ("data.svg") reaching into a nested object. resource is a noun phrase carrying its
-// own article ("an Arc", "a line plot").
+// RequireFields errors when body omits any of fields, the structural markers of
+// resource's Console state. A field may be a dotted path ("data.svg"). resource is a
+// noun phrase carrying its own article ("an Arc", "a line plot").
 //
-// Import-only: the legacy chain decodes an unrecognized body to an empty resource, so
-// without this a misrouted file imports as a blank one instead of failing. A Console
-// state serialized every member, so a genuinely empty resource still carries the keys
-// and passes. The storage migration keeps riding the chain unchecked, since a stored
-// blob may be nil.
+// Import-only: the legacy chain decodes an unrecognized body to an empty resource, so a
+// misrouted file would otherwise import as a blank one. The test is key presence, so a
+// genuinely empty resource still passes.
 func RequireFields(body msgpack.EncodedJSON, resource string, fields ...string) error {
 	for _, f := range fields {
 		if !hasPath(body, f) {

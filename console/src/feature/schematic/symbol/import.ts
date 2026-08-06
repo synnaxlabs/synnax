@@ -35,6 +35,8 @@ const importSymbolFromData = async (
     fileName,
     parent: parentID,
   });
+  // TEMPORARY: costs a retrieve per symbol, which useImportGroup then discards. Server-
+  // side group import replaces both callers and reports the names itself.
   const created = await client.schematics.symbols.retrieve({ key: id.key });
   return created.name;
 };

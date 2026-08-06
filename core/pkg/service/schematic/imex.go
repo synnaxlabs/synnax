@@ -12,7 +12,6 @@ package schematic
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -29,29 +28,6 @@ func (*Service) Match(body map[string]any) bool {
 	_, hasNodes := body["nodes"]
 	_, hasProps := body["props"]
 	return hasNodes && hasProps
-}
-
-// Export serializes the schematic identified by id, stamping versions.Latest. It
-// returns query.ErrNotFound if no schematic has id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
-	key, err := uuid.Parse(id.Key)
-	if err != nil {
-		return imex.Envelope{}, err
-	}
-	var sch Schematic
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&sch).
-		Exec(ctx, nil); err != nil {
-		return imex.Envelope{}, err
-	}
-	env := imex.Envelope{
-		Version: versions.Latest, Type: string(s.Type()), Name: sch.Name,
-	}
-	if err = imex.Encode(&env, sch); err != nil {
-		return imex.Envelope{}, err
-	}
-	return env, nil
 }
 
 // Import decodes env into a Schematic created under opts.Parent, which must be a

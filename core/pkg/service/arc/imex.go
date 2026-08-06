@@ -12,7 +12,6 @@ package arc
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -28,29 +27,6 @@ func (*Service) Match(body map[string]any) bool {
 	_, hasMode := body["mode"]
 	_, hasText := body["text"]
 	return hasGraph && (hasMode || hasText)
-}
-
-// Export serializes the Arc identified by id, stamping versions.Latest. It returns
-// query.ErrNotFound if no Arc has id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
-	key, err := uuid.Parse(id.Key)
-	if err != nil {
-		return imex.Envelope{}, err
-	}
-	var a Arc
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&a).
-		Exec(ctx, nil); err != nil {
-		return imex.Envelope{}, err
-	}
-	env := imex.Envelope{
-		Version: versions.Latest, Type: string(s.Type()), Name: a.Name,
-	}
-	if err = imex.Encode(&env, a); err != nil {
-		return imex.Envelope{}, err
-	}
-	return env, nil
 }
 
 // Import decodes env into an Arc and persists it on tx. The key on the wire is

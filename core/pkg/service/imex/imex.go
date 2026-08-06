@@ -87,9 +87,8 @@ func newFieldError(field, format string, args ...any) error {
 type Envelope struct {
 	// Version is the per-schema integer version stamped on every envelope.
 	Version Version
-	// Type is the routing key for the registered Importer or Exporter. A service may
-	// register under fine-grained strings ("http_read") while Importer.Type reports the
-	// coarser ontology type ("task"). Empty on legacy Console state files, which
+	// Type is the routing key for the registered Importer or Exporter, sometimes finer
+	// than Importer.Type ("http_read" vs "task"). Empty on legacy Console states, which
 	// Service.Import routes through Match.
 	Type string
 	// Name is the resource's human-readable name. Encode requires it on export. On
@@ -208,10 +207,8 @@ func Encode[T any](env *Envelope, data T) error {
 			return errors.Wrap(err, "encode envelope")
 		}
 	}
-	// Keys are resource-local identity, not part of the portable envelope: an imported
-	// resource is minted a fresh key on the way in, so a stale key on the wire is at
-	// best noise and at worst a collision hazard. Strip it here. This may change if
-	// envelopes ever need to carry stable identity across clusters.
+	// Importers mint a fresh key, so a key on the wire is noise at best and a collision
+	// hazard at worst.
 	delete(body, "key")
 	typ := env.Type
 	if v, ok := body["type"]; ok {

@@ -12,7 +12,6 @@ package log
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -28,27 +27,6 @@ var _ imex.ImportExporter = (*Service)(nil)
 func (*Service) Match(body map[string]any) bool {
 	_, ok := body["channels"].([]any)
 	return ok
-}
-
-// Export serializes the log identified by id, stamping versions.Latest. It returns
-// query.ErrNotFound if no log has id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
-	key, err := uuid.Parse(id.Key)
-	if err != nil {
-		return imex.Envelope{}, err
-	}
-	var l Log
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&l).
-		Exec(ctx, nil); err != nil {
-		return imex.Envelope{}, err
-	}
-	env := imex.Envelope{Version: versions.Latest, Type: string(s.Type()), Name: l.Name}
-	if err = imex.Encode(&env, l); err != nil {
-		return imex.Envelope{}, err
-	}
-	return env, nil
 }
 
 // Import decodes env into a Log created under opts.Parent, which must be a project. The

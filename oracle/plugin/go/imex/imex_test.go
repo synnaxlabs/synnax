@@ -58,6 +58,14 @@ var _ = Describe("Go ImEx Plugin", func() {
 				ContainSubstring("go/imex requires Options.RuntimeImportPath"),
 			))
 		})
+
+		It("Should error when no ontology import path is configured", func() {
+			opts := imex.DefaultOptions()
+			opts.OntologyImportPath = ""
+			Expect(imex.New(opts).Check(nil)).To(MatchError(
+				ContainSubstring("go/imex requires Options.OntologyImportPath"),
+			))
+		})
 	})
 
 	Describe("Generate", func() {
@@ -92,7 +100,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 				}
 			`
 				resp := MustGenerate(ctx, source, "log", loader, p)
-				Expect(resp.Files).To(HaveLen(2))
+				Expect(resp.Files).To(HaveLen(3))
 				ExpectContent(
 					resp,
 					"core/pkg/service/log/versions/v3/imex.gen.go",
@@ -115,6 +123,17 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"return imex.Decode[Log](ctx, env)",
 				).
 					ToBeValidGoSource()
+				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToContain(
+					"package log",
+					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions"`,
+					`"github.com/synnaxlabs/synnax/pkg/service/ontology"`,
+					"func (s *Service) Export(ctx context.Context, id ontology.ID) "+
+						"(imex.Envelope, error)",
+					"var v Log",
+					"Where(MatchKeys(key))",
+					"Version: versions.Latest, Type: string(s.Type()), Name: v.Name,",
+					"imex.Encode(&env, v)",
+				).ToBeValidGoSource()
 			},
 		)
 
@@ -144,7 +163,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 				}
 			`
 				resp := MustGenerate(ctx, source, "log", diskLoader, p)
-				Expect(resp.Files).To(HaveLen(2))
+				Expect(resp.Files).To(HaveLen(3))
 				ExpectContent(
 					resp,
 					"core/pkg/service/log/versions/v3/imex.gen.go",
@@ -190,6 +209,14 @@ var _ = Describe("Go ImEx Plugin", func() {
 				"package versions",
 				`"github.com/synnaxlabs/synnax/core/pkg/service/schematic/symbol/versions/v1"`,
 				"const Latest = v1.Version",
+			).
+				ToBeValidGoSource()
+			ExpectContent(
+				resp, "core/pkg/service/schematic/symbol/imex.gen.go",
+			).ToContain(
+				"package symbol",
+				`"github.com/synnaxlabs/synnax/core/pkg/service/schematic/symbol/versions"`,
+				"var v Symbol",
 			).
 				ToBeValidGoSource()
 		})
@@ -368,7 +395,9 @@ var _ = Describe("Go ImEx Plugin", func() {
 			).ToContain(`"github.com/acme/portable/imex"`).ToBeValidGoSource()
 		})
 
-		It("Should error when a snapshot fails to load", func(ctx SpecContext) {
+		It("Should floor at the current version when a snapshot fails to load", func(
+			ctx SpecContext,
+		) {
 			req := MustGenerateRequest(ctx, `
 				@go output "core/pkg/service/log"
 
@@ -383,10 +412,13 @@ var _ = Describe("Go ImEx Plugin", func() {
 			req.LoadSnapshot = func(int) (*resolution.Table, error) {
 				return nil, errors.New("snapshot on fire")
 			}
-			Expect(p.Generate(req)).Error().To(SatisfyAll(
-				MatchError(ContainSubstring("load schema snapshot 1")),
-				MatchError(ContainSubstring("snapshot on fire")),
-			))
+			resp := MustSucceed(p.Generate(req))
+			content := MustContentOf(
+				resp,
+				"core/pkg/service/log/versions/imex.gen.go",
+			)
+			Expect(content).To(ContainSubstring("const Latest = v3.Version"))
+			Expect(content).ToNot(ContainSubstring("case v2.Version:"))
 		})
 
 		It(

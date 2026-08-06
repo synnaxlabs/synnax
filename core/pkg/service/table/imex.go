@@ -12,7 +12,6 @@ package table
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -30,27 +29,6 @@ func (*Service) Match(body map[string]any) bool {
 	_, hasLayout := body["layout"]
 	_, hasCells := body["cells"]
 	return hasLayout && hasCells
-}
-
-// Export serializes the table identified by id, stamping versions.Latest. It returns
-// query.ErrNotFound if no table has id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
-	key, err := uuid.Parse(id.Key)
-	if err != nil {
-		return imex.Envelope{}, err
-	}
-	var t Table
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&t).
-		Exec(ctx, nil); err != nil {
-		return imex.Envelope{}, err
-	}
-	env := imex.Envelope{Version: versions.Latest, Type: string(s.Type()), Name: t.Name}
-	if err = imex.Encode(&env, t); err != nil {
-		return imex.Envelope{}, err
-	}
-	return env, nil
 }
 
 // Import decodes env into a Table created under opts.Parent, which must be a project.
