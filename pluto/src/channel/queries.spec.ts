@@ -315,7 +315,7 @@ describe("queries", () => {
       );
     });
 
-    describe("retrieveCached", () => {
+    describe("getCached", () => {
       it("should use cached data on initial mount when no searchTerm", async () => {
         const ch = await client.channels.create({
           name: id.create(),
