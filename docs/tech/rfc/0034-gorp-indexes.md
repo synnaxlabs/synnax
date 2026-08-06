@@ -1,7 +1,7 @@
 # 34 Gorp in-memory indexes
 
 - **Author**: Emiliano Bonilla
-- **Date**: 2026-04-30
+- **Date**: 2026-04-04
 
 ## 0 Summary
 

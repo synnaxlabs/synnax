@@ -87,7 +87,7 @@ If we refer back to the dependency hierarchy above, we can see that
 `@synnaxlabs/x` and `@synnaxlabs/client`. This has two implications:
 
 1. If we make a change to `x` that we want reflected in `console`, we'd need to rebuild
-   `x` and all of it's downstream dependencies (`pluto` and `console`).
+   `x` and all of its downstream dependencies (`pluto` and `console`).
 2. We need to have built versions of all upstream dependencies before we can build the
    downstream dependency.
 

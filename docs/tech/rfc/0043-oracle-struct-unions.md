@@ -1,7 +1,7 @@
 # 43 Oracle support for struct unions
 
 - **Author**: Emiliano Bonilla
-- **Date**: 2026-06-12
+- **Date**: 2026-03-31
 - **Related**: [RFC 0027 - Oracle schema system](0027-oracle-schema-system.md)
 
 ## 0 Summary

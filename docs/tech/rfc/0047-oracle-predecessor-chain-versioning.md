@@ -1,7 +1,7 @@
 # 47 Oracle predecessor-chain type versioning
 
 - **Author**: Patrick Dotson
-- **Date**: 2026-07-27
+- **Date**: 2026-07-20
 - **Related**: [RFC 0033 - Oracle migration system](0033-oracle-migrations.md),
   [RFC 0042 - Core structure refactor](0042-core-structure-refactor.md),
   [RFC 0044 - Oracle optionality, defaults, and input/output types](0044-oracle-optionality-defaults-mutation.md)

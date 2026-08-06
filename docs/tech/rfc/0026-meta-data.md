@@ -1,7 +1,7 @@
 # 26 Meta data structures
 
 - **Author**: Emiliano Bonilla
-- **Date**: 2026-03-23
+- **Date**: 2025-12-14
 
 ## 0 Summary
 
