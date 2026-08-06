@@ -20,6 +20,7 @@
 #include "open62541/common.h"
 #include "open62541/types.h"
 
+#include "client/cpp/opc/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
@@ -39,6 +40,8 @@
 
 namespace driver::opc {
 struct InputChan {
+    /// @brief the parsed generated wire configuration for the channel.
+    const ::synnax::opc::InputChannel cfg;
     const bool enabled;
     /// @brief the OPC UA node id.
     types::NodeId node;
@@ -50,12 +53,20 @@ struct InputChan {
     synnax::channel::Channel ch;
 
     explicit InputChan(x::json::Parser &parser):
-        enabled(parser.field<bool>("enabled", true)),
+        InputChan(::synnax::opc::InputChannel::parse(parser), parser) {}
+
+    InputChan(::synnax::opc::InputChannel parsed, x::json::Parser &parser):
+        cfg(std::move(parsed)),
+        enabled(!this->cfg.disabled),
         node(types::NodeId::parse("node_id", parser)),
-        synnax_key(parser.field<synnax::channel::Key>("channel")) {}
+        synnax_key(this->cfg.channel) {
+        if (this->synnax_key == 0)
+            parser.field_err("channel", "channel must be specified");
+    }
 
     // Move constructor - needed because NodeId is move-only
     InputChan(InputChan &&other) noexcept:
+        cfg(other.cfg),
         enabled(other.enabled),
         node(std::move(other.node)),
         synnax_key(other.synnax_key),

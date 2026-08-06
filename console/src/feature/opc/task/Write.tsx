@@ -41,7 +41,7 @@ const convertHaulItemToChannel = ({ data }: HaulItem): OutputChannel => ({
   nodeId: data.nodeId,
   name: "",
   cmdChannel: 0,
-  enabled: true,
+  disabled: false,
   dataType: data.dataType,
 });
 

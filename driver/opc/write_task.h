@@ -14,6 +14,7 @@
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 
+#include "client/cpp/opc/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/common/write_task.h"
@@ -23,6 +24,8 @@
 
 namespace driver::opc {
 struct OutputChan {
+    /// @brief the parsed generated wire configuration for the channel.
+    const ::synnax::opc::OutputChannel cfg;
     /// @brief whether output for the channel is enabled.
     const bool enabled;
     /// @brief the OPC UA node id.
@@ -35,14 +38,16 @@ struct OutputChan {
     synnax::channel::Channel ch;
 
     explicit OutputChan(x::json::Parser &parser):
-        enabled(parser.field<bool>("enabled", true)),
+        OutputChan(::synnax::opc::OutputChannel::parse(parser), parser) {}
+
+    OutputChan(::synnax::opc::OutputChannel parsed, x::json::Parser &parser):
+        cfg(std::move(parsed)),
+        enabled(!this->cfg.disabled),
         node(types::NodeId::parse("node_id", parser)),
-        cmd_channel([&parser] {
-            auto ch = parser.field<synnax::channel::Key>("cmd_channel", 0);
-            if (ch == 0) ch = parser.field<synnax::channel::Key>("channel", 0);
-            if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
-            return ch;
-        }()) {}
+        cmd_channel(this->cfg.cmd_channel) {
+        if (this->cmd_channel == 0)
+            parser.field_err("cmd_channel", "channel must be specified");
+    }
 };
 
 struct WriteTaskConfig : common::BaseWriteTaskConfig {

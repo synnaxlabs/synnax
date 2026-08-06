@@ -38,10 +38,9 @@ describe("OPC Write Task Types", () => {
     const config = {
       channels: [
         {
-          channel: 432,
-          cmdChannel: 0,
+          cmdChannel: 432,
           dataType: "float",
-          enabled: true,
+          disabled: false,
           key: "432",
           nodeId: "1",
           name: "test",
@@ -67,7 +66,7 @@ describe("OPC Read Task Config Validation", () => {
       nodeId: `ns=1;s=n${i}`,
       nodeName: `n${i}`,
       channel: 0,
-      enabled: true,
+      disabled: false,
       useAsIndex: false,
       dataType: "float32",
       name: "",
@@ -128,7 +127,7 @@ describe("OPC Write Task Config Validation", () => {
       nodeId: `ns=1;s=n${i}`,
       nodeName: `n${i}`,
       cmdChannel,
-      enabled: true,
+      disabled: false,
       dataType: "float32",
       name: "",
     });

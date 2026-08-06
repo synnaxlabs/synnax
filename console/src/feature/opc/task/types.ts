@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type task } from "@synnaxlabs/client";
+import { type channel, opc, type task } from "@synnaxlabs/client";
 import { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -16,30 +16,8 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "opc";
 
-const baseChannelZ = Task.channelZ.extend({
-  channel: channel.keyZ,
-  nodeId: z.string(),
-  nodeName: z.string(),
-  name: Task.nameZ,
-  dataType: z.string().default("float32"),
-});
-
-const inputChannelZ = baseChannelZ.extend({ useAsIndex: z.boolean() });
-
-export interface InputChannel extends z.infer<typeof inputChannelZ> {}
-
-const v0OutputChannelZ = baseChannelZ;
-
-const v1OutputChannelZ = v0OutputChannelZ
-  .omit({ channel: true })
-  .extend({ cmdChannel: channel.keyZ });
-
-const outputChannelZ = v0OutputChannelZ
-  .transform(({ channel, ...rest }) => ({ ...rest, cmdChannel: channel }))
-  .or(v1OutputChannelZ);
-
-export type OutputChannel = z.infer<typeof outputChannelZ>;
-
+export interface InputChannel extends opc.InputChannel {}
+export interface OutputChannel extends opc.OutputChannel {}
 export type Channel = InputChannel | OutputChannel;
 
 const validateNodeIDs = ({
@@ -62,71 +40,69 @@ const validateNodeIDs = ({
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-const baseReadConfigZ = Task.baseReadConfigZ.extend({
-  channels: z.array(inputChannelZ),
-  sampleRate: z.number(),
-});
+export interface ReadConfig extends opc.ReadConfig {}
 
-const nonArraySamplingConfigZ = baseReadConfigZ.extend({
-  arrayMode: z.literal(false),
-  streamRate: z.number(),
-});
+export const readConfigZ = opc.readConfigZ;
 
-const arraySamplingConfigZ = baseReadConfigZ.extend({
-  arrayMode: z.literal(true),
-  arraySize: z.number(),
-});
-
-const readConfigZ = z.discriminatedUnion("arrayMode", [
-  nonArraySamplingConfigZ,
-  arraySamplingConfigZ,
-]);
-
-const deployBaseReadShape = {
-  device: Task.deviceKeyZ,
-  channels: z
-    .array(inputChannelZ)
-    .check(Task.validateReadChannels)
-    .check(validateNodeIDs)
-    .check(({ value: channels, issues }) => {
-      // Get indexes of channels that are marked as index channels
-      const indexChannelIndexes = channels
-        .map(({ useAsIndex }, i) => (useAsIndex ? i : -1))
-        .filter((i) => i !== -1);
-      if (indexChannelIndexes.length === 0 || indexChannelIndexes.length === 1) return;
-      indexChannelIndexes.forEach((i) => {
-        issues.push({
-          code: "custom",
-          message: "Only one channel can be marked as an index channel",
-          path: ["channels", i, "useAsIndex"],
-          input: channels,
-        });
-      });
-    }),
-  sampleRate: z.number().positive().max(10000),
+const validateIndexChannels = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<InputChannel[]>) => {
+  const indexChannelIndexes = channels
+    .map(({ useAsIndex }, i) => (useAsIndex ? i : -1))
+    .filter((i) => i !== -1);
+  if (indexChannelIndexes.length <= 1) return;
+  indexChannelIndexes.forEach((i) => {
+    issues.push({
+      code: "custom",
+      message: "Only one channel can be marked as an index channel",
+      path: ["channels", i, "useAsIndex"],
+      input: channels,
+    });
+  });
 };
 
-export const deployReadConfigZ = z.discriminatedUnion("arrayMode", [
-  nonArraySamplingConfigZ
-    .extend({ ...deployBaseReadShape, streamRate: z.number().positive().max(10000) })
-    .check(Task.validateStreamRate),
-  arraySamplingConfigZ
-    .extend({ ...deployBaseReadShape, arraySize: z.number().int().positive() })
-    .refine(({ arraySize, sampleRate }) => sampleRate >= arraySize, {
-      message: "Sample rate must be greater than or equal to the array size",
-      path: ["sampleRate"],
-    }),
-]);
+export const deployReadConfigZ = opc.readConfigZ
+  .extend({
+    device: Task.deviceKeyZ,
+    sampleRate: z.number().positive().max(10000),
+    channels: opc.inputChannelZ
+      .array()
+      .check(Task.validateReadChannels)
+      .check(validateNodeIDs)
+      .check(validateIndexChannels),
+  })
+  .check((ctx) => {
+    const { value, issues } = ctx;
+    const { arrayMode, arraySize, sampleRate, streamRate } = value;
+    if (arrayMode) {
+      if (!Number.isInteger(arraySize) || arraySize <= 0)
+        issues.push({
+          code: "custom",
+          message: "Array size must be a positive integer",
+          path: ["arraySize"],
+          input: value,
+        });
+      else if (sampleRate < arraySize)
+        issues.push({
+          code: "custom",
+          message: "Sample rate must be greater than or equal to the array size",
+          path: ["sampleRate"],
+          input: value,
+        });
+      return;
+    }
+    if (streamRate <= 0 || streamRate > 10000)
+      issues.push({
+        code: "custom",
+        message: "Stream rate must be between 0 and 10000",
+        path: ["streamRate"],
+        input: value,
+      });
+    else Task.validateStreamRate(ctx);
+  });
 
-export type ReadConfig = z.infer<typeof readConfigZ>;
-
-const ZERO_READ_CONFIG: ReadConfig = {
-  ...Task.ZERO_BASE_READ_CONFIG,
-  arrayMode: false,
-  channels: [],
-  sampleRate: 50,
-  streamRate: 25,
-} as const satisfies ReadConfig;
+const ZERO_READ_CONFIG = opc.readConfigZ.parse({ sampleRate: 50, streamRate: 25 });
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
@@ -138,7 +114,7 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
-export const ZERO_READ_PAYLOAD = {
+export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
   rack: 0,
   type: "opc_read",
@@ -147,22 +123,20 @@ export const ZERO_READ_PAYLOAD = {
   configHash: "",
   internal: false,
   snapshot: false,
-} as const satisfies ReadPayload;
+};
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-const writeConfigZ = Task.baseConfigZ.extend({
-  channels: z.array(outputChannelZ),
-});
+export interface WriteConfig extends opc.WriteConfig {}
 
-export const deployWriteConfigZ = writeConfigZ.extend({
+export const writeConfigZ = opc.writeConfigZ;
+
+export const deployWriteConfigZ = opc.writeConfigZ.extend({
   device: Task.deviceKeyZ,
-  channels: z
-    .array(outputChannelZ)
+  channels: opc.outputChannelZ
+    .array()
     .check(Task.validateChannels)
     .check(({ value: channels, issues }) => {
-      // Have to have a separate validation here as OPC UA write channels do not have
-      // a stateChannel key.
       const channelsToIndexMap = new Map<channel.Key, number>();
       channels.forEach(({ cmdChannel }, i) => {
         if (cmdChannel === 0) return;
@@ -180,12 +154,7 @@ export const deployWriteConfigZ = writeConfigZ.extend({
     .check(validateNodeIDs),
 });
 
-interface WriteConfig extends z.infer<typeof writeConfigZ> {}
-
-export const ZERO_WRITE_CONFIG = {
-  ...Task.ZERO_BASE_CONFIG,
-  channels: [],
-} as const satisfies WriteConfig;
+const ZERO_WRITE_CONFIG = opc.writeConfigZ.parse({});
 
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
@@ -197,7 +166,7 @@ export type WriteSchemas = typeof WRITE_SCHEMAS;
 
 export interface WritePayload extends task.Payload<WriteSchemas> {}
 
-export const ZERO_WRITE_PAYLOAD = {
+export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: "",
   rack: 0,
   type: "opc_write",
@@ -206,7 +175,7 @@ export const ZERO_WRITE_PAYLOAD = {
   configHash: "",
   internal: false,
   snapshot: false,
-} as const satisfies WritePayload;
+};
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

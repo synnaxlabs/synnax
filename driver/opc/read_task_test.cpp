@@ -130,7 +130,7 @@ protected:
         auto server_cfg = mock::ServerConfig::create_default();
 
         x::json::json task_cfg{
-            {"data_saving", true},
+            {"data_saving_disabled", false},
             {"device", dev.key},
             {"channels",
              x::json::json::array(
@@ -139,7 +139,7 @@ protected:
                    {"node_name", "TestBoolean"},
                    {"node_id", "NS=1;S=TestBoolean"},
                    {"channel", this->bool_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "uint8"}},
                   {{"key", "NS=2;I=2"},
@@ -147,7 +147,7 @@ protected:
                    {"node_name", "TestUInt16"},
                    {"node_id", "NS=1;S=TestUInt16"},
                    {"channel", this->uint16_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "uint16"}},
                   {{"key", "NS=2;I=3"},
@@ -155,7 +155,7 @@ protected:
                    {"node_name", "TestUInt32"},
                    {"node_id", "NS=1;S=TestUInt32"},
                    {"channel", this->uint32_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "uint32"}},
                   {{"key", "NS=2;I=4"},
@@ -163,7 +163,7 @@ protected:
                    {"node_name", "TestUInt64"},
                    {"node_id", "NS=1;S=TestUInt64"},
                    {"channel", this->uint64_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "uint64"}},
                   {{"key", "NS=2;I=5"},
@@ -171,7 +171,7 @@ protected:
                    {"node_name", "TestInt8"},
                    {"node_id", "NS=1;S=TestInt8"},
                    {"channel", this->int8_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "int8"}},
                   {{"key", "NS=2;I=6"},
@@ -179,7 +179,7 @@ protected:
                    {"node_name", "TestInt16"},
                    {"node_id", "NS=1;S=TestInt16"},
                    {"channel", this->int16_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "int16"}},
                   {{"key", "NS=2;I=7"},
@@ -187,7 +187,7 @@ protected:
                    {"node_name", "TestInt32"},
                    {"node_id", "NS=1;S=TestInt32"},
                    {"channel", this->int32_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "int32"}},
                   {{"key", "NS=2;I=8"},
@@ -195,7 +195,7 @@ protected:
                    {"node_name", "TestInt64"},
                    {"node_id", "NS=1;S=TestInt64"},
                    {"channel", this->int64_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "int64"}},
                   {{"key", "NS=2;I=9"},
@@ -203,7 +203,7 @@ protected:
                    {"node_name", "TestFloat"},
                    {"node_id", "NS=1;S=TestFloat"},
                    {"channel", this->float_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "float32"}},
                   {{"key", "NS=2;I=10"},
@@ -211,7 +211,7 @@ protected:
                    {"node_name", "TestDouble"},
                    {"node_id", "NS=1;S=TestDouble"},
                    {"channel", this->double_channel.key},
-                   {"enabled", true},
+                   {"disabled", false},
                    {"use_as_index", false},
                    {"data_type", "float64"}}}
              )},
@@ -317,7 +317,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
 /// @brief it should return error for non-existent OPC UA node.
 TEST_F(TestReadTask, testInvalidNodeId) {
     x::json::json bad_task_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
          x::json::json::array(
@@ -326,7 +326,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
                {"node_name", "NonExistent"},
                {"node_id", "NS=1;S=NonExistentNode"},
                {"channel", this->float_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float32"}}}
          )},
@@ -387,7 +387,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
 /// @brief it should return error for empty channel list.
 TEST_F(TestReadTask, testEmptyChannelList) {
     x::json::json empty_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels", x::json::json::array()},
         {"sample_rate", 50},
@@ -403,7 +403,7 @@ TEST_F(TestReadTask, testEmptyChannelList) {
 /// @brief it should return error when all channels are disabled.
 TEST_F(TestReadTask, testDisabledChannels) {
     x::json::json disabled_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
          x::json::json::array(
@@ -412,7 +412,7 @@ TEST_F(TestReadTask, testDisabledChannels) {
                {"node_name", "TestFloat"},
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
-               {"enabled", false},
+               {"disabled", true},
                {"use_as_index", false},
                {"data_type", "float32"}}}
          )},
@@ -499,7 +499,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     // Test that ArrayReadTaskSource properly handles invalid data from OPC UA server
     // by clearing the frame and returning a warning
     x::json::json array_task_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
          x::json::json::array(
@@ -508,7 +508,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
                {"node_name", "TestFloat"},
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float32"}}}
          )},
@@ -688,7 +688,7 @@ TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
 TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     // Test that ArrayReadTaskSource aggregates multiple errors from different channels
     x::json::json multi_channel_array_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
          x::json::json::array(
@@ -697,7 +697,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
                {"node_name", "TestFloat"},
                {"node_id", "NS=1;S=TestFloat"},
                {"channel", this->float_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float32"}},
               {{"key", "NS=2;I=2"},
@@ -705,7 +705,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
                {"node_name", "TestDouble"},
                {"node_id", "NS=1;S=TestDouble"},
                {"channel", this->double_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float64"}}}
          )},
@@ -775,7 +775,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     // Test that ArrayReadTaskSource clears the frame when errors occur
     // This exercises the frame.clear() logic in read_task.h line 268
     x::json::json array_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", "opc_read_task_test_server_key"},
         {"channels",
          x::json::json::array(
@@ -784,7 +784,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
                {"node_name", "TestBoolean"},
                {"node_id", "NS=1;S=TestBoolean"},
                {"channel", this->bool_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "uint8"}}}
          )},
@@ -866,7 +866,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
 
     // Create a task that reads from the invalid boolean node
     x::json::json invalid_bool_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", invalid_dev.key},
         {"channels",
          x::json::json::array(
@@ -875,7 +875,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
                {"node_name", "InvalidBoolean"},
                {"node_id", "NS=1;S=InvalidBoolean"},
                {"channel", this->bool_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "uint8"}}}
          )},
@@ -947,7 +947,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     x::json::json invalid_float_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", invalid_dev.key},
         {"channels",
          x::json::json::array(
@@ -956,7 +956,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
                {"node_name", "InvalidFloat"},
                {"node_id", "NS=1;S=InvalidFloat"},
                {"channel", this->float_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float32"}}}
          )},
@@ -1028,7 +1028,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
     x::json::json invalid_double_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", invalid_dev.key},
         {"channels",
          x::json::json::array(
@@ -1037,7 +1037,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
                {"node_name", "InvalidDouble"},
                {"node_id", "NS=1;S=InvalidDouble"},
                {"channel", this->double_channel.key},
-               {"enabled", true},
+               {"disabled", false},
                {"use_as_index", false},
                {"data_type", "float64"}}}
          )},
@@ -1118,7 +1118,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
 
     // Create task config
     x::json::json task_cfg{
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"device", dev.key},
         {"sample_rate", 25},
         {"stream_rate", 25},
