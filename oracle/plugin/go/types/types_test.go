@@ -2619,6 +2619,39 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should embed a union base struct from another namespace with import",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@go output "core/common"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+		`)
+			source := `
+			import "schemas/common"
+
+			@go output "core/ni"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "ni/types.gen.go").
+				ToContain(
+					`"github.com/synnaxlabs/synnax/core/common"`,
+					`type AIVoltageChannel struct {`,
+					"\tcommon.BaseAIChan\n",
+					`VoltageFields`,
+				)
+		},
+	)
+
+	It(
 		"Should resolve a union-typed struct field to the union wrapper",
 		func(ctx SpecContext) {
 			source := `

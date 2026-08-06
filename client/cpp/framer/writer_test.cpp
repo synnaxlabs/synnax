@@ -344,7 +344,7 @@ TEST(WriterTests, testSetAuthority) {
     ASSERT_NIL(writer.close());
 }
 
-/// @brief it should correctly set authority without waiting for acknowledgement.
+/// @brief it should correctly set authority without waiting for acknowledgment.
 TEST(WriterTests, testSetAuthorityFireAndForget) {
     auto client = new_test_client();
     auto time = ASSERT_NIL_P(client.channels.create(
