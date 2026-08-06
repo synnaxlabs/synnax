@@ -12,33 +12,44 @@ package table
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Version is the per-schema version stamped on every exported table envelope.
-const Version imex.Version = 1
+var _ imex.ImportExporter = (*Service)(nil)
 
-var _ imex.Exporter = (*Service)(nil)
+// Match reports whether body is a legacy Console table state, which persists the
+// structural model inline under layout and cells. The markers are frozen historical
+// file shapes.
+func (*Service) Match(body map[string]any) bool {
+	_, hasLayout := body["layout"]
+	_, hasCells := body["cells"]
+	return hasLayout && hasCells
+}
 
-// Export retrieves the table identified by id and serializes it as an imex.Envelope
-// stamped with Version. It returns query.ErrNotFound if no table exists for id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
-	key, err := uuid.Parse(id.Key)
+// Import decodes env into a Table created under opts.Parent, which must be a project.
+// The key on the wire is discarded so every import mints a new resource. An unknown
+// envelope version is a path-scoped validation error.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	env imex.Envelope,
+	opts imex.ImportOptions,
+) (ontology.ID, error) {
+	proj, err := project.KeyFromOntologyID(opts.Parent)
 	if err != nil {
-		return imex.Envelope{}, err
+		return ontology.ID{}, validate.PathedError(err, "parent")
 	}
-	var t Table
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&t).
-		Exec(ctx, nil); err != nil {
-		return imex.Envelope{}, err
+	t, err := versions.DecodeImExEnvelope(ctx, env)
+	if err != nil {
+		return ontology.ID{}, err
 	}
-	env := imex.Envelope{Version: Version, Type: string(s.Type()), Name: t.Name}
-	if err = imex.Encode(&env, t); err != nil {
-		return imex.Envelope{}, err
+	if err = s.NewWriter(tx).Create(ctx, proj, &t); err != nil {
+		return ontology.ID{}, err
 	}
-	return env, nil
+	return OntologyID(t.Key), nil
 }

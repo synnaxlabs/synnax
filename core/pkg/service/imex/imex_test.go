@@ -45,6 +45,22 @@ var _ = Describe("ImEx", func() {
 				},
 			)
 
+			It("Should report a stamped version header as versioned", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal([]byte(`{"version":0,"foo":1}`), &env)).
+					To(Succeed())
+				Expect(env.Version).To(Equal(imex.Version(0)))
+				Expect(env.Versioned()).To(BeTrue())
+			})
+
+			It("Should report an absent version header as unversioned", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal([]byte(`{"type":"arc","name":"n"}`), &env)).
+					To(Succeed())
+				Expect(env.Version).To(Equal(imex.Version(0)))
+				Expect(env.Versioned()).To(BeFalse())
+			})
+
 			It("Should accept a legacy N.0.0 version string", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal(
@@ -103,33 +119,26 @@ var _ = Describe("ImEx", func() {
 			})
 
 			It("Should error when name is not a string", func() {
-				// Provide a valid type so the unmarshal flow reaches the name
-				// type-assertion instead of short-circuiting on missing type.
 				var env imex.Envelope
 				Expect(json.Unmarshal(
 					[]byte(`{"version":1,"type":"log","name":[]}`), &env,
 				)).To(MatchError(ContainSubstring("name must be a string")))
 			})
 
-			It("Should reject a null payload because type is missing", func() {
+			It("Should reject a null payload", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal([]byte(`null`), &env)).To(
-					MatchError(ContainSubstring("type must be a non-empty string")),
+					MatchError(ContainSubstring("envelope must be a JSON object")),
 				)
 			})
 
-			It(
-				"Should reject an empty type with a validation error scoped to the type field",
-				func() {
-					var env imex.Envelope
-					Expect(json.Unmarshal(
-						[]byte(`{"version":1,"type":"","name":"n"}`), &env,
-					)).To(SatisfyAll(
-						MatchError(ContainSubstring("type must be a non-empty string")),
-						MatchError(ContainSubstring("validation error")),
-					))
-				},
-			)
+			It("Should accept an envelope without a type", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte(`{"version":1,"name":"n"}`), &env,
+				)).To(Succeed())
+				Expect(env.Type).To(BeEmpty())
+			})
 
 			It("Should accept an envelope without a name", func() {
 				var env imex.Envelope
@@ -308,7 +317,7 @@ var _ = Describe("ImEx", func() {
 			)
 
 			It(
-				"Should fall back to the data's json:\"type\" field when the envelope type is empty",
+				"Should fall back to the data's json type field when the envelope type is empty",
 				func() {
 					type payload struct {
 						Name string `json:"name"`
@@ -323,7 +332,7 @@ var _ = Describe("ImEx", func() {
 			)
 
 			It(
-				"Should prefer the data's type and name fields over the envelope's when both are set",
+				"Should prefer the data's type and name over the envelope's when both are set",
 				func() {
 					type payload struct {
 						Name string `json:"name"`
@@ -723,8 +732,7 @@ var _ = Describe("ImEx", func() {
 					Expect(roundEnv.Version).To(Equal(imex.Version(7)))
 					Expect(roundEnv.Type).To(Equal("log"))
 					Expect(roundEnv.Name).To(Equal("n"))
-					out := MustSucceed(imex.Decode[payload](ctx, roundEnv))
-					Expect(out).To(Equal(src))
+					Expect(imex.Decode[payload](ctx, roundEnv)).To(Equal(src))
 				},
 			)
 		})

@@ -283,7 +283,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Factory.ConfigureTask", func() {
 		It(
-			"Should return ErrTaskNotHandled for non-arc task types",
+			"Should return ErrTaskNotHandled for non-Arc task types",
 			func(ctx SpecContext) {
 				factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 					Channel: channelSvc,
@@ -304,7 +304,7 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 
-		It("Should create Task for arc type", func(ctx SpecContext) {
+		It("Should create Task for Arc type", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "factory_test_ch",
 				Virtual:  true,

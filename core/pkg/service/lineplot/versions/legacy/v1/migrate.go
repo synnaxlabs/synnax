@@ -12,8 +12,8 @@ package v1
 import v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
 
 // ZeroLegend is the default legend used when a v0 payload is migrated forward. Mirrors
-// the console's ZERO_LEGEND_STATE at v1, which replaces the v0 legend wholesale
-// (including the user's visibility choice). Preserving exact console behavior matters
+// the Console's ZERO_LEGEND_STATE at v1, which replaces the v0 legend wholesale
+// (including the user's visibility choice). Preserving exact Console behavior matters
 // since the same migration runs client-side before this code existed.
 var ZeroLegend = Legend{
 	Visible: true,
@@ -28,15 +28,14 @@ var ZeroLegend = Legend{
 // Migrate transforms v0 line plot data into v1 by attaching the default legend.
 func Migrate(old v0.Data) Data {
 	return Data{
-		Version:       Version,
-		Key:           old.Key,
-		RemoteCreated: old.RemoteCreated,
-		Title:         old.Title,
-		Legend:        ZeroLegend,
-		Channels:      old.Channels,
-		Ranges:        old.Ranges,
-		Axes:          old.Axes,
-		Lines:         old.Lines,
-		Rules:         old.Rules,
+		Version:  Version,
+		Key:      old.Key,
+		Title:    old.Title,
+		Legend:   ZeroLegend,
+		Channels: old.Channels,
+		Ranges:   old.Ranges,
+		Axes:     old.Axes,
+		Lines:    old.Lines,
+		Rules:    old.Rules,
 	}
 }
