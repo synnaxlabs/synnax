@@ -17,6 +17,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v2"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // nonZeroV1 builds a v1.Data with every model field populated so passthrough
@@ -46,7 +47,7 @@ func nonZeroV1() v1.Data {
 					Label:          "time",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 100},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 100},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -55,7 +56,7 @@ func nonZeroV1() v1.Data {
 					Label:          "",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -64,7 +65,7 @@ func nonZeroV1() v1.Data {
 					Label:          "p",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: -1, Upper: 5},
+					Bounds:         spatial.Bounds{Lower: -1, Upper: 5},
 					AutoBounds:     v0.AutoBounds{Lower: false, Upper: false},
 					TickSpacing:    60,
 				},
@@ -73,7 +74,7 @@ func nonZeroV1() v1.Data {
 					Label:          "",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -82,7 +83,7 @@ func nonZeroV1() v1.Data {
 					Label:          "",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -91,7 +92,7 @@ func nonZeroV1() v1.Data {
 					Label:          "",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},

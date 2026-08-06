@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v1"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // Version is the version the Console stamped on this format.
@@ -35,7 +36,7 @@ type Axis struct {
 	// LabelLevel is the typography level of the label.
 	LabelLevel string `json:"labelLevel"`
 	// Bounds are the manual axis bounds.
-	Bounds v0.Bounds `json:"bounds"`
+	Bounds spatial.Bounds `json:"bounds"`
 	// AutoBounds reports which bounds derive from data.
 	AutoBounds v0.AutoBounds `json:"autoBounds"`
 	// TickSpacing is the spacing between axis ticks in pixels.

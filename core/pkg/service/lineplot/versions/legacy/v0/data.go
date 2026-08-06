@@ -18,18 +18,11 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	color "github.com/synnaxlabs/x/color/versions/v0"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 0
-
-// Bounds is the closed-open numeric interval used for axis bounds.
-type Bounds struct {
-	// Lower is the inclusive lower bound.
-	Lower float64 `json:"lower"`
-	// Upper is the exclusive upper bound.
-	Upper float64 `json:"upper"`
-}
 
 // AutoBounds reports which edges of an axis derive their bound from data.
 type AutoBounds struct {
@@ -65,7 +58,7 @@ type Axis struct {
 	// LabelLevel is the typography level of the label.
 	LabelLevel string `json:"labelLevel"`
 	// Bounds are the manual axis bounds.
-	Bounds Bounds `json:"bounds"`
+	Bounds spatial.Bounds `json:"bounds"`
 	// AutoBounds reports which bounds derive from data.
 	AutoBounds AutoBounds `json:"autoBounds"`
 	// TickSpacing is the spacing between axis ticks in pixels.

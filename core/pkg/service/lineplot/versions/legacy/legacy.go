@@ -42,8 +42,6 @@ type (
 	AxesContainer = v2.AxesContainer
 	// Axis is one axis's label, range, and tick configuration.
 	Axis = v2.Axis
-	// Bounds is an axis's lower and upper range.
-	Bounds = v0.Bounds
 	// Channels binds channel keys to each axis.
 	Channels = v0.Channels
 	// Legend is the plot legend's placement and visibility.

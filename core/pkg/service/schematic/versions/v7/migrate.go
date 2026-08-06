@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-// MigrateSchematic transforms the previous schematic snapshot (v6) into the v7
+// MigrateSchematic transforms the previous schematic snapshot (v0) into the v7
 // strongly-typed Schematic. autoMigrateSchematic handles the trivially-copyable
 // Gorp-entry fields (Key, Name, Snapshot); the body fields are sourced from the
 // per-schematic blob the Console used to persist alongside those Gorp fields, after
@@ -259,5 +259,5 @@ func stringOrEmpty(s *string) string {
 	return *s
 }
 
-// Migration lifts stored schematics from the v6 blob layout to the typed v7 shape.
+// Migration lifts stored schematics from the v0 blob layout to the typed v7 shape.
 var Migration = gorp.NewEntryMigration("v55_lift_typed_schematic", MigrateSchematic)

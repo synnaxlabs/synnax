@@ -17,9 +17,9 @@ import (
 
 // Migrate transforms v2 schematic data into v3 by attaching an empty segments slice to
 // every edge. Mirrors the Console's v2 -> v3 step. The opaque Data bag carried on every
-// v0/v1/v2 edge is passed through unchanged so the v5 -> v6 lift step can recover
-// ReactFlow's per-edge segments / color / variant from blobs that predate the v3
-// schema.
+// v0/v1/v2 edge is passed through unchanged so the lift into the typed Schematic can
+// recover ReactFlow's per-edge segments / color / variant from blobs that predate the
+// v3 schema.
 func Migrate(old v2.Data) Data {
 	return Data{
 		Version:  Version,
