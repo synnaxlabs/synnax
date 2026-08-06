@@ -159,7 +159,7 @@ var _ = Describe("Identifier Compilation", func() {
 				OpLocalGet, 0, // Resolve 'limit'
 				OpI32GtS, // value > limit
 			))
-			Expect(exprType).To(Equal(types.U8())) // Comparisons return boolean
+			Expect(exprType).To(Equal(types.Bool())) // Comparisons return boolean
 		})
 
 		It(
@@ -207,7 +207,7 @@ var _ = Describe("Identifier Compilation", func() {
 					OpI32Ne,
 					OpEnd,
 				))
-				Expect(exprType).To(Equal(types.U8()))
+				Expect(exprType).To(Equal(types.Bool()))
 			},
 		)
 	})
@@ -275,7 +275,7 @@ var _ = Describe("Identifier Compilation", func() {
 					),
 				)
 				byteCode, exprType := compileWithCtx(ctx, "press_pt > 1")
-				Expect(exprType).To(Equal(types.U8()))
+				Expect(exprType).To(Equal(types.Bool()))
 				Expect(byteCode).To(MatchOpcodes(
 					OpI32Const, int32(0),
 					OpCall, uint32(0),
@@ -636,7 +636,7 @@ var _ = Describe("Identifier Compilation", func() {
 				OpI64Const, int64(10),
 				OpI64GtS,
 			))
-			Expect(exprType).To(Equal(types.U8()))
+			Expect(exprType).To(Equal(types.Bool()))
 		})
 	})
 

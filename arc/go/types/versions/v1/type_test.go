@@ -500,22 +500,23 @@ var _ = Describe("Type", func() {
 		})
 
 		Describe("IsBool", func() {
-			It("Should return true for U8", func() {
-				Expect(types.U8().IsBool()).To(BeTrue())
+			It("Should return true for Bool", func() {
+				Expect(types.Bool().IsBool()).To(BeTrue())
 			})
 
 			It("Should return false for other types", func() {
+				Expect(types.U8().IsBool()).To(BeFalse())
 				Expect(types.I32().IsBool()).To(BeFalse())
 				Expect(types.String().IsBool()).To(BeFalse())
 			})
 
 			It("Should check value type for channels", func() {
-				Expect(types.Chan(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Chan(types.Bool()).IsBool()).To(BeTrue())
 				Expect(types.Chan(types.I32()).IsBool()).To(BeFalse())
 			})
 
 			It("Should check value type for series", func() {
-				Expect(types.Series(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Series(types.Bool()).IsBool()).To(BeTrue())
 				Expect(types.Series(types.I32()).IsBool()).To(BeFalse())
 			})
 		})

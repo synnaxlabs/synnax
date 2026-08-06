@@ -3395,7 +3395,7 @@ sensor -> math.avg{} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   100,
 						},
 						{
@@ -3418,7 +3418,7 @@ sensor -> math.avg{} -> output`
 					{
 						Name: "flag",
 						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
+						Type: types.Chan(types.Bool()),
 						ID:   100,
 					},
 					{
@@ -3452,7 +3452,7 @@ sensor -> math.avg{} -> output`
 						},
 					}
 					// The juxtaposition `(1 > 0) select{}` never wires the comparison
-					// into select's selector, leaving select's required u8 input with
+					// into select's selector, leaving select's required bool input with
 					// no source. Previously this compiled and panicked at runtime when
 					// the node state tried to materialize a series from a nil value.
 					source := `trigger -> (1 > 0) select{} -> { true: "hello" + "!" -> log,}`
@@ -3894,7 +3894,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "do_0_state",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   10201,
 						},
 						{
@@ -3911,7 +3911,7 @@ time.wait{duration=500ms} -> output`
 						},
 					}
 					source := `
-				func count_rising_test{counter_ch chan f32, max_ch chan f32} (input u8) {
+				func count_rising_test{counter_ch chan f32, max_ch chan f32} (input bool) {
 				    prev $= input
 				    counter f32 $= 0
 				    read_val := max_ch + f32(0.0)
@@ -5219,7 +5219,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   11020,
 						},
 						{
@@ -5314,7 +5314,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   30071,
 						},
 						{
@@ -5374,7 +5374,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   11026,
 						},
 						{
@@ -5633,7 +5633,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   31041,
 						},
 						{
@@ -5722,7 +5722,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   31061,
 						},
 						{
@@ -5775,7 +5775,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   31072,
 						},
 						{
@@ -5851,7 +5851,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   30081,
 						},
 						{
@@ -5866,7 +5866,7 @@ time.wait{duration=500ms} -> output`
 				    stage first {
 				        flag -> select{} -> {
 				            true: stage {
-				                flag > 0 => next
+				                flag => next
 				            }
 				        }
 				    }
@@ -5894,7 +5894,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   30091,
 						},
 						{
@@ -5909,7 +5909,7 @@ time.wait{duration=500ms} -> output`
 				    stage first {
 				        flag -> select{} -> {
 				            true: sequence {
-				                flag > 0 => next
+				                flag => next
 				            }
 				        }
 				    }
@@ -5937,7 +5937,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   31081,
 						},
 						{
@@ -5951,7 +5951,7 @@ time.wait{duration=500ms} -> output`
 				sequence main {
 				    stage first {
 				        flag -> stage {
-				            flag > 0 => next
+				            flag => next
 				        }
 				    }
 				    stage second {
@@ -5978,7 +5978,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   31091,
 						},
 						{
@@ -5992,7 +5992,7 @@ time.wait{duration=500ms} -> output`
 				sequence main {
 				    stage first {
 				        flag -> sequence {
-				            flag > 0 => next
+				            flag => next
 				        }
 				    }
 				    stage second {
@@ -6816,7 +6816,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   10082,
 						},
 						{
@@ -6845,7 +6845,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   10082,
 						},
 						{
@@ -6875,7 +6875,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   10082,
 						},
 						{
@@ -6899,7 +6899,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   10082,
 						},
 						{
@@ -6926,7 +6926,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   10082,
 						},
 						{
@@ -6952,7 +6952,7 @@ time.wait{duration=500ms} -> output`
 						{
 							Name: "flag",
 							Kind: symbol.KindChannel,
-							Type: types.Chan(types.U8()),
+							Type: types.Chan(types.Bool()),
 							ID:   10082,
 						},
 						{
@@ -6980,7 +6980,7 @@ time.wait{duration=500ms} -> output`
 						},
 					}
 					source := `
-				func alarm{} (value u8) {}
+				func alarm{} (value bool) {}
 
 				sensor > 20 => alarm{}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -7068,7 +7068,7 @@ time.wait{duration=500ms} -> output`
 						},
 					}
 					source := `
-				func alarm{} (value u8) {}
+				func alarm{} (value bool) {}
 
 				temp + pressure > 100 => alarm{}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -7147,7 +7147,7 @@ time.wait{duration=500ms} -> output`
 						},
 					}
 					source := `
-				func alarm{} (value u8) {}
+				func alarm{} (value bool) {}
 
 				sensor -> sensor > 20 => alarm{}`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))

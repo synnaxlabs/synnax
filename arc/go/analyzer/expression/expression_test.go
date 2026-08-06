@@ -96,15 +96,15 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("logical AND on booleans", `
 				func testFunc() {
-					a u8 := 0
-					b u8 := 1
+					a bool := false
+					b bool := true
 					c := a and b
 				}
 			`),
 			Entry("logical OR on booleans", `
 				func testFunc() {
-					a u8 := 0
-					b u8 := 1
+					a bool := false
+					b bool := true
 					c := a or b
 				}
 			`),
@@ -423,7 +423,7 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("logical not on boolean", `
 				func testFunc() {
-					x u8 := 1
+					x bool := true
 					y := not x
 				}
 			`),
@@ -442,7 +442,7 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("double not", `
 				func testFunc() {
-					x u8 := 1
+					x bool := true
 					y := not not x
 				}
 			`),
@@ -1147,7 +1147,7 @@ var _ = Describe("Expressions", func() {
 				ID:   20006,
 			}}),
 			Entry("comparison", `
-				func testFunc() u8 {
+				func testFunc() bool {
 					return sensor > 100
 				}
 			`, []symbol.Symbol{{
