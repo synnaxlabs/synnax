@@ -124,15 +124,13 @@ export interface UseSelect<Query extends query.Params, Selected> {
 }
 
 /**
- * A reactive cached read for decorating fine-grained render loops (React Flow
- * nodes, list rows) where suspension is illegal and no parent can enumerate the
- * queried keys. Serves the cached answer, subscribes for changes, and kicks a
- * deduped background fetch on a cold miss. Never suspends and never throws: a
- * miss, a deleted record, a failed fetch, and a disconnected client all read as
- * undefined. A null query skips the read entirely: pass null when the caller
- * holds an empty reference (a zero channel key) instead of a dud query. A query
- * whose answer never reaches the domain cache is served once, from the fetch,
- * and never updated. Reach for `useRetrieve` wherever the caller may suspend.
+ * A reactive cached read for fine-grained render loops where suspension is illegal and
+ * no parent can enumerate the queried keys. Serves the cached answer, subscribes for
+ * changes, and kicks a deduped background fetch on a cold miss. Never suspends and
+ * never throws: a miss, a deleted record, a failed fetch, and a disconnected client all
+ * read as undefined, and a null query skips the read. An answer the domain cache never
+ * holds is served once, from the fetch. Reach for `useRetrieve` wherever the caller may
+ * suspend.
  */
 export interface UseCached<Query extends query.Params, Data extends state.State> {
   (query: Query | null): Data | undefined;
