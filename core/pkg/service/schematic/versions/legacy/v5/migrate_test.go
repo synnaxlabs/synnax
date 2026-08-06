@@ -18,6 +18,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v5"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // nonZeroV4 builds a v4.Data with every model field populated so passthrough
@@ -27,7 +28,7 @@ func nonZeroV4() v4.Data {
 		Version:  v4.Version,
 		Snapshot: true,
 		Nodes: []v0.Node{
-			{Key: "n1", Position: v0.XY{X: 5, Y: 6}, ZIndex: new(3)},
+			{Key: "n1", Position: spatial.XY{X: 5, Y: 6}, ZIndex: new(3)},
 		},
 		Edges: []v3.Edge{
 			{Key: "e1", Source: "n1", Target: "n2", Segments: []v3.Segment{}},

@@ -17,6 +17,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // createV2 builds a v2.Data with every field populated to a non-zero value so
@@ -27,8 +28,8 @@ func createV2() v2.Data {
 		Version:  v2.Version,
 		Snapshot: true,
 		Nodes: []v0.Node{
-			{Key: "n1", Position: v0.XY{X: 1, Y: 2}},
-			{Key: "n2", Position: v0.XY{X: 3, Y: 4}},
+			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
+			{Key: "n2", Position: spatial.XY{X: 3, Y: 4}},
 		},
 		Edges: []v0.Edge{
 			{

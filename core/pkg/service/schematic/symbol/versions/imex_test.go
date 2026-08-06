@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -33,8 +34,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(sym.Data.ScaleStroke).To(BeTrue())
 		Expect(sym.Data.States).To(HaveLen(1))
 		Expect(sym.Data.States[0].Regions[0].StrokeColor).
-			To(HaveValue(Equal("#ff0000")))
-		Expect(sym.Data.States[0].Regions[0].FillColor).To(HaveValue(Equal("#00ff00")))
+			To(HaveValue(Equal(color.MustFromHex("#ff0000"))))
+		Expect(sym.Data.States[0].Regions[0].FillColor).
+			To(HaveValue(Equal(color.MustFromHex("#00ff00"))))
 		Expect(sym.Data.Handles).To(Equal([]versions.Handle{{
 			Key:         "h1",
 			Position:    spatial.XY{X: 0, Y: 0.5},
@@ -58,8 +60,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 				Key:         "r1",
 				Name:        "Body",
 				Selectors:   []string{"#body"},
-				StrokeColor: new("#123456"),
-				FillColor:   new("#654321"),
+				StrokeColor: new(color.MustFromHex("#123456")),
+				FillColor:   new(color.MustFromHex("#654321")),
 			}},
 		}}))
 		Expect(sym.Data.Handles).To(Equal([]versions.Handle{{

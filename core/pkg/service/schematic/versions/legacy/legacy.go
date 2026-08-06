@@ -54,8 +54,6 @@ type (
 	Node = v0.Node
 	// Segment is one leg of an edge's routed path.
 	Segment = v3.Segment
-	// XY is a position on the canvas.
-	XY = v0.XY
 )
 
 // MigrateData decodes the opaque schematic data blob, dispatches on its declared

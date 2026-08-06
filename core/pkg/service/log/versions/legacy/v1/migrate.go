@@ -10,6 +10,8 @@
 package v1
 
 import (
+	"github.com/samber/lo"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy/v0"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -19,20 +21,18 @@ import (
 // transformation: bare channel keys become ChannelEntry records with default display
 // options, and new v1 fields take their schema defaults.
 func Migrate(old v0.Data) Data {
-	channels := make([]ChannelEntry, len(old.Channels))
-	for i, ch := range old.Channels {
-		channels[i] = ChannelEntry{
-			Channel:   ch,
-			Notation:  notation.NotationStandard,
-			Precision: -1,
-			Timestamp: TimestampConfig{
-				Format:   telem.TimestampFormatPreciseDate,
-				TimeZone: telem.TimeZoneLocal,
-			},
-		}
-	}
 	return Data{
-		Channels:             channels,
+		Channels: lo.Map(old.Channels, func(ch channel.Key, _ int) ChannelEntry {
+			return ChannelEntry{
+				Channel:   ch,
+				Notation:  notation.NotationStandard,
+				Precision: -1,
+				Timestamp: TimestampConfig{
+					Format:   telem.TimestampFormatPreciseDate,
+					TimeZone: telem.TimeZoneLocal,
+				},
+			}
+		}),
 		TimestampPrecision:   0,
 		ShowChannelNames:     true,
 		ShowReceiptTimestamp: true,

@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -31,10 +32,10 @@ type Region struct {
 	Name string `json:"name" msgpack:"name"`
 	// Selectors contains CSS selectors targeting SVG elements within the symbol.
 	Selectors []string `json:"selectors,omitzero" msgpack:"selectors,omitzero"`
-	// StrokeColor is an optional stroke color in hex format (#RRGGBB).
-	StrokeColor *string `json:"stroke_color,omitempty" msgpack:"stroke_color,omitempty"`
-	// FillColor is an optional fill color in hex format (#RRGGBB).
-	FillColor *string `json:"fill_color,omitempty" msgpack:"fill_color,omitempty"`
+	// StrokeColor is an optional stroke color override for the region.
+	StrokeColor *color.Color `json:"stroke_color,omitempty" msgpack:"stroke_color,omitempty"`
+	// FillColor is an optional fill color override for the region.
+	FillColor *color.Color `json:"fill_color,omitempty" msgpack:"fill_color,omitempty"`
 }
 
 // State is a named visual state of a symbol with regional styling configurations.

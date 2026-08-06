@@ -10,6 +10,7 @@
 package v3
 
 import (
+	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v2"
 )
@@ -20,27 +21,21 @@ import (
 // ReactFlow's per-edge segments / color / variant from blobs that predate the v3
 // schema.
 func Migrate(old v2.Data) Data {
-	edges := make([]Edge, len(old.Edges))
-	for i, e := range old.Edges {
-		edges[i] = upgradeEdge(e)
-	}
 	return Data{
 		Version:  Version,
 		Snapshot: old.Snapshot,
 		Nodes:    old.Nodes,
-		Edges:    edges,
-		Props:    old.Props,
-	}
-}
-
-func upgradeEdge(e v0.Edge) Edge {
-	return Edge{
-		Key:          e.Key,
-		Source:       e.Source,
-		Target:       e.Target,
-		SourceHandle: e.SourceHandle,
-		TargetHandle: e.TargetHandle,
-		Segments:     []Segment{},
-		Data:         e.Data,
+		Edges: lo.Map(old.Edges, func(e v0.Edge, _ int) Edge {
+			return Edge{
+				Key:          e.Key,
+				Source:       e.Source,
+				Target:       e.Target,
+				SourceHandle: e.SourceHandle,
+				TargetHandle: e.TargetHandle,
+				Segments:     []Segment{},
+				Data:         e.Data,
+			}
+		}),
+		Props: old.Props,
 	}
 }

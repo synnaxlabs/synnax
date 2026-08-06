@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // nonZeroV0 builds a v0.Data with every model field populated so passthrough
@@ -25,7 +26,7 @@ func nonZeroV0() v0.Data {
 		Version:  v0.Version,
 		Snapshot: true,
 		Nodes: []v0.Node{
-			{Key: "n1", Position: v0.XY{X: 5, Y: 6}, ZIndex: new(3)},
+			{Key: "n1", Position: spatial.XY{X: 5, Y: 6}, ZIndex: new(3)},
 		},
 		Edges: []v0.Edge{
 			{Key: "e1", Source: "n1", Target: "n2", SourceHandle: new("a")},

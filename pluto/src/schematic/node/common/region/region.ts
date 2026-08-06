@@ -50,8 +50,8 @@ const collectVisualElements = (svg: Element): SVGElement[] =>
   ).filter(isRendered);
 
 interface ColorPair {
-  stroke: string;
-  fill: string;
+  stroke: color.Color;
+  fill: color.Color;
 }
 
 interface ElementGroup {
@@ -59,13 +59,11 @@ interface ElementGroup {
   colorPair: ColorPair;
 }
 
-const TRANSPARENT = color.hex(color.ZERO);
-
-const normalizeColor = (colorStr: string | null | undefined): string => {
-  if (colorStr == null || colorStr === "") return TRANSPARENT;
-  const parsed = color.fromCSS(colorStr);
-  if (parsed == null) return TRANSPARENT;
-  return color.hex(parsed);
+/// normalizeColor resolves an SVG paint value to a Color. A missing or unparseable
+/// paint reads as fully transparent, which is how an unpainted element renders.
+const normalizeColor = (colorStr: string | null | undefined): color.Color => {
+  if (colorStr == null || colorStr === "") return color.ZERO;
+  return color.fromCSS(colorStr) ?? color.ZERO;
 };
 
 const getElementColors = (element: SVGElement): ColorPair => {
@@ -75,7 +73,7 @@ const getElementColors = (element: SVGElement): ColorPair => {
 };
 
 const getColorPairKey = (colorPair: ColorPair): string =>
-  `${colorPair.stroke}|${colorPair.fill}`;
+  `${color.hex(colorPair.stroke)}|${color.hex(colorPair.fill)}`;
 
 const generateSelector = (element: SVGElement): string => {
   if (element.id) return `#${element.id}`;

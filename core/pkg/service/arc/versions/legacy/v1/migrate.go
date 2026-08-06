@@ -10,6 +10,7 @@
 package v1
 
 import (
+	"github.com/samber/lo"
 	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy/v0"
 )
@@ -17,14 +18,13 @@ import (
 // Migrate transforms v0 Arc state into v1 by lifting the flat ReactFlow edge form into
 // nested Handle objects. An absent handle field becomes an empty Param.
 func Migrate(old v0.Data) Data {
-	edges := make([]Edge, len(old.Graph.Edges))
-	for i, e := range old.Graph.Edges {
-		edges[i] = Edge{
+	edges := lo.Map(old.Graph.Edges, func(e v0.Edge, _ int) Edge {
+		return Edge{
 			Key:    e.Key,
 			Source: irv0.Handle{Node: e.Source, Param: stringOrEmpty(e.SourceHandle)},
 			Target: irv0.Handle{Node: e.Target, Param: stringOrEmpty(e.TargetHandle)},
 		}
-	}
+	})
 	return Data{
 		Graph: Graph{
 			Nodes: old.Graph.Nodes,

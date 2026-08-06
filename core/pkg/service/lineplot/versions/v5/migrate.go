@@ -12,6 +12,7 @@ package v5
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/x/color"
@@ -38,22 +39,17 @@ func MigrateLinePlot(ctx context.Context, old v0.LinePlot) (LinePlot, error) {
 	if err != nil {
 		return LinePlot{}, err
 	}
-	out.Title = migrateTitle(d.Title)
-	out.Legend = migrateLegend(d.Legend)
+	out.Title = Title{Level: text.Level(d.Title.Level), Visible: d.Title.Visible}
+	out.Legend = Legend{
+		Hidden:   !d.Legend.Visible,
+		Position: migrateStickyXY(d.Legend.Position),
+	}
 	out.Channels = migrateChannels(d.Channels)
 	out.Ranges = migrateRanges(d.Ranges)
 	out.Axes = migrateAxes(d.Axes.Axes)
 	out.Lines = migrateLines(d.Lines)
 	out.Rules = migrateRules(d.Rules)
 	return out, nil
-}
-
-func migrateTitle(t legacy.Title) Title {
-	return Title{Level: text.Level(t.Level), Visible: t.Visible}
-}
-
-func migrateLegend(l legacy.Legend) Legend {
-	return Legend{Hidden: !l.Visible, Position: migrateStickyXY(l.Position)}
 }
 
 func migrateStickyXY(p legacy.LegendPosition) spatial.StickyXY {
@@ -122,9 +118,9 @@ func migrateTickType(t string) *TickType {
 	return &tt
 }
 
-// colorPtr lifts a legacy value-typed color into the optional pointer the
-// current schema uses. A zero color is the legacy "unset" sentinel, which
-// maps to nil so the Console assigns a default at render time.
+// colorPtr lifts a legacy value-typed color into the optional pointer the current
+// schema uses. A zero color is the legacy "unset" sentinel, which maps to nil so the
+// Console assigns a default at render time.
 func colorPtr(c color.Color) *color.Color {
 	if c.IsZero() {
 		return nil
@@ -133,9 +129,8 @@ func colorPtr(c color.Color) *color.Color {
 }
 
 func migrateLines(in []legacy.Line) []Line {
-	out := make([]Line, len(in))
-	for i, l := range in {
-		out[i] = Line{
+	return lo.Map(in, func(l legacy.Line, _ int) Line {
+		return Line{
 			Key:            l.Key,
 			Label:          l.Label,
 			Color:          colorPtr(l.Color),
@@ -143,14 +138,12 @@ func migrateLines(in []legacy.Line) []Line {
 			Downsample:     l.Downsample,
 			DownsampleMode: DownsampleMode(l.DownsampleMode),
 		}
-	}
-	return out
+	})
 }
 
 func migrateRules(in []legacy.Rule) []Rule {
-	out := make([]Rule, len(in))
-	for i, r := range in {
-		out[i] = Rule{
+	return lo.Map(in, func(r legacy.Rule, _ int) Rule {
+		return Rule{
 			Key:       r.Key,
 			Label:     r.Label,
 			Color:     colorPtr(r.Color),
@@ -160,8 +153,7 @@ func migrateRules(in []legacy.Rule) []Rule {
 			Units:     r.Units,
 			Position:  r.Position,
 		}
-	}
-	return out
+	})
 }
 
 // Migration lifts stored line plots from the v5 blob layout to the typed v6 shape.

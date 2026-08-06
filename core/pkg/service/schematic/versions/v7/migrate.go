@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"math"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -47,10 +48,16 @@ func MigrateSchematic(
 	if err != nil {
 		return Schematic{}, err
 	}
-	out.Nodes = make([]Node, len(d.Nodes))
-	for i, n := range d.Nodes {
-		out.Nodes[i] = migrateNode(n)
-	}
+	out.Nodes = lo.Map(d.Nodes, func(n legacy.Node, _ int) Node {
+		node := Node{
+			Key:      n.Key,
+			Position: spatial.XY{X: n.Position.X, Y: n.Position.Y},
+		}
+		if n.ZIndex != nil {
+			node.ZIndex = int16(*n.ZIndex)
+		}
+		return node
+	})
 	out.Configs, err = migrateProps(d.Props)
 	if err != nil {
 		return Schematic{}, err
@@ -70,17 +77,6 @@ func MigrateSchematic(
 		}
 	}
 	return out, nil
-}
-
-func migrateNode(n legacy.Node) Node {
-	out := Node{
-		Key:      n.Key,
-		Position: spatial.XY{X: n.Position.X, Y: n.Position.Y},
-	}
-	if n.ZIndex != nil {
-		out.ZIndex = int16(*n.ZIndex)
-	}
-	return out
 }
 
 // migrateEdge reshapes a v5 edge into the typed Edge with nested Handles and, when the
@@ -216,11 +212,9 @@ func parseSegments(raw []any) ([]segment, bool) {
 }
 
 func segmentsToRaw(segs []segment) []any {
-	out := make([]any, len(segs))
-	for i, s := range segs {
-		out[i] = map[string]any{"direction": s.direction, "length": s.length}
-	}
-	return out
+	return lo.Map(segs, func(s segment, _ int) any {
+		return map[string]any{"direction": s.direction, "length": s.length}
+	})
 }
 
 // migrateProps decodes each opaque prop entry from raw JSON bytes into the in-memory

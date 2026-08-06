@@ -23,15 +23,6 @@ import (
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 0
 
-// XY is the planar coordinate shape Consoles persisted from version 0 onward. Identical
-// to spatial.XY at the wire level.
-type XY struct {
-	// X is the horizontal coordinate.
-	X float64 `json:"x"`
-	// Y is the vertical coordinate.
-	Y float64 `json:"y"`
-}
-
 // Bounds is the closed-open numeric interval used for axis bounds.
 type Bounds struct {
 	// Lower is the inclusive lower bound.
@@ -63,8 +54,7 @@ type Legend struct {
 	Visible bool `json:"visible"`
 }
 
-// Axis is the per-axis configuration at v0. v2 introduces the optional Type
-// field.
+// Axis is the per-axis configuration at v0. v2 introduces the optional Type field.
 type Axis struct {
 	// Key identifies the axis (e.g. "x1", "y1").
 	Key string `json:"key"`

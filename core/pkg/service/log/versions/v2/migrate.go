@@ -12,6 +12,7 @@ package v2
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	"github.com/synnaxlabs/x/color"
@@ -41,9 +42,8 @@ func MigrateLog(ctx context.Context, old v0.Log) (Log, error) {
 	if err != nil {
 		return out, nil
 	}
-	out.Channels = make([]ChannelEntry, len(d.Channels))
-	for i, c := range d.Channels {
-		out.Channels[i] = ChannelEntry{
+	out.Channels = lo.Map(d.Channels, func(c legacy.ChannelEntry, _ int) ChannelEntry {
+		return ChannelEntry{
 			Channel:   c.Channel,
 			Color:     parseColor(c.Color),
 			Notation:  orDefault(c.Notation, notation.NotationStandard),
@@ -54,17 +54,15 @@ func MigrateLog(ctx context.Context, old v0.Log) (Log, error) {
 				Tz:     orDefault(c.Timestamp.TimeZone, telem.TimeZoneLocal),
 			},
 		}
-	}
+	})
 	out.TimestampPrecision = d.TimestampPrecision
 	out.HideChannelNames = !d.ShowChannelNames
 	out.HideReceiptTimestamp = !d.ShowReceiptTimestamp
 	return out, nil
 }
 
-// validator is an enum that can report whether it holds one of its defined values.
 type validator interface{ IsValid() bool }
 
-// orDefault returns v when it holds a defined enum value, and def otherwise.
 func orDefault[T validator](v, def T) T {
 	if v.IsValid() {
 		return v
@@ -72,9 +70,6 @@ func orDefault[T validator](v, def T) T {
 	return def
 }
 
-// parseColor parses the raw wire-format hex color string into the typed color.Color,
-// returning the zero color for an empty or malformed value so a single bad color never
-// fails the lift.
 func parseColor(hex string) color.Color {
 	c, err := color.FromHex(hex)
 	if err != nil {

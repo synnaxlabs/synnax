@@ -18,26 +18,18 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 0
-
-// XY is the planar coordinate shape Consoles persisted from version 0 onward. Identical
-// to spatial.XY at the wire level.
-type XY struct {
-	// X is the horizontal coordinate.
-	X float64 `json:"x"`
-	// Y is the vertical coordinate.
-	Y float64 `json:"y"`
-}
 
 // Node is the wire shape of a schematic node at version 0.
 type Node struct {
 	// Key is the node's unique key.
 	Key string `json:"key"`
 	// Position is the node position on the canvas.
-	Position XY `json:"position"`
+	Position spatial.XY `json:"position"`
 	// ZIndex is the node stacking order.
 	ZIndex *int `json:"zIndex,omitempty"`
 }

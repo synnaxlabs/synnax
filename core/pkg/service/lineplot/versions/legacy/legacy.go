@@ -62,8 +62,6 @@ type (
 	StickyUnits = v1.StickyUnits
 	// Title is the plot title's text level and visibility.
 	Title = v0.Title
-	// XY is a position on the canvas.
-	XY = v0.XY
 )
 
 // MigrateData decodes the opaque line plot data blob, dispatches on its declared

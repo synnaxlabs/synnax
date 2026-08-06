@@ -16,13 +16,16 @@ package v1
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 )
 
 // Version is the version the Console stamped on this format.
 const Version imex.Version = 1
 
-// Region is a style region as the Console serializes it.
+// Region is a style region as the Console serializes it. Colors were persisted as hex
+// strings; color.Color's UnmarshalJSON parses those on decode so the in-memory shape
+// matches the current Region.
 type Region struct {
 	// Key is the region's unique key.
 	Key string `json:"key" msgpack:"key"`
@@ -31,9 +34,9 @@ type Region struct {
 	// Selectors are the SVG selectors the region targets.
 	Selectors []string `json:"selectors" msgpack:"selectors"`
 	// StrokeColor is the optional stroke color override.
-	StrokeColor *string `json:"strokeColor" msgpack:"strokeColor"`
+	StrokeColor *color.Color `json:"strokeColor" msgpack:"strokeColor"`
 	// FillColor is the optional fill color override.
-	FillColor *string `json:"fillColor" msgpack:"fillColor"`
+	FillColor *color.Color `json:"fillColor" msgpack:"fillColor"`
 }
 
 // State is a named visual state as the Console serializes it.

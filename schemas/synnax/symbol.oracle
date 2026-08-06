@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/x/color"
 import "schemas/x/spatial"
 
 @ts output "client/ts/src/schematic/symbol"
@@ -18,20 +19,20 @@ Key = uuid {
 }
 
 Region struct {
-    key          string   {
+    key          string       {
         @doc value "is the region identifier."
     }
-    name         string   {
+    name         string       {
         @doc value "is a human-readable name for the region."
     }
-    selectors    string[] {
+    selectors    string[]     {
         @doc value "contains CSS selectors targeting SVG elements within the symbol."
     }
-    stroke_color string?  {
-        @doc value "is an optional stroke color in hex format (#RRGGBB)."
+    stroke_color color.Color? {
+        @doc value "is an optional stroke color override for the region."
     }
-    fill_color   string?  {
-        @doc value "is an optional fill color in hex format (#RRGGBB)."
+    fill_color   color.Color? {
+        @doc value "is an optional fill color override for the region."
     }
 
     @go version 2

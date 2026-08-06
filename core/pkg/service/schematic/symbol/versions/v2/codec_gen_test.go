@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
@@ -60,11 +61,21 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.Region{
-				Key:         "test_1",
-				Name:        "test_2",
-				Selectors:   []string{"test_3"},
-				StrokeColor: new(string("test_4")),
-				FillColor:   new(string("test_5")),
+				Key:       "test_1",
+				Name:      "test_2",
+				Selectors: []string{"test_3"},
+				StrokeColor: new(color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				}),
+				FillColor: new(color.Color{
+					R: 11,
+					G: 12,
+					B: 13,
+					A: 13.5,
+				}),
 			}),
 			Entry("zero values", v2.Region{
 				Key:         "",
@@ -74,11 +85,21 @@ var _ = Describe("Codec", func() {
 				FillColor:   nil,
 			}),
 			Entry("empty collections", v2.Region{
-				Key:         "test_1",
-				Name:        "test_2",
-				Selectors:   []string{},
-				StrokeColor: new(string("test_4")),
-				FillColor:   new(string("test_5")),
+				Key:       "test_1",
+				Name:      "test_2",
+				Selectors: []string{},
+				StrokeColor: new(color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				}),
+				FillColor: new(color.Color{
+					R: 11,
+					G: 12,
+					B: 13,
+					A: 13.5,
+				}),
 			}),
 		)
 	})
@@ -101,26 +122,36 @@ var _ = Describe("Codec", func() {
 						Name: "test_4",
 						Regions: []v2.Region{
 							{
-								Key:         "test_6",
-								Name:        "test_7",
-								Selectors:   []string{"test_8"},
-								StrokeColor: new(string("test_9")),
-								FillColor:   new(string("test_10")),
+								Key:       "test_6",
+								Name:      "test_7",
+								Selectors: []string{"test_8"},
+								StrokeColor: new(color.Color{
+									R: 11,
+									G: 12,
+									B: 13,
+									A: 13.5,
+								}),
+								FillColor: new(color.Color{
+									R: 16,
+									G: 17,
+									B: 18,
+									A: 18.5,
+								}),
 							},
 						},
 					},
 				},
-				Variant: "test_11",
+				Variant: "test_19",
 				Handles: []v2.Handle{
 					{
-						Key:         "test_13",
-						Position:    spatial.XY{X: 15.5, Y: 16.5},
+						Key:         "test_21",
+						Position:    spatial.XY{X: 23.5, Y: 24.5},
 						Orientation: spatial.OuterLocation("top"),
 					},
 				},
-				Scale:           18.5,
+				Scale:           26.5,
 				ScaleStroke:     true,
-				PreviewViewport: new(spatial.Viewport{Zoom: 21.5, Position: spatial.XY{X: 23.5, Y: 24.5}}),
+				PreviewViewport: new(spatial.Viewport{Zoom: 29.5, Position: spatial.XY{X: 31.5, Y: 32.5}}),
 			}),
 			Entry("zero values", v2.Spec{
 				SVG:             "",
@@ -158,11 +189,21 @@ var _ = Describe("Codec", func() {
 				Name: "test_2",
 				Regions: []v2.Region{
 					{
-						Key:         "test_4",
-						Name:        "test_5",
-						Selectors:   []string{"test_6"},
-						StrokeColor: new(string("test_7")),
-						FillColor:   new(string("test_8")),
+						Key:       "test_4",
+						Name:      "test_5",
+						Selectors: []string{"test_6"},
+						StrokeColor: new(color.Color{
+							R: 9,
+							G: 10,
+							B: 11,
+							A: 11.5,
+						}),
+						FillColor: new(color.Color{
+							R: 14,
+							G: 15,
+							B: 16,
+							A: 16.5,
+						}),
 					},
 				},
 			}),
@@ -203,8 +244,8 @@ var _ = Describe("Codec", func() {
 									Key:         "test_9",
 									Name:        "test_10",
 									Selectors:   []string{"test_11"},
-									StrokeColor: new(string("test_12")),
-									FillColor:   new(string("test_13")),
+									StrokeColor: new(color.Color{}),
+									FillColor:   new(color.Color{}),
 								},
 							},
 						},
@@ -262,11 +303,21 @@ func BenchmarkEncodeDecodeHandle(b *testing.B) {
 
 func BenchmarkEncodeDecodeRegion(b *testing.B) {
 	seed := v2.Region{
-		Key:         "test_1",
-		Name:        "test_2",
-		Selectors:   []string{"test_3"},
-		StrokeColor: new(string("test_4")),
-		FillColor:   new(string("test_5")),
+		Key:       "test_1",
+		Name:      "test_2",
+		Selectors: []string{"test_3"},
+		StrokeColor: new(color.Color{
+			R: 6,
+			G: 7,
+			B: 8,
+			A: 8.5,
+		}),
+		FillColor: new(color.Color{
+			R: 11,
+			G: 12,
+			B: 13,
+			A: 13.5,
+		}),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -292,26 +343,36 @@ func BenchmarkEncodeDecodeSpec(b *testing.B) {
 				Name: "test_4",
 				Regions: []v2.Region{
 					{
-						Key:         "test_6",
-						Name:        "test_7",
-						Selectors:   []string{"test_8"},
-						StrokeColor: new(string("test_9")),
-						FillColor:   new(string("test_10")),
+						Key:       "test_6",
+						Name:      "test_7",
+						Selectors: []string{"test_8"},
+						StrokeColor: new(color.Color{
+							R: 11,
+							G: 12,
+							B: 13,
+							A: 13.5,
+						}),
+						FillColor: new(color.Color{
+							R: 16,
+							G: 17,
+							B: 18,
+							A: 18.5,
+						}),
 					},
 				},
 			},
 		},
-		Variant: "test_11",
+		Variant: "test_19",
 		Handles: []v2.Handle{
 			{
-				Key:         "test_13",
-				Position:    spatial.XY{X: 15.5, Y: 16.5},
+				Key:         "test_21",
+				Position:    spatial.XY{X: 23.5, Y: 24.5},
 				Orientation: spatial.OuterLocation("top"),
 			},
 		},
-		Scale:           18.5,
+		Scale:           26.5,
 		ScaleStroke:     true,
-		PreviewViewport: new(spatial.Viewport{Zoom: 21.5, Position: spatial.XY{X: 23.5, Y: 24.5}}),
+		PreviewViewport: new(spatial.Viewport{Zoom: 29.5, Position: spatial.XY{X: 31.5, Y: 32.5}}),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -334,11 +395,21 @@ func BenchmarkEncodeDecodeState(b *testing.B) {
 		Name: "test_2",
 		Regions: []v2.Region{
 			{
-				Key:         "test_4",
-				Name:        "test_5",
-				Selectors:   []string{"test_6"},
-				StrokeColor: new(string("test_7")),
-				FillColor:   new(string("test_8")),
+				Key:       "test_4",
+				Name:      "test_5",
+				Selectors: []string{"test_6"},
+				StrokeColor: new(color.Color{
+					R: 9,
+					G: 10,
+					B: 11,
+					A: 11.5,
+				}),
+				FillColor: new(color.Color{
+					R: 14,
+					G: 15,
+					B: 16,
+					A: 16.5,
+				}),
 			},
 		},
 	}
@@ -372,8 +443,8 @@ func BenchmarkEncodeDecodeSymbol(b *testing.B) {
 							Key:         "test_9",
 							Name:        "test_10",
 							Selectors:   []string{"test_11"},
-							StrokeColor: new(string("test_12")),
-							FillColor:   new(string("test_13")),
+							StrokeColor: new(color.Color{}),
+							FillColor:   new(color.Color{}),
 						},
 					},
 				},
@@ -456,11 +527,21 @@ func FuzzDecodeHandle(f *testing.F) {
 func FuzzDecodeRegion(f *testing.F) {
 	{
 		seed := v2.Region{
-			Key:         "test_1",
-			Name:        "test_2",
-			Selectors:   []string{"test_3"},
-			StrokeColor: new(string("test_4")),
-			FillColor:   new(string("test_5")),
+			Key:       "test_1",
+			Name:      "test_2",
+			Selectors: []string{"test_3"},
+			StrokeColor: new(color.Color{
+				R: 6,
+				G: 7,
+				B: 8,
+				A: 8.5,
+			}),
+			FillColor: new(color.Color{
+				R: 11,
+				G: 12,
+				B: 13,
+				A: 13.5,
+			}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -484,11 +565,21 @@ func FuzzDecodeRegion(f *testing.F) {
 	}
 	{
 		seed := v2.Region{
-			Key:         "test_1",
-			Name:        "test_2",
-			Selectors:   []string{},
-			StrokeColor: new(string("test_4")),
-			FillColor:   new(string("test_5")),
+			Key:       "test_1",
+			Name:      "test_2",
+			Selectors: []string{},
+			StrokeColor: new(color.Color{
+				R: 6,
+				G: 7,
+				B: 8,
+				A: 8.5,
+			}),
+			FillColor: new(color.Color{
+				R: 11,
+				G: 12,
+				B: 13,
+				A: 13.5,
+			}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -528,26 +619,36 @@ func FuzzDecodeSpec(f *testing.F) {
 					Name: "test_4",
 					Regions: []v2.Region{
 						{
-							Key:         "test_6",
-							Name:        "test_7",
-							Selectors:   []string{"test_8"},
-							StrokeColor: new(string("test_9")),
-							FillColor:   new(string("test_10")),
+							Key:       "test_6",
+							Name:      "test_7",
+							Selectors: []string{"test_8"},
+							StrokeColor: new(color.Color{
+								R: 11,
+								G: 12,
+								B: 13,
+								A: 13.5,
+							}),
+							FillColor: new(color.Color{
+								R: 16,
+								G: 17,
+								B: 18,
+								A: 18.5,
+							}),
 						},
 					},
 				},
 			},
-			Variant: "test_11",
+			Variant: "test_19",
 			Handles: []v2.Handle{
 				{
-					Key:         "test_13",
-					Position:    spatial.XY{X: 15.5, Y: 16.5},
+					Key:         "test_21",
+					Position:    spatial.XY{X: 23.5, Y: 24.5},
 					Orientation: spatial.OuterLocation("top"),
 				},
 			},
-			Scale:           18.5,
+			Scale:           26.5,
 			ScaleStroke:     true,
-			PreviewViewport: new(spatial.Viewport{Zoom: 21.5, Position: spatial.XY{X: 23.5, Y: 24.5}}),
+			PreviewViewport: new(spatial.Viewport{Zoom: 29.5, Position: spatial.XY{X: 31.5, Y: 32.5}}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -616,11 +717,21 @@ func FuzzDecodeState(f *testing.F) {
 			Name: "test_2",
 			Regions: []v2.Region{
 				{
-					Key:         "test_4",
-					Name:        "test_5",
-					Selectors:   []string{"test_6"},
-					StrokeColor: new(string("test_7")),
-					FillColor:   new(string("test_8")),
+					Key:       "test_4",
+					Name:      "test_5",
+					Selectors: []string{"test_6"},
+					StrokeColor: new(color.Color{
+						R: 9,
+						G: 10,
+						B: 11,
+						A: 11.5,
+					}),
+					FillColor: new(color.Color{
+						R: 14,
+						G: 15,
+						B: 16,
+						A: 16.5,
+					}),
 				},
 			},
 		}
@@ -692,8 +803,8 @@ func FuzzDecodeSymbol(f *testing.F) {
 								Key:         "test_9",
 								Name:        "test_10",
 								Selectors:   []string{"test_11"},
-								StrokeColor: new(string("test_12")),
-								FillColor:   new(string("test_13")),
+								StrokeColor: new(color.Color{}),
+								FillColor:   new(color.Color{}),
 							},
 						},
 					},

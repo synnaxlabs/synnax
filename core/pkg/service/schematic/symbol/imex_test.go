@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -106,8 +107,12 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Data.ScaleStroke).To(BeTrue())
 				Expect(res.Data.States).To(HaveLen(1))
 				region := res.Data.States[0].Regions[0]
-				Expect(region.StrokeColor).To(HaveValue(Equal("#ff0000")))
-				Expect(region.FillColor).To(HaveValue(Equal("#00ff00")))
+				Expect(
+					region.StrokeColor,
+				).To(HaveValue(Equal(color.MustFromHex("#ff0000"))))
+				Expect(
+					region.FillColor,
+				).To(HaveValue(Equal(color.MustFromHex("#00ff00"))))
 				Expect(res.Data.Handles).To(HaveLen(1))
 				Expect(res.Data.PreviewViewport).ToNot(BeNil())
 				Expect(res.Data.PreviewViewport.Zoom).To(Equal(3.0))
@@ -124,8 +129,12 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Data.ScaleStroke).To(BeTrue())
 				Expect(res.Data.States).To(HaveLen(1))
 				region := res.Data.States[0].Regions[0]
-				Expect(region.StrokeColor).To(HaveValue(Equal("#123456")))
-				Expect(region.FillColor).To(HaveValue(Equal("#654321")))
+				Expect(
+					region.StrokeColor,
+				).To(HaveValue(Equal(color.MustFromHex("#123456"))))
+				Expect(
+					region.FillColor,
+				).To(HaveValue(Equal(color.MustFromHex("#654321"))))
 				Expect(res.Data.Handles).To(HaveLen(1))
 				Expect(res.Data.PreviewViewport).ToNot(BeNil())
 				Expect(res.Data.PreviewViewport.Zoom).To(Equal(6.0))

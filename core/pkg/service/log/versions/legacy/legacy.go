@@ -30,12 +30,8 @@ const LastVersion = v1.Version
 // Data is the latest legacy snapshot; the migration chain terminates in it.
 type Data = v1.Data
 
-type (
-	// ChannelEntry is one displayed channel and its display options.
-	ChannelEntry = v1.ChannelEntry
-	// TimestampConfig is a channel's timestamp format and time zone.
-	TimestampConfig = v1.TimestampConfig
-)
+// ChannelEntry is one displayed channel and its display options.
+type ChannelEntry = v1.ChannelEntry
 
 // MigrateData decodes the opaque log data blob, dispatches on its declared version, and
 // walks the per-step Migrate functions forward to Data. A nil blob and a blob without a

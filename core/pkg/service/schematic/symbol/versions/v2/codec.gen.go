@@ -12,6 +12,7 @@
 package v2
 
 import (
+	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
@@ -58,13 +59,17 @@ func (rv Region) EncodeOrc(w *orc.Writer) error {
 	}
 	if rv.StrokeColor != nil {
 		w.Bool(true)
-		w.String(*rv.StrokeColor)
+		if err := rv.StrokeColor.EncodeOrc(w); err != nil {
+			return err
+		}
 	} else {
 		w.Bool(false)
 	}
 	if rv.FillColor != nil {
 		w.Bool(true)
-		w.String(*rv.FillColor)
+		if err := rv.FillColor.EncodeOrc(w); err != nil {
+			return err
+		}
 	} else {
 		w.Bool(false)
 	}
@@ -104,8 +109,8 @@ func (rv *Region) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv string
-			if hv, err = r.String(); err != nil {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
 			rv.StrokeColor = &hv
@@ -117,8 +122,8 @@ func (rv *Region) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv string
-			if hv, err = r.String(); err != nil {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
 			rv.FillColor = &hv

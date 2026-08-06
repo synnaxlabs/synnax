@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
@@ -88,7 +89,9 @@ var _ = Describe("Migration", func() {
 			Expect(got.Data.States[0].Regions).To(HaveLen(1))
 			region := got.Data.States[0].Regions[0]
 			Expect(region.Key).To(Equal("body"))
-			Expect(region.StrokeColor).To(HaveValue(Equal("#ffffff")))
+			Expect(
+				region.StrokeColor,
+			).To(HaveValue(Equal(color.MustFromHex("#ffffff"))))
 			Expect(region.Selectors).To(ConsistOf(".body"))
 		},
 	)
