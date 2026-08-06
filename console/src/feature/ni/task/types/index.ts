@@ -299,93 +299,9 @@ const validateDigitalPortsAndLines = ({
   });
 };
 
-// Stored configs written before the generated schemas carry the opposite boolean
-// polarity (`enabled` on channels, `dataSaving` on the config) and, before multiport,
-// a config-level device on analog and counter reads. The legacy arms below normalize
-// those shapes and pipe them through the generated schema, so every parse output is
-// the current shape. Arms are keyed on fields only the legacy shape requires, so a
-// current config never matches one.
-interface LegacyChannel {
-  enabled?: boolean;
-  [key: string]: unknown;
-}
-
-const flipChannel = ({ enabled, ...rest }: LegacyChannel) => ({
-  ...rest,
-  disabled: !(enabled ?? true),
-});
-
-const legacyChannelZ = z.looseObject({ enabled: z.boolean().optional() });
-
-const legacyReadShellZ = z.looseObject({
-  autoStart: z.boolean().default(false),
-  dataSaving: z.boolean(),
-  sampleRate: z.number(),
-  streamRate: z.number(),
-  channels: z.array(legacyChannelZ),
-});
-
-const flipReadShell = ({
-  dataSaving,
-  channels,
-  ...rest
-}: z.infer<typeof legacyReadShellZ>) => ({
-  ...rest,
-  dataSavingDisabled: !dataSaving,
-  channels: channels.map(flipChannel),
-});
-
-// pipe() cannot statically relate a normalized loose object to a generated schema's
-// input, so the arm is cast to the schema's input type before piping.
-const pipeInto = <S extends z.ZodType>(arm: z.ZodType, schema: S) =>
-  (arm as unknown as z.ZodType<z.input<S>>).pipe(
-    schema as unknown as z.ZodType<z.output<S>, z.input<S>>,
-  );
-
-// v0: config-level device copied onto every channel.
-const legacyDeviceReadArm = <S extends z.ZodType>(schema: S) =>
-  pipeInto(
-    legacyReadShellZ
-      .extend({ device: z.string() })
-      .transform(({ device, ...shell }) => {
-        const flipped = flipReadShell(shell);
-        return {
-          ...flipped,
-          channels: flipped.channels.map((c) => ({ ...c, device })),
-        };
-      }),
-    schema,
-  );
-
-// v1: per-channel device, legacy polarity.
-const legacyReadArm = <S extends z.ZodType>(schema: S) =>
-  pipeInto(legacyReadShellZ.transform(flipReadShell), schema);
-
-const legacyWriteShellZ = z.looseObject({
-  autoStart: z.boolean().default(false),
-  device: z.string(),
-  dataSaving: z.boolean(),
-  stateRate: z.number(),
-  channels: z.array(legacyChannelZ),
-});
-
-const legacyWriteArm = <S extends z.ZodType>(schema: S) =>
-  pipeInto(
-    legacyWriteShellZ.transform(({ dataSaving, channels, ...rest }) => ({
-      ...rest,
-      dataSavingDisabled: !dataSaving,
-      channels: channels.map(flipChannel),
-    })),
-    schema,
-  );
-
 export interface AnalogReadConfig extends ni.AnalogReadConfig {}
 
-export const analogReadConfigZ = z.union([
-  legacyDeviceReadArm(ni.analogReadConfigZ),
-  legacyReadArm(ni.analogReadConfigZ),
-  ni.analogReadConfigZ,
-]) as z.ZodType<AnalogReadConfig>;
+export const analogReadConfigZ = ni.analogReadConfigZ;
 
 export const deployAnalogReadConfigZ = ni.analogReadConfigZ
   .extend({
@@ -433,11 +349,7 @@ const validateCounterPorts = createPortValidator("Counter");
 
 export interface CounterReadConfig extends ni.CounterReadConfig {}
 
-export const counterReadConfigZ = z.union([
-  legacyDeviceReadArm(ni.counterReadConfigZ),
-  legacyReadArm(ni.counterReadConfigZ),
-  ni.counterReadConfigZ,
-]) as z.ZodType<CounterReadConfig>;
+export const counterReadConfigZ = ni.counterReadConfigZ;
 
 export const deployCounterReadConfigZ = ni.counterReadConfigZ
   .extend({
@@ -476,10 +388,7 @@ export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
 
 export interface AnalogWriteConfig extends ni.AnalogWriteConfig {}
 
-export const analogWriteConfigZ = z.union([
-  legacyWriteArm(ni.analogWriteConfigZ),
-  ni.analogWriteConfigZ,
-]) as z.ZodType<AnalogWriteConfig>;
+export const analogWriteConfigZ = ni.analogWriteConfigZ;
 
 export const deployAnalogWriteConfigZ = ni.analogWriteConfigZ.extend({
   device: Task.deviceKeyZ,
@@ -516,10 +425,7 @@ export const ZERO_ANALOG_WRITE_PAYLOAD = {
 
 export interface DigitalReadConfig extends ni.DigitalReadConfig {}
 
-export const digitalReadConfigZ = z.union([
-  legacyReadArm(ni.digitalReadConfigZ),
-  ni.digitalReadConfigZ,
-]) as z.ZodType<DigitalReadConfig>;
+export const digitalReadConfigZ = ni.digitalReadConfigZ;
 
 export const deployDigitalReadConfigZ = ni.digitalReadConfigZ
   .extend({
@@ -558,10 +464,7 @@ export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
 
 export interface DigitalWriteConfig extends ni.DigitalWriteConfig {}
 
-export const digitalWriteConfigZ = z.union([
-  legacyWriteArm(ni.digitalWriteConfigZ),
-  ni.digitalWriteConfigZ,
-]) as z.ZodType<DigitalWriteConfig>;
+export const digitalWriteConfigZ = ni.digitalWriteConfigZ;
 
 export const deployDigitalWriteConfigZ = ni.digitalWriteConfigZ.extend({
   device: Task.deviceKeyZ,
