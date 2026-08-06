@@ -12,11 +12,12 @@ import { Access, Component, type Flux, Icon, Menu, Status } from "@synnaxlabs/pl
 import { useCallback, useMemo } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
+import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
-  const q = Status.useRetrieveMultiple({ keys });
+const Internal = ({ keys }: Menu.ContextMenuMenuProps) => {
+  const statuses = Status.useMultiple({ keys });
   const dispatch = Session.useDispatch();
   const favoriteSet = Session.Status.useSelectFavoriteSet();
   const ids = status.ontologyID(keys);
@@ -50,13 +51,11 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     () => keys.some((k) => !favoriteSet.has(k)),
     [favoriteSet, keys],
   );
-  const getCopyText = useCallback(() => {
-    if (q.variant !== "success") return "";
-    return q.data.map((s) => status.toString(s)).join("\n\n");
-  }, [q]);
+  const getCopyText = useCallback(
+    () => statuses.map((s) => status.toString(s)).join("\n\n"),
+    [statuses],
+  );
 
-  if (q.variant !== "success") return null;
-  const statuses = q.data;
   const isEmpty = statuses.length === 0;
   const isSingle = statuses.length === 1;
 
@@ -98,5 +97,11 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     </Base.Menu>
   );
 };
+
+const ContextMenu = (props: Menu.ContextMenuMenuProps) => (
+  <Errors.SuspenseBoundary loading={null}>
+    <Internal {...props} />
+  </Errors.SuspenseBoundary>
+);
 
 export const contextMenu = Component.renderProp(ContextMenu);

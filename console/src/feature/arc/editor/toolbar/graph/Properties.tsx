@@ -28,7 +28,7 @@ import { Session } from "@/session";
 
 export const Properties = memo((): ReactElement | null => {
   const selected = Session.Arc.useSelectSelected();
-  const nodes = Arc.useSelectNodes({ keys: selected });
+  const nodes = Arc.useNodes({ keys: selected });
   if (selected.length === 0 || nodes.length === 0)
     return (
       <Status.Summary center variant="disabled" hideIcon>
@@ -45,7 +45,7 @@ interface IndividualConfigProps {
 }
 
 const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | null => {
-  const config = Arc.useSelectNodeConfig({ nodeKey });
+  const config = Arc.useNodeConfig({ nodeKey });
   const initialValues = useMemo(() => deep.copy(config), [config]);
   const dispatch = Arc.useSingleDispatch();
   const formMethods = Form.use<typeof Arc.Graph.Node.configZ>({

@@ -98,7 +98,9 @@ describe("EtherCAT Read", () => {
         createManualInputChannel(slave.key, 0x6000, 5),
       ],
     });
-    await waitFor(() => expect(screen.getByText("Status")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText("Status").length).toBeGreaterThan(0),
+    );
     expect(screen.getByText("0x6000:5")).toBeTruthy();
   });
 
@@ -112,7 +114,7 @@ describe("EtherCAT Read", () => {
       ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
       channels: [createAutoInputChannel(slave.key, "Status")],
     });
-    fireEvent.click(await screen.findByText("Status"));
+    fireEvent.click((await screen.findAllByText("Status"))[0]);
     await waitFor(() => expect(screen.getByText("Slave Device")).toBeTruthy());
     expect(screen.getByText("Mode")).toBeTruthy();
     expect(screen.getByText("PDO")).toBeTruthy();
@@ -147,7 +149,7 @@ describe("EtherCAT Read", () => {
       ...EtherCAT.Task.ZERO_READ_PAYLOAD.config,
       channels: [createAutoInputChannel(slave.key, "Status")],
     });
-    fireEvent.click(await screen.findByText("Status"));
+    fireEvent.click((await screen.findAllByText("Status"))[0]);
     fireEvent.click(await screen.findByText("Automatic (PDO)"));
     fireEvent.click(await screen.findByText("Manual (Address)"));
     await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());

@@ -13,5 +13,4 @@ export * from "@/flux/form";
 export * from "@/flux/list";
 export * from "@/flux/result";
 export * from "@/flux/retrieve";
-export * from "@/flux/select";
 export * from "@/flux/update";

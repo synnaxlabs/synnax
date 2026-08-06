@@ -97,7 +97,7 @@ const retrieveForSubject = async (
   return policies;
 };
 
-const { useRetrieve: useGrantedBase } = Flux.createRetrieve<PermissionsQuery, boolean>({
+const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, boolean>({
   name: PERMISSION_PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { subject, objects, action } }) => {
     subject = await resolveSubjectAsync(client, subject);
@@ -105,7 +105,7 @@ const { useRetrieve: useGrantedBase } = Flux.createRetrieve<PermissionsQuery, bo
     const policies = await retrieveForSubject(client, subject);
     return access.allowRequest({ subject, objects, action }, policies);
   },
-  subscribe: ({ client, query: { subject, objects, action } }, handler) => {
+  onChange: ({ client, query: { subject, objects, action } }, handler) => {
     const sub = resolveSubject(client, subject);
     if (sub == null) return () => {};
     const evaluate = (policies: access.policy.Policy[]): boolean =>
@@ -122,10 +122,20 @@ const { useRetrieve: useGrantedBase } = Flux.createRetrieve<PermissionsQuery, bo
       handler(next);
     });
   },
+  getCached: ({ client, query }) => {
+    const sub = resolveSubject(client, query.subject);
+    if (sub == null) return undefined;
+    const cached = client.access.policies.getCached({ for: sub });
+    if (!isLive(cached)) return undefined;
+    return access.allowRequest(
+      { subject: sub, objects: query.objects, action: query.action },
+      cached,
+    );
+  },
 });
 
-export const useGranted = (query: PermissionsQuery) =>
-  useGrantedBase(query)?.data ?? false;
+export const useGranted = (query: PermissionsQuery): boolean =>
+  useResultGranted(query).data ?? false;
 
 export const useRetrieveGranted = (id: ontology.ID | ontology.ID[]): boolean =>
   useGranted({ objects: id, action: "retrieve" });
@@ -159,7 +169,7 @@ export type LoadPermissionsQuery = {
   subject?: ontology.ID;
 };
 
-export const { useRetrieve: useLoadPermissions } = Flux.createRetrieve<
+export const { useResult: useLoadPermissions } = Flux.createRetrieve<
   LoadPermissionsQuery,
   access.policy.Policy[]
 >({
@@ -169,7 +179,7 @@ export const { useRetrieve: useLoadPermissions } = Flux.createRetrieve<
     if (subject == null) return [];
     return await retrieveForSubject(client, subject);
   },
-  subscribe: ({ client, query }, handler) => {
+  onChange: ({ client, query }, handler) => {
     const subject = resolveSubject(client, query.subject);
     if (subject == null) return () => {};
     return client.access.policies.onChange({ for: subject }, handler);

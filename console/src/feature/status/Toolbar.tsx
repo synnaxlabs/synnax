@@ -71,9 +71,7 @@ const List = (): ReactElement => {
 
 const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
-  const q = Status.useRetrieve({ key: itemKey });
-  if (q.variant !== "success") return null;
-  const item = q.data;
+  const { data: item } = Status.useResult({ key: itemKey });
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
   return (
@@ -120,7 +118,9 @@ const Content = (): ReactElement => (
       <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
       <Actions />
     </Toolbar.Header>
-    <List />
+    <Toolbar.Body>
+      <List />
+    </Toolbar.Body>
   </Toolbar.Content>
 );
 
