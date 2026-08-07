@@ -15,6 +15,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Version is the per-schema version stamped on every exported task envelope.
@@ -53,4 +57,49 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 		return imex.Envelope{}, err
 	}
 	return env, nil
+}
+
+var _ imex.Importer = (*Service)(nil)
+
+// Match always reports false: task files always carry a type header, so a typeless
+// body is never a task.
+func (*Service) Match(map[string]any) bool { return false }
+
+// Import decodes env as a task file — the flat body is the task's config with the
+// type, name, and version headers stamped on top — and creates the task as a draft on
+// no rack. Legacy Console exports upgrade through the same transforms as the boot
+// migration. It returns a validation error for a file version newer than Version.
+//
+// opts.Parent is ignored: a task always parents under its config record and the task
+// group. The API layer still enforces update access on the parent the caller declared.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	env imex.Envelope,
+	_ imex.ImportOptions,
+) (ontology.ID, error) {
+	if env.Versioned() && env.Version > Version {
+		return ontology.ID{}, validate.PathedError(
+			errors.Wrapf(
+				validate.ErrValidation, "unsupported task file version %d", env.Version,
+			),
+			"version",
+		)
+	}
+	body, err := imex.Decode[map[string]any](ctx, env)
+	if err != nil {
+		return ontology.ID{}, err
+	}
+	delete(body, "version")
+	delete(body, "type")
+	delete(body, "name")
+	t := Task{
+		Name:   env.Name,
+		Type:   env.Type,
+		Config: v3.Transform(env.Type, body),
+	}
+	if err := s.NewWriter(tx).Create(ctx, &t); err != nil {
+		return ontology.ID{}, err
+	}
+	return OntologyID(t.Key), nil
 }

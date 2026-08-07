@@ -1,0 +1,35 @@
+{
+  "type": "ethercat_write",
+  "autoStart": true,
+  "stateRate": 38.5,
+  "executionRate": 512.5,
+  "channels": [
+    {
+      "type": "automatic",
+      "device": "fixture-ecat-slave-1",
+      "name": "fixture_ecat_auto_out",
+      "enabled": true,
+      "key": "ch-ecat-auto-out",
+      "pdo": "Analog Output Ch2",
+      "cmdChannel": 9110,
+      "stateChannel": 9111,
+      "cmdChannelName": "fixture_ecat_auto_out_cmd",
+      "stateChannelName": "fixture_ecat_auto_out_state"
+    },
+    {
+      "type": "manual",
+      "device": "fixture-ecat-slave-2",
+      "name": "fixture_ecat_manual_out",
+      "enabled": false,
+      "key": "ch-ecat-manual-out",
+      "index": 28688,
+      "subindex": 2,
+      "bitLength": 8,
+      "dataType": "uint8",
+      "cmdChannel": 9120,
+      "stateChannel": 9121,
+      "cmdChannelName": "fixture_ecat_manual_out_cmd",
+      "stateChannelName": "fixture_ecat_manual_out_state"
+    }
+  ]
+}

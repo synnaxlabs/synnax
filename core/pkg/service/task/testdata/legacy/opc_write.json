@@ -1,0 +1,25 @@
+{
+  "type": "opc_write",
+  "autoStart": true,
+  "device": "fixture-opc-write-device",
+  "channels": [
+    {
+      "enabled": true,
+      "key": "ch-opc-write-0",
+      "cmdChannel": 6110,
+      "nodeId": "NS=2;S=fixture.node.valveCmd",
+      "nodeName": "FixtureValveCmdNode",
+      "name": "fixture_opc_valve_cmd",
+      "dataType": "uint16"
+    },
+    {
+      "enabled": false,
+      "key": "ch-opc-write-1",
+      "cmdChannel": 6120,
+      "nodeId": "NS=3;I=4242",
+      "nodeName": "FixtureHeaterCmdNode",
+      "name": "fixture_opc_heater_cmd",
+      "dataType": "uint8"
+    }
+  ]
+}

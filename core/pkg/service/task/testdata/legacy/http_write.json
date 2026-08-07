@@ -1,0 +1,75 @@
+{
+  "type": "http_write",
+  "device": "fixture-http-write-device",
+  "autoStart": true,
+  "endpoints": [
+    {
+      "enabled": true,
+      "key": "ep-write-put",
+      "path": "/api/v1/fixtureCommand",
+      "method": "PUT",
+      "headers": {
+        "Content-Type": "application/json",
+        "xApiKey": "fixture-write-key-456"
+      },
+      "queryParams": { "dryRun": "false" },
+      "channel": {
+        "pointer": "/command/modeCode",
+        "jsonType": "number",
+        "channel": 10110,
+        "name": "fixture_http_mode_cmd",
+        "dataType": "uint8",
+        "enumValues": [
+          { "value": 1, "label": "idle" },
+          { "value": 2, "label": "running" }
+        ]
+      },
+      "fields": [
+        {
+          "type": "static",
+          "key": "wf-static-str",
+          "pointer": "/command/sourceSystem",
+          "jsonType": "string",
+          "value": "fixture-console"
+        },
+        {
+          "type": "static",
+          "key": "wf-static-num",
+          "pointer": "/command/priorityLevel",
+          "jsonType": "number",
+          "value": 99.5
+        },
+        {
+          "type": "generated",
+          "key": "wf-gen-ts",
+          "pointer": "/command/sentAtMs",
+          "generator": "timestamp",
+          "timeFormat": "unix_ms"
+        },
+        {
+          "type": "generated",
+          "key": "wf-gen-uuid",
+          "pointer": "/command/requestId",
+          "generator": "uuid"
+        }
+      ]
+    },
+    {
+      "enabled": false,
+      "key": "ep-write-patch",
+      "path": "/api/v1/fixtureState",
+      "method": "PATCH",
+      "headers": { "xTraceId": "fixture-trace" },
+      "queryParams": { "regionCode": "us-west-2" },
+      "channel": {
+        "pointer": "",
+        "jsonType": "string",
+        "channel": 10120,
+        "name": "fixture_http_raw_cmd",
+        "dataType": "timestamp",
+        "timeFormat": "iso8601"
+      },
+      "fields": []
+    }
+  ]
+}

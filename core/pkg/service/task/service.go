@@ -166,6 +166,11 @@ func OpenService(
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	cfg.ImEx.RegisterExporter(s)
+	// Task files carry the fine-grained type ("opc_read") while export routes under
+	// the coarse "task" ontology type, so the importer registers per config type.
+	for _, t := range cfg.Configs.Types() {
+		cfg.ImEx.RegisterImporter(string(t), s)
+	}
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{
 			Name:     "sy_task_cmd",
