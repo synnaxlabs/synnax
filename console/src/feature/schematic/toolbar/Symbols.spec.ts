@@ -126,15 +126,16 @@ describe("Schematic toolbar Symbols", () => {
     });
   });
 
-  it("renames a remote group through its context menu", async () => {
+  it("renames a remote group in place through its context menu", async () => {
     const { grp } = await createRemoteSymbolGroup([]);
     await renderSymbolsToolbar();
-    fireEvent.contextMenu(await screen.findByText(grp.name));
+    const name = await screen.findByText(grp.name);
+    fireEvent.contextMenu(name);
     fireEvent.click(await screen.findByText("Rename"));
-    const input = await screen.findByPlaceholderText<HTMLInputElement>("Name");
+    await waitFor(() => expect(name.getAttribute("contenteditable")).toBe("true"));
     const renamed = uniqueName("renamed_grp");
-    fireEvent.change(input, { target: { value: renamed } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    name.innerText = renamed;
+    fireEvent.keyDown(name, { key: "Enter" });
     await waitFor(async () => {
       const resource = await client.ontology.retrieve(group.ontologyID(grp.key));
       expect(resource.name).toBe(renamed);

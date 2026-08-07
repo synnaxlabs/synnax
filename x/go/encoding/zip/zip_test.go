@@ -34,7 +34,7 @@ func read(b []byte) xzip.Files {
 	return files
 }
 
-var _ = Describe("Zip", func() {
+var _ = Describe("Encoder", func() {
 	Describe("ContentType", func() {
 		It("Should report the zip content type", func() {
 			Expect(xzip.Encoder.ContentType()).To(Equal("application/zip"))
