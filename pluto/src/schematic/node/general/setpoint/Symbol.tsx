@@ -21,17 +21,7 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: {
-    label,
-    orientation = "left",
-    control,
-    units,
-
-    sink,
-    color,
-    size,
-    disabled,
-  },
+  config: { label, orientation = "left", control, units, sink, color, size, disabled },
 }: NodeProps<Config>): ReactElement => {
   const { value, set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   return (

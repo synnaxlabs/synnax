@@ -43,8 +43,13 @@ export const Fields = (): ReactElement => {
         label="Stale timeout"
         padHelpText={false}
         defaultValue={staleness.DEFAULT_TIMEOUT}
-        inputProps={{ bounds: { lower: 1, upper: Infinity }, endContent: "s" }}
+        inputProps={INPUT_PROPS}
       />
     </Flex.Box>
   );
+};
+
+const INPUT_PROPS: Form.NumericFieldProps["inputProps"] = {
+  bounds: { lower: 1, upper: Infinity },
+  endContent: "s",
 };
