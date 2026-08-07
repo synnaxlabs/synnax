@@ -288,7 +288,7 @@ TEST(StatusDetailsTests, testParseFromJSON) {
     ASSERT_EQ(details.cmd, "start");
     ASSERT_EQ(details.running, true);
     ASSERT_TRUE(details.data.has_value());
-    ASSERT_EQ((*details.data)["key"], "value");
+    ASSERT_EQ((*details.data)["routing_key"], "rk");
 }
 
 /// @brief it should correctly serialize StatusDetails to JSON.
