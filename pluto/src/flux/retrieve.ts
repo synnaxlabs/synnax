@@ -382,31 +382,59 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>({
     equal,
   });
 
-  if (client == null) return nullClientResult<Data>(`retrieve ${name}`);
-  if (memoQuery == null) return noQueryResult<Data>(`retrieve ${name}`);
+  // A result minted per render defeats every memo keyed on it, and its status
+  // carries a fresh key and timestamp. Each return path keys the previous
+  // result on what produced it and re-returns it until that changes.
+  const held = useRef<{ source: unknown[]; result: Result<Data> } | null>(null);
+  const hold = (source: unknown[], make: () => Result<Data>): Result<Data> => {
+    const prev = held.current;
+    if (
+      prev != null &&
+      prev.source.length === source.length &&
+      prev.source.every((s, i) => s === source[i])
+    )
+      return prev.result;
+    const result = make();
+    held.current = { source, result };
+    return result;
+  };
+
+  if (client == null)
+    return hold(["disabled", client], () => nullClientResult<Data>(`retrieve ${name}`));
+  if (memoQuery == null)
+    return hold(["disabled", memoQuery], () => noQueryResult<Data>(`retrieve ${name}`));
   if (cached !== undefined) {
     if (!Deleted.matches<Data>(cached))
-      return successResult(`retrieved ${name}`, cached);
-    return errorResult(
-      `retrieve ${name}`,
-      new DeletedError(`${name} was deleted`, cached.corpse),
+      return hold(["success", cached], () =>
+        successResult(`retrieved ${name}`, cached),
+      );
+    return hold(["deleted", cached], () =>
+      errorResult(
+        `retrieve ${name}`,
+        new DeletedError(`${name} was deleted`, cached.corpse),
+      ),
     );
   }
 
   const local = localFor(locals, client);
   const params = { client, query: memoQuery };
   const derived = deriveCached?.(params);
-  if (derived != null) return successResult(`retrieved ${name}`, derived);
+  if (derived != null)
+    return hold(["derived", derived], () =>
+      successResult(`retrieved ${name}`, derived),
+    );
   const settled = local.settled.get(query.hash(memoQuery));
   if (settled != null)
-    return "data" in settled
-      ? successResult(`retrieved ${name}`, settled.data)
-      : errorResult(`retrieve ${name}`, settled.error);
+    return hold(["settled", settled], () =>
+      "data" in settled
+        ? successResult(`retrieved ${name}`, settled.data)
+        : errorResult(`retrieve ${name}`, settled.error),
+    );
   ensureFetch(
     params,
     fetchParamsFor({ name, retrieve, onChange, getCached, local }),
   ).then(bump, bump);
-  return loadingResult<Data>(`retrieving ${name}`);
+  return hold(["loading", memoQuery], () => loadingResult<Data>(`retrieving ${name}`));
 };
 
 const useEnsure = <Query extends query.Params, Data extends query.Data>({

@@ -1592,4 +1592,51 @@ describe("useResult", () => {
     );
     expect(harness.retrieve).toHaveBeenCalledTimes(1);
   });
+
+  describe("identity stability", () => {
+    it("returns the identical result across re-renders while the answer holds", () => {
+      const harness = createHarness({ name: "cached", value: 1 });
+      const { result, rerender } = renderHook(() => harness.useResult({ key: "a" }), {
+        wrapper: Wrapper,
+      });
+      const first = result.current;
+      rerender();
+      expect(result.current).toBe(first);
+    });
+
+    it("returns a new result when the answer changes", async () => {
+      const harness = createHarness({ name: "one", value: 1 });
+      const { result } = renderHook(() => harness.useResult({ key: "a" }), {
+        wrapper: Wrapper,
+      });
+      const first = result.current;
+      await act(async () => {
+        harness.set({ name: "two", value: 2 });
+      });
+      expect(result.current).not.toBe(first);
+      expect(result.current.data).toEqual({ name: "two", value: 2 });
+    });
+
+    it("returns the identical loading result across re-renders", () => {
+      const harness = createHarness(undefined, () => new Promise<Data>(() => {}));
+      const { result, rerender } = renderHook(() => harness.useResult({ key: "a" }), {
+        wrapper: Wrapper,
+      });
+      const first = result.current;
+      expect(first.variant).toEqual("loading");
+      rerender();
+      expect(result.current).toBe(first);
+    });
+
+    it("returns the identical disabled result across re-renders", () => {
+      const harness = createHarness({ name: "cached", value: 1 });
+      const { result, rerender } = renderHook(() => harness.useResult(null), {
+        wrapper: Wrapper,
+      });
+      const first = result.current;
+      expect(first.variant).toEqual("disabled");
+      rerender();
+      expect(result.current).toBe(first);
+    });
+  });
 });
