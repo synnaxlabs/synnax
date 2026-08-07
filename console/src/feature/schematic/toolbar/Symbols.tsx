@@ -176,7 +176,8 @@ const RemoteSymbolListContextMenu = ({
   const firstKey = rest.keys[0];
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
   const confirmDelete = useConfirmDelete({
-    type: "Schematic.Symbol",
+    type: "Symbol",
+    path: "Schematic.Symbols",
     icon: "Schematic",
   });
   const openEdit = Symbol.Edit.useModal();

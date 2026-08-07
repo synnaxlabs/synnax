@@ -18,8 +18,8 @@ export const useDeleteGroup = (): ((group: group.Group) => void) => {
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
   const confirmDelete = useConfirmDelete({
-    type: "Schematic.Symbols.Group",
-    icon: "Group",
+    type: "Group",
+    path: "Schematic.Symbols.Group",
   });
   return useCallback(
     (g: group.Group) => {
