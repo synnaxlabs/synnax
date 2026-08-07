@@ -232,7 +232,8 @@ func test() {
 	y i32 := 20
 	z := x and y
 }`,
-				expectedMsg:       "cannot use i32 in and operation",
+				expectedMsg: "cannot use i32 in and operation: and takes bool " +
+					"operands. Did you mean & (bitwise and)?",
 				expectedLine:      4,
 				expectedCharacter: -1,
 				expectedSev:       0,

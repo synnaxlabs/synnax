@@ -115,15 +115,79 @@ func Analyze(ctx context.Context[parser.IExpressionContext]) {
 	}
 }
 
-func getLogicalOrOperator(antlr.ParserRuleContext) string { return "or" }
+func getLogicalOrOperator(ctx antlr.ParserRuleContext) string {
+	if orCtx, ok := ctx.(parser.ILogicalOrExpressionContext); ok {
+		if len(orCtx.AllPIPEPIPE()) > 0 {
+			return "||"
+		}
+	}
+	return "or"
+}
 
-func getLogicalAndOperator(antlr.ParserRuleContext) string { return "and" }
+func getLogicalAndOperator(ctx antlr.ParserRuleContext) string {
+	if andCtx, ok := ctx.(parser.ILogicalAndExpressionContext); ok {
+		if len(andCtx.AllAMPAMP()) > 0 {
+			return "&&"
+		}
+	}
+	return "and"
+}
 
-func getBitwiseOrOperator(antlr.ParserRuleContext) string { return "|" }
+// operatorOperands returns the operand family op takes and its counterpart in the
+// other family ("" when none). ok is false for operators outside the table.
+func operatorOperands(op string) (wants, counterpart string, ok bool) {
+	switch op {
+	case "&&", "and":
+		return "bool", "& (bitwise and)", true
+	case "||", "or":
+		return "bool", "| (bitwise or)", true
+	case "!", "not":
+		return "bool", "~ (bitwise not)", true
+	case "&":
+		return "integer", "&& (logical and)", true
+	case "|":
+		return "integer", "|| (logical or)", true
+	case "~":
+		return "integer", "! (logical not)", true
+	case "^", "xor":
+		return "integer", "", true
+	}
+	return "", "", false
+}
 
-func getBitwiseXorOperator(antlr.ParserRuleContext) string { return "^" }
+// operatorSuggestion suggests op's counterpart when the rejected type t fits it.
+func operatorSuggestion(op string, t basetypes.Type) string {
+	wants, counterpart, ok := operatorOperands(op)
+	if !ok || counterpart == "" {
+		return ""
+	}
+	unwrapped := t.Unwrap()
+	fits := (wants == "bool" && unwrapped.IsInteger()) ||
+		(wants == "integer" && unwrapped.IsBool())
+	if !fits {
+		return ""
+	}
+	return " Did you mean " + counterpart + "?"
+}
 
-func getBitwiseAndOperator(antlr.ParserRuleContext) string { return "&" }
+// operatorHint states the operand types op takes and appends operatorSuggestion.
+// It is empty for operators outside the table.
+func operatorHint(op string, t basetypes.Type) string {
+	wants, _, ok := operatorOperands(op)
+	if !ok {
+		return ""
+	}
+	return ": " + op + " takes " + wants + " operands." + operatorSuggestion(op, t)
+}
+
+func getBitwiseXorOperator(ctx antlr.ParserRuleContext) string {
+	if xorCtx, ok := ctx.(parser.IBitwiseXorExpressionContext); ok {
+		if len(xorCtx.AllXOR()) > 0 {
+			return "xor"
+		}
+	}
+	return "^"
+}
 
 func getEqualityOperator(ctx antlr.ParserRuleContext) string {
 	if eqCtx, ok := ctx.(parser.IEqualityExpressionContext); ok {
@@ -185,7 +249,7 @@ func getRelationalOperator(ctx antlr.ParserRuleContext) string {
 func validateType[T, N antlr.ParserRuleContext](
 	ctx context.Context[N],
 	items []T,
-	getOperator func(ctx antlr.ParserRuleContext) string,
+	opName string,
 	infer func(ctx context.Context[T]) basetypes.Type,
 	check func(t basetypes.Type) bool,
 ) {
@@ -193,7 +257,6 @@ func validateType[T, N antlr.ParserRuleContext](
 		return
 	}
 	firstType := infer(context.Child(ctx, items[0])).Unwrap()
-	opName := getOperator(ctx.AST)
 
 	// If first operand is Invalid, skip validation - we can't check types we don't know
 	if firstType.Kind == basetypes.KindInvalid {
@@ -204,9 +267,10 @@ func validateType[T, N antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(
 			diagnostics.Errorf(
 				ctx.AST,
-				"cannot use %s in %s operation",
+				"cannot use %s in %s operation%s",
 				firstType,
 				opName,
+				operatorHint(opName, firstType),
 			),
 		)
 		return
@@ -256,10 +320,11 @@ func validateType[T, N antlr.ParserRuleContext](
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
-						"type mismatch: cannot use %s and %s in %s operation",
+						"type mismatch: cannot use %s and %s in %s operation%s",
 						firstType,
 						nextType,
 						opName,
+						operatorHint(opName, nextType),
 					),
 				)
 				return
@@ -276,7 +341,7 @@ func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) {
 	validateType(
 		ctx,
 		logicalAnds,
-		getLogicalOrOperator,
+		getLogicalOrOperator(ctx.AST),
 		types.InferLogicalAnd,
 		func(t basetypes.Type) bool { return t.IsBool() },
 	)
@@ -287,7 +352,13 @@ func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext])
 	for _, bitwiseOr := range bitwiseOrs {
 		analyzeBitwiseOr(context.Child(ctx, bitwiseOr))
 	}
-	validateType(ctx, bitwiseOrs, getLogicalAndOperator, types.InferBitwiseOr, isBool)
+	validateType(
+		ctx,
+		bitwiseOrs,
+		getLogicalAndOperator(ctx.AST),
+		types.InferBitwiseOr,
+		isBool,
+	)
 }
 
 func analyzeBitwiseOr(ctx context.Context[parser.IBitwiseOrExpressionContext]) {
@@ -295,13 +366,7 @@ func analyzeBitwiseOr(ctx context.Context[parser.IBitwiseOrExpressionContext]) {
 	for _, bitwiseXor := range bitwiseXors {
 		analyzeBitwiseXor(context.Child(ctx, bitwiseXor))
 	}
-	validateType(
-		ctx,
-		bitwiseXors,
-		getBitwiseOrOperator,
-		types.InferBitwiseXor,
-		isInteger,
-	)
+	validateType(ctx, bitwiseXors, "|", types.InferBitwiseXor, isInteger)
 }
 
 func analyzeBitwiseXor(ctx context.Context[parser.IBitwiseXorExpressionContext]) {
@@ -312,7 +377,7 @@ func analyzeBitwiseXor(ctx context.Context[parser.IBitwiseXorExpressionContext])
 	validateType(
 		ctx,
 		bitwiseAnds,
-		getBitwiseXorOperator,
+		getBitwiseXorOperator(ctx.AST),
 		types.InferBitwiseAnd,
 		isInteger,
 	)
@@ -323,7 +388,7 @@ func analyzeBitwiseAnd(ctx context.Context[parser.IBitwiseAndExpressionContext])
 	for _, equality := range equalities {
 		analyzeEquality(context.Child(ctx, equality))
 	}
-	validateType(ctx, equalities, getBitwiseAndOperator, types.InferEquality, isInteger)
+	validateType(ctx, equalities, "&", types.InferEquality, isInteger)
 }
 
 func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
@@ -334,7 +399,7 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 	validateType(
 		ctx,
 		relExpressions,
-		getEqualityOperator,
+		getEqualityOperator(ctx.AST),
 		types.InferRelational,
 		isAny,
 	)
@@ -348,7 +413,7 @@ func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext])
 	validateType(
 		ctx,
 		additives,
-		getRelationalOperator,
+		getRelationalOperator(ctx.AST),
 		types.InferAdditive,
 		isNumeric,
 	)
@@ -370,7 +435,7 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
 	validateType[parser.IMultiplicativeExpressionContext](
 		ctx,
 		mults,
-		getAdditiveOperator,
+		op,
 		types.InferMultiplicative,
 		check,
 	)
@@ -386,7 +451,7 @@ func analyzeMultiplicative(
 	validateType[parser.IPowerExpressionContext](
 		ctx,
 		powers,
-		getMultiplicativeOperator,
+		getMultiplicativeOperator(ctx.AST),
 		types.InferPower,
 		isNumeric,
 	)
@@ -437,8 +502,9 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
-						"operator 'not' requires boolean operand, received %s",
+						"operator 'not' requires boolean operand, received %s%s",
 						operandType,
+						operatorSuggestion("not", operandType),
 					),
 				)
 				return
@@ -448,19 +514,21 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
-						"operator ! requires boolean operand, received %s",
+						"operator ! requires boolean operand, received %s%s",
 						operandType,
+						operatorSuggestion("!", operandType),
 					),
 				)
 				return
 			}
 		} else if ctx.AST.TILDE() != nil {
-			if !operandType.IsInteger() {
+			if !operandType.UnwrapChan().IsInteger() {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
-						"operator ~ requires integer operand, received %s",
+						"operator ~ requires integer operand, received %s%s",
 						operandType,
+						operatorSuggestion("~", operandType),
 					),
 				)
 				return

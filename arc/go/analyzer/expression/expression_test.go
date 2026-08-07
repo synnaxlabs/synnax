@@ -1470,7 +1470,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() u8 {
 					return sensor and 1
 				}
-			`, resolver, "cannot use f32 in and operation")
+			`, resolver, "cannot use f32 in and operation: and takes bool operands.")
 			},
 		)
 
@@ -1487,8 +1487,76 @@ var _ = Describe("Expressions", func() {
 				func testFunc() u8 {
 					return sensor && 1
 				}
-			`, resolver, "cannot use f32 in and operation")
+			`, resolver, "cannot use f32 in && operation: && takes bool operands.")
 			},
+		)
+
+		DescribeTable("counterpart operator suggestions",
+			func(ctx SpecContext, code string, expectedMsg string) {
+				expectFailure(ctx, code, nil, expectedMsg)
+			},
+			Entry("integer in and", `
+				func testFunc() {
+					x u8 := 1
+					y u8 := 2
+					z := x and y
+				}
+			`, "cannot use u8 in and operation: and takes bool operands. "+
+				"Did you mean & (bitwise and)?"),
+			Entry("integer in &&", `
+				func testFunc() {
+					x u8 := 1
+					y u8 := 2
+					z := x && y
+				}
+			`, "cannot use u8 in && operation: && takes bool operands. "+
+				"Did you mean & (bitwise and)?"),
+			Entry("integer in or", `
+				func testFunc() {
+					x u8 := 1
+					y u8 := 2
+					z := x or y
+				}
+			`, "cannot use u8 in or operation: or takes bool operands. "+
+				"Did you mean | (bitwise or)?"),
+			Entry("integer in ||", `
+				func testFunc() {
+					x u8 := 1
+					y u8 := 2
+					z := x || y
+				}
+			`, "cannot use u8 in || operation: || takes bool operands. "+
+				"Did you mean | (bitwise or)?"),
+			Entry("bool in &", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x & y
+				}
+			`, "cannot use bool in & operation: & takes integer operands. "+
+				"Did you mean && (logical and)?"),
+			Entry("bool in |", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x | y
+				}
+			`, "cannot use bool in | operation: | takes integer operands. "+
+				"Did you mean || (logical or)?"),
+			Entry("bool in ^", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x ^ y
+				}
+			`, "cannot use bool in ^ operation: ^ takes integer operands."),
+			Entry("bool in xor", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x xor y
+				}
+			`, "cannot use bool in xor operation: xor takes integer operands."),
 		)
 	})
 
