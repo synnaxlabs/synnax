@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, TimeStamp } from "@synnaxlabs/x";
+import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -556,7 +556,7 @@ describe("Answers", () => {
         table.set("a", rec("a", 1));
         return ["a"];
       });
-      const answers = singleSpace(table, fetch);
+      const answers = singleSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
       const offA = answers.onChange(qA, vi.fn());
       const offB = answers.onChange(qA, vi.fn());
       await answers.retrieve(qA);
@@ -584,6 +584,73 @@ describe("Answers", () => {
       await answers.retrieve(qA);
       table.set("a", rec("a", 2));
       expect(handler).toHaveBeenCalledWith(2);
+    });
+  });
+
+  describe("teardown grace", () => {
+    const GRACE = TimeSpan.milliseconds(40);
+    const graceSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: { min: number }) => Promise<string[]>,
+    ) =>
+      new Queries<{ min: number }, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        { teardownGrace: GRACE },
+      );
+
+    it("skips the reconfirm refetch for a remount within the grace window", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = graceSpace(table, fetch);
+      const off = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      off();
+      answers.onChange({ min: 3 }, vi.fn());
+      // Past the refetch debounce: a scheduled reconfirm would have landed.
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5)]);
+    });
+
+    it("patches membership from events that land during the grace window", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = graceSpace(table, fetch);
+      const off = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      off();
+      table.set("b", rec("b", 7));
+      answers.onChange({ min: 3 }, vi.fn());
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5), rec("b", 7)]);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("tears down after the grace window and reconfirms on the next remount", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 5));
+        return ["a"];
+      });
+      const answers = graceSpace(table, fetch);
+      const off = answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      off();
+      // The sweep runs at half-grace cadence; well past the window by now.
+      await wait(120);
+      answers.onChange({ min: 3 }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
     });
   });
 
@@ -704,14 +771,18 @@ describe("Answers", () => {
     const listSpace = (
       table: query.Table<string, Rec>,
       fetch: (query: ListQ) => Promise<string[]>,
+      hooks?: AnswersHooks,
     ) =>
-      new Queries<ListQ, Rec[], string, Rec>({
-        name: "things",
-        table,
-        fetch,
-        compose: (records) => records,
-        matches: (r, q) => r.value >= q.min,
-      });
+      new Queries<ListQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: (r, q) => r.value >= q.min,
+        },
+        hooks,
+      );
 
     it("admits a record that starts matching the query", async () => {
       const table = newTable();
@@ -736,7 +807,7 @@ describe("Answers", () => {
         table.set(members);
         return members.map(({ key }) => key);
       });
-      const answers = listSpace(table, fetch);
+      const answers = listSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
       const unsubscribe = answers.onChange({ min: 3 }, vi.fn());
       expect(await answers.retrieve({ min: 3 })).toEqual([]);
       unsubscribe();
@@ -911,15 +982,19 @@ describe("Answers", () => {
     const searchSpace = (
       table: query.Table<string, Rec>,
       fetch: (query: SearchQ) => Promise<string[]>,
+      hooks?: AnswersHooks,
     ) =>
-      new Queries<SearchQ, Rec[], string, Rec>({
-        name: "things",
-        table,
-        fetch,
-        compose: (records) => records,
-        matches: () => true,
-        serverFields: ["searchTerm"],
-      });
+      new Queries<SearchQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          matches: () => true,
+          serverFields: ["searchTerm"],
+        },
+        hooks,
+      );
 
     it("refetches wholesale after a debounced table change", async () => {
       const table = newTable();
@@ -946,7 +1021,7 @@ describe("Answers", () => {
         members.forEach((key) => table.set(key, rec(key, 1)));
         return [...members];
       });
-      const answers = searchSpace(table, fetch);
+      const answers = searchSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
       const unsubscribe = answers.onChange({ searchTerm: "x" }, vi.fn());
       expect(await answers.retrieve({ searchTerm: "x" })).toEqual([]);
       unsubscribe();

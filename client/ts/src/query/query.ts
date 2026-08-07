@@ -14,6 +14,7 @@ import {
   type record,
   type state,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import { NotFoundError } from "@/errors";
@@ -197,9 +198,16 @@ export interface AnswersHooks {
   /** Reports maintenance errors that have no caller to throw to. Defaults to
    *  console logging. */
   onError?: (error: Error) => void;
+  /**
+   * How long maintenance survives the last unsubscribe, so a quick remount finds
+   * the answer still maintained and skips the reconfirm refetch. Zero tears down
+   * synchronously. Defaults to 5 seconds.
+   */
+  teardownGrace?: TimeSpan;
 }
 
 const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
+const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
 
 type EntryState<K extends record.Key, D extends Data> =
   | { variant: "unfetched" }
@@ -221,6 +229,9 @@ interface Entry<Q extends Params, K extends record.Key, D extends Data> {
   /** Set when a fetch in flight deferred a refetch; honored on settle. */
   refetchOnSettle?: boolean;
   refetchTimer?: ReturnType<typeof setTimeout>;
+  /** When the last subscriber left; the sweep tears the entry down once this
+   *  outlives the grace window. Cleared on resubscribe. */
+  idleSince?: TimeStamp;
   /** Composed answer interned while maintained, so repeated reads stay
    *  referentially stable for useSyncExternalStore consumers. Dropped by
    *  touch, which every content and membership change routes through. */
@@ -252,10 +263,13 @@ export class Queries<
     onError: NonNullable<AnswersHooks["onError"]>;
   };
   private readonly detachEpoch?: destructor.Destructor;
+  private readonly grace: TimeSpan;
+  private sweepTimer?: ReturnType<typeof setTimeout>;
 
   constructor(params: QueriesParams<Q, D, K, V>, hooks: AnswersHooks = {}) {
     this.params = params;
     this.hooks = { ...hooks, onError: hooks.onError ?? console.error };
+    this.grace = hooks.teardownGrace ?? DEFAULT_TEARDOWN_GRACE;
     this.detachEpoch = hooks.onEpoch?.((epoch) => {
       // 0 is a return to cold (cluster replacement): the fresh stream's own
       // epoch bump refetches, not the reset itself.
@@ -269,8 +283,9 @@ export class Queries<
   /**
    * Returns the answer to the query: instantly when cached and subscribed,
    * joining the in-flight fetch when one exists, fetching otherwise. Settled
-   * answers are kept fresh only while subscribed, so an unsubscribed read
-   * always refetches. A previously failed query refetches.
+   * answers are kept fresh only while maintained (subscribed, or within the
+   * teardown grace window after the last unsubscribe), so an unmaintained
+   * read always refetches. A previously failed query refetches.
    * @throws {NotFoundError} if the queried record was deleted.
    */
   retrieve(query: Q, options?: FetchOptions): Promise<D> {
@@ -315,26 +330,22 @@ export class Queries<
   /**
    * Subscribes to changes in the query's cached answer. The handler fires with
    * the new answer on every change or deletion. Maintenance for the query runs
-   * while at least one subscriber exists. Returns a destructor that
-   * unsubscribes.
+   * while at least one subscriber exists and survives the last unsubscribe by
+   * the grace window, so a quick remount skips the reconfirm refetch. Returns
+   * a destructor that unsubscribes.
    */
   onChange(query: Q, handler: ChangeHandler<D>): destructor.Destructor {
     this.startStreaming();
     const entry = this.ensure(query);
     entry.handlers.add(handler);
+    entry.idleSince = undefined;
     if (entry.teardown == null) this.maintain(entry);
     return () => {
       entry.handlers.delete(handler);
       if (entry.handlers.size > 0) return;
-      entry.teardown?.forEach((d) => d());
-      entry.teardown = undefined;
-      entry.unmaintained = true;
-      entry.pendingRechecks = undefined;
-      entry.refetchOnSettle = false;
-      if (entry.refetchTimer != null) {
-        clearTimeout(entry.refetchTimer);
-        entry.refetchTimer = undefined;
-      }
+      if (this.grace.isZero) return this.teardownEntry(entry);
+      entry.idleSince = TimeStamp.now();
+      this.armSweep();
     };
   }
 
@@ -364,11 +375,55 @@ export class Queries<
   /** Detaches the epoch subscription. Entries and handlers are dropped. */
   close(): void {
     this.detachEpoch?.();
+    if (this.sweepTimer != null) {
+      clearTimeout(this.sweepTimer);
+      this.sweepTimer = undefined;
+    }
     this.entries.forEach((entry) => {
       entry.teardown?.forEach((d) => d());
       if (entry.refetchTimer != null) clearTimeout(entry.refetchTimer);
     });
     this.entries.clear();
+  }
+
+  private teardownEntry(entry: Entry<Q, K, D>): void {
+    entry.idleSince = undefined;
+    entry.teardown?.forEach((d) => d());
+    entry.teardown = undefined;
+    entry.unmaintained = true;
+    entry.pendingRechecks = undefined;
+    entry.refetchOnSettle = false;
+    if (entry.refetchTimer != null) {
+      clearTimeout(entry.refetchTimer);
+      entry.refetchTimer = undefined;
+    }
+  }
+
+  /** Arms the sweep while any entry sits in the grace window. One timer per
+   *  space, no matter how many entries go idle at once. */
+  private armSweep(): void {
+    this.sweepTimer ??= setTimeout(() => {
+      this.sweepTimer = undefined;
+      this.sweep();
+    }, this.grace.milliseconds / 2);
+  }
+
+  private sweep(): void {
+    let anyIdle = false;
+    const now = TimeStamp.now();
+    this.entries.forEach((entry) => {
+      if (entry.idleSince == null) return;
+      if (entry.handlers.size > 0) {
+        entry.idleSince = undefined;
+        return;
+      }
+      if (now.span(entry.idleSince).lessThan(this.grace)) {
+        anyIdle = true;
+        return;
+      }
+      this.teardownEntry(entry);
+    });
+    if (anyIdle) this.armSweep();
   }
 
   private ensure(query: Q): Entry<Q, K, D> {
