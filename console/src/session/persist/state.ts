@@ -368,7 +368,7 @@ const createMiddleware = <S extends object>(
   // the newer context's slices, so only the latest generation may hydrate.
   let swapGen = 0;
   return (store) => {
-    const debouncedPersist = debounce(() => {
+    const debouncedPersist = debounce.debounce(() => {
       if (swapping) return;
       engine
         .persist(store.getState() as S, current)

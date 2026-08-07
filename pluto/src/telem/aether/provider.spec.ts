@@ -8,16 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MultiSeries } from "@synnaxlabs/x";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { type aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
-import { type client } from "@/telem/client";
+import { telemTest } from "@/telem/aether/test";
 
-const { mockUse, mockClose } = vi.hoisted(() => ({
-  mockUse: vi.fn(),
-  mockClose: vi.fn(async () => {}),
-}));
+const { mockUse } = vi.hoisted(() => ({ mockUse: vi.fn() }));
 
 // Type assertions below follow existing vi.mock patterns (vitest doesn't expose module
 // types from importOriginal without import() annotations, which lint forbids).
@@ -26,60 +24,43 @@ vi.mock("@/synnax/aether", async (importOriginal) => {
   return { synnax: { ...(actual.synnax as object), use: mockUse } };
 });
 
-vi.mock("@/telem/client", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  class MockCore implements client.Client {
-    async retrieveChannel(): ReturnType<client.ChannelClient["retrieveChannel"]> {
-      throw new Error("not implemented in MockCore");
-    }
-
-    async read(): ReturnType<client.ReadClient["read"]> {
-      throw new Error("not implemented in MockCore");
-    }
-
-    async stream(): ReturnType<client.StreamClient["stream"]> {
-      return () => {};
-    }
-
-    close = mockClose;
-  }
-  return { client: { ...(actual.client as object), Core: MockCore } };
-});
-
-// BaseProvider.afterUpdate/afterDelete route client-close errors through
-// status.useErrorHandler(ctx), which normally reads the status aggregator's context
-// value. Bypass the context dependency but keep the real fire-and-forget error-handling
-// semantics by wiring the real createErrorHandler to a no-op adder.
-vi.mock("@/status/aether", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  const realStatus = actual.status as { createErrorHandler: (add: unknown) => unknown };
-  const noopAdd = (): void => {};
-  return {
-    status: {
-      ...(actual.status as object),
-      useErrorHandler: () => realStatus.createErrorHandler(noopAdd),
-    },
-  };
-});
-
-// afterUpdate also pulls instrumentation from the alamos context, which this isolated
-// tree never provisions. Bypass it with a no-op instrumentation instance.
-vi.mock("@/alamos/aether", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  const { alamos: pkg } = await import("@synnaxlabs/alamos");
-  return {
-    alamos: {
-      ...(actual.alamos as object),
-      useInstrumentation: (_ctx: unknown, name?: string) =>
-        name == null ? pkg.Instrumentation.NOOP : pkg.Instrumentation.NOOP.child(name),
-    },
-  };
-});
-
 const MockSender = { send: vi.fn() };
 const NOOP = alamos.Instrumentation.NOOP;
 
-const makeProvider = (key: string): aether.Component => {
+const update = (provider: aether.Component, key: string): void => {
+  provider._updateState({
+    path: [key],
+    state: {},
+    type: telem.PROVIDER_TYPE,
+    create: () => {
+      throw new Error("should not create a child");
+    },
+  });
+};
+
+interface StubCore {
+  openFeed: Mock;
+  channels: telem.Client["channels"];
+}
+
+const stubCore = (): StubCore => ({
+  openFeed: vi.fn(() => ({
+    read: async () => new MultiSeries([]),
+    stream: () => telemTest.mockSubscription(() => {}),
+    close: async () => {},
+  })),
+  channels: {
+    retrieve: async () => {
+      throw new Error("unused");
+    },
+  },
+});
+
+const makeProvider = (
+  createFactory: (client: telem.Client | null) => telem.CompoundFactory,
+  key: string,
+): aether.Component => {
+  const Provider = telem.createProvider(createFactory);
   const props: aether.ComponentConstructorProps = {
     path: [key],
     type: telem.PROVIDER_TYPE,
@@ -87,56 +68,52 @@ const makeProvider = (key: string): aether.Component => {
     instrumentation: NOOP,
     parent: null,
   };
-  return new telem.Provider(props);
-};
-
-const shouldNotCreate = (): never => {
-  throw new Error("should not create a child");
+  return new Provider(props);
 };
 
 describe("telem.Provider", () => {
   beforeEach(() => {
     mockUse.mockReset();
-    mockClose.mockClear();
   });
 
-  it("closes the underlying client when the node is deleted", async () => {
-    mockUse.mockReturnValue({});
-    const key = "telem-provider";
-    const provider = makeProvider(key);
-
-    provider._updateState({
-      path: [key],
-      state: {},
-      type: telem.PROVIDER_TYPE,
-      create: shouldNotCreate,
+  it("builds the telemetry context from the current core", () => {
+    const core = stubCore();
+    mockUse.mockReturnValue(core);
+    const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));
+    const provider = makeProvider(spy, "telem-provider");
+    update(provider, "telem-provider");
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(core.openFeed).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({
+      feed: core.openFeed.mock.results[0].value,
+      channels: core.channels,
     });
-    expect(mockClose).not.toHaveBeenCalled();
-
-    provider._delete([key]);
-    await expect.poll(() => mockClose.mock.calls.length).toBe(1);
   });
 
-  it("closes the previous client when the underlying core swaps", async () => {
-    const key = "telem-provider-swap";
-    const provider = makeProvider(key);
-
-    mockUse.mockReturnValue({});
-    provider._updateState({
-      path: [key],
-      state: {},
-      type: telem.PROVIDER_TYPE,
-      create: shouldNotCreate,
+  it("rebuilds the context when the core swaps", () => {
+    const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));
+    const provider = makeProvider(spy, "telem-provider-swap");
+    mockUse.mockReturnValue(null);
+    update(provider, "telem-provider-swap");
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenLastCalledWith(null);
+    const core = stubCore();
+    mockUse.mockReturnValue(core);
+    update(provider, "telem-provider-swap");
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy).toHaveBeenLastCalledWith({
+      feed: core.openFeed.mock.results[0].value,
+      channels: core.channels,
     });
-    expect(mockClose).not.toHaveBeenCalled();
+  });
 
-    mockUse.mockReturnValue({});
-    provider._updateState({
-      path: [key],
-      state: {},
-      type: telem.PROVIDER_TYPE,
-      create: shouldNotCreate,
-    });
-    await expect.poll(() => mockClose.mock.calls.length).toBe(1);
+  it("does not rebuild the context when the core is unchanged", () => {
+    const core = stubCore();
+    mockUse.mockReturnValue(core);
+    const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));
+    const provider = makeProvider(spy, "telem-provider-stable");
+    update(provider, "telem-provider-stable");
+    update(provider, "telem-provider-stable");
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });

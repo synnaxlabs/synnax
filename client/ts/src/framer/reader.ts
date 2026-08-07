@@ -12,6 +12,7 @@ import { type CrudeTimeRange, csv, runtime } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { type Frame } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
 
@@ -24,11 +25,11 @@ export interface ReadRequest {
 }
 
 export class Reader {
-  private readonly retriever: channel.Retriever;
+  private readonly retrieveChannels: ChannelRetriever;
   private readonly streamClient: WebSocketClient;
 
-  constructor(retriever: channel.Retriever, streamClient: WebSocketClient) {
-    this.retriever = retriever;
+  constructor(retrieveChannels: ChannelRetriever, streamClient: WebSocketClient) {
+    this.retrieveChannels = retrieveChannels;
     this.streamClient = streamClient;
   }
 
@@ -39,7 +40,7 @@ export class Reader {
       channelNames,
       iteratorConfig,
     } = request;
-    const channelPayloads = await this.retriever.retrieve(channelParams);
+    const channelPayloads = await this.retrieveChannels(channelParams);
     const allKeys = new Set<channel.Key>();
     channelPayloads.forEach((ch) => {
       allKeys.add(ch.key);
@@ -49,13 +50,13 @@ export class Reader {
       (k) => !channelPayloads.some((ch) => ch.key === k),
     );
     if (missingIndexKeys.length > 0) {
-      const indexChannels = await this.retriever.retrieve(missingIndexKeys);
+      const indexChannels = await this.retrieveChannels(missingIndexKeys);
       channelPayloads.push(...indexChannels);
     }
     const iterator = await Iterator._open(
       timeRange,
       Array.from(allKeys),
-      this.retriever,
+      this.retrieveChannels,
       this.streamClient,
       iteratorConfig,
     );
