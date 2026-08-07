@@ -83,7 +83,7 @@ class BaseScanConfig(ConfigRecord):
         disabled: Is true when scanning is paused.
     """
 
-    rate: telem.Rate = 0.200000
+    rate: telem.Rate = telem.Rate(0.200000)
     disabled: bool = False
 
     def __hash__(self) -> int:

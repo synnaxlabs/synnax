@@ -36,7 +36,7 @@ class BaseChannel(BaseModel):
     disabled: bool = False
     node_id: str = ""
     node_name: str = ""
-    data_type: telem.DataType = "float32"
+    data_type: telem.DataType = telem.DataType("float32")
 
     def __hash__(self) -> int:
         return hash(self.key)
