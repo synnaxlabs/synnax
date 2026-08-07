@@ -208,12 +208,9 @@
         padding: 0;
         position: relative;
         border-radius: var(--pluto-border-radius-small);
-        /* min-width animates the selected tab's growth so neighbors slide
-           instead of snapping when the selection changes. */
         transition:
             background 0.15s ease-in-out,
-            transform 0.15s ease,
-            min-width 0.15s ease;
+            transform 0.15s ease;
 
         &:not(:has(.pluto-text)) {
             padding: 0 3rem;
