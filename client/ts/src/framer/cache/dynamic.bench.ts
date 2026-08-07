@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, MultiSeries, Series, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { allocSuite } from "@synnaxlabs/x/bench";
 import { bench, describe } from "vitest";
 
-import { allocSuite } from "@/framer/benchutil";
 import { Dynamic } from "@/framer/cache/dynamic";
 
 const makeSeries = (samples: number, alignment: bigint): Series => {

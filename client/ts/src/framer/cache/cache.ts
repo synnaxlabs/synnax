@@ -19,7 +19,7 @@ import {
 } from "@/framer/cache/static";
 import { Unary } from "@/framer/cache/unary";
 
-export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
+const DEFAULT_DYNAMIC_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
 
 /** Props for instantiating a {@link Cache} */
 export interface CacheProps
@@ -44,7 +44,7 @@ export class Cache {
 
   constructor(props: CacheProps = {}) {
     const {
-      dynamicBufferSize = CACHE_BUFFER_SIZE,
+      dynamicBufferSize = DEFAULT_DYNAMIC_BUFFER_SIZE,
       gcInterval = TimeSpan.seconds(30),
       instrumentation = DEFAULT_STATIC_PROPS.instrumentation,
       transform = DEFAULT_STATIC_PROPS.transform,
@@ -81,7 +81,6 @@ export class Cache {
     return unary;
   }
 
-  /** Garbage collects the cache */
   private gc(): void {
     const {
       instrumentation: { L },

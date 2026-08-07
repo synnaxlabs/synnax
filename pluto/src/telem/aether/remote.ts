@@ -41,11 +41,7 @@ import {
   type Telem,
 } from "@/telem/aether/telem";
 
-/**
- * The slice of a Synnax client that remote telemetry sources consume: streaming and
- * historical reads through the telemetry feed, channel metadata through the
- * channel client. Factories hold null while the cluster is disconnected.
- */
+/** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
   feed: Pick<framer.Feed, "read" | "stream">;
   channels: {
@@ -143,8 +139,7 @@ export class StreamChannelValue
         this.notify();
       };
       if (generation !== this.generation) return;
-      const sub = client.feed.stream(handler, [ch.key]);
-      this.removeStreamHandler = () => sub.close();
+      this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
       this.notify();
     } catch (e) {
       this.valid = false;
@@ -320,15 +315,10 @@ export class StreamChannelData
         try {
           const res = await client.feed.read(tr, this.channel.key);
           if (generation !== this.generation) return;
-          for (const s of res.series) {
-            if (this.data.series.includes(s)) continue;
-            s.acquire();
-            this.data.push(s);
-          }
+          this.pushNew(res.series);
         } catch (e) {
-          // Certain calculated channels can fail to read because they need access
-          // to virtual channels that cannot be read from historically. Instead of
-          // throwing an
+          // Certain calculated channels can fail to read because they need access to
+          // virtual channels that cannot be read from historically.
           if (
             e instanceof Error &&
             (e.message.includes("cannot open iterator on virtual channel") ||
@@ -343,23 +333,26 @@ export class StreamChannelData
         if (generation !== this.generation || this.channel == null) return;
         const series = res.get(this.channel.key);
         if (series == null) return;
-        // feed.read already returns the live leading buffer, which the stream's
-        // initial delivery repeats. Skip series already held by identity.
-        for (const s of series.series) {
-          if (this.data.series.includes(s)) continue;
-          s.acquire();
-          this.data.push(s);
-        }
+        this.pushNew(series.series);
         this.notify();
         this.gcOutOfRangeData();
       };
       if (generation !== this.generation) return;
-      const sub = client.feed.stream(handler, [this.channel.key]);
-      this.stopStreaming = () => sub.close();
+      this.stopStreaming = client.feed.stream(handler, [this.channel.key]).close;
       this.notify();
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel data"));
+    }
+  }
+
+  // feed.read returns the live leading buffer that the stream's first delivery
+  // repeats, so series already held by identity are skipped.
+  private pushNew(series: Series[]): void {
+    for (const s of series) {
+      if (this.data.series.includes(s)) continue;
+      s.acquire();
+      this.data.push(s);
     }
   }
 
@@ -456,8 +449,7 @@ export class StreamChannelStringValue
         this.notify();
       };
       if (generation !== this.generation) return;
-      const sub = client.feed.stream(handler, [ch.key]);
-      this.removeStreamHandler = () => sub.close();
+      this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
       this.notify();
     } catch (e) {
       this.valid = false;

@@ -49,10 +49,17 @@ export class CompoundFactory {
   }
 }
 
-export const createFactory = (client: Client | null = null): CompoundFactory => {
-  const base = [new TransformerFactory(), new StaticFactory(), new NoopFactory()];
-  const f = new CompoundFactory(base);
+export const createFactory = (
+  client: Client | null = null,
+  extra: Factory[] = [],
+): CompoundFactory => {
+  const f = new CompoundFactory([
+    new TransformerFactory(),
+    new StaticFactory(),
+    new NoopFactory(),
+  ]);
   f.add(new RemoteFactory(client));
+  extra.forEach((e) => f.add(e));
   f.add(new PipelineFactory(f));
   return f;
 };

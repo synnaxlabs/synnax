@@ -12,7 +12,7 @@ import { type CrudeTimeRange, csv, runtime } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type RetrieveChannels } from "@/framer/adapter";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { type Frame } from "@/framer/frame";
 import { Iterator, type IteratorConfig } from "@/framer/iterator";
 
@@ -25,10 +25,10 @@ export interface ReadRequest {
 }
 
 export class Reader {
-  private readonly retrieveChannels: RetrieveChannels;
+  private readonly retrieveChannels: ChannelRetriever;
   private readonly streamClient: WebSocketClient;
 
-  constructor(retrieveChannels: RetrieveChannels, streamClient: WebSocketClient) {
+  constructor(retrieveChannels: ChannelRetriever, streamClient: WebSocketClient) {
     this.retrieveChannels = retrieveChannels;
     this.streamClient = streamClient;
   }

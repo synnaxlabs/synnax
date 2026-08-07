@@ -242,7 +242,6 @@ export const retrieveRequestZ = z.object({
 export type RetrieveRequest = z.input<typeof retrieveRequestZ>;
 
 export type RetrieveOptions = Omit<RetrieveRequest, "keys" | "names" | "search">;
-export type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;
 
 const retrieveResZ = z.object({ channels: payloadZ.array().default(() => []) });
 
@@ -764,10 +763,7 @@ export class Client extends query.Retriever<
     });
   }
 
-  /**
-   * Fetches channel payloads from the cluster. Missing channels are omitted
-   * from the result, never thrown.
-   */
+  /** Fetches channel payloads. Missing channels are omitted, not thrown. */
   private async execRetrieve(
     channels: Params | RetrieveRequest,
     options?: RetrieveOptions,
@@ -781,7 +777,7 @@ export class Client extends query.Retriever<
       request = channels;
     else {
       const { variant, normalized: raw } = analyzeParams(channels);
-      const normalized = variant === "keys" ? raw.filter((k) => k !== 0) : raw;
+      const normalized = raw.filter((k) => k !== 0);
       if (normalized.length === 0) return [];
       request = { [variant]: normalized, ...options };
     }

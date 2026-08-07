@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { paramsZ } from "@/channel/payload";
-import { ReadAdapter, type RetrieveChannels } from "@/framer/adapter";
+import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
@@ -105,7 +105,7 @@ export interface StreamOpener {
  * @returns A function that opens streamers with the given configuration
  */
 export const createStreamOpener =
-  (retrieveChannels: RetrieveChannels, client: WebSocketClient): StreamOpener =>
+  (retrieveChannels: ChannelRetriever, client: WebSocketClient): StreamOpener =>
   async (config) => {
     const cfg = streamerConfigZ.parse(config);
     const adapter = await ReadAdapter.open(retrieveChannels, cfg.channels);
@@ -136,7 +136,7 @@ export const createStreamOpener =
  * @returns A promise that resolves to a new streamer
  */
 export const openStreamer = async (
-  retrieveChannels: RetrieveChannels,
+  retrieveChannels: ChannelRetriever,
   client: WebSocketClient,
   config: StreamerConfig,
 ): Promise<Streamer> => await createStreamOpener(retrieveChannels, client)(config);

@@ -22,7 +22,7 @@ import { type channel } from "@/channel";
 import { paramsZ } from "@/channel/payload";
 import { keyZ, nameZ } from "@/channel/types.gen";
 import { SynnaxError } from "@/errors";
-import { type RetrieveChannels, WriteAdapter } from "@/framer/adapter";
+import { type ChannelRetriever, WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
 import { type CrudeFrame, frameZ } from "@/framer/frame";
 import { WriterCommand } from "@/framer/types.gen";
@@ -212,7 +212,7 @@ export class Writer {
   }
 
   static async _open(
-    retrieveChannels: RetrieveChannels,
+    retrieveChannels: ChannelRetriever,
     client: WebSocketClient,
     config: WriterConfig,
   ): Promise<Writer> {

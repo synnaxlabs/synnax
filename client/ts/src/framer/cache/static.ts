@@ -57,9 +57,7 @@ export const DEFAULT_STATIC_PROPS: Required<StaticProps> = {
 interface CacheEntry {
   data: Series;
   addedAt: TimeStamp;
-  /** True when the entry came from the live stream instead of a fetch. Live data
-   * is a preview of its persisted form: an authoritative write covering the same
-   * time evicts it. */
+  /** True when the entry came from the live stream instead of a fetch. */
   provisional: boolean;
 }
 
@@ -106,8 +104,8 @@ export class Static {
 
   /**
    * Executes a 'dirty' read of the cache, retrieving any series in the cache that
-   * overlap with the given time range. Note that these series may have data that is
-   * before or after the given time range.
+   * overlap with the given time range. The series may extend before or after the
+   * range.
    *
    * @param tr - The time range to read from the cache.
    * @returns A list of series that overlap with the given time range and a list of
@@ -120,14 +118,14 @@ export class Static {
       if (data.timeRange.overlapsWith(tr)) series.push(data);
     if (series.length === 0) return { series: new MultiSeries([]), gaps: [tr] };
     const gaps: TimeRange[] = [];
-    const leadingGap = new TimeRange(tr.start, series[0].timeRange.start);
-    if (leadingGap.isValid && !leadingGap.span.isZero) gaps.push(leadingGap);
-    for (let i = 1; i < series.length; i++) {
-      const gap = new TimeRange(series[i - 1].timeRange.end, series[i].timeRange.start);
-      if (!gap.span.isZero && gap.isValid) gaps.push(gap);
-    }
-    const trailingGap = new TimeRange(series[series.length - 1].timeRange.end, tr.end);
-    if (trailingGap.isValid && !trailingGap.span.isZero) gaps.push(trailingGap);
+    const pushGap = (start: TimeStamp, end: TimeStamp): void => {
+      const gap = new TimeRange(start, end);
+      if (gap.isValid && !gap.span.isZero) gaps.push(gap);
+    };
+    pushGap(tr.start, series[0].timeRange.start);
+    for (let i = 1; i < series.length; i++)
+      pushGap(series[i - 1].timeRange.end, series[i].timeRange.start);
+    pushGap(series[series.length - 1].timeRange.end, tr.end);
     return { series: new MultiSeries(series), gaps };
   }
 
@@ -140,7 +138,6 @@ export class Static {
     const { staleEntryThreshold } = this.props;
     const res = zeroGCMetrics();
     const newData = this.data.filter((s) => {
-      // Keep entries that are referenced by a caller or were inserted recently.
       const shouldKeep =
         s.data.refCount > 0 || TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold);
       if (!shouldKeep) res.purgedBytes = res.purgedBytes.add(s.data.byteCapacity);
@@ -151,9 +148,7 @@ export class Static {
     return res;
   }
 
-  /**
-   * Closes the cache, freeing all of its resources.
-   */
+  /** Closes the cache, freeing all of its resources. */
   close(): void {
     this.data = [];
   }
@@ -174,7 +169,6 @@ export class Static {
       });
     const { removeBefore, removeAfter, insertInto, deleteInBetween } = insertionPlan;
     series = series.slice(removeBefore, series.length - removeAfter);
-    // This means we executed a redundant read.
     if (series.length === 0) return;
     this.data.splice(insertInto, deleteInBetween, {
       data: series,
@@ -187,10 +181,8 @@ export class Static {
     const {
       instrumentation: { L },
     } = this.props;
-    // writeOne keeps this.data ordered and non-overlapping via
-    // bounds.buildInsertionPlan, so we just compare neighbors. An overlap means
-    // an insertion bug corrupted the cache: evict both entries and let a refetch
-    // heal the gap instead of poisoning every later write.
+    // Entries are ordered and non-overlapping, so neighbor comparison suffices. An
+    // overlap is an insertion bug: evict both entries and let a refetch heal the gap.
     for (let i = 1; i < this.data.length; i++) {
       if (
         !bounds.overlapsWith(

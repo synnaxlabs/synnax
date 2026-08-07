@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { type RetrieveChannels } from "@/framer/adapter";
-export { type ReadRemoteFunc } from "@/framer/cache/reader";
+export { type ChannelRetriever } from "@/framer/adapter";
+export { type RemoteReader } from "@/framer/cache/reader";
 export {
   type StatusHandler,
   type StreamHandler,

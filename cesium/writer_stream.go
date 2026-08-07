@@ -644,9 +644,9 @@ func (w *idxWriter) write(
 			incrementedSampleCount = true
 			w.hasUncommittedData = true
 			series.Alignment = alignment
-			// The index series carries the timestamps for every channel in this group,
-			// so the frame's data series can be stamped with a real time range without
-			// consulting the index on disk.
+			// The index series carries the timestamps for the whole group, so data
+			// series can be stamped with a real time range without consulting the
+			// index on disk.
 			idxTimeRange = telem.TimeRange{
 				Start: telem.ValueAt[telem.TimeStamp](series, 0),
 				End:   w.idx.highWaterMark + 1,

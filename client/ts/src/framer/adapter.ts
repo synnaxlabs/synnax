@@ -15,17 +15,12 @@ import { QueryError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
 
-/**
- * Fetches channel payloads for the given params. Missing channels are omitted
- * from the result, never thrown.
- */
-export interface RetrieveChannels {
-  (channels: channel.Params): Promise<channel.Payload[]>;
-}
+/** Fetches channel payloads. Missing channels are omitted, not thrown. */
+export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Payload[]>;
 
 /** Fetches channel payloads, throwing a {@link QueryError} when any is missing. */
 const retrieveRequired = async (
-  retrieve: RetrieveChannels,
+  retrieve: ChannelRetriever,
   channels: channel.Params,
 ): Promise<channel.Payload[]> => {
   const { normalized } = analyzeParams(channels);
@@ -41,11 +36,11 @@ const retrieveRequired = async (
 
 export class ReadAdapter {
   private adapter: Map<channel.Key, string> | null;
-  retrieveChannels: RetrieveChannels;
+  private readonly retrieveChannels: ChannelRetriever;
   keys: Set<channel.Key>;
   codec: Codec;
 
-  private constructor(retrieveChannels: RetrieveChannels) {
+  private constructor(retrieveChannels: ChannelRetriever) {
     this.retrieveChannels = retrieveChannels;
     this.adapter = null;
     this.keys = new Set();
@@ -53,7 +48,7 @@ export class ReadAdapter {
   }
 
   static async open(
-    retrieveChannels: RetrieveChannels,
+    retrieveChannels: ChannelRetriever,
     channels: channel.Params,
   ): Promise<ReadAdapter> {
     const adapter = new ReadAdapter(retrieveChannels);
@@ -114,11 +109,11 @@ export class ReadAdapter {
 export class WriteAdapter {
   private byName: Map<channel.Name, channel.Payload> | null;
   private byKey: Map<channel.Key, channel.Payload>;
-  retrieveChannels: RetrieveChannels;
+  private readonly retrieveChannels: ChannelRetriever;
   keys: channel.Key[];
   codec: Codec;
 
-  private constructor(retrieveChannels: RetrieveChannels) {
+  private constructor(retrieveChannels: ChannelRetriever) {
     this.retrieveChannels = retrieveChannels;
     this.byName = null;
     this.byKey = new Map();
@@ -127,7 +122,7 @@ export class WriteAdapter {
   }
 
   static async open(
-    retrieveChannels: RetrieveChannels,
+    retrieveChannels: ChannelRetriever,
     channels: channel.Params,
   ): Promise<WriteAdapter> {
     const adapter = new WriteAdapter(retrieveChannels);
@@ -165,8 +160,7 @@ export class WriteAdapter {
   private async fetchChannel(
     ch: channel.Key | channel.Name | channel.Payload,
   ): Promise<channel.Payload> {
-    // The writer's channel set is fixed between updates, so lookups are served from
-    // the maps built by update() without a round trip per write.
+    // The channel set is fixed between updates, so cached payloads cannot go stale.
     let cached: channel.Payload | undefined;
     if (typeof ch === "number") cached = this.byKey.get(ch);
     else if (typeof ch === "string") cached = this.byName?.get(ch);

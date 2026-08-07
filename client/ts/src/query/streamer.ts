@@ -137,14 +137,14 @@ export const createStreamer = ({
         onLive?.();
         onReopen?.();
       },
-      (error) => onDrop?.(error),
+      onDrop,
     );
     // Held outside so close() can interrupt the retry loop while this call
     // is still waiting on a first successful open.
     hardened = h;
     await h.start();
-    // Reads start when the ObservableStreamer is constructed below, so onOpen
-    // fires strictly before any frame or reconnect.
+    // ObservableStreamer construction below starts reads, so onOpen precedes any
+    // frame.
     onOpen?.();
     onLive?.();
     const handleChange = (frame: framer.Frame) => {

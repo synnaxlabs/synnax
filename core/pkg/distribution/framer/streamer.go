@@ -61,18 +61,12 @@ func (c *controlStateSender) transform(
 	return res, send, err
 }
 
-// initialStateSequencer forwards relay responses and injects the initial
-// control-state snapshot. Wired only for streamers whose keys include the
-// control-state channel. When the relay sends an open ack, the snapshot must
-// follow it: clients consume the first response as the ack and discard its
-// frame, so a snapshot emitted at flow start could be lost to that read.
-// Without an ack there is nothing to sequence behind and the snapshot is
-// sent at flow start.
+// initialStateSequencer forwards relay responses and injects the initial control-state
+// snapshot. Clients consume the first response as the open ack and discard its frame,
+// so with afterAck set the snapshot follows that response instead of flow start.
 type initialStateSequencer struct {
 	confluence.AbstractLinear[StreamerResponse, StreamerResponse]
-	db *ts.DB
-	// afterAck defers the snapshot until directly after the first (ack)
-	// response instead of emitting it at flow start.
+	db       *ts.DB
 	afterAck bool
 }
 
@@ -80,12 +74,12 @@ func (s *initialStateSequencer) Flow(ctx signal.Context, opts ...confluence.Opti
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
 	ctx.Go(func(ctx context.Context) error {
+		sendSnapshot := func() error {
+			res := StreamerResponse{Frame: controlUpdateFrame(ctx, s.db)}
+			return signal.SendUnderContext(ctx, s.Out.Inlet(), res)
+		}
 		if !s.afterAck {
-			if err := signal.SendUnderContext(
-				ctx,
-				s.Out.Inlet(),
-				StreamerResponse{Frame: controlUpdateFrame(ctx, s.db)},
-			); err != nil {
+			if err := sendSnapshot(); err != nil {
 				return err
 			}
 		}
@@ -103,11 +97,7 @@ func (s *initialStateSequencer) Flow(ctx signal.Context, opts ...confluence.Opti
 				}
 				if pending {
 					pending = false
-					if err := signal.SendUnderContext(
-						ctx,
-						s.Out.Inlet(),
-						StreamerResponse{Frame: controlUpdateFrame(ctx, s.db)},
-					); err != nil {
+					if err := sendSnapshot(); err != nil {
 						return err
 					}
 				}
@@ -147,7 +137,7 @@ func (s *Service) NewStreamer(cfg StreamerConfig) (Streamer, error) {
 	if lo.Contains(cfg.Keys, s.controlStateKey) {
 		sequencer := &initialStateSequencer{
 			db:       s.cfg.TS,
-			afterAck: cfg.SendOpenAck != nil && *cfg.SendOpenAck,
+			afterAck: lo.FromPtr(cfg.SendOpenAck),
 		}
 		plumber.SetSegment(p, sequencerAddr, sequencer)
 		plumber.MustConnect[StreamerResponse](p, relayReaderAddr, sequencerAddr, 10)

@@ -57,14 +57,8 @@ const unpackBoolBits = (src: Uint8Array, sampleCount: number): ArrayBuffer => {
 
 const sortFramePayloadByKey = (framePayload: Payload): void => {
   const { keys, series } = framePayload;
-  let sorted = true;
-  for (let i = 1; i < keys.length; i++)
-    if (keys[i - 1] > keys[i]) {
-      sorted = false;
-      break;
-    }
-  if (sorted) return;
-  const order = Array.from(keys.keys()).sort((a, b) => keys[a] - keys[b]);
+  if (keys.every((k, i) => i === 0 || keys[i - 1] <= k)) return;
+  const order = keys.map((_, i) => i).sort((a, b) => keys[a] - keys[b]);
   const orderedKeys = order.map((i) => keys[i]);
   const orderedSeries = order.map((i) => series[i]);
   for (let i = 0; i < keys.length; i++) {

@@ -26,7 +26,7 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
-import { errorsMiddleware, UnexpectedError } from "@/errors";
+import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { imex } from "@/imex";
@@ -152,13 +152,9 @@ export default class Synnax extends framer.Client {
       secure,
     );
     transport.use(errorsMiddleware);
-    // The channel client does not exist until after super() returns, so the
-    // seam handed to the framer transport late-binds through this holder.
-    const channels: { client?: channel.Client } = {};
-    const retrieveChannels: framer.RetrieveChannels = async (toRetrieve) => {
-      if (channels.client == null)
-        throw new UnexpectedError("channel client not initialized");
-      const result = await channels.client.retrieve(
+    // The arrow reads this.channels only when called, after construction completes.
+    const retrieveChannels: framer.ChannelRetriever = async (toRetrieve) => {
+      const result = await this.channels.retrieve(
         array.toArray(toRetrieve) as channel.Key[] | channel.Name[],
       );
       return result.map((ch) => ch.payload);
@@ -287,7 +283,6 @@ export default class Synnax extends framer.Client {
       cache,
     });
     this.imex = new imex.Client({ file: this.transport.file });
-    channels.client = this.channels;
   }
 
   /**

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { alamos } from "@synnaxlabs/alamos";
 import { debounce, type MultiSeries, sync, TimeRange, TimeSpan } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
@@ -16,7 +15,7 @@ import { type Cache } from "@/framer/cache/cache";
 import { type Frame } from "@/framer/frame";
 
 /** A function that reads a telemetry frame from the Synnax cluster. */
-export interface ReadRemoteFunc {
+export interface RemoteReader {
   (tr: TimeRange, keys: channel.Key[]): Promise<Frame>;
 }
 
@@ -32,32 +31,21 @@ interface BatchFetch {
 }
 
 export interface ReaderProps {
-  /**
-   * Function used to read remote data from the server. Used instead of
-   * passing in a Synnax client directly to make testing easier.
-   */
-  readRemote: ReadRemoteFunc;
+  /** Function used to read remote data from the server. */
+  readRemote: RemoteReader;
   /** Will read from and populate the given cache with fetched data. */
   cache: Cache;
   /**
-   * Used to batch read requests to the server to minimize traffic. Larger
-   * values mean slower response times but less traffic. Smaller values mean faster
-   * response times but more traffic. The window is not extended by later reads, so
-   * it is also the maximum wait before a batch fires.
+   * Used to batch read requests to the server to minimize traffic. The window is not
+   * extended by later reads, so it is also the maximum wait before a batch fires.
    * @default TimeSpan.milliseconds(50)
    */
   batchDebounce?: TimeSpan;
   /**
-   * A threshold for overlap between time ranges in order for them to be batched into
-   * a single request to the server. For example, a read on channel one for time range
-   * [1ms, 5ms] and a read for channel two for time range [4ms, 6ms] would be batched
-   * under an overlap threshold of 2ms into a single request for time range [1ms, 6ms]
-   * for the channels [one, two].
+   * Reads whose gap time ranges are within this threshold merge into one request.
    * @default TimeSpan.milliseconds(5)
    */
   overlapThreshold?: TimeSpan;
-  /** Used for logging, tracing, etc. */
-  instrumentation?: alamos.Instrumentation;
 }
 
 /**
@@ -66,7 +54,7 @@ export interface ReaderProps {
  * fetch.
  */
 export class Reader {
-  private readonly props: Required<ReaderProps>;
+  private readonly props: Required<Omit<ReaderProps, "batchDebounce">>;
   private readonly batcher: debounce.Batcher<ReadRequest>;
   // Serializes batch execution against close, so close waits for the batch in
   // flight.
@@ -76,17 +64,10 @@ export class Reader {
     const {
       readRemote,
       cache,
-      instrumentation = alamos.NOOP,
       batchDebounce = TimeSpan.milliseconds(50),
       overlapThreshold = TimeSpan.milliseconds(5),
     } = props;
-    this.props = {
-      readRemote,
-      cache,
-      instrumentation,
-      batchDebounce,
-      overlapThreshold,
-    };
+    this.props = { readRemote, cache, overlapThreshold };
     this.batcher = new debounce.Batcher({
       interval: batchDebounce,
       exec: async (entries) =>
@@ -118,8 +99,7 @@ export class Reader {
       const unary = cache.get(entry.req.channel);
       entry.req.gaps.forEach((rawGap) => {
         // A concurrent batch or a streaming write may have filled part of the gap
-        // while this entry sat in the debounce window. Re-derive the gaps that are
-        // still missing so the fetch does not re-read cached data.
+        // while this entry sat in the debounce window.
         unary.read(rawGap).gaps.forEach((gap) => {
           const g = batched.find((r) => r.gap.equals(gap, overlapThreshold));
           if (g == null)
@@ -143,8 +123,6 @@ export class Reader {
           const frame = await readRemote(gap, Array.from(channels));
           channels.forEach((key) => cache.get(key).writeStatic(frame.get(key)));
         } catch (err) {
-          // Fail only the reads served by this batch; sibling batches settle on
-          // their own results.
           served.forEach((entry) => {
             if (!failures.has(entry)) failures.set(entry, err);
           });

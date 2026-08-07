@@ -11,12 +11,12 @@ import { array, DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { ReadAdapter, type RetrieveChannels, WriteAdapter } from "@/framer/adapter";
+import { type ChannelRetriever, ReadAdapter, WriteAdapter } from "@/framer/adapter";
 import { Frame } from "@/index";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
-const retrieveChannels: RetrieveChannels = async (params) =>
+const retrieveChannels: ChannelRetriever = async (params) =>
   (await client.channels.retrieve(array.toArray(params) as channel.Key[])).map(
     (ch) => ch.payload,
   );

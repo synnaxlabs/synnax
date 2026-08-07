@@ -559,7 +559,6 @@ export class Series<T extends TelemValue = TelemValue>
 
   // Views are cached only for ArrayBuffer backing: the buffer and data type never
   // change after construction, so a cached view stays a live window over the data.
-  // A typed-array backing converts element-wise on access and is not cached.
   private get underlyingData(): TypedArray {
     const data = this._data as ArrayBuffer | TypedArray;
     if (!(data instanceof ArrayBuffer)) return new this.dataType.Array(this._data);
@@ -573,8 +572,7 @@ export class Series<T extends TelemValue = TelemValue>
    */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    // Partially written series are always alloc()'d, so the backing is an ArrayBuffer
-    // and the view is rebuilt only when the write position advances.
+    // Partially written series are always alloc()'d, so the backing is an ArrayBuffer.
     let view = this.cachedDataView;
     if (view == null || this.cachedDataViewWritePos !== this.writePos) {
       view = new this.dataType.Array(this._data, 0, this.writePos);
@@ -1128,7 +1126,11 @@ export class Series<T extends TelemValue = TelemValue>
 
   private subBytes(start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.byteLength.valueOf())) return this;
-    const data = this.data.subarray(start, end);
+    return this.derive(this.data.subarray(start, end), start);
+  }
+
+  // Builds the series produced by a slice, offsetting the alignment by start.
+  private derive(data: TypedArray, start: number): Series {
     return new Series({
       data,
       dataType: this.dataType,
@@ -1142,17 +1144,8 @@ export class Series<T extends TelemValue = TelemValue>
   private sliceSub(sub: boolean, start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.length)) return this;
     if (this.dataType.isVariable) return this.sliceVariable(start, end ?? this.length);
-    let data: TypedArray;
-    if (sub) data = this.data.subarray(start, end);
-    else data = this.data.slice(start, end);
-    return new Series({
-      data,
-      dataType: this.dataType,
-      timeRange: this.timeRange,
-      sampleOffset: this.sampleOffset,
-      glBufferUsage: this.gl.bufferUsage,
-      alignment: this.alignment + BigInt(start),
-    });
+    const data = sub ? this.data.subarray(start, end) : this.data.slice(start, end);
+    return this.derive(data, start);
   }
 
   // The result always copies: variable-length readers scan their buffer from offset
@@ -1160,21 +1153,12 @@ export class Series<T extends TelemValue = TelemValue>
   private sliceVariable(start: number, end: number): Series {
     const len = this.length;
     if (start < 0) start = 0;
-    if (end > len) end = len;
     if (this._cachedIndexes == null) this.calculateCachedLength();
     const indexes = this._cachedIndexes as number[];
     const byteLen = this.byteLength.valueOf();
     const byteStart = start >= len ? byteLen : indexes[start] - UINT32_SIZE;
     const byteEnd = end >= len ? byteLen : indexes[end] - UINT32_SIZE;
-    const data = this.data.slice(byteStart, byteEnd);
-    return new Series({
-      data,
-      dataType: this.dataType,
-      timeRange: this.timeRange,
-      sampleOffset: this.sampleOffset,
-      glBufferUsage: this.gl.bufferUsage,
-      alignment: this.alignment + BigInt(start),
-    });
+    return this.derive(this.data.slice(byteStart, byteEnd), start);
   }
 
   /**

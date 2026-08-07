@@ -48,10 +48,7 @@ export const resolveGLDataType = (dt: DataType): DataType => {
   return DataType.FLOAT32;
 };
 
-/**
- * Injected into the telemetry feed the telem provider opens so every cached
- * series is stored in a WebGL-uploadable representation.
- */
+/** Stores cached series in a WebGL-uploadable representation. */
 export const GL_TRANSFORM: framer.Transform = {
   resolveDataType: resolveGLDataType,
   convert: convertSeriesToSupportedGL,

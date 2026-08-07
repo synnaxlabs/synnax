@@ -114,15 +114,14 @@ export class StreamMultiChannelLog
       return;
     }
     try {
-      // Generation counter prevents stale async completions: a newer read() or a
-      // cleanup() bumps it, and the older read bails out after its await.
+      // A newer read() or cleanup() bumps the generation; older reads bail after
+      // awaiting.
       const generation = ++this.readGeneration;
       this.stopStreaming?.();
 
       const channels = await Promise.all(
-        this._channels.map(async (ch) => await client.channels.retrieve(ch)),
+        this._channels.map((ch) => client.channels.retrieve(ch)),
       );
-      // Superseded by a newer read() call while we were awaiting.
       if (generation !== this.readGeneration) return;
 
       // Scrub entries from channels that were removed.
@@ -208,8 +207,7 @@ export class StreamMultiChannelLog
         this._evictedCount = this.gcEntries();
         if (pushed > 0) this.notify();
       };
-      const sub = client.feed.stream(handler, streamKeys);
-      this.stopStreaming = () => sub.close();
+      this.stopStreaming = client.feed.stream(handler, streamKeys).close;
       this.notify();
     } catch (e) {
       this.valid = false;

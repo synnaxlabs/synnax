@@ -118,7 +118,7 @@ interface RangeConstructionOptions {
   frameClient: framer.Client;
   kv: KVClient;
   aliaser: AliasClient;
-  channels: framer.RetrieveChannels;
+  channels: framer.ChannelRetriever;
   labelClient: label.Client;
   ontologyClient: ontology.Client;
   rangeClient: Client;
@@ -132,7 +132,7 @@ export class Range {
   readonly color?: color.Color;
   readonly parent?: Payload;
   readonly labels?: label.Label[];
-  readonly channels: framer.RetrieveChannels;
+  readonly channels: framer.ChannelRetriever;
   private readonly aliaser: AliasClient;
   private readonly frameClient: framer.Client;
   private readonly labelClient: label.Client;
@@ -359,7 +359,7 @@ const watchLabels = <Q extends query.Params>(
 export interface ClientConfig {
   framer: framer.Client;
   unary: UnaryClient;
-  channels: framer.RetrieveChannels;
+  channels: framer.ChannelRetriever;
   labels: label.Client;
   ontology: ontology.Client;
   cache: query.Cache;

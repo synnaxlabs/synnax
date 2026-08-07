@@ -9,8 +9,7 @@
 
 import { type CrudeTimeSpan, TimeSpan } from "@/telem/telem";
 
-/** A request queued in a {@link Batcher} window, carrying the handles the executor
- *  uses to settle the caller's enqueue promise. */
+/** A request queued in a {@link Batcher} window. */
 export interface Entry<Req, Res = void> extends Pick<
   PromiseWithResolvers<Res>,
   "resolve" | "reject"
@@ -27,11 +26,7 @@ export interface BatcherProps<Req, Res = void> {
   exec: (entries: Array<Entry<Req, Res>>) => void | Promise<void>;
 }
 
-/**
- * Coalesces requests arriving within a fixed window into one executor call.
- * What a batch means is the executor's business: it receives every entry queued
- * during the window and settles each one.
- */
+/** Coalesces requests arriving within a fixed window into one executor call. */
 export class Batcher<Req, Res = void> {
   private readonly interval: TimeSpan;
   private readonly exec: BatcherProps<Req, Res>["exec"];
@@ -55,7 +50,7 @@ export class Batcher<Req, Res = void> {
         const batch = this.pending;
         this.pending = null;
         this.timer = null;
-        if (batch == null || batch.length === 0) return;
+        if (batch == null) return;
         void (async () => {
           try {
             await this.exec(batch);

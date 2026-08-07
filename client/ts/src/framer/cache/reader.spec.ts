@@ -12,12 +12,12 @@ import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { UnexpectedError } from "@/errors";
 import { Cache } from "@/framer/cache/cache";
-import { Reader, type ReadRemoteFunc } from "@/framer/cache/reader";
+import { Reader, type RemoteReader } from "@/framer/cache/reader";
 import { Frame } from "@/framer/frame";
 import { Series } from "@/index";
 
 const basicRemoteReadFunc =
-  (fn: Mock): ReadRemoteFunc =>
+  (fn: Mock): RemoteReader =>
   async (tr, keys) => {
     fn(tr, keys);
     return new Frame(
@@ -256,7 +256,7 @@ describe("read", () => {
   it("should fail only the reads whose batch failed", async () => {
     const cache = new Cache();
     const failing = new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(12));
-    const readRemote: ReadRemoteFunc = async (tr, keys) => {
+    const readRemote: RemoteReader = async (tr, keys) => {
       if (tr.equals(failing)) throw new Error("read exploded");
       return new Frame(
         keys,

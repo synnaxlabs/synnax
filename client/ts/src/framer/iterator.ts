@@ -21,7 +21,7 @@ import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { keyZ } from "@/channel/types.gen";
-import { ReadAdapter, type RetrieveChannels } from "@/framer/adapter";
+import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSIteratorCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
@@ -99,7 +99,7 @@ export class Iterator {
   static async _open(
     tr: CrudeTimeRange,
     channels: channel.Params,
-    retrieveChannels: RetrieveChannels,
+    retrieveChannels: ChannelRetriever,
     client: WebSocketClient,
     opts: IteratorConfig = {},
   ): Promise<Iterator> {

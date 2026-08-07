@@ -43,9 +43,7 @@ export class Unary {
   writeDynamic(series: MultiSeries): MultiSeries {
     this.checkOpen("writeDynamic");
     const { flushed, allocated } = this.dynamic.write(series);
-    // Buffers that have been flushed out of the dynamic cache are written to the
-    // static cache as provisional entries: a later fetch of the same time range
-    // replaces them with the persisted form of the data.
+    // Flushed buffers are provisional until an authoritative fetch replaces them.
     if (flushed.length > 0) this.static.write(flushed, true);
     return allocated;
   }

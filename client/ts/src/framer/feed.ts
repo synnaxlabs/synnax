@@ -26,11 +26,9 @@ export interface FeedProps
     CacheProps,
     Omit<ReaderProps, "cache">,
     Omit<StreamerProps, "cache" | "openStreamer"> {
-  /** Opens the underlying frame stream. */
   openStreamer: StreamOpener;
 }
 
-/** The subset of {@link FeedProps} a caller of openFeed supplies. */
 export interface FeedOptions extends Omit<FeedProps, "readRemote" | "openStreamer"> {}
 
 /**
@@ -69,7 +67,6 @@ export class Feed {
       cache: this.cache,
       batchDebounce,
       overlapThreshold,
-      instrumentation: instrumentation?.child("reader"),
     });
     this.streamer = new Streamer({
       cache: this.cache,

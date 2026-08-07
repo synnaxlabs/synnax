@@ -82,8 +82,7 @@ export interface TableParams<
    */
   hydrate?: HydrateMode;
   /**
-   * Window for coalescing concurrent miss fetches into one fetch call. The
-   * window's timer is not reset by later joins, so it is also the max wait.
+   * Window for coalescing concurrent miss fetches into one fetch call.
    * @default TimeSpan.milliseconds(10)
    */
   fetchDebounce?: CrudeTimeSpan;
@@ -168,7 +167,12 @@ export class Table<
               const keys = new Set<Key>();
               entries.forEach(({ req }) => req.forEach((key) => keys.add(key)));
               const rows = await fetch(Array.from(keys));
-              entries.forEach(({ resolve }) => resolve(rows));
+              // The window's fetch carries other callers' keys too; each caller
+              // hydrates only the rows it asked for.
+              entries.forEach(({ req, resolve }) => {
+                const mine = new Set(req);
+                resolve(rows.filter(({ key }) => mine.has(key)));
+              });
             },
           });
   }
@@ -293,17 +297,12 @@ export class Table<
    * cached rows only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
-    if (this.fetchRows != null) {
+    if (this.fetchBatcher != null) {
       const misses =
         opts.refresh === true ? keys : keys.filter((key) => !this.rows.has(key));
       if (misses.length > 0) {
         const gen = this.gen;
-        const fetched = await this.fetchMisses(misses);
-        // The window's fetch carries other callers' keys too: hydrating them
-        // here would apply this call's refresh/hydrate mode to rows the other
-        // callers own.
-        const mine = new Set(misses);
-        const rows = fetched.filter(({ key }) => mine.has(key));
+        const rows = await this.fetchBatcher.enqueue(misses);
         if (gen === this.gen && rows.length > 0)
           if (opts.refresh === true) this.set(rows);
           else this.ingest(rows);
@@ -318,17 +317,6 @@ export class Table<
       if (row != null) results.push(row);
     }
     return results;
-  }
-
-  /**
-   * Joins the open fetch window, creating one if none exists. A window unions
-   * miss keys across concurrent retrieves into one fetch call. A failed fetch
-   * rejects every caller in the window and hydrates nothing, so failures are
-   * never cached.
-   */
-  private fetchMisses(keys: Key[]): Promise<Array<Keyed<Key, Value>>> {
-    if (this.fetchBatcher == null) return Promise.resolve([]);
-    return this.fetchBatcher.enqueue(keys);
   }
 
   /**

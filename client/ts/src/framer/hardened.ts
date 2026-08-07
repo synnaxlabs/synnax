@@ -25,9 +25,11 @@ import {
 
 type NormalizedStreamerConfig = Extract<StreamerConfig, { channels: unknown }>;
 
+// Copies object configs: update() reassigns channels, and the caller's config must
+// not observe that.
 const normalizeConfig = (config: StreamerConfig): NormalizedStreamerConfig =>
   typeof config === "object" && !Array.isArray(config) && "channels" in config
-    ? config
+    ? { ...config }
     : { channels: config };
 
 /**
@@ -108,12 +110,9 @@ export class HardenedStreamer implements Streamer {
   }
 
   /**
-   * Opens the underlying stream, retrying connectivity failures under the
-   * breaker. Call once after construction; {@link open} does both. A separate
-   * construction step lets a holder {@link close} the streamer while this
-   * call is still retrying.
-   * @throws the open failure when it is not retriable or the breaker is
-   * exhausted.
+   * Opens the underlying stream, retrying connectivity failures under the breaker.
+   * Call once after construction; {@link open} does both.
+   * @throws the open failure when it is not retriable or the breaker is exhausted.
    */
   async start(): Promise<void> {
     await this.runStreamer(false);
@@ -147,8 +146,8 @@ export class HardenedStreamer implements Streamer {
         this.current = null;
         if (this.closed) break;
         const err = errors.fromUnknown(e);
-        // Retrying can only fix connectivity. A definitive server rejection
-        // recurs on every attempt, so it propagates instead of looping.
+        // Retrying only fixes connectivity; a definitive rejection recurs on every
+        // attempt.
         if (
           AuthError.matches(err) ||
           ValidationError.matches(err) ||
@@ -240,8 +239,7 @@ export class ObservableStreamer<V = Frame>
   constructor(streamer: Streamer, transform?: observe.Transform<Frame, V>) {
     super(transform);
     this.streamer = streamer;
-    // A terminal read failure would otherwise surface as an unhandled
-    // rejection: nothing awaits closePromise until close().
+    // Nothing awaits closePromise until close(), so a failure would go unhandled.
     this.closePromise = this.stream().catch(console.error);
   }
 

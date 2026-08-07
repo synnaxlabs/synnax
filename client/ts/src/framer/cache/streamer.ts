@@ -34,19 +34,14 @@ export interface StreamHooks {
   onDrop: (error: Error) => void;
 }
 
-/**
- * Opens the underlying frame stream. Production wires this to
- * HardenedStreamer.open so the stream self-heals; the hooks report
- * reconnect transitions back to the streamer.
- */
+/** Opens the underlying frame stream. */
 export interface StreamOpener {
   (config: StreamerConfig, hooks: StreamHooks): Promise<Base>;
 }
 
 /**
  * Receives every channel that changed on the shared stream, which may include
- * keys the handler did not subscribe to. Handlers look up the keys they care
- * about; per-handler filtered maps would allocate on the hot path.
+ * keys the handler did not subscribe to.
  */
 export type StreamHandler = (data: Map<channel.Key, MultiSeries>) => void;
 
@@ -160,9 +155,8 @@ export class Streamer {
       throw new UnexpectedError("stream() called on a closed telemetry streamer");
     const { cache, instrumentation: ins } = this.props;
     ins.L.debug("adding stream handler", { keys });
-    // Hand the handler existing dynamic buffers so late subscribers render buffered
-    // data immediately. This runs before registration so a throwing handler leaves
-    // no demand behind.
+    // Deliver existing buffers before registration so a throwing handler leaves no
+    // demand behind.
     const initial: Map<channel.Key, MultiSeries> = new Map(
       keys.map((key) => [
         key,
@@ -197,17 +191,21 @@ export class Streamer {
     this.reconcileTimer = null;
     await this.connMu.runExclusive(async () => {
       this.connMu.closed = true;
-      const prev = this.streamer;
-      const prevLoop = this.runLoop;
-      this.streamer = null;
-      this.runLoop = null;
       try {
-        prev?.close();
-        if (prevLoop != null) await prevLoop;
+        await this.releaseStream();
       } catch (e) {
         ins.L.error("failed to close streamer", { error: e });
       }
     });
+  }
+
+  private async releaseStream(): Promise<void> {
+    const prev = this.streamer;
+    const prevLoop = this.runLoop;
+    this.streamer = null;
+    this.runLoop = null;
+    prev?.close();
+    if (prevLoop != null) await prevLoop;
   }
 
   private remove(entry: Entry): void {
@@ -245,7 +243,6 @@ export class Streamer {
         try {
           handler(key, next);
         } catch (err) {
-          // A subscriber bug must not be mistaken for a stream failure.
           this.props.instrumentation.L.error(
             "status handler failed",
             { error: err },
@@ -264,14 +261,9 @@ export class Streamer {
       const desired = this.desiredKeys();
       try {
         if (desired.size === 0) {
-          const prev = this.streamer;
-          const prevLoop = this.runLoop;
-          this.streamer = null;
-          this.runLoop = null;
           this.sentKeys = new Set();
           this.statuses.clear();
-          prev?.close();
-          if (prevLoop != null) await prevLoop;
+          await this.releaseStream();
           this.breaker.reset();
           ins.L.info("streamer closed, no keys to stream");
           return;
@@ -288,8 +280,10 @@ export class Streamer {
           const streamer = await this.props.openStreamer(
             { channels: arrKeys, throttleRate: THROTTLE_RATE },
             {
-              onReopen: () => this.handleReopen(),
-              onDrop: () => this.handleDrop(),
+              onReopen: () =>
+                this.sentKeys.forEach((key) => this.setStatus(key, STREAMING)),
+              onDrop: () =>
+                this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING)),
             },
           );
           this.streamer = streamer;
@@ -302,9 +296,8 @@ export class Streamer {
           await this.streamer.update(arrKeys);
         }
         this.sentKeys = desired;
-        // Keys already on the stream keep their status: the run loop and the
-        // drop/reopen hooks own it, and an unrelated demand change must not clear a
-        // per-key error.
+        // Existing keys keep their status so a demand change cannot clear a per-key
+        // error.
         fresh.forEach((key) => this.setStatus(key, STREAMING));
         this.statuses.forEach((_, key) => {
           if (!desired.has(key)) this.statuses.delete(key);
@@ -321,14 +314,6 @@ export class Streamer {
     });
     if (!retry || this.connMu.closed) return;
     if (await this.breaker.wait()) this.scheduleReconcile(TimeSpan.ZERO);
-  }
-
-  private handleDrop(): void {
-    this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING));
-  }
-
-  private handleReopen(): void {
-    this.sentKeys.forEach((key) => this.setStatus(key, STREAMING));
   }
 
   private async run(streamer: Base): Promise<void> {
@@ -349,7 +334,6 @@ export class Streamer {
             changed.set(k, cache.get(k).writeDynamic(new MultiSeries(series)));
             this.setStatus(k, STREAMING);
           } catch (e) {
-            // One channel's write failure must not stop the stream for the rest.
             this.setStatus(k, status.fromException(e, "failed to buffer channel"));
           }
         });
@@ -359,7 +343,6 @@ export class Streamer {
             try {
               e.handler(changed);
             } catch (err) {
-              // A subscriber bug must not restart the shared stream.
               ins.L.error("stream handler failed", { error: err }, true);
             }
           });
@@ -367,8 +350,7 @@ export class Streamer {
     } catch (e) {
       ins.L.error("streamer run loop failed", { error: e }, true);
     } finally {
-      // A loop that ends while demand remains is an outage, not a shutdown:
-      // schedule a repair instead of leaving the stream silently dead.
+      // A loop that ends while demand remains is an outage, not a shutdown.
       if (!this.connMu.closed && this.streamer === streamer) {
         this.streamer = null;
         this.runLoop = null;

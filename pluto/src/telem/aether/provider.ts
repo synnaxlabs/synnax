@@ -14,12 +14,12 @@ import { aether } from "@/aether/aether";
 import { synnax } from "@/synnax/aether";
 import { Context, CONTEXT_KEY, setContext } from "@/telem/aether/context";
 import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
-import { CompoundFactory, createFactory, type Factory } from "@/telem/aether/factory";
-import { NoopFactory } from "@/telem/aether/noop";
-import { PipelineFactory } from "@/telem/aether/pipeline";
-import { type Client, RemoteFactory } from "@/telem/aether/remote";
-import { StaticFactory } from "@/telem/aether/static";
-import { TransformerFactory } from "@/telem/aether/transformers";
+import {
+  type CompoundFactory,
+  createFactory,
+  type Factory,
+} from "@/telem/aether/factory";
+import { type Client } from "@/telem/aether/remote";
 
 export type ProviderState = z.input<typeof providerStateZ>;
 export const providerStateZ = z.object({});
@@ -34,7 +34,7 @@ export const createProvider = (
     static readonly stateZ = providerStateZ;
     schema = BaseProvider.stateZ;
     prevCore: Synnax | null = null;
-    feed: framer.Feed | null = null;
+    private feed: framer.Feed | null = null;
 
     afterUpdate(ctx: aether.Context): void {
       const core = synnax.use(ctx);
@@ -44,8 +44,7 @@ export const createProvider = (
       this.closeFeed();
       let client: Client | null = null;
       if (core != null) {
-        // The feed caches series in the representation this thread renders, so
-        // the GL transform is applied here rather than at connection time.
+        // The feed caches series in the representation this thread renders.
         this.feed = core.openFeed({ transform: GL_TRANSFORM });
         client = { feed: this.feed, channels: core.channels };
       }
@@ -57,9 +56,8 @@ export const createProvider = (
     }
 
     private closeFeed(): void {
-      const { feed } = this;
+      this.feed?.close().catch(console.error);
       this.feed = null;
-      feed?.close().catch(console.error);
     }
   }
   return BaseProvider;
@@ -76,13 +74,10 @@ export type FactoryConstructor = (client: Client | null) => Factory;
 export const createRegistry = (
   ...factoryConstructors: FactoryConstructor[]
 ): aether.ComponentRegistry => {
-  const create = (client: Client | null): CompoundFactory => {
-    const base = [new TransformerFactory(), new StaticFactory(), new NoopFactory()];
-    const f = new CompoundFactory(base);
-    f.add(new RemoteFactory(client));
-    for (const constructor of factoryConstructors) f.add(constructor(client));
-    f.add(new PipelineFactory(f));
-    return f;
-  };
+  const create = (client: Client | null): CompoundFactory =>
+    createFactory(
+      client,
+      factoryConstructors.map((c) => c(client)),
+    );
   return { [PROVIDER_TYPE]: createProvider(create) };
 };

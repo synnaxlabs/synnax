@@ -8,18 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Series } from "@synnaxlabs/x";
+import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { bench, describe } from "vitest";
 
 import { type channel } from "@/channel";
 import { payloadZ } from "@/channel/types.gen";
 import { WriteAdapter } from "@/framer/adapter";
-import { allocSuiteAsync, makeKeys } from "@/framer/benchutil";
+import { createKeys } from "@/framer/benchutil";
 import { Frame } from "@/framer/frame";
 
 const CHANNELS = 10;
 const SAMPLES = 100;
 
-const keys = makeKeys(CHANNELS);
+const keys = createKeys(CHANNELS);
 const payloads: channel.Payload[] = keys.map((key) =>
   payloadZ.parse({ key, name: `ch_${key}`, dataType: DataType.FLOAT32.toString() }),
 );

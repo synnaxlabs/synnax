@@ -34,10 +34,7 @@ export interface CacheParams {
   openStreamer: framer.StreamOpener | null;
   /** Retry behavior for change-stream reconnect attempts. */
   breaker?: breaker.Config;
-  /**
-   * Called whenever the change stream goes live: after the initial open and
-   * on every reconnect, before reconciliation begins.
-   */
+  /** Called whenever the change stream goes live, before reconciliation begins. */
   onStreamLive?: () => void;
   /** Called when the change stream fails and reconnection begins. */
   onStreamDrop?: (error: Error) => void;

@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
+import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { bench, describe } from "vitest";
 
 import { type channel } from "@/channel";
-import { allocSuiteAsync, makeFrameSequence, makeKeys } from "@/framer/benchutil";
+import { createKeys, createSequence } from "@/framer/benchutil";
 import { Cache } from "@/framer/cache/cache";
 import { Streamer } from "@/framer/cache/streamer";
 import { type Frame } from "@/framer/frame";
@@ -87,8 +88,8 @@ const BENCH_OPTS = { warmupIterations: 1, iterations: 3, time: 0 };
 
 describe("ingest", () => {
   {
-    const keys = makeKeys(100);
-    const frames = makeFrameSequence(keys, 10, 500);
+    const keys = createKeys(100);
+    const frames = createSequence(keys, 10, 500);
     bench(
       "500fr x 100ch x 10smp, 1 handler",
       async () => await runIngest(frames, keys, 1),
@@ -101,8 +102,8 @@ describe("ingest", () => {
     );
   }
   {
-    const keys = makeKeys(1000);
-    const frames = makeFrameSequence(keys, 1, 100);
+    const keys = createKeys(1000);
+    const frames = createSequence(keys, 1, 100);
     bench(
       "100fr x 1000ch x 1smp, 1 handler",
       async () => await runIngest(frames, keys, 1),
@@ -112,8 +113,8 @@ describe("ingest", () => {
 });
 
 {
-  const keys = makeKeys(100);
-  const frames = makeFrameSequence(keys, 10, 100);
+  const keys = createKeys(100);
+  const frames = createSequence(keys, 10, 100);
   await allocSuiteAsync(
     "streamer ingest 100fr x 100ch x 10smp",
     [["1 handler", async () => await runIngest(frames, keys, 1)]],

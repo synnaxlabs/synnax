@@ -19,7 +19,7 @@ import {
 
 import { type channel } from "@/channel";
 import { analyzeParams } from "@/channel/payload";
-import { type RetrieveChannels } from "@/framer/adapter";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
@@ -35,7 +35,7 @@ export const TYPE_ONTOLOGY_ID = ontologyID("");
 export interface ClientConfig {
   stream: WebSocketClient;
   unary: UnaryClient;
-  retrieveChannels: RetrieveChannels;
+  retrieveChannels: ChannelRetriever;
 }
 
 export class Client {
@@ -99,10 +99,8 @@ export class Client {
   }
 
   /**
-   * Opens a feed wired to this client: cached historical reads and durable
-   * multiplexed subscriptions over one shared stream. Construction is
-   * synchronous and network-free; the underlying stream opens on first demand.
-   * The caller owns the feed and must close it.
+   * Opens a feed over this client. The underlying stream opens on first demand;
+   * the caller must close the feed.
    */
   openFeed(options: FeedOptions = {}): Feed {
     return new Feed({
