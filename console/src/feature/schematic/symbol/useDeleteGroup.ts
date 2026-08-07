@@ -17,7 +17,10 @@ export const useDeleteGroup = (): ((group: group.Group) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
-  const confirmDelete = useConfirmDelete({ type: "Group" });
+  const confirmDelete = useConfirmDelete({
+    type: "Schematic.Symbols.Group",
+    icon: "Group",
+  });
   return useCallback(
     (g: group.Group) => {
       handleError(async () => {
