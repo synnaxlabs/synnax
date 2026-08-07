@@ -160,16 +160,9 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 			t.Config = data
 		}
 	} else {
-		if recordExists && existing.Type != t.Type {
-			oldStore, ok := w.configs.Store(ontology.ResourceType(existing.Type))
-			if ok {
-				if err := oldStore.Delete(ctx, w.tx, recordKey); err != nil {
-					return err
-				}
-			}
-			recordExists = false
-		}
-		if !recordExists {
+		typeChanged := recordExists && existing.Type != t.Type
+		oldRecordKey := recordKey
+		if !recordExists || typeChanged {
 			recordKey = uuid.New()
 		}
 		if err := store.Write(ctx, w.tx, recordKey, t.Config); err != nil {
@@ -184,6 +177,16 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		t.Config = canonical
 		if t.ConfigHash, err = hashConfig(configContent(canonical)); err != nil {
 			return err
+		}
+		// Delete the old type's record only after the new config is stored, so a
+		// rejected config cannot destroy the prior one.
+		if typeChanged {
+			oldStore, ok := w.configs.Store(ontology.ResourceType(existing.Type))
+			if ok {
+				if err := oldStore.Delete(ctx, w.tx, oldRecordKey); err != nil {
+					return err
+				}
+			}
 		}
 		recordExists = true
 	}

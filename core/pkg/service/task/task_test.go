@@ -356,6 +356,26 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 		It(
+			"Should keep the old record when a type change's config is rejected",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Type:   testType,
+					Rack:   testRack.Key,
+					Name:   "Type Change Task",
+					Config: msgpack.EncodedJSON{"routing_key": "rk-keep"},
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				key := recordKey(ctx, t)
+				changed := *t
+				changed.Type = string(ontology.ResourceTypeArcTask)
+				changed.Config = msgpack.EncodedJSON{"text": math.NaN()}
+				Expect(w.Create(ctx, &changed)).To(MatchError(validate.ErrValidation))
+				store := MustBeOk(configs.Store(testType))
+				data := MustSucceed(store.Read(ctx, tx, key))
+				Expect(data).To(HaveKeyWithValue("routing_key", "rk-keep"))
+			},
+		)
+		It(
 			"Should compose the stored config on retrieve",
 			func(ctx SpecContext) {
 				t := &task.Task{
