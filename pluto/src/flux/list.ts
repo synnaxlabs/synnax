@@ -161,24 +161,25 @@ export const createList =
       [],
     );
 
-    const getInitialData = (): Key[] | undefined => {
-      if (!useCachedList || getCached == null) return undefined;
-      const query = queryRef.current ?? normalized({} as Query);
-      if (client == null) return undefined;
-      const cached = getCached({
-        client,
-        query,
-      });
-      if (!isLive(cached)) return undefined;
-      let items = cached.filter(filterRef.current);
-      if (sortRef.current != null) items = [...items].sort(sortRef.current);
-      if (items.length === 0) return undefined;
-      items.forEach((v) => dataRef.current.set(v.key, v));
-      return items.map((v) => v.key);
-    };
+    const readCache = useCallback(
+      (query: Query): Key[] | undefined => {
+        if (!useCachedList || getCached == null || client == null) return undefined;
+        const cached = getCached({ client, query });
+        if (!isLive(cached)) return undefined;
+        let items = cached.filter(filterRef.current);
+        if (sortRef.current != null) items = [...items].sort(sortRef.current);
+        if (items.length === 0) return undefined;
+        items.forEach((v) => dataRef.current.set(v.key, v));
+        return items.map((v) => v.key);
+      },
+      [client, useCachedList],
+    );
 
     const [result, setResult, resultRef] = useCombinedStateAndRef<Result<Key[]>>(() =>
-      loadingResult<Key[]>(`retrieving ${name}`, getInitialData()),
+      loadingResult<Key[]>(
+        `retrieving ${name}`,
+        readCache(queryRef.current ?? normalized({} as Query)),
+      ),
     );
     const hasMoreRef = useRef(true);
 
@@ -433,11 +434,37 @@ export const createList =
       };
     }, []);
 
-    const retrieveSync = useDebouncedCallback(
+    // Seeds a cold list from the cached answer for the exact query the debounced
+    // retrieve will fetch, so a remount paints before the network round trip. The
+    // fetch that follows reconciles membership. Setters must be pure: the
+    // debounced retrieve executes the setter again.
+    const seedFromCache = useCallback(
+      (paramsSetter: state.SetArg<Query, Query | {}>) => {
+        if (resultRef.current.data != null) return;
+        const query = normalized(
+          state.executeSetter(paramsSetter, queryRef.current ?? {}),
+        );
+        const keys = readCache(query);
+        if (keys == null) return;
+        keys.forEach(notifyListeners);
+        setResult(loadingResult(`retrieving ${name}`, keys));
+      },
+      [readCache, notifyListeners, name],
+    );
+
+    const debouncedRetrieve = useDebouncedCallback(
       (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) =>
         void retrieveAsync(query, options),
       retrieveDebounce,
       [retrieveAsync],
+    );
+
+    const retrieveSync = useCallback(
+      (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) => {
+        seedFromCache(query);
+        debouncedRetrieve(query, options);
+      },
+      [seedFromCache, debouncedRetrieve],
     );
 
     return {
