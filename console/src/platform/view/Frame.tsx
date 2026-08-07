@@ -77,7 +77,7 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
   const staticViewKeys = useMemo(() => staticViews.map((v) => v.key), [staticViews]);
   const [selected, setSelected] = useState(staticViews[0].key);
   const hasUpdatePermission = Access.useUpdateGranted(view.ontologyID(selected));
-  const [editable, setEditable] = useState(hasUpdatePermission);
+  const [editable, setEditable] = useState(false);
   const getInitialView = useCallback(() => {
     const view = getItem(selected);
     if (view == null) throw new UnexpectedError("No view found");

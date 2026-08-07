@@ -51,7 +51,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
     const client = Synnax.use();
     const clientExists = client != null;
     const { form, save, variant } = Ranger.useForm({
-      query: { key: rangeKey },
+      query: rangeKey == null ? null : { key: rangeKey },
       autoSave: false,
       initialValues: {
         key: rangeKey ?? uuid.create(),

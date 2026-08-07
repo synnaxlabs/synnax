@@ -11,7 +11,31 @@ import { type label } from "@synnaxlabs/client";
 import { Flex, Form, Icon, Label, Tag } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Errors } from "@/platform/errors";
 import { View } from "@/platform/view";
+
+interface TagsProps {
+  keys: label.Key[];
+  onClose?: (key: label.Key) => void;
+}
+
+const Tags = ({ keys, onClose }: TagsProps): ReactElement => {
+  const labels = Label.useMultiple({ keys });
+  return (
+    <>
+      {labels.map(({ color, key, name }) => (
+        <Tag.Tag
+          key={key}
+          color={color}
+          size="small"
+          onClose={onClose == null ? undefined : () => onClose(key)}
+        >
+          {name}
+        </Tag.Tag>
+      ))}
+    </>
+  );
+};
 
 export const Chips = (): ReactElement | null => {
   const { editable } = View.useContext();
@@ -19,8 +43,7 @@ export const Chips = (): ReactElement | null => {
     optional: true,
   });
   const hasLabels = field?.value;
-  const labels = Label.useRetrieveMultiple({ keys: hasLabels ?? [] }).data ?? [];
-  if (labels.length === 0 || field == null || hasLabels == null) return null;
+  if (field == null || hasLabels == null || hasLabels.length === 0) return null;
   const handleClose = (key: label.Key) =>
     field.onChange(hasLabels.filter((l) => l !== key));
   return (
@@ -29,16 +52,9 @@ export const Chips = (): ReactElement | null => {
         <Icon.Label />
         Labels
       </View.FilterChip>
-      {labels.map(({ color, key, name }) => (
-        <Tag.Tag
-          key={key}
-          color={color}
-          size="small"
-          onClose={editable ? () => handleClose(key) : undefined}
-        >
-          {name}
-        </Tag.Tag>
-      ))}
+      <Errors.SuspenseBoundary loading={null}>
+        <Tags keys={hasLabels} onClose={editable ? handleClose : undefined} />
+      </Errors.SuspenseBoundary>
     </Flex.Box>
   );
 };

@@ -513,5 +513,15 @@ describe("cached reads", () => {
       expect(res.find((c) => c.key === a.key)?.alias).toEqual(alias);
       expect(res.find((c) => c.key === b.key)?.alias).toBeUndefined();
     });
+
+    it("does not approximate an unfetched keys request under a range", async () => {
+      const ch = await createVirtual();
+      const rng = await createRange();
+      await client.channels.retrieve(ch.key);
+      expect(query.isLive(client.channels.getCached({ keys: [ch.key] }))).toBe(true);
+      expect(
+        client.channels.getCached({ keys: [ch.key], rangeKey: rng.key }),
+      ).toBeUndefined();
+    });
   });
 });

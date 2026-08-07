@@ -47,7 +47,7 @@ interface ListItemProps extends PList.ItemProps<string> {}
 
 const ListItem = (props: ListItemProps): ReactElement | null => {
   const { itemKey } = props;
-  const entry = LinePlot.useSelectRule({ ruleKey: itemKey });
+  const entry = LinePlot.useRule({ ruleKey: itemKey });
   const dispatch = LinePlot.useSingleDispatch();
   const handleChangeLabel = (label: string): void =>
     dispatch(lineplot.setRuleLabel({ key: itemKey, label }));
@@ -151,8 +151,8 @@ interface DetailsProps {
 }
 
 const Details = ({ ruleKey }: DetailsProps): ReactElement | null => {
-  const rule = LinePlot.useSelectRule({ ruleKey });
-  const axes = LinePlot.useSelectAxes();
+  const rule = LinePlot.useRule({ ruleKey });
+  const axes = LinePlot.useAxes();
   const dispatch = LinePlot.useSingleDispatch();
 
   const handleChangeLabel = (label: string): void =>
@@ -224,8 +224,8 @@ const Details = ({ ruleKey }: DetailsProps): ReactElement | null => {
 
 export const Annotations = (): ReactElement => {
   const key = LinePlot.useKey();
-  const axes = LinePlot.useSelectAxes();
-  const rules = LinePlot.useSelectRules();
+  const axes = LinePlot.useAxes();
+  const rules = LinePlot.useRules();
   const selectedRuleKeys = Session.LinePlot.useSelectSelectedRules();
   const dispatchSession = useDispatch();
   const dispatch = LinePlot.useSingleDispatch();

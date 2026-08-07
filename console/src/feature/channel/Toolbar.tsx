@@ -43,7 +43,7 @@ const Actions = (): ReactElement | null => {
 };
 
 const Content = (): ReactElement => {
-  const { data: g } = Channel.useRetrieveGroup({});
+  const { data: g } = Channel.useResultGroup({});
   const root = useMemo(() => (g == null ? null : group.ontologyID(g.key)), [g?.key]);
   return (
     <Toolbar.Content>
@@ -51,7 +51,9 @@ const Content = (): ReactElement => {
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Actions />
       </Toolbar.Header>
-      <Tree.Tree root={root} emptyContent={<EmptyContent />} />
+      <Toolbar.Body>
+        <Tree.Tree root={root} emptyContent={<EmptyContent />} />
+      </Toolbar.Body>
     </Toolbar.Content>
   );
 };

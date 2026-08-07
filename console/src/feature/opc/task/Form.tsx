@@ -20,7 +20,7 @@ import {
   Select,
   Text,
 } from "@synnaxlabs/pluto";
-import { useCallback, useState } from "react";
+import { type FC, useCallback, useState } from "react";
 
 import {
   Browser,
@@ -29,7 +29,8 @@ import {
   type HaulItem,
   isHaulItem,
 } from "@/feature/opc/device/Browser";
-import * as Device from "@/feature/opc/device/types";
+import { use } from "@/feature/opc/device/queries";
+import type * as Device from "@/feature/opc/device/types";
 import { useConnectModal } from "@/feature/opc/device/useConnectModal";
 import { type Channel } from "@/feature/opc/task/types";
 import { CSS } from "@/platform/css";
@@ -203,33 +204,40 @@ export interface FormProps<C extends Channel> extends Required<
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
-export const Form = <C extends Channel>({
+interface BodyProps<C extends Channel>
+  extends FormProps<C>, PlatformDevice.TaskFormContentProps<Device.Device> {}
+
+const Body = <C extends Channel>({
+  device,
   convertHaulItemToChannel,
   children = () => null,
   getChannelKeyAndID,
   contextMenuItems,
-}: FormProps<C>) => {
+}: BodyProps<C>) => {
   const isSnapshot = Task.useIsSnapshot();
-  const connect = useConnectModal();
   return (
-    <PlatformDevice.Provider
-      canConfigure={!isSnapshot}
-      onConfigure={(deviceKey) => connect({ deviceKey })}
-      schemas={Device.SCHEMAS}
-    >
-      {({ device }) => (
-        <>
-          {!isSnapshot && <Browser device={device} />}
-          <ChannelList<C>
-            device={device}
-            convertHaulItemToChannel={convertHaulItemToChannel}
-            getChannelKeyAndID={getChannelKeyAndID}
-            contextMenuItems={contextMenuItems}
-          >
-            {children}
-          </ChannelList>
-        </>
-      )}
-    </PlatformDevice.Provider>
+    <>
+      {!isSnapshot && <Browser device={device} />}
+      <ChannelList<C>
+        device={device}
+        convertHaulItemToChannel={convertHaulItemToChannel}
+        getChannelKeyAndID={getChannelKeyAndID}
+        contextMenuItems={contextMenuItems}
+      >
+        {children}
+      </ChannelList>
+    </>
   );
+};
+
+export const createForm = <C extends Channel>(props: FormProps<C>): FC<{}> => {
+  const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => (
+    <Body<C> device={device} {...props} />
+  );
+  Content.displayName = "OPCTaskForm";
+  return PlatformDevice.wrapTaskForm({
+    use,
+    useConfigure: useConnectModal,
+    Content,
+  });
 };
