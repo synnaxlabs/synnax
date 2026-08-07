@@ -296,6 +296,11 @@ describe("value/aether/Value", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
+    // The worker draws the value, so a transition must not cost a state push.
+    it("should keep staleness off the state that crosses to the DOM", () => {
+      expect(value.Value.z.parse({ box: box.ZERO })).not.toHaveProperty("stale");
+    });
+
     it("should stay live before the source has ever sent", () => {
       const stale = color.construct("#ff0000");
       const { component, recorder } = setup({

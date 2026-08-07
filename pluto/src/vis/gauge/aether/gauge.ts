@@ -29,7 +29,7 @@ export const GAUGE_SIZES = {
 export type GaugeSize = keyof typeof GAUGE_SIZES;
 export const gaugeSizeZ = z.enum(["small", "medium", "large", "huge"]);
 
-const gaugeState = staleness.stateZ.extend({
+const gaugeState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   level: text.levelZ.default("p"),
@@ -59,6 +59,8 @@ interface InternalState {
   draw2d: Draw2D;
   stopListening?: () => void;
   staleness: staleness.Registration;
+  // Staleness stays on the worker here, which draws the gauge itself.
+  stale: boolean;
   requestRender: render.Requestor | null;
   textColor: color.Color;
   strokeColor: color.Color;
@@ -93,13 +95,14 @@ export class Gauge
     if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
+    i.stale ??= false;
     i.staleness = staleness.useRegistration(ctx, i.staleness, {
       timeout: () => this.state.stalenessTimeout,
-      stale: () => this.state.stale,
+      stale: () => this.internal.stale,
       // A transition needs a repaint of its own: with the source quiet, nothing else
       // asks the canvas to redraw.
       onChange: (stale) => {
-        this.setState((p) => ({ ...p, stale }));
+        this.internal.stale = stale;
         this.requestRender();
       },
     });
@@ -183,7 +186,7 @@ export class Gauge
     const range = upper - lower;
     const valueRatio = range === 0 ? 0 : (clampedValue - lower) / range;
     const valueAngle = i.gaugeStartAngle + valueRatio * i.gaugeAngleRange;
-    const staleColor = this.state.stale
+    const staleColor = this.internal.stale
       ? staleness.resolveColor(this.state.stalenessColor, i.theme)
       : undefined;
 

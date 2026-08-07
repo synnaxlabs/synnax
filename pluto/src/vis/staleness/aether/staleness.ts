@@ -18,13 +18,19 @@ const CONTEXT_KEY = "pluto-vis-staleness";
 /// Seconds without a sample before a source is considered stale.
 export const DEFAULT_TIMEOUT = 5;
 
-/// stateZ carries the staleness fields a source-backed component adds to its own state.
-/// Components that resolve the stale color on the worker add stalenessColor themselves;
-/// DOM-rendered ones read it from their config instead.
-export const stateZ = z.object({
+/// configZ carries the staleness config every source-backed component adds to its own
+/// state. Components that resolve the stale color on the worker add stalenessColor
+/// themselves; DOM-rendered ones read it from their config instead.
+export const configZ = z.object({
+  stalenessTimeout: z.number().default(DEFAULT_TIMEOUT),
+});
+
+/// stateZ adds the reported staleness, which crosses to the DOM on every transition.
+/// Extend it only when the DOM half renders the stale state. A component that draws on
+/// the worker extends configZ and keeps staleness in its internal state.
+export const stateZ = configZ.extend({
   // stale reports that no sample has arrived within stalenessTimeout.
   stale: z.boolean().default(false),
-  stalenessTimeout: z.number().default(DEFAULT_TIMEOUT),
 });
 
 export interface EntryProps {
@@ -72,6 +78,12 @@ const providerStateZ = z.object({
 
 /**
  * Provider turns a registered source stale when no sample arrives within its timeout.
+ *
+ * Staleness measures arrival, not sample time. It answers "is this source still
+ * sending", not "is the newest sample recent". A source that delivers old data keeps
+ * reading live, and a source that sends more slowly than its timeout reads stale even
+ * while it is healthy. Give a source that sends on change a timeout longer than the
+ * longest gap you expect between changes.
  *
  * One periodic sweep serves every source below the Provider, so the cost stays flat as
  * sources and sample rates grow. The sweep compares against the monotonic clock, so a

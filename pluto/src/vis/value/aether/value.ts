@@ -25,7 +25,7 @@ const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 // swapped for a legible gray. Rough guard, tune later.
 const MIN_LEGIBLE_CONTRAST = 1.1;
 
-const valueState = staleness.stateZ.extend({
+const valueState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
@@ -63,6 +63,8 @@ interface InternalState {
   textColor: color.Color;
   fontString: string;
   staleness: staleness.Registration;
+  // Staleness stays on the worker here, which draws the value itself.
+  stale: boolean;
 }
 
 export class Value
@@ -79,13 +81,14 @@ export class Value
     i.theme = theming.use(ctx);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
+    i.stale ??= false;
     i.staleness = staleness.useRegistration(ctx, i.staleness, {
       timeout: () => this.state.stalenessTimeout,
-      stale: () => this.state.stale,
+      stale: () => this.internal.stale,
       // A transition needs a repaint of its own: with the source quiet, nothing else
       // asks the canvas to redraw.
       onChange: (stale) => {
-        this.setState((p) => ({ ...p, stale }));
+        this.internal.stale = stale;
         this.requestRender();
       },
     });
@@ -144,7 +147,7 @@ export class Value
 
   private getTextColor(): color.Color {
     const { theme } = this.internal;
-    if (this.state.stale)
+    if (this.internal.stale)
       return staleness.resolveColor(this.state.stalenessColor, theme);
 
     // gray.l0 is the background the text renders on; gray.l11 is the
