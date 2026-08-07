@@ -31,6 +31,7 @@ import { type FC, useCallback } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
 import { DriftBadge } from "@/platform/task/DriftBadge";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
@@ -199,7 +200,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               grow
               empty
             >
-              <Form status={status} {...form} />
+              <Errors.SuspenseBoundary>
+                <Form status={status} {...form} />
+              </Errors.SuspenseBoundary>
             </Flex.Box>
             {showControls && (
               <Controls.Controls

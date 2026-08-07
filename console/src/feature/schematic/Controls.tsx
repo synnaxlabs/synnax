@@ -36,7 +36,7 @@ const ControlToggleButton = (): ReactElement => {
 };
 
 export const Controls = memo((): ReactElement => {
-  const isSnapshot = Schematic.useSelectSnapshot();
+  const isSnapshot = Schematic.useIsSnapshot();
   const isAcquired = Session.Schematic.useSelectControlIsAcquired();
   const { canEdit, isCurrentlyEditable } = Session.Schematic.useSelectEditable();
   return (

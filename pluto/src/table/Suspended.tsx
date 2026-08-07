@@ -10,7 +10,7 @@
 import { type table } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { useEnsureRetrieved } from "@/table/queries";
+import { useEnsure } from "@/table/queries";
 import { Scope } from "@/table/scope";
 
 export const useKey = Scope.use;
@@ -20,6 +20,6 @@ export interface SuspendedProps extends PropsWithChildren {
 }
 
 export const Suspended = ({ tableKey, children }: SuspendedProps): ReactElement => {
-  useEnsureRetrieved({ key: tableKey });
+  useEnsure({ key: tableKey });
   return <Scope.Provider value={tableKey}>{children}</Scope.Provider>;
 };

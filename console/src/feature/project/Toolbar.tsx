@@ -35,14 +35,16 @@ const Actions = (): ReactElement | null => {
 };
 
 const Content = (): ReactElement => {
-  const { data: groupID } = Project.useRetrieveGroupID({});
+  const { data: groupID } = Project.useResultGroupID({});
   return (
     <Toolbar.Content>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Project />}>Projects</Toolbar.Title>
         <Actions />
       </Toolbar.Header>
-      <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
+      <Toolbar.Body>
+        <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
+      </Toolbar.Body>
     </Toolbar.Content>
   );
 };

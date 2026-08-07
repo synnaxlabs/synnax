@@ -29,9 +29,9 @@ import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
 import {
   useAddNode,
+  useAllEdges,
+  useAllNodes,
   useRedo,
-  useSelectAllEdges,
-  useSelectAllNodes,
   useSingleDispatch,
   useUndo,
 } from "@/schematic/queries";
@@ -70,9 +70,9 @@ export const Schematic = ({
   ...props
 }: SchematicProps): ReactElement => {
   const key = useKey();
-  const nodes = useSelectAllNodes();
+  const nodes = useAllNodes();
   const nodesRef = useSyncedRef(nodes);
-  const edges = useSelectAllEdges();
+  const edges = useAllEdges();
   const edgesRef = useSyncedRef(edges);
   const dispatch = useSingleDispatch();
   const handleNodesChange = useCallback(

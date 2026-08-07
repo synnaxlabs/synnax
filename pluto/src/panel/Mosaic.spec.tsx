@@ -86,8 +86,8 @@ const records = new Map<string, Recorded>();
 // scope, records it, and renders the visible content text.
 const ResourceContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
-  const type = Panel.useSelectTabType({});
-  const resource = Panel.useSelectTabResource({});
+  const type = Panel.useTabType({});
+  const resource = Panel.useTabResource({});
   records.set(tabKey, { type, resource, args: null });
   return <div>{`${resource.type}:${resource.key}`}</div>;
 };
@@ -96,8 +96,8 @@ const ResourceContentProbe = (): ReactElement => {
 // them, and renders the visible content text.
 const ViewContentProbe = (): ReactElement => {
   const tabKey = Panel.useTabKey();
-  const type = Panel.useSelectTabType({});
-  const args = Panel.useSelectTabArgs({});
+  const type = Panel.useTabType({});
+  const args = Panel.useTabArgs({});
   records.set(tabKey, { type, resource: null, args });
   const text = type === "selector" ? `empty:${tabKey}` : `${type}:${tabKey}`;
   return <div>{text}</div>;
@@ -107,7 +107,7 @@ const ViewContentProbe = (): ReactElement => {
 // selectors, mirroring how production renderers consume the tab scope: only a
 // resource renderer reads the resource, only a view renderer reads the args.
 const TabContentProbe = (): ReactElement => {
-  const variant = Panel.useSelectTabVariant({});
+  const variant = Panel.useTabVariant({});
   if (variant === "resource") return <ResourceContentProbe />;
   return <ViewContentProbe />;
 };
@@ -115,7 +115,7 @@ const TabContentProbe = (): ReactElement => {
 // TabNameProbe reads its tab's type from the surrounding tab scope and renders a name,
 // exercising the scope-based name delivery.
 const TabNameProbe = (): ReactElement => {
-  const type = Panel.useSelectTabType({});
+  const type = Panel.useTabType({});
   return <span>{`name:${type}`}</span>;
 };
 
@@ -133,7 +133,7 @@ const children: Panel.MosaicProps["children"] = () => <TabContentProbe />;
 // trips a React 19 dev-mode replay bug for hooks declared after the
 // suspension point.
 const Bootstrap = ({ panelKey }: { panelKey: panel.Key }): ReactElement => {
-  Panel.useEnsureRetrieved({ key: panelKey });
+  Panel.useEnsure({ key: panelKey });
   return <p>loaded</p>;
 };
 

@@ -19,9 +19,9 @@ const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 3 }
 export const Properties = (): ReactElement => {
   const key = Log.useKey();
   const dispatch = Log.useSingleDispatch();
-  const hideChannelNames = Log.useSelectHideChannelNames();
-  const hideReceiptTimestamp = Log.useSelectHideReceiptTimestamp();
-  const timestampPrecision = Log.useSelectTimestampPrecision();
+  const hideChannelNames = Log.useIsHidingChannelNames();
+  const hideReceiptTimestamp = Log.useIsHidingReceiptTimestamp();
+  const timestampPrecision = Log.useTimestampPrecision();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
 
   const handlePrecisionChange = useCallback(

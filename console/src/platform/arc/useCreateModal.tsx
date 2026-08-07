@@ -39,8 +39,6 @@ export interface CreateModalParams {
 
 const MODE_KEYS: arc.Mode[] = ["text", "graph"];
 
-const QUERY: Arc.FormQuery = {};
-
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
   placeholder: "Automation Name",
@@ -88,7 +86,7 @@ const ArcModeSelectButton = ({
 export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModalParams>(
   ({ initialValues, close }) => {
     const { form, save, variant } = Arc.useForm({
-      query: QUERY,
+      query: null,
       initialValues: useMemo(
         () => ({ ...Arc.ZERO_FORM_VALUES, ...initialValues }),
         [initialValues],

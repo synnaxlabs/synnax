@@ -99,7 +99,7 @@ const Tombstone = ({
 // for restorable document types, Restore. Every delete lands here, local or
 // remote; the tab is never closed out from under the user.
 const DeletedContent = ({ name: corpse }: Flux.Tombstone): ReactElement => {
-  const resource = Panel.useSelectTabResource({});
+  const resource = Panel.useTabResource({});
   const closeTabs = Panel.useCloseResourceTabs();
   const { restore, Icon: TabIcon } = useTab();
   const client = Synnax.use();
@@ -142,7 +142,7 @@ const DeletedContent = ({ name: corpse }: Flux.Tombstone): ReactElement => {
 // A reference can permanently outrun its document: the retrieve's not-found
 // wait expired without a create broadcast. Offer to close the tab.
 const NotFoundContent = (): ReactElement => {
-  const resource = Panel.useSelectTabResource({});
+  const resource = Panel.useTabResource({});
   const closeTabs = Panel.useCloseResourceTabs();
   const { Icon: TabIcon } = useTab();
   return (
@@ -190,7 +190,7 @@ const loading = (
 );
 
 const LiveContent = (): ReactElement => {
-  const tabType = Panel.useSelectTabType({});
+  const tabType = Panel.useTabType({});
   const { Content } = useTab();
   // Background tabs stay mounted, so every tab answers a keystroke unless the ones the
   // user is not working in are switched off here.

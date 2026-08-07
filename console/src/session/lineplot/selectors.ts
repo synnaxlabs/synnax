@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot as client } from "@synnaxlabs/client";
-import { LinePlot, Panel as PPanel, type Viewport } from "@synnaxlabs/pluto";
+import { type lineplot as client, panel, query } from "@synnaxlabs/client";
+import { LinePlot, Synnax, type Viewport } from "@synnaxlabs/pluto";
 import { type lineplot } from "@synnaxlabs/pluto/ether";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -112,14 +112,16 @@ export const useSelectAnnotationsVisible = createSelector(selectAnnotationsVisib
 export const useGetFocusedKey = (): (() => client.Key | undefined) => {
   const getSelectedPanel = Panel.useGetSelected();
   const getFocusedTabKey = Panel.useGetFocusedTab();
-  const getTab = PPanel.useGetTab();
+  const synnax = Synnax.use();
   return useCallback(() => {
     const panelKey = getSelectedPanel();
     const tabKey = getFocusedTabKey();
     if (panelKey == null || tabKey == null) return undefined;
-    const tab = getTab({ key: panelKey, tabKey });
-    if (tab.variant === "resource" && tab.resource.type === "lineplot")
+    const cached = synnax?.panels.getCached(panelKey);
+    if (!query.isLive(cached)) return undefined;
+    const tab = panel.findTab(cached.root, tabKey);
+    if (tab?.variant === "resource" && tab.resource.type === "lineplot")
       return tab.resource.key;
     return undefined;
-  }, [getSelectedPanel, getFocusedTabKey, getTab]);
+  }, [getSelectedPanel, getFocusedTabKey, synnax]);
 };

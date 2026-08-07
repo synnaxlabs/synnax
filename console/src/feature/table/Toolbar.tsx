@@ -37,10 +37,10 @@ import { Session } from "@/session";
 
 const Internal = (): ReactElement => {
   const key = Table.useKey();
-  const name = Table.useSelectName();
+  const name = Table.useName();
   const editable = Session.Table.useSelectEditable();
   const selectedCellKeys = Session.Table.useSelectSelectedCellKeys();
-  const cellsByKey = Table.useSelectCells({ cellKeys: selectedCellKeys });
+  const cellsByKey = Table.useCells({ cellKeys: selectedCellKeys });
   const liveCellCount = cellsByKey.size;
   const singleSelectedKey =
     liveCellCount === 1 ? (cellsByKey.keys().next().value ?? null) : null;
@@ -89,7 +89,7 @@ const Internal = (): ReactElement => {
 };
 
 export const Toolbar: Panel.Toolbar = () => {
-  const { key } = PPanel.useSelectTabResource();
+  const { key } = PPanel.useTabResource();
   return (
     <Table.Suspended tableKey={key}>
       <Internal />
@@ -123,7 +123,7 @@ interface CellFormProps {
 }
 
 const CellForm = ({ cellKey }: CellFormProps): ReactElement | null => {
-  const cell = Table.useSelectCell({ cellKey });
+  const cell = Table.useCell({ cellKey });
   const dispatch = Table.useSingleDispatch();
   const theme = Theming.use();
 
@@ -215,7 +215,7 @@ interface MultiCellFormProps {
 }
 
 const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
-  const cellsByKey = Table.useSelectCells({ cellKeys });
+  const cellsByKey = Table.useCells({ cellKeys });
   const dispatch = Table.useSingleDispatch();
   const theme = Theming.use();
 

@@ -13,11 +13,20 @@ import { Button, Flex, Header as PHeader } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 
 export interface ContentProps extends Flex.BoxProps {}
 
 export const Content = (props: ContentProps): ReactElement => (
   <Flex.Box empty y pack full {...props} />
+);
+
+export interface BodyProps extends Errors.SuspenseBoundaryProps {}
+
+/** Suspension and error scope for everything below a toolbar's header, so a slow or
+ * failing read leaves the header painted. */
+export const Body = (props: BodyProps): ReactElement => (
+  <Errors.SuspenseBoundary {...props} />
 );
 
 export interface HeaderProps extends PHeader.HeaderProps {}
