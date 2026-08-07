@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
+	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
@@ -269,27 +270,27 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// SCHEMATIC SYMBOL
-		SchematicCreateSymbol: http.NewUnaryServer[schematic.CreateSymbolRequest, schematic.CreateSymbolResponse](
+		SchematicSymbolCreate: http.NewUnaryServer[symbol.CreateRequest, symbol.CreateResponse](
 			router,
 			"/api/v1/schematic/symbol/create",
 		),
-		SchematicRetrieveSymbol: http.NewUnaryServer[schematic.RetrieveSymbolRequest, schematic.RetrieveSymbolResponse](
+		SchematicSymbolRetrieve: http.NewUnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse](
 			router,
 			"/api/v1/schematic/symbol/retrieve",
 		),
-		SchematicDeleteSymbol: http.NewUnaryServer[schematic.DeleteSymbolRequest, types.Nil](
+		SchematicSymbolDelete: http.NewUnaryServer[symbol.DeleteRequest, types.Nil](
 			router,
 			"/api/v1/schematic/symbol/delete",
 		),
-		SchematicRenameSymbol: http.NewUnaryServer[schematic.RenameSymbolRequest, types.Nil](
+		SchematicSymbolRename: http.NewUnaryServer[symbol.RenameRequest, types.Nil](
 			router,
 			"/api/v1/schematic/symbol/rename",
 		),
-		SchematicRetrieveSymbolGroup: http.NewUnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse](
+		SchematicSymbolRetrieveGroup: http.NewUnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse](
 			router,
 			"/api/v1/schematic/symbol/retrieve-group",
 		),
-		SchematicExportSymbolGroup: http.NewUnaryServer[schematic.ExportSymbolGroupRequest, schematic.ExportSymbolGroupResponse](
+		SchematicSymbolExportGroup: http.NewUnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse](
 			router,
 			"/api/v1/schematic/symbol/group/export",
 			http.WithResponseEncoders(zip.Encoder),
