@@ -21,12 +21,9 @@ import {
 } from "react";
 
 import { Modals } from "@/platform/modals";
+import { createResourceTab } from "@/platform/panel/testutil";
 import { Session } from "@/session";
-import {
-  type ConsolePreloadedState,
-  createConsoleWrapper,
-  createResourceTab,
-} from "@/testutil";
+import { type ConsolePreloadedState, createConsoleWrapper } from "@/testutil";
 
 export const client = createTestClient();
 
@@ -108,8 +105,8 @@ export const renderTable = async (
     preloadedState: preloadedState?.(created.key),
   });
   await loadTable(Wrapper, created.key);
-  const { panelKey, tabKey } = createResourceTab(
-    Wrapper,
+  const { panelKey, tabKey } = await createResourceTab(
+    client,
     clientTable.ontologyID(created.key),
   );
   const result = render(

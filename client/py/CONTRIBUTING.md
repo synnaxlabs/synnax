@@ -40,5 +40,5 @@ pytest
 ## BEFORE YOU SUBMIT A PULL REQUEST
 
 Make sure you read the
-**[BEFORE YOU SUBMIT A PULL REQUEST](../../docs/tech/python/python.md#before-you-submit-a-pull-request)**
+**[BEFORE YOU SUBMIT A PULL REQUEST](../../docs/tech/python/python.md#5-before-you-submit-a-pull-request)**
 section of the Python Build System Guide.

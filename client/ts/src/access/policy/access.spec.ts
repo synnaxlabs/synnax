@@ -7,11 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { id } from "@synnaxlabs/x";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
 import { AuthError, NotFoundError } from "@/errors";
-import { createTestClient, createTestClientWithPolicy } from "@/testutil";
+import { query } from "@/query";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  expectDeleted,
+  expectLive,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -56,7 +63,7 @@ describe("policy", () => {
         actions: ["retrieve"],
       });
       await expect(
-        userClient.access.policies.retrieve({ key: randomPolicy.key }),
+        userClient.access.policies.retrieve(randomPolicy.key),
       ).rejects.toThrow(AuthError);
     });
 
@@ -71,9 +78,7 @@ describe("policy", () => {
         objects: [],
         actions: ["retrieve"],
       });
-      const retrieved = await userClient.access.policies.retrieve({
-        key: randomPolicy.key,
-      });
+      const retrieved = await userClient.access.policies.retrieve(randomPolicy.key);
       expect(retrieved.key).toBe(randomPolicy.key);
       expect(retrieved.name).toBe(randomPolicy.name);
       expect(retrieved.objects).toEqual(randomPolicy.objects);
@@ -122,7 +127,7 @@ describe("policy", () => {
       });
       await userClient.access.policies.delete(randomPolicy.key);
       await expect(
-        userClient.access.policies.retrieve({ key: randomPolicy.key }),
+        userClient.access.policies.retrieve(randomPolicy.key),
       ).rejects.toThrow(NotFoundError);
     });
 
@@ -141,6 +146,95 @@ describe("policy", () => {
       await expect(userClient.access.policies.delete(randomPolicy.key)).rejects.toThrow(
         AuthError,
       );
+    });
+  });
+});
+
+// A second client with its own cache: its writes reach the first client only
+// through the cluster's change streams, never through a shared cache.
+const remote = createTestClient();
+
+const createPolicy = async (c = client) =>
+  await c.access.policies.create({
+    name: `qry-${id.create()}`,
+    objects: [],
+    actions: ["retrieve"],
+  });
+
+describe("cached reads", () => {
+  // Changes made while the stream is still opening are lost (epoch
+  // reconciliation repairs them in production); open it up front so remote
+  // writes in these specs are always observed.
+  beforeAll(async () => await client.connect());
+
+  describe("retrieve", () => {
+    it("reflects remote changes on an unsubscribed repeat retrieve", async () => {
+      const p = await createPolicy();
+      const first = await client.access.policies.retrieve(p.key);
+      expect(first.name).toEqual(p.name);
+      const renamed = `qry-renamed-${id.create()}`;
+      await remote.access.policies.create({ ...p, name: renamed });
+      // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
+      // and converge on the remote change once it streams in.
+      await expect
+        .poll(async () => (await client.access.policies.retrieve(p.key)).name)
+        .toBe(renamed);
+    });
+
+    it("preserves key order across cached and fetched entries", async () => {
+      const a = await createPolicy();
+      const b = await createPolicy();
+      await client.access.policies.retrieve(b.key);
+      const res = await client.access.policies.retrieve({ keys: [a.key, b.key] });
+      expect(res.map((p) => p.key)).toEqual([a.key, b.key]);
+    });
+  });
+
+  describe("getCached", () => {
+    it("serves a key query straight from the record written by create", async () => {
+      const p = await createPolicy();
+      const cached = expectLive(client.access.policies.getCached(p.key));
+      expect(cached.name).toEqual(p.name);
+    });
+  });
+
+  describe("onChange", () => {
+    it("delivers a remote rename to a subscribed single query", async () => {
+      const p = await createPolicy();
+      const handler = vi.fn();
+      const off = client.access.policies.onChange(p.key, handler);
+      try {
+        await client.access.policies.retrieve(p.key);
+        const renamed = `qry-renamed-${id.create()}`;
+        await remote.access.policies.create({ ...p, name: renamed });
+        await expect
+          .poll(() => {
+            const cached = client.access.policies.getCached(p.key);
+            return query.isLive(cached) && cached.name === renamed;
+          })
+          .toBe(true);
+        expect(handler).toHaveBeenCalled();
+      } finally {
+        off();
+      }
+    });
+
+    it("delivers a remote delete as a deleted result carrying the corpse", async () => {
+      const p = await createPolicy();
+      const results: Array<query.Cached<policy.Policy> | undefined> = [];
+      const off = client.access.policies.onChange(p.key, (r) => results.push(r));
+      try {
+        await client.access.policies.retrieve(p.key);
+        await remote.access.policies.delete(p.key);
+        await expect
+          .poll(() => query.Deleted.matches(client.access.policies.getCached(p.key)))
+          .toBe(true);
+        const last = expectDeleted(results.at(-1));
+        expect(last.corpse.name).toEqual(p.name);
+        await expect(client.access.policies.retrieve(p.key)).rejects.toThrow("deleted");
+      } finally {
+        off();
+      }
     });
   });
 });

@@ -50,6 +50,15 @@ or generator logic and schemas disagree.
 - Migrate wrapper visibility follows consumption (see `plugin/go/migrate`): exported
   when another versioned schema embeds the type; unexported when only the package's own
   gorp wiring or auto-copies call it.
+- `@go imex` (bare marker, requires `@go version`) on an imex-registered resource's root
+  struct emits `imex.gen.go` files across the versions tree: a `Version imex.Version`
+  constant in every `versions/vK` package the Core has exported (from the earliest
+  snapshot carrying the marker up to the current version), plus `Latest` and an
+  `autoDecodeEnvelope` ladder in the versions root that lifts server-era envelopes
+  through the per-bump `Migrate<Type>` steps. Earlier version packages predate Core
+  export and get no constant. The envelope version and migration chain are never
+  hand-maintained; hand `versions/imex.go` files route `> legacy.LastVersion` envelopes
+  to the ladder and keep only frozen Console-era decoding.
 
 ## Tag Minimization
 

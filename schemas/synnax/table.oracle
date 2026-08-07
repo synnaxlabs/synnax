@@ -11,7 +11,7 @@
 @go output "core/pkg/service/table"
 
 Key = uuid {
-    @go version 2
+    @go version 1
     @doc value  "is a unique identifier for a table, represented as a UUID."
 }
 
@@ -36,7 +36,7 @@ Cell struct {
         @ts preserve_case
     }
 
-    @go version 2
+    @go version 1
     @doc value  "is a single cell in a table, identified by key and variant."
 }
 
@@ -62,7 +62,7 @@ Row struct {
         """
     }
 
-    @go version 2
+    @go version 1
     @doc value  "is a single row in a table, with height and ordered cell keys."
 }
 
@@ -71,7 +71,7 @@ Column struct {
         @doc value "is the width of the column in pixels."
     }
 
-    @go version 2
+    @go version 1
     @doc value  "is a single column in a table, with width."
 }
 
@@ -98,6 +98,15 @@ Table struct {
             edit.
         """
         @ts preserve_case
+    }
+
+    action Create {
+        table Table
+
+        @doc value """
+            replaces the document with the given created state. Emitted by the Core on
+            create so remote caches ingest new documents; clients never dispatch it.
+        """
     }
 
     action Rename {
@@ -215,7 +224,7 @@ Table struct {
         """
     }
 
-    @go version    2
+    @go version    1
     @doc value     """
         is a tabular data display component for viewing structured telemetry
         data. Tables support multiple columns, channel data sources, and
@@ -226,4 +235,5 @@ Table struct {
     @create
     @go marshal
     @go migrate
+    @go imex
 }

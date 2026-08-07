@@ -16,18 +16,16 @@ import {
   table,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Access, Flux, type Pluto } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
-import { Schematic } from "@/feature/schematic";
-import { Table } from "@/feature/table";
 import { type Import } from "@/platform/import";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import { assertDefined, createConsoleWrapper, type TestStore } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -35,13 +33,6 @@ const SCHEMATIC_TYPE = "schematic";
 const TABLE_TYPE = "table";
 const OPERATOR_KEY = "34c0a87c-3f72-42d2-8cac-75bc1e2631b1";
 const THERMO_KEY = "cdb27884-a73f-4696-bcee-a71c1f6625bd";
-
-// The real ingesters for these types; the full FILE_INGESTERS registry would drag in
-// the Arc/Monaco editor, which Vitest can't load.
-const FILE_INGESTERS: Import.FileIngesters = {
-  ...Schematic.FILE_INGESTERS,
-  ...Table.FILE_INGESTERS,
-};
 
 const SCHEMATIC_DATA = {
   key: OPERATOR_KEY,
@@ -109,20 +100,19 @@ const legacyLayoutSlice = (): unknown => ({
 
 interface HarnessValue {
   openTab: Panel.OpenTab;
-  fluxStore: Pluto.FluxStore;
   granted: boolean;
 }
 
 const selectImportedProject = (store: TestStore): project.Key => {
   const key = Session.Project.selectOptionalSelected(store.getState());
-  if (key == null) throw new Error("no project selected after import");
+  assertDefined(key, "no project selected after import");
   return key;
 };
 
 const retrieveProjectChildren = async (
   key: project.Key,
 ): Promise<ontology.Resource[]> =>
-  await client.ontology.retrieveChildren(project.ontologyID(key));
+  await client.ontology.children.retrieve({ ids: project.ontologyID(key) });
 
 describe("project import", () => {
   const runImport = async (fileList: Import.File[]): Promise<TestStore> => {
@@ -130,7 +120,6 @@ describe("project import", () => {
     const { result } = renderHook<HarnessValue, unknown>(
       () => ({
         openTab: Panel.useOpenTab(),
-        fluxStore: Flux.useStore<Pluto.FluxStore>(),
         granted: Access.useUpdateGranted(project.TYPE_ONTOLOGY_ID),
       }),
       { wrapper },
@@ -139,10 +128,9 @@ describe("project import", () => {
     await act(async () => {
       await Project.ingest(`proj-${id.create()}`, fileList, {
         client,
-        fileIngesters: FILE_INGESTERS,
+        fileIngesters: {},
         openTab: result.current.openTab,
         store,
-        fluxStore: result.current.fluxStore,
       });
     });
     return store;
@@ -166,20 +154,18 @@ describe("project import", () => {
       .filter(({ id }) => id.type === "panel")
       .map(({ id }) => id.key);
     expect(panelKeys).toHaveLength(1);
-    const [imported] = await client.panels.retrieve(panelKeys);
+    const [imported] = await client.panels.retrieve({ keys: panelKeys });
     expect(imported.name).toBe("Main");
-    if (imported.root.variant !== "leaf") throw new Error("expected a leaf root");
+    assert(imported.root.variant === "leaf", "expected a leaf root");
     const resources = imported.root.tabs.map((tab) => {
-      if (tab.variant !== "resource") throw new Error("expected resource tabs");
+      assert(tab.variant === "resource", "expected resource tabs");
       return tab.resource;
     });
     expect(resources.map(({ type }) => type)).toEqual([SCHEMATIC_TYPE, TABLE_TYPE]);
     const [schematicID, tableID] = resources;
-    const importedSchematic = await client.schematics.retrieve({
-      key: schematicID.key,
-    });
+    const importedSchematic = await client.schematics.retrieve(schematicID.key);
     expect(importedSchematic.name).toBe("Operator");
-    const importedTable = await client.tables.retrieve({ key: tableID.key });
+    const importedTable = await client.tables.retrieve(tableID.key);
     expect(importedTable.name).toBe("Thermocouples");
   });
 

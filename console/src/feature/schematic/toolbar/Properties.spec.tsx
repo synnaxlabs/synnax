@@ -69,7 +69,7 @@ const retrieveConfig = async (
   key: string,
   nodeKey: string,
 ): Promise<Record<string, unknown>> => {
-  const retrieved = await client.schematics.retrieve({ key });
+  const retrieved = await client.schematics.retrieve(key);
   return retrieved.configs[nodeKey];
 };
 

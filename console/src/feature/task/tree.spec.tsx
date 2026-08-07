@@ -54,7 +54,7 @@ const createTask = async () => {
 };
 
 const renderTaskTree = async (t: task.Task) => {
-  const [parent] = await client.ontology.retrieveParents(t.ontologyID);
+  const [parent] = await client.ontology.parents.retrieve({ ids: t.ontologyID });
   const grp = await client.groups.create({
     parent: ontology.ROOT_ID,
     name: uniqueName("taskgrp"),
@@ -163,7 +163,7 @@ describe("task ontology", () => {
       await screen.findByText(`Are you sure you want to delete ${t.name}?`);
       fireEvent.click(findLastButton("Delete"));
       await waitFor(async () => {
-        await expect(client.tasks.retrieve({ key: t.key })).rejects.toSatisfy((e) =>
+        await expect(client.tasks.retrieve(t.key)).rejects.toSatisfy((e) =>
           NotFoundError.matches(e),
         );
       });
@@ -196,7 +196,7 @@ describe("task ontology", () => {
         commitTextEdit(editor, renamed);
       });
       await waitFor(async () =>
-        expect((await client.tasks.retrieve({ key: t.key })).name).toBe(renamed),
+        expect((await client.tasks.retrieve(t.key)).name).toBe(renamed),
       );
     });
 
@@ -213,7 +213,9 @@ describe("task ontology", () => {
       store.dispatch(Session.Range.select(rng.key));
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
-        const children = await client.ontology.retrieveChildren(rng.ontologyID);
+        const children = await client.ontology.children.retrieve({
+          ids: rng.ontologyID,
+        });
         expect(children.some((c) => c.id.type === "task")).toBe(true);
       });
     });

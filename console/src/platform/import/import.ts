@@ -8,14 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
-import { Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
+import { DisconnectedError, project, type Synnax as Client } from "@synnaxlabs/client";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { ZodError } from "zod";
 
 import { useFileIngesters } from "@/platform/import/FileIngestersProvider";
 import {
+  type FileIngester,
   type FileIngesterContext,
   type FileIngesters,
 } from "@/platform/import/ingester";
@@ -23,6 +24,26 @@ import { trimFileName } from "@/platform/import/trimFileName";
 import { Panel } from "@/platform/panel";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
+
+/**
+ * Imports data by streaming its bytes to the Core, which owns envelope decoding, type
+ * resolution for typeless legacy Console states, legacy-version migration, file-name
+ * naming, and project parenting. Opens the created resource as a tab.
+ * @throws {DisconnectedError} if no cluster is connected.
+ */
+export const ingestServer: FileIngester = async (
+  data,
+  { openTab, client, projectKey, fileName },
+) => {
+  if (client == null) throw new DisconnectedError();
+  const id = await client.imex.import(JSON.stringify(data), {
+    encoding: "JSON",
+    fileName,
+    parent: project.ontologyID(projectKey),
+  });
+  openTab({ variant: "resource", resource: id });
+  return id;
+};
 
 export const ingestComponent = async (
   data: unknown,
@@ -39,18 +60,23 @@ export const ingestComponent = async (
     type = data.type;
   if (type != null) {
     const ingest = fileIngesters[type];
-    await ingest(data, ctx);
+    // Types without a client-side ingester are the server's to decode.
+    if (ingest != null) await ingest(data, ctx);
+    else await ingestServer(data, ctx);
     return;
   }
+  // Typeless files are either legacy task configs — client-side ingesters reject
+  // foreign payloads with a ZodError — or legacy Console states, which the server
+  // recognizes by their frozen markers.
   for (const ingest of Object.values(fileIngesters))
     try {
       await ingest(data, ctx);
       return;
     } catch (e) {
       if (e instanceof ZodError) continue;
-      else throw errors.fromUnknown(e);
+      throw errors.fromUnknown(e);
     }
-  throw new Error(`${ctx.fileName} cannot be imported.`);
+  await ingestServer(data, ctx);
 };
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];
@@ -61,7 +87,6 @@ interface ImportComponentParams {
   openTab: Panel.OpenTab;
   store: Store;
   projectKey?: string;
-  fluxStore: Pluto.FluxStore;
   fileIngesters: FileIngesters;
 }
 
@@ -71,7 +96,6 @@ const importComponent = ({
   openTab,
   handleError,
   projectKey,
-  fluxStore,
   fileIngesters,
 }: ImportComponentParams): void => {
   handleError(async () => {
@@ -96,7 +120,6 @@ const importComponent = ({
         await ingestComponent(JSON.parse(data), fileIngesters, {
           name,
           openTab,
-          store: fluxStore,
           client,
           projectKey: activeProjectKeyAfter,
           fileName: file.name,
@@ -111,7 +134,6 @@ export const useImport = (): ((projectKey?: string) => void) => {
   const store = Session.useStore();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const fileIngesters = useFileIngesters();
   return useCallback(
     (projectKey?: string) =>
@@ -121,9 +143,8 @@ export const useImport = (): ((projectKey?: string) => void) => {
         client,
         handleError,
         projectKey,
-        fluxStore,
         fileIngesters,
       }),
-    [store, openTab, client, handleError, fluxStore, fileIngesters],
+    [store, openTab, client, handleError, fileIngesters],
   );
 };

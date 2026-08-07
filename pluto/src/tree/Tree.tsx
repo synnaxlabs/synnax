@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type compare, type record, unique } from "@synnaxlabs/x";
+import { type compare, type record, type state as xstate, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
@@ -54,7 +54,7 @@ export interface UseProps<K extends record.Key = string> {
   onExpand?: (props: HandleExpandProps<K>) => void;
   selected?: K[];
   sort?: compare.Comparator<Node<K>>;
-  onSelectedChange?: state.Setter<K[]>;
+  onSelectedChange?: xstate.Setter<K[]>;
   initialExpanded?: K[];
   nodes: Node<K>[];
 }

@@ -233,7 +233,7 @@ describe("queries", () => {
         await result.current.updateAsync(role.key);
       });
       await waitFor(async () => {
-        await expect(client.access.roles.retrieve({ key: role.key })).rejects.toThrow(
+        await expect(client.access.roles.retrieve(role.key)).rejects.toThrow(
           NotFoundError,
         );
       });
@@ -254,10 +254,10 @@ describe("queries", () => {
         await result.current.updateAsync([role1.key, role2.key]);
       });
       await waitFor(async () => {
-        await expect(client.access.roles.retrieve({ key: role1.key })).rejects.toThrow(
+        await expect(client.access.roles.retrieve(role1.key)).rejects.toThrow(
           NotFoundError,
         );
-        await expect(client.access.roles.retrieve({ key: role2.key })).rejects.toThrow(
+        await expect(client.access.roles.retrieve(role2.key)).rejects.toThrow(
           NotFoundError,
         );
       });
@@ -348,10 +348,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       // Verify role changed via direct API call
-      const parents = await client.ontology.retrieveParents(
-        user.ontologyID(testUser.key),
-        { types: ["role"] },
-      );
+      const parents = await client.ontology.parents.retrieve({
+        ids: user.ontologyID(testUser.key),
+        types: ["role"],
+      });
       expect(parents.length).toEqual(1);
       expect(parents[0].id.key).toEqual(role2.key);
     });
@@ -388,10 +388,10 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       // Verify role assigned
-      const parents = await client.ontology.retrieveParents(
-        user.ontologyID(testUser.key),
-        { types: ["role"] },
-      );
+      const parents = await client.ontology.parents.retrieve({
+        ids: user.ontologyID(testUser.key),
+        types: ["role"],
+      });
       expect(parents.length).toEqual(1);
       expect(parents[0].id.key).toEqual(role.key);
     });

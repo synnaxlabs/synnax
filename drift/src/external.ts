@@ -31,6 +31,7 @@ export {
   registerProcess,
   reloadWindow,
   type ReloadWindowPayload,
+  restoreWindows,
   setWindowAlwaysOnTop,
   type SetWindowAlwaysOnTopPayload,
   setWindowDecorations,

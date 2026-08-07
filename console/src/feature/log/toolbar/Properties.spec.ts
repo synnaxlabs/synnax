@@ -55,7 +55,7 @@ describe("log/toolbar/Properties", () => {
     fireEvent.click(showChannelNames());
     await waitFor(() => expect(showChannelNames().checked).toBe(false));
     await waitFor(async () =>
-      expect((await client.logs.retrieve({ key })).hideChannelNames).toBe(true),
+      expect((await client.logs.retrieve(key)).hideChannelNames).toBe(true),
     );
   });
 
@@ -67,7 +67,7 @@ describe("log/toolbar/Properties", () => {
     fireEvent.click(showReceiptTimestamp());
     await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false));
     await waitFor(async () =>
-      expect((await client.logs.retrieve({ key })).hideReceiptTimestamp).toBe(true),
+      expect((await client.logs.retrieve(key)).hideReceiptTimestamp).toBe(true),
     );
   });
 });

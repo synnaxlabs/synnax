@@ -15,6 +15,7 @@ import { z } from "zod";
 export const clusterZ = synnaxParamsZ
   .extend({ key: z.string(), name: z.string().min(1, { message: "Name is required" }) })
   .omit({
+    cache: true,
     connectivityPollFrequency: true,
     retry: true,
     clockSkewThreshold: true,
@@ -108,8 +109,12 @@ const { actions, reducer } = createSlice({
       state.clusters[cluster.key] = cluster;
       purgeDuplicateClusters(state, cluster.key);
     },
-    remove: ({ clusters }, { payload: keys }: PayloadAction<RemovePayload>) =>
-      array.toArray(keys).forEach((key) => delete clusters[key]),
+    remove: (state, { payload: keys }: PayloadAction<RemovePayload>) => {
+      const removed = array.toArray(keys);
+      removed.forEach((key) => delete state.clusters[key]);
+      if (state.selected != null && removed.includes(state.selected))
+        state.selected = undefined;
+    },
     select: (state, { payload: key }: PayloadAction<SelectPayload>) => {
       state.selected = key;
     },

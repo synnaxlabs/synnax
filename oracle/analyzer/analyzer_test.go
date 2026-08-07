@@ -22,6 +22,7 @@ import (
 )
 
 func findField(fields []resolution.Field, name string) resolution.Field {
+	GinkgoHelper()
 	for _, f := range fields {
 		if f.Name == name {
 			return f
@@ -113,6 +114,62 @@ var _ = Describe("Analyzer", func() {
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
+		})
+	})
+
+	Describe("ImEx marker", func() {
+		It("Should accept a bare @go imex on a versioned type", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 2
+					@go imex
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+
+		It("Should error when @go imex carries arguments", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 2
+					@go imex 2
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("malformed @go imex"))
+		})
+
+		It("Should error when @go imex lacks a @go version", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go imex
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("@go imex without @go version"))
+		})
+
+		It("Should error when @go imex is declared file-level", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				@go imex
+				Entry struct {
+					value int32
+					@go version 2
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("declare it per type"))
 		})
 	})
 
@@ -1742,6 +1799,7 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Action Extension", func() {
 		findAction := func(table *resolution.Table, qname, name string) resolution.Action {
+			GinkgoHelper()
 			form := table.MustGet(qname).Form.(resolution.StructForm)
 			for _, a := range form.Actions {
 				if a.Name == name {
@@ -2442,6 +2500,7 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Field Defaults", func() {
 		defaultOf := func(ctx SpecContext, fieldDecl string) *resolution.ExpressionValue {
+			GinkgoHelper()
 			source := "Item struct {\n\t" + fieldDecl + "\n}\n"
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
@@ -2680,6 +2739,35 @@ var _ = Describe("Analyzer", func() {
 		)
 
 		It(
+			"Should flatten variants inherited from a union in an imported schema",
+			func(ctx SpecContext) {
+				loader.Add("schemas/common", `
+				TankConfig struct {}
+
+				NodeConfig union on variant {
+					tank TankConfig
+				}
+			`)
+				source := `
+				import "schemas/common"
+
+				GroupConfig struct {}
+
+				ElementConfig union on variant extends common.NodeConfig {
+					group GroupConfig
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
+				Expect(form.Variants).To(HaveLen(2))
+				Expect(form.Variants[0].Name).To(Equal("tank"))
+				Expect(form.Variants[0].Type.Name).To(Equal("common.TankConfig"))
+				Expect(form.Variants[1].Name).To(Equal("group"))
+			},
+		)
+
+		It(
 			"Should synthesize suppressed payload types for inline variants",
 			func(ctx SpecContext) {
 				source := `
@@ -2858,6 +2946,41 @@ var _ = Describe("Analyzer", func() {
 					"port", "enabled", "name",
 					"terminalConfig", "minVal", "maxVal",
 				}))
+			},
+		)
+
+		It(
+			"Should resolve a union base struct from an imported schema",
+			func(ctx SpecContext) {
+				loader.Add("schemas/common", `
+				BaseChan struct {
+					port    int32
+					enabled bool
+				}
+			`)
+				source := `
+				import "schemas/common"
+
+				VoltageFields struct { minVal float64 }
+
+				AIChannel union on type extends common.BaseChan {
+					ai_voltage VoltageFields
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				ch := table.MustGet("ni.AIChannel")
+				form := ch.Form.(resolution.UnionForm)
+				Expect(form.Extends).To(HaveLen(1))
+				Expect(form.Extends[0].Name).To(Equal("common.BaseChan"))
+
+				fields := resolution.UnifiedVariantFields(ch, form.Variants[0], table)
+				fieldNames := make([]string, len(fields))
+				for i, f := range fields {
+					fieldNames[i] = f.Name
+				}
+				Expect(fieldNames).To(Equal([]string{"port", "enabled", "minVal"}))
 			},
 		)
 
@@ -3361,6 +3484,7 @@ var _ = Describe("Analyzer", func() {
 
 	Describe("Struct Defaults", func() {
 		structDefaultOf := func(ctx SpecContext, source string) *resolution.ExpressionValue {
+			GinkgoHelper()
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("test.Outer").Form.(resolution.StructForm)

@@ -91,6 +91,7 @@ export const themeZ = z
       text: color.colorZ,
       textInverted: color.colorZ,
       textOnPrimary: color.colorZ.default(color.ZERO),
+      textOnWarning: color.colorZ.default(color.ZERO),
       primaryText: color.colorZ,
       errorText: color.colorZ,
       warningText: color.colorZ,
@@ -121,6 +122,12 @@ export const themeZ = z
     if (theme.colors.textOnPrimary == null || color.isZero(theme.colors.textOnPrimary))
       theme.colors.textOnPrimary = color.pickByContrast(
         theme.colors.primary.z,
+        theme.colors.text,
+        theme.colors.textInverted,
+      );
+    if (theme.colors.textOnWarning == null || color.isZero(theme.colors.textOnWarning))
+      theme.colors.textOnWarning = color.pickByContrast(
+        theme.colors.warning.z,
         theme.colors.text,
         theme.colors.textInverted,
       );

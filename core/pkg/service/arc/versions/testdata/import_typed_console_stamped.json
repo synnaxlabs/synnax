@@ -1,0 +1,30 @@
+{
+  "type": "arc",
+  "key": "66666666-7777-8888-9999-aaaaaaaaaaaa",
+  "name": "Console Stamped",
+  "version": "0.0.0",
+  "mode": "graph",
+  "graph": {
+    "nodes": [
+      {
+        "key": "n1",
+        "type": "constant",
+        "config": { "keyOrName": "sensor_1" },
+        "position": { "x": 1, "y": 1 }
+      },
+      {
+        "key": "n2",
+        "type": "printer",
+        "config": {},
+        "position": { "x": 4, "y": 1 }
+      }
+    ],
+    "edges": [
+      {
+        "source": { "node": "n1", "param": "out" },
+        "target": { "node": "n2", "param": "in" }
+      }
+    ]
+  },
+  "text": { "raw": "" }
+}

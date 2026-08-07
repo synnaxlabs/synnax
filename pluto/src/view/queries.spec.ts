@@ -136,9 +136,7 @@ describe("View queries", () => {
         await result.current.updateAsync(view.key);
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      await expect(client.views.retrieve({ key: view.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.views.retrieve(view.key)).rejects.toThrow(NotFoundError);
     });
     it("should delete multiple views", async () => {
       const view1 = await client.views.create({
@@ -156,12 +154,8 @@ describe("View queries", () => {
         await result.current.updateAsync([view1.key, view2.key]);
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      await expect(client.views.retrieve({ key: view1.key })).rejects.toThrow(
-        NotFoundError,
-      );
-      await expect(client.views.retrieve({ key: view2.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.views.retrieve(view1.key)).rejects.toThrow(NotFoundError);
+      await expect(client.views.retrieve(view2.key)).rejects.toThrow(NotFoundError);
     });
   });
   describe("useForm", () => {
@@ -242,7 +236,7 @@ describe("View queries", () => {
       await act(async () => {
         await result.current.updateAsync({ key: view.key, name: "renamed-view" });
       });
-      const retrieved = await client.views.retrieve({ key: view.key });
+      const retrieved = await client.views.retrieve(view.key);
       expect(retrieved.name).toEqual("renamed-view");
     });
   });

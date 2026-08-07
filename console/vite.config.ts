@@ -14,6 +14,7 @@ import * as path from "path";
 import { defineConfig } from "vite";
 
 const isDev = process.env.VITE_IS_DEV === "true";
+const repoRoot = path.resolve(import.meta.dirname, "..");
 
 export default defineConfig({
   clearScreen: false,
@@ -22,14 +23,14 @@ export default defineConfig({
     tsconfigPaths: true,
     alias: isDev
       ? {
-          "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
-          "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
-          "@synnaxlabs/x/dist": path.resolve(__dirname, "../x/ts/dist"),
-          "@synnaxlabs/x": path.resolve(__dirname, "../x/ts/src"),
-          "@synnaxlabs/drift/dist": path.resolve(__dirname, "../drift/dist"),
-          "@synnaxlabs/drift": path.resolve(__dirname, "../drift/src"),
-          "@synnaxlabs/media/dist": path.resolve(__dirname, "../x/media/dist"),
-          "@synnaxlabs/media": path.resolve(__dirname, "../x/media/src"),
+          "@synnaxlabs/pluto/dist": path.resolve(repoRoot, "pluto/dist"),
+          "@synnaxlabs/pluto": path.resolve(repoRoot, "pluto/src"),
+          "@synnaxlabs/x/dist": path.resolve(repoRoot, "x/ts/dist"),
+          "@synnaxlabs/x": path.resolve(repoRoot, "x/ts/src"),
+          "@synnaxlabs/drift/dist": path.resolve(repoRoot, "drift/dist"),
+          "@synnaxlabs/drift": path.resolve(repoRoot, "drift/src"),
+          "@synnaxlabs/media/dist": path.resolve(repoRoot, "x/media/dist"),
+          "@synnaxlabs/media": path.resolve(repoRoot, "x/media/src"),
         }
       : {},
   },

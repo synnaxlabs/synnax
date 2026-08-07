@@ -141,6 +141,17 @@ describe("tree", () => {
     });
   });
 
+  describe("leafTabGroups", () => {
+    it("should return each leaf's tab keys in traversal order", () => {
+      expect(panel.leafTabGroups(TREE)).toEqual([["a"], ["b"], ["c"]]);
+      expect(panel.leafTabGroups(leaf("a", "b"))).toEqual([["a", "b"]]);
+    });
+
+    it("should return no groups for an empty tree", () => {
+      expect(panel.leafTabGroups(undefined)).toEqual([]);
+    });
+  });
+
   describe("firstTab", () => {
     it("should return the first tab in traversal order", () => {
       expect(panel.firstTab(TREE)?.key).toEqual("a");

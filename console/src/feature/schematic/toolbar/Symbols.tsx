@@ -290,7 +290,7 @@ const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null =>
       value={selected}
       onChange={onSelect}
       className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
-      textColor={9}
+      textColor={selected ? undefined : 9}
     >
       {GroupIcon != null && <GroupIcon />}
       {group.name}

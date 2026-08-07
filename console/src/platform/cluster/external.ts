@@ -12,4 +12,3 @@ export * from "@/platform/cluster/detectConnection";
 export * from "@/platform/cluster/list";
 export * from "@/platform/cluster/useConnectModal";
 export * from "@/platform/cluster/useCopyLinkToClipboard";
-export * from "@/platform/cluster/useSyncClusterKey";

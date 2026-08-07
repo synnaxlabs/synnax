@@ -969,7 +969,7 @@ var _ = Describe("Channel", func() {
 			)
 
 			It(
-				"Should emit the co-written timestamp, not a neighbouring one",
+				"Should emit the co-written timestamp, not a neighboring one",
 				func(ctx SpecContext) {
 					src := newSource(ctx, "s0", 10)
 					writeIndexNoise(99, 111, al(0))

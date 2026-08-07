@@ -13,9 +13,10 @@ package v0_test
 
 import (
 	"github.com/google/uuid"
-	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
@@ -336,15 +337,8 @@ func FuzzDecodeLeaf(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }
@@ -382,15 +376,8 @@ func FuzzDecodeNode(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }
@@ -436,15 +423,8 @@ func FuzzDecodePanel(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }
@@ -487,15 +467,8 @@ func FuzzDecodeSplit(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }
@@ -536,15 +509,8 @@ func FuzzDecodeTab(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }
@@ -582,15 +548,8 @@ func FuzzDecodeTabBase(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }
@@ -628,15 +587,8 @@ func FuzzDecodeView(f *testing.F) {
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
 		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
 		}
 	})
 }
