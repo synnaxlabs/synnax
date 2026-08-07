@@ -295,7 +295,7 @@ describe("Cache", () => {
       cache.listen({ channel: "commands", schema: z.string(), onChange });
       await cache.ensureStreaming();
       await expect.poll(() => onChange.mock.calls.length).toBe(1);
-      expect(onChange).toHaveBeenCalledWith("start");
+      expect(onChange).toHaveBeenCalledWith(["start"]);
       await cache.close();
     });
 

@@ -19,7 +19,6 @@
 
 namespace driver::common {
 const std::string STOP_CMD_TYPE = "stop";
-const std::string START_CMD_TYPE = "start";
 const std::string SCAN_CMD_TYPE = "scan";
 /// @brief a utility structure for managing the state of tasks.
 struct StatusHandler {
@@ -40,6 +39,9 @@ struct StatusHandler {
         ctx(ctx), task(task), rate_limit(rate_limit) {
         this->status.name = task.name;
         this->status.details.task = task.key;
+        // The revision this instance was built from. A difference against the stored
+        // hash is what the Console renders as drift.
+        this->status.details.config_hash = task.config_hash;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
     }
 
@@ -192,23 +194,27 @@ private:
 };
 
 /// @brief a utility function that appropriately handles configuration errors and
-/// communicates them back to Synnax in the standard format. When no start command
-/// is pending (boot) and the config does not request auto-start, no status is
-/// written: failures are logged, not reported.
+/// communicates them back to Synnax in the standard format. cmd_key is the start
+/// command driving the deploy, empty at boot. A boot configure that does not
+/// auto-start logs its failures instead of reporting them.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    std::pair<common::ConfigureResult, x::errors::Error> res
+    std::pair<common::ConfigureResult, x::errors::Error> res,
+    const std::string &cmd_key
 ) {
-    const bool start_pending = !ctx->pending_cmd(task.key).empty();
+    const bool start_pending = !cmd_key.empty();
     synnax::task::Status status;
     status.key = synnax::task::status_key(task);
     status.name = task.name;
     status.details.task = task.key;
+    status.details.config_hash = task.config_hash;
     status.details.running = false;
     if (res.second) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = res.second.message();
+        // Ack the start so a waiting caller resolves with the failure, not a timeout.
+        status.details.cmd = cmd_key;
         if (start_pending || res.first.auto_start)
             ctx->set_status(status);
         else
@@ -220,7 +226,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     if (res.first.auto_start) {
         synnax::task::Command start_cmd{
             .task = task.key,
-            .type = START_CMD_TYPE,
+            .type = synnax::task::START_CMD_TYPE,
         };
         res.first.task->exec(start_cmd);
     } else if (start_pending) {

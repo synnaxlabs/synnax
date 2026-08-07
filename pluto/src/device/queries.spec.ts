@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, type record } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Device } from "@/device";
@@ -47,6 +47,32 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(dev.key);
+    });
+
+    it("should pass an identity-stable query to the client on every render", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const dev = await client.devices.create({
+        key: id.create(),
+        name: "test",
+        rack: rack.key,
+        location: "test",
+        make: "test",
+        model: "test",
+        properties: {},
+      });
+      const spy = vi.spyOn(client.devices, "getCached");
+      const { result, rerender } = await renderHookSuspended(
+        () => Device.use({ key: dev.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.key).toEqual(dev.key));
+      rerender();
+      rerender();
+      // One query object across every snapshot read is what keys the client's
+      // route and hash memos; a fresh object per render re-parses each time.
+      const queries = new Set(spy.mock.calls.map((call) => call[0]));
+      expect(queries.size).toBe(1);
+      spy.mockRestore();
     });
 
     it("should update the query when the device is updated", async () => {
@@ -517,8 +543,10 @@ describe("queries", () => {
         expect(secondResult.current.variant).toEqual("loading");
         expect(secondResult.current.data).toContain(dev.key);
       });
+    });
 
-      it("should filter cached data by makes", async () => {
+    describe("query filters", () => {
+      it("should filter by makes", async () => {
         const rack = await client.racks.create({
           name: "test",
         });
@@ -542,25 +570,16 @@ describe("queries", () => {
           properties: {},
         });
 
-        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
-          wrapper,
-        });
+        const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          firstResult.current.retrieve({});
+          result.current.retrieve({ makes: [targetMake] });
         });
-        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
-        unmount();
-
-        const { result: secondResult } = renderHook(
-          () => Device.useList({ initialQuery: { makes: [targetMake] } }),
-          { wrapper },
-        );
-        expect(secondResult.current.variant).toEqual("loading");
-        expect(secondResult.current.data).toContain(dev1.key);
-        expect(secondResult.current.data).not.toContain(dev2.key);
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        expect(result.current.data).toContain(dev1.key);
+        expect(result.current.data).not.toContain(dev2.key);
       });
 
-      it("should filter cached data by models", async () => {
+      it("should filter by models", async () => {
         const rack = await client.racks.create({
           name: "test",
         });
@@ -584,25 +603,16 @@ describe("queries", () => {
           properties: {},
         });
 
-        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
-          wrapper,
-        });
+        const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          firstResult.current.retrieve({});
+          result.current.retrieve({ models: [targetModel] });
         });
-        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
-        unmount();
-
-        const { result: secondResult } = renderHook(
-          () => Device.useList({ initialQuery: { models: [targetModel] } }),
-          { wrapper },
-        );
-        expect(secondResult.current.variant).toEqual("loading");
-        expect(secondResult.current.data).toContain(dev1.key);
-        expect(secondResult.current.data).not.toContain(dev2.key);
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        expect(result.current.data).toContain(dev1.key);
+        expect(result.current.data).not.toContain(dev2.key);
       });
 
-      it("should filter cached data by racks", async () => {
+      it("should filter by racks", async () => {
         const rack1 = await client.racks.create({
           name: "rack1",
         });
@@ -628,25 +638,16 @@ describe("queries", () => {
           properties: {},
         });
 
-        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
-          wrapper,
-        });
+        const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          firstResult.current.retrieve({});
+          result.current.retrieve({ racks: [rack1.key] });
         });
-        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
-        unmount();
-
-        const { result: secondResult } = renderHook(
-          () => Device.useList({ initialQuery: { racks: [rack1.key] } }),
-          { wrapper },
-        );
-        expect(secondResult.current.variant).toEqual("loading");
-        expect(secondResult.current.data).toContain(dev1.key);
-        expect(secondResult.current.data).not.toContain(dev2.key);
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        expect(result.current.data).toContain(dev1.key);
+        expect(result.current.data).not.toContain(dev2.key);
       });
 
-      it("should filter cached data by locations", async () => {
+      it("should filter by locations", async () => {
         const rack = await client.racks.create({
           name: "test",
         });
@@ -670,25 +671,16 @@ describe("queries", () => {
           properties: {},
         });
 
-        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
-          wrapper,
-        });
+        const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          firstResult.current.retrieve({});
+          result.current.retrieve({ locations: [targetLocation] });
         });
-        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
-        unmount();
-
-        const { result: secondResult } = renderHook(
-          () => Device.useList({ initialQuery: { locations: [targetLocation] } }),
-          { wrapper },
-        );
-        expect(secondResult.current.variant).toEqual("loading");
-        expect(secondResult.current.data).toContain(dev1.key);
-        expect(secondResult.current.data).not.toContain(dev2.key);
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        expect(result.current.data).toContain(dev1.key);
+        expect(result.current.data).not.toContain(dev2.key);
       });
 
-      it("should filter cached data by names", async () => {
+      it("should filter by names", async () => {
         const rack = await client.racks.create({
           name: "test",
         });
@@ -712,22 +704,13 @@ describe("queries", () => {
           properties: {},
         });
 
-        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
-          wrapper,
-        });
+        const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          firstResult.current.retrieve({});
+          result.current.retrieve({ names: [targetName] });
         });
-        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
-        unmount();
-
-        const { result: secondResult } = renderHook(
-          () => Device.useList({ initialQuery: { names: [targetName] } }),
-          { wrapper },
-        );
-        expect(secondResult.current.variant).toEqual("loading");
-        expect(secondResult.current.data).toContain(dev1.key);
-        expect(secondResult.current.data).not.toContain(dev2.key);
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        expect(result.current.data).toContain(dev1.key);
+        expect(result.current.data).not.toContain(dev2.key);
       });
 
       it("should handle combined filters", async () => {
@@ -764,30 +747,18 @@ describe("queries", () => {
           properties: {},
         });
 
-        const { result: firstResult, unmount } = renderHook(() => Device.useList(), {
-          wrapper,
-        });
+        const { result } = renderHook(() => Device.useList(), { wrapper });
         act(() => {
-          firstResult.current.retrieve({});
+          result.current.retrieve({
+            makes: [targetMake],
+            models: [targetModel],
+            racks: [rack1.key],
+          });
         });
-        await waitFor(() => expect(firstResult.current.variant).toEqual("success"));
-        unmount();
-
-        const { result: secondResult } = renderHook(
-          () =>
-            Device.useList({
-              initialQuery: {
-                makes: [targetMake],
-                models: [targetModel],
-                racks: [rack1.key],
-              },
-            }),
-          { wrapper },
-        );
-        expect(secondResult.current.variant).toEqual("loading");
-        expect(secondResult.current.data).toContain(dev1.key);
-        expect(secondResult.current.data).not.toContain(dev2.key);
-        expect(secondResult.current.data).not.toContain(dev3.key);
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        expect(result.current.data).toContain(dev1.key);
+        expect(result.current.data).not.toContain(dev2.key);
+        expect(result.current.data).not.toContain(dev3.key);
       });
     });
   });
@@ -948,8 +919,11 @@ describe("queries", () => {
       expect(devices).toHaveLength(2);
       expect(devices.map((d) => d.key)).toContain(dev1.key);
       expect(devices.map((d) => d.key)).toContain(dev2.key);
-      expect(query.isLive(client.devices.getCached({ keys: [dev1.key] }))).toBe(true);
-      expect(query.isLive(client.devices.getCached({ keys: [dev2.key] }))).toBe(true);
+      const cached = client.devices.getCached({
+        keys: [dev1.key, dev2.key],
+        includeStatus: true,
+      });
+      expect(query.isLive(cached)).toBe(true);
     });
 
     it("should return all cached devices when all are in the store", async () => {

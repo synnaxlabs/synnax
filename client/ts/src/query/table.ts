@@ -45,6 +45,18 @@ export interface TableSubscriber<
 }
 
 /**
+ * Receives every event of a batched write as one call, in event order. A single write
+ * delivers a batch of one. Same synchrony and error contract as
+ * {@link TableSubscriber}.
+ */
+export interface BatchSubscriber<
+  Key extends record.Key = record.Key,
+  Value extends state.State = state.State,
+> {
+  (events: TableEvent<Key, Value>[]): void;
+}
+
+/**
  * How fetched records hydrate a table: "set" overwrites rows, "if-absent"
  * preserves existing rows.
  */
@@ -123,10 +135,10 @@ export class Table<
 > {
   private readonly rows = new Map<Key, Value>();
   private readonly tombstones = new Map<Key, Deleted<Value>>();
-  private readonly subscribers = new Map<
-    TableSubscriber<Key, Value>,
-    Key | undefined
-  >();
+  private readonly broadSubscribers = new Set<TableSubscriber<Key, Value>>();
+  private readonly batchSubscribers = new Set<BatchSubscriber<Key, Value>>();
+  private readonly keyedSubscribers = new Map<Key, Set<TableSubscriber<Key, Value>>>();
+  private batching: TableEvent<Key, Value>[] | null = null;
   private readonly onError: (error: Error) => void;
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
   private readonly fetchRows?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
@@ -188,21 +200,25 @@ export class Table<
     if (typeof keyOrValues !== "object")
       return this.setOne(keyOrValues as Key, value) ?? destructor.NOOP;
     const rollbacks: destructor.Destructor[] = [];
-    array.toArray(keyOrValues).forEach((val) => {
-      const rollback = this.setOne(val.key, val);
-      if (rollback != null) rollbacks.push(rollback);
-    });
-    return () => rollbacks.reverse().forEach((r) => r());
+    this.batch(() =>
+      array.toArray(keyOrValues).forEach((val) => {
+        const rollback = this.setOne(val.key, val);
+        if (rollback != null) rollbacks.push(rollback);
+      }),
+    );
+    return () => this.batch(() => rollbacks.reverse().forEach((r) => r()));
   }
 
   private setIfAbsent(values: Array<Keyed<Key, Value>>): destructor.Destructor {
     const rollbacks: destructor.Destructor[] = [];
-    values.forEach((val) => {
-      if (this.rows.has(val.key)) return;
-      const rollback = this.setOne(val.key, val);
-      if (rollback != null) rollbacks.push(rollback);
-    });
-    return () => rollbacks.reverse().forEach((r) => r());
+    this.batch(() =>
+      values.forEach((val) => {
+        if (this.rows.has(val.key)) return;
+        const rollback = this.setOne(val.key, val);
+        if (rollback != null) rollbacks.push(rollback);
+      }),
+    );
+    return () => this.batch(() => rollbacks.reverse().forEach((r) => r()));
   }
 
   /**
@@ -309,19 +325,23 @@ export class Table<
         toDelete.push({ key: k, value });
       });
 
-    toDelete.forEach(({ key: k, value }) => {
-      this.rows.delete(k);
-      if (value != null) this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
-      this.notify({ variant: "delete", key: k });
-    });
+    this.batch(() =>
+      toDelete.forEach(({ key: k, value }) => {
+        this.rows.delete(k);
+        if (value != null) this.tombstones.set(k, new Deleted(value, TimeStamp.now()));
+        this.notify({ variant: "delete", key: k });
+      }),
+    );
 
     return () =>
-      toDelete.forEach(({ key: k, value }) => {
-        if (value == null) return;
-        this.tombstones.delete(k);
-        this.rows.set(k, value);
-        this.notify({ variant: "set", key: k, value });
-      });
+      this.batch(() =>
+        toDelete.forEach(({ key: k, value }) => {
+          if (value == null) return;
+          this.tombstones.delete(k);
+          this.rows.set(k, value);
+          this.notify({ variant: "set", key: k, value });
+        }),
+      );
   }
 
   /**
@@ -341,8 +361,10 @@ export class Table<
     if (gen !== this.gen) return;
     const present = new Set<Key>(values.map(({ key }) => key));
     const vanished = keys.filter((k) => !present.has(k));
-    if (vanished.length > 0) this.delete(vanished);
-    if (values.length > 0) this.set(values);
+    this.batch(() => {
+      if (vanished.length > 0) this.delete(vanished);
+      if (values.length > 0) this.set(values);
+    });
   }
 
   /**
@@ -358,27 +380,92 @@ export class Table<
   }
 
   /**
+   * Subscribes to row changes delivered per batched write: one call carrying every
+   * event of the batch, in order, after all of the batch's rows have applied.
+   * Cache-internal surface: consumed by the query machinery, not domain code;
+   * per-record consumers use {@link subscribe}.
+   * @returns A destructor that unsubscribes.
+   */
+  subscribeBatch(subscriber: BatchSubscriber<Key, Value>): destructor.Destructor {
+    this.batchSubscribers.add(subscriber);
+    return () => this.batchSubscribers.delete(subscriber);
+  }
+
+  /**
    * Subscribes to row changes. With a key, only changes to that row fire.
    * @returns A destructor that unsubscribes.
    */
   subscribe(subscriber: TableSubscriber<Key, Value>, key?: Key): destructor.Destructor {
-    this.subscribers.set(subscriber, key);
-    return () => this.subscribers.delete(subscriber);
+    if (key == null) {
+      this.broadSubscribers.add(subscriber);
+      return () => this.broadSubscribers.delete(subscriber);
+    }
+    let held = this.keyedSubscribers.get(key);
+    if (held == null) {
+      held = new Set();
+      this.keyedSubscribers.set(key, held);
+    }
+    held.add(subscriber);
+    return () => {
+      held.delete(subscriber);
+      // Guarded on identity so a stale destructor cannot drop a set a later
+      // subscription re-created under the same key.
+      if (held.size === 0 && this.keyedSubscribers.get(key) === held)
+        this.keyedSubscribers.delete(key);
+    };
+  }
+
+  /**
+   * Runs fn with event delivery deferred: writes apply to rows immediately, and every
+   * event they produce is delivered as one batch when the outermost batch exits.
+   * Delivery stays synchronous, inside this call. Nested batches join the outermost
+   * one. Events flush even when fn throws, since the rows they describe were already
+   * applied.
+   */
+  batch<T>(fn: () => T): T {
+    if (this.batching != null) return fn();
+    const events: TableEvent<Key, Value>[] = [];
+    this.batching = events;
+    try {
+      return fn();
+    } finally {
+      this.batching = null;
+      if (events.length > 0) this.flush(events);
+    }
   }
 
   private notify(event: TableEvent<Key, Value>) {
-    this.subscribers.forEach((key, subscriber) => {
-      if (key != null && key !== event.key) return;
+    if (this.batching != null) {
+      this.batching.push(event);
+      return;
+    }
+    this.flush([event]);
+  }
+
+  private flush(events: TableEvent<Key, Value>[]) {
+    for (const event of events) {
+      this.deliver(this.keyedSubscribers.get(event.key), event);
+      this.deliver(this.broadSubscribers, event);
+    }
+    for (const subscriber of this.batchSubscribers)
+      try {
+        subscriber(events);
+      } catch (exc) {
+        this.onError(new Error("failed to notify table subscriber", { cause: exc }));
+      }
+  }
+
+  private deliver(
+    subscribers: Iterable<TableSubscriber<Key, Value>> | undefined,
+    event: TableEvent<Key, Value>,
+  ) {
+    if (subscribers == null) return;
+    for (const subscriber of subscribers)
       try {
         subscriber(event);
       } catch (exc) {
-        this.onError(
-          new Error("failed to notify table subscriber", {
-            cause: exc,
-          }),
-        );
+        this.onError(new Error("failed to notify table subscriber", { cause: exc }));
       }
-    });
   }
 }
 
@@ -423,7 +510,11 @@ export const createSetListener = <
       channel,
       schema,
       onChange: (changed) => {
-        table.set(key(changed), (prev) => value(changed, prev) ?? undefined);
+        table.batch(() =>
+          changed.forEach((c) =>
+            table.set(key(c), (prev) => value(c, prev) ?? undefined),
+          ),
+        );
       },
     }),
   };
@@ -448,7 +539,7 @@ export const createDeleteListener = <
       channel,
       schema,
       onChange: (changed) => {
-        table.delete(key(changed));
+        table.delete(changed.map(key));
       },
     }),
   };
@@ -470,7 +561,10 @@ export const createFetchListener = <
     channel,
     schema,
     onChange: async (changed) => {
-      await table.retrieve(array.toArray(changed), { refresh: true });
+      await table.retrieve(
+        changed.flatMap((c) => array.toArray(c)),
+        { refresh: true },
+      );
     },
   }),
 });

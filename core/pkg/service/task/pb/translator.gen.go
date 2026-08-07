@@ -29,10 +29,11 @@ func CommandToPB(r task.Command) (*Command, error) {
 		return nil, err
 	}
 	pb := &Command{
-		Type: r.Type,
-		Key:  r.Key,
-		Task: r.Task.String(),
-		Args: argsVal,
+		Type:       r.Type,
+		Key:        r.Key,
+		ConfigHash: r.ConfigHash,
+		Task:       r.Task.String(),
+		Args:       argsVal,
 	}
 	return pb, nil
 }
@@ -52,6 +53,7 @@ func CommandFromPB(pb *Command) (task.Command, error) {
 	r.Args = pb.Args.AsMap()
 	r.Type = pb.Type
 	r.Key = pb.Key
+	r.ConfigHash = pb.ConfigHash
 	return r, nil
 }
 

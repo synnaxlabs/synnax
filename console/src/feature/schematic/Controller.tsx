@@ -19,7 +19,7 @@ export const Controller = memo(({ children }: ControllerProps): ReactElement => 
   const authority = Session.Schematic.useSelectAuthority();
   const name = Schematic.useName();
   const dispatch = Session.useDispatch();
-  const username = User.useResult({}).data?.username ?? "";
+  const username = User.useResultUsername({}).data ?? "";
   const controlName = username.length > 0 ? `${name} (${username})` : name;
   const handleStatusChange = useCallback(
     (status: Control.Status) =>
