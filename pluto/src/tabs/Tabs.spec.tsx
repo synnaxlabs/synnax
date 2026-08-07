@@ -468,6 +468,16 @@ describe("Tabs", () => {
       expect(el.classList.contains(`pluto-tabs__selector--${sizing}`)).toBe(true);
     });
 
+    it.each(["elastic", "fixed", "content"] as const)(
+      "should apply the %s sizing",
+      (sizing) => {
+        const el = strip({ sizing });
+        expect(el.classList.contains(`pluto-tabs__selector--sizing-${sizing}`)).toBe(
+          true,
+        );
+      },
+    );
+
     it("should let explicit knobs override the variant defaults", () => {
       const el = strip({ variant: "pill", align: "center", sizing: "elastic" });
       expect(el.classList.contains("pluto-tabs__selector--align-center")).toBe(true);
