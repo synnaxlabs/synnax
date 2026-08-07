@@ -505,6 +505,9 @@ func (l *Layer) BindTo(t Transport) {
 	)
 	t.SchematicSymbolRetrieveGroup.BindHandler(l.Symbol.RetrieveGroup)
 	t.SchematicSymbolExportGroup.BindHandler(l.Symbol.ExportGroup)
+	t.SchematicSymbolDeleteGroup.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.DeleteGroup),
+	)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Create))
