@@ -52,7 +52,7 @@ export interface ProviderOptions {
   theming?: false | z.input<typeof theming.Provider.z>;
   /** Telemetry provider. Defaults on with `TestFactory` + `NoopFactory`. */
   telem?: false | { factories?: telem.Factory[] };
-  /** Staleness tracker. Defaults on with a 250ms sweep. */
+  /** Staleness provider. Defaults on with a 250ms sweep. */
   staleness?: false | z.input<typeof staleness.Provider.z>;
   /** Canvas render context. Off by default. `true` injects a fresh recorder; pass a
    * {@link canvasTest.Recorder} (or any `render.Context`-shaped value) to supply your

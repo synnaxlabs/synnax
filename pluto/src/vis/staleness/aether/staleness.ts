@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type CrudeTimeSpan, type destructor, TimeSpan } from "@synnaxlabs/x";
+import { color, type destructor, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -15,8 +15,8 @@ import { type theming } from "@/theming/aether";
 
 const CONTEXT_KEY = "pluto-vis-staleness";
 
-/// The sweep interval bounds how late a staleness transition can be reported. The
-/// default sits well under the one second minimum staleness timeout.
+/// The sweep interval bounds how late a staleness transition can be reported. A quarter
+/// second keeps that error small against timeouts measured in seconds.
 export const DEFAULT_SWEEP_INTERVAL = TimeSpan.milliseconds(250);
 
 /// stateZ carries the staleness fields a source-backed component adds to its own state.
@@ -49,22 +49,43 @@ interface Entry {
   stale: boolean;
 }
 
+// TimeSpan.z reads a bare number as nanoseconds. Take the number branch first so a
+// plain number means milliseconds here, matching how the rest of pluto accepts a
+// CrudeTimeSpan.
+const sweepIntervalZ = z.union([
+  z.number().transform((ms) => TimeSpan.milliseconds(ms)),
+  TimeSpan.z,
+]);
+
+const providerStateZ = z.object({
+  sweepInterval: sweepIntervalZ.default(DEFAULT_SWEEP_INTERVAL),
+});
+
 /**
- * Tracker turns a registered source stale when no sample arrives within its timeout.
+ * Provider turns a registered source stale when no sample arrives within its timeout.
  *
- * One periodic sweep serves every registration, so the cost stays flat as sources and
- * sample rates grow. The sweep compares against the monotonic clock, so a throttled or
- * suspended worker resolves to the correct state when it wakes.
+ * One periodic sweep serves every source below the Provider, so the cost stays flat as
+ * sources and sample rates grow. The sweep compares against the monotonic clock, so a
+ * throttled or suspended worker resolves to the correct state when it wakes.
  */
-class Tracker {
+export class Provider extends aether.Composite<typeof providerStateZ> {
+  static readonly TYPE = "staleness.Provider";
+  static readonly z = providerStateZ;
+  schema = Provider.z;
+
   private readonly entries = new Set<Entry>();
   private interval?: ReturnType<typeof setInterval>;
-  private sweepInterval: TimeSpan;
+  private sweepInterval = DEFAULT_SWEEP_INTERVAL;
 
-  /** @param sweepInterval - How often to check registered sources. A bare number is
-   * read as milliseconds. */
-  constructor(sweepInterval: CrudeTimeSpan = DEFAULT_SWEEP_INTERVAL) {
-    this.sweepInterval = TimeSpan.fromMilliseconds(sweepInterval);
+  afterUpdate(ctx: aether.Context): void {
+    this.updateSweepInterval(this.state.sweepInterval);
+    ctx.set(CONTEXT_KEY, this, false);
+  }
+
+  // Children release their own registrations first. This only catches one that did not.
+  afterDelete(): void {
+    this.entries.clear();
+    this.stop();
   }
 
   /** @returns a registration for a source. Cleanup releases it. */
@@ -77,18 +98,16 @@ class Tracker {
     return {
       received: () => {
         entry.lastReceived = performance.now();
-        this.set(entry, false);
+        this.setStale(entry, false);
       },
       cleanup: () => this.release(entry),
     };
   }
 
-  /** Changes how often the tracker checks registered sources. Takes effect on the next
-   * sweep. */
-  setSweepInterval(next: CrudeTimeSpan): void {
-    const span = TimeSpan.fromMilliseconds(next);
-    if (span.equals(this.sweepInterval)) return;
-    this.sweepInterval = span;
+  // A new interval takes effect on the next sweep.
+  private updateSweepInterval(next: TimeSpan): void {
+    if (next.equals(this.sweepInterval)) return;
+    this.sweepInterval = next;
     if (this.interval == null) return;
     this.stop();
     this.start();
@@ -113,52 +132,22 @@ class Tracker {
   private sweep(): void {
     const now = performance.now();
     this.entries.forEach((e) =>
-      this.set(e, now - e.lastReceived >= e.props.timeout() * 1000),
+      this.setStale(e, now - e.lastReceived >= e.props.timeout() * 1000),
     );
   }
 
-  private set(entry: Entry, stale: boolean): void {
+  private setStale(entry: Entry, stale: boolean): void {
     if (stale === entry.stale) return;
     entry.stale = stale;
     entry.props.onChange(stale);
   }
 }
 
-// TimeSpan.z reads a bare number as nanoseconds. Take the number branch first so a
-// plain number means milliseconds here, matching how the rest of pluto accepts a
-// CrudeTimeSpan.
-const sweepIntervalZ = z.union([
-  z.number().transform((ms) => TimeSpan.milliseconds(ms)),
-  TimeSpan.z,
-]);
-
-const providerStateZ = z.object({
-  sweepInterval: sweepIntervalZ.default(DEFAULT_SWEEP_INTERVAL),
-});
-
-interface InternalState {
-  tracker: Tracker;
-}
-
-export class Provider extends aether.Composite<typeof providerStateZ, InternalState> {
-  static readonly TYPE = "staleness.Provider";
-  static readonly z = providerStateZ;
-  schema = Provider.z;
-
-  afterUpdate(ctx: aether.Context): void {
-    const { internal: i } = this;
-    const { sweepInterval } = this.state;
-    i.tracker ??= new Tracker(sweepInterval);
-    i.tracker.setSweepInterval(sweepInterval);
-    ctx.set(CONTEXT_KEY, i.tracker, false);
-  }
-}
-
-const use = (ctx: aether.Context): Tracker => ctx.get<Tracker>(CONTEXT_KEY);
+const use = (ctx: aether.Context): Provider => ctx.get<Provider>(CONTEXT_KEY);
 
 /**
- * Registers a source with the tree's tracker, reusing `prev` when it is already
- * registered.
+ * Registers a source with the nearest {@link Provider}, reusing `prev` when it is
+ * already registered.
  * @param prev - The registration returned by an earlier call, if any.
  * @throws {NotFoundError} if no {@link Provider} is mounted above the caller.
  */

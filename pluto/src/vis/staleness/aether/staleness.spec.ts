@@ -48,13 +48,31 @@ class Leaf extends aether.Leaf<
   }
 }
 
+// Registers but never releases, so specs can reach the Provider's cleanup backstop.
+class LeakyLeaf extends aether.Leaf<
+  typeof staleness.stateZ,
+  { registration: staleness.Registration }
+> {
+  static readonly TYPE = "stalenessLeakyTestLeaf";
+  static readonly z = staleness.stateZ;
+  schema = LeakyLeaf.z;
+
+  afterUpdate(ctx: aether.Context): void {
+    const { internal: i } = this;
+    i.registration = staleness.useRegistration(ctx, i.registration, {
+      timeout: () => this.state.stalenessTimeout,
+      onChange: () => {},
+    });
+  }
+}
+
 interface SetupOptions {
   sweepInterval?: CrudeTimeSpan;
   timeouts?: number[];
 }
 
 // Mounts `timeouts.length` leaves under a single staleness Provider, so specs can
-// assert on the tracker the whole tree shares.
+// assert on the sweep the whole tree shares.
 const setup = ({ sweepInterval, timeouts = [5] }: SetupOptions = {}) => {
   const stack = buildStack({
     registry: { [Leaf.TYPE]: Leaf },
@@ -173,6 +191,19 @@ describe("staleness", () => {
       deleteLeaf(0);
       expect(vi.getTimerCount()).toEqual(1);
       deleteLeaf(1);
+      expect(vi.getTimerCount()).toEqual(0);
+    });
+
+    it("should stop sweeping when a deleted provider still holds a source", () => {
+      const stack = buildStack({ registry: { [LeakyLeaf.TYPE]: LeakyLeaf } });
+      teardown = () => stack.driver.delete([aetherTest.ROOT_KEY]);
+      stack.driver.update(
+        [...stack.basePath, "leaf"],
+        LeakyLeaf.TYPE,
+        staleness.stateZ.parse({}),
+      );
+      expect(vi.getTimerCount()).toEqual(1);
+      stack.driver.delete(stack.basePath);
       expect(vi.getTimerCount()).toEqual(0);
     });
 
