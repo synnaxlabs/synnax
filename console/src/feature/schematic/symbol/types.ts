@@ -20,7 +20,8 @@ const manifestZ = z.object({
 
 export interface SymbolManifest extends z.infer<typeof manifestZ> {}
 
-/** The legacy Console-written manifest, which declared each member. */
+/** The legacy Console-written manifest, which declared each member. Will be removed
+ * when group importing is moved server-side.*/
 const legacyGroupManifestZ = z.object({
   version: z.literal(1),
   type: z.literal("symbol_group"),

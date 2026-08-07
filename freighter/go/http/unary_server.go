@@ -66,8 +66,8 @@ func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 	for _, opt := range opts {
 		opt(&so)
 	}
-	// An empty set would leave the error path with nothing to encode with, so an
-	// option that clears it falls back to the defaults.
+	// An empty set would leave the error path with nothing to encode with, so an option
+	// that clears it falls back to the defaults.
 	if len(so.errorEncoders) == 0 {
 		so.errorEncoders = defaultEncoders
 	}

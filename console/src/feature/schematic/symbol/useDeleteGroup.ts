@@ -27,8 +27,8 @@ export const useDeleteGroup = (): ((group: group.Group) => void) => {
         const confirmed = await confirmDelete(g);
         if (!confirmed) return;
         if (client == null) throw new DisconnectedError();
-        // The Core removes the group and its symbols in one transaction, so a
-        // failure leaves both untouched.
+        // The Core removes the group and its symbols in one transaction, so a failure
+        // leaves both untouched.
         await client.schematics.symbols.deleteGroup(g.key);
         addStatus({ variant: "success", message: `Deleted ${g.name}` });
       }, `Failed to delete ${g.name}`);
