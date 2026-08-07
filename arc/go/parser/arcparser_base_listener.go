@@ -404,6 +404,18 @@ func (s *BaseArcParserListener) EnterLogicalAndExpression(ctx *LogicalAndExpress
 // ExitLogicalAndExpression is called when production logicalAndExpression is exited.
 func (s *BaseArcParserListener) ExitLogicalAndExpression(ctx *LogicalAndExpressionContext) {}
 
+// EnterBitwiseOrExpression is called when production bitwiseOrExpression is entered.
+func (s *BaseArcParserListener) EnterBitwiseOrExpression(ctx *BitwiseOrExpressionContext) {}
+
+// ExitBitwiseOrExpression is called when production bitwiseOrExpression is exited.
+func (s *BaseArcParserListener) ExitBitwiseOrExpression(ctx *BitwiseOrExpressionContext) {}
+
+// EnterBitwiseAndExpression is called when production bitwiseAndExpression is entered.
+func (s *BaseArcParserListener) EnterBitwiseAndExpression(ctx *BitwiseAndExpressionContext) {}
+
+// ExitBitwiseAndExpression is called when production bitwiseAndExpression is exited.
+func (s *BaseArcParserListener) ExitBitwiseAndExpression(ctx *BitwiseAndExpressionContext) {}
+
 // EnterEqualityExpression is called when production equalityExpression is entered.
 func (s *BaseArcParserListener) EnterEqualityExpression(ctx *EqualityExpressionContext) {}
 

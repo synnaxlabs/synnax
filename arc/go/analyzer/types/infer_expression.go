@@ -55,19 +55,78 @@ func InferLogicalOr(
 func InferLogicalAnd(
 	ctx context.Context[parser.ILogicalAndExpressionContext],
 ) types.Type {
-	equalities := ctx.AST.AllEqualityExpression()
-	if len(equalities) > 1 {
-		for _, e := range equalities {
-			if InferEquality(context.Child(ctx, e)).Kind == types.KindSeries {
+	bitwiseOrs := ctx.AST.AllBitwiseOrExpression()
+	if len(bitwiseOrs) > 1 {
+		for _, b := range bitwiseOrs {
+			if InferBitwiseOr(context.Child(ctx, b)).Kind == types.KindSeries {
 				return types.Series(types.Bool())
 			}
 		}
 		return types.Bool()
 	}
-	if len(equalities) == 1 {
-		return InferEquality(context.Child(ctx, equalities[0]))
+	if len(bitwiseOrs) == 1 {
+		return InferBitwiseOr(context.Child(ctx, bitwiseOrs[0]))
 	}
 	return types.Type{}
+}
+
+// InferBitwiseOr types a bitwise '|'. Bitwise ops preserve the integer operand
+// type; a series operand makes the result element-wise.
+func InferBitwiseOr(ctx context.Context[parser.IBitwiseOrExpressionContext]) types.Type {
+	ands := ctx.AST.AllBitwiseAndExpression()
+	if len(ands) == 0 {
+		return types.Type{}
+	}
+	if len(ands) == 1 {
+		return InferBitwiseAnd(context.Child(ctx, ands[0]))
+	}
+	first := InferBitwiseAnd(context.Child(ctx, ands[0]))
+	isSeries := first.Kind == types.KindSeries
+	elemType := first.Unwrap()
+	for i := 1; i < len(ands); i++ {
+		next := InferBitwiseAnd(context.Child(ctx, ands[i]))
+		if next.Kind == types.KindSeries {
+			isSeries = true
+		}
+		var early bool
+		if elemType, early = inferBinaryType(elemType, next.Unwrap()); early {
+			break
+		}
+	}
+	if isSeries {
+		return types.Series(elemType)
+	}
+	return elemType
+}
+
+// InferBitwiseAnd types a bitwise '&'. See InferBitwiseOr.
+func InferBitwiseAnd(
+	ctx context.Context[parser.IBitwiseAndExpressionContext],
+) types.Type {
+	eqs := ctx.AST.AllEqualityExpression()
+	if len(eqs) == 0 {
+		return types.Type{}
+	}
+	if len(eqs) == 1 {
+		return InferEquality(context.Child(ctx, eqs[0]))
+	}
+	first := InferEquality(context.Child(ctx, eqs[0]))
+	isSeries := first.Kind == types.KindSeries
+	elemType := first.Unwrap()
+	for i := 1; i < len(eqs); i++ {
+		next := InferEquality(context.Child(ctx, eqs[i]))
+		if next.Kind == types.KindSeries {
+			isSeries = true
+		}
+		var early bool
+		if elemType, early = inferBinaryType(elemType, next.Unwrap()); early {
+			break
+		}
+	}
+	if isSeries {
+		return types.Series(elemType)
+	}
+	return elemType
 }
 
 func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types.Type {

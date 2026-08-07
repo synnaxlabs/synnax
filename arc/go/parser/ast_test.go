@@ -51,6 +51,8 @@ var _ = Describe("AST Utilities", func() {
 			Entry("parenthesized", "(42)"),
 			Entry("comparison", "1 > 0"),
 			Entry("logical", "1 and 0"),
+			Entry("bitwise and", "1 & 0"),
+			Entry("bitwise not", "~1"),
 		)
 	})
 
@@ -73,6 +75,7 @@ var _ = Describe("AST Utilities", func() {
 			Entry("identifier", "x"),
 			Entry("addition", "1 + 2"),
 			Entry("logical not", "not 1"),
+			Entry("bitwise not", "~1"),
 		)
 	})
 
@@ -160,6 +163,7 @@ var _ = Describe("AST Utilities", func() {
 			Entry("multiplication", "3 * 4"),
 			Entry("comparison", "a > b"),
 			Entry("logical or", "a or b"),
+			Entry("bitwise or", "a | b"),
 			Entry("unary minus", "-1"),
 			Entry("power", "2 ^ 3"),
 		)
@@ -185,6 +189,7 @@ var _ = Describe("AST Utilities", func() {
 		It("extracts literal from nested postfix context", func() {
 			expr := parseExpr("42")
 			postfix := expr.LogicalOrExpression().LogicalAndExpression(0).
+				BitwiseOrExpression(0).BitwiseAndExpression(0).
 				EqualityExpression(0).RelationalExpression(0).
 				AdditiveExpression(0).MultiplicativeExpression(0).
 				PowerExpression(0).UnaryExpression().PostfixExpression()

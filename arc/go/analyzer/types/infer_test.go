@@ -231,6 +231,20 @@ var _ = Describe("Type Inference", func() {
 			Entry("logical not", "not (temp_sensor > 100)", types.KindBool),
 		)
 
+		DescribeTable("bitwise expressions",
+			func(bCtx SpecContext, expr string, expectedKind types.Kind) {
+				t := inferExprType(bCtx, testResolver, expr)
+				Expect(t.Kind).To(Equal(expectedKind))
+			},
+			Entry("bitwise and", "i32_ch & 12", types.KindI32),
+			Entry("bitwise or", "i32_ch | 12", types.KindI32),
+			Entry("bitwise and i64", "i64_ch & 255", types.KindI64),
+			Entry("bitwise or i64", "i64_ch | 255", types.KindI64),
+			Entry("chained bitwise and", "i32_ch & 12 & 8", types.KindI32),
+			Entry("bitwise not", "~i32_ch", types.KindI32),
+			Entry("bitwise not i64", "~i64_ch", types.KindI64),
+		)
+
 		DescribeTable("series-producing logical and unary expressions",
 			func(bCtx SpecContext, expr string, expectedElem types.Kind) {
 				t := inferExprType(bCtx, testResolver, expr)

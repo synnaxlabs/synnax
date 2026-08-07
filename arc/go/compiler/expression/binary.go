@@ -14,7 +14,76 @@ import (
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 )
+
+func compileBitwiseOrImpl(
+	ctx context.Context[parser.IBitwiseOrExpressionContext],
+) (types.Type, error) {
+	ands := ctx.AST.AllBitwiseAndExpression()
+	leftType, err := compileBitwiseAnd(context.Child(ctx, ands[0]))
+	if err != nil {
+		return types.Type{}, err
+	}
+	hintType := leftType
+	if leftType.Kind == types.KindChan {
+		hintType = leftType.Unwrap()
+	}
+	if hintType.Kind == types.KindSeries {
+		return types.Type{}, errors.New(
+			"bitwise operators are not supported on series",
+		)
+	}
+	for i := 1; i < len(ands); i++ {
+		rhsType, err := compileBitwiseAnd(context.Child(ctx, ands[i]).WithHint(hintType))
+		if err != nil {
+			return types.Type{}, err
+		}
+		if rhsType.Kind == types.KindSeries {
+			return types.Type{}, errors.New(
+				"bitwise operators are not supported on series",
+			)
+		}
+		if err := ctx.Writer.WriteBinaryOpInferred("|", hintType); err != nil {
+			return types.Type{}, err
+		}
+	}
+	return hintType, nil
+}
+
+func compileBitwiseAndImpl(
+	ctx context.Context[parser.IBitwiseAndExpressionContext],
+) (types.Type, error) {
+	eqs := ctx.AST.AllEqualityExpression()
+	leftType, err := compileEquality(context.Child(ctx, eqs[0]))
+	if err != nil {
+		return types.Type{}, err
+	}
+	hintType := leftType
+	if leftType.Kind == types.KindChan {
+		hintType = leftType.Unwrap()
+	}
+	if hintType.Kind == types.KindSeries {
+		return types.Type{}, errors.New(
+			"bitwise operators are not supported on series",
+		)
+	}
+	for i := 1; i < len(eqs); i++ {
+		rhsType, err := compileEquality(context.Child(ctx, eqs[i]).WithHint(hintType))
+		if err != nil {
+			return types.Type{}, err
+		}
+		if rhsType.Kind == types.KindSeries {
+			return types.Type{}, errors.New(
+				"bitwise operators are not supported on series",
+			)
+		}
+		if err := ctx.Writer.WriteBinaryOpInferred("&", hintType); err != nil {
+			return types.Type{}, err
+		}
+	}
+	return hintType, nil
+}
 
 func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],

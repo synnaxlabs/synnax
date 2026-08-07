@@ -3963,6 +3963,38 @@ var _ = Describe("Compiler", func() {
 		)
 
 		DescribeTable(
+			"bitwise operators",
+			func(ctx SpecContext, body string, expected any) {
+				source := fmt.Sprintf(
+					`func test() %s %s`,
+					inferReturnType(expected),
+					body,
+				)
+				output := MustSucceed(compile(ctx, source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			// AND operations
+			Entry("and", `{ return i32(12) & i32(10) }`, int32(8)),
+			Entry("and zero", `{ return i32(12) & i32(0) }`, int32(0)),
+			// OR operations
+			Entry("or", `{ return i32(12) | i32(10) }`, int32(14)),
+			Entry("or zero", `{ return i32(12) | i32(0) }`, int32(12)),
+			// Chained operations
+			Entry("chained and", `{ return i32(15) & i32(12) & i32(9) }`, int32(8)),
+			Entry("chained or", `{ return i32(1) | i32(2) | i32(4) }`, int32(7)),
+			// Precedence: & binds tighter than |
+			Entry("and binds tighter than or", `{ return i32(1) | i32(6) & i32(4) }`, int32(5)),
+			// i64 operands
+			Entry("i64 and", `{ return i64(255) & i64(15) }`, int64(15)),
+			Entry("i64 or", `{ return i64(240) | i64(15) }`, int64(255)),
+		)
+
+		DescribeTable(
 			"unary operators",
 			func(ctx SpecContext, body string, expected any) {
 				source := fmt.Sprintf(
@@ -4017,6 +4049,17 @@ var _ = Describe("Compiler", func() {
 				false,
 			),
 			Entry("not comparison", `{ return not (i32(5) < i32(3)) }`, true),
+			// Bitwise not (integer complement)
+			Entry("bitwise not i32", `{ return ~i32(0) }`, int32(-1)),
+			Entry("bitwise not i32 value", `{
+				x i32 := 12
+				return ~x
+			}`, int32(-13)),
+			Entry("double bitwise not", `{
+				x i32 := 12
+				return ~~x
+			}`, int32(12)),
+			Entry("bitwise not i64", `{ return ~i64(0) }`, int64(-1)),
 		)
 
 		DescribeTable("control flow",
@@ -4076,6 +4119,14 @@ var _ = Describe("Compiler", func() {
 			}`, int32(1)),
 			Entry("if or", `{
 				if i32(1) == i32(0) or i32(1) == i32(1) { return i32(1) }
+				return i32(0)
+			}`, int32(1)),
+			Entry("if bitwise and", `{
+				if i32(12) & i32(8) { return i32(1) }
+				return i32(0)
+			}`, int32(1)),
+			Entry("if bitwise or", `{
+				if i32(0) | i32(1) { return i32(1) }
 				return i32(0)
 			}`, int32(1)),
 		)

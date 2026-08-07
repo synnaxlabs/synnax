@@ -28,6 +28,7 @@ import (
 
 func isBool(t basetypes.Type) bool    { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
+func isInteger(t basetypes.Type) bool { return t.IsInteger() }
 
 func isNumericOrString(
 	t basetypes.Type,
@@ -117,6 +118,10 @@ func Analyze(ctx context.Context[parser.IExpressionContext]) {
 func getLogicalOrOperator(antlr.ParserRuleContext) string { return "or" }
 
 func getLogicalAndOperator(antlr.ParserRuleContext) string { return "and" }
+
+func getBitwiseOrOperator(antlr.ParserRuleContext) string { return "|" }
+
+func getBitwiseAndOperator(antlr.ParserRuleContext) string { return "&" }
 
 func getEqualityOperator(ctx antlr.ParserRuleContext) string {
 	if eqCtx, ok := ctx.(parser.IEqualityExpressionContext); ok {
@@ -276,11 +281,27 @@ func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) {
 }
 
 func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) {
+	bitwiseOrs := ctx.AST.AllBitwiseOrExpression()
+	for _, bitwiseOr := range bitwiseOrs {
+		analyzeBitwiseOr(context.Child(ctx, bitwiseOr))
+	}
+	validateType(ctx, bitwiseOrs, getLogicalAndOperator, types.InferBitwiseOr, isBool)
+}
+
+func analyzeBitwiseOr(ctx context.Context[parser.IBitwiseOrExpressionContext]) {
+	bitwiseAnds := ctx.AST.AllBitwiseAndExpression()
+	for _, bitwiseAnd := range bitwiseAnds {
+		analyzeBitwiseAnd(context.Child(ctx, bitwiseAnd))
+	}
+	validateType(ctx, bitwiseAnds, getBitwiseOrOperator, types.InferBitwiseAnd, isInteger)
+}
+
+func analyzeBitwiseAnd(ctx context.Context[parser.IBitwiseAndExpressionContext]) {
 	equalities := ctx.AST.AllEqualityExpression()
 	for _, equality := range equalities {
 		analyzeEquality(context.Child(ctx, equality))
 	}
-	validateType(ctx, equalities, getLogicalAndOperator, types.InferEquality, isBool)
+	validateType(ctx, equalities, getBitwiseAndOperator, types.InferEquality, isInteger)
 }
 
 func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
@@ -395,6 +416,17 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 					diagnostics.Errorf(
 						ctx.AST,
 						"operator 'not' requires boolean operand, received %s",
+						operandType,
+					),
+				)
+				return
+			}
+		} else if ctx.AST.TILDE() != nil {
+			if !operandType.IsInteger() {
+				ctx.Diagnostics.Add(
+					diagnostics.Errorf(
+						ctx.AST,
+						"operator ~ requires integer operand, received %s",
 						operandType,
 					),
 				)

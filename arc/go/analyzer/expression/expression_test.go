@@ -108,6 +108,20 @@ var _ = Describe("Expressions", func() {
 					c := a or b
 				}
 			`),
+			Entry("bitwise AND on integers", `
+				func testFunc() {
+					a i32 := 12
+					b i32 := 10
+					c := a & b
+				}
+			`),
+			Entry("bitwise OR on integers", `
+				func testFunc() {
+					a i32 := 12
+					b i32 := 10
+					c := a | b
+				}
+			`),
 			Entry("multiple additions", `
 				func testFunc() {
 					a i32 := 1
@@ -248,6 +262,40 @@ var _ = Describe("Expressions", func() {
 					z := x or y
 				}
 			`, "i32", "or"),
+		)
+
+		DescribeTable("invalid bitwise operations on non-integers",
+			func(ctx SpecContext, code, typeName, operator string) {
+				expectOperatorTypeError(ctx, code, typeName, operator)
+			},
+			Entry("AND on bool", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x & y
+				}
+			`, "bool", "&"),
+			Entry("OR on bool", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x | y
+				}
+			`, "bool", "|"),
+			Entry("AND on f64", `
+				func testFunc() {
+					x f64 := 1.0
+					y f64 := 2.0
+					z := x & y
+				}
+			`, "f64", "&"),
+			Entry("OR on f64", `
+				func testFunc() {
+					x f64 := 1.0
+					y f64 := 2.0
+					z := x | y
+				}
+			`, "f64", "|"),
 		)
 
 		DescribeTable("type mismatch errors",
@@ -517,6 +565,24 @@ var _ = Describe("Expressions", func() {
 					y := -x
 				}
 			`),
+			Entry("bitwise not on integer", `
+				func testFunc() {
+					x i32 := 5
+					y := ~x
+				}
+			`),
+			Entry("double bitwise not", `
+				func testFunc() {
+					x i32 := 5
+					y := ~~x
+				}
+			`),
+			Entry("bitwise not on unsigned integer", `
+				func testFunc() {
+					x u32 := 5
+					y := ~x
+				}
+			`),
 		)
 
 		DescribeTable("invalid unary operations",
@@ -547,6 +613,24 @@ var _ = Describe("Expressions", func() {
 					y := not x
 				}
 			`, "operator 'not' requires boolean operand"),
+			Entry("bitwise not on bool", `
+				func testFunc() {
+					x bool := true
+					y := ~x
+				}
+			`, "operator ~ requires integer operand"),
+			Entry("bitwise not on float", `
+				func testFunc() {
+					x f64 := 1.0
+					y := ~x
+				}
+			`, "operator ~ requires integer operand"),
+			Entry("bitwise not on string", `
+				func testFunc() {
+					x str := "hello"
+					y := ~x
+				}
+			`, "operator ~ requires integer operand"),
 		)
 	})
 
@@ -1268,6 +1352,8 @@ var _ = Describe("Expressions", func() {
 			Entry("parenthesized expression", `(42) -> out`, false),
 			Entry("comparison expression", `1 > 0 -> out`, false),
 			Entry("logical expression", `1 and 0 -> out`, false),
+			Entry("bitwise not expression", `~1 -> out`, false),
+			Entry("bitwise expression", `1 & 0 -> out`, false),
 			Entry("numeric literal with unit suffix", `5m -> out`, true),
 		)
 

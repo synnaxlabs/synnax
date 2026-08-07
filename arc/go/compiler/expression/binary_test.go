@@ -1332,6 +1332,73 @@ var _ = Describe("Binary Operations", func() {
 		),
 	)
 
+	DescribeTable(
+		"should compile bitwise expressions correctly",
+		expectExpression,
+		Entry(
+			"i32 bitwise and",
+			"i32(12) & i32(10)",
+			types.I32(),
+			OpI32Const, int32(12),
+			OpI32Const, int32(10),
+			OpI32And,
+		),
+		Entry(
+			"i32 bitwise or",
+			"i32(12) | i32(10)",
+			types.I32(),
+			OpI32Const, int32(12),
+			OpI32Const, int32(10),
+			OpI32Or,
+		),
+		Entry(
+			"i64 bitwise and",
+			"100 & 200",
+			types.I64(),
+			OpI64Const, int64(100),
+			OpI64Const, int64(200),
+			OpI64And,
+		),
+		Entry(
+			"i64 bitwise or",
+			"100 | 200",
+			types.I64(),
+			OpI64Const, int64(100),
+			OpI64Const, int64(200),
+			OpI64Or,
+		),
+		Entry(
+			"chained bitwise and (left-associative)",
+			"i32(12) & i32(10) & i32(8)",
+			types.I32(),
+			OpI32Const, int32(12),
+			OpI32Const, int32(10),
+			OpI32And,
+			OpI32Const, int32(8),
+			OpI32And,
+		),
+		Entry(
+			"chained bitwise or (left-associative)",
+			"i32(12) | i32(10) | i32(8)",
+			types.I32(),
+			OpI32Const, int32(12),
+			OpI32Const, int32(10),
+			OpI32Or,
+			OpI32Const, int32(8),
+			OpI32Or,
+		),
+		Entry(
+			"bitwise and binds tighter than or",
+			"i32(1) | i32(2) & i32(3)",
+			types.I32(),
+			OpI32Const, int32(1),
+			OpI32Const, int32(2),
+			OpI32Const, int32(3),
+			OpI32And,
+			OpI32Or,
+		),
+	)
+
 	Describe("Literal Coercion", func() {
 		It("Should coerce a literal type", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)

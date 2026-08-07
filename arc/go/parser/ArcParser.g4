@@ -384,7 +384,15 @@ logicalOrExpression
     ;
 
 logicalAndExpression
-    : equalityExpression (AND equalityExpression)*
+    : bitwiseOrExpression (AND bitwiseOrExpression)*
+    ;
+
+bitwiseOrExpression
+    : bitwiseAndExpression (PIPE bitwiseAndExpression)*
+    ;
+
+bitwiseAndExpression
+    : equalityExpression (AMP equalityExpression)*
     ;
 
 equalityExpression
@@ -411,6 +419,7 @@ powerExpression
 unaryExpression
     : MINUS unaryExpression
     | NOT unaryExpression
+    | TILDE unaryExpression
     | postfixExpression
     ;
 

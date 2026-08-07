@@ -55,11 +55,31 @@ func compileLogicalOr(
 func compileLogicalAnd(
 	ctx context.Context[parser.ILogicalAndExpressionContext],
 ) (types.Type, error) {
-	eqs := validateNonZeroArray(ctx.AST.AllEqualityExpression(), "logical AND")
+	ors := validateNonZeroArray(ctx.AST.AllBitwiseOrExpression(), "logical AND")
+	if len(ors) == 1 {
+		return compileBitwiseOr(context.Child(ctx, ors[0]))
+	}
+	return compileLogicalAndImpl(ctx)
+}
+
+func compileBitwiseOr(
+	ctx context.Context[parser.IBitwiseOrExpressionContext],
+) (types.Type, error) {
+	ands := validateNonZeroArray(ctx.AST.AllBitwiseAndExpression(), "bitwise OR")
+	if len(ands) == 1 {
+		return compileBitwiseAnd(context.Child(ctx, ands[0]))
+	}
+	return compileBitwiseOrImpl(ctx)
+}
+
+func compileBitwiseAnd(
+	ctx context.Context[parser.IBitwiseAndExpressionContext],
+) (types.Type, error) {
+	eqs := validateNonZeroArray(ctx.AST.AllEqualityExpression(), "bitwise AND")
 	if len(eqs) == 1 {
 		return compileEquality(context.Child(ctx, eqs[0]))
 	}
-	return compileLogicalAndImpl(ctx)
+	return compileBitwiseAndImpl(ctx)
 }
 
 func compileEquality(

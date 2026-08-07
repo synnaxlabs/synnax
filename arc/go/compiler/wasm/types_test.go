@@ -416,10 +416,36 @@ var _ = Describe("Binary Opcodes", func() {
 		})
 	})
 
+	Describe("Bitwise Operators", func() {
+		It("Should map & operator to i32.and for i32", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred("&", types.I32())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI32And)}))
+		})
+
+		It("Should map & operator to i64.and for i64", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred("&", types.I64())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI64And)}))
+		})
+
+		It("Should map | operator to i32.or for i32", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred("|", types.I32())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI32Or)}))
+		})
+
+		It("Should map | operator to i64.or for i64", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred("|", types.I64())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI64Or)}))
+		})
+	})
+
 	Describe("Error Cases", func() {
 		It("Should error on unknown operator", func() {
 			writer := wasm.NewWriter()
-			err := writer.WriteBinaryOpInferred("&", types.I32())
+			err := writer.WriteBinaryOpInferred("@", types.I32())
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("unknown operator")))
 		})

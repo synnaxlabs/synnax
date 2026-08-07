@@ -99,7 +99,9 @@ var _ = Describe("Parser", func() {
 				Expect(logicalOr).NotTo(BeNil())
 				var (
 					logicalAnd     = logicalOr.LogicalAndExpression(0)
-					equality       = logicalAnd.EqualityExpression(0)
+					bitwiseOr      = logicalAnd.BitwiseOrExpression(0)
+					bitwiseAnd     = bitwiseOr.BitwiseAndExpression(0)
+					equality       = bitwiseAnd.EqualityExpression(0)
 					relational     = equality.RelationalExpression(0)
 					additive       = relational.AdditiveExpression(0)
 					multiplicative = additive.MultiplicativeExpression(0)
@@ -936,12 +938,12 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 				// Left side: not a and b
 				leftAnd := logicalOr.LogicalAndExpression(0)
-				Expect(leftAnd.AllEqualityExpression()).To(HaveLen(2))
+				Expect(leftAnd.AllBitwiseOrExpression()).To(HaveLen(2))
 				Expect(leftAnd.AND(0)).NotTo(BeNil())
 
 				// Right side: c and not d
 				rightAnd := logicalOr.LogicalAndExpression(1)
-				Expect(rightAnd.AllEqualityExpression()).To(HaveLen(2))
+				Expect(rightAnd.AllBitwiseOrExpression()).To(HaveLen(2))
 				Expect(rightAnd.AND(0)).NotTo(BeNil())
 			})
 		})
@@ -1025,12 +1027,21 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should capture lexer errors for invalid tokens (regression)", func() {
-				// Regression test: lexer errors were not being captured properly Using
-				// && instead of 'and' should produce lexer token recognition errors
+				// Regression test: lexer errors were not being captured properly. An
+				// unrecognized character should produce a lexer token recognition error.
 				Expect(
-					parser.ParseExpression("a > 5 && b < 10"),
+					parser.ParseExpression("a > 5 @ b < 10"),
 				).Error().
-					To(MatchError(ContainSubstring("token recognition error at: '&'")))
+					To(MatchError(ContainSubstring("token recognition error at: '@'")))
+			})
+
+			It("Should report error for repeated bitwise operators", func() {
+				// '&' is a valid bitwise token, so '&&&' lexes as three AMP tokens and
+				// fails at the parser rather than the lexer.
+				Expect(
+					parser.ParseExpression("a &&& b"),
+				).Error().
+					To(MatchError(ContainSubstring("extraneous input '&'")))
 			})
 
 			It("Should report error for double assignment", func() {
@@ -2168,7 +2179,10 @@ func getRelationalExpression(
 func getEqualityExpression(
 	expr parser.IExpressionContext,
 ) parser.IEqualityExpressionContext {
-	return getLogicalAndExpression(expr).EqualityExpression(0)
+	return getLogicalAndExpression(expr).
+		BitwiseOrExpression(0).
+		BitwiseAndExpression(0).
+		EqualityExpression(0)
 }
 
 func getLogicalAndExpression(

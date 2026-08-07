@@ -263,6 +263,14 @@ func (v *BaseArcParserVisitor) VisitLogicalAndExpression(ctx *LogicalAndExpressi
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitBitwiseOrExpression(ctx *BitwiseOrExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitBitwiseAndExpression(ctx *BitwiseAndExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitEqualityExpression(ctx *EqualityExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }

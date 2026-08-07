@@ -199,6 +199,12 @@ type ArcParserListener interface {
 	// EnterLogicalAndExpression is called when entering the logicalAndExpression production.
 	EnterLogicalAndExpression(c *LogicalAndExpressionContext)
 
+	// EnterBitwiseOrExpression is called when entering the bitwiseOrExpression production.
+	EnterBitwiseOrExpression(c *BitwiseOrExpressionContext)
+
+	// EnterBitwiseAndExpression is called when entering the bitwiseAndExpression production.
+	EnterBitwiseAndExpression(c *BitwiseAndExpressionContext)
+
 	// EnterEqualityExpression is called when entering the equalityExpression production.
 	EnterEqualityExpression(c *EqualityExpressionContext)
 
@@ -438,6 +444,12 @@ type ArcParserListener interface {
 
 	// ExitLogicalAndExpression is called when exiting the logicalAndExpression production.
 	ExitLogicalAndExpression(c *LogicalAndExpressionContext)
+
+	// ExitBitwiseOrExpression is called when exiting the bitwiseOrExpression production.
+	ExitBitwiseOrExpression(c *BitwiseOrExpressionContext)
+
+	// ExitBitwiseAndExpression is called when exiting the bitwiseAndExpression production.
+	ExitBitwiseAndExpression(c *BitwiseAndExpressionContext)
 
 	// ExitEqualityExpression is called when exiting the equalityExpression production.
 	ExitEqualityExpression(c *EqualityExpressionContext)

@@ -69,18 +69,18 @@ func compileLogicalOrImpl(
 func compileLogicalAndImpl(
 	ctx context.Context[parser.ILogicalAndExpressionContext],
 ) (types.Type, error) {
-	eqs := ctx.AST.AllEqualityExpression()
+	ors := ctx.AST.AllBitwiseOrExpression()
 
-	leftType, err := compileEquality(context.Child(ctx, eqs[0]))
+	leftType, err := compileBitwiseOr(context.Child(ctx, ors[0]))
 	if err != nil {
 		return types.Type{}, err
 	}
 
 	if leftType.Kind == types.KindSeries {
 		elemType := *leftType.Elem
-		for i := 1; i < len(eqs); i++ {
-			rhsType, err := compileEquality(
-				context.Child(ctx, eqs[i]).WithHint(elemType),
+		for i := 1; i < len(ors); i++ {
+			rhsType, err := compileBitwiseOr(
+				context.Child(ctx, ors[i]).WithHint(elemType),
 			)
 			if err != nil {
 				return types.Type{}, err
@@ -99,7 +99,7 @@ func compileLogicalAndImpl(
 	normalizeBoolean(ctx)
 
 	// Process remaining operands with short-circuit evaluation
-	for i := 1; i < len(eqs); i++ {
+	for i := 1; i < len(ors); i++ {
 		// The stack has the current boolean value (0 or 1)
 		// If it's false (0), we skip evaluation of the right operand
 		// Use if-else block for short-circuit evaluation
@@ -109,7 +109,7 @@ func compileLogicalAndImpl(
 		ctx.Writer.WriteI32Const(0)
 		ctx.Writer.WriteOpcode(wasm.OpElse)
 		// False case (was non-zero): evaluate right operand
-		if _, err := compileEquality(context.Child(ctx, eqs[i])); err != nil {
+		if _, err := compileBitwiseOr(context.Child(ctx, ors[i])); err != nil {
 			return types.Type{}, err
 		}
 		// Normalize the result
