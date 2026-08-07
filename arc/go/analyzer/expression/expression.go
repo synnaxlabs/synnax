@@ -121,6 +121,8 @@ func getLogicalAndOperator(antlr.ParserRuleContext) string { return "and" }
 
 func getBitwiseOrOperator(antlr.ParserRuleContext) string { return "|" }
 
+func getBitwiseXorOperator(antlr.ParserRuleContext) string { return "^" }
+
 func getBitwiseAndOperator(antlr.ParserRuleContext) string { return "&" }
 
 func getEqualityOperator(ctx antlr.ParserRuleContext) string {
@@ -289,11 +291,19 @@ func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext])
 }
 
 func analyzeBitwiseOr(ctx context.Context[parser.IBitwiseOrExpressionContext]) {
+	bitwiseXors := ctx.AST.AllBitwiseXorExpression()
+	for _, bitwiseXor := range bitwiseXors {
+		analyzeBitwiseXor(context.Child(ctx, bitwiseXor))
+	}
+	validateType(ctx, bitwiseXors, getBitwiseOrOperator, types.InferBitwiseXor, isInteger)
+}
+
+func analyzeBitwiseXor(ctx context.Context[parser.IBitwiseXorExpressionContext]) {
 	bitwiseAnds := ctx.AST.AllBitwiseAndExpression()
 	for _, bitwiseAnd := range bitwiseAnds {
 		analyzeBitwiseAnd(context.Child(ctx, bitwiseAnd))
 	}
-	validateType(ctx, bitwiseAnds, getBitwiseOrOperator, types.InferBitwiseAnd, isInteger)
+	validateType(ctx, bitwiseAnds, getBitwiseXorOperator, types.InferBitwiseAnd, isInteger)
 }
 
 func analyzeBitwiseAnd(ctx context.Context[parser.IBitwiseAndExpressionContext]) {

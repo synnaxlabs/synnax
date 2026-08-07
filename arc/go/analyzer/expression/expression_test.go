@@ -136,6 +136,20 @@ var _ = Describe("Expressions", func() {
 					c := a | b
 				}
 			`),
+			Entry("bitwise XOR on integers", `
+				func testFunc() {
+					a i32 := 12
+					b i32 := 10
+					c := a ^ b
+				}
+			`),
+			Entry("bitwise XOR keyword on integers", `
+				func testFunc() {
+					a i32 := 12
+					b i32 := 10
+					c := a xor b
+				}
+			`),
 			Entry("multiple additions", `
 				func testFunc() {
 					a i32 := 1
@@ -338,6 +352,27 @@ var _ = Describe("Expressions", func() {
 					z := x | y
 				}
 			`, "f64", "|"),
+			Entry("XOR on bool", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x ^ y
+				}
+			`, "bool", "^"),
+			Entry("XOR keyword on bool", `
+				func testFunc() {
+					x bool := true
+					y bool := false
+					z := x xor y
+				}
+			`, "bool", "^"),
+			Entry("XOR on f64", `
+				func testFunc() {
+					x f64 := 1.0
+					y f64 := 2.0
+					z := x ^ y
+				}
+			`, "f64", "^"),
 		)
 
 		DescribeTable("type mismatch errors",
@@ -1486,6 +1521,7 @@ var _ = Describe("Expressions", func() {
 			Entry("symbolic logical expression", `1 && 0 -> out`, false),
 			Entry("bitwise not expression", `~1 -> out`, false),
 			Entry("bitwise expression", `1 & 0 -> out`, false),
+			Entry("bitwise xor expression", `1 ^ 0 -> out`, false),
 			Entry("numeric literal with unit suffix", `5m -> out`, true),
 		)
 

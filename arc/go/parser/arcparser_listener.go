@@ -202,6 +202,9 @@ type ArcParserListener interface {
 	// EnterBitwiseOrExpression is called when entering the bitwiseOrExpression production.
 	EnterBitwiseOrExpression(c *BitwiseOrExpressionContext)
 
+	// EnterBitwiseXorExpression is called when entering the bitwiseXorExpression production.
+	EnterBitwiseXorExpression(c *BitwiseXorExpressionContext)
+
 	// EnterBitwiseAndExpression is called when entering the bitwiseAndExpression production.
 	EnterBitwiseAndExpression(c *BitwiseAndExpressionContext)
 
@@ -447,6 +450,9 @@ type ArcParserListener interface {
 
 	// ExitBitwiseOrExpression is called when exiting the bitwiseOrExpression production.
 	ExitBitwiseOrExpression(c *BitwiseOrExpressionContext)
+
+	// ExitBitwiseXorExpression is called when exiting the bitwiseXorExpression production.
+	ExitBitwiseXorExpression(c *BitwiseXorExpressionContext)
 
 	// ExitBitwiseAndExpression is called when exiting the bitwiseAndExpression production.
 	ExitBitwiseAndExpression(c *BitwiseAndExpressionContext)

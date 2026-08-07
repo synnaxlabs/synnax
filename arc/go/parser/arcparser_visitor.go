@@ -202,6 +202,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#bitwiseOrExpression.
 	VisitBitwiseOrExpression(ctx *BitwiseOrExpressionContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#bitwiseXorExpression.
+	VisitBitwiseXorExpression(ctx *BitwiseXorExpressionContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#bitwiseAndExpression.
 	VisitBitwiseAndExpression(ctx *BitwiseAndExpressionContext) interface{}
 

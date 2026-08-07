@@ -249,9 +249,13 @@ var _ = Describe("Type Inference", func() {
 			},
 			Entry("bitwise and", "i32_ch & 12", types.KindI32),
 			Entry("bitwise or", "i32_ch | 12", types.KindI32),
+			Entry("bitwise xor", "i32_ch ^ 12", types.KindI32),
+			Entry("bitwise xor keyword", "i32_ch xor 12", types.KindI32),
 			Entry("bitwise and i64", "i64_ch & 255", types.KindI64),
 			Entry("bitwise or i64", "i64_ch | 255", types.KindI64),
+			Entry("bitwise xor i64", "i64_ch ^ 255", types.KindI64),
 			Entry("chained bitwise and", "i32_ch & 12 & 8", types.KindI32),
+			Entry("chained bitwise xor", "i32_ch ^ 12 ^ 8", types.KindI32),
 			Entry("bitwise not", "~i32_ch", types.KindI32),
 			Entry("bitwise not i64", "~i64_ch", types.KindI64),
 		)

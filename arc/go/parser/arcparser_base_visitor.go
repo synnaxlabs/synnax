@@ -267,6 +267,10 @@ func (v *BaseArcParserVisitor) VisitBitwiseOrExpression(ctx *BitwiseOrExpression
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitBitwiseXorExpression(ctx *BitwiseXorExpressionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitBitwiseAndExpression(ctx *BitwiseAndExpressionContext) interface{} {
 	return v.VisitChildren(ctx)
 }

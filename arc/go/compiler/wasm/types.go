@@ -151,6 +151,12 @@ func binaryOpcode(op string, t types.Type) (Opcode, error) {
 		}
 		return OpI32And, nil
 
+	case "^":
+		if is64bit {
+			return OpI64Xor, nil
+		}
+		return OpI32Xor, nil
+
 	case "|":
 		if is64bit {
 			return OpI64Or, nil

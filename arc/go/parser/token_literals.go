@@ -61,6 +61,8 @@ const (
 	LiteralAMP           = "&"
 	LiteralPIPE          = "|"
 	LiteralTILDE         = "~"
+	LiteralCARET         = "^"
+	LiteralXOR           = "xor"
 	LiteralLPAREN        = "("
 	LiteralRPAREN        = ")"
 	LiteralLBRACE        = "{"

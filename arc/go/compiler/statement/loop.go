@@ -79,6 +79,7 @@ func isRangeCallExpr(
 	postfix := expr.LogicalOrExpression().
 		AllLogicalAndExpression()[0].
 		AllBitwiseOrExpression()[0].
+		AllBitwiseXorExpression()[0].
 		AllBitwiseAndExpression()[0].
 		AllEqualityExpression()[0].
 		AllRelationalExpression()[0].

@@ -388,7 +388,11 @@ logicalAndExpression
     ;
 
 bitwiseOrExpression
-    : bitwiseAndExpression (PIPE bitwiseAndExpression)*
+    : bitwiseXorExpression (PIPE bitwiseXorExpression)*
+    ;
+
+bitwiseXorExpression
+    : bitwiseAndExpression ((CARET | XOR) bitwiseAndExpression)*
     ;
 
 bitwiseAndExpression

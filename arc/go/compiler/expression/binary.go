@@ -20,6 +20,40 @@ import (
 func compileBitwiseOrImpl(
 	ctx context.Context[parser.IBitwiseOrExpressionContext],
 ) (types.Type, error) {
+	xors := ctx.AST.AllBitwiseXorExpression()
+	leftType, err := compileBitwiseXor(context.Child(ctx, xors[0]))
+	if err != nil {
+		return types.Type{}, err
+	}
+	hintType := leftType
+	if leftType.Kind == types.KindChan {
+		hintType = leftType.Unwrap()
+	}
+	if hintType.Kind == types.KindSeries {
+		return types.Type{}, errors.New(
+			"bitwise operators are not supported on series",
+		)
+	}
+	for i := 1; i < len(xors); i++ {
+		rhsType, err := compileBitwiseXor(context.Child(ctx, xors[i]).WithHint(hintType))
+		if err != nil {
+			return types.Type{}, err
+		}
+		if rhsType.Kind == types.KindSeries {
+			return types.Type{}, errors.New(
+				"bitwise operators are not supported on series",
+			)
+		}
+		if err := ctx.Writer.WriteBinaryOpInferred("|", hintType); err != nil {
+			return types.Type{}, err
+		}
+	}
+	return hintType, nil
+}
+
+func compileBitwiseXorImpl(
+	ctx context.Context[parser.IBitwiseXorExpressionContext],
+) (types.Type, error) {
 	ands := ctx.AST.AllBitwiseAndExpression()
 	leftType, err := compileBitwiseAnd(context.Child(ctx, ands[0]))
 	if err != nil {
@@ -44,7 +78,7 @@ func compileBitwiseOrImpl(
 				"bitwise operators are not supported on series",
 			)
 		}
-		if err := ctx.Writer.WriteBinaryOpInferred("|", hintType); err != nil {
+		if err := ctx.Writer.WriteBinaryOpInferred("^", hintType); err != nil {
 			return types.Type{}, err
 		}
 	}

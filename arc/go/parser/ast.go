@@ -39,6 +39,9 @@ func isNegatedLiteral(node antlr.ParserRuleContext) bool {
 		ors := ctx.AllBitwiseOrExpression()
 		return len(ors) == 1 && isNegatedLiteral(ors[0])
 	case IBitwiseOrExpressionContext:
+		xors := ctx.AllBitwiseXorExpression()
+		return len(xors) == 1 && isNegatedLiteral(xors[0])
+	case IBitwiseXorExpressionContext:
 		ands := ctx.AllBitwiseAndExpression()
 		return len(ands) == 1 && isNegatedLiteral(ands[0])
 	case IBitwiseAndExpressionContext:
@@ -77,6 +80,9 @@ func isLiteral(node antlr.ParserRuleContext) bool {
 		ors := ctx.AllBitwiseOrExpression()
 		return len(ors) == 1 && isLiteral(ors[0])
 	case IBitwiseOrExpressionContext:
+		xors := ctx.AllBitwiseXorExpression()
+		return len(xors) == 1 && isLiteral(xors[0])
+	case IBitwiseXorExpressionContext:
 		ands := ctx.AllBitwiseAndExpression()
 		return len(ands) == 1 && isLiteral(ands[0])
 	case IBitwiseAndExpressionContext:
@@ -134,6 +140,11 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 			return GetLiteralNode(ors[0])
 		}
 	case IBitwiseOrExpressionContext:
+		xors := ctx.AllBitwiseXorExpression()
+		if len(xors) == 1 {
+			return GetLiteralNode(xors[0])
+		}
+	case IBitwiseXorExpressionContext:
 		ands := ctx.AllBitwiseAndExpression()
 		if len(ands) == 1 {
 			return GetLiteralNode(ands[0])
@@ -216,6 +227,9 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 		ors := ctx.AllBitwiseOrExpression()
 		return len(ors) == 1 && isNumericLiteral(ors[0])
 	case IBitwiseOrExpressionContext:
+		xors := ctx.AllBitwiseXorExpression()
+		return len(xors) == 1 && isNumericLiteral(xors[0])
+	case IBitwiseXorExpressionContext:
 		ands := ctx.AllBitwiseAndExpression()
 		return len(ands) == 1 && isNumericLiteral(ands[0])
 	case IBitwiseAndExpressionContext:
@@ -294,10 +308,14 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 		return nil
 	}
 	bitOr := ands.AllBitwiseOrExpression()[0]
-	if len(bitOr.AllBitwiseAndExpression()) != 1 {
+	if len(bitOr.AllBitwiseXorExpression()) != 1 {
 		return nil
 	}
-	bitAnd := bitOr.AllBitwiseAndExpression()[0]
+	bitXor := bitOr.AllBitwiseXorExpression()[0]
+	if len(bitXor.AllBitwiseAndExpression()) != 1 {
+		return nil
+	}
+	bitAnd := bitXor.AllBitwiseAndExpression()[0]
 	if len(bitAnd.AllEqualityExpression()) != 1 {
 		return nil
 	}

@@ -410,6 +410,12 @@ func (s *BaseArcParserListener) EnterBitwiseOrExpression(ctx *BitwiseOrExpressio
 // ExitBitwiseOrExpression is called when production bitwiseOrExpression is exited.
 func (s *BaseArcParserListener) ExitBitwiseOrExpression(ctx *BitwiseOrExpressionContext) {}
 
+// EnterBitwiseXorExpression is called when production bitwiseXorExpression is entered.
+func (s *BaseArcParserListener) EnterBitwiseXorExpression(ctx *BitwiseXorExpressionContext) {}
+
+// ExitBitwiseXorExpression is called when production bitwiseXorExpression is exited.
+func (s *BaseArcParserListener) ExitBitwiseXorExpression(ctx *BitwiseXorExpressionContext) {}
+
 // EnterBitwiseAndExpression is called when production bitwiseAndExpression is entered.
 func (s *BaseArcParserListener) EnterBitwiseAndExpression(ctx *BitwiseAndExpressionContext) {}
 

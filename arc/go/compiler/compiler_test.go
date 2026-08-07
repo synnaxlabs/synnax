@@ -4112,14 +4112,23 @@ var _ = Describe("Compiler", func() {
 			// OR operations
 			Entry("or", `{ return i32(12) | i32(10) }`, int32(14)),
 			Entry("or zero", `{ return i32(12) | i32(0) }`, int32(12)),
+			// XOR operations
+			Entry("xor", `{ return i32(12) ^ i32(10) }`, int32(6)),
+			Entry("xor zero", `{ return i32(12) ^ i32(0) }`, int32(12)),
+			Entry("xor self", `{ return i32(12) ^ i32(12) }`, int32(0)),
+			Entry("xor keyword", `{ return i32(12) xor i32(10) }`, int32(6)),
 			// Chained operations
 			Entry("chained and", `{ return i32(15) & i32(12) & i32(9) }`, int32(8)),
 			Entry("chained or", `{ return i32(1) | i32(2) | i32(4) }`, int32(7)),
-			// Precedence: & binds tighter than |
+			Entry("chained xor", `{ return i32(15) ^ i32(12) ^ i32(9) }`, int32(10)),
+			// Precedence: & binds tighter than ^, ^ binds tighter than |
 			Entry("and binds tighter than or", `{ return i32(1) | i32(6) & i32(4) }`, int32(5)),
+			Entry("and binds tighter than xor", `{ return i32(1) ^ i32(6) & i32(4) }`, int32(5)),
+			Entry("xor binds tighter than or", `{ return i32(1) | i32(6) ^ i32(4) }`, int32(3)),
 			// i64 operands
 			Entry("i64 and", `{ return i64(255) & i64(15) }`, int64(15)),
 			Entry("i64 or", `{ return i64(240) | i64(15) }`, int64(255)),
+			Entry("i64 xor", `{ return i64(255) ^ i64(15) }`, int64(240)),
 		)
 
 		DescribeTable(
@@ -4272,6 +4281,10 @@ var _ = Describe("Compiler", func() {
 			}`, int32(1)),
 			Entry("if bitwise or", `{
 				if i32(0) | i32(1) { return i32(1) }
+				return i32(0)
+			}`, int32(1)),
+			Entry("if bitwise xor", `{
+				if i32(12) ^ i32(8) { return i32(1) }
 				return i32(0)
 			}`, int32(1)),
 		)

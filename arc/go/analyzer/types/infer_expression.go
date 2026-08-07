@@ -73,6 +73,36 @@ func InferLogicalAnd(
 // InferBitwiseOr types a bitwise '|'. Bitwise ops preserve the integer operand
 // type; a series operand makes the result element-wise.
 func InferBitwiseOr(ctx context.Context[parser.IBitwiseOrExpressionContext]) types.Type {
+	xors := ctx.AST.AllBitwiseXorExpression()
+	if len(xors) == 0 {
+		return types.Type{}
+	}
+	if len(xors) == 1 {
+		return InferBitwiseXor(context.Child(ctx, xors[0]))
+	}
+	first := InferBitwiseXor(context.Child(ctx, xors[0]))
+	isSeries := first.Kind == types.KindSeries
+	elemType := first.Unwrap()
+	for i := 1; i < len(xors); i++ {
+		next := InferBitwiseXor(context.Child(ctx, xors[i]))
+		if next.Kind == types.KindSeries {
+			isSeries = true
+		}
+		var early bool
+		if elemType, early = inferBinaryType(elemType, next.Unwrap()); early {
+			break
+		}
+	}
+	if isSeries {
+		return types.Series(elemType)
+	}
+	return elemType
+}
+
+// InferBitwiseXor types a bitwise '^'. See InferBitwiseOr.
+func InferBitwiseXor(
+	ctx context.Context[parser.IBitwiseXorExpressionContext],
+) types.Type {
 	ands := ctx.AST.AllBitwiseAndExpression()
 	if len(ands) == 0 {
 		return types.Type{}

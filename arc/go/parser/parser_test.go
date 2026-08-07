@@ -100,7 +100,8 @@ var _ = Describe("Parser", func() {
 				var (
 					logicalAnd     = logicalOr.LogicalAndExpression(0)
 					bitwiseOr      = logicalAnd.BitwiseOrExpression(0)
-					bitwiseAnd     = bitwiseOr.BitwiseAndExpression(0)
+					bitwiseXor     = bitwiseOr.BitwiseXorExpression(0)
+					bitwiseAnd     = bitwiseXor.BitwiseAndExpression(0)
 					equality       = bitwiseAnd.EqualityExpression(0)
 					relational     = equality.RelationalExpression(0)
 					additive       = relational.AdditiveExpression(0)
@@ -973,6 +974,30 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(rightAnd.AllBitwiseOrExpression()).To(HaveLen(2))
 				Expect(rightAnd.AMPAMP(0)).NotTo(BeNil())
 			})
+
+			It("Should parse bitwise xor with ^ and xor", func() {
+				// a & b ^ c | d
+				// Should be: ((a & b) ^ c) | d
+				expr := mustParseExpression("a & b ^ c | d")
+
+				bitwiseOr := expr.LogicalOrExpression().
+					LogicalAndExpression(0).
+					BitwiseOrExpression(0)
+				Expect(bitwiseOr.AllBitwiseXorExpression()).To(HaveLen(2))
+				Expect(bitwiseOr.PIPE(0)).NotTo(BeNil())
+
+				bitwiseXor := bitwiseOr.BitwiseXorExpression(0)
+				Expect(bitwiseXor.AllBitwiseAndExpression()).To(HaveLen(2))
+				Expect(bitwiseXor.CARET(0)).NotTo(BeNil())
+
+				keyword := mustParseExpression("a xor b").
+					LogicalOrExpression().
+					LogicalAndExpression(0).
+					BitwiseOrExpression(0).
+					BitwiseXorExpression(0)
+				Expect(keyword.AllBitwiseAndExpression()).To(HaveLen(2))
+				Expect(keyword.XOR(0)).NotTo(BeNil())
+			})
 		})
 
 		Context("Complex series operations", func() {
@@ -1071,6 +1096,15 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 					parser.ParseExpression("a &&& b"),
 				).Error().
 					To(MatchError(ContainSubstring("extraneous input '&'")))
+			})
+
+			It("Should report error for repeated xor operators", func() {
+				// '^^' lexes as two CARET tokens and fails at the parser rather
+				// than the lexer.
+				Expect(
+					parser.ParseExpression("a ^^ b"),
+				).Error().
+					To(MatchError(ContainSubstring("extraneous input '^'")))
 			})
 
 			It("Should report error for double assignment", func() {
@@ -2210,6 +2244,7 @@ func getEqualityExpression(
 ) parser.IEqualityExpressionContext {
 	return getLogicalAndExpression(expr).
 		BitwiseOrExpression(0).
+		BitwiseXorExpression(0).
 		BitwiseAndExpression(0).
 		EqualityExpression(0)
 }

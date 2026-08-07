@@ -440,6 +440,18 @@ var _ = Describe("Binary Opcodes", func() {
 			Expect(writer.WriteBinaryOpInferred("|", types.I64())).To(Succeed())
 			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI64Or)}))
 		})
+
+		It("Should map ^ operator to i32.xor for i32", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred("^", types.I32())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI32Xor)}))
+		})
+
+		It("Should map ^ operator to i64.xor for i64", func() {
+			writer := wasm.NewWriter()
+			Expect(writer.WriteBinaryOpInferred("^", types.I64())).To(Succeed())
+			Expect(writer.Bytes()).To(Equal([]byte{byte(wasm.OpI64Xor)}))
+		})
 	})
 
 	Describe("Error Cases", func() {
