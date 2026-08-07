@@ -195,33 +195,33 @@ type Transport struct {
 // Layer wraps all implemented API services into a single container. Protocol-specific
 // Layer implementations should use this struct during instantiation.
 type Layer struct {
-	Project         *project.Service
-	LinePlot        *lineplot.Service
-	User            *user.Service
-	Framer          *framer.Service
-	Channel         *channel.Service
-	Connectivity    *connectivity.Service
-	Ontology        *ontology.Service
-	Range           *ranger.Service
-	KV              *kv.Service
-	Alias           *alias.Service
-	Group           *group.Service
-	Log             *log.Service
-	Auth            *auth.Service
-	Schematic       *schematic.Service
-	SchematicSymbol *symbol.Service
-	View            *view.Service
-	Table           *table.Service
-	Panel           *panel.Service
-	Label           *label.Service
-	Rack            *rack.Service
-	Task            *task.Service
-	Device          *device.Service
-	Access          *access.Service
-	Arc             *arc.Service
-	Status          *status.Service
-	ImEx            *imex.Service
-	config          config.LayerConfig
+	Project      *project.Service
+	LinePlot     *lineplot.Service
+	User         *user.Service
+	Framer       *framer.Service
+	Channel      *channel.Service
+	Connectivity *connectivity.Service
+	Ontology     *ontology.Service
+	Range        *ranger.Service
+	KV           *kv.Service
+	Alias        *alias.Service
+	Group        *group.Service
+	Log          *log.Service
+	Auth         *auth.Service
+	Schematic    *schematic.Service
+	Symbol       *symbol.Service
+	View         *view.Service
+	Table        *table.Service
+	Panel        *panel.Service
+	Label        *label.Service
+	Rack         *rack.Service
+	Task         *task.Service
+	Device       *device.Service
+	Access       *access.Service
+	Arc          *arc.Service
+	Status       *status.Service
+	ImEx         *imex.Service
+	config       config.LayerConfig
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -492,17 +492,17 @@ func (l *Layer) BindTo(t Transport) {
 
 	// SCHEMATIC SYMBOL
 	t.SchematicSymbolCreate.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.SchematicSymbol.Create),
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Create),
 	)
-	t.SchematicSymbolRetrieve.BindHandler(l.SchematicSymbol.Retrieve)
+	t.SchematicSymbolRetrieve.BindHandler(l.Symbol.Retrieve)
 	t.SchematicSymbolDelete.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.SchematicSymbol.Delete),
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Delete),
 	)
 	t.SchematicSymbolRename.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.SchematicSymbol.Rename),
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Rename),
 	)
-	t.SchematicSymbolRetrieveGroup.BindHandler(l.SchematicSymbol.RetrieveGroup)
-	t.SchematicSymbolExportGroup.BindHandler(l.SchematicSymbol.ExportGroup)
+	t.SchematicSymbolRetrieveGroup.BindHandler(l.Symbol.RetrieveGroup)
+	t.SchematicSymbolExportGroup.BindHandler(l.Symbol.ExportGroup)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Create))
@@ -647,7 +647,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Schematic, err = schematic.NewService(cfg); err != nil {
 		return nil, err
 	}
-	if l.SchematicSymbol, err = symbol.NewService(cfg); err != nil {
+	if l.Symbol, err = symbol.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.NewService(cfg); err != nil {

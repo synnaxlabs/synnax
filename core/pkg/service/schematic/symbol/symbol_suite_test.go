@@ -68,8 +68,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 
-var _ = BeforeEach(func() {
-	tx = DeferClose(db.OpenTx())
-})
+var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

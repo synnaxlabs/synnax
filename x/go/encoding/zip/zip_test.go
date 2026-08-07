@@ -10,22 +10,22 @@
 package zip_test
 
 import (
-	azip "archive/zip"
+	"archive/zip"
 	"bytes"
 	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding"
-	"github.com/synnaxlabs/x/encoding/zip"
+	xzip "github.com/synnaxlabs/x/encoding/zip"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // read unpacks b into the file map it was encoded from.
-func read(b []byte) zip.Files {
+func read(b []byte) xzip.Files {
 	GinkgoHelper()
-	r := MustSucceed(azip.NewReader(bytes.NewReader(b), int64(len(b))))
-	files := make(zip.Files, len(r.File))
+	r := MustSucceed(zip.NewReader(bytes.NewReader(b), int64(len(b))))
+	files := make(xzip.Files, len(r.File))
 	for _, f := range r.File {
 		rc := MustSucceed(f.Open())
 		files[f.Name] = MustSucceed(io.ReadAll(rc))
@@ -37,37 +37,37 @@ func read(b []byte) zip.Files {
 var _ = Describe("Zip", func() {
 	Describe("ContentType", func() {
 		It("Should report the zip content type", func() {
-			Expect(zip.Encoder.ContentType()).To(Equal("application/zip"))
+			Expect(xzip.Encoder.ContentType()).To(Equal("application/zip"))
 		})
 	})
 	Describe("Encode", func() {
 		It("Should encode every file into a readable archive", func(ctx SpecContext) {
-			files := zip.Files{
+			files := xzip.Files{
 				"manifest.json": []byte(`{"version":2}`),
 				"valve.json":    []byte(`{"name":"valve"}`),
 			}
-			Expect(read(MustSucceed(zip.Encoder.Encode(ctx, files)))).To(Equal(files))
+			Expect(read(MustSucceed(xzip.Encoder.Encode(ctx, files)))).To(Equal(files))
 		})
 		It("Should encode an empty file map into an empty archive", func(
 			ctx SpecContext,
 		) {
 			Expect(
-				read(MustSucceed(zip.Encoder.Encode(ctx, zip.Files{}))),
+				read(MustSucceed(xzip.Encoder.Encode(ctx, xzip.Files{}))),
 			).To(BeEmpty())
 		})
 		It("Should preserve an empty file's contents", func(ctx SpecContext) {
-			b := MustSucceed(zip.Encoder.Encode(ctx, zip.Files{"empty.json": {}}))
+			b := MustSucceed(xzip.Encoder.Encode(ctx, xzip.Files{"empty.json": {}}))
 			Expect(read(b)).To(HaveKeyWithValue("empty.json", BeEmpty()))
 		})
 		It("Should encode equal file maps to equal bytes", func(ctx SpecContext) {
-			first := zip.Files{"a.json": []byte("1"), "b.json": []byte("2")}
-			second := zip.Files{"b.json": []byte("2"), "a.json": []byte("1")}
-			Expect(zip.Encoder.Encode(ctx, first)).
-				To(Equal(MustSucceed(zip.Encoder.Encode(ctx, second))))
+			first := xzip.Files{"a.json": []byte("1"), "b.json": []byte("2")}
+			second := xzip.Files{"b.json": []byte("2"), "a.json": []byte("1")}
+			Expect(xzip.Encoder.Encode(ctx, first)).
+				To(Equal(MustSucceed(xzip.Encoder.Encode(ctx, second))))
 		})
 		DescribeTable("Should reject a value that is not a file map",
 			func(ctx SpecContext, value any) {
-				Expect(zip.Encoder.Encode(ctx, value)).Error().
+				Expect(xzip.Encoder.Encode(ctx, value)).Error().
 					To(MatchError(encoding.ErrEncode))
 			},
 			Entry("a struct", struct{ Name string }{Name: "valve"}),
@@ -77,14 +77,14 @@ var _ = Describe("Zip", func() {
 	})
 	Describe("EncodeStream", func() {
 		It("Should write the archive to the writer", func(ctx SpecContext) {
-			files := zip.Files{"valve.json": []byte(`{"name":"valve"}`)}
+			files := xzip.Files{"valve.json": []byte(`{"name":"valve"}`)}
 			var buf bytes.Buffer
-			Expect(zip.Encoder.EncodeStream(ctx, &buf, files)).To(Succeed())
+			Expect(xzip.Encoder.EncodeStream(ctx, &buf, files)).To(Succeed())
 			Expect(read(buf.Bytes())).To(Equal(files))
 		})
 		It("Should reject a value that is not a file map", func(ctx SpecContext) {
 			var buf bytes.Buffer
-			Expect(zip.Encoder.EncodeStream(ctx, &buf, "valve")).
+			Expect(xzip.Encoder.EncodeStream(ctx, &buf, "valve")).
 				To(MatchError(encoding.ErrEncode))
 		})
 	})
