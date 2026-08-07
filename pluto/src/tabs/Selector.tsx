@@ -339,7 +339,18 @@ export const Selector = ({
   const selected = Select.useSelected<string>();
   useLayoutEffect(() => {
     const el = internalRef.current;
-    if (el != null) scrollSelectedIntoView(el, new Set(selected));
+    if (el == null) return;
+    const keys = new Set(selected);
+    scrollSelectedIntoView(el, keys);
+    // The selected tab grows after selection (its min-width transitions), so the
+    // scroll above measures the pre-growth box. Follow the growth once it lands.
+    const handleTransitionEnd = (e: TransitionEvent): void => {
+      if (e.propertyName !== "min-width") return;
+      if (!(e.target instanceof HTMLElement) || !e.target.matches(KEY_SELECTOR)) return;
+      scrollSelectedIntoView(el, keys);
+    };
+    el.addEventListener("transitionend", handleTransitionEnd);
+    return () => el.removeEventListener("transitionend", handleTransitionEnd);
   }, [selected]);
 
   const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
