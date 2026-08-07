@@ -68,8 +68,6 @@ class LeakyLeaf extends aether.Leaf<
   }
 }
 
-const SWEEP_INTERVAL = TimeSpan.milliseconds(250);
-
 interface SetupOptions {
   sweepInterval?: CrudeTimeSpan;
   timeouts?: number[];
@@ -77,13 +75,10 @@ interface SetupOptions {
 
 // Mounts `timeouts.length` leaves under a single staleness Provider, so specs can
 // assert on the sweep the whole tree shares.
-const setup = ({
-  sweepInterval = SWEEP_INTERVAL,
-  timeouts = [5],
-}: SetupOptions = {}) => {
+const setup = ({ sweepInterval, timeouts = [5] }: SetupOptions = {}) => {
   const stack = buildStack({
     registry: { [Leaf.TYPE]: Leaf },
-    staleness: { sweepInterval },
+    staleness: sweepInterval != null ? { sweepInterval } : {},
   });
   const leaves = timeouts.map((stalenessTimeout, i) => {
     const path = [...stack.basePath, `leaf${i}`];
@@ -325,8 +320,9 @@ describe("staleness", () => {
   });
 
   describe("Provider", () => {
-    it("should require a sweep interval", () => {
-      expect(() => staleness.Provider.z.parse({})).toThrow();
+    it("should default the sweep interval", () => {
+      const parsed = staleness.Provider.z.parse({});
+      expect(parsed.sweepInterval.equals(staleness.DEFAULT_SWEEP_INTERVAL)).toBe(true);
     });
 
     // TimeSpan.z alone would read this as nanoseconds, leaving a sweep so short it pegs

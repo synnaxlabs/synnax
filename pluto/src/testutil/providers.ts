@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { TimeSpan } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type aether } from "@/aether/aether";
@@ -86,8 +85,6 @@ export interface BuiltStack {
   providers: MountedProviders;
   recorder: canvasTest.Recorder | null;
 }
-
-const SWEEP_INTERVAL = TimeSpan.milliseconds(250);
 
 const isOn = (opt: unknown): boolean => opt !== false;
 
@@ -200,9 +197,7 @@ export const buildStack = (options: ProviderOptions = {}): BuiltStack => {
     driver.update(
       path,
       staleness.Provider.TYPE,
-      staleness.Provider.z.parse(
-        stateOf(options.staleness, { sweepInterval: SWEEP_INTERVAL }),
-      ),
+      staleness.Provider.z.parse(stateOf(options.staleness, {})),
     );
     providers.staleness = driver.find<staleness.Provider>([...path]);
   }

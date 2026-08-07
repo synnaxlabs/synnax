@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
@@ -31,9 +30,6 @@ const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
 
 const ARC_LANGUAGES = [Arc.LANGUAGE];
-
-// A quarter second keeps the reporting error small against timeouts measured in seconds.
-const STALENESS_SWEEP_INTERVAL = TimeSpan.milliseconds(250);
 
 export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
   theming?: Theming.ProviderProps;
@@ -76,10 +72,7 @@ export const Provider = ({
                   <Theming.Provider {...theming}>
                     <Code.Provider languages={ARC_LANGUAGES}>
                       <CanDisableTelem {...telem}>
-                        <Staleness.Provider
-                          sweepInterval={STALENESS_SWEEP_INTERVAL}
-                          {...staleness}
-                        >
+                        <Staleness.Provider {...staleness}>
                           <Control.StateProvider>{children}</Control.StateProvider>
                         </Staleness.Provider>
                       </CanDisableTelem>

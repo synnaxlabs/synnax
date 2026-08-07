@@ -17,10 +17,13 @@ export interface ProviderProps extends PropsWithChildren {
   /** How often to check sources for staleness. A bare number is read as milliseconds.
    * Bounds how late a transition can be reported; keep it well under the shortest
    * staleness timeout in use. */
-  sweepInterval: CrudeTimeSpan;
+  sweepInterval?: CrudeTimeSpan;
 }
 
-export const Provider = ({ children, sweepInterval }: ProviderProps): ReactElement => {
+export const Provider = ({
+  children,
+  sweepInterval = staleness.DEFAULT_SWEEP_INTERVAL,
+}: ProviderProps): ReactElement => {
   const { path } = Aether.useUnidirectional({
     type: staleness.Provider.TYPE,
     schema: staleness.Provider.z,
