@@ -63,10 +63,6 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
         const std::string &task_type
     ):
         ::synnax::ni::WriteConfig(::synnax::ni::WriteConfig::parse(cfg)) {
-        this->data_saving_disabled = common::legacy_data_saving_disabled(
-            cfg,
-            this->data_saving_disabled
-        );
         cfg.iter("channels", [&](x::json::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg, task_type);
             if (ch != nullptr && ch->enabled)
