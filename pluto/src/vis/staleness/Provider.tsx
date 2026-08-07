@@ -13,6 +13,9 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Aether } from "@/aether";
 import { staleness } from "@/vis/staleness/aether";
 
+// A quarter second keeps the reporting error small against timeouts measured in seconds.
+const DEFAULT_SWEEP_INTERVAL = TimeSpan.milliseconds(250);
+
 export interface ProviderProps extends PropsWithChildren {
   /** How often to check sources for staleness. A bare number is read as milliseconds.
    * Bounds how late a transition can be reported; keep it well under the shortest
@@ -22,7 +25,7 @@ export interface ProviderProps extends PropsWithChildren {
 
 export const Provider = ({
   children,
-  sweepInterval = staleness.DEFAULT_SWEEP_INTERVAL,
+  sweepInterval = DEFAULT_SWEEP_INTERVAL,
 }: ProviderProps): ReactElement => {
   const { path } = Aether.useUnidirectional({
     type: staleness.Provider.TYPE,
