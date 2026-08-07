@@ -117,7 +117,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 		parseRequestCtx(fCtx.RequestCtx(), fCtx, address.Address(fCtx.Path()), false),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var req RQ
-			err := decoder.Decode(ctx, fCtx.BodyRaw(), &req)
+			err := decoder.Decode(fCtx.BodyRaw(), &req)
 			oCtx := freighter.Context{
 				Protocol: ctx.Protocol,
 				Params:   make(freighter.Params),
@@ -194,7 +194,7 @@ func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 }
 
 func encodeAndWrite(c fiber.Ctx, encoder http.Encoder, v any) error {
-	b, err := encoder.Encode(c.RequestCtx(), v)
+	b, err := encoder.Encode(v)
 	if err != nil {
 		return err
 	}

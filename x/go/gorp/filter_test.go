@@ -11,7 +11,6 @@ package gorp_test
 
 import (
 	"bytes"
-	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,13 +32,9 @@ type decodeCountingCodec struct {
 	decodeCount int
 }
 
-func (c *decodeCountingCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
+func (c *decodeCountingCodec) Decode(data []byte, value any) error {
 	c.decodeCount++
-	return c.Codec.Decode(ctx, data, value)
+	return c.Codec.Decode(data, value)
 }
 
 func idLT(v int32) gorp.Filter[int32, entry] {

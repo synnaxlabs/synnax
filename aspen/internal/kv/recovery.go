@@ -64,7 +64,7 @@ func (r *recoveryServer) recoverPeer(
 	var dig Digest
 	for iter.First(); iter.Valid(); iter.Next() {
 		encodedDig := iter.Value()
-		if err = codec.Decode(ctx, encodedDig, &dig); err != nil {
+		if err = codec.Decode(encodedDig, &dig); err != nil {
 			return err
 		}
 		if dig.Version.OlderThan(req.HighWater) {
@@ -120,10 +120,7 @@ func runRecovery(ctx context.Context, cfg Config) error {
 	return err
 }
 
-func loadHighWater(
-	ctx context.Context,
-	cfg Config,
-) (highWater version.Counter, err error) {
+func loadHighWater(cfg Config) (highWater version.Counter, err error) {
 	iter, err := cfg.Engine.OpenIterator(kv.IterPrefix([]byte(digestPrefix)))
 	if err != nil {
 		return highWater, err
@@ -135,7 +132,7 @@ func loadHighWater(
 	var dig Digest
 	for iter.First(); iter.Valid(); iter.Next() {
 		v := iter.Value()
-		if err = codec.Decode(ctx, v, &dig); err != nil {
+		if err = codec.Decode(v, &dig); err != nil {
 			return highWater, err
 		}
 		if dig.Version.NewerThan(highWater) {
@@ -150,7 +147,7 @@ func runSingleNodeRecovery(
 	cfg Config,
 	node node.Node,
 ) error {
-	hw, err := loadHighWater(ctx, cfg)
+	hw, err := loadHighWater(cfg)
 	if err != nil {
 		return err
 	}

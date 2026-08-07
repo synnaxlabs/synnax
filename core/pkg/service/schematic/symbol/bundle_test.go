@@ -10,7 +10,6 @@
 package symbol_test
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"maps"
@@ -46,18 +45,18 @@ func (e failEncoder) refuses(value any) bool {
 	return isManifest == e.onManifest
 }
 
-func (e failEncoder) Encode(ctx context.Context, value any) ([]byte, error) {
+func (e failEncoder) Encode(value any) ([]byte, error) {
 	if e.refuses(value) {
 		return nil, errEncode
 	}
-	return xjson.Codec.Encode(ctx, value)
+	return xjson.Codec.Encode(value)
 }
 
-func (e failEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (e failEncoder) EncodeStream(w io.Writer, value any) error {
 	if e.refuses(value) {
 		return errEncode
 	}
-	return xjson.Codec.EncodeStream(ctx, w, value)
+	return xjson.Codec.EncodeStream(w, value)
 }
 
 func (failEncoder) Extension() string { return xjson.Codec.Extension() }

@@ -125,9 +125,9 @@ var _ = Describe("Task", Ordered, func() {
 				Running: true,
 				Cmd:     "start",
 			}
-			data := MustSucceed(msgpack.Codec.Encode(ctx, original))
+			data := MustSucceed(msgpack.Codec.Encode(original))
 			var decoded task.StatusDetails
-			Expect(msgpack.Codec.Decode(ctx, data, &decoded)).To(Succeed())
+			Expect(msgpack.Codec.Decode(data, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
 		})
 	})

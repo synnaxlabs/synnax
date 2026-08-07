@@ -13,7 +13,6 @@ package zip
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"io"
 	"io/fs"
 	"maps"
@@ -41,15 +40,15 @@ type encoder struct{}
 
 func (encoder) ContentType() string { return "application/zip" }
 
-func (e encoder) Encode(ctx context.Context, value any) ([]byte, error) {
+func (e encoder) Encode(value any) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := e.EncodeStream(ctx, &buf, value); err != nil {
+	if err := e.EncodeStream(&buf, value); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (encoder) EncodeStream(w io.Writer, value any) error {
 	files, ok := value.(Files)
 	if !ok {
 		return encoding.SugarEncodingError(

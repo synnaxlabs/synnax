@@ -174,7 +174,7 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 				"one of the UnmarshalX methods before Decode",
 		)
 	}
-	if err := e.codec.Decode(ctx, e.raw, &t); err != nil {
+	if err := e.codec.Decode(e.raw, &t); err != nil {
 		var zero T
 		return zero, errors.Wrap(err, "decode envelope body")
 	}

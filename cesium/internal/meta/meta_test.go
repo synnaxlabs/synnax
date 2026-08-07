@@ -10,7 +10,6 @@
 package meta_test
 
 import (
-	"context"
 	"io"
 	"os"
 	"strconv"
@@ -85,7 +84,7 @@ var _ = Describe("Meta", func() {
 						Expect(createdChannel.Key).To(Equal(key))
 
 						f := MustSucceed(subFs.Open("meta.json", os.O_WRONLY))
-						Expect(json.Codec.EncodeStream(ctx, f, ch)).To(Succeed())
+						Expect(json.Codec.EncodeStream(f, ch)).To(Succeed())
 						Expect(f.Close()).To(Succeed())
 
 						Expect(meta.Open(ctx, subFs, ch, json.Codec)).Error().
@@ -166,18 +165,18 @@ var _ encoding.Codec = (*brokenCodec)(nil)
 
 var errEncoding = errors.New("broken json.Codec")
 
-func (b *brokenCodec) Encode(context.Context, any) ([]byte, error) {
+func (b *brokenCodec) Encode(any) ([]byte, error) {
 	return nil, errEncoding
 }
 
-func (b *brokenCodec) EncodeStream(context.Context, io.Writer, any) error {
+func (b *brokenCodec) EncodeStream(io.Writer, any) error {
 	return errEncoding
 }
 
-func (b *brokenCodec) Decode(context.Context, []byte, any) error {
+func (b *brokenCodec) Decode([]byte, any) error {
 	return errEncoding
 }
 
-func (b *brokenCodec) DecodeStream(context.Context, io.Reader, any) error {
+func (b *brokenCodec) DecodeStream(io.Reader, any) error {
 	return errEncoding
 }

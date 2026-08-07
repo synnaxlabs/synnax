@@ -30,16 +30,16 @@ var _ = Describe("Codec", func() {
 		})
 	})
 	It("Should encode and decode", func(ctx SpecContext) {
-		b := MustSucceed(json.Codec.Encode(ctx, toEncode{1}))
+		b := MustSucceed(json.Codec.Encode(toEncode{1}))
 		var d toEncode
-		Expect(json.Codec.Decode(ctx, b, &d)).To(Succeed())
+		Expect(json.Codec.Decode(b, &d)).To(Succeed())
 		Expect(d).To(Equal(toEncode{1}))
 		var d2 toEncode
-		Expect(json.Codec.DecodeStream(ctx, bytes.NewReader(b), &d2)).To(Succeed())
+		Expect(json.Codec.DecodeStream(bytes.NewReader(b), &d2)).To(Succeed())
 		Expect(d2).To(Equal(toEncode{1}))
 	})
 	It("Should add error info on encoding failure", func(ctx SpecContext) {
-		Expect(json.Codec.Encode(ctx, make(chan int))).Error().To(MatchError(
+		Expect(json.Codec.Encode(make(chan int))).Error().To(MatchError(
 			SatisfyAll(
 				ContainSubstring("failed to encode value"),
 				ContainSubstring("kind=chan, type=chan int"),
@@ -51,21 +51,21 @@ var _ = Describe("Codec", func() {
 			Chan  chan int
 			Value int
 		}
-		Expect(json.Codec.Encode(ctx, custom{Chan: make(chan int)})).
+		Expect(json.Codec.Encode(custom{Chan: make(chan int)})).
 			Error().To(MatchError(SatisfyAll(
 			ContainSubstring("failed to encode value"),
 			ContainSubstring("kind=struct, type=json_test.custom"),
 		)))
 	})
 	It("Should include a stack trace on encoding errors", func(ctx SpecContext) {
-		_, err := json.Codec.Encode(ctx, make(chan int))
+		_, err := json.Codec.Encode(make(chan int))
 		Expect(err).To(HaveOccurred())
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))
 	})
 	It("Should include a stack trace on decoding errors", func(ctx SpecContext) {
-		err := json.Codec.Decode(ctx, []byte("invalid"), &toEncode{})
+		err := json.Codec.Decode([]byte("invalid"), &toEncode{})
 		Expect(err).To(HaveOccurred())
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
@@ -80,7 +80,7 @@ var _ = Describe("Codec", func() {
 
 var _ = Describe("NewCodec", func() {
 	It("Should encode compactly with no options", func(ctx SpecContext) {
-		b := MustSucceed(json.NewCodec().Encode(ctx, toEncode{1}))
+		b := MustSucceed(json.NewCodec().Encode(toEncode{1}))
 		Expect(string(b)).To(Equal(`{"Value":1}`))
 	})
 	Describe("WithIndent", func() {
@@ -98,23 +98,23 @@ var _ = Describe("NewCodec", func() {
 		It("Should encode with the indentation and a trailing newline", func(
 			ctx SpecContext,
 		) {
-			b := MustSucceed(pretty.Encode(ctx, toEncode{1}))
+			b := MustSucceed(pretty.Encode(toEncode{1}))
 			Expect(string(b)).To(Equal("{\n  \"Value\": 1\n}\n"))
 		})
 		It("Should encode identical bytes through EncodeStream", func(ctx SpecContext) {
-			b := MustSucceed(pretty.Encode(ctx, toEncode{1}))
+			b := MustSucceed(pretty.Encode(toEncode{1}))
 			var buf bytes.Buffer
-			Expect(pretty.EncodeStream(ctx, &buf, toEncode{1})).To(Succeed())
+			Expect(pretty.EncodeStream(&buf, toEncode{1})).To(Succeed())
 			Expect(buf.Bytes()).To(Equal(b))
 		})
 		It("Should decode its own output", func(ctx SpecContext) {
-			b := MustSucceed(pretty.Encode(ctx, toEncode{1}))
+			b := MustSucceed(pretty.Encode(toEncode{1}))
 			var d toEncode
-			Expect(pretty.Decode(ctx, b, &d)).To(Succeed())
+			Expect(pretty.Decode(b, &d)).To(Succeed())
 			Expect(d).To(Equal(toEncode{1}))
 		})
 		It("Should add error info on encoding failure", func(ctx SpecContext) {
-			Expect(pretty.Encode(ctx, make(chan int))).Error().To(MatchError(
+			Expect(pretty.Encode(make(chan int))).Error().To(MatchError(
 				SatisfyAll(
 					ContainSubstring("failed to encode value"),
 					ContainSubstring("kind=chan, type=chan int"),

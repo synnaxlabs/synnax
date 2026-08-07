@@ -44,7 +44,7 @@ func newObservable[K Key, E Entry[K]](
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges(ctx, matched, kCodec, db), true
+			return wrapMatchedChanges(matched, kCodec, db), true
 		},
 	}
 }
@@ -56,7 +56,6 @@ func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]
 }
 
 func wrapMatchedChanges[K Key, E Entry[K]](
-	ctx context.Context,
 	changes []kv.Change,
 	kCodec keyCodec[K, E],
 	codec encoding.Codec,
@@ -66,7 +65,7 @@ func wrapMatchedChanges[K Key, E Entry[K]](
 			var op change.Change[K, E]
 			op.Variant = kvChange.Variant
 			if op.Variant == change.VariantSet {
-				if err := codec.Decode(ctx, kvChange.Value, &op.Value); err != nil {
+				if err := codec.Decode(kvChange.Value, &op.Value); err != nil {
 					zap.S().DPanic("failed to decode value", zap.Error(err))
 					continue
 				}

@@ -67,11 +67,11 @@ func (s *Service) ExportGroup(
 		if err != nil {
 			return nil, nil, err
 		}
-		if files[fileName], err = encoder.Encode(ctx, env); err != nil {
+		if files[fileName], err = encoder.Encode(env); err != nil {
 			return nil, nil, err
 		}
 	}
-	manifest, err := encoder.Encode(ctx, imex.Manifest{
+	manifest, err := encoder.Encode(imex.Manifest{
 		Version: manifestVersion,
 		Type:    manifestType,
 		Name:    root.Name,

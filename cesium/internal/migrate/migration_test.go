@@ -75,7 +75,7 @@ var _ = Describe("Migration Test", func() {
 					MustSucceed(r.Read(buf))
 					Expect(r.Close()).To(Succeed())
 
-					Expect(json.Codec.Decode(ctx, buf, &chInMeta)).To(Succeed())
+					Expect(json.Codec.Decode(buf, &chInMeta)).To(Succeed())
 					Expect(chInMeta).To(Equal(chInDB))
 
 				}

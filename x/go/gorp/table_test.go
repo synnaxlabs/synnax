@@ -180,9 +180,9 @@ var _ = Describe("Table", func() {
 
 			codec := msgpack.Codec
 			typeName := types.Name[entry]()
-			oldPrefix := MustSucceed(codec.Encode(ctx, typeName))
-			encodedValue := MustSucceed(codec.Encode(ctx, entry{ID: 99, Data: "old"}))
-			encodedKey := MustSucceed(codec.Encode(ctx, int32(99)))
+			oldPrefix := MustSucceed(codec.Encode(typeName))
+			encodedValue := MustSucceed(codec.Encode(entry{ID: 99, Data: "old"}))
+			encodedKey := MustSucceed(codec.Encode(int32(99)))
 			fullKey := make([]byte, len(oldPrefix)+len(encodedKey))
 			copy(fullKey, oldPrefix)
 			copy(fullKey[len(oldPrefix):], encodedKey)
@@ -216,12 +216,12 @@ var _ = Describe("Table", func() {
 	Describe("MigrateOldPrefixKeys", func() {
 		writeOldFormatEntry := func(ctx context.Context, codec encoding.Codec, e entry) {
 			typeName := types.Name[entry]()
-			oldPrefix := MustSucceed(codec.Encode(ctx, typeName))
-			encodedValue := MustSucceed(codec.Encode(ctx, e))
+			oldPrefix := MustSucceed(codec.Encode(typeName))
+			encodedValue := MustSucceed(codec.Encode(e))
 			// The key suffix doesn't matter for migration because
 			// migrateOldPrefixKeys decodes the VALUE to reconstruct the
 			// entry. We use an arbitrary suffix to differentiate keys.
-			encodedKey := MustSucceed(codec.Encode(ctx, e.ID))
+			encodedKey := MustSucceed(codec.Encode(e.ID))
 			fullKey := make([]byte, len(oldPrefix)+len(encodedKey))
 			copy(fullKey, oldPrefix)
 			copy(fullKey[len(oldPrefix):], encodedKey)
@@ -253,7 +253,7 @@ var _ = Describe("Table", func() {
 				codec := msgpack.Codec
 				writeOldFormatEntry(ctx, codec, entry{ID: 7, Data: "migrate me"})
 
-				oldPrefix := MustSucceed(codec.Encode(ctx, types.Name[entry]()))
+				oldPrefix := MustSucceed(codec.Encode(types.Name[entry]()))
 				iter := MustSucceed(kvs.OpenIterator(kv.IterPrefix(oldPrefix)))
 				iter.First()
 				Expect(iter.Valid()).To(BeTrue())

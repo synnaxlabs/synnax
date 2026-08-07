@@ -52,11 +52,11 @@ type failingEncoder struct{}
 
 func (failingEncoder) ContentType() string { return "application/x-fail" }
 
-func (failingEncoder) Encode(context.Context, any) ([]byte, error) {
+func (failingEncoder) Encode(any) ([]byte, error) {
 	return nil, errFailingEncoderEncodeFail
 }
 
-func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
+func (failingEncoder) EncodeStream(io.Writer, any) error {
 	return errFailingEncoderEncodeFail
 }
 
@@ -173,7 +173,7 @@ var _ = Describe("Unary", func() {
 			func(ctx context.Context) {
 				bindEcho()
 				req := test.Request{ID: 7, Message: "hello"}
-				body := MustSucceed(json.Codec.Encode(ctx, req))
+				body := MustSucceed(json.Codec.Encode(req))
 				httpRes, respBody := roundTrip(
 					ctx,
 					"application/json",
@@ -185,7 +185,7 @@ var _ = Describe("Unary", func() {
 					httpRes.Header.Get(fiber.HeaderContentType),
 				).To(Equal("application/msgpack"))
 				var got test.Response
-				Expect(msgpack.Codec.Decode(ctx, respBody, &got)).To(Succeed())
+				Expect(msgpack.Codec.Decode(respBody, &got)).To(Succeed())
 				Expect(got).To(Equal(test.Response(req)))
 			},
 		)
@@ -195,7 +195,7 @@ var _ = Describe("Unary", func() {
 			func(ctx context.Context) {
 				bindEcho()
 				req := test.Request{ID: 8, Message: "world"}
-				body := MustSucceed(msgpack.Codec.Encode(ctx, req))
+				body := MustSucceed(msgpack.Codec.Encode(req))
 				httpRes, respBody := roundTrip(
 					ctx,
 					"application/msgpack",
@@ -207,7 +207,7 @@ var _ = Describe("Unary", func() {
 					httpRes.Header.Get(fiber.HeaderContentType),
 				).To(Equal("application/json"))
 				var got test.Response
-				Expect(json.Codec.Decode(ctx, respBody, &got)).To(Succeed())
+				Expect(json.Codec.Decode(respBody, &got)).To(Succeed())
 				Expect(got).To(Equal(test.Response(req)))
 			},
 		)
@@ -217,7 +217,7 @@ var _ = Describe("Unary", func() {
 			func(ctx context.Context) {
 				bindEcho()
 				req := test.Request{ID: 1, Message: "q"}
-				body := MustSucceed(json.Codec.Encode(ctx, req))
+				body := MustSucceed(json.Codec.Encode(req))
 				httpRes, respBody := roundTrip(
 					ctx, "application/json",
 					"application/json, application/msgpack;q=0.5",
@@ -228,7 +228,7 @@ var _ = Describe("Unary", func() {
 					httpRes.Header.Get(fiber.HeaderContentType),
 				).To(Equal("application/json"))
 				var got test.Response
-				Expect(json.Codec.Decode(ctx, respBody, &got)).To(Succeed())
+				Expect(json.Codec.Decode(respBody, &got)).To(Succeed())
 				Expect(got).To(Equal(test.Response(req)))
 			},
 		)
@@ -238,14 +238,14 @@ var _ = Describe("Unary", func() {
 			func(ctx context.Context) {
 				bindEcho()
 				req := test.Request{ID: 2, Message: "no-accept"}
-				body := MustSucceed(msgpack.Codec.Encode(ctx, req))
+				body := MustSucceed(msgpack.Codec.Encode(req))
 				httpRes, respBody := roundTrip(ctx, "application/msgpack", "", body)
 				Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
 				Expect(
 					httpRes.Header.Get(fiber.HeaderContentType),
 				).To(Equal("application/json"))
 				var got test.Response
-				Expect(json.Codec.Decode(ctx, respBody, &got)).To(Succeed())
+				Expect(json.Codec.Decode(respBody, &got)).To(Succeed())
 				Expect(got).To(Equal(test.Response(req)))
 			},
 		)
@@ -255,14 +255,14 @@ var _ = Describe("Unary", func() {
 			func(ctx context.Context) {
 				bindEcho()
 				req := test.Request{ID: 3, Message: "wildcard"}
-				body := MustSucceed(json.Codec.Encode(ctx, req))
+				body := MustSucceed(json.Codec.Encode(req))
 				httpRes, respBody := roundTrip(ctx, "application/json", "*/*", body)
 				Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
 				Expect(
 					httpRes.Header.Get(fiber.HeaderContentType),
 				).To(Equal("application/json"))
 				var got test.Response
-				Expect(json.Codec.Decode(ctx, respBody, &got)).To(Succeed())
+				Expect(json.Codec.Decode(respBody, &got)).To(Succeed())
 				Expect(got).To(Equal(test.Response(req)))
 			},
 		)
@@ -272,7 +272,7 @@ var _ = Describe("Unary", func() {
 			func(ctx context.Context) {
 				bindEcho()
 				req := test.Request{ID: 4, Message: "nope"}
-				body := MustSucceed(json.Codec.Encode(ctx, req))
+				body := MustSucceed(json.Codec.Encode(req))
 				httpRes, _ := roundTrip(
 					ctx,
 					"application/json",
@@ -288,7 +288,7 @@ var _ = Describe("Unary", func() {
 			func(ctx context.Context) {
 				bindError()
 				req := test.Request{ID: 5, Message: "err"}
-				body := MustSucceed(msgpack.Codec.Encode(ctx, req))
+				body := MustSucceed(msgpack.Codec.Encode(req))
 				httpRes, respBody := roundTrip(
 					ctx,
 					"application/msgpack",
@@ -300,7 +300,7 @@ var _ = Describe("Unary", func() {
 					httpRes.Header.Get(fiber.HeaderContentType),
 				).To(Equal("application/json"))
 				var pld errors.Payload
-				Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
+				Expect(json.Codec.Decode(respBody, &pld)).To(Succeed())
 				Expect(errors.Decode(ctx, pld)).To(MatchError(test.ErrCustom))
 			},
 		)
@@ -342,7 +342,7 @@ var _ = Describe("Unary", func() {
 					httpRes.Header.Get(fiber.HeaderContentType),
 				).To(Equal("application/json"))
 				var pld errors.Payload
-				Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
+				Expect(json.Codec.Decode(respBody, &pld)).To(Succeed())
 				Expect(pld.Type).ToNot(Equal(errors.TypeNil))
 			},
 		)
@@ -356,7 +356,7 @@ var _ = Describe("Unary", func() {
 					},
 				)
 				body := MustSucceed(
-					json.Codec.Encode(ctx, test.Request{ID: 9, Message: "encode-fail"}),
+					json.Codec.Encode(test.Request{ID: 9, Message: "encode-fail"}),
 				)
 				httpReq := MustSucceed(http.NewRequestWithContext(
 					ctx,
@@ -385,7 +385,7 @@ var _ = Describe("Unary", func() {
 					},
 				)
 				body := MustSucceed(
-					json.Codec.Encode(ctx, test.Request{ID: 12, Message: "err"}),
+					json.Codec.Encode(test.Request{ID: 12, Message: "err"}),
 				)
 				httpReq := MustSucceed(http.NewRequestWithContext(
 					ctx,
@@ -411,7 +411,7 @@ var _ = Describe("Unary", func() {
 					},
 				)
 				body := MustSucceed(
-					json.Codec.Encode(ctx, test.Request{ID: 11, Message: "err"}),
+					json.Codec.Encode(test.Request{ID: 11, Message: "err"}),
 				)
 				httpReq := MustSucceed(http.NewRequestWithContext(
 					ctx,
@@ -429,7 +429,7 @@ var _ = Describe("Unary", func() {
 				).To(Equal("application/msgpack"))
 				var pld errors.Payload
 				respBody := MustSucceed(io.ReadAll(httpRes.Body))
-				Expect(msgpack.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
+				Expect(msgpack.Codec.Decode(respBody, &pld)).To(Succeed())
 				Expect(errors.Decode(ctx, pld)).To(MatchError(test.ErrCustom))
 			},
 		)
@@ -443,7 +443,7 @@ var _ = Describe("Unary", func() {
 					},
 				)
 				body := MustSucceed(
-					json.Codec.Encode(ctx, test.Request{ID: 10, Message: "err"}),
+					json.Codec.Encode(test.Request{ID: 10, Message: "err"}),
 				)
 				httpReq := MustSucceed(http.NewRequestWithContext(
 					ctx,
@@ -461,7 +461,7 @@ var _ = Describe("Unary", func() {
 				).To(Equal("application/json"))
 				var pld errors.Payload
 				respBody := MustSucceed(io.ReadAll(httpRes.Body))
-				Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
+				Expect(json.Codec.Decode(respBody, &pld)).To(Succeed())
 				Expect(errors.Decode(ctx, pld)).To(MatchError(test.ErrCustom))
 			},
 		)
@@ -486,7 +486,7 @@ var _ = Describe("Unary", func() {
 			)
 		}
 		post := func(ctx context.Context, query string) test.Response {
-			body := MustSucceed(json.Codec.Encode(ctx, test.Request{}))
+			body := MustSucceed(json.Codec.Encode(test.Request{}))
 			httpReq := MustSucceed(http.NewRequestWithContext(
 				ctx, http.MethodPost,
 				"http://"+unaryAddr.String()+"/?"+query,
@@ -497,7 +497,7 @@ var _ = Describe("Unary", func() {
 			DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
 			respBody := MustSucceed(io.ReadAll(httpRes.Body))
 			var res test.Response
-			Expect(json.Codec.Decode(ctx, respBody, &res)).To(Succeed())
+			Expect(json.Codec.Decode(respBody, &res)).To(Succeed())
 			return res
 		}
 
@@ -535,7 +535,7 @@ var _ = Describe("Unary", func() {
 				req := test.Request{ID: 1, Message: "json-only"}
 				httpReq := MustSucceed(http.NewRequestWithContext(
 					ctx, http.MethodPost, "http://"+unaryAddr.String()+"/json-only",
-					bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
+					bytes.NewReader(MustSucceed(msgpack.Codec.Encode(req))),
 				))
 				httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
 				httpReq.Header.Set(fiber.HeaderAccept, "application/json")
@@ -556,7 +556,7 @@ var _ = Describe("Unary", func() {
 				req := test.Request{ID: 2, Message: "msgpack-only"}
 				httpReq := MustSucceed(http.NewRequestWithContext(
 					ctx, http.MethodPost, "http://"+unaryAddr.String()+"/msgpack-only",
-					bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
+					bytes.NewReader(MustSucceed(msgpack.Codec.Encode(req))),
 				))
 				httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
 				httpReq.Header.Set(fiber.HeaderAccept, "application/json")
@@ -577,7 +577,7 @@ var _ = Describe("Unary", func() {
 				req := test.Request{ID: 3, Message: "round-trip"}
 				httpReq := MustSucceed(http.NewRequestWithContext(
 					ctx, http.MethodPost, "http://"+unaryAddr.String()+"/msgpack-only",
-					bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
+					bytes.NewReader(MustSucceed(msgpack.Codec.Encode(req))),
 				))
 				httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
 				httpReq.Header.Set(fiber.HeaderAccept, "application/msgpack")
@@ -589,7 +589,7 @@ var _ = Describe("Unary", func() {
 				).To(Equal("application/msgpack"))
 				respBody := MustSucceed(io.ReadAll(httpRes.Body))
 				var got test.Response
-				Expect(msgpack.Codec.Decode(ctx, respBody, &got)).To(Succeed())
+				Expect(msgpack.Codec.Decode(respBody, &got)).To(Succeed())
 				Expect(got).To(Equal(test.Response(req)))
 			},
 		)

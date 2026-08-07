@@ -70,14 +70,14 @@ func (s *Service) Export(
 		if err != nil {
 			return nil, nil, err
 		}
-		if files[path], err = encoder.Encode(ctx, env); err != nil {
+		if files[path], err = encoder.Encode(env); err != nil {
 			return nil, nil, err
 		}
 	}
 	if err = w.encodePanels(ctx, files, encoder); err != nil {
 		return nil, nil, err
 	}
-	manifest, err := encoder.Encode(ctx, imex.Manifest{
+	manifest, err := encoder.Encode(imex.Manifest{
 		Version: 1,
 		Type:    "project",
 		Name:    proj.Name,
@@ -269,7 +269,7 @@ func (w *bundleWalk) encodePanels(
 		if err != nil {
 			return err
 		}
-		if files[bp.path], err = encoder.Encode(ctx, env); err != nil {
+		if files[bp.path], err = encoder.Encode(env); err != nil {
 			return err
 		}
 	}

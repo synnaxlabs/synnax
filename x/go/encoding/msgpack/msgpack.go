@@ -10,7 +10,6 @@
 package msgpack
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"math"
@@ -29,7 +28,7 @@ type codec struct{}
 
 func (*codec) ContentType() string { return "application/msgpack" }
 
-func (*codec) Decode(_ context.Context, data []byte, value any) error {
+func (*codec) Decode(data []byte, value any) error {
 	err := msgpack.Unmarshal(data, value)
 	if err != nil {
 		return encoding.SugarDecodingError(data, value, err)
@@ -37,7 +36,7 @@ func (*codec) Decode(_ context.Context, data []byte, value any) error {
 	return nil
 }
 
-func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (*codec) DecodeStream(r io.Reader, value any) error {
 	dec := msgpack.GetDecoder()
 	dec.Reset(r)
 	err := dec.Decode(value)
@@ -49,7 +48,7 @@ func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	return nil
 }
 
-func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
+func (*codec) Encode(value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
 	if err != nil {
 		return nil, encoding.SugarEncodingError(value, err)
@@ -57,7 +56,7 @@ func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
 	return b, nil
 }
 
-func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (*codec) EncodeStream(w io.Writer, value any) error {
 	enc := msgpack.GetEncoder()
 	enc.Reset(w)
 	err := enc.Encode(value)

@@ -33,19 +33,19 @@ var _ = Describe("NewDecodeFallbackCodec", func() {
 					Value int `json:"value"`
 				}
 				v := abc{Value: 12}
-				jsonB := MustSucceed(json.Codec.Encode(ctx, v))
-				gobB := MustSucceed(gob.Codec.Encode(ctx, v))
+				jsonB := MustSucceed(json.Codec.Encode(v))
+				gobB := MustSucceed(gob.Codec.Encode(v))
 				var res abc
-				Expect(codec.Decode(ctx, jsonB, &res)).To(Succeed())
+				Expect(codec.Decode(jsonB, &res)).To(Succeed())
 				Expect(res).To(Equal(v))
-				Expect(codec.Decode(ctx, gobB, &res)).To(Succeed())
+				Expect(codec.Decode(gobB, &res)).To(Succeed())
 				Expect(res).To(Equal(v))
 			},
 		)
 		It(
 			"Should return the error of the last encoder if all codecs fail to encode",
 			func(ctx SpecContext) {
-				Expect(codec.Encode(ctx, make(chan int))).Error().To(HaveOccurred())
+				Expect(codec.Encode(make(chan int))).Error().To(HaveOccurred())
 			},
 		)
 		It(
@@ -53,7 +53,7 @@ var _ = Describe("NewDecodeFallbackCodec", func() {
 			func(ctx SpecContext) {
 				invalidData := []byte("completely invalid data")
 				Expect(
-					codec.Decode(ctx, invalidData, &struct{ Value int }{}),
+					codec.Decode(invalidData, &struct{ Value int }{}),
 				).To(MatchError(ContainSubstring("all codecs failed to decode")))
 			},
 		)
@@ -62,10 +62,10 @@ var _ = Describe("NewDecodeFallbackCodec", func() {
 				Value int `json:"value"`
 			}
 			v := abc{Value: 123}
-			jsonB := MustSucceed(json.Codec.Encode(ctx, v))
+			jsonB := MustSucceed(json.Codec.Encode(v))
 			var res abc
 			buf := bytes.NewBuffer(jsonB)
-			Expect(codec.DecodeStream(ctx, buf, &res)).To(Succeed())
+			Expect(codec.DecodeStream(buf, &res)).To(Succeed())
 			Expect(res).To(Equal(v))
 		})
 		It(
@@ -74,7 +74,7 @@ var _ = Describe("NewDecodeFallbackCodec", func() {
 				invalidData := []byte("completely invalid data")
 				var res struct{ Value int }
 				Expect(
-					codec.DecodeStream(ctx, bytes.NewReader(invalidData), &res),
+					codec.DecodeStream(bytes.NewReader(invalidData), &res),
 				).To(MatchError(ContainSubstring("all codecs failed to decode")))
 			},
 		)

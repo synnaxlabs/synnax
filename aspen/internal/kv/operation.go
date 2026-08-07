@@ -68,7 +68,7 @@ func (d Digest) apply(ctx context.Context, w xkv.Writer) error {
 	if err != nil {
 		return err
 	}
-	b, err := codec.Encode(ctx, d)
+	b, err := codec.Encode(d)
 	if err != nil {
 		return err
 	}

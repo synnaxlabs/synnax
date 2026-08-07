@@ -184,7 +184,7 @@ var _ = Describe("ResolveEncoding", func() {
 	) {
 		enc := MustSucceed(apiimex.ResolveEncoding(apiimex.EncodingJSON))
 		Expect(enc.Extension()).To(Equal(".json"))
-		b := MustSucceed(enc.Encode(ctx, map[string]int{"value": 1}))
+		b := MustSucceed(enc.Encode(map[string]int{"value": 1}))
 		Expect(string(b)).To(Equal("{\n  \"value\": 1\n}\n"))
 	})
 	It("Should reject an unsupported encoding", func() {

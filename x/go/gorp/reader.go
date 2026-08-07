@@ -62,7 +62,7 @@ func (r *Reader[K, E]) get(
 	if err != nil {
 		return nil, nil, err
 	}
-	if err := r.tx.Decode(ctx, b, entry); err != nil {
+	if err := r.tx.Decode(b, entry); err != nil {
 		return nil, nil, errors.Combine(err, closer.Close())
 	}
 	return b, closer, nil
@@ -158,7 +158,7 @@ func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 	}
 	var zero E
 	*k.value = zero
-	if err := k.codec.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
+	if err := k.codec.Decode(k.Iterator.Value(), k.value); err != nil {
 		k.err = err
 		return nil
 	}
