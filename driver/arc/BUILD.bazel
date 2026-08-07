@@ -45,6 +45,7 @@ cc_library(
 cc_test(
     name = "arc_test",
     srcs = ["arc_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
         "//driver/arc",

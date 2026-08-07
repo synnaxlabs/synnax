@@ -821,7 +821,7 @@ ALL_CMP_TESTS(f64)
 #undef TEST_SCMP_NULL
 #undef ALL_CMP_TESTS
 
-////////////////////// Chunk 5: negate, not_u8, len, slice /////////////////////////////
+////////////////////// Chunk 5: negate, not_bool, len, slice ///////////////////////////
 
 std::string build_negate_wat(const std::string &suffix) {
     std::string wt = wasm_type_str(suffix);

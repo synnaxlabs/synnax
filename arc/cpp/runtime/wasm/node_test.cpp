@@ -2330,86 +2330,201 @@ func str_len() i64 { return len("hello") })arc");
     EXPECT_EQ(v, 5);
 }
 
-/// @brief ^ operator (const, const) with i64 literals.
+/// @brief ** operator (const, const) with i64 literals.
 TEST(BinaryOpTest, PowConstConstI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(client, R"arc(
-func pow_ii() i64 { return 2 ^ 10 })arc");
+func pow_ii() i64 { return 2 ** 10 })arc");
     EXPECT_EQ(v, 1024);
 }
 
-/// @brief ^ operator (const, const) with f64 literals.
+/// @brief ** operator (const, const) with f64 literals.
 TEST(BinaryOpTest, PowConstConstF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(client, R"arc(
-func pow_ff() f64 { return 2.0 ^ 3.0 })arc");
+func pow_ff() f64 { return 2.0 ** 3.0 })arc");
     EXPECT_DOUBLE_EQ(v, 8.0);
 }
 
-/// @brief ^ operator (chan, const) with f64 channel base.
+/// @brief ** operator (chan, const) with f64 channel base.
 TEST(BinaryOpTest, PowChanConstF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func squared(x f64) f64 { return x ^ 2 })arc",
+        R"arc(func squared(x f64) f64 { return x ** 2 })arc",
         {3.0}
     );
     EXPECT_DOUBLE_EQ(v, 9.0);
 }
 
-/// @brief ^ operator (chan, const) with i64 channel base.
+/// @brief ** operator (chan, const) with i64 channel base.
 TEST(BinaryOpTest, PowChanConstI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func cubed(x i64) i64 { return x ^ 3 })arc",
+        R"arc(func cubed(x i64) i64 { return x ** 3 })arc",
         {static_cast<int64_t>(5)}
     );
     EXPECT_EQ(v, 125);
 }
 
-/// @brief ^ operator (const, chan) with f64 channel exponent.
+/// @brief ** operator (const, chan) with f64 channel exponent.
 TEST(BinaryOpTest, PowConstChanF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func base3(exp f64) f64 { return 3.0 ^ exp })arc",
+        R"arc(func base3(exp f64) f64 { return 3.0 ** exp })arc",
         {2.0}
     );
     EXPECT_DOUBLE_EQ(v, 9.0);
 }
 
-/// @brief ^ operator (const, chan) with i64 channel exponent.
+/// @brief ** operator (const, chan) with i64 channel exponent.
 TEST(BinaryOpTest, PowConstChanI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func base2(exp i64) i64 { return 2 ^ exp })arc",
+        R"arc(func base2(exp i64) i64 { return 2 ** exp })arc",
         {static_cast<int64_t>(4)}
     );
     EXPECT_EQ(v, 16);
 }
 
-/// @brief ^ operator (chan, chan) with f64 channels.
+/// @brief ** operator (chan, chan) with f64 channels.
 TEST(BinaryOpTest, PowChanChanF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func pow_ff(base f64, exp f64) f64 { return base ^ exp })arc",
+        R"arc(func pow_ff(base f64, exp f64) f64 { return base ** exp })arc",
         {4.0, 0.5}
     );
     EXPECT_DOUBLE_EQ(v, 2.0);
 }
 
-/// @brief ^ operator (chan, chan) with i64 channels.
+/// @brief ** operator (chan, chan) with i64 channels.
 TEST(BinaryOpTest, PowChanChanI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func pow_ii(base i64, exp i64) i64 { return base ^ exp })arc",
+        R"arc(func pow_ii(base i64, exp i64) i64 { return base ** exp })arc",
         {static_cast<int64_t>(2), static_cast<int64_t>(10)}
     );
     EXPECT_EQ(v, 1024);
+}
+
+/// @brief ^ operator is bitwise xor on integers.
+TEST(BinaryOpTest, XorConstConstI64) {
+    const auto client = new_test_client();
+    const auto v = call_func<int64_t>(client, R"arc(
+func xor_ii() i64 { return 12 ^ 10 })arc");
+    EXPECT_EQ(v, 6);
+}
+
+/// @brief xor keyword is an alias for ^.
+TEST(BinaryOpTest, XorKeywordAlias) {
+    const auto client = new_test_client();
+    const auto v = call_func<int64_t>(client, R"arc(
+func xor_kw() i64 { return 12 xor 10 })arc");
+    EXPECT_EQ(v, 6);
+}
+
+/// @brief & operator is bitwise and on integers.
+TEST(BinaryOpTest, BitAndConstConstI64) {
+    const auto client = new_test_client();
+    const auto v = call_func<int64_t>(client, R"arc(
+func band_ii() i64 { return 12 & 10 })arc");
+    EXPECT_EQ(v, 8);
+}
+
+/// @brief | operator is bitwise or on integers.
+TEST(BinaryOpTest, BitOrConstConstI64) {
+    const auto client = new_test_client();
+    const auto v = call_func<int64_t>(client, R"arc(
+func bor_ii() i64 { return 12 | 10 })arc");
+    EXPECT_EQ(v, 14);
+}
+
+/// @brief ~ operator is bitwise complement on integers.
+TEST(BinaryOpTest, BitNotConstI64) {
+    const auto client = new_test_client();
+    const auto v = call_func<int64_t>(client, R"arc(
+func bnot_i() i64 { return ~i64(1) })arc");
+    EXPECT_EQ(v, -2);
+}
+
+/// @brief ~ operator accepts a channel operand.
+TEST(BinaryOpTest, BitNotChanU8) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(
+        client,
+        R"arc(func bnot_ch(x u8) u8 { return ~x })arc",
+        {static_cast<uint8_t>(5)}
+    );
+    EXPECT_EQ(v, 250);
+}
+
+/// @brief && operator is a symbolic alias for logical and.
+TEST(BinaryOpTest, LogicalAndSymbolicAlias) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(client, R"arc(
+func land() bool { return true && false })arc");
+    EXPECT_EQ(v, 0);
+}
+
+/// @brief || operator is a symbolic alias for logical or.
+TEST(BinaryOpTest, LogicalOrSymbolicAlias) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(client, R"arc(
+func lor() bool { return false || true })arc");
+    EXPECT_EQ(v, 1);
+}
+
+/// @brief ! operator is a symbolic alias for logical not.
+TEST(BinaryOpTest, LogicalNotSymbolicAlias) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(client, R"arc(
+func lnot() bool { return !false })arc");
+    EXPECT_EQ(v, 1);
+}
+
+/// @brief a bool function returns a bool literal as 1.
+TEST(BoolFuncTest, ReturnsTrueLiteral) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(client, R"arc(
+func btrue() bool { return true })arc");
+    EXPECT_EQ(v, 1);
+}
+
+/// @brief not negates a bool parameter.
+TEST(BoolFuncTest, NegatesBoolParam) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(
+        client,
+        R"arc(func bneg(x bool) bool { return not x })arc",
+        {static_cast<uint8_t>(1)}
+    );
+    EXPECT_EQ(v, 0);
+}
+
+/// @brief a comparison yields a bool result.
+TEST(BoolFuncTest, ComparisonReturnsBool) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(client, R"arc(
+func cmp() bool { return 3 > 2 })arc");
+    EXPECT_EQ(v, 1);
+}
+
+/// @brief a series comparison yields a bool series usable through u8().
+TEST(BoolFuncTest, SeriesComparisonYieldsBoolSeries) {
+    const auto client = new_test_client();
+    const auto v = call_func<uint8_t>(client, R"arc(
+func series_lt() u8 {
+    a series f64 := [1.0, 5.0, 3.0]
+    b series f64 := [2.0, 4.0, 3.0]
+    c := a < b
+    return u8(c[0])
+})arc");
+    EXPECT_EQ(v, 1);
 }
 
 /// @brief for i := range(5) sums 0..4.
