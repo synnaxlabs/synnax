@@ -9,7 +9,7 @@
 
 import { group, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Haul } from "@synnaxlabs/pluto";
+import { Haul, Tree as PTree } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -391,5 +391,127 @@ describe("Tree.Tree", () => {
     await screen.findByText(name);
     await client.groups.delete(created.key);
     await waitFor(() => expect(screen.queryByText(name)).toBeNull());
+  });
+
+  describe("cluster event isolation", () => {
+    const countingItems = (counts: Map<string, number>): Tree.Items => ({
+      group: Tree.createItem({
+        type: "group",
+        Content: ({ resource, onDoubleClick, icon: _, loading: __, ...rest }) => {
+          counts.set(resource.name, (counts.get(resource.name) ?? 0) + 1);
+          return (
+            <PTree.Item {...rest} onDoubleClick={onDoubleClick}>
+              {resource.name}
+            </PTree.Item>
+          );
+        },
+      }),
+    });
+
+    // Lets the tree's own synchronizers process everything the fence observed.
+    const settle = async () =>
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
+
+    it("should not re-render rows for a resource event outside the tree", async () => {
+      const container = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("container"),
+      });
+      const childName = uniqueName("child");
+      await client.groups.create({
+        parent: group.ontologyID(container.key),
+        name: childName,
+      });
+      const foreign = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("foreign"),
+      });
+      const counts = new Map<string, number>();
+      await renderTree(group.ontologyID(container.key), countingItems(counts));
+      await screen.findByText(childName);
+      const seen = vi.fn<(resource: ontology.Resource) => void>();
+      const disconnect = client.ontology.onResourceSet(seen);
+      const before = counts.get(childName) ?? 0;
+      const renamed = uniqueName("foreign-renamed");
+      await client.groups.rename(foreign.key, renamed);
+      await waitFor(() =>
+        expect(seen.mock.calls.some(([r]) => r.name === renamed)).toBe(true),
+      );
+      await settle();
+      expect(counts.get(childName)).toBe(before);
+      disconnect();
+    });
+
+    it("should not re-render rows for relationship events outside the tree", async () => {
+      const container = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("container"),
+      });
+      const childName = uniqueName("child");
+      await client.groups.create({
+        parent: group.ontologyID(container.key),
+        name: childName,
+      });
+      const counts = new Map<string, number>();
+      await renderTree(group.ontologyID(container.key), countingItems(counts));
+      await screen.findByText(childName);
+      const seenSet = vi.fn<(relationship: ontology.Relationship) => void>();
+      const seenDelete = vi.fn<(relationship: ontology.Relationship) => void>();
+      const disconnectSet = client.ontology.onRelationshipSet(seenSet);
+      const disconnectDelete = client.ontology.onRelationshipDelete(seenDelete);
+      const before = counts.get(childName) ?? 0;
+      const foreign = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("foreign"),
+      });
+      const foreignKey = group.ontologyID(foreign.key).key;
+      await waitFor(() =>
+        expect(seenSet.mock.calls.some(([rel]) => rel.to.key === foreignKey)).toBe(
+          true,
+        ),
+      );
+      await client.groups.delete(foreign.key);
+      await waitFor(() =>
+        expect(seenDelete.mock.calls.some(([rel]) => rel.to.key === foreignKey)).toBe(
+          true,
+        ),
+      );
+      await settle();
+      expect(counts.get(childName)).toBe(before);
+      disconnectSet();
+      disconnectDelete();
+    });
+
+    it("should re-sort rows when an in-tree resource is renamed", async () => {
+      const container = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("container"),
+      });
+      const base = uniqueName("sort");
+      const firstName = `${base}-b`;
+      const lastName = `${base}-c`;
+      await client.groups.create({
+        parent: group.ontologyID(container.key),
+        name: firstName,
+      });
+      const moved = await client.groups.create({
+        parent: group.ontologyID(container.key),
+        name: lastName,
+      });
+      const counts = new Map<string, number>();
+      await renderTree(group.ontologyID(container.key), countingItems(counts));
+      await screen.findByText(firstName);
+      await screen.findByText(lastName);
+      const renamed = `${base}-a`;
+      await client.groups.rename(moved.key, renamed);
+      const renamedRow = await screen.findByText(renamed);
+      await waitFor(() => {
+        const firstRow = screen.getByText(firstName);
+        expect(
+          renamedRow.compareDocumentPosition(firstRow) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+      });
+    });
   });
 });

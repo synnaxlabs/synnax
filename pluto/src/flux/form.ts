@@ -25,11 +25,12 @@ import {
   localFor,
   type RetrieveParams,
   suspendOnFetch,
+  useMemoQuery,
+  usePendingFetch,
 } from "@/flux/suspend";
 import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
 import { useDestructors } from "@/hooks";
-import { useMemoDeepEqual } from "@/memo";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
@@ -66,6 +67,14 @@ export interface CreateFormParams<
   mountListeners?: (
     params: FormMountListenersParams<Query, Schema>,
   ) => destructor.Destructor | destructor.Destructor[];
+  /**
+   * Canonicalizes the caller's query before anything reads it: `retrieve`,
+   * `mountListeners`, and `getCached` all receive the one normalized,
+   * identity-stable object. Merge defaults here instead of at each callback,
+   * where a per-call spread would mint a fresh object and miss the client's
+   * query memos. Must preserve fields it does not set.
+   */
+  normalizeQuery?: <Q extends Query>(query: Q) => Q;
 }
 
 export type UseFormReturn<Schema extends z.ZodType<query.Data>> = Omit<
@@ -138,6 +147,7 @@ export const createForm = <
   mountListeners,
   update,
   initialValues: baseInitialValues,
+  normalizeQuery,
 }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
   const locals = new WeakMap<Client, LocalCache<z.infer<Schema>>>();
   return ({
@@ -157,7 +167,7 @@ export const createForm = <
     const client = Synnax.use();
     const listeners = useDestructors();
     const addStatus = Status.useAdder();
-    const memoQuery = useMemoDeepEqual(query);
+    const memoQuery = useMemoQuery(query, normalizeQuery);
 
     const cached = useMemo(
       () =>
@@ -167,11 +177,16 @@ export const createForm = <
       [client, memoQuery],
     );
 
-    let retrieved = cached;
+    const pending = usePendingFetch<Query, z.infer<Schema>>(memoQuery);
+    // A replay resumes through the promise the suspended attempt holds. Reading the
+    // answer from anywhere else would skip the `use` call React needs to find the
+    // end of the recorded hook list, corrupting every hook below.
+    let retrieved = pending.promise == null ? cached : undefined;
     if (retrieved == null && memoQuery != null && client != null && retrieve != null)
       retrieved = suspendOnFetch(
         { client, query: memoQuery },
         { name, retrieve, getCached, local: localFor(locals, client) },
+        pending,
       );
 
     const values = retrieved ?? initialValues ?? baseInitialValues;

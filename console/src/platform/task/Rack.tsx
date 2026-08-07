@@ -20,7 +20,9 @@ interface ContentProps {
 }
 
 const Content = ({ rackKey }: ContentProps): ReactElement => {
-  const { name } = PRack.use({ key: rackKey });
+  const query = { key: rackKey };
+  PRack.useEnsure(query);
+  const name = PRack.useName(query);
   return (
     <Tooltip.Dialog>
       <Text.Text level="small" color={10} weight={450}>

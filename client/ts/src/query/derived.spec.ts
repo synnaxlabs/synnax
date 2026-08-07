@@ -126,6 +126,32 @@ describe("derived", () => {
     });
   });
 
+  it("flushes a bulk source write into the derived table as one batch", () => {
+    const tables = newTables();
+    bindAll(tables);
+    const batches = vi.fn();
+    tables.composed.subscribeBatch(batches);
+    tables.tasks.set([task("t1", "one"), task("t2", "two"), task("t3", "three")]);
+    expect(batches).toHaveBeenCalledTimes(1);
+    expect(batches.mock.calls[0][0]).toHaveLength(3);
+  });
+
+  it("recomposes once for a bulk write to a watched table", () => {
+    const tables = newTables();
+    bindAll(tables);
+    tables.tasks.set([task("t1", "one"), task("t2", "two")]);
+    const batches = vi.fn();
+    tables.composed.subscribeBatch(batches);
+    tables.statuses.set([
+      { key: "s1", task: "t1", message: "running" },
+      { key: "s2", task: "t2", message: "done" },
+    ]);
+    expect(batches).toHaveBeenCalledTimes(1);
+    expect(batches.mock.calls[0][0]).toHaveLength(2);
+    expect(tables.composed.get("t1")?.status).toEqual("running");
+    expect(tables.composed.get("t2")?.status).toEqual("done");
+  });
+
   it("detaches every subscription through the returned destructor", () => {
     const tables = newTables();
     const detach = bindAll(tables);

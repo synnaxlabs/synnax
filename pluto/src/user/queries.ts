@@ -116,7 +116,7 @@ const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
   return user;
 };
 
-export const { use, useResult } = Flux.createRetrieve<
+export const { use, useResult, createResultSelector } = Flux.createRetrieve<
   Partial<RetrieveQuery>,
   user.User
 >({
@@ -136,3 +136,7 @@ export const { use, useResult } = Flux.createRetrieve<
     return client.users.getCached(key);
   },
 });
+
+export const useResultUsername = createResultSelector(({ username }) => username);
+
+export const useResultFirstName = createResultSelector(({ firstName }) => firstName);

@@ -198,14 +198,16 @@ export const useXAxis = Scope.bindHook((params: XAxisParams): lineplot.Axis => {
     key: params.key,
     axisKey: params.axisKey,
   });
-  const { data: chan } = Channel.useResult(channel > 0 ? { key: channel } : null);
+  const { data: dataType } = Channel.useResultDataType(
+    channel > 0 ? { key: channel } : null,
+  );
   return useMemo(() => {
     if (axis.type != null) return axis;
     let type: lineplot.TickType = "linear";
-    if (channel == 0 || chan == null || chan.dataType.equals(DataType.TIMESTAMP))
+    if (channel == 0 || dataType == null || dataType.equals(DataType.TIMESTAMP))
       type = "time";
     return { ...axis, type };
-  }, [axis, channel, chan]);
+  }, [axis, channel, dataType]);
 });
 
 interface YAxisReturn {
@@ -260,16 +262,18 @@ export const useLine = Scope.bindHook(
     const raw = useRawLine(params);
     const palette = Theming.use().colors.visualization.palettes.default;
     const { yChannel } = lineplot.parseLineKey(raw.line.key);
-    const { data: chan } = Channel.useResult(yChannel > 0 ? { key: yChannel } : null);
+    const { data: chanName } = Channel.useResultName(
+      yChannel > 0 ? { key: yChannel } : null,
+    );
     return useMemo(
       () => ({
         ...raw.line,
         ...lineplot.parseLineKey(raw.line.key),
         color: resolvePaletteColor(raw.line.color, raw.index, palette),
-        label: raw.line.label ?? chan?.name ?? "",
+        label: raw.line.label ?? chanName ?? "",
         isDefaultLabel: raw.line.label == null,
       }),
-      [raw, palette, chan],
+      [raw, palette, chanName],
     );
   },
 );

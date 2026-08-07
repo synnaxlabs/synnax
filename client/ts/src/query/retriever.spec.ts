@@ -246,6 +246,76 @@ describe("Retriever", () => {
     });
   });
 
+  describe("normalization memoization", () => {
+    it("validates a request params object once across repeat reads", async () => {
+      const parse = vi.spyOn(paramsZ, "parse");
+      const client = new Client(
+        newCache(),
+        async () => [],
+        async () => [thing("a", 5)],
+      );
+      const params = { minSize: 3 };
+      await client.retrieve(params);
+      const stop = client.onChange(params, vi.fn());
+      expect(client.getCached(params)).toEqual([thing("a", 5)]);
+      client.getCached(params);
+      expect(parse).toHaveBeenCalledTimes(1);
+      stop();
+      parse.mockRestore();
+    });
+
+    it("validates a single params object once across repeat reads", async () => {
+      const singleZ = z.strictObject({ key: z.string() }).transform(({ key }) => key);
+      class SingleClient extends query.Retriever<
+        typeof requestZ,
+        string,
+        Thing,
+        Thing,
+        { key: string }
+      > {
+        constructor(cache: query.Cache) {
+          const store = cache.createTable<string, Thing>({
+            name: "things",
+            fetch: async (keys) => keys.map((k) => thing(k)),
+          });
+          const single = cache.queries<string, Thing, string, Thing>({
+            name: "thing",
+            table: store,
+            fetch: async (key) => (await store.retrieve([key])).map((r) => r.key),
+            compose: (records) => records[0],
+            single: true,
+          });
+          super(cache, {
+            name: "thing",
+            table: store,
+            request: { schema: requestZ, fetch: async () => [] },
+            single: { schema: singleZ, space: single },
+          });
+        }
+      }
+      const safeParse = vi.spyOn(singleZ, "safeParse");
+      const client = new SingleClient(newCache());
+      const params = { key: "a" };
+      await client.retrieve(params);
+      const stop = client.onChange(params, vi.fn());
+      expect(client.getCached(params)).toEqual(thing("a"));
+      client.getCached(params);
+      expect(safeParse).toHaveBeenCalledTimes(1);
+      stop();
+      safeParse.mockRestore();
+    });
+
+    it("routes structurally equal but distinct objects to one answer", async () => {
+      const fetchRequest = vi.fn(async () => [thing("a", 5)]);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      await client.retrieve({ minSize: 3 });
+      const stop = client.onChange({ minSize: 3 }, vi.fn());
+      expect(client.getCached({ minSize: 3 })).toEqual([thing("a", 5)]);
+      expect(fetchRequest).toHaveBeenCalledTimes(1);
+      stop();
+    });
+  });
+
   describe("compose", () => {
     interface Sugared extends Thing {
       sugared: true;
