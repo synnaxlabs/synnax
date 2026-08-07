@@ -43,7 +43,7 @@ struct BaseChannel {
     /// @brief node_name is the browse name of the OPC UA node.
     std::string node_name = "";
     /// @brief data_type is the data type of the Synnax channel.
-    ::x::telem::DataType data_type = "float32";
+    ::x::telem::DataType data_type = ::x::telem::DataType("float32");
 
     static BaseChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
