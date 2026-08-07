@@ -25,7 +25,7 @@ TEST(TaskTests, testCreateTask) {
     auto m = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = x::json::json{{"key", "config"}},
+        .config = x::json::json{{"routing_key", "rk"}},
         .internal = false,
         .snapshot = true
     };
@@ -44,7 +44,7 @@ TEST(TaskTests, testRetrieveTask) {
     auto t = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"key", "value"}},
+        .config = {{"routing_key", "rk"}},
         .internal = false,
         .snapshot = true
     };
@@ -65,7 +65,7 @@ TEST(TaskTests, testRetrieveTaskByName) {
     auto t = Task{
         .name = rand_name,
         .type = "pagerduty_alert",
-        .config = {{"key", "value"}}
+        .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
@@ -81,7 +81,7 @@ TEST(TaskTests, testRetrieveTaskByType) {
     auto t = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"key", "value"}}
+        .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type("pagerduty_alert"));
@@ -97,7 +97,7 @@ TEST(TaskTests, testListTasks) {
     auto m = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"key", "value"}}
+        .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(m));
     const auto tasks = ASSERT_NIL_P(r.tasks.list());
@@ -115,7 +115,7 @@ TEST(TaskTests, testDeleteTask) {
     auto t = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"key", "value"}}
+        .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(t));
     ASSERT_NIL(r.tasks.del(t.key));
@@ -138,7 +138,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     auto t = Task{
         .name = "test_task_with_status",
         .type = "pagerduty_alert",
-        .config = {{"key", "value"}},
+        .config = {{"routing_key", "rk"}},
         .status = Status{
             .key = "task-status-key",
             .variant = synnax::status::VARIANT_SUCCESS,
@@ -166,7 +166,7 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     auto t = Task{
         .name = rand_name,
         .type = "pagerduty_alert",
-        .config = {{"key", "value"}},
+        .config = {{"routing_key", "rk"}},
         .status = Status{
             .key = "task-status-by-name",
             .variant = synnax::status::VARIANT_WARNING,
@@ -190,7 +190,7 @@ TEST(TaskTests, testListTasksWithStatus) {
     auto t = Task{
         .name = "test_task_list_status",
         .type = "pagerduty_alert",
-        .config = {{"key", "value"}},
+        .config = {{"routing_key", "rk"}},
         .status = Status{
             .key = "task-list-status",
             .variant = synnax::status::VARIANT_INFO,
@@ -215,12 +215,12 @@ TEST(TaskTests, testRetrieveTasksByNames) {
     auto t1 = Task{
         .name = rand1,
         .type = "pagerduty_alert",
-        .config = {{"config1", "value1"}}
+        .config = {{"routing_key", "rk-1"}}
     };
     auto t2 = Task{
         .name = rand2,
         .type = "pagerduty_alert",
-        .config = {{"config2", "value1"}}
+        .config = {{"routing_key", "rk-2"}}
     };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
@@ -245,12 +245,12 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     auto t1 = Task{
         .name = "task_by_type_1",
         .type = type1,
-        .config = {{"config1", "config2"}}
+        .config = {{"routing_key", "rk-1"}}
     };
     auto t2 = Task{
         .name = "task_by_type_2",
         .type = type2,
-        .config = {{"config2", "value2"}}
+        .config = {{"routing_key", "rk-2"}}
     };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
@@ -279,7 +279,7 @@ TEST(StatusDetailsTests, testParseFromJSON) {
         {"task", task_key.to_string()},
         {"cmd", "start"},
         {"running", true},
-        {"data", {{"key", "value"}}}
+        {"data", {{"routing_key", "rk"}}}
     };
     x::json::Parser parser(j);
     auto details = StatusDetails::parse(parser);

@@ -9,7 +9,11 @@
 
 package v3
 
-import "github.com/synnaxlabs/x/encoding/msgpack"
+import (
+	"maps"
+
+	"github.com/synnaxlabs/x/encoding/msgpack"
+)
 
 // transform rewrites a legacy config blob in place toward the shape the task type's
 // config record decodes.
@@ -40,9 +44,7 @@ var transforms = map[string]transform{
 // copied; nested structures are rewritten in place.
 func Transform(taskType string, config msgpack.EncodedJSON) msgpack.EncodedJSON {
 	out := make(msgpack.EncodedJSON, len(config))
-	for k, v := range config {
-		out[k] = v
-	}
+	maps.Copy(out, config)
 	transformCommon(out)
 	if f, ok := transforms[taskType]; ok {
 		f(out)

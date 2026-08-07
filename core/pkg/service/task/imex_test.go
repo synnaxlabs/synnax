@@ -115,12 +115,11 @@ var _ = Describe("ImEx", Ordered, func() {
 				Expect(
 					json.Unmarshal(MustSucceed(json.Marshal(env)), &body),
 				).To(Succeed())
-				// The driver reads the file as its config, so config fields sit flat at
-				// the
-				// top level rather than nested under a "config" key.
+				// The driver reads the file as its config, so config fields sit flat
+				// at the top level rather than nested under a "config" key.
 				Expect(body).ToNot(HaveKey("config"))
 				Expect(body["routing_key"]).To(Equal("rk-1"))
-				Expect(body["auto_start"]).To(Equal(true))
+				Expect(body["auto_start"]).To(BeTrue())
 				Expect(body["type"]).To(Equal(pagerduty.AlertTaskType))
 				Expect(body["name"]).To(Equal("Exported Task"))
 				Expect(body["version"]).To(BeEquivalentTo(1))
