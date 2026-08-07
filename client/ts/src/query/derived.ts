@@ -34,10 +34,17 @@ export const deriveWatch = <
   affects: (event: TableEvent<ForeignKey, ForeignValue>) => K[] | "all" | null,
 ): DeriveWatch<K> => ({
   attach: (recompose) =>
-    table.subscribe((event) => {
-      const result = affects(event);
-      if (result == null) return;
-      if (result === "all" || result.length > 0) recompose(result);
+    // Batched so one foreign write recomposes once: an "all" verdict for any event
+    // supersedes the batch's keys, which otherwise union.
+    table.subscribeBatch((events) => {
+      let keys: K[] = [];
+      for (const event of events) {
+        const result = affects(event);
+        if (result == null) continue;
+        if (result === "all") return recompose("all");
+        keys = keys.concat(result);
+      }
+      if (keys.length > 0) recompose(keys);
     }),
 });
 
@@ -75,10 +82,16 @@ export const bindDerived = <
     if (targets.length > 0) into.set(targets.map(compose));
   };
   const detach = [
-    source.subscribe((event) => {
-      if (event.variant === "set") into.set(compose(event.value));
-      else into.delete(event.key);
-    }),
+    // Batched so a source batch flushes the derived table once, preserving per-key
+    // set/delete order within the batch.
+    source.subscribeBatch((events) =>
+      into.batch(() =>
+        events.forEach((event) => {
+          if (event.variant === "set") into.set(compose(event.value));
+          else into.delete(event.key);
+        }),
+      ),
+    ),
     ...(watch ?? []).map((w) => w.attach(recompose)),
   ];
   recompose("all");

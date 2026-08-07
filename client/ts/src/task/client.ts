@@ -390,15 +390,21 @@ export class Client extends query.Retriever<
             channel: SET_CHANNEL_NAME,
             schema: setSignalZ,
             // The set signal omits config: a changed hash makes the cached one stale.
-            onChange: async (changed: SetSignal) => {
-              const cached = table.get(changed.key);
-              if (cached == null || cached.configHash !== changed.configHash) {
-                await table.retrieve([changed.key], { refresh: true });
-                return;
-              }
-              table.set(changed.key, (prev) =>
-                prev == null ? undefined : this.sugar({ ...prev.payload, ...changed }),
+            onChange: async (changed: SetSignal[]) => {
+              const stale: Key[] = [];
+              table.batch(() =>
+                changed.forEach((sig) => {
+                  const cached = table.get(sig.key);
+                  if (cached == null || cached.configHash !== sig.configHash) {
+                    stale.push(sig.key);
+                    return;
+                  }
+                  table.set(sig.key, (prev) =>
+                    prev == null ? undefined : this.sugar({ ...prev.payload, ...sig }),
+                  );
+                }),
               );
+              if (stale.length > 0) await table.retrieve(stale, { refresh: true });
             },
           }),
         },
@@ -408,25 +414,28 @@ export class Client extends query.Retriever<
     cache.listen({
       channel: COMMAND_CHANNEL_NAME,
       schema: commandZ,
-      onChange: (changed) => {
-        statusStore.set(statusKey(changed.task), (prev) => {
-          if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-          return status.create<StatusDetailsZodObject>({
-            key: statusKey(changed.task),
-            name: "Task Status",
-            variant: "loading",
-            message: `Running ${changed.type} command...`,
-            details: {
-              task: changed.task,
-              running: true,
-              cmd: "",
-              configHash: "",
-              rack: 0,
-              data: {},
-            },
-          });
-        });
-      },
+      onChange: (commands) =>
+        statusStore.batch(() =>
+          commands.forEach((changed) =>
+            statusStore.set(statusKey(changed.task), (prev) => {
+              if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
+              return status.create<StatusDetailsZodObject>({
+                key: statusKey(changed.task),
+                name: "Task Status",
+                variant: "loading",
+                message: `Running ${changed.type} command...`,
+                details: {
+                  task: changed.task,
+                  running: true,
+                  cmd: "",
+                  configHash: "",
+                  rack: 0,
+                  data: {},
+                },
+              });
+            }),
+          ),
+        ),
     });
     const composed = cache.derive<Key, Omit<Task, "status">, Task>({
       name: "task.composed",
