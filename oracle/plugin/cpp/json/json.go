@@ -840,6 +840,13 @@ func (p *Plugin) parseExprForField(
 					defaultVal = fmt.Sprintf("x::telem::Rate(%s)", defaultVal)
 				}
 			}
+			// Distinct string types (e.g. x::telem::DataType) may declare an
+			// explicit constructor, so the fallback must be wrapped too.
+			if field.Default != nil &&
+				field.Default.Kind == resolution.ValueKindString &&
+				isDistinctType(field.Type, data.table) {
+				defaultVal = fmt.Sprintf("%s(%s)", cppType, defaultVal)
+			}
 			return fmt.Sprintf(
 				`parser.field<%s>("%s", %s)`,
 				cppType,
@@ -1108,6 +1115,19 @@ func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool 
 		return true
 	}
 	return jsonDefaultLiteral(field, table) != ""
+}
+
+// isDistinctType reports whether the type reference resolves to a distinct type.
+func isDistinctType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	if resolution.IsPrimitive(typeRef.Name) {
+		return false
+	}
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+	_, isDistinct := resolved.Form.(resolution.DistinctForm)
+	return isDistinct
 }
 
 // jsonDefaultLiteral renders a field's schema default as a C++ literal usable as

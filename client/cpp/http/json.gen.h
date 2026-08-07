@@ -73,7 +73,10 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
         .disabled = parser.field<bool>("disabled", false),
         .channel = parser.field<::synnax::channel::Key>("channel", 0),
         .pointer = parser.field<std::string>("pointer", ""),
-        .data_type = parser.field<::x::telem::DataType>("data_type", "float64"),
+        .data_type = parser.field<::x::telem::DataType>(
+            "data_type",
+            ::x::telem::DataType("float64")
+        ),
         .timestamp_format = parser.field<std::optional<std::string>>(
             "timestamp_format"
         ),
@@ -153,7 +156,10 @@ inline ChannelField ChannelField::parse(x::json::Parser parser) {
         .json_type = parser.field<std::string>("json_type", "number"),
         .channel = parser.field<::synnax::channel::Key>("channel", 0),
         .name = parser.field<std::string>("name", ""),
-        .data_type = parser.field<::x::telem::DataType>("data_type", "float64"),
+        .data_type = parser.field<::x::telem::DataType>(
+            "data_type",
+            ::x::telem::DataType("float64")
+        ),
         .time_format = parser.field<std::optional<std::string>>("time_format"),
         .enum_values = parser.field<std::optional<std::vector<EnumEntry>>>(
             "enum_values"
