@@ -204,12 +204,12 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         setView(panel.viewZ.parse({ type, args: { taskKey: key } }));
       },
     });
-    const { data: dev } = Device.useResult(
+    const { data: deviceRack } = Device.useResultRack(
       deviceKey == null ? null : { key: deviceKey },
     );
     useEffect(() => {
-      if (dev != null) form.set("rackKey", dev.rack);
-    }, [dev]);
+      if (deviceRack != null) form.set("rackKey", deviceRack);
+    }, [deviceRack]);
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
     useSyncName(form, { deviceKey, taskKey, rackKey, config, name });

@@ -62,6 +62,8 @@ export const useResultStatus = createResultSelector(
   (a, b) => a?.variant === b?.variant && a?.message === b?.message,
 );
 
+export const useResultRack = createResultSelector(({ rack }) => rack);
+
 export type ListParams = device.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListParams, device.Key, device.Device>({
