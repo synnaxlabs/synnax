@@ -823,6 +823,89 @@ describe("Answers", () => {
     });
   });
 
+  describe("batched delivery", () => {
+    type ListQ = { min: number };
+    const countingSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: ListQ) => Promise<string[]>,
+    ) => {
+      const composes = vi.fn((records: Rec[]) => records);
+      const answers = new Queries<ListQ, Rec[], string, Rec>({
+        name: "things",
+        table,
+        fetch,
+        compose: composes,
+        matches: (r, q) => r.value >= q.min,
+      });
+      return { answers, composes };
+    };
+
+    it("notifies once for a multi-record set touching several members", async () => {
+      const table = newTable();
+      const { answers } = countingSpace(table, async () => {
+        table.set([rec("a", 5), rec("b", 6), rec("c", 7)]);
+        return ["a", "b", "c"];
+      });
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      await answers.retrieve({ min: 3 });
+      handler.mockClear();
+      table.set([rec("a", 8), rec("b", 9), rec("c", 10)]);
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenLastCalledWith([
+        rec("a", 8),
+        rec("b", 9),
+        rec("c", 10),
+      ]);
+    });
+
+    it("composes the answer once per batch", async () => {
+      const table = newTable();
+      const { answers, composes } = countingSpace(table, async () => {
+        table.set([rec("a", 5), rec("b", 6)]);
+        return ["a", "b"];
+      });
+      answers.onChange({ min: 3 }, vi.fn());
+      await answers.retrieve({ min: 3 });
+      composes.mockClear();
+      table.set([rec("a", 7), rec("b", 8)]);
+      expect(composes).toHaveBeenCalledTimes(1);
+    });
+
+    it("applies mixed admissions and evictions in one notification", async () => {
+      const table = newTable();
+      const { answers } = countingSpace(table, async () => {
+        table.set([rec("a", 5), rec("b", 4)]);
+        return ["a", "b"];
+      });
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      await answers.retrieve({ min: 3 });
+      handler.mockClear();
+      table.set([rec("a", 1), rec("c", 7)]);
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenLastCalledWith([rec("b", 4), rec("c", 7)]);
+    });
+
+    it("coalesces a batch deferred behind an in-flight fetch", async () => {
+      const table = newTable();
+      let release!: (keys: string[]) => void;
+      const { answers } = countingSpace(
+        table,
+        async () => await new Promise<string[]>((resolve) => (release = resolve)),
+      );
+      const handler = vi.fn();
+      answers.onChange({ min: 3 }, handler);
+      const pending = answers.retrieve({ min: 3 });
+      table.set([rec("a", 5), rec("b", 6)]);
+      release([]);
+      await pending;
+      expect(answers.getCached({ min: 3 })).toEqual([rec("a", 5), rec("b", 6)]);
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 5), rec("b", 6)]);
+    });
+  });
+
   describe("server-computed queries (rule 3)", () => {
     type SearchQ = { searchTerm?: string };
     const searchSpace = (

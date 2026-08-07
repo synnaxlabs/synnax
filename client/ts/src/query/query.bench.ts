@@ -12,6 +12,7 @@ import { bench, describe } from "vitest";
 import z from "zod";
 
 import { query } from "@/query";
+import { Queries } from "@/query/query";
 
 interface Thing extends record.Keyed<string> {
   key: string;
@@ -49,6 +50,45 @@ describe("Retriever.getCached", () => {
 
   bench("fresh params object per call", () => {
     client.getCached({ minSize: 3 });
+  });
+});
+
+const N = 100;
+const listTable = new query.Table<string, Thing>({ onError: () => {} });
+const listAnswers = new Queries<{ minSize: number }, Thing[], string, Thing>({
+  name: "things",
+  table: listTable,
+  fetch: async () =>
+    Array.from({ length: N }, (_, i) => {
+      const key = `k${i}`;
+      listTable.set(key, { key, name: key, size: 1 });
+      return key;
+    }),
+  compose: (records) => records,
+  matches: (record, q) => record.size >= q.minSize,
+});
+listAnswers.onChange({ minSize: 0 }, () => {});
+await listAnswers.retrieve({ minSize: 0 });
+
+describe("frame delivery to a mounted list", () => {
+  let tick = 1;
+  bench(`one batched set of ${N} rows`, () => {
+    tick++;
+    listTable.set(
+      Array.from({ length: N }, (_, i) => {
+        const key = `k${i}`;
+        return { key, name: key, size: tick };
+      }),
+    );
+  });
+
+  let tock = 1;
+  bench(`${N} per-record sets`, () => {
+    tock++;
+    for (let i = 0; i < N; i++) {
+      const key = `k${i}`;
+      listTable.set(key, { key, name: key, size: tock });
+    }
   });
 });
 
