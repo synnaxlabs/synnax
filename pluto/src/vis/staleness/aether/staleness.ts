@@ -15,10 +15,6 @@ import { type theming } from "@/theming/aether";
 
 const CONTEXT_KEY = "pluto-vis-staleness";
 
-/// The sweep interval bounds how late a staleness transition can be reported. A quarter
-/// second keeps that error small against timeouts measured in seconds.
-export const DEFAULT_SWEEP_INTERVAL = TimeSpan.milliseconds(250);
-
 /// Seconds without a sample before a source is considered stale.
 export const DEFAULT_TIMEOUT = 5;
 
@@ -69,7 +65,9 @@ const sweepIntervalZ = z.union([
 ]);
 
 const providerStateZ = z.object({
-  sweepInterval: sweepIntervalZ.default(DEFAULT_SWEEP_INTERVAL),
+  // Bounds how late a transition can be reported. Keep it well under the shortest
+  // staleness timeout in use.
+  sweepInterval: sweepIntervalZ,
 });
 
 /**
@@ -86,10 +84,11 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
 
   private readonly entries = new Set<Entry>();
   private interval?: NodeJS.Timeout;
-  private sweepInterval = DEFAULT_SWEEP_INTERVAL;
+  // The interval the running timer was started with. Null until the first sweep starts.
+  private sweepInterval: TimeSpan | null = null;
 
   afterUpdate(ctx: aether.Context): void {
-    this.updateSweepInterval(this.state.sweepInterval);
+    this.updateSweepInterval();
     ctx.set(CONTEXT_KEY, this, false);
   }
 
@@ -113,18 +112,19 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   }
 
   // A new interval takes effect on the next sweep.
-  private updateSweepInterval(next: TimeSpan): void {
-    if (next.equals(this.sweepInterval)) return;
-    this.sweepInterval = next;
+  private updateSweepInterval(): void {
     if (this.interval == null) return;
+    if (this.sweepInterval?.equals(this.state.sweepInterval) === true) return;
     this.stop();
     this.start();
   }
 
   private start(): void {
+    if (this.interval != null) return;
+    this.sweepInterval = this.state.sweepInterval;
     // Floor the delay: a sub-millisecond interval would peg the worker.
     const delay = Math.max(1, this.sweepInterval.milliseconds);
-    this.interval ??= setInterval(() => this.sweep(), delay);
+    this.interval = setInterval(() => this.sweep(), delay);
   }
 
   private stop(): void {

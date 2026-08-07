@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
+import { TimeSpan } from "@synnaxlabs/x";
 import { type FC, type PropsWithChildren } from "react";
 
 import { type aether } from "@/aether/aether";
@@ -23,6 +24,8 @@ import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 import { Staleness } from "@/vis/staleness";
 import { staleness } from "@/vis/staleness/aether";
+
+const SWEEP_INTERVAL = TimeSpan.milliseconds(250);
 
 export interface CreateTestWrapperOptions {
   registry: aether.ComponentRegistry;
@@ -59,7 +62,9 @@ export const createTestWrapper = (
         <Alamos.Provider>
           <Synnax.TestProvider client={client}>
             <Telem.Provider>
-              <Staleness.Provider>{children}</Staleness.Provider>
+              <Staleness.Provider sweepInterval={SWEEP_INTERVAL}>
+                {children}
+              </Staleness.Provider>
             </Telem.Provider>
           </Synnax.TestProvider>
         </Alamos.Provider>
