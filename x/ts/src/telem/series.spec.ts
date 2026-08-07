@@ -616,6 +616,39 @@ describe("Series", () => {
       expect(b.byteCapacity).toEqual(Size.bytes(4));
       expect(b.capacity).toEqual(1);
     });
+
+    it("should slice a string series by sample index", () => {
+      const s = new Series({
+        data: ["apple", "banana", "carrot", "durian"],
+        alignment: 10n,
+      });
+      const b = s.slice(1, 3);
+      expect(b.toStrings()).toEqual(["banana", "carrot"]);
+      expect(b.length).toEqual(2);
+      expect(b.alignment).toEqual(11n);
+    });
+
+    it("should slice a JSON series by sample index", () => {
+      const s = new Series([{ a: 1 }, { a: 2 }, { a: 3 }]);
+      const b = s.slice(2);
+      expect(b.length).toEqual(1);
+      expect(b.at(0)).toEqual({ a: 3 });
+      expect(b.alignment).toEqual(2n);
+    });
+
+    it("should return an empty series when slicing a string series past its end", () => {
+      const s = new Series(["apple", "banana"]);
+      const b = s.slice(2, 4);
+      expect(b.length).toEqual(0);
+    });
+
+    it("should copy a string sub-series so it decodes independently", () => {
+      const s = new Series(["apple", "banana", "carrot"]);
+      const b = s.sub(1, 3);
+      expect(b.buffer).not.toBe(s.buffer);
+      expect(b.toStrings()).toEqual(["banana", "carrot"]);
+      expect(s.toStrings()).toEqual(["apple", "banana", "carrot"]);
+    });
   });
 
   describe("min and max", () => {

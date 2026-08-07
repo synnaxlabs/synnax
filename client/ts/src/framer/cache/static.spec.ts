@@ -96,6 +96,34 @@ describe("StaticReadCache", () => {
       expect(gaps[1].start).toEqual(TimeStamp.seconds(6));
       expect(gaps[1].end).toEqual(TimeStamp.seconds(7));
     });
+    test("overlapping insert on a string series trims by sample", () => {
+      const c = new Static({});
+      c.write(
+        new MultiSeries([
+          new Series({
+            data: ["a", "bb", "ccc", "dddd"],
+            timeRange: TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
+            alignment: 0n,
+          }),
+        ]),
+      );
+      c.write(
+        new MultiSeries([
+          new Series({
+            data: ["ccc", "dddd", "ee", "f"],
+            timeRange: TimeStamp.seconds(2).range(TimeStamp.seconds(4)),
+            alignment: 2n,
+          }),
+        ]),
+      );
+      const { series, gaps } = c.dirtyRead(
+        TimeStamp.seconds(1).range(TimeStamp.seconds(4)),
+      );
+      expect(gaps).toHaveLength(0);
+      const strings = series.series.flatMap((s) => s.toStrings());
+      expect(strings).toEqual(["a", "bb", "ccc", "dddd", "ee", "f"]);
+    });
+
     // Input:
     // [2,3,4,5]
     //     [4,5,6]

@@ -1090,7 +1090,8 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * Returns a subarray view of the series from start to end.
+   * Returns a subarray view of the series from start to end. Variable-density
+   * series copy instead of viewing.
    * @param start The start index (inclusive).
    * @param end The end index (exclusive).
    * @returns A new series containing the subarray data.
@@ -1126,7 +1127,7 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   private subBytes(start: number, end?: number): Series {
-    if (start >= 0 && (end == null || end >= this.byteLength.valueOf())) return this;
+    if (start <= 0 && (end == null || end >= this.byteLength.valueOf())) return this;
     const data = this.data.subarray(start, end);
     return new Series({
       data,
@@ -1140,9 +1141,32 @@ export class Series<T extends TelemValue = TelemValue>
 
   private sliceSub(sub: boolean, start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.length)) return this;
+    if (this.dataType.isVariable) return this.sliceVariable(start, end ?? this.length);
     let data: TypedArray;
     if (sub) data = this.data.subarray(start, end);
     else data = this.data.slice(start, end);
+    return new Series({
+      data,
+      dataType: this.dataType,
+      timeRange: this.timeRange,
+      sampleOffset: this.sampleOffset,
+      glBufferUsage: this.gl.bufferUsage,
+      alignment: this.alignment + BigInt(start),
+    });
+  }
+
+  // The result always copies: variable-length readers scan their buffer from offset
+  // zero, so a view over a shared buffer would decode the wrong samples.
+  private sliceVariable(start: number, end: number): Series {
+    const len = this.length;
+    if (start < 0) start = 0;
+    if (end > len) end = len;
+    if (this._cachedIndexes == null) this.calculateCachedLength();
+    const indexes = this._cachedIndexes as number[];
+    const byteLen = this.byteLength.valueOf();
+    const byteStart = start >= len ? byteLen : indexes[start] - UINT32_SIZE;
+    const byteEnd = end >= len ? byteLen : indexes[end] - UINT32_SIZE;
+    const data = this.data.slice(byteStart, byteEnd);
     return new Series({
       data,
       dataType: this.dataType,

@@ -114,22 +114,28 @@ export class Reader {
   private async batchRead(entries: Array<debounce.Entry<ReadRequest>>): Promise<void> {
     const { readRemote, cache, overlapThreshold } = this.props;
     const batched: BatchFetch[] = [];
-    entries.forEach((entry) =>
-      entry.req.gaps.forEach((gap) => {
-        const g = batched.find((r) => r.gap.equals(gap, overlapThreshold));
-        if (g == null)
-          batched.push({
-            gap,
-            channels: new Set([entry.req.channel]),
-            entries: new Set([entry]),
-          });
-        else {
-          g.channels.add(entry.req.channel);
-          g.gap = TimeRange.max(g.gap, gap);
-          g.entries.add(entry);
-        }
-      }),
-    );
+    entries.forEach((entry) => {
+      const unary = cache.get(entry.req.channel);
+      entry.req.gaps.forEach((rawGap) => {
+        // A concurrent batch or a streaming write may have filled part of the gap
+        // while this entry sat in the debounce window. Re-derive the gaps that are
+        // still missing so the fetch does not re-read cached data.
+        unary.read(rawGap).gaps.forEach((gap) => {
+          const g = batched.find((r) => r.gap.equals(gap, overlapThreshold));
+          if (g == null)
+            batched.push({
+              gap,
+              channels: new Set([entry.req.channel]),
+              entries: new Set([entry]),
+            });
+          else {
+            g.channels.add(entry.req.channel);
+            g.gap = TimeRange.max(g.gap, gap);
+            g.entries.add(entry);
+          }
+        });
+      });
+    });
     const failures = new Map<debounce.Entry<ReadRequest>, unknown>();
     await Promise.all(
       batched.map(async ({ gap, channels, entries: served }) => {

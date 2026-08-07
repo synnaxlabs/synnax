@@ -122,7 +122,7 @@ export class Static {
     const { staleEntryThreshold } = this.props;
     const res = zeroGCMetrics();
     const newData = this.data.filter((s) => {
-      // Keep entries that have a ref count that is greater than 0 or were just read.
+      // Keep entries that are referenced by a caller or were inserted recently.
       const shouldKeep =
         s.data.refCount > 0 || TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold);
       if (!shouldKeep) res.purgedBytes = res.purgedBytes.add(s.data.byteCapacity);
@@ -155,7 +155,7 @@ export class Static {
         cacheContents: this.data.map((s) => s.data.digest),
       });
     const { removeBefore, removeAfter, insertInto, deleteInBetween } = insertionPlan;
-    series = series.slice(removeBefore, series.data.length - removeAfter);
+    series = series.slice(removeBefore, series.length - removeAfter);
     // This means we executed a redundant read.
     if (series.length === 0) return;
     this.data.splice(insertInto, deleteInBetween, {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { MultiSeries, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { UnexpectedError } from "@/errors";
@@ -152,6 +152,62 @@ describe("read", () => {
     // A timer reset by each read would still be waiting for 30ms of silence.
     expect(remoteReadF).toHaveBeenCalled();
     await Promise.all(pending);
+    cache.close();
+  });
+
+  it("should skip fetching a gap that was filled while the read was queued", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({
+      cache,
+      readRemote: basicRemoteReadFunc(remoteReadF),
+      batchDebounce: TimeSpan.milliseconds(20),
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    const pending = reader.read(tr, 1);
+    cache
+      .get(1)
+      .writeStatic(
+        new MultiSeries([
+          new Series({
+            data: new Float32Array([1, 2, 3]),
+            alignment: 0n,
+            timeRange: tr,
+          }),
+        ]),
+      );
+    const res = await pending;
+    expect(remoteReadF).not.toHaveBeenCalled();
+    expect(res).toHaveLength(3);
+    cache.close();
+  });
+
+  it("should narrow the fetch to the portion of the gap still missing", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({
+      cache,
+      readRemote: basicRemoteReadFunc(remoteReadF),
+      batchDebounce: TimeSpan.milliseconds(20),
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(5));
+    const cached = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    const pending = reader.read(tr, 1);
+    cache.get(1).writeStatic(
+      new MultiSeries([
+        new Series({
+          data: new Float32Array([1, 2, 3]),
+          alignment: 0n,
+          timeRange: cached,
+        }),
+      ]),
+    );
+    await pending;
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    expect(remoteReadF).toHaveBeenCalledWith(
+      new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(5)),
+      [1],
+    );
     cache.close();
   });
 
