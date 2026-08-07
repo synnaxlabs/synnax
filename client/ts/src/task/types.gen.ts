@@ -81,6 +81,12 @@ export const commandZ = z.object({
   type: z.string(),
   /** key is a unique identifier for this command instance. */
   key: z.string(),
+  /**
+   * configHash is the config hash the sender wants running. Empty when the sender does
+   * not know it. The Driver reuses its live instance when the hash matches and
+   * redeploys when it differs.
+   */
+  configHash: z.string().default(""),
   /** args contains optional arguments for the command. */
   args: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });

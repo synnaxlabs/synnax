@@ -76,8 +76,9 @@ const Unresolved = ({
 
 const Resolved = ({ channel, defaultName, namePath, ...rest }: ChannelNameProps) => {
   const range = Session.Range.useSelectSelectedKey();
-  const ch = Channel.use({ key: channel, rangeKey: range ?? undefined });
-  const name = primitive.isNonZero(ch.alias) ? ch.alias : ch.name;
+  const query = { key: channel, rangeKey: range ?? undefined };
+  Channel.useEnsure(query);
+  const name = Channel.useAlias(query);
   return <Name channel={channel} namePath={namePath} name={name} {...rest} />;
 };
 

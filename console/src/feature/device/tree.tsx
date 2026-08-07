@@ -103,7 +103,7 @@ const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.mak
 
 const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const devStatus = Device.useResult({ key: resource.id.key }).data?.status;
+  const devStatus = Device.useResultStatus({ key: resource.id.key }).data;
   const location =
     typeof resource.data?.location === "string" ? resource.data.location : "";
   return (
