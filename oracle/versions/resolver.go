@@ -47,6 +47,10 @@ type File struct {
 	Aliases map[string]Alias
 	// Pins maps dependency live paths to the version this file pins.
 	Pins map[string]int
+	// Live holds the namespaces of the unversioned resources the file imports
+	// directly. Their shapes carry no version, so a frozen surface takes them
+	// as they stand.
+	Live []string
 	// Order holds the file's declaration names in source order.
 	Order []string
 }
@@ -199,14 +203,16 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 	// (what the file's own references use) and its internal pinned namespace
 	// (what deep walks through copies use).
 	pins := make(map[string]int)
+	var live []string
 	for _, imp := range ast.AllImportStmt() {
 		p := strings.Trim(imp.STRING_LIT().GetText(), `"`)
 		depLive, err := LiveFromFilePath(p)
 		if err != nil {
-			return nil, errors.Newf(
-				"%s imports %q: version files may only import other version files",
-				filePath, p,
-			)
+			live = append(live, resourceOf(p))
+			// An unversioned resource has one shape, so the file names its live
+			// schema and the analyzer resolves it like any other import. The
+			// analyzer rejects a live import that does have a chain.
+			continue
 		}
 		_, pv, _ := paths.VersionFile(p)
 		pins[depLive] = pv
@@ -233,6 +239,7 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 		Table:   b.table,
 		Aliases: declaredAliases(ast, n),
 		Pins:    pins,
+		Live:    live,
 		Order:   declarationOrder(ast),
 	}
 	for _, t := range b.table.TypesInNamespace(ns) {
@@ -388,6 +395,14 @@ func (b *tableBuilder) addSurface(
 		return nil
 	}
 	b.done.Add(ns)
+	// A pin registered under its plain resource namespace claims that resource: an
+	// unversioned schema the file also imports may reach it live, and analyzing that
+	// file again would redeclare every type. Marking the live path resolves those
+	// references to the pinned surface. Internal namespaces hold copies no source
+	// reference names, so they claim nothing.
+	if ns == resourceOf(livePath) {
+		b.table.MarkImported(livePath)
+	}
 	surf, err := b.r.surface(ctx, livePath, n)
 	if err != nil {
 		return err
@@ -413,6 +428,9 @@ func (b *tableBuilder) addSurface(
 				return err
 			}
 		}
+		if err := b.addLive(definer); err != nil {
+			return err
+		}
 	}
 	sortedDefiners := definers.Slice()
 	slices.Sort(sortedDefiners)
@@ -432,6 +450,27 @@ func (b *tableBuilder) addSurface(
 			}
 			if err := b.table.Add(ct); err != nil {
 				return err
+			}
+		}
+	}
+	return nil
+}
+
+// addLive copies the unversioned live shapes a version file resolves against, so a
+// frozen surface built from it resolves them too. Live types carry no version, so they
+// register under their own namespace unchanged.
+func (b *tableBuilder) addLive(f *File) error {
+	for _, ns := range f.Live {
+		if b.done.Contains(ns) {
+			continue
+		}
+		b.done.Add(ns)
+		for _, t := range f.Table.TypesInNamespace(ns) {
+			if _, exists := b.table.Get(t.QualifiedName); exists {
+				continue
+			}
+			if err := b.table.Add(t); err != nil {
+				return errors.Wrapf(err, "failed to register live namespace %s", ns)
 			}
 		}
 	}

@@ -374,10 +374,10 @@ func depImports(in Input, deps set.Set[string]) ([]string, error) {
 		}
 		chain, ok := chains[livePath]
 		if !ok {
-			return nil, errors.Newf(
-				"%s references %s, which has no version chain; freeze it first",
-				in.Chain.LivePath(), livePath,
-			)
+			// An unversioned resource has one shape, so the file names its live
+			// schema instead of pinning a version.
+			imports = append(imports, livePath)
+			continue
 		}
 		pin, ok := in.Pins[livePath]
 		if !ok {

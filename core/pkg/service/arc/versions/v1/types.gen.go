@@ -13,6 +13,7 @@ package v1
 
 import (
 	graph "github.com/synnaxlabs/arc/graph/versions/v0"
+	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
@@ -33,6 +34,10 @@ type Arc struct {
 	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Text is the text-based Arc source code.
 	Text text.Text `json:"text" msgpack:"text"`
+	// Program is the compiled module output including IR and WebAssembly bytecode.
+	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
+	// Status is the current execution status of the module.
+	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

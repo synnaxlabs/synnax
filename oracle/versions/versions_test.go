@@ -155,9 +155,12 @@ Channel struct {
 			Expect(ch.Namespace).To(Equal("v0"))
 		})
 
-		It("Should reject imports of live schemas", func(ctx SpecContext) {
+		It("Should reject the live schema of a versioned resource", func(
+			ctx SpecContext,
+		) {
 			r := resolverFor(map[string]string{
-				"schemas/x/telem.oracle": "TimeStamp = int64\n",
+				"schemas/x/telem.oracle":             "TimeStamp = int64\n",
+				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 				"schemas/synnax/versions/channel/v0.oracle": `
 import "schemas/x/telem"
 
@@ -171,6 +174,68 @@ Channel struct {
 				To(MatchError(ContainSubstring(
 					"may only import other version files",
 				)))
+		})
+
+		It("Should resolve an unversioned schema through a transitive pin", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/x/telem.oracle":             "TimeStamp = int64\n",
+				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
+				"schemas/arc/program.oracle": `
+import "schemas/x/telem"
+
+Program struct {
+	created telem.TimeStamp
+}
+`,
+				"schemas/synnax/versions/label/v0.oracle": `
+import "schemas/x/versions/telem/v0"
+
+Label struct {
+	key uuid @key
+	created telem.TimeStamp
+}
+`,
+				"schemas/synnax/versions/arc/v0.oracle": `
+import "schemas/arc/program"
+import "schemas/synnax/versions/label/v0"
+
+Arc struct {
+	key uuid @key
+	label label.Label
+	compiled program.Program
+}
+`,
+			})
+			f := MustSucceed(r.File(ctx, "schemas/synnax/arc", 0))
+			arc := MustBeOk(f.Table.Get("v0.Arc"))
+			field := arc.Form.(resolution.StructForm).Fields[2]
+			Expect(MustBeOk(field.Type.Resolve(f.Table)).QualifiedName).
+				To(Equal("program.Program"))
+		})
+
+		It("Should resolve the live schema of an unversioned resource", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/arc/program.oracle": "Program struct {\n\twasm bytes\n}\n",
+				"schemas/synnax/versions/arc/v0.oracle": `
+import "schemas/arc/program"
+
+Arc struct {
+	key uuid @key
+	compiled program.Program
+}
+`,
+			})
+			f := MustSucceed(r.File(ctx, "schemas/synnax/arc", 0))
+			Expect(f.Pins).ToNot(HaveKey("schemas/arc/program"))
+			arc := MustBeOk(f.Table.Get("v0.Arc"))
+			Expect(arc.Namespace).To(Equal("v0"))
+			field := arc.Form.(resolution.StructForm).Fields[1]
+			Expect(MustBeOk(field.Type.Resolve(f.Table)).QualifiedName).
+				To(Equal("program.Program"))
 		})
 
 		It("Should resolve transitive pins under internal namespaces", func(

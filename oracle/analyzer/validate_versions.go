@@ -18,15 +18,16 @@ import (
 )
 
 // validateImportPlacement enforces the version-file import rules: a version
-// file imports only other version files, and a live schema imports only its
-// own resource's version files.
+// file imports other version files, or the live schema of an unversioned
+// resource; a live schema imports only its own resource's version files.
 func validateImportPlacement(c *analysisCtx) {
 	_, _, inVersionFile := paths.VersionFile(c.filePath)
 	for _, imp := range c.ast.AllImportStmt() {
 		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
 		resource, _, importsVersionFile := paths.VersionFile(path)
-		if inVersionFile && !importsVersionFile {
-			c.report(diagnostics.Errorf(imp,
+		if inVersionFile && !importsVersionFile && c.loader.Versioned(path) {
+			c.report(diagnostics.Errorf(
+				imp,
 				"version files may only import other version files; %q is a live schema",
 				path,
 			))

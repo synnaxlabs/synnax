@@ -10,7 +10,11 @@
 // Package testutil provides testing utilities for the oracle code generator.
 package testutil
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/synnaxlabs/oracle/paths"
+)
 
 // MockFileLoader is a file loader that serves files from an in-memory map.
 // It implements analyzer.FileLoader for use in tests.
@@ -52,6 +56,21 @@ func (m *MockFileLoader) Load(importPath string) (string, string, error) {
 
 // RepoRoot implements analyzer.FileLoader.
 func (m *MockFileLoader) RepoRoot() string { return m.root }
+
+// Versioned implements analyzer.FileLoader, reporting whether the mock holds any
+// version file for the resource at importPath.
+func (m *MockFileLoader) Versioned(importPath string) bool {
+	dir, ok := paths.VersionsDir(paths.EnsureOracleExtension(importPath))
+	if !ok {
+		return false
+	}
+	for path := range m.Files {
+		if strings.HasPrefix(path, dir+"/") {
+			return true
+		}
+	}
+	return false
+}
 
 // FileNotFoundError is returned when MockFileLoader cannot find a requested file.
 type FileNotFoundError struct {

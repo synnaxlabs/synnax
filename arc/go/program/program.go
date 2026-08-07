@@ -53,7 +53,7 @@
 //	wasm := prog.WASM              // WebAssembly bytecode
 //	functions := prog.Functions    // Function definitions
 //	symbols := prog.Symbols        // Symbol table
-package v0
+package program
 
 import (
 	"crypto/sha256"

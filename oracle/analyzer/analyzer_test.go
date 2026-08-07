@@ -88,18 +88,21 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.Ok()).To(BeTrue())
 		})
 
-		It("Should error when @go pinned is declared file-level", func(ctx SpecContext) {
-			source := `
+		It(
+			"Should error when @go pinned is declared file-level",
+			func(ctx SpecContext) {
+				source := `
 				@go output "out"
 				@go pinned
 				Entry struct {
 					value int32
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("declare it per type"))
-		})
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring("declare it per type"))
+			},
+		)
 
 		It("Should error when @go pinned carries arguments", func(ctx SpecContext) {
 			source := `
@@ -124,10 +127,11 @@ var _ = Describe("Analyzer", func() {
 			)
 		}
 
-		It("Should reject a live-schema import from a version file", func(
+		It("Should reject a versioned resource's live schema from a version file", func(
 			ctx SpecContext,
 		) {
 			loader.Add("schemas/x/telem", "TimeStamp = int64\n")
+			loader.Add("schemas/x/versions/telem/v0", "TimeStamp = int64\n")
 			diag := analyzeAt(ctx, `
 import "schemas/x/telem"
 
@@ -141,6 +145,24 @@ Entry struct {
 				"may only import other version files",
 			))
 		})
+
+		It(
+			"Should allow an unversioned resource's live schema from a version file",
+			func(
+				ctx SpecContext,
+			) {
+				loader.Add("schemas/arc/program", "Program struct {\n\twasm bytes\n}\n")
+				diag := analyzeAt(ctx, `
+import "schemas/arc/program"
+
+Entry struct {
+	compiled program.Program
+}
+`,
+					"schemas/synnax/versions/arc/v0.oracle", "v0")
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
 
 		It("Should allow a version file to import version files", func(
 			ctx SpecContext,
@@ -237,7 +259,9 @@ Entry struct {
 `,
 				"schemas/synnax/channel.oracle", "channel")
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("Entry.cached declares @go marshal"))
+			Expect(
+				diag.String(),
+			).To(ContainSubstring("Entry.cached declares @go marshal"))
 		})
 	})
 

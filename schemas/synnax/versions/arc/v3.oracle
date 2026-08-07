@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/arc/program"
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/ir/v1"
-import "schemas/arc/versions/program/v0"
 import "schemas/arc/versions/text/v1"
 import "schemas/synnax/versions/status/v1"
 import "schemas/x/versions/crdt/v0"

@@ -28,21 +28,21 @@ or generator logic and schemas disagree.
 ## Versioning Rules (RFC 0047)
 
 - Version history lives in explicit version files: `schemas/<domain>/versions/
-  <resource>/vN.oracle`. Each file enumerates the resource's complete PERSISTED
+  <resource>/vN.oracle`. Each file enumerates the resource's complete declared
   namespace at that version — full declarations for shapes that changed at N, alias
   lines (`Key = v0.Key`, pointing at the defining version) for the rest. Absence
   means the type was removed at N. The versions directory is the sole version
   authority: there is no `@go version` tag; the current version is the highest vN
   file, and membership in it marks a type persisted.
 - **A resource is versioned iff its data is gorp-persisted.** Never version derived
-  artifacts (arc `Program`); resources that leave the persisted world close their
-  chain with an EMPTY current file (see `schemas/arc/versions/program/v1.oracle`).
-- Import rules: inside `versions/`, only other version files may be imported (dep
-  pins like `import "schemas/x/versions/telem/v0"`, computed at mint); a live schema
-  may import only its own resource's versions directory. Version files are
-  persisted-only — a field carrying `@go marshal omit` is an analyzer error there.
-  Type-level `@go marshal` / `@go migrate` live in version files, not live schemas
-  (field-level `@go marshal omit` stays live).
+  artifacts: arc `Program` has no versions directory, so its Go types live at the
+  package root and every version referencing it takes the one live shape.
+- Import rules: inside `versions/`, a file imports other version files (dep pins
+  like `import "schemas/x/versions/telem/v0"`, computed at mint) or the live schema
+  of an unversioned resource (`import "schemas/arc/program"`); a live schema may
+  import only its own resource's versions directory. All `@go marshal` and
+  `@go migrate` tags live in version files, never in live schemas — type-level
+  roots and field-level `omit` alike.
 - `oracle migrate <resource>` mints the next version file from the live persisted
   shapes and syncs; `oracle migrate --amend <resource>` rewrites the current file in
   place — only for versions that have never shipped in a release. Bare

@@ -227,6 +227,18 @@ func VersionFile(path string) (resource string, version int, ok bool) {
 	return filepath.Base(dir), version, true
 }
 
+// VersionsDir returns the directory holding a live schema's version chain. It
+// reports false for a path that does not name a live resource schema.
+func VersionsDir(livePath string) (string, bool) {
+	domain, resource, ok := LiveSchema(livePath)
+	if !ok {
+		return "", false
+	}
+	return strings.Join(
+		[]string{"schemas", domain, VersionsDirName, resource}, "/",
+	), true
+}
+
 // LiveSchema reports whether path names a live resource schema — the
 // "schemas/<domain>/<resource>.oracle" shape whose history lives at
 // "schemas/<domain>/versions/<resource>/vN.oracle" — and returns its domain

@@ -24,6 +24,11 @@ type FileLoader interface {
 
 	// RepoRoot returns the absolute path to the git repository root.
 	RepoRoot() string
+
+	// Versioned reports whether the live schema at importPath keeps a version
+	// chain. A resource without one has a single shape, so a version file may
+	// reference it directly.
+	Versioned(importPath string) bool
 }
 
 // StandardFileLoader loads files from the filesystem relative to the git repo root.
@@ -50,6 +55,16 @@ func (l *StandardFileLoader) Load(importPath string) (string, string, error) {
 // RepoRoot returns the absolute path to the git repository root.
 func (l *StandardFileLoader) RepoRoot() string {
 	return l.repoRoot
+}
+
+// Versioned implements FileLoader.
+func (l *StandardFileLoader) Versioned(importPath string) bool {
+	dir, ok := paths.VersionsDir(paths.EnsureOracleExtension(importPath))
+	if !ok {
+		return false
+	}
+	info, err := os.Stat(paths.Resolve(dir, l.repoRoot))
+	return err == nil && info.IsDir()
 }
 
 // DeriveNamespace extracts namespace from path: "schema/label.oracle" -> "label"

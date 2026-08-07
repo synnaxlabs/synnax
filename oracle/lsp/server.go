@@ -259,6 +259,10 @@ func (noopLoader) Load(path string) (source, filePath string, err error) {
 	return "", path, nil
 }
 
+// Versioned reports every resource as versioned: with no files to consult, the
+// stricter answer keeps the editor from suggesting an import the pipeline rejects.
+func (noopLoader) Versioned(string) bool { return true }
+
 func (noopLoader) RepoRoot() string {
 	return ""
 }

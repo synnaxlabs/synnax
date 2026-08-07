@@ -19,10 +19,9 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	compiler "github.com/synnaxlabs/arc/compiler/versions/v0"
 	graph "github.com/synnaxlabs/arc/graph/versions/v0"
 	ir "github.com/synnaxlabs/arc/ir/versions/v0"
-	program "github.com/synnaxlabs/arc/program/versions/v0"
+	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	types "github.com/synnaxlabs/arc/types/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
@@ -100,115 +99,25 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				},
-				Text: text.Text{Raw: "test_45"},
-				Program: new(program.Program{
-					IR: ir.IR{
-						Functions: []ir.Function{
-							{
-								Key:  "test_48",
-								Body: ir.Body{Raw: "test_50"},
-								Config: []types.Param{
-									{
-										Name:  "test_52",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_54": "value_54"},
-									},
-								},
-								Inputs: []types.Param{
-									{
-										Name:  "test_56",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_58": "value_58"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_60",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_62": "value_62"},
-									},
-								},
-								Channels: types.Channels{
-									Read:  map[uint32]string{65: "test_64"},
-									Write: map[uint32]string{66: "test_65"},
-								},
-							},
-						},
-						Nodes: []ir.Node{
-							{
-								Key:  "test_67",
-								Type: "test_68",
-								Config: []types.Param{
-									{
-										Name:  "test_70",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_72": "value_72"},
-									},
-								},
-								Inputs: []types.Param{
-									{
-										Name:  "test_74",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_76": "value_76"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_78",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_80": "value_80"},
-									},
-								},
-								Channels: types.Channels{
-									Read:  map[uint32]string{83: "test_82"},
-									Write: map[uint32]string{84: "test_83"},
-								},
-							},
-						},
-						Edges: []ir.Edge{
-							{
-								Source: ir.Handle{Node: "test_86", Param: "test_87"},
-								Target: ir.Handle{Node: "test_89", Param: "test_90"},
-								Kind:   ir.EdgeKind(0),
-							},
-						},
-						Strata: [][]string{{"test_92"}},
-						Sequences: []ir.Sequence{
-							{
-								Key: "test_94",
-								Stages: []ir.Stage{
-									{
-										Key:    "test_96",
-										Nodes:  []string{"test_97"},
-										Strata: [][]string{{"test_98"}},
-									},
-								},
-							},
-						},
-						Authorities: ir.Authorities{Default: new(uint8(101)), Channels: map[uint32]uint8{102: 102}},
-					},
-					Output: compiler.Output{
-						WASM:              []byte{102, 103, 104},
-						OutputMemoryBases: map[string]uint32{"test_103": 104},
-					},
-				}),
+				Text:    text.Text{Raw: "test_45"},
+				Program: new(program.Program{}),
 				Status: new(status.Status[v0.StatusDetails]{
-					Key:         "test_105",
-					Name:        "test_106",
+					Key:         "test_48",
+					Name:        "test_49",
 					Variant:     status.Variant("success"),
-					Message:     "test_108",
-					Description: "test_109",
-					Time:        telem.TimeStamp(111),
-					Details:     v0.StatusDetails{Running: false},
+					Message:     "test_51",
+					Description: "test_52",
+					Time:        telem.TimeStamp(54),
+					Details:     v0.StatusDetails{Running: true},
 					Labels: []label.Label{
 						{
-							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
-							Name: "test_115",
+							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567839"),
+							Name: "test_58",
 							Color: color.Color{
-								R: 118,
-								G: 119,
-								B: 120,
-								A: 120.5,
+								R: 61,
+								G: 62,
+								B: 63,
+								A: 63.5,
 							},
 						},
 					},
@@ -286,115 +195,25 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 				},
 			},
 		},
-		Text: text.Text{Raw: "test_45"},
-		Program: new(program.Program{
-			IR: ir.IR{
-				Functions: []ir.Function{
-					{
-						Key:  "test_48",
-						Body: ir.Body{Raw: "test_50"},
-						Config: []types.Param{
-							{
-								Name:  "test_52",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_54": "value_54"},
-							},
-						},
-						Inputs: []types.Param{
-							{
-								Name:  "test_56",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_58": "value_58"},
-							},
-						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_60",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_62": "value_62"},
-							},
-						},
-						Channels: types.Channels{
-							Read:  map[uint32]string{65: "test_64"},
-							Write: map[uint32]string{66: "test_65"},
-						},
-					},
-				},
-				Nodes: []ir.Node{
-					{
-						Key:  "test_67",
-						Type: "test_68",
-						Config: []types.Param{
-							{
-								Name:  "test_70",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_72": "value_72"},
-							},
-						},
-						Inputs: []types.Param{
-							{
-								Name:  "test_74",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_76": "value_76"},
-							},
-						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_78",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_80": "value_80"},
-							},
-						},
-						Channels: types.Channels{
-							Read:  map[uint32]string{83: "test_82"},
-							Write: map[uint32]string{84: "test_83"},
-						},
-					},
-				},
-				Edges: []ir.Edge{
-					{
-						Source: ir.Handle{Node: "test_86", Param: "test_87"},
-						Target: ir.Handle{Node: "test_89", Param: "test_90"},
-						Kind:   ir.EdgeKind(0),
-					},
-				},
-				Strata: [][]string{{"test_92"}},
-				Sequences: []ir.Sequence{
-					{
-						Key: "test_94",
-						Stages: []ir.Stage{
-							{
-								Key:    "test_96",
-								Nodes:  []string{"test_97"},
-								Strata: [][]string{{"test_98"}},
-							},
-						},
-					},
-				},
-				Authorities: ir.Authorities{Default: new(uint8(101)), Channels: map[uint32]uint8{102: 102}},
-			},
-			Output: compiler.Output{
-				WASM:              []byte{102, 103, 104},
-				OutputMemoryBases: map[string]uint32{"test_103": 104},
-			},
-		}),
+		Text:    text.Text{Raw: "test_45"},
+		Program: new(program.Program{}),
 		Status: new(status.Status[v0.StatusDetails]{
-			Key:         "test_105",
-			Name:        "test_106",
+			Key:         "test_48",
+			Name:        "test_49",
 			Variant:     status.Variant("success"),
-			Message:     "test_108",
-			Description: "test_109",
-			Time:        telem.TimeStamp(111),
-			Details:     v0.StatusDetails{Running: false},
+			Message:     "test_51",
+			Description: "test_52",
+			Time:        telem.TimeStamp(54),
+			Details:     v0.StatusDetails{Running: true},
 			Labels: []label.Label{
 				{
-					Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
-					Name: "test_115",
+					Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567839"),
+					Name: "test_58",
 					Color: color.Color{
-						R: 118,
-						G: 119,
-						B: 120,
-						A: 120.5,
+						R: 61,
+						G: 62,
+						B: 63,
+						A: 63.5,
 					},
 				},
 			},
@@ -470,115 +289,25 @@ func FuzzDecodeArc(f *testing.F) {
 					},
 				},
 			},
-			Text: text.Text{Raw: "test_45"},
-			Program: new(program.Program{
-				IR: ir.IR{
-					Functions: []ir.Function{
-						{
-							Key:  "test_48",
-							Body: ir.Body{Raw: "test_50"},
-							Config: []types.Param{
-								{
-									Name:  "test_52",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_54": "value_54"},
-								},
-							},
-							Inputs: []types.Param{
-								{
-									Name:  "test_56",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_58": "value_58"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_60",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_62": "value_62"},
-								},
-							},
-							Channels: types.Channels{
-								Read:  map[uint32]string{65: "test_64"},
-								Write: map[uint32]string{66: "test_65"},
-							},
-						},
-					},
-					Nodes: []ir.Node{
-						{
-							Key:  "test_67",
-							Type: "test_68",
-							Config: []types.Param{
-								{
-									Name:  "test_70",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_72": "value_72"},
-								},
-							},
-							Inputs: []types.Param{
-								{
-									Name:  "test_74",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_76": "value_76"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_78",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_80": "value_80"},
-								},
-							},
-							Channels: types.Channels{
-								Read:  map[uint32]string{83: "test_82"},
-								Write: map[uint32]string{84: "test_83"},
-							},
-						},
-					},
-					Edges: []ir.Edge{
-						{
-							Source: ir.Handle{Node: "test_86", Param: "test_87"},
-							Target: ir.Handle{Node: "test_89", Param: "test_90"},
-							Kind:   ir.EdgeKind(0),
-						},
-					},
-					Strata: [][]string{{"test_92"}},
-					Sequences: []ir.Sequence{
-						{
-							Key: "test_94",
-							Stages: []ir.Stage{
-								{
-									Key:    "test_96",
-									Nodes:  []string{"test_97"},
-									Strata: [][]string{{"test_98"}},
-								},
-							},
-						},
-					},
-					Authorities: ir.Authorities{Default: new(uint8(101)), Channels: map[uint32]uint8{102: 102}},
-				},
-				Output: compiler.Output{
-					WASM:              []byte{102, 103, 104},
-					OutputMemoryBases: map[string]uint32{"test_103": 104},
-				},
-			}),
+			Text:    text.Text{Raw: "test_45"},
+			Program: new(program.Program{}),
 			Status: new(status.Status[v0.StatusDetails]{
-				Key:         "test_105",
-				Name:        "test_106",
+				Key:         "test_48",
+				Name:        "test_49",
 				Variant:     status.Variant("success"),
-				Message:     "test_108",
-				Description: "test_109",
-				Time:        telem.TimeStamp(111),
-				Details:     v0.StatusDetails{Running: false},
+				Message:     "test_51",
+				Description: "test_52",
+				Time:        telem.TimeStamp(54),
+				Details:     v0.StatusDetails{Running: true},
 				Labels: []label.Label{
 					{
-						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
-						Name: "test_115",
+						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567839"),
+						Name: "test_58",
 						Color: color.Color{
-							R: 118,
-							G: 119,
-							B: 120,
-							A: 120.5,
+							R: 61,
+							G: 62,
+							B: 63,
+							A: 63.5,
 						},
 					},
 				},
