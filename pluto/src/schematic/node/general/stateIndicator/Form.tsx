@@ -18,6 +18,7 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
@@ -45,6 +46,7 @@ const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
           onChange={handleSourceChange}
         />
       </Input.Item>
+      <Staleness.Fields />
     </Form.Wrapper>
   );
 };

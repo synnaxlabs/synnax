@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { color, type notation, primitive } from "@synnaxlabs/x";
+import { type color, type notation, primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
-import { Color } from "@/color";
 import { telem } from "@/ether";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
+import { Staleness } from "@/vis/staleness";
 
 interface ValueTelemFormT {
   telem: telem.StringSourceSpec;
@@ -118,28 +118,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
             onChange={handleRollingAverageChange}
           />
         </Input.Item>
-        <Form.Field<color.Crude>
-          hideIfNull
-          label="Stale color"
-          align="start"
-          path="stalenessColor"
-        >
-          {({ value, onChange }) => (
-            <Color.Swatch
-              value={value ?? color.setAlpha(color.ZERO, 1)}
-              onChange={onChange}
-              bordered
-            />
-          )}
-        </Form.Field>
-        <Form.NumericField
-          path="stalenessTimeout"
-          label="Stale timeout"
-          inputProps={{
-            bounds: { lower: 1, upper: Infinity },
-            endContent: "s",
-          }}
-        />
+        <Staleness.Fields />
       </Flex.Box>
     </>
   );

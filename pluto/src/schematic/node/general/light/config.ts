@@ -20,5 +20,7 @@ export const configZ = Label.labeledConfigZ.extend({
   source: telem.booleanSourceSpecZ.optional(),
   color: color.crudeZ.optional(),
   scale: z.number().optional(),
+  stalenessTimeout: z.number().optional(),
+  stalenessColor: color.colorZ.optional(),
 });
 export type Config = z.infer<typeof configZ>;

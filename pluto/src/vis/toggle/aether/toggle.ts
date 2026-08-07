@@ -14,8 +14,9 @@ import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
+import { staleness } from "@/vis/staleness/aether";
 
-export const toggleStateZ = z.object({
+export const toggleStateZ = staleness.stateZ.extend({
   enabled: z.boolean(),
   sink: telem.booleanSinkSpecZ.default(telem.noopBooleanSinkSpec),
   source: telem.booleanSourceSpecZ.default(telem.noopBooleanSourceSpec),
@@ -33,6 +34,7 @@ interface InternalState {
   sink: telem.BooleanSink;
   addStatus: status.Adder;
   stopListening: destructor.Destructor;
+  staleness: staleness.Registration;
 }
 
 // Toggle is a component that acts as a switch, commanding a boolean telemetry sink to
@@ -55,10 +57,18 @@ export class Toggle
     const { internal: i } = this;
     i.source = telem.useSource(ctx, sourceProps, i.source);
     i.sink = telem.useSink(ctx, sinkProps, i.sink);
+    i.staleness = staleness.useRegistration(ctx, i.staleness, {
+      timeout: () => this.state.stalenessTimeout,
+      stale: () => this.state.stale,
+      onChange: (stale) => this.setState((p) => ({ ...p, stale })),
+    });
 
     this.updateEnabledState();
     i.stopListening?.();
-    i.stopListening = i.source.onChange(() => this.updateEnabledState());
+    i.stopListening = i.source.onChange(() => {
+      i.staleness.received();
+      this.updateEnabledState();
+    });
   }
 
   toggle(): void {
@@ -74,6 +84,7 @@ export class Toggle
 
   afterDelete(): void {
     this.internal.stopListening?.();
+    this.internal.staleness?.cleanup();
     this.internal.source.cleanup?.();
     this.internal.sink.cleanup?.();
   }

@@ -18,6 +18,8 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/stringDisplay/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
+import { staleness } from "@/vis/staleness/aether";
 
 interface RenderProps extends Omit<Config, "label" | "variant"> {
   className?: string;
@@ -43,7 +45,10 @@ export const StringDisplay = ({
     }),
     [colorVal, inlineSize],
   );
-  const resolvedTextColor = stale ? stalenessColor : textColor;
+  const theme = Theming.use();
+  const resolvedTextColor = stale
+    ? staleness.resolveColor(stalenessColor, theme)
+    : textColor;
   return (
     <Primitive.Div
       className={CSS(CSS.B("string-display"), CSS.B("symbol-colored"), className)}

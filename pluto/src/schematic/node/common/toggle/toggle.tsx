@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { type FC, memo, type ReactElement } from "react";
 import { z } from "zod";
 
@@ -17,6 +18,8 @@ import { type ButtonProps } from "@/schematic/node/common/toggle/Button";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
+import { Theming } from "@/theming";
+import { staleness } from "@/vis/staleness/aether";
 import { Toggle as Base } from "@/vis/toggle";
 
 export const toggleConfigZ = Label.labeledConfigZ.extend({
@@ -24,6 +27,9 @@ export const toggleConfigZ = Label.labeledConfigZ.extend({
   sink: telem.booleanSinkSpecZ.optional(),
   control: Control.stateConfigZ.optional(),
   onClickDelay: z.number().optional(),
+  color: color.crudeZ.optional(),
+  stalenessTimeout: z.number().optional(),
+  stalenessColor: color.colorZ.optional(),
 });
 export type ToggleConfig = z.infer<typeof toggleConfigZ>;
 
@@ -50,6 +56,8 @@ export const ZERO_TOGGLE_DEFAULTS: Partial<ToggleConfig> = {
   sink: ZERO_BOOLEAN_SINK,
   control: { show: true },
   onClickDelay: 0,
+  stalenessTimeout: staleness.DEFAULT_TIMEOUT,
+  stalenessColor: color.ZERO,
 };
 
 export const ZERO_DUMMY_TOGGLE_DEFAULTS: Partial<DummyToggleConfig> = {
@@ -80,9 +88,18 @@ export const createToggle = <C extends ToggleConfig>(
       label,
       orientation = "left",
       onClickDelay,
+      stalenessTimeout,
+      stalenessColor,
+      color: symbolColor,
       ...rest
     } = config;
-    const { enabled, toggle } = Base.use({ aetherKey: nodeKey, source, sink });
+    const theme = Theming.use();
+    const { enabled, toggle, stale } = Base.use({
+      aetherKey: nodeKey,
+      source,
+      sink,
+      stalenessTimeout,
+    });
     const scaleResize = Grid.useScaleResize(config, onConfigChange);
     return (
       <Grid.Grid
@@ -100,6 +117,8 @@ export const createToggle = <C extends ToggleConfig>(
           onClick={toggle}
           onClickDelay={onClickDelay}
           orientation={orientation}
+          stale={stale}
+          color={stale ? staleness.resolveColor(stalenessColor, theme) : symbolColor}
           {...rest}
         />
       </Grid.Grid>

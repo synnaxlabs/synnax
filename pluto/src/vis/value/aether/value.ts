@@ -17,6 +17,7 @@ import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
+import { staleness } from "@/vis/staleness/aether";
 
 const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 
@@ -24,14 +25,13 @@ const FILL_TEXT_OPTIONS: FillTextOptions = { useAtlas: true };
 // swapped for a legible gray. Rough guard, tune later.
 const MIN_LEGIBLE_CONTRAST = 1.1;
 
-const valueState = z.object({
+const valueState = staleness.configZ.extend({
   box: box.box,
   telem: telem.stringSourceSpecZ.default(telem.noopStringSourceSpec),
   backgroundTelem: telem.colorSourceSpecZ.default(telem.noopColorSourceSpec),
   level: text.levelZ.default("p"),
   color: color.colorZ.default(color.ZERO),
   precision: z.number().default(2),
-  stalenessTimeout: z.number().default(5),
   stalenessColor: color.colorZ.default(color.ZERO),
   minWidth: z.number().default(60),
   width: z.number().optional(),
@@ -62,7 +62,9 @@ interface InternalState {
   requestRender: render.Requestor | null;
   textColor: color.Color;
   fontString: string;
-  lastReceived: number;
+  staleness: staleness.Registration;
+  // Staleness stays on the worker here, which draws the value itself.
+  stale: boolean;
 }
 
 export class Value
@@ -79,9 +81,20 @@ export class Value
     i.theme = theming.use(ctx);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
+    i.stale ??= false;
+    i.staleness = staleness.useRegistration(ctx, i.staleness, {
+      timeout: () => this.state.stalenessTimeout,
+      stale: () => this.internal.stale,
+      // A transition needs a repaint of its own: with the source quiet, nothing else
+      // asks the canvas to redraw.
+      onChange: (stale) => {
+        this.internal.stale = stale;
+        this.requestRender();
+      },
+    });
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
-      i.lastReceived = performance.now();
+      i.staleness.received();
       this.requestRender();
     });
     i.fontString = theming.fontString(i.theme, { level: this.state.level, code: true });
@@ -100,6 +113,7 @@ export class Value
     const { internal: i } = this;
     i.stopListening?.();
     i.stopListeningBackground?.();
+    i.staleness.cleanup();
     i.telem.cleanup?.();
     i.backgroundTelem.cleanup?.();
     if (i.requestRender == null)
@@ -133,13 +147,8 @@ export class Value
 
   private getTextColor(): color.Color {
     const { theme } = this.internal;
-    if (
-      performance.now() - this.internal.lastReceived >
-      this.state.stalenessTimeout * 1000
-    ) {
-      if (color.isZero(this.state.stalenessColor)) return theme.colors.warning.m1;
-      return this.state.stalenessColor;
-    }
+    if (this.internal.stale)
+      return staleness.resolveColor(this.state.stalenessColor, theme);
 
     // gray.l0 is the background the text renders on; gray.l11 is the
     // high-contrast end of the scale, legible against it in both themes.

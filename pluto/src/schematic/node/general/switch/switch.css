@@ -1,0 +1,27 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/*
+ * The switch draws itself from the input theme rather than the symbol color, so a stale
+ * switch paints its track instead. The track carries the state, so it is the part that
+ * must stop looking authoritative.
+ */
+.pluto-switch-symbol--stale {
+    .pluto-input__switch-indicator,
+    input:checked ~ .pluto-input__switch-indicator {
+        background: var(--pluto-symbol-display);
+    }
+
+    .pluto-input__switch-indicator::before,
+    input:checked ~ .pluto-input__switch-indicator::before {
+        background: var(--pluto-gray-l1);
+    }
+}

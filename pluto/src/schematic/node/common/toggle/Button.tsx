@@ -27,6 +27,9 @@ export interface ButtonBaseProps extends Omit<
   enabled?: boolean;
   color?: color.Crude;
   onClickDelay?: CrudeTimeSpan;
+  /// Set when the state source has gone quiet. Symbols that take their whole appearance
+  /// from `color` can ignore it; those that do not must show staleness some other way.
+  stale?: boolean;
 }
 
 export interface ButtonProps extends ButtonBaseProps, OrientableProps {}

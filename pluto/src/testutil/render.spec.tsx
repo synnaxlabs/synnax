@@ -47,6 +47,7 @@ describe("render", () => {
         "synnax",
         "theming",
         "telem",
+        "staleness",
         "consumer",
       ]);
       expect(leaf).toBeInstanceOf(aetherTest.Leaf);
