@@ -404,7 +404,7 @@ public:
     void exec(synnax::task::Command &cmd) override {
         this->status.details.cmd = cmd.key;
         if (cmd.type == STOP_CMD_TYPE) return this->stop(false);
-        if (cmd.type == START_CMD_TYPE) {
+        if (cmd.type == synnax::task::START_CMD_TYPE) {
             this->start();
             return;
         }

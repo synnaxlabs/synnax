@@ -91,9 +91,8 @@ Task struct<
     }
     config_hash string = "" {
         @doc value """
-            is the server-assigned hash of config, rewritten on every write and
-            ignored on writes from clients. Compare against a status's
-            config_hash to detect drift.
+            is the Core-assigned hash of config, rewritten on every write and ignored on
+            writes from clients. Compare against a status's config_hash to detect drift.
         """
     }
     internal    bool = false {
@@ -130,16 +129,23 @@ Task struct<
 }
 
 Command struct {
-    task Key    {
+    task        Key    {
         @doc value "is the key of the target task."
     }
-    type string {
+    type        string {
         @doc value "is the command type (e.g., 'start', 'stop', 'configure')."
     }
-    key  string {
+    key         string {
         @doc value "is a unique identifier for this command instance."
     }
-    args record = {} {
+    config_hash string = "" {
+        @doc value """
+            is the config hash the sender wants running. Empty when the sender does not
+            know it. The Driver reuses its live instance when the hash matches and
+            redeploys when it differs.
+        """
+    }
+    args        record = {} {
         @doc value        "contains optional arguments for the command."
         @ts preserve_case
     }

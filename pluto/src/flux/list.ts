@@ -129,8 +129,10 @@ export const createList =
     onChangeByKey,
     getCached,
     sort: defaultSort,
+    normalizeQuery,
   }: CreateListParams<Query, Key, Data>): UseList<Query, Key, Data> =>
   (params: UseListParams<Query, Key, Data> = {}) => {
+    const normalized = (q: Query): Query => normalizeQuery?.(q) ?? q;
     const {
       filter = defaultFilter,
       sort,
@@ -142,8 +144,12 @@ export const createList =
     const sortRef = useSyncedRef(sort ?? defaultSort);
     const client = Synnax.use();
     const dataRef = useRef<Map<Key, Data | null>>(new Map());
-    const listItemListeners = useInitializerRef<Map<() => void, Key>>(() => new Map());
-    const queryRef = useRef<Query | null>(initialQuery ?? null);
+    const listItemListeners = useInitializerRef<Map<Key, Set<() => void>>>(
+      () => new Map(),
+    );
+    const queryRef = useRef<Query | null>(
+      initialQuery != null ? normalized(initialQuery) : null,
+    );
     const pagesRef = useRef<Page<Key>[]>([]);
     const itemSubsRef = useInitializerRef<Map<Key, destructor.Destructor>>(
       () => new Map(),
@@ -151,15 +157,13 @@ export const createList =
 
     const notifyListeners = useCallback(
       (changed: Key) =>
-        listItemListeners.current.forEach((key, notify) => {
-          if (key === changed) notify();
-        }),
-      [listItemListeners.current],
+        listItemListeners.current.get(changed)?.forEach((notify) => notify()),
+      [],
     );
 
     const getInitialData = (): Key[] | undefined => {
       if (!useCachedList || getCached == null) return undefined;
-      const query = queryRef.current ?? ({} as Query);
+      const query = queryRef.current ?? normalized({} as Query);
       if (client == null) return undefined;
       const cached = getCached({
         client,
@@ -299,7 +303,9 @@ export const createList =
       ) => {
         const { signal, mode = "replace" } = options;
 
-        const query = state.executeSetter(paramsSetter, queryRef.current ?? {});
+        const query = normalized(
+          state.executeSetter(paramsSetter, queryRef.current ?? {}),
+        );
         queryRef.current = query;
 
         try {
@@ -414,8 +420,17 @@ export const createList =
 
     const subscribe = useCallback((callback: () => void, key?: Key) => {
       if (key == null) return () => {};
-      listItemListeners.current.set(callback, key);
-      return () => listItemListeners.current.delete(callback);
+      const listeners = listItemListeners.current;
+      let callbacks = listeners.get(key);
+      if (callbacks == null) {
+        callbacks = new Set();
+        listeners.set(key, callbacks);
+      }
+      callbacks.add(callback);
+      return () => {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) listeners.delete(key);
+      };
     }, []);
 
     const retrieveSync = useDebouncedCallback(

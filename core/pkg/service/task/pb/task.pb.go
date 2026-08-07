@@ -144,7 +144,7 @@ type Task struct {
 	// config is task-specific configuration stored as JSON. Structure varies by task
 	// type.
 	Config *structpb.Struct `protobuf:"bytes,5,opt,name=config,proto3" json:"config,omitempty"`
-	// config_hash is the server-assigned hash of config, rewritten on every write and
+	// config_hash is the Core-assigned hash of config, rewritten on every write and
 	// ignored on writes from clients. Compare against a status's config_hash to detect
 	// drift.
 	ConfigHash string `protobuf:"bytes,6,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
@@ -260,8 +260,12 @@ type Command struct {
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	// key is a unique identifier for this command instance.
 	Key string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	// config_hash is the config hash the sender wants running. Empty when the sender does
+	// not know it. The Driver reuses its live instance when the hash matches and
+	// redeploys when it differs.
+	ConfigHash string `protobuf:"bytes,4,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
 	// args contains optional arguments for the command.
-	Args          *structpb.Struct `protobuf:"bytes,4,opt,name=args,proto3" json:"args,omitempty"`
+	Args          *structpb.Struct `protobuf:"bytes,5,opt,name=args,proto3" json:"args,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -317,6 +321,13 @@ func (x *Command) GetKey() string {
 	return ""
 }
 
+func (x *Command) GetConfigHash() string {
+	if x != nil {
+		return x.ConfigHash
+	}
+	return ""
+}
+
 func (x *Command) GetArgs() *structpb.Struct {
 	if x != nil {
 		return x.Args
@@ -349,12 +360,14 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\binternal\x18\a \x01(\bR\binternal\x12\x1a\n" +
 	"\bsnapshot\x18\b \x01(\bR\bsnapshot\x126\n" +
 	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
-	"\a_status\"p\n" +
+	"\a_status\"\x91\x01\n" +
 	"\aCommand\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\tR\x04task\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x10\n" +
-	"\x03key\x18\x03 \x01(\tR\x03key\x12+\n" +
-	"\x04args\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04argsB\xb0\x01\n" +
+	"\x03key\x18\x03 \x01(\tR\x03key\x12\x1f\n" +
+	"\vconfig_hash\x18\x04 \x01(\tR\n" +
+	"configHash\x12+\n" +
+	"\x04args\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x04argsB\xb0\x01\n" +
 	"\x13com.service.task.pbB\tTaskProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/task/pb\xa2\x02\x03STP\xaa\x02\x0fService.Task.Pb\xca\x02\x0fService\\Task\\Pb\xe2\x02\x1bService\\Task\\Pb\\GPBMetadata\xea\x02\x11Service::Task::Pbb\x06proto3"
 
 var (

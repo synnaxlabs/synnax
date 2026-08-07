@@ -94,4 +94,31 @@ var _ = Describe("Type Definition Generation", func() {
 			},
 		)
 	})
+
+	Describe("Alias schema type annotations", func() {
+		It(
+			"Should annotate an alias-typed field with typeof on the alias schema",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				Inner struct {
+					value string
+				}
+
+				Aliased = Inner
+
+				Details struct<Data? = record> {
+					thing Aliased
+					data  Data?
+
+					@ts concrete_types
+				}
+			`
+				resp := MustGenerate(ctx, source, "details", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(content).To(ContainSubstring("thing: typeof aliasedZ;"))
+			},
+		)
+	})
 })

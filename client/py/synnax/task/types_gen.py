@@ -51,12 +51,16 @@ class Command(BaseModel):
         task: Is the key of the target task.
         type: Is the command type (e.g., 'start', 'stop', 'configure').
         key: Is a unique identifier for this command instance.
+        config_hash: Is the config hash the sender wants running. Empty when the sender
+            does not know it. The Driver reuses its live instance when the hash matches
+            and redeploys when it differs.
         args: Contains optional arguments for the command.
     """
 
     task: Key
     type: str
     key: str
+    config_hash: str = ""
     args: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -77,7 +81,7 @@ class Payload(BaseModel):
             Determines which hardware integration handles the task.
         config: Is task-specific configuration stored as JSON. Structure varies by task
             type.
-        config_hash: Is the server-assigned hash of config, rewritten on every write and
+        config_hash: Is the Core-assigned hash of config, rewritten on every write and
             ignored on writes from clients. Compare against a status's config_hash to
             detect drift.
         internal: Is true if this is an internal system task.
