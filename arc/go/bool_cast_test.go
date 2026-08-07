@@ -322,4 +322,33 @@ var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 		out2, _ := h.Flush()
 		Expect(telem.UnmarshalSeries[bool](out2.Get(300).Series[0])).To(Equal([]bool{false}))
 	})
+
+	It("Should write an && logical result to a bool channel", func(ctx SpecContext) {
+		resolver := channelSymbols(map[string]channelDef{
+			"a":   {types.Bool(), 100},
+			"b":   {types.Bool(), 200},
+			"out": {types.Bool(), 300},
+		})
+		h := newRuntimeHarness(ctx, `a && b -> out`, resolver,
+			channels.Digest{Key: 100, DataType: telem.BoolT},
+			channels.Digest{Key: 200, DataType: telem.BoolT},
+			channels.Digest{Key: 300, DataType: telem.BoolT},
+		)
+		defer h.Close(ctx)
+
+		h.Ingest(100, telem.NewSeriesV[bool](true))
+		h.Ingest(200, telem.NewSeriesV[bool](true))
+		h.Tick(ctx, telem.Millisecond)
+		h.channelState.ClearReads()
+		out, changed := h.Flush()
+		Expect(changed).To(BeTrue())
+		Expect(telem.UnmarshalSeries[bool](out.Get(300).Series[0])).To(Equal([]bool{true}))
+
+		h.Ingest(100, telem.NewSeriesV[bool](true))
+		h.Ingest(200, telem.NewSeriesV[bool](false))
+		h.Tick(ctx, 2*telem.Millisecond)
+		h.channelState.ClearReads()
+		out2, _ := h.Flush()
+		Expect(telem.UnmarshalSeries[bool](out2.Get(300).Series[0])).To(Equal([]bool{false}))
+	})
 })

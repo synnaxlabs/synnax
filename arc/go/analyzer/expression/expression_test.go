@@ -108,6 +108,20 @@ var _ = Describe("Expressions", func() {
 					c := a or b
 				}
 			`),
+			Entry("symbolic logical AND on booleans", `
+				func testFunc() {
+					a bool := false
+					b bool := true
+					c := a && b
+				}
+			`),
+			Entry("symbolic logical OR on booleans", `
+				func testFunc() {
+					a bool := false
+					b bool := true
+					c := a || b
+				}
+			`),
 			Entry("bitwise AND on integers", `
 				func testFunc() {
 					a i32 := 12
@@ -260,6 +274,34 @@ var _ = Describe("Expressions", func() {
 					x series i32 := [1, 2, 3]
 					y series i32 := [4, 5, 6]
 					z := x or y
+				}
+			`, "i32", "or"),
+			Entry("&& on i32", `
+				func testFunc() {
+					x i32 := 10
+					y i32 := 20
+					z := x && y
+				}
+			`, "i32", "and"),
+			Entry("|| on i32", `
+				func testFunc() {
+					x i32 := 10
+					y i32 := 20
+					z := x || y
+				}
+			`, "i32", "or"),
+			Entry("&& on i32 series", `
+				func testFunc() {
+					x series i32 := [1, 2, 3]
+					y series i32 := [4, 5, 6]
+					z := x && y
+				}
+			`, "i32", "and"),
+			Entry("|| on i32 series", `
+				func testFunc() {
+					x series i32 := [1, 2, 3]
+					y series i32 := [4, 5, 6]
+					z := x || y
 				}
 			`, "i32", "or"),
 		)
@@ -494,6 +536,32 @@ var _ = Describe("Expressions", func() {
 						c := not (a > 3.0)
 					}
 				`),
+				Entry("series && series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						b series f64 := [3.0, 3.0, 3.0]
+						c := (a > b) && (a < 20.0)
+					}
+				`),
+				Entry("series || series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						b series f64 := [3.0, 3.0, 3.0]
+						c := (a > b) || (a < b)
+					}
+				`),
+				Entry("series && scalar", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := (a > 3.0) && true
+					}
+				`),
+				Entry("! series", `
+					func testFunc() {
+						a series f64 := [1.0, 5.0, 10.0]
+						c := !(a > 3.0)
+					}
+				`),
 			)
 		})
 	})
@@ -519,6 +587,12 @@ var _ = Describe("Expressions", func() {
 					y := not x
 				}
 			`),
+			Entry("symbolic logical not on boolean", `
+				func testFunc() {
+					x bool := true
+					y := !x
+				}
+			`),
 			Entry("double negation", `
 				func testFunc() {
 					x i32 := 5
@@ -536,6 +610,12 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					x bool := true
 					y := not not x
+				}
+			`),
+			Entry("symbolic double not", `
+				func testFunc() {
+					x bool := true
+					y := !!x
 				}
 			`),
 			Entry("negation of function call result", `
@@ -557,6 +637,12 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					a series f64 := [1.0, 5.0, 10.0]
 					y := not (a > 3.0)
+				}
+			`),
+			Entry("symbolic logical not on bool series", `
+				func testFunc() {
+					a series f64 := [1.0, 5.0, 10.0]
+					y := !(a > 3.0)
 				}
 			`),
 			Entry("negation on signed series", `
@@ -613,6 +699,24 @@ var _ = Describe("Expressions", func() {
 					y := not x
 				}
 			`, "operator 'not' requires boolean operand"),
+			Entry("! on non-boolean", `
+				func testFunc() {
+					x i32 := 10
+					y := !x
+				}
+			`, "operator ! requires boolean operand"),
+			Entry("! on string", `
+				func testFunc() {
+					x str := "hello"
+					y := !x
+				}
+			`, "boolean operand"),
+			Entry("! on non-bool series", `
+				func testFunc() {
+					x series i64 := [1, 2, 3]
+					y := !x
+				}
+			`, "operator ! requires boolean operand"),
 			Entry("bitwise not on bool", `
 				func testFunc() {
 					x bool := true
@@ -723,6 +827,15 @@ var _ = Describe("Expressions", func() {
 					c bool := true
 					result := a and b or c
 					result2 := a or b and c
+				}
+			`),
+			Entry("chained symbolic logical operations", `
+				func testFunc() {
+					a bool := true
+					b bool := false
+					c bool := true
+					result := a && b || c
+					result2 := a || b && c
 				}
 			`),
 			Entry("complex mixed expressions", `
@@ -1325,6 +1438,23 @@ var _ = Describe("Expressions", func() {
 			`, resolver, "cannot use f32 in and operation")
 			},
 		)
+
+		It(
+			"Should reject channel type mismatch in symbolic logical operation",
+			func(ctx SpecContext) {
+				resolver := []symbol.Symbol{{
+					Kind: symbol.KindChannel,
+					Name: "sensor",
+					Type: types.Chan(types.F32()),
+					ID:   20012,
+				}}
+				expectFailure(ctx, `
+				func testFunc() u8 {
+					return sensor && 1
+				}
+			`, resolver, "cannot use f32 in and operation")
+			},
+		)
 	})
 
 	Describe("IsLiteral", func() {
@@ -1349,9 +1479,11 @@ var _ = Describe("Expressions", func() {
 			Entry("binary expression", `1 + 2 -> out`, false),
 			Entry("negated literal", `-1 -> out`, true),
 			Entry("logical not expression", `not 1 -> out`, false),
+			Entry("symbolic logical not expression", `!1 -> out`, false),
 			Entry("parenthesized expression", `(42) -> out`, false),
 			Entry("comparison expression", `1 > 0 -> out`, false),
 			Entry("logical expression", `1 and 0 -> out`, false),
+			Entry("symbolic logical expression", `1 && 0 -> out`, false),
 			Entry("bitwise not expression", `~1 -> out`, false),
 			Entry("bitwise expression", `1 & 0 -> out`, false),
 			Entry("numeric literal with unit suffix", `5m -> out`, true),

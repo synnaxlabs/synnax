@@ -380,11 +380,11 @@ expression
     ;
 
 logicalOrExpression
-    : logicalAndExpression (OR logicalAndExpression)*
+    : logicalAndExpression ((OR | PIPEPIPE) logicalAndExpression)*
     ;
 
 logicalAndExpression
-    : bitwiseOrExpression (AND bitwiseOrExpression)*
+    : bitwiseOrExpression ((AND | AMPAMP) bitwiseOrExpression)*
     ;
 
 bitwiseOrExpression
@@ -419,6 +419,7 @@ powerExpression
 unaryExpression
     : MINUS unaryExpression
     | NOT unaryExpression
+    | BANG unaryExpression
     | TILDE unaryExpression
     | postfixExpression
     ;

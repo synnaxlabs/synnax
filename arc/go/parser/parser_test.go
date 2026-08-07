@@ -215,6 +215,12 @@ var _ = Describe("Parser", func() {
 				unary := getPowerExpression(expr).UnaryExpression()
 				Expect(unary.NOT()).NotTo(BeNil())
 			})
+
+			It("Should parse logical NOT with !", func() {
+				expr := mustParseExpression("!true")
+				unary := getPowerExpression(expr).UnaryExpression()
+				Expect(unary.BANG()).NotTo(BeNil())
+			})
 		})
 
 		Context("Series", func() {
@@ -946,6 +952,27 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(rightAnd.AllBitwiseOrExpression()).To(HaveLen(2))
 				Expect(rightAnd.AND(0)).NotTo(BeNil())
 			})
+
+			It("Should parse complex logical expressions with symbols", func() {
+				// !a && b || c && !d
+				// Should be: ((!a) && b) || (c && (!d))
+				expr := mustParseExpression("!a && b || c && !d")
+
+				// Top level is OR
+				logicalOr := expr.LogicalOrExpression()
+				Expect(logicalOr.AllLogicalAndExpression()).To(HaveLen(2))
+				Expect(logicalOr.PIPEPIPE(0)).NotTo(BeNil())
+
+				// Left side: !a && b
+				leftAnd := logicalOr.LogicalAndExpression(0)
+				Expect(leftAnd.AllBitwiseOrExpression()).To(HaveLen(2))
+				Expect(leftAnd.AMPAMP(0)).NotTo(BeNil())
+
+				// Right side: c && !d
+				rightAnd := logicalOr.LogicalAndExpression(1)
+				Expect(rightAnd.AllBitwiseOrExpression()).To(HaveLen(2))
+				Expect(rightAnd.AMPAMP(0)).NotTo(BeNil())
+			})
 		})
 
 		Context("Complex series operations", func() {
@@ -1036,8 +1063,8 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			})
 
 			It("Should report error for repeated bitwise operators", func() {
-				// '&' is a valid bitwise token, so '&&&' lexes as three AMP tokens and
-				// fails at the parser rather than the lexer.
+				// '&&&' lexes as AMPAMP + AMP and fails at the parser rather than
+				// the lexer.
 				Expect(
 					parser.ParseExpression("a &&& b"),
 				).Error().

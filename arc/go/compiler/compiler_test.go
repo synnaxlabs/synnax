@@ -2344,11 +2344,25 @@ var _ = Describe("Compiler", func() {
 				r := (a > b) and (a > c)
 				return u8(r[0])
 			}`, uint8(1)),
+			Entry("series && series (true element)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				c series f64 := [0.0, 0.0]
+				r := (a > b) && (a > c)
+				return u8(r[0])
+			}`, uint8(1)),
 			Entry("series and series (false element)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				c series f64 := [0.0, 0.0]
 				r := (a > b) and (a > c)
+				return u8(r[1])
+			}`, uint8(0)),
+			Entry("series && series (false element)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				c series f64 := [0.0, 0.0]
+				r := (a > b) && (a > c)
 				return u8(r[1])
 			}`, uint8(0)),
 			Entry("series or series (true element)", `{
@@ -2358,11 +2372,25 @@ var _ = Describe("Compiler", func() {
 				r := (a > b) or (a > c)
 				return u8(r[0])
 			}`, uint8(1)),
+			Entry("series || series (true element)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				c series f64 := [9.0, 9.0]
+				r := (a > b) || (a > c)
+				return u8(r[0])
+			}`, uint8(1)),
 			Entry("series or series (false element)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				c series f64 := [9.0, 9.0]
 				r := (a > b) or (a > c)
+				return u8(r[1])
+			}`, uint8(0)),
+			Entry("series || series (false element)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				c series f64 := [9.0, 9.0]
+				r := (a > b) || (a > c)
 				return u8(r[1])
 			}`, uint8(0)),
 			Entry("not series", `{
@@ -2371,10 +2399,22 @@ var _ = Describe("Compiler", func() {
 				r := not (a > b)
 				return u8(r[1])
 			}`, uint8(1)),
+			Entry("! series", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				r := !(a > b)
+				return u8(r[1])
+			}`, uint8(1)),
 			Entry("series and scalar true (identity)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				r := (a > b) and true
+				return u8(r[0])
+			}`, uint8(1)),
+			Entry("series && scalar true (identity)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				r := (a > b) && true
 				return u8(r[0])
 			}`, uint8(1)),
 			Entry("series and scalar false (zeroes)", `{
@@ -2383,16 +2423,34 @@ var _ = Describe("Compiler", func() {
 				r := (a > b) and false
 				return u8(r[0])
 			}`, uint8(0)),
+			Entry("series && scalar false (zeroes)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				r := (a > b) && false
+				return u8(r[0])
+			}`, uint8(0)),
 			Entry("series or scalar true (fills)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				r := (a > b) or true
 				return u8(r[1])
 			}`, uint8(1)),
+			Entry("series || scalar true (fills)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				r := (a > b) || true
+				return u8(r[1])
+			}`, uint8(1)),
 			Entry("series or scalar false (identity)", `{
 				a series f64 := [5.0, 1.0]
 				b series f64 := [3.0, 3.0]
 				r := (a > b) or false
+				return u8(r[1])
+			}`, uint8(0)),
+			Entry("series || scalar false (identity)", `{
+				a series f64 := [5.0, 1.0]
+				b series f64 := [3.0, 3.0]
+				r := (a > b) || false
 				return u8(r[1])
 			}`, uint8(0)),
 			Entry("negate series", `{
@@ -3893,8 +3951,18 @@ var _ = Describe("Compiler", func() {
 				true,
 			),
 			Entry(
+				"&& true true",
+				`{ return i32(1) == i32(1) && i32(2) == i32(2) }`,
+				true,
+			),
+			Entry(
 				"and true false",
 				`{ return i32(1) == i32(1) and i32(1) == i32(0) }`,
+				false,
+			),
+			Entry(
+				"&& true false",
+				`{ return i32(1) == i32(1) && i32(1) == i32(0) }`,
 				false,
 			),
 			Entry(
@@ -3903,8 +3971,18 @@ var _ = Describe("Compiler", func() {
 				false,
 			),
 			Entry(
+				"&& false true",
+				`{ return i32(1) == i32(0) && i32(1) == i32(1) }`,
+				false,
+			),
+			Entry(
 				"and false false",
 				`{ return i32(1) == i32(0) and i32(2) == i32(0) }`,
+				false,
+			),
+			Entry(
+				"&& false false",
+				`{ return i32(1) == i32(0) && i32(2) == i32(0) }`,
 				false,
 			),
 			// OR operations
@@ -3914,8 +3992,18 @@ var _ = Describe("Compiler", func() {
 				true,
 			),
 			Entry(
+				"|| true true",
+				`{ return i32(1) == i32(1) || i32(2) == i32(2) }`,
+				true,
+			),
+			Entry(
 				"or true false",
 				`{ return i32(1) == i32(1) or i32(1) == i32(0) }`,
+				true,
+			),
+			Entry(
+				"|| true false",
+				`{ return i32(1) == i32(1) || i32(1) == i32(0) }`,
 				true,
 			),
 			Entry(
@@ -3924,8 +4012,18 @@ var _ = Describe("Compiler", func() {
 				true,
 			),
 			Entry(
+				"|| false true",
+				`{ return i32(1) == i32(0) || i32(1) == i32(1) }`,
+				true,
+			),
+			Entry(
 				"or false false",
 				`{ return i32(1) == i32(0) or i32(2) == i32(0) }`,
+				false,
+			),
+			Entry(
+				"|| false false",
+				`{ return i32(1) == i32(0) || i32(2) == i32(0) }`,
 				false,
 			),
 			// Chained operations
@@ -3935,8 +4033,18 @@ var _ = Describe("Compiler", func() {
 				true,
 			),
 			Entry(
+				"chained &&",
+				`{ return i32(1) == i32(1) && i32(2) == i32(2) && i32(3) == i32(3) }`,
+				true,
+			),
+			Entry(
 				"chained and with false",
 				`{ return i32(1) == i32(1) and i32(2) == i32(2) and i32(1) == i32(0) }`,
+				false,
+			),
+			Entry(
+				"chained && with false",
+				`{ return i32(1) == i32(1) && i32(2) == i32(2) && i32(1) == i32(0) }`,
 				false,
 			),
 			Entry(
@@ -3945,8 +4053,18 @@ var _ = Describe("Compiler", func() {
 				true,
 			),
 			Entry(
+				"chained ||",
+				`{ return i32(1) == i32(0) || i32(2) == i32(0) || i32(1) == i32(1) }`,
+				true,
+			),
+			Entry(
 				"chained or all false",
 				`{ return i32(1) == i32(0) or i32(2) == i32(0) or i32(3) == i32(0) }`,
+				false,
+			),
+			Entry(
+				"chained || all false",
+				`{ return i32(1) == i32(0) || i32(2) == i32(0) || i32(3) == i32(0) }`,
 				false,
 			),
 			// Mixed and/or with comparisons
@@ -3956,8 +4074,18 @@ var _ = Describe("Compiler", func() {
 				true,
 			),
 			Entry(
+				"comparison &&",
+				`{ return i32(5) < i32(10) && i32(10) < i32(20) }`,
+				true,
+			),
+			Entry(
 				"comparison or",
 				`{ return i32(5) > i32(10) or i32(10) < i32(20) }`,
+				true,
+			),
+			Entry(
+				"comparison ||",
+				`{ return i32(5) > i32(10) || i32(10) < i32(20) }`,
 				true,
 			),
 		)
@@ -4041,14 +4169,23 @@ var _ = Describe("Compiler", func() {
 			}`, 3.14),
 			// Logical not (Arc uses 'not' keyword, using comparisons for true/false)
 			Entry("not true", `{ return not (i32(1) == i32(1)) }`, false),
+			Entry("! true", `{ return !(i32(1) == i32(1)) }`, false),
 			Entry("not false", `{ return not (i32(1) == i32(0)) }`, true),
+			Entry("! false", `{ return !(i32(1) == i32(0)) }`, true),
 			Entry("double not true", `{ return not not (i32(1) == i32(1)) }`, true),
+			Entry("double ! true", `{ return !!(i32(1) == i32(1)) }`, true),
 			Entry(
 				"double not false",
 				`{ return not not (i32(1) == i32(0)) }`,
 				false,
 			),
+			Entry(
+				"double ! false",
+				`{ return !!(i32(1) == i32(0)) }`,
+				false,
+			),
 			Entry("not comparison", `{ return not (i32(5) < i32(3)) }`, true),
+			Entry("! comparison", `{ return !(i32(5) < i32(3)) }`, true),
 			// Bitwise not (integer complement)
 			Entry("bitwise not i32", `{ return ~i32(0) }`, int32(-1)),
 			Entry("bitwise not i32 value", `{
@@ -4119,6 +4256,14 @@ var _ = Describe("Compiler", func() {
 			}`, int32(1)),
 			Entry("if or", `{
 				if i32(1) == i32(0) or i32(1) == i32(1) { return i32(1) }
+				return i32(0)
+			}`, int32(1)),
+			Entry("if &&", `{
+				if i32(1) == i32(1) && i32(2) == i32(2) { return i32(1) }
+				return i32(0)
+			}`, int32(1)),
+			Entry("if ||", `{
+				if i32(1) == i32(0) || i32(1) == i32(1) { return i32(1) }
 				return i32(0)
 			}`, int32(1)),
 			Entry("if bitwise and", `{

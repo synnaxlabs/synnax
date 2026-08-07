@@ -93,6 +93,9 @@ GEQ         : '>=';
 AND         : 'and';
 OR          : 'or';
 NOT         : 'not';
+AMPAMP      : '&&';
+PIPEPIPE    : '||';
+BANG        : '!';
 
 // Bitwise
 AMP         : '&';

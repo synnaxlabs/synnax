@@ -421,6 +421,17 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 				)
 				return
 			}
+		} else if ctx.AST.BANG() != nil {
+			if !operandType.IsBool() {
+				ctx.Diagnostics.Add(
+					diagnostics.Errorf(
+						ctx.AST,
+						"operator ! requires boolean operand, received %s",
+						operandType,
+					),
+				)
+				return
+			}
 		} else if ctx.AST.TILDE() != nil {
 			if !operandType.IsInteger() {
 				ctx.Diagnostics.Add(
