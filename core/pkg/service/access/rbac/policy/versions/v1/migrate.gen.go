@@ -18,5 +18,8 @@ import (
 )
 
 func autoMigratePolicy(_ context.Context, old v0.Policy) (Policy, error) {
-	return Policy{}, nil
+	return Policy{
+		Objects: old.Objects,
+		Actions: old.Actions,
+	}, nil
 }

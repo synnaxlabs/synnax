@@ -18,5 +18,7 @@ import (
 )
 
 func autoMigrateSymbol(_ context.Context, old v0.Symbol) (Symbol, error) {
-	return Symbol{}, nil
+	return Symbol{
+		Name: old.Name,
+	}, nil
 }

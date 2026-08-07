@@ -114,6 +114,32 @@ func (r *Resolver) File(ctx context.Context, livePath string, n int) (*File, err
 	return r.file(ctx, livePath, n)
 }
 
+// Definer returns the namespace and name version n of livePath resolves name to,
+// following the file's alias lines to the version that declares it. It reports false
+// when version n does not carry the name.
+func (r *Resolver) Definer(
+	ctx context.Context,
+	livePath string,
+	n int,
+	name string,
+) (namespace, definer string, ok bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	f, err := r.file(ctx, livePath, n)
+	if err != nil {
+		return "", "", false
+	}
+	if alias, isAlias := f.Aliases[name]; isAlias {
+		return DepNS(livePath, alias.Version), alias.Name, true
+	}
+	for _, t := range f.Defined {
+		if t.Name == name {
+			return DepNS(livePath, n), name, true
+		}
+	}
+	return "", "", false
+}
+
 func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, error) {
 	chain, ok := r.chains[livePath]
 	if !ok {

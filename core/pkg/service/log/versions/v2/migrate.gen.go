@@ -18,5 +18,8 @@ import (
 )
 
 func autoMigrateLog(_ context.Context, old v0.Log) (Log, error) {
-	return Log{}, nil
+	return Log{
+		Key:  old.Key,
+		Name: old.Name,
+	}, nil
 }

@@ -14,13 +14,40 @@ package v1
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/graph/versions/v0"
+	irv0 "github.com/synnaxlabs/arc/ir/versions/v0"
+	ir "github.com/synnaxlabs/arc/ir/versions/v1"
 )
 
-func autoMigrateGraph(_ context.Context, old v0.Graph) (Graph, error) {
-	return Graph{}, nil
+func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
+	functions, err := lo.MapErr(old.Functions, func(v irv0.Function, _ int) (ir.Function, error) {
+		return ir.MigrateFunction(ctx, v)
+	})
+	if err != nil {
+		return Graph{}, err
+	}
+	nodes, err := lo.MapErr(old.Nodes, func(v v0.Node, _ int) (Node, error) {
+		return MigrateNode(ctx, v)
+	})
+	if err != nil {
+		return Graph{}, err
+	}
+	return Graph{
+		Functions: functions,
+		Nodes:     nodes,
+	}, nil
 }
 
 func autoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
-	return Node{}, nil
+	return Node{
+		Key:      old.Key,
+		Position: old.Position,
+	}, nil
+}
+
+func autoMigrateNodes(ctx context.Context, old v0.Nodes) (Nodes, error) {
+	return lo.MapErr(old, func(v v0.Node, _ int) (Node, error) {
+		return MigrateNode(ctx, v)
+	})
 }

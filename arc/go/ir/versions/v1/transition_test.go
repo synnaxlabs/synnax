@@ -7,27 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ir_test
+package v1_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/ir"
+	v1 "github.com/synnaxlabs/arc/ir/versions/v1"
 )
 
 var _ = Describe("Transition", func() {
 	Describe("String", func() {
 		It("Should render a transition targeting a sibling step", func() {
 			target := "next"
-			t := ir.Transition{
-				On:        ir.Handle{Node: "n", Param: "done"},
+			t := v1.Transition{
+				On:        v1.Handle{Node: "n", Param: "done"},
 				TargetKey: &target,
 			}
 			Expect(t.String()).To(Equal("on n/done => next"))
 		})
 
 		It("Should render an exiting transition when TargetKey is nil", func() {
-			t := ir.Transition{On: ir.Handle{Node: "n", Param: "done"}}
+			t := v1.Transition{On: v1.Handle{Node: "n", Param: "done"}}
 			Expect(t.String()).To(Equal("on n/done => exit"))
 		})
 	})

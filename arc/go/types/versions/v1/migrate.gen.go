@@ -14,21 +14,91 @@ package v1
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/types/versions/v0"
 )
 
-func autoMigrateFunctionProperties(_ context.Context, old v0.FunctionProperties) (FunctionProperties, error) {
-	return FunctionProperties{}, nil
+func autoMigrateFunctionProperties(ctx context.Context, old v0.FunctionProperties) (FunctionProperties, error) {
+	inputs, err := lo.MapErr(old.Inputs, func(v v0.Param, _ int) (Param, error) {
+		return MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return FunctionProperties{}, err
+	}
+	outputs, err := lo.MapErr(old.Outputs, func(v v0.Param, _ int) (Param, error) {
+		return MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return FunctionProperties{}, err
+	}
+	return FunctionProperties{
+		Inputs:  inputs,
+		Outputs: outputs,
+	}, nil
 }
 
 func autoMigrateKind(_ context.Context, old v0.Kind) (Kind, error) {
 	return Kind(old), nil
 }
 
-func autoMigrateParam(_ context.Context, old v0.Param) (Param, error) {
-	return Param{}, nil
+func autoMigrateParam(ctx context.Context, old v0.Param) (Param, error) {
+	typeVal, err := MigrateType(ctx, old.Type)
+	if err != nil {
+		return Param{}, err
+	}
+	return Param{
+		Name:  old.Name,
+		Type:  typeVal,
+		Value: old.Value,
+	}, nil
 }
 
-func autoMigrateType(_ context.Context, old v0.Type) (Type, error) {
-	return Type{}, nil
+func autoMigrateParams(ctx context.Context, old v0.Params) (Params, error) {
+	return lo.MapErr(old, func(v v0.Param, _ int) (Param, error) {
+		return MigrateParam(ctx, v)
+	})
+}
+
+func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
+	functionProperties, err := MigrateFunctionProperties(ctx, old.FunctionProperties)
+	if err != nil {
+		return Type{}, err
+	}
+	kind, err := autoMigrateKind(ctx, old.Kind)
+	if err != nil {
+		return Type{}, err
+	}
+	var elem *Type
+	if old.Elem != nil {
+		v, err := MigrateType(ctx, *old.Elem)
+		if err != nil {
+			return Type{}, err
+		}
+		elem = &v
+	}
+	var constraint *Type
+	if old.Constraint != nil {
+		v, err := MigrateType(ctx, *old.Constraint)
+		if err != nil {
+			return Type{}, err
+		}
+		constraint = &v
+	}
+	chanDirection, err := autoMigrateChanDirection(ctx, old.ChanDirection)
+	if err != nil {
+		return Type{}, err
+	}
+	return Type{
+		FunctionProperties: functionProperties,
+		Kind:               kind,
+		Name:               old.Name,
+		Elem:               elem,
+		Unit:               old.Unit,
+		Constraint:         constraint,
+		ChanDirection:      chanDirection,
+	}, nil
+}
+
+func autoMigrateChanDirection(_ context.Context, old v0.ChanDirection) (ChanDirection, error) {
+	return ChanDirection(old), nil
 }

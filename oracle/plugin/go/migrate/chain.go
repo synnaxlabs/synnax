@@ -14,6 +14,7 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -74,6 +76,10 @@ func chainFile(
 	if err != nil {
 		return plugin.File{}, false, err
 	}
+	newFile, err := req.Versions.File(ctx, livePath, k)
+	if err != nil {
+		return plugin.File{}, false, err
+	}
 	var oldEntries []resolution.Type
 	for _, t := range oldTable.TypesInNamespace(oldNS) {
 		if domain.HasExprFromType(t, "go", "migrate") {
@@ -84,13 +90,7 @@ func chainFile(
 	if len(roots) == 0 {
 		// Value-type paths have no migrate entries; their changed types still
 		// need auto-copies because other resources' migrations consume them.
-		f, err := req.Versions.File(
-			context.Background(), livePath, k,
-		)
-		if err != nil {
-			return plugin.File{}, false, err
-		}
-		for _, t := range f.Defined {
+		for _, t := range newFile.Defined {
 			if t.Synthetic {
 				continue
 			}
@@ -105,12 +105,18 @@ func chainFile(
 	slices.SortFunc(roots, func(a, b resolution.Type) int {
 		return cmpStrings(a.Name, b.Name)
 	})
+	mapping := chainMapping{
+		resolver: req.Versions, ctx: ctx, livePath: livePath, newFile: newFile,
+	}
+	counterpart := mapping.counterpart
 	diff := make(map[string]schemadiff.TypeDiff)
 	for _, oe := range roots {
 		// Renamed or cross-resource-moved types have no same-name counterpart;
 		// their transforms are hand-written in migrate.go.
 		if ne, ok := newTable.Get(newNS + "." + oe.Name); ok {
-			maps.Copy(diff, schemadiff.SchemaDiff(oe, ne, oldTable, newTable))
+			maps.Copy(
+				diff, schemadiff.SchemaDiff(oe, ne, oldTable, newTable, counterpart),
+			)
 		}
 	}
 	if !needsAutoMigrate(roots, diff) {
@@ -120,7 +126,7 @@ func chainFile(
 	content, err := generateAutoCopy(
 		filepath.Base(newPath), newPath, req.RepoRoot,
 		roots, diff, oldTable, newTable,
-		false, wrapperNames(diff, oldTable, newTable),
+		mapping, wrapperNames(diff, oldTable, newTable, counterpart),
 	)
 	if err != nil {
 		return plugin.File{}, false, errors.Wrapf(
@@ -132,6 +138,87 @@ func chainFile(
 	}
 	return plugin.File{Path: newPath + "/migrate.gen.go", Content: content},
 		true, nil
+}
+
+// chainMapping relates the outgoing version's surface to the incoming one. Both
+// surfaces materialize every name they carry in full, under their own version's
+// namespace, so only the version files say whether the incoming version redeclared a
+// name or aliased it back to an earlier one.
+type chainMapping struct {
+	resolver *versions.Resolver
+	ctx      context.Context
+	// livePath is the resource whose chain is being generated. Every other resource a
+	// surface carries is a dependency pin.
+	livePath string
+	newFile  *versions.File
+}
+
+// counterpart returns the name the incoming version's surface files qualifiedName
+// under. A resource or name the incoming version does not carry passes through
+// unchanged.
+func (m chainMapping) counterpart(qualifiedName string) string {
+	lp, name, ok := m.split(qualifiedName)
+	if !ok {
+		return qualifiedName
+	}
+	v, ok := m.incomingVersion(lp)
+	if !ok {
+		return qualifiedName
+	}
+	if _, _, ok := m.resolver.Definer(m.ctx, lp, v, name); !ok {
+		return qualifiedName
+	}
+	return versions.DepNS(lp, v) + "." + name
+}
+
+// sameGoType reports whether both versions denote qualifiedName with one Go type,
+// which holds when they resolve the name to the same declaring version.
+func (m chainMapping) sameGoType(qualifiedName string) (same, known bool) {
+	lp, name, ok := m.split(qualifiedName)
+	if !ok {
+		return false, false
+	}
+	outgoing, ok := m.outgoingVersion(qualifiedName)
+	if !ok {
+		return false, false
+	}
+	incoming, ok := m.incomingVersion(lp)
+	if !ok {
+		return false, false
+	}
+	oldNS, _, oldOk := m.resolver.Definer(m.ctx, lp, outgoing, name)
+	newNS, _, newOk := m.resolver.Definer(m.ctx, lp, incoming, name)
+	if !oldOk || !newOk {
+		return false, false
+	}
+	return oldNS == newNS, true
+}
+
+// split recovers the resource and name a versioned qualified name addresses.
+func (m chainMapping) split(qualifiedName string) (livePath, name string, ok bool) {
+	i := strings.LastIndexByte(qualifiedName, '.')
+	if i < 0 {
+		return "", "", false
+	}
+	livePath, _, ok = versions.ParseDepNS(qualifiedName[:i])
+	return livePath, qualifiedName[i+1:], ok
+}
+
+func (m chainMapping) outgoingVersion(qualifiedName string) (int, bool) {
+	i := strings.LastIndexByte(qualifiedName, '.')
+	if i < 0 {
+		return 0, false
+	}
+	_, v, ok := versions.ParseDepNS(qualifiedName[:i])
+	return v, ok
+}
+
+func (m chainMapping) incomingVersion(livePath string) (int, bool) {
+	if livePath == m.livePath {
+		return m.newFile.N, true
+	}
+	v, ok := m.newFile.Pins[livePath]
+	return v, ok
 }
 
 func cmpStrings(a, b string) int {

@@ -26,27 +26,26 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/set"
 )
 
-// generateAutoCopy generates a migrate_auto.gen.go file for the given types.
-// When skipEntries is true, types with @go migrate are excluded — used by the
-// sub-package mirror, where the entry's AutoMigrate is generated at the entry's
-// own package and re-emitting it in the mirror would duplicate the function and
-// (for cross-package returns) create an import cycle.
+// generateAutoCopy generates a migrate.gen.go file for the given types. mapping
+// relates the two versions' surfaces.
 func generateAutoCopy(
 	pkg, outputPath, repoRoot string,
 	types []resolution.Type,
 	diff map[string]schemadiff.TypeDiff,
 	oldTable, newTable *resolution.Table,
-	skipEntries bool,
+	mapping chainMapping,
 	wrappers map[string]string,
 ) ([]byte, error) {
 	c := &collector{
 		pkg: pkg, outputPath: outputPath, repoRoot: repoRoot,
 		diff: diff, oldTable: oldTable, newTable: newTable,
+		mapping: mapping,
 		imports: make(map[string]importEntry), generated: make(set.Set[string]),
-		skipEntries: skipEntries, wrappers: wrappers,
+		wrappers: wrappers,
 	}
 	data := c.collect(types)
 	if len(data.Funcs) == 0 {
@@ -195,11 +194,13 @@ type collector struct {
 	pkg, outputPath, repoRoot string
 	diff                      map[string]schemadiff.TypeDiff
 	oldTable, newTable        *resolution.Table
-	imports                   map[string]importEntry
-	generated                 set.Set[string]
-	pending                   []resolution.Type
-	funcs                     []funcData
-	skipEntries               bool
+	// mapping relates a qualified name in oldTable to the incoming version's
+	// surface.
+	mapping   chainMapping
+	imports   map[string]importEntry
+	generated set.Set[string]
+	pending   []resolution.Type
+	funcs     []funcData
 	// wrappers maps qualified type names to their developer-wrapper names,
 	// deciding exported vs unexported routing (see wrapperNames).
 	wrappers map[string]string
@@ -211,9 +212,6 @@ func (c *collector) collect(types []resolution.Type) fileData {
 	for _, typ := range types {
 		td, hasDiff := c.diff[typ.QualifiedName]
 		if !hasDiff || td.Kind == schemadiff.TypeUnchanged {
-			continue
-		}
-		if c.skipEntries && c.isEntryType(typ) {
 			continue
 		}
 		c.ensureFunc(typ)
@@ -254,7 +252,7 @@ func (c *collector) ensureFunc(typ resolution.Type) {
 }
 
 func (c *collector) structFunc(typ resolution.Type, sf resolution.StructForm) funcData {
-	newType, _ := c.newTable.Get(typ.QualifiedName)
+	newType, _ := c.newCounterpart(typ)
 	newSF, _ := newType.Form.(resolution.StructForm)
 	// Substitute defaulted type params (e.g., V extends Variant = Variant) so
 	// fields referencing them resolve to concrete types. The types plugin
@@ -284,10 +282,10 @@ func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) fu
 	}
 	if ok {
 		if sf, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-			newTarget, _ := c.newTable.Get(targetResolved.QualifiedName)
+			newTarget, _ := c.newCounterpart(targetResolved)
 			newSF, _ := newTarget.Form.(resolution.StructForm)
 			oldSF := substituteTypeParams(sf, form.Target.TypeArgs)
-			if newAlias, ok := c.newTable.Get(typ.QualifiedName); ok {
+			if newAlias, ok := c.newCounterpart(typ); ok {
 				if af, ok := newAlias.Form.(resolution.AliasForm); ok {
 					newSF = substituteTypeParams(newSF, af.Target.TypeArgs)
 				}
@@ -357,7 +355,13 @@ func (c *collector) structFuncFromForms(
 		if domain.GetStringFromField(*newField, "go", "marshal") == "omit" {
 			continue
 		}
-		if c.unionMismatch(oldField.Type, newField.Type) {
+		// A field the two versions shape differently — an optional appearing, a
+		// union replacing a struct, a declaration replacing a raw record, a type
+		// moving to another resource — has no copy that type-checks; the
+		// hand-written migration carries it.
+		if oldField.Optional != newField.Optional ||
+			c.unionMismatch(oldField.Type, newField.Type) ||
+			c.declarationMismatch(oldField.Type, newField.Type) {
 			continue
 		}
 		name := naming.GetFieldName(oldField)
@@ -380,6 +384,24 @@ func (c *collector) unionMismatch(oldRef, newRef resolution.TypeRef) bool {
 		}
 	}
 	return false
+}
+
+// declarationMismatch reports whether a field's old and new types name different
+// declarations: a raw record becoming a named struct, a rename, or a type moving to
+// another resource. Only the declaration a version resolves the field to can carry the
+// value, so a mismatch leaves the field to the hand-written migration.
+func (c *collector) declarationMismatch(oldRef, newRef resolution.TypeRef) bool {
+	oldResolved, oldOk := oldRef.Resolve(c.oldTable)
+	newResolved, newOk := newRef.Resolve(c.newTable)
+	if !oldOk || !newOk {
+		return false
+	}
+	if oldResolved.Name != newResolved.Name {
+		return true
+	}
+	oldLive, _, oldVersioned := versions.ParseDepNS(oldResolved.Namespace)
+	newLive, _, newVersioned := versions.ParseDepNS(newResolved.Namespace)
+	return oldVersioned && newVersioned && oldLive != newLive
 }
 
 // isUnionIn reports whether a type reference resolves to a discriminated
@@ -426,14 +448,14 @@ func (c *collector) sliceFunc(
 			Kind:        "cast",
 		}
 	}
-	td, hasDiff := c.diff[elemResolved.QualifiedName]
-	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
-	if !needsMigration && c.isSameType(elemResolved) {
+	if c.isSameType(elemResolved) {
 		return funcData{
 			GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
 			Kind: "cast",
 		}
 	}
+	td, hasDiff := c.diff[elemResolved.QualifiedName]
+	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
 	if needsMigration || c.hasOracleDefinedFields(elemResolved) {
 		c.usesLo = true
 		return funcData{
@@ -482,10 +504,11 @@ func (c *collector) classifyField(
 	if !c.isOracleDefined(resolved) {
 		return classification{inline: accessor}
 	}
-	td, hasDiff := c.diff[resolved.QualifiedName]
-	// An unchanged type aliases its predecessor in the new version, so old and
-	// new denote the same Go type and the value assigns directly.
-	if !hasDiff || td.Kind == schemadiff.TypeUnchanged {
+	// A type the incoming version aliases to its predecessor denotes the same Go
+	// type, so the value assigns directly. Structural equality alone is not enough:
+	// an add-only enum is wire-compatible yet still redeclared, giving the two
+	// versions distinct Go types that only a conversion bridges.
+	if c.isSameType(resolved) {
 		return classification{inline: accessor}
 	}
 	varName := naming.LowerFirst(goName)
@@ -510,10 +533,9 @@ func (c *collector) classifySlice(
 	if !ok {
 		return classification{inline: accessor}
 	}
-	td, hasDiff := c.diff[elemResolved.QualifiedName]
-	// Unchanged element types alias their predecessors, so the slice types are
-	// identical and the value assigns directly.
-	if !hasDiff || td.Kind == schemadiff.TypeUnchanged {
+	// Element types the incoming version aliases to their predecessors make the two
+	// slice types identical, so the value assigns directly.
+	if c.isSameType(elemResolved) {
 		return classification{inline: accessor}
 	}
 	varName := naming.LowerFirst(goName)
@@ -528,14 +550,18 @@ func (c *collector) classifySlice(
 
 // --- Type resolution helpers ---
 
-// isSameType reports whether the old and new tables resolve typ to the same Go
-// type (same package path and name), making any migration a pure copy.
+// isSameType reports whether both versions denote typ with one Go type, making any
+// migration a pure copy. A version that aliases the name back to the declaring version
+// shares its Go type even though the two packages differ.
 func (c *collector) isSameType(typ resolution.Type) bool {
+	if same, known := c.mapping.sameGoType(typ.QualifiedName); known {
+		return same
+	}
 	oldT, ok := c.oldTable.Get(typ.QualifiedName)
 	if !ok {
 		return false
 	}
-	newT, ok := c.newTable.Get(typ.QualifiedName)
+	newT, ok := c.newCounterpart(typ)
 	if !ok {
 		return false
 	}
@@ -548,7 +574,7 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 	goPath := output.GetPath(typ, "go")
 	isLocal := goPath == c.outputPath
 	if !isLocal {
-		if nt, ok := c.newTable.Get(typ.QualifiedName); ok {
+		if nt, ok := c.newCounterpart(typ); ok {
 			isLocal = output.GetPath(nt, "go") == c.outputPath
 		}
 	}
@@ -579,7 +605,7 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 	// version package, so the import targets the type's NEW path, not the
 	// frozen one being read from.
 	prefix := "Migrate"
-	if nt, ok := c.newTable.Get(typ.QualifiedName); ok {
+	if nt, ok := c.newCounterpart(typ); ok {
 		if p := output.GetPath(nt, "go"); p != "" {
 			goPath = p
 		}
@@ -604,8 +630,13 @@ func (c *collector) resolveTypeName(
 	return c.addImport(goPath).Alias + "." + goName
 }
 
+// newCounterpart returns typ's counterpart in the incoming version's table.
+func (c *collector) newCounterpart(typ resolution.Type) (resolution.Type, bool) {
+	return c.newTable.Get(c.mapping.counterpart(typ.QualifiedName))
+}
+
 func (c *collector) resolveNewTypeName(typ resolution.Type) string {
-	nt, ok := c.newTable.Get(typ.QualifiedName)
+	nt, ok := c.newCounterpart(typ)
 	if !ok {
 		return naming.GetGoName(typ)
 	}
@@ -655,7 +686,7 @@ func (c *collector) resolveRef(ref resolution.TypeRef) (resolution.Type, bool) {
 // --- Type introspection ---
 
 func (c *collector) isOracleDefined(typ resolution.Type) bool {
-	nt, ok := c.newTable.Get(typ.QualifiedName)
+	nt, ok := c.newCounterpart(typ)
 	return ok && output.GetPath(nt, "go") != ""
 }
 
@@ -728,18 +759,6 @@ func needsAutoMigrate(
 		}
 	}
 	return false
-}
-
-// isEntryType reports whether the type identified by typ.QualifiedName is a
-// top-level migrate entry in the current (new) resolution table. Entry types'
-// AutoMigrate functions are emitted in the entry's own package, so sub-package
-// mirrors must skip them to avoid duplicating the function and (when the
-// function returns a cross-package type) creating an import cycle. The lookup
-// goes through the new table so removing @go migrate from a type between
-// versions is respected — the type is no longer treated as an entry.
-func (c *collector) isEntryType(typ resolution.Type) bool {
-	t, ok := c.newTable.Get(typ.QualifiedName)
-	return ok && isMigrateEntry(t)
 }
 
 // isMigrateEntry reports whether t carries the @go migrate directive, marking

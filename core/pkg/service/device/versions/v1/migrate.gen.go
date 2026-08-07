@@ -18,5 +18,14 @@ import (
 )
 
 func autoMigrateDevice(_ context.Context, old v0.Device) (Device, error) {
-	return Device{}, nil
+	return Device{
+		Key:        old.Key,
+		Rack:       old.Rack,
+		Location:   old.Location,
+		Make:       old.Make,
+		Model:      old.Model,
+		Name:       old.Name,
+		Configured: old.Configured,
+		Properties: old.Properties,
+	}, nil
 }

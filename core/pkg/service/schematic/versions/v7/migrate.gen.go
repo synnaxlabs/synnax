@@ -18,5 +18,9 @@ import (
 )
 
 func autoMigrateSchematic(_ context.Context, old v0.Schematic) (Schematic, error) {
-	return Schematic{}, nil
+	return Schematic{
+		Key:      old.Key,
+		Name:     old.Name,
+		Snapshot: old.Snapshot,
+	}, nil
 }

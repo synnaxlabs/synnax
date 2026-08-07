@@ -25,10 +25,12 @@ import (
 // is a cross-package contract. It is unexported when consumption is
 // same-package only: a @go migrate entry's gorp wiring, or references from the
 // package's own changed types. A type nothing consumes keeps the exported name
-// so a generated wrapper is never an unused unexported function.
+// so a generated wrapper is never an unused unexported function. counterpart maps a
+// qualified name in oldTable to the name newTable files the same type under.
 func wrapperNames(
 	diff map[string]schemadiff.TypeDiff,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 ) map[string]string {
 	external := make(set.Set[string])
 	local := make(set.Set[string])
@@ -73,7 +75,7 @@ func wrapperNames(
 			}
 			goName := naming.GetGoName(typ)
 			entry := false
-			if nt, ok := newTable.Get(qn); ok {
+			if nt, ok := newTable.Get(counterpart(qn)); ok {
 				entry = isMigrateEntry(nt)
 			}
 			if !external.Contains(qn) && (entry || local.Contains(qn)) {

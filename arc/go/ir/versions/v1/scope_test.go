@@ -7,44 +7,44 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ir_test
+package v1_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/ir"
+	v1 "github.com/synnaxlabs/arc/ir/versions/v1"
 )
 
 var _ = Describe("Scope", func() {
 	Describe("IsZero", func() {
 		DescribeTable(
 			"Classification",
-			func(s ir.Scope, expected bool) {
+			func(s v1.Scope, expected bool) {
 				Expect(s.IsZero()).To(Equal(expected))
 			},
-			Entry("an empty scope", ir.Scope{}, true),
-			Entry("a key", ir.Scope{Key: "main"}, false),
-			Entry("a mode", ir.Scope{Mode: ir.ScopeModeParallel}, false),
-			Entry("a liveness", ir.Scope{Liveness: ir.LivenessAlways}, false),
+			Entry("an empty scope", v1.Scope{}, true),
+			Entry("a key", v1.Scope{Key: "main"}, false),
+			Entry("a mode", v1.Scope{Mode: v1.ScopeModeParallel}, false),
+			Entry("a liveness", v1.Scope{Liveness: v1.LivenessAlways}, false),
 			Entry("an activation",
-				ir.Scope{Activation: &ir.Handle{Node: "n", Param: "p"}}, false),
+				v1.Scope{Activation: &v1.Handle{Node: "n", Param: "p"}}, false),
 			Entry("strata",
-				ir.Scope{Strata: []ir.Members{{ir.NodeMember("n")}}}, false),
-			Entry("steps", ir.Scope{Steps: ir.Members{ir.NodeMember("n")}}, false),
+				v1.Scope{Strata: []v1.Members{{v1.NodeMember("n")}}}, false),
+			Entry("steps", v1.Scope{Steps: v1.Members{v1.NodeMember("n")}}, false),
 			Entry("transitions",
-				ir.Scope{Transitions: []ir.Transition{{}}}, false),
+				v1.Scope{Transitions: []v1.Transition{{}}}, false),
 		)
 	})
 
 	Describe("String", func() {
 		It("Should render parallel scope with named stratum entries", func() {
-			s := ir.Scope{
+			s := v1.Scope{
 				Key:      "root",
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessAlways,
-				Strata: []ir.Members{
-					{ir.NodeMember("a"), ir.NodeMember("b")},
-					{ir.NodeMember("c")},
+				Mode:     v1.ScopeModeParallel,
+				Liveness: v1.LivenessAlways,
+				Strata: []v1.Members{
+					{v1.NodeMember("a"), v1.NodeMember("b")},
+					{v1.NodeMember("c")},
 				},
 			}
 			out := s.String()
@@ -57,24 +57,24 @@ var _ = Describe("Scope", func() {
 		})
 
 		It("Should render an unnamed scope with the (scope) placeholder", func() {
-			s := ir.Scope{
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessAlways,
-				Strata:   []ir.Members{{ir.NodeMember("x")}},
+			s := v1.Scope{
+				Mode:     v1.ScopeModeParallel,
+				Liveness: v1.LivenessAlways,
+				Strata:   []v1.Members{{v1.NodeMember("x")}},
 			}
 			Expect(s.String()).To(ContainSubstring("(scope)"))
 		})
 
 		It("Should render sequential scope steps and transitions", func() {
 			run := "run"
-			s := ir.Scope{
+			s := v1.Scope{
 				Key:      "main",
-				Mode:     ir.ScopeModeSequential,
-				Liveness: ir.LivenessGated,
-				Steps:    ir.Members{ir.NodeMember("init"), ir.NodeMember("run")},
-				Transitions: []ir.Transition{
-					{On: ir.Handle{Node: "init", Param: "done"}, TargetKey: &run},
-					{On: ir.Handle{Node: "run", Param: "done"}},
+				Mode:     v1.ScopeModeSequential,
+				Liveness: v1.LivenessGated,
+				Steps:    v1.Members{v1.NodeMember("init"), v1.NodeMember("run")},
+				Transitions: []v1.Transition{
+					{On: v1.Handle{Node: "init", Param: "done"}, TargetKey: &run},
+					{On: v1.Handle{Node: "run", Param: "done"}},
 				},
 			}
 			out := s.String()
@@ -86,17 +86,17 @@ var _ = Describe("Scope", func() {
 		})
 
 		It("Should render nested scope members", func() {
-			inner := ir.Scope{
+			inner := v1.Scope{
 				Key:      "inner",
-				Mode:     ir.ScopeModeSequential,
-				Liveness: ir.LivenessGated,
-				Steps:    ir.Members{ir.NodeMember("step1")},
+				Mode:     v1.ScopeModeSequential,
+				Liveness: v1.LivenessGated,
+				Steps:    v1.Members{v1.NodeMember("step1")},
 			}
-			outer := ir.Scope{
+			outer := v1.Scope{
 				Key:      "outer",
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessAlways,
-				Strata:   []ir.Members{{ir.ScopeMember(inner)}},
+				Mode:     v1.ScopeModeParallel,
+				Liveness: v1.LivenessAlways,
+				Strata:   []v1.Members{{v1.ScopeMember(inner)}},
 			}
 			out := outer.String()
 			Expect(out).To(ContainSubstring("outer"))

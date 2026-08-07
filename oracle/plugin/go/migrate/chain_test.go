@@ -83,5 +83,7 @@ Channel struct {
 		Expect(content).ToNot(BeEmpty())
 		Expect(content).To(ContainSubstring("package v1"))
 		Expect(content).To(ContainSubstring("igrateChannel"))
+		Expect(content).To(ContainSubstring("Key: old.Key"))
+		Expect(content).To(ContainSubstring("Name: old.Name"))
 	})
 })

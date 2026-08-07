@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ir_test
+package v1_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/ir"
+	v1 "github.com/synnaxlabs/arc/ir/versions/v1"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
@@ -23,45 +23,45 @@ var _ = Describe("Node", func() {
 		reads := func(key uint32) types.Channels {
 			return types.Channels{Read: map[uint32]string{key: "ch"}}
 		}
-		edgeInto := func(nodeKey string) ir.Edge {
-			return ir.Edge{Target: ir.Handle{Node: nodeKey, Param: "input"}}
+		edgeInto := func(nodeKey string) v1.Edge {
+			return v1.Edge{Target: v1.Handle{Node: nodeKey, Param: "input"}}
 		}
 		DescribeTable(
 			"Classification",
-			func(node ir.Node, edges ir.Edges, expected bool) {
+			func(node v1.Node, edges v1.Edges, expected bool) {
 				Expect(node.IsEntryNode(edges)).To(Equal(expected))
 			},
 			Entry("no incoming edges and no channel reads",
-				ir.Node{Key: "n"}, ir.Edges{}, true),
+				v1.Node{Key: "n"}, v1.Edges{}, true),
 			Entry("an incoming edge",
-				ir.Node{Key: "n"}, ir.Edges{edgeInto("n")}, false),
+				v1.Node{Key: "n"}, v1.Edges{edgeInto("n")}, false),
 			Entry("a channel read",
-				ir.Node{Key: "n", Channels: reads(1)}, ir.Edges{}, false),
+				v1.Node{Key: "n", Channels: reads(1)}, v1.Edges{}, false),
 			Entry("both an incoming edge and a channel read",
-				ir.Node{Key: "n", Channels: reads(1)}, ir.Edges{edgeInto("n")}, false),
+				v1.Node{Key: "n", Channels: reads(1)}, v1.Edges{edgeInto("n")}, false),
 			Entry("an edge that targets a different node",
-				ir.Node{Key: "n"}, ir.Edges{edgeInto("other")}, true),
+				v1.Node{Key: "n"}, v1.Edges{edgeInto("other")}, true),
 		)
 	})
 
 	Describe("String", func() {
 		DescribeTable(
 			"Rendering",
-			func(node ir.Node, expected string) {
+			func(node v1.Node, expected string) {
 				Expect(node.String()).To(Equal(expected))
 			},
 			Entry("no inputs, outputs, or channels",
-				ir.Node{Key: "n1", Type: "add"},
+				v1.Node{Key: "n1", Type: "add"},
 				"n1 (type: add)\n└── channels: (none)\n"),
 			Entry("inputs without outputs",
-				ir.Node{
+				v1.Node{
 					Key:    "n1",
 					Type:   "add",
 					Inputs: types.Params{{Name: "x", Type: types.I64()}},
 				},
 				"n1 (type: add)\n├── channels: (none)\n└── inputs: x (i64)\n"),
 			Entry("inputs, outputs, and channels",
-				ir.Node{
+				v1.Node{
 					Key:  "n1",
 					Type: "add",
 					Inputs: types.Params{
@@ -97,7 +97,7 @@ var _ = Describe("Node", func() {
 				},
 			}
 			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded ir.Node
+			var decoded v1.Node
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Key).To(Equal("node1"))
 			Expect(decoded.Type).To(Equal("fn1"))

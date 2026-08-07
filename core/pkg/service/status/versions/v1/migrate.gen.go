@@ -18,5 +18,13 @@ import (
 )
 
 func autoMigrateStatus[Details any](_ context.Context, old v0.Status[Details]) (Status[Details], error) {
-	return Status[Details]{}, nil
+	return Status[Details]{
+		Key:         old.Key,
+		Name:        old.Name,
+		Variant:     old.Variant,
+		Message:     old.Message,
+		Description: old.Description,
+		Time:        old.Time,
+		Details:     old.Details,
+	}, nil
 }

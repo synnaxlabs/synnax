@@ -231,19 +231,26 @@ type FieldDiff struct {
 }
 
 // SchemaDiff walks old and new entry types and produces a TypeDiff for every
-// Oracle-defined type that changed or has changed descendants.
+// Oracle-defined type that changed or has changed descendants. counterpart maps a
+// qualified name in oldTable to the name newTable files the same type under; the two
+// tables qualify types by version, so they never agree on a name.
 func SchemaDiff(
 	oldEntry, newEntry resolution.Type,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 ) map[string]TypeDiff {
 	result := make(map[string]TypeDiff)
-	diffWalk(oldEntry, newEntry, oldTable, newTable, result, make(set.Set[string]))
+	diffWalk(
+		oldEntry, newEntry, oldTable, newTable, counterpart, result,
+		make(set.Set[string]),
+	)
 	return result
 }
 
 func diffWalk(
 	old, new resolution.Type,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 	result map[string]TypeDiff,
 	visiting set.Set[string],
 ) TypeChangeKind {
@@ -264,6 +271,7 @@ func diffWalk(
 			oldForm.Target,
 			oldTable,
 			newTable,
+			counterpart,
 			result,
 			visiting,
 		); k != TypeUnchanged {
@@ -280,6 +288,7 @@ func diffWalk(
 			oldForm.Base,
 			oldTable,
 			newTable,
+			counterpart,
 			result,
 			visiting,
 		); k != TypeUnchanged {
@@ -316,12 +325,16 @@ func diffWalk(
 
 	hasDescendantChange := false
 	for _, f := range PersistedFields(oldStruct.Fields) {
-		if diffRefWalk(f.Type, oldTable, newTable, result, visiting) != TypeUnchanged {
+		if diffRefWalk(
+			f.Type, oldTable, newTable, counterpart, result, visiting,
+		) != TypeUnchanged {
 			hasDescendantChange = true
 		}
 	}
 	for _, ext := range oldStruct.Extends {
-		if diffRefWalk(ext, oldTable, newTable, result, visiting) != TypeUnchanged {
+		if diffRefWalk(
+			ext, oldTable, newTable, counterpart, result, visiting,
+		) != TypeUnchanged {
 			hasDescendantChange = true
 		}
 	}
@@ -461,6 +474,7 @@ func refsIdentityEqual(
 func diffRefWalk(
 	ref resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
+	counterpart func(string) string,
 	result map[string]TypeDiff,
 	visiting set.Set[string],
 ) TypeChangeKind {
@@ -468,16 +482,19 @@ func diffRefWalk(
 	if !oldOk {
 		return TypeUnchanged
 	}
-	newResolved, newOk := newTable.Get(oldResolved.QualifiedName)
+	newResolved, newOk := newTable.Get(counterpart(oldResolved.QualifiedName))
 	if !newOk {
 		return TypeUnchanged
 	}
-	kind := diffWalk(oldResolved, newResolved, oldTable, newTable, result, visiting)
+	kind := diffWalk(
+		oldResolved, newResolved, oldTable, newTable, counterpart, result, visiting,
+	)
 	for _, arg := range ref.TypeArgs {
 		if argKind := diffRefWalk(
 			arg,
 			oldTable,
 			newTable,
+			counterpart,
 			result,
 			visiting,
 		); argKind != TypeUnchanged &&

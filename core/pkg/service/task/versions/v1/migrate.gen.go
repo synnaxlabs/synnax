@@ -18,5 +18,12 @@ import (
 )
 
 func autoMigrateTask(_ context.Context, old v0.Task) (Task, error) {
-	return Task{}, nil
+	return Task{
+		Key:      old.Key,
+		Name:     old.Name,
+		Type:     old.Type,
+		Config:   old.Config,
+		Internal: old.Internal,
+		Snapshot: old.Snapshot,
+	}, nil
 }

@@ -14,17 +14,85 @@ package v1
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
+	typesv0 "github.com/synnaxlabs/arc/types/versions/v0"
+	types "github.com/synnaxlabs/arc/types/versions/v1"
 )
 
-func autoMigrateFunction(_ context.Context, old v0.Function) (Function, error) {
-	return Function{}, nil
+func autoMigrateFunction(ctx context.Context, old v0.Function) (Function, error) {
+	inputs, err := lo.MapErr(old.Inputs, func(v typesv0.Param, _ int) (types.Param, error) {
+		return types.MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return Function{}, err
+	}
+	outputs, err := lo.MapErr(old.Outputs, func(v typesv0.Param, _ int) (types.Param, error) {
+		return types.MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return Function{}, err
+	}
+	return Function{
+		Key:      old.Key,
+		Body:     old.Body,
+		Inputs:   inputs,
+		Outputs:  outputs,
+		Channels: old.Channels,
+	}, nil
 }
 
-func autoMigrateIR(_ context.Context, old v0.IR) (IR, error) {
-	return IR{}, nil
+func autoMigrateFunctions(ctx context.Context, old v0.Functions) (Functions, error) {
+	return lo.MapErr(old, func(v v0.Function, _ int) (Function, error) {
+		return MigrateFunction(ctx, v)
+	})
 }
 
-func autoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
-	return Node{}, nil
+func autoMigrateIR(ctx context.Context, old v0.IR) (IR, error) {
+	functions, err := lo.MapErr(old.Functions, func(v v0.Function, _ int) (Function, error) {
+		return MigrateFunction(ctx, v)
+	})
+	if err != nil {
+		return IR{}, err
+	}
+	nodes, err := lo.MapErr(old.Nodes, func(v v0.Node, _ int) (Node, error) {
+		return MigrateNode(ctx, v)
+	})
+	if err != nil {
+		return IR{}, err
+	}
+	return IR{
+		Functions:   functions,
+		Nodes:       nodes,
+		Edges:       old.Edges,
+		Authorities: old.Authorities,
+	}, nil
+}
+
+func autoMigrateNode(ctx context.Context, old v0.Node) (Node, error) {
+	inputs, err := lo.MapErr(old.Inputs, func(v typesv0.Param, _ int) (types.Param, error) {
+		return types.MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return Node{}, err
+	}
+	outputs, err := lo.MapErr(old.Outputs, func(v typesv0.Param, _ int) (types.Param, error) {
+		return types.MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return Node{}, err
+	}
+	return Node{
+		Key:      old.Key,
+		Type:     old.Type,
+		Inputs:   inputs,
+		Outputs:  outputs,
+		Channels: old.Channels,
+	}, nil
+}
+
+func autoMigrateNodes(ctx context.Context, old v0.Nodes) (Nodes, error) {
+	return lo.MapErr(old, func(v v0.Node, _ int) (Node, error) {
+		return MigrateNode(ctx, v)
+	})
 }

@@ -18,5 +18,11 @@ import (
 )
 
 func autoMigrateRack(_ context.Context, old v0.Rack) (Rack, error) {
-	return Rack{}, nil
+	return Rack{
+		Key:          old.Key,
+		Name:         old.Name,
+		TaskCounter:  old.TaskCounter,
+		Embedded:     old.Embedded,
+		Integrations: old.Integrations,
+	}, nil
 }

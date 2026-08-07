@@ -21,3 +21,8 @@ import (
 func MigrateFunction(ctx context.Context, old v0.Function) (Function, error) {
 	return autoMigrateFunction(ctx, old)
 }
+
+// MigrateNode lifts a v0 node into the v1 shape.
+func MigrateNode(ctx context.Context, old v0.Node) (Node, error) {
+	return autoMigrateNode(ctx, old)
+}

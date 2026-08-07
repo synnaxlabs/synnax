@@ -18,5 +18,9 @@ import (
 )
 
 func autoMigrateRange(_ context.Context, old v0.Range) (Range, error) {
-	return Range{}, nil
+	return Range{
+		Key:       old.Key,
+		Name:      old.Name,
+		TimeRange: old.TimeRange,
+	}, nil
 }

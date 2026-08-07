@@ -18,5 +18,8 @@ import (
 )
 
 func autoMigrateLinePlot(_ context.Context, old v0.LinePlot) (LinePlot, error) {
-	return LinePlot{}, nil
+	return LinePlot{
+		Key:  old.Key,
+		Name: old.Name,
+	}, nil
 }
