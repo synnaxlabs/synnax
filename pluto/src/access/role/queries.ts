@@ -110,31 +110,3 @@ export const useChangeRoleForm = Flux.createForm<
     await client.access.roles.assign({ user: userKey, role: newRoleKey });
   },
 });
-
-export const formSchema = access.role.roleZ
-  .extend({
-    policies: access.policy.keyZ.array(),
-  })
-  .partial({ key: true });
-
-export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema>({
-  name: RESOURCE_NAME,
-  schema: formSchema,
-  initialValues: {
-    name: "",
-    description: "",
-    internal: false,
-    policies: [],
-  },
-  update: async ({ client, value, set }) => {
-    const v = value();
-    let r: access.role.Role = access.role.roleZ.parse(v);
-    if (v.policies.length > 0)
-      await client.ontology.addChildren(
-        access.role.ontologyID(r.key),
-        ...v.policies.map((p) => access.policy.ontologyID(p)),
-      );
-    r = await client.access.roles.create(r);
-    set("key", r.key);
-  },
-});
