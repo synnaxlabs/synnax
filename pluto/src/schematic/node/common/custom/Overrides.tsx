@@ -10,7 +10,7 @@
 import "@/schematic/node/common/custom/Overrides.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { caseconv, color, deep } from "@synnaxlabs/x";
+import { caseconv, type color, deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { Button } from "@/button";
@@ -102,23 +102,19 @@ const RegionControls = ({
         {caseconv.capitalize(name)}
       </Text.Text>
       <Flex.Box x align="stretch" key={path}>
-        <Form.Field<string>
+        <Form.Field<color.Color>
           path={`${path}.strokeColor`}
           showLabel={false}
           padHelpText={false}
         >
-          {({ value, onChange }) => (
-            <Color.Swatch value={value} onChange={(v) => onChange(color.hex(v))} />
-          )}
+          {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
         </Form.Field>
-        <Form.Field<string>
+        <Form.Field<color.Color>
           path={`${path}.fillColor`}
           showLabel={false}
           padHelpText={false}
         >
-          {({ value, onChange }) => (
-            <Color.Swatch value={value} onChange={(v) => onChange(color.hex(v))} />
-          )}
+          {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
         </Form.Field>
         <Button.Button
           onClick={() => onReset(path)}

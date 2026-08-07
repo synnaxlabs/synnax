@@ -10,10 +10,10 @@
 package versions
 
 import (
+	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v2"
 	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored tables.
-var Migrations = []migrate.Migration{v1.Migration, v2.Migration}
+var Migrations = []migrate.Migration{v0.Migration, v1.Migration}
