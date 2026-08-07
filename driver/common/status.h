@@ -212,7 +212,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     status.details.running = false;
     if (res.second) {
         status.variant = synnax::status::VARIANT_ERROR;
-        status.message = res.second.data;
+        status.message = res.second.message();
         // Ack the start so a waiting caller resolves with the failure, not a timeout.
         status.details.cmd = cmd_key;
         if (start_pending || res.first.auto_start)

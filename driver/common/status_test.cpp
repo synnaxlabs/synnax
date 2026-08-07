@@ -429,7 +429,7 @@ TEST(TestHandleConfigErr, testErrorWithPendingStart) {
     EXPECT_EQ(tsk, nullptr);
     ASSERT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses[0].message, "bad config");
+    EXPECT_EQ(ctx->statuses[0].message, "[sy.validation] bad config");
     EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
     EXPECT_EQ(ctx->statuses[0].details.config_hash, "hash1");
 }
