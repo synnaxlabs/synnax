@@ -131,8 +131,10 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   initialValues: INITIAL_VALUES,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
   retrieve: async ({ client, query }) => {
-    const stat = await client.statuses.retrieve(query);
-    const labels = await client.labels.retrieve({ for: status.ontologyID(stat.key) });
+    const [stat, labels] = await Promise.all([
+      client.statuses.retrieve(query),
+      client.labels.retrieve({ for: status.ontologyID(query.key) }),
+    ]);
     return { ...stat, labels: labels.map((l) => l.key) };
   },
   update: async ({ client, value, set }) => {
