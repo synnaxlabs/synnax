@@ -673,6 +673,28 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
+	Describe("NewStatusDetails", func() {
+		It("Should echo the task's key, config hash, and rack", func() {
+			k := uuid.New()
+			t := task.Task{
+				Key:        k,
+				Rack:       testRack.Key,
+				ConfigHash: "hash1",
+			}
+			Expect(task.NewStatusDetails(t, true)).To(Equal(task.StatusDetails{
+				Task:       k,
+				Running:    true,
+				ConfigHash: "hash1",
+				Rack:       testRack.Key,
+			}))
+		})
+
+		It("Should mark the task as not running when running is false", func() {
+			d := task.NewStatusDetails(task.Task{Key: uuid.New()}, false)
+			Expect(d.Running).To(BeFalse())
+		})
+	})
+
 	Describe("Observe", func() {
 		It("Should notify when a task is created", func(ctx SpecContext) {
 			tx := db.OpenTx()
