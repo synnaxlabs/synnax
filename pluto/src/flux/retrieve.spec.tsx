@@ -1640,3 +1640,56 @@ describe("useResult", () => {
     });
   });
 });
+
+describe("normalizeQuery", () => {
+  type Query = { key: string; includeStatus?: boolean };
+
+  it("hands every callback the one normalized, identity-stable query", async () => {
+    const seen: Query[] = [];
+    const { useResult } = Flux.createRetrieve<Query, number>({
+      name: "Resource",
+      normalizeQuery: (query) => ({ includeStatus: true, ...query }),
+      retrieve: async ({ query }) => {
+        seen.push(query);
+        return 1;
+      },
+      onChange: ({ query }) => {
+        seen.push(query);
+        return () => {};
+      },
+      getCached: ({ query }) => {
+        seen.push(query);
+        return undefined;
+      },
+    });
+    const { rerender } = renderHook(() => useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    rerender();
+    rerender();
+    expect(seen.length).toBeGreaterThan(2);
+    const identities = new Set(seen);
+    expect(identities.size).toBe(1);
+    expect(seen[0]).toEqual({ key: "a", includeStatus: true });
+  });
+
+  it("keeps the caller's value over the merged default", () => {
+    const seen: Query[] = [];
+    const { useResult } = Flux.createRetrieve<Query, number>({
+      name: "Resource",
+      normalizeQuery: (query) => ({ includeStatus: true, ...query }),
+      retrieve: async () => 1,
+      getCached: ({ query }) => {
+        seen.push(query);
+        return 1;
+      },
+    });
+    renderHook(() => useResult({ key: "a", includeStatus: false }), {
+      wrapper: Wrapper,
+    });
+    expect(seen[0]).toEqual({ key: "a", includeStatus: false });
+  });
+});

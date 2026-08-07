@@ -10,10 +10,27 @@
 import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { use, useLayoutEffect, useRef } from "react";
 
+import { useMemoDeepEqual } from "@/memo";
+
 export interface RetrieveParams<Query extends query.Params> {
   client: Client;
   query: Query;
 }
+
+interface UseMemoQuery {
+  <Query extends query.Params>(q: Query, normalize?: (query: Query) => Query): Query;
+  <Query extends query.Params>(
+    q: Query | null,
+    normalize?: (query: Query) => Query,
+  ): Query | null;
+}
+
+/** Normalizes the query and stabilizes its identity across renders. */
+export const useMemoQuery = (<Query extends query.Params>(
+  q: Query | null,
+  normalize?: (query: Query) => Query,
+): Query | null =>
+  useMemoDeepEqual(q == null || normalize == null ? q : normalize(q))) as UseMemoQuery;
 
 /**
  * Fetch dedup and settled answers for queries the domain client does not

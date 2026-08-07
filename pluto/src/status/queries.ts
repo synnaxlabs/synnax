@@ -66,8 +66,9 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
 ) =>
   Flux.createRetrieve<RetrieveQuery, status.Status<DetailsSchema>>({
     name: RESOURCE_NAME,
+    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) =>
-      await client.statuses.retrieve({ ...BASE_QUERY, ...query, detailsSchema }),
+      await client.statuses.retrieve({ ...query, detailsSchema }),
     onChange: ({ client, query }, handler) =>
       client.statuses.onChange(query, handler as query.ChangeHandler<status.Status>),
     getCached: ({ client, query }) =>
@@ -128,8 +129,9 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: INITIAL_VALUES,
-  retrieve: async ({ client, query: { key } }) => {
-    const stat = await client.statuses.retrieve({ ...BASE_QUERY, key });
+  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query }) => {
+    const stat = await client.statuses.retrieve(query);
     const labels = await client.labels.retrieve({ for: status.ontologyID(stat.key) });
     return { ...stat, labels: labels.map((l) => l.key) };
   },

@@ -166,14 +166,12 @@ const DEFAULT_LIST_PARAMS: ListQuery = {
 
 export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) =>
-    await client.channels.retrieve({ ...DEFAULT_LIST_PARAMS, ...query }),
+  normalizeQuery: (query) => ({ ...DEFAULT_LIST_PARAMS, ...query }),
+  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
   retrieveByKey: async ({ client, key, query: { rangeKey } }) =>
     await client.channels.retrieve(key, { rangeKey }),
-  onChange: ({ client, query }, handler) =>
-    client.channels.onChange({ ...DEFAULT_LIST_PARAMS, ...query }, handler),
-  getCached: ({ client, query }) =>
-    client.channels.getCached({ ...DEFAULT_LIST_PARAMS, ...query }),
+  onChange: ({ client, query }, handler) => client.channels.onChange(query, handler),
+  getCached: ({ client, query }) => client.channels.getCached(query),
 });
 
 export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}

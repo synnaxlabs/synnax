@@ -35,9 +35,9 @@ import {
   localFor,
   type RetrieveParams,
   suspendOnFetch,
+  useMemoQuery,
   usePendingFetch,
 } from "@/flux/suspend";
-import { useMemoDeepEqual } from "@/memo";
 import { Synnax } from "@/synnax";
 
 // Bound at module scope: hooks bind `query` to the caller's params object.
@@ -69,6 +69,14 @@ export interface CreateRetrieveParams<
    * equality the default reads as a change.
    */
   equal?: (prev: Data, next: Data) => boolean;
+  /**
+   * Canonicalizes the caller's query before anything reads it: `retrieve`,
+   * `onChange`, and `getCached` all receive the one normalized, identity-stable
+   * object. Merge defaults here instead of at each callback, where a per-call
+   * spread would mint a fresh object and miss the client's query memos. Must
+   * preserve fields it does not set, so selector-only extensions survive.
+   */
+  normalizeQuery?: <Q extends Query>(query: Q) => Q;
 }
 
 // A getCached that composes a list answer allocates a fresh array per call,
@@ -320,8 +328,9 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   getCached,
   deriveCached,
   equal,
+  normalizeQuery,
 }: UseSuspendedParams<Query, Data> & CreateRetrieveParams<Query, Data>): Data => {
-  const memoQuery = useMemoDeepEqual(query);
+  const memoQuery = useMemoQuery(query, normalizeQuery);
   const client = Synnax.use();
 
   // Every hook runs before the disconnected throw. Gating them on the client
@@ -368,9 +377,10 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>({
   getCached,
   deriveCached,
   equal,
+  normalizeQuery,
 }: Omit<UseSuspendedParams<Query, Data>, "query"> &
   CreateRetrieveParams<Query, Data> & { query: Query | null }): Result<Data> => {
-  const memoQuery = useMemoDeepEqual(q);
+  const memoQuery = useMemoQuery(q, normalizeQuery);
   // A retrieve whose answer never reaches the domain cache is served from the local
   // settled entry, which no subscription announces, so settling re-renders by hand.
   const [, bump] = useReducer((x: number) => x + 1, 0);
@@ -445,8 +455,9 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
   onChange,
   getCached,
   deriveCached,
+  normalizeQuery,
 }: UseSuspendedParams<Query, Data> & CreateRetrieveParams<Query, Data>): void => {
-  const memoQuery = useMemoDeepEqual(query);
+  const memoQuery = useMemoQuery(query, normalizeQuery);
   const client = Synnax.use();
   const pending = usePendingFetch<Query, Data>(memoQuery);
 
@@ -474,12 +485,14 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
 
 const useInvalidate = <Query extends query.Params, Data extends query.Data>(
   locals: WeakMap<Client, LocalCache<Data>>,
+  normalizeQuery?: <Q extends Query>(query: Q) => Q,
 ): ((q: Query) => void) => {
   const client = Synnax.use();
   return useCallback(
     (q: Query) => {
       if (client == null) return;
-      localFor(locals, client).settled.delete(query.hash(q));
+      const normalized = normalizeQuery?.(q) ?? q;
+      localFor(locals, client).settled.delete(query.hash(normalized));
     },
     [client, locals],
   );
@@ -494,8 +507,9 @@ const useTombstone = <Query extends query.Params, Data extends query.Data>({
   onChange,
   getCached,
   equal,
+  normalizeQuery,
 }: UseTombstoneParams<Query> & CreateRetrieveParams<Query, Data>): Tombstone | null => {
-  const memoQuery = useMemoDeepEqual(query);
+  const memoQuery = useMemoQuery(query, normalizeQuery);
   const client = Synnax.use();
   const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
     onChange,
@@ -519,13 +533,14 @@ const createSelector = <
     onChange,
     getCached,
     equal = answersEqual,
+    normalizeQuery,
   }: CreateRetrieveParams<Query, Data> &
     Required<Pick<CreateRetrieveParams<Query, Data>, "getCached">>,
   select: (data: Data, query: ExtendedQuery) => Selected,
   selectedEqual?: (a: Selected, b: Selected) => boolean,
 ): UseSelect<ExtendedQuery, Selected> => {
   const useSelect = (q: ExtendedQuery): Selected => {
-    const memoQuery = useMemoDeepEqual(q);
+    const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
     const client = Synnax.use();
     const held = useRef<{ query: Query; value: Data } | null>(null);
     const computed = useRef<{ raw: Data; query: Query; out: Selected } | null>(null);
@@ -589,7 +604,8 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
     useEnsure: (query: Query) => useEnsure({ ...createParams, query, locals }),
     useResult: (query: Query | null) =>
       useResultValue({ ...createParams, query, locals }),
-    useInvalidate: () => useInvalidate<Query, Data>(locals),
+    useInvalidate: () =>
+      useInvalidate<Query, Data>(locals, createParams.normalizeQuery),
     useTombstone: (query: Query) => useTombstone({ ...createParams, query }),
     createSelector: <Selected, ExtendedQuery extends Query = Query>(
       select: (data: Data, query: ExtendedQuery) => Selected,

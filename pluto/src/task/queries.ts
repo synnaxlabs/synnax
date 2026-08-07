@@ -26,8 +26,9 @@ const BASE_QUERY = { includeStatus: true };
 export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) =>
   Flux.createRetrieve<RetrieveQuery, task.Task<S>>({
     name: RESOURCE_NAME,
+    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) =>
-      await client.tasks.retrieve({ ...BASE_QUERY, ...query, schemas }),
+      await client.tasks.retrieve({ ...query, schemas }),
     onChange: ({ client, query }, handler) =>
       client.tasks.onChange(query, handler as query.ChangeHandler<task.Task>),
     getCached: ({ client, query }) =>
@@ -44,22 +45,15 @@ export const useName = createSelector(({ name }) => name);
 
 export type ListQuery = task.RetrieveMultipleParams;
 
-const listRequest = (query: ListQuery): ListQuery => ({
-  ...BASE_QUERY,
-  internal: false,
-  ...query,
-});
-
 export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) =>
-    await client.tasks.retrieve(listRequest(query)),
+  normalizeQuery: (query) => ({ ...BASE_QUERY, internal: false, ...query }),
+  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
     await client.tasks.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) =>
-    client.tasks.onChange(listRequest(query), handler),
+  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
   onChangeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
-  getCached: ({ client, query }) => client.tasks.getCached(listRequest(query)),
+  getCached: ({ client, query }) => client.tasks.getCached(query),
 });
 
 const createFormSchema = <S extends task.Schemas = task.Schemas>(
@@ -140,12 +134,11 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     name: RESOURCE_NAME,
     schema,
     initialValues: actualInitialValues,
-    retrieve: async ({ client, query: { key } }) =>
-      toFormValues(
-        (await client.tasks.retrieve({ ...BASE_QUERY, key, schemas })).payload,
-      ),
-    getCached: ({ client, query: { key } }) => {
-      const cached = client.tasks.getCached({ ...BASE_QUERY, key });
+    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+    retrieve: async ({ client, query: q }) =>
+      toFormValues((await client.tasks.retrieve({ ...q, schemas })).payload),
+    getCached: ({ client, query: q }) => {
+      const cached = client.tasks.getCached(q);
       if (!query.isLive(cached)) return undefined;
       return toFormValues(cached.payload as task.Payload<S>);
     },

@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, type record } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Device } from "@/device";
@@ -47,6 +47,32 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toEqual(dev.key);
+    });
+
+    it("should pass an identity-stable query to the client on every render", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const dev = await client.devices.create({
+        key: id.create(),
+        name: "test",
+        rack: rack.key,
+        location: "test",
+        make: "test",
+        model: "test",
+        properties: {},
+      });
+      const spy = vi.spyOn(client.devices, "getCached");
+      const { result, rerender } = await renderHookSuspended(
+        () => Device.use({ key: dev.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current?.key).toEqual(dev.key));
+      rerender();
+      rerender();
+      // One query object across every snapshot read is what keys the client's
+      // route and hash memos; a fresh object per render re-parses each time.
+      const queries = new Set(spy.mock.calls.map((call) => call[0]));
+      expect(queries.size).toBe(1);
+      spy.mockRestore();
     });
 
     it("should update the query when the device is updated", async () => {

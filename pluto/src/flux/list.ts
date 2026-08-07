@@ -129,8 +129,10 @@ export const createList =
     onChangeByKey,
     getCached,
     sort: defaultSort,
+    normalizeQuery,
   }: CreateListParams<Query, Key, Data>): UseList<Query, Key, Data> =>
   (params: UseListParams<Query, Key, Data> = {}) => {
+    const normalized = (q: Query): Query => normalizeQuery?.(q) ?? q;
     const {
       filter = defaultFilter,
       sort,
@@ -143,7 +145,9 @@ export const createList =
     const client = Synnax.use();
     const dataRef = useRef<Map<Key, Data | null>>(new Map());
     const listItemListeners = useInitializerRef<Map<() => void, Key>>(() => new Map());
-    const queryRef = useRef<Query | null>(initialQuery ?? null);
+    const queryRef = useRef<Query | null>(
+      initialQuery != null ? normalized(initialQuery) : null,
+    );
     const pagesRef = useRef<Page<Key>[]>([]);
     const itemSubsRef = useInitializerRef<Map<Key, destructor.Destructor>>(
       () => new Map(),
@@ -159,7 +163,7 @@ export const createList =
 
     const getInitialData = (): Key[] | undefined => {
       if (!useCachedList || getCached == null) return undefined;
-      const query = queryRef.current ?? ({} as Query);
+      const query = queryRef.current ?? normalized({} as Query);
       if (client == null) return undefined;
       const cached = getCached({
         client,
@@ -299,7 +303,9 @@ export const createList =
       ) => {
         const { signal, mode = "replace" } = options;
 
-        const query = state.executeSetter(paramsSetter, queryRef.current ?? {});
+        const query = normalized(
+          state.executeSetter(paramsSetter, queryRef.current ?? {}),
+        );
         queryRef.current = query;
 
         try {

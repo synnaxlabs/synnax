@@ -963,7 +963,7 @@ describe("queries", () => {
 
       expect(beforeSave).toHaveBeenCalledWith(
         expect.objectContaining({
-          query: { key: testTask.key },
+          query: expect.objectContaining({ key: testTask.key }),
         }),
       );
     });
@@ -1017,7 +1017,7 @@ describe("queries", () => {
 
       expect(afterSave).toHaveBeenCalledWith(
         expect.objectContaining({
-          query: { key: testTask.key },
+          query: expect.objectContaining({ key: testTask.key }),
         }),
       );
     });

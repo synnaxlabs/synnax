@@ -22,13 +22,13 @@ const { use: useSlaves } = Flux.createRetrieve<{ keys: device.Key[] }, SlaveDevi
   name: "EtherCAT slaves",
   retrieve: async ({ client, query: { keys } }) =>
     await client.devices.retrieve({ keys, schemas: SLAVE_SCHEMAS }),
-  onChange: ({ client, query: { keys } }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.devices.onChange(
-      { keys },
+      query,
       handler as unknown as query.ChangeHandler<device.Device[]>,
     ),
-  getCached: ({ client, query: { keys } }) =>
-    client.devices.getCached({ keys }) as query.Cached<SlaveDevice[]> | undefined,
+  getCached: ({ client, query }) =>
+    client.devices.getCached(query) as query.Cached<SlaveDevice[]> | undefined,
 });
 
 export interface EnabledState {
