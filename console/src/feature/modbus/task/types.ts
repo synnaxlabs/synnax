@@ -18,8 +18,7 @@ export const PREFIX = "modbus";
 export type InputChannel = modbus.InputChannel;
 export type InputChannelType = modbus.InputChannelType;
 export type TypedInput =
-  | modbus.InputChannelHoldingRegisterInput
-  | modbus.InputChannelRegisterInput;
+  modbus.InputChannelHoldingRegisterInput | modbus.InputChannelRegisterInput;
 
 export const INPUT_CHANNEL_SCHEMAS = modbus.INPUT_CHANNEL_SCHEMAS;
 

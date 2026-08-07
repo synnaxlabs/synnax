@@ -32,9 +32,7 @@ export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingPa
     )
       return data;
     const dataSavingDisabled = !dataSaving;
-    if (
-      (config as Record<string, unknown>).dataSavingDisabled === dataSavingDisabled
-    )
+    if ((config as Record<string, unknown>).dataSavingDisabled === dataSavingDisabled)
       return data;
     const wasRunning = t.status?.details.running === true;
     await client.tasks.create({

@@ -10,9 +10,9 @@
 import { Form, Input } from "@synnaxlabs/pluto";
 
 export const DataSaving = () => (
-    <Form.Field<boolean> label="Data saving" path="config.dataSavingDisabled">
-      {({ value, onChange, ...rest }) => (
-        <Input.Switch {...rest} value={!value} onChange={(v) => onChange(!v)} />
-      )}
-    </Form.Field>
+  <Form.Field<boolean> label="Data saving" path="config.dataSavingDisabled">
+    {({ value, onChange, ...rest }) => (
+      <Input.Switch {...rest} value={!value} onChange={(v) => onChange(!v)} />
+    )}
+  </Form.Field>
 );
