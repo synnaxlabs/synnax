@@ -22,10 +22,14 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx        gorp.Tx
+	// tx carries every operation, so a caller's transaction spans them all.
+	tx gorp.Tx
+	// otgWriter writes the resources and parent relationships symbols are reached by.
 	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	table     *gorp.Table[Key, Symbol]
+	// otg reads existing relationships, which a re-parenting create must replace.
+	otg *ontology.Ontology
+	// table stores the symbols.
+	table *gorp.Table[Key, Symbol]
 }
 
 // Create creates the given symbol as a child of the ontology.Resource with the given

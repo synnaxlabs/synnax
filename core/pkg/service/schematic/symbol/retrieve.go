@@ -21,9 +21,13 @@ import (
 // directly, and should instead be instantiated via the NewRetrieve method on
 // symbol.Service.
 type Retrieve struct {
-	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[Key, Symbol]
-	search     *search.Index
+	// baseTX executes the query when Exec is given no transaction of its own.
+	baseTX gorp.Tx
+	// gorp accumulates the filters and result bindings the caller chains on.
+	gorp gorp.Retrieve[Key, Symbol]
+	// search resolves searchTerm to a set of keys before the gorp query runs.
+	search *search.Index
+	// searchTerm fuzzy-matches symbol names. Empty applies no name filter.
 	searchTerm string
 }
 

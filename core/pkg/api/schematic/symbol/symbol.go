@@ -28,7 +28,9 @@ import (
 // Service is the API for schematic symbols and the groups that hold them. It enforces
 // access control and delegates to the symbol service.
 type Service struct {
-	access   *rbac.Service
+	// access enforces the caller's permissions before any request reaches internal.
+	access *rbac.Service
+	// internal is the symbol service this API delegates to.
 	internal *symbol.Service
 }
 
@@ -48,11 +50,15 @@ type (
 	// CreateRequest carries the symbols to create and the resource to create them
 	// under. A zero Parent leaves the symbols unattached.
 	CreateRequest struct {
-		Parent  ontology.ID     `json:"parent"  msgpack:"parent"`
+		// Parent is the resource to attach the symbols to. A zero value leaves them
+		// unattached.
+		Parent ontology.ID `json:"parent" msgpack:"parent"`
+		// Symbols are the symbols to create. The Core mints a key for each.
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
 	// CreateResponse carries the created symbols with their keys stamped.
 	CreateResponse struct {
+		// Symbols are the created symbols, carrying the keys the Core minted.
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
 )
@@ -92,11 +98,14 @@ type (
 	// RetrieveRequest filters symbols by key, by search term, or by both. An empty
 	// request matches every symbol.
 	RetrieveRequest struct {
-		SearchTerm string       `json:"search_term" msgpack:"search_term"`
-		Keys       []symbol.Key `json:"keys"        msgpack:"keys"`
+		// SearchTerm fuzzy-matches symbol names. Empty applies no name filter.
+		SearchTerm string `json:"search_term" msgpack:"search_term"`
+		// Keys narrows the query to these symbols. Empty applies no key filter.
+		Keys []symbol.Key `json:"keys" msgpack:"keys"`
 	}
 	// RetrieveResponse carries the matched symbols.
 	RetrieveResponse struct {
+		// Symbols are the matched symbols, left off the wire when there are none.
 		Symbols []symbol.Symbol `json:"symbols,omitzero" msgpack:"symbols,omitzero"`
 	}
 )
@@ -130,8 +139,10 @@ func (s *Service) Retrieve(
 
 // RenameRequest names the symbol to rename and the name to give it.
 type RenameRequest struct {
-	Name string     `json:"name" msgpack:"name"`
-	Key  symbol.Key `json:"key"  msgpack:"key"`
+	// Name is the name to give the symbol.
+	Name string `json:"name" msgpack:"name"`
+	// Key identifies the symbol to rename.
+	Key symbol.Key `json:"key" msgpack:"key"`
 }
 
 // Rename renames the symbol. It requires update access on it.
@@ -152,6 +163,7 @@ func (s *Service) Rename(
 
 // DeleteRequest carries the keys of the symbols to delete.
 type DeleteRequest struct {
+	// Keys identify the symbols to delete.
 	Keys []symbol.Key `json:"keys" msgpack:"keys"`
 }
 
@@ -176,6 +188,7 @@ type RetrieveGroupRequest struct{}
 
 // RetrieveGroupResponse carries the permanent group that holds every symbol group.
 type RetrieveGroupResponse struct {
+	// Group is the permanent group that holds every symbol group.
 	Group group.Group `json:"group" msgpack:"group"`
 }
 
@@ -198,6 +211,7 @@ func (s *Service) RetrieveGroup(
 type (
 	// ExportGroupRequest names the group to export.
 	ExportGroupRequest struct {
+		// Key identifies the group to export.
 		Key group.Key `json:"key" msgpack:"key"`
 	}
 	// ExportGroupResponse is the exported bundle's contents keyed by file name. The
@@ -226,6 +240,7 @@ func (s *Service) ExportGroup(
 
 // DeleteGroupRequest names the group to delete.
 type DeleteGroupRequest struct {
+	// Key identifies the group to delete.
 	Key group.Key `json:"key" msgpack:"key"`
 }
 
