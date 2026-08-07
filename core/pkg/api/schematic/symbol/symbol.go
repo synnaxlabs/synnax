@@ -25,11 +25,14 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Service is the API for schematic symbols and the groups that hold them. It enforces
+// access control and delegates to the symbol service.
 type Service struct {
 	access   *rbac.Service
 	internal *symbol.Service
 }
 
+// NewService opens a Service from the API layer's configuration.
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
 	if err != nil {
@@ -42,15 +45,20 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type (
+	// CreateRequest carries the symbols to create and the resource to create them
+	// under. A zero Parent leaves the symbols unattached.
 	CreateRequest struct {
 		Parent  ontology.ID     `json:"parent"  msgpack:"parent"`
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
+	// CreateResponse carries the created symbols with their keys stamped.
 	CreateResponse struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
 )
 
+// Create persists the symbols in req. It requires create access on the symbol type,
+// and update access on req.Parent when one is given.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -81,15 +89,20 @@ func (s *Service) Create(
 }
 
 type (
+	// RetrieveRequest filters symbols by key, by search term, or by both. An empty
+	// request matches every symbol.
 	RetrieveRequest struct {
 		SearchTerm string       `json:"search_term" msgpack:"search_term"`
 		Keys       []symbol.Key `json:"keys"        msgpack:"keys"`
 	}
+	// RetrieveResponse carries the matched symbols.
 	RetrieveResponse struct {
 		Symbols []symbol.Symbol `json:"symbols,omitzero" msgpack:"symbols,omitzero"`
 	}
 )
 
+// Retrieve returns the symbols matching req. It requires retrieve access on every
+// match.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -115,11 +128,13 @@ func (s *Service) Retrieve(
 	return res, nil
 }
 
+// RenameRequest names the symbol to rename and the name to give it.
 type RenameRequest struct {
 	Name string     `json:"name" msgpack:"name"`
 	Key  symbol.Key `json:"key"  msgpack:"key"`
 }
 
+// Rename renames the symbol. It requires update access on it.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -135,10 +150,12 @@ func (s *Service) Rename(
 	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
+// DeleteRequest carries the keys of the symbols to delete.
 type DeleteRequest struct {
 	Keys []symbol.Key `json:"keys" msgpack:"keys"`
 }
 
+// Delete removes the symbols. It requires delete access on every one.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -154,12 +171,15 @@ func (s *Service) Delete(
 	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
+// RetrieveGroupRequest is empty. The permanent symbol group is a singleton.
 type RetrieveGroupRequest struct{}
 
+// RetrieveGroupResponse carries the permanent group that holds every symbol group.
 type RetrieveGroupResponse struct {
 	Group group.Group `json:"group" msgpack:"group"`
 }
 
+// RetrieveGroup returns the permanent symbol group. It requires retrieve access on it.
 func (s *Service) RetrieveGroup(
 	ctx context.Context,
 	_ RetrieveGroupRequest,
@@ -176,6 +196,7 @@ func (s *Service) RetrieveGroup(
 }
 
 type (
+	// ExportGroupRequest names the group to export.
 	ExportGroupRequest struct {
 		Key group.Key `json:"key" msgpack:"key"`
 	}
@@ -203,6 +224,7 @@ func (s *Service) ExportGroup(
 	return bundle.Files, nil
 }
 
+// DeleteGroupRequest names the group to delete.
 type DeleteGroupRequest struct {
 	Key group.Key `json:"key" msgpack:"key"`
 }
