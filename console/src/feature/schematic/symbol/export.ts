@@ -49,7 +49,7 @@ export const useExportGroup = (): ((group: group.Group) => void) => {
     (group: group.Group) => {
       handleError(
         () => exportGroup({ client, group, addStatus }),
-        "Failed to export symbol group",
+        `Failed to export ${group.name}`,
       );
     },
     [client, handleError, addStatus],
