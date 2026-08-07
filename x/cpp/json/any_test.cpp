@@ -30,6 +30,11 @@ TEST(ToAny, NullConvertsToEmptyObject) {
     ASSERT_TRUE(result.empty());
 }
 
+TEST(ToAny, NonObjectReturnsError) {
+    ASSERT_OCCURRED_AS_P(to_any(json(42)), errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(to_any(json::array({1, 2})), errors::VALIDATION);
+}
+
 TEST(FromAny, EmptyAnyReturnsEmptyObject) {
     google::protobuf::Any any;
     const auto result = ASSERT_NIL_P(from_any(any));

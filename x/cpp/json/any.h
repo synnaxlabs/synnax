@@ -19,11 +19,11 @@
 
 namespace x::json {
 /// @brief Converts json to a google::protobuf::Any that holds a Struct.
-/// @param j The JSON to convert. Struct only supports objects, so a null or non-object
-/// value converts to an empty object.
+/// @param j The JSON to convert. A null value converts to an empty object. Struct only
+/// supports objects, so any other non-object value returns a VALIDATION error.
 /// @returns A pair containing the Any and an error if one occurred.
 inline std::pair<google::protobuf::Any, errors::Error> to_any(const json &j) {
-    const auto &obj = j.is_object() ? j : json::object();
+    const auto &obj = j.is_null() ? json::object() : j;
     auto [s, err] = to_struct(obj);
     if (err) return {{}, err};
     google::protobuf::Any any;
