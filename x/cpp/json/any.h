@@ -34,13 +34,11 @@ inline std::pair<google::protobuf::Any, errors::Error> to_any(const json &j) {
             )
         };
     google::protobuf::Struct s;
-    if (const auto err = j.is_null() ? errors::NIL : to_struct(j, &s)) return {{}, err};
+    if (!j.is_null())
+        if (const auto err = to_struct(j, &s)) return {{}, err};
     google::protobuf::Any any;
     if (!any.PackFrom(s))
-        return {
-            {},
-            errors::Error(errors::VALIDATION, "failed to pack Struct into Any")
-        };
+        return {{}, errors::Error(errors::INTERNAL, "failed to pack Struct into Any")};
     return {any, errors::NIL};
 }
 

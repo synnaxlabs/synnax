@@ -586,16 +586,14 @@ func (p *Plugin) generateJSONFieldConversion(
         cpp.%s = v;
     }`, pbAccessorName, pbAccessorName, cppFieldName)
 	} else {
-		forward = fmt.Sprintf(`{
-        auto [v, err] = x::json::to_any(this->%s);
+		// The template wraps a generic field in an if constexpr block, so these
+		// declarations already have a scope of their own.
+		forward = fmt.Sprintf(`auto [v, err] = x::json::to_any(this->%s);
         if (err) return {{}, err};
-        *pb.mutable_%s() = v;
-    }`, cppFieldName, pbAccessorName)
-		backward = fmt.Sprintf(`{
-        auto [v, err] = x::json::from_any(pb.%s());
+        *pb.mutable_%s() = v;`, cppFieldName, pbAccessorName)
+		backward = fmt.Sprintf(`auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = v;
-    }`, pbAccessorName, cppFieldName)
+        cpp.%s = v;`, pbAccessorName, cppFieldName)
 	}
 	return forward, backward
 }
@@ -858,26 +856,37 @@ func (p *Plugin) generateTypeParamConversion(
             cpp.%s = std::monostate{};
         else
             cpp.%s = %s::parse(x::json::Parser(val));
-    }`, pbAccessorName, pbAccessorName, typeParamName, cppFieldName, cppFieldName, typeParamName)
+    }`,
+			pbAccessorName,
+			pbAccessorName,
+			typeParamName,
+			cppFieldName,
+			cppFieldName,
+			typeParamName,
+		)
 	} else {
-		forward = fmt.Sprintf(`{
-        x::json::json j;
+		// The template wraps a generic field in an if constexpr block, so these
+		// declarations already have a scope of their own.
+		forward = fmt.Sprintf(`x::json::json j;
         if constexpr (std::is_same_v<%s, std::monostate>)
             j = x::json::json(nullptr);
         else
             j = this->%s.to_json();
         auto [v, err] = x::json::to_any(j);
         if (err) return {{}, err};
-        *pb.mutable_%s() = v;
-    }`, typeParamName, cppFieldName, pbAccessorName)
-		backward = fmt.Sprintf(`{
-        auto [val, err] = x::json::from_any(pb.%s());
+        *pb.mutable_%s() = v;`, typeParamName, cppFieldName, pbAccessorName)
+		backward = fmt.Sprintf(`auto [val, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
         if constexpr (std::is_same_v<%s, std::monostate>)
             cpp.%s = std::monostate{};
         else
-            cpp.%s = %s::parse(x::json::Parser(val));
-    }`, pbAccessorName, typeParamName, cppFieldName, cppFieldName, typeParamName)
+            cpp.%s = %s::parse(x::json::Parser(val));`,
+			pbAccessorName,
+			typeParamName,
+			cppFieldName,
+			cppFieldName,
+			typeParamName,
+		)
 	}
 	return forward, backward
 }

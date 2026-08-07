@@ -565,7 +565,8 @@ var _ = Describe("C++ PB Plugin", func() {
 							// Should NOT use set_metadata for json type
 							"pb.set_metadata(",
 							// The conversion error must never be dropped.
-							".first",
+							"x::json::to_struct(this->metadata).first",
+							"x::json::to_struct(*this->extra).first",
 						)
 				},
 			)

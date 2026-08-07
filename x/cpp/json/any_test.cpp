@@ -38,8 +38,15 @@ TEST(ToAny, NonObjectReturnsError) {
 }
 
 TEST(ToAny, NonObjectErrorNamesTheType) {
-    const auto err = to_any(json::array({1, 2})).second;
-    ASSERT_EQ(err.data, "expected a JSON object, got array");
+    const auto err = to_any(json(42)).second;
+    ASSERT_EQ(err.data, "expected a JSON object, got number");
+}
+
+TEST(ToAny, StructConversionErrorPropagates) {
+    json j = json::object();
+    for (int i = 0; i < 150; i++)
+        j = json{{"nested", j}};
+    ASSERT_OCCURRED_AS_P(to_any(j), errors::VALIDATION);
 }
 
 TEST(FromAny, EmptyAnyReturnsEmptyObject) {
