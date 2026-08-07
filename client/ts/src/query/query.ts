@@ -21,13 +21,16 @@ import { Deleted } from "@/query/deleted";
 import { type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 
+const hashes = new WeakMap<object, string>();
+
 /**
  * Deterministically serializes a query to a stable string. Keys are sorted
  * recursively so `{a: 1, b: 2}` and `{b: 2, a: 1}` collapse to the same key,
  * and explicitly-undefined fields hash like absent ones (matching JSON
  * semantics). Class instances implementing {@link primitive.Hashable}
  * delegate to their `hash()` method; plain objects and arrays recurse
- * structurally.
+ * structurally, memoized per object identity ({@link Params} is readonly, so
+ * an object's hash never changes).
  */
 export const hash = (query: Params): string => {
   if (query === null) return "null";
@@ -35,11 +38,20 @@ export const hash = (query: Params): string => {
   if (typeof query === "bigint") return `${query.toString()}n`;
   if (typeof query !== "object") return JSON.stringify(query);
   if (primitive.isHashable(query)) return query.hash();
-  if (Array.isArray(query)) return `[${query.map(hash).join(",")}]`;
-  const entries = Object.entries(query)
-    .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${hash(v)}`).join(",")}}`;
+  const held = hashes.get(query);
+  if (held !== undefined) return held;
+  let result: string;
+  if (Array.isArray(query)) result = `[${query.map(hash).join(",")}]`;
+  else {
+    const entries = Object.entries(query)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    result = `{${entries
+      .map(([k, v]) => `${JSON.stringify(k)}:${hash(v)}`)
+      .join(",")}}`;
+  }
+  hashes.set(query, result);
+  return result;
 };
 
 /**

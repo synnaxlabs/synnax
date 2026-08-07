@@ -25,6 +25,7 @@ import {
   localFor,
   type RetrieveParams,
   suspendOnFetch,
+  usePendingFetch,
 } from "@/flux/suspend";
 import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
@@ -165,11 +166,16 @@ export const createForm = <
       [client, memoQuery],
     );
 
-    let retrieved = cached;
+    const pending = usePendingFetch<Query, z.infer<Schema>>(memoQuery);
+    // A replay resumes through the promise the suspended attempt holds. Reading the
+    // answer from anywhere else would skip the `use` call React needs to find the
+    // end of the recorded hook list, corrupting every hook below.
+    let retrieved = pending.promise == null ? cached : undefined;
     if (retrieved == null && memoQuery != null && client != null && retrieve != null)
       retrieved = suspendOnFetch(
         { client, query: memoQuery },
         { name, retrieve, getCached, local: localFor(locals, client) },
+        pending,
       );
 
     const values = retrieved ?? initialValues ?? baseInitialValues;

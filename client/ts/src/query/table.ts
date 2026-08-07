@@ -123,10 +123,8 @@ export class Table<
 > {
   private readonly rows = new Map<Key, Value>();
   private readonly tombstones = new Map<Key, Deleted<Value>>();
-  private readonly subscribers = new Map<
-    TableSubscriber<Key, Value>,
-    Key | undefined
-  >();
+  private readonly broadSubscribers = new Set<TableSubscriber<Key, Value>>();
+  private readonly keyedSubscribers = new Map<Key, Set<TableSubscriber<Key, Value>>>();
   private readonly onError: (error: Error) => void;
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
   private readonly fetchRows?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
@@ -362,23 +360,41 @@ export class Table<
    * @returns A destructor that unsubscribes.
    */
   subscribe(subscriber: TableSubscriber<Key, Value>, key?: Key): destructor.Destructor {
-    this.subscribers.set(subscriber, key);
-    return () => this.subscribers.delete(subscriber);
+    if (key == null) {
+      this.broadSubscribers.add(subscriber);
+      return () => this.broadSubscribers.delete(subscriber);
+    }
+    let held = this.keyedSubscribers.get(key);
+    if (held == null) {
+      held = new Set();
+      this.keyedSubscribers.set(key, held);
+    }
+    held.add(subscriber);
+    return () => {
+      held.delete(subscriber);
+      // Guarded on identity so a stale destructor cannot drop a set a later
+      // subscription re-created under the same key.
+      if (held.size === 0 && this.keyedSubscribers.get(key) === held)
+        this.keyedSubscribers.delete(key);
+    };
   }
 
   private notify(event: TableEvent<Key, Value>) {
-    this.subscribers.forEach((key, subscriber) => {
-      if (key != null && key !== event.key) return;
+    this.deliver(this.keyedSubscribers.get(event.key), event);
+    this.deliver(this.broadSubscribers, event);
+  }
+
+  private deliver(
+    subscribers: Iterable<TableSubscriber<Key, Value>> | undefined,
+    event: TableEvent<Key, Value>,
+  ) {
+    if (subscribers == null) return;
+    for (const subscriber of subscribers)
       try {
         subscriber(event);
       } catch (exc) {
-        this.onError(
-          new Error("failed to notify table subscriber", {
-            cause: exc,
-          }),
-        );
+        this.onError(new Error("failed to notify table subscriber", { cause: exc }));
       }
-    });
   }
 }
 

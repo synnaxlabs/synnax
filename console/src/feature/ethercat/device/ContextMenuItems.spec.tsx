@@ -10,7 +10,7 @@
 import { type device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -61,14 +61,18 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
     selection: createSelection({ ids: resources.map((r) => r.id) }),
     state: createState(resources),
   };
-  result.rerender(
-    <>
-      {loaders}
-      <PMenu.Menu>
-        <EtherCAT.Device.ContextMenuItems {...props} />
-      </PMenu.Menu>
-    </>,
-  );
+  // The menu suspends on the slaves fetch; a tree that suspends inside a sync
+  // act never commits, so the mount needs an async act (see renderHookSuspended).
+  await act(async () => {
+    result.rerender(
+      <>
+        {loaders}
+        <PMenu.Menu>
+          <EtherCAT.Device.ContextMenuItems {...props} />
+        </PMenu.Menu>
+      </>,
+    );
+  });
   return { store };
 };
 

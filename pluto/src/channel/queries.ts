@@ -92,9 +92,6 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   ...retrieveMultipleDefinition,
   onChange: retrieveMultipleDefinition.onChange,
-  // Until the query is fetched, the client approximates the answer from the record
-  // store, allocating a fresh array of stable rows per read.
-  equal: (a, b) => a.length === b.length && a.every((ch, i) => ch === b[i]),
 });
 
 const retrieveInitialFormValues = async ({

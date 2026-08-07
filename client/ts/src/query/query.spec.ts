@@ -96,6 +96,14 @@ describe("hash", () => {
     expect(() => query.hash({ k: 9007199254740993n })).not.toThrow();
   });
 
+  it("hashes a plain object once per identity", () => {
+    const inner = { hash: vi.fn(() => "inner") };
+    const q = { id: inner };
+    const first = query.hash(q);
+    expect(query.hash(q)).toEqual(first);
+    expect(inner.hash).toHaveBeenCalledTimes(1);
+  });
+
   it("delegates to primitive.Hashable.hash() for class instances", () => {
     class TaggedID {
       constructor(private readonly v: string) {}

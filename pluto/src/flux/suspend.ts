@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { query, type Synnax as Client } from "@synnaxlabs/client";
-import { use } from "react";
+import { use, useLayoutEffect, useRef } from "react";
 
 export interface RetrieveParams<Query extends query.Params> {
   client: Client;
@@ -111,14 +111,47 @@ export const ensureFetch = <Query extends query.Params, Data>(
   return promise;
 };
 
+export interface PendingFetch<Data> {
+  /** The promise the attempt being replayed suspended on, if there is one. */
+  promise: Promise<Data> | null;
+  /** Records the promise this attempt suspends on. */
+  set: (promise: Promise<Data>) => void;
+}
+
+/**
+ * Remembers the promise an attempt suspends on until the render commits. React ends
+ * a replayed component's recorded hook list at its `use` call, so an attempt that
+ * suspended has to resume through the same promise. Reaching the answer any other
+ * way leaves every hook after the read reading a list that has already run out.
+ */
+export const usePendingFetch = <Query extends query.Params, Data>(
+  q: Query | null,
+): PendingFetch<Data> => {
+  const pending = useRef<{ query: Query | null; promise: Promise<Data> } | null>(null);
+  useLayoutEffect(() => {
+    pending.current = null;
+  });
+  const held = pending.current;
+  return {
+    promise: held != null && held.query === q ? held.promise : null,
+    set: (promise) => {
+      pending.current = { query: q, promise };
+    },
+  };
+};
+
 export const suspendOnFetch = <Query extends query.Params, Data>(
   params: RetrieveParams<Query>,
   fetchParams: EnsureFetchParams<Query, Data>,
+  pending: PendingFetch<Data>,
 ): Data => {
+  if (pending.promise != null) return use(pending.promise);
   const settled = fetchParams.local.settled.get(query.hash(params.query));
   if (settled != null) {
     if ("error" in settled) throw settled.error;
     return settled.data;
   }
-  return use(ensureFetch(params, fetchParams));
+  const promise = ensureFetch(params, fetchParams);
+  pending.set(promise);
+  return use(promise);
 };

@@ -21,7 +21,15 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
+import {
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+  startTransition,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
@@ -61,6 +69,26 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
   );
   Live.displayName = "LiveWrapper";
   return Live;
+};
+
+/**
+ * Collects the errors React reports globally while `run` executes. React recovers
+ * from a corrupt hook order by re-rendering the root synchronously, so the render
+ * still produces the right DOM and only the report proves the defect.
+ */
+const captureUncaught = async (run: () => Promise<void>): Promise<Error[]> => {
+  const caught: Error[] = [];
+  const onError = (event: ErrorEvent) => {
+    caught.push(event.error);
+    event.preventDefault();
+  };
+  window.addEventListener("error", onError);
+  try {
+    await run();
+  } finally {
+    window.removeEventListener("error", onError);
+  }
+  return caught;
 };
 
 describe("use", () => {
@@ -363,6 +391,74 @@ describe("use", () => {
     expect(retrieve).toHaveBeenCalledTimes(2);
   });
 
+  describe("suspended mount replay", () => {
+    // The reader renders a hook after the read, whose slot only exists if the
+    // replayed attempt resumes through the same `use` call it suspended on. The
+    // mount goes through a transition: a concurrent render is what lets React
+    // replay the suspended attempt instead of re-mounting it from scratch.
+    const mountThroughTransition = async (
+      use: (query: { key: string }) => number,
+      key: string,
+    ): Promise<Error[]> => {
+      const Display = (): ReactElement => {
+        const value = use({ key });
+        const format = useCallback(() => `n=${value}`, [value]);
+        return <div data-testid="value">{format()}</div>;
+      };
+      const Harness = (): ReactElement => {
+        const [mounted, setMounted] = useState(false);
+        return (
+          <>
+            <button
+              data-testid="mount"
+              onClick={() => startTransition(() => setMounted(true))}
+            />
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
+              {mounted && <Display />}
+            </Errors.SuspenseBoundary>
+          </>
+        );
+      };
+      return await captureUncaught(async () => {
+        let utils!: ReturnType<typeof render>;
+        await act(async () => {
+          utils = render(
+            <Wrapper>
+              <Harness />
+            </Wrapper>,
+          );
+        });
+        await act(async () => {
+          fireEvent.click(utils.getByTestId("mount"));
+        });
+        await waitFor(() =>
+          expect(utils.queryByTestId("value")?.textContent).toBe("n=7"),
+        );
+      });
+    };
+
+    it("keeps the caller's hook order when the answer lands in the domain cache", async () => {
+      let cached: number | undefined;
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => {
+          cached = 7;
+          return cached;
+        },
+        getCached: () => cached,
+      });
+      expect(await mountThroughTransition(use, "replay-domain-cached")).toEqual([]);
+    });
+
+    it("keeps the caller's hook order when the answer settles locally", async () => {
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 7,
+      });
+      expect(await mountThroughTransition(use, "replay-settled")).toEqual([]);
+    });
+  });
+
   describe("equal", () => {
     const sameNumbers = (a: number[], b: number[]): boolean =>
       a.length === b.length && a.every((v, i) => v === b[i]);
@@ -564,6 +660,38 @@ describe("use", () => {
 
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
       expect(seen[seen.length - 1]).toBe(cached);
+    });
+
+    it("settles a composed answer when no comparator is given", async () => {
+      const source = [4, 5];
+      const { use } = Flux.createRetrieve<{ key: string }, number[]>({
+        name: "Numbers",
+        retrieve: async () => [...source],
+        onChange: () => () => {},
+        getCached: () => [...source],
+      });
+
+      const seen: number[][] = [];
+      const Display = (): ReactElement => {
+        const value = use({ key: "no-equal-composed" });
+        seen.push(value);
+        return <div data-testid="value">{value.join(",")}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={null}>
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
+      expect(seen.length).toBeLessThan(10);
+      expect(seen[seen.length - 1]).toBe(seen[0]);
     });
   });
 

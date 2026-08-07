@@ -29,8 +29,6 @@ const { use: useSlaves } = Flux.createRetrieve<{ keys: device.Key[] }, SlaveDevi
     ),
   getCached: ({ client, query: { keys } }) =>
     client.devices.getCached({ keys }) as query.Cached<SlaveDevice[]> | undefined,
-  // The client allocates a fresh array of stable rows per read.
-  equal: (a, b) => a.length === b.length && a.every((dev, i) => dev === b[i]),
 });
 
 export interface EnabledState {

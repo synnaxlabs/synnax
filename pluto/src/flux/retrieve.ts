@@ -14,7 +14,7 @@ import {
   type Synnax as Client,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { type destructor, type state, TimeSpan } from "@synnaxlabs/x";
+import { compare, type destructor, type state, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useMemo, useReducer, useRef, useSyncExternalStore } from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
@@ -35,6 +35,7 @@ import {
   localFor,
   type RetrieveParams,
   suspendOnFetch,
+  usePendingFetch,
 } from "@/flux/suspend";
 import { useMemoDeepEqual } from "@/memo";
 import { Synnax } from "@/synnax";
@@ -61,13 +62,60 @@ export interface CreateRetrieveParams<
    */
   deriveCached?: (params: RetrieveParams<Query>) => Data | undefined;
   /**
-   * Holds the previous answer whenever the next one compares equal, so suspending
-   * readers re-render only on changes the answer expresses. Required when `getCached`
-   * builds a value rather than returning the domain client's own cached reference:
-   * a fresh object every call breaks `useSyncExternalStore`.
+   * Holds the previous answer whenever the next one compares equal, so readers
+   * re-render only on changes the answer expresses. Defaults to element-wise
+   * identity for list answers, which is what a `getCached` that composes rows
+   * out of the domain client's tables needs. Override only for an answer whose
+   * equality the default reads as a change.
    */
   equal?: (prev: Data, next: Data) => boolean;
 }
+
+// A getCached that composes a list answer allocates a fresh array per call,
+// which spins useSyncExternalStore forever. Single-record answers come back as
+// the domain client's own row, so identity already holds for them.
+const answersEqual = <Data>(prev: Data, next: Data): boolean =>
+  Array.isArray(prev) && Array.isArray(next)
+    ? compare.arraysEqual(prev, next)
+    : Object.is(prev, next);
+
+interface UseCachedSnapshotParams<
+  Query extends query.Params,
+  Data extends query.Data,
+> extends Pick<CreateRetrieveParams<Query, Data>, "onChange" | "getCached" | "equal"> {}
+
+/**
+ * Subscribes to the query's cached answer and reads it as a snapshot stable
+ * enough for `useSyncExternalStore`: an answer equal to the one before it keeps
+ * the earlier reference. Returns undefined when there is no client or query.
+ */
+const useCachedSnapshot = <Query extends query.Params, Data extends query.Data>(
+  memoQuery: Query | null,
+  client: Client | null,
+  { onChange, getCached, equal = answersEqual }: UseCachedSnapshotParams<Query, Data>,
+): query.Cached<Data> | undefined => {
+  const held = useRef<{ query: Query; value: Data } | null>(null);
+  return useSyncExternalStore(
+    useCallback(
+      (notify) => {
+        if (onChange == null || client == null || memoQuery == null)
+          return NOOP_SUBSCRIBE();
+        return onChange({ client, query: memoQuery }, () => notify());
+      },
+      [client, memoQuery],
+    ),
+    useCallback(() => {
+      if (client == null || memoQuery == null) return undefined;
+      const next = getCached?.({ client, query: memoQuery });
+      if (!isLive<Data>(next)) return next;
+      const prev = held.current;
+      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
+        return prev.value;
+      held.current = { query: memoQuery, value: next };
+      return next;
+    }, [client, memoQuery]),
+  );
+};
 
 /// A Suspense-shaped retrieve hook that returns the data directly. The hook
 /// either returns the resolved value or suspends on the in-flight promise.
@@ -275,30 +323,16 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
 }: UseSuspendedParams<Query, Data> & CreateRetrieveParams<Query, Data>): Data => {
   const memoQuery = useMemoDeepEqual(query);
   const client = Synnax.use();
-  const held = useRef<{ query: Query; value: Data } | null>(null);
 
   // Every hook runs before the disconnected throw. Gating them on the client
   // would change this hook's count as the connection comes and goes, which
   // corrupts the caller's hook order.
-  const cached = useSyncExternalStore(
-    useCallback(
-      (notify) => {
-        if (onChange == null || client == null) return NOOP_SUBSCRIBE();
-        return onChange({ client, query: memoQuery }, () => notify());
-      },
-      [client, memoQuery],
-    ),
-    useCallback(() => {
-      if (client == null) return undefined;
-      const next = getCached?.({ client, query: memoQuery });
-      if (equal == null || !isLive<Data>(next)) return next;
-      const prev = held.current;
-      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
-        return prev.value;
-      held.current = { query: memoQuery, value: next };
-      return next;
-    }, [client, memoQuery]),
-  );
+  const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
+    onChange,
+    getCached,
+    equal,
+  });
+  const pending = usePendingFetch<Query, Data>(memoQuery);
 
   if (client == null)
     throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
@@ -306,16 +340,22 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   const local = localFor(locals, client);
   const params = { client, query: memoQuery };
 
-  if (cached !== undefined) {
-    if (Deleted.matches<Data>(cached))
-      throw new DeletedError(`${name} was deleted`, cached.corpse);
-    return cached;
+  // A replay resumes through the promise the suspended attempt holds. Serving it the
+  // answer the fetch just put in the cache would skip the `use` call React needs to
+  // find the end of the recorded hook list.
+  if (pending.promise == null) {
+    if (cached !== undefined) {
+      if (Deleted.matches<Data>(cached))
+        throw new DeletedError(`${name} was deleted`, cached.corpse);
+      return cached;
+    }
+    const derived = deriveCached?.(params);
+    if (derived != null) return derived;
   }
-  const derived = deriveCached?.(params);
-  if (derived != null) return derived;
   return suspendOnFetch(
     params,
     fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+    pending,
   );
 };
 
@@ -335,28 +375,12 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>({
   // settled entry, which no subscription announces, so settling re-renders by hand.
   const [, bump] = useReducer((x: number) => x + 1, 0);
   const client = Synnax.use();
-  const held = useRef<{ query: Query; value: Data } | null>(null);
 
-  const cached = useSyncExternalStore(
-    useCallback(
-      (notify) => {
-        if (onChange == null || client == null || memoQuery == null)
-          return NOOP_SUBSCRIBE();
-        return onChange({ client, query: memoQuery }, () => notify());
-      },
-      [client, memoQuery],
-    ),
-    useCallback(() => {
-      if (client == null || memoQuery == null) return undefined;
-      const next = getCached?.({ client, query: memoQuery });
-      if (equal == null || !isLive<Data>(next)) return next;
-      const prev = held.current;
-      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
-        return prev.value;
-      held.current = { query: memoQuery, value: next };
-      return next;
-    }, [client, memoQuery]),
-  );
+  const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
+    onChange,
+    getCached,
+    equal,
+  });
 
   if (client == null) return nullClientResult<Data>(`retrieve ${name}`);
   if (memoQuery == null) return noQueryResult<Data>(`retrieve ${name}`);
@@ -396,6 +420,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
 }: UseSuspendedParams<Query, Data> & CreateRetrieveParams<Query, Data>): void => {
   const memoQuery = useMemoDeepEqual(query);
   const client = Synnax.use();
+  const pending = usePendingFetch<Query, Data>(memoQuery);
 
   if (client == null)
     throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
@@ -403,16 +428,19 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
   const local = localFor(locals, client);
   const params = { client, query: memoQuery };
 
-  const cached = getCached?.(params);
-  if (cached !== undefined) {
-    if (Deleted.matches<Data>(cached))
-      throw new DeletedError(`${name} was deleted`, cached.corpse);
-    return;
+  if (pending.promise == null) {
+    const cached = getCached?.(params);
+    if (cached !== undefined) {
+      if (Deleted.matches<Data>(cached))
+        throw new DeletedError(`${name} was deleted`, cached.corpse);
+      return;
+    }
+    if (deriveCached?.(params) != null) return;
   }
-  if (deriveCached?.(params) != null) return;
   suspendOnFetch(
     params,
     fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+    pending,
   );
 };
 
@@ -437,22 +465,15 @@ const useTombstone = <Query extends query.Params, Data extends query.Data>({
   query,
   onChange,
   getCached,
+  equal,
 }: UseTombstoneParams<Query> & CreateRetrieveParams<Query, Data>): Tombstone | null => {
   const memoQuery = useMemoDeepEqual(query);
   const client = Synnax.use();
-  const cached = useSyncExternalStore(
-    useCallback(
-      (notify) => {
-        if (onChange == null || client == null) return NOOP_SUBSCRIBE();
-        return onChange({ client, query: memoQuery }, () => notify());
-      },
-      [client, memoQuery],
-    ),
-    useCallback(
-      () => (client == null ? undefined : getCached?.({ client, query: memoQuery })),
-      [client, memoQuery],
-    ),
-  );
+  const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
+    onChange,
+    getCached,
+    equal,
+  });
   return useMemo(
     () => (Deleted.matches<Data>(cached) ? tombstoneOf(cached.corpse) : null),
     [cached],
@@ -469,7 +490,7 @@ const createSelector = <
     name,
     onChange,
     getCached,
-    equal,
+    equal = answersEqual,
   }: CreateRetrieveParams<Query, Data> &
     Required<Pick<CreateRetrieveParams<Query, Data>, "getCached">>,
   select: (data: Data, query: ExtendedQuery) => Selected,
@@ -496,12 +517,7 @@ const createSelector = <
       if (next === undefined)
         return prev != null && prev.query === memoQuery ? prev.value : undefined;
       if (!isLive<Data>(next)) return next;
-      if (
-        equal != null &&
-        prev != null &&
-        prev.query === memoQuery &&
-        equal(prev.value, next)
-      )
+      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
         return prev.value;
       held.current = { query: memoQuery, value: next };
       return next;
