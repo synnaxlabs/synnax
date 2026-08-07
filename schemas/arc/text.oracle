@@ -38,8 +38,7 @@ Text struct {
         """
     }
     raw string = "" {
-        @go marshal omit
-        @doc value  "is the materialized Arc source code, derived from doc and not persisted."
+        @doc value "is the materialized Arc source code, derived from doc and not persisted."
     }
 
     @doc value  "is text-based Arc source code with optional parsed AST for compilation."

@@ -20,3 +20,11 @@ import (
 func autoMigrateFunction(_ context.Context, old v0.Function) (Function, error) {
 	return Function{}, nil
 }
+
+func autoMigrateIR(_ context.Context, old v0.IR) (IR, error) {
+	return IR{}, nil
+}
+
+func autoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
+	return Node{}, nil
+}

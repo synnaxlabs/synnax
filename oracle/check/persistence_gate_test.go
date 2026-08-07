@@ -17,13 +17,28 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/pipeline"
+	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/testutil"
+	"github.com/synnaxlabs/x/diagnostics"
 )
+
+// analyzeVersionFile analyzes source as a version file, where marshal tags
+// are legal.
+func analyzeVersionFile(
+	ctx context.Context, source, namespace string, loader analyzer.FileLoader,
+) (*resolution.Table, *diagnostics.Files) {
+	table := resolution.NewTable()
+	diag := analyzer.AnalyzeSeeded(
+		ctx, source, "schemas/synnax/versions/"+namespace+"/v0.oracle",
+		namespace, loader, table,
+	)
+	return table, diag
+}
 
 var _ = Describe("PersistenceGate", func() {
 	run := func(ctx context.Context, source string) check.GateReport {
 		GinkgoHelper()
-		table, diag := analyzer.AnalyzeSource(
+		table, diag := analyzeVersionFile(
 			ctx, source, "test", testutil.NewMockFileLoader())
 		Expect(diag == nil || diag.Ok()).To(BeTrue())
 		r := &pipeline.Result{Resolutions: table}

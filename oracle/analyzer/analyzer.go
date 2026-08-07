@@ -246,7 +246,7 @@ func analyze(c *analysisCtx) {
 	validatePinnedArgs(c, types)
 	validateImex(c, types)
 	validateImportPlacement(c)
-	validateVersionFileFields(c, types)
+	validateLiveMarshal(c, types)
 	for _, typ := range types {
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {

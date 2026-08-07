@@ -62,7 +62,6 @@ Channel struct {
 @go output "core/pkg/service/channel"
 
 Key = uuid {
-	@go version 1
 }
 
 Channel struct {
@@ -70,14 +69,13 @@ Channel struct {
 	name string
 	virtual bool
 
-	@go version 1
-	@go marshal
 }
 `,
 			"schemas/synnax/channel.oracle", "channel",
 			analyzer.NewStandardFileLoader(root), table,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		Expect(resolver.Annotate(GinkgoT().Context(), table)).To(Succeed())
 		req := &plugin.Request{
 			Resolutions: table, RepoRoot: root, Versions: resolver,
 		}

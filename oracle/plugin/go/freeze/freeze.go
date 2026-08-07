@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/formatter"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -64,7 +65,7 @@ type Input struct {
 // formatted to canonical bytes.
 func Canonical(ctx context.Context, in Input) (string, error) {
 	livePath := in.Chain.LivePath()
-	closure := gotypes.PersistedClosure(in.Live)
+	closure := gotypes.DeclaredClosure(in.Live)
 	var members []resolution.Type
 	for _, t := range in.Live.TypesInNamespace(in.Chain.Resource) {
 		if t.Synthetic || t.FilePath != livePath+".oracle" {
@@ -190,7 +191,47 @@ func declarationsEqual(
 			}
 		}
 	}
+	if !marshalEqual(old, new) {
+		return false
+	}
 	return schemadiff.SchemasEqual(old, new, oldTable, newTable)
+}
+
+// marshalEqual compares the codec surface schemadiff cannot see: the declared
+// field list including omitted fields, and each field's @go marshal value. Two
+// versions with the same persisted shape still declare different Go structs
+// when one omits a field the other stores. Field types are schemadiff's
+// concern — the two sides resolve against different tables, so their qualified
+// names never compare directly.
+func marshalEqual(old, new resolution.Type) bool {
+	oldForm, oldOK := old.Form.(resolution.StructForm)
+	newForm, newOK := new.Form.(resolution.StructForm)
+	if oldOK != newOK || !oldOK {
+		return true
+	}
+	if len(oldForm.Fields) != len(newForm.Fields) {
+		return false
+	}
+	for i, f := range oldForm.Fields {
+		n := newForm.Fields[i]
+		if n.Name != f.Name ||
+			n.Optional != f.Optional ||
+			bareTypeName(n.Type) != bareTypeName(f.Type) ||
+			domain.GetStringFromField(n, "go", "marshal") !=
+				domain.GetStringFromField(f, "go", "marshal") {
+			return false
+		}
+	}
+	return true
+}
+
+// bareTypeName strips a resolved reference's namespace so declarations from
+// different tables compare on the type they name.
+func bareTypeName(ref resolution.TypeRef) string {
+	if _, rest, found := strings.Cut(ref.Name, "."); found {
+		return rest
+	}
+	return ref.Name
 }
 
 // StructurallyEqual reports whether two declarations share a persisted shape,
@@ -222,10 +263,6 @@ func frozenDecl(
 	in Input,
 	surf map[string]versions.Definition,
 ) resolution.Type {
-	if sf, ok := t.Form.(resolution.StructForm); ok {
-		sf.Fields = schemadiff.PersistedFields(sf.Fields)
-		t.Form = sf
-	}
 	domains := maps.Clone(t.Domains)
 	if domains == nil {
 		domains = make(map[string]resolution.Domain)

@@ -138,14 +138,13 @@ Panel struct {
         @doc value "is the root of the panel tree."
     }
     parent ontology.ID? {
-        @doc value  """
+        @doc value """
             is an optional parent resource for the panel in the ontology.
             When absent on create, the panel is parented to the creating
             user as a draft. Parenthood lives in the ontology graph, so the
             field is not persisted on the panel record and is absent on
             retrieve.
         """
-        @go marshal omit
     }
 
     action Create {

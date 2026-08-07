@@ -60,8 +60,7 @@ Rack struct {
         @filter
     }
     status       Status?  {
-        @doc value  "is the current operational status of the rack."
-        @go marshal omit
+        @doc value "is the current operational status of the rack."
     }
     integrations string[] = [] {
         @doc value """

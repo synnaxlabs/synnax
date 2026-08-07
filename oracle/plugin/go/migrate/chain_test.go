@@ -64,15 +64,13 @@ Channel struct {
 	name string
 	virtual bool
 
-	@go version 1
-	@go marshal
-	@go migrate
 }
 `,
 			"schemas/synnax/channel.oracle", "channel",
 			analyzer.NewStandardFileLoader(root), table,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		Expect(resolver.Annotate(GinkgoT().Context(), table)).To(Succeed())
 		resp := MustSucceed(migrate.New().Generate(&plugin.Request{
 			Resolutions: table, RepoRoot: root, Versions: resolver,
 		}))

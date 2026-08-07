@@ -16,22 +16,20 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/pipeline"
-	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/freeze"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/set"
 )
 
 // VersionsGate verifies the explicitly managed version chains against the
-// live schemas: every versioned path has a chain, the current version file
-// matches canonical emission byte-for-byte, and every redeclaration differs
-// structurally from its resolved predecessor.
+// live schemas: the current version file matches canonical emission
+// byte-for-byte, and every redeclaration differs structurally from its
+// resolved predecessor.
 type VersionsGate struct{}
 
 // Name implements Checker.
@@ -58,30 +56,6 @@ func (g VersionsGate) Run(
 	resolver := versions.NewResolver(
 		chains, analyzer.NewStandardFileLoader(env.RepoRoot),
 	)
-
-	// Once any chain exists, every versioned path must have one.
-	covered := make(set.Set[string])
-	for _, chain := range chains {
-		covered.Add(chain.LivePath())
-	}
-	for _, t := range p.Resolutions.Types {
-		if !domain.HasExprFromType(t, "go", "version") {
-			continue
-		}
-		livePath := versionFileLivePath(t.FilePath)
-		if !covered.Contains(livePath) {
-			covered.Add(livePath)
-			r.fail(Finding{
-				Path:     t.FilePath,
-				Severity: SeverityError,
-				Message: fmt.Sprintf(
-					"%s declares versioned types but has no version chain",
-					livePath,
-				),
-				FixHint: "create schemas/<domain>/versions/<resource>/v0.oracle",
-			})
-		}
-	}
 
 	for _, livePath := range slices.Sorted(maps.Keys(chains)) {
 		g.checkChain(ctx, &r, p, env, resolver, chains[livePath])
@@ -255,12 +229,4 @@ func pinnedNames(f *versions.File) set.Set[string] {
 		}
 	}
 	return pinned
-}
-
-// versionFileLivePath trims a schema file path to its import-path form.
-func versionFileLivePath(filePath string) string {
-	if p, err := versions.LiveFromFilePath(filePath); err == nil {
-		return p
-	}
-	return strings.TrimSuffix(filePath, ".oracle")
 }

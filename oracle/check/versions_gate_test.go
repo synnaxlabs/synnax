@@ -37,7 +37,14 @@ Channel struct {
 	key uuid @key
 	name string
 
-	@go version 0
+}
+`
+
+	const channelV0 = `
+Channel struct {
+	key uuid @key
+	name string
+
 	@go marshal
 }
 `
@@ -50,6 +57,13 @@ Channel struct {
 			analyzer.NewStandardFileLoader(root), table,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		chains := MustSucceed(versions.Discover(root))
+		if len(chains) > 0 {
+			resolver := versions.NewResolver(
+				chains, analyzer.NewStandardFileLoader(root),
+			)
+			Expect(resolver.Annotate(GinkgoT().Context(), table)).To(Succeed())
+		}
 		return &pipeline.Result{Resolutions: table}
 	}
 
@@ -82,6 +96,8 @@ Channel struct {
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
 		}
+		write("licenses/headers/template.txt",
+			"Copyright {{YEAR}} Synnax Labs, Inc.\n")
 	})
 
 	It("Should pass when no chains exist", func() {
@@ -90,7 +106,7 @@ Channel struct {
 	})
 
 	It("Should pass a clean chain", func() {
-		write("schemas/synnax/versions/channel/v0.oracle", "placeholder = uuid\n")
+		write("schemas/synnax/versions/channel/v0.oracle", channelV0)
 		p := analyzeLive(liveV0)
 		canonicalV0(p)
 		report := run(p)
@@ -99,7 +115,7 @@ Channel struct {
 	})
 
 	It("Should fail on drift between the live schema and the current file", func() {
-		write("schemas/synnax/versions/channel/v0.oracle", "placeholder = uuid\n")
+		write("schemas/synnax/versions/channel/v0.oracle", channelV0)
 		p := analyzeLive(liveV0)
 		canonicalV0(p)
 		drifted := analyzeLive(`
@@ -110,8 +126,6 @@ Channel struct {
 	name string
 	virtual bool
 
-	@go version 0
-	@go marshal
 }
 `)
 		report := run(drifted)
@@ -143,9 +157,6 @@ Channel struct {
 Channel struct {
 	key uuid @key
 	name string
-
-	@go version 1
-	@go marshal
 }
 `)
 		report := run(p)
@@ -157,14 +168,5 @@ Channel struct {
 			}
 		}
 		Expect(minimality).To(BeTrue(), "expected a minimality finding")
-	})
-
-	It("Should fail versioned paths without a chain", func() {
-		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
-		p := analyzeLive(liveV0)
-		report := run(p)
-		Expect(report.Status).To(Equal(check.StatusFail))
-		Expect(report.Findings[0].Message).
-			To(ContainSubstring("has no version chain"))
 	})
 })

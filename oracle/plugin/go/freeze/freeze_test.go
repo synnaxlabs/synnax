@@ -59,26 +59,26 @@ Legacy struct {
 Channel struct {
 	key Key @key
 	created telem.TimeStamp
+	cached string {
+		@go marshal omit
+	}
 
 	@go marshal
 }
 `)
 		// Live schema: Channel changed (new field), Key unchanged, Legacy
-		// removed, Operation brand new. The cached field is omit and must not
-		// freeze.
+		// removed, Operation brand new. Marshal tags live only in the version
+		// file; Annotate projects them onto the live table.
 		liveSource := `
 import "schemas/x/telem"
 
 @go output "core/pkg/service/channel"
 
-Key = uuid {
-	@go version 1
-}
+Key = uuid
 
 Operation struct {
 	kind string
 
-	@go version 1
 	@doc value "is a brand-new persisted type."
 }
 
@@ -86,12 +86,8 @@ Channel struct {
 	key Key @key
 	created telem.TimeStamp
 	ops Operation[]
-	cached string {
-		@go marshal omit
-	}
+	cached string
 
-	@go version 1
-	@go marshal
 	@doc value "is the live doc, not retroactively frozen."
 }
 `
@@ -106,9 +102,11 @@ Channel struct {
 			analyzer.NewStandardFileLoader(root), live,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		Expect(resolver.Annotate(GinkgoT().Context(), live)).To(Succeed())
 	})
 
 	canonical := func(in freeze.Input) string {
+		GinkgoHelper()
 		in.Live = live
 		in.Resolver = resolver
 		in.Chain = resolver.Chains()["schemas/synnax/channel"]
@@ -121,7 +119,9 @@ Channel struct {
 		Expect(out).To(ContainSubstring("Channel struct {"))
 		Expect(out).To(MatchRegexp(`ops\s+Operation\[\]`))
 		Expect(out).ToNot(ContainSubstring("Legacy"))
-		Expect(out).ToNot(ContainSubstring("cached"))
+		// Omitted fields are per-version codec facts: the file records them.
+		Expect(out).To(MatchRegexp(`cached\s+string`))
+		Expect(out).To(ContainSubstring("@go marshal omit"))
 		Expect(out).ToNot(ContainSubstring("@go version"))
 		Expect(out).ToNot(ContainSubstring("@go output"))
 		Expect(out).To(ContainSubstring(

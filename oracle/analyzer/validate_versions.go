@@ -40,42 +40,37 @@ func validateImportPlacement(c *analysisCtx) {
 	}
 }
 
-// validateVersionFileFields errors on non-persisted fields declared in a
-// version file: version files record persisted shape only.
-func validateVersionFileFields(c *analysisCtx, types []resolution.Type) {
-	if _, _, ok := paths.VersionFile(c.filePath); !ok {
+// validateLiveMarshal errors on @go marshal declared in a live schema. The
+// codec it configures is generated into versions/vN, so the version file owns
+// every marshal tag: type-level roots and field-level omissions alike.
+func validateLiveMarshal(c *analysisCtx, types []resolution.Type) {
+	// The rule is about the repository's schema layout: only a live resource
+	// schema has a versions directory to move the tag into.
+	if _, _, live := paths.LiveSchema(c.filePath); !live {
 		return
 	}
+	report := func(name string) {
+		c.report(diagnostics.Errorf(nil,
+			"%s declares @go marshal; declare it in the resource's version file",
+			name,
+		))
+	}
 	for _, t := range types {
+		if dom, ok := t.Domains["go"]; ok {
+			if _, has := dom.Expressions.Find("marshal"); has {
+				report(t.QualifiedName)
+			}
+		}
 		form, ok := t.Form.(resolution.StructForm)
 		if !ok {
 			continue
 		}
 		for _, f := range form.Fields {
-			if isOmitField(f) {
-				c.report(diagnostics.Errorf(nil,
-					"%s.%s is @go marshal omit; version files record persisted shape only",
-					t.QualifiedName, f.Name,
-				))
+			if dom, ok := f.Domains["go"]; ok {
+				if _, has := dom.Expressions.Find("marshal"); has {
+					report(t.QualifiedName + "." + f.Name)
+				}
 			}
 		}
 	}
-}
-
-// isOmitField reports whether the field carries @go marshal omit.
-func isOmitField(f resolution.Field) bool {
-	dom, ok := f.Domains["go"]
-	if !ok {
-		return false
-	}
-	expr, ok := dom.Expressions.Find("marshal")
-	if !ok {
-		return false
-	}
-	for _, v := range expr.Values {
-		if v.IdentValue == "omit" || v.StringValue == "omit" {
-			return true
-		}
-	}
-	return false
 }

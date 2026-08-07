@@ -190,8 +190,44 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should reject omit fields in a version file", func(ctx SpecContext) {
+		It("Should accept marshal tags in a version file", func(ctx SpecContext) {
 			diag := analyzeAt(ctx, `
+Entry struct {
+	key uuid @key
+	cached string {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/channel/v0.oracle", "v0")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should reject marshal tags in a live schema", func(ctx SpecContext) {
+			diag := analyzeAt(ctx, `
+@go output "out"
+
+Entry struct {
+	key uuid @key
+
+	@go marshal
+}
+`,
+				"schemas/synnax/channel.oracle", "channel")
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"declare it in the resource's version file",
+			))
+		})
+
+		It("Should reject field-level marshal in a live schema", func(
+			ctx SpecContext,
+		) {
+			diag := analyzeAt(ctx, `
+@go output "out"
+
 Entry struct {
 	key uuid @key
 	cached string {
@@ -199,11 +235,9 @@ Entry struct {
 	}
 }
 `,
-				"schemas/synnax/versions/channel/v0.oracle", "v0")
+				"schemas/synnax/channel.oracle", "channel")
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring(
-				"version files record persisted shape only",
-			))
+			Expect(diag.String()).To(ContainSubstring("Entry.cached declares @go marshal"))
 		})
 	})
 

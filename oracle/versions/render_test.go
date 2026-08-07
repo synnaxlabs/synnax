@@ -59,9 +59,14 @@ Content union on variant {
 }
 `
 
+// analyzeFixture analyzes source as a version file: marshal tags are only
+// legal there.
 func analyzeFixture(ctx SpecContext, source string) *resolution.Table {
-	table, diag := analyzer.AnalyzeSource(
-		ctx, source, "test", testutil.NewMockFileLoader(),
+	GinkgoHelper()
+	table := resolution.NewTable()
+	diag := analyzer.AnalyzeSeeded(
+		ctx, source, "schemas/synnax/versions/test/v0.oracle", "test",
+		testutil.NewMockFileLoader(), table,
 	)
 	Expect(diag.Ok()).To(BeTrue(), func() string { return diag.String() })
 	return table

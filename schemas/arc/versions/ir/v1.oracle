@@ -15,6 +15,87 @@ EdgeKind = v0.EdgeKind
 
 Edge = v0.Edge
 
+Edges = v0.Edges
+
+ScopeMode enum {
+    unspecified = 0
+    parallel    = 1
+    sequential  = 2
+
+    @doc value "defines the concurrency model of a Scope."
+}
+
+Liveness enum {
+    unspecified = 0
+    always      = 1
+    gated       = 2
+
+    @doc value "defines whether a Scope is continuously active or must be activated."
+}
+
+Transition struct {
+    on        Handle  {
+        @doc value "is the dataflow handle whose truthy value fires this transition."
+    }
+    targetKey string? {
+        @doc value """is the sibling step key to activate. Null when the transition
+exits the scope, yielding to the parent."""
+    }
+
+    @doc value "is a declarative state-transition rule on a sequential Scope."
+}
+
+Member struct {
+    nodeKey string? {
+        @doc value """is the key of the referenced node in IR.nodes. Null when this
+member is a nested scope."""
+    }
+    scope   Scope?  {
+        @doc value "is set when this member is a nested scope."
+    }
+
+    @doc value """is a tagged union representing a single child of a Scope. Exactly one
+of nodeKey or scope is set. The member's lookup key (used as the
+target of `=> name` transitions) is derived from the set variant via
+Member.key()."""
+}
+
+Members = Member[] {
+    @doc value "is an ordered collection of Scope members, one per position."
+}
+
+Scope struct {
+    key         string       {
+        @doc value "is the scope identifier."
+    }
+    mode        ScopeMode    {
+        @doc value "defines whether this scope runs steps in parallel or sequentially."
+    }
+    liveness    Liveness     {
+        @doc value "defines whether this scope is continuously active or must be activated."
+    }
+    activation  Handle?      {
+        @doc value "is the handle whose truthy value activates a gated scope. Unset for always-live scopes."
+    }
+    strata      Members[]    {
+        @doc value """contains stratified execution layers for parallel scopes. On
+sequential scopes, strata hold variable nodes that run every
+pass alongside the active step. Stratum N depends only on
+strata 0 to N-1."""
+    }
+    steps       Members      {
+        @doc value "contains ordered steps for sequential scopes. Empty for parallel scopes."
+    }
+    transitions Transition[] {
+        @doc value "contains state-transition rules for sequential scopes. Empty for parallel scopes."
+    }
+
+    @doc value """is the unified Layer 2 execution primitive. Parameterized by mode
+(parallel or sequential) and liveness (always-live or gated). Parallel
+scopes organize members into strata; sequential scopes run one step
+at a time and advance via transitions."""
+}
+
 Body = v0.Body
 
 Function struct {
@@ -36,3 +117,45 @@ Function struct {
 }
 
 Functions Function[]
+
+Node struct {
+    key      string         {
+        @doc value "is the unique identifier for this node instance."
+    }
+    type     string         {
+        @doc value "is the function type being instantiated."
+    }
+    inputs   types.Params   {
+        @doc value "contains input parameter type signatures."
+    }
+    outputs  types.Params   {
+        @doc value "contains output parameter type signatures."
+    }
+    channels types.Channels {
+        @doc value "contains channel read/write mappings."
+    }
+}
+
+Nodes Node[]
+
+Authorities = v0.Authorities
+
+IR struct {
+    functions   Functions   {
+        @doc value "contains function template definitions."
+    }
+    nodes       Nodes       {
+        @doc value "contains node instantiations."
+    }
+    edges       Edges       {
+        @doc value "contains dataflow connections."
+    }
+    authorities Authorities {
+        @doc value "contains the static authority declarations for this program."
+    }
+    root        Scope       {
+        @doc value """is the top-level execution context. The root is always a
+parallel, always-live Scope whose strata mix module-scope
+reactive flow with top-level gated scopes."""
+    }
+}

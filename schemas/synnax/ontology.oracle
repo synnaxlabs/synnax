@@ -84,12 +84,10 @@ Resource struct {
         @doc value "is the unique identifier for this resource."
     }
     name string {
-        @doc value  "is a human-readable name for the resource."
-        @go marshal omit
+        @doc value "is a human-readable name for the resource."
     }
     data record = {} {
-        @doc value  "is optional metadata associated with the resource."
-        @go marshal omit
+        @doc value "is optional metadata associated with the resource."
     }
 
     @doc value """

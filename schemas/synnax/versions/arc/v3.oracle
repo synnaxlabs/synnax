@@ -9,6 +9,7 @@
 
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/ir/v1"
+import "schemas/arc/versions/program/v0"
 import "schemas/arc/versions/text/v1"
 import "schemas/synnax/versions/status/v1"
 import "schemas/x/versions/crdt/v0"
@@ -31,22 +32,30 @@ Status = status.Status<StatusDetails> {
 }
 
 Arc struct {
-    key   Key = create {
+    key     Key = create {
         @doc value "is the unique identifier for this module."
         @key
     }
-    name  string      {
+    name    string           {
         @doc value "is a human-readable name for the module."
     }
-    mode  Mode        {
+    mode    Mode             {
         @doc value """specifies the representation mode for this module.
 Either "text" for text-based Arc code or "graph" for visual dataflow."""
     }
-    graph graph.Graph = {} {
+    graph   graph.Graph = {} {
         @doc value "is the visual dataflow graph representation of the module."
     }
-    text  text.Text = {} {
+    text    text.Text = {} {
         @doc value "is the text-based Arc source code."
+    }
+    program program.Program? {
+        @doc value  "is the compiled module output including IR and WebAssembly bytecode."
+        @go marshal omit
+    }
+    status  Status?          {
+        @doc value  "is the current execution status of the module."
+        @go marshal omit
     }
 
     action Create {

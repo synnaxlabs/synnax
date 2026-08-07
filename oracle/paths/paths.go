@@ -226,3 +226,18 @@ func VersionFile(path string) (resource string, version int, ok bool) {
 	}
 	return filepath.Base(dir), version, true
 }
+
+// LiveSchema reports whether path names a live resource schema — the
+// "schemas/<domain>/<resource>.oracle" shape whose history lives at
+// "schemas/<domain>/versions/<resource>/vN.oracle" — and returns its domain
+// and resource.
+func LiveSchema(path string) (domain, resource string, ok bool) {
+	if _, _, isVersion := VersionFile(path); isVersion {
+		return "", "", false
+	}
+	parts := strings.Split(filepath.ToSlash(strings.TrimSuffix(path, ".oracle")), "/")
+	if len(parts) != 3 || parts[0] != "schemas" {
+		return "", "", false
+	}
+	return parts[1], parts[2], true
+}

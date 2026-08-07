@@ -26,17 +26,12 @@ import (
 const chainLiveSource = `
 @go output "core/pkg/service/channel"
 
-Key = uuid {
-	@go version 1
-}
+Key = uuid
 
 Channel struct {
 	key Key @key
 	name string
 	virtual bool
-
-	@go version 1
-	@go marshal
 }
 `
 
@@ -56,6 +51,8 @@ Key = uuid
 Channel struct {
 	key Key @key
 	name string
+
+	@go marshal
 }
 `)
 		write("schemas/synnax/versions/channel/v1.oracle", `
@@ -65,6 +62,8 @@ Channel struct {
 	key Key @key
 	name string
 	virtual bool
+
+	@go marshal
 }
 `)
 		chains := MustSucceed(versions.Discover(root))
@@ -78,6 +77,7 @@ Channel struct {
 			analyzer.NewStandardFileLoader(root), table,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		Expect(resolver.Annotate(GinkgoT().Context(), table)).To(Succeed())
 		req = &plugin.Request{Resolutions: table, RepoRoot: root, Versions: resolver}
 	})
 
@@ -122,7 +122,6 @@ Channel struct {
 	key uuid @key
 
 	@go version 2
-	@go marshal
 }
 `,
 			"schemas/synnax/channel.oracle", "channel",

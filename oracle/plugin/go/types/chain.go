@@ -67,10 +67,6 @@ func chainPredecessors(
 		}
 		aliased := make(set.Set[string], len(f.Aliases))
 		for name := range f.Aliases {
-			live, ok := req.Resolutions.Get(resource + "." + name)
-			if ok && hasOmitField(live) {
-				continue
-			}
 			aliased.Add(resource + "." + name)
 		}
 		prev, _ := chain.Predecessor(version)

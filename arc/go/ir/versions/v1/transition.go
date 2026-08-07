@@ -7,3 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+package v1
+
+import "fmt"
+
+// String returns a concise description of the transition.
+func (t Transition) String() string {
+	target := "=> exit"
+	if t.TargetKey != nil {
+		target = "=> " + *t.TargetKey
+	}
+	return fmt.Sprintf("on %s/%s %s", t.On.Node, t.On.Param, target)
+}

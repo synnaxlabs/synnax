@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/label/v0"
 import "schemas/x/versions/color/v0"
 import "schemas/x/versions/telem/v0"
 
@@ -27,6 +28,16 @@ timestamps."""
     color      color.Color?    {
         @doc value """is an optional display color for visual identification of the range
 in user interfaces."""
+    }
+    labels     label.Label[]?  {
+        @doc value  """contains optional labels attached to this range for categorization
+and filtering."""
+        @go marshal omit
+    }
+    parent     Range?          {
+        @doc value  """is an optional parent range for hierarchical organization. Ranges
+can be nested within other ranges."""
+        @go marshal omit
     }
 
     @go migrate

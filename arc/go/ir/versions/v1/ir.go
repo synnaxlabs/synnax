@@ -47,7 +47,7 @@
 // Root is a Scope (the unified Layer 2 execution primitive) whose strata organize
 // module-scope reactive flow and whose nested Scope members capture top-level stages
 // and sequences.
-package ir
+package v1
 
 import (
 	"fmt"

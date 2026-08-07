@@ -37,6 +37,10 @@ Rack struct {
     embedded     bool = false {
         @doc value "is true if this rack is embedded within the Synnax server process."
     }
+    status       Status?  {
+        @doc value  "is the current operational status of the rack."
+        @go marshal omit
+    }
     integrations string[] = [] {
         @doc value """is the list of hardware integrations this rack supports (e.g., "ni", "opc",
 "labjack"). An empty or nil list means the rack supports no integrations."""
