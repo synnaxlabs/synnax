@@ -144,7 +144,9 @@ export const createList =
     const sortRef = useSyncedRef(sort ?? defaultSort);
     const client = Synnax.use();
     const dataRef = useRef<Map<Key, Data | null>>(new Map());
-    const listItemListeners = useInitializerRef<Map<() => void, Key>>(() => new Map());
+    const listItemListeners = useInitializerRef<Map<Key, Set<() => void>>>(
+      () => new Map(),
+    );
     const queryRef = useRef<Query | null>(
       initialQuery != null ? normalized(initialQuery) : null,
     );
@@ -155,10 +157,8 @@ export const createList =
 
     const notifyListeners = useCallback(
       (changed: Key) =>
-        listItemListeners.current.forEach((key, notify) => {
-          if (key === changed) notify();
-        }),
-      [listItemListeners.current],
+        listItemListeners.current.get(changed)?.forEach((notify) => notify()),
+      [],
     );
 
     const getInitialData = (): Key[] | undefined => {
@@ -420,8 +420,17 @@ export const createList =
 
     const subscribe = useCallback((callback: () => void, key?: Key) => {
       if (key == null) return () => {};
-      listItemListeners.current.set(callback, key);
-      return () => listItemListeners.current.delete(callback);
+      const listeners = listItemListeners.current;
+      let callbacks = listeners.get(key);
+      if (callbacks == null) {
+        callbacks = new Set();
+        listeners.set(key, callbacks);
+      }
+      callbacks.add(callback);
+      return () => {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) listeners.delete(key);
+      };
     }, []);
 
     const retrieveSync = useDebouncedCallback(
