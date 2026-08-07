@@ -231,6 +231,26 @@ var _ = Describe("Migrations", func() {
 				Type:   "labjack_scan",
 				Config: msgpack.EncodedJSON{},
 			}
+			retiredTasks := []v1.Task{
+				{
+					Key:    v1.Key(uint64(testRack.Key)<<32 | 6),
+					Name:   "Stored Sequence Task",
+					Type:   "sequence",
+					Config: msgpack.EncodedJSON{"script": "return 1"},
+				},
+				{
+					Key:    v1.Key(uint64(testRack.Key)<<32 | 7),
+					Name:   "Stored Heartbeat Task",
+					Type:   "heartbeat",
+					Config: msgpack.EncodedJSON{},
+				},
+				{
+					Key:    v1.Key(uint64(testRack.Key)<<32 | 8),
+					Name:   "Stored OPC Scanner Task",
+					Type:   "opcScanner",
+					Config: msgpack.EncodedJSON{},
+				},
+			}
 			ljTask := v1.Task{
 				Key:  v1.Key(uint64(testRack.Key)<<32 | 4),
 				Name: "Stored LabJack Write Task",
@@ -252,6 +272,9 @@ var _ = Describe("Migrations", func() {
 			}
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
 				Entries(&[]v1.Task{pdTask, arcTask, bogusTask, ljTask, ljScanTask}).
+				Exec(ctx, seedDB)).To(Succeed())
+			Expect(gorp.NewCreate[v1.Key, v1.Task]().
+				Entries(&retiredTasks).
 				Exec(ctx, seedDB)).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
@@ -362,6 +385,22 @@ var _ = Describe("Migrations", func() {
 			)
 			Expect(string(staged)).To(ContainSubstring("Bogus Task"))
 			Expect(closer.Close()).To(Succeed())
+
+			for _, retired := range retiredTasks {
+				Expect(svc.NewRetrieve().
+					Where(task.MatchNames(retired.Name)).
+					Exists(ctx, nil)).To(BeFalse())
+				rekeyed, rekeyCloser := MustSucceed2(
+					db.Get(ctx, v2.LegacyKeyKVKey(retired.Key)),
+				)
+				retiredKey := MustSucceed(uuid.Parse(string(rekeyed)))
+				Expect(rekeyCloser.Close()).To(Succeed())
+				blob, blobCloser := MustSucceed2(
+					db.Get(ctx, v3.QuarantineKVKey(retiredKey)),
+				)
+				Expect(string(blob)).To(ContainSubstring(retired.Name))
+				Expect(blobCloser.Close()).To(Succeed())
+			}
 		},
 	)
 })

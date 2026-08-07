@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
@@ -52,6 +53,11 @@ var typeRenames = map[string]string{
 	"arc":         "arc_task",
 	"Rack Status": "rack_status",
 }
+
+// retiredTypes are task types released builds created that have no successor: the Lua
+// sequence task and the pre-cutover heartbeat and OPC scanner tasks. Their rows are
+// staged and removed rather than treated as unconvertible.
+var retiredTypes = set.New("sequence", "heartbeat", "opcScanner")
 
 // hashConfig is a frozen copy of the config hash as of this version: xxhash64 of the
 // JSON encoding as 16 lowercase hex characters.
@@ -108,6 +114,12 @@ func migrateConfigsToRecords(
 	rows := gorp.WrapWriter[v2.Key, v2.Task](tx)
 	otgW := cfg.Ontology.NewWriter(tx)
 	for _, t := range tasks {
+		if retiredTypes.Contains(t.Type) {
+			if err := retire(ctx, tx, ins, otgW, t); err != nil {
+				return err
+			}
+			continue
+		}
 		newType := t.Type
 		if renamed, ok := typeRenames[t.Type]; ok {
 			newType = renamed
@@ -167,15 +179,13 @@ func migrateConfigsToRecords(
 	return nil
 }
 
-// quarantine stages the JSON encoding of the legacy row in KV, removes the row, its
-// status, and its ontology presence, and logs the removal once.
-func quarantine(
+// stageAndRemove stages the JSON encoding of the legacy row in KV and removes the
+// row, its status, and its ontology presence.
+func stageAndRemove(
 	ctx context.Context,
 	tx gorp.Tx,
-	ins alamos.Instrumentation,
 	otgW ontology.Writer,
 	t v2.Task,
-	reason string,
 ) error {
 	b, err := json.Marshal(t)
 	if err != nil {
@@ -193,7 +203,20 @@ func quarantine(
 		Delete(ctx, statusKey); err != nil {
 		return err
 	}
-	if err := otgW.DeleteResources(ctx, taskID); err != nil {
+	return otgW.DeleteResources(ctx, taskID)
+}
+
+// quarantine stages and removes a row whose config cannot be converted, logging a
+// warning once.
+func quarantine(
+	ctx context.Context,
+	tx gorp.Tx,
+	ins alamos.Instrumentation,
+	otgW ontology.Writer,
+	t v2.Task,
+	reason string,
+) error {
+	if err := stageAndRemove(ctx, tx, otgW, t); err != nil {
 		return err
 	}
 	ins.L.Warn(
@@ -202,6 +225,26 @@ func quarantine(
 		zap.String("name", t.Name),
 		zap.String("type", t.Type),
 		zap.String("reason", reason),
+	)
+	return nil
+}
+
+// retire stages and removes a row of a retired task type, logging the removal once.
+func retire(
+	ctx context.Context,
+	tx gorp.Tx,
+	ins alamos.Instrumentation,
+	otgW ontology.Writer,
+	t v2.Task,
+) error {
+	if err := stageAndRemove(ctx, tx, otgW, t); err != nil {
+		return err
+	}
+	ins.L.Info(
+		"removed task of retired type",
+		zap.String("key", t.Key.String()),
+		zap.String("name", t.Name),
+		zap.String("type", t.Type),
 	)
 	return nil
 }
