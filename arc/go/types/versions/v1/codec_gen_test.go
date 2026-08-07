@@ -44,14 +44,14 @@ var _ = Describe("Codec", func() {
 									{
 										Name:  "test_5",
 										Type:  v1.Type{},
-										Value: map[string]interface{}{"key_7": "value_7"},
+										Value: any(map[string]any{"key_7": "value_7"}),
 									},
 								},
 								Outputs: []v1.Param{
 									{
 										Name:  "test_9",
 										Type:  v1.Type{},
-										Value: map[string]interface{}{"key_11": "value_11"},
+										Value: any(map[string]any{"key_11": "value_11"}),
 									},
 								},
 							},
@@ -88,7 +88,7 @@ var _ = Describe("Codec", func() {
 							}),
 							ChanDirection: v1.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_37": "value_37"},
+						Value: any(map[string]any{"key_37": "value_37"}),
 					},
 				},
 				Outputs: []v1.Param{
@@ -100,14 +100,14 @@ var _ = Describe("Codec", func() {
 									{
 										Name:  "test_42",
 										Type:  v1.Type{},
-										Value: map[string]interface{}{"key_44": "value_44"},
+										Value: any(map[string]any{"key_44": "value_44"}),
 									},
 								},
 								Outputs: []v1.Param{
 									{
 										Name:  "test_46",
 										Type:  v1.Type{},
-										Value: map[string]interface{}{"key_48": "value_48"},
+										Value: any(map[string]any{"key_48": "value_48"}),
 									},
 								},
 							},
@@ -144,7 +144,7 @@ var _ = Describe("Codec", func() {
 							}),
 							ChanDirection: v1.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_74": "value_74"},
+						Value: any(map[string]any{"key_74": "value_74"}),
 					},
 				},
 			}),
@@ -182,7 +182,7 @@ var _ = Describe("Codec", func() {
 									Constraint:    new(v1.Type{}),
 									ChanDirection: v1.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_14": "value_14"},
+								Value: any(map[string]any{"key_14": "value_14"}),
 							},
 						},
 						Outputs: []v1.Param{
@@ -200,7 +200,7 @@ var _ = Describe("Codec", func() {
 									Constraint:    new(v1.Type{}),
 									ChanDirection: v1.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_26": "value_26"},
+								Value: any(map[string]any{"key_26": "value_26"}),
 							},
 						},
 					},
@@ -212,14 +212,14 @@ var _ = Describe("Codec", func() {
 								{
 									Name:  "test_31",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_33": "value_33"},
+									Value: any(map[string]any{"key_33": "value_33"}),
 								},
 							},
 							Outputs: []v1.Param{
 								{
 									Name:  "test_35",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_37": "value_37"},
+									Value: any(map[string]any{"key_37": "value_37"}),
 								},
 							},
 						},
@@ -276,14 +276,14 @@ var _ = Describe("Codec", func() {
 								{
 									Name:  "test_77",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_79": "value_79"},
+									Value: any(map[string]any{"key_79": "value_79"}),
 								},
 							},
 							Outputs: []v1.Param{
 								{
 									Name:  "test_81",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_83": "value_83"},
+									Value: any(map[string]any{"key_83": "value_83"}),
 								},
 							},
 						},
@@ -322,7 +322,7 @@ var _ = Describe("Codec", func() {
 					}),
 					ChanDirection: v1.ChanDirection(0),
 				},
-				Value: map[string]interface{}{"key_110": "value_110"},
+				Value: any(map[string]any{"key_110": "value_110"}),
 			}),
 			Entry("zero values", v1.Param{
 				Name: "",
@@ -361,14 +361,14 @@ var _ = Describe("Codec", func() {
 										{
 											Name:  "test_5",
 											Type:  v1.Type{},
-											Value: map[string]interface{}{"key_7": "value_7"},
+											Value: any(map[string]any{"key_7": "value_7"}),
 										},
 									},
 									Outputs: []v1.Param{
 										{
 											Name:  "test_9",
 											Type:  v1.Type{},
-											Value: map[string]interface{}{"key_11": "value_11"},
+											Value: any(map[string]any{"key_11": "value_11"}),
 										},
 									},
 								},
@@ -405,7 +405,7 @@ var _ = Describe("Codec", func() {
 								}),
 								ChanDirection: v1.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_37": "value_37"},
+							Value: any(map[string]any{"key_37": "value_37"}),
 						},
 					},
 					Outputs: []v1.Param{
@@ -417,14 +417,14 @@ var _ = Describe("Codec", func() {
 										{
 											Name:  "test_42",
 											Type:  v1.Type{},
-											Value: map[string]interface{}{"key_44": "value_44"},
+											Value: any(map[string]any{"key_44": "value_44"}),
 										},
 									},
 									Outputs: []v1.Param{
 										{
 											Name:  "test_46",
 											Type:  v1.Type{},
-											Value: map[string]interface{}{"key_48": "value_48"},
+											Value: any(map[string]any{"key_48": "value_48"}),
 										},
 									},
 								},
@@ -461,7 +461,7 @@ var _ = Describe("Codec", func() {
 								}),
 								ChanDirection: v1.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_74": "value_74"},
+							Value: any(map[string]any{"key_74": "value_74"}),
 						},
 					},
 				},
@@ -484,7 +484,7 @@ var _ = Describe("Codec", func() {
 									Constraint:    new(v1.Type{}),
 									ChanDirection: v1.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_89": "value_89"},
+								Value: any(map[string]any{"key_89": "value_89"}),
 							},
 						},
 						Outputs: []v1.Param{
@@ -502,7 +502,7 @@ var _ = Describe("Codec", func() {
 									Constraint:    new(v1.Type{}),
 									ChanDirection: v1.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_101": "value_101"},
+								Value: any(map[string]any{"key_101": "value_101"}),
 							},
 						},
 					},
@@ -514,14 +514,14 @@ var _ = Describe("Codec", func() {
 								{
 									Name:  "test_106",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_108": "value_108"},
+									Value: any(map[string]any{"key_108": "value_108"}),
 								},
 							},
 							Outputs: []v1.Param{
 								{
 									Name:  "test_110",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_112": "value_112"},
+									Value: any(map[string]any{"key_112": "value_112"}),
 								},
 							},
 						},
@@ -578,14 +578,14 @@ var _ = Describe("Codec", func() {
 								{
 									Name:  "test_152",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_154": "value_154"},
+									Value: any(map[string]any{"key_154": "value_154"}),
 								},
 							},
 							Outputs: []v1.Param{
 								{
 									Name:  "test_156",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_158": "value_158"},
+									Value: any(map[string]any{"key_158": "value_158"}),
 								},
 							},
 						},
@@ -655,7 +655,7 @@ var _ = Describe("Codec", func() {
 									Constraint:    new(v1.Type{}),
 									ChanDirection: v1.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_209": "value_209"},
+								Value: any(map[string]any{"key_209": "value_209"}),
 							},
 						},
 						Outputs: []v1.Param{
@@ -673,7 +673,7 @@ var _ = Describe("Codec", func() {
 									Constraint:    new(v1.Type{}),
 									ChanDirection: v1.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_221": "value_221"},
+								Value: any(map[string]any{"key_221": "value_221"}),
 							},
 						},
 					},
@@ -685,14 +685,14 @@ var _ = Describe("Codec", func() {
 								{
 									Name:  "test_226",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_228": "value_228"},
+									Value: any(map[string]any{"key_228": "value_228"}),
 								},
 							},
 							Outputs: []v1.Param{
 								{
 									Name:  "test_230",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_232": "value_232"},
+									Value: any(map[string]any{"key_232": "value_232"}),
 								},
 							},
 						},
@@ -749,14 +749,14 @@ var _ = Describe("Codec", func() {
 								{
 									Name:  "test_272",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_274": "value_274"},
+									Value: any(map[string]any{"key_274": "value_274"}),
 								},
 							},
 							Outputs: []v1.Param{
 								{
 									Name:  "test_276",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_278": "value_278"},
+									Value: any(map[string]any{"key_278": "value_278"}),
 								},
 							},
 						},
@@ -997,14 +997,14 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 							{
 								Name:  "test_5",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_7": "value_7"},
+								Value: any(map[string]any{"key_7": "value_7"}),
 							},
 						},
 						Outputs: []v1.Param{
 							{
 								Name:  "test_9",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_11": "value_11"},
+								Value: any(map[string]any{"key_11": "value_11"}),
 							},
 						},
 					},
@@ -1041,7 +1041,7 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 					}),
 					ChanDirection: v1.ChanDirection(0),
 				},
-				Value: map[string]interface{}{"key_37": "value_37"},
+				Value: any(map[string]any{"key_37": "value_37"}),
 			},
 		},
 		Outputs: []v1.Param{
@@ -1053,14 +1053,14 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 							{
 								Name:  "test_42",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_44": "value_44"},
+								Value: any(map[string]any{"key_44": "value_44"}),
 							},
 						},
 						Outputs: []v1.Param{
 							{
 								Name:  "test_46",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_48": "value_48"},
+								Value: any(map[string]any{"key_48": "value_48"}),
 							},
 						},
 					},
@@ -1097,7 +1097,7 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 					}),
 					ChanDirection: v1.ChanDirection(0),
 				},
-				Value: map[string]interface{}{"key_74": "value_74"},
+				Value: any(map[string]any{"key_74": "value_74"}),
 			},
 		},
 	}
@@ -1136,7 +1136,7 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 							Constraint:    new(v1.Type{}),
 							ChanDirection: v1.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_14": "value_14"},
+						Value: any(map[string]any{"key_14": "value_14"}),
 					},
 				},
 				Outputs: []v1.Param{
@@ -1154,7 +1154,7 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 							Constraint:    new(v1.Type{}),
 							ChanDirection: v1.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_26": "value_26"},
+						Value: any(map[string]any{"key_26": "value_26"}),
 					},
 				},
 			},
@@ -1166,14 +1166,14 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 						{
 							Name:  "test_31",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_33": "value_33"},
+							Value: any(map[string]any{"key_33": "value_33"}),
 						},
 					},
 					Outputs: []v1.Param{
 						{
 							Name:  "test_35",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_37": "value_37"},
+							Value: any(map[string]any{"key_37": "value_37"}),
 						},
 					},
 				},
@@ -1230,14 +1230,14 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 						{
 							Name:  "test_77",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_79": "value_79"},
+							Value: any(map[string]any{"key_79": "value_79"}),
 						},
 					},
 					Outputs: []v1.Param{
 						{
 							Name:  "test_81",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_83": "value_83"},
+							Value: any(map[string]any{"key_83": "value_83"}),
 						},
 					},
 				},
@@ -1276,7 +1276,7 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 			}),
 			ChanDirection: v1.ChanDirection(0),
 		},
-		Value: map[string]interface{}{"key_110": "value_110"},
+		Value: any(map[string]any{"key_110": "value_110"}),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1305,14 +1305,14 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 								{
 									Name:  "test_5",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_7": "value_7"},
+									Value: any(map[string]any{"key_7": "value_7"}),
 								},
 							},
 							Outputs: []v1.Param{
 								{
 									Name:  "test_9",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_11": "value_11"},
+									Value: any(map[string]any{"key_11": "value_11"}),
 								},
 							},
 						},
@@ -1349,7 +1349,7 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 						}),
 						ChanDirection: v1.ChanDirection(0),
 					},
-					Value: map[string]interface{}{"key_37": "value_37"},
+					Value: any(map[string]any{"key_37": "value_37"}),
 				},
 			},
 			Outputs: []v1.Param{
@@ -1361,14 +1361,14 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 								{
 									Name:  "test_42",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_44": "value_44"},
+									Value: any(map[string]any{"key_44": "value_44"}),
 								},
 							},
 							Outputs: []v1.Param{
 								{
 									Name:  "test_46",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_48": "value_48"},
+									Value: any(map[string]any{"key_48": "value_48"}),
 								},
 							},
 						},
@@ -1405,7 +1405,7 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 						}),
 						ChanDirection: v1.ChanDirection(0),
 					},
-					Value: map[string]interface{}{"key_74": "value_74"},
+					Value: any(map[string]any{"key_74": "value_74"}),
 				},
 			},
 		},
@@ -1428,7 +1428,7 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 							Constraint:    new(v1.Type{}),
 							ChanDirection: v1.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_89": "value_89"},
+						Value: any(map[string]any{"key_89": "value_89"}),
 					},
 				},
 				Outputs: []v1.Param{
@@ -1446,7 +1446,7 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 							Constraint:    new(v1.Type{}),
 							ChanDirection: v1.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_101": "value_101"},
+						Value: any(map[string]any{"key_101": "value_101"}),
 					},
 				},
 			},
@@ -1458,14 +1458,14 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 						{
 							Name:  "test_106",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_108": "value_108"},
+							Value: any(map[string]any{"key_108": "value_108"}),
 						},
 					},
 					Outputs: []v1.Param{
 						{
 							Name:  "test_110",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_112": "value_112"},
+							Value: any(map[string]any{"key_112": "value_112"}),
 						},
 					},
 				},
@@ -1522,14 +1522,14 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 						{
 							Name:  "test_152",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_154": "value_154"},
+							Value: any(map[string]any{"key_154": "value_154"}),
 						},
 					},
 					Outputs: []v1.Param{
 						{
 							Name:  "test_156",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_158": "value_158"},
+							Value: any(map[string]any{"key_158": "value_158"}),
 						},
 					},
 				},
@@ -1599,7 +1599,7 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 							Constraint:    new(v1.Type{}),
 							ChanDirection: v1.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_209": "value_209"},
+						Value: any(map[string]any{"key_209": "value_209"}),
 					},
 				},
 				Outputs: []v1.Param{
@@ -1617,7 +1617,7 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 							Constraint:    new(v1.Type{}),
 							ChanDirection: v1.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_221": "value_221"},
+						Value: any(map[string]any{"key_221": "value_221"}),
 					},
 				},
 			},
@@ -1629,14 +1629,14 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 						{
 							Name:  "test_226",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_228": "value_228"},
+							Value: any(map[string]any{"key_228": "value_228"}),
 						},
 					},
 					Outputs: []v1.Param{
 						{
 							Name:  "test_230",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_232": "value_232"},
+							Value: any(map[string]any{"key_232": "value_232"}),
 						},
 					},
 				},
@@ -1693,14 +1693,14 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 						{
 							Name:  "test_272",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_274": "value_274"},
+							Value: any(map[string]any{"key_274": "value_274"}),
 						},
 					},
 					Outputs: []v1.Param{
 						{
 							Name:  "test_276",
 							Type:  v1.Type{},
-							Value: map[string]interface{}{"key_278": "value_278"},
+							Value: any(map[string]any{"key_278": "value_278"}),
 						},
 					},
 				},
@@ -1768,14 +1768,14 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 								{
 									Name:  "test_5",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_7": "value_7"},
+									Value: any(map[string]any{"key_7": "value_7"}),
 								},
 							},
 							Outputs: []v1.Param{
 								{
 									Name:  "test_9",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_11": "value_11"},
+									Value: any(map[string]any{"key_11": "value_11"}),
 								},
 							},
 						},
@@ -1812,7 +1812,7 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 						}),
 						ChanDirection: v1.ChanDirection(0),
 					},
-					Value: map[string]interface{}{"key_37": "value_37"},
+					Value: any(map[string]any{"key_37": "value_37"}),
 				},
 			},
 			Outputs: []v1.Param{
@@ -1824,14 +1824,14 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 								{
 									Name:  "test_42",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_44": "value_44"},
+									Value: any(map[string]any{"key_44": "value_44"}),
 								},
 							},
 							Outputs: []v1.Param{
 								{
 									Name:  "test_46",
 									Type:  v1.Type{},
-									Value: map[string]interface{}{"key_48": "value_48"},
+									Value: any(map[string]any{"key_48": "value_48"}),
 								},
 							},
 						},
@@ -1868,7 +1868,7 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 						}),
 						ChanDirection: v1.ChanDirection(0),
 					},
-					Value: map[string]interface{}{"key_74": "value_74"},
+					Value: any(map[string]any{"key_74": "value_74"}),
 				},
 			},
 		}
@@ -1937,7 +1937,7 @@ func FuzzDecodeParam(f *testing.F) {
 								Constraint:    new(v1.Type{}),
 								ChanDirection: v1.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_14": "value_14"},
+							Value: any(map[string]any{"key_14": "value_14"}),
 						},
 					},
 					Outputs: []v1.Param{
@@ -1955,7 +1955,7 @@ func FuzzDecodeParam(f *testing.F) {
 								Constraint:    new(v1.Type{}),
 								ChanDirection: v1.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_26": "value_26"},
+							Value: any(map[string]any{"key_26": "value_26"}),
 						},
 					},
 				},
@@ -1967,14 +1967,14 @@ func FuzzDecodeParam(f *testing.F) {
 							{
 								Name:  "test_31",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_33": "value_33"},
+								Value: any(map[string]any{"key_33": "value_33"}),
 							},
 						},
 						Outputs: []v1.Param{
 							{
 								Name:  "test_35",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_37": "value_37"},
+								Value: any(map[string]any{"key_37": "value_37"}),
 							},
 						},
 					},
@@ -2031,14 +2031,14 @@ func FuzzDecodeParam(f *testing.F) {
 							{
 								Name:  "test_77",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_79": "value_79"},
+								Value: any(map[string]any{"key_79": "value_79"}),
 							},
 						},
 						Outputs: []v1.Param{
 							{
 								Name:  "test_81",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_83": "value_83"},
+								Value: any(map[string]any{"key_83": "value_83"}),
 							},
 						},
 					},
@@ -2077,7 +2077,7 @@ func FuzzDecodeParam(f *testing.F) {
 				}),
 				ChanDirection: v1.ChanDirection(0),
 			},
-			Value: map[string]interface{}{"key_110": "value_110"},
+			Value: any(map[string]any{"key_110": "value_110"}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2140,14 +2140,14 @@ func FuzzDecodeType(f *testing.F) {
 									{
 										Name:  "test_5",
 										Type:  v1.Type{},
-										Value: map[string]interface{}{"key_7": "value_7"},
+										Value: any(map[string]any{"key_7": "value_7"}),
 									},
 								},
 								Outputs: []v1.Param{
 									{
 										Name:  "test_9",
 										Type:  v1.Type{},
-										Value: map[string]interface{}{"key_11": "value_11"},
+										Value: any(map[string]any{"key_11": "value_11"}),
 									},
 								},
 							},
@@ -2184,7 +2184,7 @@ func FuzzDecodeType(f *testing.F) {
 							}),
 							ChanDirection: v1.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_37": "value_37"},
+						Value: any(map[string]any{"key_37": "value_37"}),
 					},
 				},
 				Outputs: []v1.Param{
@@ -2196,14 +2196,14 @@ func FuzzDecodeType(f *testing.F) {
 									{
 										Name:  "test_42",
 										Type:  v1.Type{},
-										Value: map[string]interface{}{"key_44": "value_44"},
+										Value: any(map[string]any{"key_44": "value_44"}),
 									},
 								},
 								Outputs: []v1.Param{
 									{
 										Name:  "test_46",
 										Type:  v1.Type{},
-										Value: map[string]interface{}{"key_48": "value_48"},
+										Value: any(map[string]any{"key_48": "value_48"}),
 									},
 								},
 							},
@@ -2240,7 +2240,7 @@ func FuzzDecodeType(f *testing.F) {
 							}),
 							ChanDirection: v1.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_74": "value_74"},
+						Value: any(map[string]any{"key_74": "value_74"}),
 					},
 				},
 			},
@@ -2263,7 +2263,7 @@ func FuzzDecodeType(f *testing.F) {
 								Constraint:    new(v1.Type{}),
 								ChanDirection: v1.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_89": "value_89"},
+							Value: any(map[string]any{"key_89": "value_89"}),
 						},
 					},
 					Outputs: []v1.Param{
@@ -2281,7 +2281,7 @@ func FuzzDecodeType(f *testing.F) {
 								Constraint:    new(v1.Type{}),
 								ChanDirection: v1.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_101": "value_101"},
+							Value: any(map[string]any{"key_101": "value_101"}),
 						},
 					},
 				},
@@ -2293,14 +2293,14 @@ func FuzzDecodeType(f *testing.F) {
 							{
 								Name:  "test_106",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_108": "value_108"},
+								Value: any(map[string]any{"key_108": "value_108"}),
 							},
 						},
 						Outputs: []v1.Param{
 							{
 								Name:  "test_110",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_112": "value_112"},
+								Value: any(map[string]any{"key_112": "value_112"}),
 							},
 						},
 					},
@@ -2357,14 +2357,14 @@ func FuzzDecodeType(f *testing.F) {
 							{
 								Name:  "test_152",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_154": "value_154"},
+								Value: any(map[string]any{"key_154": "value_154"}),
 							},
 						},
 						Outputs: []v1.Param{
 							{
 								Name:  "test_156",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_158": "value_158"},
+								Value: any(map[string]any{"key_158": "value_158"}),
 							},
 						},
 					},
@@ -2434,7 +2434,7 @@ func FuzzDecodeType(f *testing.F) {
 								Constraint:    new(v1.Type{}),
 								ChanDirection: v1.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_209": "value_209"},
+							Value: any(map[string]any{"key_209": "value_209"}),
 						},
 					},
 					Outputs: []v1.Param{
@@ -2452,7 +2452,7 @@ func FuzzDecodeType(f *testing.F) {
 								Constraint:    new(v1.Type{}),
 								ChanDirection: v1.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_221": "value_221"},
+							Value: any(map[string]any{"key_221": "value_221"}),
 						},
 					},
 				},
@@ -2464,14 +2464,14 @@ func FuzzDecodeType(f *testing.F) {
 							{
 								Name:  "test_226",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_228": "value_228"},
+								Value: any(map[string]any{"key_228": "value_228"}),
 							},
 						},
 						Outputs: []v1.Param{
 							{
 								Name:  "test_230",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_232": "value_232"},
+								Value: any(map[string]any{"key_232": "value_232"}),
 							},
 						},
 					},
@@ -2528,14 +2528,14 @@ func FuzzDecodeType(f *testing.F) {
 							{
 								Name:  "test_272",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_274": "value_274"},
+								Value: any(map[string]any{"key_274": "value_274"}),
 							},
 						},
 						Outputs: []v1.Param{
 							{
 								Name:  "test_276",
 								Type:  v1.Type{},
-								Value: map[string]interface{}{"key_278": "value_278"},
+								Value: any(map[string]any{"key_278": "value_278"}),
 							},
 						},
 					},
