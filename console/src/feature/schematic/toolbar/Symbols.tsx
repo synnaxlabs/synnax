@@ -22,6 +22,7 @@ import {
   Schematic,
   Select,
   Status,
+  Tabs,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
@@ -281,28 +282,21 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
   );
 };
 
-const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null => {
-  const { itemKey } = props;
+interface GroupTabProps {
+  itemKey: group.Key;
+}
+
+const GroupTab = ({ itemKey }: GroupTabProps): ReactElement | null => {
   const group = List.useItem<group.Key, group.Group & { Icon?: Icon.FC }>(itemKey);
-  const { selected, onSelect } = Select.useItemState(itemKey);
   if (group == null) return null;
   const { Icon: GroupIcon } = group;
   return (
-    <Button.Toggle
-      id={itemKey.toString()}
-      size="small"
-      value={selected}
-      onChange={onSelect}
-      className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
-      textColor={selected ? undefined : 9}
-    >
+    <Tabs.Tab itemKey={itemKey}>
       {GroupIcon != null && <GroupIcon />}
       {group.name}
-    </Button.Toggle>
+    </Tabs.Tab>
   );
 };
-
-const groupListItem = Component.renderProp(GroupListItem);
 
 const CreateGroupIcon = Icon.createComposite(Icon.Group, {
   bottomRight: Icon.Add,
@@ -486,22 +480,31 @@ const GroupList = ({
     () => remoteData.retrieve({ parent: symbolGroupID }),
     [remoteData.retrieve, symbolGroupID],
   );
-  const data = List.useCombinedData<group.Key, group.Group>({
+  const listProps = List.useCombinedData<group.Key, group.Group>({
     first: staticData,
     second: remoteData,
   });
   const menuProps = Menu.useContextMenu();
   return (
     <Select.Frame<group.Key, group.Group>
-      {...data}
+      {...listProps}
       value={value}
       onChange={onChange}
       autoSelectOnNone
     >
       <Menu.ContextMenu {...menuProps} menu={groupListContextMenu}>
-        <List.Items onContextMenu={menuProps.open} x gap="small">
-          {groupListItem}
-        </List.Items>
+        <Tabs.Frame x align="center" grow>
+          <Tabs.Selector
+            size="small"
+            sizing="content"
+            overflow="fade"
+            onContextMenu={menuProps.open}
+          >
+            {listProps.data.map((key) => (
+              <GroupTab key={key} itemKey={key} />
+            ))}
+          </Tabs.Selector>
+        </Tabs.Frame>
       </Menu.ContextMenu>
     </Select.Frame>
   );

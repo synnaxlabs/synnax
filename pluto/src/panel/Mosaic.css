@@ -99,7 +99,7 @@
        the strip scrolls; the selected tab holds its full content and never pads
        past it. */
     --pluto-tabs-selected-min-width: min-content;
-    --pluto-tabs-tab-min-width: 6rem;
+    --pluto-tabs-tab-min-width: 11rem;
 }
 
 .pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__selector--default.pluto--direction-x {
