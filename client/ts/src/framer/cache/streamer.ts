@@ -43,7 +43,11 @@ export interface StreamOpener {
   (config: StreamerConfig, hooks: StreamHooks): Promise<Base>;
 }
 
-/** Receives buffers allocated for the handler's subscribed channels. */
+/**
+ * Receives every channel that changed on the shared stream, which may include
+ * keys the handler did not subscribe to. Handlers look up the keys they care
+ * about; per-handler filtered maps would allocate on the hot path.
+ */
 export type StreamHandler = (data: Map<channel.Key, MultiSeries>) => void;
 
 /** Receives per-key data-plane status transitions for subscribed channels. */
