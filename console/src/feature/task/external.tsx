@@ -21,7 +21,6 @@ import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
 import { TAB } from "@/feature/task/tab";
 import { getIcon, parseType } from "@/feature/task/types";
 import { type Command } from "@/platform/command";
-import { type Import } from "@/platform/import";
 import { type Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
 import { type Task } from "@/platform/task";
@@ -47,16 +46,6 @@ export const COMMANDS: Command.Command[] = [
   ...OPC.Task.COMMANDS,
   ...PagerDuty.Task.COMMANDS,
 ];
-
-export const FILE_INGESTERS: Import.FileIngesters = {
-  ...EtherCAT.Task.FILE_INGESTERS,
-  ...HTTP.Task.FILE_INGESTERS,
-  ...LabJack.Task.FILE_INGESTERS,
-  ...Modbus.Task.FILE_INGESTERS,
-  ...NI.Task.FILE_INGESTERS,
-  ...OPC.Task.FILE_INGESTERS,
-  ...PagerDuty.Task.FILE_INGESTERS,
-};
 
 export const TABS: Panel.Tabs = {
   [SELECTOR_TAB_TYPE]: Selector,

@@ -128,7 +128,6 @@ describe("project import", () => {
     await act(async () => {
       await Project.ingest(`proj-${id.create()}`, fileList, {
         client,
-        fileIngesters: {},
         openTab: result.current.openTab,
         store,
       });

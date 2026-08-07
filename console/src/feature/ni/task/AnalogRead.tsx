@@ -224,10 +224,6 @@ export const useCreateAnalogRead = Task.createUseCreate({
   getInitialValues,
 });
 
-export const analogReadIngester = Task.createIngester({
-  getInitialValues,
-});
-
 export const AnalogReadSelectable = Selector.createSelectable({
   type: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",

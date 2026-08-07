@@ -270,10 +270,6 @@ export const useCreateRead = Task.createUseCreate({
   getInitialValues,
 });
 
-export const readIngester = Task.createIngester({
-  getInitialValues,
-});
-
 export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
   title: "OPC UA Read Task",

@@ -40,7 +40,6 @@ export const createDataTransferItemContext = async (
   overrides: Partial<DataTransferItemContext> = {},
 ): Promise<DataTransferItemContext> => ({
   client: null,
-  fileIngesters: {},
   ingestDirectory: vi.fn(),
   openTab: vi.fn<Panel.OpenTab>(),
   store: await createTestStore({

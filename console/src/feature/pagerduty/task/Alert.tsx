@@ -317,10 +317,6 @@ export const useCreateAlert = Task.createUseCreate({
   getInitialValues,
 });
 
-export const alertIngester = Task.createIngester({
-  getInitialValues,
-});
-
 export const AlertSelectable = Selector.createSelectable({
   type: ALERT_TYPE,
   title: "PagerDuty Alert",

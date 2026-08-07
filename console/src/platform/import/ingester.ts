@@ -38,11 +38,8 @@ export interface FileIngester {
   ): void | ontology.ID | Promise<void | ontology.ID>;
 }
 
-export interface FileIngesters extends Record<string, FileIngester> {}
-
 interface DirectoryIngesterContext {
   client: Synnax | null;
-  fileIngesters: FileIngesters;
   openTab: Panel.OpenTab;
   store: Store;
 }

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Import } from "@/platform/import";
@@ -14,6 +16,9 @@ import {
   createDataTransferItemContext,
   fakeDataTransferItem,
 } from "@/platform/import/testutil";
+import { type Panel } from "@/platform/panel";
+import { Session } from "@/session";
+import { uniqueName } from "@/testutil";
 
 const jsonFile = (text: string, name: string): File =>
   new File([text], name, { type: "application/json" });
@@ -33,15 +38,27 @@ describe("dataTransferItem", () => {
     ).rejects.toThrow("path is null");
   });
 
-  it("ingests a single JSON file, forwarding the parsed data by type", async () => {
-    const log = vi.fn();
-    const file = jsonFile('{"type":"log","key":"abc"}', "widget.json");
-    await Import.dataTransferItem(
-      fileItem(file),
-      await createDataTransferItemContext({ fileIngesters: { log } }),
-    );
-    expect(log).toHaveBeenCalledTimes(1);
-    expect(log.mock.calls[0][0]).toEqual({ type: "log", key: "abc" });
+  it("streams a single JSON file to the Core", async () => {
+    const client = createTestClient();
+    const proj = await client.projects.create({
+      name: uniqueName("project"),
+      layout: {},
+    });
+    const original = await client.logs.create(proj.key, { name: uniqueName("log") });
+    const stream = await client.imex.export(log.ontologyID(original.key), {
+      encoding: "JSON",
+    });
+    const data = await new Response(stream).text();
+    const openTab = vi.fn<Panel.OpenTab>();
+    const ctx = await createDataTransferItemContext({ client, openTab });
+    ctx.store.dispatch(Session.Project.select(proj.key));
+    await Import.dataTransferItem(fileItem(jsonFile(data, "widget.json")), ctx);
+    expect(openTab).toHaveBeenCalledTimes(1);
+    const [tab] = openTab.mock.calls[0];
+    if (tab.variant !== "resource" || typeof tab.resource === "string")
+      throw new Error("expected a resource tab");
+    const created = await client.logs.retrieve({ key: tab.resource.key });
+    expect(created.name).toBe(original.name);
   });
 
   it("rejects a non-JSON file", async () => {
