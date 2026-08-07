@@ -13,6 +13,7 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/scan_task.h"
 #include "driver/modbus/mock/slave.h"

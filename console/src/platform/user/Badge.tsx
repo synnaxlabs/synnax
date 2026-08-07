@@ -16,12 +16,12 @@ import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 export const Badge = (): ReactElement | null => {
-  const { data: u } = User.useResult({});
+  const { data: remoteUsername } = User.useResultUsername({});
+  const { data: firstName } = User.useResultFirstName({});
   const cluster = Session.Cluster.useSelectState();
   const handleLogout = Session.useLogout();
-  const username = u?.username ?? cluster?.username ?? "";
-  const displayName =
-    u?.firstName != null && u?.firstName != "" ? u.firstName : username;
+  const username = remoteUsername ?? cluster?.username ?? "";
+  const displayName = firstName != null && firstName != "" ? firstName : username;
   return (
     <Dialog.Frame>
       <Dialog.Trigger hideCaret textColor={10} gap="small" weight={400}>
