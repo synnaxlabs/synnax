@@ -11,7 +11,7 @@
 package zip
 
 import (
-	azip "archive/zip"
+	"archive/zip"
 	"bytes"
 	"context"
 	"io"
@@ -20,7 +20,7 @@ import (
 
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
-	xhttp "github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/http"
 )
 
 // Files is a flat namespace of file name to file contents. It carries no directories
@@ -33,7 +33,7 @@ const ContentType = "application/zip"
 // Encoder encodes a Files value into a zip archive with one entry per file. Entries are
 // written in sorted name order, so equal Files always encode to equal bytes. Encoding
 // any other value returns encoding.ErrEncode.
-var Encoder xhttp.Encoder = encoder{}
+var Encoder http.Encoder = encoder{}
 
 type encoder struct{}
 
@@ -52,7 +52,7 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	if !ok {
 		return encoding.SugarEncodingErr(value, errors.New("value is not zip.Files"))
 	}
-	zw := azip.NewWriter(w)
+	zw := zip.NewWriter(w)
 	for _, name := range slices.Sorted(maps.Keys(files)) {
 		f, err := zw.Create(name)
 		if err != nil {
