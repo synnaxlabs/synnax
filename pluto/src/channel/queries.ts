@@ -120,6 +120,12 @@ export const useResultDataType = createResultSelector(
   (a, b) => a.equals(b),
 );
 
+/** The stored range-scoped alias (undefined when unset) alongside the name. */
+export const useResultAliasAndName = createResultSelector(
+  ({ alias, name }) => ({ alias, name }),
+  (a, b) => a.alias === b.alias && a.name === b.name,
+);
+
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
   channel.Channel[]
