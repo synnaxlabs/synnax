@@ -1,0 +1,19 @@
+{
+  "type": "arc",
+  "key": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+  "name": "Console Stamped Edgeless",
+  "version": "0.0.0",
+  "mode": "graph",
+  "graph": {
+    "nodes": [
+      {
+        "key": "n1",
+        "type": "constant",
+        "config": { "keyOrName": "sensor_1" },
+        "position": { "x": 1, "y": 1 }
+      }
+    ],
+    "edges": []
+  },
+  "text": { "raw": "" }
+}

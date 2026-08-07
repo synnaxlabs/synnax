@@ -12,33 +12,45 @@ package symbol
 import (
 	"context"
 
-	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Version is the per-schema version stamped on every exported symbol envelope.
-const Version imex.Version = 1
+var _ imex.ImportExporter = (*Service)(nil)
 
-var _ imex.Exporter = (*Service)(nil)
+// Match reports whether body is a legacy Console symbol file, which nests the spec in a
+// data object with an inline svg. The marker is a frozen historical file shape.
+func (*Service) Match(body map[string]any) bool {
+	data, ok := body["data"].(map[string]any)
+	if !ok {
+		return false
+	}
+	_, ok = data["svg"]
+	return ok
+}
 
-// Export retrieves the symbol identified by id and serializes it as an imex.Envelope
-// stamped with Version. It returns query.ErrNotFound if no symbol exists for id.Key.
-func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
-	key, err := uuid.Parse(id.Key)
+// Import decodes env into a Symbol created under opts.Parent, which must be a group.
+// The key on the wire is discarded so every import mints a new resource. An unknown
+// envelope version is a path-scoped validation error.
+func (s *Service) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	env imex.Envelope,
+	opts imex.ImportOptions,
+) (ontology.ID, error) {
+	if _, err := group.KeyFromOntologyID(opts.Parent); err != nil {
+		return ontology.ID{}, validate.PathedError(err, "parent")
+	}
+	sym, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
-		return imex.Envelope{}, err
+		return ontology.ID{}, err
 	}
-	var sym Symbol
-	if err = s.NewRetrieve().
-		Where(MatchKeys(key)).
-		Entry(&sym).
-		Exec(ctx, nil); err != nil {
-		return imex.Envelope{}, err
+	if err = s.NewWriter(tx).Create(ctx, &sym, opts.Parent); err != nil {
+		return ontology.ID{}, err
 	}
-	env := imex.Envelope{Version: Version, Type: string(s.Type()), Name: sym.Name}
-	if err = imex.Encode(&env, sym); err != nil {
-		return imex.Envelope{}, err
-	}
-	return env, nil
+	return sym.OntologyID(), nil
 }
