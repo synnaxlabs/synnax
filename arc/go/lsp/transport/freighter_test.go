@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,7 +24,9 @@ import (
 	"github.com/synnaxlabs/arc/lsp/transport"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/mock"
+	"github.com/synnaxlabs/x/observe"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -321,6 +324,166 @@ var _ = Describe("Freighter Transport", func() {
 				Expect(msg.Content).To(Equal(""))
 			})
 		})
+	})
+})
+
+// contractStream flags a Send that is still in flight, or starts, after
+// ServeFreighter has returned. Freighter streams are single-writer: once the
+// handler exits, freighter writes its own teardown frames, so any later Send is a
+// contract violation that panics the real websocket transport.
+type contractStream struct {
+	freighter.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+	returned atomic.Bool
+	violated atomic.Bool
+	attempts atomic.Int64
+	inFlight atomic.Int64
+}
+
+func (c *contractStream) Send(msg transport.JSONRPCMessage) error {
+	c.attempts.Add(1)
+	c.inFlight.Add(1)
+	defer c.inFlight.Add(-1)
+	if c.returned.Load() {
+		c.violated.Store(true)
+	}
+	err := c.ServerStream.Send(msg)
+	if c.returned.Load() {
+		c.violated.Store(true)
+	}
+	return err
+}
+
+var _ = Describe("Teardown", func() {
+	var (
+		tCtx     context.Context
+		tCancel  context.CancelFunc
+		external observe.Observer[struct{}]
+		client   *mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+		stream   *contractStream
+		errs     chan error
+		drained  chan struct{}
+	)
+
+	initialize := func() {
+		GinkgoHelper()
+		content := MustSucceed(json.Marshal(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      1,
+			"method":  "initialize",
+			"params":  map[string]any{"clientInfo": map[string]any{"name": "t"}},
+		}))
+		Expect(client.Send(transport.JSONRPCMessage{
+			Content: string(content),
+		})).To(Succeed())
+		MustSucceed(client.Receive())
+	}
+
+	openDoc := func() {
+		GinkgoHelper()
+		content := MustSucceed(json.Marshal(map[string]any{
+			"jsonrpc": "2.0",
+			"method":  "textDocument/didOpen",
+			"params": map[string]any{
+				"textDocument": map[string]any{
+					"uri":        "file:///teardown.arc",
+					"languageId": "arc",
+					"version":    1,
+					"text":       "x := 1\n",
+				},
+			},
+		}))
+		Expect(client.Send(transport.JSONRPCMessage{
+			Content: string(content),
+		})).To(Succeed())
+	}
+
+	receiveDiagnostics := func() {
+		GinkgoHelper()
+		Eventually(func() bool {
+			msg := MustSucceed(client.Receive())
+			var note map[string]any
+			Expect(json.Unmarshal([]byte(msg.Content), &note)).To(Succeed())
+			return note["method"] == "textDocument/publishDiagnostics"
+		}).Should(BeTrue())
+	}
+
+	BeforeEach(func() {
+		tCtx, tCancel = context.WithTimeout(context.Background(), 10*time.Second)
+		external = observe.New[struct{}]()
+		server := MustSucceed(lsp.New(lsp.Config{
+			Instrumentation:  alamos.New("teardown"),
+			NewRoot:          func() *symbol.Symbol { return NewRoot(nil) },
+			OnExternalChange: external,
+		}))
+		var serverStream *mock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+		client, serverStream = mock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
+			tCtx,
+			0,
+		)
+		stream = &contractStream{ServerStream: serverStream}
+		errs = make(chan error, 1)
+		drained = nil
+		go func() {
+			err := transport.ServeFreighter(tCtx, transport.Config{
+				Server: server,
+				Stream: stream,
+			})
+			stream.returned.Store(true)
+			errs <- err
+		}()
+	})
+
+	AfterEach(func() {
+		tCancel()
+		Eventually(stream.returned.Load).Should(BeTrue())
+		if drained != nil {
+			Eventually(drained).Should(BeClosed())
+		}
+	})
+
+	It("drains an in-flight republish write before returning", func() {
+		initialize()
+		openDoc()
+		receiveDiagnostics()
+		// The unbuffered stream blocks the republish write until the client
+		// receives, holding a Send in flight across the disconnect below.
+		attemptsBefore := stream.attempts.Load()
+		external.Notify(tCtx, struct{}{})
+		Eventually(func() int64 {
+			return stream.attempts.Load()
+		}).Should(BeNumerically(">", attemptsBefore))
+		Expect(client.CloseSend()).To(Succeed())
+		// Drain the blocked write so a fenced teardown can complete. The delay
+		// leaves the write in flight across the disconnect, which is the window an
+		// unfenced teardown returns in.
+		drained = make(chan struct{})
+		go func(
+			c *mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage],
+			done chan<- struct{},
+		) {
+			defer close(done)
+			time.Sleep(50 * time.Millisecond)
+			for {
+				if _, err := c.Receive(); err != nil {
+					return
+				}
+			}
+		}(client, drained)
+		Eventually(errs).Should(Receive())
+		Eventually(stream.inFlight.Load).Should(BeZero())
+		Expect(stream.violated.Load()).To(BeFalse())
+	})
+
+	It("stops observing external changes after the connection drops", func() {
+		initialize()
+		Expect(client.CloseSend()).To(Succeed())
+		Eventually(errs).Should(Receive())
+		attempts := stream.attempts.Load()
+		external.Notify(tCtx, struct{}{})
+		Consistently(func() int64 {
+			return stream.attempts.Load()
+		}).Should(Equal(attempts))
+		Expect(stream.violated.Load()).To(BeFalse())
 	})
 })
 
