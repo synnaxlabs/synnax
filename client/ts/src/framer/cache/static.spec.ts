@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  bounds,
   DataType,
   MultiSeries,
   Series,
@@ -398,6 +399,62 @@ describe("StaticReadCache", () => {
       ).toHaveLength(0);
     });
   });
+  describe("integrity repair", () => {
+    // Reports honest bounds until the corrupt flag flips, simulating an insertion
+    // bug that leaves stored entries overlapping.
+    class CorruptedSeries extends Series {
+      corrupt = false;
+      override get alignmentBounds(): bounds.Bounds<bigint> {
+        if (this.corrupt) return bounds.construct(0n, 3n);
+        return super.alignmentBounds;
+      }
+    }
+    const plain = (startSec: number, data: number[], alignment: bigint) =>
+      new Series({
+        data: new Float32Array(data),
+        dataType: DataType.FLOAT32,
+        timeRange: TimeStamp.seconds(startSec).range(TimeStamp.seconds(startSec + 3)),
+        alignment,
+      });
+
+    it("should evict overlapping entries instead of failing every later write", () => {
+      const c = new Static({});
+      c.write(new MultiSeries([plain(0, [1, 2, 3], 0n)]));
+      const corrupted = new CorruptedSeries({
+        data: new Float32Array([4, 5, 6]),
+        dataType: DataType.FLOAT32,
+        timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(13)),
+        alignment: 10n,
+      });
+      c.write(new MultiSeries([corrupted]));
+      corrupted.corrupt = true;
+      c.write(new MultiSeries([plain(20, [7, 8, 9], 20n)]));
+      const { series } = c.dirtyRead(TimeStamp.seconds(0).range(TimeStamp.seconds(25)));
+      expect(series.series).toHaveLength(1);
+      expect(series.series[0].alignment).toEqual(20n);
+    });
+
+    it("should keep accepting writes after a repair", () => {
+      const c = new Static({});
+      const corrupted = new CorruptedSeries({
+        data: new Float32Array([4, 5, 6]),
+        dataType: DataType.FLOAT32,
+        timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(13)),
+        alignment: 10n,
+      });
+      c.write(new MultiSeries([plain(0, [1, 2, 3], 0n)]));
+      c.write(new MultiSeries([corrupted]));
+      corrupted.corrupt = true;
+      c.write(new MultiSeries([plain(20, [7, 8, 9], 20n)]));
+      c.write(new MultiSeries([plain(30, [10, 11, 12], 30n)]));
+      const { series, gaps } = c.dirtyRead(
+        TimeStamp.seconds(20).range(TimeStamp.seconds(33)),
+      );
+      expect(series.series).toHaveLength(2);
+      expect(gaps).toHaveLength(1);
+    });
+  });
+
   describe("integrity", () => {
     it("should accept many sequential non-overlapping writes without error", () => {
       const c = new Static({});

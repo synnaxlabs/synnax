@@ -18,7 +18,6 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { UnexpectedError } from "@/errors";
 import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
 
 export interface DirtyReadResult {
@@ -94,7 +93,7 @@ export class Static {
     series.series.forEach((s) =>
       this.writeOne(this.props.transform.convert(s), provisional),
     );
-    this.checkIntegrity(series);
+    this.repairIntegrity(series);
   }
 
   private evictProvisional(written: MultiSeries): void {
@@ -184,12 +183,14 @@ export class Static {
     });
   }
 
-  private checkIntegrity(write: MultiSeries): void {
+  private repairIntegrity(write: MultiSeries): void {
     const {
       instrumentation: { L },
     } = this.props;
     // writeOne keeps this.data ordered and non-overlapping via
-    // bounds.buildInsertionPlan, so we just compare neighbors.
+    // bounds.buildInsertionPlan, so we just compare neighbors. An overlap means
+    // an insertion bug corrupted the cache: evict both entries and let a refetch
+    // heal the gap instead of poisoning every later write.
     for (let i = 1; i < this.data.length; i++) {
       if (
         !bounds.overlapsWith(
@@ -198,13 +199,12 @@ export class Static {
         )
       )
         continue;
-      L.debug("Cache is in an invalid state - bounds overlap!", () => ({
+      const [prev, curr] = this.data.splice(i - 1, 2);
+      L.error("cache integrity violation - evicting overlapping entries", () => ({
         write: write.series.map((s) => s.digest),
-        cacheContents: this.data.map((s) => s.data.digest),
+        evicted: [prev.data.digest, curr.data.digest],
       }));
-      throw new UnexpectedError(
-        "telemetry cache integrity violation: alignment bounds overlap",
-      );
+      i = 0;
     }
   }
 }
