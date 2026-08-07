@@ -177,6 +177,29 @@ describe("useForm", () => {
       expect(getCached).toHaveBeenCalledTimes(onMount);
     });
 
+    it("should not refetch when the fetch lands the answer in the cache", async () => {
+      const cat = { key: "123", name: "Apple Cat", age: 30 };
+      let cached: typeof cat | undefined;
+      const retrieve = vi.fn(async () => {
+        cached = cat;
+        return cat;
+      });
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve,
+        getCached: () => cached,
+        update: vi.fn(),
+      });
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: "123" } }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current.form.value()).toEqual(cat);
+      expect(retrieve).toHaveBeenCalledTimes(1);
+    });
+
     it("should replace the form values when the query points at another record", async () => {
       const cats: Record<string, z.infer<typeof formSchema>> = {
         "1": { key: "1", name: "Apple Cat", age: 30 },

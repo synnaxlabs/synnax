@@ -70,7 +70,8 @@ std::unique_ptr<Factory> Factory::create(common::TimingConfig timing_cfg) {
 
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
+    const synnax::task::Task &task,
+    const std::string &cmd_key
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, true};
@@ -107,7 +108,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
             WriteTaskConfig,
             WriteTaskSink<uint8_t>,
             common::WriteTask>(ctx, task);
-    return common::handle_config_err(ctx, task, std::move(res));
+    return common::handle_config_err(ctx, task, std::move(res), cmd_key);
 }
 
 std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>

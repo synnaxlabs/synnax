@@ -601,42 +601,6 @@ export class Client extends query.Retriever<
     return isSingle ? res[0] : res;
   }
 
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached. Unfetched filter queries
-   * are approximated from the record store when possible.
-   */
-  getCached(params: Key | RetrieveSingleParams): query.Cached<Channel> | undefined;
-  getCached(params: RetrieveRequest): query.Cached<Channel[]> | undefined;
-  getCached(
-    params: Key | RetrieveSingleParams | RetrieveRequest,
-  ): query.Cached<Channel> | query.Cached<Channel[]> | undefined {
-    if (typeof params === "number" || "key" in params) return super.getCached(params);
-    return (
-      super.getCached(params) ?? this.approximateCached(retrieveRequestZ.parse(params))
-    );
-  }
-
-  /**
-   * Approximates an unfetched filter query's answer from the record store.
-   * Server-computed shapes (search, pagination) and alias-scoped requests, whose
-   * names live outside the record store, cannot be approximated.
-   */
-  private approximateCached(
-    req: NormalizedRequest,
-  ): query.Cached<Channel[]> | undefined {
-    if (
-      req.searchTerm != null ||
-      req.limit != null ||
-      req.offset != null ||
-      req.rangeKey != null
-    )
-      return undefined;
-    const matches = this.store.get(requestFilter(req));
-    if (matches.length === 0) return undefined;
-    return matches;
-  }
-
   /***
    * Deletes channels from the database using the given keys or names.
    * @param params - The keys or names of the channels to delete.

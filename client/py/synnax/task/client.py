@@ -185,7 +185,15 @@ class Task:
         key = str(uuid4())
         w.write(
             _TASK_CMD_CHANNEL,
-            [{"task": str(self.key), "type": type_, "key": key, "args": args}],
+            [
+                {
+                    "task": str(self.key),
+                    "type": type_,
+                    "key": key,
+                    "config_hash": self.config_hash,
+                    "args": args,
+                }
+            ],
         )
         w.close()
         return str(key)

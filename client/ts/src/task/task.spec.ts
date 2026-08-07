@@ -552,6 +552,42 @@ describe("Task", async () => {
         .toMatchObject({ key, task: t.key, type, args });
       streamer.close();
     });
+    it("should stamp the config hash from the task instance", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      expect(t.configHash).not.toEqual("");
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const key = await t.executeCommand({ type: "start" });
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ key, task: t.key, configHash: t.configHash });
+      streamer.close();
+    });
+    it("should stamp the config hash from the cached task row", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: { a: "dog" },
+        type: "ni",
+      });
+      await client.tasks.retrieve(t.key);
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      const key = await client.tasks.executeCommand({ task: t.key, type: "start" });
+      await expect
+        .poll<Promise<task.Command>>(async () => {
+          const fr = await streamer.read();
+          const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
+          return task.commandZ.parse(sample);
+        })
+        .toMatchObject({ key, task: t.key, configHash: t.configHash });
+      streamer.close();
+    });
     it("should timeout on a synchronously executed command", async () => {
       const t = await testRack.createTask({
         name: "test",

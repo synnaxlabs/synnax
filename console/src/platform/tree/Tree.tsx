@@ -246,11 +246,18 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleSyncResourceSet = useCallback(
     (resource: ontology.Resource) => {
-      placeholdersRef.current.delete(resource.key);
+      const hadPlaceholder = placeholdersRef.current.delete(resource.key);
       placeholderListenersRef.current.get(resource.key)?.forEach((notify) => notify());
+      // Nodes sort by resource name, so an in-tree resource change must rebuild
+      // node identity to re-sort. A foreign resource cannot affect this tree.
+      if (
+        !hadPlaceholder &&
+        Base.findNode({ tree: nodesRef.current, key: resource.key }) == null
+      )
+        return;
       setNodes((prevNodes) => [...prevNodes]);
     },
-    [setNodes],
+    [setNodes, nodesRef],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
   const handleRelationshipDelete = useCallback(
@@ -258,6 +265,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
       const removed = ontology.idToString(rel.to);
       const node = Base.findNode({ tree: nodesRef.current, key: removed });
+      // Removal and selection cleanup are both no-ops for a node this tree does
+      // not hold; return before paying for the tree copy.
+      if (node == null) return;
       setNodes((prevNodes) => {
         const parent = ontology.idsEqual(rel.from, root)
           ? null
@@ -290,6 +300,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       setNodes((prevNodes) => {
         let destination: string | null = ontology.idToString(from);
         if (ontology.idsEqual(from, root)) destination = null;
+        // setNode no-ops when the destination is not in this tree; keep the
+        // previous identity so foreign events do not re-render the tree.
+        if (
+          destination != null &&
+          Base.findNode({ tree: prevNodes, key: destination }) == null
+        )
+          return prevNodes;
         const tree = Base.deepCopy(prevNodes);
         const key = ontology.idToString(to);
         const existing = Base.findNode({ tree, key });

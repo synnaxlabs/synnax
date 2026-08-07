@@ -31,7 +31,7 @@ public:
             .key = synnax::task::status_key(task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "configured",
-            .details = {.task = task.key}
+            .details = {.task = task.key, .config_hash = task.config_hash}
         };
         ctx->set_status(status);
     }
@@ -42,8 +42,13 @@ public:
         synnax::task::Status status{
             .key = synnax::task::status_key(sy_task),
             .variant = synnax::status::VARIANT_SUCCESS,
-            .details =
-                {.task = sy_task.key, .running = true, .cmd = cmd.key, .data = cmd.args}
+            .details = {
+                .task = sy_task.key,
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = sy_task.config_hash,
+                .data = cmd.args
+            }
         };
         ctx->set_status(status);
     }
@@ -53,7 +58,11 @@ public:
             .key = synnax::task::status_key(sy_task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "stopped",
-            .details = {.task = sy_task.key, .running = false}
+            .details = {
+                .task = sy_task.key,
+                .running = false,
+                .config_hash = sy_task.config_hash
+            }
         };
         ctx->set_status(status);
     }
@@ -63,7 +72,8 @@ class EchoTaskFactory final : public Factory {
 public:
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override {
         if (task.type != "echo") return {nullptr, false};
         return {std::make_unique<MockEchoTask>(ctx, task), true};
@@ -107,7 +117,8 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override {
         if (task.type == "blocking")
             return {
@@ -179,7 +190,8 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override {
         if (task.type == "tracking") {
             auto state = std::make_shared<TrackingTaskState>();
@@ -223,7 +235,8 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override {
         if (task.type == "timeout")
             return {std::make_unique<TimeoutTask>(ctx, task, release, cv, mu), true};
@@ -253,11 +266,15 @@ void send_cmd(
 void send_start(
     const std::shared_ptr<synnax::Synnax> &client,
     const synnax::task::Task &task,
-    const std::string &cmd_key = "start-cmd"
+    const std::string &cmd_key = "start-cmd",
+    const std::string &config_hash = ""
 ) {
     send_cmd(
         client,
-        {.task = task.key, .type = synnax::task::START_CMD_TYPE, .key = cmd_key}
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = cmd_key,
+         .config_hash = config_hash}
     );
 }
 
@@ -340,6 +357,29 @@ protected:
         );
     }
 
+    /// @brief asserts that no status for task is reported by a driver on this rack.
+    /// The Core writes placeholder statuses on create with no rack stamped, so the
+    /// rack key is what separates them from driver reports.
+    void expect_no_driver_status(const synnax::task::Task &task) {
+        std::atomic<bool> received = false;
+        std::thread reader([&] {
+            while (true) {
+                auto [frame, err] = streamer.read();
+                if (err) return;
+                for (const auto &j: frame.series->at(0).json_values()) {
+                    auto parser = x::json::Parser(j);
+                    auto s = synnax::task::Status::parse(parser);
+                    if (s.details.task == task.key && s.details.rack == rack.key)
+                        received = true;
+                }
+            }
+        });
+        std::this_thread::sleep_for((300 * x::telem::MILLISECOND).chrono());
+        streamer.close_send();
+        reader.join();
+        ASSERT_FALSE(received);
+    }
+
     void TearDown() override {
         if (setup_succeeded) { ASSERT_NIL(streamer.close()); }
         if (manager) {
@@ -376,23 +416,7 @@ TEST_F(TaskManagerTest, NoConfigureOnCreate) {
         .type = "echo",
     };
     ASSERT_NIL(rack.tasks.create(task));
-
-    std::atomic<bool> received = false;
-    std::thread reader([&] {
-        auto [frame, err] = streamer.read();
-        if (err) return;
-        for (const auto &j: frame.series->at(0).json_values()) {
-            auto parser = x::json::Parser(j);
-            auto s = synnax::task::Status::parse(parser);
-            if (s.variant != synnax::status::VARIANT_WARNING &&
-                s.details.task == task.key)
-                received = true;
-        }
-    });
-    std::this_thread::sleep_for((300 * x::telem::MILLISECOND).chrono());
-    streamer.close_send();
-    reader.join();
-    ASSERT_FALSE(received);
+    expect_no_driver_status(task);
 }
 
 TEST_F(TaskManagerTest, Delete) {
@@ -483,20 +507,7 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
     };
     ASSERT_NIL(other.tasks.create(task));
     send_start(client, task);
-
-    std::atomic<bool> received = false;
-    std::thread reader([&] {
-        auto [frame, err] = streamer.read();
-        for (const auto &j: frame.series->at(0).json_values()) {
-            auto parser = x::json::Parser(j);
-            auto s = synnax::task::Status::parse(parser);
-            if (s.variant != synnax::status::VARIANT_WARNING) received = true;
-        }
-    });
-    std::this_thread::sleep_for((300 * x::telem::MILLISECOND).chrono());
-    streamer.close_send();
-    reader.join();
-    ASSERT_FALSE(received);
+    expect_no_driver_status(task);
 }
 
 TEST_F(TaskManagerTest, StopOnShutdown) {
@@ -529,23 +540,7 @@ TEST_F(TaskManagerTest, IgnoresSnapshot) {
     task.snapshot = true;
     ASSERT_NIL(rack.tasks.create(task));
     send_start(client, task);
-
-    std::atomic<bool> received = false;
-    std::thread reader([&] {
-        auto [frame, err] = streamer.read();
-        if (err) return;
-        for (const auto &j: frame.series->at(0).json_values()) {
-            auto parser = x::json::Parser(j);
-            auto s = synnax::task::Status::parse(parser);
-            if (s.variant != synnax::status::VARIANT_WARNING &&
-                s.details.task == task.key)
-                received = true;
-        }
-    });
-    std::this_thread::sleep_for((300 * x::telem::MILLISECOND).chrono());
-    streamer.close_send();
-    reader.join();
-    ASSERT_FALSE(received);
+    expect_no_driver_status(task);
 }
 
 TEST_F(TaskManagerTest, ParallelConfig) {
@@ -671,6 +666,44 @@ TEST_F(TaskManagerTest, StartWithUnchangedConfigDoesNotReconfigure) {
     ASSERT_EVENTUALLY_TRUE(state->stopped.load());
     ASSERT_TRUE(state->stop_will_reconfigure.load());
     ASSERT_EVENTUALLY_EQ(f->task_states[1]->exec_count.load(), 1);
+}
+
+TEST_F(TaskManagerTest, StartWithCommandHashRunsLiveInstance) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = "tracking",
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    auto state = f->task_states[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    const auto deployed_hash = task.config_hash;
+
+    // A start naming the deployed hash runs the live instance, even though the
+    // stored config has moved on.
+    task.config = x::json::json{{"rate", 100}};
+    ASSERT_NIL(rack.tasks.create(task));
+    ASSERT_NE(task.config_hash, deployed_hash);
+    send_start(client, task, "s2", deployed_hash);
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 2);
+    {
+        std::lock_guard lock(f->mu);
+        ASSERT_EQ(f->task_states.size(), 1);
+    }
+    ASSERT_FALSE(state->stopped.load());
 }
 
 TEST_F(TaskManagerTest, Timeout) {
@@ -825,7 +858,8 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override {
         if (task.type != "destructor_tracking") return {nullptr, false};
         int count = configure_count.fetch_add(1);
@@ -970,7 +1004,8 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &
     ) override {
         if (task.type == "blocking_stop")
             return {
@@ -1056,7 +1091,8 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &
     ) override {
         if (task.type == "slow_stop") {
             auto flag = new std::atomic<bool>(false);
@@ -1117,7 +1153,8 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &
     ) override {
         if (task.type == "stuck_worker") {
             configure_started = true;
@@ -1188,7 +1225,8 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override {
         if (task.type != "capture") return {nullptr, false};
         this->captured_ctx = ctx;
