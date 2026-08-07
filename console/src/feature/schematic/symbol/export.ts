@@ -9,94 +9,35 @@
 
 import {
   DisconnectedError,
-  group,
-  schematic,
+  type group,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type Symbol } from "@/feature/schematic/symbol";
-import { Export } from "@/platform/export";
-import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 
 interface ExportGroupParams {
   client: Client | null;
   group: group.Group;
-  handleError: Status.ErrorHandler;
   addStatus: Status.Adder;
-  confirm: Modals.PromptConfirm;
 }
 
+// The Core owns membership, symbol serialization, file naming, and the manifest, and
+// the bundle travels as an archive, so the Console streams the response straight to
+// the file the user picks without ever holding it in memory.
 const exportGroup = async ({
   client,
   group: { key, name },
   addStatus,
-  confirm,
 }: ExportGroupParams): Promise<void> => {
   if (client == null) throw new DisconnectedError();
-  const children = await client.ontology.children.retrieve({
-    ids: group.ontologyID(key),
-  });
-  const symbolKeys = children
-    .filter((c) => c.id.type === "schematic_symbol")
-    .map((c) => c.id.key);
-
-  if (symbolKeys.length === 0)
-    return addStatus({
-      variant: "warning",
-      message: "No symbols found in this group to export",
-    });
-
-  const symbols = await client.schematics.symbols.retrieve({
-    keys: symbolKeys,
-  });
-
-  if (!symbols || symbols.length === 0)
-    return addStatus({
-      variant: "warning",
-      message: "No symbols found in this group to export",
-    });
-
-  const directory = await Runtime.pickWritableDirectory({
-    title: `Select a location to export ${name}`,
-    subdirectory: strings.sanitizeFileName(name),
-  });
-  if (directory == null) return;
-  if (directory.preExisted) {
-    const shouldReplace = await confirm({
-      message: `A directory already exists at ${directory.displayPath}`,
-      description: "Replacing will cause the old data to be deleted.",
-      cancel: { label: "Cancel" },
-      confirm: { label: "Replace", variant: "error" },
-    });
-    if (shouldReplace !== true) return;
-  }
-
-  const manifest: Symbol.GroupManifest = {
-    version: 1,
-    type: "symbol_group",
-    name,
-    symbols: await Promise.all(
-      symbols.map(async (symbol) => {
-        const fileName = `${strings.sanitizeFileName(symbol.name)}_${symbol.key.slice(0, 8)}.json`;
-        const { data } = await Export.fetchFileData(
-          client,
-          schematic.symbol.ontologyID(symbol.key),
-        );
-        await directory.writeText(fileName, data);
-        return { file: fileName, key: symbol.key, name: symbol.name };
-      }),
-    ),
-  };
-
-  await directory.writeText("manifest.json", JSON.stringify(manifest));
-
-  addStatus({
-    variant: "success",
-    message: `Exported ${symbols.length} symbols to ${directory.displayPath}`,
+  await Runtime.downloadStream({
+    stream: await client.schematics.symbols.exportGroup(key),
+    name: strings.sanitizeFileName(name),
+    extension: "zip",
+    addStatus,
   });
 };
 
@@ -104,14 +45,13 @@ export const useExportGroup = (): ((group: group.Group) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
-  const confirm = Modals.useConfirm();
   return useCallback(
     (group: group.Group) => {
       handleError(
-        () => exportGroup({ client, group, handleError, addStatus, confirm }),
-        "Failed to export symbol group",
+        () => exportGroup({ client, group, addStatus }),
+        `Failed to export ${group.name}`,
       );
     },
-    [client, handleError, addStatus, confirm],
+    [client, handleError, addStatus],
   );
 };

@@ -1,0 +1,51 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package os_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	xos "github.com/synnaxlabs/x/os"
+)
+
+var _ = Describe("SanitizeFileName", func() {
+	DescribeTable("Should replace every character a file name cannot hold",
+		func(name, expected string) {
+			Expect(xos.SanitizeFileName(name)).To(Equal(expected))
+		},
+		Entry("path separators", `a/b\c`, "a_b_c"),
+		Entry("Windows-reserved characters", `a<b>c:d"e|f?g*h`, "a_b_c_d_e_f_g_h"),
+		Entry("consecutive separators", "a///b", "a___b"),
+		Entry("an empty name", "", ""),
+	)
+	DescribeTable("Should leave a name that is already safe untouched",
+		func(name string) { Expect(xos.SanitizeFileName(name)).To(Equal(name)) },
+		Entry("spaces", "My Project"),
+		Entry("underscores and digits", "metrics_2025"),
+		Entry("dashes", "name-with-dashes"),
+		Entry("an extension", "file.json"),
+	)
+})
+
+var _ = Describe("FoldFileName", func() {
+	It("Should fold names that differ only by case together", func() {
+		Expect(xos.FoldFileName("Inlet.json")).To(Equal(xos.FoldFileName("inlet.JSON")))
+	})
+	It("Should fold names that differ only by Unicode composition together", func() {
+		// The same name precomposed (\u00e9) and decomposed (e + combining acute).
+		precomposed, decomposed := "caf\u00e9.json", "cafe\u0301.json"
+		Expect(precomposed).ToNot(Equal(decomposed))
+		Expect(xos.FoldFileName(precomposed)).To(Equal(xos.FoldFileName(decomposed)))
+	})
+	It("Should keep distinct names apart", func() {
+		Expect(xos.FoldFileName("inlet.json")).
+			ToNot(Equal(xos.FoldFileName("outlet.json")))
+	})
+})

@@ -15,7 +15,10 @@ import { plural } from "pluralize";
 import { Modals } from "@/platform/modals";
 
 interface UseConfirmDeleteProps {
+  /** The resource noun, pluralized in the prompt when several items are deleted. */
   type: string;
+  /** The dotted breadcrumb path for the title. Defaults to type. */
+  path?: string;
   icon?: string;
   description?: string;
 }
@@ -27,6 +30,7 @@ interface ConfirmDeleteItem {
 }
 export const useConfirmDelete = ({
   type,
+  path = type,
   icon,
   description = "This action cannot be undone.",
 }: UseConfirmDeleteProps) => {
@@ -46,7 +50,7 @@ export const useConfirmDelete = ({
           delay: CONFIRM_DELETE_DELAY.milliseconds,
         },
         cancel: { label: "Cancel" },
-        title: `${type}.Delete`,
+        title: `${path}.Delete`,
         icon: Icon.resolve(icon ?? type),
       })) ?? false
     );

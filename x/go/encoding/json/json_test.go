@@ -24,6 +24,9 @@ type toEncode struct {
 }
 
 var _ = Describe("Codec", func() {
+	It("Should report the JSON file extension", func() {
+		Expect(json.Codec.Extension()).To(Equal(".json"))
+	})
 	It("Should encode and decode", func(ctx SpecContext) {
 		codec := json.Codec
 		b := MustSucceed(codec.Encode(ctx, toEncode{1}))

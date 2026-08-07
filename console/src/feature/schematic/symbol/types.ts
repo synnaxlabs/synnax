@@ -20,14 +20,34 @@ const manifestZ = z.object({
 
 export interface SymbolManifest extends z.infer<typeof manifestZ> {}
 
-export const groupManifestZ = z.object({
+/** The legacy Console-written manifest, which declared each member. Will be removed
+ * when group importing is moved server-side.*/
+const legacyGroupManifestZ = z.object({
   version: z.literal(1),
   type: z.literal("symbol_group"),
   name: z.string(),
   symbols: manifestZ.array(),
 });
 
-export interface GroupManifest extends z.infer<typeof groupManifestZ> {}
+/**
+ * The Core-written manifest. Membership is every JSON file beside it, so the manifest
+ * declares no members.
+ */
+const coreGroupManifestZ = z.object({
+  version: z.literal(2),
+  type: z.literal("symbol_group"),
+  name: z.string(),
+});
+
+export const groupManifestZ = z.discriminatedUnion("version", [
+  legacyGroupManifestZ,
+  coreGroupManifestZ,
+]);
+
+export type GroupManifest = z.infer<typeof groupManifestZ>;
+
+/** The bundle file name reserved for the manifest; never a member. */
+export const MANIFEST_FILE_NAME = "manifest.json";
 
 export const SYMBOL_FILE_FILTERS = [{ name: "JSON", extensions: ["json"] }];
 

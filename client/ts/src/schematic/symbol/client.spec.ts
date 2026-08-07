@@ -276,4 +276,41 @@ describe("Symbol Client", () => {
       expect(group.name).toBe("Schematic Symbols");
     });
   });
+
+  describe("exportGroup", () => {
+    // Zip entry names are stored uncompressed, so the raw archive names the bundle's
+    // files without the spec needing a zip reader.
+    const download = async (key: group.Key): Promise<string> => {
+      const stream = await client.schematics.symbols.exportGroup(key);
+      return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+    };
+
+    it("should export the group's symbols as a zip bundle", async () => {
+      const exported = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `symbol-export-${id.create()}`,
+      });
+      await client.schematics.symbols.create({
+        name: "Inlet",
+        data: SYMBOL_DATA,
+        parent: group.ontologyID(exported.key),
+      });
+      const archive = await download(exported.key);
+      expect(archive.startsWith("PK")).toBe(true);
+      expect(archive).toContain("manifest.json");
+      expect(archive).toContain("Inlet.json");
+    });
+
+    it("should error when the group holds a resource that is not a symbol", async () => {
+      const exported = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `symbol-export-${id.create()}`,
+      });
+      await client.groups.create({
+        parent: group.ontologyID(exported.key),
+        name: "Nested",
+      });
+      await expect(download(exported.key)).rejects.toThrow("not a schematic symbol");
+    });
+  });
 });

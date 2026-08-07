@@ -141,6 +141,11 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     () => addNode(createParams()),
     [addNode, createParams],
   );
+  const { update: rename } = Schematic.Symbol.useRename();
+  const handleRename = useCallback(
+    (name: string) => rename({ key: itemKey, name }),
+    [itemKey, rename],
+  );
 
   if (symbol == null) return null;
 
@@ -156,7 +161,13 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       y
       {...props}
     >
-      <Text.Text level="small">{symbol.name}</Text.Text>
+      <Text.MaybeEditable
+        id={List.itemNameID(itemKey)}
+        level="small"
+        value={symbol.name}
+        allowDoubleClick={false}
+        onChange={handleRename}
+      />
       <Flex.Box align="center" justify="center" grow>
         <Preview specKey={itemKey} scale={0.75} />
       </Flex.Box>
@@ -176,27 +187,12 @@ const RemoteSymbolListContextMenu = ({
   const firstKey = rest.keys[0];
   const item = List.useItem<schematic.symbol.Key, schematic.symbol.Symbol>(firstKey);
   const confirmDelete = useConfirmDelete({
-    type: "Schematic.Symbol",
+    type: "Symbol",
+    path: "Schematic.Symbols",
     icon: "Schematic",
   });
   const openEdit = Symbol.Edit.useModal();
-  const renameModal = Modals.useRename();
   const exportSymbol = Export.use();
-  const rename = Schematic.Symbol.useRename({
-    beforeUpdate: async ({ data }) => {
-      const { name } = data;
-      if (item == null) return false;
-      const newName = await renameModal({
-        initialValue: name,
-        allowEmpty: false,
-        label: "Symbol Name",
-        title: "Schematic.Symbols.Rename",
-        icon: <Icon.Schematic />,
-      });
-      if (newName == null) return false;
-      return { ...data, name: newName };
-    },
-  });
   const del = Schematic.Symbol.useDelete({
     beforeUpdate: async () => {
       if (item == null) return false;
@@ -209,11 +205,7 @@ const RemoteSymbolListContextMenu = ({
   return (
     <ContextMenu.Menu>
       <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />
-      <ContextMenu.RenameItem
-        onClick={() => {
-          if (item != null) rename.update(item);
-        }}
-      />
+      <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
       <Menu.Item itemKey="edit" onClick={handleEdit}>
         <Icon.Edit />
         Edit
@@ -279,10 +271,18 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
 
 const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null => {
   const { itemKey } = props;
-  const group = List.useItem<group.Key, group.Group & { Icon?: Icon.FC }>(itemKey);
+  // Named item rather than group so the client's group namespace stays reachable.
+  const item = List.useItem<group.Key, group.Group & { Icon?: Icon.FC }>(itemKey);
   const { selected, onSelect } = Select.useItemState(itemKey);
-  if (group == null) return null;
-  const { Icon: GroupIcon } = group;
+  const { update: rename } = Group.useRename();
+  const handleRename = useCallback(
+    (name: string) => rename({ key: itemKey, name }),
+    [itemKey, rename],
+  );
+  if (item == null) return null;
+  const { Icon: GroupIcon } = item;
+  // Static groups ship with the Console under non-UUID keys and have no server record.
+  const isRemote = group.keyZ.safeParse(itemKey).success;
   return (
     <Button.Toggle
       id={itemKey.toString()}
@@ -292,8 +292,18 @@ const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null =>
       className={CSS(Menu.CONTEXT_TARGET, selected && Menu.CONTEXT_SELECTED)}
       textColor={selected ? undefined : 9}
     >
-      {GroupIcon != null && <GroupIcon />}
-      {group.name}
+      {/* Wrapped so Text.isSquare does not read a lone editable name as an icon and
+          collapse the button to a square. */}
+      <Flex.Box x align="center" gap="small">
+        {GroupIcon != null && <GroupIcon />}
+        <Text.MaybeEditable
+          id={List.itemNameID(itemKey)}
+          level="small"
+          value={item.name}
+          allowDoubleClick={false}
+          onChange={isRemote ? handleRename : undefined}
+        />
+      </Flex.Box>
     </Button.Toggle>
   );
 };
@@ -342,8 +352,7 @@ const Actions = ({
       const result = await rename({
         initialValue: "",
         allowEmpty: false,
-        label: "Group Name",
-        title: "Schematic.Symbols.Create Group",
+        title: "Schematic.Symbols.Group.Create",
         icon: <Icon.Group />,
       });
       if (result == null || result.length === 0) return;
@@ -371,7 +380,7 @@ const Actions = ({
           <Button.Button
             variant="outlined"
             size="small"
-            tooltip="Create new symbol group"
+            tooltip="Create symbol group"
             onClick={handleCreateGroup}
           >
             <CreateGroupIcon />
@@ -391,7 +400,7 @@ const Actions = ({
           <Button.Button
             variant="outlined"
             size="small"
-            tooltip="Create new symbol"
+            tooltip="Create symbol"
             disabled={!isRemoteGroup}
             onClick={handleCreateSymbol}
           >
@@ -422,24 +431,8 @@ const GroupListContextMenu = ({
   const firstKey = keys[0];
   const isRemoteGroup = group.keyZ.safeParse(firstKey).success;
   const item = List.useItem<group.Key, group.Group>(firstKey);
-  const renameModal = Modals.useRename();
   const exportGroup = useExportGroup();
   const deleteSymbolGroup = Symbol.useDeleteGroup();
-  const rename = Group.useRename({
-    beforeUpdate: async ({ data }) => {
-      const { name } = data;
-      if (item == null) return false;
-      const newName = await renameModal({
-        initialValue: name,
-        allowEmpty: false,
-        label: "Group Name",
-        title: "Schematic.Symbols.Rename Group",
-        icon: <Icon.Group />,
-      });
-      if (newName == null) return false;
-      return { ...data, name: newName };
-    },
-  });
 
   if (!isRemoteGroup) return null;
   return (
@@ -449,11 +442,7 @@ const GroupListContextMenu = ({
           if (item != null) deleteSymbolGroup(item);
         }}
       />
-      <ContextMenu.RenameItem
-        onClick={() => {
-          if (item != null) rename.update(item);
-        }}
-      />
+      <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
       <Export.ContextMenuItem
         onClick={() => {
           if (item != null) exportGroup(item);
