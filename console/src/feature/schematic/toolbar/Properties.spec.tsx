@@ -117,7 +117,7 @@ describe("Schematic toolbar Properties", () => {
         ),
       ).toBeDefined();
       expect(screen.getByText("Or create a new symbol in:")).toBeDefined();
-      expect(isPlutoDisabled(findButton("Create new symbol"))).toBe(true);
+      expect(isPlutoDisabled(findButton("Create symbol"))).toBe(true);
     });
   });
 

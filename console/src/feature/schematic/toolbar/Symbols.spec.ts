@@ -131,8 +131,7 @@ describe("Schematic toolbar Symbols", () => {
     await renderSymbolsToolbar();
     fireEvent.contextMenu(await screen.findByText(grp.name));
     fireEvent.click(await screen.findByText("Rename"));
-    await screen.findByText("Rename group");
-    const input = screen.getByPlaceholderText<HTMLInputElement>("Group name");
+    const input = await screen.findByPlaceholderText<HTMLInputElement>("Name");
     const renamed = uniqueName("renamed_grp");
     fireEvent.change(input, { target: { value: renamed } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -157,8 +156,7 @@ describe("Schematic toolbar Symbols", () => {
       getCompositeIconButton(result.container, ["group", "add"]),
     );
     fireEvent.click(createGroup);
-    await screen.findByText("Create group");
-    const input = screen.getByPlaceholderText<HTMLInputElement>("Group name");
+    const input = await screen.findByPlaceholderText<HTMLInputElement>("Name");
     const name = uniqueName("new_grp");
     fireEvent.change(input, { target: { value: name } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
