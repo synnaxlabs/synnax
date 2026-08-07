@@ -66,6 +66,10 @@ struct Command {
     std::string type;
     /// @brief key is a unique identifier for this command instance.
     std::string key;
+    /// @brief config_hash is the config hash the sender wants running. Empty when the
+    /// sender does not know it. The Driver reuses its live instance when the hash
+    /// matches and redeploys when it differs.
+    std::string config_hash = "";
     /// @brief args contains optional arguments for the command.
     x::json::json::object_t args = {};
 
@@ -99,10 +103,10 @@ struct Task {
     /// @brief config is task-specific configuration stored as JSON. Structure varies by
     /// task type.
     x::json::json::object_t config;
-    /// @brief config_hash is the server-assigned hash of config, rewritten on every
-    /// write
-    /// and ignored on writes from clients. Compare against a status's config_hash to
-    /// detect drift.
+    /// @brief config_hash is the Core-assigned hash of config, rewritten on every write
+    /// and
+    /// ignored on writes from clients. Compare against a status's config_hash to detect
+    /// drift.
     std::string config_hash = "";
     /// @brief internal is true if this is an internal system task.
     bool internal = false;

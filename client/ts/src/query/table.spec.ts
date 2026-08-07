@@ -732,6 +732,56 @@ describe("Table", () => {
   });
 
   describe("Subscriptions", () => {
+    describe("per-event equivalence", () => {
+      // The differential oracle for batched delivery: a multi-record write
+      // must hand per-event subscribers the same event sequence, and leave the
+      // same rows and tombstones, as the equivalent sequence of single writes.
+      it("delivers the same event sequence for a bulk set as for sequential sets", () => {
+        interface Row {
+          key: string;
+          value: number;
+        }
+        const bulk = new query.Table<string, Row>({ onError: noopError });
+        const sequential = new query.Table<string, Row>({ onError: noopError });
+        const bulkEvents: unknown[] = [];
+        const seqEvents: unknown[] = [];
+        bulk.subscribe((event) => bulkEvents.push(event));
+        sequential.subscribe((event) => seqEvents.push(event));
+        const rows: Row[] = [
+          { key: "a", value: 1 },
+          { key: "b", value: 2 },
+          { key: "a", value: 3 },
+        ];
+        bulk.set(rows);
+        rows.forEach((row) => sequential.set(row.key, row));
+        expect(bulkEvents).toEqual(seqEvents);
+        expect(bulk.get()).toEqual(sequential.get());
+      });
+
+      it("delivers the same event sequence when a bulk set rolls back", () => {
+        interface Row {
+          key: string;
+          value: number;
+        }
+        const table = new query.Table<string, Row>({ onError: noopError });
+        table.set("a", { key: "a", value: 0 });
+        const events: unknown[] = [];
+        table.subscribe((event) => events.push(event));
+        const rollback = table.set([
+          { key: "a", value: 1 },
+          { key: "b", value: 2 },
+        ]);
+        events.length = 0;
+        rollback();
+        expect(events).toEqual([
+          { variant: "delete", key: "b" },
+          { variant: "set", key: "a", value: { key: "a", value: 0 } },
+        ]);
+        expect(table.get("a")).toEqual({ key: "a", value: 0 });
+        expect(table.get("b")).toBeUndefined();
+      });
+    });
+
     describe("Set Events", () => {
       it("should notify subscribers when a value is set", () => {
         const table = new query.Table<string, string>({ onError: noopError });

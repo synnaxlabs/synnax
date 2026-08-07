@@ -1474,6 +1474,93 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 		})
 
+		Describe("Explicit @cpp include", func() {
+			It(
+				"Should include the declared header for a cross-namespace distinct type",
+				func(ctx SpecContext) {
+					loader.Add("schemas/rack", `
+					@cpp output "client/cpp/rack"
+
+					Key uint32 {
+						@cpp include "client/cpp/rack/key.h"
+					}
+				`)
+
+					source := `
+					import "schemas/rack"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						rack rack.Key
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`#include "client/cpp/rack/key.h"`).
+						ToNotContain(`#include "client/cpp/rack/types.gen.h"`)
+				},
+			)
+
+			It(
+				"Should include the declared header for a cross-namespace alias",
+				func(ctx SpecContext) {
+					loader.Add("schemas/status", `
+					@cpp output "client/cpp/status"
+
+					Detail struct {
+						message string
+					}
+
+					Summary = Detail {
+						@cpp include "client/cpp/status/summary.h"
+					}
+				`)
+
+					source := `
+					import "schemas/status"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						summary status.Summary
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`#include "client/cpp/status/summary.h"`).
+						ToNotContain(`#include "client/cpp/status/types.gen.h"`)
+				},
+			)
+
+			It(
+				"Should fall back to types.gen.h when no header is declared",
+				func(ctx SpecContext) {
+					loader.Add("schemas/rack", `
+					@cpp output "client/cpp/rack"
+
+					Key uint32
+				`)
+
+					source := `
+					import "schemas/rack"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						rack rack.Key
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`#include "client/cpp/rack/types.gen.h"`)
+				},
+			)
+		})
+
 		Describe("Array Wrapper Generation", func() {
 			It(
 				"Should generate wrapper struct for array distinct types",

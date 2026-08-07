@@ -10,8 +10,8 @@
 import { type query, type ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, testutil, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
-import { renderHook, waitFor } from "@testing-library/react";
-import { act, type PropsWithChildren, type ReactElement } from "react";
+import { render, renderHook, waitFor } from "@testing-library/react";
+import { act, memo, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
@@ -540,6 +540,190 @@ describe("list", () => {
   });
 
   const changed = <E,>(data: E[]): query.Cached<E[]> => data;
+
+  describe("notification routing", () => {
+    interface Item extends record.Keyed<number> {
+      value: string;
+    }
+
+    interface RowSpec {
+      id: string;
+      itemKey: number;
+    }
+
+    interface Harness {
+      counts: Map<string, number>;
+      reads: Map<number, number>;
+      push: (items: Item[]) => void;
+      setRows: (rows: RowSpec[]) => void;
+      mount: (rows: RowSpec[]) => Promise<void>;
+    }
+
+    /**
+     * Mounts each row as its own memoized component so a notification's blast
+     * radius is observable: `counts` tracks renders per row, and `reads` tracks
+     * snapshot reads per key. A spurious notification never re-renders (the
+     * unchanged snapshot short-circuits it) but always re-reads, so `reads` is
+     * what catches over-notification.
+     */
+    const createHarness = (initial: Item[]): Harness => {
+      let handler: query.ChangeHandler<Item[]> | undefined;
+      const useList = Flux.createList<{}, number, Item>({
+        name: "Resource",
+        retrieve: async () => initial,
+        retrieveByKey: async ({ key }) => initial.find((i) => i.key === key),
+        onChange: (_, h) => {
+          handler = h;
+          return () => {};
+        },
+      });
+      const counts = new Map<string, number>();
+      const reads = new Map<number, number>();
+      type GetItem = Flux.UseListReturn<{}, number, Item>["getItem"];
+      let realGetItem: GetItem | undefined;
+      const countingGetItem = ((key: number) => {
+        reads.set(key, (reads.get(key) ?? 0) + 1);
+        return realGetItem?.(key);
+      }) as GetItem;
+      interface RowProps extends RowSpec {
+        subscribe: Flux.UseListReturn<{}, number, Item>["subscribe"];
+        getItem: GetItem;
+      }
+      const Row = memo(
+        ({ id, itemKey, subscribe, getItem }: RowProps): ReactElement => {
+          const item = Flux.useListItem<number, Item>({
+            key: itemKey,
+            subscribe,
+            getItem,
+          });
+          counts.set(id, (counts.get(id) ?? 0) + 1);
+          return <span>{item?.value}</span>;
+        },
+      );
+      Row.displayName = "Row";
+      let api: Flux.UseListReturn<{}, number, Item> | undefined;
+      const List = ({ rows }: { rows: RowSpec[] }): ReactElement => {
+        api = useList();
+        const { subscribe, data } = api;
+        realGetItem = api.getItem;
+        if (data.length === 0) return <span>empty</span>;
+        return (
+          <>
+            {rows.map((row) => (
+              <Row
+                key={row.id}
+                {...row}
+                subscribe={subscribe}
+                getItem={countingGetItem}
+              />
+            ))}
+          </>
+        );
+      };
+      let rerender: ((ui: ReactElement) => void) | undefined;
+      return {
+        counts,
+        reads,
+        push: (items) => act(() => handler?.(changed(items))),
+        setRows: (rows) => rerender?.(<List rows={rows} />),
+        mount: async (rows) => {
+          ({ rerender } = render(<List rows={rows} />, { wrapper }));
+          act(() => api?.retrieve({}));
+          await waitFor(() =>
+            rows.forEach(({ id }) => expect(counts.get(id) ?? 0).toBeGreaterThan(0)),
+          );
+          // The rows mount from a render the debounced retrieve triggers outside
+          // act, so the subscription effects (and their one initial snapshot
+          // read) can flush after waitFor resolves. Settle them before callers
+          // capture baselines.
+          await act(async () => {});
+        },
+      };
+    };
+
+    it("re-renders only the row whose item changed", async () => {
+      const [one, two, three]: Item[] = [
+        { key: 1, value: "one" },
+        { key: 2, value: "two" },
+        { key: 3, value: "three" },
+      ];
+      const harness = createHarness([one, two, three]);
+      await harness.mount([
+        { id: "a", itemKey: 1 },
+        { id: "b", itemKey: 2 },
+        { id: "c", itemKey: 3 },
+      ]);
+      const before = new Map(harness.counts);
+      const readsBefore = new Map(harness.reads);
+      harness.push([one, { key: 2, value: "two!" }, three]);
+      expect(harness.counts.get("b")).toBe((before.get("b") ?? 0) + 1);
+      expect(harness.counts.get("a")).toBe(before.get("a"));
+      expect(harness.counts.get("c")).toBe(before.get("c"));
+      expect(harness.reads.get(2)).toBeGreaterThan(readsBefore.get(2) ?? 0);
+      expect(harness.reads.get(1)).toBe(readsBefore.get(1));
+      expect(harness.reads.get(3)).toBe(readsBefore.get(3));
+    });
+
+    it("re-renders every subscriber of the changed key", async () => {
+      const [one, two]: Item[] = [
+        { key: 1, value: "one" },
+        { key: 2, value: "two" },
+      ];
+      const harness = createHarness([one, two]);
+      await harness.mount([
+        { id: "a", itemKey: 2 },
+        { id: "b", itemKey: 2 },
+        { id: "c", itemKey: 1 },
+      ]);
+      const before = new Map(harness.counts);
+      const readsBefore = new Map(harness.reads);
+      harness.push([one, { key: 2, value: "two!" }]);
+      expect(harness.counts.get("a")).toBe((before.get("a") ?? 0) + 1);
+      expect(harness.counts.get("b")).toBe((before.get("b") ?? 0) + 1);
+      expect(harness.counts.get("c")).toBe(before.get("c"));
+      expect(harness.reads.get(1)).toBe(readsBefore.get(1));
+    });
+
+    it("stops notifying a row once it unmounts", async () => {
+      const [one, two]: Item[] = [
+        { key: 1, value: "one" },
+        { key: 2, value: "two" },
+      ];
+      const harness = createHarness([one, two]);
+      await harness.mount([
+        { id: "a", itemKey: 1 },
+        { id: "b", itemKey: 2 },
+      ]);
+      harness.setRows([{ id: "a", itemKey: 1 }]);
+      const before = new Map(harness.counts);
+      const readsBefore = new Map(harness.reads);
+      harness.push([one, { key: 2, value: "two!" }]);
+      expect(harness.counts.get("b")).toBe(before.get("b"));
+      expect(harness.counts.get("a")).toBe(before.get("a"));
+      expect(harness.reads.get(2)).toBe(readsBefore.get(2));
+      expect(harness.reads.get(1)).toBe(readsBefore.get(1));
+    });
+
+    it("routes to the new key after a row's key changes", async () => {
+      const [one, two, three]: Item[] = [
+        { key: 1, value: "one" },
+        { key: 2, value: "two" },
+        { key: 3, value: "three" },
+      ];
+      const harness = createHarness([one, two, three]);
+      await harness.mount([{ id: "a", itemKey: 2 }]);
+      harness.setRows([{ id: "a", itemKey: 3 }]);
+      const before = new Map(harness.counts);
+      const readsBefore = new Map(harness.reads);
+      harness.push([one, { key: 2, value: "two!" }, three]);
+      expect(harness.counts.get("a")).toBe(before.get("a"));
+      expect(harness.reads.get(2)).toBe(readsBefore.get(2));
+      expect(harness.reads.get(3)).toBe(readsBefore.get(3));
+      harness.push([one, two, { key: 3, value: "three!" }]);
+      expect(harness.counts.get("a")).toBe((before.get("a") ?? 0) + 1);
+      expect(harness.reads.get(3)).toBeGreaterThan(readsBefore.get(3) ?? 0);
+    });
+  });
 
   describe("getCached", () => {
     it("should use cached data as initial state when available", () => {

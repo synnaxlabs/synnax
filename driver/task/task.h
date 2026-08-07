@@ -14,7 +14,6 @@
 #include <list>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -52,62 +51,6 @@ public:
     virtual ~Task() = default;
 };
 
-/// @brief thread-safe per-task deploy state shared between the manager and the
-/// context: the config hash the live instance was built from, and the key of the
-/// start command that triggered an in-flight deploy. The context stamps both
-/// into outgoing statuses.
-class DeployState {
-    struct State {
-        std::string hash;
-        std::string pending_cmd;
-    };
-    std::mutex mu;
-    std::unordered_map<synnax::task::Key, State> states;
-
-public:
-    void set_hash(const synnax::task::Key &key, const std::string &hash) {
-        std::lock_guard lock{this->mu};
-        this->states[key].hash = hash;
-    }
-
-    /// @brief returns the config hash the live instance for key was built from, or
-    /// nullopt when no live instance exists. Never conflate the two: a task that was
-    /// never deployed must rebuild, not plain start.
-    std::optional<std::string> hash(const synnax::task::Key &key) {
-        std::lock_guard lock{this->mu};
-        const auto it = this->states.find(key);
-        if (it == this->states.end()) return std::nullopt;
-        return it->second.hash;
-    }
-
-    void set_pending_cmd(const synnax::task::Key &key, const std::string &cmd) {
-        std::lock_guard lock{this->mu};
-        this->states[key].pending_cmd = cmd;
-    }
-
-    void clear_pending_cmd(const synnax::task::Key &key) {
-        std::lock_guard lock{this->mu};
-        const auto it = this->states.find(key);
-        if (it != this->states.end()) it->second.pending_cmd.clear();
-    }
-
-    std::string pending_cmd(const synnax::task::Key &key) {
-        std::lock_guard lock{this->mu};
-        const auto it = this->states.find(key);
-        return it == this->states.end() ? "" : it->second.pending_cmd;
-    }
-
-    void remove(const synnax::task::Key &key) {
-        std::lock_guard lock{this->mu};
-        this->states.erase(key);
-    }
-
-    void clear() {
-        std::lock_guard lock{this->mu};
-        this->states.clear();
-    }
-};
-
 /// @brief an interface for a standard context that is provided to every task in the
 /// driver. This context provides access to the Synnax client and allows tasks to
 /// easily update their state.
@@ -133,10 +76,6 @@ public:
     /// Core-side deduplication filtering.
     virtual synnax::rack::Key rack_key() { return 0; }
 
-    /// @brief returns the key of the start command driving an in-flight deploy for
-    /// the task, or empty when none is pending (boot).
-    virtual std::string pending_cmd(const synnax::task::Key &key) { return ""; }
-
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
 };
@@ -147,16 +86,9 @@ class MockContext final : public Context {
 
 public:
     std::vector<synnax::task::Status> statuses{};
-    /// @brief pending start command returned for every task. Defaults to a
-    /// deploy-like value; clear it to simulate a boot-time configure.
-    std::string pending_start_cmd = "mock_start_cmd";
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
-
-    std::string pending_cmd(const synnax::task::Key &key) override {
-        return this->pending_start_cmd;
-    }
 
     void set_status(synnax::task::Status &status) override {
         mu.lock();
@@ -169,21 +101,18 @@ class SynnaxContext final : public Context {
     std::shared_ptr<bypass::Bus> bus_;
     std::shared_ptr<control::States> control_states_;
     synnax::rack::Key rack_key_;
-    std::shared_ptr<DeployState> deploys_;
 
 public:
     explicit SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
         const std::shared_ptr<bypass::Bus> &bus = nullptr,
         const std::shared_ptr<control::States> &control_states = nullptr,
-        const synnax::rack::Key rack_key = 0,
-        const std::shared_ptr<DeployState> &deploys = nullptr
+        const synnax::rack::Key rack_key = 0
     ):
         Context(client),
         bus_(bus),
         control_states_(control_states),
-        rack_key_(rack_key),
-        deploys_(deploys) {}
+        rack_key_(rack_key) {}
 
     std::shared_ptr<bypass::Bus> bus() override { return this->bus_; }
 
@@ -193,22 +122,9 @@ public:
 
     synnax::rack::Key rack_key() override { return this->rack_key_; }
 
-    std::string pending_cmd(const synnax::task::Key &key) override {
-        return this->deploys_ == nullptr ? "" : this->deploys_->pending_cmd(key);
-    }
-
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
         status.details.rack = this->rack_key_;
-        if (this->deploys_ != nullptr) {
-            status.details.config_hash = this->deploys_->hash(status.details.task)
-                                             .value_or("");
-            // A config error during a start-triggered deploy must ack the start
-            // command so sync waiters resolve with the detailed failure.
-            if (status.details.cmd.empty() &&
-                status.variant == synnax::status::VARIANT_ERROR)
-                status.details.cmd = this->deploys_->pending_cmd(status.details.task);
-        }
         if (const auto err = this->client->statuses.set<synnax::task::StatusDetails>(
                 status
             );
@@ -229,9 +145,13 @@ public:
 
     virtual std::string name() { return ""; }
 
+    /// @brief builds a live instance of the task if this factory handles its type.
+    /// @param cmd_key the start command driving the deploy, empty at boot.
+    /// @returns the instance and whether this factory handled the type.
     virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) = 0;
 
     virtual ~Factory() = default;
@@ -264,10 +184,11 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override {
         for (const auto &factory: factories) {
-            auto [t, ok] = factory->configure_task(ctx, task);
+            auto [t, ok] = factory->configure_task(ctx, task, cmd_key);
             if (ok) return {std::move(t), true};
         }
         return {nullptr, false};
@@ -339,13 +260,11 @@ public:
     ):
         rack(std::move(rack)),
         control_states_(std::make_shared<control::States>()),
-        deploys_(std::make_shared<DeployState>()),
         ctx(std::make_shared<SynnaxContext>(
             client,
             std::make_shared<bypass::Bus>(),
             this->control_states_,
-            this->rack.key,
-            this->deploys_
+            this->rack.key
         )),
         factory(std::move(factory)),
         op_timeout(cfg.op_timeout),
@@ -365,8 +284,6 @@ private:
     synnax::rack::Rack rack;
     /// @brief shared control authority states, fed by the manager's streamer.
     std::shared_ptr<control::States> control_states_;
-    /// @brief deploy state of live task instances, shared with the context.
-    std::shared_ptr<DeployState> deploys_;
     /// @brief shared context passed to all tasks.
     std::shared_ptr<Context> ctx;
     /// @brief creates device-specific tasks.
@@ -392,13 +309,29 @@ private:
         synnax::task::Command cmd;
     };
 
-    /// @brief per-task state tracked by the manager.
+    /// @brief per-task state tracked by the manager. Exists exactly while the row is
+    /// on this rack or this driver holds a live instance.
     struct Entry {
-        std::unique_ptr<Task> task;
+        /// @brief guards row and deployed_hash. Always taken after Manager::mu.
+        std::mutex mu;
+        /// @brief the last row seen for this task. Set events omit config, so a
+        /// deploy must fetch the row instead of using this one.
+        synnax::task::Task row;
+        /// @brief the config hash instance was built from. Empty when instance is
+        /// null.
+        std::string deployed_hash;
+        /// @brief the live instance, null when nothing is deployed. Guarded by
+        /// processing: only the claiming worker touches it.
+        std::unique_ptr<Task> instance;
         /// @brief true while a worker is processing an operation for this task.
         std::atomic<bool> processing{false};
         /// @brief when the current operation started (0 if idle).
         std::atomic<x::telem::TimeStamp> op_started{x::telem::TimeStamp(0)};
+
+        [[nodiscard]] bool relevant(const synnax::rack::Key rack) {
+            std::lock_guard lock{this->mu};
+            return this->row.rack == rack || this->instance != nullptr;
+        }
     };
 
     /// @brief maps task keys to their state. Uses shared_ptr for stable references.
@@ -428,23 +361,32 @@ private:
 
     /// @brief channels used to receive task events.
     struct {
+        synnax::channel::Channel task_set;
         synnax::channel::Channel task_delete;
         synnax::channel::Channel task_cmd;
         synnax::channel::Channel control_state;
     } channels;
 
-    /// @brief opens the streamer for task delete/cmd channels.
+    /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
     /// @brief stops all running tasks.
     void stop_all_tasks();
+    /// @brief refreshes the local row for each changed task. Never deploys or stops;
+    /// a rack move is acted on by the next start command.
+    void process_task_set(const x::telem::Series &series);
     /// @brief handles task deletion events.
     void process_task_delete(const x::telem::Series &series);
     /// @brief handles task command events.
     void process_task_cmd(const x::telem::Series &series);
-    /// @brief deploys the stored task row and runs the start command.
+    /// @brief runs a start command, redeploying first when the config has changed.
     void process_start(const synnax::task::Command &cmd);
+    /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
+    std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
+    /// @brief drops the entry for key unless it is still relevant. Callers must hold
+    /// mu.
+    void remove(const synnax::task::Key &key);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
     /// @brief stops workers and waits for them to finish.
@@ -454,6 +396,8 @@ private:
     /// @brief checks for operations that have exceeded op_timeout.
     void monitor_loop();
     /// @brief executes a single operation on an entry.
-    void execute_op(const Op &op, const std::shared_ptr<Entry> &entry) const;
+    void execute_op(const Op &op, const std::shared_ptr<Entry> &entry);
+    /// @brief clears the deployed hash so the next start rebuilds.
+    static void clear_deploy(const std::shared_ptr<Entry> &entry);
 };
 }
