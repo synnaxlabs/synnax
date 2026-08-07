@@ -201,6 +201,7 @@ export class Task<S extends Schemas = Schemas> {
       ...params,
       frameClient: this.frameClient,
       task: this.key,
+      configHash: this.configHash,
     });
   }
 
@@ -211,6 +212,7 @@ export class Task<S extends Schemas = Schemas> {
       ...params,
       frameClient: this.frameClient,
       task: this.key,
+      configHash: this.configHash,
       name: this.name,
       statusDataZ: this.schemas.statusData,
     });
@@ -387,7 +389,7 @@ export class Client extends query.Retriever<
           bind: (table) => ({
             channel: SET_CHANNEL_NAME,
             schema: setSignalZ,
-            // The set signal omits config: a changed hash means the cached one is stale.
+            // The set signal omits config: a changed hash makes the cached one stale.
             onChange: async (changed: SetSignal) => {
               const cached = table.get(changed.key);
               if (cached == null || cached.configHash !== changed.configHash) {
@@ -672,6 +674,15 @@ export class Client extends query.Retriever<
     return isSingle ? res[0] : res;
   }
 
+  /**
+   * Fills a command's config hash from the cached task row. A command that carries
+   * the hash lets the Driver reuse its live instance instead of redeploying.
+   */
+  private stampConfigHash(cmd: NewCommand): NewCommand {
+    if (cmd.configHash != null) return cmd;
+    return { ...cmd, configHash: this.store.get(cmd.task)?.configHash };
+  }
+
   async executeCommand(params: ExecuteCommandParams): Promise<string>;
 
   async executeCommand(params: ExecuteCommandsParams): Promise<string[]>;
@@ -680,8 +691,14 @@ export class Client extends query.Retriever<
     params: ExecuteCommandParams | ExecuteCommandsParams,
   ): Promise<string | string[]> {
     if ("commands" in params)
-      return await executeCommands({ ...params, frameClient: this.cfg.framer });
-    return await executeCommand({ ...params, frameClient: this.cfg.framer });
+      return await executeCommands({
+        commands: params.commands.map((c) => this.stampConfigHash(c)),
+        frameClient: this.cfg.framer,
+      });
+    return await executeCommand({
+      ...this.stampConfigHash(params),
+      frameClient: this.cfg.framer,
+    });
   }
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
@@ -704,6 +721,7 @@ export class Client extends query.Retriever<
       };
       return await executeCommandsSync({
         ...params,
+        commands: params.commands.map((c) => this.stampConfigHash(c)),
         frameClient: this.cfg.framer,
         name: retrieveNames,
       });
@@ -717,6 +735,7 @@ export class Client extends query.Retriever<
       frameClient: this.cfg.framer,
       name: retrieveName,
       ...params,
+      configHash: params.configHash ?? this.store.get(params.task)?.configHash,
     });
   }
 }
@@ -746,6 +765,7 @@ interface ExecuteCommandInternalParams {
   task: Key;
   type: string;
   args?: {};
+  configHash?: string;
 }
 
 const executeCommand = async ({
@@ -753,13 +773,24 @@ const executeCommand = async ({
   task,
   type,
   args,
+  configHash,
 }: ExecuteCommandInternalParams): Promise<string> =>
-  (await executeCommands({ frameClient, commands: [{ args, task, type }] }))[0];
+  (
+    await executeCommands({
+      frameClient,
+      commands: [{ args, task, type, configHash }],
+    })
+  )[0];
 
 export interface NewCommand {
   task: Key;
   type: string;
   args?: {};
+  /**
+   * The config hash the sender wants running. Left unset, the client fills it from
+   * its cached task row.
+   */
+  configHash?: string;
 }
 
 interface ExecuteCommandsInternalParams {
@@ -773,7 +804,11 @@ const executeCommands = async ({
 }: ExecuteCommandsInternalParams): Promise<string[]> => {
   if (frameClient == null) throw new Error("Task not created");
   const w = await frameClient.openWriter(COMMAND_CHANNEL_NAME);
-  const cmds = commands.map((c) => ({ ...c, key: id.create() }));
+  const cmds = commands.map((c) => ({
+    ...c,
+    configHash: c.configHash ?? "",
+    key: id.create(),
+  }));
   await w.write(COMMAND_CHANNEL_NAME, cmds);
   await w.close();
   return cmds.map((c) => c.key);
@@ -784,6 +819,7 @@ interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodN
     Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
     TaskExecuteCommandSyncParams {
   task: Key;
+  configHash?: string;
 }
 
 const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
@@ -794,11 +830,12 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   name: taskName,
   statusDataZ,
   args,
+  configHash,
 }: ExecuteCommandSyncInternalParams<StatusData>): Promise<Status<StatusData>> =>
   (
     await executeCommandsSync({
       frameClient,
-      commands: [{ args, task, type }],
+      commands: [{ args, task, type, configHash }],
       timeout,
       statusDataZ,
       name: taskName,
