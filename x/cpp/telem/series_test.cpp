@@ -1357,11 +1357,11 @@ TEST(SeriesOperators, DivisionByZeroThrows) {
 }
 
 /// @brief Tests > comparison operator.
-TEST(SeriesOperators, GreaterThanReturnsUint8) {
+TEST(SeriesOperators, GreaterThanReturnsBool) {
     auto a = Series(std::vector<double>{1.0, 5.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 3.0});
     auto result = a > b;
-    ASSERT_EQ(result.data_type(), UINT8_T);
+    ASSERT_EQ(result.data_type(), BOOL_T);
     ASSERT_EQ(result.size(), 3);
     ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 > 2.0 = false
     ASSERT_EQ(result.at<uint8_t>(1), 1); // 5.0 > 3.0 = true
@@ -1369,55 +1369,55 @@ TEST(SeriesOperators, GreaterThanReturnsUint8) {
 }
 
 /// @brief Tests < comparison operator.
-TEST(SeriesOperators, LessThanReturnsUint8) {
+TEST(SeriesOperators, LessThanReturnsBool) {
     auto a = Series(std::vector<double>{1.0, 5.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 3.0});
     auto result = a < b;
-    ASSERT_EQ(result.data_type(), UINT8_T);
+    ASSERT_EQ(result.data_type(), BOOL_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 < 2.0 = true
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 5.0 < 3.0 = false
     ASSERT_EQ(result.at<uint8_t>(2), 0); // 3.0 < 3.0 = false
 }
 
 /// @brief Tests >= comparison operator.
-TEST(SeriesOperators, GreaterThanOrEqualReturnsUint8) {
+TEST(SeriesOperators, GreaterThanOrEqualReturnsBool) {
     auto a = Series(std::vector<double>{1.0, 5.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 3.0});
     auto result = a >= b;
-    ASSERT_EQ(result.data_type(), UINT8_T);
+    ASSERT_EQ(result.data_type(), BOOL_T);
     ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 >= 2.0 = false
     ASSERT_EQ(result.at<uint8_t>(1), 1); // 5.0 >= 3.0 = true
     ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 >= 3.0 = true
 }
 
 /// @brief Tests <= comparison operator.
-TEST(SeriesOperators, LessThanOrEqualReturnsUint8) {
+TEST(SeriesOperators, LessThanOrEqualReturnsBool) {
     auto a = Series(std::vector<double>{1.0, 5.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 3.0});
     auto result = a <= b;
-    ASSERT_EQ(result.data_type(), UINT8_T);
+    ASSERT_EQ(result.data_type(), BOOL_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 <= 2.0 = true
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 5.0 <= 3.0 = false
     ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 <= 3.0 = true
 }
 
 /// @brief Tests == comparison operator.
-TEST(SeriesOperators, EqualityReturnsUint8) {
+TEST(SeriesOperators, EqualityReturnsBool) {
     auto a = Series(std::vector<double>{1.0, 3.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 4.0});
     auto result = a == b;
-    ASSERT_EQ(result.data_type(), UINT8_T);
+    ASSERT_EQ(result.data_type(), BOOL_T);
     ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 == 2.0 = false
     ASSERT_EQ(result.at<uint8_t>(1), 1); // 3.0 == 3.0 = true
     ASSERT_EQ(result.at<uint8_t>(2), 0); // 3.0 == 4.0 = false
 }
 
 /// @brief Tests != comparison operator.
-TEST(SeriesOperators, InequalityReturnsUint8) {
+TEST(SeriesOperators, InequalityReturnsBool) {
     auto a = Series(std::vector<double>{1.0, 3.0, 3.0});
     auto b = Series(std::vector<double>{2.0, 3.0, 4.0});
     auto result = a != b;
-    ASSERT_EQ(result.data_type(), UINT8_T);
+    ASSERT_EQ(result.data_type(), BOOL_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 != 2.0 = true
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 3.0 != 3.0 = false
     ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 != 4.0 = true
@@ -1691,7 +1691,7 @@ TEST(SeriesOperators, DoubleBitwiseNot) {
 TEST(SeriesOperators, LogicalNotUint8) {
     auto a = Series(std::vector<uint8_t>{0, 1, 255, 0, 42});
     auto result = a.logical_not();
-    ASSERT_EQ(result.data_type(), UINT8_T);
+    ASSERT_EQ(result.data_type(), BOOL_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 0 -> 1
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 1 -> 0
     ASSERT_EQ(result.at<uint8_t>(2), 0); // 255 -> 0
@@ -1703,7 +1703,7 @@ TEST(SeriesOperators, LogicalNotUint8) {
 TEST(SeriesOperators, LogicalNotInt32) {
     auto a = Series(std::vector<int32_t>{0, 1, -1, 100, 0});
     auto result = a.logical_not();
-    ASSERT_EQ(result.data_type(), UINT8_T);
+    ASSERT_EQ(result.data_type(), BOOL_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 0 -> 1
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 1 -> 0
     ASSERT_EQ(result.at<uint8_t>(2), 0); // -1 -> 0
@@ -1715,7 +1715,7 @@ TEST(SeriesOperators, LogicalNotInt32) {
 TEST(SeriesOperators, LogicalNotFloat64) {
     auto a = Series(std::vector<double>{0.0, 1.0, -1.0, 0.5, 0.0});
     auto result = a.logical_not();
-    ASSERT_EQ(result.data_type(), UINT8_T);
+    ASSERT_EQ(result.data_type(), BOOL_T);
     ASSERT_EQ(result.at<uint8_t>(0), 1); // 0.0 -> 1
     ASSERT_EQ(result.at<uint8_t>(1), 0); // 1.0 -> 0
     ASSERT_EQ(result.at<uint8_t>(2), 0); // -1.0 -> 0
@@ -1732,6 +1732,195 @@ TEST(SeriesOperators, DoubleLogicalNot) {
     ASSERT_EQ(result.at<uint8_t>(1), 1); // 1 -> 0 -> 1
     ASSERT_EQ(result.at<uint8_t>(2), 0); // 0 -> 1 -> 0
     ASSERT_EQ(result.at<uint8_t>(3), 1); // 255 -> 0 -> 1
+}
+
+/// @brief Tests logical AND on equal length boolean series.
+TEST(SeriesOperators, LogicalAndEqualLength) {
+    auto a = Series(std::vector<uint8_t>{1, 1, 0, 0}, BOOL_T);
+    auto b = Series(std::vector<uint8_t>{1, 0, 1, 0}, BOOL_T);
+    auto result = a.logical_and(b);
+    ASSERT_EQ(result.data_type(), BOOL_T);
+    ASSERT_EQ(result.size(), 4);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 0);
+    ASSERT_EQ(result.at<uint8_t>(2), 0);
+    ASSERT_EQ(result.at<uint8_t>(3), 0);
+}
+
+/// @brief Tests logical AND repeats the shorter operand's last value.
+TEST(SeriesOperators, LogicalAndDifferentLengthRepeatsLastValue) {
+    auto a = Series(std::vector<uint8_t>{1, 0}, BOOL_T);
+    auto b = Series(std::vector<uint8_t>{1, 1, 1, 1, 1}, BOOL_T);
+    auto result = a.logical_and(b);
+    ASSERT_EQ(result.data_type(), BOOL_T);
+    ASSERT_EQ(result.size(), 5);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 0);
+    ASSERT_EQ(result.at<uint8_t>(2), 0);
+    ASSERT_EQ(result.at<uint8_t>(3), 0);
+    ASSERT_EQ(result.at<uint8_t>(4), 0);
+}
+
+/// @brief Tests logical AND with an all-true operand.
+TEST(SeriesOperators, LogicalAndAllTrueOperand) {
+    auto a = Series(std::vector<uint8_t>{1, 1, 1}, BOOL_T);
+    auto b = Series(std::vector<uint8_t>{1, 0, 1}, BOOL_T);
+    auto result = a.logical_and(b);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 0);
+    ASSERT_EQ(result.at<uint8_t>(2), 1);
+}
+
+/// @brief Tests logical OR on equal length boolean series.
+TEST(SeriesOperators, LogicalOrEqualLength) {
+    auto a = Series(std::vector<uint8_t>{1, 1, 0, 0}, BOOL_T);
+    auto b = Series(std::vector<uint8_t>{1, 0, 1, 0}, BOOL_T);
+    auto result = a.logical_or(b);
+    ASSERT_EQ(result.data_type(), BOOL_T);
+    ASSERT_EQ(result.size(), 4);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 1);
+    ASSERT_EQ(result.at<uint8_t>(2), 1);
+    ASSERT_EQ(result.at<uint8_t>(3), 0);
+}
+
+/// @brief Tests logical OR repeats the shorter operand's last value.
+TEST(SeriesOperators, LogicalOrDifferentLengthRepeatsLastValue) {
+    auto a = Series(std::vector<uint8_t>{1, 0}, BOOL_T);
+    auto b = Series(std::vector<uint8_t>{0, 0, 0, 0, 0}, BOOL_T);
+    auto result = a.logical_or(b);
+    ASSERT_EQ(result.data_type(), BOOL_T);
+    ASSERT_EQ(result.size(), 5);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 0);
+    ASSERT_EQ(result.at<uint8_t>(2), 0);
+    ASSERT_EQ(result.at<uint8_t>(3), 0);
+    ASSERT_EQ(result.at<uint8_t>(4), 0);
+}
+
+/// @brief Tests logical OR with an all-true operand.
+TEST(SeriesOperators, LogicalOrAllTrueOperand) {
+    auto a = Series(std::vector<uint8_t>{1, 1, 1}, BOOL_T);
+    auto b = Series(std::vector<uint8_t>{0, 1, 0}, BOOL_T);
+    auto result = a.logical_or(b);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 1);
+    ASSERT_EQ(result.at<uint8_t>(2), 1);
+}
+
+/// @brief Tests logical NOT on a boolean series.
+TEST(SeriesOperators, LogicalNotBoolSeries) {
+    auto a = Series(std::vector<uint8_t>{1, 0, 1, 0}, BOOL_T);
+    auto result = a.logical_not();
+    ASSERT_EQ(result.data_type(), BOOL_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 0);
+    ASSERT_EQ(result.at<uint8_t>(1), 1);
+    ASSERT_EQ(result.at<uint8_t>(2), 0);
+    ASSERT_EQ(result.at<uint8_t>(3), 1);
+}
+
+/// @brief Tests logical NOT on an empty boolean series.
+TEST(SeriesOperators, LogicalNotEmptyBoolSeries) {
+    auto a = Series(BOOL_T, 0);
+    auto result = a.logical_not();
+    ASSERT_EQ(result.size(), 0);
+}
+
+/// @brief Tests logical NOT on a single element boolean series.
+TEST(SeriesOperators, LogicalNotSingleElementBool) {
+    auto a = Series(std::vector<uint8_t>{1}, BOOL_T);
+    auto result = a.logical_not();
+    ASSERT_EQ(result.size(), 1);
+    ASSERT_EQ(result.at<uint8_t>(0), 0);
+}
+
+/// @brief Tests logical NOT across alternating value combinations.
+TEST(SeriesOperators, LogicalNotAllValueCombinations) {
+    auto a = Series(std::vector<uint8_t>{1, 0, 1, 0, 1, 0}, BOOL_T);
+    auto result = a.logical_not();
+    ASSERT_EQ(result.at<uint8_t>(0), 0);
+    ASSERT_EQ(result.at<uint8_t>(1), 1);
+    ASSERT_EQ(result.at<uint8_t>(2), 0);
+    ASSERT_EQ(result.at<uint8_t>(3), 1);
+    ASSERT_EQ(result.at<uint8_t>(4), 0);
+    ASSERT_EQ(result.at<uint8_t>(5), 1);
+}
+
+/// @brief Tests combining logical AND and OR operations.
+TEST(SeriesOperators, LogicalCombinedAndOr) {
+    auto a = Series(std::vector<uint8_t>{1, 1, 0, 0}, BOOL_T);
+    auto b = Series(std::vector<uint8_t>{1, 0, 1, 0}, BOOL_T);
+    auto c = Series(std::vector<uint8_t>{1, 1, 1, 1}, BOOL_T);
+    auto result = a.logical_and(b).logical_or(c);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 1);
+    ASSERT_EQ(result.at<uint8_t>(2), 1);
+    ASSERT_EQ(result.at<uint8_t>(3), 1);
+}
+
+/// @brief Tests logical NOT of a logical AND result.
+TEST(SeriesOperators, LogicalNotOfAndResult) {
+    auto a = Series(std::vector<uint8_t>{1, 1, 0, 0}, BOOL_T);
+    auto b = Series(std::vector<uint8_t>{1, 0, 1, 0}, BOOL_T);
+    auto result = a.logical_and(b).logical_not();
+    ASSERT_EQ(result.at<uint8_t>(0), 0);
+    ASSERT_EQ(result.at<uint8_t>(1), 1);
+    ASSERT_EQ(result.at<uint8_t>(2), 1);
+    ASSERT_EQ(result.at<uint8_t>(3), 1);
+}
+
+/// @brief Tests logical AND with a true scalar leaves values unchanged.
+TEST(SeriesOperators, LogicalAndScalarTrue) {
+    auto a = Series(std::vector<uint8_t>{1, 0, 1, 0}, BOOL_T);
+    auto result = a.logical_and(true);
+    ASSERT_EQ(result.data_type(), BOOL_T);
+    ASSERT_EQ(result.size(), 4);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 0);
+    ASSERT_EQ(result.at<uint8_t>(2), 1);
+    ASSERT_EQ(result.at<uint8_t>(3), 0);
+}
+
+/// @brief Tests logical AND with a false scalar zeroes every value.
+TEST(SeriesOperators, LogicalAndScalarFalse) {
+    auto a = Series(std::vector<uint8_t>{1, 0, 1, 0}, BOOL_T);
+    auto result = a.logical_and(false);
+    ASSERT_EQ(result.at<uint8_t>(0), 0);
+    ASSERT_EQ(result.at<uint8_t>(1), 0);
+    ASSERT_EQ(result.at<uint8_t>(2), 0);
+    ASSERT_EQ(result.at<uint8_t>(3), 0);
+}
+
+/// @brief Tests logical OR with a true scalar fills every value.
+TEST(SeriesOperators, LogicalOrScalarTrue) {
+    auto a = Series(std::vector<uint8_t>{1, 0, 1, 0}, BOOL_T);
+    auto result = a.logical_or(true);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 1);
+    ASSERT_EQ(result.at<uint8_t>(2), 1);
+    ASSERT_EQ(result.at<uint8_t>(3), 1);
+}
+
+/// @brief Tests logical OR with a false scalar leaves values unchanged.
+TEST(SeriesOperators, LogicalOrScalarFalse) {
+    auto a = Series(std::vector<uint8_t>{1, 0, 1, 0}, BOOL_T);
+    auto result = a.logical_or(false);
+    ASSERT_EQ(result.data_type(), BOOL_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 0);
+    ASSERT_EQ(result.at<uint8_t>(2), 1);
+    ASSERT_EQ(result.at<uint8_t>(3), 0);
+}
+
+/// @brief Tests element-wise equality between boolean series.
+TEST(SeriesOperators, EqualityOnBoolSeries) {
+    auto a = Series(std::vector<uint8_t>{1, 0, 1}, BOOL_T);
+    auto b = Series(std::vector<uint8_t>{1, 1, 1}, BOOL_T);
+    auto result = a == b;
+    ASSERT_EQ(result.data_type(), BOOL_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1);
+    ASSERT_EQ(result.at<uint8_t>(1), 0);
+    ASSERT_EQ(result.at<uint8_t>(2), 1);
 }
 
 /// @brief Tests negation can be chained with other operations.

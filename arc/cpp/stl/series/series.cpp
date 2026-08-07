@@ -16,23 +16,28 @@ namespace arc::stl::series {
 void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     auto ss = this->series_state;
 
+// BIND_CREATE_EMPTY registers create_empty_<suffix>, the allocator shared by
+// every series element type.
+#define BIND_CREATE_EMPTY(suffix, data_type_const)                                     \
+    linker                                                                             \
+        .func_wrap(                                                                    \
+            MODULE_NAME,                                                               \
+            "create_empty_" #suffix,                                                   \
+            [ss](uint32_t length) -> uint32_t {                                        \
+                auto s = x::telem::Series(                                             \
+                    data_type_const,                                                   \
+                    static_cast<size_t>(length)                                        \
+                );                                                                     \
+                s.resize(length);                                                      \
+                return ss->store(std::move(s));                                        \
+            }                                                                          \
+        )                                                                              \
+        .unwrap();
+
 #define BIND_SERIES_OPS(suffix, cpptype, data_type_const)                              \
     {                                                                                  \
         using W = typename WasmType<cpptype>::type;                                    \
-        linker                                                                         \
-            .func_wrap(                                                                \
-                MODULE_NAME,                                                           \
-                "create_empty_" #suffix,                                               \
-                [ss](uint32_t length) -> uint32_t {                                    \
-                    auto s = x::telem::Series(                                         \
-                        data_type_const,                                               \
-                        static_cast<size_t>(length)                                    \
-                    );                                                                 \
-                    s.resize(length);                                                  \
-                    return ss->store(std::move(s));                                    \
-                }                                                                      \
-            )                                                                          \
-            .unwrap();                                                                 \
+        BIND_CREATE_EMPTY(suffix, data_type_const)                                     \
         linker                                                                         \
             .func_wrap(                                                                \
                 MODULE_NAME,                                                           \
@@ -452,6 +457,91 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
 
 #undef BIND_SERIES_OPS
 
+    // Registers the series operations valid on a bool series: allocation,
+    // element access, and indexing. Bool series arise from element-wise
+    // comparisons and support no arithmetic.
+    BIND_CREATE_EMPTY(bool, x::telem::BOOL_T)
+    linker
+        .func_wrap(
+            MODULE_NAME,
+            "set_element_bool",
+            [ss](uint32_t handle, uint32_t index, uint32_t value) -> uint32_t {
+                auto *s = ss->get(handle);
+                if (s != nullptr && index < s->size())
+                    s->set(
+                        static_cast<int>(index),
+                        static_cast<uint8_t>(value != 0 ? 1 : 0)
+                    );
+                return handle;
+            }
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            MODULE_NAME,
+            "index_bool",
+            [ss](uint32_t handle, uint32_t index) -> uint32_t {
+                auto *s = ss->get(handle);
+                if (s != nullptr && index < s->size() &&
+                    s->at<uint8_t>(static_cast<int>(index)) != 0)
+                    return 1;
+                return 0;
+            }
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            MODULE_NAME,
+            "and_bool",
+            [ss](uint32_t a, uint32_t b) -> uint32_t {
+                auto *sa = ss->get(a);
+                auto *sb = ss->get(b);
+                if (sa == nullptr || sb == nullptr) return 0;
+                auto result = sa->logical_and(*sb);
+                return ss->store(std::move(result));
+            }
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            MODULE_NAME,
+            "or_bool",
+            [ss](uint32_t a, uint32_t b) -> uint32_t {
+                auto *sa = ss->get(a);
+                auto *sb = ss->get(b);
+                if (sa == nullptr || sb == nullptr) return 0;
+                auto result = sa->logical_or(*sb);
+                return ss->store(std::move(result));
+            }
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            MODULE_NAME,
+            "and_scalar_bool",
+            [ss](uint32_t handle, uint32_t scalar) -> uint32_t {
+                auto *s = ss->get(handle);
+                if (s == nullptr) return 0;
+                auto result = s->logical_and(scalar != 0);
+                return ss->store(std::move(result));
+            }
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            MODULE_NAME,
+            "or_scalar_bool",
+            [ss](uint32_t handle, uint32_t scalar) -> uint32_t {
+                auto *s = ss->get(handle);
+                if (s == nullptr) return 0;
+                auto result = s->logical_or(scalar != 0);
+                return ss->store(std::move(result));
+            }
+        )
+        .unwrap();
+
+#undef BIND_CREATE_EMPTY
+
 #define BIND_NEGATE(suffix)                                                            \
     linker                                                                             \
         .func_wrap(                                                                    \
@@ -478,7 +568,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     linker
         .func_wrap(
             MODULE_NAME,
-            "not_u8",
+            "not_bool",
             [ss](uint32_t handle) -> uint32_t {
                 auto *s = ss->get(handle);
                 if (s == nullptr) return 0;

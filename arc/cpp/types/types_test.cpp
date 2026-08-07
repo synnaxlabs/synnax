@@ -71,3 +71,67 @@ TEST(ToSampleValue, U64FromBoolReturnsNullopt) {
     auto sv = arc::types::to_sample_value(x::json::json(true), t);
     ASSERT_FALSE(sv.has_value());
 }
+
+TEST(ToSampleValue, BoolFromTrue) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    auto sv = arc::types::to_sample_value(x::json::json(true), t);
+    ASSERT_TRUE(sv.has_value());
+    ASSERT_EQ(x::telem::cast<uint8_t>(*sv), 1);
+}
+
+TEST(ToSampleValue, BoolFromFalse) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    auto sv = arc::types::to_sample_value(x::json::json(false), t);
+    ASSERT_TRUE(sv.has_value());
+    ASSERT_EQ(x::telem::cast<uint8_t>(*sv), 0);
+}
+
+TEST(ToSampleValue, BoolFromNonzeroNumberNormalizesToOne) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    auto sv = arc::types::to_sample_value(x::json::json(42), t);
+    ASSERT_TRUE(sv.has_value());
+    ASSERT_EQ(x::telem::cast<uint8_t>(*sv), 1);
+}
+
+TEST(ToSampleValue, BoolFromZeroNumber) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    auto sv = arc::types::to_sample_value(x::json::json(0), t);
+    ASSERT_TRUE(sv.has_value());
+    ASSERT_EQ(x::telem::cast<uint8_t>(*sv), 0);
+}
+
+TEST(ToSampleValue, BoolFromStringReturnsNullopt) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    auto sv = arc::types::to_sample_value(x::json::json("true"), t);
+    ASSERT_FALSE(sv.has_value());
+}
+
+TEST(ToSampleValue, BoolFromNull) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    auto sv = arc::types::to_sample_value(x::json::json(nullptr), t);
+    ASSERT_FALSE(sv.has_value());
+}
+
+TEST(TypesTest, BoolToString) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    ASSERT_EQ(t.to_string(), "bool");
+}
+
+TEST(TypesTest, BoolDensity) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    ASSERT_EQ(t.density(), 1);
+}
+
+TEST(TypesTest, BoolTelem) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    ASSERT_EQ(t.telem(), x::telem::BOOL_T);
+}

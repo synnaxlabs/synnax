@@ -281,6 +281,7 @@ public:
         bind_ops<int64_t>(linker, "i64", x::telem::INT64_T);
         bind_ops<float>(linker, "f32", x::telem::FLOAT32_T);
         bind_ops<double>(linker, "f64", x::telem::FLOAT64_T);
+        bind_bool_ops(linker);
         bind_str_ops(linker);
     }
 
@@ -317,6 +318,38 @@ private:
                         static_cast<types::ChannelKey>(channel_id),
                         dt,
                         static_cast<T>(value)
+                    );
+                }
+            )
+            .unwrap();
+    }
+
+    void bind_bool_ops(wasmtime::Linker &linker) {
+        auto ch = this->channel;
+        linker
+            .func_wrap(
+                MODULE_NAME,
+                "read_bool",
+                [ch](uint32_t channel_id) -> uint32_t {
+                    auto [multi_series, ok] = ch->read_value(
+                        static_cast<types::ChannelKey>(channel_id)
+                    );
+                    if (!ok || multi_series.series.empty()) return 0;
+                    const auto &last = multi_series.series.back();
+                    if (last.size() == 0) return 0;
+                    return last.at<uint8_t>(-1) != 0 ? 1 : 0;
+                }
+            )
+            .unwrap();
+        linker
+            .func_wrap(
+                MODULE_NAME,
+                "write_bool",
+                [ch](uint32_t channel_id, uint32_t value) {
+                    ch->write_channel_typed(
+                        static_cast<types::ChannelKey>(channel_id),
+                        x::telem::BOOL_T,
+                        static_cast<bool>(value != 0)
                     );
                 }
             )

@@ -195,6 +195,38 @@ TEST(ConstantTest, ValueIsCastToCorrectDataType_U8) {
     EXPECT_EQ(output->at<uint8_t>(0), 255);
 }
 
+TEST(ConstantTest, ValueIsCastToCorrectDataType_Bool) {
+    TestSetup setup(types::Kind::Bool, true);
+    Constant node(setup.make_node(), static_cast<uint8_t>(1), x::telem::BOOL_T, true);
+
+    auto ctx = make_context();
+    node.next(ctx);
+
+    const auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 1);
+    EXPECT_EQ(output->data_type(), x::telem::BOOL_T);
+    EXPECT_EQ(output->at<uint8_t>(0), 1);
+}
+
+/// @brief A bool constant node is created from a JSON true value and emits 1.
+TEST(ConstantModuleTest, CreatesBoolConstantFromJsonTrue) {
+    TestSetup setup(types::Kind::Bool, x::json::json(true));
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
+    ));
+
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+
+    auto checker = setup.make_node();
+    const auto &output = checker.output(0);
+    EXPECT_EQ(output->size(), 1);
+    EXPECT_EQ(output->data_type(), x::telem::BOOL_T);
+    EXPECT_EQ(output->at<uint8_t>(0), 1);
+}
+
 /// @brief Test that is_output_truthy delegates to state.
 TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup(types::Kind::F32, 42.5f);

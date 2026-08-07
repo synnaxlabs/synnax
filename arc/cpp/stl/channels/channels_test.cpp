@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "gtest/gtest.h"
+#include "wasmtime.hh"
 
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/mem/local_shared.h"
@@ -1315,6 +1320,87 @@ TEST(SourceRebindTest, RebindsOnResetAndAbsorbsDataBufferedOnTheNewChannel) {
     t.ingest(20, 1, 7.7f);
     ASSERT_NIL(t.source->next(ctx));
     EXPECT_TRUE(changed);
+}
+
+const std::string_view BOOL_CHANNEL_WAT = R"wat(
+(module
+  (import "channels" "read_bool" (func $read_bool (param i32) (result i32)))
+  (import "channels" "write_bool" (func $write_bool (param i32 i32)))
+
+  (func (export "read_bool") (param i32) (result i32)
+    (call $read_bool (local.get 0)))
+  (func (export "write_bool") (param i32 i32)
+    (call $write_bool (local.get 0) (local.get 1)))
+)
+)wat";
+
+struct WasmFixture {
+    std::shared_ptr<State> state;
+    std::shared_ptr<strings::State> str_state;
+    Module mod;
+    wasmtime::Engine engine;
+    wasmtime::Store store;
+    wasmtime::Linker linker;
+    wasmtime::Instance instance;
+
+    WasmFixture(const std::string &wat, const std::vector<Digest> &digests):
+        state(std::make_shared<State>(digests)),
+        str_state(std::make_shared<strings::State>()),
+        mod(state, str_state),
+        store(engine),
+        linker(engine),
+        instance(setup(wat)) {}
+
+    wasmtime::Func get(const std::string &name) {
+        return std::get<wasmtime::Func>(*instance.get(store, name));
+    }
+
+    void write_bool(int32_t channel, int32_t value) {
+        (void) this->get("write_bool")
+            .call(this->store, {wasmtime::Val(channel), wasmtime::Val(value)})
+            .unwrap();
+    }
+
+    int32_t read_bool(int32_t channel) {
+        return this->get("read_bool")
+            .call(this->store, {wasmtime::Val(channel)})
+            .unwrap()[0]
+            .i32();
+    }
+
+    void flush_and_ingest() {
+        ::x::telem::Frame frame(1);
+        this->state->flush_into(frame);
+        this->state->ingest(frame);
+    }
+
+private:
+    wasmtime::Instance setup(const std::string &wat) {
+        mod.bind_to(linker, store);
+        auto wasm_mod = wasmtime::Module::compile(engine, wat).unwrap();
+        return linker.instantiate(store, wasm_mod).unwrap();
+    }
+};
+
+TEST(BoolChannelTest, WritesAndReadsBackTrue) {
+    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOL_T, 0}});
+    f.write_bool(4, 1);
+    f.flush_and_ingest();
+    EXPECT_EQ(f.read_bool(4), 1);
+}
+
+TEST(BoolChannelTest, WritesAndReadsBackFalse) {
+    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOL_T, 0}});
+    f.write_bool(4, 0);
+    f.flush_and_ingest();
+    EXPECT_EQ(f.read_bool(4), 0);
+}
+
+TEST(BoolChannelTest, NormalizesNonzeroWriteToOne) {
+    WasmFixture f(std::string(BOOL_CHANNEL_WAT), {{4, ::x::telem::BOOL_T, 0}});
+    f.write_bool(4, 42);
+    f.flush_and_ingest();
+    EXPECT_EQ(f.read_bool(4), 1);
 }
 
 }

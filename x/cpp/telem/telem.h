@@ -1104,6 +1104,8 @@ public:
             return this->cast(*static_cast<const uint32_t *>(value));
         if (value_type == details::UINT64_T)
             return this->cast(*static_cast<const uint64_t *>(value));
+        if (value_type == details::BOOL_T)
+            return this->cast(*static_cast<const uint8_t *>(value));
         if (value_type == details::TIMESTAMP_T)
             return this->cast(*static_cast<const TimeStamp *>(value));
         if (value_type == details::STRING_T)
