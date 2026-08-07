@@ -35,7 +35,9 @@ func compileBitwiseOrImpl(
 		)
 	}
 	for i := 1; i < len(xors); i++ {
-		rhsType, err := compileBitwiseXor(context.Child(ctx, xors[i]).WithHint(hintType))
+		rhsType, err := compileBitwiseXor(
+			context.Child(ctx, xors[i]).WithHint(hintType),
+		)
 		if err != nil {
 			return types.Type{}, err
 		}
@@ -69,7 +71,9 @@ func compileBitwiseXorImpl(
 		)
 	}
 	for i := 1; i < len(ands); i++ {
-		rhsType, err := compileBitwiseAnd(context.Child(ctx, ands[i]).WithHint(hintType))
+		rhsType, err := compileBitwiseAnd(
+			context.Child(ctx, ands[i]).WithHint(hintType),
+		)
 		if err != nil {
 			return types.Type{}, err
 		}

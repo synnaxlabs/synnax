@@ -1444,7 +1444,11 @@ sequence main {
 
 		It("Should accept select{} with => chain bodies", func(bCtx SpecContext) {
 			customResolver := StaticResolver{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
+				{
+					Name: "flag",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Bool()),
+				},
 				{
 					Name: "log_str",
 					Kind: symbol.KindChannel,
@@ -3173,7 +3177,11 @@ var _ = Describe("Trigger in select routing branches", func() {
 		"Should accept a select branch chaining time.now into an i64 channel",
 		func(bCtx SpecContext) {
 			customResolver := StaticResolver{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
+				{
+					Name: "flag",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Bool()),
+				},
 				{
 					Name: "i64_ch",
 					Kind: symbol.KindChannel,

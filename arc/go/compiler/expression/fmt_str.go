@@ -101,7 +101,8 @@ func emitFmtSegment[T antlr.ParserRuleContext](
 	}
 	return errors.Newf(
 		"placeholder %q has type %s; only numeric, string, and bool types are supported",
-		seg.Text, t,
+		seg.Text,
+		t,
 	)
 }
 

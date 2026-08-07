@@ -175,7 +175,13 @@ var _ = Describe("Channel", func() {
 
 		Describe("bool type", func() {
 			It("Should write and read back true", func(ctx SpecContext) {
-				rt.CallVoid(ctx, "channels", "write_bool", testutil.U32(4), testutil.U32(1))
+				rt.CallVoid(
+					ctx,
+					"channels",
+					"write_bool",
+					testutil.U32(4),
+					testutil.U32(1),
+				)
 				fr := telem.Frame[uint32]{}
 				fr, _ = cs.Flush(fr)
 				cs.Ingest(fr)
@@ -184,7 +190,13 @@ var _ = Describe("Channel", func() {
 			})
 
 			It("Should write and read back false", func(ctx SpecContext) {
-				rt.CallVoid(ctx, "channels", "write_bool", testutil.U32(4), testutil.U32(0))
+				rt.CallVoid(
+					ctx,
+					"channels",
+					"write_bool",
+					testutil.U32(4),
+					testutil.U32(0),
+				)
 				fr := telem.Frame[uint32]{}
 				fr, _ = cs.Flush(fr)
 				cs.Ingest(fr)
@@ -193,7 +205,13 @@ var _ = Describe("Channel", func() {
 			})
 
 			It("Should normalize a nonzero write to 1", func(ctx SpecContext) {
-				rt.CallVoid(ctx, "channels", "write_bool", testutil.U32(4), testutil.U32(42))
+				rt.CallVoid(
+					ctx,
+					"channels",
+					"write_bool",
+					testutil.U32(4),
+					testutil.U32(42),
+				)
 				fr := telem.Frame[uint32]{}
 				fr, _ = cs.Flush(fr)
 				cs.Ingest(fr)

@@ -295,7 +295,13 @@ func analyzeBitwiseOr(ctx context.Context[parser.IBitwiseOrExpressionContext]) {
 	for _, bitwiseXor := range bitwiseXors {
 		analyzeBitwiseXor(context.Child(ctx, bitwiseXor))
 	}
-	validateType(ctx, bitwiseXors, getBitwiseOrOperator, types.InferBitwiseXor, isInteger)
+	validateType(
+		ctx,
+		bitwiseXors,
+		getBitwiseOrOperator,
+		types.InferBitwiseXor,
+		isInteger,
+	)
 }
 
 func analyzeBitwiseXor(ctx context.Context[parser.IBitwiseXorExpressionContext]) {
@@ -303,7 +309,13 @@ func analyzeBitwiseXor(ctx context.Context[parser.IBitwiseXorExpressionContext])
 	for _, bitwiseAnd := range bitwiseAnds {
 		analyzeBitwiseAnd(context.Child(ctx, bitwiseAnd))
 	}
-	validateType(ctx, bitwiseAnds, getBitwiseXorOperator, types.InferBitwiseAnd, isInteger)
+	validateType(
+		ctx,
+		bitwiseAnds,
+		getBitwiseXorOperator,
+		types.InferBitwiseAnd,
+		isInteger,
+	)
 }
 
 func analyzeBitwiseAnd(ctx context.Context[parser.IBitwiseAndExpressionContext]) {

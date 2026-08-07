@@ -44,7 +44,7 @@ type Host struct {
 	stateI64    map[string]map[uint32]int64
 	stateF32    map[string]map[uint32]float32
 	stateF64    map[string]map[uint32]float64
-	stateBool   map[string]map[uint32]bool
+	stateBool   map[string]map[uint32]bool //nolint:set
 	stateString map[string]map[uint32]string
 	stateSeries map[string]map[uint32]telem.Series
 }
@@ -95,7 +95,7 @@ func NewHost(
 		stateI64:    make(map[string]map[uint32]int64),
 		stateF32:    make(map[string]map[uint32]float32),
 		stateF64:    make(map[string]map[uint32]float64),
-		stateBool:   make(map[string]map[uint32]bool),
+		stateBool:   make(map[string]map[uint32]bool), //nolint:set
 		stateString: make(map[string]map[uint32]string),
 		stateSeries: make(map[string]map[uint32]telem.Series),
 	}
@@ -260,7 +260,7 @@ func bindScalarBool(builder wazero.HostModuleBuilder, h *Host) {
 			key := h.currentNodeKey
 			inner, ok := h.stateBool[key]
 			if !ok {
-				inner = make(map[uint32]bool)
+				inner = make(map[uint32]bool) //nolint:set
 				h.stateBool[key] = inner
 			}
 			if value, ok := inner[varID]; ok {
@@ -277,7 +277,7 @@ func bindScalarBool(builder wazero.HostModuleBuilder, h *Host) {
 			key := h.currentNodeKey
 			inner, ok := h.stateBool[key]
 			if !ok {
-				inner = make(map[uint32]bool)
+				inner = make(map[uint32]bool) //nolint:set
 				h.stateBool[key] = inner
 			}
 			inner[varID] = value != 0

@@ -234,13 +234,18 @@ var _ = Describe("format-string end-to-end runtime", func() {
 	})
 
 	Describe("Bool placeholders", func() {
-		DescribeTable("renders bool literals and bool-valued casts",
+		DescribeTable(
+			"renders bool literals and bool-valued casts",
 			func(ctx SpecContext, source, expected string) {
 				Expect(runFmtTrigger(ctx, source)).To(Equal(expected))
 			},
 			Entry("true literal", `f"{true}"`, "true"),
 			Entry("false literal", `f"{false}"`, "false"),
-			Entry("bool literal with surrounding text", `f"active={true}"`, "active=true"),
+			Entry(
+				"bool literal with surrounding text",
+				`f"active={true}"`,
+				"active=true",
+			),
 			Entry("bool() of zero", `f"{bool(0)}"`, "false"),
 			Entry("bool() of nonzero", `f"{bool(5)}"`, "true"),
 			Entry("bool() of negative float", `f"{bool(-0.1)}"`, "true"),

@@ -110,7 +110,11 @@ func assertResult(result uint64, expected any) {
 	case uint8:
 		Expect(uint8(result)).To(Equal(v))
 	case bool:
-		Expect(result != 0).To(Equal(v))
+		if v {
+			Expect(result).ToNot(BeZero())
+		} else {
+			Expect(result).To(BeZero())
+		}
 	}
 }
 
@@ -2032,24 +2036,27 @@ var _ = Describe("Compiler", func() {
 			},
 		)
 
-		It("Should execute chained power with literals: x**2**3", func(ctx SpecContext) {
-			output := MustSucceed(compileWithHostImports(ctx, `
+		It(
+			"Should execute chained power with literals: x**2**3",
+			func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, `
 			func power() f32 {
 				x f32 := 2.0
 				return x ** 2 ** 3
 			}
 			`, nil))
 
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			power := mod.ExportedFunction("power")
-			Expect(power).ToNot(BeNil())
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				power := mod.ExportedFunction("power")
+				Expect(power).ToNot(BeNil())
 
-			results := MustSucceed(power.Call(ctx))
-			Expect(results).To(HaveLen(1))
-			// 2.0**(2**3) = 2.0**8 = 256.0
-			result := math.Float32frombits(uint32(results[0]))
-			Expect(result).To(BeNumerically("~", 256.0, 0.0001))
-		})
+				results := MustSucceed(power.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				// 2.0**(2**3) = 2.0**8 = 256.0
+				result := math.Float32frombits(uint32(results[0]))
+				Expect(result).To(BeNumerically("~", 256.0, 0.0001))
+			},
+		)
 	})
 
 	Describe("Series Operations", func() {
@@ -4122,9 +4129,21 @@ var _ = Describe("Compiler", func() {
 			Entry("chained or", `{ return i32(1) | i32(2) | i32(4) }`, int32(7)),
 			Entry("chained xor", `{ return i32(15) ^ i32(12) ^ i32(9) }`, int32(10)),
 			// Precedence: & binds tighter than ^, ^ binds tighter than |
-			Entry("and binds tighter than or", `{ return i32(1) | i32(6) & i32(4) }`, int32(5)),
-			Entry("and binds tighter than xor", `{ return i32(1) ^ i32(6) & i32(4) }`, int32(5)),
-			Entry("xor binds tighter than or", `{ return i32(1) | i32(6) ^ i32(4) }`, int32(3)),
+			Entry(
+				"and binds tighter than or",
+				`{ return i32(1) | i32(6) & i32(4) }`,
+				int32(5),
+			),
+			Entry(
+				"and binds tighter than xor",
+				`{ return i32(1) ^ i32(6) & i32(4) }`,
+				int32(5),
+			),
+			Entry(
+				"xor binds tighter than or",
+				`{ return i32(1) | i32(6) ^ i32(4) }`,
+				int32(3),
+			),
 			// i64 operands
 			Entry("i64 and", `{ return i64(255) & i64(15) }`, int64(15)),
 			Entry("i64 or", `{ return i64(240) | i64(15) }`, int64(255)),

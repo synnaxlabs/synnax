@@ -38,6 +38,7 @@ var _ = Describe("Formatter", func() {
 			"x and y or z",
 			"x and y or z\n",
 		),
+		Entry("should preserve spaces around xor", "x xor y", "x xor y\n"),
 		Entry("should add spaces around flow operators", "a->b=>c", "a -> b => c\n"),
 		Entry(
 			"should add spaces around compound assignment operators",
@@ -411,6 +412,7 @@ var _ = Describe("Formatter", func() {
 		Entry("double not", "x := not not y", "x := not not y\n"),
 		Entry("not with and", "x := not a and b", "x := not a and b\n"),
 		Entry("and with not", "x := a and not b", "x := a and not b\n"),
+		Entry("negation after xor", "x := a xor -b", "x := a xor -b\n"),
 	)
 
 	DescribeTable("Type Casts",

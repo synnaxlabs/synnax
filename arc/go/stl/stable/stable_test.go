@@ -792,7 +792,8 @@ func newTypedState(ctx context.Context, t types.Type) *node.ProgramState {
 			{Key: "source", Outputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: t},
 			}},
-			{Key: "stable_for",
+			{
+				Key:     "stable_for",
 				Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: t}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: t}},
 			},
@@ -816,7 +817,11 @@ var _ = Describe("StableFor type preservation", func() {
 				Node: ir.Node{
 					Type: "stable_for",
 					Inputs: types.Params{
-						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
+						{
+							Name:  "duration",
+							Type:  types.TimeSpan(),
+							Value: telem.SecondTS,
+						},
 					},
 				},
 				State: state.Node("stable"),
@@ -828,14 +833,18 @@ var _ = Describe("StableFor type preservation", func() {
 			*source.Output(0) = input
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			fired := make(set.Set[int])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { fired.Add(i) }})
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { fired.Add(i) }},
+			)
 			Expect(fired.Contains(0)).To(BeFalse())
 
 			clock = telem.SecondTS * 2
 			*source.Output(0) = telem.Series{DataType: input.DataType}
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			fired = make(set.Set[int])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { fired.Add(i) }})
+			n.Next(
+				node.Context{Context: ctx, MarkChanged: func(i int) { fired.Add(i) }},
+			)
 			Expect(fired.Contains(0)).To(BeTrue())
 
 			out := state.Node("stable").Output(0)

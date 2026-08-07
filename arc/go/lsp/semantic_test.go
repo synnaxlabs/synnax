@@ -667,6 +667,26 @@ func cat() {
 				))
 			},
 		)
+
+		It(
+			"routes xor alongside func and return to the keyword token type",
+			func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, uri, `func cat(a i32, b i32) i32 {
+    return a xor b
+}
+`)
+				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+				lengths := make([]uint32, 0)
+				for _, tok := range filterByType(tokens, tokenTypeKeyword) {
+					lengths = append(lengths, tok.Length)
+				}
+				Expect(lengths).To(ConsistOf(
+					uint32(4), // func
+					uint32(6), // return
+					uint32(3), // xor
+				))
+			},
+		)
 	})
 
 	Describe("variable kinds", func() {

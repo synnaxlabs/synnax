@@ -990,7 +990,10 @@ var _ = Describe("Series", func() {
 		DescribeTable("series-series",
 			func(ctx SpecContext, fn string, lhs, rhs, expected []uint32) {
 				out := callU32(
-					ctx, fn, testutil.U32(mkBool(ctx, lhs...)), testutil.U32(mkBool(ctx, rhs...)),
+					ctx,
+					fn,
+					testutil.U32(mkBool(ctx, lhs...)),
+					testutil.U32(mkBool(ctx, rhs...)),
 				)
 				ser := MustBeOk(ss.Get(out))
 				for i, e := range expected {
@@ -1007,9 +1010,15 @@ var _ = Describe("Series", func() {
 				[]uint32{1}, []uint32{0, 1, 0}, []uint32{1, 1, 1}),
 		)
 
-		DescribeTable("series-scalar",
+		DescribeTable(
+			"series-scalar",
 			func(ctx SpecContext, fn string, series []uint32, scalar uint32, expected []uint32) {
-				out := callU32(ctx, fn, testutil.U32(mkBool(ctx, series...)), testutil.U32(scalar))
+				out := callU32(
+					ctx,
+					fn,
+					testutil.U32(mkBool(ctx, series...)),
+					testutil.U32(scalar),
+				)
 				ser := MustBeOk(ss.Get(out))
 				for i, e := range expected {
 					Expect(telem.ValueAt[bool](ser, i)).To(Equal(e != 0), "index %d", i)
@@ -1027,7 +1036,9 @@ var _ = Describe("Series", func() {
 
 		DescribeTable("invalid handles return zero",
 			func(ctx SpecContext, fn string) {
-				Expect(callU32(ctx, fn, testutil.U32(9999), testutil.U32(9998))).To(BeZero())
+				Expect(
+					callU32(ctx, fn, testutil.U32(9999), testutil.U32(9998)),
+				).To(BeZero())
 			},
 			Entry("and_bool", "and_bool"),
 			Entry("or_bool", "or_bool"),

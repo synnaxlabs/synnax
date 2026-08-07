@@ -1082,7 +1082,8 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			It("Should capture lexer errors for invalid tokens (regression)", func() {
 				// Regression test: lexer errors were not being captured properly. An
-				// unrecognized character should produce a lexer token recognition error.
+				// unrecognized character should produce a lexer token recognition
+				// error.
 				Expect(
 					parser.ParseExpression("a > 5 @ b < 10"),
 				).Error().
