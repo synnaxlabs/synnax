@@ -116,7 +116,13 @@
     white-space: nowrap;
 }
 
-.pluto-tabs__selector
+.pluto-tabs__selector--sizing-content .pluto-tabs__tab {
+    flex: 0 0 auto;
+}
+
+/* The floor keeps a compacting strip's selected tab readable. Content-sized tabs
+   never compact, so it would only pad a short label. */
+.pluto-tabs__selector:not(.pluto-tabs__selector--sizing-content)
     .pluto-tabs__tab.pluto--selected:not(:has([contenteditable="true"])) {
     min-width: var(--pluto-tabs-selected-min-width);
 }
