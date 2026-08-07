@@ -12,8 +12,8 @@ package v3
 import "github.com/synnaxlabs/x/encoding/msgpack"
 
 // transformNIRead rewrites legacy NI analog and counter read configs: the v0
-// config-level device is copied onto every channel missing one, camelCase channel
-// keys become snake_case, and the renamed AI type alias is replaced.
+// config-level device is copied onto every channel missing one, and the renamed AI
+// type alias is replaced.
 func transformNIRead(config msgpack.EncodedJSON) {
 	device, hasDevice := config["device"]
 	delete(config, "device")
@@ -23,10 +23,6 @@ func transformNIRead(config msgpack.EncodedJSON) {
 				ch["device"] = device
 			}
 		}
-		renameKey(ch, "terminalA", "terminal_a")
-		renameKey(ch, "terminalB", "terminal_b")
-		renameKey(ch, "terminalZ", "terminal_z")
-		renameKey(ch, "activeEdge", "active_edge")
 		if ch["type"] == "ai_frequency_voltage" {
 			ch["type"] = "ai_freq_voltage"
 		}
@@ -50,12 +46,11 @@ func transformLabJackWrite(config msgpack.EncodedJSON) {
 	})
 }
 
-// transformEtherCAT normalizes the PDO sub-index key, which legacy clients wrote as
-// "subindex" or "subIndex", on channels and their nested addresses.
+// transformEtherCAT normalizes the all-lowercase PDO sub-index spelling some legacy
+// clients wrote, on channels and their nested addresses.
 func transformEtherCAT(config msgpack.EncodedJSON) {
 	normalize := func(m msgpack.EncodedJSON) {
 		renameKey(m, "subindex", "sub_index")
-		renameKey(m, "subIndex", "sub_index")
 	}
 	eachChild(config, "channels", func(ch msgpack.EncodedJSON) {
 		normalize(ch)
@@ -65,34 +60,35 @@ func transformEtherCAT(config msgpack.EncodedJSON) {
 	})
 }
 
-// transformHTTPRead converts the legacy v0 record-shaped headers, query params, and
-// enum values into their list shapes and flips field polarity.
-func transformHTTPRead(config msgpack.EncodedJSON) {
+// preTransformHTTP converts the legacy v0 record-shaped headers, query params, and
+// enum values into their list shapes. It runs before the snake_case key pass because
+// the record keys are data (header names, enum labels) that must not be converted.
+func preTransformHTTP(config msgpack.EncodedJSON) {
 	eachChild(config, "endpoints", func(ep msgpack.EncodedJSON) {
-		transformHTTPRequest(ep)
+		recordToList(ep, "headers", "name", "value")
+		recordToList(ep, "queryParams", "parameter", "value")
+		recordToList(ep, "query_params", "parameter", "value")
 		eachChild(ep, "fields", func(f msgpack.EncodedJSON) {
-			flipBool(f, "enabled", "disabled")
-			renameKey(f, "enumValues", "enum_values")
+			recordToList(f, "enumValues", "label", "value")
 			recordToList(f, "enum_values", "label", "value")
 		})
 	})
 }
 
-// transformHTTPWrite converts the legacy v0 record-shaped headers and query params
-// into their list shapes and flips endpoint polarity.
-func transformHTTPWrite(config msgpack.EncodedJSON) {
+// transformHTTPRead flips the legacy field polarity on read endpoints.
+func transformHTTPRead(config msgpack.EncodedJSON) {
 	eachChild(config, "endpoints", func(ep msgpack.EncodedJSON) {
-		flipBool(ep, "enabled", "disabled")
-		transformHTTPRequest(ep)
+		eachChild(ep, "fields", func(f msgpack.EncodedJSON) {
+			flipBool(f, "enabled", "disabled")
+		})
 	})
 }
 
-// transformHTTPRequest rewrites the request-shaping keys shared by read and write
-// endpoints.
-func transformHTTPRequest(ep msgpack.EncodedJSON) {
-	renameKey(ep, "queryParams", "query_params")
-	recordToList(ep, "headers", "name", "value")
-	recordToList(ep, "query_params", "parameter", "value")
+// transformHTTPWrite flips the legacy endpoint polarity on write endpoints.
+func transformHTTPWrite(config msgpack.EncodedJSON) {
+	eachChild(config, "endpoints", func(ep msgpack.EncodedJSON) {
+		flipBool(ep, "enabled", "disabled")
+	})
 }
 
 // transformScan renames the legacy "scan_rate" key to "rate" and flips the enabled
