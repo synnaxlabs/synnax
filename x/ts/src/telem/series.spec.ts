@@ -747,6 +747,33 @@ describe("Series", () => {
       expect(series.min).toEqual(2);
     });
 
+    it("should reflect writes made after a prior data access", () => {
+      const series = Series.alloc({ capacity: 4, dataType: DataType.FLOAT32 });
+      series.write(new Series({ data: new Float32Array([1]) }));
+      expect(series.data).toEqual(new Float32Array([1]));
+      series.write(new Series({ data: new Float32Array([2, 3]) }));
+      expect(series.data).toEqual(new Float32Array([1, 2, 3]));
+      series.write(new Series({ data: new Float32Array([4]) }));
+      expect(series.data).toEqual(new Float32Array([1, 2, 3, 4]));
+    });
+
+    it("should expose buffer mutations through a previously read data view", () => {
+      const buf = new ArrayBuffer(8);
+      const series = new Series({ data: buf, dataType: DataType.FLOAT32 });
+      expect(series.data).toEqual(new Float32Array([0, 0]));
+      new Float32Array(buf)[0] = 42;
+      expect(series.data[0]).toEqual(42);
+    });
+
+    it("should keep typed-array-backed data insulated from source mutation", () => {
+      const src = new Float32Array([1, 2]);
+      const series = new Series({ data: src });
+      const first = series.data;
+      src[0] = 99;
+      expect(first[0]).toEqual(1);
+      expect(series.data[0]).toEqual(99);
+    });
+
     it("should recompute the length of a variable density array", () => {
       const series = Series.alloc({ capacity: 18, dataType: DataType.STRING });
       expect(series.length).toEqual(0);

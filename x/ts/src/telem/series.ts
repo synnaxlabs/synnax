@@ -197,6 +197,12 @@ export class Series<T extends TelemValue = TelemValue>
   private cachedLength?: number;
   /** Caches the indexes of the array for variable length data types. */
   private _cachedIndexes?: number[];
+  /** Caches the full typed-array view for ArrayBuffer-backed series. */
+  private cachedUnderlyingView?: TypedArray;
+  /** Caches the partial view returned by data while the series is filling. */
+  private cachedDataView?: TypedArray;
+  /** The write position cachedDataView was built at. */
+  private cachedDataViewWritePos: number = FULL_BUFFER;
 
   /**
    * A zod schema that can be used to validate that a particular value
@@ -551,8 +557,13 @@ export class Series<T extends TelemValue = TelemValue>
     return this._data;
   }
 
+  // Views are cached only for ArrayBuffer backing: the buffer and data type never
+  // change after construction, so a cached view stays a live window over the data.
+  // A typed-array backing converts element-wise on access and is not cached.
   private get underlyingData(): TypedArray {
-    return new this.dataType.Array(this._data);
+    const data = this._data as ArrayBuffer | TypedArray;
+    if (!(data instanceof ArrayBuffer)) return new this.dataType.Array(this._data);
+    return (this.cachedUnderlyingView ??= new this.dataType.Array(data));
   }
 
   /**
@@ -562,7 +573,15 @@ export class Series<T extends TelemValue = TelemValue>
    */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    return new this.dataType.Array(this._data, 0, this.writePos);
+    // Partially written series are always alloc()'d, so the backing is an ArrayBuffer
+    // and the view is rebuilt only when the write position advances.
+    let view = this.cachedDataView;
+    if (view == null || this.cachedDataViewWritePos !== this.writePos) {
+      view = new this.dataType.Array(this._data, 0, this.writePos);
+      this.cachedDataView = view;
+      this.cachedDataViewWritePos = this.writePos;
+    }
+    return view;
   }
 
   /**
