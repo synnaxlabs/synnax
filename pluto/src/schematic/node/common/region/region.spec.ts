@@ -14,8 +14,6 @@ import { describe, expect, it } from "vitest";
 import { Region } from "@/schematic/node/common/region";
 
 describe("Region.extract", () => {
-  const TRANSPARENT = color.hex(color.ZERO);
-
   const createSVG = (content: string): SVGElement => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(
@@ -37,7 +35,8 @@ describe("Region.extract", () => {
     expect(regions).toHaveLength(2);
 
     const redGreenRegion = regions.find(
-      (r) => r.strokeColor === "#ff0000" && r.fillColor === "#00ff00",
+      (r) =>
+        color.equals(r.strokeColor, "#ff0000") && color.equals(r.fillColor, "#00ff00"),
     );
     expect(redGreenRegion).toBeDefined();
     expect(redGreenRegion?.selectors).toHaveLength(2);
@@ -45,7 +44,8 @@ describe("Region.extract", () => {
     expect(redGreenRegion?.selectors).toContain("circle:nth-of-type(1)");
 
     const blueYellowRegion = regions.find(
-      (r) => r.strokeColor === "#0000ff" && r.fillColor === "#ffff00",
+      (r) =>
+        color.equals(r.strokeColor, "#0000ff") && color.equals(r.fillColor, "#ffff00"),
     );
     expect(blueYellowRegion).toBeDefined();
     expect(blueYellowRegion?.selectors).toHaveLength(1);
@@ -64,13 +64,15 @@ describe("Region.extract", () => {
 
     expect(regions).toHaveLength(2);
 
-    const greenFillRegion = regions.find((r) => r.fillColor === "#00ff00");
+    const greenFillRegion = regions.find((r) => color.equals(r.fillColor, "#00ff00"));
     expect(greenFillRegion).toBeDefined();
     expect(greenFillRegion?.selectors).toHaveLength(2);
-    expect(greenFillRegion?.strokeColor).toBe(TRANSPARENT);
+    expect(color.isZero(greenFillRegion?.strokeColor)).toBe(true);
 
     const noColorRegion = regions.find(
-      (r) => r.strokeColor === TRANSPARENT && r.fillColor === TRANSPARENT,
+      (r) =>
+        color.equals(r.strokeColor, color.ZERO) &&
+        color.equals(r.fillColor, color.ZERO),
     );
     expect(noColorRegion).toBeDefined();
     expect(noColorRegion?.selectors).toHaveLength(2);
@@ -145,8 +147,8 @@ describe("Region.extract", () => {
 
     expect(regions).toHaveLength(1);
     expect(regions[0].selectors).toHaveLength(2);
-    expect(regions[0].strokeColor).toBe("#ff0000");
-    expect(regions[0].fillColor).toBe("#00ff00");
+    expect(color.hex(regions[0].strokeColor)).toBe("#ff0000");
+    expect(color.hex(regions[0].fillColor)).toBe("#00ff00");
   });
 
   it("should handle empty SVG", () => {
@@ -173,12 +175,12 @@ describe("Region.extract", () => {
 
     expect(regions).toHaveLength(2);
 
-    const mainRegion = regions.find((r) => r.fillColor === "#00ff00");
+    const mainRegion = regions.find((r) => color.equals(r.fillColor, "#00ff00"));
     expect(mainRegion?.selectors).toHaveLength(7);
 
-    const lineRegion = regions.find((r) => r.fillColor === TRANSPARENT);
+    const lineRegion = regions.find((r) => color.equals(r.fillColor, color.ZERO));
     expect(lineRegion?.selectors).toHaveLength(1);
-    expect(lineRegion?.strokeColor).toBe("#ff0000");
+    expect(color.hex(lineRegion?.strokeColor)).toBe("#ff0000");
   });
 
   it("should normalize colors to lowercase", () => {
@@ -191,11 +193,11 @@ describe("Region.extract", () => {
 
     expect(regions).toHaveLength(1);
     expect(regions[0].selectors).toHaveLength(2);
-    expect(regions[0].strokeColor).toBe("#ff0000");
-    expect(regions[0].fillColor).toBe("#00ff00");
+    expect(color.hex(regions[0].strokeColor)).toBe("#ff0000");
+    expect(color.hex(regions[0].fillColor)).toBe("#00ff00");
   });
 
-  it("should convert all colors to hex format", () => {
+  it("should normalize every CSS paint form to the same color", () => {
     const svg = createSVG(`
       <rect style="stroke: red; fill: blue" />
       <circle style="stroke: rgb(255, 0, 0); fill: rgb(0, 0, 255)" />
@@ -205,13 +207,15 @@ describe("Region.extract", () => {
 
     const regions = Region.extract(svg);
 
-    regions.forEach((region) => {
-      if (region.strokeColor) expect(region.strokeColor).toMatch(/^#[0-9a-f]{6}$/);
-      if (region.fillColor) expect(region.fillColor).toMatch(/^#[0-9a-f]{6}$/);
-    });
+    // Every element paints the same red on blue through a different CSS spelling,
+    // so they collapse into one region.
+    expect(regions).toHaveLength(1);
+    expect(color.equals(regions[0].strokeColor, "#ff0000")).toBe(true);
+    expect(color.equals(regions[0].fillColor, "#0000ff")).toBe(true);
 
     const redStrokeBlue = regions.find(
-      (r) => r.strokeColor === "#ff0000" && r.fillColor === "#0000ff",
+      (r) =>
+        color.equals(r.strokeColor, "#ff0000") && color.equals(r.fillColor, "#0000ff"),
     );
     expect(redStrokeBlue).toBeDefined();
     expect(redStrokeBlue?.selectors).toHaveLength(4);
@@ -246,12 +250,14 @@ describe("Region.extract", () => {
 
     expect(regions).toHaveLength(2);
 
-    const redGreenRegion = regions.find((r) => r.strokeColor === "#ff0000");
+    const redGreenRegion = regions.find((r) => color.equals(r.strokeColor, "#ff0000"));
     expect(redGreenRegion?.selectors).toHaveLength(3);
     expect(redGreenRegion?.selectors).toContain(".shape");
     expect(redGreenRegion?.selectors).toContain("#path1");
 
-    const blueYellowRegion = regions.find((r) => r.strokeColor === "#0000ff");
+    const blueYellowRegion = regions.find((r) =>
+      color.equals(r.strokeColor, "#0000ff"),
+    );
     expect(blueYellowRegion?.selectors).toHaveLength(1);
   });
 
@@ -267,7 +273,7 @@ describe("Region.extract", () => {
     const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(1);
-    expect(regions[0].fillColor).toBe("#00ff00");
+    expect(color.hex(regions[0].fillColor)).toBe("#00ff00");
   });
 });
 

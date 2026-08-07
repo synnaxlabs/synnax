@@ -50,7 +50,7 @@ var _ = Describe("Writer", func() {
 			Expect(a.Key).To(Equal(key))
 		})
 
-		It("Should handle multiple arc creations", func(ctx SpecContext) {
+		It("Should handle multiple Arc creations", func(ctx SpecContext) {
 			a1 := arc.Arc{Name: "arc-1", Mode: arc.ModeText}
 			a2 := arc.Arc{Name: "arc-2", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a1)).To(Succeed())
@@ -130,14 +130,14 @@ var _ = Describe("Writer", func() {
 		})
 
 		It(
-			"Should handle delete of non-existent arc gracefully",
+			"Should handle delete of non-existent Arc gracefully",
 			func(ctx SpecContext) {
 				nonExistentKey := uuid.New()
 				Expect(svc.NewWriter(tx).Delete(ctx, nonExistentKey)).To(Succeed())
 			},
 		)
 
-		It("Should delete child tasks when deleting an arc", func(ctx SpecContext) {
+		It("Should delete child tasks when deleting an Arc", func(ctx SpecContext) {
 			a := arc.Arc{Name: "arc-with-task", Mode: arc.ModeText}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
@@ -164,7 +164,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It(
-			"Should handle arc deletion when arc has no child tasks",
+			"Should handle Arc deletion when Arc has no child tasks",
 			func(ctx SpecContext) {
 				a := arc.Arc{Name: "arc-without-tasks", Mode: arc.ModeText}
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
@@ -175,7 +175,7 @@ var _ = Describe("Writer", func() {
 		)
 
 		It(
-			"Should delete multiple child tasks when deleting an arc",
+			"Should delete multiple child tasks when deleting an Arc",
 			func(ctx SpecContext) {
 				a := arc.Arc{Name: "arc-with-multiple-tasks", Mode: arc.ModeText}
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
@@ -385,7 +385,7 @@ var _ = Describe("Writer", func() {
 		}
 
 		It(
-			"Should materialize dispatched insertions into the arc's text",
+			"Should materialize dispatched insertions into the Arc's text",
 			func(ctx SpecContext) {
 				a := &arc.Arc{Name: "collab-empty", Mode: arc.ModeText}
 				Expect(writer.Create(ctx, a)).To(Succeed())

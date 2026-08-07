@@ -428,7 +428,7 @@ func (s *Server) runAnalysis(
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         docURI,
 		Diagnostics: pDiagnostics,
-	}); err != nil {
+	}); err != nil && !errors.IsAny(err, io.ErrClosedPipe, context.Canceled) {
 		s.cfg.L.Error(
 			"failed to publish diagnostics",
 			zap.Error(err),
@@ -524,7 +524,7 @@ func (s *Server) publishDiagnostics(
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         docURI,
 		Diagnostics: pDiagnostics,
-	}); err != nil {
+	}); err != nil && !errors.IsAny(err, io.ErrClosedPipe, context.Canceled) {
 		s.cfg.L.Error(
 			"failed to publish diagnostics",
 			zap.Error(err),
@@ -543,7 +543,13 @@ func (s *Server) republishAllDiagnostics(ctx context.Context) {
 	}
 	s.mu.RUnlock()
 	for docURI, content := range docs {
+		if ctx.Err() != nil {
+			return
+		}
 		s.publishDiagnostics(ctx, docURI, content)
+	}
+	if ctx.Err() != nil {
+		return
 	}
 	s.refreshSemanticTokens(ctx, "")
 }

@@ -1,0 +1,7 @@
+{
+  "version": "0.0.0",
+  "type": "lineplot",
+  "name": "Foreign",
+  "title": { "level": "p", "visible": true },
+  "lines": []
+}

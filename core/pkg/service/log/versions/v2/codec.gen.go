@@ -12,42 +12,139 @@
 package v2
 
 import (
-	"encoding/json"
-
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (l Log) EncodeOrc(w *orc.Writer) error {
-	w.Write(l.Key[:])
-	w.String(l.Name)
-	{
-		b, err := json.Marshal(l.Data)
-		if err != nil {
-			return err
-		}
-		w.WriteWithLen(b)
+func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(ce.Channel))
+	if err := ce.Color.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(ce.Notation))
+	w.Int32(int32(ce.Precision))
+	w.String(ce.Alias)
+	if err := ce.Timestamp.EncodeOrc(w); err != nil {
+		return err
 	}
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (l *Log) DecodeOrc(r *orc.Reader) error {
+func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(l.Key[:]); err != nil {
-		return err
-	}
-	if l.Name, err = r.String(); err != nil {
-		return err
-	}
 	{
-		b, err := r.ReadWithLen()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &l.Data); err != nil {
+		ce.Channel = channel.Key(rawV)
+	}
+	if err = ce.Color.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
 			return err
 		}
+		ce.Notation = notation.Notation(rawV)
+	}
+	if ce.Precision, err = r.Int32(); err != nil {
+		return err
+	}
+	if ce.Alias, err = r.String(); err != nil {
+		return err
+	}
+	if err = ce.Timestamp.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (lv Log) EncodeOrc(w *orc.Writer) error {
+	w.Write(lv.Key[:])
+	w.String(lv.Name)
+	w.Bool(lv.Channels != nil)
+	if lv.Channels != nil {
+		w.Uint32(uint32(len(lv.Channels)))
+		for i := range lv.Channels {
+			if err := lv.Channels[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	w.Int32(int32(lv.TimestampPrecision))
+	w.Bool(lv.HideChannelNames)
+	w.Bool(lv.HideReceiptTimestamp)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (lv *Log) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(lv.Key[:]); err != nil {
+		return err
+	}
+	if lv.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			lv.Channels = make([]ChannelEntry, n)
+			for i := range lv.Channels {
+				if err = lv.Channels[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if lv.TimestampPrecision, err = r.Int32(); err != nil {
+		return err
+	}
+	if lv.HideChannelNames, err = r.Bool(); err != nil {
+		return err
+	}
+	if lv.HideReceiptTimestamp, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (tc TimestampConfig) EncodeOrc(w *orc.Writer) error {
+	w.String(string(tc.Format))
+	w.String(string(tc.Tz))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (tc *TimestampConfig) DecodeOrc(r *orc.Reader) error {
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.Format = telem.TimestampFormat(rawV)
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		tc.Tz = telem.TimeZone(rawV)
 	}
 	return nil
 }

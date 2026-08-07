@@ -50,6 +50,7 @@ var (
 	statusSvc  *status.Service
 	rackSvc    *rack.Service
 	testRack   *rack.Rack
+	imexSvc    *imex.Service
 	arcClock   = telem.Now
 )
 
@@ -96,7 +97,7 @@ var (
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
-		imexSvc := imex.NewService()
+		imexSvc = imex.NewService()
 		arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
