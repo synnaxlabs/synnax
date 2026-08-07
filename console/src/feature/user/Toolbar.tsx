@@ -18,7 +18,7 @@ import { Tree } from "@/platform/tree";
 import { User as PlatformUser } from "@/platform/user";
 
 const Content = (): ReactElement => {
-  const { data: groupID } = User.useRetrieveGroupID({});
+  const { data: groupID } = User.useResultGroupID({});
   const openRegister = PlatformUser.useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
   return (
@@ -37,7 +37,9 @@ const Content = (): ReactElement => {
           </Toolbar.Actions>
         )}
       </Toolbar.Header>
-      <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
+      <Toolbar.Body>
+        <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
+      </Toolbar.Body>
     </Toolbar.Content>
   );
 };

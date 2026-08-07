@@ -34,14 +34,13 @@ const notDeployedYet = (name: string) =>
   status.create({ name, variant: "disabled", message: "Not deployed yet" });
 
 export const useTask = (key: arc.Key, name: string): UseTaskReturn => {
-  const tsk = Arc.useRetrieveTask({ arcKey: key });
+  const { data: tsk, variant, status: readStatus } = Arc.useResultTask({ arcKey: key });
   const cmd = Task.useCommand();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const isRunning = tsk.data?.status?.details.running ?? false;
-  const resolved = tsk.variant === "success" ? tsk.data : null;
-  const taskKey = resolved?.key ?? "";
-  const taskRack = resolved?.rack ?? 0;
+  const isRunning = tsk?.status?.details.running ?? false;
+  const taskKey = tsk?.key ?? "";
+  const taskRack = tsk?.rack ?? 0;
   const onDeploy = useCallback(() => {
     if (!primitive.isNonZero(taskRack)) return;
     handleError(async () => {
@@ -59,9 +58,6 @@ export const useTask = (key: arc.Key, name: string): UseTaskReturn => {
     () => (isRunning ? onStop() : onDeploy()),
     [isRunning, onStop, onDeploy],
   );
-  let taskStatus: status.Status;
-  if (tsk.variant !== "success") taskStatus = tsk.status;
-  else taskStatus = resolved?.status ?? notDeployedYet(name);
   return {
     running: isRunning,
     taskKey,
@@ -69,6 +65,7 @@ export const useTask = (key: arc.Key, name: string): UseTaskReturn => {
     onDeploy,
     onStop,
     onStartStop,
-    taskStatus,
+    taskStatus:
+      variant !== "success" ? readStatus : (tsk?.status ?? notDeployedYet(name)),
   };
 };

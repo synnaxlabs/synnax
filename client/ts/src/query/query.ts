@@ -202,6 +202,10 @@ interface Entry<Q extends Params, K extends record.Key, D extends Data> {
   /** Set when a fetch in flight deferred a refetch; honored on settle. */
   refetchOnSettle?: boolean;
   refetchTimer?: ReturnType<typeof setTimeout>;
+  /** Composed answer interned while maintained, so repeated reads stay
+   *  referentially stable for useSyncExternalStore consumers. Dropped by
+   *  touch, which every content and membership change routes through. */
+  composed?: { state: EntryState<K, D>; value: D };
 }
 
 /**
@@ -378,7 +382,15 @@ export class Queries<
 
   private cachedOf(entry: Entry<Q, K, D>): Cached<D> | undefined {
     const { state } = entry;
-    if (state.variant === "ready") return this.compose(state.keys, entry.query);
+    if (state.variant === "ready") {
+      if (entry.teardown != null && entry.composed?.state === state)
+        return entry.composed.value;
+      const value = this.compose(state.keys, entry.query);
+      // An unmaintained entry observes no changes to drop the memo on, so it
+      // recomposes against live tables instead.
+      if (entry.teardown != null) entry.composed = { state, value };
+      return value;
+    }
     if (state.variant === "deleted") {
       const tombstone = this.params.table.getTombstone(state.key);
       if (tombstone == null) return undefined;
@@ -407,6 +419,7 @@ export class Queries<
 
   /** Notifies every subscriber with the entry's current answer. */
   private touch(entry: Entry<Q, K, D>): void {
+    entry.composed = undefined;
     if (entry.handlers.size === 0) return;
     const result = this.cachedOf(entry);
     entry.handlers.forEach((handler) => {
@@ -533,11 +546,14 @@ export class Queries<
 
     if (this.isServerComputed(query) || (keyOf?.(query) == null && matches == null)) {
       // Rule 3: server-computed — any relevant event triggers a debounced
-      // wholesale refetch; membership is never patched locally.
-      teardown.push(table.subscribe(() => this.scheduleRefetch(entry)));
-      watches?.forEach((w) =>
-        teardown.push(w.attach(query, () => this.scheduleRefetch(entry))),
-      );
+      // wholesale refetch; membership is never patched locally. The memo drops
+      // immediately so reads recompose row content while the refetch pends.
+      const invalidate = () => {
+        entry.composed = undefined;
+        this.scheduleRefetch(entry);
+      };
+      teardown.push(table.subscribe(invalidate));
+      watches?.forEach((w) => teardown.push(w.attach(query, invalidate)));
       return;
     }
 

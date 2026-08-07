@@ -10,12 +10,12 @@
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LabJack } from "@/feature/labjack";
-import { createDeviceResource } from "@/platform/device/testutil";
+import { createDeviceResource, createTestDevice } from "@/platform/device/testutil";
+import { Errors } from "@/platform/errors";
 import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
@@ -23,7 +23,12 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  renderSuspended,
+  resolveFocusedTab,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -34,23 +39,22 @@ const renderItems = async () => {
     layout: {},
   });
   store.dispatch(Session.Project.select(proj.key));
-  const resource = createDeviceResource({
-    key: id.create(),
-    name: "lj-dev",
-    configured: true,
-  });
+  const dev = await createTestDevice(client, { name: uniqueName("lj_dev") });
+  const resource = createDeviceResource({ ...dev, configured: true });
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
     state: createState([resource]),
   };
-  render(
+  await renderSuspended(
     <PMenu.Menu>
-      <LabJack.Device.ContextMenuItems {...props} />
+      <Errors.SuspenseBoundary loading={null}>
+        <LabJack.Device.ContextMenuItems {...props} />
+      </Errors.SuspenseBoundary>
     </PMenu.Menu>,
     { wrapper },
   );
-  return { store, key: resource.id.key };
+  return { store, key: dev.key };
 };
 
 describe("LabJack device ContextMenuItems", () => {

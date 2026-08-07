@@ -818,7 +818,7 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            subscribe,
+            onChange: subscribe,
           })(),
         { wrapper },
       );
@@ -835,7 +835,7 @@ describe("list", () => {
     });
 
     it("should subscribe to an item when retrieving it before any list", async () => {
-      const subscribeByKey = vi.fn().mockReturnValue(() => {});
+      const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
 
       const { result } = renderHook(
@@ -844,25 +844,25 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
-            subscribeByKey,
+            onChangeByKey,
           })(),
         { wrapper },
       );
 
-      expect(subscribeByKey).not.toHaveBeenCalled();
+      expect(onChangeByKey).not.toHaveBeenCalled();
 
       act(() => {
         result.current.getItem(1);
       });
 
       await waitFor(() => {
-        expect(subscribeByKey).toHaveBeenCalledTimes(1);
+        expect(onChangeByKey).toHaveBeenCalledTimes(1);
         expect(retrieveByKey).toHaveBeenCalled();
       });
     });
 
     it("should not re-subscribe on subsequent calls to getItem", async () => {
-      const subscribeByKey = vi.fn().mockReturnValue(() => {});
+      const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
 
       const { result } = renderHook(
@@ -871,7 +871,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
-            subscribeByKey,
+            onChangeByKey,
           })(),
         { wrapper },
       );
@@ -879,19 +879,19 @@ describe("list", () => {
         result.current.getItem(1);
       });
       await waitFor(() => {
-        expect(subscribeByKey).toHaveBeenCalledTimes(1);
+        expect(onChangeByKey).toHaveBeenCalledTimes(1);
       });
       act(() => {
         result.current.getItem(1);
       });
       await testutil.expectAlways(() => {
-        expect(subscribeByKey).toHaveBeenCalledTimes(1);
+        expect(onChangeByKey).toHaveBeenCalledTimes(1);
       });
     });
 
     it("should not open an item subscription for a page member served by getItem", async () => {
       const subscribe = vi.fn().mockReturnValue(() => {});
-      const subscribeByKey = vi.fn().mockReturnValue(() => {});
+      const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
       const { result } = renderHook(
         () =>
@@ -899,8 +899,8 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            subscribe,
-            subscribeByKey,
+            onChange: subscribe,
+            onChangeByKey,
           })(),
         { wrapper },
       );
@@ -915,7 +915,7 @@ describe("list", () => {
       });
       await testutil.expectAlways(() => {
         expect(subscribe).toHaveBeenCalledTimes(1);
-        expect(subscribeByKey).not.toHaveBeenCalled();
+        expect(onChangeByKey).not.toHaveBeenCalled();
       });
     });
 
@@ -929,7 +929,7 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            subscribe,
+            onChange: subscribe,
           })(),
         { wrapper },
       );
@@ -951,11 +951,11 @@ describe("list", () => {
       });
     });
 
-    it("should pass the current query to subscribeByKey", async () => {
+    it("should pass the current query to onChangeByKey", async () => {
       type TestParams = {
         filter?: string;
       };
-      const subscribeByKey = vi.fn().mockReturnValue(() => {});
+      const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
 
       const { result } = renderHook(
@@ -964,7 +964,7 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            subscribeByKey,
+            onChangeByKey,
           })({ initialQuery: { filter: "active" } }),
         { wrapper },
       );
@@ -974,7 +974,7 @@ describe("list", () => {
       });
 
       await waitFor(() => {
-        const firstCall = subscribeByKey.mock.calls[0];
+        const firstCall = onChangeByKey.mock.calls[0];
         expect(firstCall[0].query).toEqual({ filter: "active" });
       });
     });
@@ -990,7 +990,7 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
             getCached,
-            subscribe,
+            onChange: subscribe,
           })(),
         { wrapper },
       );
@@ -1040,7 +1040,7 @@ describe("list", () => {
             retrieve: async ({ client }) =>
               await client.ranges.retrieve({ keys: [rng.key] }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            subscribe: ({ client }, handler) =>
+            onChange: ({ client }, handler) =>
               client.ranges.onChange({ keys: [rng.key] }, handler),
           })();
           const value = Flux.useListItem<ranger.Key, ranger.Range>({
@@ -1083,7 +1083,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            subscribeByKey: ({ client, key }, handler) =>
+            onChangeByKey: ({ client, key }, handler) =>
               client.ranges.onChange(key, handler),
           })();
           const value = Flux.useListItem<ranger.Key, ranger.Range>({
@@ -1126,7 +1126,7 @@ describe("list", () => {
             retrieve: async ({ client }) =>
               await client.ranges.retrieve({ keys: [rng.key] }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            subscribe: ({ client }, handler) =>
+            onChange: ({ client }, handler) =>
               client.ranges.onChange({ keys: [rng.key] }, handler),
           })();
           return { retrieveAsync, value: getItem(rng.key) };
@@ -1169,7 +1169,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async ({ client }) => await client.ranges.retrieve({ keys }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            subscribe: ({ client }, handler) =>
+            onChange: ({ client }, handler) =>
               client.ranges.onChange({ keys }, handler),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
         { wrapper },
@@ -1227,7 +1227,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async ({ client }) => await client.ranges.retrieve(query),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            subscribe: ({ client }, handler) => client.ranges.onChange(query, handler),
+            onChange: ({ client }, handler) => client.ranges.onChange(query, handler),
           })({
             sort: (a, b) => a.name.localeCompare(b.name),
             filter: (r) => keySet.has(r.key),
@@ -1276,7 +1276,7 @@ describe("list", () => {
       answers: Record<string, Doc[]>;
       push: (clientKey: string, docs: Doc[]) => void;
       pushItem: (clientKey: string, doc: Doc) => void;
-      subscribe: (clientKey: string, handler: query.ChangeHandler<Doc[]>) => () => void;
+      onChange: (clientKey: string, handler: query.ChangeHandler<Doc[]>) => () => void;
       subscribeItem: (
         clientKey: string,
         key: string,
@@ -1297,7 +1297,7 @@ describe("list", () => {
         pushItem: (clientKey, doc) => {
           itemSubs.get(`${clientKey}:${doc.key}`)?.forEach((h) => h(doc));
         },
-        subscribe: (clientKey, handler) => {
+        onChange: (clientKey, handler) => {
           const set = subs.get(clientKey) ?? new Set();
           set.add(handler);
           subs.set(clientKey, set);
@@ -1341,7 +1341,7 @@ describe("list", () => {
         name: "Doc",
         retrieve: async ({ client }) => domain.answers[client.key],
         retrieveByKey: async ({ key }) => ({ key, name: key }),
-        subscribe: ({ client }, handler) => domain.subscribe(client.key, handler),
+        onChange: ({ client }, handler) => domain.onChange(client.key, handler),
       });
 
       const { result, rerender } = renderHook(() => useList(), { wrapper });
@@ -1371,7 +1371,7 @@ describe("list", () => {
         name: "Doc",
         retrieve,
         retrieveByKey: async ({ key }) => ({ key, name: key }),
-        subscribeByKey: ({ client, key }, handler) =>
+        onChangeByKey: ({ client, key }, handler) =>
           domain.subscribeItem(client.key, key, handler),
       });
 

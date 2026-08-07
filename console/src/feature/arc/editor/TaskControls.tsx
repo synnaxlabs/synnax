@@ -22,7 +22,7 @@ const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
 
 export const TaskControls = () => {
   const key = Arc.useKey();
-  const name = Arc.useSelectName();
+  const name = Arc.useName();
   const { running, taskRack, taskStatus, onDeploy, onStop } = PlatformArc.useTask(
     key,
     name,

@@ -8,36 +8,38 @@
 // included in the file licenses/APL.txt.
 
 import { type rack } from "@synnaxlabs/client";
-import {
-  type Flux,
-  Form as PForm,
-  Icon,
-  Rack as PRack,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Form as PForm, Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 
-const RETRIEVE_OPTIONS: Omit<
-  Flux.UseDirectRetrieveParams<PRack.RetrieveQuery, rack.Rack>,
-  "query"
-> = { beforeRetrieve: ({ query }) => primitive.isNonZero(query.key) };
+interface ContentProps {
+  rackKey: rack.Key;
+}
 
-export const Rack = () => {
-  const rackKey = PForm.useFieldValue<rack.Key>("rack", { optional: true }) ?? 0;
-  const { data: rack } = PRack.useRetrieve({ key: rackKey }, RETRIEVE_OPTIONS);
-  if (!primitive.isNonZero(rackKey) || rack == null) return;
+const Content = ({ rackKey }: ContentProps): ReactElement => {
+  const { name } = PRack.use({ key: rackKey });
   return (
     <Tooltip.Dialog>
       <Text.Text level="small" color={10} weight={450}>
-        Task is deployed to {rack.name}
+        Task is deployed to {name}
       </Text.Text>
       <Text.Text className={CSS.B("rack-name")} level="small" color={9} weight={350}>
         <Icon.Rack />
-        {rack?.name}
+        {name}
       </Text.Text>
     </Tooltip.Dialog>
+  );
+};
+
+export const Rack = (): ReactElement | null => {
+  const rackKey = PForm.useFieldValue<rack.Key>("rack", { optional: true }) ?? 0;
+  if (primitive.isZero(rackKey)) return null;
+  return (
+    <Errors.SuspenseBoundary>
+      <Content rackKey={rackKey} />
+    </Errors.SuspenseBoundary>
   );
 };

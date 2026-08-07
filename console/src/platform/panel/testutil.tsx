@@ -40,7 +40,7 @@ export interface ResourceTab {
 
 /**
  * Creates a single-leaf panel holding one resource tab for the given resource, so the
- * panel scope hooks a mounted tab content reads (useSelectTabResource) resolve to it.
+ * panel scope hooks a mounted tab content reads (useTabResource) resolve to it.
  */
 export const createResourceTab = async (
   client: Synnax,
@@ -113,12 +113,11 @@ export const primePanel = async (
   wrapper: FC<PropsWithChildren>,
   key: panel.Key,
 ): Promise<void> => {
-  const { result, unmount } = renderHook(() => PPanel.useRetrieve({ key }), {
+  const { result, unmount } = renderHook(() => PPanel.useResult({ key }).data, {
     wrapper,
   });
   await waitFor(() => {
-    if (result.current.variant !== "success")
-      throw new Error(`panel ${key} failed to load (${result.current.variant})`);
+    if (result.current == null) throw new Error(`panel ${key} failed to load`);
   });
   unmount();
 };

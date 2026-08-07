@@ -12,7 +12,7 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Node } from "@/arc/graph/node";
-import { useSelectNodeConfig, useSingleDispatch } from "@/arc/queries";
+import { useNodeConfig, useSingleDispatch } from "@/arc/queries";
 import { Component } from "@/component";
 import { Diagram as Base } from "@/vis/diagram";
 
@@ -66,7 +66,7 @@ const NodeRenderer = ({
   selected,
   draggable,
 }: Base.NodeProps): ReactElement | null => {
-  const config = useSelectNodeConfig({ nodeKey });
+  const config = useNodeConfig({ nodeKey });
   const dispatch = useSingleDispatch();
   const handleChange = useCallback(
     (config: Partial<record.Unknown>) =>

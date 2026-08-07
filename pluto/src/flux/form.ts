@@ -9,7 +9,7 @@
 
 import { type query, type Synnax as Client } from "@synnaxlabs/client";
 import { type destructor, state } from "@synnaxlabs/x";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type z } from "zod";
 
 import {
@@ -20,9 +20,15 @@ import {
   type ResultStatus,
   successResult,
 } from "@/flux/result";
+import {
+  type LocalCache,
+  localFor,
+  type RetrieveParams,
+  suspendOnFetch,
+} from "@/flux/suspend";
 import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
-import { useAsyncEffect, useDestructors, useInitializerRef } from "@/hooks";
+import { useDestructors } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
@@ -35,14 +41,8 @@ export interface FormUpdateParams<Schema extends z.ZodType<query.Data>>
 /** Client and query handles for a form operation. */
 interface FormClientParams<Query extends query.Params> {
   client: Client;
-  query: Query;
+  query: Query | null;
 }
-
-export interface FormRetrieveParams<
-  Query extends query.Params,
-  Schema extends z.ZodType<query.Data>,
->
-  extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 export interface CreateFormParams<
   Query extends query.Params,
@@ -51,9 +51,18 @@ export interface CreateFormParams<
   name: string;
   schema: Schema;
   initialValues: z.infer<Schema>;
-  getCached?: (params: FormClientParams<Query>) => z.infer<Schema> | undefined;
+  /**
+   * Fetches the record's form values. Omit for a form that never reads. The
+   * hook suspends on this, so the form is built from real values rather than
+   * from a placeholder the fetch overwrites.
+   */
+  retrieve?: (params: RetrieveParams<Query>) => Promise<z.infer<Schema>>;
+  /**
+   * Projects the record's form values out of the domain client's cache.
+   * A hit resolves the read synchronously, with no fetch and no suspension.
+   */
+  getCached?: (params: RetrieveParams<Query>) => z.infer<Schema> | undefined;
   update: (params: FormUpdateParams<Schema>) => Promise<void>;
-  retrieve: (params: FormRetrieveParams<Query, Schema>) => Promise<void>;
   mountListeners?: (
     params: FormMountListenersParams<Query, Schema>,
   ) => destructor.Destructor | destructor.Destructor[];
@@ -79,7 +88,9 @@ interface FormMountListenersParams<
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
 >
-  extends Form.UseReturn<Schema>, FormClientParams<Query> {}
+  extends Form.UseReturn<Schema>, Omit<FormClientParams<Query>, "query"> {
+  query: Query;
+}
 
 export interface AfterSaveParams<
   Query extends query.Params,
@@ -97,7 +108,8 @@ export interface UseFormParams<
 > extends Pick<Form.UseParams<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
-  query: Query;
+  /** The record to edit, or null for a form with nothing to read. */
+  query: Query | null;
   beforeValidate?: (params: BeforeValidateParams<Query, Schema>) => boolean | void;
   beforeSave?: (params: FormBeforeSaveParams<Query, Schema>) => Promise<boolean>;
   afterSave?: (params: AfterSaveParams<Query, Schema>) => void;
@@ -115,17 +127,20 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
   notifyOnChange: false,
 };
 
-export const createForm =
-  <Query extends query.Params, Schema extends z.ZodType<query.Data>>({
-    name,
-    schema,
-    retrieve,
-    mountListeners,
-    update,
-    initialValues: baseInitialValues,
-    getCached,
-  }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> =>
-  ({
+export const createForm = <
+  Query extends query.Params,
+  Schema extends z.ZodType<query.Data>,
+>({
+  name,
+  schema,
+  retrieve,
+  getCached,
+  mountListeners,
+  update,
+  initialValues: baseInitialValues,
+}: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
+  const locals = new WeakMap<Client, LocalCache<z.infer<Schema>>>();
+  return ({
     query,
     initialValues,
     autoSave = false,
@@ -137,22 +152,32 @@ export const createForm =
     mode,
   }) => {
     const [result, setResult] = useState<Result<undefined>>(
-      loadingResult(`retrieving ${name}`),
+      successResult(`retrieved ${name}`, undefined),
     );
     const client = Synnax.use();
     const listeners = useDestructors();
     const addStatus = Status.useAdder();
+    const memoQuery = useMemoDeepEqual(query);
 
-    const cached = useInitializerRef(() =>
-      client == null ? undefined : getCached?.({ client, query }),
+    const cached = useMemo(
+      () =>
+        memoQuery == null || client == null
+          ? undefined
+          : getCached?.({ client, query: memoQuery }),
+      [client, memoQuery],
     );
-    // A form filled from the cache is already populated, and the fetch would reset
-    // over edits made while it was in flight. The first retrieve only subscribes.
-    const servedFromCache = useRef(initialValues == null && cached.current != null);
 
+    let retrieved = cached;
+    if (retrieved == null && memoQuery != null && client != null && retrieve != null)
+      retrieved = suspendOnFetch(
+        { client, query: memoQuery },
+        { name, retrieve, getCached, local: localFor(locals, client) },
+      );
+
+    const values = retrieved ?? initialValues ?? baseInitialValues;
     const form = Form.use<Schema>({
       schema,
-      values: initialValues ?? cached.current ?? baseInitialValues,
+      values,
       onChange: ({ path }) => {
         // Don't save if the path is empty to prevent infinite save loops.
         if (autoSave && path !== "") save();
@@ -166,35 +191,26 @@ export const createForm =
         form.set(path, value, { ...options, ...DEFAULT_SET_OPTIONS }),
       [form],
     );
-    const retrieveAsync = useCallback(
-      async (query: Query, options: query.FetchOptions = {}) => {
-        const { signal } = options;
-        try {
-          if (client == null)
-            return setResult(nullClientResult<undefined>(`retrieve ${name}`));
-          setResult((p) => loadingResult(`retrieving ${name}`, p.data));
-          if (signal?.aborted) return;
-          const params = { client, query, ...form, set: noNotifySet };
-          if (servedFromCache.current) servedFromCache.current = false;
-          else await retrieve(params);
-          if (signal?.aborted) return;
-          listeners.cleanup();
-          listeners.set(mountListeners?.(params));
-          setResult(successResult<undefined>(`retrieved ${name}`));
-        } catch (error) {
-          if (signal?.aborted) return;
-          const res = errorResult(`retrieve ${name}`, error);
-          addStatus(res.status);
-          setResult(res);
-        }
-      },
-      [client, name, form, noNotifySet],
-    );
-    const memoQuery = useMemoDeepEqual(query);
-    useAsyncEffect(
-      async (signal) => await retrieveAsync(memoQuery, { signal }),
-      [retrieveAsync, memoQuery],
-    );
+
+    // Form state is built once, so a query pointing at a different record has
+    // to replace it.
+    const readQuery = useRef(memoQuery);
+    const valuesRef = useRef(values);
+    valuesRef.current = values;
+    useEffect(() => {
+      if (readQuery.current === memoQuery) return;
+      readQuery.current = memoQuery;
+      form.reset(valuesRef.current);
+    }, [memoQuery, form]);
+
+    useEffect(() => {
+      if (memoQuery == null || client == null || mountListeners == null) return;
+      listeners.cleanup();
+      listeners.set(
+        mountListeners({ client, query: memoQuery, ...form, set: noNotifySet }),
+      );
+      return () => listeners.cleanup();
+    }, [client, memoQuery, form, noNotifySet]);
 
     const saveAsync = useCallback(
       async (opts: query.FetchOptions = {}): Promise<boolean> => {
@@ -204,7 +220,7 @@ export const createForm =
             setResult(nullClientResult<undefined>(`update ${name}`));
             return false;
           }
-          const params = { client, query, ...form, set: noNotifySet };
+          const params = { client, query: memoQuery, ...form, set: noNotifySet };
           if (beforeValidate?.(params) === false) return false;
           if (!(await form.validateAsync())) return false;
           setResult(loadingResult(`updating ${name}`, undefined));
@@ -235,7 +251,7 @@ export const createForm =
           return false;
         }
       },
-      [name, query, beforeSave, afterSave, beforeValidate],
+      [name, memoQuery, beforeSave, afterSave, beforeValidate],
     );
     const save = useCallback(
       (opts?: query.FetchOptions) => void saveAsync(opts),
@@ -244,3 +260,4 @@ export const createForm =
 
     return { form, save, saveAsync, ...result };
   };
+};

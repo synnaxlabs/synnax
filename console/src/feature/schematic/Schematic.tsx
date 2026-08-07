@@ -46,7 +46,7 @@ const EmptyContent = (): ReactElement => {
 
 const Internal = (): ReactElement => {
   const key = Base.useKey();
-  const isSnapshot = Base.useSelectSnapshot();
+  const isSnapshot = Base.useIsSnapshot();
   const dispatch = Session.useDispatch();
   const viewport = Session.Schematic.useSelectViewport();
   const selected = Session.Schematic.useSelectSelected();
@@ -146,7 +146,7 @@ const Internal = (): ReactElement => {
 };
 
 export const Schematic: Panel.Content = () => {
-  const { key } = PlutoPanel.useSelectTabResource();
+  const { key } = PlutoPanel.useTabResource();
   return (
     <Base.Suspended schematicKey={key}>
       <Internal />

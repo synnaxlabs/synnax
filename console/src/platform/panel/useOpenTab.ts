@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project } from "@synnaxlabs/client";
-import { type Flux, Panel } from "@synnaxlabs/pluto";
+import { NotFoundError, panel, project, query } from "@synnaxlabs/client";
+import { type Flux, Panel, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Session } from "@/session";
@@ -31,21 +31,22 @@ export const useOpenTab = (): OpenTab => {
   const getSelected = Session.Panel.useGetSelected();
   const getSelectedProject = Session.Project.useGetSelected();
   const parentTabKey = Panel.useOptionalTabKey();
-  const getRoot = Panel.useGetRoot();
+  const client = Synnax.use();
   // insertIntoExisting adds the tab to a panel that is already on the cluster
   // (the scoped parent or the selected panel), so a remote dispatch is correct.
   const insertIntoExisting = useCallback(
     (panelKey: panel.Key, params: panel.NewTab, singleton?: boolean) => {
+      const cached = client?.panels.getCached(panelKey);
+      if (!query.isLive(cached))
+        throw new NotFoundError(`Panel with key ${panelKey} not found`);
+      const { root } = cached;
       const tab: panel.Tab = panel.tabZ.parse({ ...params });
       if (tab.variant === "resource") {
-        const existing = panel.findTabByResource(
-          getRoot({ key: panelKey }),
-          tab.resource,
-        );
+        const existing = panel.findTabByResource(root, tab.resource);
         if (existing != null) return selectTab(existing.key, panelKey);
       }
       if (tab.variant === "view" && singleton) {
-        const existing = panel.findTabByType(getRoot({ key: panelKey }), tab.type);
+        const existing = panel.findTabByType(root, tab.type);
         if (existing != null) return selectTab(existing.key, panelKey);
       }
       // A keyless tab opens beside the current one, but only when that tab lives in
@@ -54,14 +55,14 @@ export const useOpenTab = (): OpenTab => {
       const besideCurrent =
         params.key == null &&
         parentTabKey != null &&
-        panel.findTab(getRoot({ key: panelKey }), parentTabKey) != null;
+        panel.findTab(root, parentTabKey) != null;
       const action = besideCurrent
         ? panel.insertTab({ tab, targetTab: parentTabKey, singleton })
         : panel.insertTab({ tab, singleton });
       dispatch({ key: panelKey, actions: [action] });
       selectTab(tab.key, panelKey);
     },
-    [parentTabKey, getRoot, dispatch, selectTab],
+    [parentTabKey, client, dispatch, selectTab],
   );
   const { update: createPanel } = Panel.useCreate({
     afterOptimistic: useCallback(
