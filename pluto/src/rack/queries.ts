@@ -26,23 +26,28 @@ export type ListQuery = rack.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, rack.Key, rack.Rack>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) =>
-    await client.racks.retrieve({ ...BASE_QUERY, ...query }),
+  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query }) => await client.racks.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
     await client.racks.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) =>
-    client.racks.onChange({ ...BASE_QUERY, ...query }, handler),
-  getCached: ({ client, query }) => client.racks.getCached({ ...BASE_QUERY, ...query }),
+  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
+  getCached: ({ client, query }) => client.racks.getCached(query),
 });
 
-export const { use, useResult } = Flux.createRetrieve<RetrieveQuery, rack.Rack>({
+export const { use, useResult, useEnsure, createSelector } = Flux.createRetrieve<
+  RetrieveQuery,
+  rack.Rack
+>({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) =>
-    await client.racks.retrieve({ ...BASE_QUERY, ...query }),
-  onChange: ({ client, query }, handler) =>
-    client.racks.onChange({ ...BASE_QUERY, ...query }, handler),
-  getCached: ({ client, query }) => client.racks.getCached({ ...BASE_QUERY, ...query }),
+  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query }) => await client.racks.retrieve(query),
+  onChange: ({ client, query }, handler) => client.racks.onChange(query, handler),
+  getCached: ({ client, query }) => client.racks.getCached(query),
 });
+
+export const useName = createSelector(({ name }) => name);
+
+export const useIntegrations = createSelector(({ integrations }) => integrations);
 
 export type UseDeleteParams = rack.Key | rack.Key[];
 

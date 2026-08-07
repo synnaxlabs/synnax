@@ -42,6 +42,10 @@ const keysOnly = (query: unknown): unknown[] | null => {
 const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
 
+/** A params object's normalized destination: one answer space and its query. */
+type Route<SingleQuery, RequestQuery> =
+  { single: SingleQuery } | { request: RequestQuery };
+
 /**
  * Request schema arm reading a bare key list as `{ keys }`. Union it onto a
  * domain's request schema to opt that domain into the shorthand:
@@ -151,6 +155,7 @@ export abstract class Retriever<
   private readonly requestSpace: Retrieves<z.output<Z>, D[]>;
   private readonly trySingle: (params: unknown) => { query: SingleQuery } | null;
   private readonly normalizeRequest: (params: unknown) => z.output<Z>;
+  private readonly routes = new WeakMap<object, Route<SingleQuery, z.output<Z>>>();
 
   constructor(
     cache: Cache,
@@ -227,6 +232,25 @@ export abstract class Retriever<
   }
 
   /**
+   * Routes params to their answer space, memoized per params object identity.
+   * {@link Params} is readonly, so a given object always routes identically;
+   * repeat reads of the same object skip schema validation entirely.
+   */
+  private route(params: unknown): Route<SingleQuery, z.output<Z>> {
+    const cacheable = typeof params === "object" && params !== null;
+    if (cacheable) {
+      const held = this.routes.get(params);
+      if (held !== undefined) return held;
+    }
+    const single = this.trySingle(params);
+    const route: Route<SingleQuery, z.output<Z>> = single != null
+      ? { single: single.query }
+      : { request: this.normalizeRequest(params) };
+    if (cacheable) this.routes.set(params, route);
+    return route;
+  }
+
+  /**
    * Reads the record the params address, or every record matching them.
    * Serves the cache when the answer is fresh, fetching otherwise. A bare key
    * is shorthand for `{ key }`; a bare key list is accepted by domains whose
@@ -242,9 +266,10 @@ export abstract class Retriever<
     params: K | K[] | SingleInput | z.input<Z>,
     options?: FetchOptions,
   ): Promise<D | D[]> {
-    const single = this.trySingle(params);
-    if (single != null) return await this.singleSpace.retrieve(single.query, options);
-    return await this.requestSpace.retrieve(this.normalizeRequest(params), options);
+    const route = this.route(params);
+    if ("single" in route)
+      return await this.singleSpace.retrieve(route.single, options);
+    return await this.requestSpace.retrieve(route.request, options);
   }
 
   /**
@@ -260,13 +285,10 @@ export abstract class Retriever<
     params: K | K[] | SingleInput | z.input<Z>,
     handler: ChangeHandler<D> | ChangeHandler<D[]>,
   ): destructor.Destructor {
-    const single = this.trySingle(params);
-    if (single != null)
-      return this.singleSpace.onChange(single.query, handler as ChangeHandler<D>);
-    return this.requestSpace.onChange(
-      this.normalizeRequest(params),
-      handler as ChangeHandler<D[]>,
-    );
+    const route = this.route(params);
+    if ("single" in route)
+      return this.singleSpace.onChange(route.single, handler as ChangeHandler<D>);
+    return this.requestSpace.onChange(route.request, handler as ChangeHandler<D[]>);
   }
 
   /**
@@ -279,8 +301,8 @@ export abstract class Retriever<
   getCached(
     params: K | K[] | SingleInput | z.input<Z>,
   ): Cached<D> | Cached<D[]> | undefined {
-    const single = this.trySingle(params);
-    if (single != null) return this.singleSpace.getCached(single.query);
-    return this.requestSpace.getCached(this.normalizeRequest(params));
+    const route = this.route(params);
+    if ("single" in route) return this.singleSpace.getCached(route.single);
+    return this.requestSpace.getCached(route.request);
   }
 }

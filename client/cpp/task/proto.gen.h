@@ -109,6 +109,7 @@ Command::to_proto() const {
     pb.set_task(this->task.to_string());
     pb.set_type(this->type);
     pb.set_key(this->key);
+    pb.set_config_hash(this->config_hash);
     *pb.mutable_args() = x::json::to_struct(this->args).first;
     return {pb, x::errors::NIL};
 }
@@ -123,6 +124,7 @@ Command::from_proto(const ::service::task::pb::Command &pb) {
     }
     cpp.type = pb.type();
     cpp.key = pb.key();
+    cpp.config_hash = pb.config_hash();
     {
         auto [v, err] = x::json::from_struct(pb.args());
         if (err) return {{}, err};

@@ -38,25 +38,29 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
 
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task
+    const synnax::task::Task &task,
+    const std::string &cmd_key
 ) {
     if (task.type == SCAN_TASK_TYPE)
         return common::handle_config_err(
             ctx,
             task,
-            configure_scan(processor, ctx, task)
+            configure_scan(processor, ctx, task),
+            cmd_key
         );
     if (task.type == READ_TASK_TYPE)
         return common::handle_config_err(
             ctx,
             task,
-            configure_read(ctx, task, this->processor)
+            configure_read(ctx, task, this->processor),
+            cmd_key
         );
     if (task.type == WRITE_TASK_TYPE)
         return common::handle_config_err(
             ctx,
             task,
-            configure_write(ctx, task, this->processor)
+            configure_write(ctx, task, this->processor),
+            cmd_key
         );
     return {nullptr, false};
 }
