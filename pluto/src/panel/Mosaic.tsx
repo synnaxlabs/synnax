@@ -136,7 +136,11 @@ const Leaf = memo(
     return (
       <Base.Leaf nodeKey={nodeKey} grow>
         <Tabs.Frame grow>
-          <Tabs.Selector {...selectorDropProps} onContextMenu={onContextMenu}>
+          <Tabs.Selector
+            align="start"
+            {...selectorDropProps}
+            onContextMenu={onContextMenu}
+          >
             {tabs.map((tabKey) => (
               <Tab key={tabKey} tabKey={tabKey} {...rest} />
             ))}
@@ -213,7 +217,7 @@ const OverlaidLeaf = ({
   ...rest
 }: OverlaidLeafProps): ReactElement => (
   <Tabs.Frame grow className={CSS.BE("panel-mosaic", "overlaid-leaf")}>
-    <Tabs.Selector onContextMenu={onContextMenu}>
+    <Tabs.Selector align="start" onContextMenu={onContextMenu}>
       <Tab tabKey={overlaid} {...rest} />
       <Flex.Box grow />
       <Button.Button

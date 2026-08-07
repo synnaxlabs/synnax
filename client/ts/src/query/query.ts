@@ -491,6 +491,15 @@ export class Queries<
     return deleted;
   }
 
+  /** Notifies subscribers when any of the keys is a member of the ready
+   *  answer; otherwise just drops the memo so the next read recomposes. */
+  private touchMembers(entry: Entry<Q, K, D>, keys: K[]): void {
+    entry.composed = undefined;
+    if (entry.state.variant !== "ready") return;
+    const { keys: members } = entry.state;
+    if (keys.some((key) => members.includes(key))) this.touch(entry);
+  }
+
   /** Notifies every subscriber with the entry's current answer. */
   private touch(entry: Entry<Q, K, D>): void {
     entry.composed = undefined;
@@ -621,14 +630,26 @@ export class Queries<
 
     if (this.isServerComputed(query) || (keyOf?.(query) == null && matches == null)) {
       // Rule 3: server-computed — any relevant event triggers a debounced
-      // wholesale refetch; membership is never patched locally. The memo drops
-      // immediately so reads recompose row content while the refetch pends.
-      const invalidate = () => {
-        entry.composed = undefined;
-        this.scheduleRefetch(entry);
-      };
-      teardown.push(table.subscribeBatch(invalidate));
-      watches?.forEach((w) => teardown.push(w.attach(query, invalidate)));
+      // wholesale refetch; membership is never patched locally. A change to a
+      // current member's row notifies immediately, so optimistic writes render
+      // without waiting on the refetch.
+      teardown.push(
+        table.subscribeBatch((events) => {
+          this.scheduleRefetch(entry);
+          this.touchMembers(
+            entry,
+            events.map((event) => event.key),
+          );
+        }),
+      );
+      watches?.forEach((w) =>
+        teardown.push(
+          w.attach(query, (result) => {
+            this.scheduleRefetch(entry);
+            if (result !== "refetch") this.touchMembers(entry, result);
+          }),
+        ),
+      );
       return;
     }
 
