@@ -118,10 +118,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
   const { itemKey } = props;
   const entry = Session.Range.useSelectState(itemKey);
   const isLocal = entry != null && !entry.persisted;
-  const labels =
-    Ranger.useLabels(itemKey, {
-      beforeRetrieve: useCallback(() => (isLocal ? [] : true), [isLocal]),
-    })?.data ?? [];
+  const labels = Ranger.useLabels(isLocal ? null : itemKey) ?? [];
   const onRename = useRename();
   const hasUpdatePermission = Access.useUpdateGranted(ranger.ontologyID(itemKey));
   if (entry == null || entry.variant === "dynamic") return null;
@@ -194,7 +191,9 @@ const Content = (): ReactElement => (
       <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
       <Actions />
     </Toolbar.Header>
-    <List />
+    <Toolbar.Body>
+      <List />
+    </Toolbar.Body>
   </Toolbar.Content>
 );
 

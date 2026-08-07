@@ -10,7 +10,7 @@
 import { type schematic } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { useEnsureRetrieved } from "@/schematic/queries";
+import { useEnsure } from "@/schematic/queries";
 import { Scope } from "@/schematic/scope";
 
 export const useKey = Scope.use;
@@ -20,6 +20,6 @@ export interface SuspendedProps extends PropsWithChildren {
 }
 
 export const Suspended = ({ schematicKey, children }: SuspendedProps): ReactElement => {
-  useEnsureRetrieved({ key: schematicKey });
+  useEnsure({ key: schematicKey });
   return <Scope.Provider value={schematicKey}>{children}</Scope.Provider>;
 };

@@ -10,7 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { xy } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { List } from "@/feature/status/list";
@@ -19,6 +19,7 @@ import { findModalButton } from "@/platform/tree/menuTestutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
+  renderSuspended,
   stubClipboardWriteText,
   type TestStore,
   uniqueName,
@@ -47,7 +48,7 @@ const renderMenu = async (
       [Session.Status.SLICE_NAME]: { version: 0, favorites },
     },
   });
-  render(
+  await renderSuspended(
     <>
       {List.contextMenu({ keys, visible: true, position: xy.ZERO, cursor: xy.ZERO })}
       <Modals.Stack />

@@ -160,13 +160,15 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 // grantOn creates a policy granting the given action on the given objects to a
 // fresh role and assigns the role to the given subject. Writes commit directly
 // to the database so the api enforcers (which read committed state with no
-// transaction) can observe them.
+// transaction) can observe them. The assignment is unassigned on spec cleanup so
+// a grant cannot leak into later randomized specs.
 func grantOn(
 	ctx SpecContext,
 	subject ontology.ID,
 	action access.Action,
 	objects ...ontology.ID,
 ) {
+	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
 	r := &role.Role{
@@ -182,6 +184,9 @@ func grantOn(
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(roleWriter.UnassignRole(ctx, subject, r.Key)).To(Succeed())
+	})
 }
 
 func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {

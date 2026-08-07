@@ -105,8 +105,15 @@ interface ContextValue {
   getLanguage: (name: string) => Language | undefined;
 }
 
+// One rejected promise, not one per call: use() re-renders on an uncached promise, so a
+// fresh rejection each time livelocks the boundary instead of settling it.
+const NOT_MOUNTED: Promise<Monaco> = Promise.reject(
+  new Error("Code.Provider is not mounted"),
+);
+NOT_MOUNTED.catch(() => {});
+
 const ZERO_CONTEXT_VALUE: ContextValue = {
-  ensure: () => Promise.reject(new Error("Code.Provider is not mounted")),
+  ensure: () => NOT_MOUNTED,
   getLanguage: () => undefined,
 };
 

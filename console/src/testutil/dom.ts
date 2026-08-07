@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 
 /**
  * Right-clicks the element with the given text and waits for the context menu to
@@ -19,6 +19,18 @@ export const openContextMenu = async (text: string): Promise<void> => {
     fireEvent.contextMenu(screen.getByText(text));
     if (document.querySelector(".pluto-menu-context") == null)
       throw new Error(`context menu did not open for ${text}`);
+  });
+};
+
+/**
+ * Clicks the element with the given text inside an awaited act. Content that suspends
+ * inside a synchronous act scope is discarded, so a click that mounts a suspending
+ * subtree (a modal, a tab) needs this instead of a bare fireEvent.
+ */
+export const clickAndSettle = async (text: string): Promise<void> => {
+  const el = await screen.findByText(text);
+  await act(async () => {
+    fireEvent.click(el);
   });
 };
 

@@ -10,7 +10,7 @@
 import { type log } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { useEnsureRetrieved } from "@/log/queries";
+import { useEnsure } from "@/log/queries";
 import { Scope } from "@/log/scope";
 
 export const useKey = Scope.use;
@@ -20,6 +20,6 @@ export interface SuspendedProps extends PropsWithChildren {
 }
 
 export const Suspended = ({ logKey, children }: SuspendedProps): ReactElement => {
-  useEnsureRetrieved({ key: logKey });
+  useEnsure({ key: logKey });
   return <Scope.Provider value={logKey}>{children}</Scope.Provider>;
 };

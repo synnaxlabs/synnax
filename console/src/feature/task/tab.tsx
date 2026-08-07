@@ -33,8 +33,8 @@ export const FORMS: Task.Forms = {
 };
 
 const Content: Panel.Content = () => {
-  const { key } = PPanel.useSelectTabResource();
-  const { type } = Base.useRetrieveSuspended({ key });
+  const { key } = PPanel.useTabResource();
+  const { type } = Base.use({ key });
   const Form = FORMS[type];
   if (Form == null)
     return (
@@ -50,10 +50,10 @@ const Content: Panel.Content = () => {
 const Name: Panel.TabName = () => {
   const tabKey = PPanel.useTabKey();
   const isEditTarget = Panel.useIsNameEditTarget();
-  const { key } = PPanel.useSelectTabResource();
-  Base.useEnsureRetrieved({ key });
-  const name = Base.useSelectName({ key });
-  const { data } = Base.useRetrieve({ key });
+  const { key } = PPanel.useTabResource();
+  Base.useEnsure({ key });
+  const name = Base.useName({ key });
+  const { data } = Base.useResult({ key });
   const { update: rename } = Base.useRename();
   return (
     <>
@@ -68,8 +68,8 @@ const Name: Panel.TabName = () => {
 };
 
 const Icon: Panel.TabIcon = (props) => {
-  const { key } = PPanel.useSelectTabResource();
-  const { data } = Base.useRetrieve({ key });
+  const { key } = PPanel.useTabResource();
+  const { data } = Base.useResult({ key });
   return cloneElement(getIcon(data?.type ?? ""), props);
 };
 

@@ -66,7 +66,7 @@ const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement =>
 );
 
 const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
-  const line = LinePlot.useSelectLine({ lineKey: itemKey });
+  const line = LinePlot.useLine({ lineKey: itemKey });
   const dispatch = LinePlot.useSingleDispatch();
 
   const handleLabelChange: Input.Control<string>["onChange"] = (label) =>
@@ -137,7 +137,7 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
 const line = Component.renderProp(Line);
 
 export const Lines = (): ReactElement => {
-  const lineKeys = LinePlot.useSelectLineKeys();
+  const lineKeys = LinePlot.useLineKeys();
   return (
     <List.Frame data={lineKeys}>
       <List.Items<string, lineplot.Line>

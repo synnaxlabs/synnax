@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
@@ -53,11 +53,13 @@ const newWrapper = (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={client} status={connectionStatus}>
-          {renderContext == null ? (
-            children
-          ) : (
-            <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
-          )}
+          <Suspense fallback={null}>
+            {renderContext == null ? (
+              children
+            ) : (
+              <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
+            )}
+          </Suspense>
         </Synnax.TestProvider>
       </Status.Aggregator>
     </AetherProvider>
