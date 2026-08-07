@@ -16,6 +16,7 @@ import {
 } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 import { useMemo } from "react";
+import type z from "zod";
 
 import { Flux } from "@/flux";
 
@@ -91,6 +92,16 @@ export const formSchema = schematic.symbol.symbolZ
   .partial({ key: true })
   .extend({ parent: ontology.idZ });
 
+const toFormValues = (
+  symbol: schematic.symbol.Symbol,
+  parents: ontology.Resource[],
+): z.infer<typeof formSchema> => ({
+  name: symbol.name,
+  data: symbol.data,
+  key: symbol.key,
+  parent: parents[0]?.id ?? ontology.ROOT_ID,
+});
+
 export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   initialValues: {
@@ -108,16 +119,22 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
   schema: formSchema,
   retrieve: async ({ client, query: { key } }) => {
-    const symbol = await client.schematics.symbols.retrieve(key);
-    const parents = await client.ontology.parents.retrieve({
+    // The two reads share only the key, so serializing them would double the
+    // latency the editor suspends for.
+    const [symbol, parents] = await Promise.all([
+      client.schematics.symbols.retrieve(key),
+      client.ontology.parents.retrieve({ ids: schematic.symbol.ontologyID(key) }),
+    ]);
+    return toFormValues(symbol, parents);
+  },
+  getCached: ({ client, query: { key } }) => {
+    const symbol = client.schematics.symbols.getCached(key);
+    if (!query.isLive(symbol)) return undefined;
+    const parents = client.ontology.parents.getCached({
       ids: schematic.symbol.ontologyID(key),
     });
-    return {
-      name: symbol.name,
-      data: symbol.data,
-      key: symbol.key,
-      parent: parents[0]?.id ?? ontology.ROOT_ID,
-    };
+    if (!query.isLive(parents)) return undefined;
+    return toFormValues(symbol, parents);
   },
   update: async ({ client, value, reset }) => {
     const payload = value();

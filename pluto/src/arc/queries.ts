@@ -155,13 +155,11 @@ export type ListQuery = List.PagerParams & {
 
 export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) =>
-    await client.arcs.retrieve({ ...query, includeStatus: true }),
+  normalizeQuery: (query) => ({ ...query, includeStatus: true }),
+  retrieve: async ({ client, query }) => await client.arcs.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.arcs.retrieve(key),
-  onChange: ({ client, query }, handler) =>
-    client.arcs.onChange({ ...query, includeStatus: true }, handler),
-  getCached: ({ client, query }) =>
-    client.arcs.getCached({ ...query, includeStatus: true }),
+  onChange: ({ client, query }, handler) => client.arcs.onChange(query, handler),
+  getCached: ({ client, query }) => client.arcs.getCached(query),
 });
 
 export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({

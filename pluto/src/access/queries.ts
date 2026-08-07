@@ -8,18 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import {
-  access,
+  type access,
   type ontology,
-  query,
   type Synnax,
   UnexpectedError,
   user,
 } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
-
-// Bound at module scope: hooks bind `query` to the caller's params object.
-const { isLive } = query;
 
 const PERMISSION_PLURAL_RESOURCE_NAME = "Permissions";
 
@@ -70,67 +66,29 @@ export const isGranted = ({
   if (client == null) return false;
   const sub = resolveSubject(client, subject);
   if (sub == null) return false;
-  const cached = client.access.policies.getCached({ for: sub });
-  if (!isLive(cached)) return false;
-  return access.allowRequest({ subject: sub, objects, action }, cached);
+  return client.access.granted.getCached(sub, { objects, action }) ?? false;
 };
 
 export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
-
-// Warms the relationship cache alongside the policies so role links are
-// available without refetching.
-const retrieveForSubject = async (
-  client: Synnax,
-  subject: ontology.ID,
-): Promise<access.policy.Policy[]> => {
-  const policies = await client.access.policies.retrieve({ for: subject });
-  await client.ontology.parents.retrieve({ ids: subject, types: ["role"] });
-  await Promise.all(
-    policies.map(
-      async (p) =>
-        await client.ontology.parents.retrieve({
-          ids: access.policy.ontologyID(p.key),
-          types: ["role"],
-        }),
-    ),
-  );
-  return policies;
-};
 
 const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, boolean>({
   name: PERMISSION_PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { subject, objects, action } }) => {
     subject = await resolveSubjectAsync(client, subject);
     if (subject == null) return false;
-    const policies = await retrieveForSubject(client, subject);
-    return access.allowRequest({ subject, objects, action }, policies);
+    return await client.access.granted.retrieve(subject, { objects, action });
   },
   onChange: ({ client, query: { subject, objects, action } }, handler) => {
     const sub = resolveSubject(client, subject);
     if (sub == null) return () => {};
-    const evaluate = (policies: access.policy.Policy[]): boolean =>
-      access.allowRequest({ subject: sub, objects, action }, policies);
-    const cached = client.access.policies.getCached({ for: sub });
-    // Only notify when the grant itself flips: policy churn that cannot
-    // change the answer must not re-render consumers.
-    let prev = isLive(cached) ? evaluate(cached) : undefined;
-    return client.access.policies.onChange({ for: sub }, (result) => {
-      if (!isLive(result)) return;
-      const next = evaluate(result);
-      if (next === prev) return;
-      prev = next;
-      handler(next);
-    });
+    return client.access.granted.onChange(sub, { objects, action }, handler);
   },
+  // The full query passes through: its stable identity is what keys the
+  // verdict memo, so render-hot reads skip the policy evaluation.
   getCached: ({ client, query }) => {
     const sub = resolveSubject(client, query.subject);
     if (sub == null) return undefined;
-    const cached = client.access.policies.getCached({ for: sub });
-    if (!isLive(cached)) return undefined;
-    return access.allowRequest(
-      { subject: sub, objects: query.objects, action: query.action },
-      cached,
-    );
+    return client.access.granted.getCached(sub, query);
   },
 });
 
@@ -177,7 +135,7 @@ export const { useResult: useLoadPermissions } = Flux.createRetrieve<
   retrieve: async ({ client, query }) => {
     const subject = await resolveSubjectAsync(client, query.subject);
     if (subject == null) return [];
-    return await retrieveForSubject(client, subject);
+    return await client.access.policies.retrieveForSubject(subject);
   },
   onChange: ({ client, query }, handler) => {
     const subject = resolveSubject(client, query.subject);
