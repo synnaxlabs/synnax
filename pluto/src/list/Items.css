@@ -27,6 +27,13 @@
         }
     }
 
+    /* A single-line horizontal list holds one row, so it has no vertical extent to
+       reach and a y scrollbar is always spurious. Wrapping lists flow onto further
+       lines and keep theirs. */
+    &.pluto--direction-x:not(.pluto--wrap) {
+        overflow-y: hidden;
+    }
+
     &.pluto--direction-x {
         &::-webkit-scrollbar {
             height: 3px;
