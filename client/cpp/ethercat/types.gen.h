@@ -39,7 +39,7 @@ struct PDOAddress {
     /// @brief bit_length is the size of the PDO entry, in bits.
     std::uint8_t bit_length = 16;
     /// @brief data_type is the data type of the PDO entry.
-    ::x::telem::DataType data_type = "uint16";
+    ::x::telem::DataType data_type = ::x::telem::DataType("uint16");
 
     static PDOAddress parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
