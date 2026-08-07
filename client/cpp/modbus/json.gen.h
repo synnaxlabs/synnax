@@ -27,7 +27,10 @@ namespace synnax::modbus {
 
 inline RegisterValue RegisterValue::parse(x::json::Parser parser) {
     return RegisterValue{
-        .data_type = parser.field<::x::telem::DataType>("data_type", "uint8"),
+        .data_type = parser.field<::x::telem::DataType>(
+            "data_type",
+            ::x::telem::DataType("uint8")
+        ),
         .swap_bytes = parser.field<bool>("swap_bytes", false),
         .swap_words = parser.field<bool>("swap_words", false),
     };

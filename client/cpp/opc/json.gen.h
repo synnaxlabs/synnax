@@ -31,7 +31,10 @@ inline BaseChannel BaseChannel::parse(x::json::Parser parser) {
         .disabled = parser.field<bool>("disabled", false),
         .node_id = parser.field<std::string>("node_id", ""),
         .node_name = parser.field<std::string>("node_name", ""),
-        .data_type = parser.field<::x::telem::DataType>("data_type", "float32"),
+        .data_type = parser.field<::x::telem::DataType>(
+            "data_type",
+            ::x::telem::DataType("float32")
+        ),
     };
 }
 
