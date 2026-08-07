@@ -32,7 +32,14 @@ TEST(ToAny, NullConvertsToEmptyObject) {
 
 TEST(ToAny, NonObjectReturnsError) {
     ASSERT_OCCURRED_AS_P(to_any(json(42)), errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(to_any(json("sensor")), errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(to_any(json(true)), errors::VALIDATION);
     ASSERT_OCCURRED_AS_P(to_any(json::array({1, 2})), errors::VALIDATION);
+}
+
+TEST(ToAny, NonObjectErrorNamesTheType) {
+    const auto err = to_any(json::array({1, 2})).second;
+    ASSERT_EQ(err.data, "expected a JSON object, got array");
 }
 
 TEST(FromAny, EmptyAnyReturnsEmptyObject) {

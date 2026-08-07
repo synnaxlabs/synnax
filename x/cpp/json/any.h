@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <string>
 #include <utility>
 
 #include "google/protobuf/any.pb.h"
@@ -19,13 +20,21 @@
 
 namespace x::json {
 /// @brief Converts json to a google::protobuf::Any that holds a Struct.
-/// @param j The JSON to convert. A null value converts to an empty object. Struct only
-/// supports objects, so any other non-object value returns a VALIDATION error.
+/// @param j The JSON to convert. Struct only holds objects, so j must be an object or
+/// null. A null value converts to an empty object. Any other value returns a VALIDATION
+/// error.
 /// @returns A pair containing the Any and an error if one occurred.
 inline std::pair<google::protobuf::Any, errors::Error> to_any(const json &j) {
-    const auto &obj = j.is_null() ? json::object() : j;
-    auto [s, err] = to_struct(obj);
-    if (err) return {{}, err};
+    if (!j.is_null() && !j.is_object())
+        return {
+            {},
+            errors::Error(
+                errors::VALIDATION,
+                std::string("expected a JSON object, got ") + j.type_name()
+            )
+        };
+    google::protobuf::Struct s;
+    if (const auto err = j.is_null() ? errors::NIL : to_struct(j, &s)) return {{}, err};
     google::protobuf::Any any;
     if (!any.PackFrom(s))
         return {
