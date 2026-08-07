@@ -13,15 +13,14 @@ import (
 	"context"
 	"encoding/json"
 	"path"
-	"regexp"
 	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
+	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/validate"
-	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -38,9 +37,12 @@ const (
 // GroupManifest is the body of manifest.json in a symbol group bundle. Membership is
 // inferred from the files beside the manifest, so it names no members.
 type GroupManifest struct {
-	Version int    `json:"version"`
-	Type    string `json:"type"`
-	Name    string `json:"name"`
+	// Version governs the manifest schema and the bundle's layout rules.
+	Version int `json:"version"`
+	// Type is the bundle kind, letting an endpoint reject a bundle of another kind.
+	Type string `json:"type"`
+	// Name is the group's name, which an import gives the group it creates.
+	Name string `json:"name"`
 }
 
 // GroupBundle is an exported symbol group.
@@ -78,8 +80,8 @@ func (s *Service) ExportGroup(ctx context.Context, key group.Key) (GroupBundle, 
 				root.Name, child.ID,
 			)
 		}
-		fileName := sanitizeFileName(child.Name) + ".json"
-		folded := foldFileName(fileName)
+		fileName := xos.SanitizeFileName(child.Name) + ".json"
+		folded := xos.FoldFileName(fileName)
 		if isReservedFileName(folded) {
 			return GroupBundle{}, errors.Wrapf(
 				validate.ErrValidation,
@@ -115,21 +117,6 @@ func (s *Service) ExportGroup(ctx context.Context, key group.Key) (GroupBundle, 
 	files[manifestFileName] = manifest
 	return GroupBundle{Files: files, Members: members}, nil
 }
-
-// unsafeFileNameChars matches the path separators and Windows-reserved characters a
-// file
-// name cannot hold. Mirrors the Console's sanitizeFileName.
-var unsafeFileNameChars = regexp.MustCompile(`[/\\<>:"|?*]`)
-
-// sanitizeFileName replaces every character that is unsafe in a file name with an
-// underscore.
-func sanitizeFileName(name string) string {
-	return unsafeFileNameChars.ReplaceAllString(name, "_")
-}
-
-// foldFileName reduces name to the form file names are compared in: Unicode-normalized
-// and case-folded, because a bundle extracts onto case-insensitive filesystems.
-func foldFileName(name string) string { return strings.ToLower(norm.NFC.String(name)) }
 
 // isReservedFileName reports whether the folded name carries structural meaning in a
 // bundle, so no member may take it. LAYOUT.json marks a legacy project directory.
