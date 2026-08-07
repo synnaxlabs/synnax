@@ -36,8 +36,8 @@ Status: TypeAlias = status_.Status[StatusDetails]
 
 class Base(BaseModel):
     """Is a collection container for hardware devices and tasks running on a specific
-    cluster node. Racks serve as the integration point between the Synnax server and
-    physical hardware via the Driver system.
+    Core. Racks are the integration point between the Core and physical hardware through
+    the Driver.
 
     Attributes:
         key: Is the composite identifier for this rack.

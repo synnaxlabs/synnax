@@ -91,9 +91,8 @@ Task struct<
     }
     config_hash string = "" {
         @doc value """
-            is the server-assigned hash of config, rewritten on every write and
-            ignored on writes from clients. Compare against a status's
-            config_hash to detect drift.
+            is the Core-assigned hash of config, rewritten on every write and ignored on
+            writes from clients. Compare against a status's config_hash to detect drift.
         """
     }
     internal    bool = false {

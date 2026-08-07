@@ -67,7 +67,7 @@ describe("OPC.Read", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
     const taskKey = await awaitTaskKey(rendered);
 
-    const tsk = await client.tasks.retrieve({ key: taskKey });
+    const tsk = await client.tasks.retrieve(taskKey);
     expect(tsk.rack).toBe(dev.rack);
     const config = OPC.Task.READ_SCHEMAS.config.parse(tsk.config);
     expect(config.channels).toHaveLength(2);
