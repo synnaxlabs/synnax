@@ -22,10 +22,12 @@ sequence literal_main_sequence {
     c_u32 u32 := 7
     c_i64 i64 := -5
     c_str str := "hi"
+    c_bool bool := true
     c_f64 -> f64_initial
     c_u32 -> u32_initial
     c_i64 -> i64_initial
     c_str -> str_initial
+    c_bool -> bool_initial
     c_f64 = 42.0
     c_u32 = 99
     c_i64 = -100
@@ -34,6 +36,7 @@ sequence literal_main_sequence {
     c_u32 -> u32_final
     c_i64 -> i64_final
     c_str -> str_final
+    c_bool -> bool_final
 }
 
 // ────────────────────────── ChannelReadWrite ───────────────────────────
@@ -66,6 +69,7 @@ sequence channel_read_main_sequence {
     r_u32 := channel_read_u32 + 1
     r_i64 := channel_read_i64 + 1
     r_str := channel_read_str + "!"
+    r_bool := not channel_read_bool
     r_f64 -> f64_initial
     r_u32 -> u32_initial
     r_i64 -> i64_initial
@@ -78,6 +82,9 @@ sequence channel_read_main_sequence {
     r_u32 -> u32_final
     r_i64 -> i64_final
     r_str -> str_final
+    r_bool -> bool_initial
+    r_bool = channel_read_bool
+    r_bool -> bool_final
 }
 
 // ─────────── variable inherited into an inline stage/sequence ────────────
@@ -186,6 +193,7 @@ sequence reassign_main {
     wa := wa_init
     rc str := "init"
     rs str $= "init"
+    rb bool := true
 
     stage r_entry {
         // initial bindings; "entry" -> wa_init
@@ -195,6 +203,7 @@ sequence reassign_main {
         ra -> ra_out
         rc -> rc_out
         rs -> rs_out
+        rb -> rb_out
 
         e_to_b >= 1 => r_b
         e_to_c >= 1 => r_c
@@ -208,6 +217,8 @@ sequence reassign_main {
         ra -> ra_out
         rc -> rc_out
         rs -> rs_out
+        rb -> rb_out
+        rb = true
 
         a_to_d >= 1 => r_d
     }
@@ -223,6 +234,8 @@ sequence reassign_main {
         ra -> ra_out
         rc -> rc_out
         rs -> rs_out
+        rb -> rb_out
+        rb = false
     }
     stage r_c {
         // rebind ra -> chc, wa -> wa_c
@@ -236,6 +249,8 @@ sequence reassign_main {
         ra -> ra_out
         rc -> rc_out
         rs -> rs_out
+        rb -> rb_out
+        rb = false
 
         c_to_a >= 1 => r_a
     }
@@ -251,6 +266,8 @@ sequence reassign_main {
         ra -> ra_out
         rc -> rc_out
         rs -> rs_out
+        rb -> rb_out
+        rb = false
 
         d_to_e >= 1 => r_e
     }
@@ -263,6 +280,8 @@ sequence reassign_main {
         ra -> ra_out
         rc -> rc_out
         rs -> rs_out
+        rb -> rb_out
+        rb = true
     }
 }
 
@@ -313,10 +332,12 @@ VAR_OUTPUTS = [
     "u32_initial",
     "i64_initial",
     "str_initial",
+    "bool_initial",
     "f64_final",
     "u32_final",
     "i64_final",
     "str_final",
+    "bool_final",
 ]
 INHERIT_OUTPUTS = [
     "inherit_out_inline_stage",
@@ -344,6 +365,7 @@ REEXPR_OUTPUTS = [
     "ra_out",
     "rc_out",
     "rs_out",
+    "rb_out",
     "wa_init",
     "wa_c",
     "wa_d",
@@ -442,12 +464,20 @@ U8_CHANNELS = [
     "alias_fire",
 ]
 
+BOOL_CHANNELS = [
+    "channel_read_bool",
+    "bool_initial",
+    "bool_final",
+    "rb_out",
+]
+
 CHANNELS: list[tuple[str, sy.DataType]] = (
     [(name, sy.DataType.FLOAT64) for name in F64_CHANNELS]
     + [(name, sy.DataType.UINT8) for name in U8_CHANNELS]
     + [(name, sy.DataType.UINT32) for name in U32_CHANNELS]
     + [(name, sy.DataType.INT64) for name in I64_CHANNELS]
     + [(name, sy.DataType.STRING) for name in STR_CHANNELS]
+    + [(name, sy.DataType.BOOL) for name in BOOL_CHANNELS]
 )
 
 
@@ -488,10 +518,12 @@ class Variables(ArcCase):
         self.wait_for_eq("u32_initial", 7)
         self.wait_for_eq("i64_initial", -5)
         self.wait_for_eq("str_initial", "hi")
+        self.wait_for_eq("bool_initial", 1)
         self.wait_for_eq("f64_final", 42.0)
         self.wait_for_eq("u32_final", 99)
         self.wait_for_eq("i64_final", -100)
         self.wait_for_eq("str_final", "bye")
+        self.wait_for_eq("bool_final", 1)
 
     def _verify_channel_read_write(self) -> None:
         self.log("=== ChannelAlias ===")
@@ -532,6 +564,11 @@ class Variables(ArcCase):
         self.wait_for_eq("u32_final", 15)
         self.wait_for_eq("i64_final", 6)
         self.wait_for_eq("str_final", "x?")
+
+        self.writer.write("channel_read_bool", 0)
+        self.wait_for_eq("bool_initial", 1)
+        self.writer.write("channel_read_bool", 1)
+        self.wait_for_eq("bool_final", 1)
 
     def _verify_inline_inheritance(self) -> None:
         self.log("=== inherited into inline stage/sequence ===")
@@ -589,6 +626,7 @@ class Variables(ArcCase):
         self.wait_for_eq("rc_out", "init")
         self.wait_for_eq("rs_out", "init")
         self.wait_for_eq("ra_out", "init")
+        self.wait_for_eq("rb_out", 1)
         self.wait_for_eq("wa_init", "entry")
 
         # c: rebind ra -> chc and wa -> wa_c; reads reflect the new bindings.
@@ -599,6 +637,7 @@ class Variables(ArcCase):
         self.wait_for_eq("rc_out", "c")
         self.wait_for_eq("rs_out", "c")
         self.wait_for_eq("ra_out", "c1")
+        self.wait_for_eq("rb_out", 0)
 
         # a: jump back to the earlier-in-source r_a. Reads still track chc, and the
         # out-of-order "a" write lands in the live wa_c, not the baked wa_init.
@@ -609,6 +648,7 @@ class Variables(ArcCase):
         self.wait_for_eq("rc_out", "c")
         self.wait_for_eq("rs_out", "c")
         self.wait_for_eq("ra_out", "c2")
+        self.wait_for_eq("rb_out", 1)
         self.wait_for_eq("wa_c", "a")
 
         # d: rebind ra -> chd and wa -> wa_d.
@@ -619,11 +659,13 @@ class Variables(ArcCase):
         self.wait_for_eq("rc_out", "d")
         self.wait_for_eq("rs_out", "d")
         self.wait_for_eq("ra_out", "d")
+        self.wait_for_eq("rb_out", 0)
 
         # e: forward "e" write lands in wa_d; sweep confirms wa_c / wa_init intact.
         self.writer.write("d_to_e", 1)
         self.writer.write("rx_src", "5")
         self.wait_for_eq("rx_out", "e: 5")
+        self.wait_for_eq("rb_out", 1)
         self.wait_for_eq("wa_d", "e")
         self.wait_for_eq("wa_c", "a")
         self.wait_for_eq("wa_init", "entry")
