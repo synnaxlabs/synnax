@@ -335,15 +335,24 @@ export class Streamer {
     const { cache, instrumentation: ins } = this.props;
     try {
       for await (const frame of streamer) {
+        // Group series by key in one pass; per-key get() scans the whole frame.
+        const grouped: Map<channel.Key, Series[]> = new Map();
+        frame.forEach((k, s) => {
+          const key = k as channel.Key;
+          const existing = grouped.get(key);
+          if (existing == null) grouped.set(key, [s]);
+          else existing.push(s);
+        });
         const changed: Map<channel.Key, MultiSeries> = new Map();
-        for (const k of frame.keys)
+        grouped.forEach((series, k) => {
           try {
-            changed.set(k, cache.get(k).writeDynamic(frame.get(k)));
+            changed.set(k, cache.get(k).writeDynamic(new MultiSeries(series)));
             this.setStatus(k, STREAMING);
           } catch (e) {
             // One channel's write failure must not stop the stream for the rest.
             this.setStatus(k, status.fromException(e, "failed to buffer channel"));
           }
+        });
         if (changed.size !== 0)
           this.entries.forEach((e) => {
             if (e.removed) return;

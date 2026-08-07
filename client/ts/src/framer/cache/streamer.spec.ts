@@ -167,6 +167,46 @@ describe("Streamer", () => {
       expect(responses.filter((r) => r.get(1)?.series.length === 1)).toHaveLength(1);
       expect(sub.status(1).variant).toEqual("success");
     });
+
+    it("should deliver the allocated buffer when a frame repeats a key", async () => {
+      const frame = new Frame(
+        [1, 1],
+        [
+          new Series({ data: new Float32Array([1]), alignment: 0n }),
+          new Series({ data: new Float32Array([2]), alignment: 1n }),
+        ],
+      );
+      let sent = false;
+      let closed = false;
+      let resolve: ((r: IteratorResult<framer.Frame>) => void) | null = null;
+      const ms = new MockStreamer([1], async () => {
+        if (!sent) {
+          sent = true;
+          return { done: false, value: frame };
+        }
+        if (closed) return { done: true, value: undefined };
+        return await new Promise<IteratorResult<framer.Frame>>((r) => (resolve = r));
+      });
+      const origClose = ms.close.bind(ms);
+      ms.close = () => {
+        closed = true;
+        resolve?.({ done: true, value: undefined });
+        origClose();
+      };
+      const streamer = new Streamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([ms]),
+      });
+      const responses: Map<channel.Key, MultiSeries>[] = [];
+      streamer.stream((d) => responses.push(d), [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      // Both series land in one write, so the handler sees the allocated buffer
+      // holding both samples instead of an empty result from a second write.
+      const delivered = responses.filter((r) => (r.get(1)?.series.length ?? 0) > 0);
+      expect(delivered).toHaveLength(1);
+      expect(delivered[0].get(1)?.length).toEqual(2);
+      await streamer.close();
+    });
   });
 
   describe("reconcile race", () => {

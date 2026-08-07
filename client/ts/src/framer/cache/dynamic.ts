@@ -107,32 +107,35 @@ export class Dynamic {
    * the current buffer is able to fit all writes, no buffers will be returned.
    */
   write(series: MultiSeries): DynamicWriteResponse {
-    const responses = series.series.flatMap((s) => this._write(s));
-    return {
-      flushed: new MultiSeries(responses.flatMap((res) => res.flushed.series)),
-      allocated: new MultiSeries(responses.flatMap((res) => res.allocated.series)),
+    const res: DynamicWriteResponse = {
+      flushed: new MultiSeries([]),
+      allocated: new MultiSeries([]),
     };
+    const list = series.series;
+    for (let i = 0; i < list.length; i++) this._write(list[i], res);
+    return res;
   }
 
   private allocate(
     capacity: number,
     alignment: bigint,
     start: TimeStamp,
-    source: DataType,
-    sampleHint?: math.Numeric,
+    source: Series,
+    sampleIndex: number,
   ): Series {
     this.counter++;
-    const dt = this.props.transform.resolveDataType(source);
+    const dt = this.props.transform.resolveDataType(source.dataType);
     // Bigint series narrowed to a non-bigint buffer store each value as a small delta
     // off a per-buffer anchor to avoid losing precision. For timestamps, now() is
     // close enough to the values being written. For int64 and uint64 the values can
     // be anything, so the first sample we see is used as the anchor. Buffers that
     // keep bigint storage do not have this problem and stay at zero.
-    const narrowing = source.usesBigInt && !dt.usesBigInt;
+    const narrowing = source.dataType.usesBigInt && !dt.usesBigInt;
     let sampleOffset: math.Numeric = 0;
     if (narrowing)
-      if (source.equals(DataType.TIMESTAMP)) sampleOffset = start.valueOf();
-      else if (sampleHint != null) sampleOffset = BigInt(sampleHint.valueOf());
+      if (source.dataType.equals(DataType.TIMESTAMP)) sampleOffset = start.valueOf();
+      else if (sampleIndex < source.length)
+        sampleOffset = BigInt(source.data[sampleIndex].valueOf());
     return Series.alloc({
       capacity: dt.isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
       dataType: dt,
@@ -151,13 +154,8 @@ export class Dynamic {
     this.curr = null;
   }
 
-  private _write(series: Series): DynamicWriteResponse {
+  private _write(series: Series, res: DynamicWriteResponse): void {
     const { transform, instrumentation: ins } = this.props;
-    const cap = this.nextBufferSize();
-    const res: DynamicWriteResponse = {
-      flushed: new MultiSeries([]),
-      allocated: new MultiSeries([]),
-    };
     if (this.curr != null) {
       const resolved = transform.resolveDataType(series.dataType);
       if (!this.curr.dataType.equals(resolved)) {
@@ -181,11 +179,11 @@ export class Dynamic {
     }
     if (this.curr == null) {
       this.curr = this.allocate(
-        cap,
+        this.nextBufferSize(),
         series.alignment,
         this.now(),
-        series.dataType,
-        series.data.length > 0 ? series.data[0] : undefined,
+        series,
+        0,
       );
       res.allocated.push(this.curr);
     } else {
@@ -199,56 +197,56 @@ export class Dynamic {
         // leading samples and continue the buffer; allocating a new series here
         // would fragment the cache into overlapping fragments on every cycle.
         // sub() returns a zero-copy view.
-        if (overlap >= series.length) return res;
+        if (overlap >= series.length) return;
         series = series.sub(overlap);
       } else if (overlap < -1) {
         // The incoming series starts after a gap; flush the current buffer and
         // allocate a new one at the incoming alignment.
         this.flushCurr(res);
         this.curr = this.allocate(
-          cap,
+          this.nextBufferSize(),
           series.alignment,
           this.now(),
-          series.dataType,
-          series.data.length > 0 ? series.data[0] : undefined,
+          series,
+          0,
         );
         res.allocated.push(this.curr);
       }
     }
-    const converted = transform.convert(series, this.curr.sampleOffset);
-    const amountWritten = this.curr.write(converted);
-    // This means that the current buffer is large enough to fit the entire incoming
-    // series. We're done in this case.
-    if (amountWritten === series.length) {
-      this.updateAvgRate(series);
-      return res;
+    while (true) {
+      const converted = transform.convert(series, this.curr.sampleOffset);
+      const amountWritten = this.curr.write(converted);
+      // This means that the current buffer is large enough to fit the entire incoming
+      // series. We're done in this case.
+      if (amountWritten === series.length) {
+        this.updateAvgRate(series);
+        return;
+      }
+      // Push the current buffer to the flushed list.
+      this.flushCurr(res);
+      this.curr = this.allocate(
+        this.nextBufferSize(),
+        series.alignment + BigInt(amountWritten),
+        this.now(),
+        series,
+        amountWritten,
+      );
+      res.allocated.push(this.curr);
+      series = series.slice(amountWritten);
     }
-    // Push the current buffer to the flushed list.
-    this.flushCurr(res);
-    this.curr = this.allocate(
-      cap,
-      series.alignment + BigInt(amountWritten),
-      this.now(),
-      series.dataType,
-      series.data.length > amountWritten ? series.data[amountWritten] : undefined,
-    );
-    res.allocated.push(this.curr);
-    const nextRes = this._write(series.slice(amountWritten));
-    res.flushed.push(nextRes.flushed);
-    res.allocated.push(nextRes.allocated);
-    return res;
   }
 
   private updateAvgRate(series: Series): void {
     if (typeof this.props.dynamicBufferSize === "number") return;
+    const now = this.now();
     // average rate is a weighted average of the rate of the last sample and the
     // average rate currently in the buffer.
-    const newRate = series.length / this.now().span(this.timeOfLastWrite).seconds;
+    const newRate = series.length / now.span(this.timeOfLastWrite).seconds;
     if (this.totalWrites > 0 && isFinite(newRate) && newRate > 0)
       this.avgRate =
         (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
     this.totalWrites++;
-    this.timeOfLastWrite = this.now();
+    this.timeOfLastWrite = now;
   }
 
   private nextBufferSize(): number {

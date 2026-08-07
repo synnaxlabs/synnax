@@ -97,19 +97,18 @@ export class Static {
    * after the first and last series.
    */
   dirtyRead(tr: TimeRange): DirtyReadResult {
-    const series = this.data
-      .filter(({ data }) => data.timeRange.overlapsWith(tr))
-      .map(({ data }) => data);
+    const series: Series[] = [];
+    for (const { data } of this.data)
+      if (data.timeRange.overlapsWith(tr)) series.push(data);
     if (series.length === 0) return { series: new MultiSeries([]), gaps: [tr] };
-    const gaps = series
-      .map((s, i) => {
-        if (i === 0) return TimeRange.ZERO;
-        return new TimeRange(series[i - 1].timeRange.end, s.timeRange.start);
-      })
-      .filter((t) => !t.span.isZero && t.isValid);
+    const gaps: TimeRange[] = [];
     const leadingGap = new TimeRange(tr.start, series[0].timeRange.start);
+    if (leadingGap.isValid && !leadingGap.span.isZero) gaps.push(leadingGap);
+    for (let i = 1; i < series.length; i++) {
+      const gap = new TimeRange(series[i - 1].timeRange.end, series[i].timeRange.start);
+      if (!gap.span.isZero && gap.isValid) gaps.push(gap);
+    }
     const trailingGap = new TimeRange(series[series.length - 1].timeRange.end, tr.end);
-    if (leadingGap.isValid && !leadingGap.span.isZero) gaps.unshift(leadingGap);
     if (trailingGap.isValid && !trailingGap.span.isZero) gaps.push(trailingGap);
     return { series: new MultiSeries(series), gaps };
   }

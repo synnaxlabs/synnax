@@ -112,14 +112,16 @@ export class ReadAdapter {
 }
 
 export class WriteAdapter {
-  private adapter: Map<string, channel.Key> | null;
+  private byName: Map<channel.Name, channel.Payload> | null;
+  private byKey: Map<channel.Key, channel.Payload>;
   retrieveChannels: RetrieveChannels;
   keys: channel.Key[];
   codec: Codec;
 
   private constructor(retrieveChannels: RetrieveChannels) {
     this.retrieveChannels = retrieveChannels;
-    this.adapter = null;
+    this.byName = null;
+    this.byKey = new Map();
     this.keys = [];
     this.codec = new Codec();
   }
@@ -150,7 +152,8 @@ export class WriteAdapter {
     const hasRemovedKeys = !previousKeySet.isSubsetOf(newKeySet);
     const hasChanged = hasAddedKeys || hasRemovedKeys;
     if (!hasChanged) return false;
-    this.adapter = new Map<string, channel.Key>(results.map((c) => [c.name, c.key]));
+    this.byName = new Map(results.map((c) => [c.name, c]));
+    this.byKey = new Map(results.map((c) => [c.key, c]));
     this.keys = newKeys;
     this.codec.update(
       this.keys,
@@ -162,6 +165,13 @@ export class WriteAdapter {
   private async fetchChannel(
     ch: channel.Key | channel.Name | channel.Payload,
   ): Promise<channel.Payload> {
+    // The writer's channel set is fixed between updates, so lookups are served from
+    // the maps built by update() without a round trip per write.
+    let cached: channel.Payload | undefined;
+    if (typeof ch === "number") cached = this.byKey.get(ch);
+    else if (typeof ch === "string") cached = this.byName?.get(ch);
+    else cached = this.byKey.get(ch.key);
+    if (cached != null) return cached;
     const res = await this.retrieveChannels(ch);
     if (res.length === 0) throw new Error(`Channel ${JSON.stringify(ch)} not found`);
     return res[0];
@@ -228,9 +238,9 @@ export class WriteAdapter {
 
     if (columnsOrData instanceof Frame || columnsOrData instanceof Map) {
       const fr = new Frame(columnsOrData);
-      if (this.adapter == null) return fr;
+      if (this.byName == null) return fr;
       const cols = fr.columns.map((col_) => {
-        const col = typeof col_ === "string" ? this.adapter?.get(col_) : col_;
+        const col = typeof col_ === "string" ? this.byName?.get(col_)?.key : col_;
         if (col == null)
           throw new ValidationError(`
           Channel ${col_} was not provided in the list of channels when opening the writer
