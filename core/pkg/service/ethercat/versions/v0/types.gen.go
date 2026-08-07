@@ -305,6 +305,14 @@ type ReadConfig struct {
 	Channels []InputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *ReadConfig) ApplyDefaults() {
+	r.BaseReadConfig.ApplyDefaults()
+	for i := range r.Channels {
+		r.Channels[i].ApplyDefaults()
+	}
+}
+
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
 type WriteConfig struct {
@@ -315,6 +323,19 @@ type WriteConfig struct {
 	ExecutionRate telem.Rate `json:"execution_rate" msgpack:"execution_rate"`
 	// Channels are the output channels the task drives.
 	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (w *WriteConfig) ApplyDefaults() {
+	if w.StateRate == 0 {
+		w.StateRate = 25
+	}
+	if w.ExecutionRate == 0 {
+		w.ExecutionRate = 1000
+	}
+	for i := range w.Channels {
+		w.Channels[i].ApplyDefaults()
+	}
 }
 
 // ScanConfig configures an EtherCAT scan task, which carries no settings.

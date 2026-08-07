@@ -13,6 +13,7 @@ package v0
 
 import (
 	"encoding/json"
+	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
@@ -4353,12 +4354,48 @@ type AnalogReadConfig struct {
 	Channels []AIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AnalogReadConfig) ApplyDefaults() {
+	a.BaseReadConfig.ApplyDefaults()
+	for i := range a.Channels {
+		a.Channels[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AnalogReadConfig) Validate() error {
+	v := validate.New("AnalogReadConfig")
+	for i := range a.Channels {
+		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
 // CounterReadConfig configures an NI counter read task. Each channel carries its own
 // device.
 type CounterReadConfig struct {
 	common.BaseReadConfig
 	// Channels are the counter input channels the task acquires.
 	Channels []CIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CounterReadConfig) ApplyDefaults() {
+	c.BaseReadConfig.ApplyDefaults()
+	for i := range c.Channels {
+		c.Channels[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CounterReadConfig) Validate() error {
+	v := validate.New("CounterReadConfig")
+	for i := range c.Channels {
+		v.Exec(func() error { return validate.PathedError(c.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // WriteConfig carries the configuration fields shared by NI write tasks.
@@ -4368,11 +4405,36 @@ type WriteConfig struct {
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (w *WriteConfig) ApplyDefaults() {
+	if w.StateRate == 0 {
+		w.StateRate = 10
+	}
+}
+
 // AnalogWriteConfig configures an NI analog write task.
 type AnalogWriteConfig struct {
 	WriteConfig
 	// Channels are the analog output channels the task drives.
 	Channels []AOChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AnalogWriteConfig) ApplyDefaults() {
+	a.WriteConfig.ApplyDefaults()
+	for i := range a.Channels {
+		a.Channels[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AnalogWriteConfig) Validate() error {
+	v := validate.New("AnalogWriteConfig")
+	for i := range a.Channels {
+		v.Exec(func() error { return validate.PathedError(a.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // DigitalReadConfig configures an NI digital read task.
@@ -4384,11 +4446,21 @@ type DigitalReadConfig struct {
 	Channels []DIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (d *DigitalReadConfig) ApplyDefaults() {
+	d.BaseReadConfig.ApplyDefaults()
+}
+
 // DigitalWriteConfig configures an NI digital write task.
 type DigitalWriteConfig struct {
 	WriteConfig
 	// Channels are the digital output channels the task drives.
 	Channels []DOChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (d *DigitalWriteConfig) ApplyDefaults() {
+	d.WriteConfig.ApplyDefaults()
 }
 
 // ScannerConfig configures the NI device scanner task, which carries no settings.

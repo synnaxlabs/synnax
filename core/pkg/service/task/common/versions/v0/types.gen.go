@@ -41,6 +41,16 @@ type BaseReadConfig struct {
 	StreamRate telem.Rate `json:"stream_rate" msgpack:"stream_rate"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (b *BaseReadConfig) ApplyDefaults() {
+	if b.SampleRate == 0 {
+		b.SampleRate = 10
+	}
+	if b.StreamRate == 0 {
+		b.StreamRate = 5
+	}
+}
+
 // BaseWriteConfig carries the configuration fields shared by hardware control tasks.
 type BaseWriteConfig struct {
 	BaseConfig

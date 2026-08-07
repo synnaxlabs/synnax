@@ -176,6 +176,26 @@ type ReadConfig struct {
 	Endpoints []ReadEndpoint `json:"endpoints,omitzero" msgpack:"endpoints,omitzero"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *ReadConfig) ApplyDefaults() {
+	if r.Rate == 0 {
+		r.Rate = 1
+	}
+	for i := range r.Endpoints {
+		r.Endpoints[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	for i := range r.Endpoints {
+		v.Exec(func() error { return validate.PathedError(r.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
 // JSONType is the JSON type a channel value is serialized as in a request body.
 type JSONType string
 
@@ -471,6 +491,23 @@ type WriteConfig struct {
 	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
 	// Endpoints contains the endpoints to write to.
 	Endpoints []WriteEndpoint `json:"endpoints,omitzero" msgpack:"endpoints,omitzero"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (w *WriteConfig) ApplyDefaults() {
+	for i := range w.Endpoints {
+		w.Endpoints[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	for i := range w.Endpoints {
+		v.Exec(func() error { return validate.PathedError(w.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // ScanConfig configures an HTTP scan task, which carries no settings.
