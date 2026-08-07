@@ -19,45 +19,42 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Schematic", func() {
+	Describe("Table", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.Schematic) {
+			func(original v0.Table) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Schematic
+				var decoded v0.Table
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.Schematic{
-				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name:     "test_2",
-				Data:     msgpack.EncodedJSON{"key_3": "value_3"},
-				Snapshot: false,
+			Entry("fully populated", v0.Table{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name: "test_2",
+				Data: msgpack.EncodedJSON{"key_3": "value_3"},
 			}),
-			Entry("zero values", v0.Schematic{
-				Key:      uuid.Nil,
-				Name:     "",
-				Data:     nil,
-				Snapshot: false,
+			Entry("zero values", v0.Table{
+				Key:  uuid.Nil,
+				Name: "",
+				Data: nil,
 			}),
 		)
 	})
 })
 
-func BenchmarkEncodeDecodeSchematic(b *testing.B) {
-	seed := v0.Schematic{
-		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name:     "test_2",
-		Data:     msgpack.EncodedJSON{"key_3": "value_3"},
-		Snapshot: false,
+func BenchmarkEncodeDecodeTable(b *testing.B) {
+	seed := v0.Table{
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name: "test_2",
+		Data: msgpack.EncodedJSON{"key_3": "value_3"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -66,7 +63,7 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.Schematic
+		var decoded v0.Table
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -74,13 +71,12 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 	}
 }
 
-func FuzzDecodeSchematic(f *testing.F) {
+func FuzzDecodeTable(f *testing.F) {
 	{
-		seed := v0.Schematic{
-			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name:     "test_2",
-			Data:     msgpack.EncodedJSON{"key_3": "value_3"},
-			Snapshot: false,
+		seed := v0.Table{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name: "test_2",
+			Data: msgpack.EncodedJSON{"key_3": "value_3"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -89,11 +85,10 @@ func FuzzDecodeSchematic(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Schematic{
-			Key:      uuid.Nil,
-			Name:     "",
-			Data:     nil,
-			Snapshot: false,
+		seed := v0.Table{
+			Key:  uuid.Nil,
+			Name: "",
+			Data: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -102,7 +97,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Schematic
+		var decoded v0.Table
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -112,7 +107,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.Schematic
+		var redecoded v0.Table
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

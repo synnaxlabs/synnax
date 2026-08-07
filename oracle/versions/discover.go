@@ -21,7 +21,7 @@ import (
 
 // Discover scans repoRoot's schema tree for version chains, keyed by live
 // import path ("schemas/x/telem"). A chain directory may contain only
-// vN.oracle files, and its versions must be dense from v0.
+// vN.oracle files.
 func Discover(repoRoot string) (map[string]Chain, error) {
 	chains := make(map[string]Chain)
 	schemasDir := filepath.Join(repoRoot, "schemas")
@@ -67,7 +67,7 @@ func Discover(repoRoot string) (map[string]Chain, error) {
 }
 
 // readChain reads one chain directory, validating that every entry is a
-// version file and that the versions are dense from v0.
+// version file and that no version is declared twice.
 func readChain(domain, resource, dir string) (Chain, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -92,12 +92,10 @@ func readChain(domain, resource, dir string) (Chain, error) {
 		return Chain{}, errors.Newf("%s declares no versions", dir)
 	}
 	sort.Ints(chain.Numbers)
-	// Chains whose older history predates per-resource versioning start
-	// above v0 (legacy payload ranges); within the chain, versions are dense.
-	for i, n := range chain.Numbers {
-		if want := chain.Numbers[0] + i; n != want {
+	for i := 1; i < len(chain.Numbers); i++ {
+		if chain.Numbers[i] == chain.Numbers[i-1] {
 			return Chain{}, errors.Newf(
-				"%s versions must be dense; missing v%d", dir, want,
+				"%s declares v%d twice", dir, chain.Numbers[i],
 			)
 		}
 	}

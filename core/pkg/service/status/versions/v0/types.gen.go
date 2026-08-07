@@ -51,7 +51,8 @@ const (
 	VariantDisabled Variant = "disabled"
 )
 
-// IsValid reports whether v is one of the defined Variant values.
+// IsValid reports whether v is one of the defined Variant
+// values.
 func (v Variant) IsValid() bool {
 	switch v {
 	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:

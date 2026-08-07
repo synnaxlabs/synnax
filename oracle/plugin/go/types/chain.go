@@ -73,8 +73,9 @@ func chainPredecessors(
 			}
 			aliased.Add(resource + "." + name)
 		}
+		prev, _ := chain.Predecessor(version)
 		preds[versioning.VersionedPath(origPath, version)] = predecessor{
-			path:    versioning.VersionedPath(origPath, version-1),
+			path:    versioning.VersionedPath(origPath, prev),
 			aliased: aliased,
 		}
 	}
@@ -108,7 +109,10 @@ func chainFrozenFiles(
 		if !ok {
 			continue
 		}
-		for k := chain.First(); k < version; k++ {
+		for _, k := range chain.Numbers {
+			if k >= version {
+				break
+			}
 			file, err := frozenFile(ctx, req, origPath, livePath, k, fileName)
 			if err != nil {
 				return nil, err
@@ -129,6 +133,8 @@ type ChainPath struct {
 	First int
 	// Current is the chain's current version.
 	Current int
+	// Numbers holds the chain's declared versions, ascending.
+	Numbers []int
 }
 
 // ChainPaths maps every chain-covered versioned Go output path to its chain.
@@ -152,7 +158,10 @@ func ChainPaths(req *plugin.Request) (map[string]ChainPath, error) {
 			continue
 		}
 		out[origPath] = ChainPath{
-			LivePath: livePath, First: chain.First(), Current: version,
+			LivePath: livePath,
+			First:    chain.First(),
+			Current:  version,
+			Numbers:  chain.Numbers,
 		}
 	}
 	return out, nil
@@ -197,9 +206,9 @@ func frozenFile(
 		return plugin.File{}, err
 	}
 	pred := predecessor{}
-	if k > f.Chain.First() {
+	if prev, has := f.Chain.Predecessor(k); has {
 		pred = predecessor{
-			path:    versioning.VersionedPath(origPath, k-1),
+			path:    versioning.VersionedPath(origPath, prev),
 			aliased: make(set.Set[string], len(f.Aliases)),
 		}
 		for name := range f.Aliases {

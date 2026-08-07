@@ -275,7 +275,7 @@ Entry struct {
 			Expect(diag.String()).To(ContainSubstring("malformed @go imex"))
 		})
 
-		It("Should error when @go imex lacks a @go version", func(ctx SpecContext) {
+		It("Should accept @go imex without a @go version", func(ctx SpecContext) {
 			source := `
 				@go output "out"
 				Entry struct {
@@ -284,8 +284,7 @@ Entry struct {
 				}
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("@go imex without @go version"))
+			Expect(diag.Ok()).To(BeTrue())
 		})
 
 		It("Should error when @go imex is declared file-level", func(ctx SpecContext) {

@@ -10,17 +10,74 @@
 package imex_test
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/analyzer"
+	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/imex"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/oracle/versions"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// chainRequest writes a log version chain under root and returns the request the
+// plugin reads it through: the chain dates the resource's export history.
+func chainRequest(
+	ctx context.Context, root, live string, chain map[int]string,
+) *plugin.Request {
+	GinkgoHelper()
+	dir := filepath.Join(root, "schemas", "synnax", "versions", "log")
+	Expect(os.MkdirAll(dir, 0o755)).To(Succeed())
+	for n, src := range chain {
+		Expect(os.WriteFile(
+			filepath.Join(dir, fmt.Sprintf("v%d.oracle", n)), []byte(src), 0o644,
+		)).To(Succeed())
+	}
+	loader := analyzer.NewStandardFileLoader(root)
+	table := resolution.NewTable()
+	diag := analyzer.AnalyzeSeeded(
+		ctx, live, "schemas/synnax/log.oracle", "log", loader, table,
+	)
+	Expect(diag.Ok()).To(BeTrue(), diag.String())
+	return &plugin.Request{
+		Resolutions: table,
+		RepoRoot:    root,
+		Versions: versions.NewResolver(
+			MustSucceed(versions.Discover(root)), loader,
+		),
+	}
+}
+
+// logChain is one version file's persisted Log surface. imex marks an exported version.
+func logChain(exported bool) string {
+	marker := ""
+	if exported {
+		marker = "\n\t@go imex"
+	}
+	return fmt.Sprintf(
+		"Log struct {\n\tkey uuid @key\n\tname string%s\n}\n", marker,
+	)
+}
+
+// liveLog is the live schema at version n, exported.
+func liveLog(n int) string {
+	return fmt.Sprintf(`
+@go output "core/pkg/service/log"
+
+Log struct {
+	key  uuid @key
+	name string
+	@go version %d
+	@go imex
+}
+`, n)
+}
 
 var _ = Describe("Go ImEx Plugin", func() {
 	var (
@@ -222,16 +279,13 @@ var _ = Describe("Go ImEx Plugin", func() {
 		})
 
 		It(
-			"Should extend the ladder back to the first snapshot carrying the marker",
+			"Should extend the ladder back to the first version carrying the marker",
 			func(ctx SpecContext) {
 				tmpDir := GinkgoT().TempDir()
-				diskLoader := NewMockFileLoaderWithRoot(tmpDir)
 				for _, dir := range []string{"v2", "v3"} {
 					Expect(os.MkdirAll(
 						filepath.Join(
-							tmpDir,
-							"core/pkg/service/log/versions",
-							dir,
+							tmpDir, "core/pkg/service/log/versions", dir,
 						),
 						0o755,
 					)).To(Succeed())
@@ -244,30 +298,10 @@ var _ = Describe("Go ImEx Plugin", func() {
 					[]byte("package v3\n\nfunc MigrateLog() {}\n"),
 					0o644,
 				)).To(Succeed())
-				snapshot := MustGenerateRequest(ctx, `
-				@go output "core/pkg/service/log"
-
-				Log struct {
-					key  uuid
-					name string
-					@go version 2
-					@go imex
-				}
-			`, "log", diskLoader)
-				req := MustGenerateRequest(ctx, `
-				@go output "core/pkg/service/log"
-
-				Log struct {
-					key  uuid
-					name string
-					@go version 3
-					@go imex
-				}
-			`, "log", diskLoader)
-				req.SnapshotVersion = 1
-				req.LoadSnapshot = func(int) (*resolution.Table, error) {
-					return snapshot.Resolutions, nil
-				}
+				req := chainRequest(ctx, tmpDir, liveLog(3), map[int]string{
+					2: logChain(true),
+					3: logChain(true),
+				})
 				resp := MustSucceed(p.Generate(req))
 				ExpectContent(
 					resp,
@@ -287,41 +321,18 @@ var _ = Describe("Go ImEx Plugin", func() {
 			"Should pass alias-only bumps through without a migrate step",
 			func(ctx SpecContext) {
 				tmpDir := GinkgoT().TempDir()
-				diskLoader := NewMockFileLoaderWithRoot(tmpDir)
 				for _, dir := range []string{"v2", "v3"} {
 					Expect(os.MkdirAll(
 						filepath.Join(
-							tmpDir,
-							"core/pkg/service/log/versions",
-							dir,
+							tmpDir, "core/pkg/service/log/versions", dir,
 						),
 						0o755,
 					)).To(Succeed())
 				}
-				snapshot := MustGenerateRequest(ctx, `
-				@go output "core/pkg/service/log"
-
-				Log struct {
-					key  uuid
-					name string
-					@go version 2
-					@go imex
-				}
-			`, "log", diskLoader)
-				req := MustGenerateRequest(ctx, `
-				@go output "core/pkg/service/log"
-
-				Log struct {
-					key  uuid
-					name string
-					@go version 3
-					@go imex
-				}
-			`, "log", diskLoader)
-				req.SnapshotVersion = 1
-				req.LoadSnapshot = func(int) (*resolution.Table, error) {
-					return snapshot.Resolutions, nil
-				}
+				req := chainRequest(ctx, tmpDir, liveLog(3), map[int]string{
+					2: logChain(true),
+					3: logChain(true),
+				})
 				resp := MustSucceed(p.Generate(req))
 				ExpectContent(
 					resp,
@@ -336,31 +347,13 @@ var _ = Describe("Go ImEx Plugin", func() {
 		)
 
 		It(
-			"Should floor at the current version when snapshots lack the marker",
+			"Should floor at the current version when earlier versions lack the marker",
 			func(ctx SpecContext) {
-				snapshot := MustGenerateRequest(ctx, `
-				@go output "core/pkg/service/log"
-
-				Log struct {
-					key  uuid
-					name string
-					@go version 2
-				}
-			`, "log", loader)
-				req := MustGenerateRequest(ctx, `
-				@go output "core/pkg/service/log"
-
-				Log struct {
-					key  uuid
-					name string
-					@go version 3
-					@go imex
-				}
-			`, "log", loader)
-				req.SnapshotVersion = 1
-				req.LoadSnapshot = func(int) (*resolution.Table, error) {
-					return snapshot.Resolutions, nil
-				}
+				tmpDir := GinkgoT().TempDir()
+				req := chainRequest(ctx, tmpDir, liveLog(3), map[int]string{
+					2: logChain(false),
+					3: logChain(true),
+				})
 				resp := MustSucceed(p.Generate(req))
 				content := MustContentOf(
 					resp,
@@ -395,7 +388,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 			).ToContain(`"github.com/acme/portable/imex"`).ToBeValidGoSource()
 		})
 
-		It("Should floor at the current version when a snapshot fails to load", func(
+		It("Should floor at the current version with no chain", func(
 			ctx SpecContext,
 		) {
 			req := MustGenerateRequest(ctx, `
@@ -408,10 +401,6 @@ var _ = Describe("Go ImEx Plugin", func() {
 					@go imex
 				}
 			`, "log", loader)
-			req.SnapshotVersion = 1
-			req.LoadSnapshot = func(int) (*resolution.Table, error) {
-				return nil, errors.New("snapshot on fire")
-			}
 			resp := MustSucceed(p.Generate(req))
 			content := MustContentOf(
 				resp,
@@ -425,7 +414,6 @@ var _ = Describe("Go ImEx Plugin", func() {
 			"Should error when a version package does not parse",
 			func(ctx SpecContext) {
 				tmpDir := GinkgoT().TempDir()
-				diskLoader := NewMockFileLoaderWithRoot(tmpDir)
 				for _, dir := range []string{"v2", "v3"} {
 					Expect(os.MkdirAll(
 						filepath.Join(tmpDir, "core/pkg/service/log/versions", dir),
@@ -439,35 +427,32 @@ var _ = Describe("Go ImEx Plugin", func() {
 					[]byte("package v3\n\nfunc MigrateLog( {\n"),
 					0o644,
 				)).To(Succeed())
-				snapshot := MustGenerateRequest(ctx, `
-				@go output "core/pkg/service/log"
-
-				Log struct {
-					key  uuid
-					name string
-					@go version 2
-					@go imex
-				}
-			`, "log", diskLoader)
-				req := MustGenerateRequest(ctx, `
-				@go output "core/pkg/service/log"
-
-				Log struct {
-					key  uuid
-					name string
-					@go version 3
-					@go imex
-				}
-			`, "log", diskLoader)
-				req.SnapshotVersion = 1
-				req.LoadSnapshot = func(int) (*resolution.Table, error) {
-					return snapshot.Resolutions, nil
-				}
+				req := chainRequest(ctx, tmpDir, liveLog(3), map[int]string{
+					2: logChain(true),
+					3: logChain(true),
+				})
 				Expect(p.Generate(req)).Error().To(MatchError(
 					ContainSubstring("versions/v3/migrate.go"),
 				))
 			},
 		)
+
+		It("Should error when the chain leaves a marked type unversioned", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "core/pkg/service/log"
+
+				Log struct {
+					key uuid
+					@go imex
+				}
+			`
+			req := MustGenerateRequest(ctx, source, "log", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(
+				ContainSubstring("@go imex without @go version"),
+			))
+		})
 
 		It(
 			"Should error when two types at one path both declare the marker",

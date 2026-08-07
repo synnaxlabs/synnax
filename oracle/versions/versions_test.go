@@ -82,13 +82,17 @@ var _ = Describe("Discover", func() {
 		Expect(MustSucceed(versions.Discover(root))).To(BeEmpty())
 	})
 
-	It("Should reject a chain with a version gap", func() {
+	It("Should accept a chain that skips a version", func() {
 		root := writeRepo(map[string]string{
 			"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
 			"schemas/synnax/versions/channel/v2.oracle": "Key = v0.Key\n",
 		})
-		Expect(versions.Discover(root)).Error().
-			To(MatchError(ContainSubstring("missing v1")))
+		chain := MustSucceed(versions.Discover(root))["schemas/synnax/channel"]
+		Expect(chain.Numbers).To(Equal([]int{0, 2}))
+		Expect(chain.Current()).To(Equal(2))
+		pred, ok := chain.Predecessor(2)
+		Expect(ok).To(BeTrue())
+		Expect(pred).To(Equal(0))
 	})
 
 	It("Should reject stray files in a chain directory", func() {

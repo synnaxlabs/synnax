@@ -145,7 +145,10 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 	// Sibling versions seed the table with their defined declarations only,
 	// so an alias targeting a non-defining version fails resolution — the
 	// alias-to-definer rule enforced structurally.
-	for k := chain.First(); k < n; k++ {
+	for _, k := range chain.Numbers {
+		if k >= n {
+			break
+		}
 		sib, err := r.file(ctx, livePath, k)
 		if err != nil {
 			return nil, err

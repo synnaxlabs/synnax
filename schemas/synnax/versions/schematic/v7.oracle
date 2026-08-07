@@ -67,6 +67,13 @@ shape of each value is determined by the element's variant; the
 wire format intentionally stores it as an opaque record."""
     }
 
+    action Create {
+        schematic Schematic
+
+        @doc value """replaces the document with the given created state. Emitted by the Core on
+create so remote caches ingest new documents; clients never dispatch it."""
+    }
+
     action Rename {
         name string
 
@@ -121,5 +128,6 @@ whatever color (if any) was in the payload."""
     }
 
     @go migrate
+    @go imex
     @go marshal
 }

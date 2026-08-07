@@ -30,7 +30,9 @@ type Chain struct {
 	Domain string
 	// Resource is the versioned live schema's base name ("channel").
 	Resource string
-	// Numbers holds the declared versions, ascending and dense from 0.
+	// Numbers holds the declared versions, ascending. A chain shares its numbering
+	// with the resource's imex envelope sequence, so it skips the versions that only
+	// ever existed Console-side and never got a stored shape.
 	Numbers []int
 }
 
@@ -43,12 +45,17 @@ func (c Chain) Current() int { return c.Numbers[len(c.Numbers)-1] }
 func (c Chain) First() int { return c.Numbers[0] }
 
 // Predecessor returns the version preceding n in the chain, or false when n
-// is the chain's first version.
+// is the chain's first version. Chains skip numbers, so the predecessor is the
+// next declared version below n, not n-1.
 func (c Chain) Predecessor(n int) (int, bool) {
-	if n <= c.First() {
-		return 0, false
+	prev, ok := 0, false
+	for _, v := range c.Numbers {
+		if v >= n {
+			break
+		}
+		prev, ok = v, true
 	}
-	return n - 1, true
+	return prev, ok
 }
 
 // Dir returns the chain's repo-relative directory.

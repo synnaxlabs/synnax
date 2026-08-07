@@ -105,6 +105,13 @@ Panel struct {
         @doc value "is the root of the panel tree."
     }
 
+    action Create {
+        panel Panel
+
+        @doc value """replaces the document with the given created state. Emitted by the Core on
+create so remote caches ingest new documents; clients never dispatch it."""
+    }
+
     action Rename {
         name string
 

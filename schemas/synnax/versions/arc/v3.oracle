@@ -40,6 +40,13 @@ Either "text" for text-based Arc code or "graph" for visual dataflow."""
         @doc value "is the text-based Arc source code."
     }
 
+    action Create {
+        arc Arc
+
+        @doc value """replaces the document with the given created state. Emitted by the Core on
+create so remote caches ingest new documents; clients never dispatch it."""
+    }
+
     action Rename {
         name string
 
@@ -144,5 +151,6 @@ invisible, applying it never changes the materialized text."""
     }
 
     @go migrate
+    @go imex
     @go marshal
 }

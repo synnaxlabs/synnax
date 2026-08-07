@@ -161,7 +161,10 @@ func (g VersionsGate) checkChain(
 
 	// Minimality: every redeclaration must differ structurally from its
 	// resolved predecessor.
-	for k := chain.First() + 1; k <= current; k++ {
+	for i, k := range chain.Numbers {
+		if i == 0 || k > current {
+			continue
+		}
 		fk, err := resolver.File(ctx, livePath, k)
 		if err != nil {
 			r.fail(Finding{
@@ -171,7 +174,7 @@ func (g VersionsGate) checkChain(
 			})
 			return
 		}
-		surf, err := resolver.Surface(ctx, livePath, k-1)
+		surf, err := resolver.Surface(ctx, livePath, chain.Numbers[i-1])
 		if err != nil {
 			r.fail(Finding{
 				Path:     chain.FilePath(k) + ".oracle",

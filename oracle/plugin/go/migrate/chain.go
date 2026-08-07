@@ -25,8 +25,8 @@ import (
 )
 
 // chainFiles emits migrate.gen.go for every chain version: the auto-copy
-// helpers transforming v(k-1) entries into vk, a pure function of the two
-// adjacent version files. Regenerated on every sync and verified by check —
+// helpers transforming the preceding version's entries into vk, a pure function of the
+// two adjacent version files. Regenerated on every sync and verified by check —
 // hand edits do not survive.
 func (p *Plugin) chainFiles(req *plugin.Request) ([]plugin.File, error) {
 	chainPaths, err := gotypes.ChainPaths(req)
@@ -37,8 +37,13 @@ func (p *Plugin) chainFiles(req *plugin.Request) ([]plugin.File, error) {
 	var files []plugin.File
 	for _, origPath := range slices.Sorted(maps.Keys(chainPaths)) {
 		cp := chainPaths[origPath]
-		for k := cp.First + 1; k <= cp.Current; k++ {
-			file, ok, err := chainFile(ctx, req, origPath, cp.LivePath, k)
+		for i, k := range cp.Numbers {
+			if i == 0 || k > cp.Current {
+				continue
+			}
+			file, ok, err := chainFile(
+				ctx, req, origPath, cp.LivePath, cp.Numbers[i-1], k,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -55,10 +60,10 @@ func chainFile(
 	ctx context.Context,
 	req *plugin.Request,
 	origPath, livePath string,
-	k int,
+	prev, k int,
 ) (plugin.File, bool, error) {
 	oldTable, oldNS, err := gotypes.ChainFrozenTable(
-		ctx, req, origPath, livePath, k-1,
+		ctx, req, origPath, livePath, prev,
 	)
 	if err != nil {
 		return plugin.File{}, false, err

@@ -131,13 +131,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		declared[outputPath] = typ.QualifiedName
 		goName := naming.GetGoName(typ)
-		floor, err := firstImexVersion(
-			ctx, req, strings.TrimSuffix(typ.FilePath, ".oracle"), typ.Name, version,
-		)
+		livePath := strings.TrimSuffix(typ.FilePath, ".oracle")
+		floor, err := firstImexVersion(ctx, req, livePath, typ.Name, version)
 		if err != nil {
 			return nil, err
 		}
-		for k := floor; k <= version; k++ {
+		exported := exportedVersions(req, livePath, floor, version)
+		for _, k := range exported {
 			path := versioning.VersionedPath(outputPath, k)
 			var buf bytes.Buffer
 			if err := versionTemplate.Execute(&buf, &versionData{
@@ -168,7 +168,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				)
 			}
 		}
-		arms, err := chainArms(req.RepoRoot, outputPath, goName, floor, version)
+		arms, err := chainArms(req.RepoRoot, outputPath, goName, exported)
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +178,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Arms:       arms,
 			Runtime:    p.options.RuntimeImportPath,
 		}
-		for k := floor; k <= version; k++ {
+		for _, k := range exported {
 			data.Imports = append(data.Imports, gomod.ResolveImportPath(
 				versioning.VersionedPath(outputPath, k), req.RepoRoot, goModulePrefix,
 			))
@@ -297,7 +297,11 @@ func firstImexVersion(
 	if !ok {
 		return floor, nil
 	}
-	for k := current - 1; k >= chain.First(); k-- {
+	for i := len(chain.Numbers) - 1; i >= 0; i-- {
+		k := chain.Numbers[i]
+		if k >= current {
+			continue
+		}
 		surf, err := req.Versions.Surface(ctx, livePath, k)
 		if err != nil {
 			return 0, err
@@ -311,18 +315,43 @@ func firstImexVersion(
 	return floor, nil
 }
 
-// chainArms builds one ladder arm per version in [floor, current): each decodes the
+// exportedVersions returns the chain's declared versions in [floor, current]: the
+// versions the Core has exported. Falls back to the bare current version when the
+// resource has no chain.
+func exportedVersions(req *plugin.Request, livePath string, floor, current int) []int {
+	if req.Versions == nil {
+		return []int{current}
+	}
+	chain, ok := req.Versions.Chains()[livePath]
+	if !ok {
+		return []int{current}
+	}
+	out := make([]int, 0, len(chain.Numbers))
+	for _, k := range chain.Numbers {
+		if k >= floor && k <= current {
+			out = append(out, k)
+		}
+	}
+	if len(out) == 0 {
+		return []int{current}
+	}
+	return out
+}
+
+// chainArms builds one ladder arm per exported version below current: each decodes the
 // stamped vK shape and lifts it through every later bump's exported Migrate<Type> step.
-// Alias-only bumps (no step on disk) pass the value through unchanged.
+// Alias-only bumps (no step on disk) pass the value through unchanged. nums holds the
+// chain's declared versions from the floor up to current, which skip the numbers that
+// never got a stored shape.
 func chainArms(
 	repoRoot, outputPath, goName string,
-	floor, current int,
+	nums []int,
 ) ([]chainArm, error) {
-	if floor >= current {
+	if len(nums) < 2 {
 		return nil, nil
 	}
-	steps := make(set.Set[int], current-floor)
-	for j := floor + 1; j <= current; j++ {
+	steps := make(set.Set[int], len(nums)-1)
+	for _, j := range nums[1:] {
 		hasStep, err := migrateStepExists(
 			filepath.Join(repoRoot, versioning.VersionedPath(outputPath, j)), goName,
 		)
@@ -333,8 +362,8 @@ func chainArms(
 			steps.Add(j)
 		}
 	}
-	arms := make([]chainArm, 0, current-floor)
-	for k := floor; k < current; k++ {
+	arms := make([]chainArm, 0, len(nums)-1)
+	for i, k := range nums[:len(nums)-1] {
 		var b strings.Builder
 		cur := fmt.Sprintf("t%d", k)
 		fmt.Fprintf(
@@ -342,7 +371,7 @@ func chainArms(
 			cur, versioning.Dir(k), goName,
 		)
 		fmt.Fprintf(&b, "\t\tif err != nil {\n\t\t\treturn %s{}, err\n\t\t}\n", goName)
-		for j := k + 1; j <= current; j++ {
+		for _, j := range nums[i+1:] {
 			if !steps.Contains(j) {
 				continue
 			}

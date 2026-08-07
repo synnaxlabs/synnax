@@ -271,6 +271,13 @@ channels and ranges bindings."""
         @doc value "holds annotation rules drawn over the plot."
     }
 
+    action Create {
+        line_plot LinePlot
+
+        @doc value """replaces the document with the given created state. Emitted by the Core on
+create so remote caches ingest new documents; clients never dispatch it."""
+    }
+
     action Rename {
         name string
 
@@ -519,5 +526,6 @@ default color assigned at render time."""
     }
 
     @go migrate
+    @go imex
     @go marshal
 }

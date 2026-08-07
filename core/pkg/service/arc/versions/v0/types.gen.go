@@ -59,7 +59,8 @@ const (
 	ModeGraph Mode = "graph"
 )
 
-// IsValid reports whether m is one of the defined Mode values.
+// IsValid reports whether m is one of the defined Mode
+// values.
 func (m Mode) IsValid() bool {
 	switch m {
 	case ModeText, ModeGraph:

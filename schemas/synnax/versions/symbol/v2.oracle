@@ -1,3 +1,4 @@
+import "schemas/x/versions/color/v0"
 import "schemas/x/versions/spatial/v0"
 
 Key = uuid {
@@ -5,20 +6,20 @@ Key = uuid {
 }
 
 Region struct {
-    key          string   {
+    key          string       {
         @doc value "is the region identifier."
     }
-    name         string   {
+    name         string       {
         @doc value "is a human-readable name for the region."
     }
-    selectors    string[] {
+    selectors    string[]     {
         @doc value "contains CSS selectors targeting SVG elements within the symbol."
     }
-    stroke_color string?  {
-        @doc value "is an optional stroke color in hex format (#RRGGBB)."
+    stroke_color color.Color? {
+        @doc value "is an optional stroke color override for the region."
     }
-    fill_color   string?  {
-        @doc value "is an optional fill color in hex format (#RRGGBB)."
+    fill_color   color.Color? {
+        @doc value "is an optional fill color override for the region."
     }
 
     @doc value """is a visual styling area within a symbol state, targeting specific SVG
@@ -81,19 +82,17 @@ rendering properties."""
 }
 
 Symbol struct {
-    key     Key = create {
+    key  Key = create {
         @doc value "is the unique identifier for this symbol."
         @key
     }
-    version uint32 = 1 {
-        @doc value "is the symbol schema version for migration support."
-    }
-    name    string {
+    name string {
         @doc value "is a human-readable name for the symbol."
     }
-    data    Spec   {
+    data Spec   {
         @doc value "is the complete symbol specification."
     }
 
+    @go imex
     @go marshal
 }
