@@ -14,10 +14,6 @@
     width: 66px;
 }
 
-.console-schematic__toolbar-tab-selector {
-    width: 251px;
-}
-
 .console-schematic__control {
     padding: 1.5rem 2rem;
 }
@@ -61,6 +57,19 @@
     .console-schematic__symbols-group-list {
         padding: 1rem;
         border-bottom: var(--pluto-border);
+
+        /* A group tab is inset like the chip it replaced, tighter than the strip's
+           document-tab padding. Its label is a bare string, so that textless
+           padding applies and the icon rides on it instead of adding a leading
+           margin of its own. */
+        .pluto-tabs__selector .pluto-tabs__tab {
+            padding: 0 1.5rem;
+
+            & > .pluto-icon {
+                margin-left: 0;
+                margin-right: 1rem;
+            }
+        }
     }
 
     .console-schematic__symbols-group {
