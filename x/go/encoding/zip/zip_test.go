@@ -27,9 +27,8 @@ func read(b []byte) xzip.Files {
 	r := MustSucceed(zip.NewReader(bytes.NewReader(b), int64(len(b))))
 	files := make(xzip.Files, len(r.File))
 	for _, f := range r.File {
-		rc := MustSucceed(f.Open())
+		rc := MustOpen(f.Open())
 		files[f.Name] = MustSucceed(io.ReadAll(rc))
-		Expect(rc.Close()).To(Succeed())
 	}
 	return files
 }

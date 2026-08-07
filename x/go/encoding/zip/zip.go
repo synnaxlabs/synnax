@@ -27,9 +27,6 @@ import (
 // and no nesting: every name is a leaf.
 type Files = map[string][]byte
 
-// contentType is the HTTP content type of a zip archive.
-const contentType = "application/zip"
-
 // Encoder encodes a Files value into a zip archive with one entry per file. Entries are
 // written in sorted name order, so equal Files always encode to equal bytes. Encoding
 // any other value returns encoding.ErrEncode.
@@ -37,7 +34,7 @@ var Encoder http.Encoder = encoder{}
 
 type encoder struct{}
 
-func (encoder) ContentType() string { return contentType }
+func (encoder) ContentType() string { return "application/zip" }
 
 func (e encoder) Encode(ctx context.Context, value any) ([]byte, error) {
 	var buf bytes.Buffer
