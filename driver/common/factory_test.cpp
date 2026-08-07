@@ -29,14 +29,17 @@ class MockFactory {
 public:
     std::pair<std::unique_ptr<task::Task>, x::errors::Error> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) {
+        this->cmd_keys.push_back(cmd_key);
         configured_tasks.push_back(task);
         if (should_fail) { return {nullptr, x::errors::Error("mock", "mock error")}; }
         return {std::make_unique<MockTask>(), x::errors::NIL};
     }
 
     std::vector<synnax::task::Task> configured_tasks;
+    std::vector<std::string> cmd_keys;
     bool should_fail = false;
 };
 
@@ -96,6 +99,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_Success) {
     ASSERT_EQ(tasks[0].first.type, "test_type");
     ASSERT_NE(tasks[0].second, nullptr);
     ASSERT_EQ(factory->configured_tasks.size(), 1);
+    ASSERT_EQ(factory->cmd_keys, std::vector<std::string>{""});
 }
 
 /// @brief it should skip configuration when task type already exists.

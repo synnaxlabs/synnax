@@ -42,13 +42,16 @@ type Driver struct {
 	streamerRequests confluence.Inlet[framer.StreamerRequest]
 	rack             rack.Rack
 	mu               struct {
-		tasks map[task.Key]Task
-		// hashes records, per live task instance, the config hash the instance was
-		// built from. Start commands compare it against the stored task's
-		// config_hash to decide whether to rebuild.
-		hashes map[task.Key]string
+		instances map[task.Key]instance
 		sync.RWMutex
 	}
+}
+
+// instance is a live task and the config hash it was built from. Start commands
+// compare the hash against the stored task to decide whether to rebuild.
+type instance struct {
+	task Task
+	hash string
 }
 
 // commandSink is a confluence sink that processes incoming command frames.
@@ -66,8 +69,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 		return nil, err
 	}
 	d = &Driver{cfg: cfg}
-	d.mu.tasks = make(map[task.Key]Task)
-	d.mu.hashes = make(map[task.Key]string)
+	d.mu.instances = make(map[task.Key]instance)
 	cleanup, ok := service.NewOpener(ctx, &d.closer)
 	defer func() { err = cleanup(err) }()
 
@@ -180,7 +182,7 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 			// Non-start commands go to whichever driver holds the live
 			// instance, even when the stored row has moved to another rack.
 			d.mu.RLock()
-			t, ok := d.mu.tasks[cmd.Task]
+			inst, ok := d.mu.instances[cmd.Task]
 			d.mu.RUnlock()
 			if !ok {
 				var tsk task.Task
@@ -195,7 +197,7 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 				}
 				continue
 			}
-			d.exec(ctx, t, cmd)
+			d.exec(ctx, inst.task, cmd)
 		}
 	}
 }
@@ -235,10 +237,9 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 		return
 	}
 	d.mu.RLock()
-	t, ok := d.mu.tasks[cmd.Task]
-	recorded := d.mu.hashes[cmd.Task]
+	inst, ok := d.mu.instances[cmd.Task]
 	d.mu.RUnlock()
-	if !ok || recorded != tsk.ConfigHash {
+	if !ok || inst.hash != tsk.ConfigHash {
 		if err := d.configure(ctx, tsk, true); err != nil {
 			d.cfg.L.Error("failed to configure task",
 				zap.Stringer("task", tsk),
@@ -248,13 +249,13 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 			return
 		}
 		d.mu.RLock()
-		t, ok = d.mu.tasks[cmd.Task]
+		inst, ok = d.mu.instances[cmd.Task]
 		d.mu.RUnlock()
 		if !ok {
 			return
 		}
 	}
-	d.exec(ctx, t, cmd)
+	d.exec(ctx, inst.task, cmd)
 }
 
 // ackStartFailure acknowledges a start command whose deploy failed. Factories
@@ -359,13 +360,12 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 
 func (d *Driver) configure(ctx context.Context, t task.Task, startPending bool) error {
 	d.mu.Lock()
-	existing, hadExisting := d.mu.tasks[t.Key]
-	delete(d.mu.tasks, t.Key)
-	delete(d.mu.hashes, t.Key)
+	existing, hadExisting := d.mu.instances[t.Key]
+	delete(d.mu.instances, t.Key)
 	d.mu.Unlock()
 
 	if hadExisting {
-		if err := existing.Stop(false); err != nil {
+		if err := existing.task.Stop(false); err != nil {
 			d.cfg.L.Error("failed to stop existing task for reconfiguration",
 				zap.Stringer("task", t),
 				zap.Error(err),
@@ -388,8 +388,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task, startPending bool) 
 				return err
 			}
 			d.mu.Lock()
-			d.mu.tasks[t.Key] = newTask
-			d.mu.hashes[t.Key] = t.ConfigHash
+			d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
 			d.mu.Unlock()
 			d.cfg.L.Info("configured task", zap.Stringer("task", t))
 			return nil
@@ -409,14 +408,13 @@ func (d *Driver) delete(key task.Key) {
 // existed.
 func (d *Driver) release(key task.Key, sendStatus bool) bool {
 	d.mu.Lock()
-	t, ok := d.mu.tasks[key]
-	delete(d.mu.tasks, key)
-	delete(d.mu.hashes, key)
+	inst, ok := d.mu.instances[key]
+	delete(d.mu.instances, key)
 	d.mu.Unlock()
 	if !ok {
 		return false
 	}
-	if err := t.Stop(sendStatus); err != nil {
+	if err := inst.task.Stop(sendStatus); err != nil {
 		d.cfg.L.Error(
 			"failed to stop task",
 			zap.Stringer("task", key),
@@ -428,8 +426,8 @@ func (d *Driver) release(key task.Key, sendStatus bool) bool {
 
 func (d *Driver) Close() error {
 	d.mu.Lock()
-	for key, t := range d.mu.tasks {
-		if err := t.Stop(true); err != nil {
+	for key, inst := range d.mu.instances {
+		if err := inst.task.Stop(true); err != nil {
 			d.cfg.L.Error(
 				"failed to stop task during shutdown",
 				zap.Stringer("task", key),
@@ -437,7 +435,7 @@ func (d *Driver) Close() error {
 			)
 		}
 	}
-	clear(d.mu.tasks)
+	clear(d.mu.instances)
 	d.mu.Unlock()
 	if d.streamerRequests != nil {
 		d.streamerRequests.Close()
