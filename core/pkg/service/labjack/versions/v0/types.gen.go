@@ -13,6 +13,7 @@ package v0
 
 import (
 	"encoding/json"
+	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v1"
@@ -572,6 +573,24 @@ type ReadConfig struct {
 	LjmScanBacklogWarnOnCount *uint32 `json:"ljm_scan_backlog_warn_on_count,omitempty" msgpack:"ljm_scan_backlog_warn_on_count,omitempty"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *ReadConfig) ApplyDefaults() {
+	r.BaseReadConfig.ApplyDefaults()
+	for i := range r.Channels {
+		r.Channels[i].ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	for i := range r.Channels {
+		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
 // WriteConfig configures a LabJack write task.
 type WriteConfig struct {
 	common.BaseWriteConfig
@@ -581,10 +600,25 @@ type WriteConfig struct {
 	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (w *WriteConfig) ApplyDefaults() {
+	if w.StateRate == 0 {
+		w.StateRate = 10
+	}
+}
+
 // ScanConfig configures a LabJack scan task.
 type ScanConfig struct {
 	common.BaseScanConfig
 	// TCPScanMultiplier is the number of scan cycles between TCP device scans. USB
 	// devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
 	TCPScanMultiplier int32 `json:"tcp_scan_multiplier" msgpack:"tcp_scan_multiplier"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *ScanConfig) ApplyDefaults() {
+	if s.TCPScanMultiplier == 0 {
+		s.TCPScanMultiplier = 10
+	}
+	s.BaseScanConfig.ApplyDefaults()
 }

@@ -32,6 +32,13 @@ type BaseScanConfig struct {
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (b *BaseScanConfig) ApplyDefaults() {
+	if b.Rate == 0 {
+		b.Rate = 0.2
+	}
+}
+
 // BaseConfig carries the configuration fields shared by every hardware task.
 type BaseConfig struct {
 	ConfigRecord
@@ -48,6 +55,16 @@ type BaseReadConfig struct {
 	SampleRate telem.Rate `json:"sample_rate" msgpack:"sample_rate"`
 	// StreamRate is the rate at which samples are streamed to Synnax, in hertz.
 	StreamRate telem.Rate `json:"stream_rate" msgpack:"stream_rate"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (b *BaseReadConfig) ApplyDefaults() {
+	if b.SampleRate == 0 {
+		b.SampleRate = 10
+	}
+	if b.StreamRate == 0 {
+		b.StreamRate = 5
+	}
 }
 
 // BaseWriteConfig carries the configuration fields shared by hardware control tasks.

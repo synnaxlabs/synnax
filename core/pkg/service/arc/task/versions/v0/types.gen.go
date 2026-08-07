@@ -14,6 +14,7 @@ package v0
 import (
 	arc "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	common "github.com/synnaxlabs/synnax/pkg/service/task/common/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // ExecutionMode selects how the Arc runtime loop schedules execution.
@@ -54,4 +55,25 @@ type TaskConfig struct {
 	CPUAffinity int32 `json:"cpu_affinity" msgpack:"cpu_affinity"`
 	// LockMemory locks the runtime's memory to prevent paging.
 	LockMemory bool `json:"lock_memory" msgpack:"lock_memory"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (t *TaskConfig) ApplyDefaults() {
+	if t.ExecutionMode == "" {
+		t.ExecutionMode = ExecutionModeAuto
+	}
+	if t.RtPriority == 0 {
+		t.RtPriority = 47
+	}
+	if t.CPUAffinity == 0 {
+		t.CPUAffinity = -1
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t TaskConfig) Validate() error {
+	v := validate.New("TaskConfig")
+	v.Ternaryf("execution_mode", !t.ExecutionMode.IsValid(), "invalid execution_mode: %v", t.ExecutionMode)
+	return v.Error()
 }

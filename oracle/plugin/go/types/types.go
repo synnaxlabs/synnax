@@ -762,46 +762,41 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	}
 	sd.IsGeneric = len(sd.TypeParams) > 0
 
-	if len(form.Extends) > 0 {
-		// Flatten (rather than embed the parent) when fields are omitted, parents
-		// conflict, or a field removes an inherited domain — none can be expressed
-		// through Go struct embedding.
-		if len(form.OmittedFields) > 0 ||
+	// Flatten (rather than embed the parent) when fields are omitted, parents
+	// conflict, or a field removes an inherited domain — none can be expressed
+	// through Go struct embedding.
+	flatten := len(form.Extends) > 0 &&
+		(len(form.OmittedFields) > 0 ||
 			resolver.HasFieldConflicts(form.Extends, data.table) ||
-			resolver.HasDomainOmissions(form) {
-			for _, field := range resolution.UnifiedFields(entry, data.table) {
-				sd.Fields = append(sd.Fields, processField(field, data))
-			}
-			sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
-			for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
-				data.imports.AddExternal(imp)
-			}
-			return sd
-		}
-
+			resolver.HasDomainOmissions(form))
+	fields := resolution.UnifiedFields(entry, data.table)
+	var embeds []embeddedType
+	if len(form.Extends) > 0 && !flatten {
 		sd.HasExtends = true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(data.table)
 			if ok {
-				sd.ExtendsTypes = append(
-					sd.ExtendsTypes,
-					resolveExtendsType(extendsRef, parent, data),
+				rendered := resolveExtendsType(extendsRef, parent, data)
+				sd.ExtendsTypes = append(sd.ExtendsTypes, rendered)
+				embeds = append(
+					embeds,
+					embeddedType{ref: extendsRef, rendered: rendered},
 				)
 			}
 		}
-
-		for _, field := range form.Fields {
-			sd.Fields = append(sd.Fields, processField(field, data))
-		}
-		sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
-		for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
-			data.imports.AddExternal(imp)
-		}
-		return sd
+		fields = form.Fields
 	}
 
 	genMethods := !sd.IsGeneric
-	for _, field := range resolution.UnifiedFields(entry, data.table) {
+	if genMethods && len(embeds) > 0 {
+		sd.DefaultRecurse = append(
+			sd.DefaultRecurse,
+			embedRecurseSteps(embeds, nil, data, defaultsHasOwn, neverSkip)...)
+		sd.ValidateRecurse = append(
+			sd.ValidateRecurse,
+			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...)
+	}
+	for _, field := range fields {
 		sd.Fields = append(sd.Fields, processField(field, data))
 		if !genMethods {
 			continue
@@ -1342,7 +1337,11 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- end}}
 {{- range $s.ValidateRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
+{{- if .JSONName}}
 	v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}.Validate(), "{{.JSONName}}") })
+{{- else}}
+	v.Exec({{$s.Receiver}}.{{.GoName}}.Validate)
+{{- end}}
 {{- else if eq (printf "%s" .Kind) "pointer"}}
 	if {{$s.Receiver}}.{{.GoName}} != nil {
 		v.Exec(func() error { return validate.PathedError({{$s.Receiver}}.{{.GoName}}.Validate(), "{{.JSONName}}") })

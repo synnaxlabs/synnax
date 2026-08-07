@@ -338,6 +338,14 @@ type ReadConfig struct {
 	Channels []InputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *ReadConfig) ApplyDefaults() {
+	r.BaseReadConfig.ApplyDefaults()
+	for i := range r.Channels {
+		r.Channels[i].ApplyDefaults()
+	}
+}
+
 // WriteConfig configures a Modbus write task.
 type WriteConfig struct {
 	common.BaseWriteConfig
@@ -345,7 +353,19 @@ type WriteConfig struct {
 	Channels []OutputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (w *WriteConfig) ApplyDefaults() {
+	for i := range w.Channels {
+		w.Channels[i].ApplyDefaults()
+	}
+}
+
 // ScanConfig configures a Modbus scan task, which carries no settings.
 type ScanConfig struct {
 	common.BaseScanConfig
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *ScanConfig) ApplyDefaults() {
+	s.BaseScanConfig.ApplyDefaults()
 }

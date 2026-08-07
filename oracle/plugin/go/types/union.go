@@ -106,7 +106,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		DiscJSONName:  casing.FieldSnake(form.Discriminator),
 	}
 
-	var baseEmbeds []variantEmbed
+	var baseEmbeds []embeddedType
 	for _, ext := range form.Extends {
 		parent, ok := ext.Resolve(data.table)
 		if !ok {
@@ -114,7 +114,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		}
 		baseEmbeds = append(
 			baseEmbeds,
-			variantEmbed{ref: ext, rendered: resolveExtendsType(ext, parent, data)},
+			embeddedType{ref: ext, rendered: resolveExtendsType(ext, parent, data)},
 		)
 	}
 
@@ -126,7 +126,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			Doc:       doc.Get(v.Domains),
 		}
 		vd.Receiver = receiverName(vd.TypeName)
-		embeds := append([]variantEmbed{}, baseEmbeds...)
+		embeds := append([]embeddedType{}, baseEmbeds...)
 		var inlineFields []resolution.Field
 		if v.Inline {
 			if payload, ok := v.Type.Resolve(data.table); ok {
@@ -135,7 +135,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 					if parent, ok := ext.Resolve(data.table); ok {
 						embeds = append(
 							embeds,
-							variantEmbed{
+							embeddedType{
 								ref:      ext,
 								rendered: resolveExtendsType(ext, parent, data),
 							},
@@ -162,7 +162,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		} else {
 			embeds = append(
 				embeds,
-				variantEmbed{
+				embeddedType{
 					ref:      v.Type,
 					rendered: data.resolver.ResolveTypeRef(v.Type, data.ctx),
 				},
@@ -171,14 +171,14 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		for _, e := range embeds {
 			vd.Embeds = append(vd.Embeds, e.rendered)
 		}
-		vd.DefaultRecurse = variantRecurseSteps(
+		vd.DefaultRecurse = embedRecurseSteps(
 			embeds,
 			inlineFields,
 			data,
 			defaultsHasOwn,
 			neverSkip,
 		)
-		vd.ValidateRecurse = variantRecurseSteps(
+		vd.ValidateRecurse = embedRecurseSteps(
 			embeds,
 			inlineFields,
 			data,
@@ -206,20 +206,20 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	return ud
 }
 
-// variantEmbed pairs a variant's embedded type reference with its rendered Go type, so
-// the recursion predicate can inspect the type while the field selector is derived from
+// embeddedType pairs an embedded type reference with its rendered Go type, so the
+// recursion predicate can inspect the type while the field selector is derived from
 // the rendered name.
-type variantEmbed struct {
+type embeddedType struct {
 	ref      resolution.TypeRef
 	rendered string
 }
 
-// variantRecurseSteps returns the nested-method steps for a union variant: a value step
-// per embedded type that (transitively) needs the method, followed by the steps for any
-// inline fields. Embed steps carry no JSONName, since an embedded type's fields are
-// promoted to the variant's level and take no Validate path segment.
-func variantRecurseSteps(
-	embeds []variantEmbed,
+// embedRecurseSteps returns the nested-method steps for a type that embeds others: a
+// value step per embedded type that (transitively) needs the method, followed by the
+// steps for any direct fields. Embed steps carry no JSONName, since an embedded type's
+// fields are promoted to the embedder's level and take no Validate path segment.
+func embedRecurseSteps(
+	embeds []embeddedType,
 	inlineFields []resolution.Field,
 	data *templateData,
 	hasOwn fieldHasOwn,
