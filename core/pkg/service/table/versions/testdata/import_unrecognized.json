@@ -1,0 +1,8 @@
+{
+  "version": "0.0.0",
+  "type": "table",
+  "name": "Foreign",
+  "rows": [{ "size": 25, "cells": ["c1"] }],
+  "columns": [{ "size": 90 }],
+  "cells": { "c1": { "key": "c1", "variant": "text", "props": {} } }
+}

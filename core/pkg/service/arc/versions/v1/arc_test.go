@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("Arc", func() {
 	Describe("GorpKey", func() {
-		It("Should return the arc's key", func() {
+		It("Should return the Arc's key", func() {
 			k := uuid.New()
 			Expect(v1.Arc{Key: k}.GorpKey()).To(Equal(k))
 		})

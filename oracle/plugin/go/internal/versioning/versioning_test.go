@@ -11,6 +11,8 @@ package versioning_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -123,6 +125,52 @@ var _ = Describe("Versioning", func() {
 		It("Should append the types/vN sub-path", func() {
 			Expect(versioning.VersionedPath("core/out", 3)).To(
 				Equal("core/out/versions/v3"))
+		})
+	})
+
+	Describe("VersionDirs", func() {
+		It("Should return the version directories on disk, ascending", func() {
+			root := GinkgoT().TempDir()
+			for _, dir := range []string{"v5", "v0", "v2", "legacy", "testdata"} {
+				Expect(os.MkdirAll(
+					filepath.Join(root, "core/out/versions", dir), 0o755,
+				)).To(Succeed())
+			}
+			Expect(versioning.VersionDirs(root, "core/out")).To(Equal([]int{0, 2, 5}))
+		})
+
+		It("Should return nothing when the versions tree is absent", func() {
+			Expect(versioning.VersionDirs(GinkgoT().TempDir(), "core/out")).To(BeNil())
+		})
+	})
+
+	Describe("Predecessor", func() {
+		var root string
+
+		BeforeEach(func() {
+			root = GinkgoT().TempDir()
+			for _, dir := range []string{"v0", "v2", "v7"} {
+				Expect(os.MkdirAll(
+					filepath.Join(root, "core/out/versions", dir), 0o755,
+				)).To(Succeed())
+			}
+		})
+
+		DescribeTable(
+			"Should return the highest version directory below n",
+			func(n, expected int) {
+				v, ok := MustSucceed2(versioning.Predecessor(root, "core/out", n))
+				Expect(ok).To(BeTrue())
+				Expect(v).To(Equal(expected))
+			},
+			Entry("skipping the versions with no directory", 7, 2),
+			Entry("when the directory is exactly n-1", 3, 2),
+			Entry("down to the earliest directory", 1, 0),
+		)
+
+		It("Should report absence when no lower directory exists", func() {
+			_, ok := MustSucceed2(versioning.Predecessor(root, "core/out", 0))
+			Expect(ok).To(BeFalse())
 		})
 	})
 
