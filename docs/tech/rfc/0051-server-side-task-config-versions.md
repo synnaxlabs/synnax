@@ -105,13 +105,12 @@ and composes with it in either order.
 ```
 
 The task row keeps `type` and drops only `config`. The config record holds the
-configuration and the parent relationship carries the link. An earlier draft of this
-RFC also dropped the `type` column (see decision 3 in §6): implementation reversed
-that. The writer and the delete path need the row's type to select the config store
-before any ontology read, retrieve-by-type stays a plain Gorp filter, and reconfigure
-must detect a type change by comparing the stored type against the incoming payload.
-The relationship still names the type; the column is the lookup key the service reads
-first.
+configuration and the parent relationship carries the link. An earlier draft of this RFC
+also dropped the `type` column (see decision 3 in §6): implementation reversed that. The
+writer and the delete path need the row's type to select the config store before any
+ontology read, retrieve-by-type stays a plain Gorp filter, and reconfigure must detect a
+type change by comparing the stored type against the incoming payload. The relationship
+still names the type; the column is the lookup key the service reads first.
 
 ### 4.1 Schemas and services
 
@@ -172,11 +171,11 @@ presence that per-type endpoints and access policies can name later.
 
 ### 4.3 Resolving `config`
 
-The config parent is an `ontology.ID` of the form `ni_analog_read:<uuid>`, so it
-already carries the task type. A task has more than one parent (§4.2), so the reader
-selects the parent whose type part equals the row's `type`, never the first parent it
-gets. It reads that record and encodes it as `config`. Exactly one parent matches,
-which §4.2 enforces on write.
+The config parent is an `ontology.ID` of the form `ni_analog_read:<uuid>`, so it already
+carries the task type. A task has more than one parent (§4.2), so the reader selects the
+parent whose type part equals the row's `type`, never the first parent it gets. It reads
+that record and encodes it as `config`. Exactly one parent matches, which §4.2 enforces
+on write.
 
 Three call sites must resolve, not just the retrieve builder:
 
@@ -192,9 +191,9 @@ the whole result set in one ontology query. The Driver's `sy_task_set` path and 
 Console's task list both read many tasks at a time, and a per-task lookup would put a
 query per task on a hot path.
 
-**Retrieving by type** filters the task row's `type` column, which the row keeps
-exactly for this and for store selection on writes and deletes. The relationship index
-stays the composition path, not the filter path.
+**Retrieving by type** filters the task row's `type` column, which the row keeps exactly
+for this and for store selection on writes and deletes. The relationship index stays the
+composition path, not the filter path.
 
 ### 4.4 Composition and decomposition
 
@@ -354,15 +353,14 @@ The six scanners and `rack_status` have no meaningful configuration, but the clo
 admits no exceptions: each gets its own schema type over a shared empty base, so its
 config composes like any other. The schemas are one line each.
 
-Two types need a rename before Phase 4. The Driver configures the rack status task
-under the literal type string `Rack Status`, and it still deletes a legacy `heartbeat`
-task on boot. A type string names a schema type, an ontology type, and a Gorp table, so
+Two types need a rename before Phase 4. The Driver configures the rack status task under
+the literal type string `Rack Status`, and it still deletes a legacy `heartbeat` task on
+boot. A type string names a schema type, an ontology type, and a Gorp table, so
 `Rack Status` cannot stand. Phase 2 renames it to `rack_status`, which the Driver
 already uses as the integration name. Both old names then leave through the legacy
-deletion path the Driver carries today. The Arc task renames the same way: `arc`
-becomes `arc_task`, because the `arc` ontology type already names the Arc program
-resource and one string cannot name both. The boot migration rewrites both stored type
-strings.
+deletion path the Driver carries today. The Arc task renames the same way: `arc` becomes
+`arc_task`, because the `arc` ontology type already names the Arc program resource and
+one string cannot name both. The boot migration rewrites both stored type strings.
 
 Per-type `StatusData` — the `errors[]` of NI, the read status of EtherCAT — gets a type
 in each integration schema and threads through the status details generic. The Console
@@ -391,8 +389,8 @@ tests pass, and the product can ship. No phase changes the task payload.
   write; retrieve, `OnChange`, and `sy_task_set` compose on read; the config record
   becomes a second parent of the task; internal tasks gain an ontology resource; and the
   §4.8 startup migration runs. `config` becomes resolved. The task payload keeps its
-  shape, so no client needs a new field, but the parent readers of §4.2 gain their
-  type filter in the same phase.
+  shape, so no client needs a new field, but the parent readers of §4.2 gain their type
+  filter in the same phase.
 - **Phase 5: Import and export.** Each config type registers an `imex.Importer`, `imex`
   keys importers by ontology resource type, the task service delegates its export body,
   and the built-in role policies gain the config types (§4.6, §4.9). This unblocks
@@ -422,8 +420,8 @@ code, not new behavior.
 3. **`type` stored on the task row — rejected, then adopted in implementation**: The
    draft dropped the column because the parent relationship already names the type.
    Implementation restored it: the write, delete, and retrieve-by-type paths all need
-   the type before they touch the ontology, and the drift risk is contained because
-   the writer owns both the column and the relationship in one transaction (§4).
+   the type before they touch the ontology, and the drift risk is contained because the
+   writer owns both the column and the relationship in one transaction (§4).
 4. **A dedicated relationship type — rejected**: In favor of `parent_of`. The config
    record is the task's parent in every sense the ontology models, and reusing the
    existing type inherits the tree walk and the index. The cost is that a task now has
@@ -479,8 +477,7 @@ code, not new behavior.
 ## 8 Open questions
 
 1. Whether composition belongs in the retrieve builder or behind an explicit
-   `.WithConfigs()` option, so callers who only need a task name or type skip the
-   join.
+   `.WithConfigs()` option, so callers who only need a task name or type skip the join.
 2. The surface for a quarantined row (§4.8): whether it carries an error status, and
    whether the Console lists it.
 3. The order of integrations across Phases 2 and 6.
