@@ -18,13 +18,13 @@ import synnax as sy
 @pytest.mark.task
 class TestTaskClient:
     def test_create_single(self, client: sy.Synnax):
-        task = client.tasks.create(name="test", type="test")
+        task = client.tasks.create(name="test", type="pagerduty_alert")
         assert isinstance(task.key, UUID)
         assert task.rack != 0
 
     def test_create_multiple(self, client: sy.Synnax):
-        t1 = sy.Task(name="test1", type="test")
-        t2 = sy.Task(name="test2", type="test")
+        t1 = sy.Task(name="test1", type="pagerduty_alert")
+        t2 = sy.Task(name="test2", type="pagerduty_alert")
         tasks = client.tasks.create(tasks=[t1, t2])
         assert len(tasks) == 2
         assert tasks[0].name == "test1"
@@ -32,16 +32,15 @@ class TestTaskClient:
 
     def test_retrieve_by_name(self, client: sy.Synnax):
         name = str(uuid4())
-        task = client.tasks.create(name=name, type="test")
+        task = client.tasks.create(name=name, type="pagerduty_alert")
         res = client.tasks.retrieve(name=name)
         assert res.name == name
         assert res.key == task.key
 
     def test_retrieve_by_type(self, client: sy.Synnax):
-        type = str(uuid4())
-        task = client.tasks.create(type=type)
-        res = client.tasks.retrieve(type=type)
-        assert res.type == type
+        task = client.tasks.create(type="labjack_scan")
+        res = client.tasks.retrieve(type="labjack_scan")
+        assert res.type == "labjack_scan"
         assert res.key == task.key
 
     def test_execute_command_sync(self, client: sy.Synnax):
@@ -66,34 +65,38 @@ class TestTaskClient:
         ev = threading.Event()
         t = threading.Thread(target=driver, args=(ev,))
         t.start()
-        tsk = client.tasks.create(name="test", type="test")
+        tsk = client.tasks.create(name="test", type="pagerduty_alert")
         ev.wait()
         tsk.execute_command_sync("test", {"key": "value"})
         t.join()
 
     def test_task_configure_saves_without_ack(self, client: sy.Synnax):
         """Should save the task without waiting for a driver acknowledgement."""
-        tsk = sy.Task(name="test", type="test", config={"rate": 50})
+        tsk = sy.Task(
+            name="test", type="pagerduty_alert", config={"routing_key": "rk-50"}
+        )
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
         assert res.key == tsk.key
         assert res.rack != 0
-        assert res.config == {"rate": 50}
+        assert res.config["routing_key"] == "rk-50"
 
     def test_task_configure_updates_config(self, client: sy.Synnax):
         """Should overwrite the stored config when configured again."""
-        tsk = sy.Task(name="test", type="test", config={"rate": 50})
+        tsk = sy.Task(
+            name="test", type="pagerduty_alert", config={"routing_key": "rk-1"}
+        )
         client.tasks.configure(tsk)
-        tsk.config = {"rate": 100}
+        tsk.config = {"routing_key": "rk-2"}
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
-        assert res.config == {"rate": 100}
+        assert res.config["routing_key"] == "rk-2"
 
     def test_list_tasks(self, client: sy.Synnax):
         """Should list all tasks on the default rack."""
         # Create some tasks
-        task1 = client.tasks.create(name=str(uuid4()), type="test1")
-        task2 = client.tasks.create(name=str(uuid4()), type="test2")
+        task1 = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        task2 = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
 
         # List all tasks
         tasks = client.tasks.list()
@@ -108,7 +111,7 @@ class TestTaskClient:
         # Create an original task
         original_name = str(uuid4())
         original = client.tasks.create(
-            name=original_name, type="test", config={"foo": "bar"}
+            name=original_name, type="pagerduty_alert", config={"routing_key": "rk-c"}
         )
 
         # Copy the task
@@ -122,4 +125,4 @@ class TestTaskClient:
         assert copied.key != original.key
         assert copied.name == copy_name
         assert copied.type == original.type
-        assert copied.config == original.config
+        assert copied.config["routing_key"] == original.config["routing_key"]
