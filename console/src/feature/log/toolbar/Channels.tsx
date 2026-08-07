@@ -45,16 +45,19 @@ const isTimestamp = (dt: DataType | undefined): boolean =>
 
 interface ChannelRowProps {
   index: number;
-  config: log.ChannelEntry;
+  channel: channel.Key;
   disabled: boolean;
 }
 
-const ChannelRow = ({ index, config, disabled }: ChannelRowProps): ReactElement => {
+const ChannelRow = ({
+  index,
+  channel,
+  disabled,
+}: ChannelRowProps): ReactElement | null => {
   const dispatch = Log.useSingleDispatch();
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
-  const hasCustomColor = !color.isZero(config.color);
-  const { channel, alias, timestamp, precision, notation } = config;
+  const config = Log.useChannelEntry({ channel });
   const query = channel > 0 ? { key: channel } : null;
   const { data: dataType } = Channel.useResultDataType(query);
   const { data: chName } = Channel.useResultName(query);
@@ -96,6 +99,9 @@ const ChannelRow = ({ index, config, disabled }: ChannelRowProps): ReactElement 
     () => dispatch(log.removeChannel({ channel })),
     [dispatch],
   );
+  if (config == null) return null;
+  const { alias, timestamp, precision, notation } = config;
+  const hasCustomColor = !color.isZero(config.color);
   return (
     <List.Item
       itemKey={channel}
@@ -227,19 +233,14 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
 };
 
 export const Channels = (): ReactElement => {
-  const entries = Log.useChannels();
+  const channelKeys = Log.useChannelKeys();
   const key = Log.useKey();
   const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
   return (
     <Flex.Box y full="y" className={CSS.BE("log", "toolbar", "channels")}>
-      {entries.map((entry, i) =>
-        primitive.isZero(entry.channel) ? null : (
-          <ChannelRow
-            key={entry.channel}
-            index={i}
-            config={entry}
-            disabled={!hasUpdatePermission}
-          />
+      {channelKeys.map((ch, i) =>
+        primitive.isZero(ch) ? null : (
+          <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
         ),
       )}
       <AddChannelRow disabled={!hasUpdatePermission} />
