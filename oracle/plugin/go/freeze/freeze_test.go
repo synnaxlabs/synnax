@@ -38,6 +38,11 @@ var _ = Describe("Canonical", func() {
 			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
 			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
 		}
+		write("licenses/headers/template.txt", `Copyright {{YEAR}} Synnax Labs, Inc.
+
+Use of this software is governed by the Business Source License included in the file
+licenses/BSL.txt.
+`)
 		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
 		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
 		write("schemas/synnax/versions/channel/v0.oracle", `

@@ -96,6 +96,9 @@ func NewResolver(chains map[string]Chain, loader analyzer.FileLoader) *Resolver 
 // Chains returns the discovered chains, keyed by live import path.
 func (r *Resolver) Chains() map[string]Chain { return r.chains }
 
+// RepoRoot returns the repository root the resolver loads files from.
+func (r *Resolver) RepoRoot() string { return r.loader.RepoRoot() }
+
 // chainTargetRe matches a chain-alias target's declared source text
 // ("v0.Key", "v2.Status<D>"). It runs on the pre-resolution AST text: the
 // analyzer's bare-name lookup fallback can silently retarget a resolved

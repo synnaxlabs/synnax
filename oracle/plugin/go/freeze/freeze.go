@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
@@ -73,10 +74,10 @@ func Canonical(ctx context.Context, in Input) (string, error) {
 			members = append(members, t)
 		}
 	}
-	// A resource with no persisted types freezes as an empty file: the
+	// A resource with no persisted types freezes as a header-only file: the
 	// version that records everything leaving the persisted world.
 	if len(members) == 0 {
-		return "", nil
+		return license(ctx, in.Resolver.RepoRoot(), "")
 	}
 	var (
 		surf map[string]versions.Definition
@@ -124,7 +125,25 @@ func Canonical(ctx context.Context, in Input) (string, error) {
 		},
 		Resolve: in.Live.Get,
 	})
-	return formatter.Format(rendered)
+	formatted, err := formatter.Format(rendered)
+	if err != nil {
+		return "", err
+	}
+	return license(ctx, in.Resolver.RepoRoot(), formatted)
+}
+
+// license prepends the repository's license header, the same one every other
+// checked-in file carries.
+func license(ctx context.Context, repoRoot, content string) (string, error) {
+	l, err := format.NewLicense(repoRoot)
+	if err != nil {
+		return "", err
+	}
+	out, err := l.Format(ctx, []byte(content), "v.oracle")
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
 
 // FileInput derives the emission inputs an existing version file carries: its

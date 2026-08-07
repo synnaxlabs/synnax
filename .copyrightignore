@@ -24,6 +24,3 @@ integration/tests/fixtures/test_symbol.svg
 integration/tests/fixtures/styled_symbol.svg
 docs/site/public/images/us-flag.svg
 
-# Oracle version files: canonical emission is byte-compared by `oracle check`, so a
-# stamped header would read as drift.
-schemas/*/versions/**
