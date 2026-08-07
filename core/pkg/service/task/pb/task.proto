@@ -52,7 +52,7 @@ message Task {
   // config is task-specific configuration stored as JSON. Structure varies by task
   // type.
   google.protobuf.Struct config = 5;
-  // config_hash is the server-assigned hash of config, rewritten on every write and
+  // config_hash is the Core-assigned hash of config, rewritten on every write and
   // ignored on writes from clients. Compare against a status's config_hash to detect
   // drift.
   string config_hash = 6;

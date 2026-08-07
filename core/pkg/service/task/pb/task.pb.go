@@ -144,7 +144,7 @@ type Task struct {
 	// config is task-specific configuration stored as JSON. Structure varies by task
 	// type.
 	Config *structpb.Struct `protobuf:"bytes,5,opt,name=config,proto3" json:"config,omitempty"`
-	// config_hash is the server-assigned hash of config, rewritten on every write and
+	// config_hash is the Core-assigned hash of config, rewritten on every write and
 	// ignored on writes from clients. Compare against a status's config_hash to detect
 	// drift.
 	ConfigHash string `protobuf:"bytes,6,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`

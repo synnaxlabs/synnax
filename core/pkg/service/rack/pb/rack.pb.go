@@ -80,8 +80,8 @@ func (x *StatusDetails) GetRack() uint32 {
 }
 
 // Rack is a collection container for hardware devices and tasks running on a specific
-// cluster node. Racks serve as the integration point between the Synnax server and
-// physical hardware via the Driver system.
+// Core. Racks are the integration point between the Core and physical hardware through
+// the Driver.
 type Rack struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the composite identifier for this rack.

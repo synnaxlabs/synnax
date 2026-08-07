@@ -57,7 +57,7 @@ describe("OPC.Write", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
     const taskKey = await awaitTaskKey(rendered);
 
-    const tsk = await client.tasks.retrieve({ key: taskKey });
+    const tsk = await client.tasks.retrieve(taskKey);
     expect(tsk.rack).toBe(dev.rack);
     const config = OPC.Task.WRITE_SCHEMAS.config.parse(tsk.config);
     expect(config.channels).toHaveLength(2);

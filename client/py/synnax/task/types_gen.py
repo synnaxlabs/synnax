@@ -81,7 +81,7 @@ class Payload(BaseModel):
             Determines which hardware integration handles the task.
         config: Is task-specific configuration stored as JSON. Structure varies by task
             type.
-        config_hash: Is the server-assigned hash of config, rewritten on every write and
+        config_hash: Is the Core-assigned hash of config, rewritten on every write and
             ignored on writes from clients. Compare against a status's config_hash to
             detect drift.
         internal: Is true if this is an internal system task.

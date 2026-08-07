@@ -35,6 +35,7 @@ import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/type
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { type rack } from "@/rack";
 import { status } from "@/status";
 import { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -97,7 +98,7 @@ const singleQueryZ = z.union([
 
 export interface CreateParams extends New {
   /** Rack to deploy the arc on. Ensures a deployment task exists for it. */
-  rack?: number;
+  rack?: rack.Key;
 }
 
 const TASK_TYPE = "arc";
@@ -106,7 +107,7 @@ const taskStatusDataZ = z.null().optional();
 
 const configuringStatus = (
   taskKey: task.Key,
-  rack: number,
+  rack: rack.Key,
 ): task.Status<typeof taskStatusDataZ> =>
   status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
     key: task.statusKey(taskKey),
