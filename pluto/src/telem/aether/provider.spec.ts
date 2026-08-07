@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { MultiSeries } from "@synnaxlabs/x";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { type aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
@@ -38,11 +38,17 @@ const update = (provider: aether.Component, key: string): void => {
   });
 };
 
-const stubCore = (): telem.Client => ({
-  telem: {
+interface StubCore {
+  openFeed: Mock;
+  channels: telem.Client["channels"];
+}
+
+const stubCore = (): StubCore => ({
+  openFeed: vi.fn(() => ({
     read: async () => new MultiSeries([]),
     stream: () => telemTest.mockSubscription(() => {}),
-  },
+    close: async () => {},
+  })),
   channels: {
     retrieve: async () => {
       throw new Error("unused");
@@ -77,7 +83,11 @@ describe("telem.Provider", () => {
     const provider = makeProvider(spy, "telem-provider");
     update(provider, "telem-provider");
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith(core);
+    expect(core.openFeed).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({
+      feed: core.openFeed.mock.results[0].value,
+      channels: core.channels,
+    });
   });
 
   it("rebuilds the context when the core swaps", () => {
@@ -91,7 +101,10 @@ describe("telem.Provider", () => {
     mockUse.mockReturnValue(core);
     update(provider, "telem-provider-swap");
     expect(spy).toHaveBeenCalledTimes(2);
-    expect(spy).toHaveBeenLastCalledWith(core);
+    expect(spy).toHaveBeenLastCalledWith({
+      feed: core.openFeed.mock.results[0].value,
+      channels: core.channels,
+    });
   });
 
   it("does not rebuild the context when the core is unchanged", () => {

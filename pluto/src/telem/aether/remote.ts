@@ -9,9 +9,9 @@
 
 import {
   channel,
+  type framer,
   NotFoundError,
   status as cstatus,
-  type telem,
 } from "@synnaxlabs/client";
 import {
   bounds,
@@ -43,11 +43,11 @@ import {
 
 /**
  * The slice of a Synnax client that remote telemetry sources consume: streaming and
- * historical reads through the telemetry client, channel metadata through the
+ * historical reads through the telemetry feed, channel metadata through the
  * channel client. Factories hold null while the cluster is disconnected.
  */
 export interface Client {
-  telem: Pick<telem.Client, "read" | "stream">;
+  feed: Pick<framer.Feed, "read" | "stream">;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };
@@ -129,7 +129,7 @@ export class StreamChannelValue
     try {
       this.removeStreamHandler?.();
       const ch = await client.channels.retrieve(this.props.channel);
-      const handler: telem.StreamHandler = (res) => {
+      const handler: framer.StreamHandler = (res) => {
         if (generation !== this.generation) return;
         const data = res.get(ch.key);
         if (data == null) return;
@@ -143,7 +143,7 @@ export class StreamChannelValue
         this.notify();
       };
       if (generation !== this.generation) return;
-      const sub = client.telem.stream(handler, [ch.key]);
+      const sub = client.feed.stream(handler, [ch.key]);
       this.removeStreamHandler = () => sub.close();
       this.notify();
     } catch (e) {
@@ -237,7 +237,7 @@ export class ChannelData
       const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
       if (generation !== this.generation) return;
       this.channel = ch;
-      const series = await client.telem.read(timeRange, ch.key);
+      const series = await client.feed.read(timeRange, ch.key);
       if (generation !== this.generation) return;
       series.acquire();
       this.data = series;
@@ -318,7 +318,7 @@ export class StreamChannelData
       const tr = this.now().spanRange(-timeSpan);
       if (!this.channel.virtual || this.channel.isCalculated)
         try {
-          const res = await client.telem.read(tr, this.channel.key);
+          const res = await client.feed.read(tr, this.channel.key);
           if (generation !== this.generation) return;
           res.acquire();
           this.data.push(res);
@@ -336,7 +336,7 @@ export class StreamChannelData
         }
 
       this.stopStreaming?.();
-      const handler: telem.StreamHandler = (res) => {
+      const handler: framer.StreamHandler = (res) => {
         if (generation !== this.generation || this.channel == null) return;
         const series = res.get(this.channel.key);
         if (series == null) return;
@@ -346,7 +346,7 @@ export class StreamChannelData
         this.gcOutOfRangeData();
       };
       if (generation !== this.generation) return;
-      const sub = client.telem.stream(handler, [this.channel.key]);
+      const sub = client.feed.stream(handler, [this.channel.key]);
       this.stopStreaming = () => sub.close();
       this.notify();
     } catch (e) {
@@ -434,7 +434,7 @@ export class StreamChannelStringValue
     try {
       this.removeStreamHandler?.();
       const ch = await client.channels.retrieve(this.props.channel);
-      const handler: telem.StreamHandler = (res) => {
+      const handler: framer.StreamHandler = (res) => {
         if (generation !== this.generation) return;
         const data = res.get(ch.key);
         if (data == null) return;
@@ -448,7 +448,7 @@ export class StreamChannelStringValue
         this.notify();
       };
       if (generation !== this.generation) return;
-      const sub = client.telem.stream(handler, [ch.key]);
+      const sub = client.feed.stream(handler, [ch.key]);
       this.removeStreamHandler = () => sub.close();
       this.notify();
     } catch (e) {

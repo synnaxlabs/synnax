@@ -17,7 +17,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { IDENTITY_TRANSFORM, type Transform } from "@/telem/transform";
+import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
 
 /** Response from a write to the {@link Dynamic} cache. */
 export interface DynamicWriteResponse {

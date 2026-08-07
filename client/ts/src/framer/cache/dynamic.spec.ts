@@ -10,7 +10,7 @@
 import { DataType, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Dynamic } from "@/telem/cache/dynamic";
+import { Dynamic } from "@/framer/cache/dynamic";
 import { glTransform } from "@/testutil/telem";
 
 const f32 = (data: number[]): Series =>

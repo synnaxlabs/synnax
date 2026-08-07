@@ -12,12 +12,12 @@ import { debounce, type MultiSeries, sync, TimeRange, TimeSpan } from "@synnaxla
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type framer } from "@/framer";
-import { type Cache } from "@/telem/cache/cache";
+import { type Cache } from "@/framer/cache/cache";
+import { type Frame } from "@/framer/frame";
 
 /** A function that reads a telemetry frame from the Synnax cluster. */
 export interface ReadRemoteFunc {
-  (tr: TimeRange, keys: channel.Key[]): Promise<framer.Frame>;
+  (tr: TimeRange, keys: channel.Key[]): Promise<Frame>;
 }
 
 interface ReadRequest {

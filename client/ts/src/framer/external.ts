@@ -7,8 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export { type RetrieveChannels } from "@/framer/adapter";
+export { type ReadRemoteFunc } from "@/framer/cache/reader";
+export {
+  type StatusHandler,
+  type StreamHandler,
+  type Subscription,
+} from "@/framer/cache/streamer";
+export { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
 export * from "@/framer/client";
+export * from "@/framer/feed";
 export * from "@/framer/frame";
+export * from "@/framer/hardened";
 export * from "@/framer/iterator";
 export * from "@/framer/reader";
 export * from "@/framer/streamer";

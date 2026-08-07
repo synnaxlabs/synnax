@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  array,
   breaker,
   type CrudeTimeSpan,
   TimeSpan,
@@ -25,7 +26,7 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
-import { errorsMiddleware } from "@/errors";
+import { errorsMiddleware, UnexpectedError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { imex } from "@/imex";
@@ -42,7 +43,6 @@ import { schematic } from "@/schematic";
 import { status } from "@/status";
 import { table } from "@/table";
 import { task } from "@/task";
-import { telem } from "@/telem";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { view } from "@/view";
@@ -72,13 +72,7 @@ export const synnaxParamsZ = z.object({
     .optional(),
 });
 
-export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {
-  /**
-   * Tuning for the telemetry client, e.g. a series transform applied on cache
-   * entry. Construction-site only: never serialized with the connection params.
-   */
-  telem?: telem.Options;
-}
+export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
@@ -116,7 +110,6 @@ export default class Synnax extends framer.Client {
   readonly tables: table.Client;
   readonly groups: group.Client;
   readonly imex: imex.Client;
-  readonly telem: telem.Client;
   private readonly cache: query.Cache;
   private readonly transport: Transport;
   private readonly conn: connection.Client;
@@ -159,30 +152,25 @@ export default class Synnax extends framer.Client {
       secure,
     );
     transport.use(errorsMiddleware);
-    const chRetriever = new channel.ClusterRetriever(transport.unary);
-    super({ stream: transport.stream, unary: transport.unary, retriever: chRetriever });
+    // The channel client does not exist until after super() returns, so the
+    // seam handed to the framer transport late-binds through this holder.
+    const channels: { client?: channel.Client } = {};
+    const retrieveChannels: framer.RetrieveChannels = async (toRetrieve) => {
+      if (channels.client == null)
+        throw new UnexpectedError("channel client not initialized");
+      const result = await channels.client.retrieve(
+        array.toArray(toRetrieve) as channel.Key[] | channel.Name[],
+      );
+      return result.map((ch) => ch.payload);
+    };
+    super({ stream: transport.stream, unary: transport.unary, retrieveChannels });
     const cache = new query.Cache({
       openStreamer: parsedParams.cache
-        ? async (channels, { onOpen, onReopen }) => {
-            const hardened = await framer.HardenedStreamer.open(
-              (config) => this.openStreamer(config),
-              channels,
-              retry,
-              () => {
-                // stream.live first: onReopen's reconcile fetches must not hit
-                // the unreachable short circuit
-                this.conn.notify({ type: "stream.live" });
-                onReopen?.();
-              },
-              (error) => this.conn.notify({ type: "stream.drop", error }),
-            );
-            // Reads start when the ObservableStreamer is constructed below,
-            // so onOpen fires strictly before any frame or reconnect.
-            onOpen?.();
-            this.conn.notify({ type: "stream.live" });
-            return new framer.ObservableStreamer(hardened);
-          }
+        ? async (config) => await this.openStreamer(config)
         : null,
+      breaker: retry,
+      onStreamLive: () => this.conn.notify({ type: "stream.live" }),
+      onStreamDrop: (error) => this.conn.notify({ type: "stream.drop", error }),
       onError: parsedParams.onInternalError,
     });
     this.cache = cache;
@@ -232,14 +220,13 @@ export default class Synnax extends framer.Client {
     this.ranges = new ranger.Client({
       framer: this,
       unary,
-      channels: chRetriever,
+      channels: retrieveChannels,
       labels: this.labels,
       ontology: this.ontology,
       cache,
     });
     this.channels = new channel.Client({
       framer: this,
-      retriever: chRetriever,
       unary,
       writer: chCreator,
       statuses: this.statuses,
@@ -300,11 +287,7 @@ export default class Synnax extends framer.Client {
       cache,
     });
     this.imex = new imex.Client({ file: this.transport.file });
-    this.telem = new telem.Client({
-      readRemote: async (tr, keys) => await this.read(tr, keys),
-      openStreamer: async (config) => await this.openStreamer(config),
-      transform: params.telem?.transform,
-    });
+    channels.client = this.channels;
   }
 
   /**
@@ -326,13 +309,6 @@ export default class Synnax extends framer.Client {
   }
 
   close(): void {
-    this.telem
-      .close()
-      .catch((err: unknown) =>
-        this.cache.onError(
-          new Error("failed to close the telemetry client", { cause: err }),
-        ),
-      );
     this.conn
       .close()
       .catch((err: unknown) =>

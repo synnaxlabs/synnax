@@ -11,13 +11,13 @@ import { TimeSpan } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type DynamicProps } from "@/telem/cache/dynamic";
+import { type DynamicProps } from "@/framer/cache/dynamic";
 import {
   DEFAULT_STATIC_PROPS,
   type StaticProps,
   zeroGCMetrics,
-} from "@/telem/cache/static";
-import { Unary } from "@/telem/cache/unary";
+} from "@/framer/cache/static";
+import { Unary } from "@/framer/cache/unary";
 
 export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
 

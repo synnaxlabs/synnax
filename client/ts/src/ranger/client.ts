@@ -118,7 +118,7 @@ interface RangeConstructionOptions {
   frameClient: framer.Client;
   kv: KVClient;
   aliaser: AliasClient;
-  channels: channel.Retriever;
+  channels: framer.RetrieveChannels;
   labelClient: label.Client;
   ontologyClient: ontology.Client;
   rangeClient: Client;
@@ -132,7 +132,7 @@ export class Range {
   readonly color?: color.Color;
   readonly parent?: Payload;
   readonly labels?: label.Label[];
-  readonly channels: channel.Retriever;
+  readonly channels: framer.RetrieveChannels;
   private readonly aliaser: AliasClient;
   private readonly frameClient: framer.Client;
   private readonly labelClient: label.Client;
@@ -185,7 +185,7 @@ export class Range {
   }
 
   async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
-    const ch = await this.channels.retrieve(channel);
+    const ch = await this.channels(channel);
     if (ch.length === 0) throw new QueryError(`Channel ${channel} does not exist`);
     await this.rangeClient.setAlias(this.key, ch[0].key, alias);
   }
@@ -359,7 +359,7 @@ const watchLabels = <Q extends query.Params>(
 export interface ClientConfig {
   framer: framer.Client;
   unary: UnaryClient;
-  channels: channel.Retriever;
+  channels: framer.RetrieveChannels;
   labels: label.Client;
   ontology: ontology.Client;
   cache: query.Cache;

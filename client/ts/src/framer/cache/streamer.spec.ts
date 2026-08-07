@@ -14,9 +14,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type framer } from "@/framer";
+import { Cache } from "@/framer/cache/cache";
+import { Streamer, type StreamHooks } from "@/framer/cache/streamer";
 import { Frame } from "@/framer/frame";
-import { Cache } from "@/telem/cache/cache";
-import { Streamer, type StreamHooks } from "@/telem/streamer";
 
 class MockStreamer implements framer.Streamer {
   private keysI: channel.Params[];

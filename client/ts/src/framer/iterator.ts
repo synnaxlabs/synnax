@@ -19,8 +19,9 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { channel } from "@/channel";
-import { ReadAdapter } from "@/framer/adapter";
+import { type channel } from "@/channel";
+import { keyZ } from "@/channel/types.gen";
+import { ReadAdapter, type RetrieveChannels } from "@/framer/adapter";
 import { WSIteratorCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
@@ -33,7 +34,7 @@ export const iteratorReqZ = z.object({
   span: TimeSpan.z.optional(),
   bounds: TimeRange.z.optional(),
   stamp: TimeStamp.z.optional(),
-  keys: channel.keyZ.array().optional(),
+  keys: keyZ.array().optional(),
   chunkSize: z.number().optional(),
   downsampleFactor: z.int().optional(),
 });
@@ -91,18 +92,18 @@ export class Iterator {
    * @param tr - The time range to iterate over.
    * @param channels - The channels for the iterator to iterate over (can be provided
    * in keys or names).
-   * @param retriever - Retriever used to retrieve channel keys from names.
+   * @param retrieveChannels - Resolves channel names to keys and data types.
    * @param client - The stream client allowing streaming of iterated data.
    * @param opts - See {@link IteratorConfig}.
    */
   static async _open(
     tr: CrudeTimeRange,
     channels: channel.Params,
-    retriever: channel.Retriever,
+    retrieveChannels: RetrieveChannels,
     client: WebSocketClient,
     opts: IteratorConfig = {},
   ): Promise<Iterator> {
-    const adapter = await ReadAdapter.open(retriever, channels);
+    const adapter = await ReadAdapter.open(retrieveChannels, channels);
     client = client.withCodec(new WSIteratorCodec(adapter.codec));
     const stream = await client.stream("/frame/iterate", iteratorReqZ, iteratorResZ);
     const iter = new Iterator(stream, adapter);

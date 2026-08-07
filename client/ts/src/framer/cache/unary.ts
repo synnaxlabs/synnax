@@ -10,13 +10,13 @@
 import { type MultiSeries, type Series, type TimeRange } from "@synnaxlabs/x";
 
 import { UnexpectedError } from "@/errors";
-import { Dynamic, type DynamicProps } from "@/telem/cache/dynamic";
+import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
 import {
   type DirtyReadResult,
   type GCMetrics,
   Static,
   type StaticProps,
-} from "@/telem/cache/static";
+} from "@/framer/cache/static";
 
 export interface UnaryProps
   extends StaticProps, Pick<DynamicProps, "dynamicBufferSize"> {}

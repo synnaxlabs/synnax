@@ -10,7 +10,7 @@
 import { DataType, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { Static } from "@/telem/cache/static";
+import { Static } from "@/framer/cache/static";
 
 // NOTE: Most of the insertion algorithm logic is not implemented in the static cache,
 // but inside the x/ts/src/spatial/bounds module, where there are comprehensive tests.

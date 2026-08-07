@@ -9,36 +9,61 @@
 
 import { compare, type CrudeSeries, Series } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
-import { ValidationError } from "@/errors";
+import { type channel } from "@/channel";
+import { analyzeParams, paramsZ } from "@/channel/payload";
+import { QueryError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
 
+/**
+ * Fetches channel payloads for the given params. Missing channels are omitted
+ * from the result, never thrown.
+ */
+export interface RetrieveChannels {
+  (channels: channel.Params): Promise<channel.Payload[]>;
+}
+
+/** Fetches channel payloads, throwing a {@link QueryError} when any is missing. */
+const retrieveRequired = async (
+  retrieve: RetrieveChannels,
+  channels: channel.Params,
+): Promise<channel.Payload[]> => {
+  const { normalized } = analyzeParams(channels);
+  const results = await retrieve(normalized);
+  const notFound: (channel.Key | channel.Name)[] = [];
+  normalized.forEach((v) => {
+    if (results.find((c) => c.name === v || c.key === v) == null) notFound.push(v);
+  });
+  if (notFound.length > 0)
+    throw new QueryError(`Could not find channels: ${JSON.stringify(notFound)}`);
+  return results;
+};
+
 export class ReadAdapter {
   private adapter: Map<channel.Key, string> | null;
-  retriever: channel.Retriever;
+  retrieveChannels: RetrieveChannels;
   keys: Set<channel.Key>;
   codec: Codec;
 
-  private constructor(retriever: channel.Retriever) {
-    this.retriever = retriever;
+  private constructor(retrieveChannels: RetrieveChannels) {
+    this.retrieveChannels = retrieveChannels;
     this.adapter = null;
     this.keys = new Set();
     this.codec = new Codec();
   }
 
   static async open(
-    retriever: channel.Retriever,
+    retrieveChannels: RetrieveChannels,
     channels: channel.Params,
   ): Promise<ReadAdapter> {
-    const adapter = new ReadAdapter(retriever);
+    const adapter = new ReadAdapter(retrieveChannels);
     await adapter.update(channels);
     return adapter;
   }
 
   async update(channels: channel.Params): Promise<boolean> {
-    const { variant, normalized } = channel.analyzeParams(channels);
-    const fetched = await this.retriever.retrieve(normalized);
+    const { variant, normalized } = analyzeParams(channels);
+    const fetched = await this.retrieveChannels(normalized);
     const newKeys = fetched.map((c) => c.key);
     if (
       compare.uniqueUnorderedPrimitiveArrays(Array.from(this.keys), newKeys) ===
@@ -88,28 +113,28 @@ export class ReadAdapter {
 
 export class WriteAdapter {
   private adapter: Map<string, channel.Key> | null;
-  retriever: channel.Retriever;
+  retrieveChannels: RetrieveChannels;
   keys: channel.Key[];
   codec: Codec;
 
-  private constructor(retriever: channel.Retriever) {
-    this.retriever = retriever;
+  private constructor(retrieveChannels: RetrieveChannels) {
+    this.retrieveChannels = retrieveChannels;
     this.adapter = null;
     this.keys = [];
     this.codec = new Codec();
   }
 
   static async open(
-    retriever: channel.Retriever,
+    retrieveChannels: RetrieveChannels,
     channels: channel.Params,
   ): Promise<WriteAdapter> {
-    const adapter = new WriteAdapter(retriever);
+    const adapter = new WriteAdapter(retrieveChannels);
     await adapter.update(channels);
     return adapter;
   }
 
   async adaptParams(data: channel.Params): Promise<channel.Key[]> {
-    const arrParams = channel.paramsZ.parse(data);
+    const arrParams = paramsZ.parse(data);
     const keys = await Promise.all(
       arrParams.map(async (p) => await this.adaptToKey(p)),
     );
@@ -117,7 +142,7 @@ export class WriteAdapter {
   }
 
   async update(channels: channel.Params): Promise<boolean> {
-    const results = await channel.retrieveRequired(this.retriever, channels);
+    const results = await retrieveRequired(this.retrieveChannels, channels);
     const newKeys = results.map((c) => c.key);
     const previousKeySet = new Set(this.keys);
     const newKeySet = new Set(newKeys);
@@ -137,7 +162,7 @@ export class WriteAdapter {
   private async fetchChannel(
     ch: channel.Key | channel.Name | channel.Payload,
   ): Promise<channel.Payload> {
-    const res = await this.retriever.retrieve(ch);
+    const res = await this.retrieveChannels(ch);
     if (res.length === 0) throw new Error(`Channel ${JSON.stringify(ch)} not found`);
     return res[0];
   }

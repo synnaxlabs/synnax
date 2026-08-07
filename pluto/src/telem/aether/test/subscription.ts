@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, type telem } from "@synnaxlabs/client";
+import { type framer, status } from "@synnaxlabs/client";
 
 /** @returns a telemetry subscription stub whose close is the given function. */
-export const mockSubscription = (close: () => void): telem.Subscription => ({
+export const mockSubscription = (close: () => void): framer.Subscription => ({
   close,
   status: () => status.create({ variant: "loading", message: "subscribing" }),
   onStatusChange: () => () => {},

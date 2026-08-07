@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type telem } from "@synnaxlabs/client";
+import { type framer } from "@synnaxlabs/client";
 import { DataType, type math, type Series } from "@synnaxlabs/x";
 
 /**
@@ -49,10 +49,10 @@ export const resolveGLDataType = (dt: DataType): DataType => {
 };
 
 /**
- * Injected into the telemetry client at Synnax construction so every cached series
- * is stored in a WebGL-uploadable representation.
+ * Injected into the telemetry feed the telem provider opens so every cached
+ * series is stored in a WebGL-uploadable representation.
  */
-export const GL_TRANSFORM: telem.Transform = {
+export const GL_TRANSFORM: framer.Transform = {
   resolveDataType: resolveGLDataType,
   convert: convertSeriesToSupportedGL,
 };

@@ -12,7 +12,6 @@ import {
   DataType,
   errors,
   id,
-  Rate,
   Series,
   sleep,
   TimeSpan,
@@ -21,13 +20,10 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
+import { AuthError } from "@/errors";
 import { Frame } from "@/framer/frame";
-import {
-  HardenedStreamer,
-  ObservableStreamer,
-  type Streamer,
-  streamerConfigZ,
-} from "@/framer/streamer";
+import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
+import { type Streamer, streamerConfigZ } from "@/framer/streamer";
 import { createTestClient, newVirtualBoolChannel, newVirtualChannel } from "@/testutil";
 
 const client = createTestClient();
@@ -606,12 +602,7 @@ describe("Streamer", () => {
         { channels: [1, 2, 3] },
       );
       expect(hardened.keys).toEqual([1, 2, 3]);
-      expect(openMock).toHaveBeenCalledWith({
-        ...config,
-        downsampleFactor: 1,
-        excludeGroups: [],
-        throttleRate: new Rate(0),
-      });
+      expect(openMock).toHaveBeenCalledWith(config);
       await hardened.update([1, 2, 3]);
       expect(streamer.updateMock).toHaveBeenCalledWith([1, 2, 3]);
       const fr2 = await hardened.read();
@@ -820,6 +811,21 @@ describe("Streamer", () => {
           { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
         ),
       ).rejects.toThrow("very unreachable");
+    });
+
+    it("should not retry an open the server definitively rejected", async () => {
+      const openerMock = vi.fn();
+      await expect(
+        HardenedStreamer.open(
+          async () => {
+            openerMock();
+            throw new AuthError("access denied");
+          },
+          { channels: [1] },
+          { baseInterval: TimeSpan.milliseconds(1) },
+        ),
+      ).rejects.toThrow(AuthError);
+      expect(openerMock).toHaveBeenCalledTimes(1);
     });
 
     it("should fire onDrop when the stream fails and onReopen after recovery", async () => {

@@ -8,14 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
-import Synnax from "@/client";
 import { UnexpectedError } from "@/errors";
-import { type Transform } from "@/telem/transform";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
+import { type Transform } from "@/framer/cache/transform";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
+const feed = client.openFeed();
+afterAll(async () => await feed.close());
 
 const createChannels = async () => {
   const time = await client.channels.create({
@@ -31,8 +32,8 @@ const createChannels = async () => {
   return { time, data };
 };
 
-describe("telem", () => {
-  it("should read written samples through the telemetry cache", async () => {
+describe("feed", () => {
+  it("should read written samples through the feed cache", async () => {
     const { time, data } = await createChannels();
     const start = TimeStamp.now();
     await client.write(start, {
@@ -40,7 +41,7 @@ describe("telem", () => {
       [data.key]: [1, 2],
     });
     const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
-    const res = await client.telem.read(tr, data.key);
+    const res = await feed.read(tr, data.key);
     expect(Array.from(res)).toEqual([1, 2]);
   });
 
@@ -54,12 +55,13 @@ describe("telem", () => {
           alignment: series.alignment,
         }),
     };
-    const transformed = createTestClient({ telem: { transform } });
+    const transformed = client.openFeed({ transform });
     const { time, data } = await createChannels();
     const start = TimeStamp.now();
     await client.write(start, { [time.key]: [start], [data.key]: [3] });
     const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
-    const res = await transformed.telem.read(tr, data.key);
+    const res = await transformed.read(tr, data.key);
+    await transformed.close();
     expect(res.dataType.equals(DataType.FLOAT64)).toBe(true);
     expect(Array.from(res)).toEqual([6]);
   });
@@ -67,7 +69,7 @@ describe("telem", () => {
   it("should deliver written frames to a subscribed stream handler", async () => {
     const { time, data } = await createChannels();
     const received: number[] = [];
-    const sub = client.telem.stream(
+    const sub = feed.stream(
       (res) => {
         const series = res.get(data.key);
         if (series != null) received.push(...(Array.from(series) as number[]));
@@ -100,11 +102,10 @@ describe("telem", () => {
     sub.close();
   });
 
-  it("should reject reads after the telemetry client closes", async () => {
-    const closable = new Synnax(TEST_CLIENT_PARAMS);
-    await closable.telem.close();
+  it("should reject reads after the feed closes", async () => {
+    const closable = client.openFeed();
+    await closable.close();
     const tr = new TimeRange(TimeStamp.now(), TimeStamp.now().add(TimeSpan.seconds(1)));
-    await expect(closable.telem.read(tr, 123)).rejects.toThrow(UnexpectedError);
-    closable.close();
+    await expect(closable.read(tr, 123)).rejects.toThrow(UnexpectedError);
   });
 });

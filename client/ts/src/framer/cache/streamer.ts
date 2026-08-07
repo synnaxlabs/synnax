@@ -22,9 +22,9 @@ import {
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
-import { type framer } from "@/framer";
+import { type Cache } from "@/framer/cache/cache";
+import { type Streamer as Base, type StreamerConfig } from "@/framer/streamer";
 import { status } from "@/status";
-import { type Cache } from "@/telem/cache/cache";
 
 /** Stream lifecycle hooks the streamer uses to track connection health. */
 export interface StreamHooks {
@@ -36,11 +36,11 @@ export interface StreamHooks {
 
 /**
  * Opens the underlying frame stream. Production wires this to
- * {@link framer.HardenedStreamer.open} so the stream self-heals; the hooks report
+ * HardenedStreamer.open so the stream self-heals; the hooks report
  * reconnect transitions back to the streamer.
  */
 export interface StreamOpener {
-  (config: framer.StreamerConfig, hooks: StreamHooks): Promise<framer.Streamer>;
+  (config: StreamerConfig, hooks: StreamHooks): Promise<Base>;
 }
 
 /** Receives buffers allocated for the handler's subscribed channels. */
@@ -111,7 +111,7 @@ export class Streamer {
   private readonly statuses = new Map<channel.Key, status.Status>();
   private reconcileTimer: ReturnType<typeof setTimeout> | null = null;
   private runLoop: Promise<void> | null = null;
-  private streamer: framer.Streamer | null = null;
+  private streamer: Base | null = null;
   // The key set last accepted by the stream. Kept separately from the streamer so a
   // mid-reconnect streamer cannot be consulted for it.
   private sentKeys = new Set<channel.Key>();
@@ -327,7 +327,7 @@ export class Streamer {
     this.sentKeys.forEach((key) => this.setStatus(key, STREAMING));
   }
 
-  private async run(streamer: framer.Streamer): Promise<void> {
+  private async run(streamer: Base): Promise<void> {
     const { cache, instrumentation: ins } = this.props;
     try {
       for await (const frame of streamer) {

@@ -24,11 +24,15 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Params, type PrimitiveParams, statusKey } from "@/channel/payload";
 import {
   analyzeParams,
+  type Params,
+  type PrimitiveParams,
+  statusKey,
+} from "@/channel/payload";
+import {
+  retrieve,
   type RetrieveOptions,
-  type Retriever,
   type RetrieveRequest,
   retrieveRequestZ,
 } from "@/channel/retriever";
@@ -341,7 +345,6 @@ const affectedChannelKeys = (
  */
 export interface ClientConfig {
   framer: framer.Client;
-  retriever: Retriever;
   unary: UnaryClient;
   writer: Writer;
   statuses: status.Client;
@@ -359,12 +362,11 @@ export class Client extends query.Retriever<
   RetrieveSingleParams
 > {
   private readonly cfg: ClientConfig;
-  readonly retriever: Retriever;
   readonly writer: Writer;
   private readonly store: query.Table<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
-    const { retriever, writer, statuses, ranges, cache } = cfg;
+    const { writer, statuses, ranges, cache } = cfg;
     const statusStore = statuses.store;
     const aliasStore = ranges.aliases;
     const sugar = (payload: Payload): Channel => this.sugar(payload);
@@ -372,7 +374,7 @@ export class Client extends query.Retriever<
       name: "channels",
       equal: (a, b) => deep.equal(a.payload, b.payload),
       fetch: async (keys) =>
-        (await retriever.retrieve(keys)).map((p) => sugar(stripComposed(p))),
+        (await retrieve(cfg.unary, keys)).map((p) => sugar(stripComposed(p))),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
           value: (changed) => sugar(stripComposed(changed)),
@@ -432,7 +434,6 @@ export class Client extends query.Retriever<
       single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
-    this.retriever = retriever;
     this.writer = writer;
     this.store = store;
   }
@@ -508,7 +509,7 @@ export class Client extends query.Retriever<
     let toCreate = array.toArray(channels);
     let created: Channel[] = [];
     if (retrieveIfNameExists) {
-      const res = await this.retriever.retrieve(toCreate.map((c) => c.name));
+      const res = await retrieve(this.cfg.unary, toCreate.map((c) => c.name));
       const existingNames = new Set(res.map((c) => c.name));
       toCreate = toCreate.filter((c) => !existingNames.has(c.name));
       created = this.sugar(res);
@@ -750,7 +751,7 @@ export class Client extends query.Retriever<
     const { key, rangeKey } = query;
     let ch = this.store.get(key);
     if (ch == null) {
-      const payloads = await this.retriever.retrieve([key]);
+      const payloads = await retrieve(this.cfg.unary, [key]);
       checkForMultipleOrNoResults("channel", key, payloads, true);
       ch = this.sugar(stripComposed(payloads[0]));
       this.store.set(key, ch);
@@ -772,7 +773,7 @@ export class Client extends query.Retriever<
     let channels: Channel[];
     if (isKeysOnly(query)) channels = await this.store.retrieve(query.keys);
     else
-      channels = (await this.retriever.retrieve(query)).map((p) =>
+      channels = (await retrieve(this.cfg.unary, query)).map((p) =>
         this.sugar(stripComposed(p)),
       );
     if (rangeKey != null)

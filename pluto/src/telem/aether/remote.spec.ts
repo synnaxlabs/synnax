@@ -10,8 +10,8 @@
 import {
   channel,
   DataType,
+  type framer,
   type status as cstatus,
-  type telem,
   TimeRange,
 } from "@synnaxlabs/client";
 import { bounds, id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -46,7 +46,7 @@ describe("remote", () => {
       key: string = id.create();
 
       // Stream
-      streamHandler: telem.StreamHandler | null = null;
+      streamHandler: framer.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -64,12 +64,12 @@ describe("remote", () => {
 
       channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
 
-      telem = {
+      feed = {
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
-          handler: telem.StreamHandler,
+          handler: framer.StreamHandler,
           keys: channel.Key[],
-        ): telem.Subscription => {
+        ): framer.Subscription => {
           this.streamHandler = handler;
           this.streamKeys = keys;
           this.streamF(handler, keys);
@@ -213,7 +213,7 @@ describe("remote", () => {
     class MockClient implements Client {
       key: string = id.create();
 
-      streamHandler: telem.StreamHandler | null = null;
+      streamHandler: framer.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -229,12 +229,12 @@ describe("remote", () => {
 
       channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
 
-      telem = {
+      feed = {
         read: async (): Promise<MultiSeries> => this.response,
         stream: (
-          handler: telem.StreamHandler,
+          handler: framer.StreamHandler,
           keys: channel.Key[],
-        ): telem.Subscription => {
+        ): framer.Subscription => {
           this.streamHandler = handler;
           this.streamKeys = keys;
           this.streamF(handler, keys);
@@ -462,12 +462,12 @@ describe("remote", () => {
         },
       };
 
-      telem = {
+      feed = {
         read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
           this.readMock(tr, key);
           return this.response[key];
         },
-        stream: (): telem.Subscription => telemTest.mockSubscription(vi.fn()),
+        stream: (): framer.Subscription => telemTest.mockSubscription(vi.fn()),
       };
     }
 
@@ -567,7 +567,7 @@ describe("remote", () => {
       const series = new Series({ data: new Float32Array([1, 2, 3]) });
       let release = (): void => {};
       const gate = new Promise<void>((resolve) => (release = resolve));
-      c.telem.read = async (): Promise<MultiSeries> => {
+      c.feed.read = async (): Promise<MultiSeries> => {
         await gate;
         return new MultiSeries([series]);
       };
@@ -588,7 +588,7 @@ describe("remote", () => {
       key: string = id.create();
 
       // Stream
-      streamHandler: telem.StreamHandler | null = null;
+      streamHandler: framer.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -621,15 +621,15 @@ describe("remote", () => {
         },
       };
 
-      telem = {
+      feed = {
         read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
           this.readMock(tr, key);
           return this.response;
         },
         stream: (
-          handler: telem.StreamHandler,
+          handler: framer.StreamHandler,
           keys: channel.Key[],
-        ): telem.Subscription => {
+        ): framer.Subscription => {
           this.streamHandler = handler;
           this.streamKeys = keys;
           this.streamF(handler, keys);
@@ -693,7 +693,7 @@ describe("remote", () => {
       const series = new Series({ data: new Float32Array([1, 2, 3]) });
       let release = (): void => {};
       const gate = new Promise<void>((resolve) => (release = resolve));
-      c.telem.read = async (): Promise<MultiSeries> => {
+      c.feed.read = async (): Promise<MultiSeries> => {
         await gate;
         return new MultiSeries([series]);
       };

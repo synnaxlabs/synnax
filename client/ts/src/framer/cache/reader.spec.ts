@@ -11,10 +11,10 @@ import { TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { UnexpectedError } from "@/errors";
+import { Cache } from "@/framer/cache/cache";
+import { Reader, type ReadRemoteFunc } from "@/framer/cache/reader";
 import { Frame } from "@/framer/frame";
 import { Series } from "@/index";
-import { Cache } from "@/telem/cache/cache";
-import { Reader, type ReadRemoteFunc } from "@/telem/reader";
 
 const basicRemoteReadFunc =
   (fn: Mock): ReadRemoteFunc =>

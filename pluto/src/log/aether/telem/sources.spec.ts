@@ -10,8 +10,8 @@
 import {
   channel,
   DataType,
+  type framer,
   type status as cstatus,
-  type telem,
 } from "@synnaxlabs/client";
 import { id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -36,7 +36,7 @@ describe("StreamMultiChannelLog", () => {
   class MockClient implements Client {
     key: string = id.create();
 
-    streamHandler: telem.StreamHandler | null = null;
+    streamHandler: framer.StreamHandler | null = null;
     streamKeys: channel.Key[] = [];
     streamF = vi.fn();
     streamDestructorF = vi.fn();
@@ -79,12 +79,12 @@ describe("StreamMultiChannelLog", () => {
       },
     };
 
-    telem = {
+    feed = {
       read: async (): Promise<MultiSeries> => new MultiSeries([]),
       stream: (
-        handler: telem.StreamHandler,
+        handler: framer.StreamHandler,
         keys: channel.Key[],
-      ): telem.Subscription => {
+      ): framer.Subscription => {
         this.streamHandler = handler;
         this.streamKeys = keys;
         this.streamF(handler, keys);
@@ -741,7 +741,7 @@ describe("StreamMultiChannelLog", () => {
       // Add channel B — this restarts the stream. The mock's stream() will
       // call c.streamHandler again with an initial batch. Simulate the batch containing
       // the existing cache data for channel A.
-      c.streamF = vi.fn((handler: telem.StreamHandler, _keys: channel.Key[]) => {
+      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
         // Simulate the initial batch: channel A has cached data we already consumed.
         const initialA = new Series({ data: new Float32Array([1, 2, 3]) });
         handler(new Map([[c.channelA.key, new MultiSeries([initialA])]]));
@@ -769,7 +769,7 @@ describe("StreamMultiChannelLog", () => {
 
       // Add channel B. Simulate the initial batch delivering cached data for channel B
       // that was accumulated by another component — we should NOT dump it.
-      c.streamF = vi.fn((handler: telem.StreamHandler, _keys: channel.Key[]) => {
+      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
         const initialB = new Series({ data: new Float32Array([10, 20, 30]) });
         handler(new Map([[c.channelB.key, new MultiSeries([initialB])]]));
       });
@@ -794,7 +794,7 @@ describe("StreamMultiChannelLog", () => {
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
 
       // Restart with channel B added; the initial batch is skipped
-      c.streamF = vi.fn((handler: telem.StreamHandler, _keys: channel.Key[]) => {
+      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
         const initialA = new Series({ data: new Float32Array([1]) });
         const initialB = new Series({ data: new Float32Array([10]) });
         handler(
@@ -827,7 +827,7 @@ describe("StreamMultiChannelLog", () => {
 
     it("should allow initial-batch data on first start (not a restart)", async () => {
       // Simulate a client that delivers an initial batch on the first stream() call
-      c.streamF = vi.fn((handler: telem.StreamHandler, _keys: channel.Key[]) => {
+      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
         const initial = new Series({ data: new Float32Array([10, 20]) });
         handler(new Map([[c.channelA.key, new MultiSeries([initial])]]));
       });

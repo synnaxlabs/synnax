@@ -13,9 +13,6 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { useErrorHandler } from "@/status/aether/aggregator";
-// Imported by file path (not the @/telem/aether barrel) to avoid a cycle: the barrel
-// exports the telem provider, which imports this module.
-import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
 
 const stateZ = z.object({ props: synnaxParamsZ.nullable() });
 
@@ -51,7 +48,6 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
     this.internal.client = new Synnax({
       ...this.state.props,
       onInternalError: useErrorHandler(ctx),
-      telem: { transform: GL_TRANSFORM },
     });
     set(ctx, this.internal);
   }

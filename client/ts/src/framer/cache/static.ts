@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { UnexpectedError } from "@/errors";
-import { IDENTITY_TRANSFORM, type Transform } from "@/telem/transform";
+import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
 
 export interface DirtyReadResult {
   series: MultiSeries;

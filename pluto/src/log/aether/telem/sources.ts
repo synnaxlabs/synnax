@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, status as cstatus, type telem } from "@synnaxlabs/client";
+import { channel, type framer, status as cstatus } from "@synnaxlabs/client";
 import {
   compare,
   DataType,
@@ -148,7 +148,7 @@ export class StreamMultiChannelLog
         });
 
       const streamKeys = channels.map((ch) => ch.key);
-      const handler: telem.StreamHandler = (res) => {
+      const handler: framer.StreamHandler = (res) => {
         const now = this.now();
         let pushed = 0;
         for (const [key, chMeta] of this.channelMeta) {
@@ -208,7 +208,7 @@ export class StreamMultiChannelLog
         this._evictedCount = this.gcEntries();
         if (pushed > 0) this.notify();
       };
-      const sub = client.telem.stream(handler, streamKeys);
+      const sub = client.feed.stream(handler, streamKeys);
       this.stopStreaming = () => sub.close();
       this.notify();
     } catch (e) {

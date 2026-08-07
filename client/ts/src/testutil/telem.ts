@@ -9,14 +9,14 @@
 
 import { DataType, type Series, TimeStamp } from "@synnaxlabs/x";
 
-import { type telem } from "@/telem";
+import { type framer } from "@/framer";
 
 export const secondsLinspace = (start: number, n: number): TimeStamp[] =>
   Array.from({ length: n }, (_, i) => start + i).map((n) => TimeStamp.seconds(n));
 
 /** Narrows every numeric series to float32, anchoring bigints on an offset. Mirrors
  * the transform the visualization layer injects for WebGL rendering. */
-export const glTransform: telem.Transform = {
+export const glTransform: framer.Transform = {
   resolveDataType: (dt: DataType) =>
     dt.isVariable || dt.equals(DataType.UINT8) ? dt : DataType.FLOAT32,
   convert: (series: Series, offset) => {

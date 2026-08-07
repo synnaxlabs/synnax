@@ -10,39 +10,40 @@
 import { type MultiSeries, type TimeRange } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { framer } from "@/framer";
-import { Cache, type CacheProps } from "@/telem/cache/cache";
-import { Reader, type ReaderProps } from "@/telem/reader";
+import { Cache, type CacheProps } from "@/framer/cache/cache";
+import { Reader, type ReaderProps } from "@/framer/cache/reader";
 import {
   Streamer,
   type StreamerProps,
   type StreamHandler,
   type Subscription,
-} from "@/telem/streamer";
+} from "@/framer/cache/streamer";
+import { HardenedStreamer } from "@/framer/hardened";
+import { type StreamOpener } from "@/framer/streamer";
 
-export interface ClientProps
+export interface FeedProps
   extends
     CacheProps,
     Omit<ReaderProps, "cache">,
     Omit<StreamerProps, "cache" | "openStreamer"> {
   /** Opens the underlying frame stream. */
-  openStreamer: framer.StreamOpener;
+  openStreamer: StreamOpener;
 }
 
-/** The subset of {@link ClientProps} an owner may tune from the outside. */
-export interface Options extends Pick<ClientProps, "transform"> {}
+/** The subset of {@link FeedProps} a caller of openFeed supplies. */
+export interface FeedOptions extends Omit<FeedProps, "readRemote" | "openStreamer"> {}
 
 /**
  * Cached, demand-managed access to channel telemetry: durable streaming
  * subscriptions multiplexed onto one frame stream, and batched historical reads
  * served through per-channel rolling buffers.
  */
-export class Client {
+export class Feed {
   private readonly cache: Cache;
   private readonly reader: Reader;
   private readonly streamer: Streamer;
 
-  constructor(props: ClientProps) {
+  constructor(props: FeedProps) {
     const {
       readRemote,
       openStreamer,
@@ -73,13 +74,7 @@ export class Client {
     this.streamer = new Streamer({
       cache: this.cache,
       openStreamer: async (config, { onReopen, onDrop }) =>
-        await framer.HardenedStreamer.open(
-          openStreamer,
-          config,
-          breaker,
-          onReopen,
-          onDrop,
-        ),
+        await HardenedStreamer.open(openStreamer, config, breaker, onReopen, onDrop),
       removalDelay,
       breaker,
       instrumentation: instrumentation?.child("streamer"),
@@ -102,7 +97,7 @@ export class Client {
     return await this.reader.read(tr, key);
   }
 
-  /** Closes the client, releasing the stream and all cached buffers. */
+  /** Closes the feed, releasing the stream and all cached buffers. */
   async close(): Promise<void> {
     await this.streamer.close();
     await this.reader.close();

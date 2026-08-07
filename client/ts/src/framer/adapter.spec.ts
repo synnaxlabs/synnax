@@ -7,15 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
+import { array, DataType, id, Series, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { ReadAdapter, WriteAdapter } from "@/framer/adapter";
+import { ReadAdapter, type RetrieveChannels, WriteAdapter } from "@/framer/adapter";
 import { Frame } from "@/index";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
+const retrieveChannels: RetrieveChannels = async (params) =>
+  (
+    await client.channels.retrieve(array.toArray(params) as channel.Key[])
+  ).map((ch) => ch.payload);
 
 describe("WriteFrameAdapter", () => {
   let timeCh: channel.Channel;
@@ -34,7 +38,7 @@ describe("WriteFrameAdapter", () => {
       index: timeCh.key,
     });
 
-    adapter = await WriteAdapter.open(client.channels.retriever, [
+    adapter = await WriteAdapter.open(retrieveChannels, [
       timeCh.key,
       dataCh.key,
     ]);
@@ -122,7 +126,7 @@ describe("WriteFrameAdapter", () => {
       dataType: DataType.JSON,
       virtual: true,
     });
-    const adapter = await WriteAdapter.open(client.channels.retriever, [
+    const adapter = await WriteAdapter.open(retrieveChannels, [
       jsonChannel.key,
     ]);
     const res = await adapter.adapt(jsonChannel.name, [{ dog: "blue" }]);
@@ -138,7 +142,7 @@ describe("WriteFrameAdapter", () => {
       dataType: DataType.JSON,
       virtual: true,
     });
-    const adapter = await WriteAdapter.open(client.channels.retriever, [
+    const adapter = await WriteAdapter.open(retrieveChannels, [
       jsonChannel.key,
     ]);
     const res = await adapter.adapt(jsonChannel.name, new Series([{ dog: "blue" }]));
@@ -236,7 +240,7 @@ describe("ReadFrameAdapter", () => {
       index: timeCh.key,
     });
 
-    adapter = await ReadAdapter.open(client.channels.retriever, [
+    adapter = await ReadAdapter.open(retrieveChannels, [
       timeCh.key,
       dataCh.key,
     ]);
@@ -332,7 +336,7 @@ describe("ReadFrameAdapter", () => {
 
       beforeAll(async () => {
         // Create adapter with channel names (triggers key-to-name mapping)
-        nameAdapter = await ReadAdapter.open(client.channels.retriever, [
+        nameAdapter = await ReadAdapter.open(retrieveChannels, [
           timeCh.name,
           dataCh.name,
         ]);
@@ -409,7 +413,7 @@ describe("ReadFrameAdapter", () => {
         });
 
         it("should handle partial matches while converting", async () => {
-          const filterAdapter = await ReadAdapter.open(client.channels.retriever, [
+          const filterAdapter = await ReadAdapter.open(retrieveChannels, [
             timeCh.name,
           ]);
 
@@ -428,7 +432,7 @@ describe("ReadFrameAdapter", () => {
         });
 
         it("should return empty frame when no channels match", async () => {
-          const filterAdapter = await ReadAdapter.open(client.channels.retriever, [
+          const filterAdapter = await ReadAdapter.open(retrieveChannels, [
             timeCh.name,
           ]);
 
@@ -476,7 +480,7 @@ describe("ReadFrameAdapter", () => {
           index: timeCh.key,
         });
 
-        const testAdapter = await ReadAdapter.open(client.channels.retriever, [
+        const testAdapter = await ReadAdapter.open(retrieveChannels, [
           timeCh.key,
           dataCh.key,
           int64Ch.key,
@@ -534,7 +538,7 @@ describe("ReadFrameAdapter", () => {
     describe("state management", () => {
       it("should handle multiple sequential updates correctly", async () => {
         // Start with NAME mode to enable filtering
-        const newAdapter = await ReadAdapter.open(client.channels.retriever, [
+        const newAdapter = await ReadAdapter.open(retrieveChannels, [
           timeCh.name,
         ]);
 
@@ -564,7 +568,7 @@ describe("ReadFrameAdapter", () => {
 
     describe("codec integration", () => {
       it("should update codec when channels change", async () => {
-        const codecAdapter = await ReadAdapter.open(client.channels.retriever, [
+        const codecAdapter = await ReadAdapter.open(retrieveChannels, [
           timeCh.key,
         ]);
         expect(codecAdapter.keys).toHaveLength(1);

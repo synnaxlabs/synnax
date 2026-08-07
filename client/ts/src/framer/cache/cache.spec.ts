@@ -11,7 +11,7 @@ import { DataType, MultiSeries, Series } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { UnexpectedError } from "@/errors";
-import { Cache } from "@/telem/cache/cache";
+import { Cache } from "@/framer/cache/cache";
 
 describe("Cache", () => {
   describe("get", () => {

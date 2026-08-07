@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type framer, type Synnax } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { synnax } from "@/synnax/aether";
 import { Context, CONTEXT_KEY, setContext } from "@/telem/aether/context";
+import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
 import { CompoundFactory, createFactory, type Factory } from "@/telem/aether/factory";
 import { NoopFactory } from "@/telem/aether/noop";
 import { PipelineFactory } from "@/telem/aether/pipeline";
@@ -33,13 +34,32 @@ export const createProvider = (
     static readonly stateZ = providerStateZ;
     schema = BaseProvider.stateZ;
     prevCore: Synnax | null = null;
+    feed: framer.Feed | null = null;
 
     afterUpdate(ctx: aether.Context): void {
       const core = synnax.use(ctx);
       const shouldSwap = core !== this.prevCore || !ctx.wasSetPreviously(CONTEXT_KEY);
       if (!shouldSwap) return;
       this.prevCore = core;
-      setContext(ctx, new Context(createFactory(core)));
+      this.closeFeed();
+      let client: Client | null = null;
+      if (core != null) {
+        // The feed caches series in the representation this thread renders, so
+        // the GL transform is applied here rather than at connection time.
+        this.feed = core.openFeed({ transform: GL_TRANSFORM });
+        client = { feed: this.feed, channels: core.channels };
+      }
+      setContext(ctx, new Context(createFactory(client)));
+    }
+
+    afterDelete(): void {
+      this.closeFeed();
+    }
+
+    private closeFeed(): void {
+      const { feed } = this;
+      this.feed = null;
+      feed?.close().catch(console.error);
     }
   }
   return BaseProvider;
