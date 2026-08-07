@@ -225,6 +225,12 @@ var _ = Describe("Migrations", func() {
 				Type:   "bogus",
 				Config: msgpack.EncodedJSON{"anything": true},
 			}
+			ljScanTask := v1.Task{
+				Key:    v1.Key(uint64(testRack.Key)<<32 | 5),
+				Name:   "Stored LabJack Scan Task",
+				Type:   "labjack_scan",
+				Config: msgpack.EncodedJSON{},
+			}
 			ljTask := v1.Task{
 				Key:  v1.Key(uint64(testRack.Key)<<32 | 4),
 				Name: "Stored LabJack Write Task",
@@ -245,7 +251,7 @@ var _ = Describe("Migrations", func() {
 				},
 			}
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
-				Entries(&[]v1.Task{pdTask, arcTask, bogusTask, ljTask}).
+				Entries(&[]v1.Task{pdTask, arcTask, bogusTask, ljTask, ljScanTask}).
 				Exec(ctx, seedDB)).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
@@ -304,6 +310,24 @@ var _ = Describe("Migrations", func() {
 				HaveKeyWithValue("arc_key", arcModuleKey),
 			)
 			Expect(migratedArc.Config).To(HaveKeyWithValue("hash", "abc123"))
+			Expect(migratedArc.Config).To(
+				HaveKeyWithValue("execution_mode", "AUTO"),
+			)
+			Expect(migratedArc.Config).To(
+				HaveKeyWithValue("rt_priority", BeEquivalentTo(47)),
+			)
+			Expect(migratedArc.Config).To(
+				HaveKeyWithValue("cpu_affinity", BeEquivalentTo(-1)),
+			)
+
+			var migratedScan task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Stored LabJack Scan Task")).
+				Entry(&migratedScan).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migratedScan.Config).To(
+				HaveKeyWithValue("rate", BeEquivalentTo(0.2)),
+			)
 
 			var migratedLJ task.Task
 			Expect(svc.NewRetrieve().
