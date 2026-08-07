@@ -12,6 +12,8 @@
 #include <memory>
 #include <string>
 
+#include "wasmtime.hh"
+
 #include "arc/cpp/stl/series/state.h"
 #include "arc/cpp/stl/stateful/state.h"
 #include "arc/cpp/stl/stl.h"

@@ -16,9 +16,11 @@ telemetry. Monorepo:
 - **Oracle** (`/oracle/`, Go) generates Go/TS/Python/C++/proto bindings from `.oracle`
   schemas in `/schemas/`. Never hand-edit generated code. See `oracle/CLAUDE.md`.
 
-Arc, Cesium, Aspen, Core, Console, Pluto, Freighter, Alamos, Gorp, Drift, Driver,
-Oracle, and X are proper nouns — capitalize them in prose (comments, docs, commit
-messages, PRs).
+## Release model
+
+Users only ever run builds released from `main`; `rc` is pre-release integration and
+never ships. Backward compatibility — file formats, stored shapes, wire quirks,
+migrations — is owed only to what `main` released. rc-era formats may be dropped freely.
 
 ## Documentation
 
@@ -32,13 +34,15 @@ needing broader context:
 - `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
 - `docs/claude/scripts.md` — repo scripts in `/scripts/` (formatting, copyright headers,
   codegen checks, release/CI tooling)
+- `docs/tech/rfc/CLAUDE.md` — RFC file names, front matter, headings, definition lists,
+  and citations (also auto-loads)
 - `core/CLAUDE.md`, `console/CLAUDE.md`, `driver/CLAUDE.md`, `pluto/CLAUDE.md`,
   `arc/CLAUDE.md`, `oracle/CLAUDE.md` — component deep dives (also auto-load)
 
 ## Universal Code Style
 
 - **88-character lines** in all languages. Formatters: Prettier (TS), Ruff (Python),
-  gofmt (Go), clang-format (C++).
+  golangci-lint fmt (Go), clang-format (C++).
 - **BDD-style tests** with the language's framework; co-located with source where the
   language allows.
 - **Absolute imports** in TypeScript (`@/components`).
@@ -98,14 +102,33 @@ Dependencies are explicit, injected inputs — never reached for ambiently. All 
   the table should cover it — a missing handler is a composition bug. Handle gracefully
   as normal validation when the key is user-provided. Never a silent no-op.
 
+## Prose
+
+Whenever you are writing prose (documentation, comments, RFCs, commit messages, PRs,
+etc.), use ASD-STE100 Simplified Technical English. Always write in sentence case
+instead of title case for headings, titles, and menu options unless explicitly directed
+otherwise. Capitalize proper nouns and acronyms, including Synnax component names: Arc,
+Cesium, Aspen, Oracle, Pluto, Aether, Flux, Freighter, Alamos, Gorp, Drift, X, the
+Driver, the Core, and the Console. Third-party names are proper nouns too: Git, Go,
+gRPC, HashiCorp, Zod. Prefer referencing the Core as "the Core" / "a Core", instead of
+"server", "node", or "cluster", unless you are specifically writing about behavior of
+multi-node clusters. If you are referring to code paths, then put those in backticks
+`x/go/gorp`.
+
+Prefer using the word "and" instead of an ampersand (&) in prose.
+
 ## Comments (all languages)
 
-**Wrap comment prose at 88 columns by hand.** No formatter reflows comment text —
-Prettier, Ruff, gofmt, and clang-format all leave `//`/`#` prose untouched — so an
-over-long comment line silently passes the format check and ships. After writing or
-editing any comment, verify no line exceeds 88 columns, and re-flow the whole paragraph
-when a mid-line edit pushes a line over. Watch multi-byte runes (em dash `—`, curly
-quotes): byte-count tools overcount, so measure characters.
+**Wrap comment prose at 88 columns by hand, filling each line to the limit.** Prettier,
+Ruff, and clang-format leave `//`/`#` prose untouched, so an over-long comment line
+silently passes the format check and ships. In Go, golines splits over-88 comment lines,
+but mechanically — it breaks mid-phrase instead of reflowing the paragraph — so
+hand-wrap anyway. Break a line only when the next word would push it past 88: Claude
+sessions habitually wrap early (~75–82), leaving ragged short lines that reviewers must
+refill. After writing or editing any comment, check both bounds — no line over 88, no
+line breaking while the next word still fits — and re-flow the whole paragraph when a
+mid-line edit changes its length. Watch multi-byte runes (em dash `—`, curly quotes):
+byte-count tools overcount, so measure characters.
 
 ### 🚨 KEEP COMMENTS SHORT. THIS IS THE #1 VIOLATION. 🚨
 

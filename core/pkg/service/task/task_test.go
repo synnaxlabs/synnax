@@ -96,20 +96,26 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(tx.Close()).To(Succeed())
 	})
 	Describe("Task", func() {
-		It("Should construct and deconstruct a key from its components", func(ctx SpecContext) {
-			rk := rack.NewKey(node.Key(1), 1)
-			k := task.NewKey(rk, 2)
-			Expect(k.Rack()).To(Equal(rk))
-			Expect(k.LocalKey()).To(Equal(uint32(2)))
-		})
+		It(
+			"Should construct and deconstruct a key from its components",
+			func(ctx SpecContext) {
+				rk := rack.NewKey(node.Key(1), 1)
+				k := task.NewKey(rk, 2)
+				Expect(k.Rack()).To(Equal(rk))
+				Expect(k.LocalKey()).To(Equal(uint32(2)))
+			},
+		)
 	})
 	Describe("CommandChannelKey", func() {
-		It("Should return zero when no channel service is configured", func(ctx SpecContext) {
-			Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
-		})
+		It(
+			"Should return zero when no channel service is configured",
+			func(ctx SpecContext) {
+				Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
+			},
+		)
 	})
 	Describe("Key msgpack decoding", func() {
-		var codec = msgpack.Codec
+		codec := msgpack.Codec
 		DescribeTable("Should decode task.Key from various types",
 			func(ctx SpecContext, value any, expected task.Key) {
 				data := MustSucceed(codec.Encode(ctx, value))
@@ -125,52 +131,61 @@ var _ = Describe("Task", Ordered, func() {
 			Entry("float64", float64(123456), task.Key(123456)),
 			Entry("float32", float32(1234), task.Key(1234)),
 		)
-		It("Should decode StatusDetails with task key as string", func(ctx SpecContext) {
-			type statusDetailsWithString struct {
-				Data    map[string]any `msgpack:"data"`
-				Task    string         `msgpack:"task"`
-				Running bool           `msgpack:"running"`
-			}
-			original := statusDetailsWithString{
-				Task:    "281543696187399",
-				Running: true,
-				Data:    map[string]any{"test": true},
-			}
-			data := MustSucceed(codec.Encode(ctx, original))
-			var decoded task.StatusDetails
-			Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded.Task).To(Equal(task.Key(281543696187399)))
-			Expect(decoded.Running).To(BeTrue())
-		})
-		It("Should decode StatusDetails with task key as float64", func(ctx SpecContext) {
-			type statusDetailsWithFloat struct {
-				Data    map[string]any `msgpack:"data"`
-				Task    float64        `msgpack:"task"`
-				Running bool           `msgpack:"running"`
-			}
-			original := statusDetailsWithFloat{
-				Task:    float64(65536),
-				Running: true,
-				Data:    map[string]any{"test": true},
-			}
-			data := MustSucceed(codec.Encode(ctx, original))
-			var decoded task.StatusDetails
-			Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
-			Expect(decoded.Task).To(Equal(task.Key(65536)))
-			Expect(decoded.Running).To(BeTrue())
-		})
+		It(
+			"Should decode StatusDetails with task key as string",
+			func(ctx SpecContext) {
+				type statusDetailsWithString struct {
+					Data    map[string]any `msgpack:"data"`
+					Task    string         `msgpack:"task"`
+					Running bool           `msgpack:"running"`
+				}
+				original := statusDetailsWithString{
+					Task:    "281543696187399",
+					Running: true,
+					Data:    map[string]any{"test": true},
+				}
+				data := MustSucceed(codec.Encode(ctx, original))
+				var decoded task.StatusDetails
+				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded.Task).To(Equal(task.Key(281543696187399)))
+				Expect(decoded.Running).To(BeTrue())
+			},
+		)
+		It(
+			"Should decode StatusDetails with task key as float64",
+			func(ctx SpecContext) {
+				type statusDetailsWithFloat struct {
+					Data    map[string]any `msgpack:"data"`
+					Task    float64        `msgpack:"task"`
+					Running bool           `msgpack:"running"`
+				}
+				original := statusDetailsWithFloat{
+					Task:    float64(65536),
+					Running: true,
+					Data:    map[string]any{"test": true},
+				}
+				data := MustSucceed(codec.Encode(ctx, original))
+				var decoded task.StatusDetails
+				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(decoded.Task).To(Equal(task.Key(65536)))
+				Expect(decoded.Running).To(BeTrue())
+			},
+		)
 	})
 
 	Describe("Create", func() {
-		It("Should correctly create a task and assign it a unique key", func(ctx SpecContext) {
-			m := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Test Task",
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 1)))
-			Expect(m.Name).To(Equal("Test Task"))
-		})
+		It(
+			"Should correctly create a task and assign it a unique key",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Test Task",
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 1)))
+				Expect(m.Name).To(Equal("Test Task"))
+			},
+		)
 		It("Should correctly increment the task count", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
@@ -213,7 +228,6 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Copy", func() {
-
 		It("Should copy a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
@@ -238,7 +252,6 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 9)))
 			Expect(t.Snapshot).To(BeTrue())
 		})
-
 	})
 
 	Describe("Retrieve", func() {
@@ -251,7 +264,12 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 10)))
 			Expect(m.Name).To(Equal("Test Task"))
 			var res task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.MatchKeys(m.Key)).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res).To(Equal(*m))
 		})
 
@@ -268,12 +286,22 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, snapshot)).To(Succeed())
 			var snapshots []task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchSnapshot(true)).Entries(&snapshots).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.MatchSnapshot(true)).
+					Entries(&snapshots).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(snapshots).To(HaveLen(1))
 			Expect(snapshots[0].Name).To(Equal("Snapshot Task"))
 			Expect(snapshots[0].Snapshot).To(BeTrue())
 			var regulars []task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchSnapshot(false)).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.MatchSnapshot(false)).
+					Entries(&regulars).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(regulars).ToNot(BeEmpty())
 			for _, t := range regulars {
 				Expect(t.Snapshot).To(BeFalse())
@@ -294,7 +322,12 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, snapshot2)).To(Succeed())
 			var res task.Task
-			Expect(svc.NewRetrieve().Where(task.And(task.MatchSnapshot(true), task.MatchNames("Snapshot Task 1"))).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.And(task.MatchSnapshot(true), task.MatchNames("Snapshot Task 1"))).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res.Name).To(Equal("Snapshot Task 1"))
 			Expect(res.Snapshot).To(BeTrue())
 		})
@@ -312,12 +345,22 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, internal)).To(Succeed())
 			var internals []task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchInternal(true)).Entries(&internals).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.MatchInternal(true)).
+					Entries(&internals).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(internals).To(HaveLen(1))
 			Expect(internals[0].Name).To(Equal("Internal Task"))
 			Expect(internals[0].Internal).To(BeTrue())
 			var regulars []task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchInternal(false)).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.MatchInternal(false)).
+					Entries(&regulars).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(regulars).ToNot(BeEmpty())
 			for _, t := range regulars {
 				Expect(t.Internal).To(BeFalse())
@@ -338,196 +381,233 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, internal2)).To(Succeed())
 			var res task.Task
-			Expect(svc.NewRetrieve().Where(task.And(task.MatchInternal(true), task.MatchNames("Internal Task 1"))).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(
+				svc.NewRetrieve().
+					Where(task.And(task.MatchInternal(true), task.MatchNames("Internal Task 1"))).
+					Entry(&res).
+					Exec(ctx, tx),
+			).To(Succeed())
 			Expect(res.Name).To(Equal("Internal Task 1"))
 			Expect(res.Internal).To(BeTrue())
 		})
 	})
 
 	Describe("Delete", func() {
-		It("Should correctly delete a task and its associated status", func(ctx SpecContext) {
-			m := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Test Task",
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
-			Expect(svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-			var deletedStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
-				Entry(&deletedStatus).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should correctly delete a task and its associated status",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Test Task",
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
+				Expect(
+					svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Exec(ctx, tx),
+				).To(MatchError(query.ErrNotFound))
+				var deletedStatus task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&deletedStatus).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 
 	Describe("Status", func() {
-		It("Should create an unknown status when creating a task", func(ctx SpecContext) {
-			m := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Status Test Task",
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
+		It(
+			"Should create an unknown status when creating a task",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Status Test Task",
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
 
-			var taskStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
-				Entry(&taskStatus).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-			Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
-			Expect(taskStatus.Details.Task).To(Equal(m.Key))
-		})
+				var taskStatus task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&taskStatus).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
+				Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
+				Expect(taskStatus.Details.Task).To(Equal(m.Key))
+			},
+		)
 
-		It("Should use the provided status when creating a task", func(ctx SpecContext) {
-			providedStatus := &task.Status{
-				Variant:     status.VariantSuccess,
-				Message:     "Custom task status",
-				Description: "Task is running",
-				Time:        telem.Now(),
-				Details: task.StatusDetails{
-					Running: true,
-				},
-			}
-			m := &task.Task{
-				Key:    task.NewKey(testRack.Key, 0),
-				Name:   "Task with custom status",
-				Status: providedStatus,
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
+		It(
+			"Should use the provided status when creating a task",
+			func(ctx SpecContext) {
+				providedStatus := &task.Status{
+					Variant:     status.VariantSuccess,
+					Message:     "Custom task status",
+					Description: "Task is running",
+					Time:        telem.Now(),
+					Details: task.StatusDetails{
+						Running: true,
+					},
+				}
+				m := &task.Task{
+					Key:    task.NewKey(testRack.Key, 0),
+					Name:   "Task with custom status",
+					Status: providedStatus,
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
 
-			var taskStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
-				Entry(&taskStatus).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
-			Expect(taskStatus.Message).To(Equal("Custom task status"))
-			Expect(taskStatus.Description).To(Equal("Task is running"))
-			// Key should be auto-assigned
-			Expect(taskStatus.Key).To(Equal(m.OntologyID().String()))
-			// Name should be auto-filled
-			Expect(taskStatus.Name).To(Equal(m.Name))
-			// Details.Task should be auto-filled
-			Expect(taskStatus.Details.Task).To(Equal(m.Key))
-			// Provided details should be preserved
-			Expect(taskStatus.Details.Running).To(BeTrue())
-		})
+				var taskStatus task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
+					Entry(&taskStatus).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
+				Expect(taskStatus.Message).To(Equal("Custom task status"))
+				Expect(taskStatus.Description).To(Equal("Task is running"))
+				// Key should be auto-assigned
+				Expect(taskStatus.Key).To(Equal(m.OntologyID().String()))
+				// Name should be auto-filled
+				Expect(taskStatus.Name).To(Equal(m.Name))
+				// Details.Task should be auto-filled
+				Expect(taskStatus.Details.Task).To(Equal(m.Key))
+				// Provided details should be preserved
+				Expect(taskStatus.Details.Running).To(BeTrue())
+			},
+		)
 
-		It("Should return a validation error if provided status has empty variant", func(ctx SpecContext) {
-			providedStatus := &task.Status{
-				Time:    telem.Now(),
-				Message: "Status with no variant",
-			}
-			m := &task.Task{
-				Key:    task.NewKey(testRack.Key, 0),
-				Name:   "Task with invalid status",
-				Status: providedStatus,
-			}
-			Expect(w.Create(ctx, m)).Error().To(MatchError(ContainSubstring("variant")))
-		})
-		It("Should restore a missing status row when the task is re-configured", func(ctx SpecContext) {
-			t := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Self Heal Task",
-			}
-			Expect(w.Create(ctx, t)).To(Succeed())
-
-			Expect(status.NewWriter[task.StatusDetails](stat, tx).
-				Delete(ctx, t.OntologyID().String())).To(Succeed())
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
-
-			reconfigured := &task.Task{Key: t.Key, Name: t.Name}
-			Expect(w.Create(ctx, reconfigured)).To(Succeed())
-
-			var healed task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-				Entry(&healed).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(healed.Details.Task).To(Equal(t.Key))
-		})
-
-		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
-			t := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Live Status Task",
-				Status: &task.Status{
-					Variant: status.VariantSuccess,
-					Message: "Task is running",
+		It(
+			"Should return a validation error if provided status has empty variant",
+			func(ctx SpecContext) {
+				providedStatus := &task.Status{
 					Time:    telem.Now(),
-				},
-			}
-			Expect(w.Create(ctx, t)).To(Succeed())
+					Message: "Status with no variant",
+				}
+				m := &task.Task{
+					Key:    task.NewKey(testRack.Key, 0),
+					Name:   "Task with invalid status",
+					Status: providedStatus,
+				}
+				Expect(
+					w.Create(ctx, m),
+				).Error().
+					To(MatchError(ContainSubstring("variant")))
+			},
+		)
+		It(
+			"Should restore a missing status row when the task is re-configured",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Self Heal Task",
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
 
-			reconfigured := &task.Task{Key: t.Key, Name: t.Name}
-			Expect(w.Create(ctx, reconfigured)).To(Succeed())
+				Expect(status.NewWriter[task.StatusDetails](stat, tx).
+					Delete(ctx, t.OntologyID().String())).To(Succeed())
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
-			var preserved task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-				Entry(&preserved).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
-			Expect(preserved.Message).To(Equal("Task is running"))
-		})
+				reconfigured := &task.Task{Key: t.Key, Name: t.Name}
+				Expect(w.Create(ctx, reconfigured)).To(Succeed())
 
-		It("Should create an unknown status when copying a task", func(ctx SpecContext) {
-			m := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
-				Name: "Original Task",
-			}
-			Expect(w.Create(ctx, m)).To(Succeed())
+				var healed task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Entry(&healed).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(healed.Details.Task).To(Equal(t.Key))
+			},
+		)
 
-			copied := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
+		It(
+			"Should not clobber a live status row on a no-op re-configure",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Live Status Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task is running",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
 
-			var copiedStatus task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](copied.OntologyID().String())).
-				Entry(&copiedStatus).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(copiedStatus.Variant).To(Equal(status.VariantWarning))
-			Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
-			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
-		})
+				reconfigured := &task.Task{Key: t.Key, Name: t.Name}
+				Expect(w.Create(ctx, reconfigured)).To(Succeed())
+
+				var preserved task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Entry(&preserved).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
+				Expect(preserved.Message).To(Equal("Task is running"))
+			},
+		)
+
+		It(
+			"Should create an unknown status when copying a task",
+			func(ctx SpecContext) {
+				m := &task.Task{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Original Task",
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+
+				copied := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
+
+				var copiedStatus task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](copied.OntologyID().String())).
+					Entry(&copiedStatus).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(copiedStatus.Variant).To(Equal(status.VariantWarning))
+				Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
+				Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
+			},
+		)
 	})
 
 	Describe("Suspect Rack", func() {
-		It("Should propagate rack warning status to tasks on that rack", func(ctx SpecContext) {
-			r := rack.Rack{Name: "suspect rack"}
-			Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		It(
+			"Should propagate rack warning status to tasks on that rack",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "suspect rack"}
+				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
-			t := &task.Task{
-				Key:  task.NewKey(r.Key, 0),
-				Name: "Test Task",
-			}
-			Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+				t := &task.Task{
+					Key:  task.NewKey(r.Key, 0),
+					Name: "Test Task",
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 
-			Eventually(func(g Gomega) {
-				var taskStatus task.Status
-				g.Expect(status.NewRetrieve[task.StatusDetails](stat).
-					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-					Entry(&taskStatus).
-					Exec(ctx, nil)).To(Succeed())
-				g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-				g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
-				g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
-			}).Should(Succeed())
-		})
+				Eventually(func(g Gomega) {
+					var taskStatus task.Status
+					g.Expect(status.NewRetrieve[task.StatusDetails](stat).
+						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+						Entry(&taskStatus).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
+					g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
+					g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
+				}).Should(Succeed())
+			},
+		)
 	})
 
 	Describe("Command", func() {
 		Describe("String", func() {
-			It("Should return a string representation of the command", func(ctx SpecContext) {
-				c := &task.Command{
-					Key:  "cmd",
-					Task: task.Key(12345),
-					Type: "doc",
-				}
-				Expect(c.String()).To(Equal("doc (key=cmd, task=12345)"))
-			})
+			It(
+				"Should return a string representation of the command",
+				func(ctx SpecContext) {
+					c := &task.Command{
+						Key:  "cmd",
+						Task: task.Key(12345),
+						Type: "doc",
+					}
+					Expect(c.String()).To(Equal("doc (key=cmd, task=12345)"))
+				},
+			)
 		})
 	})
 
@@ -543,9 +623,10 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, t)).To(Succeed())
 			called := false
-			svc.Observe().OnChange(func(ctx context.Context, _ gorp.TxReader[task.Key, task.Task]) {
-				called = true
-			})
+			svc.Observe().
+				OnChange(func(ctx context.Context, _ gorp.TxReader[task.Key, task.Task]) {
+					called = true
+				})
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(called).To(BeTrue())
 		})

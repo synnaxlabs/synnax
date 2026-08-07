@@ -109,7 +109,7 @@ export interface TableProps
   // the next visibility value.
   onShowIndicatorsChange?: (next: boolean) => void;
   // extraMenuItems is appended to the default context menu items so
-  // consumers can add app-specific entries (e.g. "Reload Console").
+  // consumers can add app-specific entries (e.g. "Reload console").
   extraMenuItems?: ReactNode;
   // enableTriggers gates the in-table keyboard shortcuts (Delete/Backspace
   // to clear, Cmd+Z to undo, Cmd+Shift+Z to redo). Defaults to true; pass a

@@ -28,9 +28,7 @@ describe("arc", () => {
         mode: "text",
       };
       const randomArc = await client.arcs.create(a);
-      await expect(userClient.arcs.retrieve({ key: randomArc.key })).rejects.toThrow(
-        AuthError,
-      );
+      await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toThrow(AuthError);
     });
 
     it("should allow the caller to retrieve arcs with the correct policy", async () => {
@@ -43,7 +41,7 @@ describe("arc", () => {
         name: "test",
         mode: "text",
       });
-      const retrieved = await userClient.arcs.retrieve({ key: randomArc.key });
+      const retrieved = await userClient.arcs.retrieve(randomArc.key);
       expect(retrieved.key).toBe(randomArc.key);
       expect(retrieved.name).toBe(randomArc.name);
     });
@@ -85,7 +83,7 @@ describe("arc", () => {
         mode: "text",
       });
       await userClient.arcs.delete(randomArc.key);
-      await expect(userClient.arcs.retrieve({ key: randomArc.key })).rejects.toThrow(
+      await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toThrow(
         NotFoundError,
       );
     });

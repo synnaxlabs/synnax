@@ -22,7 +22,7 @@ on:
       - codecov.yaml
       - core/**
       - freighter/go/**
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
       - x/go/**
   push:
     branches:
@@ -39,7 +39,7 @@ on:
       - codecov.yaml
       - core/**
       - freighter/go/**
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
       - x/go/**
   workflow_dispatch:
 

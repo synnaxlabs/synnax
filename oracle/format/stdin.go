@@ -51,7 +51,13 @@ func (r stdinRun) run(ctx context.Context) ([]byte, error) {
 	err := c.Run()
 	if err != nil {
 		if _, isExit := err.(*exec.ExitError); !isExit || !r.AllowExit {
-			return nil, errors.Wrapf(err, "%s failed (cwd=%q, stderr=%q)", r.Name, r.Dir, stderr.String())
+			return nil, errors.Wrapf(
+				err,
+				"%s failed (cwd=%q, stderr=%q)",
+				r.Name,
+				r.Dir,
+				stderr.String(),
+			)
 		}
 	}
 	return stdout.Bytes(), nil

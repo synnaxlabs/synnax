@@ -39,7 +39,7 @@ var _ = Describe("writeFileIfChanged", func() {
 
 	It("should overwrite a file with different content", func() {
 		path := filepath.Join(tmpDir, "existing.go")
-		Expect(os.WriteFile(path, []byte("old content"), 0644)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("old content"), 0o644)).To(Succeed())
 		Expect(writeFileIfChanged(path, []byte("new content"))).To(Succeed())
 		content := string(MustSucceed(os.ReadFile(path)))
 		Expect(content).To(Equal("new content"))
@@ -47,7 +47,7 @@ var _ = Describe("writeFileIfChanged", func() {
 
 	It("should not write when content is identical", func() {
 		path := filepath.Join(tmpDir, "same.go")
-		Expect(os.WriteFile(path, []byte("unchanged"), 0644)).To(Succeed())
+		Expect(os.WriteFile(path, []byte("unchanged"), 0o644)).To(Succeed())
 		info := MustSucceed(os.Stat(path))
 		origModTime := info.ModTime()
 

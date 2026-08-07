@@ -159,7 +159,7 @@ class TaskClient:
         download = download_info.value
         save_path = resolve_results_path(f"{name}_export.json")
         download.save_as(save_path)
-        with open(save_path, "r") as f:
+        with open(save_path, "r", encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)
             return result
 

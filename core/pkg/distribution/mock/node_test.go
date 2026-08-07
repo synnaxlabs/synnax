@@ -19,24 +19,33 @@ import (
 
 var _ = Describe("Node", func() {
 	Describe("OpenNode", func() {
-		It("Should open a single-node cluster bootstrapped as the first node", func(ctx SpecContext) {
-			n := DeferClose(mock.OpenNode(ctx))
-			Expect(n.Cluster.HostKey()).To(Equal(node.KeyBootstrapper))
-			Expect(n.Layer).ToNot(BeNil())
-			Expect(n.Storage).ToNot(BeNil())
-		})
+		It(
+			"Should open a single-node cluster bootstrapped as the first node",
+			func(ctx SpecContext) {
+				n := DeferClose(mock.OpenNode(ctx))
+				Expect(n.Cluster.HostKey()).To(Equal(node.KeyBootstrapper))
+				Expect(n.Layer).ToNot(BeNil())
+				Expect(n.Storage).ToNot(BeNil())
+			},
+		)
 
-		It("Should tear down the underlying cluster and storage on Close", func(ctx SpecContext) {
-			n := mock.OpenNode(ctx)
-			Expect(n.Close()).To(Succeed())
-		})
+		It(
+			"Should tear down the underlying cluster and storage on Close",
+			func(ctx SpecContext) {
+				n := mock.OpenNode(ctx)
+				Expect(n.Close()).To(Succeed())
+			},
+		)
 	})
 
 	Describe("NewNode", func() {
-		It("Should open a node and register its teardown with the spec", func(ctx SpecContext) {
-			n := mock.NewNode(ctx)
-			Expect(n.Cluster.HostKey()).To(Equal(node.KeyBootstrapper))
-			Expect(n.Storage).ToNot(BeNil())
-		})
+		It(
+			"Should open a node and register its teardown with the spec",
+			func(ctx SpecContext) {
+				n := mock.NewNode(ctx)
+				Expect(n.Cluster.HostKey()).To(Equal(node.KeyBootstrapper))
+				Expect(n.Storage).ToNot(BeNil())
+			},
+		)
 	})
 })

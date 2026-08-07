@@ -45,40 +45,141 @@ var _ = Describe("Series", func() {
 
 	describeI32Type := func(suffix string, dt telem.DataType, a, b uint32) {
 		Describe(suffix, func() {
-			It("Should create, set, index, and perform element ops", func(ctx SpecContext) {
-				h := callU32(ctx, "create_empty_"+suffix, testutil.U32(3))
-				Expect(h).ToNot(BeZero())
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h), testutil.U32(0), testutil.U32(a))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h), testutil.U32(1), testutil.U32(b))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h), testutil.U32(2), testutil.U32(a+b))
-				Expect(callU32(ctx, "index_"+suffix, testutil.U32(h), testutil.U32(0))).To(Equal(a))
-				Expect(callU32(ctx, "index_"+suffix, testutil.U32(h), testutil.U32(1))).To(Equal(b))
-				Expect(callU32(ctx, "index_"+suffix, testutil.U32(h), testutil.U32(2))).To(Equal(a + b))
+			It(
+				"Should create, set, index, and perform element ops",
+				func(ctx SpecContext) {
+					h := callU32(ctx, "create_empty_"+suffix, testutil.U32(3))
+					Expect(h).ToNot(BeZero())
+					callU32(
+						ctx,
+						"set_element_"+suffix,
+						testutil.U32(h),
+						testutil.U32(0),
+						testutil.U32(a),
+					)
+					callU32(
+						ctx,
+						"set_element_"+suffix,
+						testutil.U32(h),
+						testutil.U32(1),
+						testutil.U32(b),
+					)
+					callU32(
+						ctx,
+						"set_element_"+suffix,
+						testutil.U32(h),
+						testutil.U32(2),
+						testutil.U32(a+b),
+					)
+					Expect(
+						callU32(ctx, "index_"+suffix, testutil.U32(h), testutil.U32(0)),
+					).To(Equal(a))
+					Expect(
+						callU32(ctx, "index_"+suffix, testutil.U32(h), testutil.U32(1)),
+					).To(Equal(b))
+					Expect(
+						callU32(ctx, "index_"+suffix, testutil.U32(h), testutil.U32(2)),
+					).To(Equal(a + b))
 
-				rh := callU32(ctx, "element_add_"+suffix, testutil.U32(h), testutil.U32(1))
-				Expect(rh).ToNot(BeZero())
-				ser := MustBeOk(ss.Get(rh))
-				Expect(ser.DataType).To(Equal(dt))
+					rh := callU32(
+						ctx,
+						"element_add_"+suffix,
+						testutil.U32(h),
+						testutil.U32(1),
+					)
+					Expect(rh).ToNot(BeZero())
+					ser := MustBeOk(ss.Get(rh))
+					Expect(ser.DataType).To(Equal(dt))
 
-				_ = callU32(ctx, "element_sub_"+suffix, testutil.U32(h), testutil.U32(1))
-				_ = callU32(ctx, "element_mul_"+suffix, testutil.U32(h), testutil.U32(2))
-				_ = callU32(ctx, "element_div_"+suffix, testutil.U32(h), testutil.U32(2))
-				_ = callU32(ctx, "element_mod_"+suffix, testutil.U32(h), testutil.U32(2))
+					_ = callU32(
+						ctx,
+						"element_sub_"+suffix,
+						testutil.U32(h),
+						testutil.U32(1),
+					)
+					_ = callU32(
+						ctx,
+						"element_mul_"+suffix,
+						testutil.U32(h),
+						testutil.U32(2),
+					)
+					_ = callU32(
+						ctx,
+						"element_div_"+suffix,
+						testutil.U32(h),
+						testutil.U32(2),
+					)
+					_ = callU32(
+						ctx,
+						"element_mod_"+suffix,
+						testutil.U32(h),
+						testutil.U32(2),
+					)
 
-				_ = callU32(ctx, "element_rsub_"+suffix, testutil.U32(10), testutil.U32(h))
-				_ = callU32(ctx, "element_rdiv_"+suffix, testutil.U32(10), testutil.U32(h))
-				_ = callU32(ctx, "element_rmod_"+suffix, testutil.U32(10), testutil.U32(h))
-				_ = callU32(ctx, "element_radd_"+suffix, testutil.U32(1), testutil.U32(h))
-				_ = callU32(ctx, "element_rmul_"+suffix, testutil.U32(2), testutil.U32(h))
-			})
+					_ = callU32(
+						ctx,
+						"element_rsub_"+suffix,
+						testutil.U32(10),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rdiv_"+suffix,
+						testutil.U32(10),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rmod_"+suffix,
+						testutil.U32(10),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_radd_"+suffix,
+						testutil.U32(1),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rmul_"+suffix,
+						testutil.U32(2),
+						testutil.U32(h),
+					)
+				},
+			)
 
 			It("Should perform series arithmetic", func(ctx SpecContext) {
 				h1 := callU32(ctx, "create_empty_"+suffix, testutil.U32(2))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h1), testutil.U32(0), testutil.U32(a))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h1), testutil.U32(1), testutil.U32(b))
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h1),
+					testutil.U32(0),
+					testutil.U32(a),
+				)
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h1),
+					testutil.U32(1),
+					testutil.U32(b),
+				)
 				h2 := callU32(ctx, "create_empty_"+suffix, testutil.U32(2))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h2), testutil.U32(0), testutil.U32(b))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h2), testutil.U32(1), testutil.U32(a))
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h2),
+					testutil.U32(0),
+					testutil.U32(b),
+				)
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h2),
+					testutil.U32(1),
+					testutil.U32(a),
+				)
 
 				for _, name := range []string{
 					"series_add_", "series_sub_", "series_mul_",
@@ -91,11 +192,35 @@ var _ = Describe("Series", func() {
 
 			It("Should perform series and scalar comparisons", func(ctx SpecContext) {
 				h1 := callU32(ctx, "create_empty_"+suffix, testutil.U32(2))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h1), testutil.U32(0), testutil.U32(a))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h1), testutil.U32(1), testutil.U32(b))
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h1),
+					testutil.U32(0),
+					testutil.U32(a),
+				)
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h1),
+					testutil.U32(1),
+					testutil.U32(b),
+				)
 				h2 := callU32(ctx, "create_empty_"+suffix, testutil.U32(2))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h2), testutil.U32(0), testutil.U32(b))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h2), testutil.U32(1), testutil.U32(a))
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h2),
+					testutil.U32(0),
+					testutil.U32(b),
+				)
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h2),
+					testutil.U32(1),
+					testutil.U32(a),
+				)
 
 				for _, name := range []string{
 					"compare_gt_", "compare_lt_", "compare_ge_",
@@ -120,47 +245,159 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should return 0 for invalid handle", func(ctx SpecContext) {
-				Expect(callU32(ctx, "index_"+suffix, testutil.U32(9999), testutil.U32(0))).To(Equal(uint32(0)))
-				Expect(callU32(ctx, "element_add_"+suffix, testutil.U32(9999), testutil.U32(1))).To(Equal(uint32(0)))
+				Expect(
+					callU32(ctx, "index_"+suffix, testutil.U32(9999), testutil.U32(0)),
+				).To(Equal(uint32(0)))
+				Expect(
+					callU32(
+						ctx,
+						"element_add_"+suffix,
+						testutil.U32(9999),
+						testutil.U32(1),
+					),
+				).To(Equal(uint32(0)))
 			})
 		})
 	}
 
 	describeI64Type := func(suffix string, dt telem.DataType, a, b uint64) {
 		Describe(suffix, func() {
-			It("Should create, set, index, and perform element ops", func(ctx SpecContext) {
-				h := callU32(ctx, "create_empty_"+suffix, testutil.U32(3))
-				Expect(h).ToNot(BeZero())
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h), testutil.U32(0), testutil.U64(a))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h), testutil.U32(1), testutil.U64(b))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h), testutil.U32(2), testutil.U64(a+b))
-				Expect(testutil.AsU64(call(ctx, "index_"+suffix, testutil.U32(h), testutil.U32(0))[0])).To(Equal(a))
-				Expect(testutil.AsU64(call(ctx, "index_"+suffix, testutil.U32(h), testutil.U32(1))[0])).To(Equal(b))
+			It(
+				"Should create, set, index, and perform element ops",
+				func(ctx SpecContext) {
+					h := callU32(ctx, "create_empty_"+suffix, testutil.U32(3))
+					Expect(h).ToNot(BeZero())
+					callU32(
+						ctx,
+						"set_element_"+suffix,
+						testutil.U32(h),
+						testutil.U32(0),
+						testutil.U64(a),
+					)
+					callU32(
+						ctx,
+						"set_element_"+suffix,
+						testutil.U32(h),
+						testutil.U32(1),
+						testutil.U64(b),
+					)
+					callU32(
+						ctx,
+						"set_element_"+suffix,
+						testutil.U32(h),
+						testutil.U32(2),
+						testutil.U64(a+b),
+					)
+					Expect(
+						testutil.AsU64(
+							call(ctx, "index_"+suffix, testutil.U32(h), testutil.U32(0))[0],
+						),
+					).To(Equal(a))
+					Expect(
+						testutil.AsU64(
+							call(ctx, "index_"+suffix, testutil.U32(h), testutil.U32(1))[0],
+						),
+					).To(Equal(b))
 
-				rh := callU32(ctx, "element_add_"+suffix, testutil.U32(h), testutil.U64(1))
-				Expect(rh).ToNot(BeZero())
-				ser := MustBeOk(ss.Get(rh))
-				Expect(ser.DataType).To(Equal(dt))
+					rh := callU32(
+						ctx,
+						"element_add_"+suffix,
+						testutil.U32(h),
+						testutil.U64(1),
+					)
+					Expect(rh).ToNot(BeZero())
+					ser := MustBeOk(ss.Get(rh))
+					Expect(ser.DataType).To(Equal(dt))
 
-				_ = callU32(ctx, "element_sub_"+suffix, testutil.U32(h), testutil.U64(1))
-				_ = callU32(ctx, "element_mul_"+suffix, testutil.U32(h), testutil.U64(2))
-				_ = callU32(ctx, "element_div_"+suffix, testutil.U32(h), testutil.U64(2))
-				_ = callU32(ctx, "element_mod_"+suffix, testutil.U32(h), testutil.U64(2))
+					_ = callU32(
+						ctx,
+						"element_sub_"+suffix,
+						testutil.U32(h),
+						testutil.U64(1),
+					)
+					_ = callU32(
+						ctx,
+						"element_mul_"+suffix,
+						testutil.U32(h),
+						testutil.U64(2),
+					)
+					_ = callU32(
+						ctx,
+						"element_div_"+suffix,
+						testutil.U32(h),
+						testutil.U64(2),
+					)
+					_ = callU32(
+						ctx,
+						"element_mod_"+suffix,
+						testutil.U32(h),
+						testutil.U64(2),
+					)
 
-				_ = callU32(ctx, "element_rsub_"+suffix, testutil.U64(10), testutil.U32(h))
-				_ = callU32(ctx, "element_rdiv_"+suffix, testutil.U64(10), testutil.U32(h))
-				_ = callU32(ctx, "element_rmod_"+suffix, testutil.U64(10), testutil.U32(h))
-				_ = callU32(ctx, "element_radd_"+suffix, testutil.U64(1), testutil.U32(h))
-				_ = callU32(ctx, "element_rmul_"+suffix, testutil.U64(2), testutil.U32(h))
-			})
+					_ = callU32(
+						ctx,
+						"element_rsub_"+suffix,
+						testutil.U64(10),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rdiv_"+suffix,
+						testutil.U64(10),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rmod_"+suffix,
+						testutil.U64(10),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_radd_"+suffix,
+						testutil.U64(1),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rmul_"+suffix,
+						testutil.U64(2),
+						testutil.U32(h),
+					)
+				},
+			)
 
 			It("Should perform series arithmetic", func(ctx SpecContext) {
 				h1 := callU32(ctx, "create_empty_"+suffix, testutil.U32(2))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h1), testutil.U32(0), testutil.U64(a))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h1), testutil.U32(1), testutil.U64(b))
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h1),
+					testutil.U32(0),
+					testutil.U64(a),
+				)
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h1),
+					testutil.U32(1),
+					testutil.U64(b),
+				)
 				h2 := callU32(ctx, "create_empty_"+suffix, testutil.U32(2))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h2), testutil.U32(0), testutil.U64(b))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h2), testutil.U32(1), testutil.U64(a))
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h2),
+					testutil.U32(0),
+					testutil.U64(b),
+				)
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h2),
+					testutil.U32(1),
+					testutil.U64(a),
+				)
 
 				for _, name := range []string{
 					"series_add_", "series_sub_", "series_mul_",
@@ -173,11 +410,35 @@ var _ = Describe("Series", func() {
 
 			It("Should perform series and scalar comparisons", func(ctx SpecContext) {
 				h1 := callU32(ctx, "create_empty_"+suffix, testutil.U32(2))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h1), testutil.U32(0), testutil.U64(a))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h1), testutil.U32(1), testutil.U64(b))
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h1),
+					testutil.U32(0),
+					testutil.U64(a),
+				)
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h1),
+					testutil.U32(1),
+					testutil.U64(b),
+				)
 				h2 := callU32(ctx, "create_empty_"+suffix, testutil.U32(2))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h2), testutil.U32(0), testutil.U64(b))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h2), testutil.U32(1), testutil.U64(a))
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h2),
+					testutil.U32(0),
+					testutil.U64(b),
+				)
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h2),
+					testutil.U32(1),
+					testutil.U64(a),
+				)
 
 				for _, name := range []string{
 					"compare_gt_", "compare_lt_", "compare_ge_",
@@ -200,45 +461,146 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should return 0 for invalid handle", func(ctx SpecContext) {
-				Expect(testutil.AsU64(call(ctx, "index_"+suffix, testutil.U32(9999), testutil.U32(0))[0])).To(Equal(uint64(0)))
+				Expect(
+					testutil.AsU64(
+						call(ctx, "index_"+suffix, testutil.U32(9999), testutil.U32(0))[0],
+					),
+				).To(Equal(uint64(0)))
 			})
 		})
 	}
 
 	describeF32 := func() {
 		Describe("f32", func() {
-			It("Should create, set, index, and perform element ops", func(ctx SpecContext) {
-				h := callU32(ctx, "create_empty_f32", testutil.U32(3))
-				Expect(h).ToNot(BeZero())
-				callU32(ctx, "set_element_f32", testutil.U32(h), testutil.U32(0), testutil.F32(1.5))
-				callU32(ctx, "set_element_f32", testutil.U32(h), testutil.U32(1), testutil.F32(2.5))
-				Expect(testutil.AsF32(call(ctx, "index_f32", testutil.U32(h), testutil.U32(0))[0])).To(Equal(float32(1.5)))
-				Expect(testutil.AsF32(call(ctx, "index_f32", testutil.U32(h), testutil.U32(1))[0])).To(Equal(float32(2.5)))
+			It(
+				"Should create, set, index, and perform element ops",
+				func(ctx SpecContext) {
+					h := callU32(ctx, "create_empty_f32", testutil.U32(3))
+					Expect(h).ToNot(BeZero())
+					callU32(
+						ctx,
+						"set_element_f32",
+						testutil.U32(h),
+						testutil.U32(0),
+						testutil.F32(1.5),
+					)
+					callU32(
+						ctx,
+						"set_element_f32",
+						testutil.U32(h),
+						testutil.U32(1),
+						testutil.F32(2.5),
+					)
+					Expect(
+						testutil.AsF32(
+							call(ctx, "index_f32", testutil.U32(h), testutil.U32(0))[0],
+						),
+					).To(Equal(float32(1.5)))
+					Expect(
+						testutil.AsF32(
+							call(ctx, "index_f32", testutil.U32(h), testutil.U32(1))[0],
+						),
+					).To(Equal(float32(2.5)))
 
-				rh := callU32(ctx, "element_add_f32", testutil.U32(h), testutil.F32(1.0))
-				Expect(rh).ToNot(BeZero())
-				ser := MustBeOk(ss.Get(rh))
-				Expect(ser.DataType).To(Equal(telem.Float32T))
+					rh := callU32(
+						ctx,
+						"element_add_f32",
+						testutil.U32(h),
+						testutil.F32(1.0),
+					)
+					Expect(rh).ToNot(BeZero())
+					ser := MustBeOk(ss.Get(rh))
+					Expect(ser.DataType).To(Equal(telem.Float32T))
 
-				_ = callU32(ctx, "element_sub_f32", testutil.U32(h), testutil.F32(1.0))
-				_ = callU32(ctx, "element_mul_f32", testutil.U32(h), testutil.F32(2.0))
-				_ = callU32(ctx, "element_div_f32", testutil.U32(h), testutil.F32(2.0))
-				_ = callU32(ctx, "element_mod_f32", testutil.U32(h), testutil.F32(2.0))
+					_ = callU32(
+						ctx,
+						"element_sub_f32",
+						testutil.U32(h),
+						testutil.F32(1.0),
+					)
+					_ = callU32(
+						ctx,
+						"element_mul_f32",
+						testutil.U32(h),
+						testutil.F32(2.0),
+					)
+					_ = callU32(
+						ctx,
+						"element_div_f32",
+						testutil.U32(h),
+						testutil.F32(2.0),
+					)
+					_ = callU32(
+						ctx,
+						"element_mod_f32",
+						testutil.U32(h),
+						testutil.F32(2.0),
+					)
 
-				_ = callU32(ctx, "element_rsub_f32", testutil.F32(10.0), testutil.U32(h))
-				_ = callU32(ctx, "element_rdiv_f32", testutil.F32(10.0), testutil.U32(h))
-				_ = callU32(ctx, "element_rmod_f32", testutil.F32(10.0), testutil.U32(h))
-				_ = callU32(ctx, "element_radd_f32", testutil.F32(1.0), testutil.U32(h))
-				_ = callU32(ctx, "element_rmul_f32", testutil.F32(2.0), testutil.U32(h))
-			})
+					_ = callU32(
+						ctx,
+						"element_rsub_f32",
+						testutil.F32(10.0),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rdiv_f32",
+						testutil.F32(10.0),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rmod_f32",
+						testutil.F32(10.0),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_radd_f32",
+						testutil.F32(1.0),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rmul_f32",
+						testutil.F32(2.0),
+						testutil.U32(h),
+					)
+				},
+			)
 
 			It("Should perform series arithmetic", func(ctx SpecContext) {
 				h1 := callU32(ctx, "create_empty_f32", testutil.U32(2))
-				callU32(ctx, "set_element_f32", testutil.U32(h1), testutil.U32(0), testutil.F32(3.0))
-				callU32(ctx, "set_element_f32", testutil.U32(h1), testutil.U32(1), testutil.F32(4.0))
+				callU32(
+					ctx,
+					"set_element_f32",
+					testutil.U32(h1),
+					testutil.U32(0),
+					testutil.F32(3.0),
+				)
+				callU32(
+					ctx,
+					"set_element_f32",
+					testutil.U32(h1),
+					testutil.U32(1),
+					testutil.F32(4.0),
+				)
 				h2 := callU32(ctx, "create_empty_f32", testutil.U32(2))
-				callU32(ctx, "set_element_f32", testutil.U32(h2), testutil.U32(0), testutil.F32(1.0))
-				callU32(ctx, "set_element_f32", testutil.U32(h2), testutil.U32(1), testutil.F32(2.0))
+				callU32(
+					ctx,
+					"set_element_f32",
+					testutil.U32(h2),
+					testutil.U32(0),
+					testutil.F32(1.0),
+				)
+				callU32(
+					ctx,
+					"set_element_f32",
+					testutil.U32(h2),
+					testutil.U32(1),
+					testutil.F32(2.0),
+				)
 
 				for _, name := range []string{
 					"series_add_", "series_sub_", "series_mul_",
@@ -251,11 +613,35 @@ var _ = Describe("Series", func() {
 
 			It("Should perform series and scalar comparisons", func(ctx SpecContext) {
 				h1 := callU32(ctx, "create_empty_f32", testutil.U32(2))
-				callU32(ctx, "set_element_f32", testutil.U32(h1), testutil.U32(0), testutil.F32(1.0))
-				callU32(ctx, "set_element_f32", testutil.U32(h1), testutil.U32(1), testutil.F32(5.0))
+				callU32(
+					ctx,
+					"set_element_f32",
+					testutil.U32(h1),
+					testutil.U32(0),
+					testutil.F32(1.0),
+				)
+				callU32(
+					ctx,
+					"set_element_f32",
+					testutil.U32(h1),
+					testutil.U32(1),
+					testutil.F32(5.0),
+				)
 				h2 := callU32(ctx, "create_empty_f32", testutil.U32(2))
-				callU32(ctx, "set_element_f32", testutil.U32(h2), testutil.U32(0), testutil.F32(5.0))
-				callU32(ctx, "set_element_f32", testutil.U32(h2), testutil.U32(1), testutil.F32(1.0))
+				callU32(
+					ctx,
+					"set_element_f32",
+					testutil.U32(h2),
+					testutil.U32(0),
+					testutil.F32(5.0),
+				)
+				callU32(
+					ctx,
+					"set_element_f32",
+					testutil.U32(h2),
+					testutil.U32(1),
+					testutil.F32(1.0),
+				)
 
 				for _, name := range []string{
 					"compare_gt_", "compare_lt_", "compare_ge_",
@@ -278,45 +664,146 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should return 0 for invalid handle", func(ctx SpecContext) {
-				Expect(testutil.AsF32(call(ctx, "index_f32", testutil.U32(9999), testutil.U32(0))[0])).To(Equal(float32(0)))
+				Expect(
+					testutil.AsF32(
+						call(ctx, "index_f32", testutil.U32(9999), testutil.U32(0))[0],
+					),
+				).To(Equal(float32(0)))
 			})
 		})
 	}
 
 	describeF64 := func() {
 		Describe("f64", func() {
-			It("Should create, set, index, and perform element ops", func(ctx SpecContext) {
-				h := callU32(ctx, "create_empty_f64", testutil.U32(3))
-				Expect(h).ToNot(BeZero())
-				callU32(ctx, "set_element_f64", testutil.U32(h), testutil.U32(0), testutil.F64(1.5))
-				callU32(ctx, "set_element_f64", testutil.U32(h), testutil.U32(1), testutil.F64(2.5))
-				Expect(testutil.AsF64(call(ctx, "index_f64", testutil.U32(h), testutil.U32(0))[0])).To(Equal(1.5))
-				Expect(testutil.AsF64(call(ctx, "index_f64", testutil.U32(h), testutil.U32(1))[0])).To(Equal(2.5))
+			It(
+				"Should create, set, index, and perform element ops",
+				func(ctx SpecContext) {
+					h := callU32(ctx, "create_empty_f64", testutil.U32(3))
+					Expect(h).ToNot(BeZero())
+					callU32(
+						ctx,
+						"set_element_f64",
+						testutil.U32(h),
+						testutil.U32(0),
+						testutil.F64(1.5),
+					)
+					callU32(
+						ctx,
+						"set_element_f64",
+						testutil.U32(h),
+						testutil.U32(1),
+						testutil.F64(2.5),
+					)
+					Expect(
+						testutil.AsF64(
+							call(ctx, "index_f64", testutil.U32(h), testutil.U32(0))[0],
+						),
+					).To(Equal(1.5))
+					Expect(
+						testutil.AsF64(
+							call(ctx, "index_f64", testutil.U32(h), testutil.U32(1))[0],
+						),
+					).To(Equal(2.5))
 
-				rh := callU32(ctx, "element_add_f64", testutil.U32(h), testutil.F64(1.0))
-				Expect(rh).ToNot(BeZero())
-				ser := MustBeOk(ss.Get(rh))
-				Expect(ser.DataType).To(Equal(telem.Float64T))
+					rh := callU32(
+						ctx,
+						"element_add_f64",
+						testutil.U32(h),
+						testutil.F64(1.0),
+					)
+					Expect(rh).ToNot(BeZero())
+					ser := MustBeOk(ss.Get(rh))
+					Expect(ser.DataType).To(Equal(telem.Float64T))
 
-				_ = callU32(ctx, "element_sub_f64", testutil.U32(h), testutil.F64(1.0))
-				_ = callU32(ctx, "element_mul_f64", testutil.U32(h), testutil.F64(2.0))
-				_ = callU32(ctx, "element_div_f64", testutil.U32(h), testutil.F64(2.0))
-				_ = callU32(ctx, "element_mod_f64", testutil.U32(h), testutil.F64(2.0))
+					_ = callU32(
+						ctx,
+						"element_sub_f64",
+						testutil.U32(h),
+						testutil.F64(1.0),
+					)
+					_ = callU32(
+						ctx,
+						"element_mul_f64",
+						testutil.U32(h),
+						testutil.F64(2.0),
+					)
+					_ = callU32(
+						ctx,
+						"element_div_f64",
+						testutil.U32(h),
+						testutil.F64(2.0),
+					)
+					_ = callU32(
+						ctx,
+						"element_mod_f64",
+						testutil.U32(h),
+						testutil.F64(2.0),
+					)
 
-				_ = callU32(ctx, "element_rsub_f64", testutil.F64(10.0), testutil.U32(h))
-				_ = callU32(ctx, "element_rdiv_f64", testutil.F64(10.0), testutil.U32(h))
-				_ = callU32(ctx, "element_rmod_f64", testutil.F64(10.0), testutil.U32(h))
-				_ = callU32(ctx, "element_radd_f64", testutil.F64(1.0), testutil.U32(h))
-				_ = callU32(ctx, "element_rmul_f64", testutil.F64(2.0), testutil.U32(h))
-			})
+					_ = callU32(
+						ctx,
+						"element_rsub_f64",
+						testutil.F64(10.0),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rdiv_f64",
+						testutil.F64(10.0),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rmod_f64",
+						testutil.F64(10.0),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_radd_f64",
+						testutil.F64(1.0),
+						testutil.U32(h),
+					)
+					_ = callU32(
+						ctx,
+						"element_rmul_f64",
+						testutil.F64(2.0),
+						testutil.U32(h),
+					)
+				},
+			)
 
 			It("Should perform series arithmetic", func(ctx SpecContext) {
 				h1 := callU32(ctx, "create_empty_f64", testutil.U32(2))
-				callU32(ctx, "set_element_f64", testutil.U32(h1), testutil.U32(0), testutil.F64(3.0))
-				callU32(ctx, "set_element_f64", testutil.U32(h1), testutil.U32(1), testutil.F64(4.0))
+				callU32(
+					ctx,
+					"set_element_f64",
+					testutil.U32(h1),
+					testutil.U32(0),
+					testutil.F64(3.0),
+				)
+				callU32(
+					ctx,
+					"set_element_f64",
+					testutil.U32(h1),
+					testutil.U32(1),
+					testutil.F64(4.0),
+				)
 				h2 := callU32(ctx, "create_empty_f64", testutil.U32(2))
-				callU32(ctx, "set_element_f64", testutil.U32(h2), testutil.U32(0), testutil.F64(1.0))
-				callU32(ctx, "set_element_f64", testutil.U32(h2), testutil.U32(1), testutil.F64(2.0))
+				callU32(
+					ctx,
+					"set_element_f64",
+					testutil.U32(h2),
+					testutil.U32(0),
+					testutil.F64(1.0),
+				)
+				callU32(
+					ctx,
+					"set_element_f64",
+					testutil.U32(h2),
+					testutil.U32(1),
+					testutil.F64(2.0),
+				)
 
 				for _, name := range []string{
 					"series_add_", "series_sub_", "series_mul_",
@@ -329,11 +816,35 @@ var _ = Describe("Series", func() {
 
 			It("Should perform series and scalar comparisons", func(ctx SpecContext) {
 				h1 := callU32(ctx, "create_empty_f64", testutil.U32(2))
-				callU32(ctx, "set_element_f64", testutil.U32(h1), testutil.U32(0), testutil.F64(1.0))
-				callU32(ctx, "set_element_f64", testutil.U32(h1), testutil.U32(1), testutil.F64(5.0))
+				callU32(
+					ctx,
+					"set_element_f64",
+					testutil.U32(h1),
+					testutil.U32(0),
+					testutil.F64(1.0),
+				)
+				callU32(
+					ctx,
+					"set_element_f64",
+					testutil.U32(h1),
+					testutil.U32(1),
+					testutil.F64(5.0),
+				)
 				h2 := callU32(ctx, "create_empty_f64", testutil.U32(2))
-				callU32(ctx, "set_element_f64", testutil.U32(h2), testutil.U32(0), testutil.F64(5.0))
-				callU32(ctx, "set_element_f64", testutil.U32(h2), testutil.U32(1), testutil.F64(1.0))
+				callU32(
+					ctx,
+					"set_element_f64",
+					testutil.U32(h2),
+					testutil.U32(0),
+					testutil.F64(5.0),
+				)
+				callU32(
+					ctx,
+					"set_element_f64",
+					testutil.U32(h2),
+					testutil.U32(1),
+					testutil.F64(1.0),
+				)
 
 				for _, name := range []string{
 					"compare_gt_", "compare_lt_", "compare_ge_",
@@ -356,7 +867,11 @@ var _ = Describe("Series", func() {
 			})
 
 			It("Should return 0 for invalid handle", func(ctx SpecContext) {
-				Expect(testutil.AsF64(call(ctx, "index_f64", testutil.U32(9999), testutil.U32(0))[0])).To(Equal(float64(0)))
+				Expect(
+					testutil.AsF64(
+						call(ctx, "index_f64", testutil.U32(9999), testutil.U32(0))[0],
+					),
+				).To(Equal(float64(0)))
 			})
 		})
 	}
@@ -376,7 +891,13 @@ var _ = Describe("Series", func() {
 		It("Should negate signed i32 types", func(ctx SpecContext) {
 			for _, suffix := range []string{"i8", "i16", "i32"} {
 				h := callU32(ctx, "create_empty_"+suffix, testutil.U32(1))
-				callU32(ctx, "set_element_"+suffix, testutil.U32(h), testutil.U32(0), testutil.U32(5))
+				callU32(
+					ctx,
+					"set_element_"+suffix,
+					testutil.U32(h),
+					testutil.U32(0),
+					testutil.U32(5),
+				)
 				rh := callU32(ctx, "negate_"+suffix, testutil.U32(h))
 				Expect(rh).ToNot(BeZero())
 			}
@@ -384,14 +905,26 @@ var _ = Describe("Series", func() {
 
 		It("Should negate signed i64 types", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_i64", testutil.U32(1))
-			callU32(ctx, "set_element_i64", testutil.U32(h), testutil.U32(0), testutil.U64(5))
+			callU32(
+				ctx,
+				"set_element_i64",
+				testutil.U32(h),
+				testutil.U32(0),
+				testutil.U64(5),
+			)
 			rh := callU32(ctx, "negate_i64", testutil.U32(h))
 			Expect(rh).ToNot(BeZero())
 		})
 
 		It("Should negate f32", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_f32", testutil.U32(1))
-			callU32(ctx, "set_element_f32", testutil.U32(h), testutil.U32(0), testutil.F32(3.14))
+			callU32(
+				ctx,
+				"set_element_f32",
+				testutil.U32(h),
+				testutil.U32(0),
+				testutil.F32(3.14),
+			)
 			rh := callU32(ctx, "negate_f32", testutil.U32(h))
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
@@ -400,7 +933,13 @@ var _ = Describe("Series", func() {
 
 		It("Should negate f64", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_f64", testutil.U32(1))
-			callU32(ctx, "set_element_f64", testutil.U32(h), testutil.U32(0), testutil.F64(3.14))
+			callU32(
+				ctx,
+				"set_element_f64",
+				testutil.U32(h),
+				testutil.U32(0),
+				testutil.F64(3.14),
+			)
 			rh := callU32(ctx, "negate_f64", testutil.U32(h))
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
@@ -411,8 +950,20 @@ var _ = Describe("Series", func() {
 	Describe("not_u8", func() {
 		It("Should bitwise-NOT a u8 series", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_u8", testutil.U32(2))
-			callU32(ctx, "set_element_u8", testutil.U32(h), testutil.U32(0), testutil.U32(0))
-			callU32(ctx, "set_element_u8", testutil.U32(h), testutil.U32(1), testutil.U32(255))
+			callU32(
+				ctx,
+				"set_element_u8",
+				testutil.U32(h),
+				testutil.U32(0),
+				testutil.U32(0),
+			)
+			callU32(
+				ctx,
+				"set_element_u8",
+				testutil.U32(h),
+				testutil.U32(1),
+				testutil.U32(255),
+			)
 			rh := callU32(ctx, "not_u8", testutil.U32(h))
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
@@ -437,12 +988,42 @@ var _ = Describe("Series", func() {
 	Describe("slice", func() {
 		It("Should extract a subrange", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_i32", testutil.U32(4))
-			callU32(ctx, "set_element_i32", testutil.U32(h), testutil.U32(0), testutil.U32(10))
-			callU32(ctx, "set_element_i32", testutil.U32(h), testutil.U32(1), testutil.U32(20))
-			callU32(ctx, "set_element_i32", testutil.U32(h), testutil.U32(2), testutil.U32(30))
-			callU32(ctx, "set_element_i32", testutil.U32(h), testutil.U32(3), testutil.U32(40))
+			callU32(
+				ctx,
+				"set_element_i32",
+				testutil.U32(h),
+				testutil.U32(0),
+				testutil.U32(10),
+			)
+			callU32(
+				ctx,
+				"set_element_i32",
+				testutil.U32(h),
+				testutil.U32(1),
+				testutil.U32(20),
+			)
+			callU32(
+				ctx,
+				"set_element_i32",
+				testutil.U32(h),
+				testutil.U32(2),
+				testutil.U32(30),
+			)
+			callU32(
+				ctx,
+				"set_element_i32",
+				testutil.U32(h),
+				testutil.U32(3),
+				testutil.U32(40),
+			)
 
-			rh := callU32(ctx, "slice", testutil.U32(h), testutil.U32(1), testutil.U32(3))
+			rh := callU32(
+				ctx,
+				"slice",
+				testutil.U32(h),
+				testutil.U32(1),
+				testutil.U32(3),
+			)
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
 			Expect(ser.Len()).To(Equal(int64(2)))
@@ -451,12 +1032,28 @@ var _ = Describe("Series", func() {
 		})
 
 		It("Should return 0 for invalid handle", func(ctx SpecContext) {
-			Expect(callU32(ctx, "slice", testutil.U32(9999), testutil.U32(0), testutil.U32(1))).To(Equal(uint32(0)))
+			Expect(
+				callU32(
+					ctx,
+					"slice",
+					testutil.U32(9999),
+					testutil.U32(0),
+					testutil.U32(1),
+				),
+			).To(Equal(uint32(0)))
 		})
 
 		It("Should return 0 for empty range", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_i32", testutil.U32(4))
-			Expect(callU32(ctx, "slice", testutil.U32(h), testutil.U32(2), testutil.U32(2))).To(Equal(uint32(0)))
+			Expect(
+				callU32(
+					ctx,
+					"slice",
+					testutil.U32(h),
+					testutil.U32(2),
+					testutil.U32(2),
+				),
+			).To(Equal(uint32(0)))
 		})
 	})
 })

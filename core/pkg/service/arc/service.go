@@ -66,12 +66,12 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
-	// ImEx is the import/export registry the arc service registers itself with as the
-	// exporter for arc resources during OpenService.
+	// ImEx is the import/export registry the Arc service registers itself with as the
+	// exporter for Arc resources during OpenService.
 	//
 	// [REQUIRED]
 	ImEx *imex.Service
-	// TextSweepQuiescence is how long an arc's text must go unedited before its
+	// TextSweepQuiescence is how long an Arc's text must go unedited before its
 	// tombstoned characters become eligible to be reclaimed.
 	//
 	// [OPTIONAL] - Defaults to 5 seconds
@@ -104,8 +104,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
-	c.TextSweepQuiescence = override.Numeric(c.TextSweepQuiescence, other.TextSweepQuiescence)
-	c.TextSweepThreshold = override.Numeric(c.TextSweepThreshold, other.TextSweepThreshold)
+	c.TextSweepQuiescence = override.Numeric(
+		c.TextSweepQuiescence,
+		other.TextSweepQuiescence,
+	)
+	c.TextSweepThreshold = override.Numeric(
+		c.TextSweepThreshold,
+		other.TextSweepThreshold,
+	)
 	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
@@ -203,7 +209,10 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 // OpenService instantiates a new Arc service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
-func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
+func OpenService(
+	ctx context.Context,
+	configs ...ServiceConfig,
+) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{
 		TextSweepQuiescence: 5 * telem.Second,
 		TextSweepThreshold:  128,
@@ -213,9 +222,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		return nil, err
 	}
 	s = &Service{
-		cfg:     cfg,
-		state:   actions.NewState[Key, Action](),
-		sweeper: newTextSweeper(cfg.Now, cfg.TextSweepQuiescence, cfg.TextSweepThreshold),
+		cfg:   cfg,
+		state: actions.NewState[Key, Action](),
+		sweeper: newTextSweeper(
+			cfg.Now,
+			cfg.TextSweepQuiescence,
+			cfg.TextSweepThreshold,
+		),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
@@ -228,7 +241,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	cfg.ImEx.RegisterExporter(s)
+	cfg.ImEx.RegisterImportExporter(s)
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
@@ -240,7 +253,14 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		deleteCfg.DisableSet = true
-		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			deleteCfg,
+		); !ok(
+			err,
+			sig,
+		) {
 			return nil, err
 		}
 	}

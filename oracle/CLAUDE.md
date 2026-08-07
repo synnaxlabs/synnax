@@ -60,6 +60,16 @@ or generator logic and schemas disagree.
   Size/Rate, or sibling-referenced transient types like task's StatusDetails) are
   declared in the current version file with `@go pinned`: pinned members always
   declare fully, track the live shape, and are exempt from the minimality gate.
+- `@go imex` (bare marker) on a versioned resource's root struct emits `imex.gen.go`
+  files across the versions tree: a `Version imex.Version` constant in every
+  `versions/vK` package the Core has exported (from the earliest version file carrying
+  the marker up to the current version), plus `Latest` and an `autoDecodeEnvelope`
+  ladder in the versions root that lifts server-era envelopes through the per-bump
+  `Migrate<Type>` steps. Version files record the marker, so the chain dates the export
+  history. Earlier version packages predate Core export and get no constant. The
+  envelope version and migration chain are never hand-maintained; hand `versions/imex.go`
+  files route `> legacy.LastVersion` envelopes to the ladder and keep only frozen
+  Console-era decoding.
 
 ## Tag Minimization
 

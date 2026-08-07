@@ -247,7 +247,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         this.clampSelection(evictedCount);
       }
       this.checkEmpty();
-      this.requestRender();
+      if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender();

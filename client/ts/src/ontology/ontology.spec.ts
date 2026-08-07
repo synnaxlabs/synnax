@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, test } from "vitest";
+import { id } from "@synnaxlabs/x";
+import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { group } from "@/group";
 import { ontology } from "@/ontology";
-import { createTestClient } from "@/testutil";
+import { query } from "@/query";
+import { createTestClient, expectLive } from "@/testutil";
 
 const client = createTestClient();
+const remote = createTestClient();
 
 const randomName = (): string => `group-${Math.random()}`;
 
@@ -47,6 +50,11 @@ describe("Ontology", () => {
         { type: "group", key: "test-key-1" },
         { type: "channel", key: "test-key-2" },
       ]);
+    });
+
+    it("should fail safeParse on an invalid resource type without throwing", () => {
+      const result = ontology.idZ.safeParse("nonsense:key");
+      expect(result.success).toBe(false);
     });
 
     it("should extract ID from a single Resource object", () => {
@@ -130,6 +138,12 @@ describe("Ontology", () => {
       const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
       expect(g2.name).toEqual(name);
     });
+    test("retrieve by string ID", async () => {
+      const name = randomName();
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const g2 = await client.ontology.retrieve(`group:${g.key}`);
+      expect(g2.name).toEqual(name);
+    });
     test("retrieve children", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
@@ -138,7 +152,9 @@ describe("Ontology", () => {
         parent: group.ontologyID(g.key),
         name: name2,
       });
-      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(g.key),
+      });
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
     });
@@ -150,7 +166,9 @@ describe("Ontology", () => {
         parent: group.ontologyID(g.key),
         name: name2,
       });
-      const parents = await client.ontology.retrieveParents(group.ontologyID(g2.key));
+      const parents = await client.ontology.parents.retrieve({
+        ids: group.ontologyID(g2.key),
+      });
       expect(parents.length).toEqual(1);
       expect(parents[0].name).toEqual(name);
     });
@@ -179,7 +197,9 @@ describe("Ontology", () => {
         group.ontologyID(g.key),
         group.ontologyID(g2.key),
       );
-      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(g.key),
+      });
       expect(children.length).toEqual(1);
       expect(children[0].name).toEqual(name2);
     });
@@ -199,7 +219,9 @@ describe("Ontology", () => {
         group.ontologyID(g.key),
         group.ontologyID(g2.key),
       );
-      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(g.key),
+      });
       expect(children.length).toEqual(0);
     });
     test("move children", async () => {
@@ -210,8 +232,9 @@ describe("Ontology", () => {
         parent: ontology.ROOT_ID,
         name: name2,
       });
-      const oldRootLength = (await client.ontology.retrieveChildren(ontology.ROOT_ID))
-        .length;
+      const oldRootLength = (
+        await client.ontology.children.retrieve({ ids: ontology.ROOT_ID })
+      ).length;
 
       await client.ontology.moveChildren(
         ontology.ROOT_ID,
@@ -219,11 +242,105 @@ describe("Ontology", () => {
         group.ontologyID(g2.key),
       );
 
-      const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
+      const children = await client.ontology.children.retrieve({
+        ids: group.ontologyID(g.key),
+      });
       expect(children.length).toEqual(1);
-      const newRootLength = (await client.ontology.retrieveChildren(ontology.ROOT_ID))
-        .length;
+      const newRootLength = (
+        await client.ontology.children.retrieve({ ids: ontology.ROOT_ID })
+      ).length;
       expect(newRootLength).toEqual(oldRootLength - 1);
+    });
+  });
+
+  describe("cached reads", () => {
+    // Changes made while the stream is still opening are lost (epoch
+    // reconciliation repairs them in production); open it up front so remote
+    // writes in these specs are always observed.
+    beforeAll(async () => await client.connect());
+
+    describe("children", () => {
+      it("reflects remote child changes on an unsubscribed repeat retrieve", async () => {
+        const parent = await client.groups.create({
+          parent: ontology.ROOT_ID,
+          name: randomName(),
+        });
+        const parentID = group.ontologyID(parent.key);
+        const child = await client.groups.create({
+          parent: ontology.ROOT_ID,
+          name: randomName(),
+        });
+        const childID = group.ontologyID(child.key);
+        expect(await client.ontology.children.retrieve({ ids: parentID })).toHaveLength(
+          0,
+        );
+        await remote.ontology.addChildren(parentID, childID);
+        // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
+        // and converge on the remote change once it streams in.
+        await expect
+          .poll(async () =>
+            (await client.ontology.children.retrieve({ ids: parentID })).some(
+              (r) => r.id.key === child.key,
+            ),
+          )
+          .toBe(true);
+        await remote.ontology.removeChildren(parentID, childID);
+        await expect
+          .poll(async () =>
+            (await client.ontology.children.retrieve({ ids: parentID })).some(
+              (r) => r.id.key === child.key,
+            ),
+          )
+          .toBe(false);
+      });
+    });
+
+    describe("getCached", () => {
+      it("returns undefined before a children retrieve and the answer after", async () => {
+        const parent = await client.groups.create({
+          parent: ontology.ROOT_ID,
+          name: randomName(),
+        });
+        const parentID = group.ontologyID(parent.key);
+        const child = await client.groups.create({
+          parent: parentID,
+          name: randomName(),
+        });
+        const params = { ids: parentID };
+        expect(client.ontology.children.getCached(params)).toBeUndefined();
+        await client.ontology.children.retrieve(params);
+        const cached = expectLive(client.ontology.children.getCached(params));
+        expect(cached.some((r) => r.id.key === child.key)).toBe(true);
+      });
+    });
+
+    describe("onChange", () => {
+      it("delivers remotely added children through relationship composition", async () => {
+        const parent = await client.groups.create({
+          parent: ontology.ROOT_ID,
+          name: randomName(),
+        });
+        const parentID = group.ontologyID(parent.key);
+        const params = { ids: parentID };
+        const handler = vi.fn();
+        const off = client.ontology.children.onChange(params, handler);
+        try {
+          expect(await client.ontology.children.retrieve(params)).toHaveLength(0);
+          const child = await remote.groups.create({
+            parent: parentID,
+            name: randomName(),
+          });
+          await expect
+            .poll(() => {
+              const cached = client.ontology.children.getCached(params);
+              return query.isLive(cached) && cached.some((r) => r.id.key === child.key);
+            })
+            .toBe(true);
+          expect(handler).toHaveBeenCalled();
+        } finally {
+          off();
+        }
+      });
     });
   });
 
@@ -517,5 +634,37 @@ describe("Ontology", () => {
         ontology.idToString(["group:one", "channel:two", "dog"]);
       }).toThrow();
     });
+  });
+});
+
+describe("store", () => {
+  it("caches resource sets and corpses deletes from live signals", async () => {
+    await client.connect();
+    const label = await client.labels.create({
+      name: `cache-test-${id.create()}`,
+      color: "#E774D0",
+    });
+    const resourceKey = ontology.idToString({ type: "label", key: label.key });
+    await expect
+      .poll(() => client.ontology.cache.resources.get(resourceKey))
+      .toBeDefined();
+    expect(client.ontology.cache.resources.status(resourceKey)).toBe("present");
+    await client.labels.delete(label.key);
+    await expect
+      .poll(() => client.ontology.cache.resources.status(resourceKey))
+      .toBe("tombstoned");
+    const tombstone = client.ontology.cache.resources.getTombstone(resourceKey);
+    expect(tombstone?.corpse.name).toEqual(label.name);
+  });
+
+  it("stays a detached, local-only cache when caching is disabled", async () => {
+    const disabled = createTestClient({ cache: false });
+    expect(() => disabled.ontology.cache.resources).not.toThrow();
+    expect(disabled.connection.status.details.epoch).toBe(0);
+    // Detached: connecting succeeds without a change stream, so the epoch
+    // never advances past 0.
+    await disabled.connect();
+    expect(disabled.connection.status.details.epoch).toBe(0);
+    disabled.close();
   });
 });

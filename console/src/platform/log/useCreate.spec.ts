@@ -63,7 +63,7 @@ describe("log useCreate", () => {
         result.current({ key, name: "ProvidedProject" });
       });
       await waitFor(async () =>
-        expect((await client.logs.retrieve({ key })).name).toEqual("ProvidedProject"),
+        expect((await client.logs.retrieve(key)).name).toEqual("ProvidedProject"),
       );
       expect(Session.Project.selectSelected(harness.store.getState())).toEqual(
         projectB.key,
@@ -78,7 +78,7 @@ describe("log useCreate", () => {
         result.current({ key, name: "ActiveProject" });
       });
       await waitFor(async () =>
-        expect((await client.logs.retrieve({ key })).name).toEqual("ActiveProject"),
+        expect((await client.logs.retrieve(key)).name).toEqual("ActiveProject"),
       );
       expect(Session.Project.selectSelected(harness.store.getState())).toEqual(
         projectA.key,
@@ -109,7 +109,7 @@ describe("log useCreate", () => {
         result.current({ key });
       });
       await waitFor(async () =>
-        expect((await client.logs.retrieve({ key })).name).toEqual("Log"),
+        expect((await client.logs.retrieve(key)).name).toEqual("Log"),
       );
     });
 
@@ -121,7 +121,7 @@ describe("log useCreate", () => {
         result.current({ key: callerKey, name: "WithKey" });
       });
       const retrieved = await waitFor(
-        async () => await client.logs.retrieve({ key: callerKey }),
+        async () => await client.logs.retrieve(callerKey),
       );
       expect(retrieved.key).toEqual(callerKey);
       expect(retrieved.name).toEqual("WithKey");
@@ -137,7 +137,7 @@ describe("log useCreate", () => {
       await act(async () => {
         result.current({ key, name: "SameProject" });
       });
-      await waitFor(async () => await client.logs.retrieve({ key }));
+      await waitFor(async () => await client.logs.retrieve(key));
       expect(Session.Project.selectSelected(harness.store.getState())).toBe(
         beforeActive,
       );

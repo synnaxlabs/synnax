@@ -222,7 +222,10 @@ func (r *offsetResolver) invalidate() {
 	}
 }
 
-func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*offsetTable, error) {
+func (r *offsetResolver) tableFor(
+	ctx context.Context,
+	iter *domain.Iterator,
+) (*offsetTable, error) {
 	tr := iter.TimeRange()
 	// A pointer's Start is immutable; its End advances on commit. Match End
 	// exactly: a stale-behind cache (cached.end < tr.End) misses tail samples,
@@ -239,7 +242,13 @@ func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*
 	// a table truncated to the leader's older view, and byteOffset / sampleCount
 	// queries against the missing tail samples would silently fall through to the
 	// iter.Size() / zero-sampleCount fallback paths and lose data.
-	key := strconv.FormatInt(int64(tr.Start), 10) + ":" + strconv.FormatInt(int64(tr.End), 10)
+	key := strconv.FormatInt(
+		int64(tr.Start),
+		10,
+	) + ":" + strconv.FormatInt(
+		int64(tr.End),
+		10,
+	)
 	result, err, _ := r.rebuilds.Do(key, func() (any, error) {
 		// Re-check the cache: the leader of a prior call may have populated it
 		// while this goroutine was waiting on the singleflight entry.

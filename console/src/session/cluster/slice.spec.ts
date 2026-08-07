@@ -120,6 +120,20 @@ describe("remove", () => {
       Object.keys(Cluster.ZERO_SLICE_STATE.clusters),
     );
   });
+
+  it("should clear the selection when the selected cluster is removed", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(state, Cluster.select(TEMP_KEY));
+    state = Cluster.reducer(state, Cluster.remove(TEMP_KEY));
+    expect(state.selected).toBeUndefined();
+  });
+
+  it("should keep the selection when a different cluster is removed", () => {
+    let state = Cluster.reducer(Cluster.ZERO_SLICE_STATE, Cluster.set(BASE_CLUSTER));
+    state = Cluster.reducer(state, Cluster.select("LOCAL"));
+    state = Cluster.reducer(state, Cluster.remove(TEMP_KEY));
+    expect(state.selected).toBe("LOCAL");
+  });
 });
 
 describe("select / clearSelected", () => {

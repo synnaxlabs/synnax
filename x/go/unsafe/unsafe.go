@@ -46,12 +46,13 @@ func ReinterpretSlice[A, B types.Sized](in []A) []B {
 
 // CastSlice reinterprets a slice of one type as a slice of another type with different
 // element sizes. The output slice length is calculated based on the byte sizes of the
-// types: len(output) = len(input) * sizeof(A) / sizeof(B). This is useful for reinterpreting
-// data between types of different densities (e.g., []float64 to []uint8).
+// types: len(output) = len(input) * sizeof(A) / sizeof(B). This is useful for
+// reinterpreting data between types of different densities (e.g., []float64 to
+// []uint8).
 //
-// IMPORTANT: This function operates at the byte level and does not perform type conversion.
-// The total byte count must be evenly divisible by the target type size. IF YOU DON'T
-// KNOW WHAT YOU'RE DOING, DON'T USE THIS.
+// IMPORTANT: This function operates at the byte level and does not perform type
+// conversion. The total byte count must be evenly divisible by the target type size. IF
+// YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
 func CastSlice[A, B types.Sized](in []A) []B {
 	if len(in) == 0 {
 		return nil
@@ -87,11 +88,11 @@ func CastSlice[A, B types.Sized](in []A) []B {
 	return out
 }
 
-// CastBytes reinterprets a byte slice as a single value of type T.
-// Returns an error if the byte slice is shorter than sizeof(T).
+// CastBytes reinterprets a byte slice as a single value of type T. Returns an error if
+// the byte slice is shorter than sizeof(T).
 //
-// IMPORTANT: This function operates at the byte level and does not perform type conversion.
-// IF YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
+// IMPORTANT: This function operates at the byte level and does not perform type
+// conversion. IF YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
 func CastBytes[T types.Sized](bytes []byte) (T, error) {
 	var t T
 	if uintptr(len(bytes)) < unsafe.Sizeof(t) {
@@ -108,9 +109,9 @@ func CastBytes[T types.Sized](bytes []byte) (T, error) {
 // CastToBytes reinterprets a single value of type T as a byte slice. This is the
 // inverse of CastBytes. The returned slice will have length sizeof(T).
 //
-// IMPORTANT: This function operates at the byte level and does not perform type conversion.
-// The byte order is platform-dependent (little-endian on x86/ARM64).
-// IF YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
+// IMPORTANT: This function operates at the byte level and does not perform type
+// conversion. The byte order is platform-dependent (little-endian on x86/ARM64). IF YOU
+// DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
 func CastToBytes[T types.Sized](in T) []byte {
 	size := int(unsafe.Sizeof(in))
 	out := make([]byte, size)
@@ -118,8 +119,9 @@ func CastToBytes[T types.Sized](in T) []byte {
 	return out
 }
 
-// ReinterpretMapKeys re-interprets a map's keys from one type to another while preserving
-// values of any type. A and B must have the same memory layout (e.g., uint32 -> type alias).
+// ReinterpretMapKeys re-interprets a map's keys from one type to another while
+// preserving values of any type. A and B must have the same memory layout (e.g., uint32
+// -> type alias).
 //
 // IF YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
 func ReinterpretMapKeys[A, B types.Sized, V any](in map[A]V) map[B]V {
@@ -129,8 +131,9 @@ func ReinterpretMapKeys[A, B types.Sized, V any](in map[A]V) map[B]V {
 	return *(*map[B]V)(unsafe.Pointer(&in))
 }
 
-// ReinterpretMapValues re-interprets a map's values from one type to another while preserving
-// keys of any comparable type. A and B must have the same memory layout (e.g., uint64 -> type alias).
+// ReinterpretMapValues re-interprets a map's values from one type to another while
+// preserving keys of any comparable type. A and B must have the same memory layout
+// (e.g., uint64 -> type alias).
 //
 // IF YOU DON'T KNOW WHAT YOU'RE DOING, DON'T USE THIS.
 func ReinterpretMapValues[K comparable, A, B types.Sized](in map[K]A) map[K]B {

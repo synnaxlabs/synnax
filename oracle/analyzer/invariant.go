@@ -17,8 +17,8 @@ import (
 
 // checkOptionalDefaultInvariant enforces that a field is never both nullable (`?`) and
 // carrying a static default. The two are mutually exclusive models for an absent value:
-// a nullable field derives its default from absence (null/None), while a defaulted field
-// is required and value-filled. Declaring both is contradictory, so the schema is
+// a nullable field derives its default from absence (null/None), while a defaulted
+// field is required and value-filled. Declaring both is contradictory, so the schema is
 // rejected at analysis time. The check is structural and applies to every field type,
 // not just the cases checkDefaultInvariant can settle.
 func checkOptionalDefaultInvariant(c *analysisCtx) {
@@ -45,11 +45,11 @@ func checkOptionalDefaultInvariant(c *analysisCtx) {
 	}
 }
 
-// checkDefaultInvariant enforces the default invariant from RFC 0043: a required field
-// that carries a static default must either default to its type's zero value, or have a
-// type whose zero value is not a valid value. When neither holds, value-based
-// default-filling could overwrite a deliberate zero (a `precision` of 0, a `visible` of
-// false), so the schema is rejected at analysis time.
+// checkDefaultInvariant enforces the default invariant: a required field that carries a
+// static default must either default to its type's zero value, or have a type whose
+// zero value is not a valid value. When neither holds, value-based default-filling
+// could overwrite a deliberate zero (a `precision` of 0, a `visible` of false), so the
+// schema is rejected at analysis time.
 //
 // The check is conservative. It decides only the cases it can settle without
 // introspecting validation bounds (booleans and integer enums) and abstains otherwise,
@@ -108,7 +108,8 @@ func defaultInvariantViolation(
 		}
 		form, ok := ev.Type.Form.(resolution.EnumForm)
 		if !ok || !form.IsIntEnum {
-			// A string enum has no zero member (its zero is ""), so any default is safe.
+			// A string enum has no zero member (its zero is ""), so any default is
+			// safe.
 			return "", false
 		}
 		if len(form.Values) > 0 && form.Values[0].Name != ev.Variant.Name {

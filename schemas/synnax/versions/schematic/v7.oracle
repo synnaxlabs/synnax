@@ -1,6 +1,6 @@
 import "schemas/x/versions/spatial/v0"
 
-Key = v6.Key
+Key = v0.Key
 
 Node struct {
     key      string     {

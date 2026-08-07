@@ -46,21 +46,26 @@ func (u *UnaryServer[RQ, RS]) BindHandler(handler freighter.UnaryHandler[RQ, RS]
 	u.Handler = handler
 }
 
-func (u *UnaryServer[RQ, RS]) exec(ctx freighter.Context, req RQ) (res RS, oMD freighter.Context, err error) {
+func (u *UnaryServer[RQ, RS]) exec(
+	ctx freighter.Context,
+	req RQ,
+) (res RS, oMD freighter.Context, err error) {
 	u.mu.RLock()
 	h := u.Handler
 	u.mu.RUnlock()
 	oMD, err = u.Exec(
 		ctx,
-		freighter.FinalizerFunc(func(ctx freighter.Context) (oCtx freighter.Context, err error) {
-			res, err = h(ctx, req)
-			return freighter.Context{
-				Context:  ctx,
-				Target:   u.Address,
-				Protocol: u.Protocol,
-				Params:   make(freighter.Params),
-			}, err
-		}),
+		freighter.FinalizerFunc(
+			func(ctx freighter.Context) (oCtx freighter.Context, err error) {
+				res, err = h(ctx, req)
+				return freighter.Context{
+					Context:  ctx,
+					Target:   u.Address,
+					Protocol: u.Protocol,
+					Params:   make(freighter.Params),
+				}, err
+			},
+		),
 	)
 	return res, oMD, err
 }

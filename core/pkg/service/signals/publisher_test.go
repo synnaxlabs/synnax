@@ -49,9 +49,15 @@ var _ = Describe("Publisher", Serial, func() {
 		}))
 		obs = observe.New[[]change.Change[[]byte, struct{}]]()
 		cfg = signals.ObservablePublisherConfig{
-			SetChannel:    channel.Channel{Name: publisherSetChannelName, DataType: telem.UUIDT},
-			DeleteChannel: channel.Channel{Name: publisherDeleteChannelName, DataType: telem.UUIDT},
-			Observable:    obs,
+			SetChannel: channel.Channel{
+				Name:     publisherSetChannelName,
+				DataType: telem.UUIDT,
+			},
+			DeleteChannel: channel.Channel{
+				Name:     publisherDeleteChannelName,
+				DataType: telem.UUIDT,
+			},
+			Observable: obs,
 		}
 		closer = MustSucceed(sigs.PublishFromObservable(ctx, cfg))
 		Expect(channelSvc.NewRetrieve().
@@ -93,8 +99,11 @@ var _ = Describe("Publisher", Serial, func() {
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(HaveLen(int(telem.Bit128)))
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(Equal(uid[:]))
 	})
-	It("Should not send an empty frame if an empty list of changes is provided", func(ctx SpecContext) {
-		obs.Notify(ctx, []change.Change[[]byte, struct{}]{})
-		Expect(responses.Outlet()).ToNot(Receive())
-	})
+	It(
+		"Should not send an empty frame if an empty list of changes is provided",
+		func(ctx SpecContext) {
+			obs.Notify(ctx, []change.Change[[]byte, struct{}]{})
+			Expect(responses.Outlet()).ToNot(Receive())
+		},
+	)
 })

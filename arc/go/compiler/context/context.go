@@ -50,7 +50,10 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Config parser.Config
 }
 
-func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
+func Child[P, ASTNode antlr.ParserRuleContext](
+	ctx Context[P],
+	node ASTNode,
+) Context[ASTNode] {
 	return Context[ASTNode]{
 		Context:          ctx.Context,
 		Resolver:         ctx.Resolver,

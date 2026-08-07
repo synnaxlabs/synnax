@@ -11,6 +11,8 @@ package gossip
 
 import (
 	"context"
+	"time"
+
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/rand"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"time"
 )
 
 type Gossip struct{ Config }
@@ -59,7 +60,7 @@ func (g *Gossip) GossipOnce(ctx context.Context) (err error) {
 	if peer.Address != "" {
 		err = g.GossipOnceWith(ctx, peer.Address)
 	}
-	return
+	return err
 }
 
 func (g *Gossip) GossipOnceWith(ctx context.Context, addr address.Address) error {
@@ -108,14 +109,14 @@ func (g *Gossip) sync(sync Message) (ack Message) {
 			ack.Nodes[dig.Key] = n
 		}
 
-		// If we don't have the node or our version is out of date, add it to our digests.
+		// If we don't have the node or our version is out of date, add it to our
+		// digests.
 		if !ok || n.Heartbeat.YoungerThan(dig.Heartbeat) {
 			ack.Digests[dig.Key] = node.Digest{Key: dig.Key, Heartbeat: n.Heartbeat}
 		}
 	}
 
 	for _, n := range snap.Nodes {
-
 		// If we have a node that the initiator doesn't have,
 		// send it to them.
 		if _, ok := sync.Digests[n.Key]; !ok {
@@ -141,7 +142,12 @@ func (g *Gossip) ack(ctx context.Context, ack Message) (ack2 Message) {
 	return ack2
 }
 
-func (g *Gossip) ack2(ctx context.Context, ack2 Message) { g.Store.Merge(ctx, ack2.Nodes) }
+func (g *Gossip) ack2(
+	ctx context.Context,
+	ack2 Message,
+) {
+	g.Store.Merge(ctx, ack2.Nodes)
+}
 
 func RandomPeer(nodes node.Group, host node.Key) node.Node {
 	return rand.MapValue(nodes.WhereState(node.StateHealthy).WhereNot(host))

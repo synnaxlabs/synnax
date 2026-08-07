@@ -74,39 +74,45 @@ var _ = Describe("Signals", func() {
 		Expect(closeStreamer.Close()).To(Succeed())
 	})
 
-	It("Should not marshal zero-length operations to the set channel", func(ctx SpecContext) {
-		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_set")
-		ch := channel.Channel{
-			Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true,
-		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet()).Should(Receive(&res))
-		payloads := MustSucceed(telem.UnmarshalJSONSeries[map[string]any](
-			res.Frame.SeriesAt(0),
-		))
-		payload := MustBeOk(lo.Find(payloads, func(p map[string]any) bool {
-			return p["name"] == ch.Name
-		}))
-		Expect(payload).ToNot(HaveKey("operations"))
-		requests.Close()
-		Eventually(responses.Outlet()).Should(BeClosed())
-		Expect(closeStreamer.Close()).To(Succeed())
-	})
+	It(
+		"Should not marshal zero-length operations to the set channel",
+		func(ctx SpecContext) {
+			requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_set")
+			ch := channel.Channel{
+				Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			payloads := MustSucceed(telem.UnmarshalJSONSeries[map[string]any](
+				res.Frame.SeriesAt(0),
+			))
+			payload := MustBeOk(lo.Find(payloads, func(p map[string]any) bool {
+				return p["name"] == ch.Name
+			}))
+			Expect(payload).ToNot(HaveKey("operations"))
+			requests.Close()
+			Eventually(responses.Outlet()).Should(BeClosed())
+			Expect(closeStreamer.Close()).To(Succeed())
+		},
+	)
 
-	It("Should propagate a channel deletion to the delete channel", func(ctx SpecContext) {
-		ch := channel.Channel{
-			Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true,
-		}
-		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_delete")
-		Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(responses.Outlet()).Should(Receive(&res))
-		keys := telem.UnmarshalSeries[uint32](res.Frame.SeriesAt(0))
-		Expect(keys).To(ContainElement(uint32(ch.Key())))
-		requests.Close()
-		Eventually(responses.Outlet()).Should(BeClosed())
-		Expect(closeStreamer.Close()).To(Succeed())
-	})
+	It(
+		"Should propagate a channel deletion to the delete channel",
+		func(ctx SpecContext) {
+			ch := channel.Channel{
+				Name: UniqueChannelName(), DataType: telem.TimeStampT, IsIndex: true,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_delete")
+			Expect(channelSvc.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
+			var res framer.StreamerResponse
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			keys := telem.UnmarshalSeries[uint32](res.Frame.SeriesAt(0))
+			Expect(keys).To(ContainElement(uint32(ch.Key())))
+			requests.Close()
+			Eventually(responses.Outlet()).Should(BeClosed())
+			Expect(closeStreamer.Close()).To(Succeed())
+		},
+	)
 })

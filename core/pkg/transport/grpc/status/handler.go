@@ -61,13 +61,27 @@ type (
 )
 
 var (
-	_ grpc.Translator[status.SetRequest, *SetRequest]                         = (*setRequestTranslator)(nil)
-	_ grpc.Translator[status.SetResponse, *SetResponse]                       = (*setResponseTranslator)(nil)
-	_ grpc.Translator[status.RetrieveRequest, *RetrieveRequest]               = (*retrieveRequestTranslator)(nil)
-	_ grpc.Translator[status.RetrieveResponse, *RetrieveResponse]             = (*retrieveResponseTranslator)(nil)
-	_ grpc.Translator[status.DeleteRequest, *DeleteRequest]                   = (*deleteRequestTranslator)(nil)
-	_ grpc.Translator[status.SetByKeyOrNameRequest, *SetByKeyOrNameRequest]   = (*setByKeyOrNameRequestTranslator)(nil)
-	_ grpc.Translator[status.SetByKeyOrNameResponse, *SetByKeyOrNameResponse] = (*setByKeyOrNameResponseTranslator)(nil)
+	_ grpc.Translator[status.SetRequest, *SetRequest] = (*setRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.SetResponse, *SetResponse] = (*setResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.SetByKeyOrNameRequest, *SetByKeyOrNameRequest] = (*setByKeyOrNameRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[status.SetByKeyOrNameResponse, *SetByKeyOrNameResponse] = (*setByKeyOrNameResponseTranslator)(
+		nil,
+	)
 )
 
 func (setRequestTranslator) Forward(
@@ -147,9 +161,12 @@ func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveRequest,
 ) (status.RetrieveRequest, error) {
-	hasLabelKeys, err := lo.MapErr(msg.HasLabels, func(k string, _ int) (label.Key, error) {
-		return uuid.Parse(k)
-	})
+	hasLabelKeys, err := lo.MapErr(
+		msg.HasLabels,
+		func(k string, _ int) (label.Key, error) {
+			return uuid.Parse(k)
+		},
+	)
 	if err != nil {
 		return status.RetrieveRequest{}, err
 	}
@@ -229,14 +246,20 @@ func (setByKeyOrNameResponseTranslator) Forward(
 	_ context.Context,
 	msg status.SetByKeyOrNameResponse,
 ) (*SetByKeyOrNameResponse, error) {
-	return &SetByKeyOrNameResponse{Key: msg.Key, MultipleMatches: msg.MultipleMatches}, nil
+	return &SetByKeyOrNameResponse{
+		Key:             msg.Key,
+		MultipleMatches: msg.MultipleMatches,
+	}, nil
 }
 
 func (setByKeyOrNameResponseTranslator) Backward(
 	_ context.Context,
 	msg *SetByKeyOrNameResponse,
 ) (status.SetByKeyOrNameResponse, error) {
-	return status.SetByKeyOrNameResponse{Key: msg.Key, MultipleMatches: msg.MultipleMatches}, nil
+	return status.SetByKeyOrNameResponse{
+		Key:             msg.Key,
+		MultipleMatches: msg.MultipleMatches,
+	}, nil
 }
 
 func New(t *api.Transport) grpc.BindableTransport {

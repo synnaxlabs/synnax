@@ -29,9 +29,10 @@ import (
 )
 
 // keptGoExpressions are the @go expressions a version file records: the
-// persistence declarations. Everything else (outputs, language bindings,
-// validation, indexing) is live-surface concern.
-var keptGoExpressions = set.New("marshal", "hand", "migrate", "pinned")
+// persistence declarations, plus the imex marker that dates a resource's export
+// history. Everything else (outputs, language bindings, validation, indexing) is
+// live-surface concern.
+var keptGoExpressions = set.New("marshal", "hand", "migrate", "pinned", "imex")
 
 // Input carries everything canonical emission derives from.
 type Input struct {

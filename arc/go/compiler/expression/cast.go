@@ -26,7 +26,9 @@ func compileTypeCast(
 	if !targetType.IsValid() {
 		return types.Type{}, errors.New("unknown cast target type")
 	}
-	sourceType, err := Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(targetType))
+	sourceType, err := Compile(
+		context.Child(ctx, ctx.AST.Expression()).WithHint(targetType),
+	)
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -80,7 +82,13 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 		if from.Kind == types.KindString {
 			return nil
 		}
-		return ctx.Resolver.EmitNumericToString(ctx, ctx.Writer, ctx.WriterID, ctx.Scope, from)
+		return ctx.Resolver.EmitNumericToString(
+			ctx,
+			ctx.Writer,
+			ctx.WriterID,
+			ctx.Scope,
+			from,
+		)
 	}
 	var (
 		fromWasm = wasm.ConvertType(from)
@@ -98,20 +106,40 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 	case wasm.I32:
 		switch toWasm {
 		case wasm.I64:
-			opCode = lo.Ternary(fromIsSigned, wasm.OpI64ExtendI32S, wasm.OpI64ExtendI32U)
+			opCode = lo.Ternary(
+				fromIsSigned,
+				wasm.OpI64ExtendI32S,
+				wasm.OpI64ExtendI32U,
+			)
 		case wasm.F32:
-			opCode = lo.Ternary(fromIsSigned, wasm.OpF32ConvertI32S, wasm.OpF32ConvertI32U)
+			opCode = lo.Ternary(
+				fromIsSigned,
+				wasm.OpF32ConvertI32S,
+				wasm.OpF32ConvertI32U,
+			)
 		case wasm.F64:
-			opCode = lo.Ternary(fromIsSigned, wasm.OpF64ConvertI32S, wasm.OpF64ConvertI32U)
+			opCode = lo.Ternary(
+				fromIsSigned,
+				wasm.OpF64ConvertI32S,
+				wasm.OpF64ConvertI32U,
+			)
 		}
 	case wasm.I64:
 		switch toWasm {
 		case wasm.I32:
 			opCode = wasm.OpI32WrapI64
 		case wasm.F32:
-			opCode = lo.Ternary(fromIsSigned, wasm.OpF32ConvertI64S, wasm.OpF32ConvertI64U)
+			opCode = lo.Ternary(
+				fromIsSigned,
+				wasm.OpF32ConvertI64S,
+				wasm.OpF32ConvertI64U,
+			)
 		case wasm.F64:
-			opCode = lo.Ternary(fromIsSigned, wasm.OpF64ConvertI64S, wasm.OpF64ConvertI64U)
+			opCode = lo.Ternary(
+				fromIsSigned,
+				wasm.OpF64ConvertI64S,
+				wasm.OpF64ConvertI64U,
+			)
 		}
 	case wasm.F32:
 		switch toWasm {

@@ -98,9 +98,12 @@ func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
 		Analyze(context.Child(ctx, expr))
 		t := types.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
 		if !t.IsNumeric() && t.Kind != basetypes.KindString {
-			emit(diagnostics.Errorf(anchor,
+			emit(diagnostics.Errorf(
+				anchor,
 				"placeholder %q has type %s; only numeric and string types are supported",
-				seg.Text, t))
+				seg.Text,
+				t,
+			))
 			continue
 		}
 		if seg.Spec == "" {

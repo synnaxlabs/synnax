@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive } from "@synnaxlabs/x";
+import { type primitive, state } from "@synnaxlabs/x";
 import {
   type Ref,
   type RefCallback,
@@ -16,8 +16,6 @@ import {
   useRef,
   useState as reactUseState,
 } from "react";
-
-import { state } from "@/state";
 
 /**
  * A ref that satisfies the interface of useState, but returns a ref as the first

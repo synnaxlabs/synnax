@@ -16,7 +16,7 @@ export const useLink = (): Link.Handler => {
   const configure = useConfigureModal();
   return useCallback(
     async ({ client, key }) => {
-      const device = await client.devices.retrieve({ key });
+      const device = await client.devices.retrieve(key);
       const make = getMake(device.make);
       if (make == null) return;
       configure(make, device.key);

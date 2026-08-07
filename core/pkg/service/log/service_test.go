@@ -108,18 +108,24 @@ var _ = Describe("ServiceConfig", func() {
 })
 
 var _ = Describe("OpenService", func() {
-	It("Should fail when ServiceConfig is missing required fields", func(ctx SpecContext) {
-		Expect(log.OpenService(ctx, log.ServiceConfig{DB: db})).Error().To(
-			MatchError(ContainSubstring("ontology")),
-		)
-	})
+	It(
+		"Should fail when ServiceConfig is missing required fields",
+		func(ctx SpecContext) {
+			Expect(log.OpenService(ctx, log.ServiceConfig{DB: db})).Error().To(
+				MatchError(ContainSubstring("ontology")),
+			)
+		},
+	)
 
-	It("Should register itself with the configured ImEx registry on open", func(ctx SpecContext) {
-		l := log.Log{Name: "auto-registered"}
-		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
-		env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
-		Expect(env.Type).To(Equal("log"))
-	})
+	It(
+		"Should register itself with the configured ImEx registry on open",
+		func(ctx SpecContext) {
+			l := log.Log{Name: "auto-registered"}
+			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+			env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
+			Expect(env.Type).To(Equal("log"))
+		},
+	)
 
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
 		node := mock.NewNode(ctx)

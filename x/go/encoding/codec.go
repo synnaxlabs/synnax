@@ -29,7 +29,13 @@ func SugarEncodingErr(value any, base error) error {
 		return base
 	}
 	val := reflect.ValueOf(value)
-	main := errors.Wrapf(ErrEncode, "failed to encode value: kind=%s, type=%s, value=%+v", val.Kind(), val.Type(), value)
+	main := errors.Wrapf(
+		ErrEncode,
+		"failed to encode value: kind=%s, type=%s, value=%+v",
+		val.Kind(),
+		val.Type(),
+		value,
+	)
 	return errors.WithStack(errors.Combine(main, base))
 }
 
@@ -39,7 +45,13 @@ func SugarDecodingErr(data []byte, value any, base error) error {
 		return base
 	}
 	val := reflect.ValueOf(value)
-	main := errors.Wrapf(ErrDecode, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
+	main := errors.Wrapf(
+		ErrDecode,
+		"kind=%s, type=%s, data=%x",
+		val.Kind(),
+		val.Type(),
+		data,
+	)
 	return errors.WithStack(errors.Combine(main, base))
 }
 
@@ -84,12 +96,20 @@ func (f *decodeFallbackCodec) Encode(ctx context.Context, value any) ([]byte, er
 	return f.Codecs[0].Encode(ctx, value)
 }
 
-func (f *decodeFallbackCodec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (f *decodeFallbackCodec) EncodeStream(
+	ctx context.Context,
+	w io.Writer,
+	value any,
+) error {
 	return f.Codecs[0].EncodeStream(ctx, w, value)
 }
 
 // Decode implements the Decoder interface.
-func (f *decodeFallbackCodec) Decode(ctx context.Context, data []byte, value any) error {
+func (f *decodeFallbackCodec) Decode(
+	ctx context.Context,
+	data []byte,
+	value any,
+) error {
 	var errs []error
 	for _, c := range f.Codecs {
 		if err := c.Decode(ctx, data, value); err != nil {

@@ -75,7 +75,7 @@ func injectPersistence(t *resolution.Type, def resolution.Type) {
 	if !ok {
 		return
 	}
-	for _, name := range []string{"marshal", "migrate"} {
+	for _, name := range []string{"marshal", "migrate", "imex"} {
 		expr, has := src.Expressions.Find(name)
 		if !has {
 			continue

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package doc provides composable blocks for generating consistent markdown documentation.
-// It is used for hover docs, diagnostics, and other LSP features.
+// Package doc provides composable blocks for generating consistent markdown
+// documentation. It is used for hover docs, diagnostics, and other LSP features.
 package doc
 
 import "strings"

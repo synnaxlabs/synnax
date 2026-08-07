@@ -30,8 +30,10 @@ var _ = Describe("Transient types", func() {
 		goPlugin = types.New(types.DefaultOptions())
 	})
 
-	It("Should generate unversioned typedefs at the package root", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should generate unversioned typedefs at the package root",
+		func(ctx SpecContext) {
+			source := `
 			@go output "out"
 			Key uint32 {
 				@ts type string
@@ -50,26 +52,29 @@ var _ = Describe("Transient types", func() {
 				local LocalKey
 			}
 		`
-		req := MustGenerateRequest(ctx, source, "test", loader)
-		resp := MustSucceed(goPlugin.Generate(req))
-		var root string
-		count := 0
-		for _, f := range resp.Files {
-			if f.Path == "out/types.gen.go" {
-				root = string(f.Content)
-				count++
+			req := MustGenerateRequest(ctx, source, "test", loader)
+			resp := MustSucceed(goPlugin.Generate(req))
+			var root string
+			count := 0
+			for _, f := range resp.Files {
+				if f.Path == "out/types.gen.go" {
+					root = string(f.Content)
+					count++
+				}
 			}
-		}
-		Expect(count).To(Equal(1))
-		Expect(root).To(ContainSubstring("type Key uint32"))
-		Expect(root).To(ContainSubstring("type LocalKey types.Uint20"))
-		Expect(root).To(ContainSubstring("type Entry = versions.Entry"))
-		Expect(strings.Count(root, "package out")).To(Equal(1))
-		Expect(strings.Count(root, "import")).To(Equal(1))
-	})
+			Expect(count).To(Equal(1))
+			Expect(root).To(ContainSubstring("type Key uint32"))
+			Expect(root).To(ContainSubstring("type LocalKey types.Uint20"))
+			Expect(root).To(ContainSubstring("type Entry = versions.Entry"))
+			Expect(strings.Count(root, "package out")).To(Equal(1))
+			Expect(strings.Count(root, "import")).To(Equal(1))
+		},
+	)
 
-	It("Should reference versioned types locally, never through versions/vN", func(ctx SpecContext) {
-		loader.Add("schemas/dep.oracle", `
+	It(
+		"Should reference versioned types locally, never through versions/vN",
+		func(ctx SpecContext) {
+			loader.Add("schemas/dep.oracle", `
 			@go output "dep"
 			Item struct {
 				@go version 1
@@ -77,7 +82,7 @@ var _ = Describe("Transient types", func() {
 				@go marshal
 			}
 		`)
-		source := `
+			source := `
 			import "schemas/dep"
 			@go output "out"
 			Entry struct {
@@ -90,17 +95,18 @@ var _ = Describe("Transient types", func() {
 				item  dep.Item
 			}
 		`
-		req := MustGenerateRequest(ctx, source, "test", loader)
-		resp := MustSucceed(goPlugin.Generate(req))
-		var root string
-		for _, f := range resp.Files {
-			if f.Path == "out/types.gen.go" {
-				root = string(f.Content)
+			req := MustGenerateRequest(ctx, source, "test", loader)
+			resp := MustSucceed(goPlugin.Generate(req))
+			var root string
+			for _, f := range resp.Files {
+				if f.Path == "out/types.gen.go" {
+					root = string(f.Content)
+				}
 			}
-		}
-		Expect(root).To(ContainSubstring("Entry Entry"))
-		Expect(root).To(ContainSubstring("dep.Item"))
-		Expect(root).ToNot(ContainSubstring("versions/v0"))
-		Expect(root).ToNot(ContainSubstring("dep/versions/v1"))
-	})
+			Expect(root).To(ContainSubstring("Entry Entry"))
+			Expect(root).To(ContainSubstring("dep.Item"))
+			Expect(root).ToNot(ContainSubstring("versions/v0"))
+			Expect(root).ToNot(ContainSubstring("dep/versions/v1"))
+		},
+	)
 })

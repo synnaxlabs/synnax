@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/x/color"
 import "schemas/x/spatial"
 
 @ts output "client/ts/src/schematic/symbol"
@@ -17,20 +18,20 @@ Key = uuid {
 }
 
 Region struct {
-    key          string   {
+    key          string       {
         @doc value "is the region identifier."
     }
-    name         string   {
+    name         string       {
         @doc value "is a human-readable name for the region."
     }
-    selectors    string[] {
+    selectors    string[]     {
         @doc value "contains CSS selectors targeting SVG elements within the symbol."
     }
-    stroke_color string?  {
-        @doc value "is an optional stroke color in hex format (#RRGGBB)."
+    stroke_color color.Color? {
+        @doc value "is an optional stroke color override for the region."
     }
-    fill_color   string?  {
-        @doc value "is an optional fill color in hex format (#RRGGBB)."
+    fill_color   color.Color? {
+        @doc value "is an optional fill color override for the region."
     }
 
     @doc value """
@@ -103,25 +104,23 @@ Spec struct {
 }
 
 Symbol struct {
-    key     Key = create {
+    key  Key = create {
         @key
         @doc value "is the unique identifier for this symbol."
     }
-    version uint32 = 1 {
-        @doc value "is the symbol schema version for migration support."
-    }
-    name    string {
+    name string {
         @validate min_length 1
         @doc value           "is a human-readable name for the symbol."
     }
-    data    Spec   {
+    data Spec   {
         @doc value "is the complete symbol specification."
     }
 
     @doc value     """
-        is a persisted schematic symbol with versioning, defining reusable visual
-        components for diagrams.
+        is a persisted schematic symbol defining reusable visual components for
+        diagrams.
     """
     @ontology type "schematic_symbol"
     @create
+    @go imex
 }

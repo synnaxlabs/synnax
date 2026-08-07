@@ -87,6 +87,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // types under test. Its shape mirrors the per-service Action union (a
 // discriminator plus a payload) without depending on any concrete service.
 type testAction struct {
-	Type    string `json:"type" msgpack:"type"`
+	Type    string `json:"type"    msgpack:"type"`
 	Payload string `json:"payload" msgpack:"payload"`
 }

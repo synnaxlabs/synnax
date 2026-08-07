@@ -638,7 +638,9 @@ func MatchBound[R any, K Key, E Entry[K]](
 // AndBound returns a BoundFilter that matches when all provided
 // filters match. Each child is bound to the same Retrieve and the
 // results are composed via And.
-func AndBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
+func AndBound[R any, K Key, E Entry[K]](
+	fs ...BoundFilter[R, K, E],
+) BoundFilter[R, K, E] {
 	return func(r R) Filter[K, E] {
 		inner := make([]Filter[K, E], len(fs))
 		for i, f := range fs {
@@ -650,7 +652,9 @@ func AndBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[
 
 // OrBound returns a BoundFilter that matches when any provided filter
 // matches. Bound children are composed via gorp.Or.
-func OrBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
+func OrBound[R any, K Key, E Entry[K]](
+	fs ...BoundFilter[R, K, E],
+) BoundFilter[R, K, E] {
 	return func(r R) Filter[K, E] {
 		inner := make([]Filter[K, E], len(fs))
 		for i, f := range fs {

@@ -40,17 +40,32 @@ var _ = Describe("DB", func() {
 					Expect(db.Close()).To(Succeed())
 				})
 
-				It("Should return true if the domain DB has data for particular time range", func(ctx SpecContext) {
-					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
-					Expect(domain.Write(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
-					Expect(db.HasDataFor(ctx, tr)).To(BeTrue())
-				})
+				It(
+					"Should return true if the domain DB has data for particular time range",
+					func(ctx SpecContext) {
+						tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
+						Expect(
+							domain.Write(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6}),
+						).To(Succeed())
+						Expect(db.HasDataFor(ctx, tr)).To(BeTrue())
+					},
+				)
 
-				It("Should return false if the domain DB does not have data for particular time range", func(ctx SpecContext) {
-					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
-					Expect(domain.Write(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
-					Expect(db.HasDataFor(ctx, (20 * telem.SecondTS).SpanRange(10*telem.Second))).To(BeFalse())
-				})
+				It(
+					"Should return false if the domain DB does not have data for particular time range",
+					func(ctx SpecContext) {
+						tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
+						Expect(
+							domain.Write(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6}),
+						).To(Succeed())
+						Expect(
+							db.HasDataFor(
+								ctx,
+								(20 * telem.SecondTS).SpanRange(10*telem.Second),
+							),
+						).To(BeFalse())
+					},
+				)
 
 				It("Should return false if the DB is empty", func(ctx SpecContext) {
 					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
@@ -59,18 +74,20 @@ var _ = Describe("DB", func() {
 			})
 
 			Describe("Close", func() {
-				It("Should return an error if there are open writers on the DB", func(ctx SpecContext) {
-					fs := openFS()
-					db := MustSucceed(domain.Open(domain.Config{
-						FS:              fs,
-						Instrumentation: PanicLogger(),
-					}))
-					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
-					Expect(db.Close()).To(MatchError(resource.ErrOpen))
-					Expect(w.Close()).To(Succeed())
-					Expect(db.Close()).To(Succeed())
-
-				})
+				It(
+					"Should return an error if there are open writers on the DB",
+					func(ctx SpecContext) {
+						fs := openFS()
+						db := MustSucceed(domain.Open(domain.Config{
+							FS:              fs,
+							Instrumentation: PanicLogger(),
+						}))
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
+						Expect(db.Close()).To(MatchError(resource.ErrOpen))
+						Expect(w.Close()).To(Succeed())
+						Expect(db.Close()).To(Succeed())
+					},
+				)
 			})
 
 			Describe("Size", func() {
@@ -93,25 +110,31 @@ var _ = Describe("DB", func() {
 					Expect(db.Size()).To(Equal(telem.Size(0)))
 				})
 
-				It("Should return the correct size after writing data", func(ctx SpecContext) {
-					data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
-					Expect(domain.Write(ctx, db, tr, data)).To(Succeed())
-					Expect(db.Size()).To(Equal(telem.Size(len(data))))
-				})
+				It(
+					"Should return the correct size after writing data",
+					func(ctx SpecContext) {
+						data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+						tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
+						Expect(domain.Write(ctx, db, tr, data)).To(Succeed())
+						Expect(db.Size()).To(Equal(telem.Size(len(data))))
+					},
+				)
 
-				It("Should accumulate size across multiple writes", func(ctx SpecContext) {
-					data1 := []byte{1, 2, 3, 4, 5}
-					tr1 := (10 * telem.SecondTS).SpanRange(5 * telem.Second)
-					Expect(domain.Write(ctx, db, tr1, data1)).To(Succeed())
+				It(
+					"Should accumulate size across multiple writes",
+					func(ctx SpecContext) {
+						data1 := []byte{1, 2, 3, 4, 5}
+						tr1 := (10 * telem.SecondTS).SpanRange(5 * telem.Second)
+						Expect(domain.Write(ctx, db, tr1, data1)).To(Succeed())
 
-					data2 := []byte{6, 7, 8, 9, 10, 11, 12}
-					tr2 := (20 * telem.SecondTS).SpanRange(7 * telem.Second)
-					Expect(domain.Write(ctx, db, tr2, data2)).To(Succeed())
+						data2 := []byte{6, 7, 8, 9, 10, 11, 12}
+						tr2 := (20 * telem.SecondTS).SpanRange(7 * telem.Second)
+						Expect(domain.Write(ctx, db, tr2, data2)).To(Succeed())
 
-					expectedSize := telem.Size(len(data1) + len(data2))
-					Expect(db.Size()).To(Equal(expectedSize))
-				})
+						expectedSize := telem.Size(len(data1) + len(data2))
+						Expect(db.Size()).To(Equal(expectedSize))
+					},
+				)
 			})
 		})
 	}

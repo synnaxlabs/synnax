@@ -75,13 +75,16 @@ var _ = Describe("Completion", func() {
 	}
 
 	Describe("Keyword Completions", func() {
-		It("should return keyword completions at the start of a line", func(ctx SpecContext) {
-			openDoc(ctx, "file:///empty.oracle", "\n")
-			list := completionFor(ctx, "file:///empty.oracle", 0, 0)
-			Expect(labels(list.Items)).To(ContainElements(
-				"struct", "field", "domain", "enum", "import",
-			))
-		})
+		It(
+			"should return keyword completions at the start of a line",
+			func(ctx SpecContext) {
+				openDoc(ctx, "file:///empty.oracle", "\n")
+				list := completionFor(ctx, "file:///empty.oracle", 0, 0)
+				Expect(labels(list.Items)).To(ContainElements(
+					"struct", "field", "domain", "enum", "import",
+				))
+			},
+		)
 	})
 
 	Describe("Type Completions", func() {
@@ -105,12 +108,15 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Validate Expression Completions", func() {
-		It("should return validate expressions inside validate domain", func(ctx SpecContext) {
-			list := completionAt(ctx, 2, 20)
-			Expect(labels(list.Items)).To(ContainElements(
-				"required", "min_length", "max_length",
-			))
-		})
+		It(
+			"should return validate expressions inside validate domain",
+			func(ctx SpecContext) {
+				list := completionAt(ctx, 2, 20)
+				Expect(labels(list.Items)).To(ContainElements(
+					"required", "min_length", "max_length",
+				))
+			},
+		)
 	})
 
 	Describe("Go Output Completions", func() {
@@ -132,11 +138,14 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Ontology Expression Completions", func() {
-		It("should return ontology expressions inside ontology domain", func(ctx SpecContext) {
-			openDoc(ctx, "file:///ontology-domain.oracle", "  domain ontology { \n")
-			list := completionFor(ctx, "file:///ontology-domain.oracle", 0, 20)
-			Expect(labels(list.Items)).To(ContainElement("type"))
-		})
+		It(
+			"should return ontology expressions inside ontology domain",
+			func(ctx SpecContext) {
+				openDoc(ctx, "file:///ontology-domain.oracle", "  domain ontology { \n")
+				list := completionFor(ctx, "file:///ontology-domain.oracle", 0, 20)
+				Expect(labels(list.Items)).To(ContainElement("type"))
+			},
+		)
 	})
 
 	Describe("Unknown Document", func() {
@@ -147,10 +156,13 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Out of Range Position", func() {
-		It("should return empty completions for line beyond document", func(ctx SpecContext) {
-			list := completionAt(ctx, 100, 0)
-			Expect(list.Items).To(BeEmpty())
-		})
+		It(
+			"should return empty completions for line beyond document",
+			func(ctx SpecContext) {
+				list := completionAt(ctx, 100, 0)
+				Expect(list.Items).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Prefix Filtering", func() {
@@ -219,7 +231,9 @@ var _ = Describe("DidChange", func() {
 				Version: 2,
 			},
 			ContentChanges: []protocol.TextDocumentContentChangeEvent{
-				&protocol.TextDocumentContentChangeWholeDocument{Text: "Status enum {}\n"},
+				&protocol.TextDocumentContentChangeWholeDocument{
+					Text: "Status enum {}\n",
+				},
 			},
 		})).To(Succeed())
 
@@ -374,10 +388,13 @@ var _ = Describe("SemanticTokensFull", func() {
 		Expect(tokensFor(ctx, "file:///unknown.oracle").Data).To(BeEmpty())
 	})
 
-	It("should return tokens for a schema with keywords and types", func(ctx SpecContext) {
-		openDoc(ctx, "file:///tokens.oracle", "User struct {\n    name string\n}\n")
-		Expect(tokensFor(ctx, "file:///tokens.oracle").Data).ToNot(BeEmpty())
-	})
+	It(
+		"should return tokens for a schema with keywords and types",
+		func(ctx SpecContext) {
+			openDoc(ctx, "file:///tokens.oracle", "User struct {\n    name string\n}\n")
+			Expect(tokensFor(ctx, "file:///tokens.oracle").Data).ToNot(BeEmpty())
+		},
+	)
 
 	It("should tokenize comments", func(ctx SpecContext) {
 		openDoc(ctx, "file:///comments.oracle", "// a comment\nUser struct {}\n")
@@ -426,11 +443,18 @@ var _ = Describe("Formatting", func() {
 		Expect(formatDoc(ctx, "file:///formatted.oracle")).To(BeNil())
 	})
 
-	It("should return text edit when formatting changes content", func(ctx SpecContext) {
-		openDoc(ctx, "file:///unformatted.oracle", "User struct {\n  x int32\n  longName string\n}\n")
-		edits := formatDoc(ctx, "file:///unformatted.oracle")
-		Expect(edits).To(HaveLen(1))
-		Expect(edits[0].Range.Start.Line).To(Equal(uint32(0)))
-		Expect(edits[0].NewText).To(ContainSubstring("x        int32"))
-	})
+	It(
+		"should return text edit when formatting changes content",
+		func(ctx SpecContext) {
+			openDoc(
+				ctx,
+				"file:///unformatted.oracle",
+				"User struct {\n  x int32\n  longName string\n}\n",
+			)
+			edits := formatDoc(ctx, "file:///unformatted.oracle")
+			Expect(edits).To(HaveLen(1))
+			Expect(edits[0].Range.Start.Line).To(Equal(uint32(0)))
+			Expect(edits[0].NewText).To(ContainSubstring("x        int32"))
+		},
+	)
 })

@@ -17,7 +17,6 @@ const createSymbol = (
   states: schematic.symbol.State[],
 ): schematic.symbol.Symbol => ({
   key: "00000000-0000-0000-0000-000000000000",
-  version: 1,
   name: "sym",
   data: { svg: "<svg/>", variant, states, handles: [], scale: 1, scaleStroke: false },
 });

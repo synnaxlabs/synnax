@@ -79,13 +79,13 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
 // Version-laid-out packages (@go version + a keyed struct) emit their types into the
-// current versions/vN sub-package, with a root alias file re-exporting the surface. Types
-// whose shape is unchanged from the predecessor version alias it instead of being
-// re-defined. Version-laid-out packages pin persisted references to their
-// dependencies' current version directories (they must stay importable from frozen
-// packages); omitted fields and declarations outside the persisted closure resolve
-// to dependency roots and track the latest version, since they never reach the
-// stored wire format. Unversioned packages reference the root re-export surface.
+// current versions/vN sub-package, with a root alias file re-exporting the surface.
+// Types whose shape is unchanged from the predecessor version alias it instead of being
+// re-defined. Version-laid-out packages pin persisted references to their dependencies'
+// current version directories (they must stay importable from frozen packages); omitted
+// fields and declarations outside the persisted closure resolve to dependency roots and
+// track the latest version, since they never reach the stored wire format. Unversioned
+// packages reference the root re-export surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, err := versioning.RewriteCurrent(req.Resolutions)
 	if err != nil {
@@ -220,7 +220,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // predecessor identifies the version package that a current version package's
 // unchanged types alias.
 type predecessor struct {
-	// path is the repo-relative predecessor package directory (…/versions/vN-1).
+	// path is the repo-relative predecessor package directory (…/versions/vN).
 	path string
 	// aliased holds qualified names of types emitted as aliases.
 	aliased set.Set[string]
@@ -316,10 +316,10 @@ func latestTable(
 // marker (see versioning.Pinned).
 func VersionPinned(t resolution.Type) bool { return versioning.Pinned(t) }
 
-// PersistedClosure returns the qualified names of every type reachable from a
-// @go marshal root through stored references: non-omitted struct fields,
-// extends, type arguments, alias targets, distinct bases, and union variants.
-// Types outside the closure never reach a table's wire format.
+// PersistedClosure returns the qualified names of every type reachable from a @go
+// marshal root through stored references: non-omitted struct fields, extends, type
+// arguments, alias targets, distinct bases, and union variants. Types outside the
+// closure never reach a table's wire format.
 func PersistedClosure(table *resolution.Table) set.Set[string] {
 	closure := make(set.Set[string])
 	var walkType func(t resolution.Type)
@@ -602,7 +602,9 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		targetRef := form.Target
 		if targetResolved, ok := targetRef.Resolve(data.table); ok {
 			if targetForm, ok := targetResolved.Form.(resolution.StructForm); ok {
-				nonDefaultedParams := resolution.NonDefaultedTypeParams(targetForm.TypeParams)
+				nonDefaultedParams := resolution.NonDefaultedTypeParams(
+					targetForm.TypeParams,
+				)
 				providedArgs := len(targetRef.TypeArgs)
 				if providedArgs < len(nonDefaultedParams) {
 					newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))
@@ -675,7 +677,10 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(data.table)
 			if ok {
-				sd.ExtendsTypes = append(sd.ExtendsTypes, resolveExtendsType(extendsRef, parent, data))
+				sd.ExtendsTypes = append(
+					sd.ExtendsTypes,
+					resolveExtendsType(extendsRef, parent, data),
+				)
 			}
 		}
 
@@ -705,19 +710,22 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		if chk, ok := goEnumCheck(field, data); ok {
 			sd.EnumChecks = append(sd.EnumChecks, chk)
 		}
-		sd.ConstraintChecks = append(sd.ConstraintChecks, goConstraintChecks(field, data)...)
+		sd.ConstraintChecks = append(
+			sd.ConstraintChecks,
+			goConstraintChecks(field, data)...)
 		if step, ok := goRecurseStep(field, data, validateHasOwn, validateSkip); ok {
 			sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 		}
 	}
-	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 || len(sd.ValidateRecurse) > 0 {
+	if len(sd.EnumChecks) > 0 || len(sd.ConstraintChecks) > 0 ||
+		len(sd.ValidateRecurse) > 0 {
 		data.imports.AddExternal(validateImportPath)
 	}
 	if hasSliceRecurse(sd.ValidateRecurse) {
 		data.imports.AddExternal(strconvImportPath)
 	}
 	if len(sd.Name) > 0 {
-		sd.Receiver = strings.ToLower(sd.Name[:1])
+		sd.Receiver = receiverName(sd.Name)
 	}
 
 	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
@@ -727,6 +735,19 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	}
 
 	return sd
+}
+
+// receiverName derives a method receiver from the type name. It widens to two letters
+// when the first would be "v", which generated Validate bodies use for their validator.
+func receiverName(name string) string {
+	r := strings.ToLower(name[:1])
+	if r != "v" {
+		return r
+	}
+	if len(name) > 1 {
+		return strings.ToLower(name[:2])
+	}
+	return "vv"
 }
 
 func processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
@@ -769,7 +790,9 @@ func processField(field resolution.Field, data *templateData) fieldData {
 		data = data.latest
 	}
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
-	if field.Optional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "msgpack.EncodedJSON") {
+	if field.Optional && !strings.HasPrefix(goType, "[]") &&
+		!strings.HasPrefix(goType, "map[") &&
+		!strings.HasPrefix(goType, "msgpack.EncodedJSON") {
 		goType = "*" + goType
 	}
 	// Collection fields (arrays, maps, records) carry `,omitzero` so a nil ("not
@@ -790,7 +813,12 @@ func processField(field resolution.Field, data *templateData) fieldData {
 	}
 }
 
-func buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType *resolution.Type, data *templateData) string {
+func buildGenericType(
+	baseName string,
+	typeArgs []resolution.TypeRef,
+	targetType *resolution.Type,
+	data *templateData,
+) string {
 	if len(typeArgs) == 0 {
 		return baseName
 	}
@@ -821,12 +849,17 @@ func buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(args, ", "))
 }
 
-func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
+func resolveExtendsType(
+	extendsRef resolution.TypeRef,
+	parent resolution.Type,
+	data *templateData,
+) string {
 	targetOutputPath := output.GetPath(parent, "go")
 
 	name := naming.GetGoName(parent)
 
-	if parent.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
+	if parent.Namespace == data.Namespace &&
+		(targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return buildGenericType(name, extendsRef.TypeArgs, &parent, data)
 	}
 
@@ -834,8 +867,15 @@ func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, d
 		return name
 	}
 	alias := naming.DerivePackageAlias(targetOutputPath, data.Package)
-	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
-	return fmt.Sprintf("%s.%s", alias, buildGenericType(name, extendsRef.TypeArgs, &parent, data))
+	data.imports.AddInternal(
+		alias,
+		resolveGoImportPath(targetOutputPath, data.repoRoot),
+	)
+	return fmt.Sprintf(
+		"%s.%s",
+		alias,
+		buildGenericType(name, extendsRef.TypeArgs, &parent, data),
+	)
 }
 
 // pathHasMarshalRoot reports whether any struct generated at the path is a
@@ -978,7 +1018,10 @@ var templateFuncs = template.FuncMap{
 	},
 }
 
-var fileTemplate = template.Must(template.New("go-types").Funcs(templateFuncs).Parse(`// Code generated by oracle. DO NOT EDIT.
+var fileTemplate = template.Must(
+	template.New("go-types").
+		Funcs(templateFuncs).
+		Parse(`// Code generated by oracle. DO NOT EDIT.
 
 package {{.Package}}
 {{- if .HasImports}}
@@ -1091,7 +1134,8 @@ const (
 {{- end}}
 {{- if $enum.Values}}
 
-// IsValid reports whether {{$enum.Receiver}} is one of the defined {{$enum.Name}} values.
+// IsValid reports whether {{$enum.Receiver}} is one of the defined {{$enum.Name}}
+// values.
 func ({{$enum.Receiver}} {{$enum.Name}}) IsValid() bool {
 	switch {{$enum.Receiver}} {
 	case {{range $i, $v := $enum.Values}}{{if $i}}, {{end}}{{$enum.Name}}{{$v.Name}}{{end}}:
@@ -1394,12 +1438,17 @@ func (u {{.Name}}) Validate() error {
 {{- end}}
 {{- end}}
 {{- end}}
-`))
+`),
+)
 
 // WalkTypeRefs visits every type t directly references: all struct fields
 // (omitted included), extends, type parameters, alias targets, distinct
 // bases, and union variants.
-func WalkTypeRefs(t resolution.Type, table *resolution.Table, visit func(resolution.Type)) {
+func WalkTypeRefs(
+	t resolution.Type,
+	table *resolution.Table,
+	visit func(resolution.Type),
+) {
 	var walkRef func(ref resolution.TypeRef)
 	walkRef = func(ref resolution.TypeRef) {
 		for _, arg := range ref.TypeArgs {

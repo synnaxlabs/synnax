@@ -34,11 +34,23 @@ type PackageMapping struct {
 // It is intentionally exported so callers can extend or override the list in
 // tests; production code should treat it as constant.
 var KnownPackages = []PackageMapping{
-	{PathPrefix: "client/ts/src", PackageName: "@synnaxlabs/client", InternalPrefix: "@/"},
+	{
+		PathPrefix:     "client/ts/src",
+		PackageName:    "@synnaxlabs/client",
+		InternalPrefix: "@/",
+	},
 	{PathPrefix: "x/ts/src", PackageName: "@synnaxlabs/x", InternalPrefix: "@/"},
 	{PathPrefix: "pluto/src", PackageName: "@synnaxlabs/pluto", InternalPrefix: "@/"},
-	{PathPrefix: "freighter/ts/src", PackageName: "@synnaxlabs/freighter", InternalPrefix: "@/"},
-	{PathPrefix: "alamos/ts/src", PackageName: "@synnaxlabs/alamos", InternalPrefix: "@/"},
+	{
+		PathPrefix:     "freighter/ts/src",
+		PackageName:    "@synnaxlabs/freighter",
+		InternalPrefix: "@/",
+	},
+	{
+		PathPrefix:     "alamos/ts/src",
+		PackageName:    "@synnaxlabs/alamos",
+		InternalPrefix: "@/",
+	},
 	{PathPrefix: "drift/src", PackageName: "@synnaxlabs/drift", InternalPrefix: "@/"},
 }
 
@@ -63,7 +75,10 @@ func CalculateImport(fromPath, toPath string) string {
 		return calculateRelative(fromPath, toPath)
 	}
 	if fromPkg.PackageName == toPkg.PackageName {
-		relativePath := strings.TrimPrefix(strings.TrimPrefix(toPath, toPkg.PathPrefix), "/")
+		relativePath := strings.TrimPrefix(
+			strings.TrimPrefix(toPath, toPkg.PathPrefix),
+			"/",
+		)
 		return toPkg.InternalPrefix + relativePath
 	}
 	return toPkg.PackageName

@@ -45,4 +45,7 @@ const (
 	BytesT DataType = v0.BytesT
 	// JSONT is a variable density data type for UTF-8 encoded JSON text.
 	JSONT DataType = v0.JSONT
+	// BoolT is a data type for a boolean value. Samples are a single byte with
+	// canonical values 0x00 (false) and 0x01 (true).
+	BoolT DataType = v0.BoolT
 )

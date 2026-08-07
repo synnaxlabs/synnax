@@ -1,17 +1,17 @@
-# Synnax - Technical Documentation
+# Synnax - Technical documentation
 
-# 0 - Summary
+## 0 Summary
 
 Synnax implements a platform for distributed data acquisition, storage and analysis.
 It's a complex project with many moving parts. The document guides developers through
 the resources available to them, to provide a rational approach for working with the
 Synnax codebase.
 
-# 1 - Purpose
+## 1 Purpose
 
 The purpose of this document, and the entire `docs/tech` directory, is to:
 
-1. Characterise the core elements that make up the platform, and how they work together
+1. Characterize the core elements that make up the platform, and how they work together
    to provide a cohesive solution. Note that this information is high-level, and
    **deeper explanations are provided in directories related to specific components.**
 2. Provide a guide for **navigating the codebase**, and to explain the rationale behind
@@ -22,7 +22,7 @@ The purpose of this document, and the entire `docs/tech` directory, is to:
    with this level of complexity, and to provide a reference for developing these
    foundations.
 
-# 2 - Concepts
+## 2 Concepts
 
 The first step to working with the Synnax platform is to understand the high level
 components that make up the system. The best way to do this is to read the
@@ -33,19 +33,19 @@ As a supplement, read through the [telemetry concepts](telemetry.md) document. T
 provides a detailed guide on what telemetry is, and how Synnax leverages the properties
 of hardware generated telemetry to implement a performant database.
 
-# 3 - Architecture
+## 3 Architecture
 
 After you have a solid grasp on Synnax's high level concepts, it's time to read about
 the architecture of the platform. The [architecture](architecture.md) document provides
 a birds eye view of the fundamental design decisions we've made and how they've evolved
 into the current architecture.
 
-# 4 - Setting up your Development Environment
+## 4 Setting up your development environment
 
 It's time to set up your development environment! Here are guides for
-[macOS](setup-macos.md) and for [windows](setup-windows.md).
+[macOS](setup-macos.md) and for [Windows](setup-windows.md).
 
-# 5 - Engineering Foundations
+## 5 Engineering foundations
 
 While there's a lot to be learned by actively contributing to the project, it's
 important to have solid software engineering foundations in place. The
@@ -53,8 +53,14 @@ important to have solid software engineering foundations in place. The
 advanced) technologies and concepts you need to be familiar with when working on a
 specific area of the codebase.
 
-# 6 - Language Specific Guides
+## 6 Language specific guides
 
-We also have language specific guides for developing in [python](./python/python.md) and
-[typescript](./typescript/typescript.md). These includes information on the correct
-processes for working on the codebase in that language.
+We also have language specific guides for developing in [Python](python/python.md) and
+for [building the TypeScript packages](typescript/build.md). These include information
+on the correct processes for working on the codebase in that language.
+
+## 7 Requests for comment
+
+The [RFCs](rfc) record the design decisions behind the platform: the problem, the
+options weighed, and the alternatives rejected. Read the RFC for a component before you
+change it, and write one before you re-architect it.

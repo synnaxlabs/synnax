@@ -1,0 +1,23 @@
+Key = uuid {
+    @doc value "is a unique identifier for a line plot, represented as a UUID."
+}
+
+LinePlot struct {
+    key  Key = create {
+        @doc value "is the unique identifier for this line plot."
+        @key
+    }
+    name string {
+        @doc value "is a human-readable name for the line plot."
+    }
+    data record {
+        @doc value """is the line plot configuration including channel references, axis
+settings, and display options."""
+    }
+
+    @doc value  """is a time-series visualization component for plotting telemetry data.
+Line plots support multiple channels, real-time streaming, and
+historical data display with zoom and pan capabilities."""
+    @go marshal
+    @go migrate
+}

@@ -299,6 +299,15 @@ LinePlot struct {
         @doc value "holds annotation rules drawn over the plot."
     }
 
+    action Create {
+        line_plot LinePlot
+
+        @doc value """
+            replaces the document with the given created state. Emitted by the Core on
+            create so remote caches ingest new documents; clients never dispatch it.
+        """
+    }
+
     action Rename {
         name string
 
@@ -583,4 +592,5 @@ LinePlot struct {
     @create
     @retrieve
     @go migrate
+    @go imex
 }

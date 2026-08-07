@@ -60,9 +60,14 @@ func validateOmitRefs(
 					return
 				}
 				if omit.IsType(resolved, lang) {
-					d := diagnostics.Errorf(nil,
+					d := diagnostics.Errorf(
+						nil,
 						"%s generates for %s but %s references %s, which is omitted in %s",
-						t.QualifiedName, lang, context, resolved.QualifiedName, lang,
+						t.QualifiedName,
+						lang,
+						context,
+						resolved.QualifiedName,
+						lang,
 					)
 					diag.Report(t.Namespace+".oracle", d)
 				}
@@ -134,7 +139,8 @@ func validateVersionArgs(c *analysisCtx, types []resolution.Type) {
 		if valid {
 			continue
 		}
-		d := diagnostics.Errorf(nil,
+		d := diagnostics.Errorf(
+			nil,
 			"%s has a malformed @go version; expected `version <int>` or `version <int> pinned`",
 			t.QualifiedName,
 		)
@@ -164,6 +170,35 @@ func validatePinnedArgs(c *analysisCtx, types []resolution.Type) {
 		}
 		c.report(diagnostics.Errorf(nil,
 			"%s has a malformed @go pinned; the marker takes no arguments",
+			t.QualifiedName,
+		))
+	}
+}
+
+// validateImex errors on malformed @go imex declarations: the marker is per-type and
+// takes no arguments. The Go imex plugin rejects a marked type whose version chain
+// leaves it unversioned.
+func validateImex(c *analysisCtx, types []resolution.Type) {
+	if dom, ok := c.fileDomains["go"]; ok {
+		if _, has := dom.Expressions.Find("imex"); has {
+			c.report(diagnostics.Errorf(nil,
+				"%s declares @go imex file-level; declare it per type instead",
+				c.namespace,
+			))
+			return
+		}
+	}
+	for _, t := range types {
+		dom, ok := t.Domains["go"]
+		if !ok {
+			continue
+		}
+		expr, ok := dom.Expressions.Find("imex")
+		if !ok || len(expr.Values) == 0 {
+			continue
+		}
+		c.report(diagnostics.Errorf(nil,
+			"%s has a malformed @go imex; the marker takes no arguments",
 			t.QualifiedName,
 		))
 	}

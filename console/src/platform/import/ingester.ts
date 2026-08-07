@@ -9,7 +9,6 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type project, type Synnax } from "@synnaxlabs/client";
-import { type Pluto } from "@synnaxlabs/pluto";
 
 import { type Panel } from "@/platform/panel";
 
@@ -22,7 +21,6 @@ export interface FileIngesterContext {
   /** name is the fallback component name derived from the imported file. */
   name?: string;
   openTab: Panel.OpenTab;
-  store: Pluto.FluxStore;
   client: Synnax | null;
   projectKey: project.Key;
   /**
@@ -47,7 +45,6 @@ interface DirectoryIngesterContext {
   fileIngesters: FileIngesters;
   openTab: Panel.OpenTab;
   store: Store;
-  fluxStore: Pluto.FluxStore;
 }
 
 export interface DirectoryIngester {

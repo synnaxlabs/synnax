@@ -74,7 +74,10 @@ var _ = Describe("IR", func() {
 				},
 				Edges: ir.Edges{
 					{
-						Source: ir.Handle{Node: "input_a", Param: ir.DefaultOutputParam},
+						Source: ir.Handle{
+							Node:  "input_a",
+							Param: ir.DefaultOutputParam,
+						},
 						Target: ir.Handle{Node: "node1", Param: "a"},
 					},
 					{
@@ -112,7 +115,10 @@ var _ = Describe("IR", func() {
 				Functions: ir.Functions{},
 				Nodes:     ir.Nodes{},
 				Edges:     ir.Edges{},
-				Root:      ir.Scope{Mode: ir.ScopeModeParallel, Liveness: ir.LivenessAlways},
+				Root: ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+				},
 			}
 			data := MustSucceed(json.Marshal(original))
 			var restored ir.IR
@@ -140,7 +146,10 @@ var _ = Describe("IR", func() {
 							Key:      "main",
 							Mode:     ir.ScopeModeSequential,
 							Liveness: ir.LivenessGated,
-							Steps:    ir.Members{ir.NodeMember("init"), ir.NodeMember("run")},
+							Steps: ir.Members{
+								ir.NodeMember("init"),
+								ir.NodeMember("run"),
+							},
 							Transitions: []ir.Transition{
 								{
 									On:        ir.Handle{Node: "init", Param: "done"},
@@ -179,20 +188,28 @@ var _ = Describe("IR", func() {
 
 		It("Should render Functions, Nodes, Edges, and Root sections", func() {
 			program := &ir.IR{
-				Functions: ir.Functions{{
-					Key:     "add",
-					Inputs:  types.Params{{Name: "a", Type: types.I64()}},
-					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-				}},
-				Nodes: ir.Nodes{{
-					Key:  "node1",
-					Type: "add",
-					Inputs: types.Params{
-						{Name: "k", Type: types.I64(), Value: int64(1)},
-						{Name: "a", Type: types.I64()},
+				Functions: ir.Functions{
+					{
+						Key:    "add",
+						Inputs: types.Params{{Name: "a", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
 					},
-					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-				}},
+				},
+				Nodes: ir.Nodes{
+					{
+						Key:  "node1",
+						Type: "add",
+						Inputs: types.Params{
+							{Name: "k", Type: types.I64(), Value: int64(1)},
+							{Name: "a", Type: types.I64()},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I64()},
+						},
+					},
+				},
 				Edges: ir.Edges{{
 					Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "node1", Param: "a"},
@@ -225,38 +242,41 @@ var _ = Describe("IR", func() {
 			Expect(out).ToNot(ContainSubstring("Root"))
 		})
 
-		It("Should render multiple functions, nodes, and edges with tree indentation", func() {
-			program := &ir.IR{
-				Functions: ir.Functions{
-					{Key: "f1"},
-					{Key: "f2"},
-				},
-				Nodes: ir.Nodes{
-					{Key: "n1", Type: "f1"},
-					{Key: "n2", Type: "f2"},
-				},
-				Edges: ir.Edges{
-					{
-						Source: ir.Handle{Node: "n1", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "n2", Param: ir.DefaultInputParam},
-						Kind:   ir.EdgeKindContinuous,
+		It(
+			"Should render multiple functions, nodes, and edges with tree indentation",
+			func() {
+				program := &ir.IR{
+					Functions: ir.Functions{
+						{Key: "f1"},
+						{Key: "f2"},
 					},
-					{
-						Source: ir.Handle{Node: "n2", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "n1", Param: ir.DefaultInputParam},
-						Kind:   ir.EdgeKindConditional,
+					Nodes: ir.Nodes{
+						{Key: "n1", Type: "f1"},
+						{Key: "n2", Type: "f2"},
 					},
-				},
-			}
-			out := program.String()
-			Expect(out).To(ContainSubstring("Functions (2)"))
-			Expect(out).To(ContainSubstring("Nodes (2)"))
-			Expect(out).To(ContainSubstring("Edges (2)"))
-			Expect(out).To(ContainSubstring("├── "))
-			Expect(out).To(ContainSubstring("└── "))
-			Expect(out).To(ContainSubstring("n1.output -> n2.input"))
-			Expect(out).To(ContainSubstring("n2.output => n1.input"))
-		})
+					Edges: ir.Edges{
+						{
+							Source: ir.Handle{Node: "n1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "n2", Param: ir.DefaultInputParam},
+							Kind:   ir.EdgeKindContinuous,
+						},
+						{
+							Source: ir.Handle{Node: "n2", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "n1", Param: ir.DefaultInputParam},
+							Kind:   ir.EdgeKindConditional,
+						},
+					},
+				}
+				out := program.String()
+				Expect(out).To(ContainSubstring("Functions (2)"))
+				Expect(out).To(ContainSubstring("Nodes (2)"))
+				Expect(out).To(ContainSubstring("Edges (2)"))
+				Expect(out).To(ContainSubstring("├── "))
+				Expect(out).To(ContainSubstring("└── "))
+				Expect(out).To(ContainSubstring("n1.output -> n2.input"))
+				Expect(out).To(ContainSubstring("n2.output => n1.input"))
+			},
+		)
 
 		It("Should render exact tree glyphs for every section", func() {
 			program := ir.IR{

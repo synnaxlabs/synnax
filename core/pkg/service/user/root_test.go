@@ -72,7 +72,9 @@ func createUserRecordOnly(
 	ctx context.Context, svc *user.Service, username string, root bool,
 ) user.User {
 	if !root {
-		return MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{Username: username}))
+		return MustSucceed(
+			svc.NewWriter(nil).Create(ctx, user.User{Username: username}),
+		)
 	}
 	u := user.User{Key: uuid.New(), Username: username, RootUser: true}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -128,7 +130,9 @@ func purgeUsersAndAuth(ctx context.Context) {
 		usernames[i] = u.Username
 	}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := gorp.WrapWriter[user.Key, user.User](tx).Delete(ctx, keys...); err != nil {
+		if err := gorp.WrapWriter[user.Key, user.User](
+			tx,
+		).Delete(ctx, keys...); err != nil {
 			return err
 		}
 		if err := otg.NewWriter(tx).DeleteResources(
@@ -152,47 +156,56 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 		})
 	})
 	Describe("Matching root user", func() {
-		It("Should be a no-op when the existing root user matches config", func(ctx SpecContext) {
-			svc1 := openRootUser(ctx, "alpha", "p1")
-			before := findUser(ctx, svc1, "alpha")
-			Expect(svc1.Close()).To(Succeed())
-			svc2 := openRootUser(ctx, "alpha", "p1")
-			after := findUser(ctx, svc2, "alpha")
-			Expect(after.Key).To(Equal(before.Key))
-			Expect(after.RootUser).To(BeTrue())
-			Expect(rootUsers(ctx, svc2)).To(HaveLen(1))
-		})
-		It("Should rotate the root password when config provides a different password", func(ctx SpecContext) {
-			svc1 := openRootUser(ctx, "alpha", "p1")
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "alpha", Password: "p1",
-			})).To(Succeed())
-			Expect(svc1.Close()).To(Succeed())
-			svc2 := openRootUser(ctx, "alpha", "p2")
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "alpha", Password: "p2",
-			})).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "alpha", Password: "p1",
-			})).Error().To(MatchError(auth.ErrInvalidCredentials))
-			Expect(rootUsers(ctx, svc2)).To(HaveLen(1))
-		})
+		It(
+			"Should be a no-op when the existing root user matches config",
+			func(ctx SpecContext) {
+				svc1 := openRootUser(ctx, "alpha", "p1")
+				before := findUser(ctx, svc1, "alpha")
+				Expect(svc1.Close()).To(Succeed())
+				svc2 := openRootUser(ctx, "alpha", "p1")
+				after := findUser(ctx, svc2, "alpha")
+				Expect(after.Key).To(Equal(before.Key))
+				Expect(after.RootUser).To(BeTrue())
+				Expect(rootUsers(ctx, svc2)).To(HaveLen(1))
+			},
+		)
+		It(
+			"Should rotate the root password when config provides a different password",
+			func(ctx SpecContext) {
+				svc1 := openRootUser(ctx, "alpha", "p1")
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "alpha", Password: "p1",
+				})).To(Succeed())
+				Expect(svc1.Close()).To(Succeed())
+				svc2 := openRootUser(ctx, "alpha", "p2")
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "alpha", Password: "p2",
+				})).To(Succeed())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "alpha", Password: "p1",
+				})).Error().To(MatchError(auth.ErrInvalidCredentials))
+				Expect(rootUsers(ctx, svc2)).To(HaveLen(1))
+			},
+		)
 	})
 	Describe("Username change", func() {
-		It("Should demote the previous root and create a new root when the config username changes", func(ctx SpecContext) {
-			svc1 := openRootUser(ctx, "alpha", "p1")
-			Expect(svc1.Close()).To(Succeed())
-			svc2 := openRootUser(ctx, "beta", "p2")
-			Expect(findUser(ctx, svc2, "alpha").RootUser).To(BeFalse())
-			Expect(findUser(ctx, svc2, "beta").RootUser).To(BeTrue())
-			Expect(rootUsers(ctx, svc2)).To(HaveLen(1))
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "alpha", Password: "p1",
-			})).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "beta", Password: "p2",
-			})).To(Succeed())
-		})
+		It(
+			"Should demote the previous root and create a new root when the config username changes",
+			func(ctx SpecContext) {
+				svc1 := openRootUser(ctx, "alpha", "p1")
+				Expect(svc1.Close()).To(Succeed())
+				svc2 := openRootUser(ctx, "beta", "p2")
+				Expect(findUser(ctx, svc2, "alpha").RootUser).To(BeFalse())
+				Expect(findUser(ctx, svc2, "beta").RootUser).To(BeTrue())
+				Expect(rootUsers(ctx, svc2)).To(HaveLen(1))
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "alpha", Password: "p1",
+				})).To(Succeed())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "beta", Password: "p2",
+				})).To(Succeed())
+			},
+		)
 		It("Should be idempotent after a demotion+recreate", func(ctx SpecContext) {
 			Expect(openRootUser(ctx, "alpha", "p1").Close()).To(Succeed())
 			Expect(openRootUser(ctx, "beta", "p2").Close()).To(Succeed())
@@ -203,118 +216,145 @@ var _ = Describe("Root user reconciliation", Serial, func() {
 		})
 	})
 	Describe("Promotion of an existing non-root user", func() {
-		It("Should promote the existing user, rotate their password, and demote previous roots", func(ctx SpecContext) {
-			seedSvc := openRootUser(ctx, "old-root", "p")
-			createUser(ctx, seedSvc, "gamma", "x", false)
-			gammaBefore := findUser(ctx, seedSvc, "gamma")
-			Expect(gammaBefore.RootUser).To(BeFalse())
-			Expect(seedSvc.Close()).To(Succeed())
+		It(
+			"Should promote the existing user, rotate their password, and demote previous roots",
+			func(ctx SpecContext) {
+				seedSvc := openRootUser(ctx, "old-root", "p")
+				createUser(ctx, seedSvc, "gamma", "x", false)
+				gammaBefore := findUser(ctx, seedSvc, "gamma")
+				Expect(gammaBefore.RootUser).To(BeFalse())
+				Expect(seedSvc.Close()).To(Succeed())
 
-			s := openRootUser(ctx, "gamma", "p3")
-			gammaAfter := findUser(ctx, s, "gamma")
-			Expect(gammaAfter.Key).To(Equal(gammaBefore.Key))
-			Expect(gammaAfter.RootUser).To(BeTrue())
-			// Previous root demoted.
-			Expect(findUser(ctx, s, "old-root").RootUser).To(BeFalse())
-			Expect(rootUsers(ctx, s)).To(HaveLen(1))
-			// New password is active; the old one no longer authenticates.
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "gamma", Password: "p3",
-			})).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "gamma", Password: "x",
-			})).Error().To(MatchError(auth.ErrInvalidCredentials))
-		})
-		It("Should promote and keep the same password when config matches the existing password", func(ctx SpecContext) {
-			seedSvc := DeferClose(openRootUser(ctx, "old-root", "p"))
-			createUser(ctx, seedSvc, "gamma", "same-pwd", false)
-			gammaBefore := findUser(ctx, seedSvc, "gamma")
+				s := openRootUser(ctx, "gamma", "p3")
+				gammaAfter := findUser(ctx, s, "gamma")
+				Expect(gammaAfter.Key).To(Equal(gammaBefore.Key))
+				Expect(gammaAfter.RootUser).To(BeTrue())
+				// Previous root demoted.
+				Expect(findUser(ctx, s, "old-root").RootUser).To(BeFalse())
+				Expect(rootUsers(ctx, s)).To(HaveLen(1))
+				// New password is active; the old one no longer authenticates.
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "gamma", Password: "p3",
+				})).To(Succeed())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "gamma", Password: "x",
+				})).Error().To(MatchError(auth.ErrInvalidCredentials))
+			},
+		)
+		It(
+			"Should promote and keep the same password when config matches the existing password",
+			func(ctx SpecContext) {
+				seedSvc := DeferClose(openRootUser(ctx, "old-root", "p"))
+				createUser(ctx, seedSvc, "gamma", "same-pwd", false)
+				gammaBefore := findUser(ctx, seedSvc, "gamma")
 
-			s := openRootUser(ctx, "gamma", "same-pwd")
-			gammaAfter := findUser(ctx, s, "gamma")
-			Expect(gammaAfter.Key).To(Equal(gammaBefore.Key))
-			Expect(gammaAfter.RootUser).To(BeTrue())
-			Expect(rootUsers(ctx, s)).To(HaveLen(1))
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "gamma", Password: "same-pwd",
-			})).To(Succeed())
-		})
+				s := openRootUser(ctx, "gamma", "same-pwd")
+				gammaAfter := findUser(ctx, s, "gamma")
+				Expect(gammaAfter.Key).To(Equal(gammaBefore.Key))
+				Expect(gammaAfter.RootUser).To(BeTrue())
+				Expect(rootUsers(ctx, s)).To(HaveLen(1))
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "gamma", Password: "same-pwd",
+				})).To(Succeed())
+			},
+		)
 	})
 	Describe("Stale root users", func() {
-		It("Should collapse multiple stale roots when new credentials are configured", func(ctx SpecContext) {
-			seedSvc := openRootUser(ctx, "root-bootstrap", "p")
-			createUser(ctx, seedSvc, "stale1", "x", true)
-			createUser(ctx, seedSvc, "stale2", "x", true)
-			Expect(seedSvc.Close()).To(Succeed())
-			s := openRootUser(ctx, "fresh", "p4")
-			Expect(findUser(ctx, s, "stale1").RootUser).To(BeFalse())
-			Expect(findUser(ctx, s, "stale2").RootUser).To(BeFalse())
-			Expect(findUser(ctx, s, "fresh").RootUser).To(BeTrue())
-			Expect(rootUsers(ctx, s)).To(HaveLen(1))
-		})
-		It("Should collapse multiple stale roots without credentials, retaining exactly one", func(ctx SpecContext) {
-			seedSvc := openRootUser(ctx, "root-bootstrap", "p")
-			createUser(ctx, seedSvc, "charlie", "x", true)
-			createUser(ctx, seedSvc, "alpha", "x", true)
-			createUser(ctx, seedSvc, "beta", "x", true)
-			Expect(rootUsers(ctx, seedSvc)).To(HaveLen(4))
-			Expect(seedSvc.Close()).To(Succeed())
-			s := openRootUser(ctx, "", "")
-			Expect(rootUsers(ctx, s)).To(HaveLen(1))
-		})
-		It("Should leave a single existing root alone when no credentials are configured", func(ctx SpecContext) {
-			seedSvc := openRootUser(ctx, "loner", "p")
-			lonerBefore := findUser(ctx, seedSvc, "loner")
-			Expect(seedSvc.Close()).To(Succeed())
-			s := openRootUser(ctx, "", "")
-			loner := findUser(ctx, s, "loner")
-			Expect(loner.Key).To(Equal(lonerBefore.Key))
-			Expect(loner.RootUser).To(BeTrue())
-			Expect(rootUsers(ctx, s)).To(HaveLen(1))
-		})
-		It("Should open cleanly when no roots exist and no credentials are configured", func(ctx SpecContext) {
-			s := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-				DB: db, Ontology: otg, Group: groupSvc, Search: searchIdx,
-			}))
-			Expect(rootUsers(ctx, s)).To(BeEmpty())
-		})
+		It(
+			"Should collapse multiple stale roots when new credentials are configured",
+			func(ctx SpecContext) {
+				seedSvc := openRootUser(ctx, "root-bootstrap", "p")
+				createUser(ctx, seedSvc, "stale1", "x", true)
+				createUser(ctx, seedSvc, "stale2", "x", true)
+				Expect(seedSvc.Close()).To(Succeed())
+				s := openRootUser(ctx, "fresh", "p4")
+				Expect(findUser(ctx, s, "stale1").RootUser).To(BeFalse())
+				Expect(findUser(ctx, s, "stale2").RootUser).To(BeFalse())
+				Expect(findUser(ctx, s, "fresh").RootUser).To(BeTrue())
+				Expect(rootUsers(ctx, s)).To(HaveLen(1))
+			},
+		)
+		It(
+			"Should collapse multiple stale roots without credentials, retaining exactly one",
+			func(ctx SpecContext) {
+				seedSvc := openRootUser(ctx, "root-bootstrap", "p")
+				createUser(ctx, seedSvc, "charlie", "x", true)
+				createUser(ctx, seedSvc, "alpha", "x", true)
+				createUser(ctx, seedSvc, "beta", "x", true)
+				Expect(rootUsers(ctx, seedSvc)).To(HaveLen(4))
+				Expect(seedSvc.Close()).To(Succeed())
+				s := openRootUser(ctx, "", "")
+				Expect(rootUsers(ctx, s)).To(HaveLen(1))
+			},
+		)
+		It(
+			"Should leave a single existing root alone when no credentials are configured",
+			func(ctx SpecContext) {
+				seedSvc := openRootUser(ctx, "loner", "p")
+				lonerBefore := findUser(ctx, seedSvc, "loner")
+				Expect(seedSvc.Close()).To(Succeed())
+				s := openRootUser(ctx, "", "")
+				loner := findUser(ctx, s, "loner")
+				Expect(loner.Key).To(Equal(lonerBefore.Key))
+				Expect(loner.RootUser).To(BeTrue())
+				Expect(rootUsers(ctx, s)).To(HaveLen(1))
+			},
+		)
+		It(
+			"Should open cleanly when no roots exist and no credentials are configured",
+			func(ctx SpecContext) {
+				s := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+					DB: db, Ontology: otg, Group: groupSvc, Search: searchIdx,
+				}))
+				Expect(rootUsers(ctx, s)).To(BeEmpty())
+			},
+		)
 	})
 	Describe("Orphan state recovery", func() {
-		It("Should register credentials when a root user record exists without an auth row", func(ctx SpecContext) {
-			seedSvc := openRootUser(ctx, "root-bootstrap", "p")
-			orphan := createUserRecordOnly(ctx, seedSvc, "orphan-record", true)
-			Expect(seedSvc.Close()).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "orphan-record", Password: "newpassword",
-			})).Error().To(MatchError(auth.ErrInvalidCredentials))
-			s := openRootUser(ctx, "orphan-record", "newpassword")
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "orphan-record", Password: "newpassword",
-			})).To(Succeed())
-			u := findUser(ctx, s, "orphan-record")
-			Expect(u.Key).To(Equal(orphan.Key))
-			Expect(u.RootUser).To(BeTrue())
-			Expect(rootUsers(ctx, s)).To(HaveLen(1))
-		})
-		It("Should create the user record when an auth row exists without one", func(ctx SpecContext) {
-			createAuthRowOnly(ctx, "orphan-auth", "p")
-			s := openRootUser(ctx, "orphan-auth", "p")
-			Expect(findUser(ctx, s, "orphan-auth").RootUser).To(BeTrue())
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "orphan-auth", Password: "p",
-			})).To(Succeed())
-			Expect(rootUsers(ctx, s)).To(HaveLen(1))
-		})
-		It("Should rotate the auth password when an orphan auth row has a different password", func(ctx SpecContext) {
-			createAuthRowOnly(ctx, "orphan-auth-rot", "old-password")
-			s := openRootUser(ctx, "orphan-auth-rot", "new-password")
-			Expect(findUser(ctx, s, "orphan-auth-rot").RootUser).To(BeTrue())
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "orphan-auth-rot", Password: "new-password",
-			})).To(Succeed())
-			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
-				Username: "orphan-auth-rot", Password: "old-password",
-			})).Error().To(MatchError(auth.ErrInvalidCredentials))
-		})
+		It(
+			"Should register credentials when a root user record exists without an auth row",
+			func(ctx SpecContext) {
+				seedSvc := openRootUser(ctx, "root-bootstrap", "p")
+				orphan := createUserRecordOnly(ctx, seedSvc, "orphan-record", true)
+				Expect(seedSvc.Close()).To(Succeed())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "orphan-record", Password: "newpassword",
+				})).Error().To(MatchError(auth.ErrInvalidCredentials))
+				s := openRootUser(ctx, "orphan-record", "newpassword")
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "orphan-record", Password: "newpassword",
+				})).To(Succeed())
+				u := findUser(ctx, s, "orphan-record")
+				Expect(u.Key).To(Equal(orphan.Key))
+				Expect(u.RootUser).To(BeTrue())
+				Expect(rootUsers(ctx, s)).To(HaveLen(1))
+			},
+		)
+		It(
+			"Should create the user record when an auth row exists without one",
+			func(ctx SpecContext) {
+				createAuthRowOnly(ctx, "orphan-auth", "p")
+				s := openRootUser(ctx, "orphan-auth", "p")
+				Expect(findUser(ctx, s, "orphan-auth").RootUser).To(BeTrue())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "orphan-auth", Password: "p",
+				})).To(Succeed())
+				Expect(rootUsers(ctx, s)).To(HaveLen(1))
+			},
+		)
+		It(
+			"Should rotate the auth password when an orphan auth row has a different password",
+			func(ctx SpecContext) {
+				createAuthRowOnly(ctx, "orphan-auth-rot", "old-password")
+				s := openRootUser(ctx, "orphan-auth-rot", "new-password")
+				Expect(findUser(ctx, s, "orphan-auth-rot").RootUser).To(BeTrue())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "orphan-auth-rot", Password: "new-password",
+				})).To(Succeed())
+				Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{
+					Username: "orphan-auth-rot", Password: "old-password",
+				})).Error().To(MatchError(auth.ErrInvalidCredentials))
+			},
+		)
 	})
 })

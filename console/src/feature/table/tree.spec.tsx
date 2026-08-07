@@ -113,7 +113,7 @@ describe("table/ontology", () => {
       );
       fireEvent.click(findLastButton("Delete"));
       await waitFor(async () => {
-        await expect(client.tables.retrieve({ key: t.key })).rejects.toSatisfy((e) =>
+        await expect(client.tables.retrieve(t.key)).rejects.toSatisfy((e) =>
           NotFoundError.matches(e),
         );
       });
@@ -132,7 +132,7 @@ describe("table/ontology", () => {
         commitTextEdit(el, newName);
       });
       await waitFor(async () => {
-        const renamed = await client.tables.retrieve({ key: t.key });
+        const renamed = await client.tables.retrieve(t.key);
         expect(renamed.name).toBe(newName);
       });
     });

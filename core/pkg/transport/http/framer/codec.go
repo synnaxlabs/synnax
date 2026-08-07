@@ -96,7 +96,10 @@ func (c *Codec) DecodeStream(
 	case *http.WSMessage[IteratorResponse]:
 		return c.decodeIteratorResponse(ctx, r, v)
 	default:
-		err := errors.Newf("[api.Codec] incompatible type %T provided to framer codec", value)
+		err := errors.Newf(
+			"[api.Codec] incompatible type %T provided to framer codec",
+			value,
+		)
 		zap.S().DPanic(err.Error())
 		return err
 	}
@@ -125,7 +128,10 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, value any) error 
 	case http.WSMessage[IteratorResponse]:
 		return c.encodeIteratorResponse(ctx, w, v)
 	default:
-		err := errors.Newf("[api.Codec] incompatible type %T provided to framer codec", value)
+		err := errors.Newf(
+			"[api.Codec] incompatible type %T provided to framer codec",
+			value,
+		)
 		zap.S().DPanic(err.Error())
 		return err
 	}
@@ -169,7 +175,9 @@ func (c *Codec) decodeWriteResponse(
 		return err
 	}
 	if !isLowPerf {
-		return errors.Newf("[api.Codec] unexpected high performance codec special character")
+		return errors.Newf(
+			"[api.Codec] unexpected high performance codec special character",
+		)
 	}
 	return c.lowPerfDecode(ctx, r, v)
 }
@@ -214,7 +222,8 @@ func (c *Codec) encodeWriteRequest(
 	w io.Writer,
 	v http.WSMessage[WriterRequest],
 ) error {
-	if v.Type != http.WSMessageTypeData || v.Payload.Command != framer.WriterCommandWrite {
+	if v.Type != http.WSMessageTypeData ||
+		v.Payload.Command != framer.WriterCommandWrite {
 		return c.lowPerfEncode(ctx, true, w, v)
 	}
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {

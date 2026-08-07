@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type record } from "@synnaxlabs/x";
+
 import { Haul } from "@/haul";
 
 /**
@@ -15,12 +17,23 @@ import { Haul } from "@/haul";
  */
 export const HAUL_DROP_TYPE = "pluto_mosaic_tab_drop";
 
-export type TabDropHaulItem = Haul.Item<typeof HAUL_DROP_TYPE, string, undefined>;
+export type TabDropHaulItem = Haul.Item<
+  typeof HAUL_DROP_TYPE,
+  string,
+  record.Unknown | undefined
+>;
 
+/**
+ * @param data - Opaque payload attached by the drag source and handed back to the
+ * {@link Frame} onDrop handler. A mosaic in another window is a separate drop target
+ * with its own state, so anything the destination needs about the tab's origin travels
+ * here.
+ */
 export const createTabDropHaulItem = (
   tabKey: string,
   elementID?: string,
-): TabDropHaulItem => ({ type: HAUL_DROP_TYPE, key: tabKey, elementID });
+  data?: record.Unknown,
+): TabDropHaulItem => ({ type: HAUL_DROP_TYPE, key: tabKey, elementID, data });
 
 export const isTabDropHaulItem = (item: Haul.Item): item is TabDropHaulItem =>
   item.type === HAUL_DROP_TYPE;

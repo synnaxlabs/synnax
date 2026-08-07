@@ -55,7 +55,8 @@ func Migrate(dirname string, ins alamos.Instrumentation) error {
 	}
 
 	ev := pebble.MakeLoggingEventListener(log)
-	// For all other formats, open with v2 (handles both supported formats and auto-migration)
+	// For all other formats, open with v2 (handles both supported formats and
+	// auto-migration)
 	db, err := pebble.Open(dirname, &pebble.Options{
 		FS:                 vfs.Default,
 		FormatMajorVersion: pebble.FormatNewest,

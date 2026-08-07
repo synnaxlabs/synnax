@@ -16,12 +16,17 @@ import (
 )
 
 var _ = Describe("Kind.String", func() {
-	DescribeTable("Should return the canonical name for each Kind",
+	DescribeTable(
+		"Should return the canonical name for each Kind",
 		func(kind symbol.Kind, expected string) {
 			Expect(kind.String()).To(Equal(expected))
 		},
 		Entry("KindVariable", symbol.KindVariable, "KindVariable"),
-		Entry("KindStatefulVariable", symbol.KindStatefulVariable, "KindStatefulVariable"),
+		Entry(
+			"KindStatefulVariable",
+			symbol.KindStatefulVariable,
+			"KindStatefulVariable",
+		),
 		Entry("KindChannel", symbol.KindChannel, "KindChannel"),
 		Entry("KindFunction", symbol.KindFunction, "KindFunction"),
 		Entry("KindBlock", symbol.KindBlock, "KindBlock"),

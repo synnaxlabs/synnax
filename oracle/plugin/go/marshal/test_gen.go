@@ -111,7 +111,11 @@ func generateTestCodecFile(
 		}
 		expr, err := b.valueExpr(typ, ref)
 		if err != nil {
-			return errors.Wrapf(err, "failed to generate shared fixture for %s", typ.Name)
+			return errors.Wrapf(
+				err,
+				"failed to generate shared fixture for %s",
+				typ.Name,
+			)
 		}
 		if expr == "" {
 			return nil
@@ -184,8 +188,12 @@ func generateTestCodecFile(
 				}
 				valueExpr, err := b.unionExpr(e.Type, uform, v)
 				if err != nil {
-					return nil, errors.Wrapf(err,
-						"failed to generate test value for %s variant %q", e.GoName, v.Name)
+					return nil, errors.Wrapf(
+						err,
+						"failed to generate test value for %s variant %q",
+						e.GoName,
+						v.Name,
+					)
 				}
 				if b.needsUUID {
 					fo.NeedsUUID = true
@@ -242,7 +250,11 @@ func generateTestCodecFile(
 				}
 			}
 
-			gte := genericTestEntry{GoName: e.GoName, Receiver: recv, TypeParams: typeParams}
+			gte := genericTestEntry{
+				GoName:     e.GoName,
+				Receiver:   recv,
+				TypeParams: typeParams,
+			}
 			for _, m := range modes {
 				b := &testValueBuilder{
 					table:       table,
@@ -259,14 +271,23 @@ func generateTestCodecFile(
 				substituted := make([]resolution.Field, len(fields))
 				for i, f := range fields {
 					substituted[i] = f
-					substituted[i].Type = resolution.SubstituteTypeRef(f.Type, typeArgMap)
+					substituted[i].Type = resolution.SubstituteTypeRef(
+						f.Type,
+						typeArgMap,
+					)
 				}
 
 				var concreteTypeArgStrs []string
 				for _, tp := range typeParams {
-					concreteTypeArgStrs = append(concreteTypeArgStrs, concreteGoTypeForConstraint(tp.Constraint))
+					concreteTypeArgStrs = append(
+						concreteTypeArgStrs,
+						concreteGoTypeForConstraint(tp.Constraint),
+					)
 				}
-				concreteGoName := e.GoName + "[" + strings.Join(concreteTypeArgStrs, ", ") + "]"
+				concreteGoName := e.GoName + "[" + strings.Join(
+					concreteTypeArgStrs,
+					", ",
+				) + "]"
 
 				var fieldExprs []string
 				for _, f := range substituted {
@@ -290,7 +311,13 @@ func generateTestCodecFile(
 						expr, err = b.valueExpr(r, f.Type)
 					}
 					if err != nil {
-						return nil, errors.Wrapf(err, "failed to generate %s test value for %s field %s", m.name, e.GoName, fieldGoName)
+						return nil, errors.Wrapf(
+							err,
+							"failed to generate %s test value for %s field %s",
+							m.name,
+							e.GoName,
+							fieldGoName,
+						)
 					}
 					if expr != "" {
 						fieldExprs = append(fieldExprs, fieldGoName+": "+expr)
@@ -300,7 +327,10 @@ func generateTestCodecFile(
 					fo.NeedsUUID = true
 				}
 				valueExpr := b.formatComposite(b.pkgPrefix+concreteGoName, fieldExprs)
-				gte.Cases = append(gte.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
+				gte.Cases = append(
+					gte.Cases,
+					testCase{Name: m.name, ValueExpr: valueExpr},
+				)
 			}
 			fo.GenericTests = append(fo.GenericTests, gte)
 		} else {
@@ -308,7 +338,10 @@ func generateTestCodecFile(
 			for _, m := range modes {
 				if m.mode == modeFullyPopulated {
 					if varName, ok := sharedVars[e.Type.QualifiedName]; ok {
-						te.Cases = append(te.Cases, testCase{Name: m.name, ValueExpr: varName})
+						te.Cases = append(
+							te.Cases,
+							testCase{Name: m.name, ValueExpr: varName},
+						)
 						continue
 					}
 				}
@@ -324,12 +357,20 @@ func generateTestCodecFile(
 				}
 				valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
 				if err != nil {
-					return nil, errors.Wrapf(err, "failed to generate %s test value for %s", m.name, e.GoName)
+					return nil, errors.Wrapf(
+						err,
+						"failed to generate %s test value for %s",
+						m.name,
+						e.GoName,
+					)
 				}
 				if b.needsUUID {
 					fo.NeedsUUID = true
 				}
-				te.Cases = append(te.Cases, testCase{Name: m.name, ValueExpr: valueExpr})
+				te.Cases = append(
+					te.Cases,
+					testCase{Name: m.name, ValueExpr: valueExpr},
+				)
 			}
 			fo.Tests = append(fo.Tests, te)
 		}
@@ -448,7 +489,9 @@ func (b *testValueBuilder) formatComposite(typeName string, entries []string) st
 	return typeName + "{\n" + strings.Join(entries, ",\n") + ",\n}"
 }
 
-func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string, error) {
+func (b *testValueBuilder) buildFieldExprs(
+	fields []resolution.Field,
+) ([]string, error) {
 	var fieldExprs []string
 	for _, f := range fields {
 		if f.Type.Name == "nil" {
@@ -483,7 +526,9 @@ func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string,
 	return fieldExprs, nil
 }
 
-func (b *testValueBuilder) buildStructFieldExprs(typ resolution.Type) ([]string, error) {
+func (b *testValueBuilder) buildStructFieldExprs(
+	typ resolution.Type,
+) ([]string, error) {
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
 		return nil, nil
@@ -513,7 +558,10 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 		if err != nil {
 			return nil, err
 		}
-		exprs = append(exprs, parentGoName+": "+b.formatComposite(parentGoType, parentFieldExprs))
+		exprs = append(
+			exprs,
+			parentGoName+": "+b.formatComposite(parentGoType, parentFieldExprs),
+		)
 	}
 	childFieldExprs, err := b.buildFieldExprs(form.Fields)
 	if err != nil {
@@ -739,7 +787,10 @@ func (b *testValueBuilder) unionExpr(
 		pform, ok := payload.Form.(resolution.StructForm)
 		if !ok {
 			return "", errors.Newf(
-				"union %s variant %q: inline payload is not a struct", actual.Name, v.Name)
+				"union %s variant %q: inline payload is not a struct",
+				actual.Name,
+				v.Name,
+			)
 		}
 		for _, ext := range pform.Extends {
 			parent, ok := ext.Resolve(b.table)
@@ -759,8 +810,15 @@ func (b *testValueBuilder) unionExpr(
 			if err != nil {
 				return "", err
 			}
-			embeds = append(embeds,
-				naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, parentExprs))
+			embeds = append(
+				embeds,
+				naming.GetGoName(
+					parent,
+				)+": "+b.formatComposite(
+					parentGoType,
+					parentExprs,
+				),
+			)
 		}
 		fieldExprs, err := b.buildFieldExprs(pform.Fields)
 		if err != nil {
@@ -823,7 +881,10 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 		base = fmt.Sprintf("%d.5", idx)
 	case "uuid":
 		b.needsUUID = true
-		base = fmt.Sprintf(`uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678%02x")`, idx%256)
+		base = fmt.Sprintf(
+			`uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678%02x")`,
+			idx%256,
+		)
 	case "bytes":
 		base = fmt.Sprintf("[]byte{%d, %d, %d}", idx%256, (idx+1)%256, (idx+2)%256)
 	case "record":
@@ -851,7 +912,9 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 	return base, nil
 }
 
-func (b *testValueBuilder) zeroPrimitiveExpr(primName, goTypeCast string) (string, error) {
+func (b *testValueBuilder) zeroPrimitiveExpr(
+	primName, goTypeCast string,
+) (string, error) {
 	var base string
 	switch primName {
 	case "string":
@@ -871,7 +934,10 @@ func (b *testValueBuilder) zeroPrimitiveExpr(primName, goTypeCast string) (strin
 	case "record", "any":
 		return "nil", nil
 	default:
-		return "", errors.Newf("unsupported primitive for zero test value: %s", primName)
+		return "", errors.Newf(
+			"unsupported primitive for zero test value: %s",
+			primName,
+		)
 	}
 	if goTypeCast != "" {
 		return goTypeCast + "(" + base + ")", nil
@@ -963,7 +1029,9 @@ func (b *testValueBuilder) mapExpr(keyRef, valRef resolution.TypeRef) (string, e
 	return fmt.Sprintf("%s{%s}", mapType, entry), nil
 }
 
-func (b *testValueBuilder) resolveLeafPrim(typ resolution.Type) (string, string, error) {
+func (b *testValueBuilder) resolveLeafPrim(
+	typ resolution.Type,
+) (string, string, error) {
 	return typemap.ResolveLeafPrimitive(typ, b.table, b.goTypeName)
 }
 

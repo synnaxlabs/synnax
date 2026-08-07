@@ -36,7 +36,7 @@ describe("useChangeIdentifier", () => {
       await result.current.updateAsync({ key: dev.key, identifier });
     });
     await waitFor(() => expect(result.current.variant).toEqual("success"));
-    const updated = await client.devices.retrieve({ key: dev.key });
+    const updated = await client.devices.retrieve(dev.key);
     return updated.properties;
   };
 

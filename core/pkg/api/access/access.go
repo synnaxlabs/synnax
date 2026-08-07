@@ -67,9 +67,9 @@ func (s *Service) CreatePolicy(
 type RetrievePolicyRequest struct {
 	Internal *bool         `json:"internal" msgpack:"internal"`
 	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
-	Keys     []policy.Key  `json:"keys" msgpack:"keys"`
-	Limit    int           `json:"limit" msgpack:"limit"`
-	Offset   int           `json:"offset" msgpack:"offset"`
+	Keys     []policy.Key  `json:"keys"     msgpack:"keys"`
+	Limit    int           `json:"limit"    msgpack:"limit"`
+	Offset   int           `json:"offset"   msgpack:"offset"`
 }
 
 type RetrievePolicyResponse struct {
@@ -167,9 +167,9 @@ func (s *Service) CreateRole(
 type (
 	RetrieveRoleRequest struct {
 		Internal *bool      `json:"internal" msgpack:"internal"`
-		Keys     []role.Key `json:"keys" msgpack:"keys"`
-		Limit    int        `json:"limit" msgpack:"limit"`
-		Offset   int        `json:"offset" msgpack:"offset"`
+		Keys     []role.Key `json:"keys"     msgpack:"keys"`
+		Limit    int        `json:"limit"    msgpack:"limit"`
+		Offset   int        `json:"offset"   msgpack:"offset"`
 	}
 	RetrieveRoleResponse struct {
 		Roles []role.Role `json:"roles,omitzero" msgpack:"roles,omitzero"`
@@ -254,7 +254,8 @@ func (s *Service) AssignRole(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.internal.Role.NewWriter(tx, allowInternal).AssignRole(ctx, userID, req.Role)
+	return types.Nil{}, s.internal.Role.NewWriter(tx, allowInternal).
+		AssignRole(ctx, userID, req.Role)
 }
 
 type UnassignRoleRequest struct {

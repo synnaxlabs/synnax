@@ -39,19 +39,24 @@ var _ = Describe("Transport", func() {
 		client = net.New(gateway, 1)
 	})
 
-	It("Should round-trip a request through the streaming transport", func(ctx SpecContext) {
-		server.Server().BindHandler(func(
-			_ context.Context,
-			srv freighter.ServerStream[distrelay.Request, distrelay.Response],
-		) error {
-			if _, err := srv.Receive(); err != nil {
-				return err
-			}
-			return srv.Send(distrelay.Response{Group: 43})
-		})
-		stream := MustSucceed(client.Client().Stream(ctx, leaseholder))
-		Expect(stream.Send(distrelay.Request{Keys: channel.Keys{4, 5}})).To(Succeed())
-		Expect(MustSucceed(stream.Receive()).Group).To(Equal(uint32(43)))
-		Expect(stream.CloseSend()).To(Succeed())
-	})
+	It(
+		"Should round-trip a request through the streaming transport",
+		func(ctx SpecContext) {
+			server.Server().BindHandler(func(
+				_ context.Context,
+				srv freighter.ServerStream[distrelay.Request, distrelay.Response],
+			) error {
+				if _, err := srv.Receive(); err != nil {
+					return err
+				}
+				return srv.Send(distrelay.Response{Group: 43})
+			})
+			stream := MustSucceed(client.Client().Stream(ctx, leaseholder))
+			Expect(
+				stream.Send(distrelay.Request{Keys: channel.Keys{4, 5}}),
+			).To(Succeed())
+			Expect(MustSucceed(stream.Receive()).Group).To(Equal(uint32(43)))
+			Expect(stream.CloseSend()).To(Succeed())
+		},
+	)
 })

@@ -30,6 +30,6 @@ type Handle = versions.Handle
 // rendering properties.
 type Spec = versions.Spec
 
-// Symbol is a persisted schematic symbol with versioning, defining reusable visual
-// components for diagrams.
+// Symbol is a persisted schematic symbol defining reusable visual components for
+// diagrams.
 type Symbol = versions.Symbol

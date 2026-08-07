@@ -10,13 +10,11 @@
 /// @brief NI Linux Real-Time does not support systemd, so we use a traditional init
 /// script instead.
 
-/// std.
-#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <thread>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 #include <signal.h>
 #include <sys/stat.h>
 
@@ -391,12 +389,11 @@ void notify_watchdog() {
     // No-op for NILinuxRT as it doesn't have native watchdog support
 }
 
-void run(const Config &config, int argc, char *argv[]) {
-    google::SetLogDestination(google::INFO, "/var/log/synnax-driver");
+void run(const Config &config) {
     update_status(Status::INITIALIZING, "Starting daemon");
     update_status(Status::READY, "Daemon ready");
     try {
-        config.callback(argc, argv);
+        config.callback();
     } catch (const std::exception &e) {
         update_status(Status::ERROR_, e.what());
         LOG(ERROR) << "Application error: " << e.what();

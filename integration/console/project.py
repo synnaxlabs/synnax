@@ -598,7 +598,7 @@ class ProjectClient:
         download.save_as(save_path)
         self.layout.close_left_toolbar()
 
-        with open(save_path, "r") as f:
+        with open(save_path, "r", encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)
             return result
 
@@ -693,7 +693,7 @@ class ProjectClient:
         os.makedirs(export_dir)
         for rel_path, contents in files.items():
             basename = os.path.basename(rel_path)
-            with open(os.path.join(export_dir, basename), "w") as f:
+            with open(os.path.join(export_dir, basename), "w", encoding="utf-8") as f:
                 f.write(contents)
 
         self.notifications.close_all()

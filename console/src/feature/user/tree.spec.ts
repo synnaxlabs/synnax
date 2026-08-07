@@ -77,7 +77,7 @@ describe("user ontology service", () => {
     await screen.findByText(`Are you sure you want to delete ${u.username}?`);
     fireEvent.click(findModalButton("Delete"));
     await waitFor(async () => {
-      await expect(client.users.retrieve({ key: u.key })).rejects.toSatisfy((e) =>
+      await expect(client.users.retrieve(u.key)).rejects.toSatisfy((e) =>
         NotFoundError.matches(e),
       );
     });

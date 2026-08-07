@@ -33,7 +33,9 @@ type mockService struct {
 
 func (m *mockService) Type() ontology.ResourceType { return m.resourceType }
 
-func (m *mockService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (m *mockService) OpenNexter(
+	context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return func(func(ontology.Resource) bool) {}, xio.NopCloser, nil
 }
 
@@ -48,7 +50,9 @@ type observableMockService struct {
 
 func (m *observableMockService) Type() ontology.ResourceType { return m.resourceType }
 
-func (m *observableMockService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (m *observableMockService) OpenNexter(
+	context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values(m.resources), xio.NopCloser, nil
 }
 
@@ -118,7 +122,8 @@ var _ = Describe("Search", func() {
 				Name: "DAQ_PT_1",
 			}, "DAQ_PT"),
 		)
-		DescribeTable("Prioritization",
+		DescribeTable(
+			"Prioritization",
 			func(ctx SpecContext, resources []ontology.Resource, term string, first ontology.ID) {
 				Expect(idx.IndexResources(resources)).To(Succeed())
 				res := MustSucceed(idx.Search(ctx, search.Request{
@@ -208,98 +213,113 @@ var _ = Describe("Search", func() {
 				Expect(res).To(HaveLen(1))
 				Expect(res[0].Key).To(Equal("1"))
 			})
-			It("Should match on name when extra fields are registered", func(ctx SpecContext) {
-				idx = newIndex(&mockService{
-					resourceType: "device",
-					fields:       []string{"make", "model"},
-				})
-				Expect(idx.IndexResources([]ontology.Resource{
-					{
-						ID:   ontology.ID{Type: "device", Key: "1"},
-						Name: "My Device",
-						Data: map[string]any{"make": "LabJack", "model": "T7"},
-					},
-				})).To(Succeed())
-				res := MustSucceed(idx.Search(ctx, search.Request{
-					Type: "device",
-					Term: "My Device",
-				}))
-				Expect(res).To(HaveLen(1))
-			})
-			It("Should prioritize exact match across multiple types", func(ctx SpecContext) {
-				idx = newIndex(
-					&mockService{resourceType: "device", fields: []string{"make"}},
-					&mockService{resourceType: "channel"},
-				)
-				Expect(idx.IndexResources([]ontology.Resource{
-					{
-						ID:   ontology.ID{Type: "device", Key: "1"},
-						Name: "Pressure Sensor",
-						Data: map[string]any{"make": "NI"},
-					},
-					{
-						ID:   ontology.ID{Type: "channel", Key: "2"},
-						Name: "Pressure",
-					},
-				})).To(Succeed())
-				res := MustSucceed(idx.Search(ctx, search.Request{
-					Term: "Pressure Sensor",
-				}))
-				Expect(res).ToNot(BeEmpty())
-				Expect(res[0].Key).To(Equal("1"))
-			})
-			It("Should find results by searching extra fields across types", func(ctx SpecContext) {
-				idx = newIndex(
-					&mockService{resourceType: "device", fields: []string{"make"}},
-					&mockService{resourceType: "channel"},
-				)
-				Expect(idx.IndexResources([]ontology.Resource{
-					{
-						ID:   ontology.ID{Type: "device", Key: "1"},
-						Name: "My Device",
-						Data: map[string]any{"make": "LabJack"},
-					},
-					{
-						ID:   ontology.ID{Type: "channel", Key: "2"},
-						Name: "Temperature",
-					},
-				})).To(Succeed())
-				res := MustSucceed(idx.Search(ctx, search.Request{
-					Term: "LabJack",
-				}))
-				Expect(res).To(HaveLen(1))
-				Expect(res[0].Key).To(Equal("1"))
-			})
+			It(
+				"Should match on name when extra fields are registered",
+				func(ctx SpecContext) {
+					idx = newIndex(&mockService{
+						resourceType: "device",
+						fields:       []string{"make", "model"},
+					})
+					Expect(idx.IndexResources([]ontology.Resource{
+						{
+							ID:   ontology.ID{Type: "device", Key: "1"},
+							Name: "My Device",
+							Data: map[string]any{"make": "LabJack", "model": "T7"},
+						},
+					})).To(Succeed())
+					res := MustSucceed(idx.Search(ctx, search.Request{
+						Type: "device",
+						Term: "My Device",
+					}))
+					Expect(res).To(HaveLen(1))
+				},
+			)
+			It(
+				"Should prioritize exact match across multiple types",
+				func(ctx SpecContext) {
+					idx = newIndex(
+						&mockService{resourceType: "device", fields: []string{"make"}},
+						&mockService{resourceType: "channel"},
+					)
+					Expect(idx.IndexResources([]ontology.Resource{
+						{
+							ID:   ontology.ID{Type: "device", Key: "1"},
+							Name: "Pressure Sensor",
+							Data: map[string]any{"make": "NI"},
+						},
+						{
+							ID:   ontology.ID{Type: "channel", Key: "2"},
+							Name: "Pressure",
+						},
+					})).To(Succeed())
+					res := MustSucceed(idx.Search(ctx, search.Request{
+						Term: "Pressure Sensor",
+					}))
+					Expect(res).ToNot(BeEmpty())
+					Expect(res[0].Key).To(Equal("1"))
+				},
+			)
+			It(
+				"Should find results by searching extra fields across types",
+				func(ctx SpecContext) {
+					idx = newIndex(
+						&mockService{resourceType: "device", fields: []string{"make"}},
+						&mockService{resourceType: "channel"},
+					)
+					Expect(idx.IndexResources([]ontology.Resource{
+						{
+							ID:   ontology.ID{Type: "device", Key: "1"},
+							Name: "My Device",
+							Data: map[string]any{"make": "LabJack"},
+						},
+						{
+							ID:   ontology.ID{Type: "channel", Key: "2"},
+							Name: "Temperature",
+						},
+					})).To(Succeed())
+					res := MustSucceed(idx.Search(ctx, search.Request{
+						Term: "LabJack",
+					}))
+					Expect(res).To(HaveLen(1))
+					Expect(res[0].Key).To(Equal("1"))
+				},
+			)
 		})
 		Describe("Disjunction Fallback", func() {
-			It("Should fall back to disjunction if conjunction finds no results", func(ctx SpecContext) {
-				Expect(idx.IndexResources([]ontology.Resource{
-					{
-						ID:   ontology.ID{Type: "test", Key: "1"},
-						Name: "My Blob",
-					},
-				})).To(Succeed())
-				Expect(idx.Search(ctx, search.Request{
-					Type: "test",
-					Term: "My Blog",
-				})).ToNot(BeEmpty())
-			})
-			It("Should not fall back to disjunction if conjunction finds results", func(ctx SpecContext) {
-				Expect(idx.IndexResources([]ontology.Resource{
-					{
-						ID:   ontology.ID{Type: "test", Key: "1"},
-						Name: "gse_ai_12",
-					},
-					{
-						ID:   ontology.ID{Type: "test", Key: "2"},
-						Name: "gse_doa_1",
-					},
-				})).To(Succeed())
-				Expect(idx.Search(ctx, search.Request{
-					Type: "test",
-					Term: "gse_ai_12",
-				})).To(HaveLen(1))
-			})
+			It(
+				"Should fall back to disjunction if conjunction finds no results",
+				func(ctx SpecContext) {
+					Expect(idx.IndexResources([]ontology.Resource{
+						{
+							ID:   ontology.ID{Type: "test", Key: "1"},
+							Name: "My Blob",
+						},
+					})).To(Succeed())
+					Expect(idx.Search(ctx, search.Request{
+						Type: "test",
+						Term: "My Blog",
+					})).ToNot(BeEmpty())
+				},
+			)
+			It(
+				"Should not fall back to disjunction if conjunction finds results",
+				func(ctx SpecContext) {
+					Expect(idx.IndexResources([]ontology.Resource{
+						{
+							ID:   ontology.ID{Type: "test", Key: "1"},
+							Name: "gse_ai_12",
+						},
+						{
+							ID:   ontology.ID{Type: "test", Key: "2"},
+							Name: "gse_doa_1",
+						},
+					})).To(Succeed())
+					Expect(idx.Search(ctx, search.Request{
+						Type: "test",
+						Term: "gse_ai_12",
+					})).To(HaveLen(1))
+				},
+			)
 		})
 	})
 	DescribeTable("Custom Tokenizer",
@@ -346,7 +366,10 @@ var _ = Describe("Search", func() {
 				resourceType: "item",
 				resources: []ontology.Resource{
 					{ID: ontology.ID{Type: "item", Key: "a"}, Name: "Pressure Sensor"},
-					{ID: ontology.ID{Type: "item", Key: "b"}, Name: "Temperature Probe"},
+					{
+						ID:   ontology.ID{Type: "item", Key: "b"},
+						Name: "Temperature Probe",
+					},
 				},
 			}
 			idx := MustSucceed(search.OpenIndex())

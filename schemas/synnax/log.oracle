@@ -87,6 +87,15 @@ Log struct {
         @doc value "controls whether the receipt timestamp column is hidden. When false (the default), it is displayed."
     }
 
+    action Create {
+        log Log
+
+        @doc value """
+            replaces the document with the given created state. Emitted by the Core on
+            create so remote caches ingest new documents; clients never dispatch it.
+        """
+    }
+
     action Rename {
         name string
 
@@ -231,5 +240,6 @@ Log struct {
     @ontology type "log"
     @create
     @go migrate
+    @go imex
     @retrieve
 }

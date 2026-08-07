@@ -50,7 +50,9 @@ var _ = Describe("Ontology", func() {
 	Describe("Config", func() {
 		Describe("Validate", func() {
 			It("Should return an error when the DB is not set", func() {
-				Expect(ontology.Config{}.Validate()).To(MatchError(ContainSubstring("db")))
+				Expect(
+					ontology.Config{}.Validate(),
+				).To(MatchError(ContainSubstring("db")))
 			})
 			It("Should succeed when the DB is set", func() {
 				Expect(ontology.Config{DB: db}.Validate()).To(Succeed())
@@ -58,25 +60,37 @@ var _ = Describe("Ontology", func() {
 		})
 		Describe("Override", func() {
 			It("Should adopt the override DB when the base DB is nil", func() {
-				Expect(ontology.Config{}.Override(ontology.Config{DB: db}).DB).To(Equal(db))
+				Expect(
+					ontology.Config{}.Override(ontology.Config{DB: db}).DB,
+				).To(Equal(db))
 			})
 			It("Should retain the base DB when the override DB is nil", func() {
-				Expect(ontology.Config{DB: db}.Override(ontology.Config{}).DB).To(Equal(db))
-			})
-			It("Should adopt the override instrumentation when the base is zero", func() {
-				ins := alamos.New("ontology-override-test")
 				Expect(
-					ontology.Config{}.Override(ontology.Config{Instrumentation: ins}).Meta.Path,
-				).To(Equal("ontology-override-test"))
+					ontology.Config{DB: db}.Override(ontology.Config{}).DB,
+				).To(Equal(db))
 			})
+			It(
+				"Should adopt the override instrumentation when the base is zero",
+				func() {
+					ins := alamos.New("ontology-override-test")
+					Expect(
+						ontology.Config{}.Override(
+							ontology.Config{Instrumentation: ins},
+						).Meta.Path,
+					).To(Equal("ontology-override-test"))
+				},
+			)
 		})
 	})
 
 	Describe("Open", func() {
-		It("Should return an error when opened with an invalid config", func(ctx SpecContext) {
-			Expect(ontology.Open(ctx, ontology.Config{})).
-				Error().To(MatchError(ContainSubstring("db")))
-		})
+		It(
+			"Should return an error when opened with an invalid config",
+			func(ctx SpecContext) {
+				Expect(ontology.Open(ctx, ontology.Config{})).
+					Error().To(MatchError(ContainSubstring("db")))
+			},
+		)
 	})
 
 	Describe("RelationshipExists", func() {
@@ -86,11 +100,22 @@ var _ = Describe("Ontology", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			w = otg.NewWriter(tx)
-			parent, child = newSampleType("rel-exists-parent"), newSampleType("rel-exists-child")
+			parent, child = newSampleType(
+				"rel-exists-parent",
+			), newSampleType(
+				"rel-exists-child",
+			)
 			Expect(w.DefineResources(ctx, parent, child)).To(Succeed())
 		})
 		It("Should report true when the relationship exists", func(ctx SpecContext) {
-			Expect(w.DefineRelationships(ctx, parent, ontology.RelationshipTypeParentOf, child)).
+			Expect(
+				w.DefineRelationships(
+					ctx,
+					parent,
+					ontology.RelationshipTypeParentOf,
+					child,
+				),
+			).
 				To(Succeed())
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
 				From: parent,
@@ -98,15 +123,25 @@ var _ = Describe("Ontology", func() {
 				To:   child,
 			})).To(BeTrue())
 		})
-		It("Should report false when the relationship does not exist", func(ctx SpecContext) {
-			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
-				From: parent,
-				Type: ontology.RelationshipTypeParentOf,
-				To:   child,
-			})).To(BeFalse())
-		})
+		It(
+			"Should report false when the relationship does not exist",
+			func(ctx SpecContext) {
+				Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+					From: parent,
+					Type: ontology.RelationshipTypeParentOf,
+					To:   child,
+				})).To(BeFalse())
+			},
+		)
 		It("Should report false for the reverse direction", func(ctx SpecContext) {
-			Expect(w.DefineRelationships(ctx, parent, ontology.RelationshipTypeParentOf, child)).
+			Expect(
+				w.DefineRelationships(
+					ctx,
+					parent,
+					ontology.RelationshipTypeParentOf,
+					child,
+				),
+			).
 				To(Succeed())
 			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
 				From: child,
@@ -117,37 +152,60 @@ var _ = Describe("Ontology", func() {
 	})
 
 	Describe("ObserveResources", func() {
-		It("Should notify subscribers of resource changes emitted by services", func(ctx SpecContext) {
-			d := DeferClose(gorp.Wrap(memkv.New()))
-			o := MustOpen(ontology.Open(ctx, ontology.Config{DB: d}))
-			svc := &emittingService{Observer: observe.New[iter.Seq[ontology.Change]]()}
-			o.RegisterService(svc)
-			called := false
-			o.ObserveResources().OnChange(func(context.Context, iter.Seq[ontology.Change]) {
-				called = true
-			})
-			svc.Notify(ctx, slices.Values([]ontology.Change{{Key: "obs-resource-test"}}))
-			Expect(called).To(BeTrue())
-		})
+		It(
+			"Should notify subscribers of resource changes emitted by services",
+			func(ctx SpecContext) {
+				d := DeferClose(gorp.Wrap(memkv.New()))
+				o := MustOpen(ontology.Open(ctx, ontology.Config{DB: d}))
+				svc := &emittingService{
+					Observer: observe.New[iter.Seq[ontology.Change]](),
+				}
+				o.RegisterService(svc)
+				called := false
+				o.ObserveResources().
+					OnChange(func(context.Context, iter.Seq[ontology.Change]) {
+						called = true
+					})
+				svc.Notify(
+					ctx,
+					slices.Values([]ontology.Change{{Key: "obs-resource-test"}}),
+				)
+				Expect(called).To(BeTrue())
+			},
+		)
 	})
 
 	Describe("ObserveRelationships", func() {
-		It("Should notify subscribers when a relationship is defined", func(ctx SpecContext) {
-			tx := db.OpenTx()
-			defer func() { Expect(tx.Close()).To(Succeed()) }()
-			w := otg.NewWriter(tx)
-			parent, child := newSampleType("obs-rel-parent"), newSampleType("obs-rel-child")
-			Expect(w.DefineResources(ctx, parent, child)).To(Succeed())
-			called := false
-			otg.ObserveRelationships().OnChange(
-				func(context.Context, gorp.TxReader[string, ontology.Relationship]) {
-					called = true
-				},
-			)
-			Expect(w.DefineRelationships(ctx, parent, ontology.RelationshipTypeParentOf, child)).
-				To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
-			Expect(called).To(BeTrue())
-		})
+		It(
+			"Should notify subscribers when a relationship is defined",
+			func(ctx SpecContext) {
+				tx := db.OpenTx()
+				defer func() { Expect(tx.Close()).To(Succeed()) }()
+				w := otg.NewWriter(tx)
+				parent, child := newSampleType(
+					"obs-rel-parent",
+				), newSampleType(
+					"obs-rel-child",
+				)
+				Expect(w.DefineResources(ctx, parent, child)).To(Succeed())
+				called := false
+				otg.ObserveRelationships().OnChange(
+					func(context.Context, gorp.TxReader[string, ontology.Relationship]) {
+						called = true
+					},
+				)
+				Expect(
+					w.DefineRelationships(
+						ctx,
+						parent,
+						ontology.RelationshipTypeParentOf,
+						child,
+					),
+				).
+					To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(called).To(BeTrue())
+			},
+		)
 	})
 })

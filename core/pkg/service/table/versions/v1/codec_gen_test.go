@@ -25,6 +25,60 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Cell", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.Cell) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.Cell
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.Cell{
+				Key:     "test_1",
+				Variant: "test_2",
+				Props:   msgpack.EncodedJSON{"key_3": "value_3"},
+			}),
+			Entry("zero values", v1.Cell{
+				Key:     "",
+				Variant: "",
+				Props:   nil,
+			}),
+		)
+	})
+	Describe("Column", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.Column) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.Column
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.Column{Size: 1.5}),
+			Entry("zero values", v1.Column{Size: 0}),
+		)
+	})
+	Describe("Row", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v1.Row) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v1.Row
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v1.Row{Size: 1.5, Cells: []string{"test_2"}}),
+			Entry("zero values", v1.Row{Size: 0, Cells: nil}),
+			Entry("empty collections", v1.Row{Size: 1.5, Cells: []string{}}),
+		)
+	})
 	Describe("Table", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v1.Table) {
@@ -37,24 +91,104 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.Table{
-				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Name: "test_2",
-				Data: msgpack.EncodedJSON{"key_3": "value_3"},
+				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:    "test_2",
+				Rows:    []v1.Row{{Size: 4.5, Cells: []string{"test_5"}}},
+				Columns: []v1.Column{{Size: 7.5}},
+				Cells: map[string]v1.Cell{
+					"test_8": {
+						Key:     "test_9",
+						Variant: "test_10",
+						Props:   msgpack.EncodedJSON{"key_11": "value_11"},
+					},
+				},
 			}),
 			Entry("zero values", v1.Table{
-				Key:  uuid.Nil,
-				Name: "",
-				Data: nil,
+				Key:     uuid.Nil,
+				Name:    "",
+				Rows:    nil,
+				Columns: nil,
+				Cells:   nil,
+			}),
+			Entry("empty collections", v1.Table{
+				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Name:    "test_2",
+				Rows:    []v1.Row{},
+				Columns: []v1.Column{},
+				Cells:   map[string]v1.Cell{},
 			}),
 		)
 	})
 })
 
+func BenchmarkEncodeDecodeCell(b *testing.B) {
+	seed := v1.Cell{
+		Key:     "test_1",
+		Variant: "test_2",
+		Props:   msgpack.EncodedJSON{"key_3": "value_3"},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.Cell
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeColumn(b *testing.B) {
+	seed := v1.Column{Size: 1.5}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.Column
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRow(b *testing.B) {
+	seed := v1.Row{Size: 1.5, Cells: []string{"test_2"}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v1.Row
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeTable(b *testing.B) {
 	seed := v1.Table{
-		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Name: "test_2",
-		Data: msgpack.EncodedJSON{"key_3": "value_3"},
+		Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Name:    "test_2",
+		Rows:    []v1.Row{{Size: 4.5, Cells: []string{"test_5"}}},
+		Columns: []v1.Column{{Size: 7.5}},
+		Cells: map[string]v1.Cell{
+			"test_8": {
+				Key:     "test_9",
+				Variant: "test_10",
+				Props:   msgpack.EncodedJSON{"key_11": "value_11"},
+			},
+		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -71,12 +205,153 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 	}
 }
 
+func FuzzDecodeCell(f *testing.F) {
+	{
+		seed := v1.Cell{
+			Key:     "test_1",
+			Variant: "test_2",
+			Props:   msgpack.EncodedJSON{"key_3": "value_3"},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Cell{
+			Key:     "",
+			Variant: "",
+			Props:   nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.Cell
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.Cell
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeColumn(f *testing.F) {
+	{
+		seed := v1.Column{Size: 1.5}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Column{Size: 0}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.Column
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.Column
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRow(f *testing.F) {
+	{
+		seed := v1.Row{Size: 1.5, Cells: []string{"test_2"}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Row{Size: 0, Cells: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Row{Size: 1.5, Cells: []string{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v1.Row
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v1.Row
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeTable(f *testing.F) {
 	{
 		seed := v1.Table{
-			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Name: "test_2",
-			Data: msgpack.EncodedJSON{"key_3": "value_3"},
+			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:    "test_2",
+			Rows:    []v1.Row{{Size: 4.5, Cells: []string{"test_5"}}},
+			Columns: []v1.Column{{Size: 7.5}},
+			Cells: map[string]v1.Cell{
+				"test_8": {
+					Key:     "test_9",
+					Variant: "test_10",
+					Props:   msgpack.EncodedJSON{"key_11": "value_11"},
+				},
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -86,9 +361,25 @@ func FuzzDecodeTable(f *testing.F) {
 	}
 	{
 		seed := v1.Table{
-			Key:  uuid.Nil,
-			Name: "",
-			Data: nil,
+			Key:     uuid.Nil,
+			Name:    "",
+			Rows:    nil,
+			Columns: nil,
+			Cells:   nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v1.Table{
+			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Name:    "test_2",
+			Rows:    []v1.Row{},
+			Columns: []v1.Column{},
+			Cells:   map[string]v1.Cell{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

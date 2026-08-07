@@ -34,7 +34,8 @@ type ObjectZ struct {
 var _ Schema = (*ObjectZ)(nil)
 
 // fieldByName finds a field in a struct by its name, supporting PascalCase, camelCase,
-// and snake_case. Tries direct name lookup first to avoid FieldByNameFunc closure allocation.
+// and snake_case. Tries direct name lookup first to avoid FieldByNameFunc closure
+// allocation.
 func (o ObjectZ) fieldByName(v reflect.Value, field string) reflect.Value {
 	pascal := o.caseConversions.pascal[field]
 	f := v.FieldByName(pascal)
@@ -79,7 +80,8 @@ func (o ObjectZ) initializeFields() ObjectZ {
 	if o.fields == nil {
 		o.fields = make(map[string]Schema)
 	}
-	if o.caseConversions.snake == nil || o.caseConversions.pascal == nil || o.caseConversions.camel == nil {
+	if o.caseConversions.snake == nil || o.caseConversions.pascal == nil ||
+		o.caseConversions.camel == nil {
 		o.caseConversions.snake = make(map[string]string)
 		o.caseConversions.pascal = make(map[string]string)
 		o.caseConversions.camel = make(map[string]string)
@@ -92,8 +94,9 @@ func (o ObjectZ) initializeFields() ObjectZ {
 	return o
 }
 
-// Field adds a field to the object schema. The field name can be in PascalCase, camelCase,
-// or snake_case. The shape parameter defines the validation rules for the field.
+// Field adds a field to the object schema. The field name can be in PascalCase,
+// camelCase, or snake_case. The shape parameter defines the validation rules for the
+// field.
 func (o ObjectZ) Field(name string, shape Schema) ObjectZ {
 	o = o.initializeFields()
 	o.fields[name] = shape
@@ -197,7 +200,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 //
 // Field names can be in PascalCase, camelCase, or snake_case. All fields are validated
 // according to their defined schemas.
-func (o ObjectZ) Parse(data any, dest any) error {
+func (o ObjectZ) Parse(data, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := o.validateDestination(destVal); err != nil {
 		return err

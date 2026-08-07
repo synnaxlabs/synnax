@@ -70,7 +70,7 @@ func WriteConfig() error {
 		return nil
 	}
 	dir := ConfigDir()
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 
@@ -87,7 +87,7 @@ func WriteConfig() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(ConfigPath(), data, 0644)
+	return os.WriteFile(ConfigPath(), data, 0o644)
 }
 
 // Is returns true if the current process is running as a Windows Service.
@@ -139,10 +139,16 @@ func install() (err error) {
 
 	m, err := mgr.Connect()
 	if err != nil {
-		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
+		return errors.Wrap(
+			err,
+			"failed to connect to service manager (are you running as administrator?)",
+		)
 	}
 	defer func() {
-		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
+		err = errors.Combine(
+			err,
+			errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"),
+		)
 	}()
 
 	autoStart := viper.GetBool(flagAutoStart)
@@ -165,7 +171,10 @@ func install() (err error) {
 		return errors.Wrap(err, "failed to create service")
 	}
 	defer func() {
-		err = errors.Combine(err, errors.Wrap(s.Close(), "failed to close service handle"))
+		err = errors.Combine(
+			err,
+			errors.Wrap(s.Close(), "failed to close service handle"),
+		)
 	}()
 
 	return errors.Wrap(s.SetRecoveryActions([]mgr.RecoveryAction{
@@ -178,10 +187,16 @@ func install() (err error) {
 func uninstall() (err error) {
 	m, err := mgr.Connect()
 	if err != nil {
-		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
+		return errors.Wrap(
+			err,
+			"failed to connect to service manager (are you running as administrator?)",
+		)
 	}
 	defer func() {
-		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
+		err = errors.Combine(
+			err,
+			errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"),
+		)
 	}()
 
 	s, err := m.OpenService(name)
@@ -189,19 +204,27 @@ func uninstall() (err error) {
 		return errors.Wrapf(err, "service %s is not installed", name)
 	}
 	defer func() {
-		err = errors.Combine(err, errors.Wrapf(s.Close(), "failed to close %s handle", name))
+		err = errors.Combine(
+			err,
+			errors.Wrapf(s.Close(), "failed to close %s handle", name),
+		)
 	}()
 	return errors.Wrapf(s.Delete(), "failed to delete %s", name)
-
 }
 
 func start() (err error) {
 	m, err := mgr.Connect()
 	if err != nil {
-		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
+		return errors.Wrap(
+			err,
+			"failed to connect to service manager (are you running as administrator?)",
+		)
 	}
 	defer func() {
-		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
+		err = errors.Combine(
+			err,
+			errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"),
+		)
 	}()
 
 	s, err := m.OpenService(name)
@@ -209,7 +232,10 @@ func start() (err error) {
 		return errors.Wrapf(err, "service %s is not installed", name)
 	}
 	defer func() {
-		err = errors.Combine(err, errors.Wrapf(s.Close(), "failed to close %s handle", name))
+		err = errors.Combine(
+			err,
+			errors.Wrapf(s.Close(), "failed to close %s handle", name),
+		)
 	}()
 	return errors.Wrapf(s.Start(), "failed to start %s", name)
 }
@@ -217,10 +243,16 @@ func start() (err error) {
 func stop() (err error) {
 	m, err := mgr.Connect()
 	if err != nil {
-		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
+		return errors.Wrap(
+			err,
+			"failed to connect to service manager (are you running as administrator?)",
+		)
 	}
 	defer func() {
-		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
+		err = errors.Combine(
+			err,
+			errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"),
+		)
 	}()
 
 	s, err := m.OpenService(name)
@@ -228,7 +260,10 @@ func stop() (err error) {
 		return errors.Wrapf(err, "service %s is not installed", name)
 	}
 	defer func() {
-		err = errors.Combine(err, errors.Wrapf(s.Close(), "failed to close %s handle", name))
+		err = errors.Combine(
+			err,
+			errors.Wrapf(s.Close(), "failed to close %s handle", name),
+		)
 	}()
 
 	if _, err = s.Control(svc.Stop); err != nil {

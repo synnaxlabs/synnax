@@ -89,10 +89,10 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		SearchTerm          string      `json:"search_term" msgpack:"search_term"`
-		Keys                []panel.Key `json:"keys" msgpack:"keys"`
-		Limit               int         `json:"limit" msgpack:"limit"`
-		Offset              int         `json:"offset" msgpack:"offset"`
+		SearchTerm          string      `json:"search_term"            msgpack:"search_term"`
+		Keys                []panel.Key `json:"keys"                   msgpack:"keys"`
+		Limit               int         `json:"limit"                  msgpack:"limit"`
+		Offset              int         `json:"offset"                 msgpack:"offset"`
 		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
@@ -149,7 +149,8 @@ func (s *Service) Dispatch(
 	}); err != nil {
 		return res, err
 	}
-	return res, s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return res, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type DeleteRequest struct {

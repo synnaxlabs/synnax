@@ -80,7 +80,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 	}
 
 	Describe("Literal raw strings (no placeholders)", func() {
-		DescribeTable("emits literal text verbatim",
+		DescribeTable(
+			"emits literal text verbatim",
 			func(ctx SpecContext, source, expected string) {
 				Expect(runFmtTrigger(ctx, source)).To(Equal(expected))
 			},
@@ -91,7 +92,11 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			Entry("doubled close brace", `f"}}"`, "}"),
 			Entry("bare close brace is literal", `f"}"`, "}"),
 			Entry("doubled braces around literal", `f"{{x}}"`, "{x}"),
-			Entry("doubled braces mixed with text", `f"pre {{ mid }} post"`, "pre { mid } post"),
+			Entry(
+				"doubled braces mixed with text",
+				`f"pre {{ mid }} post"`,
+				"pre { mid } post",
+			),
 			Entry("embedded double quotes", `f"he said \"hi\""`, `he said "hi"`),
 		)
 	})
@@ -122,50 +127,110 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				ingest func(*runtimeHarness),
 				expected string,
 			) {
-				Expect(runFmtChannel(ctx, `f"x={val}"`, arcType, valueType, valueDT, ingest)).
+				Expect(
+					runFmtChannel(
+						ctx,
+						`f"x={val}"`,
+						arcType,
+						valueType,
+						valueDT,
+						ingest,
+					),
+				).
 					To(Equal(expected))
 			},
-			Entry("u8 channel", "u8", types.U8(), telem.Uint8T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint8](7)) }, "x=7"),
-			Entry("u16 channel", "u16", types.U16(), telem.Uint16T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint16](7)) }, "x=7"),
-			Entry("u32 channel", "u32", types.U32(), telem.Uint32T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint32](4000000000)) }, "x=4000000000"),
-			Entry("u64 channel", "u64", types.U64(), telem.Uint64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint64](18000000000000000000)) }, "x=18000000000000000000"),
-			Entry("i32 channel", "i32", types.I32(), telem.Int32T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](-42)) }, "x=-42"),
-			Entry("i64 channel", "i64", types.I64(), telem.Int64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int64](-1700000000)) }, "x=-1700000000"),
-			Entry("f32 channel", "f32", types.F32(), telem.Float32T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](3.14)) }, "x=3.14"),
-			Entry("f64 channel high precision", "f64", types.F64(), telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.1234567890123456)) }, "x=0.1234567890123456"),
+			Entry(
+				"u8 channel",
+				"u8",
+				types.U8(),
+				telem.Uint8T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint8](7)) },
+				"x=7",
+			),
+			Entry(
+				"u16 channel",
+				"u16",
+				types.U16(),
+				telem.Uint16T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint16](7)) },
+				"x=7",
+			),
+			Entry(
+				"u32 channel",
+				"u32",
+				types.U32(),
+				telem.Uint32T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint32](4000000000)) },
+				"x=4000000000",
+			),
+			Entry(
+				"u64 channel",
+				"u64",
+				types.U64(),
+				telem.Uint64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint64](18000000000000000000)) },
+				"x=18000000000000000000",
+			),
+			Entry(
+				"i32 channel",
+				"i32",
+				types.I32(),
+				telem.Int32T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](-42)) },
+				"x=-42",
+			),
+			Entry(
+				"i64 channel",
+				"i64",
+				types.I64(),
+				telem.Int64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int64](-1700000000)) },
+				"x=-1700000000",
+			),
+			Entry(
+				"f32 channel",
+				"f32",
+				types.F32(),
+				telem.Float32T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](3.14)) },
+				"x=3.14",
+			),
+			Entry(
+				"f64 channel high precision",
+				"f64",
+				types.F64(),
+				telem.Float64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.1234567890123456)) },
+				"x=0.1234567890123456",
+			),
 		)
 
-		It("renders a string-typed placeholder bound to a local string", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"trig": {types.U8(), 100},
-				"log":  {types.String(), 101},
-			})
-			h := newRuntimeHarness(ctx, `
+		It(
+			"renders a string-typed placeholder bound to a local string",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"trig": {types.U8(), 100},
+					"log":  {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
 				func f() {
 				    name := "probe"
 				    log = `+`f"hello, {name}"`+`
 				}
 				trig -> f{}`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Uint8T},
-				channels.Digest{Key: 101, DataType: telem.StringT},
-			)
-			defer h.Close(ctx)
-			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
-			out, _ := h.Flush()
-			Expect(lastString(out, 101)).To(Equal("hello, probe"))
-		})
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				for range 5 {
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+				}
+				out, _ := h.Flush()
+				Expect(lastString(out, 101)).To(Equal("hello, probe"))
+			},
+		)
 	})
 
 	Describe("Single placeholder with valid format spec", func() {
@@ -185,7 +250,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			Entry("negative decimal", `f"{i32(-42):d}"`, "-42"),
 		)
 
-		DescribeTable("integer channel values format with valid specs (i8/i16/i32/i64 promotion)",
+		DescribeTable(
+			"integer channel values format with valid specs (i8/i16/i32/i64 promotion)",
 			func(
 				ctx SpecContext,
 				source, arcType string,
@@ -197,14 +263,42 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				Expect(runFmtChannel(ctx, source, arcType, valueType, valueDT, ingest)).
 					To(Equal(expected))
 			},
-			Entry("i32 channel :05d", `f"{val:05d}"`, "i32", types.I32(), telem.Int32T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](7)) }, "00007"),
-			Entry("i32 channel :+d", `f"{val:+d}"`, "i32", types.I32(), telem.Int32T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](42)) }, "+42"),
-			Entry("i64 channel :d", `f"{val:d}"`, "i64", types.I64(), telem.Int64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int64](1700000000)) }, "1700000000"),
-			Entry("i64 channel :x", `f"{val:x}"`, "i64", types.I64(), telem.Int64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int64](255)) }, "ff"),
+			Entry(
+				"i32 channel :05d",
+				`f"{val:05d}"`,
+				"i32",
+				types.I32(),
+				telem.Int32T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](7)) },
+				"00007",
+			),
+			Entry(
+				"i32 channel :+d",
+				`f"{val:+d}"`,
+				"i32",
+				types.I32(),
+				telem.Int32T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](42)) },
+				"+42",
+			),
+			Entry(
+				"i64 channel :d",
+				`f"{val:d}"`,
+				"i64",
+				types.I64(),
+				telem.Int64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int64](1700000000)) },
+				"1700000000",
+			),
+			Entry(
+				"i64 channel :x",
+				`f"{val:x}"`,
+				"i64",
+				types.I64(),
+				telem.Int64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int64](255)) },
+				"ff",
+			),
 		)
 
 		DescribeTable("unsigned integer types format with valid Go fmt verbs",
@@ -221,7 +315,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			Entry("u64 hex", `f"{u64(255):x}"`, "ff"),
 		)
 
-		DescribeTable("unsigned integer channel values format with valid specs (u8/u16/u32/u64 promotion)",
+		DescribeTable(
+			"unsigned integer channel values format with valid specs (u8/u16/u32/u64 promotion)",
 			func(
 				ctx SpecContext,
 				source, arcType string,
@@ -233,16 +328,51 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				Expect(runFmtChannel(ctx, source, arcType, valueType, valueDT, ingest)).
 					To(Equal(expected))
 			},
-			Entry("u8 channel :d", `f"{val:d}"`, "u8", types.U8(), telem.Uint8T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint8](255)) }, "255"),
-			Entry("u8 channel :x (promoted to u32)", `f"{val:x}"`, "u8", types.U8(), telem.Uint8T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint8](255)) }, "ff"),
-			Entry("u16 channel :d", `f"{val:d}"`, "u16", types.U16(), telem.Uint16T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint16](65000)) }, "65000"),
-			Entry("u32 channel :X", `f"{val:X}"`, "u32", types.U32(), telem.Uint32T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint32](255)) }, "FF"),
-			Entry("u64 channel :x", `f"{val:x}"`, "u64", types.U64(), telem.Uint64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint64](255)) }, "ff"),
+			Entry(
+				"u8 channel :d",
+				`f"{val:d}"`,
+				"u8",
+				types.U8(),
+				telem.Uint8T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint8](255)) },
+				"255",
+			),
+			Entry(
+				"u8 channel :x (promoted to u32)",
+				`f"{val:x}"`,
+				"u8",
+				types.U8(),
+				telem.Uint8T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint8](255)) },
+				"ff",
+			),
+			Entry(
+				"u16 channel :d",
+				`f"{val:d}"`,
+				"u16",
+				types.U16(),
+				telem.Uint16T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint16](65000)) },
+				"65000",
+			),
+			Entry(
+				"u32 channel :X",
+				`f"{val:X}"`,
+				"u32",
+				types.U32(),
+				telem.Uint32T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint32](255)) },
+				"FF",
+			),
+			Entry(
+				"u64 channel :x",
+				`f"{val:x}"`,
+				"u64",
+				types.U64(),
+				telem.Uint64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint64](255)) },
+				"ff",
+			),
 		)
 
 		DescribeTable("float types format with valid Go fmt verbs",
@@ -261,7 +391,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			Entry("f32 fixed 2 decimals", `f"{f32(3.14159):.2f}"`, "3.14"),
 		)
 
-		DescribeTable("float channel values format with valid specs",
+		DescribeTable(
+			"float channel values format with valid specs",
 			func(
 				ctx SpecContext,
 				source, arcType string,
@@ -273,14 +404,42 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				Expect(runFmtChannel(ctx, source, arcType, valueType, valueDT, ingest)).
 					To(Equal(expected))
 			},
-			Entry("f32 channel :.2f", `f"{val:.2f}"`, "f32", types.F32(), telem.Float32T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](3.14159)) }, "3.14"),
-			Entry("f32 channel :e", `f"{val:e}"`, "f32", types.F32(), telem.Float32T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](12345.678)) }, "1.234568e+04"),
-			Entry("f64 channel :.4f", `f"{val:.4f}"`, "f64", types.F64(), telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](3.14159)) }, "3.1416"),
-			Entry("f64 channel :g", `f"{val:g}"`, "f64", types.F64(), telem.Float64T,
-				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.000123)) }, "0.000123"),
+			Entry(
+				"f32 channel :.2f",
+				`f"{val:.2f}"`,
+				"f32",
+				types.F32(),
+				telem.Float32T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](3.14159)) },
+				"3.14",
+			),
+			Entry(
+				"f32 channel :e",
+				`f"{val:e}"`,
+				"f32",
+				types.F32(),
+				telem.Float32T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](12345.678)) },
+				"1.234568e+04",
+			),
+			Entry(
+				"f64 channel :.4f",
+				`f"{val:.4f}"`,
+				"f64",
+				types.F64(),
+				telem.Float64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](3.14159)) },
+				"3.1416",
+			),
+			Entry(
+				"f64 channel :g",
+				`f"{val:g}"`,
+				"f64",
+				types.F64(),
+				telem.Float64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.000123)) },
+				"0.000123",
+			),
 		)
 	})
 
@@ -308,7 +467,8 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			out, _ := h.Flush()
 			return lastString(out, 101)
 		}
-		DescribeTable("each documented spec produces the documented output",
+		DescribeTable(
+			"each documented spec produces the documented output",
 			func(ctx SpecContext, declarations, body, expected string) {
 				Expect(runFmtExample(ctx, declarations, body)).To(Equal(expected))
 			},
@@ -324,12 +484,27 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			Entry("-5d left-aligned width", "", `f"{i32(42):-5d}"`, "42   "),
 			Entry("05d zero-padded width", "", `f"{i32(42):05d}"`, "00042"),
 			Entry("5s string width", `name := "ok"`, `f"{name:5s}"`, "   ok"),
-			Entry("-5s left-aligned string width", `name := "ok"`, `f"{name:-5s}"`, "ok   "),
+			Entry(
+				"-5s left-aligned string width",
+				`name := "ok"`,
+				`f"{name:-5s}"`,
+				"ok   ",
+			),
 			Entry(".2f float precision", "", `f"{f64(3.14159):.2f}"`, "3.14"),
 			Entry("+f signed float", "", `f"{f64(3.14):+f}"`, "+3.140000"),
 			Entry("6.2f width and precision", "", `f"{f64(3.14):6.2f}"`, "  3.14"),
-			Entry("+08.2f sign zero-pad width precision", "", `f"{f64(3.14):+08.2f}"`, "+0003.14"),
-			Entry("#06x alternate-form zero-pad hex", "", `f"{i32(255):#06x}"`, "0x0000ff"),
+			Entry(
+				"+08.2f sign zero-pad width precision",
+				"",
+				`f"{f64(3.14):+08.2f}"`,
+				"+0003.14",
+			),
+			Entry(
+				"#06x alternate-form zero-pad hex",
+				"",
+				`f"{i32(255):#06x}"`,
+				"0x0000ff",
+			),
 		)
 	})
 
@@ -362,174 +537,197 @@ var _ = Describe("format-string end-to-end runtime", func() {
 	})
 
 	Describe("Flow-form synthetic functions", func() {
-		It("synthesizes a fmt$ function for a raw string with placeholders in flow form", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"sensor": {types.F32(), 100},
-				"log":    {types.String(), 101},
-			})
-			h := newRuntimeHarness(ctx,
-				`sensor -> f"v={sensor}" -> log`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Float32T},
-				channels.Digest{Key: 101, DataType: telem.StringT},
-			)
-			defer h.Close(ctx)
-			h.Ingest(100, telem.NewSeriesV[float32](3.14))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
-			out, _ := h.Flush()
-			Expect(lastString(out, 101)).To(Equal("v=3.14"))
-		})
+		It(
+			"synthesizes a fmt$ function for a raw string with placeholders in flow form",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor": {types.F32(), 100},
+					"log":    {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx,
+					`sensor -> f"v={sensor}" -> log`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Float32T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV[float32](3.14))
+				for range 5 {
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+				}
+				out, _ := h.Flush()
+				Expect(lastString(out, 101)).To(Equal("v=3.14"))
+			},
+		)
 
-		It("preserves a numeric format spec on a flow-form synthetic", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"sensor": {types.F64(), 100},
-				"log":    {types.String(), 101},
-			})
-			h := newRuntimeHarness(ctx,
-				`sensor -> f"v={sensor:.2f}" -> log`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Float64T},
-				channels.Digest{Key: 101, DataType: telem.StringT},
-			)
-			defer h.Close(ctx)
-			h.Ingest(100, telem.NewSeriesV[float64](3.14159))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
-			out, _ := h.Flush()
-			Expect(lastString(out, 101)).To(Equal("v=3.14"))
-		})
+		It(
+			"preserves a numeric format spec on a flow-form synthetic",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor": {types.F64(), 100},
+					"log":    {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx,
+					`sensor -> f"v={sensor:.2f}" -> log`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV[float64](3.14159))
+				for range 5 {
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+				}
+				out, _ := h.Flush()
+				Expect(lastString(out, 101)).To(Equal("v=3.14"))
+			},
+		)
 
-		It("synthesizes a fmt$ function for a multi-channel placeholder body in flow form", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"sensor": {types.F32(), 100},
-				"t":      {types.I32(), 102},
-				"log":    {types.String(), 101},
-			})
-			h := newRuntimeHarness(ctx,
-				`sensor -> f"v={sensor} t={t}" -> log`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Float32T},
-				channels.Digest{Key: 102, DataType: telem.Int32T},
-				channels.Digest{Key: 101, DataType: telem.StringT},
-			)
-			defer h.Close(ctx)
-			h.Ingest(102, telem.NewSeriesV[int32](7))
-			h.Ingest(100, telem.NewSeriesV[float32](3.14))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
-			out, _ := h.Flush()
-			Expect(lastString(out, 101)).To(Equal("v=3.14 t=7"))
-		})
+		It(
+			"synthesizes a fmt$ function for a multi-channel placeholder body in flow form",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor": {types.F32(), 100},
+					"t":      {types.I32(), 102},
+					"log":    {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx,
+					`sensor -> f"v={sensor} t={t}" -> log`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Float32T},
+					channels.Digest{Key: 102, DataType: telem.Int32T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				h.Ingest(102, telem.NewSeriesV[int32](7))
+				h.Ingest(100, telem.NewSeriesV[float32](3.14))
+				for range 5 {
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+				}
+				out, _ := h.Flush()
+				Expect(lastString(out, 101)).To(Equal("v=3.14 t=7"))
+			},
+		)
 
-		It("synthesizes a fmt$ function for an rf-prefixed multi-line format string preserving backslashes across newlines", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"sensor": {types.F32(), 100},
-				"t":      {types.I32(), 102},
-				"log":    {types.String(), 101},
-			})
-			h := newRuntimeHarness(ctx,
-				"sensor -> rf`path\\to: {sensor}\nt={t}` -> log", resolver,
-				channels.Digest{Key: 100, DataType: telem.Float32T},
-				channels.Digest{Key: 102, DataType: telem.Int32T},
-				channels.Digest{Key: 101, DataType: telem.StringT},
-			)
-			defer h.Close(ctx)
-			h.Ingest(102, telem.NewSeriesV[int32](7))
-			h.Ingest(100, telem.NewSeriesV[float32](3.14))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
-			out, _ := h.Flush()
-			Expect(lastString(out, 101)).To(Equal("path\\to: 3.14\nt=7"))
-		})
+		It(
+			"synthesizes a fmt$ function for an rf-prefixed multi-line format string preserving backslashes across newlines",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor": {types.F32(), 100},
+					"t":      {types.I32(), 102},
+					"log":    {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx,
+					"sensor -> rf`path\\to: {sensor}\nt={t}` -> log", resolver,
+					channels.Digest{Key: 100, DataType: telem.Float32T},
+					channels.Digest{Key: 102, DataType: telem.Int32T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				h.Ingest(102, telem.NewSeriesV[int32](7))
+				h.Ingest(100, telem.NewSeriesV[float32](3.14))
+				for range 5 {
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+				}
+				out, _ := h.Flush()
+				Expect(lastString(out, 101)).To(Equal("path\\to: 3.14\nt=7"))
+			},
+		)
 
-		It("synthesizes a fmt$ function for an rf-prefixed format string preserving backslashes", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"sensor": {types.F32(), 100},
-				"log":    {types.String(), 101},
-			})
-			h := newRuntimeHarness(ctx,
-				`sensor -> rf"path\to: {sensor}" -> log`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Float32T},
-				channels.Digest{Key: 101, DataType: telem.StringT},
-			)
-			defer h.Close(ctx)
-			h.Ingest(100, telem.NewSeriesV[float32](3.14))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
-			out, _ := h.Flush()
-			Expect(lastString(out, 101)).To(Equal(`path\to: 3.14`))
-		})
+		It(
+			"synthesizes a fmt$ function for an rf-prefixed format string preserving backslashes",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor": {types.F32(), 100},
+					"log":    {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx,
+					`sensor -> rf"path\to: {sensor}" -> log`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Float32T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV[float32](3.14))
+				for range 5 {
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+				}
+				out, _ := h.Flush()
+				Expect(lastString(out, 101)).To(Equal(`path\to: 3.14`))
+			},
+		)
 
-		It("synthesizes a fmt$ function for a multi-line format string with placeholders across newlines", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"sensor": {types.F32(), 100},
-				"t":      {types.I32(), 102},
-				"log":    {types.String(), 101},
-			})
-			h := newRuntimeHarness(ctx,
-				"sensor -> f`v={sensor}\nt={t}` -> log", resolver,
-				channels.Digest{Key: 100, DataType: telem.Float32T},
-				channels.Digest{Key: 102, DataType: telem.Int32T},
-				channels.Digest{Key: 101, DataType: telem.StringT},
-			)
-			defer h.Close(ctx)
-			h.Ingest(102, telem.NewSeriesV[int32](7))
-			h.Ingest(100, telem.NewSeriesV[float32](3.14))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
-			out, _ := h.Flush()
-			Expect(lastString(out, 101)).To(Equal("v=3.14\nt=7"))
-		})
+		It(
+			"synthesizes a fmt$ function for a multi-line format string with placeholders across newlines",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor": {types.F32(), 100},
+					"t":      {types.I32(), 102},
+					"log":    {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx,
+					"sensor -> f`v={sensor}\nt={t}` -> log", resolver,
+					channels.Digest{Key: 100, DataType: telem.Float32T},
+					channels.Digest{Key: 102, DataType: telem.Int32T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				h.Ingest(102, telem.NewSeriesV[int32](7))
+				h.Ingest(100, telem.NewSeriesV[float32](3.14))
+				for range 5 {
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+				}
+				out, _ := h.Flush()
+				Expect(lastString(out, 101)).To(Equal("v=3.14\nt=7"))
+			},
+		)
 
-		It("flows a literal raw string (no placeholders) without synthesizing a function", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"trig": {types.U8(), 100},
-				"log":  {types.String(), 101},
-			})
-			h := newRuntimeHarness(ctx,
-				`trig -> f"static" -> log`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Uint8T},
-				channels.Digest{Key: 101, DataType: telem.StringT},
-			)
-			defer h.Close(ctx)
-			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
-			out, _ := h.Flush()
-			Expect(lastString(out, 101)).To(Equal("static"))
-		})
+		It(
+			"flows a literal raw string (no placeholders) without synthesizing a function",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"trig": {types.U8(), 100},
+					"log":  {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx,
+					`trig -> f"static" -> log`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				for range 5 {
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+				}
+				out, _ := h.Flush()
+				Expect(lastString(out, 101)).To(Equal("static"))
+			},
+		)
 
-		It("flows a raw format string with only doubled-brace literals (no placeholders)", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"trig": {types.U8(), 100},
-				"log":  {types.String(), 101},
-			})
-			h := newRuntimeHarness(ctx,
-				`trig -> rf"C:\logs\{{abc}}.txt" -> log`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Uint8T},
-				channels.Digest{Key: 101, DataType: telem.StringT},
-			)
-			defer h.Close(ctx)
-			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for range 5 {
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-			}
-			out, _ := h.Flush()
-			Expect(lastString(out, 101)).To(Equal(`C:\logs\{abc}.txt`))
-		})
+		It(
+			"flows a raw format string with only doubled-brace literals (no placeholders)",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"trig": {types.U8(), 100},
+					"log":  {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx,
+					`trig -> rf"C:\logs\{{abc}}.txt" -> log`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				for range 5 {
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+				}
+				out, _ := h.Flush()
+				Expect(lastString(out, 101)).To(Equal(`C:\logs\{abc}.txt`))
+			},
+		)
 	})
-
 })

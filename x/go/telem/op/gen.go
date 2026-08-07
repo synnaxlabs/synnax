@@ -502,21 +502,38 @@ func ReverseModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoT
 func main() {
 	tmpl := template.Must(template.New("funcs").Parse(funcTemplate))
 	unaryTmpl := template.Must(template.New("unary").Parse(unaryFuncTemplate))
-	reductionTmpl := template.Must(template.New("reduction").Parse(reductionFuncTemplate))
-	scalarArithTmpl := template.Must(template.New("scalarArith").Parse(scalarArithFuncTemplate))
-	reverseScalarArithTmpl := template.Must(template.New("reverseScalarArith").Parse(reverseScalarArithFuncTemplate))
-	scalarCompTmpl := template.Must(template.New("scalarComp").Parse(scalarCompFuncTemplate))
-	floatModuloTmpl := template.Must(template.New("floatModulo").Parse(floatModuloFuncTemplate))
-	floatModuloScalarTmpl := template.Must(template.New("floatModuloScalar").Parse(floatModuloScalarFuncTemplate))
-	floatReverseModuloScalarTmpl := template.Must(template.New("floatReverseModuloScalar").Parse(floatReverseModuloScalarFuncTemplate))
-	derivativeTmpl := template.Must(template.New("derivative").Parse(derivativeFuncTemplate))
+	reductionTmpl := template.Must(
+		template.New("reduction").Parse(reductionFuncTemplate),
+	)
+	scalarArithTmpl := template.Must(
+		template.New("scalarArith").Parse(scalarArithFuncTemplate),
+	)
+	reverseScalarArithTmpl := template.Must(
+		template.New("reverseScalarArith").Parse(reverseScalarArithFuncTemplate),
+	)
+	scalarCompTmpl := template.Must(
+		template.New("scalarComp").Parse(scalarCompFuncTemplate),
+	)
+	floatModuloTmpl := template.Must(
+		template.New("floatModulo").Parse(floatModuloFuncTemplate),
+	)
+	floatModuloScalarTmpl := template.Must(
+		template.New("floatModuloScalar").Parse(floatModuloScalarFuncTemplate),
+	)
+	floatReverseModuloScalarTmpl := template.Must(
+		template.New("floatReverseModuloScalar").
+			Parse(floatReverseModuloScalarFuncTemplate),
+	)
+	derivativeTmpl := template.Must(
+		template.New("derivative").Parse(derivativeFuncTemplate),
+	)
 
 	var buf strings.Builder
 	buf.WriteString(headerTemplate)
 
 	// Generate regular operations for all types
 	for _, typ := range types {
-		lo.Must0(tmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(tmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Operations": operations,
 		}))
@@ -526,12 +543,12 @@ func main() {
 	for _, typ := range types {
 		if typ.IsFloat {
 			// Float types use math.Mod
-			lo.Must0(floatModuloTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(floatModuloTmpl.Execute(&buf, map[string]any{
 				"Type": typ,
 			}))
 		} else {
 			// Integer types use %
-			lo.Must0(tmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(tmpl.Execute(&buf, map[string]any{
 				"Type":       typ,
 				"Operations": []Operation{moduloIntOp},
 			}))
@@ -540,14 +557,14 @@ func main() {
 
 	// Generate logical operations for uint8 only
 	uint8Type := TypeInfo{Name: "U8", GoType: "uint8", Size: 1, IsUnsigned: true}
-	lo.Must0(tmpl.Execute(&buf, map[string]interface{}{
+	lo.Must0(tmpl.Execute(&buf, map[string]any{
 		"Type":       uint8Type,
 		"Operations": logicalOperations,
 	}))
 
 	// Generate Not operation for uint8 only
 	notOp := []UnaryOperation{{Name: "Not", Op: "^"}}
-	lo.Must0(unaryTmpl.Execute(&buf, map[string]interface{}{
+	lo.Must0(unaryTmpl.Execute(&buf, map[string]any{
 		"Type":     uint8Type,
 		"UnaryOps": notOp,
 	}))
@@ -556,7 +573,7 @@ func main() {
 	negateOp := []UnaryOperation{{Name: "Negate", Op: "-"}}
 	for _, typ := range types {
 		if typ.IsSigned || typ.IsFloat {
-			lo.Must0(unaryTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(unaryTmpl.Execute(&buf, map[string]any{
 				"Type":     typ,
 				"UnaryOps": negateOp,
 			}))
@@ -565,7 +582,7 @@ func main() {
 
 	// Generate reduction operations for all types
 	for _, typ := range types {
-		lo.Must0(reductionTmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(reductionTmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Reductions": reductionOperations,
 		}))
@@ -573,14 +590,14 @@ func main() {
 
 	// Generate derivative operations for all types
 	for _, typ := range types {
-		lo.Must0(derivativeTmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(derivativeTmpl.Execute(&buf, map[string]any{
 			"Type": typ,
 		}))
 	}
 
 	// Generate scalar arithmetic operations for all types
 	for _, typ := range types {
-		lo.Must0(scalarArithTmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(scalarArithTmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Operations": scalarArithmeticOps,
 		}))
@@ -588,7 +605,7 @@ func main() {
 
 	// Generate reverse scalar arithmetic operations for all types
 	for _, typ := range types {
-		lo.Must0(reverseScalarArithTmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(reverseScalarArithTmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Operations": reverseScalarArithmeticOps,
 		}))
@@ -596,11 +613,11 @@ func main() {
 
 	for _, typ := range types {
 		if typ.IsFloat {
-			lo.Must0(floatReverseModuloScalarTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(floatReverseModuloScalarTmpl.Execute(&buf, map[string]any{
 				"Type": typ,
 			}))
 		} else {
-			lo.Must0(reverseScalarArithTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(reverseScalarArithTmpl.Execute(&buf, map[string]any{
 				"Type":       typ,
 				"Operations": []Operation{reverseModuloScalarIntOp},
 			}))
@@ -610,11 +627,11 @@ func main() {
 	// Generate modulo scalar operations - integer types use %, float types use math.Mod
 	for _, typ := range types {
 		if typ.IsFloat {
-			lo.Must0(floatModuloScalarTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(floatModuloScalarTmpl.Execute(&buf, map[string]any{
 				"Type": typ,
 			}))
 		} else {
-			lo.Must0(scalarArithTmpl.Execute(&buf, map[string]interface{}{
+			lo.Must0(scalarArithTmpl.Execute(&buf, map[string]any{
 				"Type":       typ,
 				"Operations": []Operation{moduloScalarIntOp},
 			}))
@@ -623,14 +640,14 @@ func main() {
 
 	// Generate scalar comparison operations for all types
 	for _, typ := range types {
-		lo.Must0(scalarCompTmpl.Execute(&buf, map[string]interface{}{
+		lo.Must0(scalarCompTmpl.Execute(&buf, map[string]any{
 			"Type":       typ,
 			"Operations": scalarComparisonOps,
 		}))
 	}
 
 	formatted := lo.Must(format.Source([]byte(buf.String())))
-	lo.Must0(os.WriteFile("op_generated.go", formatted, 0644))
+	lo.Must0(os.WriteFile("op_generated.go", formatted, 0o644))
 
 	fmt.Println("Generated op_generated.go successfully")
 }

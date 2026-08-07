@@ -53,7 +53,11 @@ func (r *Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 	return e, closer.Close()
 }
 
-func (r *Reader[K, E]) get(ctx context.Context, key K, entry *E) ([]byte, io.Closer, error) {
+func (r *Reader[K, E]) get(
+	ctx context.Context,
+	key K,
+	entry *E,
+) ([]byte, io.Closer, error) {
 	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
 		return nil, nil, err

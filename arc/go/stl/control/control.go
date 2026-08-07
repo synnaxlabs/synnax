@@ -29,7 +29,9 @@ const (
 
 var (
 	memberDoc = doc.New(
-		doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
+		doc.Paragraph(
+			"Dynamically changes the control authority of write channels at runtime.",
+		),
 		doc.Divider(),
 		doc.Code("arc", "control.set_authority{value=255}"),
 		doc.Divider(),
@@ -37,10 +39,14 @@ var (
 		doc.Divider(),
 		doc.Code("arc", "control.set_authority{value=255, channel=valve_cmd}"),
 		doc.Divider(),
-		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
+		doc.Paragraph(
+			"Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel.",
+		),
 	)
 	moduleDoc = doc.New(
-		doc.Paragraph("Runtime control over write authority — promote or release writes targeting shared channels."),
+		doc.Paragraph(
+			"Runtime control over write authority — promote or release writes targeting shared channels.",
+		),
 	)
 )
 
@@ -49,7 +55,11 @@ func newSymbolProps() types.Type {
 		Inputs: types.Params{
 			{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
 			{Name: "value", Type: types.U8()},
-			{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
+			{
+				Name:  "channel",
+				Type:  types.WriteChan(types.Variable("T", nil)),
+				Value: uint32(0),
+			},
 		},
 	})
 }

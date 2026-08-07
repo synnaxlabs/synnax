@@ -68,7 +68,10 @@ type Service struct {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
+func OpenService(
+	ctx context.Context,
+	configs ...ServiceConfig,
+) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
@@ -87,7 +90,14 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		cfg.Ontology.RegisterService(s)
 	}
 	cfg.Search.RegisterService(s)
-	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Users", ontology.RootID); !ok(err, nil) {
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx,
+		"Users",
+		ontology.RootID,
+	); !ok(
+		err,
+		nil,
+	) {
 		return nil, err
 	}
 	if cfg.Signals != nil {

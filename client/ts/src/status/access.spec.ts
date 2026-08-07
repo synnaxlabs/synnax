@@ -31,9 +31,9 @@ describe("status", () => {
         message: "test",
         time: TimeStamp.now(),
       });
-      await expect(
-        userClient.statuses.retrieve({ key: randomStatus.key }),
-      ).rejects.toThrow(AuthError);
+      await expect(userClient.statuses.retrieve(randomStatus.key)).rejects.toThrow(
+        AuthError,
+      );
     });
 
     it("should allow the caller to retrieve statuses with the correct policy", async () => {
@@ -49,9 +49,7 @@ describe("status", () => {
         message: "test",
         time: TimeStamp.now(),
       });
-      const retrieved = await userClient.statuses.retrieve({
-        key: randomStatus.key,
-      });
+      const retrieved = await userClient.statuses.retrieve(randomStatus.key);
       expect(retrieved.key).toBe(randomStatus.key);
       expect(retrieved.name).toBe(randomStatus.name);
     });
@@ -102,9 +100,9 @@ describe("status", () => {
         time: TimeStamp.now(),
       });
       await userClient.statuses.delete(randomStatus.key);
-      await expect(
-        userClient.statuses.retrieve({ key: randomStatus.key }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(userClient.statuses.retrieve(randomStatus.key)).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it("should deny access when no delete policy exists", async () => {

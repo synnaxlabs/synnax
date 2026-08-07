@@ -167,8 +167,12 @@ var _ = Describe("Table", func() {
 				Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: "uuid"}},
 			})).To(Succeed())
 			Expect(table.Add(resolution.Type{
-				Name: "StringAlias", QualifiedName: "auth.StringAlias", Namespace: "auth",
-				Form: resolution.AliasForm{Target: resolution.TypeRef{Name: "string"}},
+				Name:          "StringAlias",
+				QualifiedName: "auth.StringAlias",
+				Namespace:     "auth",
+				Form: resolution.AliasForm{
+					Target: resolution.TypeRef{Name: "string"},
+				},
 			})).To(Succeed())
 			Expect(table.Add(resolution.Type{
 				Name: "Other", QualifiedName: "other.Other", Namespace: "other",
@@ -240,7 +244,9 @@ var _ = Describe("Table", func() {
 		})
 
 		It("returns single element unchanged", func() {
-			types := []resolution.Type{{Name: "A", QualifiedName: "ns.A", Form: resolution.StructForm{}}}
+			types := []resolution.Type{
+				{Name: "A", QualifiedName: "ns.A", Form: resolution.StructForm{}},
+			}
 			sorted := table.TopologicalSort(types)
 			Expect(sorted).To(HaveLen(1))
 			Expect(sorted[0].Name).To(Equal("A"))
@@ -276,7 +282,10 @@ var _ = Describe("Table", func() {
 			Expect(table.Add(derived)).To(Succeed())
 
 			// Pass in reverse order - Derived first, then Base
-			types := []resolution.Type{table.MustGet("ns.Derived"), table.MustGet("ns.Base")}
+			types := []resolution.Type{
+				table.MustGet("ns.Derived"),
+				table.MustGet("ns.Base"),
+			}
 			sorted := table.TopologicalSort(types)
 			Expect(sorted[0].Name).To(Equal("Base"))
 			Expect(sorted[1].Name).To(Equal("Derived"))
@@ -290,20 +299,28 @@ var _ = Describe("Table", func() {
 			b := resolution.Type{
 				Name: "B", QualifiedName: "ns.B", Namespace: "ns",
 				Form: resolution.StructForm{
-					Fields: []resolution.Field{{Type: resolution.TypeRef{Name: "ns.A"}}},
+					Fields: []resolution.Field{
+						{Type: resolution.TypeRef{Name: "ns.A"}},
+					},
 				},
 			}
 			c := resolution.Type{
 				Name: "C", QualifiedName: "ns.C", Namespace: "ns",
 				Form: resolution.StructForm{
-					Fields: []resolution.Field{{Type: resolution.TypeRef{Name: "ns.B"}}},
+					Fields: []resolution.Field{
+						{Type: resolution.TypeRef{Name: "ns.B"}},
+					},
 				},
 			}
 			Expect(table.Add(a)).To(Succeed())
 			Expect(table.Add(b)).To(Succeed())
 			Expect(table.Add(c)).To(Succeed())
 
-			types := []resolution.Type{table.MustGet("ns.C"), table.MustGet("ns.A"), table.MustGet("ns.B")}
+			types := []resolution.Type{
+				table.MustGet("ns.C"),
+				table.MustGet("ns.A"),
+				table.MustGet("ns.B"),
+			}
 			sorted := table.TopologicalSort(types)
 			// A must come before B, B must come before C
 			var aIdx, bIdx, cIdx int
@@ -325,13 +342,17 @@ var _ = Describe("Table", func() {
 			a := resolution.Type{
 				Name: "A", QualifiedName: "ns.A", Namespace: "ns",
 				Form: resolution.StructForm{
-					Fields: []resolution.Field{{Type: resolution.TypeRef{Name: "ns.B"}}},
+					Fields: []resolution.Field{
+						{Type: resolution.TypeRef{Name: "ns.B"}},
+					},
 				},
 			}
 			b := resolution.Type{
 				Name: "B", QualifiedName: "ns.B", Namespace: "ns",
 				Form: resolution.StructForm{
-					Fields: []resolution.Field{{Type: resolution.TypeRef{Name: "ns.A"}}},
+					Fields: []resolution.Field{
+						{Type: resolution.TypeRef{Name: "ns.A"}},
+					},
 				},
 			}
 			Expect(table.Add(a)).To(Succeed())
@@ -357,7 +378,10 @@ var _ = Describe("Table", func() {
 			Expect(table.Add(base)).To(Succeed())
 			Expect(table.Add(alias)).To(Succeed())
 
-			types := []resolution.Type{table.MustGet("ns.BaseAlias"), table.MustGet("ns.Base")}
+			types := []resolution.Type{
+				table.MustGet("ns.BaseAlias"),
+				table.MustGet("ns.Base"),
+			}
 			sorted := table.TopologicalSort(types)
 			Expect(sorted[0].Name).To(Equal("Base"))
 			Expect(sorted[1].Name).To(Equal("BaseAlias"))
@@ -369,13 +393,20 @@ var _ = Describe("Table", func() {
 				Form: resolution.StructForm{},
 			}
 			distinct := resolution.Type{
-				Name: "BaseDistinct", QualifiedName: "ns.BaseDistinct", Namespace: "ns",
-				Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: "ns.Base"}},
+				Name:          "BaseDistinct",
+				QualifiedName: "ns.BaseDistinct",
+				Namespace:     "ns",
+				Form: resolution.DistinctForm{
+					Base: resolution.TypeRef{Name: "ns.Base"},
+				},
 			}
 			Expect(table.Add(base)).To(Succeed())
 			Expect(table.Add(distinct)).To(Succeed())
 
-			types := []resolution.Type{table.MustGet("ns.BaseDistinct"), table.MustGet("ns.Base")}
+			types := []resolution.Type{
+				table.MustGet("ns.BaseDistinct"),
+				table.MustGet("ns.Base"),
+			}
 			sorted := table.TopologicalSort(types)
 			Expect(sorted[0].Name).To(Equal("Base"))
 			Expect(sorted[1].Name).To(Equal("BaseDistinct"))
@@ -385,66 +416,89 @@ var _ = Describe("Table", func() {
 			parent := resolution.Type{
 				Name: "Parent", QualifiedName: "ns.Parent", Namespace: "ns",
 				Form: resolution.StructForm{
-					Fields: []resolution.Field{{Name: "id", Type: resolution.TypeRef{Name: "uuid"}}},
+					Fields: []resolution.Field{
+						{Name: "id", Type: resolution.TypeRef{Name: "uuid"}},
+					},
 				},
 			}
 			child := resolution.Type{
 				Name: "Child", QualifiedName: "ns.Child", Namespace: "ns",
 				Form: resolution.StructForm{
 					Extends: []resolution.TypeRef{{Name: "ns.Parent"}},
-					Fields:  []resolution.Field{{Name: "name", Type: resolution.TypeRef{Name: "string"}}},
+					Fields: []resolution.Field{
+						{Name: "name", Type: resolution.TypeRef{Name: "string"}},
+					},
 				},
 			}
 			Expect(table.Add(parent)).To(Succeed())
 			Expect(table.Add(child)).To(Succeed())
 
-			types := []resolution.Type{table.MustGet("ns.Child"), table.MustGet("ns.Parent")}
+			types := []resolution.Type{
+				table.MustGet("ns.Child"),
+				table.MustGet("ns.Parent"),
+			}
 			sorted := table.TopologicalSort(types)
 			Expect(sorted[0].Name).To(Equal("Parent"))
 			Expect(sorted[1].Name).To(Equal("Child"))
 		})
 
-		It("places a mixin extended by an inline union variant before the union", func() {
-			mixin := resolution.Type{
-				Name: "Mixin", QualifiedName: "ns.Mixin", Namespace: "ns",
-				Form: resolution.StructForm{
-					Fields: []resolution.Field{{Name: "shared", Type: resolution.TypeRef{Name: "string"}}},
-				},
-			}
-			payload := resolution.Type{
-				Name: "UAVariantPayload", QualifiedName: "ns.UAVariantPayload", Namespace: "ns",
-				Synthetic: true,
-				Form: resolution.StructForm{
-					Extends: []resolution.TypeRef{{Name: "ns.Mixin"}},
-					Fields:  []resolution.Field{{Name: "extra", Type: resolution.TypeRef{Name: "int32"}}},
-				},
-			}
-			union := resolution.Type{
-				Name: "U", QualifiedName: "ns.U", Namespace: "ns",
-				Form: resolution.UnionForm{
-					Discriminator: "type",
-					Variants: []resolution.UnionVariant{
-						{Name: "a", Type: resolution.TypeRef{Name: "ns.UAVariantPayload"}, Inline: true},
+		It(
+			"places a mixin extended by an inline union variant before the union",
+			func() {
+				mixin := resolution.Type{
+					Name: "Mixin", QualifiedName: "ns.Mixin", Namespace: "ns",
+					Form: resolution.StructForm{
+						Fields: []resolution.Field{
+							{Name: "shared", Type: resolution.TypeRef{Name: "string"}},
+						},
 					},
-				},
-			}
-			Expect(table.Add(mixin)).To(Succeed())
-			Expect(table.Add(payload)).To(Succeed())
-			Expect(table.Add(union)).To(Succeed())
-
-			types := []resolution.Type{table.MustGet("ns.U"), table.MustGet("ns.Mixin")}
-			sorted := table.TopologicalSort(types)
-			var mixinIdx, unionIdx int
-			for i, t := range sorted {
-				switch t.Name {
-				case "Mixin":
-					mixinIdx = i
-				case "U":
-					unionIdx = i
 				}
-			}
-			Expect(mixinIdx).To(BeNumerically("<", unionIdx))
-		})
+				payload := resolution.Type{
+					Name:          "UAVariantPayload",
+					QualifiedName: "ns.UAVariantPayload",
+					Namespace:     "ns",
+					Synthetic:     true,
+					Form: resolution.StructForm{
+						Extends: []resolution.TypeRef{{Name: "ns.Mixin"}},
+						Fields: []resolution.Field{
+							{Name: "extra", Type: resolution.TypeRef{Name: "int32"}},
+						},
+					},
+				}
+				union := resolution.Type{
+					Name: "U", QualifiedName: "ns.U", Namespace: "ns",
+					Form: resolution.UnionForm{
+						Discriminator: "type",
+						Variants: []resolution.UnionVariant{
+							{
+								Name:   "a",
+								Type:   resolution.TypeRef{Name: "ns.UAVariantPayload"},
+								Inline: true,
+							},
+						},
+					},
+				}
+				Expect(table.Add(mixin)).To(Succeed())
+				Expect(table.Add(payload)).To(Succeed())
+				Expect(table.Add(union)).To(Succeed())
+
+				types := []resolution.Type{
+					table.MustGet("ns.U"),
+					table.MustGet("ns.Mixin"),
+				}
+				sorted := table.TopologicalSort(types)
+				var mixinIdx, unionIdx int
+				for i, t := range sorted {
+					switch t.Name {
+					case "Mixin":
+						mixinIdx = i
+					case "U":
+						unionIdx = i
+					}
+				}
+				Expect(mixinIdx).To(BeNumerically("<", unionIdx))
+			},
+		)
 	})
 })
 
@@ -519,7 +573,10 @@ var _ = Describe("Type Forms", func() {
 		It("detects generic aliases", func() {
 			form := resolution.AliasForm{
 				TypeParams: []resolution.TypeParam{{Name: "T"}},
-				Target:     resolution.TypeRef{Name: "Array", TypeArgs: []resolution.TypeRef{{Name: "T"}}},
+				Target: resolution.TypeRef{
+					Name:     "Array",
+					TypeArgs: []resolution.TypeRef{{Name: "T"}},
+				},
 			}
 			Expect(form.IsGeneric()).To(BeTrue())
 		})
@@ -537,7 +594,9 @@ var _ = Describe("Type Forms", func() {
 	Describe("NonDefaultedTypeParams", func() {
 		It("returns empty slice for empty input", func() {
 			Expect(resolution.NonDefaultedTypeParams(nil)).To(BeEmpty())
-			Expect(resolution.NonDefaultedTypeParams([]resolution.TypeParam{})).To(BeEmpty())
+			Expect(
+				resolution.NonDefaultedTypeParams([]resolution.TypeParam{}),
+			).To(BeEmpty())
 		})
 
 		It("returns all params when none have a default", func() {
@@ -693,7 +752,10 @@ var _ = Describe("Domain", func() {
 				Name: "validation",
 				Expressions: resolution.Expressions{
 					{Name: "min", Values: []resolution.ExpressionValue{{IntValue: 5}}},
-					{Name: "max", Values: []resolution.ExpressionValue{{IntValue: 100}}},
+					{
+						Name:   "max",
+						Values: []resolution.ExpressionValue{{IntValue: 100}},
+					},
 				},
 			}
 			merged := child.Merge(parent)
@@ -705,13 +767,19 @@ var _ = Describe("Domain", func() {
 			parent := resolution.Domain{
 				Name: "go",
 				Expressions: resolution.Expressions{
-					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "old/path"}}},
+					{
+						Name:   "output",
+						Values: []resolution.ExpressionValue{{StringValue: "old/path"}},
+					},
 				},
 			}
 			child := resolution.Domain{
 				Name: "go",
 				Expressions: resolution.Expressions{
-					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "new/path"}}},
+					{
+						Name:   "output",
+						Values: []resolution.ExpressionValue{{StringValue: "new/path"}},
+					},
 				},
 			}
 			merged := child.Merge(parent)
@@ -725,8 +793,14 @@ var _ = Describe("Domain", func() {
 		It("finds expression by name", func() {
 			exprs := resolution.Expressions{
 				{Name: "required"},
-				{Name: "default", Values: []resolution.ExpressionValue{{StringValue: "test"}}},
-				{Name: "min_length", Values: []resolution.ExpressionValue{{IntValue: 5}}},
+				{
+					Name:   "default",
+					Values: []resolution.ExpressionValue{{StringValue: "test"}},
+				},
+				{
+					Name:   "min_length",
+					Values: []resolution.ExpressionValue{{IntValue: 5}},
+				},
 			}
 			expr, ok := exprs.Find("default")
 			Expect(ok).To(BeTrue())
@@ -872,7 +946,10 @@ var _ = Describe("UnifiedFields", func() {
 			Form: resolution.StructForm{
 				Extends: []resolution.TypeRef{{Name: "ns.Parent"}},
 				Fields: []resolution.Field{
-					{Name: "name", Type: resolution.TypeRef{Name: "uuid"}}, // override with different type
+					{
+						Name: "name",
+						Type: resolution.TypeRef{Name: "uuid"},
+					}, // override with different type
 				},
 			},
 		}
@@ -1047,46 +1124,52 @@ var _ = Describe("RefersTo", func() {
 		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
 	})
 
-	It("returns true when the match is reachable through a struct extends base", func() {
-		Expect(table.Add(resolution.Type{
-			Name: "Base", QualifiedName: "ns.Base", Namespace: "ns",
-			Form: resolution.StructForm{
-				Fields: []resolution.Field{
-					{Name: "t", Type: resolution.TypeRef{Name: target}},
+	It(
+		"returns true when the match is reachable through a struct extends base",
+		func() {
+			Expect(table.Add(resolution.Type{
+				Name: "Base", QualifiedName: "ns.Base", Namespace: "ns",
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{Name: "t", Type: resolution.TypeRef{Name: target}},
+					},
 				},
-			},
-		})).To(Succeed())
-		Expect(table.Add(resolution.Type{
-			Name: "Child", QualifiedName: "ns.Child", Namespace: "ns",
-			Form: resolution.StructForm{
-				Extends: []resolution.TypeRef{{Name: "ns.Base"}},
-			},
-		})).To(Succeed())
-		ref := resolution.TypeRef{Name: "ns.Child"}
-		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
-	})
+			})).To(Succeed())
+			Expect(table.Add(resolution.Type{
+				Name: "Child", QualifiedName: "ns.Child", Namespace: "ns",
+				Form: resolution.StructForm{
+					Extends: []resolution.TypeRef{{Name: "ns.Base"}},
+				},
+			})).To(Succeed())
+			ref := resolution.TypeRef{Name: "ns.Child"}
+			Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+		},
+	)
 
-	It("returns true when the match is reachable through a union variant payload", func() {
-		Expect(table.Add(resolution.Type{
-			Name: "Payload", QualifiedName: "ns.Payload", Namespace: "ns",
-			Form: resolution.StructForm{
-				Fields: []resolution.Field{
-					{Name: "t", Type: resolution.TypeRef{Name: target}},
+	It(
+		"returns true when the match is reachable through a union variant payload",
+		func() {
+			Expect(table.Add(resolution.Type{
+				Name: "Payload", QualifiedName: "ns.Payload", Namespace: "ns",
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{
+						{Name: "t", Type: resolution.TypeRef{Name: target}},
+					},
 				},
-			},
-		})).To(Succeed())
-		Expect(table.Add(resolution.Type{
-			Name: "Union", QualifiedName: "ns.Union", Namespace: "ns",
-			Form: resolution.UnionForm{
-				Discriminator: "variant",
-				Variants: []resolution.UnionVariant{
-					{Name: "payload", Type: resolution.TypeRef{Name: "ns.Payload"}},
+			})).To(Succeed())
+			Expect(table.Add(resolution.Type{
+				Name: "Union", QualifiedName: "ns.Union", Namespace: "ns",
+				Form: resolution.UnionForm{
+					Discriminator: "variant",
+					Variants: []resolution.UnionVariant{
+						{Name: "payload", Type: resolution.TypeRef{Name: "ns.Payload"}},
+					},
 				},
-			},
-		})).To(Succeed())
-		ref := resolution.TypeRef{Name: "ns.Union"}
-		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
-	})
+			})).To(Succeed())
+			ref := resolution.TypeRef{Name: "ns.Union"}
+			Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+		},
+	)
 
 	It("returns true when the match is reachable through a union extends base", func() {
 		Expect(table.Add(resolution.Type{
@@ -1141,8 +1224,12 @@ var _ = Describe("RefersTo", func() {
 
 	It("returns true when the match is reachable through a distinct base", func() {
 		Expect(table.Add(resolution.Type{
-			Name: "DistinctFromTarget", QualifiedName: "ns.DistinctFromTarget", Namespace: "ns",
-			Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: target}},
+			Name:          "DistinctFromTarget",
+			QualifiedName: "ns.DistinctFromTarget",
+			Namespace:     "ns",
+			Form: resolution.DistinctForm{
+				Base: resolution.TypeRef{Name: target},
+			},
 		})).To(Succeed())
 		ref := resolution.TypeRef{Name: "ns.DistinctFromTarget"}
 		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
@@ -1233,21 +1320,33 @@ var _ = Describe("PrimitiveBase", func() {
 	})
 
 	It("returns a primitive name directly", func() {
-		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "uint32"}, table)).To(Equal("uint32"))
+		Expect(
+			resolution.PrimitiveBase(resolution.TypeRef{Name: "uint32"}, table),
+		).To(Equal("uint32"))
 	})
 	It("unwraps a distinct type to its primitive base", func() {
-		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "rack.Key"}, table)).To(Equal("uint32"))
+		Expect(
+			resolution.PrimitiveBase(resolution.TypeRef{Name: "rack.Key"}, table),
+		).To(Equal("uint32"))
 	})
 	It("unwraps an alias to its primitive base", func() {
-		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Name"}, table)).To(Equal("string"))
+		Expect(
+			resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Name"}, table),
+		).To(Equal("string"))
 	})
 	It("follows a chain of distinct types", func() {
-		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Outer"}, table)).To(Equal("uint32"))
+		Expect(
+			resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Outer"}, table),
+		).To(Equal("uint32"))
 	})
 	It("returns empty for a struct type", func() {
-		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Box"}, table)).To(Equal(""))
+		Expect(
+			resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Box"}, table),
+		).To(Equal(""))
 	})
 	It("returns empty for an unresolved reference", func() {
-		Expect(resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Missing"}, table)).To(Equal(""))
+		Expect(
+			resolution.PrimitiveBase(resolution.TypeRef{Name: "ns.Missing"}, table),
+		).To(Equal(""))
 	})
 })

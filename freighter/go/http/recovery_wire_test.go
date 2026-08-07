@@ -29,18 +29,23 @@ var _ = Describe("Recovery (wire)", func() {
 	It("should contain a handler panic and keep serving", func(ctx context.Context) {
 		addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 		app := newFiberApp(fiber.Config{})
-		app.Get("/health", func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
+		app.Get(
+			"/health",
+			func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) },
+		)
 		router := MustSucceed(fhttp.NewRouter())
 		server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
 		server.Use(recovery.Middleware(alamos.Instrumentation{}))
 
 		panicNext := true
-		server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
-			if panicNext {
-				panic("boom in handler")
-			}
-			return test.Response(req), nil
-		})
+		server.BindHandler(
+			func(_ context.Context, req test.Request) (test.Response, error) {
+				if panicNext {
+					panic("boom in handler")
+				}
+				return test.Response(req), nil
+			},
+		)
 		router.BindTo(app)
 		go func() {
 			defer GinkgoRecover()
@@ -55,7 +60,9 @@ var _ = Describe("Recovery (wire)", func() {
 
 		client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
 
-		By("surfacing the panic to the client as a generic error, not a dropped connection")
+		By(
+			"surfacing the panic to the client as a generic error, not a dropped connection",
+		)
 		Expect(client.Send(ctx, addr, test.Request{ID: 1})).
 			Error().To(MatchError(ContainSubstring(recovery.ErrPanic.Error())))
 

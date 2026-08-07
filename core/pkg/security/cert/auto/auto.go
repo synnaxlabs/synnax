@@ -24,11 +24,14 @@ import (
 // SourceType is the configuration token selecting the auto source.
 const SourceType = "auto"
 
-// NewSource builds an auto source that self-signs a certificate for host from ca's built-in
-// CA. It returns validate.ErrValidation if host is empty.
+// NewSource builds an auto source that self-signs a certificate for host from ca's
+// built-in CA. It returns validate.ErrValidation if host is empty.
 func NewSource(ca *cert.Factory, host address.Address) (cert.Source, error) {
 	if host == "" {
-		return nil, errors.Wrap(validate.ErrValidation, "auto source requires a listener address")
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"auto source requires a listener address",
+		)
 	}
 	return &source{ca: ca, host: host}, nil
 }

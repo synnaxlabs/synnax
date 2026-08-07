@@ -44,7 +44,9 @@ var _ = Describe("OtelProvider", func() {
 				c := MustSucceed(config.GetCertificate(&tls.ClientHelloInfo{}))
 				Expect(c.Certificate).To(HaveLen(1))
 				Expect(config.GetClientCertificate).ToNot(BeNil())
-				c = MustSucceed(config.GetClientCertificate(&tls.CertificateRequestInfo{}))
+				c = MustSucceed(
+					config.GetClientCertificate(&tls.CertificateRequestInfo{}),
+				)
 				Expect(c.Certificate).To(HaveLen(1))
 				Expect(config.RootCAs).ToNot(BeNil())
 				Expect(config.ClientAuth).To(Equal(tls.NoClientCert))
@@ -72,7 +74,6 @@ var _ = Describe("OtelProvider", func() {
 				}))
 				Expect(prov.NodePrivate()).ToNot(BeNil())
 			})
-
 		})
 		Describe("VerifyCoreCert", func() {
 			It("Should accept a certificate signed by the Core CA", func() {

@@ -94,44 +94,49 @@ var _ = Describe("Transport", func() {
 	// Use is exercised against an isolated transport and server so the registered
 	// middleware does not leak into the shared transport used by the other specs.
 	Describe("Use", func() {
-		It("Should apply middleware to both the client and server endpoints", func(ctx SpecContext) {
-			var t channel.Transport
-			useAddr := StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
-				t = channel.New(pool)
-				t.BindTo(reg)
-			})
+		It(
+			"Should apply middleware to both the client and server endpoints",
+			func(ctx SpecContext) {
+				var t channel.Transport
+				useAddr := StartServer(
+					func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+						t = channel.New(pool)
+						t.BindTo(reg)
+					},
+				)
 
-			var clientCalls, serverCalls atomic.Int32
-			t.Use(freighter.MiddlewareFunc(func(
-				mCtx freighter.Context,
-				next freighter.Next,
-			) (freighter.Context, error) {
-				switch mCtx.Role {
-				case freighter.RoleClient:
-					clientCalls.Add(1)
-				case freighter.RoleServer:
-					serverCalls.Add(1)
-				}
-				return next(mCtx)
-			}))
+				var clientCalls, serverCalls atomic.Int32
+				t.Use(freighter.MiddlewareFunc(func(
+					mCtx freighter.Context,
+					next freighter.Next,
+				) (freighter.Context, error) {
+					switch mCtx.Role {
+					case freighter.RoleClient:
+						clientCalls.Add(1)
+					case freighter.RoleServer:
+						serverCalls.Add(1)
+					}
+					return next(mCtx)
+				}))
 
-			t.CreateServer().BindHandler(
-				func(
-					_ context.Context, req distchannel.CreateMessage,
-				) (distchannel.CreateMessage, error) {
-					return req, nil
-				},
-			)
-			res := MustSucceed(t.CreateClient().Send(
-				ctx,
-				useAddr,
-				distchannel.CreateMessage{
-					Channels: []distchannel.Channel{{Name: "alpha"}},
-				},
-			))
-			Expect(res.Channels).To(HaveLen(1))
-			Expect(clientCalls.Load()).To(Equal(int32(1)))
-			Expect(serverCalls.Load()).To(Equal(int32(1)))
-		})
+				t.CreateServer().BindHandler(
+					func(
+						_ context.Context, req distchannel.CreateMessage,
+					) (distchannel.CreateMessage, error) {
+						return req, nil
+					},
+				)
+				res := MustSucceed(t.CreateClient().Send(
+					ctx,
+					useAddr,
+					distchannel.CreateMessage{
+						Channels: []distchannel.Channel{{Name: "alpha"}},
+					},
+				))
+				Expect(res.Channels).To(HaveLen(1))
+				Expect(clientCalls.Load()).To(Equal(int32(1)))
+				Expect(serverCalls.Load()).To(Equal(int32(1)))
+			},
+		)
 	})
 })

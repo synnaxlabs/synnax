@@ -75,12 +75,12 @@ func (s *Service) Create(
 }
 
 type RetrieveRequest struct {
-	For                 ontology.ID `json:"for" msgpack:"for"`
-	SearchTerm          string      `json:"search_term" msgpack:"search_term"`
-	Keys                []label.Key `json:"keys" msgpack:"keys"`
-	Names               []string    `json:"names" msgpack:"names"`
-	Limit               int         `json:"limit" msgpack:"limit"`
-	Offset              int         `json:"offset" msgpack:"offset"`
+	For                 ontology.ID `json:"for"                    msgpack:"for"`
+	SearchTerm          string      `json:"search_term"            msgpack:"search_term"`
+	Keys                []label.Key `json:"keys"                   msgpack:"keys"`
+	Names               []string    `json:"names"                  msgpack:"names"`
+	Limit               int         `json:"limit"                  msgpack:"limit"`
+	Offset              int         `json:"offset"                 msgpack:"offset"`
 	IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 }
 
@@ -159,8 +159,8 @@ func (s *Service) Delete(
 }
 
 type AddRequest struct {
-	ID      ontology.ID `json:"id" msgpack:"id" validate:"required"`
-	Labels  []label.Key `json:"labels" msgpack:"labels" validate:"required"`
+	ID      ontology.ID `json:"id"      msgpack:"id"      validate:"required"`
+	Labels  []label.Key `json:"labels"  msgpack:"labels"  validate:"required"`
 	Replace bool        `json:"replace" msgpack:"replace"`
 }
 
@@ -186,7 +186,7 @@ func (s *Service) Add(
 }
 
 type RemoveRequest struct {
-	ID     ontology.ID `json:"id" msgpack:"id" validate:"required"`
+	ID     ontology.ID `json:"id"     msgpack:"id"     validate:"required"`
 	Labels []label.Key `json:"labels" msgpack:"labels" validate:"required"`
 }
 

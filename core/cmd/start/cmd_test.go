@@ -28,15 +28,22 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 	It("Should build a config from a scalar listen address", func() {
 		viper.Set(listener.FlagListen, "localhost:9091")
 		viper.Set(start.FlagInsecure, true)
-		Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).Error().ToNot(HaveOccurred())
+		Expect(
+			start.GetCoreConfigFromViper(alamos.Instrumentation{}),
+		).Error().
+			ToNot(HaveOccurred())
 	})
 
 	It("Should reject a listen list combined with a global cert flag", func() {
 		viper.Set(cmdcert.FlagAutoCert, true)
 		viper.Set(listener.FlagListen, []any{
-			map[string]any{"address": "core01:9090", "cert": map[string]any{"source": "auto"}},
+			map[string]any{
+				"address": "core01:9090",
+				"cert":    map[string]any{"source": "auto"},
+			},
 		})
 		Expect(start.GetCoreConfigFromViper(alamos.Instrumentation{})).
-			Error().To(MatchError(ContainSubstring("cannot be combined with a listen list")))
+			Error().
+			To(MatchError(ContainSubstring("cannot be combined with a listen list")))
 	})
 })

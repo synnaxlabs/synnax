@@ -9,30 +9,12 @@
 
 package v2
 
-import (
-	"github.com/google/uuid"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
-)
+import v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v1"
 
-// Migrate transforms v1 schematic data into v2 by adding the per-schematic key, the
-// literal "schematic" type, and the default viewport mode. The generated key is a fresh
-// UUID; the storage migration overwrites it with the Gorp entry's key when it lifts the
-// blob into the typed schematic.
+// Migrate transforms v1 schematic data into v2 by restamping the version. The
+// fields added at v2 are UI-only and are not modeled on the wire here.
 func Migrate(old v1.Data) Data {
-	return Data{
-		Version:         Version,
-		Editable:        old.Editable,
-		FitViewOnResize: old.FitViewOnResize,
-		Snapshot:        old.Snapshot,
-		RemoteCreated:   old.RemoteCreated,
-		Viewport:        old.Viewport,
-		Nodes:           old.Nodes,
-		Edges:           old.Edges,
-		Props:           old.Props,
-		Control:         old.Control,
-		Legend:          old.Legend,
-		Key:             uuid.New().String(),
-		Type:            "schematic",
-		ViewportMode:    "select",
-	}
+	d := Data(old)
+	d.Version = Version
+	return d
 }

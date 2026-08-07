@@ -81,7 +81,10 @@ func (e *EncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 		m := make(map[string]any)
 		if len(val) != 0 {
 			if err = json.Unmarshal([]byte(val), &m); err != nil {
-				return errors.Wrapf(err, "failed to unmarshal JSON string into EncodedJSON")
+				return errors.Wrapf(
+					err,
+					"failed to unmarshal JSON string into EncodedJSON",
+				)
 			}
 		}
 		*e = m
@@ -130,37 +133,58 @@ func UnmarshalUint64(dec *msgpack.Decoder) (uint64, error) {
 		return uint64(val), nil
 	case int64:
 		if val < 0 {
-			return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint64",
+				val,
+			)
 		}
 		return uint64(val), nil
 	case int32:
 		if val < 0 {
-			return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint64",
+				val,
+			)
 		}
 		return uint64(val), nil
 	case int16:
 		if val < 0 {
-			return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint64",
+				val,
+			)
 		}
 		return uint64(val), nil
 	case int8:
 		if val < 0 {
-			return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint64",
+				val,
+			)
 		}
 		return uint64(val), nil
 	case int:
 		if val < 0 {
-			return 0, errors.Newf("negative value %d cannot be converted to uint64", val)
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint64",
+				val,
+			)
 		}
 		return uint64(val), nil
 	case float64:
 		if val < 0 {
-			return 0, errors.Newf("negative value %f cannot be converted to uint64", val)
+			return 0, errors.Newf(
+				"negative value %f cannot be converted to uint64",
+				val,
+			)
 		}
 		return uint64(val), nil
 	case float32:
 		if val < 0 {
-			return 0, errors.Newf("negative value %f cannot be converted to uint64", val)
+			return 0, errors.Newf(
+				"negative value %f cannot be converted to uint64",
+				val,
+			)
 		}
 		return uint64(val), nil
 	case string:
@@ -196,17 +220,26 @@ func UnmarshalUint32(dec *msgpack.Decoder) (uint32, error) {
 		return uint32(val), nil
 	case int32:
 		if val < 0 {
-			return 0, errors.Newf("negative value %d cannot be converted to uint32", val)
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint32",
+				val,
+			)
 		}
 		return uint32(val), nil
 	case int16:
 		if val < 0 {
-			return 0, errors.Newf("negative value %d cannot be converted to uint32", val)
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint32",
+				val,
+			)
 		}
 		return uint32(val), nil
 	case int8:
 		if val < 0 {
-			return 0, errors.Newf("negative value %d cannot be converted to uint32", val)
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint32",
+				val,
+			)
 		}
 		return uint32(val), nil
 	case int:

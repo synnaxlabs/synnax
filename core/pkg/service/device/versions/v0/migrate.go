@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -58,10 +59,9 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				return nil
 			}
 
-			statusKeys := make([]string, len(devices))
-			for i, d := range devices {
-				statusKeys[i] = d.OntologyID().String()
-			}
+			statusKeys := lo.Map(devices, func(d Device, _ int) string {
+				return d.OntologyID().String()
+			})
 			var existingStatuses []status.Status[StatusDetails]
 			if err = status.NewRetrieve[StatusDetails](cfg.Status).
 				Where(status.MatchKeys[StatusDetails](statusKeys...)).
@@ -77,21 +77,30 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 			for _, d := range devices {
 				key := d.OntologyID().String()
 				if !existingKeys.Contains(key) {
-					missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
-						Key:     key,
-						Name:    d.Name,
-						Time:    telem.Now(),
-						Variant: status.VariantWarning,
-						Message: fmt.Sprintf("%s state unknown", d.Name),
-						Details: StatusDetails{Rack: d.Rack, Device: d.Key},
-					})
+					missingStatuses = append(
+						missingStatuses,
+						status.Status[StatusDetails]{
+							Key:     key,
+							Name:    d.Name,
+							Time:    telem.Now(),
+							Variant: status.VariantWarning,
+							Message: fmt.Sprintf("%s state unknown", d.Name),
+							Details: StatusDetails{Rack: d.Rack, Device: d.Key},
+						},
+					)
 				}
 			}
 			if len(missingStatuses) == 0 {
 				return nil
 			}
-			ins.L.Info("creating unknown statuses for existing devices", zap.Int("count", len(missingStatuses)))
-			return status.NewWriter[StatusDetails](cfg.Status, tx).SetMany(ctx, &missingStatuses)
+			ins.L.Info(
+				"creating unknown statuses for existing devices",
+				zap.Int("count", len(missingStatuses)),
+			)
+			return status.NewWriter[StatusDetails](
+				cfg.Status,
+				tx,
+			).SetMany(ctx, &missingStatuses)
 		})
 }
 

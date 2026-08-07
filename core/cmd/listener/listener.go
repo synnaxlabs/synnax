@@ -60,10 +60,10 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// source builds the certificate source this listener selects, handing each strategy only
-// its own inputs: file gets the PEM paths (falling back to the node certificate when the
-// listener sets none), auto and tailscale get the listener host. The node-wide filesystem
-// and CA authority are injected, not read from the listener config.
+// source builds the certificate source this listener selects, handing each strategy
+// only its own inputs: file gets the PEM paths (falling back to the node certificate
+// when the listener sets none), auto and tailscale get the listener host. The node-wide
+// filesystem and CA authority are injected, not read from the listener config.
 func (c Config) source(fs xfs.FS, ca *cert.Factory) (cert.Source, error) {
 	switch c.Cert.Source {
 	case file.SourceType:
@@ -97,7 +97,12 @@ func (cs Configs) Validate() error {
 	for i, c := range cs {
 		field := fmt.Sprintf("listeners[%d]", i)
 		v.Exec(func() error { return validate.PathedError(c.Validate(), field) })
-		v.Ternaryf(field+".address", seen.Contains(c.Address), "duplicate listener address %q", c.Address)
+		v.Ternaryf(
+			field+".address",
+			seen.Contains(c.Address),
+			"duplicate listener address %q",
+			c.Address,
+		)
 		seen.Add(c.Address)
 		if c.Advertise {
 			advertised++
@@ -109,8 +114,8 @@ func (cs Configs) Validate() error {
 
 // ValidateAdvertiseSource rejects a Tailscale source on the advertised listener. Peers
 // dial the advertised address and verify the certificate against the Core CA, which a
-// public-CA Tailscale certificate cannot satisfy. It applies only in secure mode, so the
-// caller gates it on the insecure flag.
+// public-CA Tailscale certificate cannot satisfy. It applies only in secure mode, so
+// the caller gates it on the insecure flag.
 func (cs Configs) ValidateAdvertiseSource() error {
 	v := validate.New("listeners")
 	if len(cs) == 0 {
@@ -169,7 +174,11 @@ func (cs Configs) Resolve(
 		}
 		if c.Address == advertised {
 			if err = p.VerifyCoreCert(src, advertised.Host()); err != nil {
-				return nil, errors.Wrapf(err, "advertised listener %q must serve a certificate the Core CA signs for that host; peers cannot verify it otherwise", c.Address)
+				return nil, errors.Wrapf(
+					err,
+					"advertised listener %q must serve a certificate the Core CA signs for that host; peers cannot verify it otherwise",
+					c.Address,
+				)
 			}
 		}
 		out[i] = server.Listener{Address: c.Address, TLS: p.TLSConfigFor(src)}

@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/x/crdt"
 )
 
-// benchSizes are document lengths in characters. They bracket the realistic range for an
-// Arc source file (low thousands) and push past it to expose the scaling curve.
+// benchSizes are document lengths in characters. They bracket the realistic range for
+// an Arc source file (low thousands) and push past it to expose the scaling curve.
 var benchSizes = []int{100, 1000, 5000, 10000}
 
 // buildDoc types n characters into a fresh document one at a time, appending each.
@@ -30,9 +30,9 @@ func buildDoc(n int) *crdt.Text {
 	return t
 }
 
-// BenchmarkBuild measures typing a document of n characters from empty, one keystroke at
-// a time. Each Insert re-traverses the whole document, so the build is O(n^2); dividing
-// ns/op by n gives the average per-keystroke cost, which rises with n.
+// BenchmarkBuild measures typing a document of n characters from empty, one keystroke
+// at a time. Each Insert re-traverses the whole document, so the build is O(n^2);
+// dividing ns/op by n gives the average per-keystroke cost, which rises with n.
 func BenchmarkBuild(b *testing.B) {
 	for _, n := range benchSizes {
 		b.Run(fmt.Sprintf("n=%d", n), func(b *testing.B) {
@@ -78,8 +78,8 @@ func BenchmarkApplyRemote(b *testing.B) {
 	}
 }
 
-// BenchmarkBootstrap measures a joining client reconstructing a document of n characters
-// from a server snapshot.
+// BenchmarkBootstrap measures a joining client reconstructing a document of n
+// characters from a server snapshot.
 func BenchmarkBootstrap(b *testing.B) {
 	for _, n := range benchSizes {
 		ins, del := buildDoc(n).Snapshot()

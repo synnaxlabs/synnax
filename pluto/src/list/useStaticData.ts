@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type compare, type record } from "@synnaxlabs/x";
+import { type compare, type record, type state } from "@synnaxlabs/x";
 import Fuse from "fuse.js";
 import { useCallback, useMemo, useState } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
-import { type state } from "@/state";
 
 export interface UseStaticDataReturn<
   K extends record.Key = record.Key,

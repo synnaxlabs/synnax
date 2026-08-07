@@ -72,8 +72,8 @@ func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
 
 // WriteCursor returns the alignment a channel indexed by this one should stamp a write
 // starting at ts with. When a writer holds the region covering ts, the cursor is that
-// writer's next write position, so the indexed channel lands in the same sample space as
-// the timestamps it is being written against. Otherwise a fresh leading domain is
+// writer's next write position, so the indexed channel lands in the same sample space
+// as the timestamps it is being written against. Otherwise a fresh leading domain is
 // reserved, keeping the data ordered after everything already persisted.
 func (db *DB) WriteCursor(ts telem.TimeStamp) telem.Alignment {
 	if cw, ok := db.controller.ResourceAt(ts.Range(ts + 1)); ok {
@@ -104,7 +104,10 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 }
 
 // Read reads a Time Range of data at the unary level.
-func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame channel.Frame, err error) {
+func (db *DB) Read(
+	ctx context.Context,
+	tr telem.TimeRange,
+) (frame channel.Frame, err error) {
 	defer func() { err = db.wrapError(err) }()
 	var iter *Iterator
 	if iter, err = db.OpenIterator(IterRange(tr)); err != nil {

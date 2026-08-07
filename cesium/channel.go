@@ -40,7 +40,10 @@ func (db *DB) CreateChannel(ctx context.Context, ch ...Channel) error {
 
 // RetrieveChannels retrieves the channels by the specified keys. It is atomic and will
 // either return all the channels or no channels if there is an error.
-func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
+func (db *DB) RetrieveChannels(
+	ctx context.Context,
+	keys ...ChannelKey,
+) ([]Channel, error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}
@@ -152,7 +155,11 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 }
 
 func indexChannelNotFoundError(key ChannelKey) error {
-	return errors.Wrapf(query.ErrNotFound, "index channel with key %d does not exist", key)
+	return errors.Wrapf(
+		query.ErrNotFound,
+		"index channel with key %d does not exist",
+		key,
+	)
 }
 
 func (db *DB) validateNewChannel(ch Channel) error {
@@ -162,7 +169,11 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	_, unaryExists := db.mu.dbs.unary[ch.Key]
 	_, virtualExists := db.mu.dbs.virtual[ch.Key]
 	if unaryExists || virtualExists {
-		return errors.Wrapf(validate.ErrValidation, "cannot create channel %v because it already exists", ch)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"cannot create channel %v because it already exists",
+			ch,
+		)
 	}
 	if ch.Virtual {
 		return nil
@@ -174,7 +185,11 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		}
 		if !indexDB.Channel().IsIndex {
 			return validate.PathedError(
-				errors.Wrapf(validate.ErrValidation, "channel %v is not an index", indexDB.Channel()),
+				errors.Wrapf(
+					validate.ErrValidation,
+					"channel %v is not an index",
+					indexDB.Channel(),
+				),
 				"index",
 			)
 		}
@@ -185,7 +200,11 @@ func (db *DB) validateNewChannel(ch Channel) error {
 // RekeyChannel changes the key of channel oldKey into newKey. This operation is
 // idempotent and does not return an error if the channel does not exist. RekeyChannel
 // returns an error if there are open iterators/writers on the given channel.
-func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channel.Key) error {
+func (db *DB) RekeyChannel(
+	ctx context.Context,
+	oldKey ChannelKey,
+	newKey channel.Key,
+) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 

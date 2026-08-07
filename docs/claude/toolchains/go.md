@@ -18,9 +18,11 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
 
 ## Style
 
-gofmt, 88-char lines (editor-enforced), standard Go idioms. Imports grouped: stdlib,
-external, internal. Format with `scripts/gofmt.sh <path>`, check with
-`scripts/check_gofmt.sh <path>` (see `docs/claude/scripts.md`).
+golangci-lint built-in formatters (gofmt, gofumpt, gci, goimports, golines, swaggo;
+configured in the root `.golangci.yaml`), 88-char lines, standard Go idioms. Imports
+grouped: stdlib, then all others (gci). Format with `golangci-lint fmt` in the module,
+check with `golangci-lint fmt --diff`. `golangci-lint run` (CI) also fails on
+unformatted files.
 
 ## Packages & Naming
 
@@ -266,3 +268,33 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 ```
+
+### Rule 11: Every exported symbol gets its own specs
+
+Adding an exported function, method, or type means adding specs for it in that package,
+in the same change. Cover the success path and every documented failure condition — for
+a validating helper, one entry per rejection it can produce.
+
+Coverage through a caller in another package does not count. A helper exercised only by
+its consumers has no spec that names it, so a regression surfaces as an unrelated
+failure elsewhere, and deleting the last consumer silently drops the coverage.
+
+### Rule 12: Test helpers that assert start with `GinkgoHelper()`
+
+Any function or closure outside a spec body that runs an assertion — `Expect`,
+`Eventually`, `MustSucceed`, `MustOpen`, and friends — opens with `GinkgoHelper()`.
+Without it a failure reports the line inside the helper, which is the same line for
+every caller; with it the report points at the spec that called the helper.
+
+```go
+importAndRetrieve := func(ctx SpecContext, path string) lineplot.LinePlot {
+	GinkgoHelper()
+	id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
+	...
+}
+```
+
+This covers named helpers, closures assigned to a variable, and exported helpers in a
+`testutil` package (call `ginkgo.GinkgoHelper()` there). Spec bodies themselves — the
+functions passed to `It`, `BeforeEach`, `DescribeTable` — already report their own
+location and must not call it.

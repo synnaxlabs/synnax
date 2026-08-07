@@ -48,43 +48,51 @@ var _ = Describe("StartServer", func() {
 		Expect(gotPool).ToNot(BeNil())
 	})
 
-	It("Should serve registered services reachable through the pool", func(ctx SpecContext) {
-		var pool *fgrpc.Pool
-		addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
-			pool = p
-			v1.RegisterTestUnaryServiceServer(reg, echoServer{})
-		})
-		conn := MustSucceed(pool.Acquire(addr))
-		res := MustSucceed(v1.NewTestUnaryServiceClient(conn).Exec(
-			ctx,
-			&v1.Request{Id: 41, Message: "hello"},
-		))
-		Expect(res.Id).To(Equal(int32(42)))
-		Expect(res.Message).To(Equal("hello"))
-	})
-
-	It("Should forward server options to the underlying gRPC server", func(ctx SpecContext) {
-		var (
-			intercepted atomic.Bool
-			pool        *fgrpc.Pool
-		)
-		addr := StartServer(
-			func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
+	It(
+		"Should serve registered services reachable through the pool",
+		func(ctx SpecContext) {
+			var pool *fgrpc.Pool
+			addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
 				pool = p
 				v1.RegisterTestUnaryServiceServer(reg, echoServer{})
-			},
-			grpc.ChainUnaryInterceptor(func(
-				ctx context.Context,
-				req any,
-				_ *grpc.UnaryServerInfo,
-				handler grpc.UnaryHandler,
-			) (any, error) {
-				intercepted.Store(true)
-				return handler(ctx, req)
-			}),
-		)
-		conn := MustSucceed(pool.Acquire(addr))
-		MustSucceed(v1.NewTestUnaryServiceClient(conn).Exec(ctx, &v1.Request{Id: 1}))
-		Expect(intercepted.Load()).To(BeTrue())
-	})
+			})
+			conn := MustSucceed(pool.Acquire(addr))
+			res := MustSucceed(v1.NewTestUnaryServiceClient(conn).Exec(
+				ctx,
+				&v1.Request{Id: 41, Message: "hello"},
+			))
+			Expect(res.Id).To(Equal(int32(42)))
+			Expect(res.Message).To(Equal("hello"))
+		},
+	)
+
+	It(
+		"Should forward server options to the underlying gRPC server",
+		func(ctx SpecContext) {
+			var (
+				intercepted atomic.Bool
+				pool        *fgrpc.Pool
+			)
+			addr := StartServer(
+				func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
+					pool = p
+					v1.RegisterTestUnaryServiceServer(reg, echoServer{})
+				},
+				grpc.ChainUnaryInterceptor(func(
+					ctx context.Context,
+					req any,
+					_ *grpc.UnaryServerInfo,
+					handler grpc.UnaryHandler,
+				) (any, error) {
+					intercepted.Store(true)
+					return handler(ctx, req)
+				}),
+			)
+			conn := MustSucceed(pool.Acquire(addr))
+			MustSucceed(
+				v1.NewTestUnaryServiceClient(conn).Exec(ctx, &v1.Request{Id: 1}),
+			)
+			Expect(intercepted.Load()).To(BeTrue())
+		},
+	)
 })

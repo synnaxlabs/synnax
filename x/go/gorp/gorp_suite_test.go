@@ -24,6 +24,7 @@ var (
 	kvDB kv.DB
 	db   *gorp.DB
 )
+
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
 	kvDB = memkv.New()

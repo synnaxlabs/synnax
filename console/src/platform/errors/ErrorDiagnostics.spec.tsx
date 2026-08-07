@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, panel, status } from "@synnaxlabs/client";
-import { Errors, Flux, type Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
-import { render, renderHook } from "@testing-library/react";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Errors } from "@synnaxlabs/pluto";
+import { render } from "@testing-library/react";
 import { act, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -93,17 +93,16 @@ describe("ErrorDiagnostics", () => {
   });
 
   it("appends the crashed panel's name and key", async () => {
-    const { wrapper, store } = await createConsoleWrapper({ client: null });
+    const client = createTestClient();
+    const { wrapper, store } = await createConsoleWrapper({ client });
     void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
-    const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
-      wrapper,
-    });
     const doc = panel.panelZ.parse({
-      key: uuid.create(),
       name: "fridge_schem",
       root: { variant: "leaf", tabs: [] },
     });
-    act(() => void result.current.panels.set(doc));
+    await client.panels.create(doc);
+    // Prime the query cache the way the mosaic's retrieve does.
+    await client.panels.retrieve(doc.key);
     render(
       <Boundary panelKey={doc.key}>
         <Throw error={retrieveNotFoundError()} />

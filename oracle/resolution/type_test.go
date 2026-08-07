@@ -45,19 +45,55 @@ var _ = Describe("CollectionKind", func() {
 		add("SelfDistinct", resolution.DistinctForm{Base: ref("t.SelfDistinct")})
 	})
 
-	DescribeTable("reports whether ref resolves to a collection",
+	DescribeTable(
+		"reports whether ref resolves to a collection",
 		func(makeRef func() resolution.TypeRef, wantKind string, wantOK bool) {
 			kind, ok := resolution.CollectionKind(makeRef(), table)
 			Expect(ok).To(Equal(wantOK))
 			Expect(kind).To(Equal(wantKind))
 		},
-		Entry("direct Array", func() resolution.TypeRef { return ref("Array") }, "Array", true),
-		Entry("direct Map", func() resolution.TypeRef { return ref("Map") }, "Map", true),
-		Entry("direct record", func() resolution.TypeRef { return ref("record") }, "record", true),
-		Entry("distinct over Array", func() resolution.TypeRef { return ref("t.DistinctArray") }, "Array", true),
-		Entry("alias to Map", func() resolution.TypeRef { return ref("t.AliasMap") }, "Map", true),
-		Entry("alias chain to Array", func() resolution.TypeRef { return ref("t.AliasToAlias") }, "Array", true),
-		Entry("distinct over alias to Array", func() resolution.TypeRef { return ref("t.DistinctOverAlias") }, "Array", true),
+		Entry(
+			"direct Array",
+			func() resolution.TypeRef { return ref("Array") },
+			"Array",
+			true,
+		),
+		Entry(
+			"direct Map",
+			func() resolution.TypeRef { return ref("Map") },
+			"Map",
+			true,
+		),
+		Entry(
+			"direct record",
+			func() resolution.TypeRef { return ref("record") },
+			"record",
+			true,
+		),
+		Entry(
+			"distinct over Array",
+			func() resolution.TypeRef { return ref("t.DistinctArray") },
+			"Array",
+			true,
+		),
+		Entry(
+			"alias to Map",
+			func() resolution.TypeRef { return ref("t.AliasMap") },
+			"Map",
+			true,
+		),
+		Entry(
+			"alias chain to Array",
+			func() resolution.TypeRef { return ref("t.AliasToAlias") },
+			"Array",
+			true,
+		),
+		Entry(
+			"distinct over alias to Array",
+			func() resolution.TypeRef { return ref("t.DistinctOverAlias") },
+			"Array",
+			true,
+		),
 		Entry("type param constrained to Array",
 			func() resolution.TypeRef {
 				c := ref("Array")
@@ -73,13 +109,43 @@ var _ = Describe("CollectionKind", func() {
 				c, d := ref("Array"), ref("record")
 				return param(&resolution.TypeParam{Constraint: &c, Default: &d})
 			}, "Array", true),
-		Entry("primitive", func() resolution.TypeRef { return ref("string") }, "", false),
-		Entry("distinct over scalar", func() resolution.TypeRef { return ref("t.DistinctScalar") }, "", false),
+		Entry(
+			"primitive",
+			func() resolution.TypeRef { return ref("string") },
+			"",
+			false,
+		),
+		Entry(
+			"distinct over scalar",
+			func() resolution.TypeRef { return ref("t.DistinctScalar") },
+			"",
+			false,
+		),
 		Entry("struct", func() resolution.TypeRef { return ref("t.User") }, "", false),
 		Entry("enum", func() resolution.TypeRef { return ref("t.Color") }, "", false),
-		Entry("bare type param", func() resolution.TypeRef { return param(&resolution.TypeParam{}) }, "", false),
-		Entry("unresolved name", func() resolution.TypeRef { return ref("t.Missing") }, "", false),
-		Entry("cyclic alias chain", func() resolution.TypeRef { return ref("t.CycleA") }, "", false),
-		Entry("self-referential distinct", func() resolution.TypeRef { return ref("t.SelfDistinct") }, "", false),
+		Entry(
+			"bare type param",
+			func() resolution.TypeRef { return param(&resolution.TypeParam{}) },
+			"",
+			false,
+		),
+		Entry(
+			"unresolved name",
+			func() resolution.TypeRef { return ref("t.Missing") },
+			"",
+			false,
+		),
+		Entry(
+			"cyclic alias chain",
+			func() resolution.TypeRef { return ref("t.CycleA") },
+			"",
+			false,
+		),
+		Entry(
+			"self-referential distinct",
+			func() resolution.TypeRef { return ref("t.SelfDistinct") },
+			"",
+			false,
+		),
 	)
 })

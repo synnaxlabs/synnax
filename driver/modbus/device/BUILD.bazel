@@ -19,7 +19,7 @@ cc_library(
         "//vendor/libmodbus",
         "//x/cpp/errors",
         "//x/cpp/json",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )
 

@@ -19,59 +19,7 @@
 #endif
 // END OF MISSION CRITICAL CODE BLOCK.
 
-#include <iostream>
-#include <string>
-
-#include "glog/logging.h"
-
-#include "client/cpp/synnax.h"
-#include "x/cpp/log/log.h"
-#include "x/cpp/shutdown/shutdown.h"
-
-#include "core/pkg/version/version.h"
-#include "driver/cmd/cmd.h"
-#include "driver/daemon/daemon.h"
-#include "driver/rack/rack.h"
-
-/// @brief the configuration for opening a connection to the driver.
 namespace driver::cmd {
 /// @brief exec runs the CLI command.
 int exec(int argc, char **argv);
-
-std::string version();
-
-namespace sub {
-/// @brief logs the user into a Synnax cluster.
-int login(x::args::Parser &args);
-
-/// @brief starts the driver process.
-int start(x::args::Parser &args);
-
-/// @brief returns driver version info.
-int version(x::args::Parser &args);
-
-/// @brief starts the driver as a background daemon.
-int service_start(x::args::Parser &args);
-
-/// @brief stops the driver background daemon.
-int service_stop(x::args::Parser &args);
-
-/// @brief restarts the driver background daemon.
-int service_restart(x::args::Parser &args);
-
-/// @brief installs the driver as a background daemon.
-int service_install(x::args::Parser &args);
-
-/// @brief uninstalls the driver background daemon.
-int service_uninstall(x::args::Parser &args);
-
-/// @brief views the status of the driver background daemon.
-int service_status(x::args::Parser &args);
-
-/// @brief views the logs of the driver background daemon.
-int service_view_logs(x::args::Parser &args);
-
-/// @brief clears the driver persisted state.
-int clear(x::args::Parser &args);
-}
 }

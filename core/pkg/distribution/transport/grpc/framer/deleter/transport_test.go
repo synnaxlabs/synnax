@@ -44,32 +44,35 @@ var _ = Describe("Transport", func() {
 	})
 
 	Describe("Use", func() {
-		It("Should apply middleware to both the client and server endpoints", func(ctx SpecContext) {
-			var clientCalls, serverCalls atomic.Int32
-			transport.Use(freighter.MiddlewareFunc(func(
-				mCtx freighter.Context,
-				next freighter.Next,
-			) (freighter.Context, error) {
-				switch mCtx.Role {
-				case freighter.RoleClient:
-					clientCalls.Add(1)
-				case freighter.RoleServer:
-					serverCalls.Add(1)
-				}
-				return next(mCtx)
-			}))
-			transport.Server().BindHandler(
-				func(_ context.Context, _ deleter.Request) (types.Nil, error) {
-					return types.Nil{}, nil
-				},
-			)
-			Expect(transport.Client().Send(
-				ctx,
-				addr,
-				deleter.Request{Keys: channel.Keys{1}},
-			)).To(Equal(types.Nil{}))
-			Expect(clientCalls.Load()).To(Equal(int32(1)))
-			Expect(serverCalls.Load()).To(Equal(int32(1)))
-		})
+		It(
+			"Should apply middleware to both the client and server endpoints",
+			func(ctx SpecContext) {
+				var clientCalls, serverCalls atomic.Int32
+				transport.Use(freighter.MiddlewareFunc(func(
+					mCtx freighter.Context,
+					next freighter.Next,
+				) (freighter.Context, error) {
+					switch mCtx.Role {
+					case freighter.RoleClient:
+						clientCalls.Add(1)
+					case freighter.RoleServer:
+						serverCalls.Add(1)
+					}
+					return next(mCtx)
+				}))
+				transport.Server().BindHandler(
+					func(_ context.Context, _ deleter.Request) (types.Nil, error) {
+						return types.Nil{}, nil
+					},
+				)
+				Expect(transport.Client().Send(
+					ctx,
+					addr,
+					deleter.Request{Keys: channel.Keys{1}},
+				)).To(Equal(types.Nil{}))
+				Expect(clientCalls.Load()).To(Equal(int32(1)))
+				Expect(serverCalls.Load()).To(Equal(int32(1)))
+			},
+		)
 	})
 })

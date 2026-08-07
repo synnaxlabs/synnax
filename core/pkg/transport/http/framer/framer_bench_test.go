@@ -30,7 +30,9 @@ func newHTTPFramerCodec(keys channel.Keys, dts []telem.DataType) *framer.Codec {
 	}
 }
 
-func httpBenchFrame(numChannels, samples int) (channel.Keys, []telem.DataType, framer.Frame) {
+func httpBenchFrame(
+	numChannels, samples int,
+) (channel.Keys, []telem.DataType, framer.Frame) {
 	keys := make(channel.Keys, numChannels)
 	dts := make([]telem.DataType, numChannels)
 	for i := range numChannels {
@@ -50,7 +52,9 @@ func httpBenchFrame(numChannels, samples int) (channel.Keys, []telem.DataType, f
 	return keys, dts, frame.NewMulti(frameKeys, series)
 }
 
-func httpIteratorFrame(numChannels, numDomains, samples int) (channel.Keys, []telem.DataType, framer.Frame) {
+func httpIteratorFrame(
+	numChannels, numDomains, samples int,
+) (channel.Keys, []telem.DataType, framer.Frame) {
 	keys := make(channel.Keys, numChannels)
 	dts := make([]telem.DataType, numChannels)
 	for i := range numChannels {
@@ -192,7 +196,12 @@ func BenchmarkHTTPCodec_IteratorResponse_Encode(b *testing.B) {
 		{64, 10, 100},
 	}
 	for _, cs := range cases {
-		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", cs.channels, cs.domains, cs.samples)
+		name := fmt.Sprintf(
+			"channels=%d/domains=%d/samples=%d",
+			cs.channels,
+			cs.domains,
+			cs.samples,
+		)
 		b.Run(name, func(b *testing.B) {
 			keys, dts, fr := httpIteratorFrame(cs.channels, cs.domains, cs.samples)
 			c := newHTTPFramerCodec(keys, dts)
@@ -225,7 +234,12 @@ func BenchmarkHTTPCodec_IteratorResponse_Decode(b *testing.B) {
 		{64, 10, 100},
 	}
 	for _, cs := range cases {
-		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", cs.channels, cs.domains, cs.samples)
+		name := fmt.Sprintf(
+			"channels=%d/domains=%d/samples=%d",
+			cs.channels,
+			cs.domains,
+			cs.samples,
+		)
 		b.Run(name, func(b *testing.B) {
 			keys, dts, fr := httpIteratorFrame(cs.channels, cs.domains, cs.samples)
 			c := newHTTPFramerCodec(keys, dts)

@@ -100,7 +100,7 @@ class AsyncStreamSenderCloser(AsyncStreamSender[RQ], Protocol):
         closed the stream, close_send will do nothing.
 
         After calling close_send, the client is responsible for calling receive() to
-        successfully receive the server's acknowledgement.
+        successfully receive the server's acknowledgment.
 
         :raises Exception: if the transport fails to communicate the closure.
         """
@@ -121,7 +121,7 @@ class StreamSenderCloser(StreamSender[RQ], Protocol):
         closed the stream, close_send will do nothing.
 
         After calling close_send, the client is responsible for calling receive() to
-        successfully receive the server's acknowledgement.
+        successfully receive the server's acknowledgment.
 
         :raises Exception: if the transport fails to communicate the closure.
         """

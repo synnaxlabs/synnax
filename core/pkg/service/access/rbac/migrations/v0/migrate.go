@@ -75,7 +75,11 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 				}); err != nil {
 					return err
 				}
-				if err = roleWriter.AssignRole(ctx, userOntologyID, roleKey); err != nil {
+				if err = roleWriter.AssignRole(
+					ctx,
+					userOntologyID,
+					roleKey,
+				); err != nil {
 					return err
 				}
 			}
@@ -91,7 +95,11 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 // determineRole maps a legacy user to a built-in role. Operator is the intentional
 // default because all pre-RBAC users had write access. Viewer is not used here since no
 // legacy deployment had read-only users.
-func determineRole(u user.User, policies []policy.Policy, roles builtin.ProvisionResult) uuid.UUID {
+func determineRole(
+	u user.User,
+	policies []policy.Policy,
+	roles builtin.ProvisionResult,
+) uuid.UUID {
 	if u.RootUser {
 		return roles.OwnerKey
 	}

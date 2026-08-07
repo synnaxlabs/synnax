@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
-#include <thread>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 #include <windows.h>
 
 // timeBeginPeriod/timeEndPeriod from winmm.lib. We declare them manually instead of

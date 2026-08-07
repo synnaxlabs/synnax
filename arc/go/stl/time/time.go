@@ -58,7 +58,9 @@ var (
 		doc.Code("arc", "t := time.now()"),
 	)
 	moduleDoc = doc.New(
-		doc.Paragraph("Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations."),
+		doc.Paragraph(
+			"Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations.",
+		),
 	)
 )
 
@@ -93,7 +95,9 @@ func NewSymbols() []*symbol.Symbol {
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecBoth,
 		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.TimeStamp()},
+			},
 		}),
 		Trigger: symbol.TriggerOnly,
 		Doc:     nowDoc,

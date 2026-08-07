@@ -239,23 +239,21 @@ func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
 	return nextIDs, nil
 }
 
-var (
-	// ChildrenTraverser traverse to the children of a resource.
-	ChildrenTraverser = Traverser{
-		Traverse: func(_ []ID) RawTraversal {
-			return func(data []byte, nextIDs *[]ID) error {
-				reader, err := orc.NewRaw(data)
-				if err != nil {
-					return err
-				}
-				*nextIDs = append(*nextIDs, ReadRawID(reader.SkipStrings(3)))
-				return nil
+// ChildrenTraverser traverse to the children of a resource.
+var ChildrenTraverser = Traverser{
+	Traverse: func(_ []ID) RawTraversal {
+		return func(data []byte, nextIDs *[]ID) error {
+			reader, err := orc.NewRaw(data)
+			if err != nil {
+				return err
 			}
-		},
-		Direction:    DirectionForward,
-		FilterPrefix: RelationshipPrefix(RelationshipTypeParentOf),
-	}
-)
+			*nextIDs = append(*nextIDs, ReadRawID(reader.SkipStrings(3)))
+			return nil
+		}
+	},
+	Direction:    DirectionForward,
+	FilterPrefix: RelationshipPrefix(RelationshipTypeParentOf),
+}
 
 // TraverseTo traverses to the provided relationship type. All filtering methods will
 // now be applied to elements of the traversed relationship.

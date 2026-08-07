@@ -27,9 +27,11 @@ type NumericSample interface {
 		float32 | float64 | TimeStamp
 }
 
-// FixedSample represents any numeric value that can be stored in a Series and has a
-// fixed density.
-type FixedSample interface{ NumericSample | uuid.UUID }
+// FixedSample represents any value that can be stored in a Series and has a fixed
+// density.
+type FixedSample interface {
+	NumericSample | uuid.UUID | bool
+}
 
 // VariableSample is a type that can be stored in a variable-density series.
 type VariableSample interface{ []byte | string }
@@ -66,6 +68,8 @@ func NewSeries[T Sample](data []T) Series {
 		return newFixedSeries(any(data).([]TimeStamp))
 	case uuid.UUID:
 		return newFixedSeries(any(data).([]uuid.UUID))
+	case bool:
+		return newFixedSeries(any(data).([]bool))
 	case string:
 		return newVariableSeries(any(data).([]string))
 	case []byte:
@@ -135,7 +139,10 @@ func MarshalVariableSample(sample []byte) []byte {
 }
 
 func marshalVariable[T VariableSample](data []T) []byte {
-	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + variableLengthPrefixSize })
+	total := lo.SumBy(
+		data,
+		func(v T) int64 { return int64(len(v)) + variableLengthPrefixSize },
+	)
 	b := make([]byte, total)
 	offset := 0
 	for _, d := range data {
@@ -185,6 +192,8 @@ func UnmarshalSeries[T Sample](series Series) []T {
 		return any(unmarshalFixed[TimeStamp](series.Data)).([]T)
 	case uuid.UUID:
 		return any(unmarshalFixed[uuid.UUID](series.Data)).([]T)
+	case bool:
+		return any(unmarshalFixed[bool](series.Data)).([]T)
 	case string:
 		return any(unmarshalVariable[string](series.Data)).([]T)
 	case []byte:
@@ -267,6 +276,8 @@ func NewSeriesFromAny(value any, dt DataType) Series {
 		return NewSeriesV(CastNumeric[float64](value))
 	case TimeStampT:
 		return NewSeriesV(CastNumeric[TimeStamp](value))
+	case BoolT:
+		return NewSeriesV(castToBool(value))
 	case UUIDT:
 		return NewSeriesV(castToUUID(value))
 	case StringT:
@@ -285,6 +296,11 @@ func NewSeriesFromAny(value any, dt DataType) Series {
 // Panics if value is not numeric.
 func CastNumeric[T NumericSample](value any) T {
 	switch v := value.(type) {
+	case bool:
+		if v {
+			return T(1)
+		}
+		return T(0)
 	case uint:
 		return T(v)
 	case uint8:
@@ -321,7 +337,18 @@ func CastNumeric[T NumericSample](value any) T {
 
 func castToString(value any) string {
 	switch v := value.(type) {
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, TimeStamp, TimeSpan:
+	case int,
+		int8,
+		int16,
+		int32,
+		int64,
+		uint,
+		uint8,
+		uint16,
+		uint32,
+		uint64,
+		TimeStamp,
+		TimeSpan:
 		return fmt.Sprintf("%d", v)
 	case float32, float64:
 		return fmt.Sprintf("%g", v)
@@ -366,6 +393,41 @@ func castToBytes(value any) []byte {
 		return v
 	default:
 		panic(fmt.Sprintf("cannot cast %T to []byte", value))
+	}
+}
+
+func castToBool(value any) bool {
+	switch v := value.(type) {
+	case bool:
+		return v
+	case uint:
+		return v != 0
+	case uint8:
+		return v != 0
+	case uint16:
+		return v != 0
+	case uint32:
+		return v != 0
+	case uint64:
+		return v != 0
+	case int:
+		return v != 0
+	case int8:
+		return v != 0
+	case int16:
+		return v != 0
+	case int32:
+		return v != 0
+	case int64:
+		return v != 0
+	case float32:
+		return v != 0
+	case float64:
+		return v != 0
+	case TimeStamp:
+		return v != 0
+	default:
+		panic(fmt.Sprintf("cannot cast %T to bool", value))
 	}
 }
 

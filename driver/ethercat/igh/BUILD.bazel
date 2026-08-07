@@ -53,7 +53,7 @@ cc_library(
         "//driver/ethercat/telem",
         "//x/cpp/errors",
         "//x/cpp/lib",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )
 

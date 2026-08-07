@@ -113,19 +113,33 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if cfg.Group != nil {
-		if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Schematic Symbols", ontology.RootID); !ok(err, nil) {
+		if s.group, err = cfg.Group.CreateOrRetrieve(
+			ctx,
+			"Schematic Symbols",
+			ontology.RootID,
+		); !ok(
+			err,
+			nil,
+		) {
 			return nil, err
 		}
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	cfg.ImEx.RegisterExporter(s)
+	cfg.ImEx.RegisterImportExporter(s)
 	if cfg.Signals != nil {
 		signalsCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		signalsCfg.SetName = "sy_schematic_symbol_set"
 		signalsCfg.DeleteName = "sy_schematic_symbol_delete"
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg); !ok(err, sig) {
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			signalsCfg,
+		); !ok(
+			err,
+			sig,
+		) {
 			return nil, err
 		}
 	}

@@ -216,20 +216,23 @@ var _ = Describe("Debounce", func() {
 			Eventually(called.Load).Should(Equal(int32(1)))
 		})
 
-		It("Should not clamp the delay when only one trigger fits inside the cap", func() {
-			clk := &xtime.Fake{}
-			var called atomic.Int32
-			d := MustSucceed(debounce.New(debounce.Config{
-				Delay:    5 * time.Millisecond,
-				MaxDelay: time.Hour,
-				Clock:    clk,
-				Callback: func(context.Context) { called.Add(1) },
-			}))
-			DeferCleanup(d.Stop)
-			d.Trigger()
-			clk.Advance(5 * time.Millisecond)
-			Eventually(called.Load).Should(Equal(int32(1)))
-		})
+		It(
+			"Should not clamp the delay when only one trigger fits inside the cap",
+			func() {
+				clk := &xtime.Fake{}
+				var called atomic.Int32
+				d := MustSucceed(debounce.New(debounce.Config{
+					Delay:    5 * time.Millisecond,
+					MaxDelay: time.Hour,
+					Clock:    clk,
+					Callback: func(context.Context) { called.Add(1) },
+				}))
+				DeferCleanup(d.Stop)
+				d.Trigger()
+				clk.Advance(5 * time.Millisecond)
+				Eventually(called.Load).Should(Equal(int32(1)))
+			},
+		)
 	})
 
 	Describe("Stop", func() {

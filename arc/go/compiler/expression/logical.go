@@ -46,7 +46,9 @@ func compileLogicalOrImpl(
 	return types.U8(), nil
 }
 
-func compileLogicalAndImpl(ctx context.Context[parser.ILogicalAndExpressionContext]) (types.Type, error) {
+func compileLogicalAndImpl(
+	ctx context.Context[parser.ILogicalAndExpressionContext],
+) (types.Type, error) {
 	eqs := ctx.AST.AllEqualityExpression()
 
 	// Compile first operand

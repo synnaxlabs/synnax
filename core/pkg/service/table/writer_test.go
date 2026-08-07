@@ -28,8 +28,16 @@ var _ = Describe("Writer", func() {
 			Rows:    []table.Row{{Size: 30, Cells: []string{"a", "b"}}},
 			Columns: []table.Column{{Size: 80}, {Size: 100}},
 			Cells: map[string]table.Cell{
-				"a": {Key: "a", Variant: "text", Props: msgpack.EncodedJSON{"value": "A"}},
-				"b": {Key: "b", Variant: "text", Props: msgpack.EncodedJSON{"value": "B"}},
+				"a": {
+					Key:     "a",
+					Variant: "text",
+					Props:   msgpack.EncodedJSON{"value": "A"},
+				},
+				"b": {
+					Key:     "b",
+					Variant: "text",
+					Props:   msgpack.EncodedJSON{"value": "B"},
+				},
 			},
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
@@ -38,7 +46,9 @@ var _ = Describe("Writer", func() {
 
 	retrieve := func(ctx SpecContext, key table.Key) table.Table {
 		var res table.Table
-		Expect(svc.NewRetrieve().Where(table.MatchKeys(key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+		Expect(
+			svc.NewRetrieve().Where(table.MatchKeys(key)).Entry(&res).Exec(ctx, tx),
+		).To(Succeed())
 		return res
 	}
 
@@ -49,18 +59,25 @@ var _ = Describe("Writer", func() {
 				Rows:    []table.Row{{Size: 30, Cells: []string{"a"}}},
 				Columns: []table.Column{{Size: 80}},
 				Cells: map[string]table.Cell{
-					"a": {Key: "a", Variant: "text", Props: msgpack.EncodedJSON{"value": "hello"}},
+					"a": {
+						Key:     "a",
+						Variant: "text",
+						Props:   msgpack.EncodedJSON{"value": "hello"},
+					},
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).To(Succeed())
 			Expect(t.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
-			t := table.Table{}
-			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).
-				To(MatchError(ContainSubstring("name: required")))
-		})
+		It(
+			"Should return a validation error when the name is empty",
+			func(ctx SpecContext) {
+				t := table.Table{}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).
+					To(MatchError(ContainSubstring("name: required")))
+			},
+		)
 
 		It("Should create a Table without a project", func(ctx SpecContext) {
 			t := table.Table{Name: "test"}
@@ -96,48 +113,54 @@ var _ = Describe("Writer", func() {
 			Expect(retrieve(ctx, s.Key).Name).To(Equal("test2"))
 		})
 
-		It("Should apply a multi-action sequence atomically and persist the result", func(ctx SpecContext) {
-			s := seed(ctx)
-			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
-				table.NewRenameAction(table.RenamePayload{Name: "multi"}),
-				table.NewAddRowAction(table.AddRowPayload{
-					Index: 1,
-					Size:  40,
-					Cells: []table.Cell{
-						{Key: "c", Variant: "text"},
-						{Key: "d", Variant: "text"},
-					},
-				}),
-				table.NewSetCellAction(table.SetCellPayload{
-					Cell: table.Cell{
-						Key:     "c",
-						Variant: "value",
-						Props:   msgpack.EncodedJSON{"telem": "ch1"},
-					},
-				}),
-			})).To(Succeed())
-			res := retrieve(ctx, s.Key)
-			Expect(res.Name).To(Equal("multi"))
-			Expect(res.Rows).To(HaveLen(2))
-			Expect(res.Cells["c"].Variant).To(Equal("value"))
-			Expect(res.Cells["c"].Props["telem"]).To(Equal("ch1"))
-		})
+		It(
+			"Should apply a multi-action sequence atomically and persist the result",
+			func(ctx SpecContext) {
+				s := seed(ctx)
+				Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+					table.NewRenameAction(table.RenamePayload{Name: "multi"}),
+					table.NewAddRowAction(table.AddRowPayload{
+						Index: 1,
+						Size:  40,
+						Cells: []table.Cell{
+							{Key: "c", Variant: "text"},
+							{Key: "d", Variant: "text"},
+						},
+					}),
+					table.NewSetCellAction(table.SetCellPayload{
+						Cell: table.Cell{
+							Key:     "c",
+							Variant: "value",
+							Props:   msgpack.EncodedJSON{"telem": "ch1"},
+						},
+					}),
+				})).To(Succeed())
+				res := retrieve(ctx, s.Key)
+				Expect(res.Name).To(Equal("multi"))
+				Expect(res.Rows).To(HaveLen(2))
+				Expect(res.Cells["c"].Variant).To(Equal("value"))
+				Expect(res.Cells["c"].Props["telem"]).To(Equal("ch1"))
+			},
+		)
 
-		It("Should notify the action observer once per Dispatch with monotonic seq", func(ctx SpecContext) {
-			s := seed(ctx)
-			rec := &Recorder[table.Key, table.Action]{}
-			DeferCleanup(svc.OnAction(rec.Record))
-			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
-				table.NewRenameAction(table.RenamePayload{Name: "first"}),
-			})).To(Succeed())
-			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-2", []table.Action{
-				table.NewRenameAction(table.RenamePayload{Name: "second"}),
-			})).To(Succeed())
-			received := rec.Snapshot()
-			Expect(received).To(HaveLen(2))
-			Expect(received[0].DispatchKey).To(Equal("dk-1"))
-			Expect(received[1].DispatchKey).To(Equal("dk-2"))
-			Expect(received[1].Seq > received[0].Seq).To(BeTrue())
-		})
+		It(
+			"Should notify the action observer once per Dispatch with monotonic seq",
+			func(ctx SpecContext) {
+				s := seed(ctx)
+				rec := &Recorder[table.Key, table.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+					table.NewRenameAction(table.RenamePayload{Name: "first"}),
+				})).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-2", []table.Action{
+					table.NewRenameAction(table.RenamePayload{Name: "second"}),
+				})).To(Succeed())
+				received := rec.Snapshot()
+				Expect(received).To(HaveLen(2))
+				Expect(received[0].DispatchKey).To(Equal("dk-1"))
+				Expect(received[1].DispatchKey).To(Equal("dk-2"))
+				Expect(received[1].Seq > received[0].Seq).To(BeTrue())
+			},
+		)
 	})
 })

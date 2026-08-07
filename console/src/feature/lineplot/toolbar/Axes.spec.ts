@@ -43,7 +43,7 @@ describe("lineplot/toolbar/Axes", () => {
     const input = getLabeledInput("Label");
     fireEvent.change(input, { target: { value: "Time" } });
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.axes.x1.label).toBe("Time");
     });
   });
@@ -54,7 +54,7 @@ describe("lineplot/toolbar/Axes", () => {
     fireEvent.change(input, { target: { value: "-5" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.axes.x1.bounds.lower).toBe(-5);
       expect(plot.axes.x1.manualBounds.lower).toBe(true);
     });
@@ -66,14 +66,14 @@ describe("lineplot/toolbar/Axes", () => {
     fireEvent.change(input, { target: { value: "-5" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.axes.x1.manualBounds.lower).toBe(true);
     });
     const autoButton = getIconButton(getInputItem("Lower Bound"), "auto");
     await waitFor(() => expect(autoButton.disabled).toBe(false));
     fireEvent.click(autoButton);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.axes.x1.manualBounds.lower).toBe(false);
     });
   });
@@ -84,7 +84,7 @@ describe("lineplot/toolbar/Axes", () => {
     fireEvent.change(input, { target: { value: "100" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.axes.x1.tickSpacing).toBe(100);
     });
   });
@@ -95,7 +95,7 @@ describe("lineplot/toolbar/Axes", () => {
     fireEvent.change(input, { target: { value: "50" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.axes.x1.bounds.upper).toBe(50);
       expect(plot.axes.x1.manualBounds.upper).toBe(true);
     });
@@ -105,7 +105,7 @@ describe("lineplot/toolbar/Axes", () => {
     const { key } = await renderAxesTab();
     fireEvent.click(screen.getByText("M"));
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve({ key });
+      const plot = await client.lineplots.retrieve(key);
       expect(plot.axes.x1.labelLevel).toBe("h4");
     });
   });

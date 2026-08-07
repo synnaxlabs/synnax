@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
@@ -236,6 +237,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	w, err := cfg.Framer.NewStreamWriter(
 		ctx,
 		framer.WriterConfig{
+			ControlSubject: control.Subject{
+				Name: fmt.Sprintf("Node %v Metrics Writer", cfg.HostProvider.HostKey()),
+			},
 			Keys:                     channel.KeysFromChannels(metricsChannels),
 			AutoIndex:                new(true),
 			AutoIndexPersistInterval: telem.Second * 30,

@@ -46,7 +46,9 @@ var _ = Describe("Transport", func() {
 				return srv.Send(writer.Response{SeqNum: 42, Command: req.Command})
 			})
 			stream := MustSucceed(transport.Writer().Client().Stream(ctx, addr))
-			Expect(stream.Send(writer.Request{Command: writer.CommandWrite})).To(Succeed())
+			Expect(
+				stream.Send(writer.Request{Command: writer.CommandWrite}),
+			).To(Succeed())
 			res := MustSucceed(stream.Receive())
 			Expect(res.SeqNum).To(Equal(42))
 			Expect(res.Command).To(Equal(writer.CommandWrite))
@@ -125,43 +127,50 @@ var _ = Describe("Transport", func() {
 	Describe("Use", func() {
 		// Use applies middleware to both the client and server endpoints of every
 		// operation, so a writer stream round-trip invokes it on both sides.
-		It("Should apply middleware to both the client and server endpoints", func(ctx SpecContext) {
-			var t framer.Transport
-			useAddr := StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
-				t = framer.New(pool)
-				t.BindTo(reg)
-			})
+		It(
+			"Should apply middleware to both the client and server endpoints",
+			func(ctx SpecContext) {
+				var t framer.Transport
+				useAddr := StartServer(
+					func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+						t = framer.New(pool)
+						t.BindTo(reg)
+					},
+				)
 
-			var clientCalls, serverCalls atomic.Int32
-			t.Use(freighter.MiddlewareFunc(func(
-				mCtx freighter.Context,
-				next freighter.Next,
-			) (freighter.Context, error) {
-				switch mCtx.Role {
-				case freighter.RoleClient:
-					clientCalls.Add(1)
-				case freighter.RoleServer:
-					serverCalls.Add(1)
-				}
-				return next(mCtx)
-			}))
+				var clientCalls, serverCalls atomic.Int32
+				t.Use(freighter.MiddlewareFunc(func(
+					mCtx freighter.Context,
+					next freighter.Next,
+				) (freighter.Context, error) {
+					switch mCtx.Role {
+					case freighter.RoleClient:
+						clientCalls.Add(1)
+					case freighter.RoleServer:
+						serverCalls.Add(1)
+					}
+					return next(mCtx)
+				}))
 
-			t.Writer().Server().BindHandler(func(
-				_ context.Context,
-				srv freighter.ServerStream[writer.Request, writer.Response],
-			) error {
-				if _, err := srv.Receive(); err != nil {
-					return err
-				}
-				return srv.Send(writer.Response{})
-			})
-			stream := MustSucceed(t.Writer().Client().Stream(ctx, useAddr))
-			Expect(stream.Send(writer.Request{Command: writer.CommandWrite})).To(Succeed())
-			MustSucceed(stream.Receive())
-			Expect(stream.CloseSend()).To(Succeed())
+				t.Writer().Server().BindHandler(func(
+					_ context.Context,
+					srv freighter.ServerStream[writer.Request, writer.Response],
+				) error {
+					if _, err := srv.Receive(); err != nil {
+						return err
+					}
+					return srv.Send(writer.Response{})
+				})
+				stream := MustSucceed(t.Writer().Client().Stream(ctx, useAddr))
+				Expect(
+					stream.Send(writer.Request{Command: writer.CommandWrite}),
+				).To(Succeed())
+				MustSucceed(stream.Receive())
+				Expect(stream.CloseSend()).To(Succeed())
 
-			Expect(clientCalls.Load()).To(Equal(int32(1)))
-			Expect(serverCalls.Load()).To(Equal(int32(1)))
-		})
+				Expect(clientCalls.Load()).To(Equal(int32(1)))
+				Expect(serverCalls.Load()).To(Equal(int32(1)))
+			},
+		)
 	})
 })

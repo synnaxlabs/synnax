@@ -85,6 +85,7 @@ export const toCSSVars = (
     "text-color": color.hex(theme.colors.text),
     "text-color-rgb": color.rgbString(theme.colors.text),
     "text-on-primary": color.hex(theme.colors.textOnPrimary),
+    "text-on-warning": color.hex(theme.colors.textOnWarning),
     "primary-text": color.hex(theme.colors.primaryText),
     "error-text": color.hex(theme.colors.errorText),
     "warning-text": color.hex(theme.colors.warningText),

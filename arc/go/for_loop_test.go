@@ -37,12 +37,14 @@ var _ = Describe("For loops", func() {
 	// A single variable bound plus a literal-cast bound is enough to exercise
 	// the fixed path: the variable lands on the TypeMap-bypass branch that
 	// now resolves via expression.Compile's return type.
-	It("Handles range() with a variable bound and a wider literal-cast bound", func(ctx SpecContext) {
-		resolver := channelSymbols(map[string]channelDef{
-			"start":   {types.I32(), 100},
-			"sum_out": {types.I64(), 101},
-		})
-		h := newRuntimeHarness(ctx, `
+	It(
+		"Handles range() with a variable bound and a wider literal-cast bound",
+		func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start":   {types.I32(), 100},
+				"sum_out": {types.I64(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
 			func sum_to(n i32) i64 {
 			    total i64 := 0
 			    for i := range(n, i64(100)) {
@@ -52,22 +54,23 @@ var _ = Describe("For loops", func() {
 			}
 
 			start -> sum_to{} -> sum_out`, resolver,
-			channels.Digest{Key: 100, DataType: telem.Int32T},
-			channels.Digest{Key: 101, DataType: telem.Int64T},
-		)
-		defer h.Close(ctx)
+				channels.Digest{Key: 100, DataType: telem.Int32T},
+				channels.Digest{Key: 101, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
 
-		h.Ingest(100, telem.NewSeriesV[int32](5))
-		h.Tick(ctx, telem.Millisecond)
-		h.channelState.ClearReads()
+			h.Ingest(100, telem.NewSeriesV[int32](5))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
 
-		out, _ := h.Flush()
-		// range(5, 100) yields 5, 6, ..., 99 (half-open). Sum = (5+99)*95/2 = 4940.
-		Expect(lastI64(out, 101)).To(Equal(int64(4940)),
-			"range(n_i32, i64(100)) with n=5 should sum to 4940; "+
-				"any regression in compileAndCast's variable-ref path would either "+
-				"miscompile the range bounds or WASM-trap at runtime")
-	})
+			out, _ := h.Flush()
+			// range(5, 100) yields 5, 6, ..., 99 (half-open). Sum = (5+99)*95/2 = 4940.
+			Expect(lastI64(out, 101)).To(Equal(int64(4940)),
+				"range(n_i32, i64(100)) with n=5 should sum to 4940; "+
+					"any regression in compileAndCast's variable-ref path would either "+
+					"miscompile the range bounds or WASM-trap at runtime")
+		},
+	)
 
 	// Series iteration pulls length from a host function that returns i64,
 	// then compares against an i32 loop counter. The compiler emits

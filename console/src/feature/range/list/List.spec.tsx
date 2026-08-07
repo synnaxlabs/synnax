@@ -9,7 +9,8 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Ranger, state } from "@synnaxlabs/pluto";
+import { Ranger } from "@synnaxlabs/pluto";
+import { state } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -73,7 +74,7 @@ describe("range/list/List", () => {
     await renderList();
     await waitFor(() => getInputByNodePlaceholder(document.body, "Search Ranges..."));
     fireEvent.click(await waitFor(() => getIconButton(document.body, "add")));
-    expect(await screen.findByText("Save Locally")).toBeTruthy();
+    expect(await screen.findByText("Save locally")).toBeTruthy();
   });
 });
 

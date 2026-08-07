@@ -127,9 +127,24 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		cfg.L.DPanic("write of calculated channel value failed", zap.Error(res.Err))
 	})
 	plumber.SetSink[framer.WriterResponse](p, writerObserverAddr, o)
-	plumber.MustConnect[framer.StreamerResponse](p, streamerAddr, calculatorAddr, defaultPipelineBufferSize)
-	plumber.MustConnect[framer.WriterRequest](p, calculatorAddr, writerAddr, defaultPipelineBufferSize)
-	plumber.MustConnect[framer.WriterResponse](p, writerAddr, writerObserverAddr, defaultPipelineBufferSize)
+	plumber.MustConnect[framer.StreamerResponse](
+		p,
+		streamerAddr,
+		calculatorAddr,
+		defaultPipelineBufferSize,
+	)
+	plumber.MustConnect[framer.WriterRequest](
+		p,
+		calculatorAddr,
+		writerAddr,
+		defaultPipelineBufferSize,
+	)
+	plumber.MustConnect[framer.WriterResponse](
+		p,
+		writerAddr,
+		writerObserverAddr,
+		defaultPipelineBufferSize,
+	)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
 

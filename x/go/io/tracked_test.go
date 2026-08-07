@@ -54,7 +54,10 @@ var _ = Describe("TrackedWriteCloser", func() {
 
 			tracked := MustSucceed(io.NewTrackedWriteCloser(file))
 
-			Expect(tracked.Offset()).To(Equal(int64(15))) // "Initial content" is 15 bytes
+			Expect(
+				tracked.Offset(),
+			).To(Equal(int64(15)))
+			// "Initial content" is 15 bytes
 			Expect(tracked.Len()).To(Equal(int64(0)))
 		})
 	})
@@ -174,7 +177,8 @@ var _ = Describe("TrackedWriteCloser", func() {
 
 			Expect(tracked.Close()).To(Succeed())
 
-			// Clear the file variable to prevent AfterEach from trying to close it again
+			// Clear the file variable to prevent AfterEach from trying to close it
+			// again
 			file = nil
 		})
 	})

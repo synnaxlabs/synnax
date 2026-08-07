@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <iomanip>
 #include <map>
 // Disable GCC 13 false positive warning in <regex> header
@@ -21,10 +20,8 @@
 #endif
 #include <sstream>
 
-/// external
 #include "open62541/types.h"
 
-/// internal
 #include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
 

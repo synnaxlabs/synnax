@@ -11,10 +11,11 @@ package cert
 
 import "crypto/tls"
 
-// Source resolves the certificate a listener presents during a TLS handshake. It matches
-// the crypto/tls GetCertificate callback, so a Source plugs directly into a listener's
-// tls.Config. Each source strategy lives in its own package and is constructed with only
-// the inputs that strategy needs; there is no shared source configuration.
+// Source resolves the certificate a listener presents during a TLS handshake. It
+// matches the crypto/tls GetCertificate callback, so a Source plugs directly into a
+// listener's tls.Config. Each source strategy lives in its own package and is
+// constructed with only the inputs that strategy needs; there is no shared source
+// configuration.
 type Source interface {
 	// GetCertificate returns the certificate for the given handshake.
 	GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error)
