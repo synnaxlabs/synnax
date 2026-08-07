@@ -19,18 +19,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
-	xos "github.com/synnaxlabs/x/os"
+	"github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/validate"
 )
 
 const (
-	// GroupManifestVersion is the manifest version this Core writes. Version 1 is the
-	// legacy Console-written format, which carried a member list.
-	GroupManifestVersion = 2
-	// GroupManifestType is the manifest type of a symbol group bundle. Each endpoint
-	// rejects a bundle of another kind.
-	GroupManifestType = "symbol_group"
-	// manifestFileName is the fixed recognition point for a bundle on disk.
+	manifestVersion  = 2
+	manifestType     = "symbol_group"
 	manifestFileName = "manifest.json"
 )
 
@@ -38,7 +33,7 @@ const (
 // inferred from the files beside the manifest, so it names no members.
 type GroupManifest struct {
 	// Version governs the manifest schema and the bundle's layout rules.
-	Version int `json:"version"`
+	Version uint64 `json:"version"`
 	// Type is the bundle kind, letting an endpoint reject a bundle of another kind.
 	Type string `json:"type"`
 	// Name is the group's name, which an import gives the group it creates.
@@ -80,8 +75,8 @@ func (s *Service) ExportGroup(ctx context.Context, key group.Key) (GroupBundle, 
 				root.Name, child.ID,
 			)
 		}
-		fileName := xos.SanitizeFileName(child.Name) + ".json"
-		folded := xos.FoldFileName(fileName)
+		fileName := os.SanitizeFileName(child.Name) + ".json"
+		folded := os.FoldFileName(fileName)
 		if isReservedFileName(folded) {
 			return GroupBundle{}, errors.Wrapf(
 				validate.ErrValidation,
@@ -107,8 +102,8 @@ func (s *Service) ExportGroup(ctx context.Context, key group.Key) (GroupBundle, 
 		members = append(members, child.ID)
 	}
 	manifest, err := json.Marshal(GroupManifest{
-		Version: GroupManifestVersion,
-		Type:    GroupManifestType,
+		Version: manifestVersion,
+		Type:    manifestType,
 		Name:    root.Name,
 	})
 	if err != nil {

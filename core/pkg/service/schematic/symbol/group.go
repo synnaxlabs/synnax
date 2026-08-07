@@ -74,7 +74,6 @@ func (s *Service) DeleteGroup(ctx context.Context, tx gorp.Tx, key group.Key) er
 	return s.cfg.Group.NewWriter(tx).Delete(ctx, key)
 }
 
-// symbolIDs returns the IDs of the resources that are schematic symbols.
 func symbolIDs(resources []ontology.Resource) []ontology.ID {
 	ids := lo.FilterMap(
 		resources,

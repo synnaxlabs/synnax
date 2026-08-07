@@ -28,9 +28,7 @@ import (
 // Service is the API for schematic symbols and the groups that hold them. It enforces
 // access control and delegates to the symbol service.
 type Service struct {
-	// access enforces the caller's permissions before any request reaches internal.
-	access *rbac.Service
-	// internal is the symbol service this API delegates to.
+	access   *rbac.Service
 	internal *symbol.Service
 }
 

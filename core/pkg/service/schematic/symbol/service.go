@@ -88,14 +88,10 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying symbols from Synnax.
 type Service struct {
-	// cfg is the configuration the service was opened with.
-	cfg ServiceConfig
-	// closer shuts down the signal publishers and the table opened at construction.
+	cfg    ServiceConfig
 	closer xio.MultiCloser
-	// group is the permanent group every symbol group lives under.
-	group group.Group
-	// table stores the symbols.
-	table *gorp.Table[Key, Symbol]
+	group  group.Group
+	table  *gorp.Table[Key, Symbol]
 }
 
 // OpenService instantiates a new symbol service using the provided configurations. Each
