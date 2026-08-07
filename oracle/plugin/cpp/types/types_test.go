@@ -1751,6 +1751,35 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 
 			It(
+				"Should wrap string defaults in the distinct type's constructor",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					DataType string {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						data_type telem.DataType = "float32"
+						label     string = "dflt"
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain(
+							`data_type = ::x::telem::DataType("float32");`,
+							`std::string label = "dflt";`,
+						)
+				},
+			)
+
+			It(
 				"Should map the now sentinel to TimeStamp::now and skip unrenderable sentinels",
 				func(ctx SpecContext) {
 					loader.Add("schemas/telem", `
