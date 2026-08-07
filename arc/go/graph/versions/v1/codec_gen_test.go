@@ -87,7 +87,7 @@ var _ = Describe("Codec", func() {
 									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_16": "value_16"},
+								Value: any(map[string]any{"key_16": "value_16"}),
 							},
 						},
 						Outputs: []types.Param{
@@ -105,7 +105,7 @@ var _ = Describe("Codec", func() {
 									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_28": "value_28"},
+								Value: any(map[string]any{"key_28": "value_28"}),
 							},
 						},
 						Channels: types.Channels{
@@ -203,7 +203,7 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_16": "value_16"},
+						Value: any(map[string]any{"key_16": "value_16"}),
 					},
 				},
 				Outputs: []types.Param{
@@ -221,7 +221,7 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_28": "value_28"},
+						Value: any(map[string]any{"key_28": "value_28"}),
 					},
 				},
 				Channels: types.Channels{
@@ -350,7 +350,7 @@ func FuzzDecodeGraph(f *testing.F) {
 								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_16": "value_16"},
+							Value: any(map[string]any{"key_16": "value_16"}),
 						},
 					},
 					Outputs: []types.Param{
@@ -368,7 +368,7 @@ func FuzzDecodeGraph(f *testing.F) {
 								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_28": "value_28"},
+							Value: any(map[string]any{"key_28": "value_28"}),
 						},
 					},
 					Channels: types.Channels{
