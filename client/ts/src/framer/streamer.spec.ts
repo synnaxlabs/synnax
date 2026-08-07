@@ -24,7 +24,13 @@ import { AuthError } from "@/errors";
 import { Frame } from "@/framer/frame";
 import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
 import { type Streamer, streamerConfigZ } from "@/framer/streamer";
-import { createTestClient, newVirtualBoolChannel, newVirtualChannel } from "@/testutil";
+import {
+  createTestClient,
+  newIndexedPair,
+  newVirtualBoolChannel,
+  newVirtualChannel,
+  secondsLinspace,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -95,6 +101,28 @@ describe("Streamer", () => {
       expect(series.timeRange?.start.valueOf()).toEqual(start.valueOf());
       expect(series.timeRange?.end.valueOf()).toEqual(end.valueOf());
     });
+    test("should deliver series stamped with the index's time range", async () => {
+      const channels = await newIndexedPair(client);
+      const [index, data] = channels;
+      const streamer = await client.openStreamer(channels.map((c) => c.key));
+      const writer = await client.openWriter({ start: TimeStamp.seconds(1), channels });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, 3),
+          [data.key]: new Float64Array([1, 2, 3]),
+        });
+      } finally {
+        await writer.close();
+      }
+      const fr = await streamer.read();
+      const expected = TimeStamp.seconds(1).range(
+        TimeStamp.seconds(3).add(TimeSpan.nanoseconds(1)),
+      );
+      expect(fr.get(index.key).series[0].timeRange?.equals(expected)).toBe(true);
+      expect(fr.get(data.key).series[0].timeRange?.equals(expected)).toBe(true);
+      streamer.close();
+    });
+
     test("open with config", async () => {
       const ch = await newVirtualChannel(client);
       await expect(client.openStreamer({ channels: ch.key })).resolves.not.toThrow();

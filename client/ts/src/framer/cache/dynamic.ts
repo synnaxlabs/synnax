@@ -70,6 +70,10 @@ export class Dynamic {
   private counter = 0;
   /** Current buffer */
   private curr: Series | null;
+  /** End timestamp of the last fully written stamped series in the current buffer.
+   * Null when the buffer holds unstamped or partially written data, in which case
+   * the flush falls back to the wall clock. */
+  private currDataEnd: TimeStamp | null = null;
   private avgRate: number = 0;
   private timeOfLastWrite: TimeStamp;
   private totalWrites: number = 0;
@@ -147,9 +151,18 @@ export class Dynamic {
     });
   }
 
+  // The Core stamps streamed series with the data's real time range when the write
+  // carried the index's timestamps. The wall clock is only a fallback for unstamped
+  // series (virtual channels, writes without an in-frame index).
+  private allocStart(series: Series): TimeStamp {
+    if (series.timeRange.isZero) return this.now();
+    return series.timeRange.start;
+  }
+
   private flushCurr(res: DynamicWriteResponse): void {
     if (this.curr == null) return;
-    this.curr.timeRange.end = this.now();
+    this.curr.timeRange.end = this.currDataEnd ?? this.now();
+    this.currDataEnd = null;
     res.flushed.push(this.curr);
     this.curr = null;
   }
@@ -181,7 +194,7 @@ export class Dynamic {
       this.curr = this.allocate(
         this.nextBufferSize(),
         series.alignment,
-        this.now(),
+        this.allocStart(series),
         series,
         0,
       );
@@ -206,7 +219,7 @@ export class Dynamic {
         this.curr = this.allocate(
           this.nextBufferSize(),
           series.alignment,
-          this.now(),
+          this.allocStart(series),
           series,
           0,
         );
@@ -219,9 +232,13 @@ export class Dynamic {
       // This means that the current buffer is large enough to fit the entire incoming
       // series. We're done in this case.
       if (amountWritten === series.length) {
+        this.currDataEnd = series.timeRange.isZero ? null : series.timeRange.end;
         this.updateAvgRate(series);
         return;
       }
+      // The timestamp at the split point is unknowable from the data series, so
+      // both sides fall back to the wall clock.
+      this.currDataEnd = null;
       // Push the current buffer to the flushed list.
       this.flushCurr(res);
       this.curr = this.allocate(

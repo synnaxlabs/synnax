@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  MultiSeries,
+  Series,
+  type TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Dynamic } from "@/framer/cache/dynamic";
@@ -90,6 +97,83 @@ describe("DynamicCache", () => {
         expect(cache.leadingBuffer?.dataType.equals(DataType.FLOAT64)).toBe(true);
         expect(cache.leadingBuffer?.at(0)).toEqual(4);
       });
+      describe("time range stamping", () => {
+        const WALL = TimeStamp.seconds(100);
+        const stamped = (data: number[], tr: TimeRange, alignment = 0n): Series =>
+          new Series({
+            data: new Float32Array(data),
+            dataType: DataType.FLOAT32,
+            timeRange: tr,
+            alignment,
+          });
+
+        it("should stamp the buffer with the data's time range", () => {
+          const cache = new Dynamic({ dynamicBufferSize: 100, now: () => WALL });
+          const { allocated } = cache.write(
+            new MultiSeries([
+              stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
+            ]),
+          );
+          expect(allocated.series[0].timeRange.start).toEqual(TimeStamp.seconds(10));
+          cache.write(
+            new MultiSeries([
+              stamped(
+                [4, 5, 6],
+                TimeStamp.seconds(13).range(TimeStamp.seconds(16)),
+                3n,
+              ),
+            ]),
+          );
+          // A large alignment gap flushes the buffer and allocates a new one.
+          const { flushed } = cache.write(
+            new MultiSeries([
+              stamped([7], TimeStamp.seconds(30).range(TimeStamp.seconds(31)), 100n),
+            ]),
+          );
+          expect(flushed.series[0].timeRange).toEqual(
+            TimeStamp.seconds(10).range(TimeStamp.seconds(16)),
+          );
+          expect(cache.leadingBuffer?.timeRange.start).toEqual(TimeStamp.seconds(30));
+        });
+
+        it("should fall back to the wall clock for unstamped series", () => {
+          const cache = new Dynamic({ dynamicBufferSize: 100, now: () => WALL });
+          const { allocated } = cache.write(new MultiSeries([f32([1, 2, 3])]));
+          expect(allocated.series[0].timeRange.start).toEqual(WALL);
+          const { flushed } = cache.write(new MultiSeries([f32([7]).reAlign(100n)]));
+          expect(flushed.series[0].timeRange.end).toEqual(WALL);
+        });
+
+        it("should fall back to the wall clock when an unstamped series follows a stamped one", () => {
+          const cache = new Dynamic({ dynamicBufferSize: 100, now: () => WALL });
+          cache.write(
+            new MultiSeries([
+              stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
+            ]),
+          );
+          cache.write(new MultiSeries([f32([4, 5]).reAlign(3n)]));
+          const { flushed } = cache.write(new MultiSeries([f32([7]).reAlign(100n)]));
+          expect(flushed.series[0].timeRange).toEqual(
+            TimeStamp.seconds(10).range(WALL),
+          );
+        });
+
+        it("should fall back to the wall clock at a buffer split", () => {
+          const cache = new Dynamic({ dynamicBufferSize: 2, now: () => WALL });
+          const { flushed, allocated } = cache.write(
+            new MultiSeries([
+              stamped([1, 2, 3], TimeStamp.seconds(10).range(TimeStamp.seconds(13))),
+            ]),
+          );
+          // The split point's timestamp is unknowable from the data series, so the
+          // flushed buffer ends at the wall clock and the continuation starts there.
+          expect(flushed.series[0].timeRange).toEqual(
+            TimeStamp.seconds(10).range(WALL),
+          );
+          expect(allocated.series[1].timeRange.start).toEqual(WALL);
+        });
+      });
+
       it("should correctly allocate a single new buffer when the current one is full", async () => {
         const cache = new Dynamic({ dynamicBufferSize: 2 });
         const ser = f32([1, 2, 3]);
