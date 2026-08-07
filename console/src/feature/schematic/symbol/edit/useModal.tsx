@@ -59,7 +59,7 @@ export const useModal = Modals.create<ModalParams>(
     const isCreate = symbolKey == null;
     const theme = Theming.use();
     const { form, save } = Schematic.Symbol.useForm({
-      query: { key: symbolKey },
+      query: symbolKey == null ? null : { key: symbolKey },
       initialValues: {
         key: createKey,
         name: "",

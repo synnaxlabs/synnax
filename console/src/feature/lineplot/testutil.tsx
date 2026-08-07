@@ -33,14 +33,14 @@ export const project = async (): Promise<string> =>
     .key);
 
 // loadLinePlot primes key's flux cache through the production retrieve path. The
-// single-hook bootstrap keeps the suspending useEnsureRetrieved from being followed by
+// single-hook bootstrap keeps the suspending useEnsure from being followed by
 // other hooks, a shape that trips a React 19 concurrent-replay error.
 const loadLinePlot = async (
   Wrapper: FC<PropsWithChildren>,
   key: string,
 ): Promise<void> => {
   const Bootstrap = (): ReactElement => {
-    PLinePlot.useEnsureRetrieved({ key });
+    PLinePlot.useEnsure({ key });
     return <div data-testid="loaded" />;
   };
   let utils!: ReturnType<typeof render>;

@@ -21,7 +21,6 @@ import { Form as PForm, Panel as PlutoPanel, type Status } from "@synnaxlabs/plu
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   fireEvent,
-  render,
   type RenderResult,
   screen,
   waitFor,
@@ -31,6 +30,7 @@ import { act, type FC, type PropsWithChildren, type ReactElement } from "react";
 import { onTestFinished } from "vitest";
 import { type z } from "zod";
 
+import { CSS } from "@/platform/css";
 import { type FormTabProps } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
@@ -40,6 +40,7 @@ import {
   createTestStore,
   getIconButton,
   renderHookWithConsole,
+  renderSuspended,
   renderWithConsole,
   type RenderWithConsoleOptions,
   type TestStore,
@@ -308,7 +309,7 @@ export const renderInTaskFormWithClient = async (
   });
   const panelKey = uuid.create();
   const tabKey = uuid.create();
-  const result = render(
+  const result = await renderSuspended(
     <PanelScopes panelKey={panelKey} tabKey={tabKey}>
       <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
         {ui}
@@ -360,7 +361,7 @@ export const renderTaskFormTab = async (
     resource: task.ontologyID(taskKey),
   };
   const created = await createSelectedPanel(store, client, [tab]);
-  const result = render(
+  const result = await renderSuspended(
     <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
       <Form taskKey={taskKey} />
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
@@ -384,6 +385,19 @@ export const clickDeploy = async (container: ParentNode): Promise<void> => {
   });
   fireEvent.click(button);
 };
+
+/**
+ * Finds the channel list row showing the given port. The details form for the selected
+ * channel shows the same port, so a plain text query is ambiguous.
+ */
+export const findChannelListItem = async (port: string): Promise<HTMLElement> =>
+  await waitFor(() => {
+    const match = screen
+      .getAllByText(port)
+      .find((el) => el.closest(`.${CSS.B("channel-item")}`) != null);
+    assertDefined(match, `channel list item for port "${port}" not found`);
+    return match;
+  });
 
 /**
  * Finds the dialog trigger of the mounted select whose current value renders as text.

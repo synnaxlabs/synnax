@@ -129,7 +129,7 @@ const TableControls = (): ReactElement | null => {
 };
 
 export const Table: Panel.Content = () => {
-  const { key } = PPanel.useSelectTabResource();
+  const { key } = PPanel.useTabResource();
   return (
     <Base.Suspended tableKey={key}>
       <Internal />

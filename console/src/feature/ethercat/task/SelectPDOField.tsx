@@ -7,22 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Device, type Flux, Form as PForm, Select } from "@synnaxlabs/pluto";
+import { Form as PForm, Select } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { useRetrieveSlave } from "@/feature/ethercat/device/queries";
-import { type PDOEntry, type SlaveDevice } from "@/feature/ethercat/device/types";
+import { useResultSlave } from "@/feature/ethercat/device/queries";
+import { type PDOEntry } from "@/feature/ethercat/device/types";
 
 export interface SelectPDOFieldProps {
   path: string;
   pdoType: "inputs" | "outputs";
 }
-
-const RETRIEVE_OPTIONS: Omit<
-  Flux.UseDirectRetrieveParams<Device.RetrieveQuery, SlaveDevice>,
-  "query"
-> = { beforeRetrieve: ({ query }) => primitive.isNonZero(query.key) };
 
 interface PDOOption {
   key: string;
@@ -34,7 +29,9 @@ export const SelectPDOField = ({
   pdoType,
 }: SelectPDOFieldProps): ReactElement => {
   const slaveKey = PForm.useFieldValue<string>(`${path}.device`);
-  const { data: slave } = useRetrieveSlave({ key: slaveKey }, RETRIEVE_OPTIONS);
+  const { data: slave } = useResultSlave(
+    primitive.isZero(slaveKey) ? null : { key: slaveKey },
+  );
 
   const pdoOptions = useMemo((): PDOOption[] => {
     if (slave == null) return [];

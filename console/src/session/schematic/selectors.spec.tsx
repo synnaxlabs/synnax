@@ -303,7 +303,7 @@ const loadSchematic = async (
   key: string,
 ): Promise<void> => {
   const Bootstrap = (): ReactElement => {
-    PSchematic.useEnsureRetrieved({ key });
+    PSchematic.useEnsure({ key });
     return <span>schematic loaded</span>;
   };
   let utils!: ReturnType<typeof render>;

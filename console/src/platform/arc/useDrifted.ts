@@ -17,9 +17,8 @@ import { Arc } from "@synnaxlabs/pluto";
  * different. Callers must render beneath a boundary that has retrieved the arc.
  */
 export const useDrifted = (key: arc.Key): boolean => {
-  const tsk = Arc.useRetrieveTask({ arcKey: key });
-  const { data: arcData } = Arc.useRetrieve({ key });
-  const stored = tsk.data;
+  const { data: stored } = Arc.useResultTask({ arcKey: key });
+  const { data: arcData } = Arc.useResult({ key });
   const deployed = stored?.status?.details;
   if (stored == null || deployed == null || !deployed.running) return false;
   if (deployed.configHash !== "" && stored.configHash !== deployed.configHash)

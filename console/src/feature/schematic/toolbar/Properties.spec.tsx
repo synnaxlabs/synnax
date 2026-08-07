@@ -9,7 +9,7 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { Schematic as PSchematic, type Status, Theming } from "@synnaxlabs/pluto";
-import { location, uuid } from "@synnaxlabs/x";
+import { location, TimeSpan, uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -112,8 +112,12 @@ describe("Schematic toolbar Properties", () => {
         }),
       });
       expect(
+        // A dangling reference only reads as missing once flux gives up waiting for
+        // the symbol's create broadcast.
         await screen.findByText(
           "The custom symbol referenced by this node was not found.",
+          undefined,
+          { timeout: TimeSpan.seconds(8).milliseconds },
         ),
       ).toBeDefined();
       expect(screen.getByText("Or create a new symbol in:")).toBeDefined();

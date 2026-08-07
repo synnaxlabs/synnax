@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { query, view } from "@synnaxlabs/client";
-import { type optional, verbs } from "@synnaxlabs/x";
+import { verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -24,8 +24,8 @@ export const useList = Flux.createList<ListQuery, view.Key, view.View>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.views.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.views.retrieve(key),
-  subscribe: ({ client, query }, handler) => client.views.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) => client.views.onChange(key, handler),
+  onChange: ({ client, query }, handler) => client.views.onChange(query, handler),
+  onChangeByKey: ({ client, key }, handler) => client.views.onChange(key, handler),
   getCached: ({ client, query }) => client.views.getCached(query),
 });
 
@@ -55,26 +55,25 @@ const ZERO_VALUES: z.infer<typeof formSchema> = {
   type: "",
   query: {},
 };
-export type FormQuery = optional.Optional<view.RetrieveSingleParams, "key">;
+export type FormQuery = view.RetrieveSingleParams;
 
 export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_VALUES,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (key == null) return;
-    reset(await client.views.retrieve(key));
+  retrieve: async ({ client, query: { key } }) => await client.views.retrieve(key),
+  getCached: ({ client, query: { key } }) => {
+    const cached = client.views.getCached(key);
+    return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, reset }) => {
     const updated = await client.views.create(value());
     reset(updated);
   },
-  mountListeners: ({ client, query: { key }, reset }) => {
-    if (key == null) return [];
-    return client.views.onChange(key, (result) => {
+  mountListeners: ({ client, query: { key }, reset }) =>
+    client.views.onChange(key, (result) => {
       if (query.isLive(result)) reset(result);
-    });
-  },
+    }),
 });
 
 export interface RenameParams extends Pick<view.View, "key" | "name"> {}
