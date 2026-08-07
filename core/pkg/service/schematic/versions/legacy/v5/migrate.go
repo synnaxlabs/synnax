@@ -9,35 +9,12 @@
 
 package v5
 
-import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
-	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v4"
-)
+import v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v4"
 
-// Migrate transforms v4 schematic data into v5. The Console drops the type literal in
-// this step and seeds the new per-schematic mode and toolbar UI state. Mode and Toolbar
-// are UI-only and are dropped when the v6 wire form is lifted into the typed
-// schematic.Schematic.
+// Migrate transforms v4 schematic data into v5 by restamping the version. The
+// fields added at v5 are UI-only and are not modeled on the wire here.
 func Migrate(old v4.Data) Data {
-	return Data{
-		Version:         Version,
-		Editable:        old.Editable,
-		FitViewOnResize: old.FitViewOnResize,
-		Snapshot:        old.Snapshot,
-		RemoteCreated:   old.RemoteCreated,
-		Viewport:        old.Viewport,
-		Nodes:           old.Nodes,
-		Edges:           old.Edges,
-		Props:           old.Props,
-		Control:         old.Control,
-		Legend:          old.Legend,
-		Key:             old.Key,
-		ViewportMode:    old.ViewportMode,
-		Authority:       old.Authority,
-		Mode:            "select",
-		Toolbar: v0.ToolbarState{
-			ActiveTab:           "symbols",
-			SelectedSymbolGroup: "general",
-		},
-	}
+	d := Data(old)
+	d.Version = Version
+	return d
 }

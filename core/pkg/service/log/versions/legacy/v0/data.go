@@ -14,15 +14,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
-// Version is the ImEx schema version of log data at this state. The Console stamped it
-// on the wire as the semver string "0.0.0", which legacy.MigrateData decodes onto this
-// numeric version.
+// Version is the version the Console stamped on this format.
 const Version imex.Version = 0
 
 // Data is the frozen type for log data at version 0. Channels are stored as bare
-// channel keys. Key, Name, Type, and Version are envelope-level fields and are not part
-// of Data.
+// channel keys.
 type Data struct {
-	Channels      []channel.Key `json:"channels"`
-	RemoteCreated bool          `json:"remoteCreated"`
+	// Channels are the keys of the channels the log displays.
+	Channels []channel.Key `json:"channels"`
 }

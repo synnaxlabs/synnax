@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -117,10 +118,9 @@ func backfillStatuses(
 		return nil
 	}
 
-	statusKeys := make([]string, len(racks))
-	for i, r := range racks {
-		statusKeys[i] = r.OntologyID().String()
-	}
+	statusKeys := lo.Map(racks, func(r Rack, _ int) string {
+		return r.OntologyID().String()
+	})
 	var existingStatuses []status.Status[StatusDetails]
 	if err = status.NewRetrieve[StatusDetails](cfg.Status).
 		Where(status.MatchKeys[StatusDetails](statusKeys...)).

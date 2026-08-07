@@ -17,6 +17,11 @@ package versioning
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -77,6 +82,47 @@ func Dir(n int) string { return fmt.Sprintf("v%d", n) }
 // VersionedPath returns the versions/vN sub-path of goPath for version n.
 func VersionedPath(goPath string, n int) string {
 	return goPath + "/versions/" + Dir(n)
+}
+
+// VersionDirs returns the numeric version sub-directories present under goPath's
+// versions/ tree on disk, ascending.
+func VersionDirs(repoRoot, goPath string) ([]int, error) {
+	entries, err := os.ReadDir(filepath.Join(repoRoot, goPath, "versions"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var versions []int
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), "v") {
+			continue
+		}
+		k, err := strconv.Atoi(e.Name()[1:])
+		if err != nil {
+			continue
+		}
+		versions = append(versions, k)
+	}
+	slices.Sort(versions)
+	return versions, nil
+}
+
+// Predecessor returns the highest version directory below n present under goPath on
+// disk. A resource skips the versions it never had a Go shape at, so the predecessor is
+// not always n-1. ok is false when no lower directory exists.
+func Predecessor(repoRoot, goPath string, n int) (v int, ok bool, err error) {
+	dirs, err := VersionDirs(repoRoot, goPath)
+	if err != nil {
+		return 0, false, err
+	}
+	for _, k := range dirs {
+		if k < n {
+			v, ok = k, true
+		}
+	}
+	return v, ok, nil
 }
 
 // PathVersions maps every @go output path in the table to its declared
