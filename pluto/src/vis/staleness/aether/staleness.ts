@@ -34,6 +34,8 @@ export const stateZ = z.object({
 export interface EntryProps {
   /** Returns the current staleness timeout, in seconds. */
   timeout: () => number;
+  /** Returns the staleness the source currently reports. */
+  stale: () => boolean;
   /** Receives each staleness transition. */
   onChange: (stale: boolean) => void;
 }
@@ -47,10 +49,16 @@ export interface Registration {
 
 interface Entry {
   props: EntryProps;
-  // Null until the first sample arrives.
+  // Milliseconds on the monotonic clock. Null until the first sample arrives.
   lastReceived: number | null;
-  stale: boolean;
 }
+
+// The source itself holds the last reported staleness, so a transition is a change
+// against that instead of against a copy the Provider keeps.
+const setStale = ({ props }: Entry, stale: boolean): void => {
+  if (stale === props.stale()) return;
+  props.onChange(stale);
+};
 
 // TimeSpan.z reads a bare number as nanoseconds. Take the number branch first so a
 // plain number means milliseconds here, matching how the rest of pluto accepts a
@@ -77,7 +85,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   schema = Provider.z;
 
   private readonly entries = new Set<Entry>();
-  private interval?: ReturnType<typeof setInterval>;
+  private interval?: NodeJS.Timeout;
   private sweepInterval = DEFAULT_SWEEP_INTERVAL;
 
   afterUpdate(ctx: aether.Context): void {
@@ -85,7 +93,6 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     ctx.set(CONTEXT_KEY, this, false);
   }
 
-  // Children release their own registrations first. This only catches one that did not.
   afterDelete(): void {
     this.entries.clear();
     this.stop();
@@ -93,13 +100,13 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
 
   /** @returns a registration for a source. Cleanup releases it. */
   register(props: EntryProps): Registration {
-    const entry: Entry = { props, lastReceived: null, stale: false };
+    const entry: Entry = { props, lastReceived: null };
     this.entries.add(entry);
     this.start();
     return {
       received: () => {
         entry.lastReceived = performance.now();
-        this.setStale(entry, false);
+        setStale(entry, false);
       },
       cleanup: () => this.release(entry),
     };
@@ -136,14 +143,8 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
       // A source that has never sent reads as empty, not stale. Staleness means data
       // stopped, which cannot be true before any arrived.
       if (e.lastReceived == null) return;
-      this.setStale(e, now - e.lastReceived >= e.props.timeout() * 1000);
+      setStale(e, now - e.lastReceived >= e.props.timeout() * 1000);
     });
-  }
-
-  private setStale(entry: Entry, stale: boolean): void {
-    if (stale === entry.stale) return;
-    entry.stale = stale;
-    entry.props.onChange(stale);
   }
 }
 

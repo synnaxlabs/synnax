@@ -32,6 +32,7 @@ class Leaf extends aether.Leaf<
     const { internal: i } = this;
     i.registration = staleness.useRegistration(ctx, i.registration, {
       timeout: () => this.state.stalenessTimeout,
+      stale: () => this.state.stale,
       onChange: (stale) => {
         this.transitions.push(stale);
         this.setState((p) => ({ ...p, stale }));
@@ -61,6 +62,7 @@ class LeakyLeaf extends aether.Leaf<
     const { internal: i } = this;
     i.registration = staleness.useRegistration(ctx, i.registration, {
       timeout: () => this.state.stalenessTimeout,
+      stale: () => this.state.stale,
       onChange: () => {},
     });
   }

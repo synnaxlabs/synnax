@@ -47,6 +47,7 @@ export class StateIndicator
     this.internal.source = telem.useSource(ctx, this.state.source, i.source);
     i.staleness = staleness.useRegistration(ctx, i.staleness, {
       timeout: () => this.state.stalenessTimeout,
+      stale: () => this.state.stale,
       onChange: (stale) => this.setState((p) => ({ ...p, stale })),
     });
     this.updateMatchedOption();

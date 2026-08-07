@@ -81,6 +81,7 @@ export class Value
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.staleness = staleness.useRegistration(ctx, i.staleness, {
       timeout: () => this.state.stalenessTimeout,
+      stale: () => this.state.stale,
       // A transition needs a repaint of its own: with the source quiet, nothing else
       // asks the canvas to redraw.
       onChange: (stale) => {
