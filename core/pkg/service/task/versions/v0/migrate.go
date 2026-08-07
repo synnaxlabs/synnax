@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
@@ -59,10 +60,9 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 				return nil
 			}
 
-			statusKeys := make([]string, len(tasks))
-			for i, t := range tasks {
-				statusKeys[i] = t.OntologyID().String()
-			}
+			statusKeys := lo.Map(tasks, func(t Task, _ int) string {
+				return t.OntologyID().String()
+			})
 			var existingStatuses []v0Status
 			if err = status.NewRetrieve[StatusDetails](cfg.Status).
 				Where(status.MatchKeys[StatusDetails](statusKeys...)).

@@ -11,24 +11,10 @@ package v4
 
 import v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
 
-// Migrate transforms v3 schematic data into v4 by adding the default authority of 1.
-// Mirrors the console's v3 -> v4 step.
+// Migrate transforms v3 schematic data into v4 by restamping the version. The
+// fields added at v4 are UI-only and are not modeled on the wire here.
 func Migrate(old v3.Data) Data {
-	return Data{
-		Version:         Version,
-		Editable:        old.Editable,
-		FitViewOnResize: old.FitViewOnResize,
-		Snapshot:        old.Snapshot,
-		RemoteCreated:   old.RemoteCreated,
-		Viewport:        old.Viewport,
-		Nodes:           old.Nodes,
-		Edges:           old.Edges,
-		Props:           old.Props,
-		Control:         old.Control,
-		Legend:          old.Legend,
-		Key:             old.Key,
-		Type:            old.Type,
-		ViewportMode:    old.ViewportMode,
-		Authority:       1,
-	}
+	d := Data(old)
+	d.Version = Version
+	return d
 }

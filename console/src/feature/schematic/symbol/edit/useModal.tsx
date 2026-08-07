@@ -61,7 +61,6 @@ export const useModal = Modals.create<ModalParams>(
     const { form, save } = Schematic.Symbol.useForm({
       query: { key: symbolKey },
       initialValues: {
-        version: 1,
         key: createKey,
         name: "",
         parent: parent ?? ontology.ROOT_ID,
@@ -91,8 +90,8 @@ export const useModal = Modals.create<ModalParams>(
         key: `reg-${id.create()}`,
         name: `Region ${currentState.regions.length + 1}`,
         selectors: [],
-        strokeColor: color.hex(theme.colors.gray.l10),
-        fillColor: color.hex(color.setAlpha(theme.colors.gray.l10, 0)),
+        strokeColor: theme.colors.gray.l10,
+        fillColor: color.setAlpha(theme.colors.gray.l10, 0),
       };
 
       form.set(`data.states.${selectedStateRef.current}.regions`, [

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { deep, dimensions, direction, type location } from "@synnaxlabs/x";
+import { color, deep, dimensions, direction, type location } from "@synnaxlabs/x";
 import { type RefCallback, useCallback, useRef } from "react";
 
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
@@ -59,13 +59,13 @@ const applyState = (
 
     const { strokeColor, fillColor } = region;
 
-    if (strokeColor != null) el.setAttribute("stroke", strokeColor);
+    if (strokeColor != null) el.setAttribute("stroke", color.hex(strokeColor));
     else {
       const originalStroke = el.getAttribute(ORIGINAL_STROKE_ATTRIBUTE);
       if (originalStroke != null) el.setAttribute("stroke", originalStroke);
     }
 
-    if (fillColor != null) el.setAttribute("fill", fillColor);
+    if (fillColor != null) el.setAttribute("fill", color.hex(fillColor));
     else {
       const originalFill = el.getAttribute(ORIGINAL_FILL_ATTRIBUTE);
       if (originalFill != null) el.setAttribute("fill", originalFill);

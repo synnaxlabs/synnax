@@ -13,7 +13,6 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -21,18 +20,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Service implements the ImEx API.
 type Service struct {
 	access   *rbac.Service
 	internal *imex.Service
 }
 
+// NewService creates a new ImEx API service.
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
 	if err != nil {
@@ -45,16 +45,26 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 }
 
 type (
-	ImportRequest  = imex.Envelope
+	// ImportRequest is the request type for the Import endpoint.
+	ImportRequest = imex.Envelope
+	// ImportResponse is the response type for the Import endpoint.
 	ImportResponse = ontology.ID
 )
 
+// Import imports a resource from an envelope.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
-	resourceType, err := s.internal.ImporterType(req.Type)
+	// Typeless envelopes (legacy Console state files) must be resolved to a concrete
+	// registration type before access control can name the resource being created.
+	typ, err := s.internal.ResolveType(req)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	req.Type = typ
+	resourceType, err := s.internal.ImporterType(typ)
 	if err != nil {
 		return ImportResponse{}, err
 	}
@@ -73,7 +83,7 @@ func (s *Service) Import(
 	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{project.OntologyID(opts.Project)},
+		Objects: []ontology.ID{opts.Parent},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
@@ -85,8 +95,10 @@ func (s *Service) Import(
 }
 
 type importParams struct {
+	// FileName is the name of the file the envelope was read from, e.g. "table.json".
 	FileName string `json:"file_name"`
-	Project  string `json:"project"`
+	// Parent carries the compact "type:key" string form clients send.
+	Parent string `json:"parent"`
 }
 
 // parseImportOptions decodes the required "params" request param — a JSON object
@@ -104,7 +116,7 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 	var params importParams
 	if err := json.Unmarshal([]byte(s), &params); err != nil {
 		return imex.ImportOptions{}, validate.PathedError(
-			errors.Wrap(validate.ErrValidation, "params must be a valid JSON object"),
+			errors.Wrapf(validate.ErrValidation, "invalid params: %v", err),
 			"params",
 		)
 	}
@@ -113,35 +125,33 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 			validate.ErrRequired, "file_name",
 		)
 	}
-	if params.Project == "" {
+	if params.Parent == "" {
 		return imex.ImportOptions{}, validate.PathedError(
 			validate.ErrRequired,
-			"project",
+			"parent",
 		)
 	}
-	key, err := uuid.Parse(params.Project)
+	parent, err := ontology.ParseID(params.Parent)
 	if err != nil {
+		return imex.ImportOptions{}, validate.PathedError(err, "parent")
+	}
+	if parent.Key == "" {
 		return imex.ImportOptions{}, validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation, "invalid project key %q", params.Project,
-			),
-			"project",
+			errors.Wrap(validate.ErrValidation, "must carry a non-empty key"),
+			"parent",
 		)
 	}
-	if key == uuid.Nil {
-		return imex.ImportOptions{}, validate.PathedError(
-			errors.Wrap(validate.ErrValidation, "must be non-zero"),
-			"project",
-		)
-	}
-	return imex.ImportOptions{FileName: params.FileName, Project: key}, nil
+	return imex.ImportOptions{FileName: params.FileName, Parent: parent}, nil
 }
 
 type (
-	ExportRequest  = ontology.ID
+	// ExportRequest is the request type for the Export endpoint.
+	ExportRequest = ontology.ID
+	// ExportResponse is the response type for the Export endpoint.
 	ExportResponse = imex.Envelope
 )
 
+// Export exports a resource to an envelope.
 func (s *Service) Export(
 	ctx context.Context,
 	req ExportRequest,

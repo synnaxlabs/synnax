@@ -13,6 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { CSS } from "@/css";
 import { Form } from "@/form";
 import { GROUP } from "@/schematic/node/general/group";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay";
@@ -43,6 +44,14 @@ const getText = (container: HTMLElement): HTMLElement => {
   if (el == null) throw new Error("expected a text element");
   return el;
 };
+
+const getBox = (container: HTMLElement): HTMLElement => {
+  const el = container.querySelector<HTMLElement>(`.${CSS.B("string-display")}`);
+  if (el == null) throw new Error("expected a string display element");
+  return el;
+};
+
+const LONG_VALUE = "a".repeat(500);
 
 describe("StringDisplay", () => {
   describe("defaultConfig", () => {
@@ -107,6 +116,20 @@ describe("StringDisplay", () => {
         />,
       );
       expect(getText(container).style.color).toBe("rgb(255, 0, 0)");
+    });
+
+    // inlineSize is a width, not a floor. If it regresses to a minimum the box grows
+    // with the value and the configured width stops being respected.
+    it("should keep the configured width no matter how long the value is", () => {
+      const { container } = render(<Primitive value={LONG_VALUE} inlineSize={100} />);
+      expect(getBox(container).style.width).toBe("100px");
+    });
+
+    it("should truncate a value too long for the configured width", () => {
+      const { container } = render(<Primitive value={LONG_VALUE} inlineSize={100} />);
+      expect(getText(container).className).toContain(
+        CSS.BM("text", "overflow", "ellipsis"),
+      );
     });
   });
 

@@ -18,6 +18,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v3"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // nonZeroV2 builds a v2.Data with every model field populated so passthrough
@@ -25,11 +26,10 @@ import (
 func nonZeroV2() v2.Data {
 	label := "pressure"
 	return v2.Data{
-		Version:       v2.Version,
-		Key:           "plot-1",
-		RemoteCreated: true,
-		Title:         v0.Title{Level: "h4", Visible: true},
-		Legend:        v1.ZeroLegend,
+		Version: v2.Version,
+		Key:     "plot-1",
+		Title:   v0.Title{Level: "h4", Visible: true},
+		Legend:  v1.ZeroLegend,
 		Channels: v0.Channels{
 			X1: 1,
 			X2: 2,
@@ -42,15 +42,13 @@ func nonZeroV2() v2.Data {
 		},
 		Ranges: v0.Ranges{X1: []string{"00000000-0000-0000-0000-000000000010"}},
 		Axes: v2.AxesContainer{
-			RenderTrigger:    7,
-			HasHadChannelSet: true,
 			Axes: v2.Axes{
 				X1: v2.Axis{
 					Key:            "x1",
 					Label:          "time",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 100},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 100},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 					Type:           "time",
@@ -60,7 +58,7 @@ func nonZeroV2() v2.Data {
 					Label:          "",
 					LabelDirection: "x",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 					Type:           "time",
@@ -70,7 +68,7 @@ func nonZeroV2() v2.Data {
 					Label:          "p",
 					LabelDirection: "y",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: -1, Upper: 5},
+					Bounds:         spatial.Bounds{Lower: -1, Upper: 5},
 					AutoBounds:     v0.AutoBounds{Lower: false, Upper: false},
 					TickSpacing:    60,
 				},
@@ -79,7 +77,7 @@ func nonZeroV2() v2.Data {
 					Label:          "",
 					LabelDirection: "y",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -88,7 +86,7 @@ func nonZeroV2() v2.Data {
 					Label:          "",
 					LabelDirection: "y",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
@@ -97,7 +95,7 @@ func nonZeroV2() v2.Data {
 					Label:          "",
 					LabelDirection: "y",
 					LabelLevel:     "small",
-					Bounds:         v0.Bounds{Lower: 0, Upper: 0},
+					Bounds:         spatial.Bounds{Lower: 0, Upper: 0},
 					AutoBounds:     v0.AutoBounds{Lower: true, Upper: true},
 					TickSpacing:    75,
 				},
