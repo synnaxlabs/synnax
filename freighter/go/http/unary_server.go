@@ -52,7 +52,8 @@ func WithResponseEncoders(encoders ...http.Encoder) UnaryServerOption {
 
 // WithErrorEncoders overrides the set of encoders the unary server matches against the
 // request's Accept header when the handler returns an error. The first encoder is the
-// fallback when Accept matches none of them.
+// fallback when Accept matches none of them. Passing none leaves error responses with a
+// status and no encoded payload.
 func WithErrorEncoders(encoders ...http.Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.errorEncoders = encoders }
 }
@@ -65,11 +66,6 @@ func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 	}
 	for _, opt := range opts {
 		opt(&so)
-	}
-	// An empty set would leave the error path with nothing to encode with, so an option
-	// that clears it falls back to the defaults.
-	if len(so.errorEncoders) == 0 {
-		so.errorEncoders = defaultEncoders
 	}
 	return so
 }
@@ -138,7 +134,10 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	if fErr.Type == errors.TypeNil {
 		return encodeAndWrite(fCtx, encoder, res)
 	}
-	errEncoder := s.resolveErrorEncoder(fCtx)
+	errEncoder, ok := s.resolveErrorEncoder(fCtx)
+	if !ok {
+		return fCtx.SendStatus(fiber.StatusBadRequest)
+	}
 	fCtx.Set(fiber.HeaderContentType, errEncoder.ContentType())
 	fCtx.Status(fiber.StatusBadRequest)
 	return encodeAndWrite(fCtx, errEncoder, fErr)
@@ -146,19 +145,23 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 
 // resolveErrorEncoder returns the encoder for an error payload, negotiating the
 // configured error encoders against the request's Accept header and falling back to the
-// first when none matches.
-func (s *unaryServer[RQ, RS]) resolveErrorEncoder(fCtx fiber.Ctx) http.Encoder {
+// first when none matches. It reports false when the server was given no error
+// encoders, leaving the caller to answer with a status and no encoded payload.
+func (s *unaryServer[RQ, RS]) resolveErrorEncoder(fCtx fiber.Ctx) (http.Encoder, bool) {
+	if len(s.errorEncoders) == 0 {
+		return nil, false
+	}
 	offers := lo.Map(s.errorEncoders, func(e http.Encoder, _ int) string {
 		return e.ContentType()
 	})
 	if matched := fCtx.Accepts(offers...); matched != "" {
 		for _, e := range s.errorEncoders {
 			if e.ContentType() == matched {
-				return e
+				return e, true
 			}
 		}
 	}
-	return s.errorEncoders[0]
+	return s.errorEncoders[0], true
 }
 
 func (s *unaryServer[RQ, RS]) resolveRequestDecoder(
