@@ -499,9 +499,7 @@ describe("Arc queries", () => {
             });
             const taskChildren = children.filter((c) => c.id.type === "task");
             expect(taskChildren).toHaveLength(1);
-            const createdTask = await client.tasks.retrieve({
-              key: taskChildren[0].id.key,
-            });
+            const createdTask = await client.tasks.retrieve(taskChildren[0].id.key);
             expect(createdTask.rack).toBe(testRack.key);
           });
         });
@@ -591,7 +589,7 @@ describe("Arc queries", () => {
             });
             expect(childrenBefore).toHaveLength(1);
             originalTaskKey = childrenBefore[0].id.key;
-            const originalTask = await client.tasks.retrieve({ key: originalTaskKey });
+            const originalTask = await client.tasks.retrieve(originalTaskKey);
             expect(originalTask.rack).toBe(rack1.key);
           });
 
@@ -617,7 +615,7 @@ describe("Arc queries", () => {
             expect(childrenAfter).toHaveLength(1);
             const newTaskKey = childrenAfter[0].id.key;
             expect(newTaskKey).toBe(originalTaskKey);
-            const movedTask = await client.tasks.retrieve({ key: newTaskKey });
+            const movedTask = await client.tasks.retrieve(newTaskKey);
             expect(movedTask.rack).toBe(rack2.key);
           });
         });
@@ -672,7 +670,7 @@ describe("Arc queries", () => {
             expect(updateResult.current.variant).toEqual("success");
           });
 
-          const movedTask = await client.tasks.retrieve({ key: originalTaskKey });
+          const movedTask = await client.tasks.retrieve(originalTaskKey);
           expect(movedTask.rack).toBe(rack2.key);
         });
       });

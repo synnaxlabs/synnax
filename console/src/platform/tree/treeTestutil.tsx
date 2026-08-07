@@ -9,7 +9,13 @@
 
 import { type ontology, type Synnax } from "@synnaxlabs/client";
 import { Haul, Triggers } from "@synnaxlabs/pluto";
-import { fireEvent, render, type RenderResult, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  type RenderResult,
+  screen,
+} from "@testing-library/react";
 import { type ReactNode } from "react";
 
 import { Modals } from "@/platform/modals";
@@ -66,7 +72,12 @@ export const findTreeRow = async (text: string): Promise<Element> => {
   return row;
 };
 
-/** Right-clicks the tree row containing text, opening its service context menu. */
+/** Right-clicks the tree row containing text, opening its service context menu. A
+ * menu that suspends must mount inside an async act: a suspension mounted under
+ * sync act never retries when its promise resolves, so the menu stays empty. */
 export const openTreeRowContextMenu = async (text: string): Promise<void> => {
-  fireEvent.contextMenu(await findTreeRow(text));
+  const row = await findTreeRow(text);
+  await act(async () => {
+    fireEvent.contextMenu(row);
+  });
 };

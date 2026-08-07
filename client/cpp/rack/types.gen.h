@@ -30,9 +30,9 @@ namespace synnax::rack {
 struct StatusDetails;
 struct Rack;
 
-/// @brief Key is a composite identifier for a rack. The high 16 bits contain the node
+/// @brief Key is a composite identifier for a rack. The high 16 bits contain the Core
 /// key, and the low 16 bits contain the local sequential key. A rack is leased to the
-/// node named in its high bits, so writes route to the node running its driver.
+/// Core named in its high bits, so writes route to the Core running its Driver.
 using Key = std::uint32_t;
 
 /// @brief StatusDetails contains rack-specific status details.
@@ -53,8 +53,8 @@ struct StatusDetails {
 using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief Rack is a collection container for hardware devices and tasks running on a
-/// specific cluster node. Racks serve as the integration point between the Synnax
-/// server and physical hardware via the Driver system.
+/// specific Core. Racks are the integration point between the Core and physical
+/// hardware through the Driver.
 struct Rack {
     /// @brief key is the composite identifier for this rack.
     Key key = 0;

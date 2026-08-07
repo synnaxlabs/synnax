@@ -136,13 +136,16 @@ const collectChildren = async (
     ids: parentID,
     types: [...types, "group"],
   });
-  const results: record.KeyedNamed[] = [];
-  for (const child of children)
-    if (types.includes(child.id.type) && child.id.key !== exclude)
-      results.push({ key: child.id.key, name: child.name });
-    else if (child.id.type === "group")
-      results.push(...(await collectChildren(client, child.id, types, exclude)));
-  return results;
+  const results = await Promise.all(
+    children.map(async (child): Promise<record.KeyedNamed[]> => {
+      if (types.includes(child.id.type) && child.id.key !== exclude)
+        return [{ key: child.id.key, name: child.name }];
+      if (child.id.type === "group")
+        return await collectChildren(client, child.id, types, exclude);
+      return [];
+    }),
+  );
+  return results.flat();
 };
 
 const findProjectAncestor = async (

@@ -24,7 +24,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { afterAll, assert, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Access } from "@/access";
 import { renderHookSuspended } from "@/testutil/render";
@@ -193,6 +193,30 @@ describe("Access Queries", () => {
       // ...then confirm it caused no re-evaluation.
       expect(renders).toBe(rendersWhenSettled);
       expect(result.current).toBe(true);
+    });
+
+    it("should pass an identity-stable query to the client on every render", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: id.create(),
+        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        actions: ["retrieve"],
+      });
+      const spy = vi.spyOn(userClient.access.granted, "getCached");
+      const { result, rerender } = renderHook(
+        () =>
+          Access.useGranted({ objects: ranger.TYPE_ONTOLOGY_ID, action: "retrieve" }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+      rerender();
+      rerender();
+      // One query object across every read is what keys the client's verdict
+      // memo; a fresh object per render would evaluate the policies each time.
+      const queries = new Set(spy.mock.calls.map((call) => call[1]));
+      expect(queries.size).toBe(1);
+      spy.mockRestore();
     });
 
     it("should handle multiple objects correctly", async () => {

@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { device, type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/pluto";
-import { screen, waitFor } from "@testing-library/react";
+import { TimeStamp } from "@synnaxlabs/x";
+import { act, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -196,6 +197,55 @@ describe("wrapForm", () => {
       });
       await clickDeploy(container);
       await waitFor(() => expect(configured).toBe(true));
+    });
+  });
+
+  describe("device rack sync", () => {
+    it("should not re-render the form when the device's status changes", async () => {
+      const client = createTestClient();
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const deviceKey = uniqueName("dev");
+      await client.devices.create({
+        key: deviceKey,
+        rack: rack.key,
+        location: "dev",
+        name: uniqueName("device"),
+        make: "ni",
+        model: "test",
+        properties: {},
+      });
+      const tsk = await client.tasks.create({
+        ...getInitialValues({}),
+        rack: rack.key,
+        config: { device: deviceKey, channels: [] },
+      });
+      let renders = 0;
+      const CountingForm: FC<Task.FormProps<typeof schemas>> = () => {
+        renders++;
+        return <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>;
+      };
+      CountingForm.displayName = "CountingForm";
+      const Renderer = createRenderer({ Form: CountingForm });
+      await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
+      await waitFor(() => expect(screen.getByText(`rack:${rack.key}`)).toBeTruthy());
+      const seen = vi.fn();
+      const off = client.devices.onChange(
+        { key: deviceKey, includeStatus: true },
+        seen,
+      );
+      const before = renders;
+      await client.statuses.set({
+        key: device.statusKey(deviceKey),
+        name: "",
+        variant: "warning",
+        message: "device degraded",
+        time: TimeStamp.now(),
+        details: { rack: rack.key, device: deviceKey },
+      });
+      await waitFor(() => expect(seen).toHaveBeenCalled());
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
+      expect(renders).toBe(before);
+      off();
     });
   });
 

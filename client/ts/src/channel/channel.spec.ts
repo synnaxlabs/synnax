@@ -419,6 +419,11 @@ describe("cached reads", () => {
       const cached = expectLive(client.channels.getCached(ch.key));
       expect(cached.name).toEqual(ch.name);
     });
+
+    it("returns undefined for an unfetched filter query", async () => {
+      const ch = await createVirtual();
+      expect(client.channels.getCached({ keys: [ch.key] })).toBeUndefined();
+    });
   });
 
   describe("onChange", () => {
@@ -514,11 +519,10 @@ describe("cached reads", () => {
       expect(res.find((c) => c.key === b.key)?.alias).toBeUndefined();
     });
 
-    it("does not approximate an unfetched keys request under a range", async () => {
+    it("does not serve an unfetched keys request under a range", async () => {
       const ch = await createVirtual();
       const rng = await createRange();
       await client.channels.retrieve(ch.key);
-      expect(query.isLive(client.channels.getCached({ keys: [ch.key] }))).toBe(true);
       expect(
         client.channels.getCached({ keys: [ch.key], rangeKey: rng.key }),
       ).toBeUndefined();
