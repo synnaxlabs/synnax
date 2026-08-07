@@ -719,7 +719,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
 
     // Configure task through factory
     auto factory = Factory();
-    auto [configured_task, ok] = factory.configure_task(ctx, task);
+    auto [configured_task, ok] = factory.configure_task(ctx, task, "");
 
     ASSERT_TRUE(ok);
     ASSERT_NE(configured_task, nullptr);
@@ -786,7 +786,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
     // Configure task through factory
     auto factory = Factory();
-    auto [configured_task, ok] = factory.configure_task(ctx, task);
+    auto [configured_task, ok] = factory.configure_task(ctx, task, "cmd1");
 
     ASSERT_TRUE(ok);
     ASSERT_NE(configured_task, nullptr);

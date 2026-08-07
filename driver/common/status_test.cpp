@@ -49,6 +49,25 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     EXPECT_EQ(second.message, "task validation error");
 }
 
+/// @brief it should echo the config hash the instance was built from.
+TEST(TestTaskStateHandler, testEchoesConfigHash) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config_hash = "hash1",
+    };
+    auto handler = StatusHandler(ctx, task);
+
+    handler.send_start("cmd_key");
+    ASSERT_GE(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].details.config_hash, "hash1");
+
+    handler.send_stop("cmd_key");
+    ASSERT_GE(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[1].details.config_hash, "hash1");
+}
+
 /// @brief it should correctly communicate a warning to the context.
 TEST(TestTaskStateHandler, testSendWarning) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -395,28 +414,35 @@ public:
 /// status.
 TEST(TestHandleConfigErr, testErrorWithPendingStart) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config_hash = "hash1"
+    };
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
-        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")}
+        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")},
+        "start_cmd"
     );
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     ASSERT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(ctx->statuses[0].message, "bad config");
+    EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
+    EXPECT_EQ(ctx->statuses[0].details.config_hash, "hash1");
 }
 
 /// @brief a config error at boot with no auto-start should not write a status.
 TEST(TestHandleConfigErr, testErrorAtBootSilent) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ctx->pending_start_cmd = "";
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
-        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")}
+        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")},
+        ""
     );
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
@@ -427,19 +453,20 @@ TEST(TestHandleConfigErr, testErrorAtBootSilent) {
 /// status.
 TEST(TestHandleConfigErr, testErrorAtBootWithAutoStart) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ctx->pending_start_cmd = "";
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
     res.auto_start = true;
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
-        {std::move(res), x::errors::Error(x::errors::VALIDATION, "bad config")}
+        {std::move(res), x::errors::Error(x::errors::VALIDATION, "bad config")},
+        ""
     );
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     ASSERT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_TRUE(ctx->statuses[0].details.cmd.empty());
 }
 
 /// @brief a successful configure during a deploy should write a success status.
@@ -451,7 +478,8 @@ TEST(TestHandleConfigErr, testSuccessWithPendingStart) {
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
-        {std::move(res), x::errors::NIL}
+        {std::move(res), x::errors::NIL},
+        "start_cmd"
     );
     EXPECT_TRUE(handled);
     EXPECT_NE(tsk, nullptr);
@@ -463,14 +491,14 @@ TEST(TestHandleConfigErr, testSuccessWithPendingStart) {
 /// @brief a successful configure at boot should not write a status.
 TEST(TestHandleConfigErr, testSuccessAtBootSilent) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ctx->pending_start_cmd = "";
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
     res.task = std::make_unique<RecordingTask>();
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
-        {std::move(res), x::errors::NIL}
+        {std::move(res), x::errors::NIL},
+        ""
     );
     EXPECT_TRUE(handled);
     EXPECT_NE(tsk, nullptr);
@@ -481,7 +509,6 @@ TEST(TestHandleConfigErr, testSuccessAtBootSilent) {
 /// configure status.
 TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ctx->pending_start_cmd = "";
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     ConfigureResult res;
     auto recording = std::make_unique<RecordingTask>();
@@ -491,12 +518,13 @@ TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
-        {std::move(res), x::errors::NIL}
+        {std::move(res), x::errors::NIL},
+        ""
     );
     EXPECT_TRUE(handled);
     EXPECT_NE(tsk, nullptr);
     EXPECT_TRUE(ctx->statuses.empty());
     ASSERT_EQ(raw->cmds.size(), 1);
-    EXPECT_EQ(raw->cmds[0].type, START_CMD_TYPE);
+    EXPECT_EQ(raw->cmds[0].type, synnax::task::START_CMD_TYPE);
 }
 }
