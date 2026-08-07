@@ -320,8 +320,11 @@ export class StreamChannelData
         try {
           const res = await client.feed.read(tr, this.channel.key);
           if (generation !== this.generation) return;
-          res.acquire();
-          this.data.push(res);
+          for (const s of res.series) {
+            if (this.data.series.includes(s)) continue;
+            s.acquire();
+            this.data.push(s);
+          }
         } catch (e) {
           // Certain calculated channels can fail to read because they need access
           // to virtual channels that cannot be read from historically. Instead of
@@ -340,8 +343,13 @@ export class StreamChannelData
         if (generation !== this.generation || this.channel == null) return;
         const series = res.get(this.channel.key);
         if (series == null) return;
-        series.acquire();
-        this.data.push(series);
+        // feed.read already returns the live leading buffer, which the stream's
+        // initial delivery repeats. Skip series already held by identity.
+        for (const s of series.series) {
+          if (this.data.series.includes(s)) continue;
+          s.acquire();
+          this.data.push(s);
+        }
         this.notify();
         this.gcOutOfRangeData();
       };

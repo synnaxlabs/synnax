@@ -677,6 +677,27 @@ describe("remote", () => {
       expect(data.series[0]).toBe(series);
     });
 
+    it("should not duplicate a series delivered by both read and stream", async () => {
+      const now = TimeStamp.now();
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(now.sub(TimeSpan.milliseconds(3)), TimeStamp.MAX),
+      });
+      c.response = new MultiSeries([series]);
+      const props: StreamChannelDataProps = {
+        timeSpan: TimeSpan.MAX,
+        channel: c.channel.key,
+      };
+      const cd = new StreamChannelData(c, props);
+      await waitForResolve(cd);
+      // The feed's stream subscription re-delivers the live buffer that read
+      // already returned.
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+      const [, data] = cd.value();
+      expect(data.series).toHaveLength(1);
+      expect(series.refCount).toBe(1);
+    });
+
     it("should bind a stream handler", async () => {
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,

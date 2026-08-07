@@ -165,17 +165,15 @@ describe("read", () => {
     });
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
     const pending = reader.read(tr, 1);
-    cache
-      .get(1)
-      .writeStatic(
-        new MultiSeries([
-          new Series({
-            data: new Float32Array([1, 2, 3]),
-            alignment: 0n,
-            timeRange: tr,
-          }),
-        ]),
-      );
+    cache.get(1).writeStatic(
+      new MultiSeries([
+        new Series({
+          data: new Float32Array([1, 2, 3]),
+          alignment: 0n,
+          timeRange: tr,
+        }),
+      ]),
+    );
     const res = await pending;
     expect(remoteReadF).not.toHaveBeenCalled();
     expect(res).toHaveLength(3);
@@ -206,6 +204,50 @@ describe("read", () => {
     expect(remoteReadF).toHaveBeenCalledTimes(1);
     expect(remoteReadF).toHaveBeenCalledWith(
       new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(5)),
+      [1],
+    );
+    cache.close();
+  });
+
+  it("should not fetch when the live leading buffer covers the requested range", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
+    cache.get(1).writeDynamic(
+      new MultiSeries([
+        new Series({
+          data: new Float32Array([1, 2, 3]),
+          alignment: 0n,
+          timeRange: new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(13)),
+        }),
+      ]),
+    );
+    const res = await reader.read(
+      new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(20)),
+      1,
+    );
+    expect(remoteReadF).not.toHaveBeenCalled();
+    expect(res).toHaveLength(3);
+    cache.close();
+  });
+
+  it("should fetch only the portion of the range before the leading buffer", async () => {
+    const cache = new Cache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({ cache, readRemote: basicRemoteReadFunc(remoteReadF) });
+    cache.get(1).writeDynamic(
+      new MultiSeries([
+        new Series({
+          data: new Float32Array([1, 2, 3]),
+          alignment: 0n,
+          timeRange: new TimeRange(TimeSpan.seconds(10), TimeSpan.seconds(13)),
+        }),
+      ]),
+    );
+    await reader.read(new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(20)), 1);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    expect(remoteReadF).toHaveBeenCalledWith(
+      new TimeRange(TimeSpan.seconds(5), TimeSpan.seconds(10)),
       [1],
     );
     cache.close();

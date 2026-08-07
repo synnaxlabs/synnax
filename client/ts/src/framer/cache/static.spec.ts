@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  DataType,
+  MultiSeries,
+  Series,
+  type TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { Static } from "@/framer/cache/static";
@@ -236,6 +243,97 @@ describe("StaticReadCache", () => {
       expect(gaps).toHaveLength(0);
     });
   });
+  describe("provisional entries", () => {
+    // Streamed data carries leading-region alignments that never match the
+    // positional alignments of the same samples read back from disk, so the two
+    // forms of one sample can coexist in the cache. Provisional eviction is what
+    // prevents that.
+    const LEADING_ALIGNMENT = (BigInt(0xffffffff) - 1_000_000n) << 32n;
+    const streamed = (tr: TimeRange, data: number[], offset = 0n) =>
+      new MultiSeries([
+        new Series({
+          data: new Float32Array(data),
+          dataType: DataType.FLOAT32,
+          timeRange: tr,
+          alignment: LEADING_ALIGNMENT + offset,
+        }),
+      ]);
+    const fetched = (tr: TimeRange, data: number[], alignment = 0n) =>
+      new MultiSeries([
+        new Series({
+          data: new Float32Array(data),
+          dataType: DataType.FLOAT32,
+          timeRange: tr,
+          alignment,
+        }),
+      ]);
+
+    it("should evict a provisional entry when an authoritative write overlaps it", () => {
+      const c = new Static({});
+      const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
+      c.write(streamed(tr, [1, 2]), true);
+      c.write(fetched(tr, [1, 2]));
+      const { series, gaps } = c.dirtyRead(tr);
+      expect(series.series).toHaveLength(1);
+      expect(series.series[0].alignment).toEqual(0n);
+      expect(gaps).toHaveLength(0);
+    });
+
+    it("should evict a provisional entry on partial time overlap", () => {
+      const c = new Static({});
+      c.write(
+        streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(20)), [1, 2]),
+        true,
+      );
+      c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(15)), [1, 2]));
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+      );
+      expect(series.series).toHaveLength(1);
+      expect(series.series[0].alignment).toEqual(0n);
+    });
+
+    it("should keep provisional entries that do not overlap the write", () => {
+      const c = new Static({});
+      c.write(
+        streamed(TimeStamp.seconds(30).range(TimeStamp.seconds(40)), [3, 4]),
+        true,
+      );
+      c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(20)), [1, 2]));
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(40)),
+      );
+      expect(series.series).toHaveLength(2);
+    });
+
+    it("should not evict provisional entries on a provisional write", () => {
+      const c = new Static({});
+      c.write(
+        streamed(TimeStamp.seconds(10).range(TimeStamp.seconds(20)), [1, 2]),
+        true,
+      );
+      c.write(
+        streamed(TimeStamp.seconds(15).range(TimeStamp.seconds(25)), [3, 4], 100n),
+        true,
+      );
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(25)),
+      );
+      expect(series.series).toHaveLength(2);
+    });
+
+    it("should not evict authoritative entries", () => {
+      const c = new Static({});
+      const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
+      c.write(fetched(tr, [1, 2]));
+      c.write(fetched(TimeStamp.seconds(30).range(TimeStamp.seconds(40)), [3, 4], 20n));
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(40)),
+      );
+      expect(series.series).toHaveLength(2);
+    });
+  });
+
   describe("garbage collection", () => {
     it("should correctly garbage collect series that have a reference count of zero", async () => {
       const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });

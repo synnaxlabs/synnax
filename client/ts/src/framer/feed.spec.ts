@@ -102,6 +102,99 @@ describe("feed", () => {
     sub.close();
   });
 
+  it("should return every sample exactly once across the live boundary", async () => {
+    const { time, data } = await createChannels();
+    const received: number[] = [];
+    const sub = feed.stream(
+      (res) => {
+        const series = res.get(data.key);
+        if (series != null) received.push(...(Array.from(series) as number[]));
+      },
+      [data.key],
+    );
+    const start = TimeStamp.now();
+    let value = 0;
+    const writeUntilStreamed = async (
+      w: Awaited<ReturnType<typeof client.openWriter>>,
+    ) => {
+      const before = received.length;
+      await expect
+        .poll(
+          async () => {
+            const now = TimeStamp.now();
+            await w.write({ [time.key]: [now], [data.key]: [value++] });
+            return received.length > before;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+    };
+    const w1 = await client.openWriter({ start, channels: [time.key, data.key] });
+    try {
+      await writeUntilStreamed(w1);
+    } finally {
+      await w1.close();
+    }
+    // A read that spans the live leading buffer returns it directly instead of
+    // re-fetching the persisted form of the same samples.
+    const tr = new TimeRange(start, TimeStamp.now().add(TimeSpan.seconds(1)));
+    const res = await feed.read(tr, data.key);
+    const values = Array.from(res) as number[];
+    expect(values.length).toBeGreaterThan(0);
+    expect(new Set(values).size).toEqual(values.length);
+    // A second writer opens a new alignment domain, which flushes the old leading
+    // buffer into the static cache as a provisional entry.
+    const w2 = await client.openWriter({
+      start: TimeStamp.now(),
+      channels: [time.key, data.key],
+    });
+    try {
+      await writeUntilStreamed(w2);
+    } finally {
+      await w2.close();
+    }
+    const tr2 = new TimeRange(start, TimeStamp.now().add(TimeSpan.seconds(1)));
+    const res2 = await feed.read(tr2, data.key);
+    const values2 = Array.from(res2) as number[];
+    expect(values2.length).toBeGreaterThanOrEqual(values.length);
+    expect(new Set(values2).size).toEqual(values2.length);
+    sub.close();
+  });
+
+  it("should include the same series object in reads that the stream delivers", async () => {
+    const { time, data } = await createChannels();
+    const received: Series[] = [];
+    const sub = feed.stream(
+      (res) => {
+        const series = res.get(data.key);
+        if (series != null) received.push(...series.series);
+      },
+      [data.key],
+    );
+    const start = TimeStamp.now();
+    const writer = await client.openWriter({ start, channels: [time.key, data.key] });
+    try {
+      await expect
+        .poll(
+          async () => {
+            const now = TimeStamp.now();
+            await writer.write({ [time.key]: [now], [data.key]: [1] });
+            return received.length > 0;
+          },
+          { timeout: 10000, interval: 250 },
+        )
+        .toBe(true);
+    } finally {
+      await writer.close();
+    }
+    const tr = new TimeRange(start, TimeStamp.now().add(TimeSpan.seconds(1)));
+    const res = await feed.read(tr, data.key);
+    // Identity equality lets consumers that both read and stream deduplicate the
+    // live buffer.
+    expect(received.some((s) => res.series.includes(s))).toBe(true);
+    sub.close();
+  });
+
   it("should reject reads after the feed closes", async () => {
     const closable = client.openFeed();
     await closable.close();

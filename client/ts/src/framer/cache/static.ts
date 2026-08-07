@@ -58,6 +58,10 @@ export const DEFAULT_STATIC_PROPS: Required<StaticProps> = {
 interface CacheEntry {
   data: Series;
   addedAt: TimeStamp;
+  /** True when the entry came from the live stream instead of a fetch. Live data
+   * is a preview of its persisted form: an authoritative write covering the same
+   * time evicts it. */
+  provisional: boolean;
 }
 
 /**
@@ -79,11 +83,26 @@ export class Static {
   /**
    * Writes the given series to the cache, merging written series with any
    * existing series in the cache.
+   *
+   * @param series - The series to write.
+   * @param provisional - Marks the series as live-streamed data. An authoritative
+   * (fetched) write overlapping a provisional entry's time range evicts it.
    */
-  write(series: MultiSeries): void {
+  write(series: MultiSeries, provisional: boolean = false): void {
     if (series.length === 0) return;
-    series.series.forEach((s) => this.writeOne(this.props.transform.convert(s)));
+    if (!provisional) this.evictProvisional(series);
+    series.series.forEach((s) =>
+      this.writeOne(this.props.transform.convert(s), provisional),
+    );
     this.checkIntegrity(series);
+  }
+
+  private evictProvisional(written: MultiSeries): void {
+    this.data = this.data.filter(
+      (e) =>
+        !e.provisional ||
+        !written.series.some((s) => s.timeRange.overlapsWith(e.data.timeRange)),
+    );
   }
 
   /**
@@ -140,7 +159,7 @@ export class Static {
     this.data = [];
   }
 
-  private writeOne(series: Series): void {
+  private writeOne(series: Series, provisional: boolean): void {
     const {
       instrumentation: { L },
     } = this.props;
@@ -161,6 +180,7 @@ export class Static {
     this.data.splice(insertInto, deleteInBetween, {
       data: series,
       addedAt: TimeStamp.now(),
+      provisional,
     });
   }
 
