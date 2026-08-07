@@ -17,9 +17,9 @@ import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 const retrieveChannels: RetrieveChannels = async (params) =>
-  (
-    await client.channels.retrieve(array.toArray(params) as channel.Key[])
-  ).map((ch) => ch.payload);
+  (await client.channels.retrieve(array.toArray(params) as channel.Key[])).map(
+    (ch) => ch.payload,
+  );
 
 describe("WriteFrameAdapter", () => {
   let timeCh: channel.Channel;
@@ -38,10 +38,7 @@ describe("WriteFrameAdapter", () => {
       index: timeCh.key,
     });
 
-    adapter = await WriteAdapter.open(retrieveChannels, [
-      timeCh.key,
-      dataCh.key,
-    ]);
+    adapter = await WriteAdapter.open(retrieveChannels, [timeCh.key, dataCh.key]);
   });
 
   it("should correctly adapt a record of keys to single values", async () => {
@@ -126,9 +123,7 @@ describe("WriteFrameAdapter", () => {
       dataType: DataType.JSON,
       virtual: true,
     });
-    const adapter = await WriteAdapter.open(retrieveChannels, [
-      jsonChannel.key,
-    ]);
+    const adapter = await WriteAdapter.open(retrieveChannels, [jsonChannel.key]);
     const res = await adapter.adapt(jsonChannel.name, [{ dog: "blue" }]);
     expect(res.columns).toHaveLength(1);
     expect(res.series).toHaveLength(1);
@@ -142,9 +137,7 @@ describe("WriteFrameAdapter", () => {
       dataType: DataType.JSON,
       virtual: true,
     });
-    const adapter = await WriteAdapter.open(retrieveChannels, [
-      jsonChannel.key,
-    ]);
+    const adapter = await WriteAdapter.open(retrieveChannels, [jsonChannel.key]);
     const res = await adapter.adapt(jsonChannel.name, new Series([{ dog: "blue" }]));
     expect(res.columns).toHaveLength(1);
     expect(res.series).toHaveLength(1);
@@ -240,10 +233,7 @@ describe("ReadFrameAdapter", () => {
       index: timeCh.key,
     });
 
-    adapter = await ReadAdapter.open(retrieveChannels, [
-      timeCh.key,
-      dataCh.key,
-    ]);
+    adapter = await ReadAdapter.open(retrieveChannels, [timeCh.key, dataCh.key]);
   });
 
   describe("adapt", () => {
@@ -413,9 +403,7 @@ describe("ReadFrameAdapter", () => {
         });
 
         it("should handle partial matches while converting", async () => {
-          const filterAdapter = await ReadAdapter.open(retrieveChannels, [
-            timeCh.name,
-          ]);
+          const filterAdapter = await ReadAdapter.open(retrieveChannels, [timeCh.name]);
 
           const ts = TimeStamp.now().valueOf();
           const inputFrame = new Frame({
@@ -432,9 +420,7 @@ describe("ReadFrameAdapter", () => {
         });
 
         it("should return empty frame when no channels match", async () => {
-          const filterAdapter = await ReadAdapter.open(retrieveChannels, [
-            timeCh.name,
-          ]);
+          const filterAdapter = await ReadAdapter.open(retrieveChannels, [timeCh.name]);
 
           const inputFrame = new Frame({
             [extraCh.key]: new Series([999.0]),
@@ -538,9 +524,7 @@ describe("ReadFrameAdapter", () => {
     describe("state management", () => {
       it("should handle multiple sequential updates correctly", async () => {
         // Start with NAME mode to enable filtering
-        const newAdapter = await ReadAdapter.open(retrieveChannels, [
-          timeCh.name,
-        ]);
+        const newAdapter = await ReadAdapter.open(retrieveChannels, [timeCh.name]);
 
         // Initial state: only timeCh registered
         const ts = TimeStamp.now().valueOf();
@@ -568,9 +552,7 @@ describe("ReadFrameAdapter", () => {
 
     describe("codec integration", () => {
       it("should update codec when channels change", async () => {
-        const codecAdapter = await ReadAdapter.open(retrieveChannels, [
-          timeCh.key,
-        ]);
+        const codecAdapter = await ReadAdapter.open(retrieveChannels, [timeCh.key]);
         expect(codecAdapter.keys).toHaveLength(1);
         await codecAdapter.update([timeCh.key, dataCh.key]);
         expect(codecAdapter.keys).toHaveLength(2);
