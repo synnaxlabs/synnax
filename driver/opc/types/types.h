@@ -9,14 +9,11 @@
 
 #pragma once
 
-/// std
 #include <string>
 #include <utility>
 
-/// external
 #include "open62541/types.h"
 
-/// module
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/series.h"

@@ -161,27 +161,37 @@ var _ = Describe("Variable", func() {
 			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should create a node for a value-initialized variable", func(ctx SpecContext) {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type:   "variable",
-					Inputs: types.Params{{Name: "value", Type: types.I64(), Value: int64(1)}},
-				},
-				State: s.Node("v"),
-			}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
-		})
+		It(
+			"Should create a node for a value-initialized variable",
+			func(ctx SpecContext) {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "variable",
+						Inputs: types.Params{
+							{Name: "value", Type: types.I64(), Value: int64(1)},
+						},
+					},
+					State: s.Node("v"),
+				}
+				Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			},
+		)
 
-		It("Should create a node for a value-initialized stateful_variable", func(ctx SpecContext) {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type:   "stateful_variable",
-					Inputs: types.Params{{Name: "value", Type: types.I64(), Value: int64(1)}},
-				},
-				State: s.Node("v"),
-			}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
-		})
+		It(
+			"Should create a node for a value-initialized stateful_variable",
+			func(ctx SpecContext) {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type: "stateful_variable",
+						Inputs: types.Params{
+							{Name: "value", Type: types.I64(), Value: int64(1)},
+						},
+					},
+					State: s.Node("v"),
+				}
+				Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			},
+		)
 
 		It("Should create a node for an edge-fed variable", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -199,16 +209,19 @@ var _ = Describe("Variable", func() {
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
 
-		It("Should create a node for an edge-fed stateful_variable", func(ctx SpecContext) {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type:   "stateful_variable",
-					Inputs: types.Params{{Name: "f0", Type: types.I64()}},
-				},
-				State: s.Node("v"),
-			}
-			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
-		})
+		It(
+			"Should create a node for an edge-fed stateful_variable",
+			func(ctx SpecContext) {
+				cfg := node.Config{
+					Node: ir.Node{
+						Type:   "stateful_variable",
+						Inputs: types.Params{{Name: "f0", Type: types.I64()}},
+					},
+					State: s.Node("v"),
+				}
+				Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+			},
+		)
 	})
 
 	Describe("Register", func() {
@@ -220,8 +233,10 @@ var _ = Describe("Variable", func() {
 		mk := func(ctx SpecContext, nodeType string) node.Node {
 			cfg := node.Config{
 				Node: ir.Node{
-					Type:   nodeType,
-					Inputs: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}},
+					Type: nodeType,
+					Inputs: types.Params{
+						{Name: "value", Type: types.I64(), Value: int64(42)},
+					},
 				},
 				State: v,
 			}
@@ -232,13 +247,16 @@ var _ = Describe("Variable", func() {
 			v, f = s.Node("v"), s.Node("f")
 		})
 
-		It("Should emit its pending initial value on first Next", func(ctx SpecContext) {
-			n := mk(ctx, "variable")
-			n.Next(nodeCtx)
-			Expect(marked).To(ConsistOf(0))
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
-			Expect(v.OutputTime(0).Len()).To(Equal(int64(1)))
-		})
+		It(
+			"Should emit its pending initial value on first Next",
+			func(ctx SpecContext) {
+				n := mk(ctx, "variable")
+				n.Next(nodeCtx)
+				Expect(marked).To(ConsistOf(0))
+				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
+				Expect(v.OutputTime(0).Len()).To(Equal(int64(1)))
+			},
+		)
 
 		It("Should not re-emit without new data", func(ctx SpecContext) {
 			n := mk(ctx, "variable")
@@ -256,13 +274,16 @@ var _ = Describe("Variable", func() {
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
 		})
 
-		It("Should take the newest value when multiple are pending", func(ctx SpecContext) {
-			n := mk(ctx, "variable")
-			emit(f, int64(7), 10)
-			n.Next(nodeCtx)
-			Expect(marked).To(ConsistOf(0))
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
-		})
+		It(
+			"Should take the newest value when multiple are pending",
+			func(ctx SpecContext) {
+				n := mk(ctx, "variable")
+				emit(f, int64(7), 10)
+				n.Next(nodeCtx)
+				Expect(marked).To(ConsistOf(0))
+				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+			},
+		)
 
 		It("Should not alias the feeder's output buffer", func(ctx SpecContext) {
 			n := mk(ctx, "variable")
@@ -281,31 +302,40 @@ var _ = Describe("Variable", func() {
 				Expect(v.OutputTime(0).Len()).To(Equal(int64(1)))
 			})
 
-			It("Should not double-emit the initial value on Next after Reset", func(ctx SpecContext) {
-				n := mk(ctx, "variable")
-				n.Reset()
-				n.Next(nodeCtx)
-				Expect(marked).To(BeEmpty())
-			})
+			It(
+				"Should not double-emit the initial value on Next after Reset",
+				func(ctx SpecContext) {
+					n := mk(ctx, "variable")
+					n.Reset()
+					n.Next(nodeCtx)
+					Expect(marked).To(BeEmpty())
+				},
+			)
 
-			It("Should supersede a pending feeder value on Reset", func(ctx SpecContext) {
-				n := mk(ctx, "variable")
-				emit(f, int64(99), 10)
-				n.Reset()
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
-				n.Next(nodeCtx)
-				Expect(marked).To(BeEmpty())
-			})
+			It(
+				"Should supersede a pending feeder value on Reset",
+				func(ctx SpecContext) {
+					n := mk(ctx, "variable")
+					emit(f, int64(99), 10)
+					n.Reset()
+					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
+					n.Next(nodeCtx)
+					Expect(marked).To(BeEmpty())
+				},
+			)
 
-			It("Should restore the initial value on scope re-entry", func(ctx SpecContext) {
-				n := mk(ctx, "variable")
-				n.Reset()
-				emit(f, int64(7), 10)
-				n.Next(nodeCtx)
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
-				n.Reset()
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
-			})
+			It(
+				"Should restore the initial value on scope re-entry",
+				func(ctx SpecContext) {
+					n := mk(ctx, "variable")
+					n.Reset()
+					emit(f, int64(7), 10)
+					n.Next(nodeCtx)
+					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+					n.Reset()
+					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
+				},
+			)
 
 			It("Should not alias the initial value on Reset", func(ctx SpecContext) {
 				n := mk(ctx, "variable")
@@ -333,14 +363,17 @@ var _ = Describe("Variable", func() {
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
 			})
 
-			It("Should leave pending feeder values consumable after Reset", func(ctx SpecContext) {
-				n := mk(ctx, "stateful_variable")
-				emit(f, int64(7), 10)
-				n.Reset()
-				n.Next(nodeCtx)
-				Expect(marked).To(ConsistOf(0))
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
-			})
+			It(
+				"Should leave pending feeder values consumable after Reset",
+				func(ctx SpecContext) {
+					n := mk(ctx, "stateful_variable")
+					emit(f, int64(7), 10)
+					n.Reset()
+					n.Next(nodeCtx)
+					Expect(marked).To(ConsistOf(0))
+					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+				},
+			)
 		})
 
 		Context("with a string variable", func() {
@@ -469,7 +502,9 @@ var _ = Describe("Variable", func() {
 			Expect(marked).To(BeEmpty())
 			emit(d, int64(9), 20)
 			n.Next(nodeCtx)
-			Expect(marked).To(ConsistOf(0), "the dispatcher only emits data-driven values")
+			Expect(
+				marked,
+			).To(ConsistOf(0), "the dispatcher only emits data-driven values")
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](9))
 		})
 
@@ -481,14 +516,17 @@ var _ = Describe("Variable", func() {
 		})
 
 		Describe("Reset", func() {
-			It("Should fire the first value after a Reset-absorbed initial sel", func(ctx SpecContext) {
-				emit(selsrc, uint32(0), 5)
-				n.Reset()
-				emit(d, int64(7), 10)
-				n.Next(nodeCtx)
-				Expect(marked).To(ConsistOf(0))
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
-			})
+			It(
+				"Should fire the first value after a Reset-absorbed initial sel",
+				func(ctx SpecContext) {
+					emit(selsrc, uint32(0), 5)
+					n.Reset()
+					emit(d, int64(7), 10)
+					n.Next(nodeCtx)
+					Expect(marked).To(ConsistOf(0))
+					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+				},
+			)
 
 			It("Should coalesce values replayed by Reset", func(ctx SpecContext) {
 				emit(d, int64(5), 10)
@@ -517,45 +555,52 @@ var _ = Describe("Variable", func() {
 			})
 		})
 
-		It("Should emit the sole derivation when no sel input exists", func(ctx SpecContext) {
-			g := graph.Graph{
-				Functions: []ir.Function{
-					{
-						Key:     "d",
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+		It(
+			"Should emit the sole derivation when no sel input exists",
+			func(ctx SpecContext) {
+				g := graph.Graph{
+					Functions: []ir.Function{
+						{
+							Key: "d",
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
+							},
+						},
+						{
+							Key:    "variable",
+							Inputs: types.Params{{Name: "value", Type: types.I64()}},
+							Outputs: types.Params{
+								{Name: ir.DefaultOutputParam, Type: types.I64()},
+							},
+						},
 					},
-					{
-						Key:     "variable",
-						Inputs:  types.Params{{Name: "value", Type: types.I64()}},
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+					Nodes: []graph.Node{{Key: "d"}, {Key: "v"}},
+					Inputs: map[string]msgpack.EncodedJSON{
+						"d": {"type": "d"},
+						"v": {"type": "variable"},
 					},
-				},
-				Nodes: []graph.Node{{Key: "d"}, {Key: "v"}},
-				Inputs: map[string]msgpack.EncodedJSON{
-					"d": {"type": "d"},
-					"v": {"type": "variable"},
-				},
-				Edges: graph.Edges{{Edge: ir.Edge{
-					Source: ir.Handle{Node: "d", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "v", Param: "value"},
-				}}},
-			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			ps := node.New(analyzed)
-			vNode, feeder := ps.Node("v"), ps.Node("d")
-			cfg := node.Config{
-				Node: ir.Node{
-					Type:   "variable",
-					Inputs: types.Params{{Name: "value", Type: types.I64()}},
-				},
-				State: vNode,
-			}
-			soleN := MustSucceed(factory.Create(ctx, cfg))
-			emit(feeder, int64(5), 10)
-			soleN.Next(nodeCtx)
-			Expect(marked).To(ConsistOf(0))
-			Expect(*vNode.Output(0)).To(telem.MatchSeriesDataV[int64](5))
-		})
+					Edges: graph.Edges{{Edge: ir.Edge{
+						Source: ir.Handle{Node: "d", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "v", Param: "value"},
+					}}},
+				}
+				analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				ps := node.New(analyzed)
+				vNode, feeder := ps.Node("v"), ps.Node("d")
+				cfg := node.Config{
+					Node: ir.Node{
+						Type:   "variable",
+						Inputs: types.Params{{Name: "value", Type: types.I64()}},
+					},
+					State: vNode,
+				}
+				soleN := MustSucceed(factory.Create(ctx, cfg))
+				emit(feeder, int64(5), 10)
+				soleN.Next(nodeCtx)
+				Expect(marked).To(ConsistOf(0))
+				Expect(*vNode.Output(0)).To(telem.MatchSeriesDataV[int64](5))
+			},
+		)
 	})
 })

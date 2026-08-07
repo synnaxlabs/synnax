@@ -103,7 +103,7 @@ func (s *Service) Create(
 
 type ChangeUsernameRequest struct {
 	Username string   `json:"username" msgpack:"username"`
-	Key      user.Key `json:"key" msgpack:"key"`
+	Key      user.Key `json:"key"      msgpack:"key"`
 }
 
 // ChangeUsername changes the username for the user with the given key.
@@ -138,13 +138,14 @@ func (s *Service) ChangeUsername(
 		ChangeUsername(ctx, req.Key, req.Username); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.auth.NewWriter(tx).UpdateUsername(ctx, u.Username, req.Username)
+	return types.Nil{}, s.auth.NewWriter(tx).
+		UpdateUsername(ctx, u.Username, req.Username)
 }
 
 type RenameRequest struct {
 	FirstName string   `json:"first_name" msgpack:"first_name"`
-	LastName  string   `json:"last_name" msgpack:"last_name"`
-	Key       user.Key `json:"key" msgpack:"key"`
+	LastName  string   `json:"last_name"  msgpack:"last_name"`
+	Key       user.Key `json:"key"        msgpack:"key"`
 }
 
 // Rename changes the name for the user with the provided key. If either the first or
@@ -167,7 +168,7 @@ func (s *Service) Rename(
 
 type (
 	RetrieveRequest struct {
-		Keys      []user.Key `json:"keys" msgpack:"keys"`
+		Keys      []user.Key `json:"keys"      msgpack:"keys"`
 		Usernames []string   `json:"usernames" msgpack:"usernames"`
 	}
 	RetrieveResponse struct {

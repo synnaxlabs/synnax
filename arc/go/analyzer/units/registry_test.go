@@ -25,7 +25,8 @@ var _ = Describe("Registry", func() {
 			dimensions types.Dimensions
 		}
 
-		DescribeTable("Valid units",
+		DescribeTable(
+			"Valid units",
 			func(unitName string, expected validEntry) {
 				u, ok := units.Resolve(unitName)
 				Expect(ok).To(BeTrue())
@@ -49,8 +50,16 @@ var _ = Describe("Registry", func() {
 			Entry("Pa", "Pa", validEntry{"Pa", 1.0, false, types.DimPressure}),
 			Entry("bar", "bar", validEntry{"bar", 1e5, false, types.DimPressure}),
 			// Frequency units
-			Entry("Hz (uppercase)", "Hz", validEntry{"Hz", 1.0, false, types.DimFrequency}),
-			Entry("hz (lowercase)", "hz", validEntry{"hz", 1.0, false, types.DimFrequency}),
+			Entry(
+				"Hz (uppercase)",
+				"Hz",
+				validEntry{"Hz", 1.0, false, types.DimFrequency},
+			),
+			Entry(
+				"hz (lowercase)",
+				"hz",
+				validEntry{"hz", 1.0, false, types.DimFrequency},
+			),
 			Entry("kHz", "kHz", validEntry{"kHz", 1e3, false, types.DimFrequency}),
 			Entry("MHz", "MHz", validEntry{"MHz", 1e6, false, types.DimFrequency}),
 			// Length units

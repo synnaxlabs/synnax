@@ -120,7 +120,10 @@ func (s *Service) RetrievePoliciesForSubject(
 
 // OpenService creates a new RBAC service with both Policy and Role sub-services. It
 // also provisions built-in roles/policies and runs legacy permission migrations.
-func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
+func OpenService(
+	ctx context.Context,
+	configs ...ServiceConfig,
+) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err

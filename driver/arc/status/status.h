@@ -14,6 +14,8 @@
 #include <utility>
 #include <variant>
 
+#include "absl/log/log.h"
+
 #include "client/cpp/status/status.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/errors/errors.h"

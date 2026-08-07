@@ -44,33 +44,40 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, Schematic](s.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Schematic](s.Key)).
+			Exists(ctx, w.tx)
 		if err != nil {
-			return
+			return err
 		}
 	}
 	if err = s.Validate(); err != nil {
-		return
-	}
-	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
-		return
-	}
-	if exists {
-		return
-	}
-	otgID := s.OntologyID()
-	if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
-	if projectKey == uuid.Nil {
-		return nil
+	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
+		return err
 	}
-	return w.otgWriter.DefineRelationships(
-		ctx,
-		project.OntologyID(projectKey),
-		ontology.RelationshipTypeParentOf,
-		otgID,
+	if !exists {
+		otgID := s.OntologyID()
+		if err := w.otgWriter.DefineResources(ctx, otgID); err != nil {
+			return err
+		}
+		if projectKey != uuid.Nil {
+			if err := w.otgWriter.DefineRelationships(
+				ctx,
+				project.OntologyID(projectKey),
+				ontology.RelationshipTypeParentOf,
+				otgID,
+			); err != nil {
+				return err
+			}
+		}
+	}
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, s.Key, "", []Action{NewCreateAction(CreatePayload{Schematic: *s})},
 	)
+	return nil
 }
 
 // CreateMany creates the given schematics within the project provided. If schematics
@@ -88,7 +95,10 @@ func (w Writer) CreateMany(
 	return nil
 }
 
-func (w Writer) findParentProject(ctx context.Context, key Key) (project.Key, bool, error) {
+func (w Writer) findParentProject(
+	ctx context.Context,
+	key Key,
+) (project.Key, bool, error) {
 	var res []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
@@ -190,7 +200,9 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Schematic](keys...)).Exec(ctx, w.tx)
+	err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Schematic](keys...)).
+		Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}

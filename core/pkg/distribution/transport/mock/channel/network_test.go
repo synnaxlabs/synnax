@@ -90,8 +90,15 @@ var _ = Describe("Transport", func() {
 		Expect(received.Renames).To(Equal(map[distchannel.Key]string{7: "renamed"}))
 	})
 
-	It("Should return a target-not-found error for an unbound leaseholder", func(ctx SpecContext) {
-		Expect(client.CreateClient().Send(ctx, "nonexistent", distchannel.CreateMessage{})).
-			Error().To(MatchError(ContainSubstring("not found")))
-	})
+	It(
+		"Should return a target-not-found error for an unbound leaseholder",
+		func(ctx SpecContext) {
+			Expect(
+				client.CreateClient().
+					Send(ctx, "nonexistent", distchannel.CreateMessage{}),
+			).
+				Error().
+				To(MatchError(ContainSubstring("not found")))
+		},
+	)
 })

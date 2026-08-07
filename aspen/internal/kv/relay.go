@@ -55,7 +55,11 @@ func (s *persistSplitter) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				if err := signal.SendUnderContext(ctx, s.Out[0].Inlet(), v); err != nil {
+				if err := signal.SendUnderContext(
+					ctx,
+					s.Out[0].Inlet(),
+					v,
+				); err != nil {
 					return err
 				}
 				select {
@@ -76,7 +80,11 @@ func (s *persistSplitter) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				if err := signal.SendUnderContext(ctx, s.Out[1].Inlet(), v); err != nil {
+				if err := signal.SendUnderContext(
+					ctx,
+					s.Out[1].Inlet(),
+					v,
+				); err != nil {
 					return err
 				}
 			}

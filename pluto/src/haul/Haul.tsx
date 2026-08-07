@@ -65,7 +65,7 @@ export const ZERO_ITEM: Item = { key: "", type: "" };
 export const ZERO_DRAGGING_STATE: DraggingState = { source: ZERO_ITEM, items: [] };
 
 /** The drop target and the items that landed on it. */
-interface DropProps {
+export interface DropProps {
   target: Item;
   dropped: Item[];
 }

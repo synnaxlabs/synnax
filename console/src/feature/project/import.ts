@@ -9,13 +9,18 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import {
+  arc,
   DisconnectedError,
+  lineplot,
+  log,
   type ontology,
   panel,
   project,
+  schematic,
   type Synnax,
+  table,
 } from "@synnaxlabs/client";
-import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
+import { Access, type Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -76,8 +81,9 @@ const ingestComponents = async (
     const { data } = file;
     if (typeof data !== "object" || data == null || !("type" in data)) continue;
     if (typeof data.type !== "string") continue;
-    const ingestFile = fileIngesters[data.type];
-    if (ingestFile == null) continue;
+    // TEMPORARY: a type the Core cannot import fails the whole directory, where it was
+    // skipped before. Server-side project import replaces this loop before release.
+    const ingestFile = fileIngesters[data.type] ?? Import.ingestServer;
     const id = await ingestFile(data, {
       ...ctx,
       name: Import.trimFileName(file.name),
@@ -89,6 +95,17 @@ const ingestComponents = async (
   return remap;
 };
 
+// Visualization layout types found in legacy (layout-slice era) project exports. Their
+// component files are typeless legacy Console states, importable only through the
+// server. Frozen — legacy exports are no longer produced.
+const LEGACY_COMPONENT_TYPES = new Set<string>([
+  arc.TYPE_ONTOLOGY_ID.type,
+  lineplot.TYPE_ONTOLOGY_ID.type,
+  log.TYPE_ONTOLOGY_ID.type,
+  schematic.TYPE_ONTOLOGY_ID.type,
+  table.TYPE_ONTOLOGY_ID.type,
+]);
+
 const ingestLegacy = async (
   legacyData: unknown,
   files: Import.File[],
@@ -97,7 +114,9 @@ const ingestLegacy = async (
 ): Promise<void> => {
   const { layouts } = legacySliceZ.parse(legacyData);
   for (const [key, layout] of Object.entries(layouts)) {
-    const ingestFile = fileIngesters[layout.type];
+    const ingestFile =
+      fileIngesters[layout.type] ??
+      (LEGACY_COMPONENT_TYPES.has(layout.type) ? Import.ingestServer : null);
     if (ingestFile == null) continue;
     const file = files.find(
       (file) =>
@@ -119,9 +138,9 @@ const ingestLegacy = async (
 export const ingest: Import.DirectoryIngester = async (
   name,
   files,
-  { client, fileIngesters, store, fluxStore },
+  { client, fileIngesters, store },
 ) => {
-  if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, store: fluxStore, client }))
+  if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, client }))
     throw new Error("You do not have permission to import projects");
   if (client == null) throw new DisconnectedError();
   const panelsFile = files.find((file) => file.name === PANELS_FILE_NAME);
@@ -132,12 +151,7 @@ export const ingest: Import.DirectoryIngester = async (
   // Create the project first so imported components can be parented to it; its
   // panels are created below once the components' real keys are known.
   await client.projects.create({ key: projectKey, name, layout: {} });
-  const ctx: ComponentContext = {
-    openTab: noopOpenTab,
-    store: fluxStore,
-    client,
-    projectKey,
-  };
+  const ctx: ComponentContext = { openTab: noopOpenTab, client, projectKey };
   if (panelsFile != null) {
     const panels = panel.panelZ.array().parse(panelsFile.data);
     const remap = await ingestComponents(
@@ -165,7 +179,6 @@ export interface IngestContext {
   fileIngesters: Import.FileIngesters;
   openTab: Panel.OpenTab;
   store: Store;
-  fluxStore: Pluto.FluxStore;
 }
 
 export const import_ = ({
@@ -174,7 +187,6 @@ export const import_ = ({
   fileIngesters,
   openTab,
   store,
-  fluxStore,
 }: IngestContext) => {
   let name: string | undefined = "project";
   handleError(async () => {
@@ -187,12 +199,6 @@ export const import_ = ({
         data: JSON.parse(await file.read()),
       })),
     );
-    await ingest(name, fileData, {
-      client,
-      fileIngesters,
-      openTab,
-      store,
-      fluxStore,
-    });
+    await ingest(name, fileData, { client, fileIngesters, openTab, store });
   }, `Failed to import ${name}`);
 };

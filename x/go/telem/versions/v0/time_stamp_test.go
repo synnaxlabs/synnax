@@ -60,11 +60,14 @@ var _ = Describe("TimeStamp", func() {
 	})
 
 	Describe("add", func() {
-		It("Should return a new timestamp with the provided timespan added to it", func() {
-			t0 := v0.TimeStamp(0)
-			t1 := t0.Add(v0.Second)
-			Expect(t1).To(Equal(v0.TimeStamp(1 * v0.Second)))
-		})
+		It(
+			"Should return a new timestamp with the provided timespan added to it",
+			func() {
+				t0 := v0.TimeStamp(0)
+				t1 := t0.Add(v0.Second)
+				Expect(t1).To(Equal(v0.TimeStamp(1 * v0.Second)))
+			},
+		)
 	})
 
 	Describe("SpanRange", func() {
@@ -98,10 +101,13 @@ var _ = Describe("TimeStamp", func() {
 			Expect(span).To(Equal(v0.Second * 15))
 		})
 
-		It("Should work correctly when the arg timestamp is before the original timestamp", func() {
-			span := (v0.SecondTS * 20).Span(v0.SecondTS * 5)
-			Expect(span).To(Equal(-v0.Second * 15))
-		})
+		It(
+			"Should work correctly when the arg timestamp is before the original timestamp",
+			func() {
+				span := (v0.SecondTS * 20).Span(v0.SecondTS * 5)
+				Expect(span).To(Equal(-v0.Second * 15))
+			},
+		)
 	})
 
 	Describe("MarshalJSON", func() {
@@ -124,12 +130,15 @@ var _ = Describe("TimeStamp", func() {
 			Expect(ts).To(Equal(v0.TimeStamp(v0.Second)))
 		})
 
-		It("Should return an error and leave the time stamp untouched on invalid input", func() {
-			ts := v0.TimeStamp(v0.Second)
-			Expect(json.Unmarshal([]byte(`"not-a-number"`), &ts)).To(
-				MatchError(ContainSubstring("invalid syntax")),
-			)
-			Expect(ts).To(Equal(v0.TimeStamp(v0.Second)))
-		})
+		It(
+			"Should return an error and leave the time stamp untouched on invalid input",
+			func() {
+				ts := v0.TimeStamp(v0.Second)
+				Expect(json.Unmarshal([]byte(`"not-a-number"`), &ts)).To(
+					MatchError(ContainSubstring("invalid syntax")),
+				)
+				Expect(ts).To(Equal(v0.TimeStamp(v0.Second)))
+			},
+		)
 	})
 })

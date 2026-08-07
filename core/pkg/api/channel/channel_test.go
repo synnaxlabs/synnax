@@ -31,14 +31,17 @@ func createChannel(ctx SpecContext, dt telem.DataType) channel.Channel {
 
 var _ = Describe("Service", func() {
 	Describe("RetrieveDataTypes", func() {
-		It("Should resolve the data types of the channels in key order", func(ctx SpecContext) {
-			ch1 := createChannel(ctx, telem.Float32T)
-			ch2 := createChannel(ctx, telem.Int64T)
-			ch3 := createChannel(ctx, telem.Uint8T)
-			Expect(apiSvc.RetrieveDataTypes(
-				ctx, channel.Keys{ch1.Key(), ch2.Key(), ch3.Key()},
-			)).To(Equal([]telem.DataType{telem.Float32T, telem.Int64T, telem.Uint8T}))
-		})
+		It(
+			"Should resolve the data types of the channels in key order",
+			func(ctx SpecContext) {
+				ch1 := createChannel(ctx, telem.Float32T)
+				ch2 := createChannel(ctx, telem.Int64T)
+				ch3 := createChannel(ctx, telem.Uint8T)
+				Expect(apiSvc.RetrieveDataTypes(
+					ctx, channel.Keys{ch1.Key(), ch2.Key(), ch3.Key()},
+				)).To(Equal([]telem.DataType{telem.Float32T, telem.Int64T, telem.Uint8T}))
+			},
+		)
 
 		It("Should resolve the data type of a single channel", func(ctx SpecContext) {
 			ch := createChannel(ctx, telem.Float64T)
@@ -46,16 +49,22 @@ var _ = Describe("Service", func() {
 				To(Equal([]telem.DataType{telem.Float64T}))
 		})
 
-		It("Should return an empty slice when no keys are provided", func(ctx SpecContext) {
-			Expect(apiSvc.RetrieveDataTypes(ctx, channel.Keys{})).To(BeEmpty())
-		})
+		It(
+			"Should return an empty slice when no keys are provided",
+			func(ctx SpecContext) {
+				Expect(apiSvc.RetrieveDataTypes(ctx, channel.Keys{})).To(BeEmpty())
+			},
+		)
 
-		It("Should return a not found error when a key does not resolve to a channel", func(ctx SpecContext) {
-			ch := createChannel(ctx, telem.Int32T)
-			Expect(apiSvc.RetrieveDataTypes(
-				ctx, channel.Keys{ch.Key(), channel.Key(999999)},
-			)).Error().To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should return a not found error when a key does not resolve to a channel",
+			func(ctx SpecContext) {
+				ch := createChannel(ctx, telem.Int32T)
+				Expect(apiSvc.RetrieveDataTypes(
+					ctx, channel.Keys{ch.Key(), channel.Key(999999)},
+				)).Error().To(MatchError(query.ErrNotFound))
+			},
+		)
 	})
 
 	Describe("RetrieveName", func() {
@@ -64,8 +73,11 @@ var _ = Describe("Service", func() {
 			Expect(apiSvc.RetrieveName(ctx, ch.Key())).To(Equal(ch.Name))
 		})
 
-		It("Should return an empty string when no channel has the key", func(ctx SpecContext) {
-			Expect(apiSvc.RetrieveName(ctx, channel.Key(999999))).To(BeEmpty())
-		})
+		It(
+			"Should return an empty string when no channel has the key",
+			func(ctx SpecContext) {
+				Expect(apiSvc.RetrieveName(ctx, channel.Key(999999))).To(BeEmpty())
+			},
+		)
 	})
 })

@@ -80,7 +80,8 @@ func (c Channel) String() string {
 func (c Channel) ValidateSeries(series telem.Series) error {
 	sDt := series.DataType
 	cDt := c.DataType
-	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimeStampT) && (cDt == telem.Int64T || cDt == telem.TimeStampT)
+	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimeStampT) &&
+		(cDt == telem.Int64T || cDt == telem.TimeStampT)
 	if cDt != sDt && !isEquivalent {
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -104,8 +105,16 @@ func (c Channel) Validate() error {
 		v.Ternaryf("index", c.Index != 0, "virtual channel cannot be indexed")
 	} else {
 		if c.IsIndex {
-			v.Ternary("data_type", c.DataType != telem.TimeStampT, "index channel must be of type timestamp")
-			v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")
+			v.Ternary(
+				"data_type",
+				c.DataType != telem.TimeStampT,
+				"index channel must be of type timestamp",
+			)
+			v.Ternaryf(
+				"index",
+				c.Index != 0 && c.Index != c.Key,
+				"index channel cannot be indexed by another channel",
+			)
 		} else {
 			v.Ternaryf("index", c.Index == 0, "non-indexed channel must have an index")
 		}

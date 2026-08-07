@@ -45,14 +45,16 @@ func frozenAliasSplit(
 	predDir string,
 	chains *chainResolver,
 ) (set.Set[string], error) {
-	candOwners, candRefs, candSpecs, err := groupDecls(candidate)
+	cand, err := groupDecls(candidate)
 	if err != nil {
 		return nil, errors.Wrap(err, "candidate rendering does not parse")
 	}
-	frozOwners, frozSpecs, err := packageDecls(predDir)
+	froz, err := packageDecls(predDir)
 	if err != nil {
 		return nil, err
 	}
+	candOwners, candRefs, candSpecs := cand.owners, cand.refs, cand.specs
+	frozOwners, frozSpecs := froz.owners, froz.specs
 	chains.canonicalizeAll(candOwners, candSpecs)
 	chains.canonicalizeAll(frozOwners, frozSpecs)
 
@@ -90,7 +92,8 @@ func frozenAliasSplit(
 			}
 			// A frozen decl that is itself a predecessor-chain alias denotes
 			// the definer's type; follow the chain and compare type specs.
-			if !cok || !fok || !chainAliasMatches(o, frozSpecs[o], candSpecs[o], predDir) {
+			if !cok || !fok ||
+				!chainAliasMatches(o, frozSpecs[o], candSpecs[o], predDir) {
 				match = false
 				break
 			}
@@ -111,7 +114,8 @@ func frozenAliasSplit(
 			for _, o := range e.owners {
 				for _, ref := range candRefs[o] {
 					refQualified, local := ownerToQualified[ref]
-					if local && refQualified != e.qualified && !aliased.Contains(refQualified) {
+					if local && refQualified != e.qualified &&
+						!aliased.Contains(refQualified) {
 						aliased.Remove(e.qualified)
 						changed = true
 						break
@@ -177,21 +181,37 @@ func normalizeQualifiers(file *ast.File) {
 	})
 }
 
-// groupDecls parses a Go file with comments stripped and groups its
-// declarations by owner: the declared type for type specs, the first spec's
-// type for const blocks, and the receiver's base type for methods. It returns
-// each owner's printed declarations in order, the identifiers they reference,
-// and each owner's printed type spec alone. Package qualifiers print as full
-// import paths (see normalizeQualifiers).
-func groupDecls(src []byte) (map[string][]string, map[string][]string, map[string]string, error) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "", src, parser.SkipObjectResolution)
+// pkgDecls is the comparable surface of a package: declarations grouped by owning type,
+// the identifiers each owner references, printed type specs, and printed constant
+// values keyed by constant name.
+type pkgDecls struct {
+	owners map[string][]string
+	refs   map[string][]string
+	specs  map[string]string
+	consts map[string]string
+}
+
+// groupDecls parses a Go file with comments stripped and groups its declarations by
+// owner: the declared type for type specs, the first spec's type for const blocks, and
+// the receiver's base type for methods. Package qualifiers print as full import paths
+// (see normalizeQualifiers). Declarations print against an empty file set so source
+// line breaks never influence the text: reformatting a frozen file must not change how
+// its declarations compare.
+func groupDecls(src []byte) (pkgDecls, error) {
+	file, err := parser.ParseFile(
+		token.NewFileSet(),
+		"",
+		src,
+		parser.SkipObjectResolution,
+	)
 	if err != nil {
-		return nil, nil, nil, err
+		return pkgDecls{}, err
 	}
+	fset := token.NewFileSet()
 	normalizeQualifiers(file)
 	grouped := make(map[string][]ast.Decl)
 	typeSpecs := make(map[string]string)
+	constVals := make(map[string]string)
 	addDecl := func(owner string, decl ast.Decl) {
 		if owner == "" {
 			return
@@ -212,12 +232,28 @@ func groupDecls(src []byte) (map[string][]string, map[string][]string, map[strin
 					addDecl(ts.Name.Name, single)
 					var buf bytes.Buffer
 					if err := printer.Fprint(&buf, fset, single); err != nil {
-						return nil, nil, nil, err
+						return pkgDecls{}, err
 					}
 					typeSpecs[ts.Name.Name] = buf.String()
 				}
 			case token.CONST:
 				addDecl(constOwner(d), d)
+				for _, spec := range d.Specs {
+					vs, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+					for i, n := range vs.Names {
+						if i >= len(vs.Values) {
+							continue
+						}
+						var buf bytes.Buffer
+						if err := printer.Fprint(&buf, fset, vs.Values[i]); err != nil {
+							return pkgDecls{}, err
+						}
+						constVals[n.Name] = buf.String()
+					}
+				}
 			}
 		case *ast.FuncDecl:
 			if d.Recv != nil && len(d.Recv.List) > 0 {
@@ -246,13 +282,15 @@ func groupDecls(src []byte) (map[string][]string, map[string][]string, map[strin
 		for _, decl := range decls {
 			var buf bytes.Buffer
 			if err := printer.Fprint(&buf, fset, decl); err != nil {
-				return nil, nil, nil, err
+				return pkgDecls{}, err
 			}
 			contents[owner] = append(contents[owner], buf.String())
 			ast.Inspect(decl, collect)
 		}
 	}
-	return contents, refs, typeSpecs, nil
+	return pkgDecls{
+		owners: contents, refs: refs, specs: typeSpecs, consts: constVals,
+	}, nil
 }
 
 // constOwner returns the type name governing a const block: the first
@@ -287,7 +325,9 @@ func receiverBase(expr ast.Expr) string {
 // chainAliasRe matches a predecessor-chain alias type spec after qualifier
 // normalization: "type X = «…/vN».X", optionally generic. Only aliases into
 // sibling version directories hop; any other target compares as a spec.
-var chainAliasRe = regexp.MustCompile(`^type (\w+)(?:\[[^\]]*\])? = «[^»]*/(v\d+)»\.(\w+)`)
+var chainAliasRe = regexp.MustCompile(
+	`^type (\w+)(?:\[[^\]]*\])? = «[^»]*/(v\d+)»\.(\w+)`,
+)
 
 // chainAliasMatches reports whether the frozen type spec is an alias into a
 // sibling version package whose definition of owner has the same type spec as
@@ -323,11 +363,11 @@ func chainAliasMatches(owner, frozenSpec, candidateSpec, predDir string) bool {
 // packageTypeSpec returns the printed type spec declaring name within the
 // package directory, searching every non-test Go file.
 func packageTypeSpec(dir, name string) (string, bool) {
-	_, specs, err := packageDecls(dir)
+	d, err := packageDecls(dir)
 	if err != nil {
 		return "", false
 	}
-	spec, ok := specs[name]
+	spec, ok := d.specs[name]
 	return spec, ok
 }
 
@@ -348,13 +388,18 @@ func declsSubset(candidate, frozen []string) bool {
 }
 
 // packageDecls merges groupDecls over every non-test Go file in dir.
-func packageDecls(dir string) (map[string][]string, map[string]string, error) {
+func packageDecls(dir string) (pkgDecls, error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "frozen predecessor %s is unreadable", dir)
+		return pkgDecls{}, errors.Wrapf(
+			err, "frozen predecessor %s is unreadable", dir,
+		)
 	}
-	owners := make(map[string][]string)
-	specs := make(map[string]string)
+	out := pkgDecls{
+		owners: make(map[string][]string),
+		specs:  make(map[string]string),
+		consts: make(map[string]string),
+	}
 	for _, f := range files {
 		if f.IsDir() || !strings.HasSuffix(f.Name(), ".go") ||
 			strings.HasSuffix(f.Name(), "_test.go") {
@@ -362,18 +407,23 @@ func packageDecls(dir string) (map[string][]string, map[string]string, error) {
 		}
 		src, err := os.ReadFile(filepath.Join(dir, f.Name()))
 		if err != nil {
-			return nil, nil, err
+			return pkgDecls{}, err
 		}
-		fo, _, fs, err := groupDecls(src)
+		fd, err := groupDecls(src)
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "frozen predecessor %s does not parse", f.Name())
+			return pkgDecls{}, errors.Wrapf(
+				err,
+				"frozen predecessor %s does not parse",
+				f.Name(),
+			)
 		}
-		for o, decls := range fo {
-			owners[o] = append(owners[o], decls...)
+		for o, decls := range fd.owners {
+			out.owners[o] = append(out.owners[o], decls...)
 		}
-		maps.Copy(specs, fs)
+		maps.Copy(out.specs, fd.specs)
+		maps.Copy(out.consts, fd.consts)
 	}
-	return owners, specs, nil
+	return out, nil
 }
 
 // selectorRe matches a qualifier-normalized selector: "«import/path».Name".
@@ -394,14 +444,17 @@ type chainResolver struct {
 	// specs caches packageDecls type specs per parsed directory; nil marks a
 	// directory that failed to read or parse.
 	specs map[string]map[string]string
+	// consts caches packageDecls constant values per parsed directory.
+	consts map[string]map[string]string
 }
 
 // newChainResolver walks repoRoot for go.mod files, building the module map
 // used to resolve import paths back to disk locations.
 func newChainResolver(repoRoot string) *chainResolver {
 	r := &chainResolver{
-		mods:  make(map[string]string),
-		specs: make(map[string]map[string]string),
+		mods:   make(map[string]string),
+		specs:  make(map[string]map[string]string),
+		consts: make(map[string]map[string]string),
 	}
 	_ = filepath.WalkDir(repoRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -440,7 +493,10 @@ func (r *chainResolver) dirFor(importPath string) (string, bool) {
 	if best == "" {
 		return "", false
 	}
-	return filepath.Join(bestDir, strings.TrimPrefix(strings.TrimPrefix(importPath, best), "/")), true
+	return filepath.Join(
+		bestDir,
+		strings.TrimPrefix(strings.TrimPrefix(importPath, best), "/"),
+	), true
 }
 
 // specFor returns the printed type spec declaring name in the package at
@@ -450,22 +506,47 @@ func (r *chainResolver) specFor(importPath, name string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	specs, cached := r.specs[dir]
-	if !cached {
-		if _, s, err := packageDecls(dir); err == nil {
-			specs = s
-		}
-		r.specs[dir] = specs
-	}
-	if specs == nil {
+	r.load(dir)
+	if r.specs[dir] == nil {
 		return "", false
 	}
-	spec, ok := specs[name]
+	spec, ok := r.specs[dir][name]
 	return spec, ok
 }
 
-// canonicalize rewrites every selector in decl to the import path that
-// ultimately defines its name, following same-name alias hops.
+// constFor returns the printed value of the constant named name in the package at
+// importPath.
+func (r *chainResolver) constFor(importPath, name string) (string, bool) {
+	dir, ok := r.dirFor(importPath)
+	if !ok {
+		return "", false
+	}
+	r.load(dir)
+	if r.consts[dir] == nil {
+		return "", false
+	}
+	val, ok := r.consts[dir][name]
+	return val, ok
+}
+
+// load parses dir once, caching its type specs and constant values. A directory that
+// fails to read or parse caches as nil.
+func (r *chainResolver) load(dir string) {
+	if _, cached := r.specs[dir]; cached {
+		return
+	}
+	d, err := packageDecls(dir)
+	if err != nil {
+		r.specs[dir], r.consts[dir] = nil, nil
+		return
+	}
+	r.specs[dir], r.consts[dir] = d.specs, d.consts
+}
+
+// canonicalize rewrites every selector in decl to the import path that ultimately
+// defines its name, following same-name alias hops. A selector naming a constant
+// resolves the whole way to the literal its chain ends in, so a predecessor that
+// re-exports an enum's values compares equal to one that spells them out.
 func (r *chainResolver) canonicalize(decl string) string {
 	return selectorRe.ReplaceAllStringFunc(decl, func(sel string) string {
 		m := selectorRe.FindStringSubmatch(sel)
@@ -482,13 +563,38 @@ func (r *chainResolver) canonicalize(decl string) string {
 			}
 			path = hop[2]
 		}
+		if lit, ok := r.constLiteral(path, name); ok {
+			return lit
+		}
 		return "«" + path + "»." + name
 	})
 }
 
+// constLiteral follows a constant through the re-export chain to the literal it ends
+// in. It reports false when the name is not a constant, or when the chain ends in an
+// expression rather than a bare value.
+func (r *chainResolver) constLiteral(path, name string) (string, bool) {
+	// Version chains are short; the bound only guards against cycles.
+	for range 32 {
+		val, ok := r.constFor(path, name)
+		if !ok {
+			return "", false
+		}
+		m := selectorRe.FindStringSubmatch(val)
+		if m == nil || m[0] != val {
+			return val, true
+		}
+		path, name = m[1], m[2]
+	}
+	return "", false
+}
+
 // canonicalizeAll canonicalizes every printed declaration and type spec in the
 // grouped maps in place.
-func (r *chainResolver) canonicalizeAll(owners map[string][]string, specs map[string]string) {
+func (r *chainResolver) canonicalizeAll(
+	owners map[string][]string,
+	specs map[string]string,
+) {
 	for o, decls := range owners {
 		for i, d := range decls {
 			decls[i] = r.canonicalize(d)

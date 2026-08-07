@@ -79,7 +79,9 @@ var _ = Describe("Color", func() {
 		})
 		It("Should unmarshal from an object", func() {
 			var c v0.Color
-			Expect(json.Unmarshal([]byte(`{"r":255,"g":0,"b":0,"a":1}`), &c)).To(Succeed())
+			Expect(
+				json.Unmarshal([]byte(`{"r":255,"g":0,"b":0,"a":1}`), &c),
+			).To(Succeed())
 			Expect(c.R).To(Equal(uint8(255)))
 			Expect(c.A).To(Equal(1.0))
 		})

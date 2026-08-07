@@ -43,7 +43,8 @@ const (
 	ResourceTypeView            ResourceType = "view"
 )
 
-// IsValid reports whether r is one of the defined ResourceType values.
+// IsValid reports whether r is one of the defined ResourceType
+// values.
 func (r ResourceType) IsValid() bool {
 	switch r {
 	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:

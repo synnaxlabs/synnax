@@ -23,6 +23,7 @@ import platform
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
+from framework.test_case import TestCase
 from tests.driver.task import ReadTaskCase
 
 
@@ -70,10 +71,12 @@ class ReadTaskMigrationVerify(ReadTaskCase):
         if self.tsk is not None:
             self.tsk.stop()
             self.log(f"Task '{self.task_name}' stopped")
-        if hasattr(self, "sims"):
-            for sim in getattr(self, "sims").values():
-                if sim is not None:
-                    sim.stop()
+        for sim in getattr(self, "sims", {}).values():
+            if sim is not None:
+                sim.stop()
+        # Deliberately skip the parent teardown chain: it deletes the task and tracked
+        # hardware, which must survive across migration phases.
+        TestCase.teardown(self)
 
     def test_task_config(self) -> None:
         self.log("Testing: Task config survived migration")

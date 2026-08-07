@@ -28,7 +28,9 @@ type benchService struct {
 
 func (s *benchService) Type() ontology.ResourceType { return "bench" }
 
-func (s *benchService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *benchService) OpenNexter(
+	context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return func(func(ontology.Resource) bool) {}, xio.NopCloser, nil
 }
 
@@ -112,21 +114,24 @@ func BenchmarkSearch(b *testing.B) {
 			{"multi_word", "October Run"},
 			{"underscore_separated", "gse_ai"},
 		} {
-			b.Run(fmt.Sprintf("resources=%d/%s", count, queryType.name), func(b *testing.B) {
-				idx := newBenchIndex(b)
-				if err := idx.IndexResources(makeResources(count)); err != nil {
-					b.Fatal(err)
-				}
-				ctx := context.Background()
-				req := search.Request{Term: queryType.term}
-				b.ReportAllocs()
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					if _, err := idx.Search(ctx, req); err != nil {
+			b.Run(
+				fmt.Sprintf("resources=%d/%s", count, queryType.name),
+				func(b *testing.B) {
+					idx := newBenchIndex(b)
+					if err := idx.IndexResources(makeResources(count)); err != nil {
 						b.Fatal(err)
 					}
-				}
-			})
+					ctx := context.Background()
+					req := search.Request{Term: queryType.term}
+					b.ReportAllocs()
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						if _, err := idx.Search(ctx, req); err != nil {
+							b.Fatal(err)
+						}
+					}
+				},
+			)
 		}
 	}
 }

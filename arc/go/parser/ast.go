@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -54,7 +53,8 @@ func isNegatedLiteral(node antlr.ParserRuleContext) bool {
 	case IPowerExpressionContext:
 		return ctx.CARET() == nil && isNegatedLiteral(ctx.UnaryExpression())
 	case IUnaryExpressionContext:
-		return ctx.MINUS() != nil && ctx.UnaryExpression() != nil && isLiteral(ctx.UnaryExpression())
+		return ctx.MINUS() != nil && ctx.UnaryExpression() != nil &&
+			isLiteral(ctx.UnaryExpression())
 	}
 	return false
 }

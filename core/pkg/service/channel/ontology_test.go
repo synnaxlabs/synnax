@@ -67,15 +67,18 @@ var _ = Describe("Ontology Helpers", func() {
 
 var _ = Describe("Ontology", Ordered, func() {
 	Describe("OntologyID", func() {
-		It("Should correctly return the ontology.ID for the specified channel", func(ctx SpecContext) {
-			ch := &channel.Channel{
-				Name:     UniqueChannelName(),
-				DataType: telem.Int64T,
-				Virtual:  true,
-			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
-			Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
-		})
+		It(
+			"Should correctly return the ontology.ID for the specified channel",
+			func(ctx SpecContext) {
+				ch := &channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
+			},
+		)
 	})
 	Describe("ToPayload", func() {
 		It("Should include operations when the channel has them", func() {

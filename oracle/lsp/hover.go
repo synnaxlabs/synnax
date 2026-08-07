@@ -121,7 +121,10 @@ struct New {
 	"output":     "**output** *\"path\"*\n\nOutput path for generated code.",
 }
 
-func (s *Server) Hover(_ context.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
+func (s *Server) Hover(
+	_ context.Context,
+	params *protocol.HoverParams,
+) (*protocol.Hover, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return nil, nil
@@ -134,7 +137,10 @@ func (s *Server) Hover(_ context.Context, params *protocol.HoverParams) (*protoc
 
 	if docStr, ok := hoverDocs[word]; ok {
 		return &protocol.Hover{
-			Contents: &protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: docStr},
+			Contents: &protocol.MarkupContent{
+				Kind:  protocol.MarkupKindMarkdown,
+				Value: docStr,
+			},
 		}, nil
 	}
 

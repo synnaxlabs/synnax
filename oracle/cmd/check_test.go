@@ -30,13 +30,13 @@ var _ = Describe("oracle check end-to-end", func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
 		})
 		// Bare git repo so paths.RepoRoot resolves.
-		Expect(os.MkdirAll(filepath.Join(repoRoot, ".git"), 0755)).To(Succeed())
-		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, ".git"), 0o755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(repoRoot, "schemas"), 0o755)).To(Succeed())
 	})
 
 	writeSchema := func(name, body string) {
 		path := filepath.Join(repoRoot, "schemas", name+".oracle")
-		Expect(os.WriteFile(path, []byte(body), 0644)).To(Succeed())
+		Expect(os.WriteFile(path, []byte(body), 0o644)).To(Succeed())
 	}
 
 	runOracleCheck := func(args ...string) (string, int) {

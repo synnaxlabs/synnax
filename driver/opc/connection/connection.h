@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// std
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -17,10 +16,8 @@
 #include <unordered_map>
 #include <vector>
 
-/// external
-#include "open62541/client.h"
+#include "open62541/common.h"
 
-/// module
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 

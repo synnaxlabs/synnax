@@ -6,8 +6,8 @@ that are easy to get subtly wrong by hand.
 
 ## Formatting
 
-- `gofmt.sh <path>` — `gofmt -s -e -w` on a path. `check_gofmt.sh <path>` — same, dry
-  run (`gofmt -d`), non-zero exit on diffs. Path is a directory.
+- Go has no repo script: format with `golangci-lint fmt` in the module (dry run:
+  `--diff`), driven by the formatters in the root `.golangci.yaml`.
 - `clang_format.sh <path>` / `clang_format.sh --files <f1> <f2> ...` — formats
   `.cpp`/`.hpp`/`.h`/`.cc` in place, parallelized across cores. Excludes handled by the
   root `.clang-format-ignore`, not this script. `check_clang_format.sh <path>` — dry

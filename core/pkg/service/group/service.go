@@ -80,7 +80,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	return s, nil
 }
 
-func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (Group, error) {
+func (s *Service) CreateOrRetrieve(
+	ctx context.Context,
+	groupName string,
+	parent ontology.ID,
+) (Group, error) {
 	var g Group
 	err := s.NewRetrieve().Entry(&g).Where(MatchNames(groupName)).Exec(ctx, nil)
 	if errors.Skip(err, query.ErrNotFound) != nil {
@@ -197,13 +201,18 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			return !lo.Contains(keyStrings, item.ID.Key)
 		})
 		if len(children) > 0 {
-			return errors.Wrap(validate.ErrValidation, "cannot delete a group with children")
+			return errors.Wrap(
+				validate.ErrValidation,
+				"cannot delete a group with children",
+			)
 		}
 		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}
-	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Group](keys...)).Exec(ctx, w.tx)
+	return w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Group](keys...)).
+		Exec(ctx, w.tx)
 }
 
 // Rename renames the Group with the given key.

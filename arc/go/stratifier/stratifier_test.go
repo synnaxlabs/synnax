@@ -117,14 +117,21 @@ var _ = Describe("Stratify", func() {
 			Expect(stratumOf(root, "source")).To(Equal(0))
 		})
 
-		It("Should keep independent sources in phase 0 together", func(ctx SpecContext) {
-			root := run(ctx, programOf(
-				[]ir.Member{ir.NodeMember("a"), ir.NodeMember("b"), ir.NodeMember("c")},
-				nil,
-			))
-			Expect(root.Strata).To(HaveLen(1))
-			Expect(root.Strata[0]).To(HaveLen(3))
-		})
+		It(
+			"Should keep independent sources in phase 0 together",
+			func(ctx SpecContext) {
+				root := run(ctx, programOf(
+					[]ir.Member{
+						ir.NodeMember("a"),
+						ir.NodeMember("b"),
+						ir.NodeMember("c"),
+					},
+					nil,
+				))
+				Expect(root.Strata).To(HaveLen(1))
+				Expect(root.Strata[0]).To(HaveLen(3))
+			},
+		)
 
 		It("Should chain two dependent nodes across phases", func(ctx SpecContext) {
 			root := run(ctx, programOf(
@@ -135,35 +142,60 @@ var _ = Describe("Stratify", func() {
 			Expect(stratumOf(root, "process")).To(Equal(1))
 		})
 
-		It("Should respect the longest path through a three-link chain", func(ctx SpecContext) {
-			root := run(ctx, programOf(
-				[]ir.Member{ir.NodeMember("a"), ir.NodeMember("b"), ir.NodeMember("c"), ir.NodeMember("d")},
-				[]ir.Edge{edge("a", "b"), edge("b", "c"), edge("c", "d")},
-			))
-			Expect(stratumOf(root, "a")).To(Equal(0))
-			Expect(stratumOf(root, "b")).To(Equal(1))
-			Expect(stratumOf(root, "c")).To(Equal(2))
-			Expect(stratumOf(root, "d")).To(Equal(3))
-		})
+		It(
+			"Should respect the longest path through a three-link chain",
+			func(ctx SpecContext) {
+				root := run(ctx, programOf(
+					[]ir.Member{
+						ir.NodeMember("a"),
+						ir.NodeMember("b"),
+						ir.NodeMember("c"),
+						ir.NodeMember("d"),
+					},
+					[]ir.Edge{edge("a", "b"), edge("b", "c"), edge("c", "d")},
+				))
+				Expect(stratumOf(root, "a")).To(Equal(0))
+				Expect(stratumOf(root, "b")).To(Equal(1))
+				Expect(stratumOf(root, "c")).To(Equal(2))
+				Expect(stratumOf(root, "d")).To(Equal(3))
+			},
+		)
 
-		It("Should fan out from a single source into sibling phase-1 members", func(ctx SpecContext) {
-			root := run(ctx, programOf(
-				[]ir.Member{ir.NodeMember("src"), ir.NodeMember("a"), ir.NodeMember("b")},
-				[]ir.Edge{edge("src", "a"), edge("src", "b")},
-			))
-			Expect(stratumOf(root, "src")).To(Equal(0))
-			Expect(stratumOf(root, "a")).To(Equal(1))
-			Expect(stratumOf(root, "b")).To(Equal(1))
-			Expect(root.Strata[1]).To(HaveLen(2))
-		})
+		It(
+			"Should fan out from a single source into sibling phase-1 members",
+			func(ctx SpecContext) {
+				root := run(ctx, programOf(
+					[]ir.Member{
+						ir.NodeMember("src"),
+						ir.NodeMember("a"),
+						ir.NodeMember("b"),
+					},
+					[]ir.Edge{edge("src", "a"), edge("src", "b")},
+				))
+				Expect(stratumOf(root, "src")).To(Equal(0))
+				Expect(stratumOf(root, "a")).To(Equal(1))
+				Expect(stratumOf(root, "b")).To(Equal(1))
+				Expect(root.Strata[1]).To(HaveLen(2))
+			},
+		)
 
 		It("Should use the longest path in a diamond graph", func(ctx SpecContext) {
 			// a -> b -> d and a -> c -> d: both paths have length 2, so d
 			// lands in phase 2 regardless of how the algorithm schedules the
 			// middle hops.
 			root := run(ctx, programOf(
-				[]ir.Member{ir.NodeMember("a"), ir.NodeMember("b"), ir.NodeMember("c"), ir.NodeMember("d")},
-				[]ir.Edge{edge("a", "b"), edge("a", "c"), edge("b", "d"), edge("c", "d")},
+				[]ir.Member{
+					ir.NodeMember("a"),
+					ir.NodeMember("b"),
+					ir.NodeMember("c"),
+					ir.NodeMember("d"),
+				},
+				[]ir.Edge{
+					edge("a", "b"),
+					edge("a", "c"),
+					edge("b", "d"),
+					edge("c", "d"),
+				},
 			))
 			Expect(stratumOf(root, "a")).To(Equal(0))
 			Expect(stratumOf(root, "b")).To(Equal(1))
@@ -181,16 +213,19 @@ var _ = Describe("Stratify", func() {
 			Expect(stratumOf(root, "c")).To(Equal(1))
 		})
 
-		It("Should ignore dataflow edges whose endpoints fall outside the scope", func(ctx SpecContext) {
-			// Edges reference nodes not in the scope; they must not force
-			// any reordering.
-			root := run(ctx, programOf(
-				[]ir.Member{ir.NodeMember("a"), ir.NodeMember("b")},
-				[]ir.Edge{edge("ghost", "a"), edge("b", "phantom")},
-			))
-			Expect(root.Strata).To(HaveLen(1))
-			Expect(root.Strata[0]).To(HaveLen(2))
-		})
+		It(
+			"Should ignore dataflow edges whose endpoints fall outside the scope",
+			func(ctx SpecContext) {
+				// Edges reference nodes not in the scope; they must not force
+				// any reordering.
+				root := run(ctx, programOf(
+					[]ir.Member{ir.NodeMember("a"), ir.NodeMember("b")},
+					[]ir.Edge{edge("ghost", "a"), edge("b", "phantom")},
+				))
+				Expect(root.Strata).To(HaveLen(1))
+				Expect(root.Strata[0]).To(HaveLen(2))
+			},
+		)
 	})
 
 	Describe("Cycle detection", func() {
@@ -218,248 +253,275 @@ var _ = Describe("Stratify", func() {
 	})
 
 	Describe("Nested scopes", func() {
-		It("Should treat a nested scope as atomic when phasing its parent", func(ctx SpecContext) {
-			// sensor -> gated_stage (containing inner nodes). The stage sits
-			// atomically in phase 1 of the root scope.
-			stage := ir.Scope{
-				Key:      "gated_stage",
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessGated,
-				Strata: []ir.Members{{
-					ir.NodeMember("inner_a"),
-					ir.NodeMember("inner_b"),
-				}},
-			}
-			root := run(ctx, programOf(
-				[]ir.Member{ir.NodeMember("sensor"), ir.ScopeMember(stage)},
-				[]ir.Edge{edge("sensor", "inner_a")},
-			))
-			Expect(stratumOf(root, "sensor")).To(Equal(0))
-			Expect(stratumOf(root, "gated_stage")).To(Equal(1))
-		})
+		It(
+			"Should treat a nested scope as atomic when phasing its parent",
+			func(ctx SpecContext) {
+				// sensor -> gated_stage (containing inner nodes). The stage sits
+				// atomically in phase 1 of the root scope.
+				stage := ir.Scope{
+					Key:      "gated_stage",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Strata: []ir.Members{{
+						ir.NodeMember("inner_a"),
+						ir.NodeMember("inner_b"),
+					}},
+				}
+				root := run(ctx, programOf(
+					[]ir.Member{ir.NodeMember("sensor"), ir.ScopeMember(stage)},
+					[]ir.Edge{edge("sensor", "inner_a")},
+				))
+				Expect(stratumOf(root, "sensor")).To(Equal(0))
+				Expect(stratumOf(root, "gated_stage")).To(Equal(1))
+			},
+		)
 
-		It("Should re-phase a nested parallel scope's members independently", func(ctx SpecContext) {
-			// Inner stage has two dependent nodes; the parent can't see the
-			// inner dependency, but the stratifier recurses.
-			inner := ir.Scope{
-				Key:      "stage",
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessGated,
-				Strata: []ir.Members{{
-					ir.NodeMember("a"),
-					ir.NodeMember("b"),
-				}},
-			}
-			prog := programOf(
-				[]ir.Member{ir.ScopeMember(inner)},
-				[]ir.Edge{edge("a", "b")},
-			)
-			root := run(ctx, prog)
-			stage := root.Strata[0][0].Scope
-			Expect(stage).ToNot(BeNil())
-			Expect(stratumOf(*stage, "a")).To(Equal(0))
-			Expect(stratumOf(*stage, "b")).To(Equal(1))
-		})
+		It(
+			"Should re-phase a nested parallel scope's members independently",
+			func(ctx SpecContext) {
+				// Inner stage has two dependent nodes; the parent can't see the
+				// inner dependency, but the stratifier recurses.
+				inner := ir.Scope{
+					Key:      "stage",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Strata: []ir.Members{{
+						ir.NodeMember("a"),
+						ir.NodeMember("b"),
+					}},
+				}
+				prog := programOf(
+					[]ir.Member{ir.ScopeMember(inner)},
+					[]ir.Edge{edge("a", "b")},
+				)
+				root := run(ctx, prog)
+				stage := root.Strata[0][0].Scope
+				Expect(stage).ToNot(BeNil())
+				Expect(stratumOf(*stage, "a")).To(Equal(0))
+				Expect(stratumOf(*stage, "b")).To(Equal(1))
+			},
+		)
 
-		It("Should leave sequential scopes' member order untouched", func(ctx SpecContext) {
-			// Sequential scopes are ordered by source position, not by
-			// dataflow. The stratifier must not reorder their Members.
-			seq := ir.Scope{
-				Key:      "seq",
-				Mode:     ir.ScopeModeSequential,
-				Liveness: ir.LivenessGated,
-				Steps: ir.Members{
-					ir.NodeMember("step_0"),
-					ir.NodeMember("step_1"),
-					ir.NodeMember("step_2"),
-				},
-			}
-			prog := programOf(
-				[]ir.Member{ir.ScopeMember(seq)},
-				// Edges in reverse order; if stratifier naively tried to
-				// re-phase sequential scopes it would violate source order.
-				[]ir.Edge{edge("step_2", "step_0"), edge("step_1", "step_0")},
-			)
-			root := run(ctx, prog)
-			seqOut := root.Strata[0][0].Scope
-			Expect(seqOut).ToNot(BeNil())
-			Expect(seqOut.Steps).To(HaveLen(3))
-			Expect(seqOut.Steps[0].Key()).To(Equal("step_0"))
-			Expect(seqOut.Steps[1].Key()).To(Equal("step_1"))
-			Expect(seqOut.Steps[2].Key()).To(Equal("step_2"))
-		})
+		It(
+			"Should leave sequential scopes' member order untouched",
+			func(ctx SpecContext) {
+				// Sequential scopes are ordered by source position, not by
+				// dataflow. The stratifier must not reorder their Members.
+				seq := ir.Scope{
+					Key:      "seq",
+					Mode:     ir.ScopeModeSequential,
+					Liveness: ir.LivenessGated,
+					Steps: ir.Members{
+						ir.NodeMember("step_0"),
+						ir.NodeMember("step_1"),
+						ir.NodeMember("step_2"),
+					},
+				}
+				prog := programOf(
+					[]ir.Member{ir.ScopeMember(seq)},
+					// Edges in reverse order; if stratifier naively tried to
+					// re-phase sequential scopes it would violate source order.
+					[]ir.Edge{edge("step_2", "step_0"), edge("step_1", "step_0")},
+				)
+				root := run(ctx, prog)
+				seqOut := root.Strata[0][0].Scope
+				Expect(seqOut).ToNot(BeNil())
+				Expect(seqOut.Steps).To(HaveLen(3))
+				Expect(seqOut.Steps[0].Key()).To(Equal("step_0"))
+				Expect(seqOut.Steps[1].Key()).To(Equal("step_1"))
+				Expect(seqOut.Steps[2].Key()).To(Equal("step_2"))
+			},
+		)
 
-		It("Should recurse into sequential scope's nested parallel children", func(ctx SpecContext) {
-			// seq contains a parallel child whose members have an internal
-			// dependency. The stratifier must descend through the sequence.
-			parallelChild := ir.Scope{
-				Key:      "stage_a",
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessGated,
-				Strata: []ir.Members{{
-					ir.NodeMember("n1"),
-					ir.NodeMember("n2"),
-				}},
-			}
-			seq := ir.Scope{
-				Key:      "seq",
-				Mode:     ir.ScopeModeSequential,
-				Liveness: ir.LivenessGated,
-				Steps:    ir.Members{ir.ScopeMember(parallelChild)},
-			}
-			prog := programOf(
-				[]ir.Member{ir.ScopeMember(seq)},
-				[]ir.Edge{edge("n1", "n2")},
-			)
-			root := run(ctx, prog)
-			stageScope := root.Strata[0][0].Scope.Steps[0].Scope
-			Expect(stageScope).ToNot(BeNil())
-			Expect(stratumOf(*stageScope, "n1")).To(Equal(0))
-			Expect(stratumOf(*stageScope, "n2")).To(Equal(1))
-		})
+		It(
+			"Should recurse into sequential scope's nested parallel children",
+			func(ctx SpecContext) {
+				// seq contains a parallel child whose members have an internal
+				// dependency. The stratifier must descend through the sequence.
+				parallelChild := ir.Scope{
+					Key:      "stage_a",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Strata: []ir.Members{{
+						ir.NodeMember("n1"),
+						ir.NodeMember("n2"),
+					}},
+				}
+				seq := ir.Scope{
+					Key:      "seq",
+					Mode:     ir.ScopeModeSequential,
+					Liveness: ir.LivenessGated,
+					Steps:    ir.Members{ir.ScopeMember(parallelChild)},
+				}
+				prog := programOf(
+					[]ir.Member{ir.ScopeMember(seq)},
+					[]ir.Edge{edge("n1", "n2")},
+				)
+				root := run(ctx, prog)
+				stageScope := root.Strata[0][0].Scope.Steps[0].Scope
+				Expect(stageScope).ToNot(BeNil())
+				Expect(stratumOf(*stageScope, "n1")).To(Equal(0))
+				Expect(stratumOf(*stageScope, "n2")).To(Equal(1))
+			},
+		)
 
-		It("Should project cross-boundary edges onto the outer scope's members", func(ctx SpecContext) {
-			// A root-level sensor feeds a node buried inside a nested scope.
-			// At the outer level, the edge is projected onto the nested
-			// scope as a whole, pushing it into phase 1.
-			inner := ir.Scope{
-				Key:      "inner",
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessGated,
-				Strata: []ir.Members{{
-					ir.NodeMember("deep"),
-				}},
-			}
-			root := run(ctx, programOf(
-				[]ir.Member{ir.NodeMember("sensor"), ir.ScopeMember(inner)},
-				[]ir.Edge{edge("sensor", "deep")},
-			))
-			Expect(stratumOf(root, "sensor")).To(Equal(0))
-			Expect(stratumOf(root, "inner")).To(Equal(1))
-		})
+		It(
+			"Should project cross-boundary edges onto the outer scope's members",
+			func(ctx SpecContext) {
+				// A root-level sensor feeds a node buried inside a nested scope.
+				// At the outer level, the edge is projected onto the nested
+				// scope as a whole, pushing it into phase 1.
+				inner := ir.Scope{
+					Key:      "inner",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Strata: []ir.Members{{
+						ir.NodeMember("deep"),
+					}},
+				}
+				root := run(ctx, programOf(
+					[]ir.Member{ir.NodeMember("sensor"), ir.ScopeMember(inner)},
+					[]ir.Edge{edge("sensor", "deep")},
+				))
+				Expect(stratumOf(root, "sensor")).To(Equal(0))
+				Expect(stratumOf(root, "inner")).To(Equal(1))
+			},
+		)
 	})
 
 	Describe("Re-phasing existing layouts", func() {
-		It("Should discard a pre-existing phase split and rebuild from edges", func(ctx SpecContext) {
-			// The input presents sensor and process already in separate
-			// phases (but swapped); the stratifier should rewrite from the
-			// actual dataflow.
-			prog := ir.IR{
-				Nodes: []ir.Node{{Key: "sensor"}, {Key: "process"}},
-				Edges: []ir.Edge{edge("sensor", "process")},
-				Root: ir.Scope{
-					Mode:     ir.ScopeModeParallel,
-					Liveness: ir.LivenessAlways,
-					Strata: []ir.Members{
-						{ir.NodeMember("process")},
-						{ir.NodeMember("sensor")},
+		It(
+			"Should discard a pre-existing phase split and rebuild from edges",
+			func(ctx SpecContext) {
+				// The input presents sensor and process already in separate
+				// phases (but swapped); the stratifier should rewrite from the
+				// actual dataflow.
+				prog := ir.IR{
+					Nodes: []ir.Node{{Key: "sensor"}, {Key: "process"}},
+					Edges: []ir.Edge{edge("sensor", "process")},
+					Root: ir.Scope{
+						Mode:     ir.ScopeModeParallel,
+						Liveness: ir.LivenessAlways,
+						Strata: []ir.Members{
+							{ir.NodeMember("process")},
+							{ir.NodeMember("sensor")},
+						},
 					},
-				},
-			}
-			root := run(ctx, prog)
-			Expect(stratumOf(root, "sensor")).To(Equal(0))
-			Expect(stratumOf(root, "process")).To(Equal(1))
-		})
+				}
+				root := run(ctx, prog)
+				Expect(stratumOf(root, "sensor")).To(Equal(0))
+				Expect(stratumOf(root, "process")).To(Equal(1))
+			},
+		)
 	})
 
 	Describe("Inline routing synth activation", func() {
-		It("Should bump an inline synth past its non-inline activator", func(ctx SpecContext) {
-			outerHandle := ir.Handle{Node: "outer_select", Param: "true"}
-			synth := ir.Scope{
-				Key:        "__inline_0",
-				Mode:       ir.ScopeModeParallel,
-				Liveness:   ir.LivenessGated,
-				Activation: &outerHandle,
-				Strata:     []ir.Members{{ir.NodeMember("inline_body")}},
-			}
-			main := ir.Scope{
-				Key:      "main",
-				Mode:     ir.ScopeModeSequential,
-				Liveness: ir.LivenessGated,
-				Steps:    ir.Members{ir.NodeMember("outer_select")},
-			}
-			root := run(ctx, programOf(
-				[]ir.Member{ir.ScopeMember(synth), ir.ScopeMember(main)},
-				nil,
-			))
-			Expect(stratumOf(root, "main")).To(Equal(0))
-			Expect(stratumOf(root, "__inline_0")).To(Equal(1))
-		})
+		It(
+			"Should bump an inline synth past its non-inline activator",
+			func(ctx SpecContext) {
+				outerHandle := ir.Handle{Node: "outer_select", Param: "true"}
+				synth := ir.Scope{
+					Key:        "__inline_0",
+					Mode:       ir.ScopeModeParallel,
+					Liveness:   ir.LivenessGated,
+					Activation: &outerHandle,
+					Strata:     []ir.Members{{ir.NodeMember("inline_body")}},
+				}
+				main := ir.Scope{
+					Key:      "main",
+					Mode:     ir.ScopeModeSequential,
+					Liveness: ir.LivenessGated,
+					Steps:    ir.Members{ir.NodeMember("outer_select")},
+				}
+				root := run(ctx, programOf(
+					[]ir.Member{ir.ScopeMember(synth), ir.ScopeMember(main)},
+					nil,
+				))
+				Expect(stratumOf(root, "main")).To(Equal(0))
+				Expect(stratumOf(root, "__inline_0")).To(Equal(1))
+			},
+		)
 
-		It("Should bump a nested inline synth past its outer-inline activator", func(ctx SpecContext) {
-			// When one inline synth activates another, the inner synth must
-			// land one stratum past the outer so it runs after the outer
-			// fires the activation handle in the same cycle.
-			innerHandle := ir.Handle{Node: "inner_select", Param: "true"}
-			outer := ir.Scope{
-				Key:      "__inline_0",
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessGated,
-				Strata:   []ir.Members{{ir.NodeMember("inner_select")}},
-			}
-			inner := ir.Scope{
-				Key:        "__inline_1",
-				Mode:       ir.ScopeModeParallel,
-				Liveness:   ir.LivenessGated,
-				Activation: &innerHandle,
-				Strata:     []ir.Members{{ir.NodeMember("inner_body")}},
-			}
-			root := run(ctx, programOf(
-				[]ir.Member{ir.ScopeMember(inner), ir.ScopeMember(outer)},
-				nil,
-			))
-			Expect(stratumOf(root, "__inline_0")).To(Equal(0))
-			Expect(stratumOf(root, "__inline_1")).To(Equal(1))
-		})
+		It(
+			"Should bump a nested inline synth past its outer-inline activator",
+			func(ctx SpecContext) {
+				// When one inline synth activates another, the inner synth must
+				// land one stratum past the outer so it runs after the outer
+				// fires the activation handle in the same cycle.
+				innerHandle := ir.Handle{Node: "inner_select", Param: "true"}
+				outer := ir.Scope{
+					Key:      "__inline_0",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Strata:   []ir.Members{{ir.NodeMember("inner_select")}},
+				}
+				inner := ir.Scope{
+					Key:        "__inline_1",
+					Mode:       ir.ScopeModeParallel,
+					Liveness:   ir.LivenessGated,
+					Activation: &innerHandle,
+					Strata:     []ir.Members{{ir.NodeMember("inner_body")}},
+				}
+				root := run(ctx, programOf(
+					[]ir.Member{ir.ScopeMember(inner), ir.ScopeMember(outer)},
+					nil,
+				))
+				Expect(stratumOf(root, "__inline_0")).To(Equal(0))
+				Expect(stratumOf(root, "__inline_1")).To(Equal(1))
+			},
+		)
 
-		It("Should chain N-level inline synths across consecutive strata", func(ctx SpecContext) {
-			// A chain of inline synths each activated by the previous level
-			// must land one stratum apart so each inner body runs in the
-			// cycle immediately after its outer activates.
-			h1 := ir.Handle{Node: "select_0", Param: "true"}
-			h2 := ir.Handle{Node: "select_1", Param: "true"}
-			h3 := ir.Handle{Node: "select_2", Param: "true"}
-			s0 := ir.Scope{
-				Key:      "__inline_0",
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessGated,
-				Strata:   []ir.Members{{ir.NodeMember("select_0")}},
-			}
-			s1 := ir.Scope{
-				Key:        "__inline_1",
-				Mode:       ir.ScopeModeParallel,
-				Liveness:   ir.LivenessGated,
-				Activation: &h1,
-				Strata:     []ir.Members{{ir.NodeMember("select_1")}},
-			}
-			s2 := ir.Scope{
-				Key:        "__inline_2",
-				Mode:       ir.ScopeModeParallel,
-				Liveness:   ir.LivenessGated,
-				Activation: &h2,
-				Strata:     []ir.Members{{ir.NodeMember("select_2")}},
-			}
-			s3 := ir.Scope{
-				Key:        "__inline_3",
-				Mode:       ir.ScopeModeParallel,
-				Liveness:   ir.LivenessGated,
-				Activation: &h3,
-				Strata:     []ir.Members{{ir.NodeMember("innermost_body")}},
-			}
-			root := run(ctx, programOf(
-				[]ir.Member{
-					ir.ScopeMember(s3),
-					ir.ScopeMember(s2),
-					ir.ScopeMember(s1),
-					ir.ScopeMember(s0),
-				},
-				nil,
-			))
-			Expect(stratumOf(root, "__inline_0")).To(Equal(0))
-			Expect(stratumOf(root, "__inline_1")).To(Equal(1))
-			Expect(stratumOf(root, "__inline_2")).To(Equal(2))
-			Expect(stratumOf(root, "__inline_3")).To(Equal(3))
-		})
+		It(
+			"Should chain N-level inline synths across consecutive strata",
+			func(ctx SpecContext) {
+				// A chain of inline synths each activated by the previous level
+				// must land one stratum apart so each inner body runs in the
+				// cycle immediately after its outer activates.
+				h1 := ir.Handle{Node: "select_0", Param: "true"}
+				h2 := ir.Handle{Node: "select_1", Param: "true"}
+				h3 := ir.Handle{Node: "select_2", Param: "true"}
+				s0 := ir.Scope{
+					Key:      "__inline_0",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessGated,
+					Strata:   []ir.Members{{ir.NodeMember("select_0")}},
+				}
+				s1 := ir.Scope{
+					Key:        "__inline_1",
+					Mode:       ir.ScopeModeParallel,
+					Liveness:   ir.LivenessGated,
+					Activation: &h1,
+					Strata:     []ir.Members{{ir.NodeMember("select_1")}},
+				}
+				s2 := ir.Scope{
+					Key:        "__inline_2",
+					Mode:       ir.ScopeModeParallel,
+					Liveness:   ir.LivenessGated,
+					Activation: &h2,
+					Strata:     []ir.Members{{ir.NodeMember("select_2")}},
+				}
+				s3 := ir.Scope{
+					Key:        "__inline_3",
+					Mode:       ir.ScopeModeParallel,
+					Liveness:   ir.LivenessGated,
+					Activation: &h3,
+					Strata:     []ir.Members{{ir.NodeMember("innermost_body")}},
+				}
+				root := run(ctx, programOf(
+					[]ir.Member{
+						ir.ScopeMember(s3),
+						ir.ScopeMember(s2),
+						ir.ScopeMember(s1),
+						ir.ScopeMember(s0),
+					},
+					nil,
+				))
+				Expect(stratumOf(root, "__inline_0")).To(Equal(0))
+				Expect(stratumOf(root, "__inline_1")).To(Equal(1))
+				Expect(stratumOf(root, "__inline_2")).To(Equal(2))
+				Expect(stratumOf(root, "__inline_3")).To(Equal(3))
+			},
+		)
 	})
 })
 
@@ -478,26 +540,36 @@ var _ = Describe("Constant dispatch floor", func() {
 	}
 	typed := func(key, typ string) ir.Node { return ir.Node{Key: key, Type: typ} }
 
-	It("Should floor an edge-fed constant behind its variable source", func(ctx SpecContext) {
-		root := run(ctx, typedProgram(
-			[]ir.Node{typed("v", "variable"), typed("c", "constant"), typed("w", "")},
-			[]ir.Member{ir.NodeMember("v"), ir.NodeMember("c"), ir.NodeMember("w")},
-			[]ir.Edge{edge("v", "c"), edge("c", "w")},
-		))
-		Expect(stratumOf(root, "v")).To(Equal(0))
-		Expect(stratumOf(root, "c")).To(Equal(1))
-		Expect(stratumOf(root, "w")).To(Equal(2))
-	})
+	It(
+		"Should floor an edge-fed constant behind its variable source",
+		func(ctx SpecContext) {
+			root := run(ctx, typedProgram(
+				[]ir.Node{
+					typed("v", "variable"),
+					typed("c", "constant"),
+					typed("w", ""),
+				},
+				[]ir.Member{ir.NodeMember("v"), ir.NodeMember("c"), ir.NodeMember("w")},
+				[]ir.Edge{edge("v", "c"), edge("c", "w")},
+			))
+			Expect(stratumOf(root, "v")).To(Equal(0))
+			Expect(stratumOf(root, "c")).To(Equal(1))
+			Expect(stratumOf(root, "w")).To(Equal(2))
+		},
+	)
 
-	It("Should floor an edge-fed constant behind a stateful variable", func(ctx SpecContext) {
-		root := run(ctx, typedProgram(
-			[]ir.Node{typed("sv", "stateful_variable"), typed("c", "constant")},
-			[]ir.Member{ir.NodeMember("sv"), ir.NodeMember("c")},
-			[]ir.Edge{edge("sv", "c")},
-		))
-		Expect(stratumOf(root, "sv")).To(Equal(0))
-		Expect(stratumOf(root, "c")).To(Equal(1))
-	})
+	It(
+		"Should floor an edge-fed constant behind a stateful variable",
+		func(ctx SpecContext) {
+			root := run(ctx, typedProgram(
+				[]ir.Node{typed("sv", "stateful_variable"), typed("c", "constant")},
+				[]ir.Member{ir.NodeMember("sv"), ir.NodeMember("c")},
+				[]ir.Edge{edge("sv", "c")},
+			))
+			Expect(stratumOf(root, "sv")).To(Equal(0))
+			Expect(stratumOf(root, "c")).To(Equal(1))
+		},
+	)
 
 	It("Should keep an entry constant in stratum zero", func(ctx SpecContext) {
 		root := run(ctx, typedProgram(
@@ -528,68 +600,81 @@ var _ = Describe("Constant dispatch floor", func() {
 		Expect(stratumOf(root, "v")).To(Equal(0))
 	})
 
-	It("Should not report a cycle for read-write feedback through a variable", func(ctx SpecContext) {
-		root := run(ctx, typedProgram(
-			[]ir.Node{typed("v", "variable"), typed("c", "constant")},
-			[]ir.Member{ir.NodeMember("v"), ir.NodeMember("c")},
-			[]ir.Edge{edge("v", "c"), edge("c", "v")},
-		))
-		Expect(stratumOf(root, "c")).To(Equal(1))
-	})
+	It(
+		"Should not report a cycle for read-write feedback through a variable",
+		func(ctx SpecContext) {
+			root := run(ctx, typedProgram(
+				[]ir.Node{typed("v", "variable"), typed("c", "constant")},
+				[]ir.Member{ir.NodeMember("v"), ir.NodeMember("c")},
+				[]ir.Edge{edge("v", "c"), edge("c", "v")},
+			))
+			Expect(stratumOf(root, "c")).To(Equal(1))
+		},
+	)
 
-	It("Should floor a constant fed by a variable across a scope boundary", func(ctx SpecContext) {
-		stage := ir.Scope{
-			Key:      "stage",
-			Mode:     ir.ScopeModeParallel,
-			Liveness: ir.LivenessGated,
-			Strata: []ir.Members{{
-				ir.NodeMember("c"),
-				ir.NodeMember("w"),
-			}},
-		}
-		root := run(ctx, typedProgram(
-			[]ir.Node{typed("v", "variable"), typed("c", "constant"), typed("w", "")},
-			[]ir.Member{ir.NodeMember("v"), ir.ScopeMember(stage)},
-			[]ir.Edge{edge("v", "c"), edge("c", "w")},
-		))
-		inner := stratumOf(root, "stage")
-		Expect(inner).To(BeNumerically(">=", 0))
-		var stageScope *ir.Scope
-		for _, stratum := range root.Strata {
-			for _, m := range stratum {
-				if m.Scope != nil {
-					stageScope = m.Scope
+	It(
+		"Should floor a constant fed by a variable across a scope boundary",
+		func(ctx SpecContext) {
+			stage := ir.Scope{
+				Key:      "stage",
+				Mode:     ir.ScopeModeParallel,
+				Liveness: ir.LivenessGated,
+				Strata: []ir.Members{{
+					ir.NodeMember("c"),
+					ir.NodeMember("w"),
+				}},
+			}
+			root := run(ctx, typedProgram(
+				[]ir.Node{
+					typed("v", "variable"),
+					typed("c", "constant"),
+					typed("w", ""),
+				},
+				[]ir.Member{ir.NodeMember("v"), ir.ScopeMember(stage)},
+				[]ir.Edge{edge("v", "c"), edge("c", "w")},
+			))
+			inner := stratumOf(root, "stage")
+			Expect(inner).To(BeNumerically(">=", 0))
+			var stageScope *ir.Scope
+			for _, stratum := range root.Strata {
+				for _, m := range stratum {
+					if m.Scope != nil {
+						stageScope = m.Scope
+					}
 				}
 			}
-		}
-		Expect(stageScope).ToNot(BeNil())
-		Expect(stratumOf(*stageScope, "c")).To(Equal(1))
-		Expect(stratumOf(*stageScope, "w")).To(Equal(2))
-	})
+			Expect(stageScope).ToNot(BeNil())
+			Expect(stratumOf(*stageScope, "c")).To(Equal(1))
+			Expect(stratumOf(*stageScope, "w")).To(Equal(2))
+		},
+	)
 
-	It("Should floor a constant fed by a timer across a scope boundary", func(ctx SpecContext) {
-		stage := ir.Scope{
-			Key:      "stage",
-			Mode:     ir.ScopeModeParallel,
-			Liveness: ir.LivenessGated,
-			Strata:   []ir.Members{{ir.NodeMember("c")}},
-		}
-		root := run(ctx, typedProgram(
-			[]ir.Node{typed("timer", ""), typed("c", "constant")},
-			[]ir.Member{ir.NodeMember("timer"), ir.ScopeMember(stage)},
-			[]ir.Edge{edge("timer", "c")},
-		))
-		var stageScope *ir.Scope
-		for _, stratum := range root.Strata {
-			for _, m := range stratum {
-				if m.Scope != nil {
-					stageScope = m.Scope
+	It(
+		"Should floor a constant fed by a timer across a scope boundary",
+		func(ctx SpecContext) {
+			stage := ir.Scope{
+				Key:      "stage",
+				Mode:     ir.ScopeModeParallel,
+				Liveness: ir.LivenessGated,
+				Strata:   []ir.Members{{ir.NodeMember("c")}},
+			}
+			root := run(ctx, typedProgram(
+				[]ir.Node{typed("timer", ""), typed("c", "constant")},
+				[]ir.Member{ir.NodeMember("timer"), ir.ScopeMember(stage)},
+				[]ir.Edge{edge("timer", "c")},
+			))
+			var stageScope *ir.Scope
+			for _, stratum := range root.Strata {
+				for _, m := range stratum {
+					if m.Scope != nil {
+						stageScope = m.Scope
+					}
 				}
 			}
-		}
-		Expect(stageScope).ToNot(BeNil())
-		Expect(stratumOf(*stageScope, "c")).To(Equal(1))
-	})
+			Expect(stageScope).ToNot(BeNil())
+			Expect(stratumOf(*stageScope, "c")).To(Equal(1))
+		},
+	)
 
 	It("Should stack same-scope ordering on top of the floor", func(ctx SpecContext) {
 		root := run(ctx, typedProgram(

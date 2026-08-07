@@ -79,7 +79,7 @@ type freeWriter struct {
 	freeWrites confluence.Inlet[relay.Response]
 	// mode is the mode of the writer.
 	mode Mode
-	// sync is true if the writer should receive acknowledgements for all requests,
+	// sync is true if the writer should receive acknowledgments for all requests,
 	// including Write commands.
 	sync bool
 	// group is the writer group identifier, used for server-side deduplication.
@@ -113,14 +113,21 @@ func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
 	return fr
 }
 
-func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, ok bool, err error) {
+func (w *freeWriter) transform(
+	ctx context.Context,
+	req Request,
+) (res Response, ok bool, err error) {
 	if req.Command == CommandWrite && w.mode.Stream() {
 		if err = signal.SendUnderContext(
 			ctx, w.freeWrites.Inlet(),
 			relay.Response{Frame: w.alignFrame(req.Frame), Group: w.group},
 		); err != nil || !w.sync {
-			return
+			return res, ok, err
 		}
 	}
-	return Response{Command: req.Command, SeqNum: req.SeqNum, Authorized: true}, true, nil
+	return Response{
+		Command:    req.Command,
+		SeqNum:     req.SeqNum,
+		Authorized: true,
+	}, true, nil
 }

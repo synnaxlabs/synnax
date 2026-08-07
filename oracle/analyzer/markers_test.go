@@ -46,8 +46,10 @@ var _ = Describe("Create and Output markers", func() {
 		Expect(name.Domains).NotTo(HaveKey("output"))
 	})
 
-	It("Should synthesize a derived New type for @create, omitting @output fields", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should synthesize a derived New type for @create, omitting @output fields",
+		func(ctx SpecContext) {
+			source := `
 			Thing struct {
 				key    uuid @key
 				name   string
@@ -55,26 +57,27 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
-		Expect(diag.Ok()).To(BeTrue())
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
 
-		newType, ok := table.Get("x.New")
-		Expect(ok).To(BeTrue())
+			newType, ok := table.Get("x.New")
+			Expect(ok).To(BeTrue())
 
-		form := newType.Form.(resolution.StructForm)
-		Expect(form.Extends).To(HaveLen(1))
-		Expect(form.Extends[0].Name).To(Equal("x.Thing"))
-		resolved, resolvedOK := form.Extends[0].Resolve(table)
-		Expect(resolvedOK).To(BeTrue())
-		Expect(resolved.Name).To(Equal("Thing"))
-		Expect(form.OmittedFields).To(ContainElement("author"))
-		Expect(newType.Domains).To(HaveKey("ts"))
-		Expect(newType.Domains).To(HaveKey("go"))
-		py, ok := newType.Domains["py"]
-		Expect(ok).To(BeTrue())
-		Expect(py.Expressions).To(HaveLen(1))
-		Expect(py.Expressions[0].Name).To(Equal("omit"))
-	})
+			form := newType.Form.(resolution.StructForm)
+			Expect(form.Extends).To(HaveLen(1))
+			Expect(form.Extends[0].Name).To(Equal("x.Thing"))
+			resolved, resolvedOK := form.Extends[0].Resolve(table)
+			Expect(resolvedOK).To(BeTrue())
+			Expect(resolved.Name).To(Equal("Thing"))
+			Expect(form.OmittedFields).To(ContainElement("author"))
+			Expect(newType.Domains).To(HaveKey("ts"))
+			Expect(newType.Domains).To(HaveKey("go"))
+			py, ok := newType.Domains["py"]
+			Expect(ok).To(BeTrue())
+			Expect(py.Expressions).To(HaveLen(1))
+			Expect(py.Expressions[0].Name).To(Equal("omit"))
+		},
+	)
 
 	It("Should not synthesize a New when one is hand-written", func(ctx SpecContext) {
 		source := `
@@ -96,8 +99,10 @@ var _ = Describe("Create and Output markers", func() {
 		Expect(ok).To(BeTrue())
 	})
 
-	It("Should synthesize a New<Name> projection for a @create union", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should synthesize a New<Name> projection for a @create union",
+		func(ctx SpecContext) {
+			source := `
 			TabBase struct {
 				key uuid = create { @key }
 			}
@@ -111,23 +116,26 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
-		Expect(diag.Ok()).To(BeTrue())
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
 
-		newTab, ok := table.Get("x.NewTab")
-		Expect(ok).To(BeTrue())
-		form := newTab.Form.(resolution.StructForm)
-		Expect(form.Extends).To(HaveLen(1))
-		Expect(form.Extends[0].Name).To(Equal("x.Tab"))
-		Expect(newTab.Domains).To(HaveKey("ts"))
-		py, ok := newTab.Domains["py"]
-		Expect(ok).To(BeTrue())
-		Expect(py.Expressions).To(HaveLen(1))
-		Expect(py.Expressions[0].Name).To(Equal("omit"))
-	})
+			newTab, ok := table.Get("x.NewTab")
+			Expect(ok).To(BeTrue())
+			form := newTab.Form.(resolution.StructForm)
+			Expect(form.Extends).To(HaveLen(1))
+			Expect(form.Extends[0].Name).To(Equal("x.Tab"))
+			Expect(newTab.Domains).To(HaveKey("ts"))
+			py, ok := newTab.Domains["py"]
+			Expect(ok).To(BeTrue())
+			Expect(py.Expressions).To(HaveLen(1))
+			Expect(py.Expressions[0].Name).To(Equal("omit"))
+		},
+	)
 
-	It("Should synthesize both a struct New and a union New<Name> in one namespace", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should synthesize both a struct New and a union New<Name> in one namespace",
+		func(ctx SpecContext) {
+			source := `
 			Panel struct {
 				key uuid @key
 				name string
@@ -146,16 +154,19 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
-		Expect(diag.Ok()).To(BeTrue())
-		_, ok := table.Get("x.New")
-		Expect(ok).To(BeTrue())
-		_, ok = table.Get("x.NewTab")
-		Expect(ok).To(BeTrue())
-	})
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			_, ok := table.Get("x.New")
+			Expect(ok).To(BeTrue())
+			_, ok = table.Get("x.NewTab")
+			Expect(ok).To(BeTrue())
+		},
+	)
 
-	It("Should synthesize a single New when a namespace has two @create structs", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should synthesize a single New when a namespace has two @create structs",
+		func(ctx SpecContext) {
+			source := `
 			First struct {
 				key  uuid @key
 				name string
@@ -167,14 +178,15 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-		// Both structs would target x.New; only one may be synthesized, otherwise
-		// the second table.Add collides and fails analysis.
-		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
-		Expect(diag.Ok()).To(BeTrue())
-		newType, ok := table.Get("x.New")
-		Expect(ok).To(BeTrue())
-		form := newType.Form.(resolution.StructForm)
-		Expect(form.Extends).To(HaveLen(1))
-		Expect(form.Extends[0].Name).To(BeElementOf("x.First", "x.Second"))
-	})
+			// Both structs would target x.New; only one may be synthesized, otherwise
+			// the second table.Add collides and fails analysis.
+			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			newType, ok := table.Get("x.New")
+			Expect(ok).To(BeTrue())
+			form := newType.Form.(resolution.StructForm)
+			Expect(form.Extends).To(HaveLen(1))
+			Expect(form.Extends[0].Name).To(BeElementOf("x.First", "x.Second"))
+		},
+	)
 })

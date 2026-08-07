@@ -156,7 +156,12 @@ func (h *runtimeHarness) Ingest(channelKey uint32, data telem.Series) {
 	h.channelState.Ingest(fr)
 }
 
-func (h *runtimeHarness) IngestIndexed(indexKey uint32, timestamps telem.Series, dataKey uint32, data telem.Series) {
+func (h *runtimeHarness) IngestIndexed(
+	indexKey uint32,
+	timestamps telem.Series,
+	dataKey uint32,
+	data telem.Series,
+) {
 	timestamps.Alignment = h.alignment
 	data.Alignment = h.alignment
 	h.alignment += telem.Alignment(data.Len())

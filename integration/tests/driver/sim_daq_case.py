@@ -41,7 +41,7 @@ class SimDaqCase(TestCase):
         sim_daq_class: SimDAQ subclass to instantiate
     """
 
-    sim_daq_class: type[SimDAQ] | None
+    sim_daq_class: type[SimDAQ] | None = None
     sim_daq: SimDAQ | None
 
     def __init__(
@@ -53,7 +53,7 @@ class SimDaqCase(TestCase):
     ) -> None:
         super().__init__(synnax_connection, name=name, **params)
         # Not all test cases need a simulator (e.g. edge_cases).
-        sim_cls = getattr(self, "sim_daq_class", None)
+        sim_cls = self.sim_daq_class
         if sim_cls is not None:
             self.sim_daq = sim_cls(self.client)
             self.sim_daq.start()

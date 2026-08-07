@@ -54,15 +54,18 @@ var _ = Describe("AnalyzeGate", func() {
 		Expect(report.Findings[0].Severity).To(Equal(check.SeverityWarning))
 	})
 
-	It("promotes warnings to errors when WarningsAsErrors is set", func(ctx SpecContext) {
-		r := &pipeline.Result{Diagnostics: fileDiag(diagnostics.Diagnostic{
-			Severity: protocol.DiagnosticSeverityWarning,
-			Message:  "soft",
-		})}
-		report := check.NewAnalyzeGate(true).Run(ctx, r, check.Env{})
-		Expect(report.Status).To(Equal(check.StatusFail))
-		Expect(report.Findings[0].Severity).To(Equal(check.SeverityError))
-	})
+	It(
+		"promotes warnings to errors when WarningsAsErrors is set",
+		func(ctx SpecContext) {
+			r := &pipeline.Result{Diagnostics: fileDiag(diagnostics.Diagnostic{
+				Severity: protocol.DiagnosticSeverityWarning,
+				Message:  "soft",
+			})}
+			report := check.NewAnalyzeGate(true).Run(ctx, r, check.Env{})
+			Expect(report.Status).To(Equal(check.StatusFail))
+			Expect(report.Findings[0].Severity).To(Equal(check.SeverityError))
+		},
+	)
 
 	It("includes hint from notes when present", func(ctx SpecContext) {
 		r := &pipeline.Result{Diagnostics: fileDiag(diagnostics.Diagnostic{

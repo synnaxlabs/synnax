@@ -77,30 +77,33 @@ var _ = Describe("Channel", func() {
 	})
 
 	Describe("Distribution", func() {
-		It("Should return the distribution-layer representation of the channel", func() {
-			ch := v0.Channel{
-				Name:        "temp",
-				Leaseholder: 1,
-				DataType:    telem.Float32T,
-				IsIndex:     true,
-				LocalKey:    2,
-				LocalIndex:  3,
-				Virtual:     true,
-				Concurrency: control.ConcurrencyShared,
-				Internal:    true,
-				Expression:  "a + b",
-			}
-			Expect(ch.Distribution()).To(Equal(channel.Channel{
-				Name:        "temp",
-				Leaseholder: 1,
-				DataType:    telem.Float32T,
-				IsIndex:     true,
-				LocalKey:    2,
-				LocalIndex:  3,
-				Virtual:     true,
-				Concurrency: control.ConcurrencyShared,
-			}))
-		})
+		It(
+			"Should return the distribution-layer representation of the channel",
+			func() {
+				ch := v0.Channel{
+					Name:        "temp",
+					Leaseholder: 1,
+					DataType:    telem.Float32T,
+					IsIndex:     true,
+					LocalKey:    2,
+					LocalIndex:  3,
+					Virtual:     true,
+					Concurrency: control.ConcurrencyShared,
+					Internal:    true,
+					Expression:  "a + b",
+				}
+				Expect(ch.Distribution()).To(Equal(channel.Channel{
+					Name:        "temp",
+					Leaseholder: 1,
+					DataType:    telem.Float32T,
+					IsIndex:     true,
+					LocalKey:    2,
+					LocalIndex:  3,
+					Virtual:     true,
+					Concurrency: control.ConcurrencyShared,
+				}))
+			},
+		)
 	})
 
 	Describe("Equals", func() {
@@ -109,9 +112,11 @@ var _ = Describe("Channel", func() {
 			c2 := v0.Channel{Leaseholder: 1, LocalKey: 1}
 			Expect(c1.Equals(c2)).To(BeTrue())
 		})
-		DescribeTable("Should ignore excluded fields", func(c1, c2 v0.Channel, exclude ...string) {
-			Expect(c1.Equals(c2, exclude...)).To(BeTrue())
-		},
+		DescribeTable(
+			"Should ignore excluded fields",
+			func(c1, c2 v0.Channel, exclude ...string) {
+				Expect(c1.Equals(c2, exclude...)).To(BeTrue())
+			},
 			Entry(
 				"Names",
 				v0.Channel{Name: "name1", LocalKey: 1},
@@ -163,9 +168,11 @@ var _ = Describe("Channel", func() {
 				"Operations",
 			),
 		)
-		DescribeTable("Should report inequality", func(c1, c2 v0.Channel, exclude ...string) {
-			Expect(c1.Equals(c2, exclude...)).To(BeFalse())
-		},
+		DescribeTable(
+			"Should report inequality",
+			func(c1, c2 v0.Channel, exclude ...string) {
+				Expect(c1.Equals(c2, exclude...)).To(BeFalse())
+			},
 			Entry(
 				"By LocalIndex",
 				v0.Channel{Leaseholder: 1, LocalKey: 1, LocalIndex: 1},
@@ -283,7 +290,9 @@ var _ = Describe("Channel", func() {
 			data := MustSucceed(msgpack.Marshal(map[string]any{"node_id": "abc"}))
 			var c v0.Channel
 			Expect(msgpack.Unmarshal(data, &c)).To(
-				MatchError(ContainSubstring("failed to decode legacy node_id from msgpack")),
+				MatchError(
+					ContainSubstring("failed to decode legacy node_id from msgpack"),
+				),
 			)
 		})
 	})
@@ -347,7 +356,9 @@ var _ = Describe("Operation", func() {
 			data := MustSucceed(msgpack.Marshal(map[string]any{"ResetChannel": "abc"}))
 			var o v0.Operation
 			Expect(msgpack.Unmarshal(data, &o)).To(
-				MatchError(ContainSubstring("failed to decode legacy operation from msgpack")),
+				MatchError(
+					ContainSubstring("failed to decode legacy operation from msgpack"),
+				),
 			)
 		})
 	})

@@ -29,8 +29,12 @@ var _ = Describe("Types", func() {
 		})
 
 		It("Should compare chan types recursively", func() {
-			Expect(types.Equal(types.Chan(types.I32()), types.Chan(types.I32()))).To(BeTrue())
-			Expect(types.Equal(types.Chan(types.I32()), types.Chan(types.I64()))).To(BeFalse())
+			Expect(
+				types.Equal(types.Chan(types.I32()), types.Chan(types.I32())),
+			).To(BeTrue())
+			Expect(
+				types.Equal(types.Chan(types.I32()), types.Chan(types.I64())),
+			).To(BeFalse())
 		})
 
 		It("Should handle chan types with nil Elem", func() {
@@ -44,8 +48,12 @@ var _ = Describe("Types", func() {
 		})
 
 		It("Should compare series types recursively", func() {
-			Expect(types.Equal(types.Series(types.F64()), types.Series(types.F64()))).To(BeTrue())
-			Expect(types.Equal(types.Series(types.F32()), types.Series(types.F64()))).To(BeFalse())
+			Expect(
+				types.Equal(types.Series(types.F64()), types.Series(types.F64())),
+			).To(BeTrue())
+			Expect(
+				types.Equal(types.Series(types.F32()), types.Series(types.F64())),
+			).To(BeFalse())
 		})
 
 		It("Should handle series types with nil Elem", func() {
@@ -90,7 +98,9 @@ var _ = Describe("Types", func() {
 				Inputs:  types.Params{{Name: "x", Type: types.I32()}},
 				Outputs: types.Params{{Name: "y", Type: types.I32()}},
 			}
-			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeTrue())
+			Expect(
+				types.Equal(types.Function(props1), types.Function(props2)),
+			).To(BeTrue())
 		})
 
 		It("Should return false for function types with different inputs", func() {
@@ -100,7 +110,9 @@ var _ = Describe("Types", func() {
 			props2 := types.FunctionProperties{
 				Inputs: types.Params{{Name: "y", Type: types.I32()}},
 			}
-			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
+			Expect(
+				types.Equal(types.Function(props1), types.Function(props2)),
+			).To(BeFalse())
 		})
 
 		It("Should return false for function types with different input types", func() {
@@ -110,21 +122,28 @@ var _ = Describe("Types", func() {
 			props2 := types.FunctionProperties{
 				Inputs: types.Params{{Name: "x", Type: types.F64()}},
 			}
-			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
+			Expect(
+				types.Equal(types.Function(props1), types.Function(props2)),
+			).To(BeFalse())
 		})
 
-		It("Should return false for function types with different input counts", func() {
-			props1 := types.FunctionProperties{
-				Inputs: types.Params{
-					{Name: "x", Type: types.I32()},
-					{Name: "y", Type: types.I32()},
-				},
-			}
-			props2 := types.FunctionProperties{
-				Inputs: types.Params{{Name: "x", Type: types.I32()}},
-			}
-			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
-		})
+		It(
+			"Should return false for function types with different input counts",
+			func() {
+				props1 := types.FunctionProperties{
+					Inputs: types.Params{
+						{Name: "x", Type: types.I32()},
+						{Name: "y", Type: types.I32()},
+					},
+				}
+				props2 := types.FunctionProperties{
+					Inputs: types.Params{{Name: "x", Type: types.I32()}},
+				}
+				Expect(
+					types.Equal(types.Function(props1), types.Function(props2)),
+				).To(BeFalse())
+			},
+		)
 
 		It("Should return false for function types with different outputs", func() {
 			props1 := types.FunctionProperties{
@@ -133,7 +152,9 @@ var _ = Describe("Types", func() {
 			props2 := types.FunctionProperties{
 				Outputs: types.Params{{Name: "result", Type: types.F64()}},
 			}
-			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
+			Expect(
+				types.Equal(types.Function(props1), types.Function(props2)),
+			).To(BeFalse())
 		})
 	})
 
@@ -180,22 +201,31 @@ var _ = Describe("Types", func() {
 			result := types.FromTelem(telem.UnknownT)
 			Expect(result.Kind).To(Equal(types.KindInvalid))
 		})
-
 	})
 
 	Describe("StructuralMatch", func() {
-		DescribeTable("Should match types with same structure",
+		DescribeTable(
+			"Should match types with same structure",
 			func(t1, t2 types.Type) {
 				Expect(types.StructuralMatch(t1, t2)).To(BeTrue())
 			},
 			Entry("scalar to scalar", types.I32(), types.F64()),
-			Entry("series to series", types.Series(types.I32()), types.Series(types.F64())),
-			Entry("channel to channel", types.Chan(types.I32()), types.Chan(types.F64())),
+			Entry(
+				"series to series",
+				types.Series(types.I32()),
+				types.Series(types.F64()),
+			),
+			Entry(
+				"channel to channel",
+				types.Chan(types.I32()),
+				types.Chan(types.F64()),
+			),
 			Entry("string to int", types.String(), types.I32()),
 			Entry("type variable to scalar", types.Variable("T", nil), types.I32()),
 		)
 
-		DescribeTable("Should not match types with different structure",
+		DescribeTable(
+			"Should not match types with different structure",
 			func(t1, t2 types.Type) {
 				Expect(types.StructuralMatch(t1, t2)).To(BeFalse())
 			},
@@ -203,8 +233,16 @@ var _ = Describe("Types", func() {
 			Entry("series to scalar", types.Series(types.I32()), types.I32()),
 			Entry("scalar to channel", types.I32(), types.Chan(types.I32())),
 			Entry("channel to scalar", types.Chan(types.I32()), types.I32()),
-			Entry("series to channel", types.Series(types.I32()), types.Chan(types.I32())),
-			Entry("channel to series", types.Chan(types.I32()), types.Series(types.I32())),
+			Entry(
+				"series to channel",
+				types.Series(types.I32()),
+				types.Chan(types.I32()),
+			),
+			Entry(
+				"channel to series",
+				types.Chan(types.I32()),
+				types.Series(types.I32()),
+			),
 		)
 	})
 })

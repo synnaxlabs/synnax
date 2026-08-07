@@ -7,16 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <algorithm>
-#include <thread>
 
-/// external
-#include "glog/logging.h"
-#include "open62541/client_config_default.h"
+#include "absl/log/log.h"
 #include "open62541/client_highlevel.h"
 
-/// internal
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 

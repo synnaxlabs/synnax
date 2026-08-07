@@ -20,6 +20,6 @@ cc_library(
     deps = [
         "//driver/common",
         "//driver/ni/daqmx",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )

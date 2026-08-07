@@ -128,7 +128,11 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	}
 	db.leadingAlignment.Store(alignment.ZeroLeading)
 	if cfg.Channel.IsIndex {
-		db.idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation, Channel: cfg.Channel}
+		db.idx = &index.Domain{
+			DB:              domainDB,
+			Instrumentation: cfg.Instrumentation,
+			Channel:         cfg.Channel,
+		}
 	}
 	return db, nil
 }

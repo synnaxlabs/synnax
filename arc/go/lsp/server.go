@@ -191,16 +191,18 @@ func New(cfgs ...Config) (*Server, error) {
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
 	if s.cfg.OnExternalChange != nil {
-		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(ctx context.Context, _ struct{}) {
-			s.republishMu.Lock()
-			if s.cancelRepublish != nil {
-				s.cancelRepublish()
-			}
-			ctx, cancel := context.WithTimeout(ctx, s.cfg.RepublishTimeout)
-			s.cancelRepublish = cancel
-			s.republishMu.Unlock()
-			s.republishWG.Go(func() { s.republishAllDiagnostics(ctx) })
-		})
+		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(
+			func(ctx context.Context, _ struct{}) {
+				s.republishMu.Lock()
+				if s.cancelRepublish != nil {
+					s.cancelRepublish()
+				}
+				ctx, cancel := context.WithTimeout(ctx, s.cfg.RepublishTimeout)
+				s.cancelRepublish = cancel
+				s.republishMu.Unlock()
+				s.republishWG.Go(func() { s.republishAllDiagnostics(ctx) })
+			},
+		)
 	}
 }
 
@@ -426,7 +428,7 @@ func (s *Server) runAnalysis(
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         docURI,
 		Diagnostics: pDiagnostics,
-	}); err != nil {
+	}); err != nil && !errors.IsAny(err, io.ErrClosedPipe, context.Canceled) {
 		s.cfg.L.Error(
 			"failed to publish diagnostics",
 			zap.Error(err),
@@ -522,7 +524,7 @@ func (s *Server) publishDiagnostics(
 	if err := s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 		URI:         docURI,
 		Diagnostics: pDiagnostics,
-	}); err != nil {
+	}); err != nil && !errors.IsAny(err, io.ErrClosedPipe, context.Canceled) {
 		s.cfg.L.Error(
 			"failed to publish diagnostics",
 			zap.Error(err),
@@ -541,7 +543,13 @@ func (s *Server) republishAllDiagnostics(ctx context.Context) {
 	}
 	s.mu.RUnlock()
 	for docURI, content := range docs {
+		if ctx.Err() != nil {
+			return
+		}
 		s.publishDiagnostics(ctx, docURI, content)
+	}
+	if ctx.Err() != nil {
+		return
 	}
 	s.refreshSemanticTokens(ctx, "")
 }

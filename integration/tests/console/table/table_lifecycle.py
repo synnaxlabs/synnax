@@ -10,7 +10,7 @@
 import synnax as sy
 from console.case import ConsoleCase
 from console.table import Table
-from framework.utils import assert_link_format, get_fixture_path
+from framework.utils import assert_envelope, assert_link_format, get_fixture_path
 from x import random_name
 
 
@@ -254,8 +254,9 @@ class TableLifecycle(ConsoleCase):
         assert self.ctx_table_name is not None
         self.log("Testing export table via context menu")
         exported = self.console.project.export_page(self.ctx_table_name)
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Table key should be a UUID"
+        assert_envelope(
+            exported, envelope_type="table", min_version=1, name=self.ctx_table_name
+        )
 
     def test_ctx_delete(self) -> None:
         """Test deleting a table via context menu."""

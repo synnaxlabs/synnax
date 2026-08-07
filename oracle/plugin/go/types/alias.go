@@ -62,7 +62,9 @@ type aliasData struct {
 	Types   []aliasDecl
 }
 
-func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
+func (g *aliasFileGenerator) GenerateFile(
+	ctx *framework.GenerateContext,
+) (string, error) {
 	versionedPath, ok := g.pathMap[ctx.OutputPath]
 	if !ok {
 		return "", nil
@@ -114,7 +116,10 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		// Transient types generate real declarations at the package root,
 		// not in the version layout: no alias to emit. Hand types follow the
 		// version layout, so their aliases are emitted even when unversioned.
-		if _, versioned := versioning.Version(d.typ); !versioned && !omit.IsHand(d.typ, "go") {
+		if _, versioned := versioning.Version(
+			d.typ,
+		); !versioned &&
+			!omit.IsHand(d.typ, "go") {
 			continue
 		}
 		if d.kind == declEnum && d.typ.Namespace != namespace {

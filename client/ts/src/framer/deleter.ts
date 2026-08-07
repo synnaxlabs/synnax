@@ -24,7 +24,7 @@ const resZ = z.object({});
 
 export class Deleter {
   /*
-  Deleter is used to delete a time range of telemetry from the data engine.
+  Deleter is used to delete a time range of telemetry from the data cache.
    */
   private readonly client: UnaryClient;
 

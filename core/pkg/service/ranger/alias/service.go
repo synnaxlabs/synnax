@@ -36,7 +36,11 @@ import (
 // given range. This allows the alias service to implement inheritance without
 // a direct dependency on the ranger service implementation.
 type ParentRetriever interface {
-	RetrieveParentKey(ctx context.Context, key ranger.Key, tx gorp.Tx) (ranger.Key, error)
+	RetrieveParentKey(
+		ctx context.Context,
+		key ranger.Key,
+		tx gorp.Tx,
+	) (ranger.Key, error)
 }
 
 // ServiceConfig is the configuration for opening the alias.Service.
@@ -105,7 +109,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		signalsCfg.SetName = "sy_range_alias_set"
 		signalsCfg.DeleteName = "sy_range_alias_delete"
 		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, signalsCfg); !ok(err, sig) {
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			signalsCfg,
+		); !ok(
+			err,
+			sig,
+		) {
 			return nil, err
 		}
 	}
@@ -177,7 +188,9 @@ func translateChange(c change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[string, Alias]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -185,7 +198,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

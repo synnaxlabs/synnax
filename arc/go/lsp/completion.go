@@ -443,7 +443,8 @@ func (s *Server) getCompletionItems(
 		return getImportPathCompletions(doc, prefix, pos, root)
 	}
 
-	if completionCtx == ContextInputParamName || completionCtx == ContextInputParamValue {
+	if completionCtx == ContextInputParamName ||
+		completionCtx == ContextInputParamValue {
 		inputInfo := extractInputContext(doc.displayContent(), pos)
 		if inputInfo != nil {
 			if completionCtx == ContextInputParamName {
@@ -525,10 +526,20 @@ func (s *Server) getCompletionItems(
 			memberPrefix := prefix[len(modulePrefix):]
 			var mod *symbol.Symbol
 			if scopeAtCursor := doc.findScopeAtPosition(pos); scopeAtCursor != nil {
-				mod, _ = scopeAtCursor.Resolve(ctx, moduleName, symbol.IncludeInternal, symbol.WithoutUsageTracking)
+				mod, _ = scopeAtCursor.Resolve(
+					ctx,
+					moduleName,
+					symbol.IncludeInternal,
+					symbol.WithoutUsageTracking,
+				)
 			}
 			if mod == nil && root != nil {
-				mod, _ = root.Resolve(ctx, moduleName, symbol.IncludeInternal, symbol.WithoutUsageTracking)
+				mod, _ = root.Resolve(
+					ctx,
+					moduleName,
+					symbol.IncludeInternal,
+					symbol.WithoutUsageTracking,
+				)
 			}
 			// Resolve returns the alias for `import time as t`; follow Target
 			// to reach the module body for member enumeration. Aliased
@@ -551,7 +562,8 @@ func (s *Server) getCompletionItems(
 					if !sym.Exec.Compatible(execFilter) {
 						continue
 					}
-					if memberPrefix != "" && !strings.HasPrefix(sym.Name, memberPrefix) {
+					if memberPrefix != "" &&
+						!strings.HasPrefix(sym.Name, memberPrefix) {
 						continue
 					}
 					qualifiedName := modulePrefix + sym.Name
@@ -559,8 +571,11 @@ func (s *Server) getCompletionItems(
 					item.FilterText = protocol.NewOptional(qualifiedName)
 					item.TextEdit = &protocol.TextEdit{
 						Range: protocol.Range{
-							Start: protocol.Position{Line: pos.Line, Character: startChar},
-							End:   pos,
+							Start: protocol.Position{
+								Line:      pos.Line,
+								Character: startChar,
+							},
+							End: pos,
 						},
 						NewText: qualifiedName,
 					}
@@ -578,12 +593,16 @@ func (s *Server) getCompletionItems(
 				symbols, err := searchScope.Search(ctx, prefix)
 				if err == nil {
 					for _, sym := range symbols {
-						if sym.Kind == symbol.KindFunction && !sym.Exec.Compatible(execFilter) {
+						if sym.Kind == symbol.KindFunction &&
+							!sym.Exec.Compatible(execFilter) {
 							continue
 						}
 						item := symbolCompletionItem(sym)
 						if sym.Kind == symbol.KindModule {
-							item.AdditionalTextEdits = buildAutoImportEdit(doc, sym.Name)
+							item.AdditionalTextEdits = buildAutoImportEdit(
+								doc,
+								sym.Name,
+							)
 						}
 						applyInvocationSuffix(&item, sym.Kind, execFilter)
 						items = append(items, item)
@@ -737,7 +756,8 @@ func isModuleImportedInSource(content, moduleName string) bool {
 			i = next
 			if i < len(tokens) && tokens[i].GetTokenType() == parser.ArcLexerAS {
 				i++
-				if i < len(tokens) && tokens[i].GetTokenType() == parser.ArcLexerIDENTIFIER {
+				if i < len(tokens) &&
+					tokens[i].GetTokenType() == parser.ArcLexerIDENTIFIER {
 					i++
 				}
 			}
@@ -777,7 +797,11 @@ func readImportPath(tokens []antlr.Token, start int) (string, int) {
 // or inputs. No-op for non-function kinds, which insert their bare name.
 // The suffix is appended to TextEdit.NewText when set, otherwise to
 // InsertText (falling back to Label when InsertText is empty).
-func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind, execFilter symbol.ExecContext) {
+func applyInvocationSuffix(
+	item *protocol.CompletionItem,
+	kind symbol.Kind,
+	execFilter symbol.ExecContext,
+) {
 	if kind != symbol.KindFunction {
 		return
 	}
@@ -819,7 +843,11 @@ func formatImportBlock(names []string) string {
 // semantics; this wrapper exists for callers that still hold a *Document
 // rather than snapshotted fields.
 func buildAutoImportEdit(doc *Document, moduleName string) []protocol.TextEdit {
-	return buildAutoImportEditFromSnapshot(doc.displayContent(), doc.IR.Symbols, moduleName)
+	return buildAutoImportEditFromSnapshot(
+		doc.displayContent(),
+		doc.IR.Symbols,
+		moduleName,
+	)
 }
 
 // buildAutoImportEditFromSnapshot is the snapshot-friendly form of
@@ -894,8 +922,10 @@ func buildAutoImportEditFromSnapshot(
 				Character: uint32(first.GetStart().GetColumn()),
 			},
 			End: protocol.Position{
-				Line:      uint32(first.GetStop().GetLine() - 1),
-				Character: uint32(first.GetStop().GetColumn() + len(first.GetStop().GetText())),
+				Line: uint32(first.GetStop().GetLine() - 1),
+				Character: uint32(
+					first.GetStop().GetColumn() + len(first.GetStop().GetText()),
+				),
 			},
 		},
 		NewText: formatImportBlock(allNames),
@@ -943,7 +973,8 @@ func appendModuleMemberCompletions(
 				if member.Internal || member.Name == "" {
 					continue
 				}
-				if member.Kind == symbol.KindFunction && !member.Exec.Compatible(execFilter) {
+				if member.Kind == symbol.KindFunction &&
+					!member.Exec.Compatible(execFilter) {
 					continue
 				}
 				if !strings.HasPrefix(member.Name, prefix) {
@@ -1005,7 +1036,10 @@ func (s *Server) getAuthorityEntryCompletions(
 	if root != nil {
 		symbols, err := root.Search(ctx, prefix)
 		if err != nil {
-			s.cfg.L.Error("failed to search global resolver for authority completions", zap.Error(err))
+			s.cfg.L.Error(
+				"failed to search global resolver for authority completions",
+				zap.Error(err),
+			)
 		}
 		for _, sym := range symbols {
 			appendChanCompletions(sym.Name, sym.Type)
@@ -1014,7 +1048,10 @@ func (s *Server) getAuthorityEntryCompletions(
 	if doc.IR.Symbols != nil {
 		scopes, err := doc.IR.Symbols.Search(ctx, prefix)
 		if err != nil {
-			s.cfg.L.Error("failed to search scope for authority completions", zap.Error(err))
+			s.cfg.L.Error(
+				"failed to search scope for authority completions",
+				zap.Error(err),
+			)
 		}
 		for _, scope := range scopes {
 			appendChanCompletions(scope.Name, scope.Type)

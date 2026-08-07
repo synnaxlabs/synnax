@@ -101,7 +101,8 @@ func (v *register) Next(ctx node.Context) {
 	if !ok {
 		return
 	}
-	// Feeders reuse their output buffers in place; the register value must not alias them.
+	// Feeders reuse their output buffers in place; the register value must not alias
+	// them.
 	v.Output(0).CopyFrom(data)
 	stampNow(v.OutputTime(0), v.clock.Now())
 	ctx.MarkChanged(0)

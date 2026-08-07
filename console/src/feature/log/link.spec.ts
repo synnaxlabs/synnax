@@ -30,7 +30,7 @@ describe("Log.useLink", () => {
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe("log");
-    const retrieved = await client.logs.retrieve({ key: tab.resource.key });
+    const retrieved = await client.logs.retrieve(tab.resource.key);
     expect(retrieved.name).toBe("Event Log");
   });
 });

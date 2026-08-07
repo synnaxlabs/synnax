@@ -80,9 +80,15 @@ func (s *Service) createMetrics(namePrefix string, idxKey channel.LocalKey) []me
 func createCalculatedMetrics(namePrefix string) []channel.Channel {
 	return []channel.Channel{
 		{
-			Name:       namePrefix + "total_size_gb",
-			DataType:   telem.Float32T,
-			Expression: fmt.Sprintf("return %s%s + %s%s", namePrefix, tsSizeMetricName, namePrefix, kvSizeMetricName),
+			Name:     namePrefix + "total_size_gb",
+			DataType: telem.Float32T,
+			Expression: fmt.Sprintf(
+				"return %s%s + %s%s",
+				namePrefix,
+				tsSizeMetricName,
+				namePrefix,
+				kvSizeMetricName,
+			),
 		},
 	}
 }

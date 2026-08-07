@@ -52,7 +52,10 @@ var primitiveTypes = set.New(
 	"record", "bytes",
 )
 
-func (s *Server) SemanticTokensFull(_ context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
+func (s *Server) SemanticTokensFull(
+	_ context.Context,
+	params *protocol.SemanticTokensParams,
+) (*protocol.SemanticTokens, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return &protocol.SemanticTokens{Data: []uint32{}}, nil

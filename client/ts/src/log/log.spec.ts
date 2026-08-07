@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { id, uuid } from "@synnaxlabs/x";
+import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
-import { createTestClient } from "@/testutil";
+import { query } from "@/query";
+import { createTestClient, expectDeleted } from "@/testutil";
 
 const client = createTestClient();
 
@@ -30,7 +31,7 @@ describe("Log", () => {
       const proj = await client.projects.create({ name: "Log", layout: { one: 1 } });
       const log = await client.logs.create(proj.key, { name: "Log" });
       await client.logs.rename(log.key, "Log2");
-      const res = await client.logs.retrieve({ key: log.key });
+      const res = await client.logs.retrieve(log.key);
       expect(res.name).toEqual("Log2");
     });
   });
@@ -39,9 +40,21 @@ describe("Log", () => {
       const proj = await client.projects.create({ name: "Log", layout: { one: 1 } });
       const log = await client.logs.create(proj.key, { name: "Log" });
       await client.logs.delete(log.key);
-      await expect(client.logs.retrieve({ key: log.key })).rejects.toThrow(
-        NotFoundError,
-      );
+      await expect(client.logs.retrieve(log.key)).rejects.toThrow(NotFoundError);
     });
+  });
+});
+
+describe("store", () => {
+  it("tombstones deletes from live delete signals", async () => {
+    await client.connect();
+    const project = await client.projects.create({ name: `log-${id.create()}` });
+    const log = await client.logs.create(project.key, { name: `log-${id.create()}` });
+    await client.logs.delete(log.key);
+    await expect
+      .poll(() => query.Deleted.matches(client.logs.getCached(log.key)))
+      .toBe(true);
+    const cached = expectDeleted(client.logs.getCached(log.key));
+    expect(cached.corpse.name).toEqual(log.name);
   });
 });

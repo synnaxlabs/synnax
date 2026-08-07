@@ -38,7 +38,8 @@ func newMigrateCreateCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&migrateCreateService, "service", "", "Service output path (e.g. core/pkg/service/ranger)")
+	cmd.Flags().
+		StringVar(&migrateCreateService, "service", "", "Service output path (e.g. core/pkg/service/ranger)")
 	return cmd
 }
 
@@ -109,9 +110,15 @@ func runMigrateCreate(name string) (err error) {
 		return errors.Wrap(err, "failed to read core version")
 	}
 
-	existingVersions, err := findMigrationVersions(filepath.Join(repoRoot, servicePath, "migrations"))
+	existingVersions, err := findMigrationVersions(
+		filepath.Join(repoRoot, servicePath, "migrations"),
+	)
 	if err != nil {
-		return errors.Wrapf(err, "failed to discover existing migrations for %s", servicePath)
+		return errors.Wrapf(
+			err,
+			"failed to discover existing migrations for %s",
+			servicePath,
+		)
 	}
 
 	effectiveVersion := version
@@ -121,7 +128,7 @@ func runMigrateCreate(name string) (err error) {
 
 	vDir := fmt.Sprintf("v%d", effectiveVersion)
 	migrationDir := filepath.Join(repoRoot, servicePath, "migrations", vDir)
-	if err := os.MkdirAll(migrationDir, 0755); err != nil {
+	if err := os.MkdirAll(migrationDir, 0o755); err != nil {
 		return errors.Wrapf(err, "failed to create migration directory")
 	}
 
@@ -153,8 +160,13 @@ func runMigrateCreate(name string) (err error) {
 	printDim(fmt.Sprintf("  ✏️  %s ← implement migration logic", relPath))
 
 	pkg := filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(relPath))))
-	printDim(fmt.Sprintf("  🔌 Wire New%sMigration() into your gorp.OpenTable call in %s/service.go",
-		pascalName, strings.TrimPrefix(servicePath, "core/pkg/service/")))
+	printDim(
+		fmt.Sprintf(
+			"  🔌 Wire New%sMigration() into your gorp.OpenTable call in %s/service.go",
+			pascalName,
+			strings.TrimPrefix(servicePath, "core/pkg/service/"),
+		),
+	)
 	_ = pkg
 
 	return nil

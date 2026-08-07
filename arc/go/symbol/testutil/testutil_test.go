@@ -31,55 +31,80 @@ var _ = Describe("StaticResolver", func() {
 			Expect(sym.Kind).To(Equal(symbol.KindInput))
 		})
 
-		It("Should return query.ErrNotFound when the name is absent", func(ctx SpecContext) {
-			r := StaticResolver{{Name: "pi", Kind: symbol.KindInput, Type: types.F64()}}
-			Expect(r.Resolve(ctx, "phi")).Error().To(SatisfyAll(
-				MatchError(query.ErrNotFound),
-				MatchError(ContainSubstring("symbol phi not found")),
-			))
-		})
+		It(
+			"Should return query.ErrNotFound when the name is absent",
+			func(ctx SpecContext) {
+				r := StaticResolver{
+					{Name: "pi", Kind: symbol.KindInput, Type: types.F64()},
+				}
+				Expect(r.Resolve(ctx, "phi")).Error().To(SatisfyAll(
+					MatchError(query.ErrNotFound),
+					MatchError(ContainSubstring("symbol phi not found")),
+				))
+			},
+		)
 
-		It("Should return query.ErrNotFound for an empty resolver", func(ctx SpecContext) {
-			r := StaticResolver{}
-			Expect(r.Resolve(ctx, "anything")).Error().To(MatchError(query.ErrNotFound))
-		})
+		It(
+			"Should return query.ErrNotFound for an empty resolver",
+			func(ctx SpecContext) {
+				r := StaticResolver{}
+				Expect(
+					r.Resolve(ctx, "anything"),
+				).Error().
+					To(MatchError(query.ErrNotFound))
+			},
+		)
 
-		It("Should return a copy so callers cannot mutate the resolver via the result", func(ctx SpecContext) {
-			r := StaticResolver{{Name: "pi", Kind: symbol.KindInput, Type: types.F64()}}
-			sym := MustSucceed(r.Resolve(ctx, "pi"))
-			sym.Name = "mutated"
-			again := MustSucceed(r.Resolve(ctx, "pi"))
-			Expect(again.Name).To(Equal("pi"))
-		})
+		It(
+			"Should return a copy so callers cannot mutate the resolver via the result",
+			func(ctx SpecContext) {
+				r := StaticResolver{
+					{Name: "pi", Kind: symbol.KindInput, Type: types.F64()},
+				}
+				sym := MustSucceed(r.Resolve(ctx, "pi"))
+				sym.Name = "mutated"
+				again := MustSucceed(r.Resolve(ctx, "pi"))
+				Expect(again.Name).To(Equal("pi"))
+			},
+		)
 	})
 
 	Describe("Search", func() {
-		It("Should return entries whose name has the given prefix", func(ctx SpecContext) {
-			r := StaticResolver{
-				{Name: "pi", Kind: symbol.KindInput},
-				{Name: "print", Kind: symbol.KindFunction},
-				{Name: "tau", Kind: symbol.KindInput},
-			}
-			results := MustSucceed(r.Search(ctx, "p"))
-			Expect(results).To(HaveLen(2))
-			names := []string{results[0].Name, results[1].Name}
-			Expect(names).To(ConsistOf("pi", "print"))
-		})
+		It(
+			"Should return entries whose name has the given prefix",
+			func(ctx SpecContext) {
+				r := StaticResolver{
+					{Name: "pi", Kind: symbol.KindInput},
+					{Name: "print", Kind: symbol.KindFunction},
+					{Name: "tau", Kind: symbol.KindInput},
+				}
+				results := MustSucceed(r.Search(ctx, "p"))
+				Expect(results).To(HaveLen(2))
+				names := []string{results[0].Name, results[1].Name}
+				Expect(names).To(ConsistOf("pi", "print"))
+			},
+		)
 
-		It("Should fuzzy-match entries within Levenshtein distance 2 when the term is long enough", func(ctx SpecContext) {
-			r := StaticResolver{
-				{Name: "temperature", Kind: symbol.KindVariable},
-				{Name: "humidity", Kind: symbol.KindVariable},
-			}
-			results := MustSucceed(r.Search(ctx, "temperatur"))
-			Expect(results).To(HaveLen(1))
-			Expect(results[0].Name).To(Equal("temperature"))
-		})
+		It(
+			"Should fuzzy-match entries within Levenshtein distance 2 when the term is long enough",
+			func(ctx SpecContext) {
+				r := StaticResolver{
+					{Name: "temperature", Kind: symbol.KindVariable},
+					{Name: "humidity", Kind: symbol.KindVariable},
+				}
+				results := MustSucceed(r.Search(ctx, "temperatur"))
+				Expect(results).To(HaveLen(1))
+				Expect(results[0].Name).To(Equal("temperature"))
+			},
+		)
 
-		It("Should skip fuzzy matching when the term is 2 chars or shorter", func(ctx SpecContext) {
-			r := StaticResolver{{Name: "temperature", Kind: symbol.KindVariable}}
-			Expect(MustSucceed(r.Search(ctx, "tx"))).To(BeEmpty())
-		})
+		It(
+			"Should skip fuzzy matching when the term is 2 chars or shorter",
+			func(ctx SpecContext) {
+				r := StaticResolver{{Name: "temperature", Kind: symbol.KindVariable}}
+				Expect(MustSucceed(r.Search(ctx, "tx"))).To(BeEmpty())
+			},
+		)
 
 		It("Should return all entries for an empty term", func(ctx SpecContext) {
 			r := StaticResolver{
@@ -98,7 +123,13 @@ var _ = Describe("StaticResolver", func() {
 	Describe("Add", func() {
 		It("Should append a symbol so it becomes resolvable", func(ctx SpecContext) {
 			r := StaticResolver{}
-			r.Add(symbol.Symbol{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32())})
+			r.Add(
+				symbol.Symbol{
+					Name: "sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				},
+			)
 			sym := MustSucceed(r.Resolve(ctx, "sensor"))
 			Expect(sym.Kind).To(Equal(symbol.KindChannel))
 		})
@@ -107,7 +138,13 @@ var _ = Describe("StaticResolver", func() {
 			r := StaticResolver{}
 			read := func() (*symbol.Symbol, error) { return r.Resolve(ctx, "ch") }
 			Expect(read()).Error().To(MatchError(query.ErrNotFound))
-			r.Add(symbol.Symbol{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8())})
+			r.Add(
+				symbol.Symbol{
+					Name: "ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+				},
+			)
 			sym := MustSucceed(read())
 			Expect(sym.Name).To(Equal("ch"))
 		})
@@ -142,15 +179,18 @@ var _ = Describe("StaticResolver", func() {
 			Expect(r).To(HaveLen(1))
 		})
 
-		It("Should remove only the first matching entry when duplicates exist", func(ctx SpecContext) {
-			r := StaticResolver{
-				{Name: "dup", Kind: symbol.KindVariable, Type: types.I32()},
-				{Name: "dup", Kind: symbol.KindVariable, Type: types.I64()},
-			}
-			r.Remove("dup")
-			Expect(r).To(HaveLen(1))
-			Expect(MustSucceed(r.Resolve(ctx, "dup")).Type).To(Equal(types.I64()))
-		})
+		It(
+			"Should remove only the first matching entry when duplicates exist",
+			func(ctx SpecContext) {
+				r := StaticResolver{
+					{Name: "dup", Kind: symbol.KindVariable, Type: types.I32()},
+					{Name: "dup", Kind: symbol.KindVariable, Type: types.I64()},
+				}
+				r.Remove("dup")
+				Expect(r).To(HaveLen(1))
+				Expect(MustSucceed(r.Resolve(ctx, "dup")).Type).To(Equal(types.I64()))
+			},
+		)
 	})
 })
 
@@ -163,50 +203,88 @@ var _ = Describe("NewRoot", func() {
 	})
 
 	It("Should attach extras as additional ambient siblings of the root", func() {
-		extra := symbol.Symbol{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32())}
+		extra := symbol.Symbol{
+			Name: "sensor",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F32()),
+		}
 		root := NewRoot(nil, extra)
 		Expect(root.Parent.FindChild("sensor")).ToNot(BeNil())
 	})
 
-	It("Should consult the given resolver on root.Resolve misses", func(bCtx SpecContext) {
-		r := StaticResolver{{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8())}}
-		root := NewRoot(r)
-		Expect(MustSucceed(root.Resolve(bCtx, "ch")).Name).To(Equal("ch"))
-	})
+	It(
+		"Should consult the given resolver on root.Resolve misses",
+		func(bCtx SpecContext) {
+			r := StaticResolver{
+				{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+			}
+			root := NewRoot(r)
+			Expect(MustSucceed(root.Resolve(bCtx, "ch")).Name).To(Equal("ch"))
+		},
+	)
 })
 
 var _ = Describe("NewGraphRoot", func() {
-	It("Should add KindModuleAlias children to the root for each ambient module", func() {
-		root := NewGraphRoot(nil)
-		hasAnyAlias := false
-		for _, child := range root.Children() {
-			if child.Kind == symbol.KindModuleAlias {
-				hasAnyAlias = true
-				break
+	It(
+		"Should add KindModuleAlias children to the root for each ambient module",
+		func() {
+			root := NewGraphRoot(nil)
+			hasAnyAlias := false
+			for _, child := range root.Children() {
+				if child.Kind == symbol.KindModuleAlias {
+					hasAnyAlias = true
+					break
+				}
 			}
-		}
-		Expect(hasAnyAlias).To(BeTrue())
-	})
+			Expect(hasAnyAlias).To(BeTrue())
+		},
+	)
 })
 
 var _ = Describe("FirstChildOfKind", func() {
 	It("Should return the first child with the matching Kind", func(bCtx SpecContext) {
 		root := NewRoot(nil)
-		fnSym := MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
-		MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
-		Expect(MustSucceed(FirstChildOfKind(root, symbol.KindFunction))).To(Equal(fnSym))
+		fnSym := MustSucceed(
+			root.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}),
+		)
+		MustSucceed(
+			root.Add(
+				bCtx,
+				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
+			),
+		)
+		Expect(
+			MustSucceed(FirstChildOfKind(root, symbol.KindFunction)),
+		).To(Equal(fnSym))
 	})
 
 	It("Should return query.ErrNotFound when no child matches", func(bCtx SpecContext) {
 		root := NewRoot(nil)
-		MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
-		Expect(FirstChildOfKind(root, symbol.KindFunction)).Error().To(MatchError(query.ErrNotFound))
+		MustSucceed(
+			root.Add(
+				bCtx,
+				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
+			),
+		)
+		Expect(
+			FirstChildOfKind(root, symbol.KindFunction),
+		).Error().
+			To(MatchError(query.ErrNotFound))
 	})
 
-	It("Should return the first match in insertion order when multiple children share the Kind", func(bCtx SpecContext) {
-		root := NewRoot(nil)
-		first := MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "f1", Kind: symbol.KindFunction}))
-		MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "f2", Kind: symbol.KindFunction}))
-		Expect(MustSucceed(FirstChildOfKind(root, symbol.KindFunction))).To(Equal(first))
-	})
+	It(
+		"Should return the first match in insertion order when multiple children share the Kind",
+		func(bCtx SpecContext) {
+			root := NewRoot(nil)
+			first := MustSucceed(
+				root.Add(bCtx, symbol.Symbol{Name: "f1", Kind: symbol.KindFunction}),
+			)
+			MustSucceed(
+				root.Add(bCtx, symbol.Symbol{Name: "f2", Kind: symbol.KindFunction}),
+			)
+			Expect(
+				MustSucceed(FirstChildOfKind(root, symbol.KindFunction)),
+			).To(Equal(first))
+		},
+	)
 })

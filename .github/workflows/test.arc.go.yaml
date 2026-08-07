@@ -19,7 +19,8 @@ on:
       - arc/go/**
       - codecov.yaml
       - freighter/go/**
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
+      - scripts/install_antlr4.sh
       - x/go/**
   push:
     branches:
@@ -33,7 +34,8 @@ on:
       - arc/go/**
       - codecov.yaml
       - freighter/go/**
-      - scripts/check_gofmt.sh
+      - scripts/check_go_generate.sh
+      - scripts/install_antlr4.sh
       - x/go/**
   workflow_dispatch:
 

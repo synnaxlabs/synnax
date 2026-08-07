@@ -51,7 +51,7 @@ func (w Writer) Create(
 		return err
 	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	otgID := p.OntologyID()
 	if err := w.otg.DefineResources(ctx, otgID); err != nil {
@@ -67,6 +67,10 @@ func (w Writer) Create(
 			return err
 		}
 	}
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, p.Key, "", []Action{NewCreateAction(CreatePayload{Panel: *p})},
+	)
 	return nil
 }
 
@@ -110,7 +114,9 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...Key,
 ) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Panel](keys...)).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Panel](keys...)).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)

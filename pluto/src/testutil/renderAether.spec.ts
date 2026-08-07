@@ -108,7 +108,7 @@ describe("renderAether", () => {
     it("applies a synnax override (props) to the synnax provider state", () => {
       const h = renderAether(Leaf, {
         state: {},
-        synnax: { props: null, state: null },
+        synnax: { props: null },
       });
       expect(h.providers.synnax?.state.props).toBeNull();
     });

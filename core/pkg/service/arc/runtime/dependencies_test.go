@@ -117,7 +117,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: types.Channels{
-								Write: map[uint32]string{uint32(ch.Key()): "actuator_1"},
+								Write: map[uint32]string{
+									uint32(ch.Key()): "actuator_1",
+								},
 							},
 						},
 					},
@@ -180,7 +182,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 							Key:  "read_node",
 							Type: "on",
 							Channels: types.Channels{
-								Read: map[uint32]string{uint32(dataCh.Key()): "data_with_index"},
+								Read: map[uint32]string{
+									uint32(dataCh.Key()): "data_with_index",
+								},
 							},
 						},
 					},
@@ -217,7 +221,9 @@ var _ = Describe("Dependencies", Ordered, func() {
 							Key:  "write_node",
 							Type: "write",
 							Channels: types.Channels{
-								Write: map[uint32]string{uint32(dataCh.Key()): "write_data_with_index"},
+								Write: map[uint32]string{
+									uint32(dataCh.Key()): "write_data_with_index",
+								},
 							},
 						},
 					},
@@ -229,75 +235,89 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Expect(deps.Writes.Contains(indexCh.Key())).To(BeTrue())
 		})
 
-		It("Should handle nodes with both read and write channels", func(ctx SpecContext) {
-			readCh := &channel.Channel{
-				Name:     "input_sensor",
-				Virtual:  true,
-				DataType: telem.Float32T,
-			}
-			Expect(channelWriter.Create(ctx, readCh)).To(Succeed())
+		It(
+			"Should handle nodes with both read and write channels",
+			func(ctx SpecContext) {
+				readCh := &channel.Channel{
+					Name:     "input_sensor",
+					Virtual:  true,
+					DataType: telem.Float32T,
+				}
+				Expect(channelWriter.Create(ctx, readCh)).To(Succeed())
 
-			writeCh := &channel.Channel{
-				Name:     "output_actuator",
-				Virtual:  true,
-				DataType: telem.Float32T,
-			}
-			Expect(channelWriter.Create(ctx, writeCh)).To(Succeed())
+				writeCh := &channel.Channel{
+					Name:     "output_actuator",
+					Virtual:  true,
+					DataType: telem.Float32T,
+				}
+				Expect(channelWriter.Create(ctx, writeCh)).To(Succeed())
 
-			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:  "mixed_node",
-							Type: "transform",
-							Channels: types.Channels{
-								Read:  map[uint32]string{uint32(readCh.Key()): "input_sensor"},
-								Write: map[uint32]string{uint32(writeCh.Key()): "output_actuator"},
+				prog := arc.Program{
+					IR: ir.IR{
+						Nodes: []ir.Node{
+							{
+								Key:  "mixed_node",
+								Type: "transform",
+								Channels: types.Channels{
+									Read: map[uint32]string{
+										uint32(readCh.Key()): "input_sensor",
+									},
+									Write: map[uint32]string{
+										uint32(writeCh.Key()): "output_actuator",
+									},
+								},
 							},
 						},
 					},
-				},
-			}
+				}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
-			Expect(deps.Reads.Contains(readCh.Key())).To(BeTrue())
-			Expect(deps.Writes.Contains(writeCh.Key())).To(BeTrue())
-			Expect(deps.ChannelDigests).To(HaveLen(2))
-		})
+				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				Expect(deps.Reads.Contains(readCh.Key())).To(BeTrue())
+				Expect(deps.Writes.Contains(writeCh.Key())).To(BeTrue())
+				Expect(deps.ChannelDigests).To(HaveLen(2))
+			},
+		)
 
-		It("Should handle multiple nodes with overlapping channels", func(ctx SpecContext) {
-			sharedCh := &channel.Channel{
-				Name:     "shared_channel",
-				Virtual:  true,
-				DataType: telem.Float32T,
-			}
-			Expect(channelWriter.Create(ctx, sharedCh)).To(Succeed())
+		It(
+			"Should handle multiple nodes with overlapping channels",
+			func(ctx SpecContext) {
+				sharedCh := &channel.Channel{
+					Name:     "shared_channel",
+					Virtual:  true,
+					DataType: telem.Float32T,
+				}
+				Expect(channelWriter.Create(ctx, sharedCh)).To(Succeed())
 
-			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:  "node_1",
-							Type: "on",
-							Channels: types.Channels{
-								Read: map[uint32]string{uint32(sharedCh.Key()): "shared_channel"},
+				prog := arc.Program{
+					IR: ir.IR{
+						Nodes: []ir.Node{
+							{
+								Key:  "node_1",
+								Type: "on",
+								Channels: types.Channels{
+									Read: map[uint32]string{
+										uint32(sharedCh.Key()): "shared_channel",
+									},
+								},
 							},
-						},
-						{
-							Key:  "node_2",
-							Type: "on",
-							Channels: types.Channels{
-								Read: map[uint32]string{uint32(sharedCh.Key()): "shared_channel"},
+							{
+								Key:  "node_2",
+								Type: "on",
+								Channels: types.Channels{
+									Read: map[uint32]string{
+										uint32(sharedCh.Key()): "shared_channel",
+									},
+								},
 							},
 						},
 					},
-				},
-			}
+				}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
-			Expect(deps.Reads.Contains(sharedCh.Key())).To(BeTrue())
-			Expect(deps.ChannelDigests).To(HaveLen(1))
-		})
+				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				Expect(deps.Reads.Contains(sharedCh.Key())).To(BeTrue())
+				Expect(deps.ChannelDigests).To(HaveLen(1))
+			},
+		)
 
 		It("Should handle empty module", func(ctx SpecContext) {
 			prog := arc.Program{
@@ -311,24 +331,27 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Expect(deps.ChannelDigests).To(BeEmpty())
 		})
 
-		It("Should handle module with nodes that have no channels", func(ctx SpecContext) {
-			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:      "constant_node",
-							Type:     "constant",
-							Channels: types.Channels{},
+		It(
+			"Should handle module with nodes that have no channels",
+			func(ctx SpecContext) {
+				prog := arc.Program{
+					IR: ir.IR{
+						Nodes: []ir.Node{
+							{
+								Key:      "constant_node",
+								Type:     "constant",
+								Channels: types.Channels{},
+							},
 						},
 					},
-				},
-			}
+				}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
-			Expect(deps.Reads).To(BeEmpty())
-			Expect(deps.Writes).To(BeEmpty())
-			Expect(deps.ChannelDigests).To(BeEmpty())
-		})
+				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				Expect(deps.Reads).To(BeEmpty())
+				Expect(deps.Writes).To(BeEmpty())
+				Expect(deps.ChannelDigests).To(BeEmpty())
+			},
+		)
 
 		It("Should return error when channel retrieval fails", func(ctx SpecContext) {
 			prog := arc.Program{
@@ -349,44 +372,51 @@ var _ = Describe("Dependencies", Ordered, func() {
 				Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should not add index channel to sets when channel is virtual", func(ctx SpecContext) {
-			virtualCh := &channel.Channel{
-				Name:       "virtual_no_index",
-				Virtual:    true,
-				DataType:   telem.Float32T,
-				LocalIndex: 0,
-			}
-			Expect(channelWriter.Create(ctx, virtualCh)).To(Succeed())
+		It(
+			"Should not add index channel to sets when channel is virtual",
+			func(ctx SpecContext) {
+				virtualCh := &channel.Channel{
+					Name:       "virtual_no_index",
+					Virtual:    true,
+					DataType:   telem.Float32T,
+					LocalIndex: 0,
+				}
+				Expect(channelWriter.Create(ctx, virtualCh)).To(Succeed())
 
-			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:  "read_node",
-							Type: "on",
-							Channels: types.Channels{
-								Read: map[uint32]string{uint32(virtualCh.Key()): "virtual_no_index"},
+				prog := arc.Program{
+					IR: ir.IR{
+						Nodes: []ir.Node{
+							{
+								Key:  "read_node",
+								Type: "on",
+								Channels: types.Channels{
+									Read: map[uint32]string{
+										uint32(virtualCh.Key()): "virtual_no_index",
+									},
+								},
 							},
 						},
 					},
-				},
-			}
+				}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
-			Expect(deps.Reads.Contains(virtualCh.Key())).To(BeTrue())
-			Expect(deps.ChannelDigests).To(HaveLen(1))
-		})
+				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				Expect(deps.Reads.Contains(virtualCh.Key())).To(BeTrue())
+				Expect(deps.ChannelDigests).To(HaveLen(1))
+			},
+		)
 
-		It("Should handle interval-triggered function with stateful variable writing to channel", func(ctx SpecContext) {
-			virtCh := &channel.Channel{
-				Name:     "virt_stateful_test",
-				Virtual:  true,
-				DataType: telem.Float32T,
-			}
-			Expect(channelWriter.Create(ctx, virtCh)).To(Succeed())
+		It(
+			"Should handle interval-triggered function with stateful variable writing to channel",
+			func(ctx SpecContext) {
+				virtCh := &channel.Channel{
+					Name:     "virt_stateful_test",
+					Virtual:  true,
+					DataType: telem.Float32T,
+				}
+				Expect(channelWriter.Create(ctx, virtCh)).To(Succeed())
 
-			prog := arc.Text{
-				Raw: fmt.Sprintf(`
+				prog := arc.Text{
+					Raw: fmt.Sprintf(`
 					func cat() {
 						counter f32 $= 1.0
 						counter += 1.2
@@ -394,37 +424,42 @@ var _ = Describe("Dependencies", Ordered, func() {
 					}
 					interval{period=500ms} -> cat{}
 				`, virtCh.Name),
-			}
+				}
 
-			resolver := channelSvc.NewArcSymbolResolver(nil)
-			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
+				resolver := channelSvc.NewArcSymbolResolver(nil)
+				compiled := MustSucceed(
+					arc.CompileText(ctx, prog, arc.NewRoot(resolver)),
+				)
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, compiled))
-			Expect(deps.Reads).To(BeEmpty())
-			Expect(deps.Writes.Contains(virtCh.Key())).To(BeTrue())
-			Expect(deps.Writes).To(HaveLen(1))
-			Expect(deps.ChannelDigests).To(HaveLen(1))
-			Expect(deps.ChannelDigests[0].Key).To(Equal(uint32(virtCh.Key())))
-			Expect(deps.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
-		})
+				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, compiled))
+				Expect(deps.Reads).To(BeEmpty())
+				Expect(deps.Writes.Contains(virtCh.Key())).To(BeTrue())
+				Expect(deps.Writes).To(HaveLen(1))
+				Expect(deps.ChannelDigests).To(HaveLen(1))
+				Expect(deps.ChannelDigests[0].Key).To(Equal(uint32(virtCh.Key())))
+				Expect(deps.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
+			},
+		)
 
-		It("Should add dynamic set_authority channel to writes even if never written to", func(ctx SpecContext) {
-			triggerCh := &channel.Channel{
-				Name:     "dyn_auth_trigger",
-				Virtual:  true,
-				DataType: telem.Uint8T,
-			}
-			Expect(channelWriter.Create(ctx, triggerCh)).To(Succeed())
+		It(
+			"Should add dynamic set_authority channel to writes even if never written to",
+			func(ctx SpecContext) {
+				triggerCh := &channel.Channel{
+					Name:     "dyn_auth_trigger",
+					Virtual:  true,
+					DataType: telem.Uint8T,
+				}
+				Expect(channelWriter.Create(ctx, triggerCh)).To(Succeed())
 
-			valveCh := &channel.Channel{
-				Name:     "dyn_auth_valve",
-				Virtual:  true,
-				DataType: telem.Uint8T,
-			}
-			Expect(channelWriter.Create(ctx, valveCh)).To(Succeed())
+				valveCh := &channel.Channel{
+					Name:     "dyn_auth_valve",
+					Virtual:  true,
+					DataType: telem.Uint8T,
+				}
+				Expect(channelWriter.Create(ctx, valveCh)).To(Succeed())
 
-			prog := arc.Text{
-				Raw: fmt.Sprintf(`
+				prog := arc.Text{
+					Raw: fmt.Sprintf(`
 					sequence seq {
 						stage claim {
 							1 -> set_authority{value=100, channel=%s}
@@ -432,108 +467,117 @@ var _ = Describe("Dependencies", Ordered, func() {
 					}
 					%s => seq
 				`, valveCh.Name, triggerCh.Name),
-			}
+				}
 
-			resolver := channelSvc.NewArcSymbolResolver(nil)
-			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
+				resolver := channelSvc.NewArcSymbolResolver(nil)
+				compiled := MustSucceed(
+					arc.CompileText(ctx, prog, arc.NewRoot(resolver)),
+				)
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, compiled))
-			Expect(deps.Writes.Contains(valveCh.Key())).To(BeTrue(),
-				"channel referenced only in set_authority config should be in writes")
-		})
+				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, compiled))
+				Expect(deps.Writes.Contains(valveCh.Key())).To(BeTrue(),
+					"channel referenced only in set_authority config should be in writes")
+			},
+		)
 
-		It("Should add authority-declared channels to writes even if not in any node", func(ctx SpecContext) {
-			authOnlyCh := &channel.Channel{
-				Name:     "authority_only_ch",
-				Virtual:  true,
-				DataType: telem.Float64T,
-			}
-			Expect(channelWriter.Create(ctx, authOnlyCh)).To(Succeed())
+		It(
+			"Should add authority-declared channels to writes even if not in any node",
+			func(ctx SpecContext) {
+				authOnlyCh := &channel.Channel{
+					Name:     "authority_only_ch",
+					Virtual:  true,
+					DataType: telem.Float64T,
+				}
+				Expect(channelWriter.Create(ctx, authOnlyCh)).To(Succeed())
 
-			prog := arc.Program{
-				IR: ir.IR{
-					Authorities: ir.Authorities{
-						Channels: map[uint32]uint8{
-							uint32(authOnlyCh.Key()): 100,
+				prog := arc.Program{
+					IR: ir.IR{
+						Authorities: ir.Authorities{
+							Channels: map[uint32]uint8{
+								uint32(authOnlyCh.Key()): 100,
+							},
 						},
+						Nodes: []ir.Node{},
 					},
-					Nodes: []ir.Node{},
-				},
-			}
+				}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
-			Expect(deps.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
-			Expect(deps.ChannelDigests).To(HaveLen(1))
-			Expect(deps.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
-		})
+				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				Expect(deps.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
+				Expect(deps.ChannelDigests).To(HaveLen(1))
+				Expect(deps.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
+			},
+		)
 
-		It("Should build complete dependencies with complex module", func(ctx SpecContext) {
-			indexCh := &channel.Channel{
-				Name:     "complex_index",
-				DataType: telem.TimeStampT,
-				IsIndex:  true,
-				Virtual:  false,
-			}
-			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
+		It(
+			"Should build complete dependencies with complex module",
+			func(ctx SpecContext) {
+				indexCh := &channel.Channel{
+					Name:     "complex_index",
+					DataType: telem.TimeStampT,
+					IsIndex:  true,
+					Virtual:  false,
+				}
+				Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
 
-			readCh1 := &channel.Channel{
-				Name:       "complex_read_1",
-				Virtual:    false,
-				DataType:   telem.Float32T,
-				LocalIndex: indexCh.LocalKey,
-			}
-			Expect(channelWriter.Create(ctx, readCh1)).To(Succeed())
+				readCh1 := &channel.Channel{
+					Name:       "complex_read_1",
+					Virtual:    false,
+					DataType:   telem.Float32T,
+					LocalIndex: indexCh.LocalKey,
+				}
+				Expect(channelWriter.Create(ctx, readCh1)).To(Succeed())
 
-			readCh2 := &channel.Channel{
-				Name:     "complex_read_2",
-				Virtual:  true,
-				DataType: telem.Float64T,
-			}
-			Expect(channelWriter.Create(ctx, readCh2)).To(Succeed())
+				readCh2 := &channel.Channel{
+					Name:     "complex_read_2",
+					Virtual:  true,
+					DataType: telem.Float64T,
+				}
+				Expect(channelWriter.Create(ctx, readCh2)).To(Succeed())
 
-			writeCh := &channel.Channel{
-				Name:       "complex_write",
-				Virtual:    false,
-				DataType:   telem.Int32T,
-				LocalIndex: indexCh.LocalKey,
-			}
-			Expect(channelWriter.Create(ctx, writeCh)).To(Succeed())
+				writeCh := &channel.Channel{
+					Name:       "complex_write",
+					Virtual:    false,
+					DataType:   telem.Int32T,
+					LocalIndex: indexCh.LocalKey,
+				}
+				Expect(channelWriter.Create(ctx, writeCh)).To(Succeed())
 
-			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:  "read_node",
-							Type: "on",
-							Channels: types.Channels{
-								Read: map[uint32]string{
-									uint32(readCh1.Key()): "complex_read_1",
-									uint32(readCh2.Key()): "complex_read_2",
+				prog := arc.Program{
+					IR: ir.IR{
+						Nodes: []ir.Node{
+							{
+								Key:  "read_node",
+								Type: "on",
+								Channels: types.Channels{
+									Read: map[uint32]string{
+										uint32(readCh1.Key()): "complex_read_1",
+										uint32(readCh2.Key()): "complex_read_2",
+									},
+								},
+							},
+							{
+								Key:  "write_node",
+								Type: "write",
+								Channels: types.Channels{
+									Write: map[uint32]string{
+										uint32(readCh1.Key()): "complex_read_1",
+										uint32(writeCh.Key()): "complex_write",
+									},
 								},
 							},
 						},
-						{
-							Key:  "write_node",
-							Type: "write",
-							Channels: types.Channels{
-								Write: map[uint32]string{
-									uint32(readCh1.Key()): "complex_read_1",
-									uint32(writeCh.Key()): "complex_write",
-								},
-							},
-						},
 					},
-				},
-			}
+				}
 
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
-			Expect(deps.Reads.Contains(readCh1.Key())).To(BeTrue())
-			Expect(deps.Reads.Contains(readCh2.Key())).To(BeTrue())
-			Expect(deps.Reads.Contains(indexCh.Key())).To(BeTrue())
-			Expect(deps.Writes.Contains(readCh1.Key())).To(BeTrue())
-			Expect(deps.Writes.Contains(writeCh.Key())).To(BeTrue())
-			Expect(deps.Writes.Contains(indexCh.Key())).To(BeTrue())
-			Expect(deps.ChannelDigests).To(HaveLen(4))
-		})
+				deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
+				Expect(deps.Reads.Contains(readCh1.Key())).To(BeTrue())
+				Expect(deps.Reads.Contains(readCh2.Key())).To(BeTrue())
+				Expect(deps.Reads.Contains(indexCh.Key())).To(BeTrue())
+				Expect(deps.Writes.Contains(readCh1.Key())).To(BeTrue())
+				Expect(deps.Writes.Contains(writeCh.Key())).To(BeTrue())
+				Expect(deps.Writes.Contains(indexCh.Key())).To(BeTrue())
+				Expect(deps.ChannelDigests).To(HaveLen(4))
+			},
+		)
 	})
 })

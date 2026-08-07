@@ -30,13 +30,16 @@ var _ = Describe("Key", func() {
 			k := channel.NewKey(node.Key(1), 2)
 			Expect(k.LocalKey()).To(Equal(channel.LocalKey(2)))
 		})
-		It("Should correctly handle the maximum value of a 12 bit node key and 20 bit ts key", func() {
-			k := channel.NewKey(
-				node.Key(math.MaxUint12), channel.LocalKey(math.MaxUint20),
-			)
-			Expect(k.Lease()).To(Equal(node.Key(math.MaxUint12)))
-			Expect(k.LocalKey()).To(Equal(channel.LocalKey(math.MaxUint20)))
-		})
+		It(
+			"Should correctly handle the maximum value of a 12 bit node key and 20 bit ts key",
+			func() {
+				k := channel.NewKey(
+					node.Key(math.MaxUint12), channel.LocalKey(math.MaxUint20),
+				)
+				Expect(k.Lease()).To(Equal(node.Key(math.MaxUint12)))
+				Expect(k.LocalKey()).To(Equal(channel.LocalKey(math.MaxUint20)))
+			},
+		)
 	})
 	Describe("Free", func() {
 		It("Should return true if the channel is a free channel", func() {
@@ -84,11 +87,14 @@ var _ = Describe("Keys", func() {
 		})
 	})
 	Describe("KeysFromUint32", func() {
-		It("Should correctly --reinterpret-- a slice of uint32 into a slice of keys", func() {
-			uint32s := []uint32{1, 2, 3}
-			keys := channel.KeysFromUint32(uint32s)
-			Expect(keys).To(Equal(channel.Keys{1, 2, 3}))
-		})
+		It(
+			"Should correctly --reinterpret-- a slice of uint32 into a slice of keys",
+			func() {
+				uint32s := []uint32{1, 2, 3}
+				keys := channel.KeysFromUint32(uint32s)
+				Expect(keys).To(Equal(channel.Keys{1, 2, 3}))
+			},
+		)
 	})
 	Describe("Uint32", func() {
 		It("Should correctly reinterpret the keys as a slice of uint32", func() {
@@ -142,10 +148,13 @@ var _ = Describe("Channel", func() {
 			c := channel.Channel{Leaseholder: 1, LocalKey: 2}
 			Expect(c.Index()).To(Equal(channel.Key(0)))
 		})
-		It("Should return the index key built from the leaseholder and local index", func() {
-			c := channel.Channel{Leaseholder: 1, LocalKey: 2, LocalIndex: 3}
-			Expect(c.Index()).To(Equal(channel.NewKey(node.Key(1), 3)))
-		})
+		It(
+			"Should return the index key built from the leaseholder and local index",
+			func() {
+				c := channel.Channel{Leaseholder: 1, LocalKey: 2, LocalIndex: 3}
+				Expect(c.Index()).To(Equal(channel.NewKey(node.Key(1), 3)))
+			},
+		)
 	})
 	Describe("Lease", func() {
 		It("Should return the channel's leaseholder", func() {
@@ -206,14 +215,17 @@ var _ = Describe("Channel", func() {
 			Expect(stored.Key).To(Equal(ch.Key().StorageKey()))
 			Expect(stored.Virtual).To(BeTrue())
 		})
-		It("Should not mark a stored channel's storage registration as virtual", func() {
-			ch := channel.Channel{
-				Name:        "leased_ch",
-				LocalKey:    1,
-				Leaseholder: 1,
-				DataType:    telem.Int64T,
-			}
-			Expect(ch.Storage().Virtual).To(BeFalse())
-		})
+		It(
+			"Should not mark a stored channel's storage registration as virtual",
+			func() {
+				ch := channel.Channel{
+					Name:        "leased_ch",
+					LocalKey:    1,
+					Leaseholder: 1,
+					DataType:    telem.Int64T,
+				}
+				Expect(ch.Storage().Virtual).To(BeFalse())
+			},
+		)
 	})
 })

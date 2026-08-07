@@ -95,11 +95,21 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
     );
 
     const [dragOverride, setDragOverride] = useState<Segment[] | null>(null);
-    const dragOverrideRef = useRef(dragOverride);
-    dragOverrideRef.current = dragOverride;
 
     const segments = dragOverride ?? visualSegments;
     const dragRef = useRef<CurrentlyDragging | null>(null);
+
+    const computeDragged = useCallback((b: box.Box): Segment[] | null => {
+      const drag = dragRef.current;
+      if (drag == null) return null;
+      return dragSegment({
+        segments: drag.segments,
+        index: drag.index,
+        magnitude:
+          box.dim(b, direction.swap(drag.segments[drag.index].direction), true) /
+          flow.getZoom(),
+      });
+    }, []);
 
     const dragStart = Cursor.useDrag({
       onStart: useCallback(
@@ -111,26 +121,26 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
         },
         [segments],
       ),
-      onMove: useCallback((b: box.Box) => {
-        if (dragRef.current == null) return;
-        const next = dragSegment({
-          segments: dragRef.current.segments,
-          index: dragRef.current.index,
-          magnitude:
-            box.dim(
-              b,
-              direction.swap(dragRef.current.segments[dragRef.current.index].direction),
-              true,
-            ) / flow.getZoom(),
-        });
-        setDragOverride(next);
-      }, []),
-      onEnd: useCallback(() => {
-        if (dragOverrideRef.current != null) {
-          persistMiddle(dragOverrideRef.current);
+      onMove: useCallback(
+        (b: box.Box) => {
+          const next = computeDragged(b);
+          if (next != null) setDragOverride(next);
+        },
+        [computeDragged],
+      ),
+      // The final segments are computed from the release box rather than read
+      // back from state: the last move and the end run in one task, so state
+      // written by the move cannot re-render before the end handler reads it.
+      onEnd: useCallback(
+        (b: box.Box) => {
+          const final = computeDragged(b);
+          dragRef.current = null;
+          if (final == null) return;
+          persistMiddle(final);
           setDragOverride(null);
-        }
-      }, [persistMiddle]),
+        },
+        [computeDragged, persistMiddle],
+      ),
     });
 
     const points = segmentsToPoints(source.position, segments, flow.getZoom(), true);

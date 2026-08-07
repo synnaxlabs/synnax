@@ -17,7 +17,7 @@ cc_library(
     deps = [
         "//driver/opc/types",
         "//vendor/open62541",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )
 
@@ -28,6 +28,6 @@ cc_binary(
         ":mock",
         "//driver/opc/testutil",
         "//vendor/open62541",
-        "@glog",
+        "@abseil-cpp//absl/log",
     ],
 )

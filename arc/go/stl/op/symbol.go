@@ -35,14 +35,20 @@ func binaryOp(name string, outputs types.Params, body doc.Doc) *symbol.Symbol {
 }
 
 func comparison(name string, body doc.Doc) *symbol.Symbol {
-	return binaryOp(name, types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}, body)
+	return binaryOp(
+		name,
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		body,
+	)
 }
 
 func logical(name string, body doc.Doc) *symbol.Symbol {
 	constraint := types.NumericConstraint()
 	return binaryOp(
 		name,
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)}},
+		types.Params{
+			{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
+		},
 		body,
 	)
 }
@@ -74,15 +80,59 @@ const (
 )
 
 var (
-	geDoc  = doc.New(doc.Paragraph("Greater-than-or-equal comparison. Returns 1 if `a >= b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "ge(a, b)  // equivalent to: a >= b"))
-	gtDoc  = doc.New(doc.Paragraph("Greater-than comparison. Returns 1 if `a > b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "gt(a, b)  // equivalent to: a > b"))
-	leDoc  = doc.New(doc.Paragraph("Less-than-or-equal comparison. Returns 1 if `a <= b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "le(a, b)  // equivalent to: a <= b"))
-	ltDoc  = doc.New(doc.Paragraph("Less-than comparison. Returns 1 if `a < b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "lt(a, b)  // equivalent to: a < b"))
-	eqDoc  = doc.New(doc.Paragraph("Equality comparison. Returns 1 if `a == b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "eq(a, b)  // equivalent to: a == b"))
-	neDoc  = doc.New(doc.Paragraph("Inequality comparison. Returns 1 if `a != b`, 0 otherwise."), doc.Divider(), doc.Code("arc", "ne(a, b)  // equivalent to: a != b"))
-	andDoc = doc.New(doc.Paragraph("Logical AND. Returns a nonzero value if both inputs are nonzero, 0 otherwise."), doc.Divider(), doc.Code("arc", "and(a, b)  // equivalent to: a && b"))
-	orDoc  = doc.New(doc.Paragraph("Logical OR. Returns a nonzero value if either input is nonzero, 0 otherwise."), doc.Divider(), doc.Code("arc", "or(a, b)  // equivalent to: a || b"))
-	notDoc = doc.New(doc.Paragraph("Logical NOT. Returns 1 if the input is 0, 0 otherwise."), doc.Divider(), doc.Code("arc", "not(a)  // equivalent to: !a"))
+	geDoc = doc.New(
+		doc.Paragraph(
+			"Greater-than-or-equal comparison. Returns 1 if `a >= b`, 0 otherwise.",
+		),
+		doc.Divider(),
+		doc.Code("arc", "ge(a, b)  // equivalent to: a >= b"),
+	)
+	gtDoc = doc.New(
+		doc.Paragraph("Greater-than comparison. Returns 1 if `a > b`, 0 otherwise."),
+		doc.Divider(),
+		doc.Code("arc", "gt(a, b)  // equivalent to: a > b"),
+	)
+	leDoc = doc.New(
+		doc.Paragraph(
+			"Less-than-or-equal comparison. Returns 1 if `a <= b`, 0 otherwise.",
+		),
+		doc.Divider(),
+		doc.Code("arc", "le(a, b)  // equivalent to: a <= b"),
+	)
+	ltDoc = doc.New(
+		doc.Paragraph("Less-than comparison. Returns 1 if `a < b`, 0 otherwise."),
+		doc.Divider(),
+		doc.Code("arc", "lt(a, b)  // equivalent to: a < b"),
+	)
+	eqDoc = doc.New(
+		doc.Paragraph("Equality comparison. Returns 1 if `a == b`, 0 otherwise."),
+		doc.Divider(),
+		doc.Code("arc", "eq(a, b)  // equivalent to: a == b"),
+	)
+	neDoc = doc.New(
+		doc.Paragraph("Inequality comparison. Returns 1 if `a != b`, 0 otherwise."),
+		doc.Divider(),
+		doc.Code("arc", "ne(a, b)  // equivalent to: a != b"),
+	)
+	andDoc = doc.New(
+		doc.Paragraph(
+			"Logical AND. Returns a nonzero value if both inputs are nonzero, 0 otherwise.",
+		),
+		doc.Divider(),
+		doc.Code("arc", "and(a, b)  // equivalent to: a && b"),
+	)
+	orDoc = doc.New(
+		doc.Paragraph(
+			"Logical OR. Returns a nonzero value if either input is nonzero, 0 otherwise.",
+		),
+		doc.Divider(),
+		doc.Code("arc", "or(a, b)  // equivalent to: a || b"),
+	)
+	notDoc = doc.New(
+		doc.Paragraph("Logical NOT. Returns 1 if the input is 0, 0 otherwise."),
+		doc.Divider(),
+		doc.Code("arc", "not(a)  // equivalent to: !a"),
+	)
 )
 
 // NewSymbols returns a fresh slice of ambient prelude symbols this package

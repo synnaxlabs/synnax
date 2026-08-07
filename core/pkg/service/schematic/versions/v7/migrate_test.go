@@ -20,13 +20,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
-	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v5"
-	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v6"
+	legacyv6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v6"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -34,6 +35,7 @@ import (
 var fixtures embed.FS
 
 func loadFixture(name string) (msgpack.EncodedJSON, map[string]any) {
+	GinkgoHelper()
 	raw := MustSucceed(fixtures.ReadFile("testdata/" + name))
 	var m map[string]any
 	Expect(json.Unmarshal(raw, &m)).To(Succeed())
@@ -41,6 +43,7 @@ func loadFixture(name string) (msgpack.EncodedJSON, map[string]any) {
 }
 
 func jsonMap(raw string) msgpack.EncodedJSON {
+	GinkgoHelper()
 	var m map[string]any
 	Expect(json.Unmarshal([]byte(raw), &m)).To(Succeed())
 	return m
@@ -48,17 +51,18 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 
 // migrateSeed runs the v7 migration chain over a gorp-seeded v6 schematic and returns
 // the migrated typed Schematic.
-func migrateSeed(ctx SpecContext, seed v6.Schematic) v7.Schematic {
+func migrateSeed(ctx SpecContext, seed v0.Schematic) v7.Schematic {
+	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(
-		ctx, gorp.TableConfig[v6.Key, v6.Schematic]{DB: db},
+		ctx, gorp.TableConfig[v0.Key, v0.Schematic]{DB: db},
 	))
-	Expect(gorp.NewCreate[v6.Key, v6.Schematic]().
+	Expect(gorp.NewCreate[v0.Key, v0.Schematic]().
 		Entry(&seed).Exec(ctx, db)).To(Succeed())
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Schematic",
-		Migrations: []migrate.Migration{v6.Migration, v7.Migration},
+		Migrations: []migrate.Migration{v0.Migration, v7.Migration},
 	})).To(Succeed())
 	var got v7.Schematic
 	Expect(gorp.NewRetrieve[v7.Key, v7.Schematic]().
@@ -78,6 +82,7 @@ func stringOr(v any) string {
 // rewrites it if UPDATE_MIGRATED=1 is set. Outputs are canonicalized via
 // json.MarshalIndent (which sorts map keys) so diffs are deterministic.
 func assertMigrated(fixture string, got v7.Schematic) {
+	GinkgoHelper()
 	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
@@ -100,7 +105,7 @@ var _ = Describe("MigrateSchematic", func() {
 		DescribeTable("Should produce the canonical typed Schematic",
 			func(ctx SpecContext, fixture string) {
 				blob, _ := loadFixture(fixture)
-				out := migrateSeed(ctx, v6.Schematic{
+				out := migrateSeed(ctx, v0.Schematic{
 					Key: fixedKey, Name: fixture, Data: blob,
 				})
 				assertMigrated(fixture, out)
@@ -112,19 +117,24 @@ var _ = Describe("MigrateSchematic", func() {
 			Entry("v5 operator console", "v5_operator.json"),
 		)
 
-		It("Should produce the canonical output when called directly", func(ctx SpecContext) {
-			blob, _ := loadFixture("v5_operator.json")
-			out := migrateSeed(ctx, v6.Schematic{
-				Key: fixedKey, Name: "v5_operator.json", Data: blob,
-			})
-			assertMigrated("v5_operator.json", out)
-		})
+		It(
+			"Should produce the canonical output when called directly",
+			func(ctx SpecContext) {
+				blob, _ := loadFixture("v5_operator.json")
+				out := migrateSeed(ctx, v0.Schematic{
+					Key: fixedKey, Name: "v5_operator.json", Data: blob,
+				})
+				assertMigrated("v5_operator.json", out)
+			},
+		)
 	})
 
 	Describe("storage integration", func() {
-		It("Should lift a v5 wire-format blob into the typed Schematic on retrieve", func(ctx SpecContext) {
-			got := migrateSeed(ctx, v6.Schematic{
-				Key: uuid.New(), Name: "Tank Farm", Data: jsonMap(`{
+		It(
+			"Should lift a v5 wire-format blob into the typed Schematic on retrieve",
+			func(ctx SpecContext) {
+				got := migrateSeed(ctx, v0.Schematic{
+					Key: uuid.New(), Name: "Tank Farm", Data: jsonMap(`{
 					"version": "5.0.0",
 					"authority": 7,
 					"nodes": [{"key": "n1", "position": {"x": 100, "y": 200}}],
@@ -132,52 +142,71 @@ var _ = Describe("MigrateSchematic", func() {
 					"props": {"n1": {"key": "tank", "color": "#0080ff"}},
 					"legend": {"visible": true, "position": {"x": 50, "y": 50, "units": {"x": "px", "y": "px"}}, "colors": {}}
 				}`),
-			})
-			Expect(got.Edges[0].Source).To(Equal(v7.Handle{Node: "n1", Param: "outlet"}))
-			Expect(got.Configs["n1"]["variant"]).To(Equal("tank"))
-		})
+				})
+				Expect(
+					got.Edges[0].Source,
+				).To(Equal(v7.Handle{Node: "n1", Param: "outlet"}))
+				Expect(got.Configs["n1"]["variant"]).To(Equal("tank"))
+			},
+		)
 
-		It("Should chain a legacy v0 blob through every migration step on retrieve", func(ctx SpecContext) {
-			got := migrateSeed(ctx, v6.Schematic{
-				Key: uuid.New(), Name: "Legacy", Data: jsonMap(`{
+		It(
+			"Should chain a legacy v0 blob through every migration step on retrieve",
+			func(ctx SpecContext) {
+				got := migrateSeed(ctx, v0.Schematic{
+					Key: uuid.New(), Name: "Legacy", Data: jsonMap(`{
 					"version": "0.0.0",
 					"nodes": [{"key": "n1", "position": {"x": 0, "y": 0}}],
 					"edges": [{"key": "e1", "source": "n1", "target": "n2", "sourceHandle": "out", "targetHandle": "in"}],
 					"props": {"n1": {"key": "valve"}}
 				}`),
-			})
-			Expect(got.Edges[0].Source).To(Equal(v7.Handle{Node: "n1", Param: "out"}))
-			Expect(got.Configs["n1"]["variant"]).To(Equal("valve"))
-		})
+				})
+				Expect(
+					got.Edges[0].Source,
+				).To(Equal(v7.Handle{Node: "n1", Param: "out"}))
+				Expect(got.Configs["n1"]["variant"]).To(Equal("valve"))
+			},
+		)
 	})
 
 	// Each spec uses a v5-shaped blob and asserts a single reshape rule from the v6
-	// console contract. Keep one concern per spec so failures localize.
+	// Console contract. Keep one concern per spec so failures localize.
 	Describe("v5 reshape semantics", func() {
 		migrateV5 := func(ctx SpecContext, body string) v7.Schematic {
-			return migrateSeed(ctx, v6.Schematic{
-				Key:  uuid.New(),
-				Data: jsonMap(`{"version": "5.0.0", "nodes": [], "edges": [], "props": {}, ` + body + `}`),
+			return migrateSeed(ctx, v0.Schematic{
+				Key: uuid.New(),
+				Data: jsonMap(
+					`{"version": "5.0.0", "nodes": [], "edges": [], "props": {}, ` + body + `}`,
+				),
 			})
 		}
 
-		It("Should reshape edge endpoints into nested Handle{Node, Param}", func(ctx SpecContext) {
-			out := migrateSeed(ctx, v6.Schematic{
-				Key: uuid.New(),
-				Data: jsonMap(`{
+		It(
+			"Should reshape edge endpoints into nested Handle{Node, Param}",
+			func(ctx SpecContext) {
+				out := migrateSeed(ctx, v0.Schematic{
+					Key: uuid.New(),
+					Data: jsonMap(`{
 					"version": "5.0.0",
 					"nodes": [], "props": {},
 					"edges": [{"key": "e1", "source": "n1", "target": "n2", "sourceHandle": "outlet", "targetHandle": "inlet"}]
 				}`),
-			})
-			Expect(out.Edges[0].Source).To(Equal(v7.Handle{Node: "n1", Param: "outlet"}))
-			Expect(out.Edges[0].Target).To(Equal(v7.Handle{Node: "n2", Param: "inlet"}))
-		})
+				})
+				Expect(
+					out.Edges[0].Source,
+				).To(Equal(v7.Handle{Node: "n1", Param: "outlet"}))
+				Expect(
+					out.Edges[0].Target,
+				).To(Equal(v7.Handle{Node: "n2", Param: "inlet"}))
+			},
+		)
 
-		It("Should lift edge.data segments, color, and variant into props keyed by edge id", func(ctx SpecContext) {
-			out := migrateSeed(ctx, v6.Schematic{
-				Key: uuid.New(),
-				Data: jsonMap(`{
+		It(
+			"Should lift edge.data segments, color, and variant into props keyed by edge id",
+			func(ctx SpecContext) {
+				out := migrateSeed(ctx, v0.Schematic{
+					Key: uuid.New(),
+					Data: jsonMap(`{
 					"version": "5.0.0",
 					"nodes": [], "props": {},
 					"edges": [{
@@ -185,19 +214,20 @@ var _ = Describe("MigrateSchematic", func() {
 						"data": {"segments": [{"direction": "x", "length": 30}], "color": "#0000ff", "variant": "pipe"}
 					}]
 				}`),
-			})
-			Expect(out.Configs["e1"]).To(SatisfyAll(
-				HaveKeyWithValue("variant", "pipe"),
-				HaveKeyWithValue("color", "#0000ff"),
-				HaveKey("segments"),
-			))
-		})
+				})
+				Expect(out.Configs["e1"]).To(SatisfyAll(
+					HaveKeyWithValue("variant", "pipe"),
+					HaveKeyWithValue("color", "#0000ff"),
+					HaveKey("segments"),
+				))
+			},
+		)
 
 		It("Should strip legacy stumps from a full-path edge", func(ctx SpecContext) {
 			// Real OX Pre-Valve -> OX MPV edge from a 0.55 schematic: the stored full
 			// path includes both stumps, which would double on render and fold a
 			// pigtail.
-			out := migrateSeed(ctx, v6.Schematic{
+			out := migrateSeed(ctx, v0.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0", "nodes": [], "props": {},
@@ -219,38 +249,46 @@ var _ = Describe("MigrateSchematic", func() {
 			}))
 		})
 
-		It("Should clear degenerate short edges so they auto-route", func(ctx SpecContext) {
-			// A single segment shorter than two stumps (real 0.55 edge, 11.88px) has no
-			// strippable middle; subtracting a full stump from each end would flip it
-			// into a self-crossing spur, so it is cleared to an empty (auto-routed)
-			// edge.
-			out := migrateSeed(ctx, v6.Schematic{
-				Key: uuid.New(),
-				Data: jsonMap(`{
+		It(
+			"Should clear degenerate short edges so they auto-route",
+			func(ctx SpecContext) {
+				// A single segment shorter than two stumps (real 0.55 edge, 11.88px)
+				// has no strippable middle; subtracting a full stump from each end
+				// would flip it into a self-crossing spur, so it is cleared to an empty
+				// (auto-routed) edge.
+				out := migrateSeed(ctx, v0.Schematic{
+					Key: uuid.New(),
+					Data: jsonMap(`{
 					"version": "5.0.0", "nodes": [], "props": {},
 					"edges": [{"key": "e1", "source": "n1", "target": "n2",
 						"data": {"segments": [{"direction": "y", "length": 11.88}], "variant": "pipe"}}]
 				}`),
-			})
-			Expect(out.Configs["e1"]["segments"]).To(Equal([]any{}))
-		})
+				})
+				Expect(out.Configs["e1"]["segments"]).To(Equal([]any{}))
+			},
+		)
 
-		It("Should default edge-prop variant to pipe when edge.data is non-null but empty", func(ctx SpecContext) {
-			out := migrateSeed(ctx, v6.Schematic{
-				Key: uuid.New(),
-				Data: jsonMap(`{
+		It(
+			"Should default edge-prop variant to pipe when edge.data is non-null but empty",
+			func(ctx SpecContext) {
+				out := migrateSeed(ctx, v0.Schematic{
+					Key: uuid.New(),
+					Data: jsonMap(`{
 					"version": "5.0.0",
 					"nodes": [], "props": {},
 					"edges": [{"key": "e1", "source": "n1", "target": "n2", "data": {}}]
 				}`),
-			})
-			Expect(out.Configs["e1"]["variant"]).To(Equal("pipe"))
-		})
+				})
+				Expect(out.Configs["e1"]["variant"]).To(Equal("pipe"))
+			},
+		)
 
-		It("Should produce no edge-prop entry when edge.data is missing or null", func(ctx SpecContext) {
-			out := migrateSeed(ctx, v6.Schematic{
-				Key: uuid.New(),
-				Data: jsonMap(`{
+		It(
+			"Should produce no edge-prop entry when edge.data is missing or null",
+			func(ctx SpecContext) {
+				out := migrateSeed(ctx, v0.Schematic{
+					Key: uuid.New(),
+					Data: jsonMap(`{
 					"version": "5.0.0",
 					"nodes": [], "props": {},
 					"edges": [
@@ -258,13 +296,17 @@ var _ = Describe("MigrateSchematic", func() {
 						{"key": "null", "source": "n1", "target": "n2", "data": null}
 					]
 				}`),
-			})
-			Expect(out.Configs).NotTo(HaveKey("missing"))
-			Expect(out.Configs).NotTo(HaveKey("null"))
-		})
+				})
+				Expect(out.Configs).NotTo(HaveKey("missing"))
+				Expect(out.Configs).NotTo(HaveKey("null"))
+			},
+		)
 
 		It("Should rename node-prop key to variant", func(ctx SpecContext) {
-			out := migrateV5(ctx, `"props": {"n1": {"key": "valve", "color": "#ff0000"}}`)
+			out := migrateV5(
+				ctx,
+				`"props": {"n1": {"key": "valve", "color": "#ff0000"}}`,
+			)
 			Expect(out.Configs["n1"]).To(SatisfyAll(
 				HaveKeyWithValue("variant", "valve"),
 				HaveKeyWithValue("color", "#ff0000"),
@@ -272,13 +314,19 @@ var _ = Describe("MigrateSchematic", func() {
 			))
 		})
 
-		It("Should overwrite an existing variant with the v0 key field per console v6 contract", func(ctx SpecContext) {
-			out := migrateV5(ctx, `"props": {"n1": {"key": "tank", "variant": "stale"}}`)
-			Expect(out.Configs["n1"]["variant"]).To(Equal("tank"))
-		})
+		It(
+			"Should overwrite an existing variant with the v0 key field per console v6 contract",
+			func(ctx SpecContext) {
+				out := migrateV5(
+					ctx,
+					`"props": {"n1": {"key": "tank", "variant": "stale"}}`,
+				)
+				Expect(out.Configs["n1"]["variant"]).To(Equal("tank"))
+			},
+		)
 
 		It("Should preserve user-set zIndex on nodes", func(ctx SpecContext) {
-			out := migrateSeed(ctx, v6.Schematic{
+			out := migrateSeed(ctx, v0.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0", "edges": [], "props": {},
@@ -292,30 +340,36 @@ var _ = Describe("MigrateSchematic", func() {
 			Expect(out.Nodes[1].ZIndex).To(BeEquivalentTo(7))
 		})
 
-		It("Should default zIndex to 0 when the wire form omits it", func(ctx SpecContext) {
-			out := migrateSeed(ctx, v6.Schematic{
-				Key: uuid.New(),
-				Data: jsonMap(`{
+		It(
+			"Should default zIndex to 0 when the wire form omits it",
+			func(ctx SpecContext) {
+				out := migrateSeed(ctx, v0.Schematic{
+					Key: uuid.New(),
+					Data: jsonMap(`{
 					"version": "5.0.0", "edges": [], "props": {},
 					"nodes": [{"key": "n1", "position": {"x": 0, "y": 0}}]
 				}`),
-			})
-			Expect(out.Nodes[0].ZIndex).To(BeEquivalentTo(0))
-		})
+				})
+				Expect(out.Nodes[0].ZIndex).To(BeEquivalentTo(0))
+			},
+		)
 
-		It("Should pass through the gorp-entry fields (key, name, snapshot)", func(ctx SpecContext) {
-			key := uuid.New()
-			out := migrateSeed(ctx, v6.Schematic{
-				Key: key, Name: "tank-1", Snapshot: true,
-				Data: jsonMap(`{"version": "5.0.0"}`),
-			})
-			Expect(out.Key).To(Equal(key))
-			Expect(out.Name).To(Equal("tank-1"))
-			Expect(out.Snapshot).To(BeTrue())
-		})
+		It(
+			"Should pass through the gorp-entry fields (key, name, snapshot)",
+			func(ctx SpecContext) {
+				key := uuid.New()
+				out := migrateSeed(ctx, v0.Schematic{
+					Key: key, Name: "tank-1", Snapshot: true,
+					Data: jsonMap(`{"version": "5.0.0"}`),
+				})
+				Expect(out.Key).To(Equal(key))
+				Expect(out.Name).To(Equal("tank-1"))
+				Expect(out.Snapshot).To(BeTrue())
+			},
+		)
 
 		It("Should handle a nil data blob without erroring", func(ctx SpecContext) {
-			out := migrateSeed(ctx, v6.Schematic{
+			out := migrateSeed(ctx, v0.Schematic{
 				Key: uuid.New(), Name: "empty", Data: nil,
 			})
 			Expect(out.Nodes).To(BeEmpty())
@@ -328,7 +382,8 @@ var _ = Describe("MigrateData", func() {
 	// Walk each captured production fixture through the chain and assert invariants:
 	// counts, edge.data preservation, orphan filter, dispatch.
 	Describe("real-world fixtures", func() {
-		DescribeTable("Should walk the chain to v5.Data, preserving edge.data and dropping orphans",
+		DescribeTable(
+			"Should walk the chain to legacy.Data, preserving edge.data and dropping orphans",
 			func(fixture string, expectNodes, expectEdges, expectInputOrphans int) {
 				blob, raw := loadFixture(fixture)
 				rawNodes, _ := raw["nodes"].([]any)
@@ -347,7 +402,7 @@ var _ = Describe("MigrateData", func() {
 				Expect(len(rawEdges) - len(validRawEdges)).To(Equal(expectInputOrphans))
 
 				out := MustSucceed(legacy.MigrateData(blob))
-				Expect(out.Version).To(Equal(v5.Version))
+				Expect(out.Version).To(Equal(legacy.DataVersion))
 				Expect(out.Nodes).To(HaveLen(len(rawNodes)))
 				Expect(out.Edges).To(HaveLen(len(validRawEdges)))
 
@@ -360,7 +415,8 @@ var _ = Describe("MigrateData", func() {
 					Expect(e.Key).To(Equal(rawEdge["key"]))
 					Expect(e.Source).To(Equal(stringOr(rawEdge["source"])))
 					Expect(e.Target).To(Equal(stringOr(rawEdge["target"])))
-					if data, ok := rawEdge["data"].(map[string]any); ok && len(data) > 0 {
+					if data, ok := rawEdge["data"].(map[string]any); ok &&
+						len(data) > 0 {
 						Expect(e.Data).NotTo(BeEmpty(),
 							"edge %v lost ReactFlow data bag through chain", e.Key)
 					}
@@ -390,15 +446,17 @@ var _ = Describe("MigrateData", func() {
 				"edges": [{"key": "e1", "source": "n1", "target": "n2", "sourceHandle": "out", "targetHandle": "in"}],
 				"props": {"n1": {"key": "valve"}}
 			}`)))
-			Expect(out.Version).To(Equal(v5.Version))
-			Expect(out.Authority).To(BeEquivalentTo(1))
-			Expect(out.Mode).To(Equal("select"))
-			Expect(out.Legend.Visible).To(BeTrue())
+			Expect(out.Version).To(Equal(legacy.DataVersion))
+			Expect(out.Nodes).To(HaveLen(1))
+			Expect(out.Edges).To(HaveLen(1))
+			Expect(out.Props).To(HaveKey("n1"))
 		})
 
 		It("Should fall back to v0 when the blob has no version field", func() {
-			out := MustSucceed(legacy.MigrateData(jsonMap(`{"nodes": [], "edges": [], "props": {}}`)))
-			Expect(out.Version).To(Equal(v5.Version))
+			out := MustSucceed(
+				legacy.MigrateData(jsonMap(`{"nodes": [], "edges": [], "props": {}}`)),
+			)
+			Expect(out.Version).To(Equal(legacy.DataVersion))
 		})
 
 		It("Should preserve user-set zIndex on nodes through the chain", func() {
@@ -414,8 +472,10 @@ var _ = Describe("MigrateData", func() {
 			Expect(*out.Nodes[1].ZIndex).To(Equal(7))
 		})
 
-		It("Should preserve edge.data through a v0 blob into v5.Edge.Data", func() {
-			out := MustSucceed(legacy.MigrateData(jsonMap(`{
+		It(
+			"Should preserve edge.data through a v0 blob into legacy.Edge.Data",
+			func() {
+				out := MustSucceed(legacy.MigrateData(jsonMap(`{
 				"version": "0.0.0",
 				"nodes": [], "props": {},
 				"edges": [{
@@ -423,8 +483,9 @@ var _ = Describe("MigrateData", func() {
 					"data": {"segments": [{"direction": "x", "length": 10}], "color": "#ff0000"}
 				}]
 			}`)))
-			Expect(out.Edges[0].Data).NotTo(BeEmpty())
-		})
+				Expect(out.Edges[0].Data).NotTo(BeEmpty())
+			},
+		)
 
 		It("Should drop edges with empty source", func() {
 			out := MustSucceed(legacy.MigrateData(jsonMap(`{
@@ -451,12 +512,15 @@ var _ = Describe("MigrateData", func() {
 			Expect(out.Edges).To(BeEmpty())
 		})
 
-		It("Should walk the chain on a nil blob and produce a zero v5.Data", func() {
-			out := MustSucceed(legacy.MigrateData(nil))
-			Expect(out.Version).To(Equal(v5.Version))
-			Expect(out.Nodes).To(BeEmpty())
-			Expect(out.Edges).To(BeEmpty())
-		})
+		It(
+			"Should walk the chain on a nil blob and produce a zero legacy.Data",
+			func() {
+				out := MustSucceed(legacy.MigrateData(nil))
+				Expect(out.Version).To(Equal(legacy.DataVersion))
+				Expect(out.Nodes).To(BeEmpty())
+				Expect(out.Edges).To(BeEmpty())
+			},
+		)
 
 		It("Should error on an unknown declared version", func() {
 			Expect(legacy.MigrateData(jsonMap(`{"version": "99.0.0"}`))).Error().
@@ -467,3 +531,40 @@ var _ = Describe("MigrateData", func() {
 
 // Each step is fed nonZeroV0() chained up to its input version. Tests assert the step's
 // *new* fields and that every prior field passes through unchanged.
+
+var _ = Describe("SchematicFromConsole", func() {
+	It("Should lift the Console export into the current Schematic", func() {
+		out := v7.SchematicFromConsole(legacyv6.Data{
+			Snapshot: true,
+			Nodes: []legacyv6.Node{
+				{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
+			},
+			Edges: []legacyv6.Edge{{
+				Key:    "e1",
+				Source: legacyv6.Handle{Node: "n1", Param: "out"},
+				Target: legacyv6.Handle{Node: "n2", Param: "in"},
+			}},
+			Configs: map[string]msgpack.EncodedJSON{"n1": {"variant": "valve"}},
+		})
+
+		Expect(out.Snapshot).To(BeTrue())
+		Expect(out.Nodes).To(Equal([]v7.Node{
+			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
+		}))
+		Expect(out.Edges).To(Equal([]v7.Edge{{
+			Key:    "e1",
+			Source: v7.Handle{Node: "n1", Param: "out"},
+			Target: v7.Handle{Node: "n2", Param: "in"},
+		}}))
+		Expect(out.Configs).To(HaveKey("n1"))
+	})
+
+	It("Should produce an empty Schematic from an empty export", func() {
+		out := v7.SchematicFromConsole(legacyv6.Data{})
+
+		Expect(out.Snapshot).To(BeFalse())
+		Expect(out.Nodes).To(BeEmpty())
+		Expect(out.Edges).To(BeEmpty())
+		Expect(out.Configs).To(BeEmpty())
+	})
+})

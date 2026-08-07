@@ -14,17 +14,17 @@ import (
 	"encoding/json"
 	"math"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v0"
-	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
-	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v6"
+	legacyv6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v6"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/spatial"
 )
 
-// migrateSchematic transforms the previous schematic snapshot (v6) into the v7
+// MigrateSchematic transforms the previous schematic snapshot (v0) into the v7
 // strongly-typed Schematic. autoMigrateSchematic handles the trivially-copyable
 // Gorp-entry fields (Key, Name, Snapshot); the body fields are sourced from the
 // per-schematic blob the Console used to persist alongside those Gorp fields, after
@@ -37,9 +37,9 @@ import (
 // matches the EdgeProps / NodeProps schema declared in schematic.oracle. v0 is the last
 // snapshot in which Schematic.Data is untyped; future migrations transform one typed
 // snapshot into another and never need this blob handling.
-func migrateSchematic(
+func MigrateSchematic(
 	ctx context.Context,
-	old v6.Schematic,
+	old v0.Schematic,
 ) (Schematic, error) {
 	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
@@ -49,10 +49,16 @@ func migrateSchematic(
 	if err != nil {
 		return Schematic{}, err
 	}
-	out.Nodes = make([]Node, len(d.Nodes))
-	for i, n := range d.Nodes {
-		out.Nodes[i] = migrateNode(n)
-	}
+	out.Nodes = lo.Map(d.Nodes, func(n legacy.Node, _ int) Node {
+		node := Node{
+			Key:      n.Key,
+			Position: spatial.XY{X: n.Position.X, Y: n.Position.Y},
+		}
+		if n.ZIndex != nil {
+			node.ZIndex = int16(*n.ZIndex)
+		}
+		return node
+	})
 	out.Configs, err = migrateProps(d.Props)
 	if err != nil {
 		return Schematic{}, err
@@ -74,17 +80,6 @@ func migrateSchematic(
 	return out, nil
 }
 
-func migrateNode(n v0.Node) Node {
-	out := Node{
-		Key:      n.Key,
-		Position: spatial.XY{X: n.Position.X, Y: n.Position.Y},
-	}
-	if n.ZIndex != nil {
-		out.ZIndex = int16(*n.ZIndex)
-	}
-	return out
-}
-
 // migrateEdge reshapes a v5 edge into the typed Edge with nested Handles and, when the
 // edge carries a ReactFlow-style data bag, lifts its segments / color / variant fields
 // into a props map entry keyed by the edge id. Mirrors the Console v6 migrateEdge: a
@@ -93,7 +88,7 @@ func migrateNode(n v0.Node) Node {
 // variant defaults to "pipe") so the lifted shape always parses cleanly under the v6
 // EdgeProps schema. Returns the typed edge plus the payload (or nil when there is
 // nothing to lift).
-func migrateEdge(e v3.Edge) (Edge, msgpack.EncodedJSON, error) {
+func migrateEdge(e legacy.Edge) (Edge, msgpack.EncodedJSON, error) {
 	out := Edge{
 		Key:    e.Key,
 		Source: Handle{Node: e.Source, Param: stringOrEmpty(e.SourceHandle)},
@@ -218,19 +213,19 @@ func parseSegments(raw []any) ([]segment, bool) {
 }
 
 func segmentsToRaw(segs []segment) []any {
-	out := make([]any, len(segs))
-	for i, s := range segs {
-		out[i] = map[string]any{"direction": s.direction, "length": s.length}
-	}
-	return out
+	return lo.Map(segs, func(s segment, _ int) any {
+		return map[string]any{"direction": s.direction, "length": s.length}
+	})
 }
 
 // migrateProps decodes each opaque prop entry from raw JSON bytes into the in-memory
-// map[string]any shape that msgpack.EncodedJSON wraps, renaming the v0..v5 node-prop
-// "key" field to "variant" to match the v6 NodeProps schema declared in
+// map[string]any shape that msgpack.EncodedJSON wraps, renaming the legacy v0..v5
+// node-prop "key" field to "variant" to match the v6 NodeProps schema declared in
 // schematic.oracle. Empty entries are dropped because msgpack.EncodedJSON is
 // nil-equivalent to "no entry".
-func migrateProps(in map[string]json.RawMessage) (map[string]msgpack.EncodedJSON, error) {
+func migrateProps(
+	in map[string]json.RawMessage,
+) (map[string]msgpack.EncodedJSON, error) {
 	if len(in) == 0 {
 		return nil, nil
 	}
@@ -243,9 +238,9 @@ func migrateProps(in map[string]json.RawMessage) (map[string]msgpack.EncodedJSON
 		if err := json.Unmarshal(raw, &m); err != nil {
 			return nil, errors.Wrapf(err, "decode props[%q]", k)
 		}
-		// Mirrors the Console v6 migrateProps: variant is always set from the v0..v5
-		// "key" field, overwriting any prior variant. v0..v5 NodeProps schemas declare
-		// key (not variant), so production data never carries both, but the
+		// Mirrors the Console v6 migrateProps: variant is always set from the legacy
+		// v0..v5 "key" field, overwriting any prior variant. Those NodeProps schemas
+		// declare key (not variant), so production data never carries both, but the
 		// always-overwrite contract matches the Console's single source of truth.
 		if v, ok := m["key"]; ok {
 			m["variant"] = v
@@ -263,5 +258,23 @@ func stringOrEmpty(s *string) string {
 	return *s
 }
 
-// Migration lifts stored schematics from the v6 blob layout to the typed v7 shape.
-var Migration = gorp.NewEntryMigration("v55_lift_typed_schematic", migrateSchematic)
+// Migration lifts stored schematics from the v0 blob layout to the typed v7 shape.
+var Migration = gorp.NewEntryMigration("v55_lift_typed_schematic", MigrateSchematic)
+
+// SchematicFromConsole lifts the frozen Console export into the current Schematic.
+func SchematicFromConsole(d legacy.Export) Schematic {
+	return Schematic{
+		Snapshot: d.Snapshot,
+		Configs:  d.Configs,
+		Nodes: lo.Map(d.Nodes, func(n legacyv6.Node, _ int) Node {
+			return Node{Key: n.Key, Position: n.Position, ZIndex: n.ZIndex}
+		}),
+		Edges: lo.Map(d.Edges, func(e legacyv6.Edge, _ int) Edge {
+			return Edge{
+				Key:    e.Key,
+				Source: Handle{Node: e.Source.Node, Param: e.Source.Param},
+				Target: Handle{Node: e.Target.Node, Param: e.Target.Param},
+			}
+		}),
+	}
+}

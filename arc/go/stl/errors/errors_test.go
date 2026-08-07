@@ -35,11 +35,14 @@ var _ = Describe("errors", func() {
 	})
 
 	Describe("panic", func() {
-		It("Should panic with 'memory not set' when memory is nil", func(ctx SpecContext) {
-			Expect(func() {
-				rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(5))
-			}).To(PanicWith(ContainSubstring("memory not set")))
-		})
+		It(
+			"Should panic with 'memory not set' when memory is nil",
+			func(ctx SpecContext) {
+				Expect(func() {
+					rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(5))
+				}).To(PanicWith(ContainSubstring("memory not set")))
+			},
+		)
 
 		It("Should panic with the message read from memory", func(ctx SpecContext) {
 			mem := wazerotest.NewMemory(1)
@@ -50,20 +53,32 @@ var _ = Describe("errors", func() {
 			}).To(PanicWith(ContainSubstring("arc panic: test error")))
 		})
 
-		It("Should panic with 'message unreadable' when memory read fails", func(ctx SpecContext) {
-			mem := wazerotest.NewMemory(1)
-			mod.SetMemory(mem)
-			Expect(func() {
-				rt.Call(ctx, "error", "panic", testutil.U32(100000), testutil.U32(5))
-			}).To(PanicWith(ContainSubstring("arc panic (message unreadable)")))
-		})
+		It(
+			"Should panic with 'message unreadable' when memory read fails",
+			func(ctx SpecContext) {
+				mem := wazerotest.NewMemory(1)
+				mod.SetMemory(mem)
+				Expect(func() {
+					rt.Call(
+						ctx,
+						"error",
+						"panic",
+						testutil.U32(100000),
+						testutil.U32(5),
+					)
+				}).To(PanicWith(ContainSubstring("arc panic (message unreadable)")))
+			},
+		)
 
-		It("Should panic with empty message when length is zero", func(ctx SpecContext) {
-			mem := wazerotest.NewMemory(1)
-			mod.SetMemory(mem)
-			Expect(func() {
-				rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(0))
-			}).To(PanicWith(ContainSubstring("arc panic: ")))
-		})
+		It(
+			"Should panic with empty message when length is zero",
+			func(ctx SpecContext) {
+				mem := wazerotest.NewMemory(1)
+				mod.SetMemory(mem)
+				Expect(func() {
+					rt.Call(ctx, "error", "panic", testutil.U32(0), testutil.U32(0))
+				}).To(PanicWith(ContainSubstring("arc panic: ")))
+			},
+		)
 	})
 })

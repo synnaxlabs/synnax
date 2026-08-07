@@ -79,16 +79,16 @@ func (s *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Internal            *bool      `json:"internal" msgpack:"internal"`
-		Snapshot            *bool      `json:"snapshot" msgpack:"snapshot"`
-		SearchTerm          string     `json:"search_term" msgpack:"search_term"`
-		Keys                []task.Key `json:"keys" msgpack:"keys"`
-		Names               []string   `json:"names" msgpack:"names"`
-		Types               []string   `json:"types" msgpack:"types"`
-		Limit               int        `json:"limit" msgpack:"limit"`
-		Offset              int        `json:"offset" msgpack:"offset"`
-		Rack                rack.Key   `json:"rack" msgpack:"rack"`
-		IncludeStatus       bool       `json:"include_status" msgpack:"include_status"`
+		Internal            *bool      `json:"internal"               msgpack:"internal"`
+		Snapshot            *bool      `json:"snapshot"               msgpack:"snapshot"`
+		SearchTerm          string     `json:"search_term"            msgpack:"search_term"`
+		Keys                []task.Key `json:"keys"                   msgpack:"keys"`
+		Names               []string   `json:"names"                  msgpack:"names"`
+		Types               []string   `json:"types"                  msgpack:"types"`
+		Limit               int        `json:"limit"                  msgpack:"limit"`
+		Offset              int        `json:"offset"                 msgpack:"offset"`
+		Rack                rack.Key   `json:"rack"                   msgpack:"rack"`
+		IncludeStatus       bool       `json:"include_status"         msgpack:"include_status"`
 		IgnoreNotFoundError bool       `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
 	}
 	RetrieveResponse struct {
@@ -194,8 +194,8 @@ func (s *Service) Delete(
 
 type (
 	CopyRequest struct {
-		Name     string   `json:"name" msgpack:"name"`
-		Key      task.Key `json:"key" msgpack:"key"`
+		Name     string   `json:"name"     msgpack:"name"`
+		Key      task.Key `json:"key"      msgpack:"key"`
 		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
 	}
 	CopyResponse struct {

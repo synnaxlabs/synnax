@@ -20,32 +20,58 @@ import (
 )
 
 var _ = Describe("Formatter", func() {
-	DescribeTable("Binary Operators",
+	DescribeTable(
+		"Binary Operators",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("should add spaces around :=", "x:=42", "x := 42\n"),
 		Entry("should add spaces around $=", "count$=0", "count $= 0\n"),
-		Entry("should add spaces around arithmetic operators", "x:=a+b*c-d/e%f", "x := a + b * c - d / e % f\n"),
+		Entry(
+			"should add spaces around arithmetic operators",
+			"x:=a+b*c-d/e%f",
+			"x := a + b * c - d / e % f\n",
+		),
 		Entry("should add spaces around comparison operators", "x==y", "x == y\n"),
-		Entry("should add spaces around logical operators", "x and y or z", "x and y or z\n"),
+		Entry(
+			"should add spaces around logical operators",
+			"x and y or z",
+			"x and y or z\n",
+		),
 		Entry("should add spaces around flow operators", "a->b=>c", "a -> b => c\n"),
-		Entry("should add spaces around compound assignment operators", "x+=5", "x += 5\n"),
-		Entry("all compound operators", "x += 1\ny -= 2\nz *= 3\na /= 4\nb %= 5", "x += 1\ny -= 2\nz *= 3\na /= 4\nb %= 5\n"),
+		Entry(
+			"should add spaces around compound assignment operators",
+			"x+=5",
+			"x += 5\n",
+		),
+		Entry(
+			"all compound operators",
+			"x += 1\ny -= 2\nz *= 3\na /= 4\nb %= 5",
+			"x += 1\ny -= 2\nz *= 3\na /= 4\nb %= 5\n",
+		),
 		Entry("power operator", "x := 2 ^ 3", "x := 2 ^ 3\n"),
 		Entry("chained power", "x := a ^ b ^ c", "x := a ^ b ^ c\n"),
 		Entry("power with multiply", "x := 2 ^ 3 * 4", "x := 2 ^ 3 * 4\n"),
 	)
 
-	DescribeTable("Imports",
+	DescribeTable(
+		"Imports",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("single module collapses to bare form", "import(time)", "import time\n"),
 		Entry("bare form stays bare", "import time", "import time\n"),
-		Entry("aliased collapses to bare form", "import (time as t)", "import time as t\n"),
+		Entry(
+			"aliased collapses to bare form",
+			"import (time as t)",
+			"import time as t\n",
+		),
 		Entry("bare aliased stays bare", "import time as t", "import time as t\n"),
-		Entry("hierarchical path collapses to bare form", "import (math.trig)", "import math.trig\n"),
+		Entry(
+			"hierarchical path collapses to bare form",
+			"import (math.trig)",
+			"import math.trig\n",
+		),
 		Entry("multiple modules expand to multi-line block",
 			"import (time math status)",
 			"import (\n    time\n    math\n    status\n)\n"),
@@ -58,41 +84,73 @@ var _ = Describe("Formatter", func() {
 		Entry("multi-line single item collapses to bare form",
 			"import (\n    time\n)",
 			"import time\n"),
-		Entry("multi-line single item preserves trailing declarations",
+		Entry(
+			"multi-line single item preserves trailing declarations",
 			"import (\n    time\n)\n\nauthority 255\n\nfunc cat() {\n    time.now()\n}\n",
-			"import time\n\nauthority 255\n\nfunc cat() {\n    time.now()\n}\n"),
+			"import time\n\nauthority 255\n\nfunc cat() {\n    time.now()\n}\n",
+		),
 		Entry("empty is removed", "import ()", ""),
 		Entry("empty is removed and following declarations are preserved",
 			"import ()\n\nauthority 255\n",
 			"authority 255\n"),
 	)
 
-	DescribeTable("Unit Literals",
+	DescribeTable(
+		"Unit Literals",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("should not add space between number and unit suffix", "delay := 100ms", "delay := 100ms\n"),
-		Entry("should not add space between float and unit suffix", "pressure := 14.7psi", "pressure := 14.7psi\n"),
+		Entry(
+			"should not add space between number and unit suffix",
+			"delay := 100ms",
+			"delay := 100ms\n",
+		),
+		Entry(
+			"should not add space between float and unit suffix",
+			"pressure := 14.7psi",
+			"pressure := 14.7psi\n",
+		),
 	)
 
-	DescribeTable("Functions",
+	DescribeTable(
+		"Functions",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("simple function", "func add(x i32,y i32)i32{return x+y}", "func add(x i32, y i32) i32 {\n    return x + y\n}\n"),
-		Entry("function with input block inline", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n"),
+		Entry(
+			"simple function",
+			"func add(x i32,y i32)i32{return x+y}",
+			"func add(x i32, y i32) i32 {\n    return x + y\n}\n",
+		),
+		Entry(
+			"function with input block inline",
+			"func threshold{limit f64}(value f64)u8{return u8(0)}",
+			"func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n",
+		),
 		Entry("empty function body", "func noop(){}", "func noop() {}\n"),
-		Entry("input with 3 params",
+		Entry(
+			"input with 3 params",
 			"func threshold{max f64, min f64, step i32}(value f64) f64 {return value}",
-			"func threshold{max f64, min f64, step i32} (value f64) f64 {\n    return value\n}\n"),
+			"func threshold{max f64, min f64, step i32} (value f64) f64 {\n    return value\n}\n",
+		),
 		Entry("input with chan type",
 			"func dispatch{target chan i64}() {}",
 			"func dispatch{target chan i64} () {}\n"),
-		Entry("named multi output",
+		Entry(
+			"named multi output",
 			"func divide(a i32, b i32)(quotient i32, remainder i32){return}",
-			"func divide(a i32, b i32) (quotient i32, remainder i32) {\n    return\n}\n"),
-		Entry("single named output", "func foo() f64 {return 0}", "func foo() f64 {\n    return 0\n}\n"),
-		Entry("bare return", "func test() {\n    return\n}", "func test() {\n    return\n}\n"),
+			"func divide(a i32, b i32) (quotient i32, remainder i32) {\n    return\n}\n",
+		),
+		Entry(
+			"single named output",
+			"func foo() f64 {return 0}",
+			"func foo() f64 {\n    return 0\n}\n",
+		),
+		Entry(
+			"bare return",
+			"func test() {\n    return\n}",
+			"func test() {\n    return\n}\n",
+		),
 		Entry("return complex expression",
 			"func test() {\n    return a + b * (c - d)\n}",
 			"func test() {\n    return a + b * (c - d)\n}\n"),
@@ -101,28 +159,44 @@ var _ = Describe("Formatter", func() {
 			"func a() {\n    func b() {\n        return 1\n    }\n}\n"),
 	)
 
-	DescribeTable("Sequences",
+	DescribeTable(
+		"Sequences",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("sequence with stages", "sequence main{stage first{}stage second{}}", "sequence main {\n    stage first {}\n    stage second {}\n}\n"),
-		Entry("comments between stages",
+		Entry(
+			"sequence with stages",
+			"sequence main{stage first{}stage second{}}",
+			"sequence main {\n    stage first {}\n    stage second {}\n}\n",
+		),
+		Entry(
+			"comments between stages",
 			"sequence main {\n    // setup phase\n    stage init {\n        x := 0\n    }\n    // execution phase\n    stage run {\n        x := x + 1\n    }\n}",
-			"sequence main {\n    // setup phase\n    stage init {\n        x := 0\n    }\n    // execution phase\n    stage run {\n        x := x + 1\n    }\n}\n"),
+			"sequence main {\n    // setup phase\n    stage init {\n        x := 0\n    }\n    // execution phase\n    stage run {\n        x := x + 1\n    }\n}\n",
+		),
 	)
 
-	DescribeTable("Control Flow",
+	DescribeTable(
+		"Control Flow",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("if statement", "if x>0{return 1}", "if x > 0 {\n    return 1\n}\n"),
-		Entry("if-else statement", "if x>0{return 1}else{return 0}", "if x > 0 {\n    return 1\n} else {\n    return 0\n}\n"),
-		Entry("nested if-else",
+		Entry(
+			"if-else statement",
+			"if x>0{return 1}else{return 0}",
+			"if x > 0 {\n    return 1\n} else {\n    return 0\n}\n",
+		),
+		Entry(
+			"nested if-else",
 			"if a > 0 {\n    if b > 0 {\n        return 1\n    } else {\n        return 2\n    }\n} else {\n    return 0\n}",
-			"if a > 0 {\n    if b > 0 {\n        return 1\n    } else {\n        return 2\n    }\n} else {\n    return 0\n}\n"),
-		Entry("comment in nested if",
+			"if a > 0 {\n    if b > 0 {\n        return 1\n    } else {\n        return 2\n    }\n} else {\n    return 0\n}\n",
+		),
+		Entry(
+			"comment in nested if",
 			"if x > 0 {\n    // check inner\n    if y > 0 {\n        // deepest\n        return 1\n    }\n}",
-			"if x > 0 {\n    // check inner\n    if y > 0 {\n        // deepest\n        return 1\n    }\n}\n"),
+			"if x > 0 {\n    // check inner\n    if y > 0 {\n        // deepest\n        return 1\n    }\n}\n",
+		),
 		Entry("if with identifier condition",
 			"if ready{return 1}",
 			"if ready {\n    return 1\n}\n"),
@@ -134,16 +208,26 @@ var _ = Describe("Formatter", func() {
 			"for ready {\n    x := 1\n}\n"),
 	)
 
-	DescribeTable("Comments",
+	DescribeTable(
+		"Comments",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("preserve single-line comments", "// comment\nx := 1", "// comment\nx := 1\n"),
+		Entry(
+			"preserve single-line comments",
+			"// comment\nx := 1",
+			"// comment\nx := 1\n",
+		),
 		Entry("preserve trailing comments", "x := 1 // comment", "x := 1 // comment\n"),
-		Entry("preserve multi-line comments", "/* multi\nline */ x := 1", "/* multi\nline */\nx := 1\n"),
+		Entry(
+			"preserve multi-line comments",
+			"/* multi\nline */ x := 1",
+			"/* multi\nline */\nx := 1\n",
+		),
 	)
 
-	DescribeTable("Series Literals",
+	DescribeTable(
+		"Series Literals",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
@@ -152,7 +236,11 @@ var _ = Describe("Formatter", func() {
 		Entry("add space after := before series literal", "d:=[1,2]", "d := [1, 2]\n"),
 		Entry("add space after $= before series literal", "d$=[1,2]", "d $= [1, 2]\n"),
 		Entry("single element series", "single := [42]", "single := [42]\n"),
-		Entry("series with expressions", "data := [1+2, 3*4, a-b]", "data := [1 + 2, 3 * 4, a - b]\n"),
+		Entry(
+			"series with expressions",
+			"data := [1+2, 3*4, a-b]",
+			"data := [1 + 2, 3 * 4, a - b]\n",
+		),
 	)
 
 	DescribeTable("Indexing",
@@ -175,7 +263,8 @@ var _ = Describe("Formatter", func() {
 		Entry("should add space after + before bracket", "x:=a+[1]", "x := a + [1]\n"),
 	)
 
-	DescribeTable("Idempotency",
+	DescribeTable(
+		"Idempotency",
 		func(input string) {
 			first := formatter.Format(input)
 			second := formatter.Format(first)
@@ -183,17 +272,41 @@ var _ = Describe("Formatter", func() {
 			Expect(second).To(Equal(first))
 			Expect(third).To(Equal(second))
 		},
-		Entry("formatted function", "func add(x i32, y i32) i32 {\n    return x + y\n}\n"),
+		Entry(
+			"formatted function",
+			"func add(x i32, y i32) i32 {\n    return x + y\n}\n",
+		),
 		Entry("messy input", "func   add(x i32,y i32)i32{return   x+y}"),
 		Entry("complex expressions", "x := (a + b) * (c - d) / (e % f) ^ g"),
 		Entry("deeply nested structures", "func a(){if x>0{if y>0{if z>0{return 1}}}}"),
-		Entry("all operator combinations", "x := a + b - c * d / e % f ^ g == h != i < j > k <= l >= m and n or o"),
-		Entry("mixed comments and code", "// header\nfunc test() {\n    // body\n    x := 1 // inline\n}\n// footer"),
-		Entry("multiline input block inlined", "func dog{\n    cat chan f32\n} () u8 {\n    return 12\n}"),
-		Entry("input block with comment forced multiline", "func dog{\n    cat chan f32, // blue green\n} () u8 {\n    return 12\n}"),
-		Entry("stage body with trailing comment", "stage init {\n    x := 0, // setup\n}"),
-		Entry("stage body with comment on comma", "stage init {\n    x := 0, // first\n    y := 1,\n}"),
-		Entry("sequences with stages", "sequence s{stage a{x:=1}stage b{y:=2}stage c{z:=3}}"),
+		Entry(
+			"all operator combinations",
+			"x := a + b - c * d / e % f ^ g == h != i < j > k <= l >= m and n or o",
+		),
+		Entry(
+			"mixed comments and code",
+			"// header\nfunc test() {\n    // body\n    x := 1 // inline\n}\n// footer",
+		),
+		Entry(
+			"multiline input block inlined",
+			"func dog{\n    cat chan f32\n} () u8 {\n    return 12\n}",
+		),
+		Entry(
+			"input block with comment forced multiline",
+			"func dog{\n    cat chan f32, // blue green\n} () u8 {\n    return 12\n}",
+		),
+		Entry(
+			"stage body with trailing comment",
+			"stage init {\n    x := 0, // setup\n}",
+		),
+		Entry(
+			"stage body with comment on comma",
+			"stage init {\n    x := 0, // first\n    y := 1,\n}",
+		),
+		Entry(
+			"sequences with stages",
+			"sequence s{stage a{x:=1}stage b{y:=2}stage c{z:=3}}",
+		),
 		Entry("input values", "wait{duration=2ms, retries=3}"),
 		Entry("input values in flow", "sensor -> filter{threshold=10} -> output"),
 		Entry("blank funcs then sequence",
@@ -202,8 +315,10 @@ var _ = Describe("Formatter", func() {
 			"authority 100\n\nfunc test() {}"),
 		Entry("multi sequential comments",
 			"x := 1 // first\n// second\n// third\ny := 2"),
-		Entry("nested if-else",
-			"if a > 0 {\n    if b > 0 {\n        return 1\n    } else {\n        return 2\n    }\n} else {\n    return 0\n}"),
+		Entry(
+			"nested if-else",
+			"if a > 0 {\n    if b > 0 {\n        return 1\n    } else {\n        return 2\n    }\n} else {\n    return 0\n}",
+		),
 		Entry("global constants before func", "A := 1\nB := 2\nfunc foo() {}"),
 		Entry("power operator chained", "x := a ^ b ^ c"),
 		Entry("long flow chain", "a -> b -> c -> d -> e -> f -> g"),
@@ -221,13 +336,26 @@ var _ = Describe("Formatter", func() {
 		Entry("whitespace-only input", "   \n\n   ", "   \n\n   "),
 	)
 
-	DescribeTable("Blank Lines",
+	DescribeTable(
+		"Blank Lines",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("preserve single blank line between functions", "func first() {}\n\nfunc second() {}", "func first() {}\n\nfunc second() {}\n"),
-		Entry("preserve blank lines between statements", "x := 1\n\ny := 2", "x := 1\n\ny := 2\n"),
-		Entry("limit blank lines to MaxBlankLines", "x := 1\n\n\n\n\ny := 2", "x := 1\n\n\ny := 2\n"),
+		Entry(
+			"preserve single blank line between functions",
+			"func first() {}\n\nfunc second() {}",
+			"func first() {}\n\nfunc second() {}\n",
+		),
+		Entry(
+			"preserve blank lines between statements",
+			"x := 1\n\ny := 2",
+			"x := 1\n\ny := 2\n",
+		),
+		Entry(
+			"limit blank lines to MaxBlankLines",
+			"x := 1\n\n\n\n\ny := 2",
+			"x := 1\n\n\ny := 2\n",
+		),
 		Entry("blank funcs then sequence",
 			"func a() {}\n\nfunc b() {}\n\nsequence s {\n    stage init {}\n}",
 			"func a() {}\n\nfunc b() {}\n\nsequence s {\n    stage init {}\n}\n"),
@@ -236,16 +364,41 @@ var _ = Describe("Formatter", func() {
 			"authority 100\n\nfunc test() {}\n"),
 	)
 
-	DescribeTable("Multi-line Code",
+	DescribeTable(
+		"Multi-line Code",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("preserve newlines between statements", "x := 1\ny := 2\nz := 3", "x := 1\ny := 2\nz := 3\n"),
-		Entry("already formatted function with newlines", "func add(x i32, y i32) i32 {\n    return x + y\n}", "func add(x i32, y i32) i32 {\n    return x + y\n}\n"),
-		Entry("multiple functions", "func foo() {}\nfunc bar() {}", "func foo() {}\nfunc bar() {}\n"),
-		Entry("function with multiple statements", "func test() {\n    x := 1\n    y := 2\n    return x + y\n}", "func test() {\n    x := 1\n    y := 2\n    return x + y\n}\n"),
-		Entry("sequence with stages and content", "sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}", "sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}\n"),
-		Entry("nested if statements", "func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}", "func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}\n"),
+		Entry(
+			"preserve newlines between statements",
+			"x := 1\ny := 2\nz := 3",
+			"x := 1\ny := 2\nz := 3\n",
+		),
+		Entry(
+			"already formatted function with newlines",
+			"func add(x i32, y i32) i32 {\n    return x + y\n}",
+			"func add(x i32, y i32) i32 {\n    return x + y\n}\n",
+		),
+		Entry(
+			"multiple functions",
+			"func foo() {}\nfunc bar() {}",
+			"func foo() {}\nfunc bar() {}\n",
+		),
+		Entry(
+			"function with multiple statements",
+			"func test() {\n    x := 1\n    y := 2\n    return x + y\n}",
+			"func test() {\n    x := 1\n    y := 2\n    return x + y\n}\n",
+		),
+		Entry(
+			"sequence with stages and content",
+			"sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}",
+			"sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}\n",
+		),
+		Entry(
+			"nested if statements",
+			"func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}",
+			"func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}\n",
+		),
 	)
 
 	DescribeTable("Unary Operators",
@@ -270,16 +423,26 @@ var _ = Describe("Formatter", func() {
 		Entry("triple nested cast", "x := i32(f64(u8(y)))", "x := i32(f64(u8(y)))\n"),
 	)
 
-	DescribeTable("String Literals",
+	DescribeTable(
+		"String Literals",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("preserve string content", `x:="hello world"`, "x := \"hello world\"\n"),
-		Entry("preserve strings with spaces", `msg:="  spaces  "`, "msg := \"  spaces  \"\n"),
-		Entry("preserve string escapes", `x := "hello\nworld"`, "x := \"hello\\nworld\"\n"),
+		Entry(
+			"preserve strings with spaces",
+			`msg:="  spaces  "`,
+			"msg := \"  spaces  \"\n",
+		),
+		Entry(
+			"preserve string escapes",
+			`x := "hello\nworld"`,
+			"x := \"hello\\nworld\"\n",
+		),
 	)
 
-	DescribeTable("Raw, Multi-Line, and Format String Literals",
+	DescribeTable(
+		"Raw, Multi-Line, and Format String Literals",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
@@ -288,36 +451,67 @@ var _ = Describe("Formatter", func() {
 		Entry("tight raw in assignment adds spaces", `x:=r"hi"`, "x := r\"hi\"\n"),
 		Entry("format string in func call", `log(f"hi")`, "log(f\"hi\")\n"),
 		Entry("multi-line preserves newlines", "x := `a\nb`", "x := `a\nb`\n"),
-		Entry("multi-line preserves indentation", "x := `\n    indent`", "x := `\n    indent`\n"),
-		Entry("embedded escaped quotes preserved", `x := "say \"hi\""`, "x := \"say \\\"hi\\\"\"\n"),
+		Entry(
+			"multi-line preserves indentation",
+			"x := `\n    indent`",
+			"x := `\n    indent`\n",
+		),
+		Entry(
+			"embedded escaped quotes preserved",
+			`x := "say \"hi\""`,
+			"x := \"say \\\"hi\\\"\"\n",
+		),
 		Entry("spacing format next to identifier", `x:=f"y"`, "x := f\"y\"\n"),
 		Entry("rf prefix preserved", `x := rf"path: {p}"`, "x := rf\"path: {p}\"\n"),
-		Entry("format multi-line with placeholder", "x := f`a={p}\nb={q}`", "x := f`a={p}\nb={q}`\n"),
+		Entry(
+			"format multi-line with placeholder",
+			"x := f`a={p}\nb={q}`",
+			"x := f`a={p}\nb={q}`\n",
+		),
 		Entry("raw multi-line preserved", "x := r`a\\nb\nc`", "x := r`a\\nb\nc`\n"),
-		Entry("rf multi-line preserved", "x := rf`path\\to\n{p}`", "x := rf`path\\to\n{p}`\n"),
+		Entry(
+			"rf multi-line preserved",
+			"x := rf`path\\to\n{p}`",
+			"x := rf`path\\to\n{p}`\n",
+		),
 	)
 
-	DescribeTable("Global Constants",
+	DescribeTable(
+		"Global Constants",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("simple global", "MAX := 100", "MAX := 100\n"),
-		Entry("globals before function", "A := 1\nB := 2\nfunc foo() {}", "A := 1\nB := 2\nfunc foo() {}\n"),
+		Entry(
+			"globals before function",
+			"A := 1\nB := 2\nfunc foo() {}",
+			"A := 1\nB := 2\nfunc foo() {}\n",
+		),
 	)
 
-	DescribeTable("Nested Structures",
+	DescribeTable(
+		"Nested Structures",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("nested function calls", "x:=foo(bar(baz(1)))", "x := foo(bar(baz(1)))\n"),
+		Entry(
+			"nested function calls",
+			"x:=foo(bar(baz(1)))",
+			"x := foo(bar(baz(1)))\n",
+		),
 		Entry("mixed nesting", "x:=foo([1,2,3])", "x := foo([1, 2, 3])\n"),
 	)
 
-	DescribeTable("Flow Statements",
+	DescribeTable(
+		"Flow Statements",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("long flow chain", "a -> b -> c -> d -> e -> f -> g", "a -> b -> c -> d -> e -> f -> g\n"),
+		Entry(
+			"long flow chain",
+			"a -> b -> c -> d -> e -> f -> g",
+			"a -> b -> c -> d -> e -> f -> g\n",
+		),
 		Entry("flow with multiple input values",
 			"sensor -> filter{threshold=10} -> scale{factor=2} -> output",
 			"sensor -> filter{threshold=10} -> scale{factor=2} -> output\n"),
@@ -329,20 +523,34 @@ var _ = Describe("Formatter", func() {
 			"interval{1s} -> output\n"),
 	)
 
-	DescribeTable("Next Statement",
+	DescribeTable(
+		"Next Statement",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("next with stage name", "next done", "next done\n"),
-		Entry("next in stage", "stage check{if x>0{next success}}", "stage check {\n    if x > 0 {\n        next success\n    }\n}\n"),
+		Entry(
+			"next in stage",
+			"stage check{if x>0{next success}}",
+			"stage check {\n    if x > 0 {\n        next success\n    }\n}\n",
+		),
 	)
 
-	DescribeTable("Comments in Blocks",
+	DescribeTable(
+		"Comments in Blocks",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("comment before closing brace", "func test() {\n    x := 1\n    // end\n}", "func test() {\n    x := 1\n    // end\n}\n"),
-		Entry("comment after opening brace", "func test() {\n    // start\n    x := 1\n}", "func test() {\n    // start\n    x := 1\n}\n"),
+		Entry(
+			"comment before closing brace",
+			"func test() {\n    x := 1\n    // end\n}",
+			"func test() {\n    x := 1\n    // end\n}\n",
+		),
+		Entry(
+			"comment after opening brace",
+			"func test() {\n    // start\n    x := 1\n}",
+			"func test() {\n    // start\n    x := 1\n}\n",
+		),
 	)
 
 	Describe("Boundary Blank Lines", func() {
@@ -406,21 +614,62 @@ var _ = Describe("Formatter", func() {
 		})
 	})
 
-	DescribeTable("Authority Blocks",
+	DescribeTable(
+		"Authority Blocks",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("simple authority", "authority 200", "authority 200\n"),
-		Entry("authority with grouped entries", "authority (200 valve 100 vent 150)", "authority (\n    200\n    valve 100\n    vent 150\n)\n"),
-		Entry("authority with single default entry", "authority (200)", "authority (\n    200\n)\n"),
-		Entry("authority with single channel entry", "authority (valve 100)", "authority (\n    valve 100\n)\n"),
-		Entry("authority before sequence", "authority 200\nsequence main{stage init{}}", "authority 200\nsequence main {\n    stage init {}\n}\n"),
-		Entry("authority before function", "authority 100\nfunc foo(){}", "authority 100\nfunc foo() {}\n"),
-		Entry("authority with blank line before sequence", "authority 200\n\nsequence main{stage init{}}", "authority 200\n\nsequence main {\n    stage init {}\n}\n"),
-		Entry("grouped authority before sequence", "authority (200 valve 100)\nsequence main{stage init{}}", "authority (\n    200\n    valve 100\n)\nsequence main {\n    stage init {}\n}\n"),
-		Entry("default reordered to top", "authority (valve 100 200 vent 150)", "authority (\n    200\n    valve 100\n    vent 150\n)\n"),
-		Entry("default already at top stays", "authority (200 valve 100)", "authority (\n    200\n    valve 100\n)\n"),
-		Entry("default at end moves to top", "authority (valve 100 vent 150 200)", "authority (\n    200\n    valve 100\n    vent 150\n)\n"),
+		Entry(
+			"authority with grouped entries",
+			"authority (200 valve 100 vent 150)",
+			"authority (\n    200\n    valve 100\n    vent 150\n)\n",
+		),
+		Entry(
+			"authority with single default entry",
+			"authority (200)",
+			"authority (\n    200\n)\n",
+		),
+		Entry(
+			"authority with single channel entry",
+			"authority (valve 100)",
+			"authority (\n    valve 100\n)\n",
+		),
+		Entry(
+			"authority before sequence",
+			"authority 200\nsequence main{stage init{}}",
+			"authority 200\nsequence main {\n    stage init {}\n}\n",
+		),
+		Entry(
+			"authority before function",
+			"authority 100\nfunc foo(){}",
+			"authority 100\nfunc foo() {}\n",
+		),
+		Entry(
+			"authority with blank line before sequence",
+			"authority 200\n\nsequence main{stage init{}}",
+			"authority 200\n\nsequence main {\n    stage init {}\n}\n",
+		),
+		Entry(
+			"grouped authority before sequence",
+			"authority (200 valve 100)\nsequence main{stage init{}}",
+			"authority (\n    200\n    valve 100\n)\nsequence main {\n    stage init {}\n}\n",
+		),
+		Entry(
+			"default reordered to top",
+			"authority (valve 100 200 vent 150)",
+			"authority (\n    200\n    valve 100\n    vent 150\n)\n",
+		),
+		Entry(
+			"default already at top stays",
+			"authority (200 valve 100)",
+			"authority (\n    200\n    valve 100\n)\n",
+		),
+		Entry(
+			"default at end moves to top",
+			"authority (valve 100 vent 150 200)",
+			"authority (\n    200\n    valve 100\n    vent 150\n)\n",
+		),
 	)
 
 	DescribeTable("Malformed Input",
@@ -438,64 +687,118 @@ var _ = Describe("Formatter", func() {
 		Entry("extra paren", "x := foo(1))", "x := foo(1)"),
 	)
 
-	DescribeTable("Input Values (Function Instantiation)",
+	DescribeTable(
+		"Input Values (Function Instantiation)",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("short input values inline without spaces around =", "wait{duration=2ms}", "wait{duration=2ms}\n"),
-		Entry("multiple input values inline", "wait{duration=2ms,retries=3}", "wait{duration=2ms, retries=3}\n"),
+		Entry(
+			"short input values inline without spaces around =",
+			"wait{duration=2ms}",
+			"wait{duration=2ms}\n",
+		),
+		Entry(
+			"multiple input values inline",
+			"wait{duration=2ms,retries=3}",
+			"wait{duration=2ms, retries=3}\n",
+		),
 		Entry("empty input values inline", "wait{}", "wait{}\n"),
-		Entry("input values in flow statements", "sensor -> filter{threshold=10} -> output", "sensor -> filter{threshold=10} -> output\n"),
-		Entry("function declaration input block inline", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n"),
-		Entry("nested input values", "x := foo{a=1} + bar{b=2}", "x := foo{a=1} + bar{b=2}\n"),
+		Entry(
+			"input values in flow statements",
+			"sensor -> filter{threshold=10} -> output",
+			"sensor -> filter{threshold=10} -> output\n",
+		),
+		Entry(
+			"function declaration input block inline",
+			"func threshold{limit f64}(value f64)u8{return u8(0)}",
+			"func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n",
+		),
+		Entry(
+			"nested input values",
+			"x := foo{a=1} + bar{b=2}",
+			"x := foo{a=1} + bar{b=2}\n",
+		),
 		Entry("multiline anonymous input value collapses to one line",
 			"wait{\n    duration=2ms\n}",
 			"wait{duration=2ms}\n"),
-		Entry("multiline anonymous input value with trailing comma collapses to one line",
+		Entry(
+			"multiline anonymous input value with trailing comma collapses to one line",
 			"wait{\n    duration=2ms,\n}",
-			"wait{duration=2ms}\n"),
-		Entry("multiline anonymous input value with multiple entries collapses to one line",
+			"wait{duration=2ms}\n",
+		),
+		Entry(
+			"multiline anonymous input value with multiple entries collapses to one line",
 			"wait{\n    duration=2ms,\n    retries=3\n}",
-			"wait{duration=2ms, retries=3}\n"),
-		Entry("multiline anonymous input value with trailing comma on last entry collapses to one line",
+			"wait{duration=2ms, retries=3}\n",
+		),
+		Entry(
+			"multiline anonymous input value with trailing comma on last entry collapses to one line",
 			"wait{\n    duration=2ms,\n    retries=3,\n}",
-			"wait{duration=2ms, retries=3}\n"),
+			"wait{duration=2ms, retries=3}\n",
+		),
 		Entry("multiline anonymous input value in flow collapses to one line",
 			"sensor -> filter{\n    threshold=10\n} -> output",
 			"sensor -> filter{threshold=10} -> output\n"),
-		Entry("multiline anonymous input value in stage collapses to one line",
+		Entry(
+			"multiline anonymous input value in stage collapses to one line",
 			"stage run {\n    sensor -> filter{\n        threshold=10\n    } -> output\n}",
-			"stage run {\n    sensor -> filter{threshold=10} -> output\n}\n"),
-		Entry("multi-line input values keep = tight (no spaces around =)",
+			"stage run {\n    sensor -> filter{threshold=10} -> output\n}\n",
+		),
+		Entry(
+			"multi-line input values keep = tight (no spaces around =)",
 			"status.set{\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n}",
-			"status.set{\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n}\n"),
-		Entry("multi-line input values strip spaces around = from source",
+			"status.set{\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n}\n",
+		),
+		Entry(
+			"multi-line input values strip spaces around = from source",
 			"status.set{\n    key_or_name = \"lifecycle_press_alarm\",\n    message = \"Pressure stable above 25 PSI\",\n    variant = \"warning\"\n}",
-			"status.set{\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n}\n"),
+			"status.set{\n    key_or_name=\"lifecycle_press_alarm\",\n    message=\"Pressure stable above 25 PSI\",\n    variant=\"warning\"\n}\n",
+		),
 		Entry("for-loop body is not treated as input values (single binding)",
 			"func f() {\n    for x := data {\n        sum = sum + x\n    }\n}",
 			"func f() {\n    for x := data {\n        sum = sum + x\n    }\n}\n"),
-		Entry("for-loop body is not treated as input values (pair binding)",
+		Entry(
+			"for-loop body is not treated as input values (pair binding)",
 			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}",
-			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}\n"),
+			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}\n",
+		),
 	)
 
-	DescribeTable("Input Block Formatting",
+	DescribeTable(
+		"Input Block Formatting",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("single param inline", "func foo{x i32}(){}", "func foo{x i32} () {}\n"),
-		Entry("multiple params inline", "func foo{x i32, y f64}(){}", "func foo{x i32, y f64} () {}\n"),
+		Entry(
+			"multiple params inline",
+			"func foo{x i32, y f64}(){}",
+			"func foo{x i32, y f64} () {}\n",
+		),
 		Entry("empty input block", "func foo{}(){}", "func foo{} () {}\n"),
-		Entry("already inline is idempotent", "func foo{x i32} () {}\n", "func foo{x i32} () {}\n"),
-		Entry("multiple params inline is idempotent", "func foo{x i32, y f64} () {}\n", "func foo{x i32, y f64} () {}\n"),
-		Entry("long input block goes multi-line", "func very_long_function_name_here{very_long_parameter_name_one f64, very_long_parameter_name_two f64}(){}", "func very_long_function_name_here{\n    very_long_parameter_name_one f64,\n    very_long_parameter_name_two f64,\n} () {}\n"),
+		Entry(
+			"already inline is idempotent",
+			"func foo{x i32} () {}\n",
+			"func foo{x i32} () {}\n",
+		),
+		Entry(
+			"multiple params inline is idempotent",
+			"func foo{x i32, y f64} () {}\n",
+			"func foo{x i32, y f64} () {}\n",
+		),
+		Entry(
+			"long input block goes multi-line",
+			"func very_long_function_name_here{very_long_parameter_name_one f64, very_long_parameter_name_two f64}(){}",
+			"func very_long_function_name_here{\n    very_long_parameter_name_one f64,\n    very_long_parameter_name_two f64,\n} () {}\n",
+		),
 		Entry("multiline source inlined when short enough",
 			"func dog{\n    cat chan f32\n} () u8 {\n    return 12\n}",
 			"func dog{cat chan f32} () u8 {\n    return 12\n}\n"),
-		Entry("input block with comment forces multiline",
+		Entry(
+			"input block with comment forces multiline",
 			"func dog{\n    cat chan f32 // blue green\n} () u8 {\n    return 12\n}",
-			"func dog{\n    cat chan f32, // blue green\n} () u8 {\n    return 12\n}\n"),
+			"func dog{\n    cat chan f32, // blue green\n} () u8 {\n    return 12\n}\n",
+		),
 		Entry("input block with comment on single line forces multiline",
 			"func foo{x i32 // param\n} () {}",
 			"func foo{\n    x i32, // param\n} () {}\n"),
@@ -551,18 +854,24 @@ var _ = Describe("Formatter", func() {
 		},
 		Entry("comma-separated stage body",
 			"sequence seq { stage s { 1 -> a, 1 -> b, 1 -> c } }"),
-		Entry("newline-separated stage body",
-			"sequence seq {\n    stage s {\n        1 -> a\n        1 -> b\n        1 -> c\n    }\n}"),
-		Entry("mixed separators in stage body",
-			"sequence seq {\n    stage s {\n        1 -> a,\n        1 -> b\n        1 -> c\n    }\n}"),
+		Entry(
+			"newline-separated stage body",
+			"sequence seq {\n    stage s {\n        1 -> a\n        1 -> b\n        1 -> c\n    }\n}",
+		),
+		Entry(
+			"mixed separators in stage body",
+			"sequence seq {\n    stage s {\n        1 -> a,\n        1 -> b\n        1 -> c\n    }\n}",
+		),
 		Entry("comma-separated stageless sequence body",
 			"sequence main { 1 -> valve_a, 1 -> valve_b }"),
 		Entry("newline-separated stageless sequence body",
 			"sequence main {\n    1 -> valve_a\n    1 -> valve_b\n}"),
 		Entry("sequence of stages with commas gets de-commaed",
 			"sequence main { stage a {}, stage b {} }"),
-		Entry("transitions in stage",
-			"sequence seq {\n    stage hold {\n        cond1 => next\n        cond2 => next\n    }\n}"),
+		Entry(
+			"transitions in stage",
+			"sequence seq {\n    stage hold {\n        cond1 => next\n        cond2 => next\n    }\n}",
+		),
 	)
 
 	DescribeTable("Stageless Sequence Body Formatting",
@@ -589,20 +898,34 @@ var _ = Describe("Formatter", func() {
 			"sequence main {\n    stage a {}\n    stage b {}\n}\n"),
 	)
 
-	DescribeTable("Function Parameter Trailing Commas",
+	DescribeTable(
+		"Function Parameter Trailing Commas",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("short params stay inline", "func foo(x i32, y f64){}", "func foo(x i32, y f64) {}\n"),
+		Entry(
+			"short params stay inline",
+			"func foo(x i32, y f64){}",
+			"func foo(x i32, y f64) {}\n",
+		),
 		Entry("empty params no change", "func foo(){}", "func foo() {}\n"),
 	)
 
-	DescribeTable("Multi-Output Trailing Commas",
+	DescribeTable(
+		"Multi-Output Trailing Commas",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("short outputs stay inline", "func foo()(a f64, b f64){return}", "func foo() (a f64, b f64) {\n    return\n}\n"),
-		Entry("single output no parens", "func foo() f64{return 0}", "func foo() f64 {\n    return 0\n}\n"),
+		Entry(
+			"short outputs stay inline",
+			"func foo()(a f64, b f64){return}",
+			"func foo() (a f64, b f64) {\n    return\n}\n",
+		),
+		Entry(
+			"single output no parens",
+			"func foo() f64{return 0}",
+			"func foo() f64 {\n    return 0\n}\n",
+		),
 	)
 
 	Describe("Boundary Conditions", func() {
@@ -646,33 +969,63 @@ var _ = Describe("Formatter", func() {
 		})
 	})
 
-	DescribeTable("Comment Edge Cases",
-		func(input string, shouldContain string) {
+	DescribeTable(
+		"Comment Edge Cases",
+		func(input, shouldContain string) {
 			result := formatter.Format(input)
 			Expect(result).To(ContainSubstring(shouldContain))
 		},
-		Entry("comment on its own line before code", "/* comment */\nx := 1", "/* comment */"),
+		Entry(
+			"comment on its own line before code",
+			"/* comment */\nx := 1",
+			"/* comment */",
+		),
 		Entry("empty single-line comment", "//\nx := 1", "//"),
 		Entry("empty multi-line comment", "/**/\nx := 1", "/**/"),
-		Entry("comment with special characters", "// @#$%^&*()_+\nx := 1", "// @#$%^&*()_+"),
-		Entry("multiple trailing comments - first", "x := 1 // first\ny := 2 // second", "// first"),
-		Entry("multiple trailing comments - second", "x := 1 // first\ny := 2 // second", "// second"),
+		Entry(
+			"comment with special characters",
+			"// @#$%^&*()_+\nx := 1",
+			"// @#$%^&*()_+",
+		),
+		Entry(
+			"multiple trailing comments - first",
+			"x := 1 // first\ny := 2 // second",
+			"// first",
+		),
+		Entry(
+			"multiple trailing comments - second",
+			"x := 1 // first\ny := 2 // second",
+			"// second",
+		),
 		Entry("multi sequential line comments",
 			"x := 1 // first\n// second\n// third\ny := 2", "// second\n// third"),
 	)
 
-	DescribeTable("FormatRange Edge Cases",
+	DescribeTable(
+		"FormatRange Edge Cases",
 		func(input string, startLine, endLine int, check func(string)) {
 			result := formatter.FormatRange(input, startLine, endLine)
 			check(result)
 		},
-		Entry("formatting first line only", "x:=1\ny := 2\nz := 3", 0, 0, func(r string) {
-			Expect(r).To(ContainSubstring("x := 1"))
-			Expect(r).To(ContainSubstring("y := 2"))
-		}),
-		Entry("formatting last line only", "x := 1\ny := 2\nz:=3", 2, 2, func(r string) {
-			Expect(r).To(ContainSubstring("z := 3"))
-		}),
+		Entry(
+			"formatting first line only",
+			"x:=1\ny := 2\nz := 3",
+			0,
+			0,
+			func(r string) {
+				Expect(r).To(ContainSubstring("x := 1"))
+				Expect(r).To(ContainSubstring("y := 2"))
+			},
+		),
+		Entry(
+			"formatting last line only",
+			"x := 1\ny := 2\nz:=3",
+			2,
+			2,
+			func(r string) {
+				Expect(r).To(ContainSubstring("z := 3"))
+			},
+		),
 		Entry("negative start line", "x := 1\ny := 2", -1, 1, func(r string) {
 			Expect(r).To(Equal("x := 1\ny := 2"))
 		}),

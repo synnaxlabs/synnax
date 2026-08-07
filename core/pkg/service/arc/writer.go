@@ -47,7 +47,9 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if a.Key == uuid.Nil {
 		a.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, Arc](a.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().
+			Where(gorp.MatchKeys[Key, Arc](a.Key)).
+			Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
@@ -61,12 +63,15 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := a.OntologyID()
 	if !exists {
-		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
+		if err = w.otgWriter.DefineResources(ctx, a.OntologyID()); err != nil {
 			return err
 		}
 	}
+	// Notify last: a create rejected by ontology validation must not be broadcast.
+	w.dispatcher.Notify(
+		ctx, a.Key, "", []Action{NewCreateAction(CreatePayload{Arc: *a})},
+	)
 	return nil
 }
 
@@ -81,14 +86,14 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 	return nil
 }
 
-// Dispatch applies a sequence of actions atomically to the Arc with the given
-// key. After a successful update the actions are notified to the service-level
-// observer so subscribers (cluster signals) can broadcast them. dispatchKey is
-// a client-generated identifier carried verbatim onto the broadcast so the
-// originating client can match its own echo against the set of outstanding
-// local replays and skip a redundant reduce when no foreign action interleaved.
+// Dispatch applies a sequence of actions atomically to the Arc with the given key.
+// After a successful update the actions are notified to the service-level observer so
+// subscribers (cluster signals) can broadcast them. dispatchKey is a client-generated
+// identifier carried verbatim onto the broadcast so the originating client can match
+// its own echo against the set of outstanding local replays and skip a redundant reduce
+// when no foreign action interleaved.
 //
-// When the arc's text has gone quiet, Dispatch also reclaims the space held by
+// When the Arc's text has gone quiet, Dispatch also reclaims the space held by
 // tombstoned characters: it forgets the characters that were already dead before this
 // dispatch and broadcasts that sweep as a separate frame with an empty dispatchKey, so
 // every editor (including the originator, which skips its own echo) applies it.
@@ -138,7 +143,9 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			return err
 		}
 	}
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Arc](keys...)).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().
+		Where(gorp.MatchKeys[Key, Arc](keys...)).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {

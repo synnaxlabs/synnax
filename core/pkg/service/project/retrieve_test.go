@@ -17,18 +17,21 @@ import (
 
 var _ = Describe("Retrieve", func() {
 	Describe("By Keys", func() {
-		It("Should retrieve only the projects matching the given keys", func(ctx SpecContext) {
-			a := project.Project{Name: "a"}
-			b := project.Project{Name: "b"}
-			c := project.Project{Name: "c"}
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-			Expect(svc.NewWriter(tx).Create(ctx, &b)).To(Succeed())
-			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
-			var res []project.Project
-			Expect(svc.NewRetrieve().Where(project.MatchKeys(a.Key, c.Key)).
-				Entries(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(ConsistOf(a, c))
-		})
+		It(
+			"Should retrieve only the projects matching the given keys",
+			func(ctx SpecContext) {
+				a := project.Project{Name: "a"}
+				b := project.Project{Name: "b"}
+				c := project.Project{Name: "c"}
+				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, &b)).To(Succeed())
+				Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
+				var res []project.Project
+				Expect(svc.NewRetrieve().Where(project.MatchKeys(a.Key, c.Key)).
+					Entries(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(ConsistOf(a, c))
+			},
+		)
 	})
 
 	Describe("Limit and Offset", func() {

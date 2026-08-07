@@ -46,7 +46,8 @@ type TracingConfig struct {
 	// [REQUIRED]
 	OtelPropagator propagation.TextMapPropagator
 	// Filter is a function that is called to determine if a span should be created for
-	// the given key and environment. If the filter returns false, the span will not be created.
+	// the given key and environment. If the filter returns false, the span will not be
+	// created.
 	Filter EnvironmentFilter
 }
 
@@ -85,9 +86,9 @@ type Tracer struct {
 	meta        InstrumentationMeta
 }
 
-// NewTracer initializes a new devTracer using the given configuration. If no configuration
-// is provided, NewTracer will return a validation error. If you want a no-op devTracer,
-// simply use a nil pointer.
+// NewTracer initializes a new devTracer using the given configuration. If no
+// configuration is provided, NewTracer will return a validation error. If you want a
+// no-op devTracer, simply use a nil pointer.
 func NewTracer(configs ...TracingConfig) (*Tracer, error) {
 	cfg, err := config.New(DefaultTracingConfig, configs...)
 	if err != nil {
@@ -116,7 +117,11 @@ func (t *Tracer) Bench(ctx context.Context, key string) (context.Context, Span) 
 
 // Trace wraps the given context in a span with the given key and level. If the context
 // is already wrapped in a span, the span will be a child of the existing span.
-func (t *Tracer) Trace(ctx context.Context, key string, env Environment) (context.Context, Span) {
+func (t *Tracer) Trace(
+	ctx context.Context,
+	key string,
+	env Environment,
+) (context.Context, Span) {
 	if t == nil || !t.config.Filter(env, key) {
 		return ctx, nopSpan{}
 	}
@@ -153,7 +158,7 @@ func (t *Tracer) child(meta InstrumentationMeta) (nt *Tracer) {
 	if t != nil {
 		nt = &Tracer{meta: meta, config: t.config}
 	}
-	return
+	return nt
 }
 
 type span struct {

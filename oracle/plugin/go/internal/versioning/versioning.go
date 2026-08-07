@@ -17,8 +17,13 @@ package versioning
 
 import (
 	"fmt"
-	"github.com/synnaxlabs/oracle/domain/omit"
+	"os"
+	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
 
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -79,6 +84,47 @@ func VersionedPath(goPath string, n int) string {
 	return goPath + "/versions/" + Dir(n)
 }
 
+// VersionDirs returns the numeric version sub-directories present under goPath's
+// versions/ tree on disk, ascending.
+func VersionDirs(repoRoot, goPath string) ([]int, error) {
+	entries, err := os.ReadDir(filepath.Join(repoRoot, goPath, "versions"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var versions []int
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), "v") {
+			continue
+		}
+		k, err := strconv.Atoi(e.Name()[1:])
+		if err != nil {
+			continue
+		}
+		versions = append(versions, k)
+	}
+	slices.Sort(versions)
+	return versions, nil
+}
+
+// Predecessor returns the highest version directory below n present under goPath on
+// disk. A resource skips the versions it never had a Go shape at, so the predecessor is
+// not always n-1. ok is false when no lower directory exists.
+func Predecessor(repoRoot, goPath string, n int) (v int, ok bool, err error) {
+	dirs, err := VersionDirs(repoRoot, goPath)
+	if err != nil {
+		return 0, false, err
+	}
+	for _, k := range dirs {
+		if k < n {
+			v, ok = k, true
+		}
+	}
+	return v, ok, nil
+}
+
 // PathVersions maps every @go output path in the table to its declared
 // version. It errors when two types at the same path disagree on the version,
 // when a declared version is negative, or when a @go migrate entry lacks a
@@ -95,7 +141,8 @@ func PathVersions(table *resolution.Table) (map[string]int, error) {
 		if !ok {
 			if domain.HasExprFromType(t, "go", "migrate") {
 				return nil, errors.Newf(
-					"%s: @go migrate requires a @go version declaration", t.QualifiedName,
+					"%s: @go migrate requires a @go version declaration",
+					t.QualifiedName,
 				)
 			}
 			continue
@@ -109,7 +156,11 @@ func PathVersions(table *resolution.Table) (map[string]int, error) {
 		if prev, ok := versions[goPath]; ok && prev != v {
 			return nil, errors.Newf(
 				"conflicting @go version declarations for %s: %s declares %d, %s declares %d",
-				goPath, declared[goPath], prev, t.QualifiedName, v,
+				goPath,
+				declared[goPath],
+				prev,
+				t.QualifiedName,
+				v,
 			)
 		}
 		versions[goPath] = v
@@ -143,10 +194,12 @@ func CurrentPathMap(table *resolution.Table) (map[string]string, error) {
 	return pathMap, nil
 }
 
-// RewriteCurrent returns a table with every version-laid-out package's
-// @go output rewritten to its current versions/vN sub-path, plus the applied
-// path map keyed by original path.
-func RewriteCurrent(table *resolution.Table) (*resolution.Table, map[string]string, error) {
+// RewriteCurrent returns a table with every version-laid-out package's @go output
+// rewritten to its current versions/vN sub-path, plus the applied path map keyed by
+// original path.
+func RewriteCurrent(
+	table *resolution.Table,
+) (*resolution.Table, map[string]string, error) {
 	pathMap, err := CurrentPathMap(table)
 	if err != nil {
 		return nil, nil, err
@@ -162,7 +215,10 @@ func RewriteCurrent(table *resolution.Table) (*resolution.Table, map[string]stri
 // paths are unchanged. Types that do not declare @go version also stay put:
 // they are transient (never persisted), living at the package root rather
 // than the version layout even when siblings at their path are versioned.
-func RewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *resolution.Table {
+func RewriteOutputPaths(
+	table *resolution.Table,
+	pathMap map[string]string,
+) *resolution.Table {
 	clone := &resolution.Table{
 		Imports:    table.Imports,
 		Namespaces: table.Namespaces,
@@ -189,13 +245,23 @@ func RewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *res
 					if expr.Name == "output" && len(expr.Values) > 0 {
 						newVals := make([]resolution.ExpressionValue, len(expr.Values))
 						copy(newVals, expr.Values)
-						newVals[0] = resolution.ExpressionValue{StringValue: mirroredPath}
-						newExprs[i] = resolution.Expression{AST: expr.AST, Name: expr.Name, Values: newVals}
+						newVals[0] = resolution.ExpressionValue{
+							StringValue: mirroredPath,
+						}
+						newExprs[i] = resolution.Expression{
+							AST:    expr.AST,
+							Name:   expr.Name,
+							Values: newVals,
+						}
 					} else {
 						newExprs[i] = expr
 					}
 				}
-				newDomains[k] = resolution.Domain{AST: v.AST, Name: v.Name, Expressions: newExprs}
+				newDomains[k] = resolution.Domain{
+					AST:         v.AST,
+					Name:        v.Name,
+					Expressions: newExprs,
+				}
 			} else {
 				newDomains[k] = v
 			}

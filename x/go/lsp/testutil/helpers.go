@@ -150,9 +150,11 @@ func SemanticTokens(
 	ctx context.Context,
 	uri uri.URI,
 ) *protocol.SemanticTokens {
-	return testutil.MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
-		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-	}))
+	return testutil.MustSucceed(
+		server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		}),
+	)
 }
 
 // FindCompletion finds a completion item by label in the given items slice.

@@ -67,7 +67,8 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		}
 		state.deadCheckCount++
 		m.mu.racks[k] = state
-		if state.deadCheckCount == 1 || state.deadCheckCount%m.svc.AlertEveryNChecks == 0 {
+		if state.deadCheckCount == 1 ||
+			state.deadCheckCount%m.svc.AlertEveryNChecks == 0 {
 			toAlert = append(toAlert, k)
 		}
 	}
@@ -94,13 +95,16 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		}
 		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
 		stat := Status{
-			Key:         r.OntologyID().String(),
-			Name:        r.Name,
-			Variant:     status.VariantWarning,
-			Time:        state.lastUpdated,
-			Message:     fmt.Sprintf("Synnax Driver on %s not running", r.Name),
-			Description: fmt.Sprintf("Driver was last alive %s seconds ago", timeSinceAlive),
-			Details:     StatusDetails{Rack: r.Key},
+			Key:     r.OntologyID().String(),
+			Name:    r.Name,
+			Variant: status.VariantWarning,
+			Time:    state.lastUpdated,
+			Message: fmt.Sprintf("Synnax Driver on %s not running", r.Name),
+			Description: fmt.Sprintf(
+				"Driver was last alive %s seconds ago",
+				timeSinceAlive,
+			),
+			Details: StatusDetails{Rack: r.Key},
 		}
 		m.L.Warn(stat.Message, zap.Stringer("time_since_alive", timeSinceAlive))
 		statuses = append(statuses, stat)
@@ -120,7 +124,10 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	return nil
 }
 
-func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, status.Status[any]]) {
+func (m *monitor) handleChange(
+	ctx context.Context,
+	t gorp.TxReader[string, status.Status[any]],
+) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
@@ -166,11 +173,15 @@ func openMonitor(
 	}
 	s.mu.racks = make(map[Key]rackState)
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
-	signal.GoTick(sCtx, svc.HealthCheckInterval.Duration(), func(ctx context.Context, t time.Time) error {
-		if err := s.checkAlive(ctx); err != nil {
-			s.L.Error("failed to check alive status", zap.Error(err))
-		}
-		return nil
-	})
+	signal.GoTick(
+		sCtx,
+		svc.HealthCheckInterval.Duration(),
+		func(ctx context.Context, t time.Time) error {
+			if err := s.checkAlive(ctx); err != nil {
+				s.L.Error("failed to check alive status", zap.Error(err))
+			}
+			return nil
+		},
+	)
 	return s, nil
 }

@@ -17,31 +17,43 @@ import (
 
 var _ = Describe("Stringer Slice", func() {
 	Describe("TruncateAndFormatSlice", func() {
-		It("should return the full slice if its length is less than maxDisplayValues", func() {
-			slice := []int{1, 2, 3}
-			result := stringer.TruncateAndFormatSlice(slice, 5)
-			Expect(result).To(Equal("[1 2 3]"))
-		})
+		It(
+			"should return the full slice if its length is less than maxDisplayValues",
+			func() {
+				slice := []int{1, 2, 3}
+				result := stringer.TruncateAndFormatSlice(slice, 5)
+				Expect(result).To(Equal("[1 2 3]"))
+			},
+		)
 
-		It("should return the full slice if its length is equal to maxDisplayValues", func() {
-			slice := []int{1, 2, 3, 4, 5}
-			result := stringer.TruncateAndFormatSlice(slice, 5)
-			Expect(result).To(Equal("[1 2 3 4 5]"))
-		})
+		It(
+			"should return the full slice if its length is equal to maxDisplayValues",
+			func() {
+				slice := []int{1, 2, 3, 4, 5}
+				result := stringer.TruncateAndFormatSlice(slice, 5)
+				Expect(result).To(Equal("[1 2 3 4 5]"))
+			},
+		)
 
-		It("should truncate and show first and last elements for long slices (even split)", func() {
-			slice := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-			result := stringer.TruncateAndFormatSlice(slice, 6)
-			// startCount = 3, endCount = 3
-			Expect(result).To(Equal("[1 2 3 ... 8 9 10]"))
-		})
+		It(
+			"should truncate and show first and last elements for long slices (even split)",
+			func() {
+				slice := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+				result := stringer.TruncateAndFormatSlice(slice, 6)
+				// startCount = 3, endCount = 3
+				Expect(result).To(Equal("[1 2 3 ... 8 9 10]"))
+			},
+		)
 
-		It("should truncate and show first and last elements for long slices (odd split)", func() {
-			slice := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-			result := stringer.TruncateAndFormatSlice(slice, 5)
-			// startCount = 2, endCount = 3
-			Expect(result).To(Equal("[1 2 ... 8 9 10]"))
-		})
+		It(
+			"should truncate and show first and last elements for long slices (odd split)",
+			func() {
+				slice := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+				result := stringer.TruncateAndFormatSlice(slice, 5)
+				// startCount = 2, endCount = 3
+				Expect(result).To(Equal("[1 2 ... 8 9 10]"))
+			},
+		)
 
 		It("should handle maxDisplayValues of 1", func() {
 			slice := []int{1, 2, 3, 4, 5}

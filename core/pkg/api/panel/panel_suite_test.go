@@ -79,8 +79,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 	}))
 	apiSvc = &Service{access: rbacSvc, internal: panelSvc}
-	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}))
-	parentID = MustSucceed(groupSvc.CreateOrRetrieve(ctx, "panel-parent", ontology.RootID)).
+	author = MustSucceed(
+		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+	)
+	parentID = MustSucceed(
+		groupSvc.CreateOrRetrieve(ctx, "panel-parent", ontology.RootID),
+	).
 		OntologyID()
 })
 
@@ -115,7 +119,10 @@ func grant(
 ) {
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: string(action) + "-" + uuid.New().String(), Description: "test"}
+	r := &role.Role{
+		Name:        string(action) + "-" + uuid.New().String(),
+		Description: "test",
+	}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
 		Name:    string(action) + "-policy-" + uuid.New().String(),

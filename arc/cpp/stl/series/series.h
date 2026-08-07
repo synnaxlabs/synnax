@@ -13,6 +13,8 @@
 #include <memory>
 #include <stdexcept>
 
+#include "wasmtime.hh"
+
 #include "x/cpp/telem/series.h"
 
 #include "arc/cpp/stl/series/state.h"

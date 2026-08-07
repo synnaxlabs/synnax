@@ -54,30 +54,35 @@ var _ = Describe("MigrateDevice", func() {
 		return got
 	}
 
-	It("Should lift a v0 device directly, dropping the status and parent", func(ctx SpecContext) {
-		migrated := migrateSeed(ctx, v0.Device{
-			Key:        "DEV-DIRECT-001",
-			Rack:       42,
-			Location:   "Lab Bench 3",
-			Make:       "LabJack",
-			Model:      "T7",
-			Name:       "Direct",
-			Configured: true,
-			Properties: msgpack.EncodedJSON{"serial": "T7-001"},
-			Status:     &v0.Status{Name: "connected", Variant: "success"},
-			Parent:     &ontology.ID{Type: "device", Key: "DEV-PARENT"},
-		})
-		Expect(migrated.Key).To(Equal(v1.Key("DEV-DIRECT-001")))
-		Expect(migrated.Rack).To(BeEquivalentTo(42))
-		Expect(migrated.Location).To(Equal("Lab Bench 3"))
-		Expect(migrated.Make).To(Equal("LabJack"))
-		Expect(migrated.Model).To(Equal("T7"))
-		Expect(migrated.Name).To(Equal("Direct"))
-		Expect(migrated.Configured).To(BeTrue())
-		Expect(migrated.Properties).To(Equal(msgpack.EncodedJSON{"serial": "T7-001"}))
-		Expect(migrated.Status).To(BeNil())
-		Expect(migrated.Parent).To(BeNil())
-	})
+	It(
+		"Should lift a v0 device directly, dropping the status and parent",
+		func(ctx SpecContext) {
+			migrated := migrateSeed(ctx, v0.Device{
+				Key:        "DEV-DIRECT-001",
+				Rack:       42,
+				Location:   "Lab Bench 3",
+				Make:       "LabJack",
+				Model:      "T7",
+				Name:       "Direct",
+				Configured: true,
+				Properties: msgpack.EncodedJSON{"serial": "T7-001"},
+				Status:     &v0.Status{Name: "connected", Variant: "success"},
+				Parent:     &ontology.ID{Type: "device", Key: "DEV-PARENT"},
+			})
+			Expect(migrated.Key).To(Equal(v1.Key("DEV-DIRECT-001")))
+			Expect(migrated.Rack).To(BeEquivalentTo(42))
+			Expect(migrated.Location).To(Equal("Lab Bench 3"))
+			Expect(migrated.Make).To(Equal("LabJack"))
+			Expect(migrated.Model).To(Equal("T7"))
+			Expect(migrated.Name).To(Equal("Direct"))
+			Expect(migrated.Configured).To(BeTrue())
+			Expect(
+				migrated.Properties,
+			).To(Equal(msgpack.EncodedJSON{"serial": "T7-001"}))
+			Expect(migrated.Status).To(BeNil())
+			Expect(migrated.Parent).To(BeNil())
+		},
+	)
 
 	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
 		seed := v0.Device{
@@ -103,35 +108,42 @@ var _ = Describe("MigrateDevice", func() {
 		Expect(got.Parent).To(BeNil())
 	})
 
-	It("drops Status and Parent and preserves core wire fields when v1 entries carry populated Status and Parent", func(ctx SpecContext) {
-		key := "DEV-SERIAL-002"
-		seed := v0.Device{
-			Key:        key,
-			Rack:       7,
-			Location:   "Lab Bench 4",
-			Make:       "NI",
-			Model:      "cDAQ-9189",
-			Name:       "Loaded Device",
-			Configured: true,
-			Properties: msgpack.EncodedJSON{"slot": float64(3)},
-			Status: &v0.Status{
-				Key:         "device:" + key,
-				Name:        "configured",
-				Variant:     "success",
-				Message:     "device ready",
-				Description: "all modules detected",
-				Time:        telem.Now(),
-				Details:     v0.StatusDetails{Rack: 7, Device: key},
-				Labels: []label.Label{
-					{Key: uuid.New(), Name: "ni", Color: color.Color{R: 0, G: 173, B: 239, A: 1}},
+	It(
+		"drops Status and Parent and preserves core wire fields when v1 entries carry populated Status and Parent",
+		func(ctx SpecContext) {
+			key := "DEV-SERIAL-002"
+			seed := v0.Device{
+				Key:        key,
+				Rack:       7,
+				Location:   "Lab Bench 4",
+				Make:       "NI",
+				Model:      "cDAQ-9189",
+				Name:       "Loaded Device",
+				Configured: true,
+				Properties: msgpack.EncodedJSON{"slot": float64(3)},
+				Status: &v0.Status{
+					Key:         "device:" + key,
+					Name:        "configured",
+					Variant:     "success",
+					Message:     "device ready",
+					Description: "all modules detected",
+					Time:        telem.Now(),
+					Details:     v0.StatusDetails{Rack: 7, Device: key},
+					Labels: []label.Label{
+						{
+							Key:   uuid.New(),
+							Name:  "ni",
+							Color: color.Color{R: 0, G: 173, B: 239, A: 1},
+						},
+					},
 				},
-			},
-			Parent: &ontology.ID{Type: "device", Key: "DEV-SERIAL-PARENT"},
-		}
-		got := migrateSeed(ctx, seed)
-		Expect(got.Key).To(Equal(seed.Key))
-		Expect(got.Name).To(Equal(seed.Name))
-		Expect(got.Status).To(BeNil())
-		Expect(got.Parent).To(BeNil())
-	})
+				Parent: &ontology.ID{Type: "device", Key: "DEV-SERIAL-PARENT"},
+			}
+			got := migrateSeed(ctx, seed)
+			Expect(got.Key).To(Equal(seed.Key))
+			Expect(got.Name).To(Equal(seed.Name))
+			Expect(got.Status).To(BeNil())
+			Expect(got.Parent).To(BeNil())
+		},
+	)
 })

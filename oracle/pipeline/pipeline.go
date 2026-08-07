@@ -313,12 +313,12 @@ func generate(ctx context.Context, r *Result, opts Options, workers int) error {
 	return nil
 }
 
-// FormatGenerated runs the on-disk formatter chain over a single plugin file
-// and returns its canonical bytes. This is the post-pipeline normalisation
-// step that turns plugin output (raw template render) into what would
-// actually land on disk after sync. Sharing this between sync (writes the
-// result) and check (compares the result against disk) is what makes the
-// generated-drift gate impossible to mismatch with what sync would write.
+// FormatGenerated runs the on-disk formatter chain over a single plugin file and
+// returns its canonical bytes. This is the post-pipeline normalization step that turns
+// plugin output (raw template render) into what would actually land on disk after sync.
+// Sharing this between sync (writes the result) and check (compares the result against
+// disk) is what makes the generated-drift gate impossible to mismatch with what sync
+// would write.
 func FormatGenerated(
 	ctx context.Context,
 	formatters *format.Registry,
@@ -331,7 +331,10 @@ func FormatGenerated(
 	}
 	batch := make([]format.File, len(files))
 	for i, f := range files {
-		batch[i] = format.File{Path: paths.Resolve(f.Path, repoRoot), Content: f.Content}
+		batch[i] = format.File{
+			Path:    paths.Resolve(f.Path, repoRoot),
+			Content: f.Content,
+		}
 	}
 	formatted, err := formatters.FormatBatch(ctx, batch, workers)
 	if err != nil {

@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package tailscale provides a certificate source backed by the local tailscaled daemon.
-// It lives in its own package so its dependency never enters the base cert package.
+// Package tailscale provides a certificate source backed by the local tailscaled
+// daemon. It lives in its own package so its dependency never enters the base cert
+// package.
 package tailscale
 
 import (
@@ -23,12 +24,12 @@ import (
 // SourceType is the configuration token selecting the Tailscale source.
 const SourceType = "tailscale"
 
-// DefaultClient returns a client backed by the local tailscaled daemon. It is the client
-// NewSource expects in production; tests substitute their own.
+// DefaultClient returns a client backed by the local tailscaled daemon. It is the
+// client NewSource expects in production; tests substitute their own.
 func DefaultClient() cert.Source { return &local.Client{} }
 
-// NewSource builds a Tailscale source that resolves certificates for host through client. It
-// returns validate.ErrValidation if host is empty, since tailscaled resolves
+// NewSource builds a Tailscale source that resolves certificates for host through
+// client. It returns validate.ErrValidation if host is empty, since tailscaled resolves
 // certificates by FQDN.
 func NewSource(client cert.Source, host string) (cert.Source, error) {
 	if host == "" {

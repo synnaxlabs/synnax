@@ -63,7 +63,11 @@ type transport struct {
 }
 
 // Configure implements aspen.transport.
-func (t *transport) Configure(addr address.Address, _ alamos.Instrumentation, _ bool) error {
+func (t *transport) Configure(
+	addr address.Address,
+	_ alamos.Instrumentation,
+	_ bool,
+) error {
 	t.pledgeServer = t.net.pledge.UnaryServer(addr)
 	t.pledgeClient = t.net.pledge.UnaryClient()
 	t.clusterServer = t.net.cluster.UnaryServer(addr)

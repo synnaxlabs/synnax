@@ -25,6 +25,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// A symbol file as main-era Consoles exported it: typeless camelCase symbolZ JSON
+// carrying the persisted version field the schema stamped by default.
+const createLegacySymbolFile = (name: string): string =>
+  JSON.stringify({ version: 1, ...createSymbolPayload(name) });
+
 const createSymbolGroup = async (): Promise<group.Group> => {
   const root = await client.schematics.symbols.retrieveGroup();
   return await client.groups.create({
@@ -34,7 +39,7 @@ const createSymbolGroup = async (): Promise<group.Group> => {
 };
 
 const childNames = async (id: ontology.ID): Promise<string[]> =>
-  (await client.ontology.retrieveChildren(id)).map((c) => c.name);
+  (await client.ontology.children.retrieve({ ids: id })).map((c) => c.name);
 
 describe("Schematic.Symbol.useImport", () => {
   it("imports a picked symbol file into the given group", async () => {
@@ -50,9 +55,7 @@ describe("Schematic.Symbol.useImport", () => {
     const name = uniqueName("imported");
     act(() => result.current.run());
     await waitFor(() => expect(picker.lastInput()).toBeDefined());
-    picker.selectFiles([
-      fakePickedFile("symbol.json", JSON.stringify(createSymbolPayload(name))),
-    ]);
+    picker.selectFiles([fakePickedFile("symbol.json", createLegacySymbolFile(name))]);
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
@@ -140,7 +143,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
       ),
       fakePickedFile(
         "sym1.json",
-        JSON.stringify(createSymbolPayload(symbolName)),
+        createLegacySymbolFile(symbolName),
         `${groupName}/sym1.json`,
       ),
     ]);
@@ -154,7 +157,9 @@ describe("Schematic.Symbol.useImportGroup", () => {
       ).toBe(true),
     );
     const root = await client.schematics.symbols.retrieveGroup();
-    const groups = await client.ontology.retrieveChildren(group.ontologyID(root.key));
+    const groups = await client.ontology.children.retrieve({
+      ids: group.ontologyID(root.key),
+    });
     const created = groups.find((g) => g.name === groupName);
     if (created == null) throw new Error("imported group not found");
     expect(await childNames(created.id)).toContain(symbolName);
@@ -200,11 +205,7 @@ describe("Schematic.Symbol.useImportGroup", () => {
         JSON.stringify(manifest),
         `${groupName}/manifest.json`,
       ),
-      fakePickedFile(
-        "ok.json",
-        JSON.stringify(createSymbolPayload(okName)),
-        `${groupName}/ok.json`,
-      ),
+      fakePickedFile("ok.json", createLegacySymbolFile(okName), `${groupName}/ok.json`),
     ]);
     await waitFor(() =>
       expect(

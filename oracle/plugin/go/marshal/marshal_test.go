@@ -138,14 +138,16 @@ var _ = Describe("Go Marshal Plugin", func() {
 				content.ToContain("t.Description = &hv")
 			})
 
-			It("Should compile a optional string-based enum without shadowing the outer pointer target", func() {
-				// Regression: the decode template for a string-based enum
-				// emitted "{ v, err := r.String(); v = TickType(v) }" which
-				// shadows the outer "var v TickType" declared by the hard-
-				// optional wrapper, breaks compilation, and leaves the outer v
-				// at its zero value. The fix renames the wrapper's outer var so
-				// the inner short-declaration cannot collide.
-				source := `
+			It(
+				"Should compile a optional string-based enum without shadowing the outer pointer target",
+				func() {
+					// Regression: the decode template for a string-based enum
+					// emitted "{ v, err := r.String(); v = TickType(v) }" which
+					// shadows the outer "var v TickType" declared by the hard-
+					// optional wrapper, breaks compilation, and leaves the outer v
+					// at its zero value. The fix renames the wrapper's outer var so
+					// the inner short-declaration cannot collide.
+					source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -160,20 +162,23 @@ var _ = Describe("Go Marshal Plugin", func() {
 						type  TickType?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec.gen.go")
-				content.ToContain("var hv TickType")
-				content.ToContain("hv = TickType(v)")
-				content.ToContain("a.Type = &hv")
-				content.ToNotContain("var v TickType")
-			})
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					content := ExpectContent(resp, "codec.gen.go")
+					content.ToContain("var hv TickType")
+					content.ToContain("hv = TickType(v)")
+					content.ToContain("a.Type = &hv")
+					content.ToNotContain("var v TickType")
+				},
+			)
 
-			It("Should compile a optional integer-based enum without shadowing the outer pointer target", func() {
-				// Same regression class as the string case but exercising the
-				// integer leaf decoder, which uses the same shared inner var
-				// name and would have collided the same way under a hard-
-				// optional wrapper.
-				source := `
+			It(
+				"Should compile a optional integer-based enum without shadowing the outer pointer target",
+				func() {
+					// Same regression class as the string case but exercising the
+					// integer leaf decoder, which uses the same shared inner var
+					// name and would have collided the same way under a hard-
+					// optional wrapper.
+					source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -189,13 +194,14 @@ var _ = Describe("Go Marshal Plugin", func() {
 						level Level?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec.gen.go")
-				content.ToContain("var hv Level")
-				content.ToContain("iv.Level = &hv")
-				content.ToContain("hv = Level(v)")
-				content.ToNotContain("var v Level")
-			})
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					content := ExpectContent(resp, "codec.gen.go")
+					content.ToContain("var hv Level")
+					content.ToContain("iv.Level = &hv")
+					content.ToContain("hv = Level(v)")
+					content.ToNotContain("var v Level")
+				},
+			)
 		})
 
 		Context("generic type argument used only in a json_only field", func() {
@@ -257,8 +263,10 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("generic struct with nil type arg via alias", func() {
-			It("Should skip nil-typed fields and resolve defaulted type params", func() {
-				source := `
+			It(
+				"Should skip nil-typed fields and resolve defaulted type params",
+				func() {
+					source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -282,15 +290,20 @@ var _ = Describe("Go Marshal Plugin", func() {
 						status MyStatus?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec.gen.go").
-					ToContain("func (t Test) EncodeOrc(w *orc.Writer")
-			})
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					ExpectContent(resp, "codec.gen.go").
+						ToContain("func (t Test) EncodeOrc(w *orc.Writer")
+				},
+			)
 		})
 
-		Context("defaulted type param should encode as concrete type, not JSON fallback", func() {
-			It("Should encode a defaulted enum type param as a string, not via JSON marshal", func() {
-				source := `
+		Context(
+			"defaulted type param should encode as concrete type, not JSON fallback",
+			func() {
+				It(
+					"Should encode a defaulted enum type param as a string, not via JSON marshal",
+					func() {
+						source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -307,20 +320,24 @@ var _ = Describe("Go Marshal Plugin", func() {
 						details Details?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec.gen.go")
-				content.ToContain(
-					"w.String(string(s.Variant))",
+						resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+						content := ExpectContent(resp, "codec.gen.go")
+						content.ToContain(
+							"w.String(string(s.Variant))",
+						)
+						content.ToNotContain(
+							"json.Marshal(s.Variant)",
+						)
+					},
 				)
-				content.ToNotContain(
-					"json.Marshal(s.Variant)",
-				)
-			})
-		})
+			},
+		)
 
 		Context("extending enum as a struct field", func() {
-			It("Should encode/decode an extending enum field as a plain string enum", func() {
-				source := `
+			It(
+				"Should encode/decode an extending enum field as a plain string enum",
+				func() {
+					source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -341,11 +358,12 @@ var _ = Describe("Go Marshal Plugin", func() {
 						axis_key AxisKey
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec.gen.go")
-				content.ToContain("w.String(string(p.AxisKey))")
-				content.ToContain("p.AxisKey = AxisKey(v)")
-			})
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					content := ExpectContent(resp, "codec.gen.go")
+					content.ToContain("w.String(string(p.AxisKey))")
+					content.ToContain("p.AxisKey = AxisKey(v)")
+				},
+			)
 		})
 
 		Context("non-optional array alias field", func() {
@@ -451,8 +469,10 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("map field nil preservation", func() {
-			It("Should dispatch union map values through the wrapper codec", func(ctx SpecContext) {
-				source := `
+			It(
+				"Should dispatch union map values through the wrapper codec",
+				func(ctx SpecContext) {
+					source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -467,14 +487,15 @@ var _ = Describe("Go Marshal Plugin", func() {
 						configs map<string, ElementConfig>
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec.gen.go").
-					ToContain(
-						"if err := val.EncodeOrc(w); err != nil { return err }",
-						"if err = val.DecodeOrc(r); err != nil { return err }",
-					).
-					ToNotContain("json.Marshal(val)")
-			})
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					ExpectContent(resp, "codec.gen.go").
+						ToContain(
+							"if err := val.EncodeOrc(w); err != nil { return err }",
+							"if err = val.DecodeOrc(r); err != nil { return err }",
+						).
+						ToNotContain("json.Marshal(val)")
+				},
+			)
 
 			It("Should generate a presence bit before the map length", func() {
 				source := `
@@ -543,8 +564,10 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("marshal json_only on a type param field", func() {
-			It("Should always use JSON encoding without SelfEncoder/SelfDecoder type assertions", func() {
-				source := `
+			It(
+				"Should always use JSON encoding without SelfEncoder/SelfDecoder type assertions",
+				func() {
+					source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -556,22 +579,25 @@ var _ = Describe("Go Marshal Plugin", func() {
 						}
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec.gen.go")
-				content.ToContain(
-					"json.Marshal(s.Details)",
-					"json.Unmarshal(b, &s.Details)",
-				)
-				content.ToNotContain(
-					"orc.SelfEncoder",
-					"orc.SelfDecoder",
-				)
-			})
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					content := ExpectContent(resp, "codec.gen.go")
+					content.ToContain(
+						"json.Marshal(s.Details)",
+						"json.Unmarshal(b, &s.Details)",
+					)
+					content.ToNotContain(
+						"orc.SelfEncoder",
+						"orc.SelfDecoder",
+					)
+				},
+			)
 		})
 
 		Context("optional array field", func() {
-			It("Should generate a single presence bit without a redundant inner nil check", func() {
-				source := `
+			It(
+				"Should generate a single presence bit without a redundant inner nil check",
+				func() {
+					source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -581,22 +607,25 @@ var _ = Describe("Go Marshal Plugin", func() {
 						items string[]?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec.gen.go")
-				content.ToContain(
-					"if t.Items != nil {",
-					"w.Bool(true)",
-					"w.Uint32(uint32(len(t.Items)))",
-				)
-				content.ToNotContain(
-					"w.Bool(t.Items != nil)",
-				)
-			})
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					content := ExpectContent(resp, "codec.gen.go")
+					content.ToContain(
+						"if t.Items != nil {",
+						"w.Bool(true)",
+						"w.Uint32(uint32(len(t.Items)))",
+					)
+					content.ToNotContain(
+						"w.Bool(t.Items != nil)",
+					)
+				},
+			)
 		})
 
 		Context("optional map field", func() {
-			It("Should generate a single presence bit without a redundant inner nil check", func() {
-				source := `
+			It(
+				"Should generate a single presence bit without a redundant inner nil check",
+				func() {
+					source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -606,17 +635,18 @@ var _ = Describe("Go Marshal Plugin", func() {
 						labels map<string, string>?
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec.gen.go")
-				content.ToContain(
-					"if t.Labels != nil {",
-					"w.Bool(true)",
-					"w.Uint32(uint32(len(t.Labels)))",
-				)
-				content.ToNotContain(
-					"w.Bool(t.Labels != nil)",
-				)
-			})
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					content := ExpectContent(resp, "codec.gen.go")
+					content.ToContain(
+						"if t.Labels != nil {",
+						"w.Bool(true)",
+						"w.Uint32(uint32(len(t.Labels)))",
+					)
+					content.ToNotContain(
+						"w.Bool(t.Labels != nil)",
+					)
+				},
+			)
 		})
 
 		Context("optional struct-array field", func() {
@@ -759,15 +789,17 @@ var _ = Describe("Go Marshal Plugin", func() {
 					)
 			})
 
-			It("Should emit the google/uuid import exactly once when uuid-typed fields are present", func() {
-				// Regression: the test fixture generator both set
-				// NeedsUUID (which the template renders as a hardcoded
-				// `"github.com/google/uuid"` line) and registered the same
-				// import under ExtraImports with an explicit "uuid" alias,
-				// producing two import lines for the same path and breaking
-				// the generated test file with a "uuid redeclared" compile
-				// error.
-				source := `
+			It(
+				"Should emit the google/uuid import exactly once when uuid-typed fields are present",
+				func() {
+					// Regression: the test fixture generator both set
+					// NeedsUUID (which the template renders as a hardcoded
+					// `"github.com/google/uuid"` line) and registered the same
+					// import under ExtraImports with an explicit "uuid" alias,
+					// producing two import lines for the same path and breaking
+					// the generated test file with a "uuid redeclared" compile
+					// error.
+					source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -777,14 +809,17 @@ var _ = Describe("Go Marshal Plugin", func() {
 						name string
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				content := ExpectContent(resp, "codec_gen_test.go")
-				content.ToContain(`"github.com/google/uuid"`)
-				content.ToNotContain(`uuid "github.com/google/uuid"`)
-			})
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					content := ExpectContent(resp, "codec_gen_test.go")
+					content.ToContain(`"github.com/google/uuid"`)
+					content.ToNotContain(`uuid "github.com/google/uuid"`)
+				},
+			)
 
-			It("Should order test Describe blocks alphabetically by qualified name", func() {
-				source := `
+			It(
+				"Should order test Describe blocks alphabetically by qualified name",
+				func() {
+					source := `
 					@go output "core/pkg/test"
 					@go marshal
 					@pb
@@ -803,14 +838,15 @@ var _ = Describe("Go Marshal Plugin", func() {
 						alpha Alpha
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec_gen_test.go").
-					ToPreserveOrder(
-						`Describe("Alpha"`,
-						`Describe("Middle"`,
-						`Describe("Zebra"`,
-					)
-			})
+					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+					ExpectContent(resp, "codec_gen_test.go").
+						ToPreserveOrder(
+							`Describe("Alpha"`,
+							`Describe("Middle"`,
+							`Describe("Zebra"`,
+						)
+				},
+			)
 
 			It("Should order flex codec methods alphabetically", func() {
 				source := `
@@ -878,8 +914,10 @@ var _ = Describe("Union Codecs", func() {
 		marshalPlugin = marshal.New(unversionedOptions())
 	})
 
-	It("Should generate a binary wrapper codec with base and payload delegation", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should generate a binary wrapper codec with base and payload delegation",
+		func(ctx SpecContext) {
+			source := `
 			@go output "core/pkg/test"
 			@go marshal
 			@pb
@@ -897,34 +935,37 @@ var _ = Describe("Union Codecs", func() {
 				config ElementConfig
 			}
 		`
-		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-		ExpectContent(resp, "codec.gen.go").
-			ToContain(
-				"func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {",
-				"switch v := ec.Variant.(type) {",
-				"case ElementConfigTank:",
-				`w.String("tank")`,
-				"if err := v.BaseElement.EncodeOrc(w); err != nil { return err }",
-				"if err := v.TankConfig.EncodeOrc(w); err != nil { return err }",
-				"case ElementConfigValve:",
-				`w.String("valve")`,
-				`return errors.Newf("ElementConfig: nil or unknown variant %T", ec.Variant)`,
-				"func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {",
-				"tag, err := r.String()",
-				`case "tank":`,
-				"var v ElementConfigTank",
-				"if err := v.BaseElement.DecodeOrc(r); err != nil { return err }",
-				"if err := v.TankConfig.DecodeOrc(r); err != nil { return err }",
-				"ec.Variant = v",
-				`return errors.Newf("ElementConfig: unknown variant %q", tag)`,
-				"if err := t.Config.EncodeOrc(w); err != nil { return err }",
-				`"github.com/synnaxlabs/x/errors"`,
-			).
-			ToNotContain("json.Marshal")
-	})
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			ExpectContent(resp, "codec.gen.go").
+				ToContain(
+					"func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {",
+					"switch v := ec.Variant.(type) {",
+					"case ElementConfigTank:",
+					`w.String("tank")`,
+					"if err := v.BaseElement.EncodeOrc(w); err != nil { return err }",
+					"if err := v.TankConfig.EncodeOrc(w); err != nil { return err }",
+					"case ElementConfigValve:",
+					`w.String("valve")`,
+					`return errors.Newf("ElementConfig: nil or unknown variant %T", ec.Variant)`,
+					"func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {",
+					"tag, err := r.String()",
+					`case "tank":`,
+					"var v ElementConfigTank",
+					"if err := v.BaseElement.DecodeOrc(r); err != nil { return err }",
+					"if err := v.TankConfig.DecodeOrc(r); err != nil { return err }",
+					"ec.Variant = v",
+					`return errors.Newf("ElementConfig: unknown variant %q", tag)`,
+					"if err := t.Config.EncodeOrc(w); err != nil { return err }",
+					`"github.com/synnaxlabs/x/errors"`,
+				).
+				ToNotContain("json.Marshal")
+		},
+	)
 
-	It("Should generate codecs for structs reachable only through a union", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should generate codecs for structs reachable only through a union",
+		func(ctx SpecContext) {
+			source := `
 			@go output "core/pkg/test"
 			@go marshal
 			@pb
@@ -939,16 +980,19 @@ var _ = Describe("Union Codecs", func() {
 				config ElementConfig
 			}
 		`
-		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-		ExpectContent(resp, "codec.gen.go").
-			ToContain(
-				"func (tc TankConfig) EncodeOrc(w *orc.Writer) error {",
-				"w.Float64(float64(tc.Width))",
-			)
-	})
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			ExpectContent(resp, "codec.gen.go").
+				ToContain(
+					"func (tc TankConfig) EncodeOrc(w *orc.Writer) error {",
+					"w.Float64(float64(tc.Width))",
+				)
+		},
+	)
 
-	It("Should generate round-trip, benchmark, and fuzz harnesses covering every variant", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should generate round-trip, benchmark, and fuzz harnesses covering every variant",
+		func(ctx SpecContext) {
+			source := `
 			@go output "core/pkg/test"
 			@go marshal
 			@pb
@@ -966,23 +1010,26 @@ var _ = Describe("Union Codecs", func() {
 				config ElementConfig
 			}
 		`
-		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-		ExpectContent(resp, "codec_gen_test.go").
-			ToBeValidGoSource().
-			ToContain(
-				`Describe("ElementConfig"`,
-				`Entry("tank variant"`,
-				`Entry("valve variant"`,
-				"test.ElementConfigTank{",
-				"test.ElementConfigValve{",
-				"BaseElement: fullyPopulatedBaseElement",
-				"func BenchmarkEncodeDecodeElementConfig(b *testing.B) {",
-				"func FuzzDecodeElementConfig(f *testing.F) {",
-			)
-	})
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			ExpectContent(resp, "codec_gen_test.go").
+				ToBeValidGoSource().
+				ToContain(
+					`Describe("ElementConfig"`,
+					`Entry("tank variant"`,
+					`Entry("valve variant"`,
+					"test.ElementConfigTank{",
+					"test.ElementConfigValve{",
+					"BaseElement: fullyPopulatedBaseElement",
+					"func BenchmarkEncodeDecodeElementConfig(b *testing.B) {",
+					"func FuzzDecodeElementConfig(f *testing.F) {",
+				)
+		},
+	)
 
-	It("Should encode inline variant fields directly in the union codec", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should encode inline variant fields directly in the union codec",
+		func(ctx SpecContext) {
+			source := `
 			@go output "core/pkg/test"
 			@go marshal
 			@pb
@@ -1000,29 +1047,32 @@ var _ = Describe("Union Codecs", func() {
 				tab Tab
 			}
 		`
-		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-		content := ExpectContent(resp, "codec.gen.go")
-		content.ToBeValidGoSource()
-		content.ToContain(
-			`case TabView:`,
-			"if err := v.TabBase.EncodeOrc(w); err != nil { return err }",
-			"w.String(v.Type)",
-			"if err := v.TabBase.DecodeOrc(r); err != nil { return err }",
-			"v.Type, err = r.String()",
-		)
-		content.ToNotContain("TabViewPayload")
-		ExpectContent(resp, "codec_gen_test.go").
-			ToBeValidGoSource().
-			ToContain(
-				`Entry("view variant"`,
-				`Entry("empty variant"`,
-				"TabBase: fullyPopulatedTabBase",
-				"Type:",
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			content := ExpectContent(resp, "codec.gen.go")
+			content.ToBeValidGoSource()
+			content.ToContain(
+				`case TabView:`,
+				"if err := v.TabBase.EncodeOrc(w); err != nil { return err }",
+				"w.String(v.Type)",
+				"if err := v.TabBase.DecodeOrc(r); err != nil { return err }",
+				"v.Type, err = r.String()",
 			)
-	})
+			content.ToNotContain("TabViewPayload")
+			ExpectContent(resp, "codec_gen_test.go").
+				ToBeValidGoSource().
+				ToContain(
+					`Entry("view variant"`,
+					`Entry("empty variant"`,
+					"TabBase: fullyPopulatedTabBase",
+					"Type:",
+				)
+		},
+	)
 
-	It("Should share fully populated fixtures between union entries and type tables", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should share fully populated fixtures between union entries and type tables",
+		func(ctx SpecContext) {
+			source := `
 			@go output "core/pkg/test"
 			@go marshal
 			@pb
@@ -1038,16 +1088,17 @@ var _ = Describe("Union Codecs", func() {
 				config ElementConfig
 			}
 		`
-		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-		ExpectContent(resp, "codec_gen_test.go").
-			ToBeValidGoSource().
-			ToContain(
-				"fullyPopulatedTankConfig = test.TankConfig{",
-				"TankConfig: fullyPopulatedTankConfig",
-				`Entry("fully populated", fullyPopulatedTankConfig)`,
-			).
-			ToNotContain("TankConfig: test.TankConfig{Width: 1.5}")
-	})
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			ExpectContent(resp, "codec_gen_test.go").
+				ToBeValidGoSource().
+				ToContain(
+					"fullyPopulatedTankConfig = test.TankConfig{",
+					"TankConfig: fullyPopulatedTankConfig",
+					`Entry("fully populated", fullyPopulatedTankConfig)`,
+				).
+				ToNotContain("TankConfig: test.TankConfig{Width: 1.5}")
+		},
+	)
 })
 
 var _ = Describe("Recursive Codecs", func() {
@@ -1061,8 +1112,10 @@ var _ = Describe("Recursive Codecs", func() {
 		marshalPlugin = marshal.New(unversionedOptions())
 	})
 
-	It("Should guard a recursive struct's decode with a depth limit", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should guard a recursive struct's decode with a depth limit",
+		func(ctx SpecContext) {
+			source := `
 			@go output "core/pkg/test"
 			@go marshal
 			@pb
@@ -1072,21 +1125,24 @@ var _ = Describe("Recursive Codecs", func() {
 				children Node[]
 			}
 		`
-		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-		ExpectContent(resp, "codec.gen.go").
-			ToBeValidGoSource().
-			ToContain(
-				`func (nv *Node) DecodeOrc(r *orc.Reader) error {
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			ExpectContent(resp, "codec.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
 	}
 	defer r.PopDepth()`,
-			).
-			ToNotContain("EncodeOrc(w *orc.Writer) error {\n\tif err := r.PushDepth")
-	})
+				).
+				ToNotContain("EncodeOrc(w *orc.Writer) error {\n\tif err := r.PushDepth")
+		},
+	)
 
-	It("Should guard a recursive union and its cycle members with a depth limit", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should guard a recursive union and its cycle members with a depth limit",
+		func(ctx SpecContext) {
+			source := `
 			@go output "core/pkg/test"
 			@go marshal
 			@pb
@@ -1099,25 +1155,26 @@ var _ = Describe("Recursive Codecs", func() {
 				group GroupConfig
 			}
 		`
-		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-		ExpectContent(resp, "codec.gen.go").
-			ToBeValidGoSource().
-			ToContain(
-				`func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
+			resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+			ExpectContent(resp, "codec.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
 	}
 	defer r.PopDepth()
 	tag, err := r.String()`,
-				`func (gc *GroupConfig) DecodeOrc(r *orc.Reader) error {
+					`func (gc *GroupConfig) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
 	}
 	defer r.PopDepth()`,
-				`func (lc *LeafConfig) DecodeOrc(r *orc.Reader) error {
+					`func (lc *LeafConfig) DecodeOrc(r *orc.Reader) error {
 	var err error`,
-			)
-	})
+				)
+		},
+	)
 
 	It("Should not guard non-recursive decodes", func(ctx SpecContext) {
 		source := `
@@ -1339,7 +1396,9 @@ var _ = Describe("Union Codec Round Trip", func() {
 
 	It("Should reject encoding a nil variant", func() {
 		w := orc.NewWriter(0)
-		Expect(rtConfig{}.EncodeOrc(w)).To(MatchError(ContainSubstring("nil or unknown variant")))
+		Expect(
+			rtConfig{}.EncodeOrc(w),
+		).To(MatchError(ContainSubstring("nil or unknown variant")))
 	})
 
 	It("Should reject decoding an unknown discriminator tag", func() {
@@ -1348,7 +1407,9 @@ var _ = Describe("Union Codec Round Trip", func() {
 		r := orc.NewReader(nil)
 		r.ResetBytes(w.Bytes())
 		var out rtConfig
-		Expect(out.DecodeOrc(r)).To(MatchError(ContainSubstring(`unknown variant "bogus"`)))
+		Expect(
+			out.DecodeOrc(r),
+		).To(MatchError(ContainSubstring(`unknown variant "bogus"`)))
 	})
 })
 
@@ -1411,9 +1472,11 @@ var _ = Describe("Recursive Codec Depth Guard", func() {
 })
 
 var _ = Describe("Predecessor Aliasing", func() {
-	It("Should skip codecs for types aliased to the predecessor version", func(ctx SpecContext) {
-		loader := NewMockFileLoader()
-		oldSource := `
+	It(
+		"Should skip codecs for types aliased to the predecessor version",
+		func(ctx SpecContext) {
+			loader := NewMockFileLoader()
+			oldSource := `
 			@go output "out"
 			Inner struct {
 			    @go version 0
@@ -1426,7 +1489,7 @@ var _ = Describe("Predecessor Aliasing", func() {
 				@go marshal
 			}
 		`
-		newSource := `
+			newSource := `
 			@go output "out"
 			Inner struct {
 			    @go version 1
@@ -1440,25 +1503,26 @@ var _ = Describe("Predecessor Aliasing", func() {
 				@go marshal
 			}
 		`
-		req := MustGenerateRequest(ctx, newSource, "test", loader)
-		req.SnapshotVersion = 56
-		req.LoadSnapshot = func(version int) (*resolution.Table, error) {
-			if version != 56 {
-				return nil, nil
+			req := MustGenerateRequest(ctx, newSource, "test", loader)
+			req.SnapshotVersion = 56
+			req.LoadSnapshot = func(version int) (*resolution.Table, error) {
+				if version != 56 {
+					return nil, nil
+				}
+				table, diag := analyzer.AnalyzeSource(
+					ctx, oldSource, "test", NewMockFileLoader(),
+				)
+				if diag != nil && !diag.Ok() {
+					return nil, diag
+				}
+				return table, nil
 			}
-			table, diag := analyzer.AnalyzeSource(
-				ctx, oldSource, "test", NewMockFileLoader(),
-			)
-			if diag != nil && !diag.Ok() {
-				return nil, diag
-			}
-			return table, nil
-		}
-		resp := MustSucceed(marshal.New(marshal.DefaultOptions()).Generate(req))
-		ExpectContent(resp, "out/versions/v1/codec.gen.go").
-			ToContain("func (e Entry) EncodeOrc").
-			ToNotContain("func (i Inner) EncodeOrc")
-	})
+			resp := MustSucceed(marshal.New(marshal.DefaultOptions()).Generate(req))
+			ExpectContent(resp, "out/versions/v1/codec.gen.go").
+				ToContain("func (e Entry) EncodeOrc").
+				ToNotContain("func (i Inner) EncodeOrc")
+		},
+	)
 })
 
 var _ = Describe("Same-Named Entries Across Namespaces", func() {
@@ -1490,9 +1554,11 @@ var _ = Describe("Same-Named Entries Across Namespaces", func() {
 })
 
 var _ = Describe("Versioned codec requirement", func() {
-	It("Should reject a marshalled type outside a versions/vN package", func(ctx SpecContext) {
-		loader := NewMockFileLoader()
-		source := `
+	It(
+		"Should reject a marshalled type outside a versions/vN package",
+		func(ctx SpecContext) {
+			loader := NewMockFileLoader()
+			source := `
 			@go output "core/pkg/service/thing"
 			Key = uuid
 			Thing struct {
@@ -1501,14 +1567,17 @@ var _ = Describe("Versioned codec requirement", func() {
 				@go marshal
 			}
 		`
-		req := MustGenerateRequest(ctx, source, "thing", loader)
-		Expect(marshal.New(marshal.DefaultOptions()).Generate(req)).
-			Error().To(MatchError(ContainSubstring("must be versioned")))
-	})
+			req := MustGenerateRequest(ctx, source, "thing", loader)
+			Expect(marshal.New(marshal.DefaultOptions()).Generate(req)).
+				Error().To(MatchError(ContainSubstring("must be versioned")))
+		},
+	)
 
-	It("Should accept a marshalled type in a versions/vN package", func(ctx SpecContext) {
-		loader := NewMockFileLoader()
-		source := `
+	It(
+		"Should accept a marshalled type in a versions/vN package",
+		func(ctx SpecContext) {
+			loader := NewMockFileLoader()
+			source := `
 			@go output "core/pkg/service/thing"
 			Thing struct {
 				@go version 2
@@ -1517,11 +1586,12 @@ var _ = Describe("Versioned codec requirement", func() {
 				@go marshal
 			}
 		`
-		resp := MustGenerate(ctx, source, "thing", loader,
-			marshal.New(marshal.DefaultOptions()))
-		ExpectContent(resp, "core/pkg/service/thing/versions/v2/codec.gen.go").
-			ToContain("Thing) EncodeOrc")
-	})
+			resp := MustGenerate(ctx, source, "thing", loader,
+				marshal.New(marshal.DefaultOptions()))
+			ExpectContent(resp, "core/pkg/service/thing/versions/v2/codec.gen.go").
+				ToContain("Thing) EncodeOrc")
+		},
+	)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

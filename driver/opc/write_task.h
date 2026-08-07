@@ -9,22 +9,17 @@
 
 #pragma once
 
-/// external
+#include "absl/log/log.h"
 #include "open62541/client.h"
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 
-/// module
-#include "x/cpp/defer/defer.h"
 #include "x/cpp/json/json.h"
 
-/// internal
 #include "driver/common/write_task.h"
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/errors/errors.h"
 #include "driver/opc/types/types.h"
-#include "driver/opc/write_task.h"
-#include "driver/pipeline/control.h"
 
 namespace driver::opc {
 struct OutputChan {

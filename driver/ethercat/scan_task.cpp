@@ -11,7 +11,7 @@
 #include <ranges>
 #include <utility>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #include "x/cpp/telem/telem.h"
 

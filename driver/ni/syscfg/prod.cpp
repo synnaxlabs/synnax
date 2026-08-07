@@ -13,7 +13,6 @@
 
 #include <stdio.h>
 
-/// internal.
 #include "x/cpp/os/os.h"
 
 #include "driver/errors/errors.h"

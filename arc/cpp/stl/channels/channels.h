@@ -12,6 +12,8 @@
 #include <memory>
 #include <string>
 
+#include "wasmtime.hh"
+
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/mem/local_shared.h"
 #include "x/cpp/telem/telem.h"

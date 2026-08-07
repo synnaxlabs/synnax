@@ -42,7 +42,9 @@ func (m *JSONRPCMessage) UnmarshalJSON(data []byte) error {
 
 const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB
 
-var ErrContentLengthExceeded = errors.New("[transport] - content length exceeded maximum allowed size")
+var ErrContentLengthExceeded = errors.New(
+	"[transport] - content length exceeded maximum allowed size",
+)
 
 // streamAdapter wraps a freighter stream to implement jsonrpc2.Stream. Each freighter
 // message carries one fully-encoded JSON-RPC envelope in Content. jsonrpc2 v1 requires
@@ -100,13 +102,24 @@ func (s *streamAdapter) Write(_ context.Context, msg jsonrpc2.Message) (int64, e
 	}
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
+	// Re-check under the lock: a Write that passed the early check while Close held
+	// the mutex must not reach the fenced stream.
+	if s.closed.Load() {
+		return 0, io.ErrClosedPipe
+	}
 	if err := s.stream.Send(JSONRPCMessage{Content: string(data)}); err != nil {
 		return 0, err
 	}
 	return int64(len(data)), nil
 }
 
+// Close fences the stream: it waits for an in-flight Send to drain and fails every
+// later Write before it reaches the stream. Freighter streams are single-writer, so
+// no notification may touch the stream once the handler starts its own teardown
+// writes.
 func (s *streamAdapter) Close() error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 	s.closed.Store(true)
 	return nil
 }
@@ -153,5 +166,10 @@ func ServeFreighter(ctx context.Context, cfgs ...Config) (err error) {
 	cfg.Server.SetClient(client)
 	close(adapter.ready)
 	<-conn.Done()
-	return conn.Err()
+	// Fence the adapter before returning: freighter writes its own close frames
+	// after the handler exits, and a republish notification still in flight would
+	// race them on the websocket. Shutdown then stops the external change observer
+	// and drains the republish goroutine, whose writes now fail fast at the fence.
+	err = errors.Combine(conn.Err(), adapter.Close())
+	return errors.Combine(err, cfg.Server.Shutdown(ctx))
 }

@@ -28,51 +28,79 @@ var _ = Describe("MockClient", func() {
 		It("should capture diagnostics from PublishDiagnostics", func(ctx SpecContext) {
 			client := &testutil.MockClient{}
 			diags := []protocol.Diagnostic{
-				{Message: protocol.String("undefined symbol: x"), Severity: protocol.DiagnosticSeverityError},
-				{Message: protocol.String("unused variable: y"), Severity: protocol.DiagnosticSeverityWarning},
+				{
+					Message:  protocol.String("undefined symbol: x"),
+					Severity: protocol.DiagnosticSeverityError,
+				},
+				{
+					Message:  protocol.String("unused variable: y"),
+					Severity: protocol.DiagnosticSeverityWarning,
+				},
 			}
 			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 				URI:         "file:///test.arc",
 				Diagnostics: diags,
 			})).To(Succeed())
 			Expect(client.Diagnostics()).To(HaveLen(2))
-			Expect(testutil.DiagnosticMessage(client.Diagnostics()[0])).To(Equal("undefined symbol: x"))
-			Expect(testutil.DiagnosticMessage(client.Diagnostics()[1])).To(Equal("unused variable: y"))
+			Expect(
+				testutil.DiagnosticMessage(client.Diagnostics()[0]),
+			).To(Equal("undefined symbol: x"))
+			Expect(
+				testutil.DiagnosticMessage(client.Diagnostics()[1]),
+			).To(Equal("unused variable: y"))
 		})
 
-		It("should replace diagnostics on subsequent PublishDiagnostics calls", func(ctx SpecContext) {
-			client := &testutil.MockClient{}
-			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI: "file:///test.arc",
-				Diagnostics: []protocol.Diagnostic{
-					{Message: protocol.String("first error")},
-				},
-			})).To(Succeed())
-			Expect(client.Diagnostics()).To(HaveLen(1))
-			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI: "file:///test.arc",
-				Diagnostics: []protocol.Diagnostic{
-					{Message: protocol.String("second error")},
-					{Message: protocol.String("third error")},
-				},
-			})).To(Succeed())
-			Expect(client.Diagnostics()).To(HaveLen(2))
-			Expect(testutil.DiagnosticMessage(client.Diagnostics()[0])).To(Equal("second error"))
-		})
+		It(
+			"should replace diagnostics on subsequent PublishDiagnostics calls",
+			func(ctx SpecContext) {
+				client := &testutil.MockClient{}
+				Expect(
+					client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+						URI: "file:///test.arc",
+						Diagnostics: []protocol.Diagnostic{
+							{Message: protocol.String("first error")},
+						},
+					}),
+				).To(Succeed())
+				Expect(client.Diagnostics()).To(HaveLen(1))
+				Expect(
+					client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+						URI: "file:///test.arc",
+						Diagnostics: []protocol.Diagnostic{
+							{Message: protocol.String("second error")},
+							{Message: protocol.String("third error")},
+						},
+					}),
+				).To(Succeed())
+				Expect(client.Diagnostics()).To(HaveLen(2))
+				Expect(
+					testutil.DiagnosticMessage(client.Diagnostics()[0]),
+				).To(Equal("second error"))
+			},
+		)
 
-		It("should clear diagnostics when publishing empty slice", func(ctx SpecContext) {
-			client := &testutil.MockClient{}
-			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI:         "file:///test.arc",
-				Diagnostics: []protocol.Diagnostic{{Message: protocol.String("error")}},
-			})).To(Succeed())
-			Expect(client.Diagnostics()).To(HaveLen(1))
-			Expect(client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI:         "file:///test.arc",
-				Diagnostics: []protocol.Diagnostic{},
-			})).To(Succeed())
-			Expect(client.Diagnostics()).To(BeEmpty())
-		})
+		It(
+			"should clear diagnostics when publishing empty slice",
+			func(ctx SpecContext) {
+				client := &testutil.MockClient{}
+				Expect(
+					client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+						URI: "file:///test.arc",
+						Diagnostics: []protocol.Diagnostic{
+							{Message: protocol.String("error")},
+						},
+					}),
+				).To(Succeed())
+				Expect(client.Diagnostics()).To(HaveLen(1))
+				Expect(
+					client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+						URI:         "file:///test.arc",
+						Diagnostics: []protocol.Diagnostic{},
+					}),
+				).To(Succeed())
+				Expect(client.Diagnostics()).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("Stubbed Methods", func() {
@@ -108,10 +136,19 @@ var _ = Describe("MockClient", func() {
 			Expect(client.Progress(ctx, &protocol.ProgressParams{})).To(Succeed())
 		})
 
-		It("should return not-implemented for methods without overrides", func(ctx SpecContext) {
-			Expect(client.ShowMessageRequest(ctx, &protocol.ShowMessageRequestParams{})).
-				Error().To(MatchError(ContainSubstring("not implemented")))
-		})
+		It(
+			"should return not-implemented for methods without overrides",
+			func(ctx SpecContext) {
+				Expect(
+					client.ShowMessageRequest(
+						ctx,
+						&protocol.ShowMessageRequestParams{},
+					),
+				).
+					Error().
+					To(MatchError(ContainSubstring("not implemented")))
+			},
+		)
 	})
 })
 

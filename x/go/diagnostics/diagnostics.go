@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package diagnostics provides error, warning, and hint reporting for language analysis.
+// Package diagnostics provides error, warning, and hint reporting for language
+// analysis.
 package diagnostics
 
 import (
@@ -93,7 +94,10 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 	d.SetRange(ctx)
 	if hp, ok := err.(HintProvider); ok {
 		if hint := hp.GetHint(); hint != "" {
-			d.Notes = append(d.Notes, protocol.DiagnosticRelatedInformation{Message: hint})
+			d.Notes = append(
+				d.Notes,
+				protocol.DiagnosticRelatedInformation{Message: hint},
+			)
 		}
 	}
 	return d
@@ -101,28 +105,40 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 
 // Errorf creates an error diagnostic with a formatted message.
 func Errorf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{Severity: protocol.DiagnosticSeverityError, Message: fmt.Sprintf(format, args...)}
+	d := Diagnostic{
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  fmt.Sprintf(format, args...),
+	}
 	d.SetRange(ctx)
 	return d
 }
 
 // Warningf creates a warning diagnostic with a formatted message.
 func Warningf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{Severity: protocol.DiagnosticSeverityWarning, Message: fmt.Sprintf(format, args...)}
+	d := Diagnostic{
+		Severity: protocol.DiagnosticSeverityWarning,
+		Message:  fmt.Sprintf(format, args...),
+	}
 	d.SetRange(ctx)
 	return d
 }
 
 // Infof creates an info diagnostic with a formatted message.
 func Infof(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{Severity: protocol.DiagnosticSeverityInformation, Message: fmt.Sprintf(format, args...)}
+	d := Diagnostic{
+		Severity: protocol.DiagnosticSeverityInformation,
+		Message:  fmt.Sprintf(format, args...),
+	}
 	d.SetRange(ctx)
 	return d
 }
 
 // Hintf creates a hint diagnostic with a formatted message.
 func Hintf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{Severity: protocol.DiagnosticSeverityHint, Message: fmt.Sprintf(format, args...)}
+	d := Diagnostic{
+		Severity: protocol.DiagnosticSeverityHint,
+		Message:  fmt.Sprintf(format, args...),
+	}
 	d.SetRange(ctx)
 	return d
 }
@@ -148,7 +164,8 @@ func (d Diagnostic) WithNote(note string) Diagnostic {
 	return d
 }
 
-// WithNoteAt returns a copy of the diagnostic with an additional note at the given position.
+// WithNoteAt returns a copy of the diagnostic with an additional note at the given
+// position.
 func (d Diagnostic) WithNoteAt(note string, pos protocol.Position) Diagnostic {
 	if note != "" {
 		d.Notes = append(d.Notes, protocol.DiagnosticRelatedInformation{
@@ -274,7 +291,13 @@ func (d Diagnostics) String() string {
 			// even for a note at 0:0.
 			if note.Location.Range != (protocol.Range{}) {
 				start := note.Location.Range.Start
-				_, _ = fmt.Fprintf(&sb, "  %d:%d note: %s", start.Line+1, start.Character, note.Message)
+				_, _ = fmt.Fprintf(
+					&sb,
+					"  %d:%d note: %s",
+					start.Line+1,
+					start.Character,
+					note.Message,
+				)
 			} else {
 				_, _ = fmt.Fprintf(&sb, "  note: %s", note.Message)
 			}

@@ -37,10 +37,17 @@ var _ = Describe("Status", func() {
 			Expect(s.String()).To(Equal("[ℹ info] My Status"))
 		})
 
-		It("Should render the key in parentheses when it differs from the name", func() {
-			s := v1.Status[any]{Variant: v1.VariantInfo, Name: "My Status", Key: "abc"}
-			Expect(s.String()).To(Equal("[ℹ info] My Status (abc)"))
-		})
+		It(
+			"Should render the key in parentheses when it differs from the name",
+			func() {
+				s := v1.Status[any]{
+					Variant: v1.VariantInfo,
+					Name:    "My Status",
+					Key:     "abc",
+				}
+				Expect(s.String()).To(Equal("[ℹ info] My Status (abc)"))
+			},
+		)
 
 		It("Should not render the key when it equals the name", func() {
 			s := v1.Status[any]{Variant: v1.VariantInfo, Name: "same", Key: "same"}

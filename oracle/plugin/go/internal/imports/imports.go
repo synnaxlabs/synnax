@@ -99,7 +99,8 @@ func (m *Manager) NonStdImports() []InternalImportData {
 		if stdlib(imp) {
 			continue
 		}
-		if shadow := m.internal[filepath.Base(imp)]; shadow == nil || shadow.Path == imp {
+		if shadow := m.internal[filepath.Base(imp)]; shadow == nil ||
+			shadow.Path == imp {
 			result = append(result, InternalImportData{Path: imp})
 		}
 	}

@@ -67,7 +67,10 @@ type Service struct {
 	group  group.Group
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
+func OpenService(
+	ctx context.Context,
+	configs ...ServiceConfig,
+) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
@@ -84,7 +87,14 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Projects", ontology.RootID); !ok(err, nil) {
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx,
+		"Projects",
+		ontology.RootID,
+	); !ok(
+		err,
+		nil,
+	) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)

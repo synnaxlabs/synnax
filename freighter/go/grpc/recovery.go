@@ -24,7 +24,9 @@ import (
 // from panics in unary handlers, records the stack via ins, and returns a
 // codes.Internal status. It is a transport-level backstop for gRPC handlers that do not
 // pass through the freighter recovery Middleware, such as cluster-internal services.
-func RecoveryUnaryServerInterceptor(ins alamos.Instrumentation) grpc.UnaryServerInterceptor {
+func RecoveryUnaryServerInterceptor(
+	ins alamos.Instrumentation,
+) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
 		req any,
@@ -43,7 +45,9 @@ func RecoveryUnaryServerInterceptor(ins alamos.Instrumentation) grpc.UnaryServer
 
 // RecoveryStreamServerInterceptor returns a grpc.StreamServerInterceptor that recovers
 // from panics in streaming handlers, mirroring RecoveryUnaryServerInterceptor.
-func RecoveryStreamServerInterceptor(ins alamos.Instrumentation) grpc.StreamServerInterceptor {
+func RecoveryStreamServerInterceptor(
+	ins alamos.Instrumentation,
+) grpc.StreamServerInterceptor {
 	return func(
 		srv any,
 		ss grpc.ServerStream,

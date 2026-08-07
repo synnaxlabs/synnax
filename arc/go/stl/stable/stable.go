@@ -30,12 +30,16 @@ const (
 
 var (
 	memberDoc = doc.New(
-		doc.Paragraph("Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations."),
+		doc.Paragraph(
+			"Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations.",
+		),
 		doc.Divider(),
 		doc.Code("arc", "sensor -> stable.for{duration=5s} -> output"),
 	)
 	moduleDoc = doc.New(
-		doc.Paragraph("Debouncing helpers that emit only after values remain stable for a duration."),
+		doc.Paragraph(
+			"Debouncing helpers that emit only after values remain stable for a duration.",
+		),
 	)
 )
 

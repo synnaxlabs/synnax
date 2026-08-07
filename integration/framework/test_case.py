@@ -298,8 +298,8 @@ class TestCase(ABC):
             self.STATUS = STATUS.FAILED
 
     def teardown(self) -> None:
-        """Cleanup after test execution. Override for custom cleanup logic."""
-        pass
+        """Cleanup after test execution. Overrides must call super().teardown()
+        so mixin cleanups (e.g. HardwareCase) run."""
 
     def write_tlm(self, channel: str, value: Any = None) -> None:
         """Write values to telemetry dictionary."""

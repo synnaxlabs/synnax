@@ -16,7 +16,10 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 )
 
-func (s *Service) newGateway(cfg Config, generateSeqNums bool) (confluence.Segment[Request, Response], error) {
+func (s *Service) newGateway(
+	cfg Config,
+	generateSeqNums bool,
+) (confluence.Segment[Request, Response], error) {
 	iter, err := s.cfg.TS.NewStreamIterator(ts.IteratorConfig{
 		Bounds:        cfg.Bounds,
 		Channels:      cfg.Keys.Storage(),

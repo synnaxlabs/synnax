@@ -21,13 +21,16 @@ import (
 
 var _ = Describe("Raw", func() {
 	Describe("NewRaw", func() {
-		It("Should return a validation error when the bytes do not have the magic header", func() {
-			Expect(orc.NewRaw([]byte{1, 2, 3})).Error().To(
-				SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("data was not encoded using orc")),
-				))
-		})
+		It(
+			"Should return a validation error when the bytes do not have the magic header",
+			func() {
+				Expect(orc.NewRaw([]byte{1, 2, 3})).Error().To(
+					SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("data was not encoded using orc")),
+					))
+			},
+		)
 
 		It("Should strip the magic header when it matches", func() {
 			bytes := append(magic[:], 1, 2, 3)

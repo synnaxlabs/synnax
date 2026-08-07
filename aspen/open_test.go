@@ -51,7 +51,9 @@ var _ = Describe("Open", func() {
 		Eventually(db1.Cluster.Nodes).Should(HaveLen(2))
 		tx := db1.OpenTx()
 		for range 10 {
-			Expect(tx.Set(ctx, []byte("key"), []byte("value"), aspen.NodeKey(2))).To(Succeed())
+			Expect(
+				tx.Set(ctx, []byte("key"), []byte("value"), aspen.NodeKey(2)),
+			).To(Succeed())
 		}
 		Expect(tx.Commit(ctx)).To(Succeed())
 	})

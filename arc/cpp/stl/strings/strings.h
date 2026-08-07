@@ -17,6 +17,8 @@
 #include <memory>
 #include <string>
 
+#include "wasmtime.hh"
+
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 

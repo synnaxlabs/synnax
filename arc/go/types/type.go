@@ -166,7 +166,7 @@ func StructuralMatch(t1, t2 Type) bool {
 }
 
 // Equal compares two types for strict structural equality, including units.
-func Equal(t Type, v Type) bool {
+func Equal(t, v Type) bool {
 	if t.Kind != v.Kind {
 		return false
 	}

@@ -55,18 +55,21 @@ var _ = Describe("MigrateParam", func() {
 		Expect(migrated.Elem.Kind).To(Equal(v1.KindF32))
 	})
 
-	It("Should carry function inputs and outputs while dropping the removed config", func(ctx SpecContext) {
-		migrated := migrateType(ctx, v0.Type{
-			FunctionProperties: v0.FunctionProperties{
-				Inputs:  v0.Params{{Name: "in"}},
-				Outputs: v0.Params{{Name: "out"}},
-				Config:  v0.Params{{Name: "cfg"}},
-			},
-			Kind: v0.KindFunction,
-		})
-		Expect(migrated.Inputs).To(HaveLen(1))
-		Expect(migrated.Inputs[0].Name).To(Equal("in"))
-		Expect(migrated.Outputs).To(HaveLen(1))
-		Expect(migrated.Outputs[0].Name).To(Equal("out"))
-	})
+	It(
+		"Should carry function inputs and outputs while dropping the removed config",
+		func(ctx SpecContext) {
+			migrated := migrateType(ctx, v0.Type{
+				FunctionProperties: v0.FunctionProperties{
+					Inputs:  v0.Params{{Name: "in"}},
+					Outputs: v0.Params{{Name: "out"}},
+					Config:  v0.Params{{Name: "cfg"}},
+				},
+				Kind: v0.KindFunction,
+			})
+			Expect(migrated.Inputs).To(HaveLen(1))
+			Expect(migrated.Inputs[0].Name).To(Equal("in"))
+			Expect(migrated.Outputs).To(HaveLen(1))
+			Expect(migrated.Outputs[0].Name).To(Equal("out"))
+		},
+	)
 })

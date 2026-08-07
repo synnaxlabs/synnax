@@ -24,7 +24,8 @@ import (
 //   - Method calls: data := MustSucceed(file.Read())
 //   - Channel operations: frame := MustSucceed(reader.Next())
 //
-// If err is non-nil, the test will fail at the call site with proper line number reporting.
+// If err is non-nil, the test will fail at the call site with proper line number
+// reporting.
 //
 // Example:
 //
@@ -35,12 +36,13 @@ func MustSucceed[T any](value T, err error) T {
 	return MustSucceedWithOffset[T](1)(value, err)
 }
 
-// MustSucceedWithOffset returns a function that asserts the error is nil and returns the value,
-// with an additional stack offset for proper error reporting. This is useful when wrapping
-// MustSucceed in helper functions.
+// MustSucceedWithOffset returns a function that asserts the error is nil and returns
+// the value, with an additional stack offset for proper error reporting. This is useful
+// when wrapping MustSucceed in helper functions.
 //
-// The offset parameter adjusts the call stack depth for error reporting. Use offset=1 when
-// wrapping this function directly, offset=2 when wrapping it in a function that wraps it, etc.
+// The offset parameter adjusts the call stack depth for error reporting. Use offset=1
+// when wrapping this function directly, offset=2 when wrapping it in a function that
+// wraps it, etc.
 //
 // Example:
 //
@@ -61,7 +63,8 @@ func MustSucceedWithOffset[T any](offset int) func(value T, err error) T {
 }
 
 // MustSucceed2 is a test helper that asserts the error is nil and returns two values.
-// This is useful for unwrapping functions that return two values and an error in test assertions.
+// This is useful for unwrapping functions that return two values and an error in test
+// assertions.
 //
 // Example:
 //
@@ -79,7 +82,8 @@ func MustSucceed2[A, B any](a A, b B, err error) (A, B) {
 //   - Type assertions: str := MustBeOk(myInterface.(string))
 //   - Channel receives: msg := MustBeOk(<-myChan)
 //
-// If ok is false, the test will fail at the call site with proper line number reporting.
+// If ok is false, the test will fail at the call site with proper line number
+// reporting.
 //
 // Example:
 //
@@ -90,12 +94,13 @@ func MustBeOk[T any](value T, ok bool) T {
 	return MustBeOkWithOffset[T](1)(value, ok)
 }
 
-// MustBeOkWithOffset returns a function that asserts the ok value is true and returns the value,
-// with an additional stack offset for proper error reporting. This is useful when wrapping
-// MustBeOk in helper functions.
+// MustBeOkWithOffset returns a function that asserts the ok value is true and returns
+// the value, with an additional stack offset for proper error reporting. This is useful
+// when wrapping MustBeOk in helper functions.
 //
-// The offset parameter adjusts the call stack depth for error reporting. Use offset=1 when
-// wrapping this function directly, offset=2 when wrapping it in a function that wraps it, etc.
+// The offset parameter adjusts the call stack depth for error reporting. Use offset=1
+// when wrapping this function directly, offset=2 when wrapping it in a function that
+// wraps it, etc.
 //
 // Example:
 //

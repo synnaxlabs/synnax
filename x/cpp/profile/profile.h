@@ -11,7 +11,7 @@
 
 #include <string>
 
-#include "glog/logging.h"
+#include "absl/log/log.h"
 
 #ifndef _WIN32
 #include <atomic>

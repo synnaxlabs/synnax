@@ -15,7 +15,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// MatchRacks returns a filter for tasks whose rack key matches any of the provided keys.
+// MatchRacks returns a filter for tasks whose rack key matches any of the provided
+// keys.
 func MatchRacks(keys ...rack.Key) Filter {
 	return Match(func(_ gorp.Context, _ Retrieve, t *Task) (bool, error) {
 		return lo.Contains(keys, t.Rack()), nil

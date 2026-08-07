@@ -24,10 +24,21 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// rejectReactiveAssignment reports that '=' cannot mutate a variable in a reactive scope; a flow must be used instead.
-func rejectReactiveAssignment(d *diagnostics.Diagnostics, assign parser.IAssignmentContext) {
+// rejectReactiveAssignment reports that '=' cannot mutate a variable in a reactive
+// scope; a flow must be used instead.
+func rejectReactiveAssignment(
+	d *diagnostics.Diagnostics,
+	assign parser.IAssignmentContext,
+) {
 	name := assign.IDENTIFIER().GetText()
-	d.Add(diagnostics.Errorf(assign, "cannot use '=' here; write to '%s' with a flow: <value> -> %s", name, name))
+	d.Add(
+		diagnostics.Errorf(
+			assign,
+			"cannot use '=' here; write to '%s' with a flow: <value> -> %s",
+			name,
+			name,
+		),
+	)
 }
 
 // analyzeReactiveAssignment type-checks an '=' reassignment by the target's kind.
@@ -60,8 +71,9 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	}
 }
 
-// analyzeChannelReadWriteRebind checks that the channel read/write variable can be rebound to the channel named by assign's
-// right-hand side: the RHS must reference a channel whose value type matches the channel read/write variable.
+// analyzeChannelReadWriteRebind checks that the channel read/write variable can be
+// rebound to the channel named by assign's right-hand side: the RHS must reference a
+// channel whose value type matches the channel read/write variable.
 func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	assign parser.IAssignmentContext,
@@ -70,14 +82,21 @@ func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
 	name := assign.IDENTIFIER().GetText()
 	target, ok := channelRebindTarget(ctx, assign.Expression())
 	if !ok {
-		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
-			"cannot rebind channel read/write variable %s; the right-hand side must be a channel", name))
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			assign,
+			"cannot rebind channel read/write variable %s; the right-hand side must be a channel",
+			name,
+		))
 		return
 	}
 	if !types.Equal(channelReadWrite.Type.Unwrap(), target.Type.Unwrap()) {
-		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			assign,
 			"cannot rebind channel read/write variable %s of type %s to a channel of type %s",
-			name, channelReadWrite.Type.Unwrap(), target.Type.Unwrap()))
+			name,
+			channelReadWrite.Type.Unwrap(),
+			target.Type.Unwrap(),
+		))
 		return
 	}
 	channelReadWrite.Reassigned = true
@@ -92,8 +111,8 @@ func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
 	channelReadWrite.Channels.Write[key] = target.Name
 }
 
-// channelRebindTarget resolves expr to the global channel a channel read/write rebind targets,
-// reporting ok=false when expr is not a bare reference to a channel.
+// channelRebindTarget resolves expr to the global channel a channel read/write rebind
+// targets, reporting ok=false when expr is not a bare reference to a channel.
 func channelRebindTarget[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
@@ -144,7 +163,12 @@ func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
 				decl = s
 			}
 			if decl != nil {
-				if synth := registerInlineBody(ctx, enclosing, decl, &counter); synth != nil {
+				if synth := registerInlineBody(
+					ctx,
+					enclosing,
+					decl,
+					&counter,
+				); synth != nil {
 					walk(synth, decl)
 				}
 				return
@@ -153,7 +177,9 @@ func desugarInlineDecls(ctx context.Context[parser.IProgramContext]) {
 		next := enclosing
 		switch node.(type) {
 		case parser.ISequenceDeclarationContext, parser.IStageDeclarationContext:
-			if c, err := enclosing.GetChildByParserRule(node.(antlr.ParserRuleContext)); err == nil {
+			if c, err := enclosing.GetChildByParserRule(
+				node.(antlr.ParserRuleContext),
+			); err == nil {
 				next = c
 			}
 		}
@@ -319,7 +345,10 @@ type scopeBodyItem interface {
 }
 
 // analyzeScopeBodyItem analyzes one body line in the construct's own ctx.Scope.
-func analyzeScopeBodyItem[T antlr.ParserRuleContext](ctx context.Context[T], item scopeBodyItem) {
+func analyzeScopeBodyItem[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	item scopeBodyItem,
+) {
 	if varDecl := item.VariableDeclaration(); varDecl != nil {
 		statement.AnalyzeVariableDeclaration(context.Child(ctx, varDecl))
 	}

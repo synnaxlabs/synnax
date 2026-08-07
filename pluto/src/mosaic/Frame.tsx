@@ -9,7 +9,7 @@
 
 import "@/mosaic/Mosaic.css";
 
-import { type location } from "@synnaxlabs/x";
+import { type location, type record } from "@synnaxlabs/x";
 import { type DragEvent, type ReactElement, useMemo } from "react";
 
 import { context } from "@/context";
@@ -40,6 +40,8 @@ export type OnDropProps = DropPosition & {
   nodeKey: number;
   /** The key of the dropped tab. */
   tabKey: string;
+  /** The payload the drag source attached to the tab, if any. */
+  data?: record.Unknown;
 };
 
 /** Passed to a Frame's onCreate handler when creation items land on a {@link Leaf}. */

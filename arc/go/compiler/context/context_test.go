@@ -32,21 +32,27 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("Root", func() {
-		It("Should create a root context with initialized fields", func(ctx SpecContext) {
-			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
-			Expect(root.Scope).To(Equal(scope))
-			Expect(root.TypeMap).To(Equal(typeMap))
-			Expect(root.Module).ToNot(BeNil())
-			Expect(root.Writer).ToNot(BeNil())
-			Expect(root.Resolver).To(BeNil())
-		})
+		It(
+			"Should create a root context with initialized fields",
+			func(ctx SpecContext) {
+				root := ccontext.NewRoot(ctx, scope, typeMap, nil)
+				Expect(root.Scope).To(Equal(scope))
+				Expect(root.TypeMap).To(Equal(typeMap))
+				Expect(root.Module).ToNot(BeNil())
+				Expect(root.Writer).ToNot(BeNil())
+				Expect(root.Resolver).To(BeNil())
+			},
+		)
 
-		It("Should track the writer when a resolver is provided", func(ctx SpecContext) {
-			resolver := resolve.NewResolver()
-			root := ccontext.NewRoot(ctx, scope, typeMap, resolver)
-			Expect(root.Resolver).To(Equal(resolver))
-			Expect(root.WriterID).To(Equal(0))
-		})
+		It(
+			"Should track the writer when a resolver is provided",
+			func(ctx SpecContext) {
+				resolver := resolve.NewResolver()
+				root := ccontext.NewRoot(ctx, scope, typeMap, resolver)
+				Expect(root.Resolver).To(Equal(resolver))
+				Expect(root.WriterID).To(Equal(0))
+			},
+		)
 	})
 
 	Describe("Child", func() {
@@ -54,7 +60,10 @@ var _ = Describe("Context", func() {
 			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
 			root.Hint = types.I32()
 			root.OutputMemoryBase = 42
-			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](root, nil)
+			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](
+				root,
+				nil,
+			)
 			Expect(child.Scope).To(Equal(root.Scope))
 			Expect(child.Writer).To(Equal(root.Writer))
 			Expect(child.Module).To(Equal(root.Module))
@@ -114,20 +123,26 @@ var _ = Describe("Context", func() {
 		It("Should propagate through Child", func(ctx SpecContext) {
 			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
 			entered := root.EnterBlock().EnterBlock()
-			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](entered, nil)
+			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](
+				entered,
+				nil,
+			)
 			Expect(child.BlockDepth()).To(Equal(2))
 		})
 	})
 
 	Describe("EnterLoop", func() {
-		It("Should make the loop entry available via CurrentLoop", func(ctx SpecContext) {
-			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
-			entry := ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2}
-			looped := root.EnterLoop(entry)
-			got, ok := looped.CurrentLoop()
-			Expect(ok).To(BeTrue())
-			Expect(got).To(Equal(entry))
-		})
+		It(
+			"Should make the loop entry available via CurrentLoop",
+			func(ctx SpecContext) {
+				root := ccontext.NewRoot(ctx, scope, typeMap, nil)
+				entry := ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2}
+				looped := root.EnterLoop(entry)
+				got, ok := looped.CurrentLoop()
+				Expect(ok).To(BeTrue())
+				Expect(got).To(Equal(entry))
+			},
+		)
 
 		It("Should not modify the original context", func(ctx SpecContext) {
 			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
@@ -146,22 +161,28 @@ var _ = Describe("Context", func() {
 			Expect(got).To(Equal(inner))
 		})
 
-		It("Should isolate loop stacks between sibling contexts", func(ctx SpecContext) {
-			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
-			entry := ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2}
-			branch := root.EnterLoop(entry)
-			_, ok := root.CurrentLoop()
-			Expect(ok).To(BeFalse())
-			got, ok := branch.CurrentLoop()
-			Expect(ok).To(BeTrue())
-			Expect(got).To(Equal(entry))
-		})
+		It(
+			"Should isolate loop stacks between sibling contexts",
+			func(ctx SpecContext) {
+				root := ccontext.NewRoot(ctx, scope, typeMap, nil)
+				entry := ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2}
+				branch := root.EnterLoop(entry)
+				_, ok := root.CurrentLoop()
+				Expect(ok).To(BeFalse())
+				got, ok := branch.CurrentLoop()
+				Expect(ok).To(BeTrue())
+				Expect(got).To(Equal(entry))
+			},
+		)
 
 		It("Should propagate through Child", func(ctx SpecContext) {
 			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
 			entry := ccontext.LoopEntry{BreakDepth: 5, ContinueDepth: 6}
 			looped := root.EnterLoop(entry)
-			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](looped, nil)
+			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](
+				looped,
+				nil,
+			)
 			got, ok := child.CurrentLoop()
 			Expect(ok).To(BeTrue())
 			Expect(got).To(Equal(entry))
@@ -184,21 +205,27 @@ var _ = Describe("Context", func() {
 			Expect(root.Writer).To(BeIdenticalTo(originalWriter))
 		})
 
-		It("Should track the new writer when a resolver is present", func(ctx SpecContext) {
-			resolver := resolve.NewResolver()
-			root := ccontext.NewRoot(ctx, scope, typeMap, resolver)
-			Expect(root.WriterID).To(Equal(0))
-			withNew := root.WithNewWriter()
-			Expect(withNew.WriterID).To(Equal(1))
-		})
+		It(
+			"Should track the new writer when a resolver is present",
+			func(ctx SpecContext) {
+				resolver := resolve.NewResolver()
+				root := ccontext.NewRoot(ctx, scope, typeMap, resolver)
+				Expect(root.WriterID).To(Equal(0))
+				withNew := root.WithNewWriter()
+				Expect(withNew.WriterID).To(Equal(1))
+			},
+		)
 
-		It("Should produce distinct writers from the module writer", func(ctx SpecContext) {
-			root := ccontext.NewRoot(ctx, scope, typeMap, nil)
-			w1 := root.WithNewWriter()
-			w2 := root.WithNewWriter()
-			Expect(w1.Writer).ToNot(BeIdenticalTo(w2.Writer))
-			w1.Writer.WriteOpcode(wasm.OpI32Add)
-			Expect(w2.Writer.Bytes()).To(BeEmpty())
-		})
+		It(
+			"Should produce distinct writers from the module writer",
+			func(ctx SpecContext) {
+				root := ccontext.NewRoot(ctx, scope, typeMap, nil)
+				w1 := root.WithNewWriter()
+				w2 := root.WithNewWriter()
+				Expect(w1.Writer).ToNot(BeIdenticalTo(w2.Writer))
+				w1.Writer.WriteOpcode(wasm.OpI32Add)
+				Expect(w2.Writer.Bytes()).To(BeEmpty())
+			},
+		)
 	})
 })

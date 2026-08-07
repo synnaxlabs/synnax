@@ -18,12 +18,12 @@ import (
 
 type Request struct {
 	Message string `json:"message" msgpack:"message"`
-	ID      int    `json:"id" msgpack:"id"`
+	ID      int    `json:"id"      msgpack:"id"`
 }
 
 type Response struct {
 	Message string `json:"message" msgpack:"message"`
-	ID      int    `json:"id" msgpack:"id"`
+	ID      int    `json:"id"      msgpack:"id"`
 }
 
 const WriteDeadline = 20 * time.Millisecond

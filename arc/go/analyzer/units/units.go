@@ -49,7 +49,10 @@ func ValidateBinaryOp[AST antlr.ParserRuleContext](
 	}
 	if !left.Unit.Dimensions.Equal(right.Unit.Dimensions) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
-			ctx.AST, "incompatible dimensions: %s vs %s", left.Unit.Dimensions, right.Unit.Dimensions,
+			ctx.AST,
+			"incompatible dimensions: %s vs %s",
+			left.Unit.Dimensions,
+			right.Unit.Dimensions,
 		))
 		return false
 	}

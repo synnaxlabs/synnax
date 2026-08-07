@@ -36,7 +36,9 @@ var _ = Describe("Math Flow Chains", func() {
 
 			result := h.Output("avg_0", 0)
 			Expect(result.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(BeNumerically("~", 20.0, 0.01))
+			Expect(
+				telem.UnmarshalSeries[float64](result)[0],
+			).To(BeNumerically("~", 20.0, 0.01))
 
 			resultTime := h.OutputTime("avg_0", 0)
 			Expect(resultTime.Len()).To(Equal(int64(1)))
@@ -44,7 +46,9 @@ var _ = Describe("Math Flow Chains", func() {
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
-			Expect(telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0]).To(BeNumerically("~", 20.0, 0.01))
+			Expect(
+				telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0],
+			).To(BeNumerically("~", 20.0, 0.01))
 		})
 
 		It("Should compute the average with int32 type", func(ctx SpecContext) {
@@ -64,99 +68,123 @@ var _ = Describe("Math Flow Chains", func() {
 
 			result := h.Output("avg_0", 0)
 			Expect(result.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(BeNumerically("~", 20, 1))
+			Expect(
+				telem.UnmarshalSeries[int32](result)[0],
+			).To(BeNumerically("~", 20, 1))
 
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
-			Expect(telem.UnmarshalSeries[int32](out.Get(200).Series[0])[0]).To(BeNumerically("~", 20, 1))
+			Expect(
+				telem.UnmarshalSeries[int32](out.Get(200).Series[0])[0],
+			).To(BeNumerically("~", 20, 1))
 		})
 
-		It("Should compute the average using qualified math.avg name", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"my_sensor":     {types.F64(), 100},
-				"output_sensor": {types.F64(), 200},
-			})
-			h := newRuntimeHarness(ctx, `import math
+		It(
+			"Should compute the average using qualified math.avg name",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"my_sensor":     {types.F64(), 100},
+					"output_sensor": {types.F64(), 200},
+				})
+				h := newRuntimeHarness(ctx, `import math
 my_sensor -> math.avg{} -> output_sensor`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Float64T},
-				channels.Digest{Key: 200, DataType: telem.Float64T},
-			)
-			defer h.Close(ctx)
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 200, DataType: telem.Float64T},
+				)
+				defer h.Close(ctx)
 
-			h.Ingest(100, telem.NewSeriesV(10.0, 20.0, 30.0))
-			h.Tick(ctx, telem.Millisecond)
-			h.channelState.ClearReads()
-
-			result := h.Output("math.avg_0", 0)
-			Expect(result.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(BeNumerically("~", 20.0, 0.01))
-		})
-
-		It("avg{count=N} resets the window when sampleCount reaches N", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"sensor":  {types.F64(), 100},
-				"avg_out": {types.F64(), 200},
-			})
-			h := newRuntimeHarness(ctx, `sensor -> avg{count=3} -> avg_out`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Float64T},
-				channels.Digest{Key: 200, DataType: telem.Float64T},
-			)
-			defer h.Close(ctx)
-
-			readAvg := func() float64 {
-				out, _ := h.Flush()
-				series := out.Get(200).Series
-				Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
-				return telem.UnmarshalSeries[float64](series[len(series)-1])[0]
-			}
-
-			step := func(v float64) float64 {
-				h.Ingest(100, telem.NewSeriesV(v))
+				h.Ingest(100, telem.NewSeriesV(10.0, 20.0, 30.0))
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
-				return readAvg()
-			}
 
-			Expect(step(10.0)).To(BeNumerically("~", 10.0, 0.001), "first sample; window has 1 sample")
-			Expect(step(20.0)).To(BeNumerically("~", 15.0, 0.001), "second sample; avg(10, 20)")
-			Expect(step(30.0)).To(BeNumerically("~", 20.0, 0.001), "third sample; avg(10, 20, 30); sampleCount is now 3")
-			Expect(step(1000.0)).To(BeNumerically("~", 1000.0, 0.001),
-				"fourth sample should trigger reset (sampleCount>=3) and average only [1000]; "+
-					"a broken reset would give (10+20+30+1000)/4 = 265")
-		})
+				result := h.Output("math.avg_0", 0)
+				Expect(result.Len()).To(Equal(int64(1)))
+				Expect(
+					telem.UnmarshalSeries[float64](result)[0],
+				).To(BeNumerically("~", 20.0, 0.01))
+			},
+		)
 
-		It("avg{} with no window input accumulates indefinitely", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"sensor":  {types.F64(), 100},
-				"avg_out": {types.F64(), 200},
-			})
-			h := newRuntimeHarness(ctx, `sensor -> avg{} -> avg_out`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Float64T},
-				channels.Digest{Key: 200, DataType: telem.Float64T},
-			)
-			defer h.Close(ctx)
+		It(
+			"avg{count=N} resets the window when sampleCount reaches N",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor":  {types.F64(), 100},
+					"avg_out": {types.F64(), 200},
+				})
+				h := newRuntimeHarness(
+					ctx,
+					`sensor -> avg{count=3} -> avg_out`,
+					resolver,
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 200, DataType: telem.Float64T},
+				)
+				defer h.Close(ctx)
 
-			readAvg := func() float64 {
-				out, _ := h.Flush()
-				series := out.Get(200).Series
-				Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
-				return telem.UnmarshalSeries[float64](series[len(series)-1])[0]
-			}
+				readAvg := func() float64 {
+					out, _ := h.Flush()
+					series := out.Get(200).Series
+					Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
+					return telem.UnmarshalSeries[float64](series[len(series)-1])[0]
+				}
 
-			step := func(v float64) float64 {
-				h.Ingest(100, telem.NewSeriesV(v))
-				h.Tick(ctx, telem.Millisecond)
-				h.channelState.ClearReads()
-				return readAvg()
-			}
+				step := func(v float64) float64 {
+					h.Ingest(100, telem.NewSeriesV(v))
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+					return readAvg()
+				}
 
-			Expect(step(10.0)).To(BeNumerically("~", 10.0, 0.001))
-			Expect(step(20.0)).To(BeNumerically("~", 15.0, 0.001))
-			Expect(step(30.0)).To(BeNumerically("~", 20.0, 0.001))
-			Expect(step(1000.0)).To(BeNumerically("~", 265.0, 0.001),
-				"no input → no reset → running avg over all four samples = 265; "+
-					"a reset here would give 1000 (only the fresh sample)")
-		})
+				Expect(
+					step(10.0),
+				).To(BeNumerically("~", 10.0, 0.001), "first sample; window has 1 sample")
+				Expect(
+					step(20.0),
+				).To(BeNumerically("~", 15.0, 0.001), "second sample; avg(10, 20)")
+				Expect(
+					step(30.0),
+				).To(BeNumerically("~", 20.0, 0.001), "third sample; avg(10, 20, 30); sampleCount is now 3")
+				Expect(step(1000.0)).To(BeNumerically("~", 1000.0, 0.001),
+					"fourth sample should trigger reset (sampleCount>=3) and average only [1000]; "+
+						"a broken reset would give (10+20+30+1000)/4 = 265")
+			},
+		)
+
+		It(
+			"avg{} with no window input accumulates indefinitely",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"sensor":  {types.F64(), 100},
+					"avg_out": {types.F64(), 200},
+				})
+				h := newRuntimeHarness(ctx, `sensor -> avg{} -> avg_out`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 200, DataType: telem.Float64T},
+				)
+				defer h.Close(ctx)
+
+				readAvg := func() float64 {
+					out, _ := h.Flush()
+					series := out.Get(200).Series
+					Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
+					return telem.UnmarshalSeries[float64](series[len(series)-1])[0]
+				}
+
+				step := func(v float64) float64 {
+					h.Ingest(100, telem.NewSeriesV(v))
+					h.Tick(ctx, telem.Millisecond)
+					h.channelState.ClearReads()
+					return readAvg()
+				}
+
+				Expect(step(10.0)).To(BeNumerically("~", 10.0, 0.001))
+				Expect(step(20.0)).To(BeNumerically("~", 15.0, 0.001))
+				Expect(step(30.0)).To(BeNumerically("~", 20.0, 0.001))
+				Expect(step(1000.0)).To(BeNumerically("~", 265.0, 0.001),
+					"no input → no reset → running avg over all four samples = 265; "+
+						"a reset here would give 1000 (only the fresh sample)")
+			},
+		)
 	})
 
 	Describe("min", func() {
@@ -177,34 +205,43 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 
 			result := h.Output("min_0", 0)
 			Expect(result.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(BeNumerically("~", 10.0, 0.01))
+			Expect(
+				telem.UnmarshalSeries[float64](result)[0],
+			).To(BeNumerically("~", 10.0, 0.01))
 			Expect(h.OutputTime("min_0", 0).Len()).To(Equal(int64(1)))
 
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
-			Expect(telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0]).To(BeNumerically("~", 10.0, 0.01))
+			Expect(
+				telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0],
+			).To(BeNumerically("~", 10.0, 0.01))
 		})
 
-		It("Should compute the minimum using qualified math.min name", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"my_sensor":     {types.F64(), 100},
-				"output_sensor": {types.F64(), 200},
-			})
-			h := newRuntimeHarness(ctx, `import math
+		It(
+			"Should compute the minimum using qualified math.min name",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"my_sensor":     {types.F64(), 100},
+					"output_sensor": {types.F64(), 200},
+				})
+				h := newRuntimeHarness(ctx, `import math
 my_sensor -> math.min{} -> output_sensor`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Float64T},
-				channels.Digest{Key: 200, DataType: telem.Float64T},
-			)
-			defer h.Close(ctx)
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 200, DataType: telem.Float64T},
+				)
+				defer h.Close(ctx)
 
-			h.Ingest(100, telem.NewSeriesV(50.0, 10.0, 30.0))
-			h.Tick(ctx, telem.Millisecond)
-			h.channelState.ClearReads()
+				h.Ingest(100, telem.NewSeriesV(50.0, 10.0, 30.0))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
 
-			result := h.Output("math.min_0", 0)
-			Expect(result.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(BeNumerically("~", 10.0, 0.01))
-		})
+				result := h.Output("math.min_0", 0)
+				Expect(result.Len()).To(Equal(int64(1)))
+				Expect(
+					telem.UnmarshalSeries[float64](result)[0],
+				).To(BeNumerically("~", 10.0, 0.01))
+			},
+		)
 	})
 
 	Describe("max", func() {
@@ -225,92 +262,120 @@ my_sensor -> math.min{} -> output_sensor`, resolver,
 
 			result := h.Output("max_0", 0)
 			Expect(result.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(BeNumerically("~", 50.0, 0.01))
+			Expect(
+				telem.UnmarshalSeries[float64](result)[0],
+			).To(BeNumerically("~", 50.0, 0.01))
 			Expect(h.OutputTime("max_0", 0).Len()).To(Equal(int64(1)))
 
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
-			Expect(telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0]).To(BeNumerically("~", 50.0, 0.01))
+			Expect(
+				telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0],
+			).To(BeNumerically("~", 50.0, 0.01))
 		})
 
-		It("Should compute the maximum using qualified math.max name", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"my_sensor":     {types.F64(), 100},
-				"output_sensor": {types.F64(), 200},
-			})
-			h := newRuntimeHarness(ctx, `import math
+		It(
+			"Should compute the maximum using qualified math.max name",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"my_sensor":     {types.F64(), 100},
+					"output_sensor": {types.F64(), 200},
+				})
+				h := newRuntimeHarness(ctx, `import math
 my_sensor -> math.max{} -> output_sensor`, resolver,
-				channels.Digest{Key: 100, DataType: telem.Float64T},
-				channels.Digest{Key: 200, DataType: telem.Float64T},
-			)
-			defer h.Close(ctx)
+					channels.Digest{Key: 100, DataType: telem.Float64T},
+					channels.Digest{Key: 200, DataType: telem.Float64T},
+				)
+				defer h.Close(ctx)
 
-			h.Ingest(100, telem.NewSeriesV(10.0, 50.0, 30.0))
-			h.Tick(ctx, telem.Millisecond)
-			h.channelState.ClearReads()
+				h.Ingest(100, telem.NewSeriesV(10.0, 50.0, 30.0))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
 
-			result := h.Output("math.max_0", 0)
-			Expect(result.Len()).To(Equal(int64(1)))
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(BeNumerically("~", 50.0, 0.01))
-		})
+				result := h.Output("math.max_0", 0)
+				Expect(result.Len()).To(Equal(int64(1)))
+				Expect(
+					telem.UnmarshalSeries[float64](result)[0],
+				).To(BeNumerically("~", 50.0, 0.01))
+			},
+		)
 	})
 
 	Describe("derivative", func() {
-		It("Should compute pointwise derivative through a flow chain", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"my_sensor": {types.F64(), 100},
-				"rate_out":  {types.F64(), 200},
-			})
-			h := newRuntimeHarness(ctx, `my_sensor -> derivative{} -> rate_out`, resolver,
-				channels.Digest{Key: 99, DataType: telem.TimeStampT},
-				channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
-				channels.Digest{Key: 200, DataType: telem.Float64T},
-			)
-			defer h.Close(ctx)
+		It(
+			"Should compute pointwise derivative through a flow chain",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"my_sensor": {types.F64(), 100},
+					"rate_out":  {types.F64(), 200},
+				})
+				h := newRuntimeHarness(
+					ctx,
+					`my_sensor -> derivative{} -> rate_out`,
+					resolver,
+					channels.Digest{Key: 99, DataType: telem.TimeStampT},
+					channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
+					channels.Digest{Key: 200, DataType: telem.Float64T},
+				)
+				defer h.Close(ctx)
 
-			h.IngestIndexed(99, telem.NewSeriesSecondsTSV(1, 2, 4), 100, telem.NewSeriesV(10.0, 20.0, 40.0))
-			h.Tick(ctx, telem.Millisecond)
-			h.channelState.ClearReads()
+				h.IngestIndexed(
+					99,
+					telem.NewSeriesSecondsTSV(1, 2, 4),
+					100,
+					telem.NewSeriesV(10.0, 20.0, 40.0),
+				)
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
 
-			result := h.Output("derivative_0", 0)
-			Expect(result.Len()).To(Equal(int64(3)))
-			Expect(h.OutputTime("derivative_0", 0).Len()).To(Equal(int64(3)))
+				result := h.Output("derivative_0", 0)
+				Expect(result.Len()).To(Equal(int64(3)))
+				Expect(h.OutputTime("derivative_0", 0).Len()).To(Equal(int64(3)))
 
-			out, changed := h.Flush()
-			Expect(changed).To(BeTrue())
-			vals := telem.UnmarshalSeries[float64](out.Get(200).Series[0])
-			Expect(vals).To(HaveLen(3))
-			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
-			Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
-			Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
-		})
+				out, changed := h.Flush()
+				Expect(changed).To(BeTrue())
+				vals := telem.UnmarshalSeries[float64](out.Get(200).Series[0])
+				Expect(vals).To(HaveLen(3))
+				Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+				Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
+				Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
+			},
+		)
 
-		It("Should compute derivative using qualified math.derivative name", func(ctx SpecContext) {
-			resolver := channelSymbols(map[string]channelDef{
-				"my_sensor": {types.F64(), 100},
-				"rate_out":  {types.F64(), 200},
-			})
-			h := newRuntimeHarness(ctx, `import math
+		It(
+			"Should compute derivative using qualified math.derivative name",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"my_sensor": {types.F64(), 100},
+					"rate_out":  {types.F64(), 200},
+				})
+				h := newRuntimeHarness(ctx, `import math
 my_sensor -> math.derivative{} -> rate_out`, resolver,
-				channels.Digest{Key: 99, DataType: telem.TimeStampT},
-				channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
-				channels.Digest{Key: 200, DataType: telem.Float64T},
-			)
-			defer h.Close(ctx)
+					channels.Digest{Key: 99, DataType: telem.TimeStampT},
+					channels.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
+					channels.Digest{Key: 200, DataType: telem.Float64T},
+				)
+				defer h.Close(ctx)
 
-			h.IngestIndexed(99, telem.NewSeriesSecondsTSV(1, 2, 4), 100, telem.NewSeriesV(10.0, 20.0, 40.0))
-			h.Tick(ctx, telem.Millisecond)
-			h.channelState.ClearReads()
+				h.IngestIndexed(
+					99,
+					telem.NewSeriesSecondsTSV(1, 2, 4),
+					100,
+					telem.NewSeriesV(10.0, 20.0, 40.0),
+				)
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
 
-			result := h.Output("math.derivative_0", 0)
-			Expect(result.Len()).To(Equal(int64(3)))
+				result := h.Output("math.derivative_0", 0)
+				Expect(result.Len()).To(Equal(int64(3)))
 
-			out, changed := h.Flush()
-			Expect(changed).To(BeTrue())
-			vals := telem.UnmarshalSeries[float64](out.Get(200).Series[0])
-			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
-			Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
-			Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
-		})
+				out, changed := h.Flush()
+				Expect(changed).To(BeTrue())
+				vals := telem.UnmarshalSeries[float64](out.Get(200).Series[0])
+				Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+				Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
+				Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
+			},
+		)
 	})
 })

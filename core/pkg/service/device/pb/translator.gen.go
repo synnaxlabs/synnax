@@ -68,7 +68,8 @@ func StatusDetailsListFromPB(pbs []*StatusDetails) ([]device.StatusDetails, erro
 	return result, nil
 }
 
-// DeviceToPB converts Device to Device using provided type converters.
+// DeviceToPB converts Device to Device using provided type
+// converters.
 func DeviceToPB(
 	r device.Device,
 ) (*Device, error) {
@@ -103,7 +104,8 @@ func DeviceToPB(
 	return pb, nil
 }
 
-// DeviceFromPB converts Device to Device using provided type converters.
+// DeviceFromPB converts Device to Device using provided type
+// converters.
 func DeviceFromPB(
 	pb *Device,
 ) (device.Device, error) {
@@ -166,8 +168,9 @@ func DevicesFromPB(
 	return result, nil
 }
 
-// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
-// It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
+// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic
+// translators. It wraps the value in structpb.Struct (JSON) for cross-language
+// compatibility.
 func StatusDetailsToPBAny(v device.StatusDetails) (*anypb.Any, error) {
 	pb, err := StatusDetailsToPB(v)
 	if err != nil {
@@ -185,8 +188,9 @@ func StatusDetailsToPBAny(v device.StatusDetails) (*anypb.Any, error) {
 	return anypb.New(s)
 }
 
-// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
-// It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
+// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic
+// translators. It handles both typed protos and JSON (google.protobuf.Struct) for
+// cross-language compatibility.
 func StatusDetailsFromPBAny(a *anypb.Any) (device.StatusDetails, error) {
 	if a == nil {
 		return device.StatusDetails{}, nil

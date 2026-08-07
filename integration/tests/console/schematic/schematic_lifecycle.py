@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
 from typing import Any
 
 import synnax as sy
@@ -15,7 +14,7 @@ from console.case import ConsoleCase
 from console.schematic import SCHEMATIC_VERSION, Button
 from console.schematic.off_page_reference import OffPageReference
 from console.schematic.schematic import Schematic
-from framework.utils import assert_link_format
+from framework.utils import assert_envelope, assert_link_format
 from x import random_name
 
 
@@ -23,24 +22,10 @@ def assert_exported_json(exported: dict[str, Any]) -> None:
     """Assert that the exported JSON has a valid structure.
 
     Validates:
-    - Root 'key' is a valid UUID format
-    - Version matches SCHEMATIC_VERSION
-    - Required keys exist: nodes, edges, props, viewport
+    - Envelope shape: 'schematic' type, version >= SCHEMATIC_VERSION, key stripped
+    - Required keys exist: nodes, edges, configs
     """
-    assert "key" in exported, "Exported JSON should contain 'key'"
-    try:
-        uuid.UUID(exported["key"])
-    except ValueError:
-        raise AssertionError(
-            f"Schematic key should be a valid UUID, got '{exported['key']}'"
-        )
-
-    assert "version" in exported, "Exported JSON should contain 'version'"
-    assert exported["version"] == SCHEMATIC_VERSION, (
-        f"Schematic version should be '{SCHEMATIC_VERSION}', "
-        f"got '{exported['version']}'"
-    )
-
+    assert_envelope(exported, envelope_type="schematic", min_version=SCHEMATIC_VERSION)
     required_keys = ["nodes", "edges", "configs"]
     for key in required_keys:
         assert key in exported, f"Exported JSON should contain '{key}'"

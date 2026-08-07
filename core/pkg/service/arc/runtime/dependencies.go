@@ -84,7 +84,11 @@ func NewDependencies(
 	for key := range prog.Authorities.Channels {
 		writes.Add(channel.Key(key))
 	}
-	channels, err := retrieveChannels(ctx, channelSvc, slices.Concat(reads.Slice(), writes.Slice()))
+	channels, err := retrieveChannels(
+		ctx,
+		channelSvc,
+		slices.Concat(reads.Slice(), writes.Slice()),
+	)
 	if err != nil {
 		return Dependencies{}, err
 	}

@@ -49,8 +49,13 @@ func typesEqual(
 		// Omitted fields are memory-only: their types never reach the stored
 		// shape, so only persisted fields compare. A field flipping between
 		// persisted and omitted surfaces as an add/remove here.
-		oldFields, newFields := PersistedFields(oldForm.Fields), PersistedFields(newForm.Fields)
-		if len(oldFields) != len(newFields) || len(oldForm.Extends) != len(newForm.Extends) {
+		oldFields, newFields := PersistedFields(
+			oldForm.Fields,
+		), PersistedFields(
+			newForm.Fields,
+		)
+		if len(oldFields) != len(newFields) ||
+			len(oldForm.Extends) != len(newForm.Extends) {
 			return false
 		}
 		for i := range oldFields {
@@ -67,7 +72,13 @@ func typesEqual(
 			}
 		}
 		for i := range oldForm.Extends {
-			if !refsEqual(oldForm.Extends[i], newForm.Extends[i], oldTable, newTable, visiting) {
+			if !refsEqual(
+				oldForm.Extends[i],
+				newForm.Extends[i],
+				oldTable,
+				newTable,
+				visiting,
+			) {
 				return false
 			}
 		}
@@ -91,7 +102,8 @@ func typesEqual(
 				newByName[v.Name] = v.IntValue()
 			}
 			for _, ov := range oldForm.Values {
-				if newVal, exists := newByName[ov.Name]; exists && newVal != ov.IntValue() {
+				if newVal, exists := newByName[ov.Name]; exists &&
+					newVal != ov.IntValue() {
 					return false
 				}
 			}
@@ -99,7 +111,8 @@ func typesEqual(
 		return true
 	case resolution.AliasForm:
 		newForm, ok := new.Form.(resolution.AliasForm)
-		return ok && refsEqual(oldForm.Target, newForm.Target, oldTable, newTable, visiting)
+		return ok &&
+			refsEqual(oldForm.Target, newForm.Target, oldTable, newTable, visiting)
 	case resolution.DistinctForm:
 		newForm, ok := new.Form.(resolution.DistinctForm)
 		return ok && refsEqual(oldForm.Base, newForm.Base, oldTable, newTable, visiting)
@@ -120,7 +133,13 @@ func typesEqual(
 			}
 		}
 		for i := range oldForm.Extends {
-			if !refsEqual(oldForm.Extends[i], newForm.Extends[i], oldTable, newTable, visiting) {
+			if !refsEqual(
+				oldForm.Extends[i],
+				newForm.Extends[i],
+				oldTable,
+				newTable,
+				visiting,
+			) {
 				return false
 			}
 		}
@@ -241,14 +260,34 @@ func diffWalk(
 
 	switch oldForm := old.Form.(type) {
 	case resolution.AliasForm:
-		if k := diffRefWalk(oldForm.Target, oldTable, newTable, result, visiting); k != TypeUnchanged {
-			result[old.QualifiedName] = TypeDiff{QualifiedName: old.QualifiedName, GoPath: goPath, Kind: TypeDescendantChanged}
+		if k := diffRefWalk(
+			oldForm.Target,
+			oldTable,
+			newTable,
+			result,
+			visiting,
+		); k != TypeUnchanged {
+			result[old.QualifiedName] = TypeDiff{
+				QualifiedName: old.QualifiedName,
+				GoPath:        goPath,
+				Kind:          TypeDescendantChanged,
+			}
 			return TypeDescendantChanged
 		}
 		return TypeUnchanged
 	case resolution.DistinctForm:
-		if k := diffRefWalk(oldForm.Base, oldTable, newTable, result, visiting); k != TypeUnchanged {
-			result[old.QualifiedName] = TypeDiff{QualifiedName: old.QualifiedName, GoPath: goPath, Kind: TypeDescendantChanged}
+		if k := diffRefWalk(
+			oldForm.Base,
+			oldTable,
+			newTable,
+			result,
+			visiting,
+		); k != TypeUnchanged {
+			result[old.QualifiedName] = TypeDiff{
+				QualifiedName: old.QualifiedName,
+				GoPath:        goPath,
+				Kind:          TypeDescendantChanged,
+			}
 			return TypeDescendantChanged
 		}
 		return TypeUnchanged
@@ -258,13 +297,22 @@ func diffWalk(
 	newStruct, newOk := new.Form.(resolution.StructForm)
 	if !oldOk || !newOk {
 		if !typesEqual(old, new, oldTable, newTable, make(set.Set[string])) {
-			result[old.QualifiedName] = TypeDiff{QualifiedName: old.QualifiedName, GoPath: goPath, Kind: TypeChanged}
+			result[old.QualifiedName] = TypeDiff{
+				QualifiedName: old.QualifiedName,
+				GoPath:        goPath,
+				Kind:          TypeChanged,
+			}
 			return TypeChanged
 		}
 		return TypeUnchanged
 	}
 
-	fieldDiffs, selfChanged := diffStructFields(oldStruct, newStruct, oldTable, newTable)
+	fieldDiffs, selfChanged := diffStructFields(
+		oldStruct,
+		newStruct,
+		oldTable,
+		newTable,
+	)
 
 	hasDescendantChange := false
 	for _, f := range PersistedFields(oldStruct.Fields) {
@@ -286,7 +334,11 @@ func diffWalk(
 		return TypeChanged
 	}
 	if hasDescendantChange {
-		result[old.QualifiedName] = TypeDiff{QualifiedName: old.QualifiedName, GoPath: goPath, Kind: TypeDescendantChanged}
+		result[old.QualifiedName] = TypeDiff{
+			QualifiedName: old.QualifiedName,
+			GoPath:        goPath,
+			Kind:          TypeDescendantChanged,
+		}
 		return TypeDescendantChanged
 	}
 	return TypeUnchanged
@@ -318,17 +370,36 @@ func diffStructFields(
 	for _, of := range oldFields {
 		nf, exists := newByName[of.Name]
 		if !exists {
-			diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindRemoved, OldField: &of})
+			diffs = append(
+				diffs,
+				FieldDiff{Name: of.Name, Kind: FieldKindRemoved, OldField: &of},
+			)
 			selfChanged = true
 			continue
 		}
 		if of.Optional != nf.Optional {
-			diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindOptionalityChanged, OldField: &of, NewField: &nf})
+			diffs = append(
+				diffs,
+				FieldDiff{
+					Name:     of.Name,
+					Kind:     FieldKindOptionalityChanged,
+					OldField: &of,
+					NewField: &nf,
+				},
+			)
 			selfChanged = true
 			continue
 		}
 		if !refsIdentityEqual(of.Type, nf.Type, oldTable, newTable) {
-			diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindTypeChanged, OldField: &of, NewField: &nf})
+			diffs = append(
+				diffs,
+				FieldDiff{
+					Name:     of.Name,
+					Kind:     FieldKindTypeChanged,
+					OldField: &of,
+					NewField: &nf,
+				},
+			)
 			selfChanged = true
 			continue
 		}
@@ -336,11 +407,22 @@ func diffStructFields(
 			domain.GetStringFromField(nf, "go", "marshal") {
 			selfChanged = true
 		}
-		diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindUnchanged, OldField: &of, NewField: &nf})
+		diffs = append(
+			diffs,
+			FieldDiff{
+				Name:     of.Name,
+				Kind:     FieldKindUnchanged,
+				OldField: &of,
+				NewField: &nf,
+			},
+		)
 	}
 	for _, nf := range newFields {
 		if _, exists := oldByName[nf.Name]; !exists {
-			diffs = append(diffs, FieldDiff{Name: nf.Name, Kind: FieldKindAdded, NewField: &nf})
+			diffs = append(
+				diffs,
+				FieldDiff{Name: nf.Name, Kind: FieldKindAdded, NewField: &nf},
+			)
 			selfChanged = true
 		}
 	}
@@ -349,7 +431,10 @@ func diffStructFields(
 
 // refsIdentityEqual checks if two type references point to the same type by
 // qualified name (not deep structural comparison).
-func refsIdentityEqual(old, new resolution.TypeRef, oldTable, newTable *resolution.Table) bool {
+func refsIdentityEqual(
+	old, new resolution.TypeRef,
+	oldTable, newTable *resolution.Table,
+) bool {
 	if len(old.TypeArgs) != len(new.TypeArgs) {
 		return false
 	}
@@ -389,7 +474,14 @@ func diffRefWalk(
 	}
 	kind := diffWalk(oldResolved, newResolved, oldTable, newTable, result, visiting)
 	for _, arg := range ref.TypeArgs {
-		if argKind := diffRefWalk(arg, oldTable, newTable, result, visiting); argKind != TypeUnchanged && kind == TypeUnchanged {
+		if argKind := diffRefWalk(
+			arg,
+			oldTable,
+			newTable,
+			result,
+			visiting,
+		); argKind != TypeUnchanged &&
+			kind == TypeUnchanged {
 			kind = TypeDescendantChanged
 		}
 	}

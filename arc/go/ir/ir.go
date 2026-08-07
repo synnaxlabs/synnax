@@ -10,15 +10,18 @@
 // Package ir provides the intermediate representation (IR) for Arc programs.
 //
 // The IR represents a compiled Arc program as a dataflow graph consisting of:
-//   - Functions: Template definitions for reusable computations (stages and user functions)
+//
+//   - Functions: Template definitions for reusable computations (stages and user
+//     functions)
 //   - Nodes: Instantiated functions with concrete configuration values
 //   - Edges: Dataflow connections between node parameters (Handle-to-Handle mappings)
-//   - Strata: Execution stratification for deterministic, glitch-free reactive execution
+//   - Strata: Execution stratification for deterministic, glitch-free reactive
+//     execution
 //
-// The IR serves as the bridge between the semantic analyzer (which produces a symbol table
-// and type information) and the WebAssembly compiler (which generates executable code).
-// It captures all necessary information for code generation, optimization, and runtime
-// execution of Arc programs.
+// The IR serves as the bridge between the semantic analyzer (which produces a symbol
+// table and type information) and the WebAssembly compiler (which generates executable
+// code). It captures all necessary information for code generation, optimization, and
+// runtime execution of Arc programs.
 //
 // # Compilation Pipeline
 //
@@ -29,20 +32,21 @@
 // # Core Concepts
 //
 // Functions are templates that define reusable computations with typed inputs, outputs,
-// and configuration parameters. They are analogous to function signatures in traditional
-// languages but can represent both pure functions and stateful reactive stages.
+// and configuration parameters. They are analogous to function signatures in
+// traditional languages but can represent both pure functions and stateful reactive
+// stages.
 //
-// Nodes are concrete instantiations of Functions in the dataflow graph. Each node has
-// a unique key, references its function type, stores configuration values, and declares
+// Nodes are concrete instantiations of Functions in the dataflow graph. Each node has a
+// unique key, references its function type, stores configuration values, and declares
 // its input/output parameter types. Nodes are the executable units of Arc programs.
 //
-// Edges represent dataflow connections. Each edge connects a source Handle (node + parameter)
-// to a target Handle (node + parameter), forming the dependency graph that determines
-// execution order and data routing.
+// Edges represent dataflow connections. Each edge connects a source Handle (node +
+// parameter) to a target Handle (node + parameter), forming the dependency graph that
+// determines execution order and data routing.
 //
-// Root is a Scope (the unified Layer 2 execution primitive) whose strata
-// organize module-scope reactive flow and whose nested Scope members capture
-// top-level stages and sequences.
+// Root is a Scope (the unified Layer 2 execution primitive) whose strata organize
+// module-scope reactive flow and whose nested Scope members capture top-level stages
+// and sequences.
 package ir
 
 import (

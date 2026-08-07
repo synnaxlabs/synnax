@@ -18,9 +18,11 @@ import { useDispatch } from "@/session/store";
 export const useLogout = () => {
   const dispatch = useDispatch();
   return useCallback(() => {
-    dispatch(Cluster.clearSelected());
+    // The cluster clear must come last: it flushes the cluster's persistence
+    // partition, which must already hold the cleared project selection.
     dispatch(Project.clearSelected());
     dispatch(Panel.reset());
     dispatch(Nav.hideAll({}));
+    dispatch(Cluster.clearSelected());
   }, [dispatch]);
 };
