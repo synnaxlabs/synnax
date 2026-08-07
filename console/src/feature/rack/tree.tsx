@@ -64,7 +64,8 @@ interface NIScannerItemProps {
 }
 
 const NIScannerItem = ({ rackKey }: NIScannerItemProps): ReactElement | null => {
-  const { integrations } = Rack.use({ key: rackKey });
+  Rack.useEnsure({ key: rackKey });
+  const integrations = Rack.useIntegrations({ key: rackKey });
   const toggleScanner = NI.Task.useToggleScanner(rackKey);
   if (!integrations.includes(NI_INTEGRATION_NAME)) return null;
   return (

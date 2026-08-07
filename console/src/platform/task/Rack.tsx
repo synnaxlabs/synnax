@@ -20,15 +20,17 @@ interface ContentProps {
 }
 
 const Content = ({ taskKey }: ContentProps): ReactElement => {
-  const rack = PRack.use({ key: task.rackKey(taskKey) });
+  const query = { key: task.rackKey(taskKey) };
+  PRack.useEnsure(query);
+  const name = PRack.useName(query);
   return (
     <Tooltip.Dialog>
       <Text.Text level="small" color={10} weight={450}>
-        Task is deployed to {rack.name}
+        Task is deployed to {name}
       </Text.Text>
       <Text.Text className={CSS.B("rack-name")} level="small" color={9} weight={350}>
         <Icon.Rack />
-        {rack.name}
+        {name}
       </Text.Text>
     </Tooltip.Dialog>
   );

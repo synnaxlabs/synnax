@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/client";
-import { array, control, type optional, TimeSpan, verbs } from "@synnaxlabs/x";
+import {
+  array,
+  control,
+  type optional,
+  primitive,
+  TimeSpan,
+  verbs,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -81,10 +88,37 @@ export const ZERO_FORM_VALUES: z.infer<
   ],
 };
 
-export const { use, useResult } = Flux.createRetrieve<RetrieveQuery, channel.Channel>({
-  ...retrieveDefinition,
-  onChange: retrieveDefinition.onChange,
-});
+export const { use, useResult, useEnsure, createSelector, createResultSelector } =
+  Flux.createRetrieve<RetrieveQuery, channel.Channel>({
+    ...retrieveDefinition,
+    onChange: retrieveDefinition.onChange,
+  });
+
+/** The channel's range-scoped alias when one is set, its name otherwise. */
+export const useAlias = createSelector(({ alias, name }) =>
+  primitive.isNonZero(alias) ? alias : name,
+);
+
+/** {@link useAlias} with the result contract: fetch on cold, never throw. */
+export const useResultAlias = createResultSelector(({ alias, name }) =>
+  primitive.isNonZero(alias) ? alias : name,
+);
+
+export const useResultName = createResultSelector(({ name }) => name);
+
+/** Compared by variant and message: a heartbeat that changes neither is silenced. */
+export const useResultStatus: Flux.UseResult<
+  RetrieveQuery,
+  channel.Status | undefined
+> = createResultSelector(
+  ({ status }) => status,
+  (a, b) => a?.variant === b?.variant && a?.message === b?.message,
+);
+
+export const useResultDataType = createResultSelector(
+  ({ dataType }) => dataType,
+  (a, b) => a.equals(b),
+);
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,

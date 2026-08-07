@@ -1389,6 +1389,132 @@ describe("createSelector", () => {
   });
 });
 
+describe("createResultSelector", () => {
+  interface Data {
+    name: string;
+    value: number;
+  }
+
+  interface Harness {
+    retrieve: ReturnType<typeof vi.fn<() => Promise<Data>>>;
+    set: (next: query.Cached<Data> | undefined) => void;
+    createResultSelector: Flux.CreateResultSelector<{ key: string }, Data>;
+  }
+
+  const createHarness = (
+    initial?: query.Cached<Data>,
+    retrieveImpl?: () => Promise<Data>,
+  ): Harness => {
+    let cached = initial;
+    const handlers = new Set<query.ChangeHandler<Data>>();
+    const retrieve = vi.fn(
+      retrieveImpl ?? (async (): Promise<Data> => ({ name: "fetched", value: 0 })),
+    );
+    const { createResultSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve,
+      onChange: (_, h) => {
+        handlers.add(h);
+        return () => handlers.delete(h);
+      },
+      getCached: () => cached,
+    });
+    return {
+      retrieve,
+      createResultSelector,
+      set: (next) => {
+        cached = next;
+        handlers.forEach((h) => h(next));
+      },
+    };
+  };
+
+  it("serves the selected slice from the cache without fetching", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("success");
+    expect(result.current.data).toEqual("cached");
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("fetches on a cold miss and settles to the selected slice", async () => {
+    const harness = createHarness();
+    const useName = harness.createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("loading");
+    await waitFor(() => expect(result.current.variant).toEqual("success"));
+    expect(result.current.data).toEqual("fetched");
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-renders when a push changes the selected slice", () => {
+    const harness = createHarness({ name: "before", value: 1 });
+    const useName = harness.createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.data).toEqual("before");
+    act(() => harness.set({ name: "after", value: 1 }));
+    expect(result.current.data).toEqual("after");
+  });
+
+  it("does not re-render when a push changes only unselected fields", () => {
+    const harness = createHarness({ name: "same", value: 1 });
+    const useName = harness.createResultSelector((data) => data.name);
+    const renders = vi.fn();
+    const { result } = renderHook(
+      () => {
+        renders();
+        return useName({ key: "a" });
+      },
+      { wrapper: Wrapper },
+    );
+    const first = result.current;
+    const before = renders.mock.calls.length;
+    act(() => harness.set({ name: "same", value: 2 }));
+    expect(renders.mock.calls.length).toEqual(before);
+    expect(result.current).toBe(first);
+  });
+
+  it("compares slices with the provided equality", () => {
+    const harness = createHarness({ name: "a,b", value: 1 });
+    const useParts = harness.createResultSelector(
+      (data) => data.name.split(","),
+      (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
+    );
+    const { result } = renderHook(() => useParts({ key: "a" }), { wrapper: Wrapper });
+    const first = result.current;
+    act(() => harness.set({ name: "a,b", value: 2 }));
+    expect(result.current).toBe(first);
+  });
+
+  it("reports a deleted answer as an error result", () => {
+    const harness = createHarness(
+      new query.Deleted<Data>({ name: "corpse", value: 1 }, TimeStamp.now()),
+    );
+    const useName = harness.createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("error");
+    assert(result.current.variant === "error");
+    expect(Flux.DeletedError.matches(result.current.status.details.error)).toBe(true);
+  });
+
+  it("reads as disabled with a null query", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName(null), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("disabled");
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("refuses to mint when the definition has no cache read", () => {
+    const { createResultSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => ({ name: "fetched", value: 0 }),
+    });
+    expect(() => createResultSelector((data) => data.name)).toThrow(UnexpectedError);
+  });
+});
+
 describe("useResult", () => {
   interface Data {
     name: string;

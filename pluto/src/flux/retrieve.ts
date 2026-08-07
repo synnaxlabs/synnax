@@ -211,6 +211,23 @@ export interface CreateSelector<Query extends query.Params, Data extends query.D
   ): UseSelect<ExtendedQuery, Selected>;
 }
 
+/**
+ * Mints a {@link UseResult}-shaped hook that re-renders only when the selected slice
+ * of the answer changes: {@link UseSelect}'s render gating with {@link UseResult}'s
+ * contract — fetch on a cold miss, never suspend, never throw. For absence-tolerant
+ * narrow readers; warm-cache readers under a parent retrieve use
+ * {@link CreateSelector}.
+ */
+export interface CreateResultSelector<
+  Query extends query.Params,
+  Data extends query.Data,
+> {
+  <Selected extends state.State, ExtendedQuery extends Query = Query>(
+    select: (data: Data, query: ExtendedQuery) => Selected,
+    equal?: (a: Selected, b: Selected) => boolean,
+  ): UseResult<ExtendedQuery, Selected>;
+}
+
 export interface CreateRetrieveReturn<
   Query extends query.Params,
   Data extends state.State,
@@ -221,6 +238,7 @@ export interface CreateRetrieveReturn<
   useInvalidate: UseInvalidate<Query>;
   useTombstone: UseTombstone<Query>;
   createSelector: CreateSelector<Query, Data>;
+  createResultSelector: CreateResultSelector<Query, Data>;
 }
 
 /** The definition plus its per-client local cache, built once per createRetrieve and
@@ -375,6 +393,30 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   );
 };
 
+/**
+ * A result minted per render defeats every memo keyed on it, and its status carries a
+ * fresh key and timestamp. The returned hold keys the previous result on what produced
+ * it and re-returns it until that changes.
+ */
+const useHeldResult = <V extends state.State>(): ((
+  source: unknown[],
+  make: () => Result<V>,
+) => Result<V>) => {
+  const held = useRef<{ source: unknown[]; result: Result<V> } | null>(null);
+  return (source, make) => {
+    const prev = held.current;
+    if (
+      prev != null &&
+      prev.source.length === source.length &&
+      prev.source.every((s, i) => s === source[i])
+    )
+      return prev.result;
+    const result = make();
+    held.current = { source, result };
+    return result;
+  };
+};
+
 const useResultValue = <Query extends query.Params, Data extends query.Data>(
   {
     locals,
@@ -400,22 +442,7 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     equal,
   });
 
-  // A result minted per render defeats every memo keyed on it, and its status
-  // carries a fresh key and timestamp. Each return path keys the previous
-  // result on what produced it and re-returns it until that changes.
-  const held = useRef<{ source: unknown[]; result: Result<Data> } | null>(null);
-  const hold = (source: unknown[], make: () => Result<Data>): Result<Data> => {
-    const prev = held.current;
-    if (
-      prev != null &&
-      prev.source.length === source.length &&
-      prev.source.every((s, i) => s === source[i])
-    )
-      return prev.result;
-    const result = make();
-    held.current = { source, result };
-    return result;
-  };
+  const hold = useHeldResult<Data>();
 
   if (client == null)
     return hold(["disabled", client], () => nullClientResult<Data>(`retrieve ${name}`));
@@ -598,6 +625,126 @@ const createSelector = <
   return useSelect;
 };
 
+/** What a result selector's selection resolved to, compared slice-wise so an
+ *  answer change outside the slice never re-renders the consumer. */
+type Slice<Data, Selected> =
+  | { kind: "live"; selected: Selected }
+  | { kind: "deleted"; corpse: Data }
+  | { kind: "none" };
+
+const NONE_SLICE = { kind: "none" } as const;
+
+const createResultSelector = <
+  Query extends query.Params,
+  Data extends query.Data,
+  Selected extends state.State,
+  ExtendedQuery extends Query = Query,
+>(
+  context: Context<Query, Data> &
+    Required<Pick<CreateRetrieveParams<Query, Data>, "getCached">>,
+  select: (data: Data, query: ExtendedQuery) => Selected,
+  selectedEqual: (a: Selected, b: Selected) => boolean = Object.is,
+): UseResult<ExtendedQuery, Selected> => {
+  const {
+    locals,
+    name,
+    retrieve,
+    onChange,
+    getCached,
+    deriveCached,
+    equal = answersEqual,
+    normalizeQuery,
+  } = context;
+  const sliceEqual = (a: Slice<Data, Selected>, b: Slice<Data, Selected>): boolean => {
+    if (a.kind !== b.kind) return false;
+    if (a.kind === "live" && b.kind === "live")
+      return selectedEqual(a.selected, b.selected);
+    if (a.kind === "deleted" && b.kind === "deleted") return a.corpse === b.corpse;
+    return true;
+  };
+  const useResultSelect = (q: ExtendedQuery | null): Result<Selected> => {
+    const memoQuery = useMemoQuery<ExtendedQuery>(q, normalizeQuery);
+    const [, bump] = useReducer((x: number) => x + 1, 0);
+    const client = Synnax.use();
+    const held = useRef<{ query: Query; value: Data } | null>(null);
+    const subscribeToCache = useCallback(
+      (notify: () => void) => {
+        if (onChange == null || client == null || memoQuery == null)
+          return NOOP_SUBSCRIBE();
+        return onChange({ client, query: memoQuery }, () => notify());
+      },
+      [client, memoQuery],
+    );
+    const getSnapshot = useCallback((): query.Cached<Data> | undefined => {
+      if (client == null || memoQuery == null) return undefined;
+      const next = getCached({ client, query: memoQuery });
+      if (!isLive<Data>(next)) return next;
+      const prev = held.current;
+      if (prev != null && prev.query === memoQuery && equal(prev.value, next))
+        return prev.value;
+      held.current = { query: memoQuery, value: next };
+      return next;
+    }, [client, memoQuery]);
+    const selector = useCallback(
+      (raw: query.Cached<Data> | undefined): Slice<Data, Selected> => {
+        if (memoQuery == null || raw === undefined) return NONE_SLICE;
+        if (Deleted.matches<Data>(raw)) return { kind: "deleted", corpse: raw.corpse };
+        return { kind: "live", selected: select(raw, memoQuery) };
+      },
+      [memoQuery],
+    );
+    const slice = useSyncExternalStoreWithSelector(
+      subscribeToCache,
+      getSnapshot,
+      undefined,
+      selector,
+      sliceEqual,
+    );
+    const hold = useHeldResult<Selected>();
+    if (client == null)
+      return hold(["disabled", client], () =>
+        nullClientResult<Selected>(`retrieve ${name}`),
+      );
+    if (memoQuery == null)
+      return hold(["disabled", memoQuery], () =>
+        noQueryResult<Selected>(`retrieve ${name}`),
+      );
+    if (slice.kind === "live")
+      return hold(["success", slice.selected], () =>
+        successResult(`retrieved ${name}`, slice.selected),
+      );
+    if (slice.kind === "deleted")
+      return hold(["deleted", slice.corpse], () =>
+        errorResult(
+          `retrieve ${name}`,
+          new DeletedError(`${name} was deleted`, slice.corpse),
+        ),
+      );
+    const local = localFor(locals, client);
+    const params = { client, query: memoQuery };
+    const derived = deriveCached?.(params);
+    if (derived != null)
+      return hold(["derived", derived], () =>
+        successResult(`retrieved ${name}`, select(derived, memoQuery)),
+      );
+    const settled = local.settled.get(query.hash(memoQuery));
+    if (settled != null)
+      return hold(["settled", settled], () =>
+        "data" in settled
+          ? successResult(`retrieved ${name}`, select(settled.data, memoQuery))
+          : errorResult(`retrieve ${name}`, settled.error),
+      );
+    ensureFetch(
+      params,
+      fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+    ).then(bump, bump);
+    return hold(["loading", memoQuery], () =>
+      loadingResult<Selected>(`retrieving ${name}`),
+    );
+  };
+  return useResultSelect;
+};
+
 export const createRetrieve = <Query extends query.Params, Data extends query.Data>(
   createParams: CreateRetrieveParams<Query, Data>,
 ): CreateRetrieveReturn<Query, Data> => {
@@ -620,6 +767,20 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
           `Cannot create a selector for ${createParams.name}: no getCached defined.`,
         );
       return createSelector({ ...createParams, getCached }, select, equal);
+    },
+    createResultSelector: <
+      Selected extends state.State,
+      ExtendedQuery extends Query = Query,
+    >(
+      select: (data: Data, query: ExtendedQuery) => Selected,
+      equal?: (a: Selected, b: Selected) => boolean,
+    ) => {
+      const { getCached } = createParams;
+      if (getCached == null)
+        throw new UnexpectedError(
+          `Cannot create a result selector for ${createParams.name}: no getCached defined.`,
+        );
+      return createResultSelector({ ...context, getCached }, select, equal);
     },
   };
 };

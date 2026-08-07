@@ -54,7 +54,13 @@ export const createRetrieve = <
         query.Cached<device.Device<Properties, Make, Model>> | undefined,
   });
 
-export const { use, useResult } = createRetrieve();
+export const { use, useResult, createResultSelector } = createRetrieve();
+
+/** Compared by variant and message: a heartbeat that changes neither is silenced. */
+export const useResultStatus = createResultSelector(
+  ({ status }) => status,
+  (a, b) => a?.variant === b?.variant && a?.message === b?.message,
+);
 
 export type ListParams = device.RetrieveMultipleParams;
 
