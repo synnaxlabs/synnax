@@ -71,6 +71,15 @@ type Encoder interface {
 	EncodeStream(ctx context.Context, w io.Writer, value any) error
 }
 
+// FileEncoder is an Encoder that names the files its output belongs in, so a caller
+// writing a directory can name each file without knowing which codec it holds.
+type FileEncoder interface {
+	Encoder
+	// Extension returns the file extension the encoder's output is written under,
+	// leading dot included.
+	Extension() string
+}
+
 // Decoder decodes values from binary.
 type Decoder interface {
 	// Decode decodes data into a pointer value.

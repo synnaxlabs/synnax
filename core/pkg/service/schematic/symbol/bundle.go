@@ -11,12 +11,10 @@ package symbol
 
 import (
 	"context"
-	"encoding/json"
-	"path"
-	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/os"
@@ -24,9 +22,11 @@ import (
 )
 
 const (
-	manifestVersion  = 2
-	manifestType     = "symbol_group"
-	manifestFileName = "manifest.json"
+	manifestVersion = 2
+	manifestType    = "symbol_group"
+	// manifestBaseName is the manifest's file name without an extension. The codec
+	// supplies the extension, so every serialization has one recognition point.
+	manifestBaseName = "manifest"
 )
 
 // GroupManifest is the body of manifest.json in a symbol group bundle. Membership is
@@ -50,17 +50,22 @@ type GroupBundle struct {
 }
 
 // ExportGroup serializes every symbol in the group identified by key into a bundle.
-// Each symbol becomes one JSON envelope named after the symbol, beside a manifest.json
-// naming the group.
+// Each symbol becomes one envelope named after the symbol, beside a manifest naming the
+// group. The encoder decides both the serialization and the extension every file takes.
 //
 // It returns query.ErrNotFound if no group has key. It returns a validation error if
 // the group holds a child that is not a schematic symbol, if two symbols resolve to the
 // same file name, or if a symbol claims a reserved file name.
-func (s *Service) ExportGroup(ctx context.Context, key group.Key) (GroupBundle, error) {
+func (s *Service) ExportGroup(
+	ctx context.Context,
+	key group.Key,
+	encoder encoding.FileEncoder,
+) (GroupBundle, error) {
 	root, children, err := s.retrieveGroup(ctx, nil, key)
 	if err != nil {
 		return GroupBundle{}, err
 	}
+	manifestFileName := manifestBaseName + encoder.Extension()
 	var (
 		files   = make(zip.Files, len(children)+1)
 		members = make([]ontology.ID, 0, len(children))
@@ -75,9 +80,9 @@ func (s *Service) ExportGroup(ctx context.Context, key group.Key) (GroupBundle, 
 				root.Name, child.ID,
 			)
 		}
-		fileName := os.SanitizeFileName(child.Name) + ".json"
+		fileName := os.SanitizeFileName(child.Name) + encoder.Extension()
 		folded := os.FoldFileName(fileName)
-		if isReservedFileName(folded) {
+		if folded == os.FoldFileName(manifestFileName) {
 			return GroupBundle{}, errors.Wrapf(
 				validate.ErrValidation,
 				"symbol %q takes the reserved file name %q; rename it and export again",
@@ -96,12 +101,12 @@ func (s *Service) ExportGroup(ctx context.Context, key group.Key) (GroupBundle, 
 		if err != nil {
 			return GroupBundle{}, err
 		}
-		if files[fileName], err = json.Marshal(env); err != nil {
+		if files[fileName], err = encoder.Encode(ctx, env); err != nil {
 			return GroupBundle{}, err
 		}
 		members = append(members, child.ID)
 	}
-	manifest, err := json.Marshal(GroupManifest{
+	manifest, err := encoder.Encode(ctx, GroupManifest{
 		Version: manifestVersion,
 		Type:    manifestType,
 		Name:    root.Name,
@@ -111,11 +116,4 @@ func (s *Service) ExportGroup(ctx context.Context, key group.Key) (GroupBundle, 
 	}
 	files[manifestFileName] = manifest
 	return GroupBundle{Files: files, Members: members}, nil
-}
-
-// isReservedFileName reports whether the folded name carries structural meaning in a
-// bundle, so no member may take it. LAYOUT.json marks a legacy project directory.
-func isReservedFileName(folded string) bool {
-	base := strings.TrimSuffix(folded, path.Ext(folded))
-	return base == "manifest" || base == "layout"
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -222,7 +223,7 @@ func (s *Service) ExportGroup(
 	ctx context.Context,
 	req ExportGroupRequest,
 ) (ExportGroupResponse, error) {
-	bundle, err := s.internal.ExportGroup(ctx, req.Key)
+	bundle, err := s.internal.ExportGroup(ctx, req.Key, json.Codec)
 	if err != nil {
 		return nil, err
 	}

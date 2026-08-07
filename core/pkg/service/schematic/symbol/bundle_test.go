@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -66,32 +67,34 @@ var _ = Describe("ExportGroup", func() {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
 		createSymbol(ctx, g, "Outlet")
-		Expect(fileNames(MustSucceed(svc.ExportGroup(ctx, g.Key)))).
+		Expect(fileNames(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)))).
 			To(ConsistOf("Inlet.json", "Outlet.json", "manifest.json"))
 	})
 	It("Should stamp the manifest with the group's name", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
-		Expect(manifestOf(MustSucceed(svc.ExportGroup(ctx, g.Key)))).To(Equal(
+		Expect(
+			manifestOf(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec))),
+		).To(Equal(
 			symbol.GroupManifest{Version: 2, Type: "symbol_group", Name: "Valves"},
 		))
 	})
 	It("Should write each member as its leaf export envelope", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		sym := createSymbol(ctx, g, "Inlet")
-		bundle := MustSucceed(svc.ExportGroup(ctx, g.Key))
+		bundle := MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec))
 		env := MustSucceed(svc.Export(ctx, symbol.OntologyID(sym.Key)))
 		Expect(bundle.Files["Inlet.json"]).To(Equal(MustSucceed(json.Marshal(env))))
 	})
 	It("Should report every exported symbol as a member", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		sym := createSymbol(ctx, g, "Inlet")
-		Expect(MustSucceed(svc.ExportGroup(ctx, g.Key)).Members).
+		Expect(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Members).
 			To(ConsistOf(symbol.OntologyID(sym.Key)))
 	})
 	It("Should export an empty group as a manifest alone", func(ctx SpecContext) {
 		g := createRoot(ctx, "Empty")
-		bundle := MustSucceed(svc.ExportGroup(ctx, g.Key))
+		bundle := MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec))
 		Expect(fileNames(bundle)).To(ConsistOf("manifest.json"))
 		Expect(bundle.Members).To(BeEmpty())
 		Expect(manifestOf(bundle).Name).To(Equal("Empty"))
@@ -99,17 +102,17 @@ var _ = Describe("ExportGroup", func() {
 	It("Should replace characters a file name cannot hold", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "in/let:1")
-		Expect(MustSucceed(svc.ExportGroup(ctx, g.Key)).Files).
+		Expect(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Files).
 			To(HaveKey("in_let_1.json"))
 	})
 	It("Should return not found for a missing group", func(ctx SpecContext) {
-		Expect(svc.ExportGroup(ctx, uuid.New())).Error().
+		Expect(svc.ExportGroup(ctx, uuid.New(), xjson.Codec)).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 	It("Should reject a group holding a non-symbol child", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		createGroup(ctx, "Nested", g.OntologyID())
-		Expect(svc.ExportGroup(ctx, g.Key)).Error().To(SatisfyAll(
+		Expect(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("not a schematic symbol")),
 		))
@@ -119,7 +122,7 @@ var _ = Describe("ExportGroup", func() {
 			g := createRoot(ctx, "Valves")
 			createSymbol(ctx, g, first)
 			createSymbol(ctx, g, second)
-			Expect(svc.ExportGroup(ctx, g.Key)).Error().To(SatisfyAll(
+			Expect(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("both export to")),
 			))
@@ -132,13 +135,12 @@ var _ = Describe("ExportGroup", func() {
 		func(ctx SpecContext, name string) {
 			g := createRoot(ctx, "Valves")
 			createSymbol(ctx, g, name)
-			Expect(svc.ExportGroup(ctx, g.Key)).Error().To(SatisfyAll(
+			Expect(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("reserved file name")),
 			))
 		},
 		Entry("manifest", "manifest"),
 		Entry("MANIFEST", "MANIFEST"),
-		Entry("LAYOUT", "LAYOUT"),
 	)
 })

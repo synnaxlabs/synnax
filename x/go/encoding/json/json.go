@@ -19,12 +19,21 @@ import (
 	"github.com/synnaxlabs/x/http"
 )
 
-// Codec is a JSON implementation of encoding.Codec and http.Codec.
-var Codec http.Codec = &codec{}
+// Codec is a JSON implementation of encoding.Codec, http.Codec, and
+// encoding.FileEncoder.
+var Codec = &codec{}
+
+var (
+	_ http.Codec           = Codec
+	_ encoding.FileEncoder = Codec
+)
 
 type codec struct{}
 
 func (c *codec) ContentType() string { return "application/json" }
+
+// Extension implements the encoding.FileEncoder interface.
+func (c *codec) Extension() string { return ".json" }
 
 // Encode implements the encoding.Encoder interface.
 func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
