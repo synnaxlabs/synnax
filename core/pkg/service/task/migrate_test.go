@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -162,7 +163,12 @@ var _ = Describe("Migrations", func() {
 	It(
 		"Should decompose stored configs, rename types, and quarantine unknowns",
 		func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			// Legacy rows from released builds are msgpack-encoded, while the opened
+			// services run the production Orc codec. Seed through an msgpack view of
+			// the same KV so the fixtures land in their real on-disk form.
+			kvDB := memkv.New()
+			seedDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
+			db := DeferClose(gorp.Wrap(kvDB))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -219,9 +225,28 @@ var _ = Describe("Migrations", func() {
 				Type:   "bogus",
 				Config: msgpack.EncodedJSON{"anything": true},
 			}
+			ljTask := v1.Task{
+				Key:  v1.Key(uint64(testRack.Key)<<32 | 4),
+				Name: "Stored LabJack Write Task",
+				Type: "labjack_write",
+				Config: msgpack.EncodedJSON{
+					"device":      "dev-lj",
+					"state_rate":  float64(10),
+					"data_saving": true,
+					"auto_start":  false,
+					"channels": []any{map[string]any{
+						"type":      "DO",
+						"key":       "ch-do",
+						"port":      "DIO4",
+						"cmd_key":   float64(7),
+						"state_key": float64(8),
+						"enabled":   true,
+					}},
+				},
+			}
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
-				Entries(&[]v1.Task{pdTask, arcTask, bogusTask}).
-				Exec(ctx, db)).To(Succeed())
+				Entries(&[]v1.Task{pdTask, arcTask, bogusTask, ljTask}).
+				Exec(ctx, seedDB)).To(Succeed())
 
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:       db,
@@ -231,8 +256,12 @@ var _ = Describe("Migrations", func() {
 				DB:       db,
 				Ontology: otg,
 			}))
+			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+			}))
 			configs := MustSucceed(common.NewConfigRegistry(
-				append(pd.Stores(), at.Stores()...)...,
+				append(append(pd.Stores(), at.Stores()...), lj.Stores()...)...,
 			))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
@@ -275,6 +304,26 @@ var _ = Describe("Migrations", func() {
 				HaveKeyWithValue("arc_key", arcModuleKey),
 			)
 			Expect(migratedArc.Config).To(HaveKeyWithValue("hash", "abc123"))
+
+			var migratedLJ task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Stored LabJack Write Task")).
+				Entry(&migratedLJ).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migratedLJ.Config).To(HaveKeyWithValue("device", "dev-lj"))
+			Expect(migratedLJ.Config).To(
+				HaveKeyWithValue("data_saving_disabled", false),
+			)
+			ljChannels, ok := migratedLJ.Config["channels"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(ljChannels).To(HaveLen(1))
+			ljCh, ok := ljChannels[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(ljCh).To(HaveKeyWithValue("cmd_channel", BeEquivalentTo(7)))
+			Expect(ljCh).To(HaveKeyWithValue("state_channel", BeEquivalentTo(8)))
+			Expect(ljCh).To(HaveKeyWithValue("disabled", false))
+			Expect(ljCh).ToNot(HaveKey("cmd_key"))
+			Expect(ljCh).ToNot(HaveKey("state_key"))
 
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Bogus Task")).

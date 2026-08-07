@@ -136,13 +136,19 @@ var _ = Describe("Transform", func() {
 				"channels": []any{map[string]any{"channel": float64(7)}},
 			},
 		),
-		Entry("renames the LabJack write cmd_key",
+		Entry("renames the LabJack write cmd_key and state_key",
 			"labjack_write",
 			msgpack.EncodedJSON{
-				"channels": []any{map[string]any{"cmd_key": float64(7)}},
+				"channels": []any{map[string]any{
+					"cmd_key":   float64(7),
+					"state_key": float64(8),
+				}},
 			},
 			msgpack.EncodedJSON{
-				"channels": []any{map[string]any{"cmd_channel": float64(7)}},
+				"channels": []any{map[string]any{
+					"cmd_channel":   float64(7),
+					"state_channel": float64(8),
+				}},
 			},
 		),
 		Entry("normalizes the EtherCAT sub-index spellings",

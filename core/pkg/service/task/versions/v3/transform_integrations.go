@@ -41,11 +41,12 @@ func transformOPCWrite(config msgpack.EncodedJSON) {
 	})
 }
 
-// transformLabJackWrite renames the legacy output channel key "cmd_key" to
-// "cmd_channel".
+// transformLabJackWrite renames the legacy output channel keys "cmd_key" and
+// "state_key" to "cmd_channel" and "state_channel".
 func transformLabJackWrite(config msgpack.EncodedJSON) {
 	eachChild(config, "channels", func(ch msgpack.EncodedJSON) {
 		renameKey(ch, "cmd_key", "cmd_channel")
+		renameKey(ch, "state_key", "state_channel")
 	})
 }
 
