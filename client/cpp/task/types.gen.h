@@ -66,6 +66,10 @@ struct Command {
     std::string type;
     /// @brief key is a unique identifier for this command instance.
     std::string key;
+    /// @brief config_hash is the config hash the sender wants running. Empty when the
+    /// sender does not know it. The Driver reuses its live instance when the hash
+    /// matches and redeploys when it differs.
+    std::string config_hash = "";
     /// @brief args contains optional arguments for the command.
     x::json::json::object_t args = {};
 
