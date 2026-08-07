@@ -30,7 +30,10 @@ inline PDOAddress PDOAddress::parse(x::json::Parser parser) {
         .index = parser.field<std::uint16_t>("index", 0),
         .sub_index = parser.field<std::uint8_t>("sub_index", 0),
         .bit_length = parser.field<std::uint8_t>("bit_length", 16),
-        .data_type = parser.field<::x::telem::DataType>("data_type", "uint16"),
+        .data_type = parser.field<::x::telem::DataType>(
+            "data_type",
+            ::x::telem::DataType("uint16")
+        ),
     };
 }
 
