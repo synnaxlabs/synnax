@@ -40,6 +40,7 @@ const client = createTestClient();
 interface CreateTaskOptions {
   config?: Record<string, unknown>;
   running?: boolean;
+  type?: string;
 }
 
 // The toolbar lists every task on the cluster, so leaked tasks from prior tests slow
@@ -57,12 +58,16 @@ afterEach(async () => {
   await client.racks.delete(createdRacks.splice(0)).catch(ignoreNotFound);
 });
 
-const createTask = async ({ config = {}, running }: CreateTaskOptions = {}) => {
+const createTask = async ({
+  config = {},
+  running,
+  type = NI.Task.ANALOG_READ_TYPE,
+}: CreateTaskOptions = {}) => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   createdRacks.push(rack.key);
   const t = await rack.createTask({
     name: uniqueName("task"),
-    type: NI.Task.ANALOG_READ_TYPE,
+    type,
     config,
   });
   createdTasks.push(t.key);
@@ -199,7 +204,7 @@ describe("task/Toolbar", () => {
     });
 
     it("hides the data saving items for a task without the config field", async () => {
-      const t = await createTask();
+      const t = await createTask({ type: "pagerduty_alert" });
       await renderToolbar();
       await openContextMenu(t.name);
       await screen.findByText("Edit configuration");
