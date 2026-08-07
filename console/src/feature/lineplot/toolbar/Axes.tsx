@@ -24,7 +24,7 @@ import { type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 
 export const Axes = (): ReactElement => {
-  const axisKeys = LinePlot.useSelectAxisKeys();
+  const axisKeys = LinePlot.useAxisKeys();
   return (
     <Tabs.Frame
       className={CSS.BE("line-plot", "toolbar", "axes-tabs")}
@@ -74,7 +74,7 @@ export const LinePlotAxisControls = ({
   axisKey,
 }: LinePlotAxisControlsProps): ReactElement => {
   const dispatch = LinePlot.useSingleDispatch();
-  const axis = LinePlot.useSelectAxis({ axisKey });
+  const axis = LinePlot.useAxis({ axisKey });
 
   const handleLabelChange: Input.Control<string>["onChange"] = (value) =>
     dispatch(lineplot.setAxisLabel({ key: axisKey, label: value }));

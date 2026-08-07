@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, Panel } from "@synnaxlabs/pluto";
+import { query, type Synnax as Client } from "@synnaxlabs/client";
+import { Errors, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Session } from "@/session";
@@ -18,19 +19,12 @@ export interface ErrorDiagnosticsProps extends Errors.FallbackProps {
 }
 
 // panelLine resolves panelKey's name for display. The panel backing a crashed tab may
-// not be cached, so a lookup failure falls back to the key alone rather than throwing
-// out of the crash fallback itself.
-const panelLine = (
-  getName: ReturnType<typeof Panel.useGetName>,
-  panelKey?: string,
-): string | null => {
+// not be cached, so a miss falls back to the key alone rather than throwing out of the
+// crash fallback itself.
+const panelLine = (client: Client | null, panelKey?: string): string | null => {
   if (panelKey == null) return null;
-  let name: string | undefined;
-  try {
-    name = getName({ key: panelKey });
-  } catch {
-    name = undefined;
-  }
+  const cached = client?.panels.getCached(panelKey);
+  const name = query.isLive(cached) ? cached.name : undefined;
   return `${name != null ? `"${name}" ` : ""}(${panelKey})`;
 };
 
@@ -44,8 +38,8 @@ export const ErrorDiagnostics = ({
   const cluster = Session.Cluster.useSelectState();
   const core =
     cluster != null ? `${cluster.name} (${cluster.host}:${cluster.port})` : "none";
-  const getName = Panel.useGetName();
-  const message = [error.message, `Core: ${core}`, panelLine(getName, panelKey)]
+  const client = Synnax.use();
+  const message = [error.message, `Core: ${core}`, panelLine(client, panelKey)]
     .filter((line): line is string => line != null)
     .join("\n");
   // Clone rather than mutate the caught error, preserving its name, stack, and cause.

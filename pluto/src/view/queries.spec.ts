@@ -160,7 +160,7 @@ describe("View queries", () => {
   });
   describe("useForm", () => {
     it("should create a new view", async () => {
-      const { result } = renderHook(() => View.useForm({ query: {} }), { wrapper });
+      const { result } = renderHook(() => View.useForm({ query: null }), { wrapper });
       act(() => {
         result.current.form.set("name", "new-view");
         result.current.form.set("type", "lineplot");

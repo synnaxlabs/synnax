@@ -35,7 +35,7 @@ const NotEditableContent = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const controlState = Session.Schematic.useSelectControlStatus();
   const { canEdit } = Session.Schematic.useSelectEditable();
-  const name = Schematic.useSelectName();
+  const name = Schematic.useName();
   return (
     <Empty.Action
       x
@@ -58,10 +58,10 @@ const Internal = (): ReactElement => {
   const key = Schematic.useKey();
   const dispatch = Session.useDispatch();
   const activeTab = Session.Schematic.useSelectActiveToolbarTab();
-  const name = Schematic.useSelectName();
+  const name = Schematic.useName();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
   const selected = Session.Schematic.useSelectSelected();
-  const singleSelectedConfig = Schematic.useSelectElementConfig({
+  const singleSelectedConfig = Schematic.useElementConfig({
     elKey: selected.length === 1 ? selected[0] : "",
   });
   const singleSelectedName =
@@ -136,7 +136,7 @@ const Internal = (): ReactElement => {
 };
 
 export const Toolbar = (): ReactElement => {
-  const { key } = PlutoPanel.useSelectTabResource();
+  const { key } = PlutoPanel.useTabResource();
   return (
     <Schematic.Suspended schematicKey={key}>
       <Internal />
