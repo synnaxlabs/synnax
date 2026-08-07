@@ -18,6 +18,7 @@ import { Symbol } from "@/schematic/node/general/stringDisplay/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { type Theming } from "@/theming";
+import { staleness } from "@/vis/staleness/aether";
 
 export * from "@/schematic/node/general/stringDisplay/config";
 
@@ -28,7 +29,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   level: "p",
   inlineSize: 100,
   label: Label.defaultConfig("String Display"),
-  stalenessTimeout: 5,
+  stalenessTimeout: staleness.DEFAULT_TIMEOUT,
   stalenessColor: t.colors.warning.m1,
   telem: telem.streamChannelStringValue({ channel: 0 }),
 });

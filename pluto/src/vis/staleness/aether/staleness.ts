@@ -19,14 +19,16 @@ const CONTEXT_KEY = "pluto-vis-staleness";
 /// second keeps that error small against timeouts measured in seconds.
 export const DEFAULT_SWEEP_INTERVAL = TimeSpan.milliseconds(250);
 
+/// Seconds without a sample before a source is considered stale.
+export const DEFAULT_TIMEOUT = 5;
+
 /// stateZ carries the staleness fields a source-backed component adds to its own state.
 /// Components that resolve the stale color on the worker add stalenessColor themselves;
 /// DOM-rendered ones read it from their config instead.
 export const stateZ = z.object({
   // stale reports that no sample has arrived within stalenessTimeout.
   stale: z.boolean().default(false),
-  // Seconds without a sample before the source is considered stale.
-  stalenessTimeout: z.number().default(5),
+  stalenessTimeout: z.number().default(DEFAULT_TIMEOUT),
 });
 
 export interface EntryProps {
@@ -45,7 +47,8 @@ export interface Registration {
 
 interface Entry {
   props: EntryProps;
-  lastReceived: number;
+  // Null until the first sample arrives.
+  lastReceived: number | null;
   stale: boolean;
 }
 
@@ -90,9 +93,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
 
   /** @returns a registration for a source. Cleanup releases it. */
   register(props: EntryProps): Registration {
-    // Registration counts as a sample, so a source that never sends turns stale one
-    // window later instead of reading live forever.
-    const entry: Entry = { props, lastReceived: performance.now(), stale: false };
+    const entry: Entry = { props, lastReceived: null, stale: false };
     this.entries.add(entry);
     this.start();
     return {
@@ -131,9 +132,12 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
 
   private sweep(): void {
     const now = performance.now();
-    this.entries.forEach((e) =>
-      this.setStale(e, now - e.lastReceived >= e.props.timeout() * 1000),
-    );
+    this.entries.forEach((e) => {
+      // A source that has never sent reads as empty, not stale. Staleness means data
+      // stopped, which cannot be true before any arrived.
+      if (e.lastReceived == null) return;
+      this.setStale(e, now - e.lastReceived >= e.props.timeout() * 1000);
+    });
   }
 
   private setStale(entry: Entry, stale: boolean): void {

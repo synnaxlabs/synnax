@@ -56,6 +56,8 @@ export const ZERO_TOGGLE_DEFAULTS: Partial<ToggleConfig> = {
   sink: ZERO_BOOLEAN_SINK,
   control: { show: true },
   onClickDelay: 0,
+  stalenessTimeout: staleness.DEFAULT_TIMEOUT,
+  stalenessColor: color.ZERO,
 };
 
 export const ZERO_DUMMY_TOGGLE_DEFAULTS: Partial<DummyToggleConfig> = {
@@ -115,6 +117,7 @@ export const createToggle = <C extends ToggleConfig>(
           onClick={toggle}
           onClickDelay={onClickDelay}
           orientation={orientation}
+          stale={stale}
           color={stale ? staleness.resolveColor(stalenessColor, theme) : symbolColor}
           {...rest}
         />

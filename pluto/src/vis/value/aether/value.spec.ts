@@ -296,12 +296,23 @@ describe("value/aether/Value", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it("should use the staleness color once the source goes quiet", () => {
+    it("should stay live before the source has ever sent", () => {
       const stale = color.construct("#ff0000");
       const { component, recorder } = setup({
-        value: "1",
         state: { stalenessTimeout: 1, stalenessColor: stale },
       });
+      vi.advanceTimersByTime(10000);
+      recorder.clear();
+      component.render({});
+      expect(fillStyles(recorder)).not.toContain(color.hex(stale));
+    });
+
+    it("should use the staleness color once the source goes quiet", () => {
+      const stale = color.construct("#ff0000");
+      const { component, source, recorder } = setup({
+        state: { stalenessTimeout: 1, stalenessColor: stale },
+      });
+      source.setValue("1");
       vi.advanceTimersByTime(1250);
       recorder.clear();
       component.render({});
@@ -309,10 +320,10 @@ describe("value/aether/Value", () => {
     });
 
     it("should fall back to the warning color when no staleness color is set", () => {
-      const { component, recorder } = setup({
-        value: "1",
+      const { component, source, recorder } = setup({
         state: { stalenessTimeout: 1 },
       });
+      source.setValue("1");
       vi.advanceTimersByTime(1250);
       recorder.clear();
       component.render({});
@@ -321,10 +332,10 @@ describe("value/aether/Value", () => {
 
     it("should repaint itself when the source goes quiet", () => {
       const stale = color.construct("#ff0000");
-      const { recorder } = setup({
-        value: "1",
+      const { source, recorder } = setup({
         state: { stalenessTimeout: 1, stalenessColor: stale },
       });
+      source.setValue("1");
       recorder.clear();
       // Nothing else asks the canvas to redraw once the source stops sending, so the
       // transition has to request the repaint itself.
@@ -350,9 +361,9 @@ describe("value/aether/Value", () => {
     it("should clear the staleness color when the source sends again", () => {
       const stale = color.construct("#ff0000");
       const { component, source, recorder } = setup({
-        value: "1",
         state: { stalenessTimeout: 1, stalenessColor: stale },
       });
+      source.setValue("1");
       vi.advanceTimersByTime(1250);
       source.setValue("2");
       recorder.clear();

@@ -19,6 +19,7 @@ import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { Text } from "@/text";
 import { type Theming } from "@/theming";
+import { staleness } from "@/vis/staleness/aether";
 import { Value as BaseValue } from "@/vis/value";
 
 export * from "@/schematic/node/general/value/config";
@@ -31,7 +32,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   level: "h5",
   inlineSize: 70,
   label: Label.defaultConfig("Value"),
-  stalenessTimeout: 5,
+  stalenessTimeout: staleness.DEFAULT_TIMEOUT,
   stalenessColor: t.colors.warning.m1,
   telem: telem.sourcePipeline("string", {
     connections: [

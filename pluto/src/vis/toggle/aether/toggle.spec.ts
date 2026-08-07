@@ -146,8 +146,15 @@ describe("toggle/aether/Toggle", () => {
       expect(h.state.stale).toBe(false);
     });
 
-    it("should turn stale when the source stops sending", () => {
+    it("should stay live before the source has ever sent", () => {
       const { h } = setup({ stalenessTimeout: 1 });
+      vi.advanceTimersByTime(10000);
+      expect(h.state.stale).toBe(false);
+    });
+
+    it("should turn stale when the source stops sending", () => {
+      const { h, source } = setup({ stalenessTimeout: 1 });
+      source.setValue(true);
       vi.advanceTimersByTime(1250);
       expect(h.state.stale).toBe(true);
     });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
@@ -17,17 +17,18 @@ import { Theming } from "@/theming";
 import { staleness } from "@/vis/staleness/aether";
 
 /// Fields edits the color a component takes on, and the delay before it does, once its
-/// source stops sending.
+/// source stops sending. Both fields carry a default so they still render on a symbol
+/// saved before it gained staleness config.
 export const Fields = (): ReactElement => {
   const theme = Theming.use();
   return (
     <Flex.Box x>
       <Form.Field<color.Crude>
-        hideIfNull
         label="Stale color"
         align="start"
         padHelpText={false}
         path="stalenessColor"
+        defaultValue={color.ZERO}
       >
         {({ value, onChange }) => (
           <Color.Swatch
@@ -41,6 +42,7 @@ export const Fields = (): ReactElement => {
         path="stalenessTimeout"
         label="Stale timeout"
         padHelpText={false}
+        defaultValue={staleness.DEFAULT_TIMEOUT}
         inputProps={{ bounds: { lower: 1, upper: Infinity }, endContent: "s" }}
       />
     </Flex.Box>

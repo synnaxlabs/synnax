@@ -112,16 +112,41 @@ describe("staleness", () => {
     return res;
   };
 
+  // Staleness only starts counting at the first sample, so specs about going stale need
+  // a live source to begin with.
+  const mountLive = (options?: SetupOptions) => {
+    const res = mount(options);
+    res.leaves.forEach((l) => l.received());
+    return res;
+  };
+
   describe("transitions", () => {
+    it("should stay live until the first sample arrives", () => {
+      const { leaf } = mount({ timeouts: [1] });
+      vi.advanceTimersByTime(10000);
+      expect(leaf.transitions).toEqual([]);
+      expect(leaf.state.stale).toBe(false);
+    });
+
+    it("should start the countdown at the first sample", () => {
+      const { leaf } = mount({ timeouts: [1] });
+      vi.advanceTimersByTime(10000);
+      leaf.received();
+      vi.advanceTimersByTime(750);
+      expect(leaf.transitions).toEqual([]);
+      vi.advanceTimersByTime(500);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
     it("should turn stale when no sample arrives within the timeout", () => {
-      const { leaf } = mount({ timeouts: [5] });
+      const { leaf } = mountLive({ timeouts: [5] });
       vi.advanceTimersByTime(5250);
       expect(leaf.transitions).toEqual([true]);
       expect(leaf.state.stale).toBe(true);
     });
 
     it("should stay live while samples keep arriving", () => {
-      const { leaf } = mount({ timeouts: [5] });
+      const { leaf } = mountLive({ timeouts: [5] });
       for (let i = 0; i < 10; i++) {
         vi.advanceTimersByTime(1000);
         leaf.received();
@@ -130,7 +155,7 @@ describe("staleness", () => {
     });
 
     it("should turn stale one window after the last sample", () => {
-      const { leaf } = mount({ timeouts: [5] });
+      const { leaf } = mountLive({ timeouts: [5] });
       vi.advanceTimersByTime(3000);
       leaf.received();
       vi.advanceTimersByTime(4750);
@@ -140,7 +165,7 @@ describe("staleness", () => {
     });
 
     it("should clear staleness when a sample arrives again", () => {
-      const { leaf } = mount({ timeouts: [5] });
+      const { leaf } = mountLive({ timeouts: [5] });
       vi.advanceTimersByTime(5250);
       leaf.received();
       expect(leaf.transitions).toEqual([true, false]);
@@ -148,7 +173,7 @@ describe("staleness", () => {
     });
 
     it("should report each transition once", () => {
-      const { leaf } = mount({ timeouts: [5] });
+      const { leaf } = mountLive({ timeouts: [5] });
       vi.advanceTimersByTime(10500);
       leaf.received();
       leaf.received();
@@ -156,7 +181,7 @@ describe("staleness", () => {
     });
 
     it("should turn a source live again when its timeout grows past the gap", () => {
-      const { leaf } = mount({ timeouts: [5] });
+      const { leaf } = mountLive({ timeouts: [5] });
       vi.advanceTimersByTime(5250);
       expect(leaf.transitions).toEqual([true]);
       leaf.setState((p) => ({ ...p, stalenessTimeout: 30 }));
@@ -165,7 +190,7 @@ describe("staleness", () => {
     });
 
     it("should track each source independently", () => {
-      const { leaves } = mount({ timeouts: [1, 10] });
+      const { leaves } = mountLive({ timeouts: [1, 10] });
       vi.advanceTimersByTime(1250);
       expect(leaves[0].transitions).toEqual([true]);
       expect(leaves[1].transitions).toEqual([]);
@@ -217,13 +242,13 @@ describe("staleness", () => {
 
   describe("sweep interval", () => {
     it("should default to a quarter second", () => {
-      const { leaf } = mount({ timeouts: [1] });
+      const { leaf } = mountLive({ timeouts: [1] });
       vi.advanceTimersByTime(1250);
       expect(leaf.transitions).toEqual([true]);
     });
 
     it("should read a bare number as milliseconds", () => {
-      const { leaf } = mount({ sweepInterval: 1000, timeouts: [1] });
+      const { leaf } = mountLive({ sweepInterval: 1000, timeouts: [1] });
       // A quarter second sweep would have reported by now.
       vi.advanceTimersByTime(999);
       expect(leaf.transitions).toEqual([]);
@@ -232,7 +257,7 @@ describe("staleness", () => {
     });
 
     it("should accept a TimeSpan", () => {
-      const { leaf } = mount({ sweepInterval: TimeSpan.seconds(1), timeouts: [1] });
+      const { leaf } = mountLive({ sweepInterval: TimeSpan.seconds(1), timeouts: [1] });
       vi.advanceTimersByTime(999);
       expect(leaf.transitions).toEqual([]);
       vi.advanceTimersByTime(1);
@@ -240,7 +265,7 @@ describe("staleness", () => {
     });
 
     it("should bound how late a transition is reported", () => {
-      const { leaf } = mount({
+      const { leaf } = mountLive({
         sweepInterval: TimeSpan.milliseconds(50),
         timeouts: [1],
       });
@@ -249,7 +274,7 @@ describe("staleness", () => {
     });
 
     it("should adopt a new interval without adding a timer", () => {
-      const { leaf, setSweepInterval } = mount({
+      const { leaf, setSweepInterval } = mountLive({
         sweepInterval: TimeSpan.seconds(10),
         timeouts: [1],
       });
@@ -260,7 +285,7 @@ describe("staleness", () => {
     });
 
     it("should keep sweeping on the old interval until it is changed", () => {
-      const { leaf, setSweepInterval } = mount({
+      const { leaf, setSweepInterval } = mountLive({
         sweepInterval: TimeSpan.seconds(10),
         timeouts: [1],
       });

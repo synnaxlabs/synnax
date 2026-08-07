@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type MouseEventHandler, type ReactElement } from "react";
+import "@/schematic/node/general/switch/switch.css";
 
+import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
+
+import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface Props extends Omit<Toggle.ButtonProps, "onClick"> {
   onClick?: MouseEventHandler<HTMLElement>;
@@ -22,9 +26,23 @@ export const Switch = ({
   enabled = false,
   onClick,
   orientation = "left",
-}: Props): ReactElement => (
-  <Primitive.Div orientation={orientation}>
-    <BaseInput.Switch value={enabled} onClick={onClick} onChange={() => {}} />
-    <Handle.Linear orientation={orientation} left={0} right={100} />
-  </Primitive.Div>
-);
+  color: colorVal,
+  stale = false,
+}: Props): ReactElement => {
+  const style: CSSProperties | undefined = stale
+    ? { [CSS.var("symbol-color")]: symbolColorVar(colorVal) }
+    : undefined;
+  return (
+    <Primitive.Div
+      orientation={orientation}
+      className={CSS(
+        stale && CSS.B("symbol-colored"),
+        stale && CSS.BM("switch-symbol", "stale"),
+      )}
+      style={style}
+    >
+      <BaseInput.Switch value={enabled} onClick={onClick} onChange={() => {}} />
+      <Handle.Linear orientation={orientation} left={0} right={100} />
+    </Primitive.Div>
+  );
+};
