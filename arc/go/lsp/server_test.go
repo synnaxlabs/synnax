@@ -569,6 +569,37 @@ var _ = Describe("External Change Notifications", func() {
 			wg.Wait()
 		},
 	)
+
+	Describe("Close", func() {
+		It(
+			"Should stop republishing diagnostics once the server is closed",
+			func(ctx SpecContext) {
+				OpenArcDocument(
+					server,
+					ctx,
+					docURI,
+					"func test() {\n\tx := my_channel\n}",
+				)
+				Expect(client.Diagnostics()).To(HaveLen(1))
+				Expect(server.Close()).To(Succeed())
+				resolver.Add(symbol.Symbol{
+					Name: "my_channel",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+				})
+				observer.Notify(ctx, struct{}{})
+				Consistently(
+					func() []protocol.Diagnostic { return client.Diagnostics() },
+					100*time.Millisecond,
+				).Should(HaveLen(1))
+			},
+		)
+
+		It("Should tolerate being closed more than once", func() {
+			Expect(server.Close()).To(Succeed())
+			Expect(server.Close()).To(Succeed())
+		})
+	})
 })
 
 var _ = Describe("Server Lifecycle", func() {

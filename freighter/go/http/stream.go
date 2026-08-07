@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/fasthttp/websocket"
@@ -63,8 +64,8 @@ const (
 func newStreamCore[RQ, RS freighter.Payload](
 	cfg streamCoreConfig,
 	serverShutdownSig <-chan struct{},
-) streamCore[RQ, RS] {
-	c := streamCore[RQ, RS]{
+) *streamCore[RQ, RS] {
+	c := &streamCore[RQ, RS]{
 		serverShutdownSig:  serverShutdownSig,
 		normalShutdownSig:  make(chan struct{}),
 		successfulShutdown: make(chan struct{}),
@@ -88,10 +89,22 @@ type streamCore[I, O freighter.Payload] struct {
 	serverShutdownSig  <-chan struct{}
 	normalShutdownSig  chan struct{}
 	successfulShutdown chan struct{}
+	// writeMu serializes send. The connection panics when two goroutines hold a message
+	// writer at once, and the stream's own close path sends alongside its caller. Close
+	// and control frames are already safe for concurrent use, and stay unguarded so a
+	// blocked send cannot stall shutdown.
+	writeMu sync.Mutex
+	// closeOnce guards close, which is called more than once on the client stream.
+	closeOnce sync.Once
+	// closeErr is the error close returned on its first call.
+	closeErr error
 	streamCoreConfig
 }
 
+// send writes msg to the connection. It is safe to call send concurrently.
 func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
 	if c.writeDeadline > 0 {
 		if err := c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline)); err != nil {
 			return err
@@ -146,10 +159,16 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 	return msg.Payload, c.peerCloseErr
 }
 
+// close shuts down the connection and returns the error it closed with. Every call
+// after the first returns that same error. Repeat calls are expected: the client stream
+// closes on each failed receive, and callers may keep receiving after the stream ends.
 func (c *streamCore[I, O]) close() error {
-	close(c.normalShutdownSig)
-	<-c.successfulShutdown
-	return c.conn.Close()
+	c.closeOnce.Do(func() {
+		close(c.normalShutdownSig)
+		<-c.successfulShutdown
+		c.closeErr = c.conn.Close()
+	})
+	return c.closeErr
 }
 
 // listenForContextCancellation is a goroutine that listens for the context to be

@@ -192,7 +192,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 	}
 }
 
-type serverStream[RQ, RS freighter.Payload] struct{ streamCore[RQ, RS] }
+type serverStream[RQ, RS freighter.Payload] struct{ *streamCore[RQ, RS] }
 
 // Send implements the freighter.ServerStream interface.
 func (s *serverStream[RQ, RS]) Send(res RS) error {

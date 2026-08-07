@@ -49,8 +49,8 @@ var ErrContentLengthExceeded = errors.New(
 // streamAdapter wraps a freighter stream to implement jsonrpc2.Stream. Each freighter
 // message carries one fully-encoded JSON-RPC envelope in Content. jsonrpc2 v1 requires
 // Write to be safe for concurrent use (unlike v0.10, which serialized writes in the
-// Conn), so writeMu serializes Send: the underlying freighter/websocket stream panics
-// on concurrent writes. Reads run on the Conn's single read goroutine.
+// Conn), so writeMu serializes Send: freighter does not promise that every transport
+// accepts concurrent senders. Reads run on the Conn's single read goroutine.
 type streamAdapter struct {
 	stream           freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
 	closed           atomic.Bool

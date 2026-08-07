@@ -217,11 +217,15 @@ type LSPMessage = arctransport.JSONRPCMessage
 func (s *Service) LSP(
 	ctx context.Context,
 	stream freighter.ServerStream[LSPMessage, LSPMessage],
-) error {
+) (err error) {
 	lsp, err := s.internal.NewLSP()
 	if err != nil {
 		return err
 	}
+	// The server is per-connection, and clients often disconnect without sending a
+	// shutdown request. Close it while the stream is still open so no notification is
+	// left in flight.
+	defer func() { err = errors.Combine(err, lsp.Close()) }()
 	return arctransport.ServeFreighter(ctx, arctransport.Config{
 		Server: lsp,
 		Stream: stream,

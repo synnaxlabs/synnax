@@ -142,7 +142,7 @@ func ctxToHeaders(ctx freighter.Context) http.Header {
 }
 
 type clientStream[RQ, RS freighter.Payload] struct {
-	streamCore[RS, RQ]
+	*streamCore[RS, RQ]
 	sendClosed bool
 }
 

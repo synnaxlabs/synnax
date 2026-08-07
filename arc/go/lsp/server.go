@@ -133,6 +133,8 @@ type Server struct {
 	cancelRepublish          context.CancelFunc
 	externalChangeDisconnect observe.Disconnect
 	republishWG              sync.WaitGroup
+	// closeOnce guards Close, which both the shutdown request and the transport call.
+	closeOnce sync.Once
 }
 
 var _ protocol.Server = (*Server)(nil)
@@ -265,24 +267,35 @@ func (s *Server) Symbols(
 // Shutdown handles the shutdown request.
 func (s *Server) Shutdown(context.Context) error {
 	s.cfg.L.Info("Shutting down server")
-	if s.externalChangeDisconnect != nil {
-		s.externalChangeDisconnect()
-	}
-	s.republishMu.Lock()
-	if s.cancelRepublish != nil {
-		s.cancelRepublish()
-	}
-	s.republishMu.Unlock()
-	s.republishWG.Wait()
-	s.mu.RLock()
-	docs := make([]*Document, 0, len(s.documents))
-	for _, doc := range s.documents {
-		docs = append(docs, doc)
-	}
-	s.mu.RUnlock()
-	for _, doc := range docs {
-		doc.debouncer.Stop()
-	}
+	return s.Close()
+}
+
+// Close stops listening for external changes, waits for in-flight diagnostic
+// republishes, and stops every document debouncer. The caller must call Close even when
+// the client never sends a shutdown request: the external change subscription otherwise
+// outlives the connection and republishes diagnostics forever. Close blocks until no
+// republish is writing to the client, and is safe to call more than once.
+func (s *Server) Close() error {
+	s.closeOnce.Do(func() {
+		if s.externalChangeDisconnect != nil {
+			s.externalChangeDisconnect()
+		}
+		s.republishMu.Lock()
+		if s.cancelRepublish != nil {
+			s.cancelRepublish()
+		}
+		s.republishMu.Unlock()
+		s.republishWG.Wait()
+		s.mu.RLock()
+		docs := make([]*Document, 0, len(s.documents))
+		for _, doc := range s.documents {
+			docs = append(docs, doc)
+		}
+		s.mu.RUnlock()
+		for _, doc := range docs {
+			doc.debouncer.Stop()
+		}
+	})
 	return nil
 }
 

@@ -12,12 +12,14 @@ package http_test
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	ws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/test"
@@ -115,6 +117,87 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				res := MustSucceed(http.Get("http://" + addr.String() + "/"))
 				DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
 				Expect(res.StatusCode).To(Equal(http.StatusUpgradeRequired))
+			},
+		)
+	})
+
+	// Serves its own app: an earlier spec installs middleware on the shared server that
+	// rejects every stream.
+	Describe("Concurrent Sends", func() {
+		const senders = 20
+		var (
+			ownServer freighter.StreamServer[test.Request, test.Response]
+			ownClient freighter.StreamClient[test.Request, test.Response]
+			ownAddr   address.Address
+		)
+
+		BeforeEach(func() {
+			router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+				StreamWriteDeadline: test.WriteDeadline,
+			}))
+			ownServer = fhttp.NewStreamServer[test.Request, test.Response](router, "/")
+			ownClient = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
+				fhttp.StreamClientConfig{Codec: json.Codec},
+			))
+			var ownApp *fiber.App
+			ownApp, ownAddr = serveRouter(router)
+			DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
+		})
+
+		It(
+			"should deliver every message when the handler sends from multiple goroutines",
+			func(ctx SpecContext) {
+				ownServer.BindHandler(func(
+					_ context.Context,
+					stream freighter.ServerStream[test.Request, test.Response],
+				) error {
+					var wg sync.WaitGroup
+					for i := range senders {
+						wg.Go(func() {
+							defer GinkgoRecover()
+							Expect(stream.Send(test.Response{ID: i})).To(Succeed())
+						})
+					}
+					wg.Wait()
+					return nil
+				})
+				stream := MustSucceed(ownClient.Stream(ctx, ownAddr))
+				Expect(stream.CloseSend()).To(Succeed())
+				ids := make([]int, senders)
+				for i := range senders {
+					ids[i] = MustSucceed(stream.Receive()).ID
+				}
+				Expect(ids).To(ConsistOf(lo.Range(senders)))
+				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
+			},
+		)
+
+		It(
+			"should error instead of panicking when a goroutine sends as the handler returns",
+			func(ctx SpecContext) {
+				sending := make(chan struct{})
+				ownServer.BindHandler(func(
+					_ context.Context,
+					stream freighter.ServerStream[test.Request, test.Response],
+				) error {
+					go func() {
+						defer GinkgoRecover()
+						defer close(sending)
+						for stream.Send(test.Response{ID: 1}) == nil {
+						}
+					}()
+					return nil
+				})
+				stream := MustSucceed(ownClient.Stream(ctx, ownAddr))
+				Expect(stream.CloseSend()).To(Succeed())
+				Eventually(func() error {
+					_, err := stream.Receive()
+					return err
+				}).Should(SatisfyAny(
+					MatchError(freighter.EOF),
+					MatchError(freighter.ErrStreamClosed),
+				))
+				Eventually(sending).Should(BeClosed())
 			},
 		)
 	})
