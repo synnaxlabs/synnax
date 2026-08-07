@@ -180,6 +180,24 @@ func operatorHint(op string, t basetypes.Type) string {
 	return ": " + op + " takes " + wants + " operands." + operatorSuggestion(op, t)
 }
 
+// isUntypedConstant reports whether t is a numeric literal constant that has not
+// resolved to a concrete type yet.
+func isUntypedConstant(t basetypes.Type) bool {
+	u := t.Unwrap()
+	if u.Kind == basetypes.KindVariable {
+		if u.Constraint == nil {
+			return false
+		}
+		u = *u.Constraint
+	}
+	switch u.Kind {
+	case basetypes.KindNumericConstant, basetypes.KindIntegerConstant,
+		basetypes.KindFloatConstant, basetypes.KindExactIntegerFloatConstant:
+		return true
+	}
+	return false
+}
+
 func getBitwiseXorOperator(ctx antlr.ParserRuleContext) string {
 	if xorCtx, ok := ctx.(parser.IBitwiseXorExpressionContext); ok {
 		if len(xorCtx.AllXOR()) > 0 {
@@ -523,6 +541,17 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 			}
 		} else if ctx.AST.TILDE() != nil {
 			if !operandType.UnwrapChan().IsInteger() {
+				if isUntypedConstant(operandType) {
+					ctx.Diagnostics.Add(
+						diagnostics.Errorf(
+							ctx.AST,
+							"operator ~ requires a typed integer operand, "+
+								"received an untyped constant; cast it first, "+
+								"e.g. ~i64(1)",
+						),
+					)
+					return
+				}
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,

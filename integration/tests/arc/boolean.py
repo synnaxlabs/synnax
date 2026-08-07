@@ -119,6 +119,7 @@ bool_i64_flow_trigger -> stage {
     bool_i64_flow_trigger ^ bool_xor_sym_zero_b -> bool_xor_sym_zero_out
     bool_i64_flow_trigger ^ bool_xor_sym_self_b -> bool_xor_sym_self_out
     bool_i64_flow_trigger ^ bool_xor_neg_b -> bool_xor_neg_out
+    ~bool_i64_flow_trigger -> bool_tilde_out
 }
 
 // ─────────────────────── bitwise operators (i32) ────────────────────
@@ -431,24 +432,23 @@ class Boolean(ArcCase):
             self.log(f"[{c.label}] Expecting {_ch(c, 'out')} == {c.expected}")
             self.wait_for_eq(_ch(c, "out"), c.expected)
 
-    def _drive_flow(self, s: Section, skip: str | None = None) -> None:
+    def _drive_flow(self, s: Section) -> None:
         trigger = _flow_trigger(s)
-        cases = [c for c in s.cases if c.label != skip]
         # The func pass left every out at its expected value; a stale sample must
         # not satisfy the flow asserts. Knock each out off its expected value so
         # only a fresh flow write can pass.
-        for c in cases:
+        for c in s.cases:
             out_type = c.out_type or s.a_type
             sentinel = 1 - c.expected if out_type == BOOL else c.expected + 1
             self.writer.write(_ch(c, "out"), sentinel)
         self.log(f"Writing a={s.a_val} to {trigger}")
         self.writer.write(trigger, s.a_val)
-        for c in cases:
+        for c in s.cases:
             if c.b_val is not None:
                 self.log(f"[{c.label}] Writing b={c.b_val} to {_ch(c, 'b')}")
                 self.writer.write(_ch(c, "b"), c.b_val)
         self.writer.write(trigger, s.a_val)
-        for c in cases:
+        for c in s.cases:
             self.log(f"[{c.label}] Expecting {_ch(c, 'out')} == {c.expected}")
             self.wait_for_eq(_ch(c, "out"), c.expected)
 
@@ -471,7 +471,7 @@ class Boolean(ArcCase):
 
         self.log("=== bitwise operators (i64) ===")
         self._drive_func(BITWISE_I64)
-        self._drive_flow(BITWISE_I64, skip="tilde")
+        self._drive_flow(BITWISE_I64)
 
         self.log("=== bitwise operators (i32) ===")
         self._drive_func(BITWISE_I32)

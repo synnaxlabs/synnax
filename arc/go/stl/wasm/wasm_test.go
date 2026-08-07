@@ -58,6 +58,8 @@ var _ = Describe("ConvertLiteralValue", func() {
 		Entry("float64", float64(2.5), math.Float64bits(2.5)),
 		Entry("telem.TimeStamp", telem.TimeStamp(9), uint64(9)),
 		Entry("telem.TimeSpan", telem.TimeSpan(10), uint64(10)),
+		Entry("bool true", true, uint64(1)),
+		Entry("bool false", false, uint64(0)),
 	)
 
 	DescribeTable("unsupported types return an error instead of panicking",
@@ -65,7 +67,7 @@ var _ = Describe("ConvertLiteralValue", func() {
 			_, err := wasm.ConvertLiteralValue(v)
 			Expect(err).To(HaveOccurred())
 		},
-		Entry("bool", true),
+		Entry("string", "x"),
 	)
 })
 

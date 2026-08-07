@@ -365,7 +365,7 @@ var _ = Describe("Expressions", func() {
 					y bool := false
 					z := x xor y
 				}
-			`, "bool", "^"),
+			`, "bool", "xor"),
 			Entry("XOR on f64", `
 				func testFunc() {
 					x f64 := 1.0
@@ -770,6 +770,16 @@ var _ = Describe("Expressions", func() {
 					y := ~x
 				}
 			`, "operator ~ requires integer operand"),
+			Entry("bitwise not on untyped integer constant", `
+				func testFunc() {
+					y := ~1
+				}
+			`, "received an untyped constant; cast it first"),
+			Entry("bitwise not on untyped float constant", `
+				func testFunc() {
+					y := ~1.5
+				}
+			`, "received an untyped constant; cast it first"),
 		)
 	})
 
@@ -1492,7 +1502,7 @@ var _ = Describe("Expressions", func() {
 		)
 
 		DescribeTable("counterpart operator suggestions",
-			func(ctx SpecContext, code string, expectedMsg string) {
+			func(ctx SpecContext, code, expectedMsg string) {
 				expectFailure(ctx, code, nil, expectedMsg)
 			},
 			Entry("integer in and", `
