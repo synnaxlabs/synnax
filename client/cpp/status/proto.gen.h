@@ -91,8 +91,6 @@ Status<Details>::to_proto() const {
             x::json::json j;
             if constexpr (std::is_same_v<Details, std::monostate>)
                 j = x::json::json(nullptr);
-            else if constexpr (std::is_same_v<Details, x::json::json>)
-                j = this->details;
             else
                 j = this->details.to_json();
             auto [v, err] = x::json::to_any(j);
@@ -137,8 +135,6 @@ Status<Details>::from_proto(const ::service::status::pb::Status &pb) {
             if (err) return {{}, err};
             if constexpr (std::is_same_v<Details, std::monostate>)
                 cpp.details = std::monostate{};
-            else if constexpr (std::is_same_v<Details, x::json::json>)
-                cpp.details = val;
             else
                 cpp.details = Details::parse(x::json::Parser(val));
         }

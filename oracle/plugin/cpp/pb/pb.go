@@ -652,23 +652,22 @@ func (p *Plugin) generatePrimitiveConversion(
 	case "record":
 		data.includes.addInternal("x/cpp/json/struct.h")
 		if isOptional {
-			forward = fmt.Sprintf(
-				"if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_struct(*this->%s).first",
-				cppFieldName,
-				pbAccessorName,
-				cppFieldName,
-			)
+			forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto [v, err] = x::json::to_struct(*this->%s);
+        if (err) return {{}, err};
+        *pb.mutable_%s() = v;
+    }`, cppFieldName, cppFieldName, pbAccessorName)
 			backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = x::json::from_struct(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;
     }`, pbAccessorName, pbAccessorName, cppFieldName)
 		} else {
-			forward = fmt.Sprintf(
-				"*pb.mutable_%s() = x::json::to_struct(this->%s).first",
-				pbAccessorName,
-				cppFieldName,
-			)
+			forward = fmt.Sprintf(`{
+        auto [v, err] = x::json::to_struct(this->%s);
+        if (err) return {{}, err};
+        *pb.mutable_%s() = v;
+    }`, cppFieldName, pbAccessorName)
 			backward = fmt.Sprintf(`{
         auto [v, err] = x::json::from_struct(pb.%s());
         if (err) return {{}, err};
@@ -846,47 +845,39 @@ func (p *Plugin) generateTypeParamConversion(
         x::json::json j;
         if constexpr (std::is_same_v<%s, std::monostate>)
             j = x::json::json(nullptr);
-        else if constexpr (std::is_same_v<%s, x::json::json>)
-            j = *this->%s;
         else
             j = this->%s->to_json();
         auto [v, err] = x::json::to_any(j);
         if (err) return {{}, err};
         *pb.mutable_%s() = v;
-    }`, cppFieldName, typeParamName, typeParamName, cppFieldName, cppFieldName, pbAccessorName)
+    }`, cppFieldName, typeParamName, cppFieldName, pbAccessorName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [val, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
         if constexpr (std::is_same_v<%s, std::monostate>)
             cpp.%s = std::monostate{};
-        else if constexpr (std::is_same_v<%s, x::json::json>)
-            cpp.%s = val;
         else
             cpp.%s = %s::parse(x::json::Parser(val));
-    }`, pbAccessorName, pbAccessorName, typeParamName, cppFieldName, typeParamName, cppFieldName, cppFieldName, typeParamName)
+    }`, pbAccessorName, pbAccessorName, typeParamName, cppFieldName, cppFieldName, typeParamName)
 	} else {
 		forward = fmt.Sprintf(`{
         x::json::json j;
         if constexpr (std::is_same_v<%s, std::monostate>)
             j = x::json::json(nullptr);
-        else if constexpr (std::is_same_v<%s, x::json::json>)
-            j = this->%s;
         else
             j = this->%s.to_json();
         auto [v, err] = x::json::to_any(j);
         if (err) return {{}, err};
         *pb.mutable_%s() = v;
-    }`, typeParamName, typeParamName, cppFieldName, cppFieldName, pbAccessorName)
+    }`, typeParamName, cppFieldName, pbAccessorName)
 		backward = fmt.Sprintf(`{
         auto [val, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
         if constexpr (std::is_same_v<%s, std::monostate>)
             cpp.%s = std::monostate{};
-        else if constexpr (std::is_same_v<%s, x::json::json>)
-            cpp.%s = val;
         else
             cpp.%s = %s::parse(x::json::Parser(val));
-    }`, pbAccessorName, typeParamName, cppFieldName, typeParamName, cppFieldName, cppFieldName, typeParamName)
+    }`, pbAccessorName, typeParamName, cppFieldName, cppFieldName, typeParamName)
 	}
 	return forward, backward
 }
