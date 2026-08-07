@@ -57,7 +57,7 @@ func isNegatedLiteral(node antlr.ParserRuleContext) bool {
 		pows := ctx.AllPowerExpression()
 		return len(pows) == 1 && isNegatedLiteral(pows[0])
 	case IPowerExpressionContext:
-		return ctx.CARET() == nil && isNegatedLiteral(ctx.UnaryExpression())
+		return ctx.STARSTAR() == nil && isNegatedLiteral(ctx.UnaryExpression())
 	case IUnaryExpressionContext:
 		return ctx.MINUS() != nil && ctx.UnaryExpression() != nil &&
 			isLiteral(ctx.UnaryExpression())
@@ -95,7 +95,7 @@ func isLiteral(node antlr.ParserRuleContext) bool {
 		pows := ctx.AllPowerExpression()
 		return len(pows) == 1 && isLiteral(pows[0])
 	case IPowerExpressionContext:
-		return ctx.CARET() == nil && isLiteral(ctx.UnaryExpression())
+		return ctx.STARSTAR() == nil && isLiteral(ctx.UnaryExpression())
 	case IUnaryExpressionContext:
 		if ctx.MINUS() != nil && ctx.UnaryExpression() != nil {
 			return isLiteral(ctx.UnaryExpression())
@@ -164,7 +164,7 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 			return GetLiteralNode(pows[0])
 		}
 	case IPowerExpressionContext:
-		if ctx.CARET() == nil {
+		if ctx.STARSTAR() == nil {
 			return GetLiteralNode(ctx.UnaryExpression())
 		}
 	case IUnaryExpressionContext:
@@ -234,7 +234,7 @@ func isNumericLiteral(node antlr.ParserRuleContext) bool {
 		pows := ctx.AllPowerExpression()
 		return len(pows) == 1 && isNumericLiteral(pows[0])
 	case IPowerExpressionContext:
-		return ctx.CARET() == nil && isNumericLiteral(ctx.UnaryExpression())
+		return ctx.STARSTAR() == nil && isNumericLiteral(ctx.UnaryExpression())
 	case IUnaryExpressionContext:
 		if ctx.MINUS() != nil {
 			return isNumericLiteral(ctx.UnaryExpression())
@@ -318,7 +318,7 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 		return nil
 	}
 	pow := mult.AllPowerExpression()[0]
-	if pow.CARET() != nil {
+	if pow.STARSTAR() != nil {
 		return nil
 	}
 	unary := pow.UnaryExpression()

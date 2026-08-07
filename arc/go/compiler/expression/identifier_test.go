@@ -808,12 +808,12 @@ var _ = Describe("Identifier Compilation", func() {
 		)
 
 		It(
-			"Should compile ^ operator with type variable resolution",
+			"Should compile ** operator with type variable resolution",
 			func(ctx SpecContext) {
 				channels := []symbol.Symbol{
 					{Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0},
 				}
-				_, exprType := compileWithAnalyzer(ctx, "x ^ 2.0", channels)
+				_, exprType := compileWithAnalyzer(ctx, "x ** 2.0", channels)
 				Expect(exprType).To(Equal(types.F64()))
 			},
 		)

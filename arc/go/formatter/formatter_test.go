@@ -49,9 +49,9 @@ var _ = Describe("Formatter", func() {
 			"x += 1\ny -= 2\nz *= 3\na /= 4\nb %= 5",
 			"x += 1\ny -= 2\nz *= 3\na /= 4\nb %= 5\n",
 		),
-		Entry("power operator", "x := 2 ^ 3", "x := 2 ^ 3\n"),
-		Entry("chained power", "x := a ^ b ^ c", "x := a ^ b ^ c\n"),
-		Entry("power with multiply", "x := 2 ^ 3 * 4", "x := 2 ^ 3 * 4\n"),
+		Entry("power operator", "x := 2 ** 3", "x := 2 ** 3\n"),
+		Entry("chained power", "x := a ** b ** c", "x := a ** b ** c\n"),
+		Entry("power with multiply", "x := 2 ** 3 * 4", "x := 2 ** 3 * 4\n"),
 	)
 
 	DescribeTable(
@@ -277,11 +277,11 @@ var _ = Describe("Formatter", func() {
 			"func add(x i32, y i32) i32 {\n    return x + y\n}\n",
 		),
 		Entry("messy input", "func   add(x i32,y i32)i32{return   x+y}"),
-		Entry("complex expressions", "x := (a + b) * (c - d) / (e % f) ^ g"),
+		Entry("complex expressions", "x := (a + b) * (c - d) / (e % f) ** g"),
 		Entry("deeply nested structures", "func a(){if x>0{if y>0{if z>0{return 1}}}}"),
 		Entry(
 			"all operator combinations",
-			"x := a + b - c * d / e % f ^ g == h != i < j > k <= l >= m and n or o",
+			"x := a + b - c * d / e % f ** g == h != i < j > k <= l >= m and n or o",
 		),
 		Entry(
 			"mixed comments and code",
@@ -320,7 +320,7 @@ var _ = Describe("Formatter", func() {
 			"if a > 0 {\n    if b > 0 {\n        return 1\n    } else {\n        return 2\n    }\n} else {\n    return 0\n}",
 		),
 		Entry("global constants before func", "A := 1\nB := 2\nfunc foo() {}"),
-		Entry("power operator chained", "x := a ^ b ^ c"),
+		Entry("power operator chained", "x := a ** b ** c"),
 		Entry("long flow chain", "a -> b -> c -> d -> e -> f -> g"),
 		Entry("input with 3 params",
 			"func threshold{max f64, min f64, step i32}(value f64) f64 {return value}"),

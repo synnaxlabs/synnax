@@ -757,7 +757,7 @@ var _ = Describe("Literal Parser", func() {
 			Entry("function call", "foo()", types.I64(), "not a compile-time constant"),
 			Entry(
 				"power expression",
-				"2 ^ 3",
+				"2 ** 3",
 				types.I64(),
 				"not a compile-time constant",
 			),

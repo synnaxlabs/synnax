@@ -32,7 +32,7 @@ var (
 //   - Addition/Subtraction/Modulo/Comparison (+, -, %, ==, !=, <, >, <=, >=):
 //     Dimensions must match (or one operand must be dimensionless).
 //
-// Note: Power operations (^) are handled separately by ValidatePowerOp.
+// Note: Power operations (**) are handled separately by ValidatePowerOp.
 func ValidateBinaryOp[AST antlr.ParserRuleContext](
 	ctx context.Context[AST],
 	op string,

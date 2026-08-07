@@ -185,7 +185,7 @@
       "patterns": [
         {
           "name": "keyword.operator.arithmetic.arc",
-          "match": "[+\\-*/%]|\\*\\*|\\^"
+          "match": "\\*\\*|[+\\-*/%]|\\^"
         },
         {
           "name": "keyword.operator.comparison.arc",

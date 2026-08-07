@@ -169,7 +169,7 @@ var _ = Describe("AST Utilities", func() {
 			Entry("symbolic logical or", "a || b"),
 			Entry("bitwise or", "a | b"),
 			Entry("unary minus", "-1"),
-			Entry("power", "2 ^ 3"),
+			Entry("power", "2 ** 3"),
 		)
 	})
 

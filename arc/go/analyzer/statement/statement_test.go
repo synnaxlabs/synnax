@@ -1375,7 +1375,7 @@ var _ = Describe("Statement", func() {
 				Entry("additive expressions", `{ x := [1 + 2, 3 + 4] }`),
 				Entry("multiplicative expressions", `{ x := [2 * 3, 4 * 5] }`),
 				Entry("mixed operators", `{ x := [1 + 2, 3 * 4, 10 - 5] }`),
-				Entry("nested parentheses", `{ x := [(1 + 2) * 3, 4 ^ 2] }`),
+				Entry("nested parentheses", `{ x := [(1 + 2) * 3, 4 ** 2] }`),
 				Entry("division", `{ x := [10 / 2, 20 / 4] }`),
 				Entry("modulo", `{ x := [10 % 3, 20 % 7] }`),
 			)
@@ -1963,7 +1963,7 @@ var _ = Describe("Statement", func() {
 				Entry("additive expressions", `{ x := [1 + 2, 3 + 4] }`),
 				Entry("multiplicative expressions", `{ x := [2 * 3, 4 * 5] }`),
 				Entry("mixed operators", `{ x := [1 + 2, 3 * 4, 10 - 5] }`),
-				Entry("nested parentheses", `{ x := [(1 + 2) * 3, 4 ^ 2] }`),
+				Entry("nested parentheses", `{ x := [(1 + 2) * 3, 4 ** 2] }`),
 				Entry("division", `{ x := [10 / 2, 20 / 4] }`),
 				Entry("modulo", `{ x := [10 % 3, 20 % 7] }`),
 			)

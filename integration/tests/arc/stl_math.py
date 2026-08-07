@@ -17,37 +17,37 @@ ARC_STL_MATH_SOURCE = """
 import math
 // ─────────────────────── pow operator (const, const) ────────────────
 func pow_cc_f64() f64 {
-    return 3.0 ^ 2.0
+    return 3.0 ** 2.0
 }
 func pow_cc_int() f64 {
-    return 5 ^ 2
+    return 5 ** 2
 }
 pow_cc_trigger -> pow_cc_f64{} -> pow_cc_f64_out
 pow_cc_trigger -> pow_cc_int{} -> pow_cc_int_out
 // ─────────────────────── pow operator (chan, const) ─────────────────
 func pow_xc_f64(base f64) f64 {
-    return base ^ 2.0
+    return base ** 2.0
 }
 func pow_xc_i64(base i64) i64 {
-    return base ^ 2
+    return base ** 2
 }
 pow_xc_f64_in -> pow_xc_f64{} -> pow_xc_f64_out
 pow_xc_i64_in -> pow_xc_i64{} -> pow_xc_i64_out
 // ─────────────────────── pow operator (const, chan) ─────────────────
 func pow_cx_f64(exp f64) f64 {
-    return 2.0 ^ exp
+    return 2.0 ** exp
 }
 func pow_cx_i64(exp i64) i64 {
-    return 2 ^ exp
+    return 2 ** exp
 }
 pow_cx_f64_in -> pow_cx_f64{} -> pow_cx_f64_out
 pow_cx_i64_in -> pow_cx_i64{} -> pow_cx_i64_out
 // ─────────────────────── pow operator (chan, chan) ──────────────────
 func pow_xx_f64(base f64) {
-    pow_xx_f64_out = base ^ pow_xx_f64_exp
+    pow_xx_f64_out = base ** pow_xx_f64_exp
 }
 func pow_xx_i64(base i64) {
-    pow_xx_i64_out = base ^ pow_xx_i64_exp
+    pow_xx_i64_out = base ** pow_xx_i64_exp
 }
 pow_xx_f64_in -> pow_xx_f64{}
 pow_xx_i64_in -> pow_xx_i64{}

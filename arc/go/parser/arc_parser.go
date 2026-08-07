@@ -37,7 +37,7 @@ func arcparserParserInit() {
 		"'i8'", "'i16'", "'i32'", "'i64'", "'u8'", "'u16'", "'u32'", "'u64'",
 		"'f32'", "'f64'", "'str'", "'bool'", "'series'", "'true'", "'false'",
 		"'->'", "':='", "'$='", "'=>'", "'='", "'+='", "'-='", "'*='", "'/='",
-		"'%='", "'+'", "'-'", "'*'", "'/'", "'%'", "'^'", "'=='", "'!='", "'<'",
+		"'%='", "'+'", "'-'", "'*'", "'/'", "'%'", "'**'", "'=='", "'!='", "'<'",
 		"'>'", "'<='", "'>='", "'and'", "'or'", "'not'", "'&&'", "'||'", "'!'",
 		"'&'", "'|'", "'~'", "'('", "')'", "'{'", "'}'", "'['", "']'", "','",
 		"':'", "'.'",
@@ -48,7 +48,7 @@ func arcparserParserInit() {
 		"I32", "I64", "U8", "U16", "U32", "U64", "F32", "F64", "STR", "BOOL",
 		"SERIES", "TRUE", "FALSE", "ARROW", "DECLARE", "STATE_DECLARE", "TRANSITION",
 		"ASSIGN", "PLUS_ASSIGN", "MINUS_ASSIGN", "STAR_ASSIGN", "SLASH_ASSIGN",
-		"PERCENT_ASSIGN", "PLUS", "MINUS", "STAR", "SLASH", "PERCENT", "CARET",
+		"PERCENT_ASSIGN", "PLUS", "MINUS", "STAR", "SLASH", "PERCENT", "STARSTAR",
 		"EQ", "NEQ", "LT", "GT", "LEQ", "GEQ", "AND", "OR", "NOT", "AMPAMP",
 		"PIPEPIPE", "BANG", "AMP", "PIPE", "TILDE", "LPAREN", "RPAREN", "LBRACE",
 		"RBRACE", "LBRACKET", "RBRACKET", "COMMA", "COLON", "DOT", "INTEGER_LITERAL",
@@ -527,7 +527,7 @@ const (
 	ArcParserSTAR                = 42
 	ArcParserSLASH               = 43
 	ArcParserPERCENT             = 44
-	ArcParserCARET               = 45
+	ArcParserSTARSTAR            = 45
 	ArcParserEQ                  = 46
 	ArcParserNEQ                 = 47
 	ArcParserLT                  = 48
@@ -13630,7 +13630,7 @@ type IPowerExpressionContext interface {
 
 	// Getter signatures
 	UnaryExpression() IUnaryExpressionContext
-	CARET() antlr.TerminalNode
+	STARSTAR() antlr.TerminalNode
 	PowerExpression() IPowerExpressionContext
 
 	// IsPowerExpressionContext differentiates from other interfaces.
@@ -13685,8 +13685,8 @@ func (s *PowerExpressionContext) UnaryExpression() IUnaryExpressionContext {
 	return t.(IUnaryExpressionContext)
 }
 
-func (s *PowerExpressionContext) CARET() antlr.TerminalNode {
-	return s.GetToken(ArcParserCARET, 0)
+func (s *PowerExpressionContext) STARSTAR() antlr.TerminalNode {
+	return s.GetToken(ArcParserSTARSTAR, 0)
 }
 
 func (s *PowerExpressionContext) PowerExpression() IPowerExpressionContext {
@@ -13752,10 +13752,10 @@ func (p *ArcParser) PowerExpression() (localctx IPowerExpressionContext) {
 	}
 	_la = p.GetTokenStream().LA(1)
 
-	if _la == ArcParserCARET {
+	if _la == ArcParserSTARSTAR {
 		{
 			p.SetState(712)
-			p.Match(ArcParserCARET)
+			p.Match(ArcParserSTARSTAR)
 			if p.HasError() {
 				// Recognition error - abort rule
 				goto errorExit

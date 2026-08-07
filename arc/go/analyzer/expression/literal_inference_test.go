@@ -141,7 +141,7 @@ var _ = Describe("Literal Type Inference", func() {
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
 				func cat() f64 {
-					return sensor ^ 2
+					return sensor ** 2
 				}
 			`, testExtras)
 			},
@@ -320,7 +320,7 @@ var _ = Describe("Literal Type Inference", func() {
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
 				func test() f32 {
-					return f32_sensor ^ 2
+					return f32_sensor ** 2
 				}
 			`, testExtras)
 			},
@@ -331,7 +331,7 @@ var _ = Describe("Literal Type Inference", func() {
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
 				func test() f64 {
-					return f64_sensor ^ 3
+					return f64_sensor ** 3
 				}
 			`, testExtras)
 			},
@@ -342,7 +342,7 @@ var _ = Describe("Literal Type Inference", func() {
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
 				func test() i32 {
-					return i32_sensor ^ 2
+					return i32_sensor ** 2
 				}
 			`, testExtras)
 			},
@@ -353,7 +353,7 @@ var _ = Describe("Literal Type Inference", func() {
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
 				func test() f64 {
-					return f64_sensor ^ 2.5
+					return f64_sensor ** 2.5
 				}
 			`, testExtras)
 			},
@@ -364,7 +364,7 @@ var _ = Describe("Literal Type Inference", func() {
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
 				func test() f32 {
-					return f32_sensor ^ 2 ^ 3
+					return f32_sensor ** 2 ** 3
 				}
 			`, testExtras)
 			},
@@ -375,7 +375,7 @@ var _ = Describe("Literal Type Inference", func() {
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
 				func test() f32 {
-					return 2 * f32_sensor ^ 2 + 3
+					return 2 * f32_sensor ** 2 + 3
 				}
 			`, testExtras)
 			},

@@ -411,9 +411,9 @@ multiplicativeExpression
     : powerExpression ((STAR | SLASH | PERCENT) powerExpression)*
     ;
 
-// ^ is right-associative and binds tighter than unary
+// ** is right-associative and binds tighter than unary
 powerExpression
-    : unaryExpression (CARET powerExpression)?
+    : unaryExpression (STARSTAR powerExpression)?
     ;
 
 unaryExpression

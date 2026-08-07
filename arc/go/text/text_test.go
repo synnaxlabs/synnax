@@ -7967,7 +7967,7 @@ time.wait{duration=500ms} -> output`
 				// (a flow node receives a single upstream value). Callers that invoke
 				// the exported function directly (e.g. the C++ runtime test harness)
 				// rely on this instead of scaffolding an unconnected flow node.
-				source := `func pow_ff(base f64, exp f64) f64 { return base ^ exp }`
+				source := `func pow_ff(base f64, exp f64) f64 { return base ** exp }`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				ir, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())

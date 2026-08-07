@@ -237,8 +237,8 @@ var _ = Describe("bool() typecast end-to-end runtime", func() {
 })
 
 // Boolean expression pipelines: an expression that yields bool (comparison or
-// logical) flows straight into a bool channel. Bitwise `^`/`&`/`|` on integers
-// is not yet in the language (Step 10), so those forms are not exercised here.
+// logical) flows straight into a bool channel. Bitwise operators yield integers, not
+// bool, so those forms are not exercised here.
 var _ = Describe("Bool expression pipelines end-to-end runtime", func() {
 	It("Should write a >= comparison result to a bool channel", func(ctx SpecContext) {
 		resolver := channelSymbols(map[string]channelDef{

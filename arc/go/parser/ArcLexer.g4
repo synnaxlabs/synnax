@@ -79,7 +79,7 @@ MINUS       : '-';
 STAR        : '*';
 SLASH       : '/';
 PERCENT     : '%';
-CARET       : '^';
+STARSTAR    : '**';
 
 // Comparison
 EQ          : '==';

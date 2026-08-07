@@ -977,7 +977,7 @@ func add(a i32, b i32) i32 {
 			Entry("star *", "x * y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("slash /", "x / y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("percent %", "x % y", uint32(lsp.SemanticTokenTypeOperator)),
-			Entry("caret ^", "x ^ y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("power **", "x ** y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("eq ==", "x == y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("neq !=", "x != y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("lt <", "x < y", uint32(lsp.SemanticTokenTypeOperator)),
