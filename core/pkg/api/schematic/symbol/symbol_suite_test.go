@@ -94,21 +94,36 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	return fctx
 }
 
-// grantRetrieveOn grants ActionRetrieve on the given objects to the subject through a
-// fresh role. Writes commit directly so the api enforcers, which read committed state
-// with no transaction, observe them.
-func grantRetrieveOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+// grantOn grants the action on the given objects to the subject through a fresh role.
+// Writes commit directly so the api enforcers, which read committed state with no
+// transaction, observe them.
+func grantOn(
+	ctx SpecContext,
+	subject ontology.ID,
+	action access.Action,
+	objects ...ontology.ID,
+) {
 	GinkgoHelper()
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
-	r := &role.Role{Name: "retrieve-" + uuid.NewString(), Description: "test"}
+	r := &role.Role{Name: string(action) + "-" + uuid.NewString(), Description: "test"}
 	Expect(roleWriter.Create(ctx, r)).To(Succeed())
 	p := &policy.Policy{
-		Name:    "retrieve-policy-" + uuid.NewString(),
+		Name:    string(action) + "-policy-" + uuid.NewString(),
 		Objects: objects,
-		Actions: []access.Action{access.ActionRetrieve},
+		Actions: []access.Action{action},
 	}
 	Expect(policyWriter.Create(ctx, p)).To(Succeed())
 	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+}
+
+func grantRetrieveOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+	GinkgoHelper()
+	grantOn(ctx, subject, access.ActionRetrieve, objects...)
+}
+
+func grantDeleteOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+	GinkgoHelper()
+	grantOn(ctx, subject, access.ActionDelete, objects...)
 }

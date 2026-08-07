@@ -295,6 +295,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/schematic/symbol/group/export",
 			http.WithResponseEncoders(zip.Encoder),
 		),
+		SchematicSymbolDeleteGroup: http.NewUnaryServer[symbol.DeleteGroupRequest, types.Nil](
+			router,
+			"/api/v1/schematic/symbol/group/delete",
+		),
 
 		// LINE PLOT
 		LinePlotCreate: http.NewUnaryServer[lineplot.CreateRequest, lineplot.CreateResponse](

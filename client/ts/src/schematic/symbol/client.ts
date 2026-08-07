@@ -60,6 +60,7 @@ const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});
 const retrieveGroupResZ = z.object({ group: group.groupZ });
 const exportGroupReqZ = z.object({ key: group.keyZ });
+const deleteGroupReqZ = z.object({ key: group.keyZ });
 
 export interface CreateParams extends New {
   parent: ontology.ID;
@@ -214,6 +215,28 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       { key },
       exportGroupReqZ,
       { encoding: "ZIP" },
+    );
+  }
+
+  /**
+   * Deletes the group and every symbol in it. The Core removes both in a single
+   * transaction, so a failure leaves the group and its symbols untouched.
+   *
+   * @param key - the key of the group to delete.
+   * @throws {ValidationError} if the group holds a resource that is not a symbol.
+   */
+  async deleteGroup(key: group.Key): Promise<void> {
+    await this.cfg.unary.send(
+      "/schematic/symbol/group/delete",
+      { key },
+      deleteGroupReqZ,
+      emptyResZ,
+    );
+    this.cfg.ontology.cache.relationships.delete(
+      (r) =>
+        r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
+        r.from.type === "group" &&
+        r.from.key === key,
     );
   }
 

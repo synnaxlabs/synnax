@@ -60,16 +60,8 @@ type GroupBundle struct {
 // the group holds a child that is not a schematic symbol, if two symbols resolve to the
 // same file name, or if a symbol claims a reserved file name.
 func (s *Service) ExportGroup(ctx context.Context, key group.Key) (GroupBundle, error) {
-	var (
-		root     ontology.Resource
-		children []ontology.Resource
-	)
-	if err := s.cfg.Ontology.NewRetrieve().
-		WhereIDs(group.OntologyID(key)).
-		Entry(&root).
-		TraverseTo(ontology.ChildrenTraverser).
-		Entries(&children).
-		Exec(ctx, nil); err != nil {
+	root, children, err := s.retrieveGroup(ctx, nil, key)
+	if err != nil {
 		return GroupBundle{}, err
 	}
 	var (

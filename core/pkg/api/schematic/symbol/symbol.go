@@ -202,3 +202,27 @@ func (s *Service) ExportGroup(
 	}
 	return bundle.Files, nil
 }
+
+type DeleteGroupRequest struct {
+	Key group.Key `json:"key" msgpack:"key"`
+}
+
+// DeleteGroup deletes the group and every symbol in it in a single transaction.
+func (s *Service) DeleteGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteGroupRequest,
+) (types.Nil, error) {
+	symbols, err := s.internal.RetrieveGroupSymbols(ctx, req.Key)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: append(symbols, group.OntologyID(req.Key)),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.DeleteGroup(ctx, tx, req.Key)
+}

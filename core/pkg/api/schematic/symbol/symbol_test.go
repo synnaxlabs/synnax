@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -68,6 +69,57 @@ var _ = Describe("ExportGroup", func() {
 		grantRetrieveOn(ctx, author.OntologyID(), g.OntologyID())
 		Expect(apiSvc.ExportGroup(
 			authedCtx(ctx, author), ExportGroupRequest{Key: g.Key},
+		)).Error().To(MatchError(access.ErrDenied))
+	})
+})
+
+var _ = Describe("DeleteGroup", func() {
+	createGroup := func(ctx SpecContext, name string) group.Group {
+		GinkgoHelper()
+		return MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, ontology.RootID))
+	}
+	createSymbol := func(ctx SpecContext, g group.Group, name string) symbol.Symbol {
+		GinkgoHelper()
+		sym := symbol.Symbol{
+			Name: name,
+			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
+		}
+		Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
+		return sym
+	}
+
+	It("Should delete the group and its symbols when both are granted", func(
+		ctx SpecContext,
+	) {
+		g := createGroup(ctx, "deletable")
+		sym := createSymbol(ctx, g, "Inlet")
+		grantDeleteOn(
+			ctx, author.OntologyID(), g.OntologyID(), symbol.OntologyID(sym.Key),
+		)
+		Expect(apiSvc.DeleteGroup(
+			authedCtx(ctx, author), nil, DeleteGroupRequest{Key: g.Key},
+		)).Error().ToNot(HaveOccurred())
+		Expect(symbolSvc.NewRetrieve().
+			Where(symbol.MatchKeys(sym.Key)).
+			Entry(&symbol.Symbol{}).
+			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+	})
+	It("Should reject the request when the group is not granted", func(
+		ctx SpecContext,
+	) {
+		g := createGroup(ctx, "ungranted-group")
+		sym := createSymbol(ctx, g, "Outlet")
+		grantDeleteOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
+		Expect(apiSvc.DeleteGroup(
+			authedCtx(ctx, author), nil, DeleteGroupRequest{Key: g.Key},
+		)).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should reject the request when a member is not granted", func(ctx SpecContext) {
+		g := createGroup(ctx, "ungranted-member")
+		createSymbol(ctx, g, "Vent")
+		grantDeleteOn(ctx, author.OntologyID(), g.OntologyID())
+		Expect(apiSvc.DeleteGroup(
+			authedCtx(ctx, author), nil, DeleteGroupRequest{Key: g.Key},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 })
