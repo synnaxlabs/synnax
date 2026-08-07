@@ -38,12 +38,35 @@ export const useMemoQuery = (<Query extends query.Params>(
  * them; an answer the cache serves never populates `settled`. Scoped per
  * client so a settled error never outlives the client whose fetch produced
  * it, and settled errors are dropped when the connection epoch advances.
+ * Capped: write through {@link setSettled}, which evicts the oldest entry
+ * past the cap.
  */
 export interface LocalCache<Data> {
   epoch: number;
   inFlight: Map<string, Promise<Data>>;
   settled: Map<string, { data: Data } | { error: Error }>;
 }
+
+const SETTLED_CAP = 256;
+
+/**
+ * Inserts a settled entry, evicting the oldest-inserted one once the cap is
+ * reached. Settled data pins its answer in memory for the client's lifetime, so an
+ * unbounded map leaks across a long session's distinct queries. An evicted entry
+ * costs a refetch on the next read, never correctness.
+ */
+export const setSettled = <Data>(
+  local: LocalCache<Data>,
+  hash: string,
+  entry: { data: Data } | { error: Error },
+): void => {
+  const { settled } = local;
+  settled.delete(hash);
+  settled.set(hash, entry);
+  if (settled.size <= SETTLED_CAP) return;
+  const oldest = settled.keys().next().value;
+  if (oldest != null) settled.delete(oldest);
+};
 
 export const localFor = <Data>(
   locals: WeakMap<Client, LocalCache<Data>>,
@@ -106,7 +129,7 @@ export const ensureFetch = <Query extends query.Params, Data>(
       (data) => {
         // An answer the domain cache serves is read from there on the next
         // render; one that never reaches it is kept locally instead.
-        if (getCached?.(params) === undefined) local.settled.set(hash, { data });
+        if (getCached?.(params) === undefined) setSettled(local, hash, { data });
         local.inFlight.delete(hash);
         return data;
       },
@@ -118,7 +141,7 @@ export const ensureFetch = <Query extends query.Params, Data>(
         // settle locally or the next render refetches forever. A later cache
         // hit short-circuits before this entry is read. A reconnect that
         // landed mid-fetch discards the failure instead.
-        if (local.epoch === epoch) local.settled.set(hash, { error });
+        if (local.epoch === epoch) setSettled(local, hash, { error });
         local.inFlight.delete(hash);
         throw error;
       },

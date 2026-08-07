@@ -34,6 +34,7 @@ import {
   type LocalCache,
   localFor,
   type RetrieveParams,
+  setSettled,
   suspendOnFetch,
   useMemoQuery,
   usePendingFetch,
@@ -222,8 +223,12 @@ export interface CreateRetrieveReturn<
   createSelector: CreateSelector<Query, Data>;
 }
 
-interface UseSuspendedParams<Query extends query.Params, Data extends query.Data> {
-  query: Query;
+/** The definition plus its per-client local cache, built once per createRetrieve and
+ *  shared by every hook call, so renders mint no per-call params object. */
+interface Context<
+  Query extends query.Params,
+  Data extends query.Data,
+> extends CreateRetrieveParams<Query, Data> {
   locals: WeakMap<Client, LocalCache<Data>>;
 }
 
@@ -265,7 +270,7 @@ const awaitCreation = <Query extends query.Params, Data extends query.Data>(
     const timer = setTimeout(() => {
       finish();
       // A reconnect landed during the wait, so the not-found may no longer hold.
-      if (local.epoch === epoch) local.settled.set(hash, { error });
+      if (local.epoch === epoch) setSettled(local, hash, { error });
       reject(error);
     }, NOT_FOUND_WAIT.milliseconds);
     disconnect = onChange(params, (result) => {
@@ -319,17 +324,19 @@ const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
       : null,
 });
 
-const useSuspended = <Query extends query.Params, Data extends query.Data>({
-  query,
-  locals,
-  name,
-  retrieve,
-  onChange,
-  getCached,
-  deriveCached,
-  equal,
-  normalizeQuery,
-}: UseSuspendedParams<Query, Data> & CreateRetrieveParams<Query, Data>): Data => {
+const useSuspended = <Query extends query.Params, Data extends query.Data>(
+  {
+    locals,
+    name,
+    retrieve,
+    onChange,
+    getCached,
+    deriveCached,
+    equal,
+    normalizeQuery,
+  }: Context<Query, Data>,
+  query: Query,
+): Data => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
   const client = Synnax.use();
 
@@ -368,18 +375,19 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   );
 };
 
-const useResultValue = <Query extends query.Params, Data extends query.Data>({
-  query: q,
-  locals,
-  name,
-  retrieve,
-  onChange,
-  getCached,
-  deriveCached,
-  equal,
-  normalizeQuery,
-}: Omit<UseSuspendedParams<Query, Data>, "query"> &
-  CreateRetrieveParams<Query, Data> & { query: Query | null }): Result<Data> => {
+const useResultValue = <Query extends query.Params, Data extends query.Data>(
+  {
+    locals,
+    name,
+    retrieve,
+    onChange,
+    getCached,
+    deriveCached,
+    equal,
+    normalizeQuery,
+  }: Context<Query, Data>,
+  q: Query | null,
+): Result<Data> => {
   const memoQuery = useMemoQuery(q, normalizeQuery);
   // A retrieve whose answer never reaches the domain cache is served from the local
   // settled entry, which no subscription announces, so settling re-renders by hand.
@@ -447,16 +455,18 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>({
   return hold(["loading", memoQuery], () => loadingResult<Data>(`retrieving ${name}`));
 };
 
-const useEnsure = <Query extends query.Params, Data extends query.Data>({
-  query,
-  locals,
-  name,
-  retrieve,
-  onChange,
-  getCached,
-  deriveCached,
-  normalizeQuery,
-}: UseSuspendedParams<Query, Data> & CreateRetrieveParams<Query, Data>): void => {
+const useEnsure = <Query extends query.Params, Data extends query.Data>(
+  {
+    locals,
+    name,
+    retrieve,
+    onChange,
+    getCached,
+    deriveCached,
+    normalizeQuery,
+  }: Context<Query, Data>,
+  query: Query,
+): void => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
   const client = Synnax.use();
   const pending = usePendingFetch<Query, Data>(memoQuery);
@@ -498,17 +508,10 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
   );
 };
 
-interface UseTombstoneParams<Query extends query.Params> {
-  query: Query;
-}
-
-const useTombstone = <Query extends query.Params, Data extends query.Data>({
-  query,
-  onChange,
-  getCached,
-  equal,
-  normalizeQuery,
-}: UseTombstoneParams<Query> & CreateRetrieveParams<Query, Data>): Tombstone | null => {
+const useTombstone = <Query extends query.Params, Data extends query.Data>(
+  { onChange, getCached, equal, normalizeQuery }: Context<Query, Data>,
+  query: Query,
+): Tombstone | null => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
   const client = Synnax.use();
   const cached = useCachedSnapshot<Query, Data>(memoQuery, client, {
@@ -598,15 +601,15 @@ const createSelector = <
 export const createRetrieve = <Query extends query.Params, Data extends query.Data>(
   createParams: CreateRetrieveParams<Query, Data>,
 ): CreateRetrieveReturn<Query, Data> => {
-  const locals = new WeakMap<Client, LocalCache<Data>>();
+  const context: Context<Query, Data> = { ...createParams, locals: new WeakMap() };
+  const { locals } = context;
   return {
-    use: (query: Query) => useSuspended({ ...createParams, query, locals }),
-    useEnsure: (query: Query) => useEnsure({ ...createParams, query, locals }),
-    useResult: (query: Query | null) =>
-      useResultValue({ ...createParams, query, locals }),
+    use: (query: Query) => useSuspended(context, query),
+    useEnsure: (query: Query) => useEnsure(context, query),
+    useResult: (query: Query | null) => useResultValue(context, query),
     useInvalidate: () =>
       useInvalidate<Query, Data>(locals, createParams.normalizeQuery),
-    useTombstone: (query: Query) => useTombstone({ ...createParams, query }),
+    useTombstone: (query: Query) => useTombstone(context, query),
     createSelector: <Selected, ExtendedQuery extends Query = Query>(
       select: (data: Data, query: ExtendedQuery) => Selected,
       equal?: (a: Selected, b: Selected) => boolean,
