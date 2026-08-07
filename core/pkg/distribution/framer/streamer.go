@@ -22,6 +22,10 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
+func controlUpdateFrame(ctx context.Context, db *ts.DB) frame.Frame {
+	return frame.NewFromStorage(db.ControlUpdateToFrame(ctx, db.ControlStates()))
+}
+
 type controlStateSender struct {
 	confluence.LinearTransform[StreamerRequest, StreamerResponse]
 	db                                 *ts.DB
@@ -43,22 +47,6 @@ func newControlStateSender(
 	return c
 }
 
-func (c *controlStateSender) getControlUpdateFrame(ctx context.Context) frame.Frame {
-	u := c.db.ControlUpdateToFrame(ctx, c.db.ControlStates())
-	return frame.NewFromStorage(u)
-}
-
-func (c *controlStateSender) Flow(ctx signal.Context, opts ...confluence.Option) {
-	if c.previouslyContainedControlStateKey {
-		_ = signal.SendUnderContext(
-			ctx,
-			c.Out.Inlet(),
-			StreamerResponse{Frame: c.getControlUpdateFrame(ctx)},
-		)
-	}
-	c.LinearTransform.Flow(ctx, opts...)
-}
-
 func (c *controlStateSender) transform(
 	ctx context.Context,
 	req StreamerRequest,
@@ -68,14 +56,68 @@ func (c *controlStateSender) transform(
 	c.previouslyContainedControlStateKey = containsControlStateKey
 	if containsControlStateKey && !previouslyContainedControlStateKey {
 		send = true
-		res.Frame = c.getControlUpdateFrame(ctx)
+		res.Frame = controlUpdateFrame(ctx, c.db)
 	}
 	return res, send, err
+}
+
+// initialStateSequencer forwards relay responses and injects the initial
+// control-state snapshot for streamers whose keys include the control-state
+// channel. When the relay sends an open ack, the snapshot must follow it:
+// clients consume the first response as the ack and discard its frame, so a
+// snapshot emitted at flow start could be lost to that read. Without an ack
+// there is nothing to sequence behind and the snapshot is sent at flow start.
+type initialStateSequencer struct {
+	confluence.AbstractLinear[StreamerResponse, StreamerResponse]
+	db               *ts.DB
+	snapshotAfterAck bool
+	snapshotOnStart  bool
+}
+
+func (s *initialStateSequencer) Flow(ctx signal.Context, opts ...confluence.Option) {
+	o := confluence.NewOptions(opts)
+	o.AttachClosables(s.Out)
+	ctx.Go(func(ctx context.Context) error {
+		if s.snapshotOnStart {
+			if err := signal.SendUnderContext(
+				ctx,
+				s.Out.Inlet(),
+				StreamerResponse{Frame: controlUpdateFrame(ctx, s.db)},
+			); err != nil {
+				return err
+			}
+		}
+		pending := s.snapshotAfterAck
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case res, ok := <-s.In.Outlet():
+				if !ok {
+					return nil
+				}
+				if err := signal.SendUnderContext(ctx, s.Out.Inlet(), res); err != nil {
+					return err
+				}
+				if pending {
+					pending = false
+					if err := signal.SendUnderContext(
+						ctx,
+						s.Out.Inlet(),
+						StreamerResponse{Frame: controlUpdateFrame(ctx, s.db)},
+					); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}, o.Signal...)
 }
 
 const (
 	relayReaderAddr        address.Address = "relay_reader"
 	controlStateSenderAddr address.Address = "control_state_sender"
+	sequencerAddr          address.Address = "initial_state_sequencer"
 	requestMultiplierAddr  address.Address = "request_multiplier"
 )
 
@@ -85,9 +127,17 @@ func (s *Service) NewStreamer(cfg StreamerConfig) (Streamer, error) {
 		return nil, err
 	}
 	controlStateSender := newControlStateSender(s.cfg.TS, s.controlStateKey, cfg.Keys)
+	sendAck := cfg.SendOpenAck != nil && *cfg.SendOpenAck
+	containsControlKey := lo.Contains(cfg.Keys, s.controlStateKey)
+	sequencer := &initialStateSequencer{
+		db:               s.cfg.TS,
+		snapshotAfterAck: sendAck && containsControlKey,
+		snapshotOnStart:  !sendAck && containsControlKey,
+	}
 	p := plumber.New()
 	plumber.SetSegment(p, relayReaderAddr, rel)
 	plumber.SetSegment(p, controlStateSenderAddr, controlStateSender)
+	plumber.SetSegment(p, sequencerAddr, sequencer)
 	plumber.SetSegment(
 		p,
 		requestMultiplierAddr,
@@ -99,10 +149,11 @@ func (s *Service) NewStreamer(cfg StreamerConfig) (Streamer, error) {
 		SinkTargets:   []address.Address{controlStateSenderAddr, relayReaderAddr},
 		Stitch:        plumber.StitchWeave,
 	}.MustRoute(p)
+	plumber.MustConnect[StreamerResponse](p, relayReaderAddr, sequencerAddr, 10)
 	seg := &plumber.Segment[StreamerRequest, StreamerResponse]{
 		Pipeline:         p,
 		RouteInletsTo:    []address.Address{requestMultiplierAddr},
-		RouteOutletsFrom: []address.Address{controlStateSenderAddr, relayReaderAddr},
+		RouteOutletsFrom: []address.Address{controlStateSenderAddr, sequencerAddr},
 	}
 	return seg, nil
 }

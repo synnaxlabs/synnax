@@ -273,14 +273,11 @@ func (s *Service) openStreamer(
 	}); err != nil {
 		return nil, err
 	}
-	streamer, err := s.internal.NewStreamer(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	if err := stream.Send(StreamerResponse{}); err != nil {
-		return nil, err
-	}
-	return streamer, nil
+	// The relay's open ack is the first response the client receives. It fires
+	// only after the relay has applied the streamer's demands, so a write
+	// issued after the client sees it is guaranteed to be delivered.
+	req.SendOpenAck = true
+	return s.internal.NewStreamer(ctx, req)
 }
 
 type WriterCommand = framer.WriterCommand
