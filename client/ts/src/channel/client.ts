@@ -619,12 +619,18 @@ export class Client extends query.Retriever<
 
   /**
    * Approximates an unfetched filter query's answer from the record store.
-   * Server-computed shapes (search, pagination) cannot be approximated.
+   * Server-computed shapes (search, pagination) and alias-scoped requests, whose
+   * names live outside the record store, cannot be approximated.
    */
   private approximateCached(
     req: NormalizedRequest,
   ): query.Cached<Channel[]> | undefined {
-    if (req.searchTerm != null || req.limit != null || req.offset != null)
+    if (
+      req.searchTerm != null ||
+      req.limit != null ||
+      req.offset != null ||
+      req.rangeKey != null
+    )
       return undefined;
     const matches = this.store.get(requestFilter(req));
     if (matches.length === 0) return undefined;

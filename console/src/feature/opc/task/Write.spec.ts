@@ -120,7 +120,9 @@ describe("OPC.Write", () => {
     first.unmount();
 
     const second = await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText(new RegExp(ch.nodeName));
+    // The command channel exists by now, so the node id and the resolved channel name
+    // both match.
+    await screen.findAllByText(new RegExp(ch.nodeName));
     await deployAndAwaitTask(client, second.container, draft.key);
     const afterSecond = await client.devices.retrieve({
       key: dev.key,

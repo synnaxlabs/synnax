@@ -29,7 +29,7 @@ const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
 export const useCreateModal = Modals.create(({ close }) => {
   const [createMore, setCreateMore] = useState(false);
   const { form, variant, save } = Channel.useForm({
-    query: {},
+    query: null,
     afterSave: ({ reset }) => {
       if (createMore) reset(Channel.ZERO_FORM_VALUES);
       else close();

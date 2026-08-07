@@ -23,7 +23,7 @@ export interface CreateModalParams {
 export const useCreateModal = Modals.create<CreateModalParams>(
   ({ close, statusKey }) => {
     const { form, save, variant } = Status.useForm({
-      query: { key: statusKey },
+      query: statusKey == null ? null : { key: statusKey },
       autoSave: false,
       initialValues: {
         key: "",

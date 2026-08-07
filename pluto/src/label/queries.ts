@@ -39,14 +39,14 @@ export const setLabelsFor = async ({
   return await client.labels.retrieve({ keys: labels });
 };
 
-export const { useRetrieve: useRetrieveLabelsOf } = Flux.createRetrieve<
+export const { useResult: useResultLabelsOf } = Flux.createRetrieve<
   LabelsOfQuery,
   label.Label[]
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query: { id } }) =>
     await client.labels.retrieve({ for: id }),
-  subscribe: ({ client, query: { id } }, handler) =>
+  onChange: ({ client, query: { id } }, handler) =>
     client.labels.onChange({ for: id }, handler),
   getCached: ({ client, query: { id } }) => client.labels.getCached({ for: id }),
 });
@@ -57,12 +57,12 @@ export const useList = Flux.createList<ListQuery, label.Key, label.Label>({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.labels.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.labels.retrieve(key),
-  subscribe: ({ client, query }, handler) => client.labels.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
   getCached: ({ client, query }) => client.labels.getCached(query),
 });
 
 type FormQuery = {
-  key?: label.Key;
+  key: label.Key;
 };
 
 export const formSchema = label.labelZ.partial({ key: true });
@@ -76,20 +76,19 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   initialValues: INITIAL_VALUES,
   schema: formSchema,
-  retrieve: async ({ client, query: { key }, reset }) => {
-    if (key == null) return;
-    reset(await client.labels.retrieve(key));
+  retrieve: async ({ client, query: { key } }) => await client.labels.retrieve(key),
+  getCached: ({ client, query: { key } }) => {
+    const cached = client.labels.getCached(key);
+    return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, reset }) => {
     const updated = await client.labels.create(value());
     reset(updated);
   },
-  mountListeners: ({ client, query: { key }, reset }) => {
-    if (key == null) return [];
-    return client.labels.onChange(key, (result) => {
+  mountListeners: ({ client, query: { key }, reset }) =>
+    client.labels.onChange(key, (result) => {
       if (query.isLive(result)) reset(result);
-    });
-  },
+    }),
 });
 
 export type DeleteParams = label.Key | label.Key[];
@@ -107,12 +106,12 @@ export type RetrieveMultipleParams = {
   keys: label.Key[];
 };
 
-export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleParams,
   label.Label[]
 >({
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.labels.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.labels.onChange(query, handler),
+  onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
   getCached: ({ client, query }) => client.labels.getCached(query),
 });

@@ -11,10 +11,15 @@ import { channel, DataType, type group, query, type ranger } from "@synnaxlabs/c
 import { array, control, type optional, TimeSpan, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import {
+  PLURAL_RESOURCE_NAME,
+  RESOURCE_NAME,
+  retrieveDefinition,
+  retrieveMultipleDefinition,
+  type RetrieveMultipleQuery,
+  type RetrieveQuery,
+} from "@/channel/aether/queries";
 import { Flux } from "@/flux";
-
-const RESOURCE_NAME = "channel";
-const PLURAL_RESOURCE_NAME = "channels";
 
 export const formSchema = channel.payloadZ
   .required({ expression: true })
@@ -49,10 +54,10 @@ const channelToFormValues = (ch: channel.Channel) => ({
   dataType: ch.dataType.toString(),
 });
 
-export type RetrieveQuery = {
-  key: channel.Key;
-  rangeKey?: ranger.Key;
-};
+export {
+  type RetrieveMultipleQuery,
+  type RetrieveQuery,
+} from "@/channel/aether/queries";
 
 export const ZERO_FORM_VALUES: z.infer<
   typeof formSchema | typeof calculatedFormSchema
@@ -76,39 +81,34 @@ export const ZERO_FORM_VALUES: z.infer<
   ],
 };
 
-export const { useRetrieve, useRetrieveStateful, useRetrieveObservable } =
-  Flux.createRetrieve<RetrieveQuery, channel.Channel>({
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query: { key, rangeKey } }) =>
-      await client.channels.retrieve(key, { rangeKey }),
-    subscribe: ({ client, query }, handler) => client.channels.onChange(query, handler),
-    getCached: ({ client, query }) => client.channels.getCached(query),
-  });
+export const { use, useResult } = Flux.createRetrieve<RetrieveQuery, channel.Channel>({
+  ...retrieveDefinition,
+  onChange: retrieveDefinition.onChange,
+});
 
-export type RetrieveMultipleQuery = channel.RetrieveOptions & {
-  keys: channel.Key[];
-};
-
-export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
   channel.Channel[]
 >({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.channels.retrieve(query),
-  subscribe: ({ client, query }, handler) => client.channels.onChange(query, handler),
-  getCached: ({ client, query }) => client.channels.getCached(query),
+  ...retrieveMultipleDefinition,
+  onChange: retrieveMultipleDefinition.onChange,
+  // Until the query is fetched, the client approximates the answer from the record
+  // store, allocating a fresh array of stable rows per read.
+  equal: (a, b) => a.length === b.length && a.every((ch, i) => ch === b[i]),
 });
 
 const retrieveInitialFormValues = async ({
   query: { key, rangeKey },
   client,
-  reset,
-}: Flux.FormRetrieveParams<
-  FormQuery,
-  typeof formSchema | typeof calculatedFormSchema
->) => {
-  if (key == null) return;
-  reset(channelToFormValues(await client.channels.retrieve(key, { rangeKey })));
+}: Flux.RetrieveParams<FormQuery>) =>
+  channelToFormValues(await client.channels.retrieve(key, { rangeKey }));
+
+const getCachedFormValues = ({
+  client,
+  query: { key, rangeKey },
+}: Flux.RetrieveParams<FormQuery>) => {
+  const cached = client.channels.getCached({ key, rangeKey });
+  return query.isLive(cached) ? channelToFormValues(cached) : undefined;
 };
 
 const updateForm = async ({
@@ -122,23 +122,22 @@ const updateForm = async ({
   set("key", ch.key);
 };
 
-export type FormQuery = optional.Optional<RetrieveQuery, "key">;
+export type FormQuery = RetrieveQuery;
 
 const formMountListeners: Flux.CreateFormParams<
   FormQuery,
   typeof formSchema | typeof calculatedFormSchema
->["mountListeners"] = ({ client, query: { key, rangeKey }, reset }) => {
-  if (key == null) return [];
-  return client.channels.onChange({ key, rangeKey }, (result) => {
+>["mountListeners"] = ({ client, query: { key, rangeKey }, reset }) =>
+  client.channels.onChange({ key, rangeKey }, (result) => {
     if (query.isLive(result)) reset(channelToFormValues(result));
   });
-};
 
 export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: retrieveInitialFormValues,
+  getCached: getCachedFormValues,
   update: updateForm,
   mountListeners: formMountListeners,
 });
@@ -151,6 +150,7 @@ export const useCalculatedForm = Flux.createForm<
   schema: calculatedFormSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: retrieveInitialFormValues,
+  getCached: getCachedFormValues,
   update: updateForm,
   mountListeners: formMountListeners,
 });
@@ -173,7 +173,7 @@ export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>(
     await client.channels.retrieve({ ...DEFAULT_LIST_PARAMS, ...query }),
   retrieveByKey: async ({ client, key, query: { rangeKey } }) =>
     await client.channels.retrieve(key, { rangeKey }),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.channels.onChange({ ...DEFAULT_LIST_PARAMS, ...query }, handler),
   getCached: ({ client, query }) =>
     client.channels.getCached({ ...DEFAULT_LIST_PARAMS, ...query }),
@@ -244,7 +244,7 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
 
 type RetrieveGroupQuery = Record<string, never>;
 
-export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
+export const { useResult: useResultGroup } = Flux.createRetrieve<
   RetrieveGroupQuery,
   group.Group
 >({

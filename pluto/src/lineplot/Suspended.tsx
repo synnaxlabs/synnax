@@ -10,7 +10,7 @@
 import { type lineplot } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { useEnsureRetrieved } from "@/lineplot/queries";
+import { useEnsure } from "@/lineplot/queries";
 import { Scope } from "@/lineplot/scope";
 
 export const useKey = Scope.use;
@@ -20,6 +20,6 @@ export interface SuspendedProps extends PropsWithChildren {
 }
 
 export const Suspended = ({ linePlotKey, children }: SuspendedProps): ReactElement => {
-  useEnsureRetrieved({ key: linePlotKey });
+  useEnsure({ key: linePlotKey });
   return <Scope.Provider value={linePlotKey}>{children}</Scope.Provider>;
 };

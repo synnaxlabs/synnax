@@ -11,10 +11,7 @@ import { type device } from "@synnaxlabs/client";
 import { Icon, Menu } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import {
-  useSelectEnabledState,
-  useToggleEnabled,
-} from "@/feature/ethercat/device/queries";
+import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
 import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
@@ -39,7 +36,7 @@ export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
   const configure = useConfigureModal();
   const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
 
-  const { allDisabled, allEnabled } = useSelectEnabledState({ keys });
+  const { allDisabled, allEnabled } = useEnabledState({ keys });
 
   const handleDisable = useCallback(() => {
     toggleEnabled({ keys, enabled: false });

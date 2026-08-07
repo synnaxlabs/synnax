@@ -146,7 +146,9 @@ describe("OPC.Read", () => {
     first.unmount();
 
     const second = await renderRead({ client, taskKey: draft.key });
-    await screen.findByText(new RegExp(tsChannel.nodeName));
+    // The index channel exists by now, so the node id and the resolved channel name
+    // both match.
+    await screen.findAllByText(new RegExp(tsChannel.nodeName));
     await deployAndAwaitTask(client, second.container, draft.key);
     const afterSecond = await client.devices.retrieve({
       key: dev.key,
