@@ -60,7 +60,7 @@ var _ = Describe("Service", func() {
 			data := MustSucceed(svc.Alert.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["routing_key"]).To(Equal("rk-1"))
-			Expect(data["auto_start"]).To(Equal(true))
+			Expect(data["auto_start"]).To(BeTrue())
 		})
 
 		It("Should overwrite the record stored under the same key", func(
