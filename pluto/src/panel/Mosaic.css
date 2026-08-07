@@ -95,7 +95,11 @@
     --pluto-tabs-tab-height: round(4.3333rem, 1px);
     --pluto-tabs-tab-align: flex-end;
     --pluto-tabs-selected-text-color: var(--pluto-gray-l10);
-    --pluto-tabs-selected-min-width: 14rem;
+    /* Unselected tabs shrink-wrap their content and compress to a sliver before
+       the strip scrolls; the selected tab holds its full content and never pads
+       past it. */
+    --pluto-tabs-selected-min-width: min-content;
+    --pluto-tabs-tab-min-width: 11rem;
 }
 
 .pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__selector--default.pluto--direction-x {

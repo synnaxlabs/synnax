@@ -989,6 +989,85 @@ describe("list", () => {
       // Should filter for active items and sort by value
       expect(result.current.data).toEqual([4, 3, 1]); // 25, 75, 100
     });
+
+    // The mount-time lookup misses for paged lists: the pager adds limit and
+    // offset to the query, and the cache is keyed by the full query. The seed
+    // in retrieve covers that case with the exact query about to be fetched.
+    it("should paint the cached answer for the fetched query before the retrieve resolves", async () => {
+      type PagedQuery = { limit?: number; offset?: number };
+      const cachedItems = [{ key: 1 }, { key: 2 }];
+      const getCached = vi.fn(({ query }: { query: PagedQuery }) =>
+        query.limit != null ? changed(cachedItems) : undefined,
+      );
+      let resolveRetrieve!: (items: record.Keyed<number>[]) => void;
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) => {
+            resolveRetrieve = resolve;
+          }),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<PagedQuery, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            getCached,
+          })({ retrieveDebounce: 0 }),
+        { wrapper },
+      );
+      expect(result.current.data).toEqual([]);
+      act(() => result.current.retrieve((p) => ({ ...p, limit: 10, offset: 0 })));
+      expect(result.current.data).toEqual([1, 2]);
+      expect(result.current.variant).toEqual("loading");
+      await act(async () => resolveRetrieve([{ key: 1 }, { key: 2 }, { key: 3 }]));
+      await waitFor(() => expect(result.current.data).toEqual([1, 2, 3]));
+      expect(result.current.variant).toEqual("success");
+    });
+
+    it("should paint the cached answer before the debounced retrieve fires", async () => {
+      const cachedItems = [{ key: 1 }, { key: 2 }];
+      const getCached = vi.fn(
+        ({ query }: { query: { limit?: number } }) =>
+          query.limit != null ? changed(cachedItems) : undefined,
+      );
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{ limit?: number }, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            getCached,
+          })(),
+        { wrapper },
+      );
+      act(() => result.current.retrieve((p) => ({ ...p, limit: 10 })));
+      expect(result.current.data).toEqual([1, 2]);
+      expect(retrieve).not.toHaveBeenCalled();
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+    });
+
+    it("should not seed from cache when the list already has data", async () => {
+      const getCached = vi.fn().mockReturnValue(changed([{ key: 1 }]));
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{ limit?: number }, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            getCached,
+          })({ retrieveDebounce: 0 }),
+        { wrapper },
+      );
+      // The mount-time lookup hit, so the list is warm.
+      expect(result.current.data).toEqual([1]);
+      getCached.mockClear();
+      act(() => result.current.retrieve((p) => ({ ...p, limit: 10 })));
+      expect(getCached).not.toHaveBeenCalled();
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+    });
   });
 
   describe("subscription lifecycle", () => {
