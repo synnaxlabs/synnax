@@ -191,6 +191,16 @@ TEST(StatusTest, DetailsRoundTrip) {
     EXPECT_TRUE(details_json.empty());
 }
 
+/// @brief it should fail conversion when the details are not an object.
+TEST(StatusTest, NonObjectDetailsFailConversion) {
+    Status<x::json::json> s;
+    s.key = "test-status-scalar-details";
+    s.variant = synnax::status::VARIANT_INFO;
+    s.time = x::telem::TimeStamp::now();
+    s.details = 42;
+    ASSERT_OCCURRED_AS_P(s.to_proto(), x::errors::VALIDATION);
+}
+
 /// @brief it should set and retrieve a status with custom details type.
 TEST(StatusTest, CustomDetailsSetAndRetrieve) {
     const auto client = new_test_client();

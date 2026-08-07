@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <string>
 #include <utility>
 
 #include "google/protobuf/any.pb.h"
@@ -18,14 +19,27 @@
 #include "x/cpp/json/struct.h"
 
 namespace x::json {
-inline google::protobuf::Any to_any(const json &j) {
+/// @brief Converts json to a google::protobuf::Any that holds a Struct.
+/// @param j The JSON to convert. Struct only holds objects, so j must be an object or
+/// null. A null value converts to an empty object. Any other value returns a VALIDATION
+/// error.
+/// @returns A pair containing the Any and an error if one occurred.
+inline std::pair<google::protobuf::Any, errors::Error> to_any(const json &j) {
+    if (!j.is_null() && !j.is_object())
+        return {
+            {},
+            errors::Error(
+                errors::VALIDATION,
+                std::string("expected a JSON object, got ") + j.type_name()
+            )
+        };
+    google::protobuf::Struct s;
+    if (!j.is_null())
+        if (const auto err = to_struct(j, &s)) return {{}, err};
     google::protobuf::Any any;
-    // Struct only supports objects - convert null/non-object to empty object
-    const auto &obj = j.is_object() ? j : json::object();
-    auto [s, err] = to_struct(obj);
-    if (err) return any;
-    if (!any.PackFrom(s)) return google::protobuf::Any{};
-    return any;
+    if (!any.PackFrom(s))
+        return {{}, errors::Error(errors::INTERNAL, "failed to pack Struct into Any")};
+    return {any, errors::NIL};
 }
 
 inline std::pair<nlohmann::json, errors::Error>
