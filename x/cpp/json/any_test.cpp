@@ -15,7 +15,7 @@
 namespace x::json {
 TEST(ToAny, ObjectRoundTrip) {
     const json j = {{"name", "sensor"}, {"port", 8080}};
-    const auto any = to_any(j);
+    const auto any = ASSERT_NIL_P(to_any(j));
     ASSERT_FALSE(any.type_url().empty());
     const auto result = ASSERT_NIL_P(from_any(any));
     ASSERT_EQ(result["name"], "sensor");
@@ -24,7 +24,7 @@ TEST(ToAny, ObjectRoundTrip) {
 
 TEST(ToAny, NullConvertsToEmptyObject) {
     const json j = nullptr;
-    const auto any = to_any(j);
+    const auto any = ASSERT_NIL_P(to_any(j));
     const auto result = ASSERT_NIL_P(from_any(any));
     ASSERT_TRUE(result.is_object());
     ASSERT_TRUE(result.empty());
@@ -39,7 +39,7 @@ TEST(FromAny, EmptyAnyReturnsEmptyObject) {
 
 TEST(ToAny, NestedObjectRoundTrip) {
     const json j = {{"outer", {{"inner", "value"}}}, {"list", {1, 2, 3}}};
-    const auto any = to_any(j);
+    const auto any = ASSERT_NIL_P(to_any(j));
     const auto result = ASSERT_NIL_P(from_any(any));
     ASSERT_EQ(result["outer"]["inner"], "value");
     ASSERT_EQ(result["list"][0], 1);

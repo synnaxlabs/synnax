@@ -81,14 +81,24 @@ Status<Details>::to_proto() const {
     pb.set_description(this->description);
     pb.set_time(this->time.to_proto());
     if constexpr (std::is_same_v<Details, x::json::json>) {
-        *pb.mutable_details() = x::json::to_any(this->details);
+        {
+            auto [v, err] = x::json::to_any(this->details);
+            if (err) return {{}, err};
+            *pb.mutable_details() = v;
+        }
     } else {
-        if constexpr (std::is_same_v<Details, std::monostate>)
-            *pb.mutable_details() = x::json::to_any(x::json::json(nullptr));
-        else if constexpr (std::is_same_v<Details, x::json::json>)
-            *pb.mutable_details() = x::json::to_any(this->details);
-        else
-            *pb.mutable_details() = x::json::to_any(this->details.to_json());
+        {
+            x::json::json j;
+            if constexpr (std::is_same_v<Details, std::monostate>)
+                j = x::json::json(nullptr);
+            else if constexpr (std::is_same_v<Details, x::json::json>)
+                j = this->details;
+            else
+                j = this->details.to_json();
+            auto [v, err] = x::json::to_any(j);
+            if (err) return {{}, err};
+            *pb.mutable_details() = v;
+        }
     }
     if (this->labels.has_value()) {
         auto *wrapper = pb.mutable_labels();

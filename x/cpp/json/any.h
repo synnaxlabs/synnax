@@ -18,14 +18,21 @@
 #include "x/cpp/json/struct.h"
 
 namespace x::json {
-inline google::protobuf::Any to_any(const json &j) {
-    google::protobuf::Any any;
-    // Struct only supports objects - convert null/non-object to empty object
+/// @brief Converts json to a google::protobuf::Any that holds a Struct.
+/// @param j The JSON to convert. Struct only supports objects, so a null or non-object
+/// value converts to an empty object.
+/// @returns A pair containing the Any and an error if one occurred.
+inline std::pair<google::protobuf::Any, errors::Error> to_any(const json &j) {
     const auto &obj = j.is_object() ? j : json::object();
     auto [s, err] = to_struct(obj);
-    if (err) return any;
-    if (!any.PackFrom(s)) return google::protobuf::Any{};
-    return any;
+    if (err) return {{}, err};
+    google::protobuf::Any any;
+    if (!any.PackFrom(s))
+        return {
+            {},
+            errors::Error(errors::VALIDATION, "failed to pack Struct into Any")
+        };
+    return {any, errors::NIL};
 }
 
 inline std::pair<nlohmann::json, errors::Error>
