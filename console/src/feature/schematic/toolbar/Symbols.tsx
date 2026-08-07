@@ -189,7 +189,7 @@ const RemoteSymbolListContextMenu = ({
       const newName = await renameModal({
         initialValue: name,
         allowEmpty: false,
-        label: "Symbol Name",
+        label: "Symbol name",
         title: "Schematic.Symbols.Rename",
         icon: <Icon.Schematic />,
       });
@@ -342,8 +342,8 @@ const Actions = ({
       const result = await rename({
         initialValue: "",
         allowEmpty: false,
-        label: "Group Name",
-        title: "Schematic.Symbols.Create Group",
+        label: "Group name",
+        title: "Schematic.Symbols.Create group",
         icon: <Icon.Group />,
       });
       if (result == null || result.length === 0) return;
@@ -432,8 +432,8 @@ const GroupListContextMenu = ({
       const newName = await renameModal({
         initialValue: name,
         allowEmpty: false,
-        label: "Group Name",
-        title: "Schematic.Symbols.Rename Group",
+        label: "Group name",
+        title: "Schematic.Symbols.Rename group",
         icon: <Icon.Group />,
       });
       if (newName == null) return false;

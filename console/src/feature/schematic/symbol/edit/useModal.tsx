@@ -181,7 +181,7 @@ export const useModal = Modals.create<ModalParams>(
                     <Form.TextField
                       path="name"
                       inputProps={{
-                        placeholder: "Symbol Name",
+                        placeholder: "Symbol name",
                         variant: "text",
                         level: "h4",
                       }}

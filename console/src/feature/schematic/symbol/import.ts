@@ -54,7 +54,7 @@ export const useImport = (parentGroup?: string): (() => void) => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const files = await Runtime.pickFiles({
-        title: "Import Symbol",
+        title: "Import symbol",
         filters: SYMBOL_FILE_FILTERS,
         multiple: true,
       });
@@ -91,7 +91,7 @@ export const useImportGroup = (): (() => void) => {
   return useCallback(() => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const directory = await Runtime.pickDirectory({ title: "Import Symbol Group" });
+      const directory = await Runtime.pickDirectory({ title: "Import symbol group" });
       if (directory == null) return;
       const manifestFile = directory.files.find((f) => f.path === MANIFEST_FILE_NAME);
       if (manifestFile == null)

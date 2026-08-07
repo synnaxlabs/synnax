@@ -74,7 +74,7 @@ const loadSVG = async (
 };
 
 const findNameInput = (): HTMLInputElement =>
-  screen.getByPlaceholderText<HTMLInputElement>("Symbol Name");
+  screen.getByPlaceholderText<HTMLInputElement>("Symbol name");
 
 describe("Schematic.Symbol.Edit.useModal", () => {
   describe("create mode", () => {
