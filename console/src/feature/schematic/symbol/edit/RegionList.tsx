@@ -23,7 +23,7 @@ import {
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { type color } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 
@@ -66,22 +66,14 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
         <Text.Text level="small" color={9}>
           {region?.selectors?.length || 0} Elements
         </Text.Text>
-        <Form.Field<string> path={`${path}.strokeColor`} showLabel={false}>
+        <Form.Field<color.Color> path={`${path}.strokeColor`} showLabel={false}>
           {({ onChange, value }) => (
-            <Color.Swatch
-              value={value}
-              onChange={(v) => onChange(color.hex(v))}
-              size="small"
-            />
+            <Color.Swatch value={value} onChange={onChange} size="small" />
           )}
         </Form.Field>
-        <Form.Field<string> path={`${path}.fillColor`} showLabel={false}>
+        <Form.Field<color.Color> path={`${path}.fillColor`} showLabel={false}>
           {({ onChange, value }) => (
-            <Color.Swatch
-              value={value}
-              onChange={(v) => onChange(color.hex(v))}
-              size="small"
-            />
+            <Color.Swatch value={value} onChange={onChange} size="small" />
           )}
         </Form.Field>
         <Button.Button
