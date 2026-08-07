@@ -996,6 +996,53 @@ describe("Answers", () => {
         hooks,
       );
 
+    // Regression: an optimistic write to a member row must render before the
+    // wholesale refetch lands, or the UI flashes the stale value.
+    it("notifies immediately when a member row changes", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ searchTerm: "x" }, handler);
+      await answers.retrieve({ searchTerm: "x" });
+      handler.mockClear();
+      table.set("a", rec("a", 2));
+      expect(handler).toHaveBeenCalledWith([rec("a", 2)]);
+    });
+
+    it("notifies immediately when a member row is deleted", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ searchTerm: "x" }, handler);
+      await answers.retrieve({ searchTerm: "x" });
+      handler.mockClear();
+      table.delete("a");
+      expect(handler).toHaveBeenCalledWith([]);
+    });
+
+    it("does not notify for a change to a non-member row", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ searchTerm: "x" }, handler);
+      await answers.retrieve({ searchTerm: "x" });
+      handler.mockClear();
+      table.set("z", rec("z", 9));
+      expect(handler).not.toHaveBeenCalled();
+    });
+
     it("refetches wholesale after a debounced table change", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {

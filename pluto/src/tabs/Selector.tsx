@@ -51,10 +51,12 @@ export type Align = "center" | "start";
  *
  * - `elastic`: tabs share the strip and cap at their own label width.
  * - `fixed`: every tab rests at the same standard width.
+ * - `content`: every tab rests at its own label width and never compacts.
  *
- * Both compact toward `--pluto-tabs-tab-min-width` before the strip overflows.
+ * The first two compact toward `--pluto-tabs-tab-min-width` before the strip
+ * overflows; `content` overflows straight away.
  */
-export type Sizing = "elastic" | "fixed";
+export type Sizing = "elastic" | "fixed" | "content";
 
 /**
  * What the strip does once its tabs no longer fit.
