@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -320,4 +321,32 @@ func (s *Service) RetrieveSymbolGroup(
 		return RetrieveSymbolGroupResponse{}, err
 	}
 	return RetrieveSymbolGroupResponse{Group: g}, nil
+}
+
+type (
+	ExportSymbolGroupRequest struct {
+		Key group.Key `json:"key" msgpack:"key"`
+	}
+	// ExportSymbolGroupResponse is the exported bundle's contents keyed by file name.
+	// The HTTP transport encodes it as a zip archive.
+	ExportSymbolGroupResponse = zip.Files
+)
+
+// ExportSymbolGroup exports every symbol in the group as a bundle.
+func (s *Service) ExportSymbolGroup(
+	ctx context.Context,
+	req ExportSymbolGroupRequest,
+) (ExportSymbolGroupResponse, error) {
+	bundle, err := s.internal.Symbol.ExportGroup(ctx, req.Key)
+	if err != nil {
+		return nil, err
+	}
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: append(bundle.Members, group.OntologyID(req.Key)),
+	}); err != nil {
+		return nil, err
+	}
+	return bundle.Files, nil
 }

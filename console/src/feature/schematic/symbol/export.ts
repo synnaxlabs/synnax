@@ -9,16 +9,14 @@
 
 import {
   DisconnectedError,
-  group,
-  schematic,
+  type group,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
+import { unzipSync } from "fflate";
 import { useCallback } from "react";
 
-import { type Symbol } from "@/feature/schematic/symbol";
-import { Export } from "@/platform/export";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 
@@ -30,6 +28,9 @@ interface ExportGroupParams {
   confirm: Modals.PromptConfirm;
 }
 
+// The Core owns membership, symbol serialization, file naming, and the manifest. The
+// bundle arrives as a zip because a directory cannot travel over the wire, so the
+// Console's only job is to unpack it onto disk.
 const exportGroup = async ({
   client,
   group: { key, name },
@@ -37,24 +38,11 @@ const exportGroup = async ({
   confirm,
 }: ExportGroupParams): Promise<void> => {
   if (client == null) throw new DisconnectedError();
-  const children = await client.ontology.children.retrieve({
-    ids: group.ontologyID(key),
-  });
-  const symbolKeys = children
-    .filter((c) => c.id.type === "schematic_symbol")
-    .map((c) => c.id.key);
-
-  if (symbolKeys.length === 0)
-    return addStatus({
-      variant: "warning",
-      message: "No symbols found in this group to export",
-    });
-
-  const symbols = await client.schematics.symbols.retrieve({
-    keys: symbolKeys,
-  });
-
-  if (!symbols || symbols.length === 0)
+  const stream = await client.schematics.symbols.exportGroup(key);
+  const bundle = unzipSync(new Uint8Array(await new Response(stream).arrayBuffer()));
+  const fileNames = Object.keys(bundle);
+  const symbolCount = fileNames.length - 1;
+  if (symbolCount === 0)
     return addStatus({
       variant: "warning",
       message: "No symbols found in this group to export",
@@ -75,28 +63,17 @@ const exportGroup = async ({
     if (shouldReplace !== true) return;
   }
 
-  const manifest: Symbol.GroupManifest = {
-    version: 1,
-    type: "symbol_group",
-    name,
-    symbols: await Promise.all(
-      symbols.map(async (symbol) => {
-        const fileName = `${strings.sanitizeFileName(symbol.name)}_${symbol.key.slice(0, 8)}.json`;
-        const { data } = await Export.fetchFileData(
-          client,
-          schematic.symbol.ontologyID(symbol.key),
-        );
-        await directory.writeText(fileName, data);
-        return { file: fileName, key: symbol.key, name: symbol.name };
-      }),
+  const decoder = new TextDecoder();
+  await Promise.all(
+    fileNames.map(
+      async (fileName) =>
+        await directory.writeText(fileName, decoder.decode(bundle[fileName])),
     ),
-  };
-
-  await directory.writeText("manifest.json", JSON.stringify(manifest));
+  );
 
   addStatus({
     variant: "success",
-    message: `Exported ${symbols.length} symbols to ${directory.displayPath}`,
+    message: `Exported ${symbolCount} symbols to ${directory.displayPath}`,
   });
 };
 

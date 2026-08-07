@@ -40,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/zip"
 )
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
@@ -287,6 +288,11 @@ func Bind(layer *api.Layer, router *http.Router) {
 		SchematicRetrieveSymbolGroup: http.NewUnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse](
 			router,
 			"/api/v1/schematic/symbol/retrieve-group",
+		),
+		SchematicExportSymbolGroup: http.NewUnaryServer[schematic.ExportSymbolGroupRequest, schematic.ExportSymbolGroupResponse](
+			router,
+			"/api/v1/schematic/symbol/group/export",
+			http.WithResponseEncoders(zip.Encoder),
 		),
 
 		// LINE PLOT

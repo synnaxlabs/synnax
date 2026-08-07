@@ -93,14 +93,16 @@ describe("Schematic.Symbol.useExportGroup", () => {
     );
     const manifestRaw = picker.files.get("manifest.json");
     if (manifestRaw == null) throw new Error("manifest.json was not written");
-    const manifest = Schematic.Symbol.groupManifestZ.parse(JSON.parse(manifestRaw));
-    expect(manifest.name).toBe(grp.name);
-    expect(manifest.symbols).toHaveLength(2);
+    expect(Schematic.Symbol.groupManifestZ.parse(JSON.parse(manifestRaw))).toEqual({
+      version: 2,
+      type: "symbol_group",
+      name: grp.name,
+    });
+    // Membership is inferred from the directory, so each symbol is named by its file.
     for (const symbol of symbols) {
-      const entry = manifest.symbols.find((s) => s.key === symbol.key);
-      if (entry == null) throw new Error(`manifest missing symbol ${symbol.name}`);
-      const written = picker.files.get(entry.file);
-      if (written == null) throw new Error(`symbol file ${entry.file} not written`);
+      const written = picker.files.get(`${symbol.name}.json`);
+      if (written == null)
+        throw new Error(`symbol file for ${symbol.name} not written`);
       expect(JSON.parse(written)).toMatchObject({ name: symbol.name });
     }
   });

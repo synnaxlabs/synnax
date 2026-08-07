@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -59,6 +59,7 @@ const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});
 const retrieveGroupResZ = z.object({ group: group.groupZ });
+const exportGroupReqZ = z.object({ key: group.keyZ });
 
 export interface CreateParams extends New {
   parent: ontology.ID;
@@ -87,6 +88,7 @@ const matchChildRel = (rel: ontology.Relationship, parent: ontology.ID): boolean
 
 export interface ClientConfig {
   unary: UnaryClient;
+  file: FileTransport;
   ontology: ontology.Client;
   cache: query.Cache;
 }
@@ -193,6 +195,25 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
         r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
         r.to.type === "schematic_symbol" &&
         keysArr.includes(r.to.key),
+    );
+  }
+
+  /**
+   * Exports every symbol in the group as a bundle: a zip archive holding one JSON file
+   * per symbol beside a manifest.json naming the group. The caller pipes the stream
+   * wherever it likes without the client buffering the whole archive.
+   *
+   * @param key - the key of the group to export.
+   * @returns the bundle as a stream of zip bytes.
+   * @throws {ValidationError} if the group holds a resource that is not a symbol, or if
+   * two symbols take the same file name.
+   */
+  async exportGroup(key: group.Key): Promise<ReadableStream<Uint8Array>> {
+    return await this.cfg.file.download(
+      "/schematic/symbol/group/export",
+      { key },
+      exportGroupReqZ,
+      { encoding: "ZIP" },
     );
   }
 

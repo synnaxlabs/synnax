@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
 )
@@ -121,8 +122,27 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	if fErr.Type == errors.TypeNil {
 		return encodeAndWrite(fCtx, encoder, res)
 	}
+	errEncoder := resolveErrorEncoder(fCtx)
+	fCtx.Set(fiber.HeaderContentType, errEncoder.ContentType())
 	fCtx.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(fCtx, encoder, fErr)
+	return encodeAndWrite(fCtx, errEncoder, fErr)
+}
+
+// resolveErrorEncoder returns the encoder for an error payload. A response encoder can
+// be specialized to a single payload shape — a zip archive holds files, not errors — so
+// the error path negotiates against the default codecs instead, and falls back to JSON
+// when Accept matches none of them.
+func resolveErrorEncoder(fCtx fiber.Ctx) http.Encoder {
+	offers := lo.Map(defaultEncoders, func(e http.Encoder, _ int) string {
+		return e.ContentType()
+	})
+	matched := fCtx.Accepts(offers...)
+	for _, e := range defaultEncoders {
+		if e.ContentType() == matched {
+			return e
+		}
+	}
+	return json.Codec
 }
 
 func (s *unaryServer[RQ, RS]) resolveRequestDecoder(

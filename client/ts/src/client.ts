@@ -275,6 +275,7 @@ export default class Synnax extends framer.Client {
     this.views = new view.Client({ unary, cache, ontology: this.ontology });
     this.schematics = new schematic.Client({
       unary,
+      file: this.transport.file,
       ontology: this.ontology,
       cache,
     });

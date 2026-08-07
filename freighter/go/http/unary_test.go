@@ -360,6 +360,38 @@ var _ = Describe("Unary", func() {
 				).To(ContainSubstring(errFailingEncoderEncodeFail.Error()))
 			},
 		)
+
+		It(
+			"should encode handler errors as JSON when the response encoder carries no error payload",
+			func(ctx context.Context) {
+				unaryServerFailingEncoder.BindHandler(
+					func(_ context.Context, _ test.Request) (test.Response, error) {
+						return test.Response{}, test.ErrCustom
+					},
+				)
+				body := MustSucceed(
+					json.Codec.Encode(ctx, test.Request{ID: 10, Message: "err"}),
+				)
+				httpReq := MustSucceed(http.NewRequestWithContext(
+					ctx,
+					http.MethodPost,
+					"http://"+unaryAddr.String()+"/encode-failure",
+					bytes.NewReader(body),
+				))
+				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+				httpReq.Header.Set(fiber.HeaderAccept, "application/x-fail")
+				httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+				DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+				Expect(httpRes.StatusCode).To(Equal(http.StatusBadRequest))
+				Expect(
+					httpRes.Header.Get(fiber.HeaderContentType),
+				).To(Equal("application/json"))
+				var pld errors.Payload
+				respBody := MustSucceed(io.ReadAll(httpRes.Body))
+				Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
+				Expect(errors.Decode(ctx, pld)).To(MatchError(test.ErrCustom))
+			},
+		)
 	})
 
 	Describe("Query Params", func() {

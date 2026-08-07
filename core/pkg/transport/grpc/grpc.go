@@ -113,6 +113,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SchematicDeleteSymbol = noop.UnaryServer[schematic.DeleteSymbolRequest, types.Nil]{}
 	t.SchematicRenameSymbol = noop.UnaryServer[schematic.RenameSymbolRequest, types.Nil]{}
 	t.SchematicRetrieveSymbolGroup = noop.UnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse]{}
+	t.SchematicExportSymbolGroup = noop.UnaryServer[schematic.ExportSymbolGroupRequest, schematic.ExportSymbolGroupResponse]{}
 
 	// LINE PLOT
 	t.LinePlotCreate = noop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
