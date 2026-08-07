@@ -140,6 +140,111 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		},
 	)
 
+	It(
+		"Should generate ApplyDefaults on a struct that extends a base",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct {
+				rate float64 = 0.2
+			}
+
+			Cfg struct extends Base {
+				mode string = "auto"
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (b *Base) ApplyDefaults() {",
+				"b.Rate = 0.2",
+				"func (c *Cfg) ApplyDefaults() {",
+				"c.Base.ApplyDefaults()",
+				`c.Mode = "auto"`,
+			)
+		},
+	)
+
+	It(
+		"Should generate Validate on a struct that extends a base with an enum",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Level enum {
+				h1 = "h1"
+				h2 = "h2"
+			}
+
+			Base struct {
+				level Level = LevelH2
+			}
+
+			Cfg struct extends Base {
+				name string
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (b Base) Validate() error {",
+				"func (c Cfg) Validate() error {",
+				"v.Exec(c.Base.Validate)",
+			)
+		},
+	)
+
+	It(
+		"Should fill inherited defaults directly on a flattened extends struct",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct {
+				rate float64 = 0.2
+				age  int32
+			}
+
+			Cfg struct extends Base {
+				-age
+				mode string = "auto"
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c *Cfg) ApplyDefaults() {",
+				"c.Rate = 0.2",
+				`c.Mode = "auto"`,
+			)
+		},
+	)
+
+	It(
+		"Should recurse ApplyDefaults into a channel list on an extends struct",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct {
+				rate float64 = 0.2
+			}
+
+			Channel struct {
+				gain float64 = 1.5
+			}
+
+			Cfg struct extends Base {
+				channels Channel[]
+			}
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"func (c *Cfg) ApplyDefaults() {",
+				"for i := range c.Channels {",
+				"c.Channels[i].ApplyDefaults()",
+			)
+		},
+	)
+
 	Describe("@validate skip", func() {
 		It(
 			"Should exclude a reference field from Validate recursion",
