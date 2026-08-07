@@ -124,7 +124,7 @@ struct ReadField {
     /// @brief pointer is the JSON Pointer to the value within the response body.
     std::string pointer = "";
     /// @brief data_type is the data type of the extracted value.
-    ::x::telem::DataType data_type = "float64";
+    ::x::telem::DataType data_type = ::x::telem::DataType("float64");
     /// @brief timestamp_format is the encoding of the JSON value when the target
     /// channel
     /// holds timestamps. Required for timestamp channels.
@@ -151,7 +151,7 @@ struct ChannelField {
     /// @brief name is the human-readable name of the command channel.
     std::string name = "";
     /// @brief data_type is the data type of the command channel.
-    ::x::telem::DataType data_type = "float64";
+    ::x::telem::DataType data_type = ::x::telem::DataType("float64");
     /// @brief time_format is the output encoding when the command channel holds
     /// timestamps.
     /// Required for timestamp channels.

@@ -35,7 +35,7 @@ struct WriteConfig;
 /// value.
 struct RegisterValue {
     /// @brief data_type is the data type the register contents are interpreted as.
-    ::x::telem::DataType data_type = "uint8";
+    ::x::telem::DataType data_type = ::x::telem::DataType("uint8");
     /// @brief swap_bytes is true when the byte order within each 16-bit word is
     /// swapped.
     bool swap_bytes = false;
