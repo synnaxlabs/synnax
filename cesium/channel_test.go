@@ -409,7 +409,7 @@ var _ = Describe("Channel", Ordered, func() {
 						s := MustSucceed(f.Stat()).Size()
 						buf := make([]byte, s)
 						MustSucceed(f.Read(buf))
-						Expect(jsonDecoder.Decode(ctx, buf, &ch)).To(Succeed())
+						Expect(jsonDecoder.Decode(buf, &ch)).To(Succeed())
 
 						Expect(ch.Key).To(Equal(unaryKeyNew))
 						Expect(f.Close()).To(Succeed())
@@ -445,7 +445,7 @@ var _ = Describe("Channel", Ordered, func() {
 							s := MustSucceed(f.Stat()).Size()
 							buf := make([]byte, s)
 							MustSucceed(f.Read(buf))
-							Expect(jsonDecoder.Decode(ctx, buf, &ch)).To(Succeed())
+							Expect(jsonDecoder.Decode(buf, &ch)).To(Succeed())
 
 							Expect(ch.Key).To(Equal(virtualKeyNew))
 							Expect(f.Close()).To(Succeed())
@@ -516,7 +516,7 @@ var _ = Describe("Channel", Ordered, func() {
 						s := MustSucceed(f.Stat()).Size()
 						buf := make([]byte, s)
 						MustSucceed(f.Read(buf))
-						Expect(jsonDecoder.Decode(ctx, buf, &ch)).To(Succeed())
+						Expect(jsonDecoder.Decode(buf, &ch)).To(Succeed())
 
 						Expect(ch.Key).To(Equal(indexKeyNew))
 						Expect(f.Close()).To(Succeed())
@@ -582,7 +582,7 @@ var _ = Describe("Channel", Ordered, func() {
 							s := MustSucceed(f.Stat()).Size()
 							buf := make([]byte, s)
 							MustSucceed(f.Read(buf))
-							Expect(jsonDecoder.Decode(ctx, buf, &ch)).To(Succeed())
+							Expect(jsonDecoder.Decode(buf, &ch)).To(Succeed())
 
 							Expect(ch.Key).To(Equal(errorKey1New))
 							Expect(f.Close()).To(Succeed())
@@ -633,7 +633,7 @@ var _ = Describe("Channel", Ordered, func() {
 							s := MustSucceed(f.Stat()).Size()
 							buf := make([]byte, s)
 							MustSucceed(f.Read(buf))
-							Expect(jsonDecoder.Decode(ctx, buf, &ch)).To(Succeed())
+							Expect(jsonDecoder.Decode(buf, &ch)).To(Succeed())
 
 							Expect(ch.Key).To(Equal(errorKey2New))
 							Expect(f.Close()).To(Succeed())
@@ -717,7 +717,7 @@ var _ = Describe("Channel", Ordered, func() {
 						MustSucceed(meta.Read(buf))
 						Expect(meta.Close()).To(Succeed())
 
-						Expect(json.Codec.Decode(ctx, buf, &newCh)).To(Succeed())
+						Expect(json.Codec.Decode(buf, &newCh)).To(Succeed())
 						Expect(newCh.Name).To(Equal("laplace"))
 					},
 				)

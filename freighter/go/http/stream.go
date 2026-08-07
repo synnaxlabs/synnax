@@ -101,7 +101,7 @@ func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
 	if err != nil {
 		return err
 	}
-	err = c.codec.EncodeStream(context.TODO(), w, msg)
+	err = c.codec.EncodeStream(w, msg)
 	return errors.Combine(err, w.Close())
 }
 
@@ -111,7 +111,7 @@ func (c *streamCore[I, O]) receiveRaw() (WSMessage[I], error) {
 		return WSMessage[I]{}, err
 	}
 	var msg WSMessage[I]
-	return msg, c.codec.DecodeStream(context.TODO(), r, &msg)
+	return msg, c.codec.DecodeStream(r, &msg)
 }
 
 func (c *streamCore[I, O]) Receive() (I, error) {

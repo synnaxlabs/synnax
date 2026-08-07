@@ -250,7 +250,7 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	if err != nil {
 		return state, lo.Ternary(errors.Is(err, query.ErrNotFound), nil, err)
 	}
-	err = cfg.Codec.Decode(ctx, encoded, &state)
+	err = cfg.Codec.Decode(encoded, &state)
 	err = errors.Combine(err, closer.Close())
 	return state, err
 }

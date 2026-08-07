@@ -85,7 +85,7 @@ func Read(
 	}
 	defer func() { err = errors.Combine(err, metaF.Close()) }()
 
-	if err = codec.DecodeStream(ctx, metaF, &ch); err != nil {
+	if err = codec.DecodeStream(metaF, &ch); err != nil {
 		err = errors.Wrapf(
 			err, "error decoding meta in folder for channel %s", s.Name(),
 		)
@@ -118,7 +118,7 @@ func Create(
 			err = errors.Combine(err, fs.Remove(metaTempFile))
 		}
 	}()
-	if err = codec.EncodeStream(ctx, tempMetaF, ch); err != nil {
+	if err = codec.EncodeStream(tempMetaF, ch); err != nil {
 		err = errors.Combine(err, tempMetaF.Close())
 		return err
 	}

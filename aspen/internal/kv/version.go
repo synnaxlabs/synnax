@@ -29,7 +29,7 @@ func getDigestFromKV(ctx context.Context, r kv.Reader, key []byte) (Digest, erro
 	if err != nil {
 		return dig, err
 	}
-	err = codec.Decode(ctx, b, &dig)
+	err = codec.Decode(b, &dig)
 	err = errors.Combine(err, closer.Close())
 	return dig, err
 }

@@ -66,7 +66,7 @@ func (w *Writer[K, E]) Delete(ctx context.Context, keys ...K) error {
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
-	data, err := w.tx.Encode(ctx, entry)
+	data, err := w.tx.Encode(entry)
 	if err != nil {
 		return err
 	}

@@ -135,10 +135,10 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Key msgpack decoding", func() {
 		codec := msgpack.Codec
 		DescribeTable("Should decode rack.Key from various types",
-			func(ctx SpecContext, value any, expected rack.Key) {
-				data := MustSucceed(codec.Encode(ctx, value))
+			func(value any, expected rack.Key) {
+				data := MustSucceed(codec.Encode(value))
 				var k rack.Key
-				Expect(codec.Decode(ctx, data, &k)).To(Succeed())
+				Expect(codec.Decode(data, &k)).To(Succeed())
 				Expect(k).To(Equal(expected))
 			},
 			Entry("string", "65537", rack.Key(65537)),
@@ -152,31 +152,31 @@ var _ = Describe("Rack", Ordered, func() {
 		)
 		It(
 			"Should decode StatusDetails with rack key as float64",
-			func(ctx SpecContext) {
+			func() {
 				type statusDetailsWithFloat struct {
 					Rack float64 `msgpack:"rack"`
 				}
 				original := statusDetailsWithFloat{
 					Rack: float64(65537),
 				}
-				data := MustSucceed(codec.Encode(ctx, original))
+				data := MustSucceed(codec.Encode(original))
 				var decoded rack.StatusDetails
-				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(codec.Decode(data, &decoded)).To(Succeed())
 				Expect(decoded.Rack).To(Equal(rack.Key(65537)))
 			},
 		)
 		It(
 			"Should decode StatusDetails with rack key as string",
-			func(ctx SpecContext) {
+			func() {
 				type statusDetailsWithString struct {
 					Rack string `msgpack:"rack"`
 				}
 				original := statusDetailsWithString{
 					Rack: "65537",
 				}
-				data := MustSucceed(codec.Encode(ctx, original))
+				data := MustSucceed(codec.Encode(original))
 				var decoded rack.StatusDetails
-				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(codec.Decode(data, &decoded)).To(Succeed())
 				Expect(decoded.Rack).To(Equal(rack.Key(65537)))
 			},
 		)

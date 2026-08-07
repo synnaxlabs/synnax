@@ -117,10 +117,10 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Key msgpack decoding", func() {
 		codec := msgpack.Codec
 		DescribeTable("Should decode task.Key from various types",
-			func(ctx SpecContext, value any, expected task.Key) {
-				data := MustSucceed(codec.Encode(ctx, value))
+			func(value any, expected task.Key) {
+				data := MustSucceed(codec.Encode(value))
 				var k task.Key
-				Expect(codec.Decode(ctx, data, &k)).To(Succeed())
+				Expect(codec.Decode(data, &k)).To(Succeed())
 				Expect(k).To(Equal(expected))
 			},
 			Entry("string", "281543696187399", task.Key(281543696187399)),
@@ -133,7 +133,7 @@ var _ = Describe("Task", Ordered, func() {
 		)
 		It(
 			"Should decode StatusDetails with task key as string",
-			func(ctx SpecContext) {
+			func() {
 				type statusDetailsWithString struct {
 					Data    map[string]any `msgpack:"data"`
 					Task    string         `msgpack:"task"`
@@ -144,16 +144,16 @@ var _ = Describe("Task", Ordered, func() {
 					Running: true,
 					Data:    map[string]any{"test": true},
 				}
-				data := MustSucceed(codec.Encode(ctx, original))
+				data := MustSucceed(codec.Encode(original))
 				var decoded task.StatusDetails
-				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(codec.Decode(data, &decoded)).To(Succeed())
 				Expect(decoded.Task).To(Equal(task.Key(281543696187399)))
 				Expect(decoded.Running).To(BeTrue())
 			},
 		)
 		It(
 			"Should decode StatusDetails with task key as float64",
-			func(ctx SpecContext) {
+			func() {
 				type statusDetailsWithFloat struct {
 					Data    map[string]any `msgpack:"data"`
 					Task    float64        `msgpack:"task"`
@@ -164,9 +164,9 @@ var _ = Describe("Task", Ordered, func() {
 					Running: true,
 					Data:    map[string]any{"test": true},
 				}
-				data := MustSucceed(codec.Encode(ctx, original))
+				data := MustSucceed(codec.Encode(original))
 				var decoded task.StatusDetails
-				Expect(codec.Decode(ctx, data, &decoded)).To(Succeed())
+				Expect(codec.Decode(data, &decoded)).To(Succeed())
 				Expect(decoded.Task).To(Equal(task.Key(65536)))
 				Expect(decoded.Running).To(BeTrue())
 			},

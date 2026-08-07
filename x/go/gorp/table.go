@@ -289,7 +289,7 @@ func normalizeKeysMigration[K Key, E Entry[K]]() migrate.Migration {
 		"normalize_keys",
 		func(ctx context.Context, tx Tx, _ alamos.Instrumentation) (err error) {
 			kc := newKeyCodec[K, E](nil)
-			oldPrefix, err := msgpack.Codec.Encode(ctx, types.Name[E]())
+			oldPrefix, err := msgpack.Codec.Encode(types.Name[E]())
 			if err != nil {
 				return err
 			}
@@ -304,7 +304,7 @@ func normalizeKeysMigration[K Key, E Entry[K]]() migrate.Migration {
 			for itr.First(); itr.Valid(); itr.Next() {
 				rawValue := itr.Value()
 				var entry E
-				if err = tx.Decode(ctx, rawValue, &entry); err != nil {
+				if err = tx.Decode(rawValue, &entry); err != nil {
 					return errors.Wrapf(
 						err,
 						"normalize_keys: failed to decode entry at old prefix key %x",

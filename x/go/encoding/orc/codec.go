@@ -10,7 +10,6 @@
 package orc
 
 import (
-	"context"
 	"io"
 	"sync"
 
@@ -78,13 +77,13 @@ func NewCodec(fallback encoding.Codec) encoding.Codec {
 	return &codec{fallback: fallback}
 }
 
-func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
+func (c *codec) Encode(value any) ([]byte, error) {
 	var m SelfEncoder
 	if c.fallback != nil {
 		var ok bool
 		m, ok = value.(SelfEncoder)
 		if !ok {
-			return c.fallback.Encode(ctx, value)
+			return c.fallback.Encode(value)
 		}
 	} else {
 		var ok bool
@@ -105,8 +104,8 @@ func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	return out, nil
 }
 
-func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
+func (c *codec) EncodeStream(w io.Writer, value any) error {
+	b, err := c.Encode(value)
 	if err != nil {
 		return err
 	}
@@ -114,10 +113,10 @@ func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error 
 	return err
 }
 
-func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
+func (c *codec) Decode(data []byte, value any) error {
 	if err := validateMagic(data); err != nil {
 		if c.fallback != nil {
-			return c.fallback.Decode(ctx, data, value)
+			return c.fallback.Decode(data, value)
 		}
 		return errors.New("orc: invalid magic header")
 	}
@@ -132,10 +131,10 @@ func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
 	return err
 }
 
-func (c *codec) DecodeStream(ctx context.Context, rd io.Reader, value any) error {
+func (c *codec) DecodeStream(rd io.Reader, value any) error {
 	data, err := io.ReadAll(rd)
 	if err != nil {
 		return err
 	}
-	return c.Decode(ctx, data, value)
+	return c.Decode(data, value)
 }

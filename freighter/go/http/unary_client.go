@@ -131,7 +131,7 @@ func (u *unaryClient[RQ, RS]) Send(
 		freighter.FinalizerFunc(func(
 			inCtx freighter.Context,
 		) (_ freighter.Context, err error) {
-			b, err := u.encoder.Encode(inCtx, req)
+			b, err := u.encoder.Encode(req)
 			if err != nil {
 				return freighter.Context{}, err
 			}
@@ -168,12 +168,12 @@ func (u *unaryClient[RQ, RS]) Send(
 
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
 				var pld errors.Payload
-				if err := decoder.DecodeStream(outCtx, httpRes.Body, &pld); err != nil {
+				if err := decoder.DecodeStream(httpRes.Body, &pld); err != nil {
 					return outCtx, err
 				}
 				return outCtx, errors.Decode(ctx, pld)
 			}
-			return outCtx, decoder.DecodeStream(outCtx, httpRes.Body, &res)
+			return outCtx, decoder.DecodeStream(httpRes.Body, &res)
 		}),
 	)
 	return res, err

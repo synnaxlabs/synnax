@@ -11,7 +11,6 @@ package msgpack
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"math"
@@ -31,19 +30,19 @@ type codec struct{}
 func (c *codec) ContentType() string { return "application/msgpack" }
 
 // Encode implements the encoding.Encoder interface.
-func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
+func (c *codec) Encode(value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
 	return b, encoding.SugarEncodingErr(value, err)
 }
 
 // Decode implements the encoding.Decoder interface.
-func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
-	err := c.DecodeStream(ctx, bytes.NewReader(data), value)
+func (c *codec) Decode(data []byte, value any) error {
+	err := c.DecodeStream(bytes.NewReader(data), value)
 	return encoding.SugarDecodingErr(data, value, err)
 }
 
 // DecodeStream implements the encoding.Decoder interface.
-func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (c *codec) DecodeStream(r io.Reader, value any) error {
 	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return encoding.SugarDecodingErr(data, value, err)
@@ -52,8 +51,8 @@ func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 }
 
 // EncodeStream implements the encoding.Encoder interface.
-func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
+func (c *codec) EncodeStream(w io.Writer, value any) error {
+	b, err := c.Encode(value)
 	if err != nil {
 		return encoding.SugarEncodingErr(value, err)
 	}

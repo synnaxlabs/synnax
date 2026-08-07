@@ -11,7 +11,6 @@ package encoding
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"reflect"
 
@@ -65,18 +64,18 @@ type Codec interface {
 type Encoder interface {
 	// Encode encodes the value into binary. It returns the encoded value along with any
 	// errors encountered.
-	Encode(ctx context.Context, value any) ([]byte, error)
+	Encode(value any) ([]byte, error)
 	// EncodeStream encodes the value into binary and writes it to the given writer. It
 	// returns any errors encountered.
-	EncodeStream(ctx context.Context, w io.Writer, value any) error
+	EncodeStream(w io.Writer, value any) error
 }
 
 // Decoder decodes values from binary.
 type Decoder interface {
 	// Decode decodes data into a pointer value.
-	Decode(ctx context.Context, data []byte, value any) error
+	Decode(data []byte, value any) error
 	// DecodeStream decodes data from the given reader into a pointer value.
-	DecodeStream(ctx context.Context, r io.Reader, value any) error
+	DecodeStream(r io.Reader, value any) error
 }
 
 // decodeFallbackCodec wraps a set of Codecs. When the first Codec in the chain fails to
@@ -92,27 +91,19 @@ func NewDecodeFallbackCodec(base Codec, codecs ...Codec) Codec {
 var _ Codec = (*decodeFallbackCodec)(nil)
 
 // Encode implements the Encoder interface.
-func (f *decodeFallbackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	return f.Codecs[0].Encode(ctx, value)
+func (f *decodeFallbackCodec) Encode(value any) ([]byte, error) {
+	return f.Codecs[0].Encode(value)
 }
 
-func (f *decodeFallbackCodec) EncodeStream(
-	ctx context.Context,
-	w io.Writer,
-	value any,
-) error {
-	return f.Codecs[0].EncodeStream(ctx, w, value)
+func (f *decodeFallbackCodec) EncodeStream(w io.Writer, value any) error {
+	return f.Codecs[0].EncodeStream(w, value)
 }
 
 // Decode implements the Decoder interface.
-func (f *decodeFallbackCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
+func (f *decodeFallbackCodec) Decode(data []byte, value any) error {
 	var errs []error
 	for _, c := range f.Codecs {
-		if err := c.Decode(ctx, data, value); err != nil {
+		if err := c.Decode(data, value); err != nil {
 			errs = append(errs, err)
 		} else {
 			return nil
@@ -122,11 +113,7 @@ func (f *decodeFallbackCodec) Decode(
 }
 
 // DecodeStream implements the Decoder interface.
-func (f *decodeFallbackCodec) DecodeStream(
-	ctx context.Context,
-	r io.Reader,
-	value any,
-) error {
+func (f *decodeFallbackCodec) DecodeStream(r io.Reader, value any) error {
 	if len(f.Codecs) == 0 {
 		panic("[encoding] - no codecs provided to decodeFallbackCodec")
 	}
@@ -138,7 +125,7 @@ func (f *decodeFallbackCodec) DecodeStream(
 	}
 	var errs []error
 	for _, c := range f.Codecs {
-		if err = c.DecodeStream(ctx, bytes.NewReader(data), value); err != nil {
+		if err = c.DecodeStream(bytes.NewReader(data), value); err != nil {
 			errs = append(errs, err)
 		} else {
 			return nil

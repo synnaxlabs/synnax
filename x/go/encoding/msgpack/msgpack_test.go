@@ -11,7 +11,6 @@ package msgpack_test
 
 import (
 	"bytes"
-	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,41 +25,41 @@ type toEncode struct {
 }
 
 var _ = Describe("Codec", func() {
-	It("Should encode and decode", func(ctx SpecContext) {
+	It("Should encode and decode", func() {
 		codec := msgpack.Codec
-		b := MustSucceed(codec.Encode(ctx, toEncode{1}))
+		b := MustSucceed(codec.Encode(toEncode{1}))
 		var d toEncode
-		Expect(codec.Decode(ctx, b, &d)).To(Succeed())
+		Expect(codec.Decode(b, &d)).To(Succeed())
 		Expect(d.Value).To(Equal(1))
 		var d2 toEncode
-		Expect(codec.DecodeStream(ctx, bytes.NewReader(b), &d2)).To(Succeed())
+		Expect(codec.DecodeStream(bytes.NewReader(b), &d2)).To(Succeed())
 		Expect(d2.Value).To(Equal(1))
 	})
-	It("Should add error info with custom type", func(ctx SpecContext) {
+	It("Should add error info with custom type", func() {
 		codec := msgpack.Codec
 		type custom struct {
 			Chan  chan int
 			Value int
 		}
-		Expect(codec.Encode(ctx, custom{Chan: make(chan int)})).Error().To(MatchError(
+		Expect(codec.Encode(custom{Chan: make(chan int)})).Error().To(MatchError(
 			SatisfyAll(
 				ContainSubstring("failed to encode value"),
 				ContainSubstring("kind=struct, type=msgpack_test.custom"),
 			),
 		))
 	})
-	It("Should include a stack trace on encoding errors", func(ctx SpecContext) {
+	It("Should include a stack trace on encoding errors", func() {
 		codec := msgpack.Codec
-		_, err := codec.Encode(ctx, make(chan int))
+		_, err := codec.Encode(make(chan int))
 		Expect(err).To(HaveOccurred())
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))
 	})
-	It("Should include a stack trace on decoding errors", func(ctx SpecContext) {
+	It("Should include a stack trace on decoding errors", func() {
 		codec := msgpack.Codec
 		var d toEncode
-		err := codec.Decode(ctx, []byte("invalid"), &d)
+		err := codec.Decode([]byte("invalid"), &d)
 		Expect(err).To(HaveOccurred())
 		stack := errors.GetStackTrace(err)
 		Expect(stack.String()).ToNot(BeEmpty())
@@ -351,13 +350,11 @@ var _ = Describe("Codec", func() {
 		})
 		It("Should work with Codec", func() {
 			codec := msgpack.Codec
-			ctx := context.Background()
-
 			jsonStr := `{"name":"test","value":123}`
-			b := MustSucceed(codec.Encode(ctx, jsonStr))
+			b := MustSucceed(codec.Encode(jsonStr))
 
 			var result msgpack.EncodedJSON
-			Expect(codec.Decode(ctx, b, &result)).To(Succeed())
+			Expect(codec.Decode(b, &result)).To(Succeed())
 			Expect(result).To(HaveKey("name"))
 			Expect(result["name"]).To(Equal("test"))
 			Expect(result).To(HaveKey("value"))

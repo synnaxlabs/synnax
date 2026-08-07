@@ -59,18 +59,18 @@ type jsonOnlyRecord struct {
 
 var _ = Describe("Codec", func() {
 	Describe("Encode", func() {
-		It("Should prepend the magic header", func(ctx SpecContext) {
-			data := MustSucceed(orc.Codec.Encode(ctx, &testRecord{ID: 1, Name: "a"}))
+		It("Should prepend the magic header", func() {
+			data := MustSucceed(orc.Codec.Encode(&testRecord{ID: 1, Name: "a"}))
 			Expect(data[:3]).To(Equal(magic[:]))
 		})
 
-		It("Should propagate encoder errors", func(ctx SpecContext) {
-			_, err := orc.Codec.Encode(ctx, &failEncoder{})
+		It("Should propagate encoder errors", func() {
+			_, err := orc.Codec.Encode(&failEncoder{})
 			Expect(err).To(MatchError(errEncode))
 		})
 
-		It("Should return an error for non-SelfEncoder values", func(ctx SpecContext) {
-			_, err := orc.Codec.Encode(ctx, &jsonOnlyRecord{ID: 1, Name: "nope"})
+		It("Should return an error for non-SelfEncoder values", func() {
+			_, err := orc.Codec.Encode(&jsonOnlyRecord{ID: 1, Name: "nope"})
 			Expect(
 				err,
 			).To(MatchError(ContainSubstring("orc: *orc_test.jsonOnlyRecord does not implement SelfEncoder")))
@@ -78,71 +78,71 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Decode", func() {
-		It("Should reject empty data", func(ctx SpecContext) {
-			Expect(orc.Codec.Decode(ctx, []byte{}, &testRecord{})).
+		It("Should reject empty data", func() {
+			Expect(orc.Codec.Decode([]byte{}, &testRecord{})).
 				To(MatchError(ContainSubstring("invalid magic header")))
 		})
 
-		It("Should reject data shorter than 3 bytes", func(ctx SpecContext) {
-			Expect(orc.Codec.Decode(ctx, []byte{0x4F, 0x52}, &testRecord{})).
+		It("Should reject data shorter than 3 bytes", func() {
+			Expect(orc.Codec.Decode([]byte{0x4F, 0x52}, &testRecord{})).
 				To(MatchError(ContainSubstring("invalid magic header")))
 		})
 
-		It("Should reject wrong magic bytes", func(ctx SpecContext) {
+		It("Should reject wrong magic bytes", func() {
 			Expect(
-				orc.Codec.Decode(ctx, []byte{0x00, 0x00, 0x00, 0x00}, &testRecord{}),
+				orc.Codec.Decode([]byte{0x00, 0x00, 0x00, 0x00}, &testRecord{}),
 			).
 				To(MatchError(ContainSubstring("invalid magic header")))
 		})
 
-		It("Should return an error for non-SelfDecoder values", func(ctx SpecContext) {
-			data := MustSucceed(orc.Codec.Encode(ctx, &testRecord{ID: 1, Name: "a"}))
-			Expect(orc.Codec.Decode(ctx, data, &jsonOnlyRecord{})).
+		It("Should return an error for non-SelfDecoder values", func() {
+			data := MustSucceed(orc.Codec.Encode(&testRecord{ID: 1, Name: "a"}))
+			Expect(orc.Codec.Decode(data, &jsonOnlyRecord{})).
 				To(MatchError(ContainSubstring("orc: *orc_test.jsonOnlyRecord does not implement SelfDecoder")))
 		})
 	})
 
 	Describe("Encode/Decode round-trip", func() {
-		It("Should round-trip a record", func(ctx SpecContext) {
+		It("Should round-trip a record", func() {
 			in := &testRecord{ID: 42, Name: "hello"}
-			data := MustSucceed(orc.Codec.Encode(ctx, in))
+			data := MustSucceed(orc.Codec.Encode(in))
 			out := &testRecord{}
-			Expect(orc.Codec.Decode(ctx, data, out)).To(Succeed())
+			Expect(orc.Codec.Decode(data, out)).To(Succeed())
 			Expect(out.ID).To(Equal(uint32(42)))
 			Expect(out.Name).To(Equal("hello"))
 		})
 
-		It("Should round-trip an empty string", func(ctx SpecContext) {
+		It("Should round-trip an empty string", func() {
 			in := &testRecord{ID: 0, Name: ""}
-			data := MustSucceed(orc.Codec.Encode(ctx, in))
+			data := MustSucceed(orc.Codec.Encode(in))
 			out := &testRecord{}
-			Expect(orc.Codec.Decode(ctx, data, out)).To(Succeed())
+			Expect(orc.Codec.Decode(data, out)).To(Succeed())
 			Expect(out.ID).To(Equal(uint32(0)))
 			Expect(out.Name).To(Equal(""))
 		})
 	})
 
 	Describe("EncodeStream/DecodeStream round-trip", func() {
-		It("Should round-trip through a buffer", func(ctx SpecContext) {
+		It("Should round-trip through a buffer", func() {
 			in := &testRecord{ID: 99, Name: "stream"}
 			var buf bytes.Buffer
-			Expect(orc.Codec.EncodeStream(ctx, &buf, in)).To(Succeed())
+			Expect(orc.Codec.EncodeStream(&buf, in)).To(Succeed())
 			out := &testRecord{}
-			Expect(orc.Codec.DecodeStream(ctx, &buf, out)).To(Succeed())
+			Expect(orc.Codec.DecodeStream(&buf, out)).To(Succeed())
 			Expect(out.ID).To(Equal(uint32(99)))
 			Expect(out.Name).To(Equal("stream"))
 		})
 
-		It("Should propagate EncodeStream encoder errors", func(ctx SpecContext) {
+		It("Should propagate EncodeStream encoder errors", func() {
 			var buf bytes.Buffer
-			Expect(orc.Codec.EncodeStream(ctx, &buf, &failEncoder{})).
+			Expect(orc.Codec.EncodeStream(&buf, &failEncoder{})).
 				To(MatchError(errEncode))
 		})
 
-		It("Should propagate DecodeStream read errors", func(ctx SpecContext) {
+		It("Should propagate DecodeStream read errors", func() {
 			readErr := errors.New("read broken")
 			Expect(
-				orc.Codec.DecodeStream(ctx, &errReader{err: readErr}, &testRecord{}),
+				orc.Codec.DecodeStream(&errReader{err: readErr}, &testRecord{}),
 			).
 				To(MatchError(readErr))
 		})
@@ -151,12 +151,12 @@ var _ = Describe("Codec", func() {
 	Describe("Pool reuse", func() {
 		It(
 			"Should produce correct results across multiple encode/decode cycles",
-			func(ctx SpecContext) {
+			func() {
 				for i := range 10 {
 					in := &testRecord{ID: uint32(i), Name: "iter"}
-					data := MustSucceed(orc.Codec.Encode(ctx, in))
+					data := MustSucceed(orc.Codec.Encode(in))
 					out := &testRecord{}
-					Expect(orc.Codec.Decode(ctx, data, out)).To(Succeed())
+					Expect(orc.Codec.Decode(data, out)).To(Succeed())
 					Expect(out.ID).To(Equal(uint32(i)))
 					Expect(out.Name).To(Equal("iter"))
 				}
@@ -170,18 +170,18 @@ var _ = Describe("Codec", func() {
 		Describe("Encode", func() {
 			It(
 				"Should fall back to JSON for non-SelfEncoder values",
-				func(ctx SpecContext) {
+				func() {
 					in := &jsonOnlyRecord{ID: 1, Name: "fallback"}
-					data := MustSucceed(c.Encode(ctx, in))
+					data := MustSucceed(c.Encode(in))
 					Expect(data[0]).ToNot(Equal(magic[0]))
 					out := &jsonOnlyRecord{}
-					Expect(json.Codec.Decode(ctx, data, out)).To(Succeed())
+					Expect(json.Codec.Decode(data, out)).To(Succeed())
 					Expect(out).To(Equal(in))
 				},
 			)
 
-			It("Should use ORC for SelfEncoder values", func(ctx SpecContext) {
-				data := MustSucceed(c.Encode(ctx, &testRecord{ID: 1, Name: "orc"}))
+			It("Should use ORC for SelfEncoder values", func() {
+				data := MustSucceed(c.Encode(&testRecord{ID: 1, Name: "orc"}))
 				Expect(data[:3]).To(Equal(magic[:]))
 			})
 		})
@@ -189,21 +189,21 @@ var _ = Describe("Codec", func() {
 		Describe("Decode", func() {
 			It(
 				"Should fall back to JSON when magic header is missing",
-				func(ctx SpecContext) {
+				func() {
 					data := MustSucceed(
-						json.Codec.Encode(ctx, &jsonOnlyRecord{ID: 2, Name: "json"}),
+						json.Codec.Encode(&jsonOnlyRecord{ID: 2, Name: "json"}),
 					)
 					out := &jsonOnlyRecord{}
-					Expect(c.Decode(ctx, data, out)).To(Succeed())
+					Expect(c.Decode(data, out)).To(Succeed())
 					Expect(out.ID).To(Equal(uint32(2)))
 					Expect(out.Name).To(Equal("json"))
 				},
 			)
 
-			It("Should decode ORC data normally", func(ctx SpecContext) {
-				data := MustSucceed(c.Encode(ctx, &testRecord{ID: 3, Name: "orc"}))
+			It("Should decode ORC data normally", func() {
+				data := MustSucceed(c.Encode(&testRecord{ID: 3, Name: "orc"}))
 				out := &testRecord{}
-				Expect(c.Decode(ctx, data, out)).To(Succeed())
+				Expect(c.Decode(data, out)).To(Succeed())
 				Expect(out.ID).To(Equal(uint32(3)))
 				Expect(out.Name).To(Equal("orc"))
 			})
@@ -212,22 +212,22 @@ var _ = Describe("Codec", func() {
 		Describe("Round-trip", func() {
 			It(
 				"Should round-trip a non-SelfEncoder value through the fallback",
-				func(ctx SpecContext) {
+				func() {
 					in := &jsonOnlyRecord{ID: 99, Name: "round"}
-					data := MustSucceed(c.Encode(ctx, in))
+					data := MustSucceed(c.Encode(in))
 					out := &jsonOnlyRecord{}
-					Expect(c.Decode(ctx, data, out)).To(Succeed())
+					Expect(c.Decode(data, out)).To(Succeed())
 					Expect(out).To(Equal(in))
 				},
 			)
 
 			It(
 				"Should round-trip a SelfEncoder value through ORC",
-				func(ctx SpecContext) {
+				func() {
 					in := &testRecord{ID: 77, Name: "trip"}
-					data := MustSucceed(c.Encode(ctx, in))
+					data := MustSucceed(c.Encode(in))
 					out := &testRecord{}
-					Expect(c.Decode(ctx, data, out)).To(Succeed())
+					Expect(c.Decode(data, out)).To(Succeed())
 					Expect(out.ID).To(Equal(uint32(77)))
 					Expect(out.Name).To(Equal("trip"))
 				},

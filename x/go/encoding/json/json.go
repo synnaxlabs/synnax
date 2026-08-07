@@ -10,7 +10,6 @@
 package json
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"strconv"
@@ -27,13 +26,13 @@ type codec struct{}
 func (c *codec) ContentType() string { return "application/json" }
 
 // Encode implements the encoding.Encoder interface.
-func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
+func (c *codec) Encode(value any) ([]byte, error) {
 	b, err := json.Marshal(value)
 	return b, encoding.SugarEncodingErr(value, err)
 }
 
 // Decode implements the encoding.Decoder interface.
-func (c *codec) Decode(_ context.Context, data []byte, value any) error {
+func (c *codec) Decode(data []byte, value any) error {
 	if err := json.Unmarshal(data, value); err != nil {
 		return encoding.SugarDecodingErr(data, value, err)
 	}
@@ -41,7 +40,7 @@ func (c *codec) Decode(_ context.Context, data []byte, value any) error {
 }
 
 // DecodeStream implements the encoding.Decoder interface.
-func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+func (c *codec) DecodeStream(r io.Reader, value any) error {
 	if err := json.NewDecoder(r).Decode(value); err != nil {
 		data, _ := io.ReadAll(r)
 		return encoding.SugarDecodingErr(data, value, err)
@@ -50,8 +49,8 @@ func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 }
 
 // EncodeStream implements the encoding.Encoder interface.
-func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
+func (c *codec) EncodeStream(w io.Writer, value any) error {
+	b, err := c.Encode(value)
 	if err != nil {
 		return err
 	}
