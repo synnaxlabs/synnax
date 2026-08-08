@@ -128,19 +128,19 @@ ReadEndpoint struct {
     path         string = "" {
         @doc value "is the URL path appended to the device's base URL."
     }
-    headers      Header[]      {
+    headers      Header[]     {
         @doc value "contains additional headers merged into the request."
     }
-    query_params QueryParam[]? {
+    query_params QueryParam[] {
         @doc value "contains query parameters appended to the request URL."
     }
-    body         string?       {
+    body         string?      {
         @doc value "is an optional static body sent with each request."
     }
-    fields       ReadField[]   {
+    fields       ReadField[]  {
         @doc value "contains the values to extract from the response."
     }
-    index        string?       {
+    index        string?      {
         @doc value """
             is the key of the field whose channel indexes the others. Absent
             when the task stamps samples on arrival.
@@ -286,16 +286,16 @@ WriteEndpoint struct {
     path         string = "" {
         @doc value "is the URL path appended to the device's base URL."
     }
-    headers      Header[]      {
+    headers      Header[]     {
         @doc value "contains additional headers merged into the request."
     }
-    query_params QueryParam[]? {
+    query_params QueryParam[] {
         @doc value "contains query parameters appended to the request URL."
     }
-    channel      ChannelField  {
+    channel      ChannelField {
         @doc value "is the command channel whose writes trigger this endpoint."
     }
-    fields       WriteField[]  {
+    fields       WriteField[] {
         @doc value "contains additional static or generated body fields."
     }
 
