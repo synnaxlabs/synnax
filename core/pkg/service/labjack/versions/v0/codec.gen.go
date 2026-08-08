@@ -330,18 +330,8 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	if rc.DeviceScanBacklogWarnOnCount != nil {
-		w.Bool(true)
-		w.Uint32(uint32(*rc.DeviceScanBacklogWarnOnCount))
-	} else {
-		w.Bool(false)
-	}
-	if rc.LjmScanBacklogWarnOnCount != nil {
-		w.Bool(true)
-		w.Uint32(uint32(*rc.LjmScanBacklogWarnOnCount))
-	} else {
-		w.Bool(false)
-	}
+	w.Uint32(uint32(rc.DeviceScanBacklogWarnOnCount))
+	w.Uint32(uint32(rc.LjmScanBacklogWarnOnCount))
 	return nil
 }
 
@@ -392,31 +382,11 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv uint32
-			if hv, err = r.Uint32(); err != nil {
-				return err
-			}
-			rc.DeviceScanBacklogWarnOnCount = &hv
-		}
+	if rc.DeviceScanBacklogWarnOnCount, err = r.Uint32(); err != nil {
+		return err
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv uint32
-			if hv, err = r.Uint32(); err != nil {
-				return err
-			}
-			rc.LjmScanBacklogWarnOnCount = &hv
-		}
+	if rc.LjmScanBacklogWarnOnCount, err = r.Uint32(); err != nil {
+		return err
 	}
 	return nil
 }

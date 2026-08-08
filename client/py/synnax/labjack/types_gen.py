@@ -241,19 +241,16 @@ class ReadConfig(task.BaseReadConfig):
         device: Is the key of the device the task acquires from.
         channels: Are the input channels the task acquires.
         device_scan_backlog_warn_on_count: Is the device-side scan backlog above which
-            the task reports a skew warning. Defaults to two seconds of scans.
+            the task reports a skew warning. Zero lets the driver pick two seconds of
+            scans.
         ljm_scan_backlog_warn_on_count: Is the LJM-side scan backlog above which the
-            task reports a skew warning. Defaults to one second of scans.
+            task reports a skew warning. Zero lets the driver pick one second of scans.
     """
 
     device: device_.Key = ""
     channels: list[InputChannel] = Field(default_factory=list)
-    device_scan_backlog_warn_on_count: int | None = Field(
-        default=None, ge=0, le=4294967295
-    )
-    ljm_scan_backlog_warn_on_count: int | None = Field(
-        default=None, ge=0, le=4294967295
-    )
+    device_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
+    ljm_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
 
     def __hash__(self) -> int:
         return hash(self.key)
