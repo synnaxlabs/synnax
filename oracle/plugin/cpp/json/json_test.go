@@ -394,8 +394,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
-							`parser.field<std::vector<std::int32_t>>("values")`,
-							`parser.field<std::vector<std::string>>("names")`,
+							`parser.field<std::vector<std::int32_t>>("values", std::vector<std::int32_t>{})`,
+							`parser.field<std::vector<std::string>>("names", std::vector<std::string>{})`,
 							// Primitive arrays should use direct assignment in to_json
 							`j["values"] = this->values`,
 							`j["names"] = this->names`,
@@ -424,7 +424,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
-							`parser.field<std::vector<Item>>("items")`,
+							`parser.field<std::vector<Item>>("items", std::vector<Item>{})`,
 							`j["items"] = x::json::to_array(this->items)`,
 						)
 				},
@@ -509,7 +509,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ToContain(
 							`parser.field<std::optional<State<R>>>("from")`,
 							`parser.field<std::optional<State<R>>>("to")`,
-							`parser.field<std::vector<Transfer<R>>>("transfers")`,
+							`parser.field<std::vector<Transfer<R>>>("transfers", std::vector<Transfer<R>>{})`,
 						)
 				},
 			)
@@ -1380,6 +1380,7 @@ var _ = Describe("C++ JSON Union Array Fields", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
+				`if (parser.has("scales"))`,
 				`parser.iter("scales", [&result](x::json::Parser& p) { result.push_back(parse_scale(p)); });`,
 				`for (const auto& item : this->scales) arr.push_back(::synnax::out::to_json(item));`,
 			)

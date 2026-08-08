@@ -38,7 +38,10 @@ inline Rack Rack::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name"),
         .embedded = parser.field<bool>("embedded", false),
         .status = parser.field<std::optional<Status>>("status"),
-        .integrations = parser.field<std::vector<std::string>>("integrations"),
+        .integrations = parser.field<std::vector<std::string>>(
+            "integrations",
+            std::vector<std::string>{}
+        ),
     };
 }
 
