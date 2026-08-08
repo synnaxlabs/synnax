@@ -67,7 +67,9 @@
 
 .console-main__row {
     height: 0;
-    &:has(.console-nav__drawer.pluto--location-left.pluto--hidden) {
+    &:has(
+        .console-nav__drawer.pluto--location-left:is(.pluto--hidden, .console--hover)
+    ) {
         gap: 0;
     }
 }
