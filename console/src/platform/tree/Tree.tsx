@@ -23,7 +23,6 @@ import {
   Status,
   Synnax,
   Tree as Base,
-  useAsyncEffect,
   useCombinedStateAndRef,
   useInitializerRef,
   useSyncedRef,
@@ -226,11 +225,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [loadingListenersRef],
   );
 
-  useAsyncEffect(
-    async (signal) => {
-      if (client == null) return;
-      const resources = await client.ontology.children.retrieve({ ids: root });
-      if (signal.aborted) return;
+  const applyRoot = useCallback(
+    (resources: ontology.Resource[]) => {
       const filtered = resources.filter((r) => {
         const svc = resolveItem(r.id.type);
         return svc.visible == null || svc.visible(r);
@@ -241,8 +237,27 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       }));
       setNodes((prevNodes) => keepLoadedChildren(prevNodes, nodes));
     },
-    [client, ontology.idToString(root)],
+    [resolveItem, setNodes],
   );
+
+  // Plain useEffect, not useAsyncEffect: the latter defers its callback by a
+  // task, so the cache seed would miss the mount commit and the tree would
+  // still paint one empty frame.
+  useEffect(() => {
+    if (client == null) return;
+    // The retained answer from the last mount paints in the mount commit,
+    // before the fetch that reconfirms it, so reopening the tree does not
+    // flash empty.
+    const cached = client.ontology.children.getCached({ ids: root });
+    if (query.isLive(cached)) applyRoot(cached);
+    const controller = new AbortController();
+    handleError(async () => {
+      const resources = await client.ontology.children.retrieve({ ids: root });
+      if (controller.signal.aborted) return;
+      applyRoot(resources);
+    }, "Failed to retrieve resources");
+    return () => controller.abort();
+  }, [client, ontology.idToString(root)]);
 
   const handleSyncResourceSet = useCallback(
     (resource: ontology.Resource) => {
@@ -339,6 +354,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const retrieveChildrenOf = useCallback(
     (id: ontology.ID) => {
       if (client == null) return;
+      // A re-expanded node paints its retained children before the fetch that
+      // reconfirms them.
+      const cached = client.ontology.children.getCached({ ids: id });
+      if (query.isLive(cached)) applyChildren(id, cached);
       handleError(async () => {
         try {
           const resources = await client.ontology.children.retrieve({ ids: id });
