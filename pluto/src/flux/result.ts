@@ -174,3 +174,15 @@ export const nullClientResult = (<
   }),
   data: undefined,
 })) as NullClientResultCreator;
+
+export const noQueryResult = <Data extends state.State>(
+  op: string,
+): DisabledResult<Data, never> => ({
+  variant: "disabled",
+  status: status.create<never, "disabled">({
+    variant: "disabled",
+    message: `Did not ${op}`,
+    description: `Cannot ${op} without a query.`,
+  }),
+  data: undefined,
+});

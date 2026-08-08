@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  NotFoundError,
+  ontology,
+  query,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import {
   Component,
   context,
@@ -18,17 +23,17 @@ import {
   Status,
   Synnax,
   Tree as Base,
-  useAsyncEffect,
   useCombinedStateAndRef,
   useInitializerRef,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { array, type observe } from "@synnaxlabs/x";
+import { array, type destructor, type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type ReactElement,
   type ReactNode,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -37,6 +42,7 @@ import {
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
+import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
 import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
 import { DefaultItem, type Item } from "@/platform/tree/item";
@@ -171,38 +177,33 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [client],
   );
 
-  const retrieveChildren = Ontology.useRetrieveObservableChildren({
-    onChange: useCallback(
-      ({ data: resources, variant }, { id }) => {
-        if (variant == "success") {
-          const filtered = resources.filter((r) => {
-            const svc = resolveItem(r.id.type);
-            return svc.visible == null || svc.visible(r);
-          });
-          const converted = filtered.map((r) => ({
-            key: ontology.idToString(r.id),
-            children: resolveItem(r.id.type).hasChildren ? [] : undefined,
-          }));
-          const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
-          setNodes((prevNodes) => [
-            // Children subscriptions can outlive the parent's presence in the
-            // tree; a missing parent means the update is stale.
-            ...Base.updateNodeChildren({
-              tree: prevNodes,
-              parent: ontology.idToString(id),
-              throwOnMissing: false,
-              updater: (prevChildren) => [
-                ...prevChildren.filter(({ key }) => !ids.has(key)),
-                ...keepLoadedChildren(prevChildren, converted),
-              ],
-            }),
-          ]);
-        }
-        if (variant !== "loading") setLoading(false);
-      },
-      [resolveItem],
-    ),
-  });
+  const applyChildren = useCallback(
+    (id: ontology.ID, resources: ontology.Resource[]) => {
+      const filtered = resources.filter((r) => {
+        const svc = resolveItem(r.id.type);
+        return svc.visible == null || svc.visible(r);
+      });
+      const converted = filtered.map((r) => ({
+        key: ontology.idToString(r.id),
+        children: resolveItem(r.id.type).hasChildren ? [] : undefined,
+      }));
+      const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
+      setNodes((prevNodes) => [
+        // The children subscription can outlive the parent's presence in the
+        // tree; a missing parent means the update is stale.
+        ...Base.updateNodeChildren({
+          tree: prevNodes,
+          parent: ontology.idToString(id),
+          throwOnMissing: false,
+          updater: (prevChildren) => [
+            ...prevChildren.filter(({ key }) => !ids.has(key)),
+            ...keepLoadedChildren(prevChildren, converted),
+          ],
+        }),
+      ]);
+    },
+    [resolveItem],
+  );
 
   const useLoading = useCallback(
     (key: string) =>
@@ -224,11 +225,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [loadingListenersRef],
   );
 
-  useAsyncEffect(
-    async (signal) => {
-      if (client == null) return;
-      const resources = await client.ontology.children.retrieve({ ids: root });
-      if (signal.aborted) return;
+  const applyRoot = useCallback(
+    (resources: ontology.Resource[]) => {
       const filtered = resources.filter((r) => {
         const svc = resolveItem(r.id.type);
         return svc.visible == null || svc.visible(r);
@@ -239,16 +237,42 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       }));
       setNodes((prevNodes) => keepLoadedChildren(prevNodes, nodes));
     },
-    [client, ontology.idToString(root)],
+    [resolveItem, setNodes],
   );
+
+  // Plain useEffect, not useAsyncEffect: the latter defers its callback by a
+  // task, so the cache seed would miss the mount commit and the tree would
+  // still paint one empty frame.
+  useEffect(() => {
+    if (client == null) return;
+    // The retained answer from the last mount paints in the mount commit,
+    // before the fetch that reconfirms it, so reopening the tree does not
+    // flash empty.
+    const cached = client.ontology.children.getCached({ ids: root });
+    if (query.isLive(cached)) applyRoot(cached);
+    const controller = new AbortController();
+    handleError(async () => {
+      const resources = await client.ontology.children.retrieve({ ids: root });
+      if (controller.signal.aborted) return;
+      applyRoot(resources);
+    }, "Failed to retrieve resources");
+    return () => controller.abort();
+  }, [client, ontology.idToString(root)]);
 
   const handleSyncResourceSet = useCallback(
     (resource: ontology.Resource) => {
-      placeholdersRef.current.delete(resource.key);
+      const hadPlaceholder = placeholdersRef.current.delete(resource.key);
       placeholderListenersRef.current.get(resource.key)?.forEach((notify) => notify());
+      // Nodes sort by resource name, so an in-tree resource change must rebuild
+      // node identity to re-sort. A foreign resource cannot affect this tree.
+      if (
+        !hadPlaceholder &&
+        Base.findNode({ tree: nodesRef.current, key: resource.key }) == null
+      )
+        return;
       setNodes((prevNodes) => [...prevNodes]);
     },
-    [setNodes],
+    [setNodes, nodesRef],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
   const handleRelationshipDelete = useCallback(
@@ -256,6 +280,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
       const removed = ontology.idToString(rel.to);
       const node = Base.findNode({ tree: nodesRef.current, key: removed });
+      // Removal and selection cleanup are both no-ops for a node this tree does
+      // not hold; return before paying for the tree copy.
+      if (node == null) return;
       setNodes((prevNodes) => {
         const parent = ontology.idsEqual(rel.from, root)
           ? null
@@ -288,6 +315,13 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       setNodes((prevNodes) => {
         let destination: string | null = ontology.idToString(from);
         if (ontology.idsEqual(from, root)) destination = null;
+        // setNode no-ops when the destination is not in this tree; keep the
+        // previous identity so foreign events do not re-render the tree.
+        if (
+          destination != null &&
+          Base.findNode({ tree: prevNodes, key: destination }) == null
+        )
+          return prevNodes;
         const tree = Base.deepCopy(prevNodes);
         const key = ontology.idToString(to);
         const existing = Base.findNode({ tree, key });
@@ -313,13 +347,41 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
   Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
-  const { retrieve: retrieveChildrenOf } = retrieveChildren;
+  // One live children subscription follows the most recently expanded node; a
+  // new expand swaps it, matching the fetch that just answered.
+  const childListenerRef = useRef<destructor.Destructor | null>(null);
+  useEffect(() => () => childListenerRef.current?.(), []);
+  const retrieveChildrenOf = useCallback(
+    (id: ontology.ID) => {
+      if (client == null) return;
+      // A re-expanded node paints its retained children before the fetch that
+      // reconfirms them.
+      const cached = client.ontology.children.getCached({ ids: id });
+      if (query.isLive(cached)) applyChildren(id, cached);
+      handleError(async () => {
+        try {
+          const resources = await client.ontology.children.retrieve({ ids: id });
+          childListenerRef.current?.();
+          childListenerRef.current = client.ontology.children.onChange(
+            { ids: id },
+            (res) => {
+              if (query.isLive(res)) applyChildren(id, res);
+            },
+          );
+          applyChildren(id, resources);
+        } finally {
+          setLoading(false);
+        }
+      }, "Failed to retrieve resources");
+    },
+    [client, applyChildren, handleError, setLoading],
+  );
   const handleExpand = useCallback(
     ({ action, clicked }: Base.HandleExpandProps) => {
       if (action !== "expand") return;
       const clickedID = ontology.idZ.parse(clicked);
       setLoading(clicked);
-      retrieveChildrenOf({ id: clickedID });
+      retrieveChildrenOf(clickedID);
     },
     [retrieveChildrenOf, setLoading],
   );
@@ -488,7 +550,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [getResource, selectedRef],
   );
 
-  const handleContextMenu = useCallback(
+  const renderContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => {
       if (client == null) return <FallbackContextMenu />;
       if (keys.length === 0)
@@ -538,6 +600,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       return M == null ? <FallbackContextMenu /> : <M {...props} />;
     },
     [client, setNodes, resolveItem, openTab, nodesRef, setSelected],
+  );
+  const handleContextMenu = useCallback(
+    (props: Menu.ContextMenuMenuProps) => (
+      <Errors.SuspenseBoundary loading={null}>
+        {renderContextMenu(props)}
+      </Errors.SuspenseBoundary>
+    ),
+    [renderContextMenu],
   );
   const menuProps = Menu.useContextMenu();
   const contextValue = useMemo(

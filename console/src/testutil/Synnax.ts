@@ -11,4 +11,5 @@ export {
   createAsyncSynnaxWrapper,
   createSynnaxWrapper,
   type CreateSynnaxWrapperParams,
+  renderHookSuspended,
 } from "@synnaxlabs/pluto/testutil";

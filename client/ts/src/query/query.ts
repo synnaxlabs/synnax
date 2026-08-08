@@ -14,6 +14,7 @@ import {
   type record,
   type state,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import { NotFoundError } from "@/errors";
@@ -21,13 +22,16 @@ import { Deleted } from "@/query/deleted";
 import { type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 
+const hashes = new WeakMap<object, string>();
+
 /**
  * Deterministically serializes a query to a stable string. Keys are sorted
  * recursively so `{a: 1, b: 2}` and `{b: 2, a: 1}` collapse to the same key,
  * and explicitly-undefined fields hash like absent ones (matching JSON
  * semantics). Class instances implementing {@link primitive.Hashable}
  * delegate to their `hash()` method; plain objects and arrays recurse
- * structurally.
+ * structurally, memoized per object identity ({@link Params} is readonly, so
+ * an object's hash never changes).
  */
 export const hash = (query: Params): string => {
   if (query === null) return "null";
@@ -35,11 +39,20 @@ export const hash = (query: Params): string => {
   if (typeof query === "bigint") return `${query.toString()}n`;
   if (typeof query !== "object") return JSON.stringify(query);
   if (primitive.isHashable(query)) return query.hash();
-  if (Array.isArray(query)) return `[${query.map(hash).join(",")}]`;
-  const entries = Object.entries(query)
-    .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${hash(v)}`).join(",")}}`;
+  const held = hashes.get(query);
+  if (held !== undefined) return held;
+  let result: string;
+  if (Array.isArray(query)) result = `[${query.map(hash).join(",")}]`;
+  else {
+    const entries = Object.entries(query)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    result = `{${entries
+      .map(([k, v]) => `${JSON.stringify(k)}:${hash(v)}`)
+      .join(",")}}`;
+  }
+  hashes.set(query, result);
+  return result;
 };
 
 /**
@@ -113,10 +126,17 @@ export const watch = <
   ) => K[] | "refetch" | null,
 ): WatchEntry<Q, K> => ({
   attach: (query, onEvent) =>
-    table.subscribe((event) => {
-      const result = affects(event, query);
-      if (result == null) return;
-      if (result === "refetch" || result.length > 0) onEvent(result);
+    // Batched so one foreign write fires onEvent once: a refetch verdict for any event
+    // supersedes the batch's keys, which otherwise union.
+    table.subscribeBatch((events) => {
+      let keys: K[] = [];
+      for (const event of events) {
+        const result = affects(event, query);
+        if (result == null) continue;
+        if (result === "refetch") return onEvent("refetch");
+        keys = keys.concat(result);
+      }
+      if (keys.length > 0) onEvent(keys);
     }),
 });
 
@@ -178,9 +198,16 @@ export interface AnswersHooks {
   /** Reports maintenance errors that have no caller to throw to. Defaults to
    *  console logging. */
   onError?: (error: Error) => void;
+  /**
+   * How long maintenance survives the last unsubscribe, so a quick remount finds
+   * the answer still maintained and skips the reconfirm refetch. Zero tears down
+   * synchronously. Defaults to 5 seconds.
+   */
+  teardownGrace?: TimeSpan;
 }
 
 const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
+const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
 
 type EntryState<K extends record.Key, D extends Data> =
   | { variant: "unfetched" }
@@ -202,6 +229,13 @@ interface Entry<Q extends Params, K extends record.Key, D extends Data> {
   /** Set when a fetch in flight deferred a refetch; honored on settle. */
   refetchOnSettle?: boolean;
   refetchTimer?: ReturnType<typeof setTimeout>;
+  /** When the last subscriber left; the sweep tears the entry down once this
+   *  outlives the grace window. Cleared on resubscribe. */
+  idleSince?: TimeStamp;
+  /** Composed answer interned while maintained, so repeated reads stay
+   *  referentially stable for useSyncExternalStore consumers. Dropped by
+   *  touch, which every content and membership change routes through. */
+  composed?: { state: EntryState<K, D>; value: D };
 }
 
 /**
@@ -229,10 +263,13 @@ export class Queries<
     onError: NonNullable<AnswersHooks["onError"]>;
   };
   private readonly detachEpoch?: destructor.Destructor;
+  private readonly grace: TimeSpan;
+  private sweepTimer?: ReturnType<typeof setTimeout>;
 
   constructor(params: QueriesParams<Q, D, K, V>, hooks: AnswersHooks = {}) {
     this.params = params;
     this.hooks = { ...hooks, onError: hooks.onError ?? console.error };
+    this.grace = hooks.teardownGrace ?? DEFAULT_TEARDOWN_GRACE;
     this.detachEpoch = hooks.onEpoch?.((epoch) => {
       // 0 is a return to cold (cluster replacement): the fresh stream's own
       // epoch bump refetches, not the reset itself.
@@ -246,8 +283,9 @@ export class Queries<
   /**
    * Returns the answer to the query: instantly when cached and subscribed,
    * joining the in-flight fetch when one exists, fetching otherwise. Settled
-   * answers are kept fresh only while subscribed, so an unsubscribed read
-   * always refetches. A previously failed query refetches.
+   * answers are kept fresh only while maintained (subscribed, or within the
+   * teardown grace window after the last unsubscribe), so an unmaintained
+   * read always refetches. A previously failed query refetches.
    * @throws {NotFoundError} if the queried record was deleted.
    */
   retrieve(query: Q, options?: FetchOptions): Promise<D> {
@@ -292,26 +330,22 @@ export class Queries<
   /**
    * Subscribes to changes in the query's cached answer. The handler fires with
    * the new answer on every change or deletion. Maintenance for the query runs
-   * while at least one subscriber exists. Returns a destructor that
-   * unsubscribes.
+   * while at least one subscriber exists and survives the last unsubscribe by
+   * the grace window, so a quick remount skips the reconfirm refetch. Returns
+   * a destructor that unsubscribes.
    */
   onChange(query: Q, handler: ChangeHandler<D>): destructor.Destructor {
     this.startStreaming();
     const entry = this.ensure(query);
     entry.handlers.add(handler);
+    entry.idleSince = undefined;
     if (entry.teardown == null) this.maintain(entry);
     return () => {
       entry.handlers.delete(handler);
       if (entry.handlers.size > 0) return;
-      entry.teardown?.forEach((d) => d());
-      entry.teardown = undefined;
-      entry.unmaintained = true;
-      entry.pendingRechecks = undefined;
-      entry.refetchOnSettle = false;
-      if (entry.refetchTimer != null) {
-        clearTimeout(entry.refetchTimer);
-        entry.refetchTimer = undefined;
-      }
+      if (this.grace.isZero) return this.teardownEntry(entry);
+      entry.idleSince = TimeStamp.now();
+      this.armSweep();
     };
   }
 
@@ -341,11 +375,55 @@ export class Queries<
   /** Detaches the epoch subscription. Entries and handlers are dropped. */
   close(): void {
     this.detachEpoch?.();
+    if (this.sweepTimer != null) {
+      clearTimeout(this.sweepTimer);
+      this.sweepTimer = undefined;
+    }
     this.entries.forEach((entry) => {
       entry.teardown?.forEach((d) => d());
       if (entry.refetchTimer != null) clearTimeout(entry.refetchTimer);
     });
     this.entries.clear();
+  }
+
+  private teardownEntry(entry: Entry<Q, K, D>): void {
+    entry.idleSince = undefined;
+    entry.teardown?.forEach((d) => d());
+    entry.teardown = undefined;
+    entry.unmaintained = true;
+    entry.pendingRechecks = undefined;
+    entry.refetchOnSettle = false;
+    if (entry.refetchTimer != null) {
+      clearTimeout(entry.refetchTimer);
+      entry.refetchTimer = undefined;
+    }
+  }
+
+  /** Arms the sweep while any entry sits in the grace window. One timer per
+   *  space, no matter how many entries go idle at once. */
+  private armSweep(): void {
+    this.sweepTimer ??= setTimeout(() => {
+      this.sweepTimer = undefined;
+      this.sweep();
+    }, this.grace.milliseconds / 2);
+  }
+
+  private sweep(): void {
+    let anyIdle = false;
+    const now = TimeStamp.now();
+    this.entries.forEach((entry) => {
+      if (entry.idleSince == null) return;
+      if (entry.handlers.size > 0) {
+        entry.idleSince = undefined;
+        return;
+      }
+      if (now.span(entry.idleSince).lessThan(this.grace)) {
+        anyIdle = true;
+        return;
+      }
+      this.teardownEntry(entry);
+    });
+    if (anyIdle) this.armSweep();
   }
 
   private ensure(query: Q): Entry<Q, K, D> {
@@ -378,7 +456,15 @@ export class Queries<
 
   private cachedOf(entry: Entry<Q, K, D>): Cached<D> | undefined {
     const { state } = entry;
-    if (state.variant === "ready") return this.compose(state.keys, entry.query);
+    if (state.variant === "ready") {
+      if (entry.teardown != null && entry.composed?.state === state)
+        return entry.composed.value;
+      const value = this.compose(state.keys, entry.query);
+      // An unmaintained entry observes no changes to drop the memo on, so it
+      // recomposes against live tables instead.
+      if (entry.teardown != null) entry.composed = { state, value };
+      return value;
+    }
     if (state.variant === "deleted") {
       const tombstone = this.params.table.getTombstone(state.key);
       if (tombstone == null) return undefined;
@@ -405,8 +491,18 @@ export class Queries<
     return deleted;
   }
 
+  /** Notifies subscribers when any of the keys is a member of the ready
+   *  answer; otherwise just drops the memo so the next read recomposes. */
+  private touchMembers(entry: Entry<Q, K, D>, keys: K[]): void {
+    entry.composed = undefined;
+    if (entry.state.variant !== "ready") return;
+    const { keys: members } = entry.state;
+    if (keys.some((key) => members.includes(key))) this.touch(entry);
+  }
+
   /** Notifies every subscriber with the entry's current answer. */
   private touch(entry: Entry<Q, K, D>): void {
+    entry.composed = undefined;
     if (entry.handlers.size === 0) return;
     const result = this.cachedOf(entry);
     entry.handlers.forEach((handler) => {
@@ -439,15 +535,16 @@ export class Queries<
   }
 
   /**
-   * Replays membership changes a fetch in flight deferred. The fetch answers
-   * the query as of when it ran, so a change that raced it would otherwise be
-   * lost under the keys it publishes.
+   * Replays membership changes a fetch in flight deferred. The fetch answers the query
+   * as of when it ran, so a change that raced it would otherwise be lost under the keys
+   * it publishes. Applies quietly: the settle that calls this notifies once for the
+   * whole answer.
    */
   private drainRechecks(entry: Entry<Q, K, D>): void {
     const pending = entry.pendingRechecks;
     if (pending == null) return;
     entry.pendingRechecks = undefined;
-    pending.forEach((key) => this.recheck(entry, key));
+    this.applyRechecks(entry, pending);
   }
 
   private fetch(entry: Entry<Q, K, D>, options?: FetchOptions): Promise<D> {
@@ -533,10 +630,25 @@ export class Queries<
 
     if (this.isServerComputed(query) || (keyOf?.(query) == null && matches == null)) {
       // Rule 3: server-computed — any relevant event triggers a debounced
-      // wholesale refetch; membership is never patched locally.
-      teardown.push(table.subscribe(() => this.scheduleRefetch(entry)));
+      // wholesale refetch; membership is never patched locally. A change to a
+      // current member's row notifies immediately, so optimistic writes render
+      // without waiting on the refetch.
+      teardown.push(
+        table.subscribeBatch((events) => {
+          this.scheduleRefetch(entry);
+          this.touchMembers(
+            entry,
+            events.map((event) => event.key),
+          );
+        }),
+      );
       watches?.forEach((w) =>
-        teardown.push(w.attach(query, () => this.scheduleRefetch(entry))),
+        teardown.push(
+          w.attach(query, (result) => {
+            this.scheduleRefetch(entry);
+            if (result !== "refetch") this.touchMembers(entry, result);
+          }),
+        ),
       );
       return;
     }
@@ -579,7 +691,14 @@ export class Queries<
     }
 
     // Rule 2: client-checkable — admit/evict exactly against `matches`.
-    teardown.push(table.subscribe((event) => this.recheck(entry, event.key)));
+    teardown.push(
+      table.subscribeBatch((events) =>
+        this.recheckKeys(
+          entry,
+          events.map((event) => event.key),
+        ),
+      ),
+    );
     watches?.forEach((w) =>
       teardown.push(
         w.attach(query, (result) => {
@@ -590,49 +709,71 @@ export class Queries<
     );
   }
 
-  private evict(entry: Entry<Q, K, D>, keys: K[], key: K): void {
-    const next = keys.filter((k) => k !== key);
-    if (this.params.single === true && next.length === 0)
-      if (this.params.table.status(key) === "tombstoned")
-        entry.state = { variant: "deleted", key };
-      else entry.state = { variant: "unfetched" };
-    else entry.state = { variant: "ready", keys: next };
-    this.touch(entry);
+  /**
+   * Applies membership rechecks for the given keys against the table's current rows,
+   * without notifying. Admissions append in iteration order; evicting a single space's
+   * last member flips the entry to deleted or unfetched. Returns whether the answer
+   * changed: membership moved, or a member's content was touched.
+   */
+  private applyRechecks(entry: Entry<Q, K, D>, keys: Iterable<K>): boolean {
+    if (entry.state.variant === "loading") {
+      const pending = (entry.pendingRechecks ??= new Set<K>());
+      for (const key of keys) pending.add(key);
+      return false;
+    }
+    if (entry.state.variant !== "ready") return false;
+    const { table, matches, single } = this.params;
+    const working = [...entry.state.keys];
+    const memberSet = new Set(working);
+    const removed = new Set<K>();
+    const seen = new Set<K>();
+    let membershipChanged = false;
+    let contentChanged = false;
+    let lastEvicted: K | null = null;
+    for (const key of keys) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const member = memberSet.has(key);
+      const rec = table.get(key);
+      const m = rec != null && matches!(rec, entry.query);
+      if (m && !member) {
+        working.push(key);
+        memberSet.add(key);
+        membershipChanged = true;
+      } else if (!m && member) {
+        memberSet.delete(key);
+        removed.add(key);
+        lastEvicted = key;
+        membershipChanged = true;
+      } else if (m && member) contentChanged = true;
+    }
+    if (membershipChanged) {
+      const next =
+        removed.size === 0 ? working : working.filter((k) => !removed.has(k));
+      if (single === true && next.length === 0 && lastEvicted != null)
+        if (table.status(lastEvicted) === "tombstoned")
+          entry.state = { variant: "deleted", key: lastEvicted };
+        else entry.state = { variant: "unfetched" };
+      else entry.state = { variant: "ready", keys: next };
+    }
+    return membershipChanged || contentChanged;
   }
 
-  private recheck(entry: Entry<Q, K, D>, key: K): void {
-    if (entry.state.variant === "loading") {
-      (entry.pendingRechecks ??= new Set<K>()).add(key);
-      return;
-    }
-    if (entry.state.variant !== "ready") return;
-    const { table, matches } = this.params;
-    const keys = entry.state.keys;
-    const member = keys.includes(key);
-    const rec = table.get(key);
-    if (rec == null) {
-      if (!member) return;
-      return this.evict(entry, keys, key);
-    }
-    const m = matches!(rec, entry.query);
-    if (m && !member) {
-      entry.state = { variant: "ready", keys: [...keys, key] };
-      return this.touch(entry);
-    }
-    if (!m && member) return this.evict(entry, keys, key);
-    if (m && member) this.touch(entry);
+  /** Applies rechecks for the keys, then notifies once when anything changed. */
+  private recheckKeys(entry: Entry<Q, K, D>, keys: Iterable<K>): void {
+    if (this.applyRechecks(entry, keys)) this.touch(entry);
   }
 
   private recheckMany(entry: Entry<Q, K, D>, keys: K[]): void {
     const { table } = this.params;
-    keys.forEach((key) => this.recheck(entry, key));
+    this.recheckKeys(entry, keys);
     const missing = keys.filter((key) => table.status(key) === "unknown");
     if (missing.length === 0) return;
     // Backfill through the table's fetch so membership can be rechecked;
     // fetch-less tables serve cached rows only and the recheck is a no-op.
     table
       .retrieve(missing)
-      .then(() => missing.forEach((key) => this.recheck(entry, key)))
+      .then(() => this.recheckKeys(entry, missing))
       .catch((exc: unknown) =>
         this.report(exc, `failed to hydrate ${this.params.name} answers`),
       );

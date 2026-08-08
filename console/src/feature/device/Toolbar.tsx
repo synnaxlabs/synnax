@@ -16,13 +16,15 @@ import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
 const Content = (): ReactElement => {
-  const { data: groupID } = Device.useRetrieveGroupID({});
+  const { data: groupID } = Device.useResultGroupID({});
   return (
     <Toolbar.Content>
       <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
       </Toolbar.Header>
-      <Tree.Tree root={groupID} />
+      <Toolbar.Body>
+        <Tree.Tree root={groupID} />
+      </Toolbar.Body>
     </Toolbar.Content>
   );
 };

@@ -194,32 +194,34 @@ const Content = () => {
             </Toolbar.Actions>
           )}
         </Toolbar.Header>
-        <Select.Frame
-          multiple
-          data={data}
-          getItem={getItem}
-          subscribe={subscribe}
-          value={selected}
-          onChange={setSelected}
-          onFetchMore={fetchMore}
-          replaceOnSingle
-        >
-          <List.Items<task.Key, task.Task>
-            full="y"
-            emptyContent={<EmptyContent />}
-            onContextMenu={menuProps.open}
+        <Toolbar.Body>
+          <Select.Frame
+            multiple
+            data={data}
+            getItem={getItem}
+            subscribe={subscribe}
+            value={selected}
+            onChange={setSelected}
+            onFetchMore={fetchMore}
+            replaceOnSingle
           >
-            {({ key, ...p }) => (
-              <TaskListItem
-                key={key}
-                {...p}
-                onStopStart={(command) => handleListItemStopStart(command, key)}
-                onRename={(name) => rename({ name, key })}
-                onDoubleClick={() => handleEdit(key)}
-              />
-            )}
-          </List.Items>
-        </Select.Frame>
+            <List.Items<task.Key, task.Task>
+              full="y"
+              emptyContent={<EmptyContent />}
+              onContextMenu={menuProps.open}
+            >
+              {({ key, ...p }) => (
+                <TaskListItem
+                  key={key}
+                  {...p}
+                  onStopStart={(command) => handleListItemStopStart(command, key)}
+                  onRename={(name) => rename({ name, key })}
+                  onDoubleClick={() => handleEdit(key)}
+                />
+              )}
+            </List.Items>
+          </Select.Frame>
+        </Toolbar.Body>
       </Toolbar.Content>
     </Menu.ContextMenu>
   );

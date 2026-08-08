@@ -55,12 +55,12 @@ const createGraphArc = async (): Promise<arc.Arc> =>
   });
 
 // loadArc primes the client cache with the arc at key via the suspending
-// useEnsureRetrieved. A single-hook bootstrap keeps the suspending hook from
+// useEnsure. A single-hook bootstrap keeps the suspending hook from
 // being followed by additional hooks, which trips a React 19 replay warning.
 const loadArc = async (key: string): Promise<void> => {
   const Wrapper = wrapper;
   const Bootstrap = (): ReactElement => {
-    Arc.useEnsureRetrieved({ key });
+    Arc.useEnsure({ key });
     return <div data-testid="loaded" />;
   };
   let utils!: ReturnType<typeof render>;
@@ -100,8 +100,8 @@ describe("arc graph clipboard", () => {
     await loadArc(key);
     const { result } = renderHook(
       () => ({
-        nodes: Arc.useSelectAllNodes({ key }),
-        edges: Arc.useSelectAllEdges({ key }),
+        nodes: Arc.useAllNodes({ key }),
+        edges: Arc.useAllEdges({ key }),
         clipboard: useClipboard({ key, selected, onPaste }),
       }),
       { wrapper },

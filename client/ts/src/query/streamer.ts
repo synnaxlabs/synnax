@@ -14,17 +14,17 @@ import { isConnectionError, NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
 
 /**
- * A raw channel reaction: parses frames from the channel with the schema and
- * invokes onChange per parsed value. Mirror listeners bind to this shape
- * internally; domains register reactions via the cache's listen.
+ * A raw channel reaction: parses frames from the channel with the schema and invokes
+ * onChange once per frame with every parsed value, in order. Mirror listeners bind to
+ * this shape internally; domains register reactions via the cache's listen.
  */
 export interface Listener<Z extends z.ZodType = z.ZodType> {
   /** The name of the Synnax channel to listen to */
   channel: string;
   /** Zod schema for parsing and validating channel data */
   schema: Z;
-  /** Callback function invoked when the channel data changes */
-  onChange(this: void, changed: z.output<Z>): Promise<unknown> | unknown;
+  /** Receives the frame's parsed values for the channel as one batch. */
+  onChange(this: void, changed: z.output<Z>[]): Promise<unknown> | unknown;
 }
 
 /**
@@ -161,12 +161,12 @@ export const createStreamer = ({
               report(exc, `failed to parse streamer change for ${name}`);
               continue;
             }
-            for (const changed of parsed)
-              try {
-                await onChange(changed);
-              } catch (exc) {
-                report(exc, `failed to handle streamer change for ${name}`);
-              }
+            if (parsed.length === 0) continue;
+            try {
+              await onChange(parsed);
+            } catch (exc) {
+              report(exc, `failed to handle streamer change for ${name}`);
+            }
           }
         }
       })();

@@ -35,7 +35,7 @@ import { Session } from "@/session";
 
 const Internal = (): ReactElement => {
   const key = LinePlot.useKey();
-  const name = LinePlot.useSelectName();
+  const name = LinePlot.useName();
   const dispatch = Session.useDispatch();
   const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
@@ -104,7 +104,7 @@ const Internal = (): ReactElement => {
 };
 
 export const Toolbar = (): ReactElement => {
-  const { key } = PlutoPanel.useSelectTabResource();
+  const { key } = PlutoPanel.useTabResource();
   return (
     <LinePlot.Suspended linePlotKey={key}>
       <Internal />

@@ -40,7 +40,7 @@ export const useCreateModal = Modals.create(({ close }) => {
   });
 
   const { form, save, variant } = Project.useForm({
-    query: {},
+    query: null,
     initialValues: { name: "", layout: {} },
     afterSave: ({ value }) => {
       const { key } = value();

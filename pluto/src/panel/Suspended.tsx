@@ -10,7 +10,7 @@
 import { type panel } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { useEnsureRetrieved } from "@/panel/queries";
+import { useEnsure } from "@/panel/queries";
 import { Scope, TabScope } from "@/panel/scope";
 
 /** useKey resolves the active panel key from the surrounding {@link Suspended}. */
@@ -30,7 +30,7 @@ export interface SuspendedProps extends PropsWithChildren {
  * descendants so panel-scoped hooks resolve it without an explicit argument.
  */
 export const Suspended = ({ panelKey, children }: SuspendedProps): ReactElement => {
-  useEnsureRetrieved({ key: panelKey });
+  useEnsure({ key: panelKey });
   return <Scope.Provider value={panelKey}>{children}</Scope.Provider>;
 };
 

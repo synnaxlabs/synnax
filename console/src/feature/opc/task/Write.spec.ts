@@ -100,7 +100,9 @@ describe("OPC.Write", () => {
       client,
       params: { deviceKey: dev.key, taskKey },
     });
-    await screen.findByText(new RegExp(ch.nodeName));
+    // The command channel exists by now, so the node id and the resolved channel
+    // name both match.
+    await screen.findAllByText(new RegExp(ch.nodeName));
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
     await waitFor(async () => {
       const afterSecond = await client.devices.retrieve({

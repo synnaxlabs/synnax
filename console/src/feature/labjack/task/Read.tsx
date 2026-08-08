@@ -12,6 +12,7 @@ import { Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
+import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
 import * as Device from "@/feature/labjack/device/types";
@@ -216,19 +217,11 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   );
 };
 
-const Form: FC<Task.FormProps<ReadSchemas>> = (props) => {
-  const isSnapshot = Task.useIsSnapshot();
-  const configure = useConfigureModal();
-  return (
-    <PlatformDevice.Provider
-      canConfigure={!isSnapshot}
-      onConfigure={(deviceKey) => configure({ deviceKey })}
-      schemas={Device.SCHEMAS}
-    >
-      {({ device }) => <ChannelsForm device={device} {...props} />}
-    </PlatformDevice.Provider>
-  );
-};
+const Form: FC<Task.FormProps<ReadSchemas>> = PlatformDevice.wrapTaskForm({
+  use,
+  useConfigure: useConfigureModal,
+  Content: ChannelsForm,
+});
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,

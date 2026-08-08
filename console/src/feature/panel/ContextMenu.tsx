@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu, Panel, type Triggers } from "@synnaxlabs/pluto";
+import { panel, query } from "@synnaxlabs/client";
+import { Icon, Menu, Panel, Synnax, type Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useTearOffTab } from "@/feature/panel/useTearOff";
@@ -19,7 +20,7 @@ const RENAME_TRIGGER: Triggers.Trigger = ["Control", "E"];
 
 const RenameItem = (): ReactElement | null => {
   const tabKey = Panel.useTabKey();
-  const isResource = Panel.useSelectTabVariant({}) === "resource";
+  const isResource = Panel.useTabVariant({}) === "resource";
   if (!isResource) return null;
   return (
     <CMenu.RenameItem
@@ -54,12 +55,15 @@ const FocusItem = (): ReactElement => {
 const MoveToNewWindowItem = (): ReactElement => {
   const key = Panel.useKey();
   const tabKey = Panel.useTabKey();
-  const getTab = Panel.useGetTab();
+  const client = Synnax.use();
   const tearOff = useTearOffTab();
-  const handleMove = useCallback(
-    () => tearOff({ panel: key, tab: getTab({ key, tabKey }) }),
-    [tearOff, key, tabKey, getTab],
-  );
+  const handleMove = useCallback(() => {
+    const cached = client?.panels.getCached(key);
+    if (!query.isLive(cached)) return;
+    const tab = panel.findTab(cached.root, tabKey);
+    if (tab == null) return;
+    tearOff({ panel: key, tab });
+  }, [tearOff, key, tabKey, client]);
   return (
     <Menu.Item itemKey="move-to-new-window" onClick={handleMove}>
       <Icon.OpenInNewWindow />
