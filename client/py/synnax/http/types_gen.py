@@ -222,7 +222,7 @@ class ReadEndpoint(BaseModel):
     method: Method = "GET"
     path: str = ""
     headers: list[Header] = Field(default_factory=list)
-    query_params: list[QueryParam] | None = None
+    query_params: list[QueryParam] = Field(default_factory=list)
     body: str | None = None
     fields: list[ReadField] = Field(default_factory=list)
     index: str | None = None
@@ -250,7 +250,7 @@ class WriteEndpoint(BaseModel):
     method: Method = "POST"
     path: str = ""
     headers: list[Header] = Field(default_factory=list)
-    query_params: list[QueryParam] | None = None
+    query_params: list[QueryParam] = Field(default_factory=list)
     channel: ChannelField
     fields: list[WriteField] = Field(default_factory=list)
 

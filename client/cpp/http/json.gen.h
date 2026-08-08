@@ -106,8 +106,9 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
         .method = parser.field<std::string>("method", "GET"),
         .path = parser.field<std::string>("path", ""),
         .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
-        .query_params = parser.field<std::optional<std::vector<QueryParam>>>(
-            "query_params"
+        .query_params = parser.field<std::vector<QueryParam>>(
+            "query_params",
+            std::vector<QueryParam>{}
         ),
         .body = parser.field<std::optional<std::string>>("body"),
         .fields = parser.field<std::vector<ReadField>>(
@@ -124,8 +125,7 @@ inline x::json::json ReadEndpoint::to_json() const {
     j["method"] = this->method;
     j["path"] = this->path;
     j["headers"] = x::json::to_array(this->headers);
-    if (this->query_params.has_value())
-        j["query_params"] = x::json::to_array(*this->query_params);
+    j["query_params"] = x::json::to_array(this->query_params);
     j["body"] = this->body;
     j["fields"] = x::json::to_array(this->fields);
     j["index"] = this->index;
@@ -207,8 +207,9 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
         .method = parser.field<std::string>("method", "POST"),
         .path = parser.field<std::string>("path", ""),
         .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
-        .query_params = parser.field<std::optional<std::vector<QueryParam>>>(
-            "query_params"
+        .query_params = parser.field<std::vector<QueryParam>>(
+            "query_params",
+            std::vector<QueryParam>{}
         ),
         .channel = parser.field<ChannelField>("channel"),
         .fields = [&] {
@@ -229,8 +230,7 @@ inline x::json::json WriteEndpoint::to_json() const {
     j["method"] = this->method;
     j["path"] = this->path;
     j["headers"] = x::json::to_array(this->headers);
-    if (this->query_params.has_value())
-        j["query_params"] = x::json::to_array(*this->query_params);
+    j["query_params"] = x::json::to_array(this->query_params);
     j["channel"] = this->channel.to_json();
     {
         auto arr = x::json::json::array();

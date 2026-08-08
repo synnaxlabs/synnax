@@ -199,7 +199,7 @@ struct ReadEndpoint {
     /// @brief headers contains additional headers merged into the request.
     std::vector<Header> headers;
     /// @brief query_params contains query parameters appended to the request URL.
-    std::optional<std::vector<QueryParam>> query_params;
+    std::vector<QueryParam> query_params;
     /// @brief body is an optional static body sent with each request.
     std::optional<std::string> body;
     /// @brief fields contains the values to extract from the response.
@@ -226,7 +226,7 @@ struct WriteEndpoint {
     /// @brief headers contains additional headers merged into the request.
     std::vector<Header> headers;
     /// @brief query_params contains query parameters appended to the request URL.
-    std::optional<std::vector<QueryParam>> query_params;
+    std::vector<QueryParam> query_params;
     /// @brief channel is the command channel whose writes trigger this endpoint.
     ChannelField channel;
     /// @brief fields contains additional static or generated body fields.
