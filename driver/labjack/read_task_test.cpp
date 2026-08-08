@@ -190,7 +190,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 
     ASSERT_EQ(cfg->sample_rate, x::telem::HERTZ * 10);
     ASSERT_EQ(cfg->stream_rate, x::telem::HERTZ * 5);
-    ASSERT_EQ(cfg->data_saving, true);
+    ASSERT_EQ(cfg->data_saving_disabled, false);
     ASSERT_EQ(cfg->channels.size(), 3);
 
     const auto tc_chan = dynamic_cast<ThermocoupleChan *>(cfg->channels[0].get());

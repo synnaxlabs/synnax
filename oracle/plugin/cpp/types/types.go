@@ -823,6 +823,26 @@ func wrapCppTelemNumeric(cppType, literal string) string {
 	return literal
 }
 
+// cppDistinctWrapper returns the C++ type to wrap a scalar default in when the
+// field's type resolves to a distinct type, or "" when the literal can stand
+// alone.
+func (p *Plugin) cppDistinctWrapper(
+	typeRef resolution.TypeRef,
+	data *templateData,
+) string {
+	if resolution.IsPrimitive(typeRef.Name) {
+		return ""
+	}
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return ""
+	}
+	if _, isDistinct := resolved.Form.(resolution.DistinctForm); !isDistinct {
+		return ""
+	}
+	return p.typeRefToCpp(typeRef, data)
+}
+
 func getUnderlyingPrimitive(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
@@ -895,7 +915,13 @@ func (p *Plugin) cppDefaultLiteral(
 ) string {
 	switch val.Kind {
 	case resolution.ValueKindString:
-		return fmt.Sprintf("%q", val.StringValue)
+		lit := fmt.Sprintf("%q", val.StringValue)
+		// Distinct string types (e.g. x::telem::DataType) may declare an explicit
+		// constructor, so the literal must be wrapped in a direct-init call.
+		if wrapper := p.cppDistinctWrapper(typeRef, data); wrapper != "" {
+			return fmt.Sprintf("%s(%s)", wrapper, lit)
+		}
+		return lit
 	case resolution.ValueKindInt:
 		return wrapCppTelemNumeric(
 			p.typeRefToCpp(typeRef, data), fmt.Sprintf("%d", val.IntValue),

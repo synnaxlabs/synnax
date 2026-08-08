@@ -37,7 +37,7 @@ const createOutputChannel = (): OPC.Task.OutputChannel => {
     nodeId: `ns=1;s=${nodeName}`,
     nodeName,
     cmdChannel: 0,
-    enabled: true,
+    disabled: false,
     dataType: "float32",
     name: "",
   };

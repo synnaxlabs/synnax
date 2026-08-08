@@ -694,6 +694,44 @@ var _ = Describe("Python Types Plugin", func() {
 		)
 
 		It(
+			"Should wrap float defaults in distinct type constructor",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				Rate float64
+
+				Config struct {
+					rate Rate = 0.2
+				}
+			`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				content := MustContentOf(resp, "types_gen.py")
+				Expect(content).To(ContainSubstring(`rate: Rate = Rate(0.200000)`))
+			},
+		)
+
+		It(
+			"Should wrap string defaults in distinct type constructor",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				DataType string
+
+				Config struct {
+					data_type DataType = "float32"
+				}
+			`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				content := MustContentOf(resp, "types_gen.py")
+				Expect(content).To(ContainSubstring(
+					`data_type: DataType = DataType("float32")`,
+				))
+			},
+		)
+
+		It(
 			"Should wrap int defaults in cross-namespace distinct type constructor",
 			func(ctx SpecContext) {
 				loader.Add("schemas/telem", `

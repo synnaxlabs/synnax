@@ -597,6 +597,35 @@ var _ = Describe("C++ JSON Plugin", func() {
 			)
 
 			It(
+				"Should wrap distinct string defaults in their constructors",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					DataType string {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						data_type telem.DataType = "float32"
+						label     string = "dflt"
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					ExpectContent(resp, "out/json.gen.h").
+						ToContain(
+							`parser.field<::x::telem::DataType>("data_type", ::x::telem::DataType("float32"))`,
+							`parser.field<std::string>("label", "dflt")`,
+						)
+				},
+			)
+
+			It(
 				"Should parse optional uuid fields as std::optional",
 				func(ctx SpecContext) {
 					source := `
@@ -1303,7 +1332,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
-				ToContain(`.device = parser.field<Key>("device", ""),`)
+				ToContain(`.device = parser.field<Key>("device", Key("")),`)
 		},
 	)
 
