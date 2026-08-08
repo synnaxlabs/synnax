@@ -174,7 +174,7 @@ describe("Synchronizer.use", () => {
       await waitFor(() => expect(reconciles).toBeGreaterThan(settled));
       await waitFor(() => expect(result.current).toBe(true));
     } finally {
-      local.close();
+      await local.close();
       await proxy.close();
     }
   });
