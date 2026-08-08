@@ -166,12 +166,14 @@ class OutputChannelAO(BaseOutputChannel):
     """Drives an analog output on a DAC port."""
 
     type: Literal["AO"]
+    port: str = "DAC0"
 
 
 class OutputChannelDO(BaseOutputChannel):
     """Drives a digital output line on a DIO port."""
 
     type: Literal["DO"]
+    port: str = "DIO4"
 
 
 # Is a single LabJack output channel. The type field selects the output
@@ -186,6 +188,7 @@ class InputChannelAI(BaseInputChannel):
     """Reads a voltage from an analog input port."""
 
     type: Literal["AI"]
+    port: str = "AIN0"
     range: float = 10
     neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
     scale: Scale
@@ -195,12 +198,14 @@ class InputChannelDI(BaseInputChannel):
     """Reads a digital input line."""
 
     type: Literal["DI"]
+    port: str = "DIO4"
 
 
 class InputChannelTc(BaseInputChannel):
     """Reads temperature from a thermocouple."""
 
     type: Literal["TC"]
+    port: str = "AIN0"
     thermocouple_type: ThermocoupleType = "K"
     pos_chan: int = Field(default=0, ge=-2147483648, le=2147483647)
     neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)

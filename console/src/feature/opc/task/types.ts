@@ -102,8 +102,6 @@ export const deployReadConfigZ = opc.readConfigZ
     else Task.validateStreamRate(ctx);
   });
 
-const ZERO_READ_CONFIG = opc.readConfigZ.parse({ sampleRate: 50, streamRate: 25 });
-
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
   config: readConfigZ,
@@ -113,17 +111,6 @@ export const READ_SCHEMAS = {
 export type ReadSchemas = typeof READ_SCHEMAS;
 
 export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
-export const ZERO_READ_PAYLOAD: ReadPayload = {
-  key: "",
-  rack: 0,
-  type: "opc_read",
-  name: "OPC UA Read Task",
-  config: ZERO_READ_CONFIG,
-  configHash: "",
-  internal: false,
-  snapshot: false,
-};
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
@@ -152,8 +139,6 @@ export const deployWriteConfigZ = opc.writeConfigZ.extend({
     .check(validateNodeIDs),
 });
 
-const ZERO_WRITE_CONFIG = opc.writeConfigZ.parse({});
-
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
   config: writeConfigZ,
@@ -163,17 +148,6 @@ export const WRITE_SCHEMAS = {
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
 export interface WritePayload extends task.Payload<WriteSchemas> {}
-
-export const ZERO_WRITE_PAYLOAD: WritePayload = {
-  key: "",
-  rack: 0,
-  type: "opc_write",
-  name: "OPC UA Write Task",
-  config: ZERO_WRITE_CONFIG,
-  configHash: "",
-  internal: false,
-  snapshot: false,
-};
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

@@ -38,15 +38,19 @@ const createChannel = (
   overrides: CreateChannelOverrides = {},
 ): NI.Task.AIChannel =>
   ({
-    ...NI.Task.ZERO_AI_CHANNELS[type],
+    ...NI.Task.createAIChannel(type),
     key: id.create(),
     port,
     device: "placeholder_device",
     ...overrides,
   }) as NI.Task.AIChannel;
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_ANALOG_READ_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<NI.Task.AnalogReadSchemas> = {
+  name: "NI Analog Read Task",
+  type: NI.Task.ANALOG_READ_TYPE,
+  config: NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (config: task.Payload<NI.Task.AnalogReadSchemas>["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, NI.Task.ANALOG_READ_SCHEMAS);
@@ -79,7 +83,7 @@ describe("AnalogRead", () => {
   it("should seed a voltage channel bound to the device on the task row", async () => {
     const dev = await createNIDevice(client);
     await renderAnalogRead({
-      ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
       channels: [createChannel("ai_voltage", 0, { device: dev.key })],
     });
     await waitFor(() =>
@@ -110,7 +114,7 @@ describe("AnalogRead", () => {
       ["ai_voltage", "Terminal Configuration"],
     ];
     await renderAnalogRead({
-      ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
       channels: cases.map(([type], i) =>
         createChannel(type, i, { name: `chan_${type}` }),
       ),
@@ -135,10 +139,10 @@ describe("AnalogRead", () => {
       ["table", "Table CSV"],
     ] as const;
     await renderAnalogRead({
-      ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
       channels: cases.map(([scaleType], i) => ({
         ...createChannel("ai_voltage", i, { name: `chan_${scaleType}` }),
-        customScale: NI.Task.ZERO_SCALES[scaleType],
+        customScale: NI.Task.createScale(scaleType),
       })),
     });
     for (const [scaleType, distinguishingLabel] of cases) {
@@ -156,7 +160,7 @@ describe("AnalogRead", () => {
 
   it("should show and seed the matching CJC field as the CJC source is switched", async () => {
     await renderAnalogRead({
-      ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
       channels: [
         createChannel("ai_thermocouple", 0, { cjcSource: "ConstVal", cjcVal: 5 }),
       ],
@@ -178,7 +182,7 @@ describe("AnalogRead", () => {
 
   it("should swap the channel to the newly selected type and keep its port", async () => {
     await renderAnalogRead({
-      ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
       channels: [createChannel("ai_voltage", 3)],
     });
     fireEvent.click(await findDialogTriggerByText("Voltage"));
@@ -194,7 +198,7 @@ describe("AnalogRead", () => {
       const dev = await createNIDevice(client);
       const namedChannel = uniqueName("ai_named");
       const { container, draft } = await renderAnalogRead({
-        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
         channels: [
           createChannel("ai_voltage", 0, { device: dev.key }),
           createChannel("ai_current", 1, { device: dev.key, name: namedChannel }),
@@ -234,7 +238,7 @@ describe("AnalogRead", () => {
     it("should reuse existing channels when redeployed", async () => {
       const dev = await createNIDevice(client);
       const config = {
-        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
         channels: [createChannel("ai_voltage", 0, { device: dev.key })],
       };
       const first = await renderAnalogRead(config);
@@ -268,7 +272,7 @@ describe("AnalogRead", () => {
       const devA = await createNIDevice(client);
       const devB = await createNIDevice(client);
       const { statuses, container } = await renderAnalogRead({
-        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
         channels: [
           createChannel("ai_voltage", 0, { device: devA.key }),
           createChannel("ai_voltage", 1, { device: devB.key }),
@@ -280,7 +284,7 @@ describe("AnalogRead", () => {
 
     it("should surface an error when the task has no channels", async () => {
       const { statuses, container } = await renderAnalogRead({
-        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
         channels: [],
       });
       await clickDeploy(container);

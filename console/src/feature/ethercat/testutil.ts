@@ -20,10 +20,10 @@ import {
   ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
 import {
+  INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
+  OUTPUT_CHANNEL_SCHEMAS,
   type OutputChannel,
-  ZERO_INPUT_CHANNELS,
-  ZERO_OUTPUT_CHANNELS,
 } from "@/feature/ethercat/task/types";
 
 type AutoInputChannel = Extract<InputChannel, { type: "automatic" }>;
@@ -51,7 +51,7 @@ export const createAutoInputChannel = (
   pdo: string,
   overrides: Partial<AutoInputChannel> = {},
 ): AutoInputChannel => ({
-  ...ZERO_INPUT_CHANNELS.automatic,
+  ...INPUT_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
   key: id.create(),
   device,
   pdo,
@@ -65,7 +65,7 @@ export const createManualInputChannel = (
   subIndex: number,
   overrides: Partial<ManualInputChannel> = {},
 ): ManualInputChannel => ({
-  ...ZERO_INPUT_CHANNELS.manual,
+  ...INPUT_CHANNEL_SCHEMAS.manual.parse({ type: "manual" }),
   key: id.create(),
   device,
   index,
@@ -79,7 +79,7 @@ export const createAutoOutputChannel = (
   pdo: string,
   overrides: Partial<AutoOutputChannel> = {},
 ): AutoOutputChannel => ({
-  ...ZERO_OUTPUT_CHANNELS.automatic,
+  ...OUTPUT_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
   key: id.create(),
   device,
   pdo,
@@ -93,7 +93,7 @@ export const createManualOutputChannel = (
   subIndex: number,
   overrides: Partial<ManualOutputChannel> = {},
 ): ManualOutputChannel => ({
-  ...ZERO_OUTPUT_CHANNELS.manual,
+  ...OUTPUT_CHANNEL_SCHEMAS.manual.parse({ type: "manual" }),
   key: id.create(),
   device,
   index,

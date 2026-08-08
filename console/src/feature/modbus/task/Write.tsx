@@ -34,8 +34,6 @@ import {
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteSchemas,
-  ZERO_OUTPUT_CHANNELS,
-  ZERO_WRITE_PAYLOAD,
 } from "@/feature/modbus/task/types";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -64,7 +62,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           onChange={(value, { get, set, path }) => {
             const prevType = get<OutputChannelType>(path).value;
             if (prevType === value) return;
-            const next = deep.copy(ZERO_OUTPUT_CHANNELS[value]);
+            const next = OUTPUT_CHANNEL_SCHEMAS[value].parse({ type: value });
             const parentPath = path.slice(0, path.lastIndexOf("."));
             const prevParent = get<OutputChannel>(parentPath).value;
             const schema = OUTPUT_CHANNEL_SCHEMAS[value];
@@ -112,7 +110,10 @@ const renderTelemSelectDataType = Component.renderProp(
 
 const getOpenChannel = (channels: OutputChannel[]): OutputChannel => {
   if (channels.length === 0)
-    return { ...deep.copy(ZERO_OUTPUT_CHANNELS.coil_output), key: id.create() };
+    return {
+      ...OUTPUT_CHANNEL_SCHEMAS.coil_output.parse({ type: "coil_output" }),
+      key: id.create(),
+    };
   const channelToCopy = channels[channels.length - 1];
   return {
     ...channelToCopy,
@@ -153,13 +154,11 @@ const Form: FC<Task.FormProps<WriteSchemas>> = () => (
 const writeMapKey = (channel: OutputChannel) =>
   `${channel.type}-${channel.address.toString()}`.replace("_", "-");
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ deviceKey }) => ({
-  ...ZERO_WRITE_PAYLOAD,
-  config: {
-    ...ZERO_WRITE_PAYLOAD.config,
-    device: deviceKey ?? ZERO_WRITE_PAYLOAD.config.device,
-  },
-});
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ deviceKey }) => {
+  const config = WRITE_SCHEMAS.config.parse({});
+  if (deviceKey != null) config.device = deviceKey;
+  return { name: "Modbus Write Task", type: WRITE_TYPE, config };
+};
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,

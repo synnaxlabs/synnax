@@ -57,14 +57,14 @@ describe("Modbus Write Task Types", () => {
 describe("deploy configs", () => {
   it("should reject a read config without a device", () => {
     const result = Modbus.Task.deployReadConfigZ.safeParse(
-      Modbus.Task.ZERO_READ_PAYLOAD.config,
+      Modbus.Task.READ_SCHEMAS.config.parse({}),
     );
     expect(result.success).toBe(false);
   });
 
   it("should reject a stream rate above the sample rate", () => {
     const result = Modbus.Task.deployReadConfigZ.safeParse({
-      ...Modbus.Task.ZERO_READ_PAYLOAD.config,
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
       device: "my_device",
       sampleRate: 5,
       streamRate: 10,
@@ -74,7 +74,7 @@ describe("deploy configs", () => {
 
   it("should reject a write config without a device", () => {
     const result = Modbus.Task.deployWriteConfigZ.safeParse(
-      Modbus.Task.ZERO_WRITE_PAYLOAD.config,
+      Modbus.Task.WRITE_SCHEMAS.config.parse({}),
     );
     expect(result.success).toBe(false);
   });
@@ -82,17 +82,13 @@ describe("deploy configs", () => {
 
 describe("draft configs", () => {
   // Drafts persist server-side before configuration, so the shape schema must
-  // accept every zero config; retrieve parses with it.
-  it("should accept the zero read config", () => {
-    expect(
-      Modbus.Task.READ_SCHEMAS.config.safeParse(Modbus.Task.ZERO_READ_PAYLOAD.config)
-        .success,
-    ).toBe(true);
+  // accept every default config; retrieve parses with it.
+  it("should accept the default read config", () => {
+    const config = Modbus.Task.READ_SCHEMAS.config.parse({});
+    expect(Modbus.Task.READ_SCHEMAS.config.safeParse(config).success).toBe(true);
   });
-  it("should accept the zero write config", () => {
-    expect(
-      Modbus.Task.WRITE_SCHEMAS.config.safeParse(Modbus.Task.ZERO_WRITE_PAYLOAD.config)
-        .success,
-    ).toBe(true);
+  it("should accept the default write config", () => {
+    const config = Modbus.Task.WRITE_SCHEMAS.config.parse({});
+    expect(Modbus.Task.WRITE_SCHEMAS.config.safeParse(config).success).toBe(true);
   });
 });

@@ -108,6 +108,7 @@ func (ic InputChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.BaseInputChannel.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.String(v.Port)
 		w.Float64(float64(v.Range))
 		w.Int32(int32(v.NegChan))
 		if err := v.Scale.EncodeOrc(w); err != nil {
@@ -118,11 +119,13 @@ func (ic InputChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.BaseInputChannel.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.String(v.Port)
 	case InputChannelTc:
 		w.String("TC")
 		if err := v.BaseInputChannel.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.String(v.Port)
 		w.String(string(v.ThermocoupleType))
 		w.Int32(int32(v.PosChan))
 		w.Int32(int32(v.NegChan))
@@ -151,6 +154,9 @@ func (ic *InputChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.BaseInputChannel.DecodeOrc(r); err != nil {
 			return err
 		}
+		if v.Port, err = r.String(); err != nil {
+			return err
+		}
 		if v.Range, err = r.Float64(); err != nil {
 			return err
 		}
@@ -166,10 +172,16 @@ func (ic *InputChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.BaseInputChannel.DecodeOrc(r); err != nil {
 			return err
 		}
+		if v.Port, err = r.String(); err != nil {
+			return err
+		}
 		ic.Variant = v
 	case "TC":
 		var v InputChannelTc
 		if err := v.BaseInputChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Port, err = r.String(); err != nil {
 			return err
 		}
 		{
@@ -277,11 +289,13 @@ func (oc OutputChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.BaseOutputChannel.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.String(v.Port)
 	case OutputChannelDO:
 		w.String("DO")
 		if err := v.BaseOutputChannel.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.String(v.Port)
 	default:
 		return errors.Newf("OutputChannel: nil or unknown variant %T", oc.Variant)
 	}
@@ -300,10 +314,16 @@ func (oc *OutputChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.BaseOutputChannel.DecodeOrc(r); err != nil {
 			return err
 		}
+		if v.Port, err = r.String(); err != nil {
+			return err
+		}
 		oc.Variant = v
 	case "DO":
 		var v OutputChannelDO
 		if err := v.BaseOutputChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Port, err = r.String(); err != nil {
 			return err
 		}
 		oc.Variant = v

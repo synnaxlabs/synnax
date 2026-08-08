@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { http, type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -32,8 +32,12 @@ import {
 const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
   await renderTaskFormTab(HTTP.Task.Write, { task: ZERO_DRAFT, ...options });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = HTTP.Task.ZERO_WRITE_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<HTTP.Task.WriteSchemas> = {
+  name: "HTTP Write Task",
+  type: HTTP.Task.WRITE_TYPE,
+  config: HTTP.Task.WRITE_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (client: Synnax, config: HTTP.Task.WritePayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
@@ -63,17 +67,17 @@ const createWriteEndpoint = (
   path: string,
   channel: Partial<HTTP.Task.ChannelField> = {},
 ): HTTP.Task.WriteEndpoint => ({
-  ...HTTP.Task.ZERO_WRITE_ENDPOINT,
+  ...HTTP.Task.writeEndpointZ.parse({}),
   key,
   path,
-  channel: { ...HTTP.Task.ZERO_CHANNEL_FIELD, pointer: "/value", ...channel },
+  channel: { ...http.channelFieldZ.parse({}), pointer: "/value", ...channel },
 });
 
 const createWriteConfig = (
   device: string,
   endpoints: HTTP.Task.WriteEndpoint[],
 ): HTTP.Task.WritePayload["config"] => ({
-  ...HTTP.Task.ZERO_WRITE_PAYLOAD.config,
+  ...HTTP.Task.WRITE_SCHEMAS.config.parse({}),
   device,
   endpoints,
 });

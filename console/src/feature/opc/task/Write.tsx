@@ -22,7 +22,6 @@ import {
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteSchemas,
-  ZERO_WRITE_PAYLOAD,
 } from "@/feature/opc/task/types";
 import { ContextMenu } from "@/platform/context-menu";
 import { Selector } from "@/platform/selector";
@@ -84,12 +83,9 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg =
-    config != null ? WRITE_SCHEMAS.config.parse(config) : ZERO_WRITE_PAYLOAD.config;
-  return {
-    ...ZERO_WRITE_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
-  };
+  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "OPC UA Write Task", type: WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (

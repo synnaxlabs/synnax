@@ -46,12 +46,16 @@ export const outputChannelZ = baseChannelZ.extend({
 });
 export interface OutputChannel extends z.infer<typeof outputChannelZ> {}
 
-export const readConfigZ = task.baseReadConfigZ.extend({
-  device: device.keyZ.default(""),
-  arrayMode: z.boolean().default(false),
-  arraySize: z.int32().default(1),
-  channels: inputChannelZ.array().default(() => []),
-});
+export const readConfigZ = task.baseReadConfigZ
+  .omit({ sampleRate: true, streamRate: true })
+  .extend({
+    sampleRate: z.number().default(50),
+    streamRate: z.number().default(25),
+    device: device.keyZ.default(""),
+    arrayMode: z.boolean().default(false),
+    arraySize: z.int32().default(1),
+    channels: inputChannelZ.array().default(() => []),
+  });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
 export const writeConfigZ = task.baseWriteConfigZ.extend({

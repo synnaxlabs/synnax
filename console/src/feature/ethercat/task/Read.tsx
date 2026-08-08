@@ -30,7 +30,6 @@ import {
   READ_TYPE,
   type ReadSchemas,
   resolvePDODataType,
-  ZERO_READ_PAYLOAD,
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -75,11 +74,11 @@ const Form: FC<Task.FormProps<ReadSchemas>> = () => (
   />
 );
 
-const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => {
-  if (config != null)
-    return { ...ZERO_READ_PAYLOAD, config: READ_SCHEMAS.config.parse(config) };
-  return { ...ZERO_READ_PAYLOAD };
-};
+const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ config }) => ({
+  name: "EtherCAT Read Task",
+  type: READ_TYPE,
+  config: READ_SCHEMAS.config.parse(config ?? {}),
+});
 
 const READ_INDEX_OPTIONS = {
   indexProperty: "readIndex" as const,

@@ -25,7 +25,6 @@ import {
   READ_TYPE,
   type ReadConfig,
   type ReadSchemas,
-  ZERO_READ_PAYLOAD,
 } from "@/feature/opc/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
@@ -120,12 +119,9 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg =
-    config != null ? READ_SCHEMAS.config.parse(config) : ZERO_READ_PAYLOAD.config;
-  return {
-    ...ZERO_READ_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
-  };
+  const cfg = READ_SCHEMAS.config.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "OPC UA Read Task", type: READ_TYPE, config: cfg };
 };
 
 interface DetermineIndexChannelParams {

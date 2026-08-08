@@ -292,7 +292,7 @@ WriteEndpoint struct {
     query_params QueryParam[]? {
         @doc value "contains query parameters appended to the request URL."
     }
-    channel      ChannelField  {
+    channel      ChannelField = {} {
         @doc value "is the command channel whose writes trigger this endpoint."
     }
     fields       WriteField[]  {

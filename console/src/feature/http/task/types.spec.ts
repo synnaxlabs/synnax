@@ -959,17 +959,13 @@ describe("HTTP Scan Task", () => {
 
 describe("draft configs", () => {
   // Drafts persist server-side before configuration, so the shape schema must
-  // accept every zero config; retrieve parses with it.
-  it("should accept the zero read config", () => {
-    expect(
-      HTTP.Task.READ_SCHEMAS.config.safeParse(HTTP.Task.ZERO_READ_PAYLOAD.config)
-        .success,
-    ).toBe(true);
+  // accept every default config; retrieve parses with it.
+  it("should accept the default read config", () => {
+    const config = HTTP.Task.READ_SCHEMAS.config.parse({});
+    expect(HTTP.Task.READ_SCHEMAS.config.safeParse(config).success).toBe(true);
   });
-  it("should accept the zero write config", () => {
-    expect(
-      HTTP.Task.WRITE_SCHEMAS.config.safeParse(HTTP.Task.ZERO_WRITE_PAYLOAD.config)
-        .success,
-    ).toBe(true);
+  it("should accept the default write config", () => {
+    const config = HTTP.Task.WRITE_SCHEMAS.config.parse({});
+    expect(HTTP.Task.WRITE_SCHEMAS.config.safeParse(config).success).toBe(true);
   });
 });

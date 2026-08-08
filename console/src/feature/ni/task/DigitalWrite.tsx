@@ -15,7 +15,7 @@ import { type FC } from "react";
 import { enrich } from "@/feature/ni/device/enrich";
 import { Select } from "@/feature/ni/device/Select";
 import * as Device from "@/feature/ni/device/types";
-import { createDOChannel } from "@/feature/ni/task/createChannel";
+import { createNextDOChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
@@ -28,7 +28,6 @@ import {
   digitalWriteConfigZ,
   type DigitalWriteSchemas,
   type DOChannel,
-  ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
@@ -68,7 +67,7 @@ const name = Component.renderProp(NameComponent);
 const Form: FC<Task.FormProps<DigitalWriteSchemas>> = (props) => (
   <DigitalChannelList
     {...props}
-    createChannel={createDOChannel}
+    createChannel={createNextDOChannel}
     name={name}
     contextMenuItems={Task.writeChannelContextMenuItems}
   />
@@ -78,14 +77,9 @@ const getInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg =
-    config != null
-      ? digitalWriteConfigZ.parse(config)
-      : ZERO_DIGITAL_WRITE_PAYLOAD.config;
-  return {
-    ...ZERO_DIGITAL_WRITE_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
-  };
+  const cfg = digitalWriteConfigZ.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "NI Digital Write Task", type: DIGITAL_WRITE_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (

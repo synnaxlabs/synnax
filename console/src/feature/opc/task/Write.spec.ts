@@ -47,13 +47,17 @@ const createWriteConfig = (
   device: string,
   channels: OPC.Task.OutputChannel[],
 ): OPC.Task.WritePayload["config"] => ({
-  ...OPC.Task.ZERO_WRITE_PAYLOAD.config,
+  ...OPC.Task.WRITE_SCHEMAS.config.parse({}),
   device,
   channels,
 });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = OPC.Task.ZERO_WRITE_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<OPC.Task.WriteSchemas> = {
+  name: "OPC UA Write Task",
+  type: OPC.Task.WRITE_TYPE,
+  config: OPC.Task.WRITE_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (client: Synnax, config: OPC.Task.WritePayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, OPC.Task.WRITE_SCHEMAS);

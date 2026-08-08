@@ -109,6 +109,7 @@ BaseInputChannel struct {
 
 InputChannel union on type extends BaseInputChannel {
     AI {
+        port     string = "AIN0"
         range    float64 = 10 {
             @doc value "is the upper bound of the voltage input range, in volts."
         }
@@ -125,9 +126,12 @@ InputChannel union on type extends BaseInputChannel {
         @doc value "reads a voltage from an analog input port."
     }
     DI {
+        port string = "DIO4"
+
         @doc value "reads a digital input line."
     }
     TC {
+        port              string = "AIN0"
         thermocouple_type ThermocoupleType = k {
             @doc value "selects the thermocouple alloy type."
         }
@@ -200,9 +204,13 @@ BaseOutputChannel struct {
 
 OutputChannel union on type extends BaseOutputChannel {
     AO {
+        port string = "DAC0"
+
         @doc value "drives an analog output on a DAC port."
     }
     DO {
+        port string = "DIO4"
+
         @doc value "drives a digital output line on a DIO port."
     }
 

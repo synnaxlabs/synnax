@@ -160,6 +160,7 @@ Scale parse_scale(x::json::Parser parser);
 /// @brief OutputChannelAO drives an analog output on a DAC port.
 struct OutputChannelAO : public BaseOutputChannel {
     std::string type = "AO";
+    std::string port = "DAC0";
 
     static OutputChannelAO parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -168,6 +169,7 @@ struct OutputChannelAO : public BaseOutputChannel {
 /// @brief OutputChannelDO drives a digital output line on a DIO port.
 struct OutputChannelDO : public BaseOutputChannel {
     std::string type = "DO";
+    std::string port = "DIO4";
 
     static OutputChannelDO parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -183,6 +185,7 @@ OutputChannel parse_output_channel(x::json::Parser parser);
 /// @brief InputChannelAI reads a voltage from an analog input port.
 struct InputChannelAI : public BaseInputChannel {
     std::string type = "AI";
+    std::string port = "AIN0";
     /// @brief range is the upper bound of the voltage input range, in volts.
     double range = 10;
     /// @brief neg_chan is the negative channel for differential readings on T7 devices.
@@ -199,6 +202,7 @@ struct InputChannelAI : public BaseInputChannel {
 /// @brief InputChannelDI reads a digital input line.
 struct InputChannelDI : public BaseInputChannel {
     std::string type = "DI";
+    std::string port = "DIO4";
 
     static InputChannelDI parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -207,6 +211,7 @@ struct InputChannelDI : public BaseInputChannel {
 /// @brief InputChannelTc reads temperature from a thermocouple.
 struct InputChannelTc : public BaseInputChannel {
     std::string type = "TC";
+    std::string port = "AIN0";
     /// @brief thermocouple_type selects the thermocouple alloy type.
     std::string thermocouple_type = THERMOCOUPLE_TYPE_K;
     /// @brief pos_chan is the AIN port the thermocouple's positive lead is wired to.

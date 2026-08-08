@@ -27,15 +27,19 @@ const createChannel = (
   line: number,
   overrides: CreateChannelOverrides = {},
 ): NI.Task.DIChannel => ({
-  ...NI.Task.ZERO_DI_CHANNEL,
+  ...NI.Task.createDIChannel(),
   key: id.create(),
   port,
   line,
   ...overrides,
 });
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_DIGITAL_READ_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<NI.Task.DigitalReadSchemas> = {
+  name: "NI Digital Read Task",
+  type: NI.Task.DIGITAL_READ_TYPE,
+  config: NI.Task.DIGITAL_READ_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   config: task.Payload<NI.Task.DigitalReadSchemas>["config"],
@@ -68,7 +72,7 @@ const deployAndAwaitStart = async (
 const createConfig = (
   channels: NI.Task.DIChannel[],
   device = "placeholder_device",
-) => ({ ...NI.Task.ZERO_DIGITAL_READ_PAYLOAD.config, device, channels });
+) => ({ ...NI.Task.DIGITAL_READ_SCHEMAS.config.parse({}), device, channels });
 
 describe("DigitalRead", () => {
   it("should write edits to a channel's line number back into the form", async () => {

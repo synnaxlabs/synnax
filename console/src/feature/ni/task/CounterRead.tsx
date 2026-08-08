@@ -15,7 +15,7 @@ import { type FC, useCallback } from "react";
 import { enrich } from "@/feature/ni/device/enrich";
 import * as Device from "@/feature/ni/device/types";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
-import { createCIChannel } from "@/feature/ni/task/createChannel";
+import { createNextCIChannel } from "@/feature/ni/task/createChannel";
 import { SelectCIChannelTypeField } from "@/feature/ni/task/SelectCIChannelTypeField";
 import {
   CI_CHANNEL_TYPE_ICONS,
@@ -26,9 +26,8 @@ import {
   COUNTER_READ_TYPE,
   counterReadConfigZ,
   type CounterReadSchemas,
+  createCIChannel,
   deployCounterReadConfigZ,
-  ZERO_CI_CHANNEL,
-  ZERO_COUNTER_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
@@ -96,7 +95,7 @@ const Form: FC<Task.FormProps<CounterReadSchemas>> = () => {
     <Task.Views.ListAndDetails<CIChannel>
       listItem={listItem}
       details={channelDetails}
-      createChannel={createCIChannel}
+      createChannel={createNextCIChannel}
       onTare={handleTare}
       allowTare={allowTare}
       contextMenuItems={Task.readChannelContextMenuItem}
@@ -108,21 +107,10 @@ const getInitialValues: Task.GetInitialValues<CounterReadSchemas> = ({
   deviceKey,
   config,
 }) => {
-  if (config != null)
-    return {
-      ...ZERO_COUNTER_READ_PAYLOAD,
-      config: counterReadConfigZ.parse(config),
-    };
-  return {
-    ...ZERO_COUNTER_READ_PAYLOAD,
-    config: {
-      ...ZERO_COUNTER_READ_PAYLOAD.config,
-      channels:
-        deviceKey == null
-          ? ZERO_COUNTER_READ_PAYLOAD.config.channels
-          : [{ ...ZERO_CI_CHANNEL, device: deviceKey, key: id.create() }],
-    },
-  };
+  const cfg = counterReadConfigZ.parse(config ?? {});
+  if (config == null && deviceKey != null)
+    cfg.channels = [{ ...createCIChannel(), device: deviceKey, key: id.create() }];
+  return { name: "NI Counter Read Task", type: COUNTER_READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (

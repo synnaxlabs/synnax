@@ -21,10 +21,6 @@ export const SCALE_SCHEMAS = labjack.SCALE_SCHEMAS;
 
 const NO_SCALE: Scale = { type: "none" };
 
-export const ZERO_SCALES = Object.fromEntries(
-  labjack.SCALE_TYPES.map((t) => [t, labjack.SCALE_SCHEMAS[t].parse({ type: t })]),
-) as Record<ScaleType, Scale>;
-
 export type TemperatureUnits = labjack.TemperatureUnits;
 export type ThermocoupleType = labjack.ThermocoupleType;
 
@@ -36,23 +32,27 @@ export type InputChannel = labjack.InputChannel;
 export type InputChannelType = labjack.InputChannelType;
 export const INPUT_CHANNEL_SCHEMAS = labjack.INPUT_CHANNEL_SCHEMAS;
 
-export const ZERO_INPUT_CHANNELS = {
-  AI: labjack.inputChannelAIZ.parse({ type: "AI", port: "AIN0", scale: NO_SCALE }),
-  DI: labjack.inputChannelDIZ.parse({ type: "DI", port: "DIO4" }),
-  TC: labjack.inputChannelTcZ.parse({ type: "TC", port: "AIN0", scale: NO_SCALE }),
-} satisfies Record<InputChannelType, InputChannel>;
+// The scale union has no schema default, so AI and TC seed it explicitly.
+const INPUT_CHANNEL_SEEDS: Record<InputChannelType, object> = {
+  AI: { type: "AI", scale: NO_SCALE },
+  DI: { type: "DI" },
+  TC: { type: "TC", scale: NO_SCALE },
+};
 
-export const ZERO_INPUT_CHANNEL = ZERO_INPUT_CHANNELS.AI;
+export const createInputChannel = <T extends InputChannelType>(
+  type: T,
+): Extract<InputChannel, { type: T }> =>
+  INPUT_CHANNEL_SCHEMAS[type].parse(INPUT_CHANNEL_SEEDS[type]);
 
 export const outputChannelZ = labjack.outputChannelZ;
 export type OutputChannel = labjack.OutputChannel;
 export type OutputChannelType = labjack.OutputChannelType;
+export const OUTPUT_CHANNEL_SCHEMAS = labjack.OUTPUT_CHANNEL_SCHEMAS;
 
-export const ZERO_OUTPUT_CHANNELS = {
-  AO: labjack.outputChannelAOZ.parse({ type: "AO", port: "DAC0" }),
-  DO: labjack.outputChannelDOZ.parse({ type: "DO", port: "DIO4" }),
-} satisfies Record<OutputChannelType, OutputChannel>;
-export const ZERO_OUTPUT_CHANNEL: OutputChannel = ZERO_OUTPUT_CHANNELS.DO;
+export const createOutputChannel = <T extends OutputChannelType>(
+  type: T,
+): Extract<OutputChannel, { type: T }> =>
+  OUTPUT_CHANNEL_SCHEMAS[type].parse({ type });
 
 export type Channel = InputChannel | OutputChannel;
 
@@ -123,8 +123,6 @@ export const deployReadConfigZ = labjack.readConfigZ
   })
   .check(Task.validateStreamRate);
 
-const ZERO_READ_CONFIG = labjack.readConfigZ.parse({});
-
 const readStatusDataZ = z
   .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
   .nullish()
@@ -139,17 +137,6 @@ export const READ_SCHEMAS = {
 export type ReadSchemas = typeof READ_SCHEMAS;
 
 export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
-export const ZERO_READ_PAYLOAD: ReadPayload = {
-  key: "",
-  rack: 0,
-  name: "LabJack Read Task",
-  config: ZERO_READ_CONFIG,
-  configHash: "",
-  type: "labjack_read",
-  internal: false,
-  snapshot: false,
-};
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
@@ -171,8 +158,6 @@ export const deployWriteConfigZ = labjack.writeConfigZ.extend({
   stateRate: z.number().positive().max(50000),
 });
 
-const ZERO_WRITE_CONFIG = labjack.writeConfigZ.parse({});
-
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
   config: writeConfigZ,
@@ -182,14 +167,3 @@ export const WRITE_SCHEMAS = {
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
 export interface WritePayload extends task.Payload<WriteSchemas> {}
-
-export const ZERO_WRITE_PAYLOAD: WritePayload = {
-  key: "",
-  rack: 0,
-  name: "LabJack Write Task",
-  config: ZERO_WRITE_CONFIG,
-  configHash: "",
-  type: "labjack_write",
-  internal: false,
-  snapshot: false,
-};

@@ -18,21 +18,25 @@ export const PREFIX = "ethercat";
 
 export type InputChannel = ethercat.InputChannel;
 
-export const ZERO_INPUT_CHANNELS = {
-  automatic: ethercat.inputChannelAutomaticZ.parse({ type: "automatic" }),
-  manual: ethercat.inputChannelManualZ.parse({ type: "manual" }),
-} satisfies Record<ChannelMode, InputChannel>;
+export const INPUT_CHANNEL_SCHEMAS = {
+  automatic: ethercat.inputChannelAutomaticZ,
+  manual: ethercat.inputChannelManualZ,
+} as const;
 
 export type OutputChannel = ethercat.OutputChannel;
 
-export const ZERO_OUTPUT_CHANNELS = {
-  automatic: ethercat.outputChannelAutomaticZ.parse({ type: "automatic" }),
-  manual: ethercat.outputChannelManualZ.parse({ type: "manual" }),
-} satisfies Record<ChannelMode, OutputChannel>;
+export const OUTPUT_CHANNEL_SCHEMAS = {
+  automatic: ethercat.outputChannelAutomaticZ,
+  manual: ethercat.outputChannelManualZ,
+} as const;
 
 export type Channel = InputChannel | OutputChannel;
 
 export type ChannelMode = Channel["type"];
+
+export type ChannelSchemas =
+  | typeof INPUT_CHANNEL_SCHEMAS
+  | typeof OUTPUT_CHANNEL_SCHEMAS;
 
 export const READ_TYPE = `${PREFIX}_read`;
 
@@ -44,8 +48,6 @@ export const deployReadConfigZ = ethercat.readConfigZ
     streamRate: z.number().positive(),
   })
   .check(Task.validateStreamRate);
-
-const ZERO_READ_CONFIG = ethercat.readConfigZ.parse({});
 
 const readStatusDataZ = z
   .object({
@@ -66,17 +68,6 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
-export const ZERO_READ_PAYLOAD: ReadPayload = {
-  key: "",
-  rack: 0,
-  name: "EtherCAT Read Task",
-  config: ZERO_READ_CONFIG,
-  configHash: "",
-  type: READ_TYPE,
-  internal: false,
-  snapshot: false,
-};
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 export const writeConfigZ = ethercat.writeConfigZ;
@@ -85,8 +76,6 @@ export const deployWriteConfigZ = ethercat.writeConfigZ.extend({
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
 });
-
-const ZERO_WRITE_CONFIG = ethercat.writeConfigZ.parse({});
 
 const writeStatusDataZ = z
   .object({
@@ -107,17 +96,6 @@ export type WriteSchemas = typeof WRITE_SCHEMAS;
 
 export interface WritePayload extends task.Payload<WriteSchemas> {}
 
-export const ZERO_WRITE_PAYLOAD: WritePayload = {
-  key: "",
-  rack: 0,
-  name: "EtherCAT Write Task",
-  config: ZERO_WRITE_CONFIG,
-  configHash: "",
-  type: WRITE_TYPE,
-  internal: false,
-  snapshot: false,
-};
-
 /** Generates a unique map key for a channel configuration within a slave. */
 export const channelMapKey = (ch: Channel): string => {
   if (ch.type === "automatic") return `auto_${ch.pdo}`;
@@ -127,7 +105,10 @@ export const channelMapKey = (ch: Channel): string => {
 /** Creates a new input channel, copying from the last channel if available. */
 export const createInputChannel = (channels: InputChannel[]): InputChannel => {
   if (channels.length === 0)
-    return { ...ZERO_INPUT_CHANNELS.automatic, key: id.create() };
+    return {
+      ...INPUT_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
+      key: id.create(),
+    };
   const last = channels[channels.length - 1];
   return { ...last, ...Task.READ_CHANNEL_OVERRIDE, key: id.create() };
 };
@@ -135,7 +116,10 @@ export const createInputChannel = (channels: InputChannel[]): InputChannel => {
 /** Creates a new output channel, copying from the last channel if available. */
 export const createOutputChannel = (channels: OutputChannel[]): OutputChannel => {
   if (channels.length === 0)
-    return { ...ZERO_OUTPUT_CHANNELS.automatic, key: id.create() };
+    return {
+      ...OUTPUT_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
+      key: id.create(),
+    };
   const last = channels[channels.length - 1];
   return {
     ...last,

@@ -31,7 +31,7 @@ describe("getOpenPort", () => {
     const aiPorts = LabJack.Device.PORTS[model][type];
     // Mark the first port as in use.
     const channels: LabJack.Task.Channel[] = [
-      { ...LabJack.Task.ZERO_INPUT_CHANNELS.AI, port: aiPorts[0].key },
+      { ...LabJack.Task.createInputChannel("AI"), port: aiPorts[0].key },
     ];
     const port = getOpenPort(channels, model, [type]);
 
@@ -45,7 +45,7 @@ describe("getOpenPort", () => {
     const aiPorts = LabJack.Device.PORTS[model][type];
     // Mark every port for this type as in use.
     const channels: LabJack.Task.Channel[] = aiPorts.map(({ key }) => ({
-      ...LabJack.Task.ZERO_INPUT_CHANNELS.AI,
+      ...LabJack.Task.createInputChannel("AI"),
       port: key,
     }));
     const port = getOpenPort(channels, model, [type]);
@@ -59,7 +59,7 @@ describe("getOpenPort", () => {
     const type2 = LabJack.Device.AO_PORT_TYPE;
     const diPorts = LabJack.Device.PORTS[model][type1];
     const channels: LabJack.Task.Channel[] = diPorts.map(({ key }) => ({
-      ...LabJack.Task.ZERO_INPUT_CHANNELS.DI,
+      ...LabJack.Task.createInputChannel("DI"),
       port: key,
     }));
 
@@ -78,11 +78,11 @@ describe("getOpenPort", () => {
     // Mark all ports for both AI and AO as in use.
     const channels: LabJack.Task.Channel[] = [
       ...aiPorts.map(({ key }) => ({
-        ...LabJack.Task.ZERO_INPUT_CHANNELS.AI,
+        ...LabJack.Task.createInputChannel("AI"),
         port: key,
       })),
       ...aoPorts.map(({ key }) => ({
-        ...LabJack.Task.ZERO_OUTPUT_CHANNEL,
+        ...LabJack.Task.createOutputChannel("DO"),
         type: "AO" as const,
         port: key,
       })),

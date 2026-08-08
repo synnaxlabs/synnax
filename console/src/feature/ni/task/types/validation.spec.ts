@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { NI } from "@/feature/ni";
 
 const ai = (key: string, device: string, port: number): NI.Task.AIChannel => ({
-  ...NI.Task.ZERO_AI_CHANNEL,
+  ...NI.Task.createAIChannel(),
   key,
   device,
   port,
@@ -20,7 +20,7 @@ const ai = (key: string, device: string, port: number): NI.Task.AIChannel => ({
 
 const parseAnalog = (channels: NI.Task.AIChannel[]) =>
   NI.Task.deployAnalogReadConfigZ.safeParse({
-    ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+    ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
     streamRate: 1000,
     sampleRate: 2000,
     channels,
