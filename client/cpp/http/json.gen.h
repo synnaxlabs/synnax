@@ -110,7 +110,10 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
             "query_params"
         ),
         .body = parser.field<std::optional<std::string>>("body"),
-        .fields = parser.field<std::vector<ReadField>>("fields"),
+        .fields = parser.field<std::vector<ReadField>>(
+            "fields",
+            std::vector<ReadField>{}
+        ),
         .index = parser.field<std::optional<std::string>>("index"),
     };
 }
@@ -136,7 +139,10 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ) = ::synnax::common::BaseConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.rate = parser.field<::x::telem::Rate>("rate", x::telem::Rate(1));
-    result.endpoints = parser.field<std::vector<ReadEndpoint>>("endpoints");
+    result.endpoints = parser.field<std::vector<ReadEndpoint>>(
+        "endpoints",
+        std::vector<ReadEndpoint>{}
+    );
     return result;
 }
 
@@ -207,9 +213,10 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
         .channel = parser.field<ChannelField>("channel"),
         .fields = [&] {
             std::vector<WriteField> result;
-            parser.iter("fields", [&result](x::json::Parser &p) {
-                result.push_back(parse_write_field(p));
-            });
+            if (parser.has("fields"))
+                parser.iter("fields", [&result](x::json::Parser &p) {
+                    result.push_back(parse_write_field(p));
+                });
             return result;
         }(),
     };
@@ -238,7 +245,10 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     return WriteConfig{
         .device = parser.field<::synnax::device::Key>("device", ""),
         .auto_start = parser.field<bool>("auto_start", false),
-        .endpoints = parser.field<std::vector<WriteEndpoint>>("endpoints"),
+        .endpoints = parser.field<std::vector<WriteEndpoint>>(
+            "endpoints",
+            std::vector<WriteEndpoint>{}
+        ),
     };
 }
 

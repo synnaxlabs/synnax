@@ -92,9 +92,10 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.channels = [&] {
         std::vector<InputChannel> result;
-        parser.iter("channels", [&result](x::json::Parser &p) {
-            result.push_back(parse_input_channel(p));
-        });
+        if (parser.has("channels"))
+            parser.iter("channels", [&result](x::json::Parser &p) {
+                result.push_back(parse_input_channel(p));
+            });
         return result;
     }();
     return result;
@@ -121,9 +122,10 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     ) = ::synnax::common::BaseWriteConfig::parse(parser);
     result.channels = [&] {
         std::vector<OutputChannel> result;
-        parser.iter("channels", [&result](x::json::Parser &p) {
-            result.push_back(parse_output_channel(p));
-        });
+        if (parser.has("channels"))
+            parser.iter("channels", [&result](x::json::Parser &p) {
+                result.push_back(parse_output_channel(p));
+            });
         return result;
     }();
     return result;
