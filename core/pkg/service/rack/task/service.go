@@ -75,7 +75,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Ontology:        cfg.Ontology,
 		Instrumentation: cfg.Instrumentation,
 	}
-	if s.Status, err = common.OpenConfigService[StatusTaskConfig, *StatusTaskConfig](
+	if s.Status, err = common.OpenConfigService[StatusTaskConfig](
 		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeRackStatus},
 	); !ok(err, s.Status) {
 		return nil, err

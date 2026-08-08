@@ -85,7 +85,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Ontology:        cfg.Ontology,
 		Instrumentation: cfg.Instrumentation,
 	}
-	if s.AnalogRead, err = common.OpenConfigService[AnalogReadConfig, *AnalogReadConfig](
+	if s.AnalogRead, err = common.OpenConfigService[AnalogReadConfig](
 		ctx,
 		base,
 		common.ConfigServiceConfig{Type: ontology.ResourceTypeNiAnalogRead},
@@ -95,7 +95,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	) {
 		return nil, err
 	}
-	if s.AnalogWrite, err = common.OpenConfigService[AnalogWriteConfig, *AnalogWriteConfig](
+	if s.AnalogWrite, err = common.OpenConfigService[AnalogWriteConfig](
 		ctx,
 		base,
 		common.ConfigServiceConfig{Type: ontology.ResourceTypeNiAnalogWrite},
@@ -105,7 +105,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	) {
 		return nil, err
 	}
-	if s.CounterRead, err = common.OpenConfigService[CounterReadConfig, *CounterReadConfig](
+	if s.CounterRead, err = common.OpenConfigService[CounterReadConfig](
 		ctx,
 		base,
 		common.ConfigServiceConfig{Type: ontology.ResourceTypeNiCounterRead},
@@ -115,7 +115,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	) {
 		return nil, err
 	}
-	if s.DigitalRead, err = common.OpenConfigService[DigitalReadConfig, *DigitalReadConfig](
+	if s.DigitalRead, err = common.OpenConfigService[DigitalReadConfig](
 		ctx,
 		base,
 		common.ConfigServiceConfig{Type: ontology.ResourceTypeNiDigitalRead},
@@ -125,7 +125,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	) {
 		return nil, err
 	}
-	if s.DigitalWrite, err = common.OpenConfigService[DigitalWriteConfig, *DigitalWriteConfig](
+	if s.DigitalWrite, err = common.OpenConfigService[DigitalWriteConfig](
 		ctx,
 		base,
 		common.ConfigServiceConfig{Type: ontology.ResourceTypeNiDigitalWrite},
@@ -135,7 +135,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	) {
 		return nil, err
 	}
-	if s.Scanner, err = common.OpenConfigService[ScannerConfig, *ScannerConfig](
+	if s.Scanner, err = common.OpenConfigService[ScannerConfig](
 		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeNiScanner},
 	); !ok(err, s.Scanner) {
 		return nil, err

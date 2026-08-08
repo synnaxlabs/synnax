@@ -11,6 +11,7 @@ package service
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -576,14 +577,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.PagerDuty) {
 		return nil, err
 	}
-	var configStores []taskcommon.ConfigStore
-	for _, svc := range [][]taskcommon.ConfigStore{
+	configStores := slices.Concat(
 		l.NI.Stores(), l.OPC.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
 		l.RackTask.Stores(), l.PagerDuty.Stores(),
-	} {
-		configStores = append(configStores, svc...)
-	}
+	)
 	taskConfigs, err := taskcommon.NewConfigRegistry(configStores...)
 	if !ok(err, nil) {
 		return nil, err
