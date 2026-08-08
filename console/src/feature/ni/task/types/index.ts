@@ -255,7 +255,7 @@ export type DigitalChannel = DIChannel | DOChannel;
 
 export type Channel = AnalogChannel | DigitalChannel;
 
-export const deployReadRateShape = {
+const deployReadRateShape = {
   sampleRate: z.number().positive().max(1000000),
   streamRate: z.number().positive().max(20000),
 } as const;
@@ -299,8 +299,6 @@ const validateDigitalPortsAndLines = ({
   });
 };
 
-export interface AnalogReadConfig extends ni.AnalogReadConfig {}
-
 export const analogReadConfigZ = ni.analogReadConfigZ;
 
 export const deployAnalogReadConfigZ = ni.analogReadConfigZ
@@ -316,12 +314,10 @@ export const deployAnalogReadConfigZ = ni.analogReadConfigZ
 
 const ZERO_ANALOG_READ_CONFIG = ni.analogReadConfigZ.parse({});
 
-export const analogReadStatusDataZ = z
+const analogReadStatusDataZ = z
   .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
   .nullish()
   .optional();
-
-export type AnalogReadStatusDetails = task.Status<typeof analogReadStatusDataZ>;
 
 export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
 
@@ -333,21 +329,19 @@ export const ANALOG_READ_SCHEMAS = {
 
 export type AnalogReadSchemas = typeof ANALOG_READ_SCHEMAS;
 
-export interface AnalogReadPayload extends task.Payload<AnalogReadSchemas> {}
+interface AnalogReadPayload extends task.Payload<AnalogReadSchemas> {}
 export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   key: "",
   rack: 0,
   name: "NI Analog Read Task",
   config: ZERO_ANALOG_READ_CONFIG,
   configHash: "",
-  type: "ni_analog_read",
+  type: ANALOG_READ_TYPE,
   internal: false,
   snapshot: false,
 };
 
 const validateCounterPorts = createPortValidator("Counter");
-
-export interface CounterReadConfig extends ni.CounterReadConfig {}
 
 export const counterReadConfigZ = ni.counterReadConfigZ;
 
@@ -374,19 +368,17 @@ export const COUNTER_READ_SCHEMAS = {
 
 export type CounterReadSchemas = typeof COUNTER_READ_SCHEMAS;
 
-export interface CounterReadPayload extends task.Payload<CounterReadSchemas> {}
+interface CounterReadPayload extends task.Payload<CounterReadSchemas> {}
 export const ZERO_COUNTER_READ_PAYLOAD: CounterReadPayload = {
   key: "",
   rack: 0,
   name: "NI Counter Read Task",
   config: ZERO_COUNTER_READ_CONFIG,
   configHash: "",
-  type: "ni_counter_read",
+  type: COUNTER_READ_TYPE,
   internal: false,
   snapshot: false,
 };
-
-export interface AnalogWriteConfig extends ni.AnalogWriteConfig {}
 
 export const analogWriteConfigZ = ni.analogWriteConfigZ;
 
@@ -412,18 +404,16 @@ export const ANALOG_WRITE_SCHEMAS = {
 export type AnalogWriteSchemas = typeof ANALOG_WRITE_SCHEMAS;
 
 interface AnalogWritePayload extends task.Payload<AnalogWriteSchemas> {}
-export const ZERO_ANALOG_WRITE_PAYLOAD = {
+export const ZERO_ANALOG_WRITE_PAYLOAD: AnalogWritePayload = {
   key: "",
   rack: 0,
   name: "NI Analog Write Task",
   config: ZERO_ANALOG_WRITE_CONFIG,
   configHash: "",
-  type: "ni_analog_write",
+  type: ANALOG_WRITE_TYPE,
   internal: false,
   snapshot: false,
-} as const satisfies AnalogWritePayload;
-
-export interface DigitalReadConfig extends ni.DigitalReadConfig {}
+};
 
 export const digitalReadConfigZ = ni.digitalReadConfigZ;
 
@@ -450,19 +440,17 @@ export const DIGITAL_READ_SCHEMAS = {
 
 export type DigitalReadSchemas = typeof DIGITAL_READ_SCHEMAS;
 
-export interface DigitalReadPayload extends task.Payload<DigitalReadSchemas> {}
+interface DigitalReadPayload extends task.Payload<DigitalReadSchemas> {}
 export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   key: "",
   rack: 0,
   name: "NI Digital Read Task",
   config: ZERO_DIGITAL_READ_CONFIG,
   configHash: "",
-  type: "ni_digital_read",
+  type: DIGITAL_READ_TYPE,
   internal: false,
   snapshot: false,
 };
-
-export interface DigitalWriteConfig extends ni.DigitalWriteConfig {}
 
 export const digitalWriteConfigZ = ni.digitalWriteConfigZ;
 
@@ -487,14 +475,14 @@ export const DIGITAL_WRITE_SCHEMAS = {
 
 export type DigitalWriteSchemas = typeof DIGITAL_WRITE_SCHEMAS;
 
-export interface DigitalWritePayload extends task.Payload<DigitalWriteSchemas> {}
+interface DigitalWritePayload extends task.Payload<DigitalWriteSchemas> {}
 export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
   key: "",
   rack: 0,
   name: "NI Digital Write Task",
   config: ZERO_DIGITAL_WRITE_CONFIG,
   configHash: "",
-  type: "ni_digital_write",
+  type: DIGITAL_WRITE_TYPE,
   internal: false,
   snapshot: false,
 };
@@ -506,5 +494,3 @@ export const SCAN_SCHEMAS = {
   config: z.object({ enabled: z.boolean().default(true) }),
   statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;
-
-export type ScanSchemas = typeof SCAN_SCHEMAS;
