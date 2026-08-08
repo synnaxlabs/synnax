@@ -10,31 +10,25 @@
 package v0
 
 // CustomTypeName gives AnalogReadConfig records a table prefix that cannot collide with
-// the
-// identically named config types of other integrations.
+// the identically named config types of other integrations.
 func (AnalogReadConfig) CustomTypeName() string { return "ni_analog_read_config" }
 
 // CustomTypeName gives AnalogWriteConfig records a table prefix that cannot collide
-// with the
-// identically named config types of other integrations.
+// with the identically named config types of other integrations.
 func (AnalogWriteConfig) CustomTypeName() string { return "ni_analog_write_config" }
 
 // CustomTypeName gives CounterReadConfig records a table prefix that cannot collide
-// with the
-// identically named config types of other integrations.
+// with the identically named config types of other integrations.
 func (CounterReadConfig) CustomTypeName() string { return "ni_counter_read_config" }
 
 // CustomTypeName gives DigitalReadConfig records a table prefix that cannot collide
-// with the
-// identically named config types of other integrations.
+// with the identically named config types of other integrations.
 func (DigitalReadConfig) CustomTypeName() string { return "ni_digital_read_config" }
 
 // CustomTypeName gives DigitalWriteConfig records a table prefix that cannot collide
-// with the
-// identically named config types of other integrations.
+// with the identically named config types of other integrations.
 func (DigitalWriteConfig) CustomTypeName() string { return "ni_digital_write_config" }
 
 // CustomTypeName gives ScannerConfig records a table prefix that cannot collide with
-// the
-// identically named config types of other integrations.
+// the identically named config types of other integrations.
 func (ScannerConfig) CustomTypeName() string { return "ni_scanner_config" }
