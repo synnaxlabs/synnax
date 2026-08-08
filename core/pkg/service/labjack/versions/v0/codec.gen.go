@@ -449,12 +449,29 @@ func (s *Scale) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (sc ScanConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(sc.Key[:])
+	w.Float64(float64(sc.Rate))
+	w.Bool(sc.Disabled)
+	w.Int32(int32(sc.TCPScanMultiplier))
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (sc *ScanConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
 	if _, err := r.Read(sc.Key[:]); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Float64()
+		if err != nil {
+			return err
+		}
+		sc.Rate = telem.Rate(rawV)
+	}
+	if sc.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if sc.TCPScanMultiplier, err = r.Int32(); err != nil {
 		return err
 	}
 	return nil

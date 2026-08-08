@@ -334,7 +334,7 @@ struct WriteConfig : public ::synnax::common::BaseWriteConfig {
 
 /// @brief ScannerConfig configures the NI device scanner task, which carries no
 /// settings.
-struct ScannerConfig : public ::synnax::common::ConfigRecord {
+struct ScannerConfig : public ::synnax::common::BaseScanConfig {
 
     static ScannerConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

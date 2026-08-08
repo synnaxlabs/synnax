@@ -79,11 +79,11 @@ protected:
         const std::string &type,
         const synnax::channel::Channel &channel,
         uint16_t address,
-        bool enabled = true
+        bool disabled = false
     ) {
         x::json::json cfg = {
             {"type", type},
-            {"enabled", enabled},
+            {"disabled", disabled},
             {"channel", channel.key},
             {"address", address}
         };
@@ -135,7 +135,7 @@ TEST_F(ModbusReadTest, testInvalidChannelType) {
     ));
     cfg["channels"].push_back(
         {{"type", "invalid_type"},
-         {"enabled", true},
+         {"disabled", false},
          {"channel", ch.key},
          {"address", 0}}
     );
@@ -143,6 +143,23 @@ TEST_F(ModbusReadTest, testInvalidChannelType) {
     auto p = x::json::Parser(cfg);
     auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+}
+
+/// @brief it should default the register data type to uint8 when the config omits
+/// it, preserving the behavior of configs written before the field existed.
+TEST(ModbusChannels, testMissingDataTypeDefaultsToUint8) {
+    auto parser = x::json::Parser(
+        x::json::json{
+            {"type", "register_input"},
+            {"key", "chan-1"},
+            {"address", 3},
+            {"channel", 42}
+        }
+    );
+    const auto cfg = ::synnax::modbus::InputChannelRegisterInput::parse(parser);
+    ASSERT_NIL(parser.error());
+    const channel::InputRegister ch(cfg);
+    EXPECT_EQ(ch.value_type, x::telem::UINT8_T);
 }
 
 /// @brief it should parse configuration with multiple channel types.
@@ -182,6 +199,25 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto p = x::json::Parser(cfg);
     auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
+}
+
+/// @brief it should configure when a disabled channel has no Synnax channel bound
+/// to it.
+TEST_F(ModbusReadTest, testUnboundDisabledChannel) {
+    auto cfg = create_base_config();
+    const auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("coil"),
+        x::telem::UINT8_T,
+        true
+    ));
+    cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
+    synnax::channel::Channel unbound;
+    cfg["channels"].push_back(create_channel_config("coil_input", unbound, 1, true));
+
+    auto p = x::json::Parser(cfg);
+    const auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(task_cfg->data_channel_count, 1);
 }
 
 /// @brief it should read coil values from Modbus device.
@@ -247,7 +283,7 @@ TEST(ReadTask, testBasicReadTask) {
         {"channels",
          x::json::json::array(
              {{{"type", "coil_input"},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", data_channel.key},
                {"address", 0}}}
          )}
@@ -703,7 +739,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
         {"channels",
          x::json::json::array(
              {{{"type", "register_input"},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", data_channel.key},
                {"address", 0},
                {"data_type", "uint8"}}}
@@ -770,7 +806,7 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
         {"channels",
          x::json::json::array(
              {{{"type", "register_input"},
-               {"enabled", true},
+               {"disabled", false},
                {"channel", data_channel.key},
                {"address", 0},
                {"data_type", "uint8"}}}

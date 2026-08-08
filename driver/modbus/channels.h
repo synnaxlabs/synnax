@@ -9,36 +9,24 @@
 
 #pragma once
 
-#include <string>
+#include <algorithm>
+#include <vector>
 
+#include "client/cpp/modbus/types.gen.h"
 #include "client/cpp/synnax.h"
-#include "x/cpp/json/json.h"
 
 namespace driver::modbus::channel {
-/// @brief Base class for all Modbus channels
-struct Channel {
-    /// @brief Whether the channel is enabled
-    bool enabled;
+/// @brief base class for input channels (reading from Modbus).
+struct Input {
     /// @brief The Modbus register address
     uint16_t address;
-
-    explicit Channel(x::json::Parser &parser):
-        enabled(parser.field<bool>("enabled", true)),
-        address(parser.field<uint16_t>("address")) {}
-
-    /// @brief Virtual destructor
-    virtual ~Channel() = default;
-};
-
-/// @brief base class for input channels (reading from Modbus)
-struct Input : virtual Channel {
     /// @brief The key of the synnax channel to write data to
     synnax::channel::Key synnax_key;
     /// @brief The synnax channel object
     synnax::channel::Channel ch;
 
-    explicit Input(x::json::Parser &parser):
-        Channel(parser), synnax_key(parser.field<synnax::channel::Key>("channel")) {}
+    explicit Input(const ::synnax::modbus::BaseInputChannel &cfg):
+        address(cfg.address), synnax_key(cfg.channel) {}
 
     /// @brief Binds remote channel information
     void bind_remote_info(const synnax::channel::Channel &remote_ch) {
@@ -46,12 +34,12 @@ struct Input : virtual Channel {
     }
 };
 
-/// @brief configuration to read from a discrete input.
+/// @brief configuration to read from a coil or discrete input.
 struct InputDiscrete final : Input {
-    explicit InputDiscrete(x::json::Parser &parser): Channel(parser), Input(parser) {}
+    using Input::Input;
 };
 
-/// @brief configuration to read from an input register.
+/// @brief configuration to read from a holding or input register.
 struct InputRegister final : Input {
     /// @brief The data type to interpret the register(s) as
     x::telem::DataType value_type;
@@ -62,28 +50,44 @@ struct InputRegister final : Input {
     /// @brief String length for STRING data type
     int string_length;
 
-    explicit InputRegister(x::json::Parser &parser):
-        Channel(parser),
-        Input(parser),
-        value_type(x::telem::DataType(parser.field<std::string>("data_type"))),
-        swap_bytes(parser.field<bool>("swap_bytes", false)),
-        swap_words(parser.field<bool>("swap_words", false)),
-        string_length(parser.field<int>("string_length", 0)) {}
+    InputRegister(
+        const ::synnax::modbus::BaseInputChannel &base,
+        const ::synnax::modbus::RegisterValue &value,
+        const std::int32_t string_length
+    ):
+        Input(base),
+        value_type(value.data_type),
+        swap_bytes(value.swap_bytes),
+        swap_words(value.swap_words),
+        string_length(string_length) {}
+
+    explicit InputRegister(
+        const ::synnax::modbus::InputChannelHoldingRegisterInput &cfg
+    ):
+        InputRegister(cfg, cfg, cfg.string_length) {}
+
+    explicit InputRegister(const ::synnax::modbus::InputChannelRegisterInput &cfg):
+        InputRegister(cfg, cfg, cfg.string_length) {}
+};
+
+/// @brief base class for output channels (writing to Modbus).
+struct Output {
+    /// @brief The Modbus register address
+    uint16_t address;
+    /// @brief The key of the channel to receive commands from
+    synnax::channel::Key channel;
+
+    explicit Output(const ::synnax::modbus::BaseOutputChannel &cfg):
+        address(cfg.address), channel(cfg.channel) {}
 };
 
 /// @brief Output channel for writing to coils
-struct OutputCoil final : Channel {
-    /// @brief The key of the channel to write to the coil
-    synnax::channel::Key channel;
-
-    explicit OutputCoil(x::json::Parser &parser):
-        Channel(parser), channel(parser.field<synnax::channel::Key>("channel")) {}
+struct OutputCoil final : Output {
+    using Output::Output;
 };
 
 /// @brief Output channel for writing to holding registers
-struct OutputHoldingRegister final : Channel {
-    /// @brief The key of the channel to write to the register
-    synnax::channel::Key channel;
+struct OutputHoldingRegister final : Output {
     /// @brief The data type to interpret the register(s) as
     x::telem::DataType value_type;
     /// @brief The byte order for multi-register values
@@ -91,12 +95,13 @@ struct OutputHoldingRegister final : Channel {
     /// @brief The word order for multi-register values
     bool swap_words;
 
-    explicit OutputHoldingRegister(x::json::Parser &parser):
-        Channel(parser),
-        channel(parser.field<synnax::channel::Key>("channel")),
-        value_type(x::telem::DataType(parser.field<std::string>("data_type"))),
-        swap_bytes(parser.field<bool>("swap_bytes", false)),
-        swap_words(parser.field<bool>("swap_words", false)) {}
+    explicit OutputHoldingRegister(
+        const ::synnax::modbus::OutputChannelHoldingRegisterOutput &cfg
+    ):
+        Output(cfg),
+        value_type(cfg.data_type),
+        swap_bytes(cfg.swap_bytes),
+        swap_words(cfg.swap_words) {}
 };
 
 /// @brief sorts a vector of channels in place by their address.

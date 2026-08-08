@@ -23,6 +23,22 @@ type ConfigRecord struct {
 	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
+// BaseScanConfig carries the fields shared by every scan task configuration.
+type BaseScanConfig struct {
+	ConfigRecord
+	// Rate is the rate at which the scan runs, in hertz.
+	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Disabled is true when scanning is paused.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (b *BaseScanConfig) ApplyDefaults() {
+	if b.Rate == 0 {
+		b.Rate = 0.2
+	}
+}
+
 // BaseConfig carries the configuration fields shared by every hardware task.
 type BaseConfig struct {
 	ConfigRecord

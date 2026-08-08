@@ -149,7 +149,7 @@ const AlertListItem = (props: List.ItemProps<string>) => {
           {isNotDefined ? "New alert" : status.name}
         </Text.Text>
       </Flex.Box>
-      <Task.EnableDisableButton path={`config.alerts.${itemKey}.enabled`} />
+      <Task.EnableDisableButton path={`config.alerts.${itemKey}.disabled`} />
     </Select.ListItem>
   );
 };
@@ -166,8 +166,8 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
   const alerts = PForm.useFieldValue<AlertConfig[]>("config.alerts").filter((a) =>
     keys.includes(a.key),
   );
-  const canDisable = alerts.some(({ enabled }) => enabled);
-  const canEnable = alerts.some(({ enabled }) => !enabled);
+  const canDisable = alerts.some(({ disabled }) => !disabled);
+  const canEnable = alerts.some(({ disabled }) => disabled);
   return (
     <ContextMenu.Menu>
       {canEnable && (
@@ -219,7 +219,7 @@ const Form: FC<Task.FormProps<AlertSchemas>> = () => {
 
   const handleSetEnabled = useCallback(
     (keys: string[], enabled: boolean) => {
-      for (const key of keys) set(`config.alerts.${key}.enabled`, enabled);
+      for (const key of keys) set(`config.alerts.${key}.disabled`, !enabled);
     },
     [set],
   );

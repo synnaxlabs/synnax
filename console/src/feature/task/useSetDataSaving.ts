@@ -23,13 +23,22 @@ export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingPa
     const { key, dataSaving } = data;
     const t = await client.tasks.retrieve({ key, includeStatus: true });
     const config = t.payload.config;
-    // Only tasks with a dataSaving field in their config (primarily read tasks)
-    // are eligible. Write tasks without this field are skipped.
-    if (typeof config !== "object" || config == null || !("dataSaving" in config))
+    // Only tasks with a dataSavingDisabled field in their config (primarily read
+    // tasks) are eligible. Tasks without this field are skipped.
+    if (
+      typeof config !== "object" ||
+      config == null ||
+      !("dataSavingDisabled" in config)
+    )
       return data;
-    if ((config as Record<string, unknown>).dataSaving === dataSaving) return data;
+    const dataSavingDisabled = !dataSaving;
+    if ((config as Record<string, unknown>).dataSavingDisabled === dataSavingDisabled)
+      return data;
     const wasRunning = t.status?.details.running === true;
-    await client.tasks.create({ ...t.payload, config: { ...config, dataSaving } });
+    await client.tasks.create({
+      ...t.payload,
+      config: { ...config, dataSavingDisabled },
+    });
     if (wasRunning) await client.tasks.executeCommand({ task: key, type: "start" });
     return data;
   },

@@ -1523,7 +1523,7 @@ DigitalWriteConfig struct extends WriteConfig {
     @go migrate
 }
 
-ScannerConfig struct extends task.ConfigRecord {
+ScannerConfig struct extends task.BaseScanConfig {
     @doc value  "configures the NI device scanner task, which carries no settings."
     @go version 0
     @go marshal

@@ -79,6 +79,29 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("BaseScanConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.BaseScanConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.BaseScanConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.BaseScanConfig{
+				ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				Rate:         telem.Rate(2.5),
+				Disabled:     true,
+			}),
+			Entry("zero values", v0.BaseScanConfig{
+				ConfigRecord: v0.ConfigRecord{Key: uuid.Nil},
+				Rate:         telem.Rate(0),
+				Disabled:     false,
+			}),
+		)
+	})
 	Describe("BaseWriteConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.BaseWriteConfig) {
@@ -164,6 +187,27 @@ func BenchmarkEncodeDecodeBaseReadConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v0.BaseReadConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeBaseScanConfig(b *testing.B) {
+	seed := v0.BaseScanConfig{
+		ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+		Rate:         telem.Rate(2.5),
+		Disabled:     true,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.BaseScanConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -304,6 +348,53 @@ func FuzzDecodeBaseReadConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.BaseReadConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeBaseScanConfig(f *testing.F) {
+	{
+		seed := v0.BaseScanConfig{
+			ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			Rate:         telem.Rate(2.5),
+			Disabled:     true,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.BaseScanConfig{
+			ConfigRecord: v0.ConfigRecord{Key: uuid.Nil},
+			Rate:         telem.Rate(0),
+			Disabled:     false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.BaseScanConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.BaseScanConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

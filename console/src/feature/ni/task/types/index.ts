@@ -491,6 +491,6 @@ export const SCAN_TYPE = `${PREFIX}_scanner`;
 
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
-  config: z.object({ enabled: z.boolean().default(true) }),
+  config: ni.scannerConfigZ,
   statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;

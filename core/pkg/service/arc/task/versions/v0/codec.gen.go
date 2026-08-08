@@ -19,6 +19,7 @@ func (c Config) EncodeOrc(w *orc.Writer) error {
 	w.Bool(c.AutoStart)
 	w.Bool(c.DataSavingDisabled)
 	w.Write(c.ArcKey[:])
+	w.String(c.Hash)
 	w.String(string(c.ExecutionMode))
 	w.Int32(int32(c.RtPriority))
 	w.Int32(int32(c.CPUAffinity))
@@ -39,6 +40,9 @@ func (c *Config) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if _, err := r.Read(c.ArcKey[:]); err != nil {
+		return err
+	}
+	if c.Hash, err = r.String(); err != nil {
 		return err
 	}
 	{

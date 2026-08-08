@@ -16,13 +16,13 @@ import { renderInTaskForm } from "@/platform/task/testutil";
 describe("fields.DataSaving", () => {
   it("should write the toggled value back into the form", async () => {
     const { form } = await renderInTaskForm(<Task.Fields.DataSaving />, {
-      values: { config: { dataSaving: true } },
+      values: { config: { dataSavingDisabled: false } },
     });
     const checkbox = document.body.querySelector<HTMLInputElement>(
       "input[type='checkbox']",
     );
     expect(checkbox).toBeTruthy();
     fireEvent.click(checkbox as HTMLInputElement);
-    expect(form.current?.get("config.dataSaving").value).toBe(false);
+    expect(form.current?.get("config.dataSavingDisabled").value).toBe(true);
   });
 });

@@ -209,3 +209,44 @@ var _ = Describe("Ontology", func() {
 		)
 	})
 })
+
+var _ = Describe("RetrieveParents", func() {
+	It("Should return the parents of each ID keyed by child", func(ctx SpecContext) {
+		w := otg.NewWriter(tx)
+		parentA := newSampleType("rp-parent-a")
+		parentB := newSampleType("rp-parent-b")
+		childOne := newSampleType("rp-child-1")
+		childTwo := newSampleType("rp-child-2")
+		orphan := newSampleType("rp-orphan")
+		Expect(w.DefineResources(
+			ctx, parentA, parentB, childOne, childTwo, orphan,
+		)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, parentA, ontology.RelationshipTypeParentOf, childOne,
+		)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, parentB, ontology.RelationshipTypeParentOf, childOne,
+		)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, parentA, ontology.RelationshipTypeParentOf, childTwo,
+		)).To(Succeed())
+		parents := MustSucceed(
+			otg.RetrieveParents(tx, childOne, childTwo, orphan),
+		)
+		Expect(parents[childOne]).To(ConsistOf(parentA, parentB))
+		Expect(parents[childTwo]).To(ConsistOf(parentA))
+		Expect(parents).ToNot(HaveKey(orphan))
+	})
+	It("Should ignore non-parent relationships", func(ctx SpecContext) {
+		w := otg.NewWriter(tx)
+		labeler := newSampleType("rp-labeler")
+		labeled := newSampleType("rp-labeled")
+		Expect(w.DefineResources(ctx, labeler, labeled)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, labeler, "labeled_by", labeled,
+		)).To(Succeed())
+		Expect(
+			MustSucceed(otg.RetrieveParents(tx, labeled)),
+		).ToNot(HaveKey(labeled))
+	})
+})

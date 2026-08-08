@@ -122,7 +122,6 @@ Task struct<
         coalesce_type_params
     }
     @ontology type "task"
-    @retrieve
     @search
     @go marshal
     @go migrate
@@ -162,6 +161,22 @@ ConfigRecord struct {
     }
 
     @doc value  "is the base for every stored task configuration record."
+    @go version 0
+    @go output  "core/pkg/service/task/common"
+    @cpp output "client/cpp/task/common"
+    @pb omit
+}
+
+BaseScanConfig struct extends ConfigRecord {
+    rate     telem.Rate = 0.2 {
+        @doc value "is the rate at which the scan runs, in hertz."
+        @ts type   "number"
+    }
+    disabled bool = false {
+        @doc value "is true when scanning is paused."
+    }
+
+    @doc value  "carries the fields shared by every scan task configuration."
     @go version 0
     @go output  "core/pkg/service/task/common"
     @cpp output "client/cpp/task/common"

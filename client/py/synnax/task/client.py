@@ -10,13 +10,13 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
-from typing import Annotated, Any, overload
+from typing import Any, overload
 from typing import Protocol as BaseProtocol
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
@@ -75,59 +75,19 @@ _TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 
-class BaseConfig(BaseModel):
+class _Keyed(BaseProtocol):
+    key: str
+
+
+def assign_keys(records: Iterable[_Keyed]) -> None:
+    """Assigns a fresh UUID key to every record whose key is empty.
+
+    :param records: Task config records (e.g. channels, endpoints) with a string
+        key field.
     """
-    Base configuration shared by all hardware task types.
-
-    This base class provides common fields that all hardware integration tasks need:
-    auto-start behavior.
-    """
-
-    auto_start: bool = False
-
-
-class BaseReadConfig(BaseConfig):
-    """
-    Base configuration for hardware read/acquisition tasks.
-
-    Extends BaseTaskConfig with sample rate and stream rate fields common to
-    all data acquisition tasks (LabJack, NI, Modbus, OPC UA read tasks).
-
-    Default rate limits are set to 50 kHz based on NI hardware constraints,
-    which are the most restrictive across supported hardware platforms.
-    Hardware-specific configs can override these limits for devices that
-    support higher rates.
-    """
-
-    data_saving: bool = True
-    "Whether to persist acquired data to disk (True) or only stream it (False)."
-    sample_rate: Annotated[int, Field(ge=0, le=50000)]
-    "The rate at which to sample data from the hardware device (Hz)."
-    stream_rate: Annotated[int, Field(ge=0, le=50000)]
-    "The rate at which acquired data will be streamed to the Synnax cluster (Hz)."
-
-    @field_validator("stream_rate")
-    def validate_stream_rate(cls, v: int, info: Any) -> int:
-        """Validate that stream_rate is less than or equal to sample_rate."""
-        if "sample_rate" in info.data and v > info.data["sample_rate"]:
-            raise ValueError(
-                "Stream rate must be less than or equal to the sample rate"
-            )
-        return v
-
-
-class BaseWriteConfig(BaseConfig):
-    """
-    Base configuration for hardware write/control tasks.
-
-    Provides common fields (device, auto_start) for all hardware write tasks.
-    Note that state_rate and data_saving are NOT included in this base class as they
-    are hardware-specific - only write tasks with state feedback (NI, LabJack) use
-    these fields. Tasks without state feedback (Modbus, OPC UA) do not need them.
-    """
-
-    device: str = Field(min_length=1)
-    "The key of the Synnax device this task will communicate with."
+    for record in records:
+        if not record.key:
+            record.key = str(uuid4())
 
 
 class Task:
@@ -354,7 +314,7 @@ class JSONConfigMixin(Protocol):
     def to_payload(self) -> Payload:
         """Implements TaskProtocol protocol"""
         pld = self._internal.to_payload()
-        pld.config = self.config.model_dump()
+        pld.config = self.config.model_dump(by_alias=True, exclude_none=True)
         return pld
 
     def set_internal(self, task: Task) -> None:
@@ -416,7 +376,7 @@ class Client:
         if config is None:
             config = dict()
         elif isinstance(config, BaseModel):
-            config = config.model_dump()
+            config = config.model_dump(by_alias=True, exclude_none=True)
         if tasks is None:
             if key is None:
                 key = uuid4()

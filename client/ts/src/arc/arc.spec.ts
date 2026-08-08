@@ -84,8 +84,8 @@ describe("arc", () => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const tsk = await rack.createTask({
         name: `arc-task-${id.create()}`,
-        type: "testType",
-        config: { value: "test" },
+        type: "arc_task",
+        config: {},
       });
       await client.ontology.addChildren(
         arc.ontologyID(arcKey),
@@ -108,7 +108,7 @@ describe("arc", () => {
       const tsk = await attachTask(created.key);
       const res = await client.arcs.task.retrieve(created.key);
       expect(res?.key).toEqual(tsk.key);
-      expect(res?.config).toEqual({ value: "test" });
+      expect(res?.config).toMatchObject({ key: expect.any(String) });
       const cached = client.arcs.task.getCached(created.key);
       expect(expectLive(cached)?.key).toEqual(tsk.key);
     });
@@ -177,7 +177,7 @@ describe("arc", () => {
       const tsk = await client.arcs.deploy(created.key, rack.key);
       expect(tsk).not.toBeNull();
       expect(tsk?.rack).toEqual(rack.key);
-      expect(tsk?.type).toEqual("arc");
+      expect(tsk?.type).toEqual("arc_task");
       expect(tsk?.config.arcKey).toEqual(created.key);
       expect(tsk?.config.hash).not.toEqual("");
       expect(await client.arcs.task.retrieve(created.key)).not.toBeNull();
@@ -211,7 +211,18 @@ describe("arc", () => {
       const tsk = await client.arcs.deploy(created.key, rack.key);
       if (tsk == null) throw new Error("expected a deployment task");
       await client.arcs.undeploy(created.key);
-      await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
+      // The task cache may briefly serve the deleted task until the delete signal
+      // lands, so poll for the rejection.
+      await expect
+        .poll(async () => {
+          try {
+            await client.tasks.retrieve(tsk.key);
+            return false;
+          } catch {
+            return true;
+          }
+        })
+        .toBe(true);
       expect((await client.arcs.retrieve(created.key)).key).toEqual(created.key);
     });
 

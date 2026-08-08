@@ -62,14 +62,14 @@ export const createAutoInputChannel = (
 export const createManualInputChannel = (
   device: string,
   index: number,
-  subindex: number,
+  subIndex: number,
   overrides: Partial<ManualInputChannel> = {},
 ): ManualInputChannel => ({
   ...ZERO_INPUT_CHANNELS.manual,
   key: id.create(),
   device,
   index,
-  subindex,
+  subIndex,
   ...overrides,
 });
 
@@ -90,14 +90,14 @@ export const createAutoOutputChannel = (
 export const createManualOutputChannel = (
   device: string,
   index: number,
-  subindex: number,
+  subIndex: number,
   overrides: Partial<ManualOutputChannel> = {},
 ): ManualOutputChannel => ({
   ...ZERO_OUTPUT_CHANNELS.manual,
   key: id.create(),
   device,
   index,
-  subindex,
+  subIndex,
   ...overrides,
 });
 

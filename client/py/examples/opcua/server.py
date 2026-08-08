@@ -23,7 +23,7 @@ from cryptography.x509.oid import ExtendedKeyUsageOID
 
 import synnax as sy
 from examples.simulators.device_sim import DeviceSim
-from synnax import opcua
+from synnax import opc
 
 # Configuration constants
 ARRAY_COUNT = 5
@@ -373,8 +373,8 @@ class OPCUASim(DeviceSim):
         )
 
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
-        return opcua.Device(
+    def create_device(rack_key: int) -> opc.Device:
+        return opc.Device(
             endpoint=OPCUASim.endpoint,
             name=OPCUASim.device_name,
             location=OPCUASim.endpoint,
@@ -395,8 +395,8 @@ class OPCUATLSSim(OPCUASim):
         super().__init__(encrypted=True, **kwargs)
 
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
-        return opcua.Device(
+    def create_device(rack_key: int) -> opc.Device:
+        return opc.Device(
             endpoint=OPCUATLSSim.endpoint,
             name=OPCUATLSSim.device_name,
             location=OPCUATLSSim.endpoint,
@@ -430,8 +430,8 @@ class OPCUATLSAuthSim(OPCUASim):
         )
 
     @staticmethod
-    def create_device(rack_key: int) -> opcua.Device:
-        return opcua.Device(
+    def create_device(rack_key: int) -> opc.Device:
+        return opc.Device(
             endpoint=OPCUATLSAuthSim.endpoint,
             name=OPCUATLSAuthSim.device_name,
             location=OPCUATLSAuthSim.endpoint,

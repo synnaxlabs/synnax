@@ -24,10 +24,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskcommon "github.com/synnaxlabs/synnax/pkg/service/task/common"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -98,6 +100,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		HostProvider: node.Cluster,
 	}))
+	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+	}))
+	configs := MustSucceed(taskcommon.NewConfigRegistry(pd.Stores()...))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
@@ -107,6 +114,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:  channelSvc,
 		Search:   searchIdx,
 		ImEx:     imex.NewService(),
+		Configs:  configs,
 	}))
 	taskWriter = taskService.NewWriter(nil)
 })

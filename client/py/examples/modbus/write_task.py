@@ -78,21 +78,25 @@ tsk = sy.modbus.WriteTask(
     device=dev.key,
     channels=[
         # Coil outputs (1-bit digital) - addresses 0-1
-        sy.modbus.CoilOutputChan(
+        sy.modbus.OutputChannelCoilOutput(
+            type="coil_output",
             channel=coil_cmd_0.key,
             address=0,
         ),
-        sy.modbus.CoilOutputChan(
+        sy.modbus.OutputChannelCoilOutput(
+            type="coil_output",
             channel=coil_cmd_1.key,
             address=1,
         ),
         # Holding register outputs (16-bit analog) - addresses 2-3
-        sy.modbus.HoldingRegisterOutputChan(
+        sy.modbus.OutputChannelHoldingRegisterOutput(
+            type="holding_register_output",
             channel=holding_reg_cmd_0.key,
             address=2,
             data_type="uint8",
         ),
-        sy.modbus.HoldingRegisterOutputChan(
+        sy.modbus.OutputChannelHoldingRegisterOutput(
+            type="holding_register_output",
             channel=holding_reg_cmd_1.key,
             address=3,
             data_type="uint8",

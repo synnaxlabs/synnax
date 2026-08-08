@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from synnax import task
 from x.deprecation import deprecated_getattr
 
-TASK_TYPE = "arc"
+TASK_TYPE = "arc_task"
 
 
 class TaskConfig(BaseModel):

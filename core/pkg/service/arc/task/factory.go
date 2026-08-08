@@ -33,7 +33,7 @@ import (
 )
 
 // Type is the type identifier for Arc tasks.
-const Type = "arc"
+const Type = "arc_task"
 
 // GetProgramFunc retrieves an Arc with its compiled Program by key.
 type GetProgramFunc func(context.Context, arc.Key) (arc.Arc, error)

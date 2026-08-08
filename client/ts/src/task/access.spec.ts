@@ -29,7 +29,7 @@ describe("task", () => {
       });
       const randomTask = await rack.createTask({
         name: "test",
-        type: "ni",
+        type: "pagerduty_alert",
         config: {},
       });
       await expect(userClient.tasks.retrieve(randomTask.key)).rejects.toThrow(
@@ -48,7 +48,7 @@ describe("task", () => {
       });
       const randomTask = await rack.createTask({
         name: "test",
-        type: "ni",
+        type: "pagerduty_alert",
         config: {},
       });
       const retrieved = await userClient.tasks.retrieve(randomTask.key);
@@ -68,7 +68,7 @@ describe("task", () => {
       const userRack = await userClient.racks.retrieve(rck.key);
       await userRack.createTask({
         name: "test",
-        type: "ni",
+        type: "pagerduty_alert",
         config: {},
       });
     });
@@ -82,7 +82,7 @@ describe("task", () => {
       await expect(
         userClient.tasks.create({
           name: "test",
-          type: "ni",
+          type: "pagerduty_alert",
           config: {},
         }),
       ).rejects.toThrow(AuthError);
@@ -99,7 +99,7 @@ describe("task", () => {
       });
       const randomTask = await rack.createTask({
         name: "test",
-        type: "ni",
+        type: "pagerduty_alert",
         config: {},
       });
       await userClient.tasks.delete(randomTask.key);
@@ -119,7 +119,7 @@ describe("task", () => {
       });
       const randomTask = await rack.createTask({
         name: "test",
-        type: "ni",
+        type: "pagerduty_alert",
         config: {},
       });
       await expect(userClient.tasks.delete(randomTask.key)).rejects.toThrow(AuthError);

@@ -19,7 +19,6 @@ import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName"
 import { EnableDisableButton } from "@/platform/task/EnableDisableButton";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
 import { TareButton } from "@/platform/task/TareButton";
-import { type Polarity } from "@/platform/task/types";
 import { WriteChannelNames } from "@/platform/task/WriteChannelNames";
 
 export interface ListAndDetailsIconProps {
@@ -40,7 +39,6 @@ export interface ListAndDetailsChannelItemProps<
   path: string;
   hasTareButton: boolean;
   nameDirection?: direction.Direction;
-  polarity?: Polarity;
 }
 
 const getChannelNameProps = (
@@ -67,7 +65,6 @@ export const ListAndDetailsChannelItem = <K extends string>({
   icon,
   stateChannel,
   nameDirection = "x",
-  polarity = "enabled",
   ...rest
 }: ListAndDetailsChannelItemProps<K>) => {
   const { itemKey } = rest;
@@ -124,7 +121,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
         {hasTareButton && (
           <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
         )}
-        <EnableDisableButton path={`${path}.${polarity}`} polarity={polarity} />
+        <EnableDisableButton path={`${path}.disabled`} />
       </Flex.Box>
     </Select.ListItem>
   );

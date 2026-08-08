@@ -54,13 +54,10 @@ tsk = sy.ni.DigitalWriteTask(
     # The rate at which the task will sample the current state of the digital
     # outputs on the device.
     state_rate=sy.Rate.HZ * 2000,
-    # Whether to save the states of the digital outputs to disk. If set to False,
-    # the data will be streamed into Synnax for real-time consumption but not saved
-    # to disk.
-    data_saving=True,
     # The mapping of the digital output channels on the device to the Synnax channels.
     channels=[
-        sy.ni.DOChan(
+        sy.ni.DOChannelDigitalOutput(
+            type="digital_output",
             # The cmd channel will be used to send commands to the device.
             cmd_channel=do_1_cmd.key,
             # The state channel will be used to store the state of the digital output

@@ -24,7 +24,7 @@ namespace driver::arc {
 /// @brief integration name for arc runtime.
 const std::string INTEGRATION_NAME = "arc";
 /// @brief task type for arc runtime tasks.
-const std::string TASK_TYPE = INTEGRATION_NAME;
+const std::string TASK_TYPE = "arc_task";
 
 /// @brief factory for creating arc runtime tasks.
 class Factory final : public task::Factory {

@@ -54,6 +54,7 @@ const SelectScaleTypeField = PForm.buildSelectField<
     data: [
       { key: "none", name: "None", icon: <Icon.None /> },
       { key: "linear", name: "Linear", icon: <Icon.Linear /> },
+      { key: "map", name: "Map", icon: <Icon.Map /> },
     ],
   },
 });
@@ -64,6 +65,26 @@ const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
       <PForm.NumericField path={`${prefix}.slope`} label="Slope" grow />
       <PForm.NumericField path={`${prefix}.offset`} label="Offset" grow />
     </Flex.Box>
+  ),
+  map: ({ prefix }) => (
+    <>
+      <Flex.Box x>
+        <PForm.NumericField
+          path={`${prefix}.preScaledMin`}
+          label="Pre-Scaled Min"
+          grow
+        />
+        <PForm.NumericField
+          path={`${prefix}.preScaledMax`}
+          label="Pre-Scaled Max"
+          grow
+        />
+      </Flex.Box>
+      <Flex.Box x>
+        <PForm.NumericField path={`${prefix}.scaledMin`} label="Scaled Min" grow />
+        <PForm.NumericField path={`${prefix}.scaledMax`} label="Scaled Max" grow />
+      </Flex.Box>
+    </>
   ),
   none: () => null,
 };

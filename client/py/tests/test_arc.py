@@ -179,7 +179,7 @@ class TestArcTask:
         task = sy.arc.Task(name="Test Arc Task", arc_key=arc.key, auto_start=False)
         assert task.config.arc_key == str(arc.key)
         assert task.config.auto_start is False
-        assert task.TYPE == "arc"
+        assert task.TYPE == "arc_task"
 
     def test_arc_task_to_payload(self, client: sy.Synnax):
         """Should convert Arc task to payload."""
@@ -189,7 +189,7 @@ class TestArcTask:
         )
         task = sy.arc.Task(name="Test Arc Task", arc_key=arc.key)
         payload = task.to_payload()
-        assert payload.type == "arc"
+        assert payload.type == "arc_task"
         assert payload.name == "Test Arc Task"
         assert payload.config["arc_key"] == str(arc.key)
 
@@ -210,12 +210,12 @@ class TestArcTask:
         # Create task using to_payload pattern (matching modbus/opcua tests)
         created = client.tasks.create(
             name=task_name,
-            type="arc",
+            type="arc_task",
             config=task.to_payload().config,
         )
         assert created.key is not None
         assert created.name == task_name
-        assert created.type == "arc"
+        assert created.type == "arc_task"
         assert created.config["arc_key"] == str(arc.key)
 
     def test_retrieve_arc_task(self, client: sy.Synnax):
@@ -228,12 +228,12 @@ class TestArcTask:
         task = sy.arc.Task(name=task_name, arc_key=arc.key)
         created = client.tasks.create(
             name=task_name,
-            type="arc",
+            type="arc_task",
             config=task.to_payload().config,
         )
         retrieved = client.tasks.retrieve(key=created.key)
         assert retrieved.key == created.key
-        assert retrieved.type == "arc"
+        assert retrieved.type == "arc_task"
 
     def test_wrap_retrieved_task_as_arc_task(self, client: sy.Synnax):
         """Should wrap a retrieved task as an ArcTask."""
@@ -245,7 +245,7 @@ class TestArcTask:
         task = sy.arc.Task(name=task_name, arc_key=arc.key)
         created = client.tasks.create(
             name=task_name,
-            type="arc",
+            type="arc_task",
             config=task.to_payload().config,
         )
         retrieved = client.tasks.retrieve(key=created.key)

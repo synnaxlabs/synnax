@@ -67,6 +67,8 @@ using Status = ::synnax::status::Status<StatusDetails>;
 struct TaskConfig : public ::synnax::common::BaseConfig {
     /// @brief arc_key is the key of the Arc module the task executes.
     Key arc_key;
+    /// @brief hash is the semantic hash of the Arc module at deploy time.
+    std::string hash = "";
     /// @brief execution_mode overrides the runtime's automatic loop mode selection.
     std::string execution_mode = EXECUTION_MODE_AUTO;
     /// @brief rt_priority is the thread priority used by real-time loop modes.

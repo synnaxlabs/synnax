@@ -511,5 +511,10 @@ func (w WriteConfig) Validate() error {
 
 // ScanConfig configures an HTTP scan task, which carries no settings.
 type ScanConfig struct {
-	common.ConfigRecord
+	common.BaseScanConfig
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *ScanConfig) ApplyDefaults() {
+	s.BaseScanConfig.ApplyDefaults()
 }

@@ -95,7 +95,7 @@ WriteConfig struct extends task.BaseWriteConfig {
     @go migrate
 }
 
-ScanConfig struct extends task.ConfigRecord {
+ScanConfig struct extends task.BaseScanConfig {
     @doc value  "configures an OPC UA scan task, which carries no settings."
     @go version 0
     @go marshal

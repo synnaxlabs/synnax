@@ -64,23 +64,24 @@ tsk = sy.labjack.ReadTask(
     device=dev.key,
     sample_rate=sy.Rate.HZ * 100,  # Sample at 100 Hz
     stream_rate=sy.Rate.HZ * 25,  # Stream at 25 Hz (4 samples per stream)
-    data_saving=True,
     channels=[
         # Analog input channel AIN0 with ±10V range
-        sy.labjack.AIChan(
+        sy.labjack.InputChannelAI(
+            type="AI",
             port="AIN0",
             channel=ain0.key,
             range=10.0,
-            pos_chan=0,
             neg_chan=199,  # 199 = single-ended (GND)
+            scale=sy.labjack.ScaleNone(type="none"),
         ),
         # Analog input channel AIN1 with ±10V range
-        sy.labjack.AIChan(
+        sy.labjack.InputChannelAI(
+            type="AI",
             port="AIN1",
             channel=ain1.key,
             range=10.0,
-            pos_chan=1,
             neg_chan=199,  # 199 = single-ended (GND)
+            scale=sy.labjack.ScaleNone(type="none"),
         ),
     ],
 )

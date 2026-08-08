@@ -123,7 +123,6 @@ protected:
     x::json::json create_base_config() {
         return {
             {"data_saving_disabled", true},
-            {"device", network_device.key},
             {"state_rate", 10.0},
             {"channels", x::json::json::array()}
         };
@@ -139,7 +138,7 @@ protected:
             {"device", slave_device.key},
             {"pdo", pdo_name},
             {"cmd_channel", command_key},
-            {"enabled", true}
+            {"disabled", false}
         };
         if (state_key != 0) cfg["state_channel"] = state_key;
         return cfg;
@@ -161,7 +160,7 @@ protected:
             {"bit_length", bit_length},
             {"data_type", data_type},
             {"cmd_channel", command_key},
-            {"enabled", true}
+            {"disabled", false}
         };
         if (state_key != 0) cfg["state_channel"] = state_key;
         return cfg;
@@ -184,11 +183,13 @@ TEST_F(EtherCATWriteTest, ParseConfigWithAutomaticChannel) {
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.channels.size(), 1);
+    EXPECT_EQ(task_cfg.outputs.size(), 1);
     EXPECT_EQ(task_cfg.interface_name, "eth0");
-    EXPECT_EQ(task_cfg.channels[0]->index, 0x7000);
-    EXPECT_EQ(task_cfg.channels[0]->sub_index, 1);
-    EXPECT_EQ(task_cfg.channels[0]->bit_length, 16);
+    EXPECT_EQ(task_cfg.state_rate, x::telem::Rate(10));
+    EXPECT_EQ(task_cfg.execution_rate, x::telem::Rate(1000));
+    EXPECT_EQ(task_cfg.outputs[0]->index, 0x7000);
+    EXPECT_EQ(task_cfg.outputs[0]->sub_index, 1);
+    EXPECT_EQ(task_cfg.outputs[0]->bit_length, 16);
 }
 
 TEST_F(EtherCATWriteTest, ParseConfigWithManualChannel) {
@@ -207,10 +208,10 @@ TEST_F(EtherCATWriteTest, ParseConfigWithManualChannel) {
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.channels.size(), 1);
-    EXPECT_EQ(task_cfg.channels[0]->index, 0x7000);
-    EXPECT_EQ(task_cfg.channels[0]->sub_index, 2);
-    EXPECT_EQ(task_cfg.channels[0]->bit_length, 32);
+    EXPECT_EQ(task_cfg.outputs.size(), 1);
+    EXPECT_EQ(task_cfg.outputs[0]->index, 0x7000);
+    EXPECT_EQ(task_cfg.outputs[0]->sub_index, 2);
+    EXPECT_EQ(task_cfg.outputs[0]->bit_length, 32);
 }
 
 TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
@@ -235,7 +236,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithStateChannel) {
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.channels.size(), 1);
+    EXPECT_EQ(task_cfg.outputs.size(), 1);
     EXPECT_EQ(task_cfg.state_channels.size(), 1);
 }
 
@@ -264,7 +265,7 @@ TEST_F(EtherCATWriteTest, ParseConfigWithMultipleChannels) {
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.channels.size(), 2);
+    EXPECT_EQ(task_cfg.outputs.size(), 2);
 }
 
 TEST_F(EtherCATWriteTest, ParseConfigWithInvalidPDOName) {
@@ -359,7 +360,7 @@ TEST_F(EtherCATWriteTest, InvalidSlaveDevice) {
            {"bit_length", 16},
            {"data_type", "int16"},
            {"cmd_channel", cmd_ch.key},
-           {"enabled", true}}}}
+           {"disabled", false}}}}
     };
 
     auto parser = x::json::Parser(cfg);
@@ -392,11 +393,11 @@ TEST_F(EtherCATWriteTest, ParseConfigWithMixedChannelTypes) {
     auto parser = x::json::Parser(cfg);
     WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
-    EXPECT_EQ(task_cfg.channels.size(), 2);
-    EXPECT_EQ(task_cfg.channels[0]->index, 0x7000);
-    EXPECT_EQ(task_cfg.channels[0]->sub_index, 1);
-    EXPECT_EQ(task_cfg.channels[1]->index, 0x7000);
-    EXPECT_EQ(task_cfg.channels[1]->sub_index, 3);
+    EXPECT_EQ(task_cfg.outputs.size(), 2);
+    EXPECT_EQ(task_cfg.outputs[0]->index, 0x7000);
+    EXPECT_EQ(task_cfg.outputs[0]->sub_index, 1);
+    EXPECT_EQ(task_cfg.outputs[1]->index, 0x7000);
+    EXPECT_EQ(task_cfg.outputs[1]->sub_index, 3);
 }
 
 TEST_F(EtherCATWriteTest, SinkWritesDataToEngine) {

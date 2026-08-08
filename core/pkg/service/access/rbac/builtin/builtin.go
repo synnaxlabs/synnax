@@ -14,9 +14,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	taskcommon "github.com/synnaxlabs/synnax/pkg/service/task/common"
 )
 
-var allObjects = []ontology.ID{
+var allObjects = append([]ontology.ID{
 	{Type: ontology.ResourceTypeLabel},
 	{Type: ontology.ResourceTypeLog},
 	{Type: ontology.ResourceTypeNode},
@@ -41,7 +42,7 @@ var allObjects = []ontology.ID{
 	{Type: ontology.ResourceTypePolicy},
 	{Type: ontology.ResourceTypeBuiltin},
 	{Type: ontology.ResourceTypeView},
-}
+}, taskcommon.ConfigResourceIDs()...)
 
 var (
 	ownerRoleName = "Owner"
@@ -68,7 +69,7 @@ var (
 	engineerPolicies = []policy.Policy{
 		{
 			Name: "Engineer Edit Access",
-			Objects: []ontology.ID{
+			Objects: append([]ontology.ID{
 				{Type: ontology.ResourceTypeLabel},
 				{Type: ontology.ResourceTypeLog},
 				{Type: ontology.ResourceTypeNode},
@@ -89,7 +90,7 @@ var (
 				{Type: ontology.ResourceTypeSchematicSymbol},
 				{Type: ontology.ResourceTypeStatus},
 				{Type: ontology.ResourceTypeView},
-			},
+			}, taskcommon.ConfigResourceIDs()...),
 			Actions:  access.AllActions,
 			Internal: true,
 		},
@@ -117,14 +118,14 @@ var (
 	hostPolicies = []policy.Policy{
 		{
 			Name: "Host Edit Access",
-			Objects: []ontology.ID{
+			Objects: append([]ontology.ID{
 				{Type: ontology.ResourceTypeRange},
 				{Type: ontology.ResourceTypeRack},
 				{Type: ontology.ResourceTypeDevice},
 				{Type: ontology.ResourceTypeTask},
 				{Type: ontology.ResourceTypeArc},
 				{Type: ontology.ResourceTypeStatus},
-			},
+			}, taskcommon.ConfigResourceIDs()...),
 			Actions:  access.AllActions,
 			Internal: true,
 		},

@@ -17,25 +17,25 @@ namespace driver::ni {
 /// @brief it should parse scan task configuration with defaults and custom values.
 TEST(ScanTaskTest, testConfigParse) {
     // Test default configuration
-    x::json::json j = {{"enabled", true}};
+    x::json::json j = {{"disabled", false}};
     auto p = x::json::Parser(j);
     ScanTaskConfig cfg(p);
 
-    EXPECT_TRUE(cfg.enabled);
-    EXPECT_EQ(cfg.scan_rate.hz(), common::DEFAULT_SCAN_RATE.hz());
+    EXPECT_FALSE(cfg.disabled);
+    EXPECT_EQ(cfg.rate.hz(), common::DEFAULT_SCAN_RATE.hz());
     EXPECT_EQ(cfg.ignored_models.size(), DEFAULT_IGNORED_MODELS.size());
 
     // Test custom configuration
     x::json::json j2 = {
-        {"enabled", false},
+        {"disabled", true},
         {"rate", 10.0},
         {"ignored_models", x::json::json::array({"^Test.*", "^Mock.*"})}
     };
     auto p2 = x::json::Parser(j2);
     ScanTaskConfig cfg2(p2);
 
-    EXPECT_FALSE(cfg2.enabled);
-    EXPECT_EQ(cfg2.scan_rate.hz(), 10.0);
+    EXPECT_TRUE(cfg2.disabled);
+    EXPECT_EQ(cfg2.rate.hz(), 10.0);
     EXPECT_EQ(cfg2.ignored_models.size(), 2);
 }
 

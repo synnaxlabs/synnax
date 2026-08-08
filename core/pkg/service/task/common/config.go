@@ -144,7 +144,9 @@ func (s *ConfigService[E, PE]) Write(
 ) error {
 	b, err := json.Marshal(data)
 	if err != nil {
-		return err
+		return errors.Wrapf(
+			validate.ErrValidation, "encoding %s config: %s", s.cfg.Type, err,
+		)
 	}
 	var e E
 	if err := json.Unmarshal(b, &e); err != nil {

@@ -362,5 +362,10 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures a Modbus scan task, which carries no settings.
 type ScanConfig struct {
-	common.ConfigRecord
+	common.BaseScanConfig
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *ScanConfig) ApplyDefaults() {
+	s.BaseScanConfig.ApplyDefaults()
 }

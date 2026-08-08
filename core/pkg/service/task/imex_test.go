@@ -20,10 +20,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/task/common"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -70,6 +72,11 @@ var _ = Describe("ImEx", Ordered, func() {
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
+		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
+		configs := MustSucceed(common.NewConfigRegistry(pd.Stores()...))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -78,6 +85,7 @@ var _ = Describe("ImEx", Ordered, func() {
 			Status:   statusSvc,
 			Search:   searchIdx,
 			ImEx:     imex.NewService(),
+			Configs:  configs,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
@@ -90,29 +98,29 @@ var _ = Describe("ImEx", Ordered, func() {
 				t := &task.Task{
 					Rack: testRack.Key,
 					Name: "Exported Task",
-					Type: "opc_read",
+					Type: pagerduty.AlertTaskType,
 					Config: msgpack.EncodedJSON{
-						"sample_rate": float64(25),
-						"channels":    []any{"a", "b"},
+						"routing_key": "rk-1",
+						"auto_start":  true,
 					},
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 
 				env := MustSucceed(svc.Export(ctx, t.OntologyID()))
 				Expect(env.Version).To(Equal(task.Version))
-				Expect(env.Type).To(Equal("opc_read"))
+				Expect(env.Type).To(Equal(pagerduty.AlertTaskType))
 				Expect(env.Name).To(Equal("Exported Task"))
 
 				var body map[string]any
 				Expect(
 					json.Unmarshal(MustSucceed(json.Marshal(env)), &body),
 				).To(Succeed())
-				// The driver reads the file as its config, so config fields sit flat at
-				// the
-				// top level rather than nested under a "config" key.
+				// The driver reads the file as its config, so config fields sit flat
+				// at the top level rather than nested under a "config" key.
 				Expect(body).ToNot(HaveKey("config"))
-				Expect(body["sample_rate"]).To(BeEquivalentTo(25))
-				Expect(body["type"]).To(Equal("opc_read"))
+				Expect(body["routing_key"]).To(Equal("rk-1"))
+				Expect(body["auto_start"]).To(BeTrue())
+				Expect(body["type"]).To(Equal(pagerduty.AlertTaskType))
 				Expect(body["name"]).To(Equal("Exported Task"))
 				Expect(body["version"]).To(BeEquivalentTo(1))
 			},

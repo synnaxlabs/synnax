@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, rack } from "@synnaxlabs/client";
+import { ni, NotFoundError, rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -33,7 +33,7 @@ const createNIRackWithScanner = async () => {
     {
       name: uniqueName("ni_scanner"),
       type: NI.Task.SCAN_TYPE,
-      config: { enabled: true },
+      config: ni.scannerConfigZ.parse({}),
     },
     NI.Task.SCAN_SCHEMAS,
   );
@@ -97,7 +97,7 @@ describe("rack ontology service", () => {
     expect(screen.queryByText("Toggle NI Device Scanner")).toBeNull();
   });
 
-  it("should toggle the NI scanner's enabled flag from the rack context menu", async () => {
+  it("should toggle the NI scanner's disabled flag from the rack context menu", async () => {
     const { rack: r, scanTask } = await createNIRackWithScanner();
     await renderMenu([r]);
     fireEvent.click(await screen.findByText("Toggle NI Device Scanner"));
@@ -106,7 +106,7 @@ describe("rack ontology service", () => {
         key: scanTask.key,
         schemas: NI.Task.SCAN_SCHEMAS,
       });
-      expect(after.config.enabled).toBe(!scanTask.config.enabled);
+      expect(after.config.disabled).toBe(!scanTask.config.disabled);
     });
   });
 });

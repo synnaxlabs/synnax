@@ -118,8 +118,12 @@ struct BaseOutputChannel {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ScanConfig configures a LabJack scan task, which carries no settings.
-struct ScanConfig : public ::synnax::common::ConfigRecord {
+/// @brief ScanConfig configures a LabJack scan task.
+struct ScanConfig : public ::synnax::common::BaseScanConfig {
+    /// @brief tcp_scan_multiplier is the number of scan cycles between TCP device
+    /// scans.
+    /// USB devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
+    std::int32_t tcp_scan_multiplier = 10;
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

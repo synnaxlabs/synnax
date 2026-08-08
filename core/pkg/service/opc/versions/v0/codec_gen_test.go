@@ -211,9 +211,19 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.ScanConfig{
-				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				BaseScanConfig: common.BaseScanConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					Rate:         telem.Rate(2.5),
+					Disabled:     true,
+				},
 			}),
-			Entry("zero values", v0.ScanConfig{ConfigRecord: common.ConfigRecord{Key: uuid.Nil}}),
+			Entry("zero values", v0.ScanConfig{
+				BaseScanConfig: common.BaseScanConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+					Rate:         telem.Rate(0),
+					Disabled:     false,
+				},
+			}),
 		)
 	})
 	Describe("WriteConfig", func() {
@@ -401,7 +411,11 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 
 func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 	seed := v0.ScanConfig{
-		ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+		BaseScanConfig: common.BaseScanConfig{
+			ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			Rate:         telem.Rate(2.5),
+			Disabled:     true,
+		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -735,7 +749,11 @@ func FuzzDecodeReadConfig(f *testing.F) {
 func FuzzDecodeScanConfig(f *testing.F) {
 	{
 		seed := v0.ScanConfig{
-			ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			BaseScanConfig: common.BaseScanConfig{
+				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				Rate:         telem.Rate(2.5),
+				Disabled:     true,
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -744,7 +762,13 @@ func FuzzDecodeScanConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.ScanConfig{ConfigRecord: common.ConfigRecord{Key: uuid.Nil}}
+		seed := v0.ScanConfig{
+			BaseScanConfig: common.BaseScanConfig{
+				ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+				Rate:         telem.Rate(0),
+				Disabled:     false,
+			},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

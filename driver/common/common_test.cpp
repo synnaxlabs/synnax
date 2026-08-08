@@ -12,16 +12,16 @@
 #include "driver/common/common.h"
 
 namespace driver::common {
-/// @brief it should return PersistStream when data_saving is true.
-TEST(DataSavingWriterMode, testDataSavingTrue) {
+/// @brief it should return StreamOnly when data saving is disabled.
+TEST(DataSavingWriterMode, testDataSavingDisabled) {
     const auto mode = data_saving_writer_mode(true);
-    EXPECT_EQ(mode, synnax::framer::WriterMode::PersistStream);
+    EXPECT_EQ(mode, synnax::framer::WriterMode::StreamOnly);
 }
 
-/// @brief it should return StreamOnly when data_saving is false.
-TEST(DataSavingWriterMode, testDataSavingFalse) {
+/// @brief it should return PersistStream when data saving is enabled.
+TEST(DataSavingWriterMode, testDataSavingEnabled) {
     const auto mode = data_saving_writer_mode(false);
-    EXPECT_EQ(mode, synnax::framer::WriterMode::StreamOnly);
+    EXPECT_EQ(mode, synnax::framer::WriterMode::PersistStream);
 }
 
 }

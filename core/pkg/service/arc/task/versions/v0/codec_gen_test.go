@@ -43,10 +43,11 @@ var _ = Describe("Codec", func() {
 					DataSavingDisabled: true,
 				},
 				ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Hash:          "test_5",
 				ExecutionMode: v0.ExecutionMode("AUTO"),
-				RtPriority:    7,
-				CPUAffinity:   8,
-				LockMemory:    false,
+				RtPriority:    8,
+				CPUAffinity:   9,
+				LockMemory:    true,
 			}),
 			Entry("zero values", v0.Config{
 				BaseConfig: common.BaseConfig{
@@ -55,6 +56,7 @@ var _ = Describe("Codec", func() {
 					DataSavingDisabled: false,
 				},
 				ArcKey:        uuid.Nil,
+				Hash:          "",
 				ExecutionMode: v0.ExecutionMode(""),
 				RtPriority:    0,
 				CPUAffinity:   0,
@@ -72,10 +74,11 @@ func BenchmarkEncodeDecodeConfig(b *testing.B) {
 			DataSavingDisabled: true,
 		},
 		ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+		Hash:          "test_5",
 		ExecutionMode: v0.ExecutionMode("AUTO"),
-		RtPriority:    7,
-		CPUAffinity:   8,
-		LockMemory:    false,
+		RtPriority:    8,
+		CPUAffinity:   9,
+		LockMemory:    true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -101,10 +104,11 @@ func FuzzDecodeConfig(f *testing.F) {
 				DataSavingDisabled: true,
 			},
 			ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			Hash:          "test_5",
 			ExecutionMode: v0.ExecutionMode("AUTO"),
-			RtPriority:    7,
-			CPUAffinity:   8,
-			LockMemory:    false,
+			RtPriority:    8,
+			CPUAffinity:   9,
+			LockMemory:    true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -120,6 +124,7 @@ func FuzzDecodeConfig(f *testing.F) {
 				DataSavingDisabled: false,
 			},
 			ArcKey:        uuid.Nil,
+			Hash:          "",
 			ExecutionMode: v0.ExecutionMode(""),
 			RtPriority:    0,
 			CPUAffinity:   0,

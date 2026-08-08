@@ -50,7 +50,7 @@ struct BaseChannel {
 };
 
 /// @brief ScanConfig configures an OPC UA scan task, which carries no settings.
-struct ScanConfig : public ::synnax::common::ConfigRecord {
+struct ScanConfig : public ::synnax::common::BaseScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
