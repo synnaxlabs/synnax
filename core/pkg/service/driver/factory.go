@@ -20,7 +20,10 @@ import (
 type Factory interface {
 	// ConfigureTask creates a task instance if this factory handles the task type.
 	// ConfigureTask should return ErrNotHandled if it does not handle the task type.
-	ConfigureTask(context.Context, task.Task) (Task, error)
+	// startPending reports whether a start command is driving the configure. When
+	// false (boot) and the config does not request auto-start, the factory must not
+	// write statuses: failures are logged, not reported.
+	ConfigureTask(ctx context.Context, t task.Task, startPending bool) (Task, error)
 	// Name returns the integration name of this factory. This is used to identify the
 	// integrations allowed on the rack.
 	Name() string

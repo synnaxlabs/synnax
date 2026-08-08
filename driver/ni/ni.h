@@ -98,7 +98,8 @@ public:
     /// @brief implements task::Factory to process task configuration requests.
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task
+        const synnax::task::Task &task,
+        const std::string &cmd_key
     ) override;
 
     /// @brief implements task::Factory to configure initial tasks such as the

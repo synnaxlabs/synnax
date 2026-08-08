@@ -13,15 +13,16 @@ Drives the Arc program + task lifecycle directly through the Synnax Python clien
 with no Console UI or Playwright involved.
 
 Deployment note: the Arc runtime reports task status without echoing the triggering
-command's key (only ``details.task`` / ``details.running``; see
-``core/pkg/service/arc/runtime/task.go``), so the client's blocking ``task.start()``
-never resolves and hangs. We deploy with ``auto_start`` instead -- the runtime starts
-the task during configuration and emits the success status ``tasks.configure`` waits on.
+command's key (only ``details.task`` / ``details.running``), so the client's blocking
+``task.start()`` never resolves and hangs. We send the start command asynchronously and
+wait for a status that reports the task running.
 """
 
 from abc import abstractmethod
 from dataclasses import dataclass
 from uuid import UUID
+
+from pydantic import ValidationError
 
 import synnax as sy
 from framework.task_status import TaskStatus
@@ -31,7 +32,7 @@ from tests.driver.sim_daq_case import SimDaqCase
 from x import random_name
 
 ARC_TASK_TYPE = sy.arc.Task.TYPE
-CONFIGURE_TIMEOUT_SECONDS = 30
+START_TIMEOUT_SECONDS = 30
 
 
 @dataclass
@@ -106,10 +107,11 @@ class ArcCase(SimDaqCase, TestCase):
         start: bool = True,
         trigger: str | None = None,
     ) -> str:
-        """Create an Arc, deploy its task on the selected rack, and return its name.
+        """Create an Arc, save its task on the selected rack, and return its name.
 
-        The task is configured on ``self.rack`` and, when ``start`` is True,
-        auto-started during configuration.
+        The task row is saved against ``self.rack``; when ``start`` is True, a
+        start command deploys it and this blocks until the runtime reports it
+        running.
         """
         assert self.rack is not None, "Call _retrieve_rack() before load_arc()"
         name = f"{name_prefix}_{random_name()}"
@@ -119,22 +121,53 @@ class ArcCase(SimDaqCase, TestCase):
             rack=self.rack.key,
             name=name,
             type=ARC_TASK_TYPE,
-            config={"arc_key": str(arc.key), "auto_start": start},
+            config={"arc_key": str(arc.key)},
         )
         self._arcs.append(ArcTaskHandle(name=name, arc_key=arc.key, task=task))
-        self.client.tasks.configure(task, timeout=CONFIGURE_TIMEOUT_SECONDS)
+        self.client.tasks.configure(task)
         self.client.ontology.add_children(arc.ontology_id, task.ontology_id)
         if start:
+            self.start_arc_task(task)
             self.log(f"Arc is running: {name}")
         if trigger:
             self.writer.write(trigger, 1)
         return name
 
-    def task_key(self, name: str) -> int:
+    def start_arc_task(self, task: sy.task.Task) -> None:
+        """Start the task and block until the runtime reports it running.
+
+        Raises AssertionError when the driver rejects the deploy, and
+        TimeoutError when no status arrives in time.
+        """
+        with self.client.open_streamer(["sy_status_set"]) as streamer:
+            task.execute_command("start")
+            timer = sy.Timer()
+            while timer.elapsed() < START_TIMEOUT_SECONDS * sy.TimeSpan.SECOND:
+                frame = streamer.read(timeout=float(START_TIMEOUT_SECONDS))
+                if frame is None:
+                    break
+                if "sy_status_set" not in frame:
+                    continue
+                for raw in frame["sy_status_set"]:
+                    try:
+                        status = sy.task.Status.model_validate(raw)
+                    except ValidationError:
+                        continue
+                    if status.details is None or status.details.task != task.key:
+                        continue
+                    if status.variant == "error":
+                        raise AssertionError(
+                            f"Arc task '{task.name}' failed to start: {status.message}"
+                        )
+                    if status.details.running:
+                        return
+        raise TimeoutError(f"timed out waiting for Arc task '{task.name}' to start")
+
+    def task_key(self, name: str) -> sy.task.Key:
         """Return the task key for a tracked Arc loaded via load_arc."""
         for handle in self._arcs:
             if handle.name == name:
-                return int(handle.task.key)
+                return handle.task.key
         raise KeyError(f"no tracked arc named {name!r}")
 
     def remove_arc(self, name: str) -> None:
@@ -144,7 +177,7 @@ class ArcCase(SimDaqCase, TestCase):
         self._arcs = [handle for handle in self._arcs if handle.name != name]
 
     def wait_for_task_status(
-        self, task_key: int, text: str, timeout: float = 5.0
+        self, task_key: sy.task.Key, text: str, timeout: float = 5.0
     ) -> bool:
         """Return True if a status for task_key containing text has surfaced.
 
@@ -157,7 +190,7 @@ class ArcCase(SimDaqCase, TestCase):
             )
         return self._task_status.wait_for(task_key, text, timeout)
 
-    def task_is_running(self, task_key: int) -> bool:
+    def task_is_running(self, task_key: sy.task.Key) -> bool:
         """Return True if the latest status reports task_key as running.
 
         Requires collect_task_status = True so the base lifecycle records task

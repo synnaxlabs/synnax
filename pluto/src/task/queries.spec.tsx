@@ -282,6 +282,7 @@ describe("queries", () => {
         key: id.create(),
         task: testTask.key,
         type: "start",
+        configHash: "",
         args: {},
       };
 

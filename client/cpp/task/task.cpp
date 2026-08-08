@@ -135,6 +135,7 @@ x::errors::Error Client::create(Task &task) const {
     auto [key, key_err] = x::uuid::UUID::parse(res.tasks().at(0).key());
     if (key_err) return key_err;
     task.key = key;
+    task.config_hash = res.tasks().at(0).config_hash();
     return x::errors::NIL;
 }
 

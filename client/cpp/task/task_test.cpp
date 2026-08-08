@@ -33,6 +33,7 @@ TEST(TaskTests, testCreateTask) {
     ASSERT_EQ(m.name, "test_module");
     ASSERT_EQ(m.rack, r.key);
     ASSERT_FALSE(m.key.is_nil());
+    ASSERT_FALSE(m.config_hash.empty());
 }
 
 /// @brief it should correctly retrieve a module from the rack.

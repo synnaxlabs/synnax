@@ -9,24 +9,21 @@
 
 """NI invalid configuration integration tests.
 
-Each test attempts to configure a task with an invalid setting and verifies
-the driver rejects it with a ConfigurationError.
+Each test saves a task with an invalid setting and verifies the driver rejects
+it with an error status when the task is started.
 """
 
 import platform
 
 import synnax as sy
 from framework.test_case import TestCase
-from tests.driver.task import create_channel, create_index
-
-
-def _cleanup_task(client: sy.Synnax, task: sy.Task) -> None:
-    """Delete the task if it was assigned a key during configure."""
-    if task.key is not None:
-        try:
-            client.tasks.delete(task.key)
-        except sy.NotFoundError:
-            pass
+from tests.driver.task import (
+    assert_start_rejected,
+    cleanup_task,
+    create_channel,
+    create_index,
+    run_and_expect_rejection,
+)
 
 
 class NIInvalidConfig(TestCase):
@@ -77,7 +74,7 @@ class NIInvalidConfig(TestCase):
                 ),
             ],
         )
-        self._assert_configure_fails(task, "invalid port")
+        self._assert_deploy_fails(task, "invalid port")
 
     def test_incorrect_task_type(self) -> None:
         """Configure an RTD channel on a voltage-only module (NI 9205)."""
@@ -108,7 +105,7 @@ class NIInvalidConfig(TestCase):
                 ),
             ],
         )
-        self._assert_configure_fails(task, "incorrect channel type")
+        self._assert_deploy_fails(task, "incorrect channel type")
 
     def test_out_of_range_values(self) -> None:
         """Configure an analog read task with min/max far outside hardware limits."""
@@ -134,7 +131,7 @@ class NIInvalidConfig(TestCase):
                 ),
             ],
         )
-        self._assert_configure_fails(task, "out-of-range values")
+        self._assert_deploy_fails(task, "out-of-range values")
 
     def test_duplicate_channel(self) -> None:
         """Configure and run two tasks that use the same channel on the same port."""
@@ -173,10 +170,15 @@ class NIInvalidConfig(TestCase):
         try:
             with task_a.run():
                 self.log("  Task A running")
-                rejected = self._try_configure_and_run(task_b)
+                self.client.tasks.configure(task_b)
+                self.log("  Task B configured (attempting run)")
+                message = run_and_expect_rejection(self.client, task_b)
+                if message is not None:
+                    self.log(f"  Correctly rejected on run: {message}")
+                    rejected = True
         finally:
-            _cleanup_task(self.client, task_a)
-            _cleanup_task(self.client, task_b)
+            cleanup_task(self.client, task_a)
+            cleanup_task(self.client, task_b)
 
         if not rejected:
             self.fail(
@@ -184,39 +186,10 @@ class NIInvalidConfig(TestCase):
                 "same channel — both tasks ran simultaneously"
             )
 
-    def _try_configure_and_run(self, task: sy.Task) -> bool:
-        """Try to configure and start a task. Return True if rejected."""
-        try:
-            self.client.tasks.configure(task)
-        except (sy.ConfigurationError, TimeoutError) as e:
-            self.log(f"  Correctly rejected on configure: {e}")
-            return True
-
-        self.log("  Task B configured (attempting run)")
-        try:
-            task.start()
-        except (sy.ConfigurationError, TimeoutError, RuntimeError) as e:
-            self.log(f"  Correctly rejected on run: {e}")
-            return True
-
-        task.stop()
-        return False
-
-    def _assert_configure_fails(self, task: sy.Task, label: str) -> None:
-        """Attempt to configure a task and assert it raises ConfigurationError."""
-        try:
-            self.client.tasks.configure(task)
-        except sy.ConfigurationError as e:
-            self.log(f"  Correctly rejected ({label}): {e}")
-            _cleanup_task(self.client, task)
-            return
-        except Exception as e:
-            _cleanup_task(self.client, task)
-            self.fail(
-                f"Expected ConfigurationError for {label}, got {type(e).__name__}: {e}"
-            )
-        _cleanup_task(self.client, task)
-        self.fail(f"Driver did not reject {label} — configure succeeded unexpectedly")
+    def _assert_deploy_fails(self, task: sy.Task, label: str) -> None:
+        """Save a task and assert the driver rejects it on start."""
+        message = assert_start_rejected(self.client, task, label)
+        self.log(f"  Correctly rejected ({label}): {message}")
 
 
 class NIMissingLibraries(TestCase):
@@ -253,15 +226,11 @@ class NIMissingLibraries(TestCase):
                 ),
             ],
         )
-        try:
-            self.client.tasks.configure(task)
-        except sy.ConfigurationError as e:
-            self.log(f"  Correctly rejected: {e}")
-            msg = str(e).lower()
-            assert "ni-daqmx" in msg and "libraries" in msg, (
-                f"Expected error about missing libraries, got: {e}"
-            )
-            _cleanup_task(self.client, task)
-            return
-        _cleanup_task(self.client, task)
-        self.fail("Driver did not reject NI task on machine without DAQmx libraries")
+        message = assert_start_rejected(
+            self.client, task, "NI task without DAQmx libraries"
+        )
+        self.log(f"  Correctly rejected: {message}")
+        msg = message.lower()
+        assert "ni-daqmx" in msg and "libraries" in msg, (
+            f"Expected error about missing libraries, got: {message}"
+        )

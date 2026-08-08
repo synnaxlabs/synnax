@@ -79,7 +79,7 @@ func (t *impl) Exec(ctx context.Context, cmd task.Command) error {
 	case "start":
 		return t.start(ctx)
 	case "stop":
-		return t.Stop()
+		return t.Stop(true)
 	default:
 		return driver.ErrUnsupportedCommand
 	}
@@ -361,7 +361,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 	return nil
 }
 
-func (t *impl) Stop() error {
+func (t *impl) Stop(sendStatus bool) error {
 	if !t.isRunning() {
 		return nil
 	}
@@ -371,10 +371,14 @@ func (t *impl) Stop() error {
 	// https://linear.app/synnax/issue/SY-4002/refactor-usages-of-contextcontext
 	ctx := context.TODO()
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		if sendStatus {
+			t.setStatus(ctx, status.VariantError, false, err.Error())
+		}
 		return err
 	}
-	t.setStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
+	if sendStatus {
+		t.setStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
+	}
 	return nil
 }
 
@@ -400,7 +404,7 @@ func (t *impl) setStatus(
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.task.Key, Running: running},
+		Details: task.NewStatusDetails(t.task, running),
 	}
 	if err := status.NewWriter[task.StatusDetails](
 		t.factoryCfg.Status,
@@ -426,7 +430,7 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
 		Description: err.Error(),
 		Time:        telem.Now(),
-		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
+		Details:     task.NewStatusDetails(t.task, true),
 	}
 	if setErr := status.NewWriter[task.StatusDetails](
 		t.factoryCfg.Status,
