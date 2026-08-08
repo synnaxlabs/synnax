@@ -103,7 +103,6 @@ func migrateConfigsToRecords(
 	cfg MigrationConfig,
 ) error {
 	tasks, err := collectEntries(
-		ctx,
 		gorp.WrapReader[v2.Key, v2.Task](tx),
 		func(v2.Task) bool { return true },
 	)
@@ -271,7 +270,6 @@ func retire(
 // Mutating a gorp table while iterating it is unsafe, so callers gather first and
 // write after.
 func collectEntries[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
 	r gorp.Reader[K, E],
 	keep func(E) bool,
 ) (out []E, err error) {
@@ -281,7 +279,7 @@ func collectEntries[K gorp.Key, E gorp.Entry[K]](
 	}
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if e := iter.Value(ctx); e != nil && keep(*e) {
+		if e := iter.Value(); e != nil && keep(*e) {
 			out = append(out, *e)
 		}
 	}

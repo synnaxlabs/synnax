@@ -66,7 +66,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			continue
 		}
 
-		if err = db.openVirtualOrUnary(ctx, Channel{Key: ChannelKey(key)}); err != nil {
+		if err = db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
 			return nil, err
 		}
 	}
@@ -78,11 +78,11 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
+func (db *DB) openVirtual(ch Channel, fs fs.FS) error {
 	if _, isOpen := db.mu.dbs.virtual[ch.Key]; isOpen {
 		return nil
 	}
-	v, err := virtual.Open(ctx, virtual.Config{
+	v, err := virtual.Open(virtual.Config{
 		MetaCodec:       db.metaCodec,
 		FS:              fs,
 		Channel:         ch,
@@ -95,11 +95,11 @@ func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 	return nil
 }
 
-func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
+func (db *DB) openUnary(ch Channel, fs fs.FS) error {
 	if _, isOpen := db.mu.dbs.unary[ch.Key]; isOpen {
 		return nil
 	}
-	u, err := unary.Open(ctx, unary.Config{
+	u, err := unary.Open(unary.Config{
 		FS:              fs,
 		MetaCodec:       db.metaCodec,
 		Channel:         ch,
@@ -116,7 +116,6 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 		idxDB, ok := db.mu.dbs.unary[u.Channel().Index]
 		if !ok {
 			if err = db.openVirtualOrUnary(
-				ctx,
 				Channel{Key: u.Channel().Index},
 			); err != nil {
 				return err
@@ -134,14 +133,14 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	return nil
 }
 
-func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
+func (db *DB) openVirtualOrUnary(ch Channel) error {
 	fs, err := db.fs.Sub(keyToDirName(ch.Key))
 	if err != nil {
 		return err
 	}
-	err = db.openVirtual(ctx, ch, fs)
+	err = db.openVirtual(ch, fs)
 	if errors.Is(err, virtual.ErrNotVirtual) {
-		err = db.openUnary(ctx, ch, fs)
+		err = db.openUnary(ch, fs)
 	}
 	return errors.Skip(err, meta.ErrIgnoreChannel)
 }

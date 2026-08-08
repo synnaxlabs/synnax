@@ -44,7 +44,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Name).To(Equal("exported"))
 
 			decoded := MustSucceed(
-				imex.Decode[schematic.Schematic](ctx, WireRoundTrip(env)),
+				imex.Decode[schematic.Schematic](WireRoundTrip(env)),
 			)
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.Snapshot).To(BeTrue())

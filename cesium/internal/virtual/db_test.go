@@ -33,10 +33,10 @@ var _ = Describe("DB Metadata Operations", func() {
 		)
 
 		Context("FS: "+fsName, func() {
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				fs = openFS()
 				dbKey = GenerateChannelKey()
-				db = MustSucceed(virtual.Open(ctx, virtual.Config{
+				db = MustSucceed(virtual.Open(virtual.Config{
 					FS:        fs,
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -53,17 +53,17 @@ var _ = Describe("DB Metadata Operations", func() {
 			})
 
 			Describe("RenameChannel", func() {
-				It("Should rename the channel and persist it", func(ctx SpecContext) {
-					Expect(db.RenameChannel(ctx, "new_name")).To(Succeed())
-					ch := MustSucceed(meta.Read(ctx, fs, json.Codec))
+				It("Should rename the channel and persist it", func() {
+					Expect(db.RenameChannel("new_name")).To(Succeed())
+					ch := MustSucceed(meta.Read(fs, json.Codec))
 					Expect(ch.Name).To(Equal("new_name"))
 				})
 
 				It(
 					"Should be a no-op when the name is the same",
-					func(ctx SpecContext) {
-						Expect(db.RenameChannel(ctx, "test")).To(Succeed())
-						ch := MustSucceed(meta.Read(ctx, fs, json.Codec))
+					func() {
+						Expect(db.RenameChannel("test")).To(Succeed())
+						ch := MustSucceed(meta.Read(fs, json.Codec))
 						Expect(ch.Name).To(Equal("test"))
 					},
 				)
@@ -72,17 +72,17 @@ var _ = Describe("DB Metadata Operations", func() {
 			Describe("SetChannelKeyInMeta", func() {
 				It(
 					"Should change the channel key and persist it",
-					func(ctx SpecContext) {
+					func() {
 						newKey := GenerateChannelKey()
-						Expect(db.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
-						ch := MustSucceed(meta.Read(ctx, fs, json.Codec))
+						Expect(db.SetChannelKeyInMeta(newKey)).To(Succeed())
+						ch := MustSucceed(meta.Read(fs, json.Codec))
 						Expect(ch.Key).To(Equal(newKey))
 					},
 				)
 
-				It("Should be a no-op when the key is the same", func(ctx SpecContext) {
-					Expect(db.SetChannelKeyInMeta(ctx, dbKey)).To(Succeed())
-					ch := MustSucceed(meta.Read(ctx, fs, json.Codec))
+				It("Should be a no-op when the key is the same", func() {
+					Expect(db.SetChannelKeyInMeta(dbKey)).To(Succeed())
+					ch := MustSucceed(meta.Read(fs, json.Codec))
 					Expect(ch.Key).To(Equal(dbKey))
 				})
 			})
@@ -121,8 +121,8 @@ var _ = Describe("DB Metadata Operations", func() {
 
 	Describe("Close", func() {
 		var db *virtual.DB
-		BeforeEach(func(ctx SpecContext) {
-			db = MustSucceed(virtual.Open(ctx, virtual.Config{
+		BeforeEach(func() {
+			db = MustSucceed(virtual.Open(virtual.Config{
 				FS:        fs.NewMem(),
 				MetaCodec: json.Codec,
 				Channel: channel.Channel{
@@ -136,13 +136,13 @@ var _ = Describe("DB Metadata Operations", func() {
 
 		It(
 			"Should return an error when methods are called on a closed DB",
-			func(ctx SpecContext) {
+			func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(
-					db.RenameChannel(ctx, "new_name"),
+					db.RenameChannel("new_name"),
 				).To(MatchError(virtual.ErrDBClosed))
 				Expect(
-					db.SetChannelKeyInMeta(ctx, GenerateChannelKey()),
+					db.SetChannelKeyInMeta(GenerateChannelKey()),
 				).To(MatchError(virtual.ErrDBClosed))
 			},
 		)
@@ -150,7 +150,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		It(
 			"Should return an error when a DB is closed while writers are still accessing it",
 			func(ctx SpecContext) {
-				db := MustSucceed(virtual.Open(ctx, virtual.Config{
+				db := MustSucceed(virtual.Open(virtual.Config{
 					FS:        fs.NewMem(),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{

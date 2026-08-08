@@ -484,7 +484,7 @@ var _ = Describe("Ontology Integration", func() {
 			}
 			Expect(tx.Commit(ctx)).To(Succeed())
 
-			nexter, closer := MustSucceed2(svc.OpenNexter(ctx))
+			nexter, closer := MustSucceed2(svc.OpenNexter())
 			defer func() { Expect(closer.Close()).To(Succeed()) }()
 
 			count := len(slices.Collect(nexter))

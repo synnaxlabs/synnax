@@ -69,7 +69,7 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Type).To(Equal("log"))
 				Expect(env.Name).To(Equal("exported"))
 
-				decoded := MustSucceed(imex.Decode[log.Log](ctx, WireRoundTrip(env)))
+				decoded := MustSucceed(imex.Decode[log.Log](WireRoundTrip(env)))
 				Expect(decoded.Name).To(Equal("exported"))
 				Expect(decoded.TimestampPrecision).To(Equal(int32(2)))
 				Expect(decoded.HideChannelNames).To(BeTrue())

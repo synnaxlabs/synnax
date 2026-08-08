@@ -68,9 +68,7 @@ func (s *Service) RetrieveResource(
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(
-	context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter() (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values(lo.MapToSlice(s.cfg.Cluster.CopyState().Nodes,
 		func(_ Key, n Node) ontology.Resource {
 			return newResource(n)

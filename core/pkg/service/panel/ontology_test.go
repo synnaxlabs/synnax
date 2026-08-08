@@ -114,7 +114,7 @@ var _ = Describe("Ontology", func() {
 			DeferCleanup(func(ctx SpecContext) {
 				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 			})
-			next, closer := MustSucceed2(svc.OpenNexter(ctx))
+			next, closer := MustSucceed2(svc.OpenNexter())
 			defer func() { Expect(closer.Close()).To(Succeed()) }()
 			var ids []ontology.ID
 			for res := range next {

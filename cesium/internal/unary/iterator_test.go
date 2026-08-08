@@ -35,9 +35,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					data    uint32 = 2
 					fs      fs.FS
 				)
-				BeforeEach(func(ctx SpecContext) {
+				BeforeEach(func() {
 					fs = openFS()
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustSucceed(unary.Open(unary.Config{
 						FS:        MustSucceed(fs.Sub("index")),
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -49,7 +49,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustSucceed(unary.Open(unary.Config{
 						FS:        MustSucceed(fs.Sub("data")),
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -1912,7 +1912,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							var (
 								iKey     = GenerateChannelKey()
 								dbKey    = GenerateChannelKey()
-								indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+								indexDB2 = MustSucceed(unary.Open(unary.Config{
 									FS:        MustSucceed(fs.Sub("index")),
 									MetaCodec: json.Codec,
 									Channel: channel.Channel{
@@ -1924,7 +1924,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									Instrumentation: PanicLogger(),
 									FileSize:        40 * telem.Byte,
 								}))
-								dataDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+								dataDB2 = MustSucceed(unary.Open(unary.Config{
 									FS:        MustSucceed(fs.Sub("data")),
 									MetaCodec: json.Codec,
 									Channel: channel.Channel{
@@ -2008,7 +2008,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						)
 						BeforeEach(func(ctx SpecContext) {
 							iKey = GenerateChannelKey()
-							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+							indexDB2 = MustSucceed(unary.Open(unary.Config{
 								FS:        MustSucceed(fs.Sub("index3")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
@@ -2165,10 +2165,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					db  *unary.DB
 					key cesium.ChannelKey
 				)
-				BeforeEach(func(ctx SpecContext) {
+				BeforeEach(func() {
 					fs = openFS()
 					key = GenerateChannelKey()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustSucceed(unary.Open(unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -2251,7 +2251,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					fs := fs.NewMem()
 					indexFS := MustSucceed(fs.Sub("index"))
 					unaryFS := MustSucceed(fs.Sub("data"))
-					indexDB := MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB := MustSucceed(unary.Open(unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -2264,7 +2264,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Instrumentation: PanicLogger(),
 						FileSize:        fileSizeLimit,
 					}))
-					db := MustSucceed(unary.Open(ctx, unary.Config{
+					db := MustSucceed(unary.Open(unary.Config{
 						FS:        unaryFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -2349,7 +2349,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					indexFS := MustSucceed(fs.Sub("index"))
 					uFS1 := MustSucceed(fs.Sub("data1"))
 					uFS2 := MustSucceed(fs.Sub("data2"))
-					indexDB := MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB := MustSucceed(unary.Open(unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -2360,7 +2360,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						},
 						FileSize: fileSizeLimit,
 					}))
-					db1 := MustSucceed(unary.Open(ctx, unary.Config{
+					db1 := MustSucceed(unary.Open(unary.Config{
 						FS:        uFS1,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -2372,7 +2372,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						FileSize: fileSizeLimit,
 					}))
 					db1.SetIndex(indexDB.Index())
-					db2 := MustSucceed(unary.Open(ctx, unary.Config{
+					db2 := MustSucceed(unary.Open(unary.Config{
 						FS:        uFS2,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{

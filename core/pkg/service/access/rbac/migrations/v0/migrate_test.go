@@ -215,7 +215,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			iter := MustOpen(reader.OpenIterator(gorp.IterOptions{}))
 			legacyCount := 0
 			for iter.First(); iter.Valid(); iter.Next() {
-				v := iter.Value(ctx)
+				v := iter.Value()
 				if v != nil && len(v.Subjects) > 0 {
 					legacyCount++
 				}

@@ -35,12 +35,10 @@ var _ = Describe("Meta", func() {
 		})
 		Context("FS: "+fsName, func() {
 			Describe("Corrupted Meta file", func() {
-				Specify("Corrupted meta.json", func(ctx SpecContext) {
+				Specify("Corrupted meta.json", func() {
 					key := GenerateChannelKey()
 					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-					ch := MustSucceed(meta.Open(
-						ctx,
-						subFs,
+					ch := MustSucceed(meta.Open(subFs,
 						channel.Channel{
 							Key:      key,
 							Name:     "Faraday",
@@ -55,7 +53,7 @@ var _ = Describe("Meta", func() {
 					Expect(f.Write([]byte("heheheha"))).To(Equal(8))
 					Expect(f.Close()).To(Succeed())
 
-					Expect(meta.Open(ctx, subFs, ch, json.Codec)).Error().
+					Expect(meta.Open(subFs, ch, json.Codec)).Error().
 						To(MatchError(ContainSubstring(
 							"error decoding meta in folder for channel %d",
 							key,
@@ -66,13 +64,11 @@ var _ = Describe("Meta", func() {
 			Describe("Impossible meta configurations", func() {
 				DescribeTable(
 					"meta configs",
-					func(ctx SpecContext, ch channel.Channel, badField string) {
+					func(ch channel.Channel, badField string) {
 						key := GenerateChannelKey()
 						subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
 						createdChannel := MustSucceed(
-							meta.Open(
-								ctx,
-								subFs,
+							meta.Open(subFs,
 								channel.Channel{
 									Key:      key,
 									Name:     "John",
@@ -87,7 +83,7 @@ var _ = Describe("Meta", func() {
 						Expect(json.Codec.EncodeStream(f, ch)).To(Succeed())
 						Expect(f.Close()).To(Succeed())
 
-						Expect(meta.Open(ctx, subFs, ch, json.Codec)).Error().
+						Expect(meta.Open(subFs, ch, json.Codec)).Error().
 							To(MatchError(ContainSubstring(badField)))
 					},
 					Entry(
@@ -123,12 +119,10 @@ var _ = Describe("Meta", func() {
 
 			It(
 				"Should not delete the original file if an error occurs while encoding",
-				func(ctx SpecContext) {
+				func() {
 					key := GenerateChannelKey()
 					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-					ch := MustSucceed(meta.Open(
-						ctx,
-						subFs,
+					ch := MustSucceed(meta.Open(subFs,
 						channel.Channel{
 							Key:      key,
 							Name:     "Faraday",
@@ -139,16 +133,16 @@ var _ = Describe("Meta", func() {
 					))
 					Expect(ch.Key).To(Equal(key))
 
-					Expect(meta.Create(ctx, subFs, &brokenCodec{}, ch)).Error().
+					Expect(meta.Create(subFs, &brokenCodec{}, ch)).Error().
 						To(MatchError(errEncoding))
 					Expect(subFs.Exists("meta.json")).To(BeTrue())
 
-					Expect(meta.Read(ctx, subFs, &brokenCodec{})).Error().
+					Expect(meta.Read(subFs, &brokenCodec{})).Error().
 						To(MatchError(errEncoding))
 					Expect(subFs.Exists("meta.json")).To(BeTrue())
 					Expect(subFs.Exists("meta.json.tmp")).To(BeFalse())
 
-					ch2 := MustSucceed(meta.Read(ctx, subFs, json.Codec))
+					ch2 := MustSucceed(meta.Read(subFs, json.Codec))
 					Expect(ch2.Key).To(Equal(key))
 					Expect(ch2.Name).To(Equal("Faraday"))
 					Expect(ch2.Virtual).To(BeTrue())

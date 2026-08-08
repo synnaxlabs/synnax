@@ -124,7 +124,7 @@ var _ = Describe("Ontology", func() {
 			It(
 				"Should iterate over every node currently in the cluster",
 				func(ctx SpecContext) {
-					seq, closer := MustSucceed2(testSvc.OpenNexter(ctx))
+					seq, closer := MustSucceed2(testSvc.OpenNexter())
 					DeferClose(closer)
 					resources := slices.Collect(seq)
 					expected := lo.MapToSlice(

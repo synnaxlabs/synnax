@@ -92,9 +92,9 @@ var _ = Describe("Project layout to panel migration", func() {
 				Exec(ctx, db)).To(Succeed())
 		}
 	}
-	collectPanels := func(ctx context.Context, db *gorp.DB) []v0.Panel {
+	collectPanels := func(db *gorp.DB) []v0.Panel {
 		seq, closer := MustSucceed2(
-			gorp.WrapReader[v0.Key, v0.Panel](db).OpenNexter(ctx),
+			gorp.WrapReader[v0.Key, v0.Panel](db).OpenNexter(),
 		)
 		DeferClose(closer)
 		var out []v0.Panel
@@ -256,7 +256,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			})
 
 			openPanelTable(ctx, db)
-			panels := collectPanels(ctx, db)
+			panels := collectPanels(db)
 			Expect(panels).To(HaveLen(2))
 
 			main := findPanel(panels, "Main")
@@ -340,7 +340,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			})
 
 			openPanelTable(ctx, db)
-			panels := collectPanels(ctx, db)
+			panels := collectPanels(db)
 			Expect(panels).To(HaveLen(1))
 			// No "main" layout entry was seeded, so the panel name falls back to the
 			// window key.
@@ -384,13 +384,13 @@ var _ = Describe("Project layout to panel migration", func() {
 		})
 
 		openPanelTable(ctx, db)
-		Expect(collectPanels(ctx, db)).To(BeEmpty())
+		Expect(collectPanels(db)).To(BeEmpty())
 	})
 
 	It("Should be a no-op on a cluster with no projects", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		openPanelTable(ctx, db)
-		Expect(collectPanels(ctx, db)).To(BeEmpty())
+		Expect(collectPanels(db)).To(BeEmpty())
 	})
 
 	It("Should convert staged task tabs into resource tabs", func(ctx SpecContext) {
@@ -427,7 +427,7 @@ var _ = Describe("Project layout to panel migration", func() {
 		})
 
 		openPanelTable(ctx, db)
-		panels := collectPanels(ctx, db)
+		panels := collectPanels(db)
 		Expect(panels).To(HaveLen(1))
 		lf, ok := panels[0].Root.Variant.(v0.LeafNode)
 		Expect(ok).To(BeTrue())

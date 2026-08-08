@@ -200,7 +200,7 @@ func (t *Table[K, E]) runPopulate(
 		}
 	}()
 	reader := wrapReader[K, E](t.db, t.keyPrefix)
-	nexter, closer, openErr := reader.OpenNexter(ctx)
+	nexter, closer, openErr := reader.OpenNexter()
 	if openErr != nil {
 		scanErr = openErr
 		return
@@ -280,8 +280,8 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 
 // OpenNexter opens a new Nexter over entries in the table using the DB's codec for
 // decoding.
-func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
-	return wrapReader[K, E](t.db, t.keyPrefix).OpenNexter(ctx)
+func (t *Table[K, E]) OpenNexter() (iter.Seq[E], io.Closer, error) {
+	return wrapReader[K, E](t.db, t.keyPrefix).OpenNexter()
 }
 
 func normalizeKeysMigration[K Key, E Entry[K]]() migrate.Migration {

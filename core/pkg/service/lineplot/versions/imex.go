@@ -28,13 +28,13 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		err error
 	)
 	if env.Version > legacy.LastVersion {
-		lp, err = autoDecodeEnvelope(ctx, env)
+		lp, err = autoDecodeEnvelope(env)
 	} else {
 		// Every Console line plot file is a state: the exporter writes the slice entry,
 		// which embeds the body inline under a stamped version. Ride the storage lift,
 		// which dispatches on that version.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+		if body, err = imex.Decode[msgpack.EncodedJSON](env); err == nil {
 			if err = imex.RequireFields(
 				body, "a line plot", "axes", "channels",
 			); err == nil {

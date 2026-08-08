@@ -116,14 +116,14 @@ func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err err
 
 // OpenNexter opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
-func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
+func (r Reader[K, E]) OpenNexter() (iter.Seq[E], io.Closer, error) {
 	i, err := r.OpenIterator(IterOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
 	return func(yield func(E) bool) {
 		for i.First(); i.Valid(); i.Next() {
-			v := i.Value(ctx)
+			v := i.Value()
 			if v == nil {
 				continue
 			}
@@ -152,7 +152,7 @@ type Iterator[E any] struct {
 // Value returns the decoded value from the iterator. Iterate.Alive must be true
 // for calls to return a valid value. The returned pointer is reused across calls,
 // so callers must copy the value if they need it to persist.
-func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
+func (k *Iterator[E]) Value() (entry *E) {
 	if k.value == nil {
 		k.value = new(E)
 	}

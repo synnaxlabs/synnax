@@ -33,10 +33,10 @@ var _ = Describe("Delete", func() {
 				data    uint32 = 2
 				fs      fs.FS
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				By("Creating channels")
 				fs = openFS()
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustSucceed(unary.Open(unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -48,7 +48,7 @@ var _ = Describe("Delete", func() {
 					},
 					Instrumentation: PanicLogger(),
 				}))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustSucceed(unary.Open(unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -1581,7 +1581,7 @@ var _ = Describe("Delete", func() {
 						var (
 							iKey     = GenerateChannelKey()
 							dbKey    = GenerateChannelKey()
-							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+							indexDB2 = MustSucceed(unary.Open(unary.Config{
 								FS:        MustSucceed(fs.Sub("index")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
@@ -1593,7 +1593,7 @@ var _ = Describe("Delete", func() {
 								Instrumentation: PanicLogger(),
 								FileSize:        40 * telem.Byte,
 							}))
-							db2 = MustSucceed(unary.Open(ctx, unary.Config{
+							db2 = MustSucceed(unary.Open(unary.Config{
 								FS:        MustSucceed(fs.Sub("data")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
@@ -1663,7 +1663,7 @@ var _ = Describe("Delete", func() {
 						var (
 							iKey     = GenerateChannelKey()
 							dbKey    = GenerateChannelKey()
-							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+							indexDB2 = MustSucceed(unary.Open(unary.Config{
 								FS:        MustSucceed(fs.Sub("index")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
@@ -1675,7 +1675,7 @@ var _ = Describe("Delete", func() {
 								Instrumentation: PanicLogger(),
 								FileSize:        40 * telem.Byte,
 							}))
-							db2 = MustSucceed(unary.Open(ctx, unary.Config{
+							db2 = MustSucceed(unary.Open(unary.Config{
 								FS:        MustSucceed(fs.Sub("data")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
@@ -1751,7 +1751,7 @@ var _ = Describe("Delete", func() {
 						var (
 							iKey     = GenerateChannelKey()
 							dbKey    = GenerateChannelKey()
-							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+							indexDB2 = MustSucceed(unary.Open(unary.Config{
 								FS:        MustSucceed(fs.Sub("index")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
@@ -1763,7 +1763,7 @@ var _ = Describe("Delete", func() {
 								Instrumentation: PanicLogger(),
 								FileSize:        40 * telem.Byte,
 							}))
-							db2 = MustSucceed(unary.Open(ctx, unary.Config{
+							db2 = MustSucceed(unary.Open(unary.Config{
 								FS:        MustSucceed(fs.Sub("data")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
@@ -1836,7 +1836,7 @@ var _ = Describe("Delete", func() {
 						var (
 							iKey     = GenerateChannelKey()
 							dbKey    = GenerateChannelKey()
-							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+							indexDB2 = MustSucceed(unary.Open(unary.Config{
 								FS:        MustSucceed(fs.Sub("index")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
@@ -1848,7 +1848,7 @@ var _ = Describe("Delete", func() {
 								Instrumentation: PanicLogger(),
 								FileSize:        40 * telem.Byte,
 							}))
-							db2 = MustSucceed(unary.Open(ctx, unary.Config{
+							db2 = MustSucceed(unary.Open(unary.Config{
 								FS:        MustSucceed(fs.Sub("data")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{

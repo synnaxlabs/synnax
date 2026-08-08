@@ -36,10 +36,10 @@ var _ = Describe("Garbage Collection", func() {
 				indexKey channel.Key = 3
 			)
 			Describe("Garbage collection without threshold", func() {
-				BeforeEach(func(ctx SpecContext) {
+				BeforeEach(func() {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustSucceed(unary.Open(unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -54,7 +54,7 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustSucceed(unary.Open(unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -154,10 +154,10 @@ var _ = Describe("Garbage Collection", func() {
 			})
 
 			Describe("GC with threshold and many files", func() {
-				BeforeEach(func(ctx SpecContext) {
+				BeforeEach(func() {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustSucceed(unary.Open(unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -171,7 +171,7 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustSucceed(unary.Open(unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{

@@ -32,12 +32,12 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Table, error) {
 		// Console export stamps the same number on the table it retrieved from Core.
 		// Every Table field name is a single word, so the Console's camelCase and
 		// Core's snake_case coincide.
-		t, err = autoDecodeEnvelope(ctx, env)
+		t, err = autoDecodeEnvelope(env)
 	} else {
 		// Console states embed the structural model inline: ride the storage lift,
 		// which decodes the body through the legacy chain.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+		if body, err = imex.Decode[msgpack.EncodedJSON](env); err == nil {
 			if err = imex.RequireFields(
 				body, "a table", "layout", "cells",
 			); err == nil {

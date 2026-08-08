@@ -10,7 +10,6 @@
 package virtual
 
 import (
-	"context"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
@@ -105,12 +104,12 @@ func (cfg Config) Override(other Config) Config {
 	return cfg
 }
 
-func Open(ctx context.Context, configs ...Config) (*DB, error) {
+func Open(configs ...Config) (*DB, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	cfg.Channel, err = meta.Open(ctx, cfg.FS, cfg.Channel, cfg.MetaCodec)
+	cfg.Channel, err = meta.Open(cfg.FS, cfg.Channel, cfg.MetaCodec)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +165,7 @@ func (db *DB) Close() error {
 
 // RenameChannel renames the DB's channel to the given name, and persists the change to
 // the underlying DB.
-func (db *DB) RenameChannel(ctx context.Context, newName string) error {
+func (db *DB) RenameChannel(newName string) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
@@ -174,12 +173,12 @@ func (db *DB) RenameChannel(ctx context.Context, newName string) error {
 		return nil
 	}
 	db.cfg.Channel.Name = newName
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }
 
 // SetChannelKeyInMeta sets the key of the channel for this DB, and persists that change
 // to the DB's meta file in the underlying filesystem.
-func (db *DB) SetChannelKeyInMeta(ctx context.Context, key channel.Key) error {
+func (db *DB) SetChannelKeyInMeta(key channel.Key) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
@@ -187,5 +186,5 @@ func (db *DB) SetChannelKeyInMeta(ctx context.Context, key channel.Key) error {
 		return nil
 	}
 	db.cfg.Channel.Key = key
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	return meta.Create(db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
 }

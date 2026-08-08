@@ -43,7 +43,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("table"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[table.Table](ctx, WireRoundTrip(env)))
+			decoded := MustSucceed(imex.Decode[table.Table](WireRoundTrip(env)))
 			Expect(decoded.Name).To(Equal("exported"))
 		})
 

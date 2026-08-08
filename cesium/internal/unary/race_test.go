@@ -33,7 +33,7 @@ var _ = Describe("Unary racing", func() {
 				indexDB           *unary.DB
 				dataDB            *unary.DB
 			)
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				indexKey = GenerateChannelKey()
 				dataKey = GenerateChannelKey()
 				fs = openFS()
@@ -42,7 +42,7 @@ var _ = Describe("Unary racing", func() {
 				), MustSucceed(
 					fs.Sub("data"),
 				)
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustSucceed(unary.Open(unary.Config{
 					FS:        indexFS,
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -54,7 +54,7 @@ var _ = Describe("Unary racing", func() {
 					FileSize:        1 * telem.Byte,
 					Instrumentation: PanicLogger(),
 				}))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustSucceed(unary.Open(unary.Config{
 					FS:        dataFS,
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{

@@ -100,10 +100,8 @@ func (s *Service) OnChange(
 	return s.table.Observe().OnChange(handleChange)
 }
 
-func (s *Service) OpenNexter(
-	ctx context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := s.table.OpenNexter(ctx)
+func (s *Service) OpenNexter() (iter.Seq[ontology.Resource], io.Closer, error) {
+	n, closer, err := s.table.OpenNexter()
 	if err != nil {
 		return nil, nil, err
 	}

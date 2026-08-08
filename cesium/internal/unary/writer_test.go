@@ -43,9 +43,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					db *unary.DB
 					fs fs.FS
 				)
-				BeforeEach(func(ctx SpecContext) {
+				BeforeEach(func() {
 					fs = openFS()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustSucceed(unary.Open(unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -170,10 +170,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					index   = GenerateChannelKey()
 					data    = GenerateChannelKey()
 				)
-				BeforeEach(func(ctx SpecContext) {
+				BeforeEach(func() {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustSucceed(unary.Open(unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -188,7 +188,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustSucceed(unary.Open(unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -812,9 +812,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					db *unary.DB
 					fs fs.FS
 				)
-				BeforeEach(func(ctx SpecContext) {
+				BeforeEach(func() {
 					fs = openFS()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustSucceed(unary.Open(unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -932,9 +932,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					fs  fs.FS
 					key = GenerateChannelKey()
 				)
-				BeforeEach(func(ctx SpecContext) {
+				BeforeEach(func() {
 					fs = openFS()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustSucceed(unary.Open(unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{

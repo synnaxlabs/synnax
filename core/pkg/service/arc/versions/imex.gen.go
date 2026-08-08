@@ -12,8 +12,6 @@
 package versions
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
@@ -25,10 +23,10 @@ const Latest = v3.Version
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Arc
 // shape and lifts it through the per-version migration chain to the current shape. A
 // version the ladder does not cover is rejected with a path-scoped validation error.
-func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
+func autoDecodeEnvelope(env imex.Envelope) (Arc, error) {
 	switch env.Version {
 	case v3.Version:
-		return imex.Decode[Arc](ctx, env)
+		return imex.Decode[Arc](env)
 	}
 	return Arc{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

@@ -118,9 +118,9 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"package versions",
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions/v3"`,
 					"const Latest = v3.Version",
-					"func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Log, error)",
+					"func autoDecodeEnvelope(env imex.Envelope) (Log, error)",
 					"case v3.Version:",
-					"return imex.Decode[Log](ctx, env)",
+					"return imex.Decode[Log](env)",
 				).
 					ToBeValidGoSource()
 				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToContain(
@@ -274,8 +274,10 @@ var _ = Describe("Go ImEx Plugin", func() {
 					"core/pkg/service/log/versions/imex.gen.go",
 				).ToContain(
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions/v2"`,
+					"func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) "+
+						"(Log, error)",
 					"case v2.Version:",
-					"t2, err := imex.Decode[v2.Log](ctx, env)",
+					"t2, err := imex.Decode[v2.Log](env)",
 					"t3, err := v3.MigrateLog(ctx, t2)",
 					"return t3, nil",
 				).
@@ -327,8 +329,9 @@ var _ = Describe("Go ImEx Plugin", func() {
 					resp,
 					"core/pkg/service/log/versions/imex.gen.go",
 				).ToContain(
+					"func autoDecodeEnvelope(env imex.Envelope) (Log, error)",
 					"case v2.Version:",
-					"t2, err := imex.Decode[v2.Log](ctx, env)",
+					"t2, err := imex.Decode[v2.Log](env)",
 					"return t2, nil",
 				).
 					ToBeValidGoSource()

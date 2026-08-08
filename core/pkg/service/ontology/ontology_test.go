@@ -40,9 +40,7 @@ func (*emittingService) RetrieveResource(
 	return ontology.Resource{}, nil
 }
 
-func (*emittingService) OpenNexter(
-	context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (*emittingService) OpenNexter() (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
 

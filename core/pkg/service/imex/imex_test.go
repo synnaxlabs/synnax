@@ -32,14 +32,14 @@ var _ = Describe("ImEx", func() {
 		Describe("UnmarshalJSON", func() {
 			It(
 				"Should extract promoted headers and retain the body for typed decode",
-				func(ctx SpecContext) {
+				func() {
 					src := []byte(`{"version":54,"type":"log","name":"n","foo":1}`)
 					var env imex.Envelope
 					Expect(json.Unmarshal(src, &env)).To(Succeed())
 					Expect(env.Version).To(Equal(imex.Version(54)))
 					Expect(env.Type).To(Equal("log"))
 					Expect(env.Name).To(Equal("n"))
-					p := MustSucceed(imex.Decode[wirePayload](ctx, env))
+					p := MustSucceed(imex.Decode[wirePayload](env))
 					Expect(p.Foo).To(Equal(1))
 					Expect(p.Name).To(Equal("n"))
 				},
@@ -151,7 +151,7 @@ var _ = Describe("ImEx", func() {
 
 			It(
 				"Should preserve int64 precision on payload values past 2^53",
-				func(ctx SpecContext) {
+				func() {
 					// 1700000000000000000 is roughly a current Unix nanosecond
 					// timestamp, well past float64's 53-bit mantissa
 					// (9007199254740992). The previous float64-based decode lost the
@@ -166,7 +166,7 @@ var _ = Describe("ImEx", func() {
 					type tsPayload struct {
 						TS int64 `json:"ts"`
 					}
-					p := MustSucceed(imex.Decode[tsPayload](ctx, env))
+					p := MustSucceed(imex.Decode[tsPayload](env))
 					Expect(p.TS).To(Equal(big))
 				},
 			)
@@ -206,13 +206,13 @@ var _ = Describe("ImEx", func() {
 		})
 
 		Describe("Decode", func() {
-			It("Should decode the body into the requested type", func(ctx SpecContext) {
+			It("Should decode the body into the requested type", func() {
 				src := []byte(
 					`{"version":1,"type":"log","name":"n","foo":42,"bar":"x"}`,
 				)
 				var env imex.Envelope
 				Expect(json.Unmarshal(src, &env)).To(Succeed())
-				p := MustSucceed(imex.Decode[wirePayload](ctx, env))
+				p := MustSucceed(imex.Decode[wirePayload](env))
 				Expect(p.Name).To(Equal("n"))
 				Expect(p.Foo).To(Equal(42))
 				Expect(p.Bar).To(Equal("x"))
@@ -220,23 +220,23 @@ var _ = Describe("ImEx", func() {
 
 			It(
 				"Should error cleanly when called on an envelope with no codec bound",
-				func(ctx SpecContext) {
+				func() {
 					// Encode-side and hand-constructed envelopes have no codec bound;
 					// Decode must return a descriptive error rather than panicking on a
 					// nil-interface dispatch.
 					env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-					Expect(imex.Decode[wirePayload](ctx, env)).Error().
+					Expect(imex.Decode[wirePayload](env)).Error().
 						To(MatchError(ContainSubstring("no codec bound")))
 				},
 			)
 
-			It("Should fail on a type mismatch in the body", func(ctx SpecContext) {
+			It("Should fail on a type mismatch in the body", func() {
 				src := []byte(
 					`{"version":1,"type":"log","name":"n","foo":"not a number"}`,
 				)
 				var env imex.Envelope
 				Expect(json.Unmarshal(src, &env)).To(Succeed())
-				Expect(imex.Decode[wirePayload](ctx, env)).Error().To(
+				Expect(imex.Decode[wirePayload](env)).Error().To(
 					MatchError(ContainSubstring("decode envelope body")),
 				)
 			})
@@ -707,7 +707,7 @@ var _ = Describe("ImEx", func() {
 		Describe("Round-trip", func() {
 			It(
 				"Should preserve nested content across Encode → Marshal → Unmarshal → Decode",
-				func(ctx SpecContext) {
+				func() {
 					type payload struct {
 						Name          string  `json:"name"`
 						Channels      []int64 `json:"channels"`
@@ -726,7 +726,7 @@ var _ = Describe("ImEx", func() {
 					Expect(roundEnv.Version).To(Equal(imex.Version(7)))
 					Expect(roundEnv.Type).To(Equal("log"))
 					Expect(roundEnv.Name).To(Equal("n"))
-					Expect(imex.Decode[payload](ctx, roundEnv)).To(Equal(src))
+					Expect(imex.Decode[payload](roundEnv)).To(Equal(src))
 				},
 			)
 		})

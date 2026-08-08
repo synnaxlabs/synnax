@@ -59,9 +59,7 @@ func (s *sampleService) RetrieveResource(
 	), nil
 }
 
-func (s *sampleService) OpenNexter(
-	context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *sampleService) OpenNexter() (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{
 		lo.Must(s.RetrieveResource(context.Background(), "", nil)),
 	}), xio.NopCloser, nil

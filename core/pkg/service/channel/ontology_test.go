@@ -105,7 +105,7 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(channelWriter.Create(ctx, &channel.Channel{
 				Name: "SG03", DataType: telem.Int64T, Virtual: true,
 			})).To(Succeed())
-			n, closer := MustSucceed2(svc.OpenNexter(ctx))
+			n, closer := MustSucceed2(svc.OpenNexter())
 			defer func() {
 				GinkgoRecover()
 				Expect(closer.Close()).To(Succeed())

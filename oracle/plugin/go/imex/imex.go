@@ -161,7 +161,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				)
 			}
 		}
-		arms, err := chainArms(req.RepoRoot, outputPath, goName, floor, version)
+		arms, needsCtx, err := chainArms(
+			req.RepoRoot, outputPath, goName, floor, version,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -169,6 +171,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			Type:       goName,
 			CurrentPkg: versioning.Dir(version),
 			Arms:       arms,
+			NeedsCtx:   needsCtx,
 			Runtime:    p.options.RuntimeImportPath,
 		}
 		for k := floor; k <= version; k++ {
@@ -309,13 +312,15 @@ func firstImexVersion(req *plugin.Request, qualifiedName string, current int) in
 
 // chainArms builds one ladder arm per version in [floor, current): each decodes the
 // stamped vK shape and lifts it through every later bump's exported Migrate<Type> step.
-// Alias-only bumps (no step on disk) pass the value through unchanged.
+// Alias-only bumps (no step on disk) pass the value through unchanged. The second
+// return reports whether any arm calls a migrate step, the only part of the ladder that
+// takes a context.
 func chainArms(
 	repoRoot, outputPath, goName string,
 	floor, current int,
-) ([]chainArm, error) {
+) ([]chainArm, bool, error) {
 	if floor >= current {
-		return nil, nil
+		return nil, false, nil
 	}
 	steps := make(set.Set[int], current-floor)
 	for j := floor + 1; j <= current; j++ {
@@ -323,7 +328,7 @@ func chainArms(
 			filepath.Join(repoRoot, versioning.VersionedPath(outputPath, j)), goName,
 		)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if hasStep {
 			steps.Add(j)
@@ -334,7 +339,7 @@ func chainArms(
 		var b strings.Builder
 		cur := fmt.Sprintf("t%d", k)
 		fmt.Fprintf(
-			&b, "\t\t%s, err := imex.Decode[%s.%s](ctx, env)\n",
+			&b, "\t\t%s, err := imex.Decode[%s.%s](env)\n",
 			cur, versioning.Dir(k), goName,
 		)
 		fmt.Fprintf(&b, "\t\tif err != nil {\n\t\t\treturn %s{}, err\n\t\t}\n", goName)
@@ -355,7 +360,7 @@ func chainArms(
 		fmt.Fprintf(&b, "\t\treturn %s, nil", cur)
 		arms = append(arms, chainArm{Pkg: versioning.Dir(k), Body: b.String()})
 	}
-	return arms, nil
+	return arms, len(steps) > 0, nil
 }
 
 // migrateStepExists reports whether the version package at dir declares the scaffolded
@@ -402,7 +407,10 @@ type chainData struct {
 	CurrentPkg string
 	Imports    []string
 	Arms       []chainArm
-	Runtime    string
+	// NeedsCtx reports whether any ladder arm calls a migrate step. Only migrate steps
+	// take a context, so a ladder without one takes no context parameter.
+	NeedsCtx bool
+	Runtime  string
 }
 
 var chainTemplate = template.Must(
@@ -411,8 +419,10 @@ var chainTemplate = template.Must(
 package versions
 
 import (
+{{- if .NeedsCtx}}
 	"context"
 
+{{end}}
 	"{{.Runtime}}"
 {{- range .Imports}}
 	"{{.}}"
@@ -426,14 +436,14 @@ const Latest = {{.CurrentPkg}}.Version
 // autoDecodeEnvelope decodes a server-exported envelope as its version's {{.Type}}
 // shape and lifts it through the per-version migration chain to the current shape. A
 // version the ladder does not cover is rejected with a path-scoped validation error.
-func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) ({{.Type}}, error) {
+func autoDecodeEnvelope({{if .NeedsCtx}}ctx context.Context, {{end}}env imex.Envelope) ({{.Type}}, error) {
 	switch env.Version {
 {{- range .Arms}}
 	case {{.Pkg}}.Version:
 {{.Body}}
 {{- end}}
 	case {{.CurrentPkg}}.Version:
-		return imex.Decode[{{.Type}}](ctx, env)
+		return imex.Decode[{{.Type}}](env)
 	}
 	return {{.Type}}{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

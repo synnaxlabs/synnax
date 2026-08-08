@@ -106,7 +106,7 @@ func (s *Service) Import(
 			validate.ErrValidation, "unknown task type %q", env.Type,
 		)
 	}
-	body, err := imex.Decode[map[string]any](ctx, env)
+	body, err := imex.Decode[map[string]any](env)
 	if err != nil {
 		return ontology.ID{}, err
 	}

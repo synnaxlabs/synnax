@@ -165,7 +165,7 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 // no codec bound and must be marshaled and unmarshaled before Decode.
 //
 // Decode is a free function because Go has no generic methods.
-func Decode[T any](ctx context.Context, e Envelope) (T, error) {
+func Decode[T any](e Envelope) (T, error) {
 	var t T
 	if e.codec == nil {
 		return t, errors.New(

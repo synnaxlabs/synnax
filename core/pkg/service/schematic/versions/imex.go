@@ -29,12 +29,12 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	)
 	switch {
 	case env.Version > legacy.LastVersion:
-		sch, err = autoDecodeEnvelope(ctx, env)
+		sch, err = autoDecodeEnvelope(env)
 	case env.Version == legacy.LastVersion:
 		// The v0.56 Console export: the typed schematic it retrieved from the Core,
 		// written back out in camelCase under the Console's own version stamp.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err != nil {
+		if body, err = imex.Decode[msgpack.EncodedJSON](env); err != nil {
 			break
 		}
 		if err = imex.RequireFields(
@@ -43,14 +43,14 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 			break
 		}
 		var doc legacy.Export
-		if doc, err = imex.Decode[legacy.Export](ctx, env); err == nil {
+		if doc, err = imex.Decode[legacy.Export](env); err == nil {
 			sch = v7.SchematicFromConsole(doc)
 		}
 	default:
 		// Console states embed the document inline: ride the storage lift, which
 		// dispatches on the version stamped inside the body.
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err != nil {
+		if body, err = imex.Decode[msgpack.EncodedJSON](env); err != nil {
 			break
 		}
 		if err = imex.RequireFields(

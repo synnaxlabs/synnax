@@ -105,7 +105,7 @@ func NewEntryMigration[IK, OK Key, I Entry[IK], O Entry[OK]](
 			defer func() { err = errors.Combine(err, iter.Close()) }()
 			for iter.First(); iter.Valid(); iter.Next() {
 				logger.logProgress()
-				old := iter.Value(ctx)
+				old := iter.Value()
 				if err = iter.Error(); err != nil {
 					return err
 				}
@@ -190,7 +190,7 @@ func CodecMigration[K Key, E Entry[K]](key string) migrate.Migration {
 			}
 			defer func() { err = errors.Combine(err, iter.Close()) }()
 			for iter.First(); iter.Valid(); iter.Next() {
-				v := iter.Value(ctx)
+				v := iter.Value()
 				logger.logProgress()
 				if err = iter.Error(); err != nil {
 					return err

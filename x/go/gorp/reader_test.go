@@ -30,9 +30,9 @@ var _ = Describe("Reader", func() {
 				gorp.WrapReader[int32, entry](tx).OpenIterator(gorp.IterOptions{}),
 			)
 			Expect(iter.First()).To(BeTrue())
-			Expect(iter.Value(ctx).Data).To(Equal("data"))
+			Expect(iter.Value().Data).To(Equal("data"))
 			Expect(iter.Next()).To(BeTrue())
-			Expect(iter.Value(ctx).Data).To(Equal("data"))
+			Expect(iter.Value().Data).To(Equal("data"))
 			Expect(iter.Next()).To(BeFalse())
 			Expect(iter.Close()).To(Succeed())
 		})
@@ -49,7 +49,7 @@ var _ = Describe("Reader", func() {
 				)
 				var rawKey []byte
 				for iter.First(); iter.Valid(); iter.Next() {
-					v := iter.Value(ctx)
+					v := iter.Value()
 					if v != nil && v.ID == 99 {
 						rawKey = make([]byte, len(iter.Key()))
 						copy(rawKey, iter.Key())
@@ -70,7 +70,7 @@ var _ = Describe("Reader", func() {
 				)
 				found := false
 				for iter2.First(); iter2.Valid(); iter2.Next() {
-					v := iter2.Value(ctx)
+					v := iter2.Value()
 					if v == nil && iter2.Error() != nil {
 						found = true
 						break
@@ -93,7 +93,7 @@ var _ = Describe("Reader", func() {
 				Entries(&[]entry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 				Exec(ctx, tx)).To(Succeed())
 			nexter, closer := MustSucceed2(
-				gorp.WrapReader[int32, entry](tx).OpenNexter(ctx),
+				gorp.WrapReader[int32, entry](tx).OpenNexter(),
 			)
 			for v := range nexter {
 				Expect(v.Data).To(Equal("data"))
@@ -107,7 +107,7 @@ var _ = Describe("Reader", func() {
 					Entries(&[]prefixEntry{{ID: 1, Data: "data"}, {ID: 2, Data: "data"}}).
 					Exec(ctx, tx)).To(Succeed())
 				nexter, closer := MustSucceed2(
-					gorp.WrapReader[string, prefixEntry](tx).OpenNexter(ctx),
+					gorp.WrapReader[string, prefixEntry](tx).OpenNexter(),
 				)
 				for v := range nexter {
 					Expect(v.Data).To(Equal("data"))

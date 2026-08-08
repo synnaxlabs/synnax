@@ -223,7 +223,7 @@ var _ = Describe("Ontology", func() {
 					Username: uuid.NewString(),
 				}))
 
-				seq, closer := MustSucceed2(svc.OpenNexter(ctx))
+				seq, closer := MustSucceed2(svc.OpenNexter())
 				DeferClose(closer)
 
 				seen := make(map[string]string)

@@ -49,7 +49,7 @@ var _ = Describe("ImEx", func() {
 			Expect(env.Type).To(Equal("arc"))
 			Expect(env.Name).To(Equal("exported"))
 
-			decoded := MustSucceed(imex.Decode[arc.Arc](ctx, WireRoundTrip(env)))
+			decoded := MustSucceed(imex.Decode[arc.Arc](WireRoundTrip(env)))
 			Expect(decoded.Name).To(Equal("exported"))
 			Expect(decoded.Mode).To(Equal(arc.ModeText))
 		})

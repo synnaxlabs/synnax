@@ -42,13 +42,13 @@ func (db *DB) ConfigureControlUpdateChannel(
 		db.L.DPanic("control update channel already configured")
 		return errors.New("control update channel already configured")
 	}
-	ch, err := db.retrieveChannel(ctx, key)
+	ch, err := db.retrieveChannel(key)
 	if errors.Is(err, channel.ErrNotFound) {
 		ch.Key = key
 		ch.DataType = telem.StringT
 		ch.Virtual = true
 		ch.Name = name
-		if err = db.createChannel(ctx, ch); err != nil {
+		if err = db.createChannel(ch); err != nil {
 			return err
 		}
 	} else if err != nil {

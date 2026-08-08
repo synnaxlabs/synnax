@@ -10,7 +10,6 @@
 package meta
 
 import (
-	"context"
 	"os"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -34,7 +33,6 @@ var ErrIgnoreChannel = errors.New("channel should be ignored")
 // does exist, it will be read and returned. The provided channel should have all fields
 // required by the DB correctly set.
 func Open(
-	ctx context.Context,
 	fs fs.FS,
 	ch channel.Channel,
 	codec encoding.Codec,
@@ -44,7 +42,7 @@ func Open(
 		return channel.Channel{}, err
 	}
 	if exists {
-		ch, err = Read(ctx, fs, codec)
+		ch, err = Read(fs, codec)
 		if err != nil {
 			return channel.Channel{}, err
 		}
@@ -53,7 +51,7 @@ func Open(
 			return channel.Channel{}, ErrIgnoreChannel
 		}
 		if state.Channel.Version != ch.Version {
-			if err := Create(ctx, fs, codec, state.Channel); err != nil {
+			if err := Create(fs, codec, state.Channel); err != nil {
 				return channel.Channel{}, err
 			}
 		}
@@ -62,7 +60,7 @@ func Open(
 		}
 		return state.Channel, nil
 	}
-	if err := Create(ctx, fs, codec, ch); err != nil {
+	if err := Create(fs, codec, ch); err != nil {
 		return channel.Channel{}, err
 	}
 	return ch, nil
@@ -70,11 +68,7 @@ func Open(
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(
-	ctx context.Context,
-	fs fs.FS,
-	codec encoding.Decoder,
-) (ch channel.Channel, err error) {
+func Read(fs fs.FS, codec encoding.Decoder) (ch channel.Channel, err error) {
 	s, err := fs.Stat("")
 	if err != nil {
 		return channel.Channel{}, err
@@ -98,7 +92,6 @@ func Read(
 // encoded by the provided encoder. The provided channel should have all fields required
 // by the DB correctly set.
 func Create(
-	ctx context.Context,
 	fs fs.FS,
 	codec encoding.Encoder,
 	ch channel.Channel,

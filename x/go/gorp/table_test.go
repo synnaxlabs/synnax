@@ -431,7 +431,7 @@ var _ = Describe("Table", func() {
 					Expect(
 						table.NewCreate().Entries(&entries).Exec(ctx, db),
 					).To(Succeed())
-					seq, closer := MustSucceed2(table.OpenNexter(ctx))
+					seq, closer := MustSucceed2(table.OpenNexter())
 					var result []entry
 					for e := range seq {
 						result = append(result, e)

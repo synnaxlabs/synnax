@@ -31,10 +31,10 @@ var _ = Describe("Variable-length channel", func() {
 				indexDB *unary.DB
 				dataDB  *unary.DB
 			)
-			BeforeAll(func(ctx SpecContext) {
+			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustSucceed(unary.Open(unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -44,7 +44,7 @@ var _ = Describe("Variable-length channel", func() {
 						IsIndex:  true,
 					},
 				}))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustSucceed(unary.Open(unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -81,7 +81,7 @@ var _ = Describe("Variable-length channel", func() {
 					).To(Equal([]string{"hello", "world", "foo"}))
 				})
 				It("Should write and read JSON data", func(ctx SpecContext) {
-					jsonDB := MustSucceed(unary.Open(ctx, unary.Config{
+					jsonDB := MustSucceed(unary.Open(unary.Config{
 						FS:        MustSucceed(fs.Sub("json-data")),
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -117,7 +117,7 @@ var _ = Describe("Variable-length channel", func() {
 					Expect(string(series.At(1))).To(Equal(`{"num":42}`))
 				})
 				It("Should write and read bytes data", func(ctx SpecContext) {
-					bytesDB := MustSucceed(unary.Open(ctx, unary.Config{
+					bytesDB := MustSucceed(unary.Open(unary.Config{
 						FS:        MustSucceed(fs.Sub("bytes-data")),
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -192,7 +192,7 @@ var _ = Describe("Variable-length channel", func() {
 					"Should serve reads from cache after commit without scanning length prefixes",
 					func(ctx SpecContext) {
 						subFS := MustSucceed(fs.Sub("flush-on-commit"))
-						idx := MustSucceed(unary.Open(ctx, unary.Config{
+						idx := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("idx")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -204,7 +204,7 @@ var _ = Describe("Variable-length channel", func() {
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
 						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
-						data := MustSucceed(unary.Open(ctx, unary.Config{
+						data := MustSucceed(unary.Open(unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -256,7 +256,7 @@ var _ = Describe("Variable-length channel", func() {
 						// cache. Reads must rebuild the cache by scanning the file,
 						// which is the path the buffered scan optimizes.
 						subFS := MustSucceed(fs.Sub("cold-rebuild"))
-						seedIdx := MustSucceed(unary.Open(ctx, unary.Config{
+						seedIdx := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("idx")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -266,7 +266,7 @@ var _ = Describe("Variable-length channel", func() {
 								IsIndex:  true,
 							},
 						}))
-						seedData := MustSucceed(unary.Open(ctx, unary.Config{
+						seedData := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("data")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -295,7 +295,7 @@ var _ = Describe("Variable-length channel", func() {
 						Expect(seedIdx.Close()).To(Succeed())
 
 						// Reopen against the same FS. Cache is empty.
-						reopenIdx := MustSucceed(unary.Open(ctx, unary.Config{
+						reopenIdx := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("idx")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -307,7 +307,7 @@ var _ = Describe("Variable-length channel", func() {
 						}))
 						defer func() { Expect(reopenIdx.Close()).To(Succeed()) }()
 						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
-						reopenData := MustSucceed(unary.Open(ctx, unary.Config{
+						reopenData := MustSucceed(unary.Open(unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -342,7 +342,7 @@ var _ = Describe("Variable-length channel", func() {
 					"Should populate the cache for both domains across a writer file rollover",
 					func(ctx SpecContext) {
 						subFS := MustSucceed(fs.Sub("rollover-flush"))
-						idx := MustSucceed(unary.Open(ctx, unary.Config{
+						idx := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("idx")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -355,7 +355,7 @@ var _ = Describe("Variable-length channel", func() {
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
 						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
-						data := MustSucceed(unary.Open(ctx, unary.Config{
+						data := MustSucceed(unary.Open(unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -423,7 +423,7 @@ var _ = Describe("Variable-length channel", func() {
 					"Should serve reads from cache after a second commit on the same domain without rebuilding",
 					func(ctx SpecContext) {
 						subFS := MustSucceed(fs.Sub("multi-commit-flush"))
-						idx := MustSucceed(unary.Open(ctx, unary.Config{
+						idx := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("idx")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -435,7 +435,7 @@ var _ = Describe("Variable-length channel", func() {
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
 						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
-						data := MustSucceed(unary.Open(ctx, unary.Config{
+						data := MustSucceed(unary.Open(unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -485,7 +485,7 @@ var _ = Describe("Variable-length channel", func() {
 					"Should rebuild the cached offset table after the domain grows",
 					func(ctx SpecContext) {
 						subFS := MustSucceed(fs.Sub("cache-refresh"))
-						idx2 := MustSucceed(unary.Open(ctx, unary.Config{
+						idx2 := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("idx")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -496,7 +496,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(idx2.Close()).To(Succeed()) }()
-						data2 := MustSucceed(unary.Open(ctx, unary.Config{
+						data2 := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("data")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -594,7 +594,7 @@ var _ = Describe("Variable-length channel", func() {
 					"Should preserve byte offsets, alignment, and cached offsets when a higher-authority writer takes control",
 					func(ctx SpecContext) {
 						subFS := MustSucceed(fs.Sub("handoff-basic"))
-						idx := MustSucceed(unary.Open(ctx, unary.Config{
+						idx := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("idx")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -606,7 +606,7 @@ var _ = Describe("Variable-length channel", func() {
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
 						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
-						data := MustSucceed(unary.Open(ctx, unary.Config{
+						data := MustSucceed(unary.Open(unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -675,7 +675,7 @@ var _ = Describe("Variable-length channel", func() {
 					"Should pick up the prior writer's uncommitted bytes when a higher-authority writer takes control",
 					func(ctx SpecContext) {
 						subFS := MustSucceed(fs.Sub("handoff-uncommitted"))
-						idx := MustSucceed(unary.Open(ctx, unary.Config{
+						idx := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("idx")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -686,7 +686,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
-						data := MustSucceed(unary.Open(ctx, unary.Config{
+						data := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("data")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -736,7 +736,7 @@ var _ = Describe("Variable-length channel", func() {
 					"Should preserve tracker state when control returns to the original writer",
 					func(ctx SpecContext) {
 						subFS := MustSucceed(fs.Sub("handoff-roundtrip"))
-						idx := MustSucceed(unary.Open(ctx, unary.Config{
+						idx := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("idx")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -747,7 +747,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
-						data := MustSucceed(unary.Open(ctx, unary.Config{
+						data := MustSucceed(unary.Open(unary.Config{
 							FS:        MustSucceed(subFS.Sub("data")),
 							MetaCodec: json.Codec,
 							Channel: channel.Channel{
@@ -911,7 +911,7 @@ var _ = Describe("Variable-length channel", func() {
 
 			Describe("GarbageCollect", func() {
 				It("Should garbage collect after deletion", func(ctx SpecContext) {
-					gcDB := MustSucceed(unary.Open(ctx, unary.Config{
+					gcDB := MustSucceed(unary.Open(unary.Config{
 						FS:          MustSucceed(fs.Sub("gc")),
 						MetaCodec:   json.Codec,
 						GCThreshold: 0.01,

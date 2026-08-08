@@ -116,7 +116,7 @@ func (s *testService) Import(
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	r, err := imex.Decode[testResource](ctx, env)
+	r, err := imex.Decode[testResource](env)
 	if err != nil {
 		return ontology.ID{}, err
 	}
@@ -712,7 +712,7 @@ var _ = Describe("Service", func() {
 				Expect(env.Type).To(Equal(string(ontology.ResourceTypeChannel)))
 				Expect(env.Name).To(Equal("Round Trip"))
 				roundTripped := MustSucceed(
-					imex.Decode[testResource](ctx, WireRoundTrip(env)),
+					imex.Decode[testResource](WireRoundTrip(env)),
 				)
 				Expect(roundTripped.FieldOne).To(Equal("value"))
 				Expect(roundTripped.FieldTwo).To(Equal(42))

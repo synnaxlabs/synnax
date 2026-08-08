@@ -71,7 +71,7 @@ func renameEmbeddedRack(
 	}()
 
 	for iter.First(); iter.Valid(); iter.Next() {
-		r := iter.Value(ctx)
+		r := iter.Value()
 		if err = iter.Error(); err != nil {
 			return err
 		}
@@ -108,7 +108,7 @@ func backfillStatuses(
 
 	var racks []Rack
 	for iter.First(); iter.Valid(); iter.Next() {
-		r := iter.Value(ctx)
+		r := iter.Value()
 		if err = iter.Error(); err != nil {
 			return err
 		}

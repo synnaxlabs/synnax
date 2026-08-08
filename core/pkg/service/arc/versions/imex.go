@@ -26,7 +26,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 		err error
 	)
 	if env.Version > legacy.LastVersion {
-		a, err = autoDecodeEnvelope(ctx, env)
+		a, err = autoDecodeEnvelope(env)
 	} else {
 		var doc legacy.Document
 		if doc, err = decodeConsole(ctx, env); err == nil {
@@ -54,7 +54,7 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 // decodeConsole lifts either Console-written file shape into a Document. Both shapes
 // carry the graph at the top level, so the structural guard runs ahead of the split.
 func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, error) {
-	body, err := imex.Decode[msgpack.EncodedJSON](ctx, env)
+	body, err := imex.Decode[msgpack.EncodedJSON](env)
 	if err != nil {
 		return legacy.Document{}, err
 	}
@@ -64,7 +64,7 @@ func decodeConsole(ctx context.Context, env imex.Envelope) (legacy.Document, err
 	if !isConsoleState(body) {
 		// The export taken from an Arc that was not open: the typed Arc the Console
 		// retrieved from the Core, spread into the file.
-		e, err := imex.Decode[legacy.Export](ctx, env)
+		e, err := imex.Decode[legacy.Export](env)
 		if err != nil {
 			return legacy.Document{}, err
 		}

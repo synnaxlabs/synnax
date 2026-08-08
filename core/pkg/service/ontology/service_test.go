@@ -43,9 +43,7 @@ func (s constService) RetrieveResource(
 	), nil
 }
 
-func (s constService) OpenNexter(
-	context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s constService) OpenNexter() (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
 

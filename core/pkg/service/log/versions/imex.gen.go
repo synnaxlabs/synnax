@@ -12,8 +12,6 @@
 package versions
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 )
@@ -25,10 +23,10 @@ const Latest = v2.Version
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Log
 // shape and lifts it through the per-version migration chain to the current shape. A
 // version the ladder does not cover is rejected with a path-scoped validation error.
-func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Log, error) {
+func autoDecodeEnvelope(env imex.Envelope) (Log, error) {
 	switch env.Version {
 	case v2.Version:
-		return imex.Decode[Log](ctx, env)
+		return imex.Decode[Log](env)
 	}
 	return Log{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

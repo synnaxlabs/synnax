@@ -31,7 +31,7 @@ func (db *DB) CreateChannel(ctx context.Context, ch ...Channel) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	for _, c := range ch {
-		if err := db.createChannel(ctx, c); err != nil {
+		if err := db.createChannel(c); err != nil {
 			return err
 		}
 	}
@@ -51,7 +51,7 @@ func (db *DB) RetrieveChannels(
 	defer db.mu.RUnlock()
 	chs := make([]Channel, 0, len(keys))
 	for _, key := range keys {
-		ch, err := db.retrieveChannel(ctx, key)
+		ch, err := db.retrieveChannel(key)
 		if err != nil {
 			return nil, err
 		}
@@ -67,12 +67,12 @@ func (db *DB) RetrieveChannel(ctx context.Context, key ChannelKey) (Channel, err
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	return db.retrieveChannel(ctx, key)
+	return db.retrieveChannel(key)
 }
 
 // retrieveChannel retrieves a channel from the database. This method is not safe for
 // concurrent use, and the db must be locked before calling.
-func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
+func (db *DB) retrieveChannel(key ChannelKey) (Channel, error) {
 	if u, ok := db.mu.dbs.unary[key]; ok {
 		return u.Channel(), nil
 	}
@@ -92,7 +92,7 @@ func (db *DB) RenameChannels(
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	for key, name := range renames {
-		if err := db.renameChannel(ctx, key, name); err != nil {
+		if err := db.renameChannel(key, name); err != nil {
 			return err
 		}
 	}
@@ -105,7 +105,7 @@ func (db *DB) RenameChannel(ctx context.Context, key ChannelKey, newName string)
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	return db.renameChannel(ctx, key, newName)
+	return db.renameChannel(key, newName)
 }
 
 // RenameChannel renames the channel with the specified key to newName. There is a
@@ -113,16 +113,16 @@ func (db *DB) RenameChannel(ctx context.Context, key ChannelKey, newName string)
 // from or written to. We choose to not address this since the name is purely
 // decorative in Cesium and not used to identify channels whereas the key is the
 // unique identifier. The same goes for the virtual database.
-func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string) error {
+func (db *DB) renameChannel(key ChannelKey, newName string) error {
 	if u, ok := db.mu.dbs.unary[key]; ok {
-		if err := u.RenameChannelInMeta(ctx, newName); err != nil {
+		if err := u.RenameChannelInMeta(newName); err != nil {
 			return err
 		}
 		db.mu.dbs.unary[key] = u
 		return nil
 	}
 	if v, ok := db.mu.dbs.virtual[key]; ok {
-		if err := v.RenameChannel(ctx, newName); err != nil {
+		if err := v.RenameChannel(newName); err != nil {
 			return err
 		}
 		db.mu.dbs.virtual[key] = v
@@ -131,7 +131,7 @@ func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string)
 	return channel.NewNotFoundError(key)
 }
 
-func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
+func (db *DB) createChannel(ch Channel) (err error) {
 	defer func() {
 		lo.Ternary(err == nil, db.L.Debug, db.L.Error)(
 			"creating channel",
@@ -150,7 +150,7 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 		ch.Index = ch.Key
 	}
 	ch.Version = version.VersionCurrent
-	err = db.openVirtualOrUnary(ctx, ch)
+	err = db.openVirtualOrUnary(ch)
 	return err
 }
 
@@ -239,7 +239,7 @@ func (db *DB) RekeyChannel(
 		if newCh.IsIndex {
 			newCh.Index = newKey
 		}
-		newDB, err := unary.Open(ctx, unary.Config{
+		newDB, err := unary.Open(unary.Config{
 			Instrumentation: db.Instrumentation,
 			MetaCodec:       db.metaCodec,
 			Channel:         newCh,
@@ -248,7 +248,7 @@ func (db *DB) RekeyChannel(
 		if err != nil {
 			return err
 		}
-		if err = newDB.SetChannelKeyInMeta(ctx, newKey); err != nil {
+		if err = newDB.SetChannelKeyInMeta(newKey); err != nil {
 			return err
 		}
 		delete(db.mu.dbs.unary, oldKey)
@@ -260,7 +260,7 @@ func (db *DB) RekeyChannel(
 			for otherDBKey := range db.mu.dbs.unary {
 				otherDB := db.mu.dbs.unary[otherDBKey]
 				if otherDB.Channel().Index == oldKey && otherDBKey != newKey {
-					if err = otherDB.SetIndexKeyInMeta(ctx, newKey); err != nil {
+					if err = otherDB.SetIndexKeyInMeta(newKey); err != nil {
 						return err
 					}
 					otherDB.SetIndex((*newDB).Index())
@@ -283,7 +283,7 @@ func (db *DB) RekeyChannel(
 		}
 		newChannel := vDB.Channel()
 		newChannel.Key = newKey
-		newDB, err := virtual.Open(ctx, virtual.Config{
+		newDB, err := virtual.Open(virtual.Config{
 			Instrumentation: db.Instrumentation,
 			Channel:         newChannel,
 			MetaCodec:       db.metaCodec,
@@ -292,7 +292,7 @@ func (db *DB) RekeyChannel(
 		if err != nil {
 			return err
 		}
-		if err = newDB.SetChannelKeyInMeta(ctx, newKey); err != nil {
+		if err = newDB.SetChannelKeyInMeta(newKey); err != nil {
 			return err
 		}
 		delete(db.mu.dbs.virtual, oldKey)

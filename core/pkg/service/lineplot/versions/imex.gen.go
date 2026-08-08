@@ -12,8 +12,6 @@
 package versions
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 )
@@ -25,10 +23,10 @@ const Latest = v5.Version
 // autoDecodeEnvelope decodes a server-exported envelope as its version's LinePlot
 // shape and lifts it through the per-version migration chain to the current shape. A
 // version the ladder does not cover is rejected with a path-scoped validation error.
-func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error) {
+func autoDecodeEnvelope(env imex.Envelope) (LinePlot, error) {
 	switch env.Version {
 	case v5.Version:
-		return imex.Decode[LinePlot](ctx, env)
+		return imex.Decode[LinePlot](env)
 	}
 	return LinePlot{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
 }

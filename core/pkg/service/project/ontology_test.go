@@ -181,7 +181,7 @@ var _ = Describe("Ontology", func() {
 			Expect(writer.Create(ctx, &a)).To(Succeed())
 			Expect(writer.Create(ctx, &b)).To(Succeed())
 
-			seq, closer := MustSucceed2(svc.OpenNexter(ctx))
+			seq, closer := MustSucceed2(svc.OpenNexter())
 			DeferClose(closer)
 
 			seen := set.New[string]()

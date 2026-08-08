@@ -36,7 +36,7 @@ import (
 type Service interface {
 	Type() ontology.ResourceType
 	observe.Observable[iter.Seq[ontology.Change]]
-	OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error)
+	OpenNexter() (iter.Seq[ontology.Resource], io.Closer, error)
 }
 
 // FieldsProvider is an optional interface that services can implement to declare
@@ -183,7 +183,7 @@ func (i *Index) Initialize(ctx context.Context) error {
 		)
 		i.disconnectObservers = append(i.disconnectObservers, disconnect)
 		oCtx.Go(func(ctx context.Context) (err error) {
-			n, closer, err := svc.OpenNexter(ctx)
+			n, closer, err := svc.OpenNexter()
 			if err != nil {
 				return err
 			}

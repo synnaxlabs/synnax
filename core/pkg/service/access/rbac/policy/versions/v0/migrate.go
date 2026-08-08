@@ -50,7 +50,7 @@ var Migration = gorp.NewMigration(
 		}
 		defer func() { err = errors.Combine(err, iter.Close()) }()
 		for iter.First(); iter.Valid(); iter.Next() {
-			v := iter.Value(ctx)
+			v := iter.Value()
 			if v == nil {
 				if err = iter.Error(); err != nil {
 					return err

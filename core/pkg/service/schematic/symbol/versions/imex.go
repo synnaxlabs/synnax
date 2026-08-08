@@ -27,13 +27,13 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Symbol, error) 
 		err error
 	)
 	if env.Version > legacy.LastVersion {
-		sym, err = autoDecodeEnvelope(ctx, env)
+		sym, err = autoDecodeEnvelope(env)
 	} else {
 		var body msgpack.EncodedJSON
-		if body, err = imex.Decode[msgpack.EncodedJSON](ctx, env); err == nil {
+		if body, err = imex.Decode[msgpack.EncodedJSON](env); err == nil {
 			if err = imex.RequireFields(body, "a symbol", "data.svg"); err == nil {
 				var d legacy.Data
-				if d, err = imex.Decode[legacy.Data](ctx, env); err == nil {
+				if d, err = imex.Decode[legacy.Data](env); err == nil {
 					sym.Data = v2.SpecFromConsole(d.Spec)
 				}
 			}

@@ -41,7 +41,6 @@ func migrateLayoutsToStaging(
 	_ alamos.Instrumentation,
 ) error {
 	projects, err := collectEntries(
-		ctx,
 		gorp.WrapReader[Key, Project](tx),
 		func(p Project) bool { return len(p.Layout) > 0 },
 	)
@@ -96,7 +95,6 @@ func migrateWorkspaceToProject(
 // rather than creating a second one.
 func renameWorkspaceGroup(ctx context.Context, tx gorp.Tx) error {
 	stale, err := collectEntries(
-		ctx,
 		gorp.WrapReader[group.Key, group.Group](tx),
 		func(g group.Group) bool { return g.Name == "Workspaces" },
 	)
@@ -118,7 +116,6 @@ func renameWorkspaceGroup(ctx context.Context, tx gorp.Tx) error {
 // falling back to MessagePack) and re-encodes the projects as Orc.
 func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 	stale, err := collectEntries(
-		ctx,
 		gorp.WrapReader[Key, v0.Workspace](tx),
 		func(v0.Workspace) bool { return true },
 	)
@@ -143,7 +140,6 @@ func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 // type project.
 func rewriteWorkspaceResources(ctx context.Context, tx gorp.Tx) error {
 	stale, err := collectEntries(
-		ctx,
 		gorp.WrapReader[string, ontology.Resource](tx),
 		func(r ontology.Resource) bool { return r.ID.Type == legacyWorkspaceType },
 	)
@@ -168,7 +164,6 @@ func rewriteWorkspaceResources(ctx context.Context, tx gorp.Tx) error {
 // to type project, preserving the relationship's direction and type.
 func rewriteWorkspaceRelationships(ctx context.Context, tx gorp.Tx) error {
 	stale, err := collectEntries(
-		ctx,
 		gorp.WrapReader[string, ontology.Relationship](tx),
 		func(rel ontology.Relationship) bool {
 			return rel.From.Type == legacyWorkspaceType ||
@@ -209,7 +204,6 @@ func removeAuthorRelationships(
 	otg *ontology.Ontology,
 ) error {
 	stale, err := collectEntries(
-		ctx,
 		gorp.WrapReader[string, ontology.Relationship](tx),
 		func(rel ontology.Relationship) bool {
 			return rel.Type == ontology.RelationshipTypeParentOf &&
@@ -226,7 +220,6 @@ func removeAuthorRelationships(
 // collectEntries drains a reader into a slice of the entries matching keep. Mutating a
 // gorp table while iterating it is unsafe, so callers gather first and write after.
 func collectEntries[K gorp.Key, E gorp.Entry[K]](
-	ctx context.Context,
 	r gorp.Reader[K, E],
 	keep func(E) bool,
 ) (out []E, err error) {
@@ -236,7 +229,7 @@ func collectEntries[K gorp.Key, E gorp.Entry[K]](
 	}
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	for iter.First(); iter.Valid(); iter.Next() {
-		if e := iter.Value(ctx); e != nil && keep(*e) {
+		if e := iter.Value(); e != nil && keep(*e) {
 			out = append(out, *e)
 		}
 	}

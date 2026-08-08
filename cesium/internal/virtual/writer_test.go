@@ -24,8 +24,8 @@ import (
 
 var _ = Describe("Write", func() {
 	var db *virtual.DB
-	BeforeEach(func(ctx SpecContext) {
-		db = MustSucceed(virtual.Open(ctx, virtual.Config{
+	BeforeEach(func() {
+		db = MustSucceed(virtual.Open(virtual.Config{
 			MetaCodec: json.Codec,
 			Channel: channel.Channel{
 				Name:     "Ray",
@@ -155,7 +155,7 @@ var _ = Describe("Write", func() {
 					// and asserting that nothing is written during the writer's
 					// session.
 					rec := fs.NewRecorder(fs.NewMem())
-					virtualDB := MustSucceed(virtual.Open(ctx, virtual.Config{
+					virtualDB := MustSucceed(virtual.Open(virtual.Config{
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Name:     "virtual-fs-check",

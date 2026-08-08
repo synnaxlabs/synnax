@@ -36,11 +36,11 @@ var _ = Describe("DB Metadata Operations", func() {
 			dataDB     *unary.DB
 		)
 		Context("FS: "+fsName, func() {
-			BeforeEach(func(ctx SpecContext) {
+			BeforeEach(func() {
 				fs = openFS()
 				indexDBKey = GenerateChannelKey()
 				indexDBfs = MustSucceed(fs.Sub("index"))
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustSucceed(unary.Open(unary.Config{
 					FS:        indexDBfs,
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -52,7 +52,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				}))
 				dataDBKey = GenerateChannelKey()
 				dataDBfs = MustSucceed(fs.Sub("data"))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustSucceed(unary.Open(unary.Config{
 					FS:        dataDBfs,
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -73,10 +73,10 @@ var _ = Describe("DB Metadata Operations", func() {
 			Describe("SetChannelKeyInMeta", func() {
 				It(
 					"Should change both key and index when channel is an index",
-					func(ctx SpecContext) {
+					func() {
 						newKey := GenerateChannelKey()
-						Expect(indexDB.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
-						ch := MustSucceed(meta.Read(ctx, indexDBfs, json.Codec))
+						Expect(indexDB.SetChannelKeyInMeta(newKey)).To(Succeed())
+						ch := MustSucceed(meta.Read(indexDBfs, json.Codec))
 						Expect(ch.Key).To(Equal(newKey))
 						Expect(ch.Index).To(Equal(newKey))
 					},
@@ -84,10 +84,10 @@ var _ = Describe("DB Metadata Operations", func() {
 
 				It(
 					"Should change only the key when channel is not an index",
-					func(ctx SpecContext) {
+					func() {
 						newKey := GenerateChannelKey()
-						Expect(dataDB.SetChannelKeyInMeta(ctx, newKey)).To(Succeed())
-						ch := MustSucceed(meta.Read(ctx, dataDBfs, json.Codec))
+						Expect(dataDB.SetChannelKeyInMeta(newKey)).To(Succeed())
+						ch := MustSucceed(meta.Read(dataDBfs, json.Codec))
 						Expect(ch.Key).To(Equal(newKey))
 						Expect(ch.Index).To(Equal(indexDBKey))
 					},
@@ -103,14 +103,14 @@ var _ = Describe("DB Metadata Operations", func() {
 				Describe("Index Channel", func() {
 					It(
 						"Should set the index channel to a new key",
-						func(ctx SpecContext) {
+						func() {
 							newIndexKey := GenerateChannelKey()
 							Expect(indexDB.Channel().Key).ToNot(Equal(newIndexKey))
 							Expect(
-								indexDB.SetChannelKeyInMeta(ctx, newIndexKey),
+								indexDB.SetChannelKeyInMeta(newIndexKey),
 							).To(Succeed())
 							Expect(
-								indexDB.SetIndexKeyInMeta(ctx, newIndexKey),
+								indexDB.SetIndexKeyInMeta(newIndexKey),
 							).To(Succeed())
 							Expect(indexDB.Channel().Key).To(Equal(newIndexKey))
 							Expect(indexDB.Channel().Index).To(Equal(newIndexKey))
@@ -119,10 +119,10 @@ var _ = Describe("DB Metadata Operations", func() {
 
 					It(
 						"Should return an error when attempting to set an index key that is different than the channel key",
-						func(ctx SpecContext) {
+						func() {
 							newIndexKey := GenerateChannelKey()
 							Expect(
-								indexDB.SetIndexKeyInMeta(ctx, newIndexKey),
+								indexDB.SetIndexKeyInMeta(newIndexKey),
 							).To(MatchError(ContainSubstring("index: index channel cannot be indexed by another channel")))
 						},
 					)
@@ -131,10 +131,10 @@ var _ = Describe("DB Metadata Operations", func() {
 				Describe("Data Channel", func() {
 					It(
 						"Should set the data channel to a new key",
-						func(ctx SpecContext) {
+						func() {
 							newIndexKey := GenerateChannelKey()
 							Expect(
-								dataDB.SetIndexKeyInMeta(ctx, newIndexKey),
+								dataDB.SetIndexKeyInMeta(newIndexKey),
 							).To(Succeed())
 							Expect(dataDB.Channel().Index).To(Equal(newIndexKey))
 						},
@@ -143,17 +143,17 @@ var _ = Describe("DB Metadata Operations", func() {
 			})
 
 			Describe("RenameChannelInMeta", func() {
-				It("Should rename the channel and persist it", func(ctx SpecContext) {
-					Expect(dataDB.RenameChannelInMeta(ctx, "new_name")).To(Succeed())
-					ch := MustSucceed(meta.Read(ctx, dataDBfs, json.Codec))
+				It("Should rename the channel and persist it", func() {
+					Expect(dataDB.RenameChannelInMeta("new_name")).To(Succeed())
+					ch := MustSucceed(meta.Read(dataDBfs, json.Codec))
 					Expect(ch.Name).To(Equal("new_name"))
 				})
 
 				It(
 					"Should be a no-op when the name is the same",
-					func(ctx SpecContext) {
-						Expect(dataDB.RenameChannelInMeta(ctx, "test")).To(Succeed())
-						ch := MustSucceed(meta.Read(ctx, dataDBfs, json.Codec))
+					func() {
+						Expect(dataDB.RenameChannelInMeta("test")).To(Succeed())
+						ch := MustSucceed(meta.Read(dataDBfs, json.Codec))
 						Expect(ch.Name).To(Equal("test"))
 					},
 				)
@@ -204,8 +204,8 @@ var _ = Describe("DB Metadata Operations", func() {
 
 	Describe("Close", func() {
 		var db *unary.DB
-		BeforeEach(func(ctx SpecContext) {
-			db = MustSucceed(unary.Open(ctx, unary.Config{
+		BeforeEach(func() {
+			db = MustSucceed(unary.Open(unary.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: json.Codec,
 				Channel: channel.Channel{
@@ -222,16 +222,16 @@ var _ = Describe("DB Metadata Operations", func() {
 			func(ctx SpecContext) {
 				Expect(db.Close()).To(Succeed())
 				Expect(
-					db.RenameChannelInMeta(ctx, "new_name"),
+					db.RenameChannelInMeta("new_name"),
 				).To(MatchError(unary.ErrDBClosed))
 				Expect(
-					db.SetChannelKeyInMeta(ctx, GenerateChannelKey()),
+					db.SetChannelKeyInMeta(GenerateChannelKey()),
 				).To(MatchError(unary.ErrDBClosed))
 				Expect(
-					db.SetIndexKeyInMeta(ctx, GenerateChannelKey()),
+					db.SetIndexKeyInMeta(GenerateChannelKey()),
 				).To(MatchError(unary.ErrDBClosed))
 				Expect(
-					db.SetChannelKeyInMeta(ctx, GenerateChannelKey()),
+					db.SetChannelKeyInMeta(GenerateChannelKey()),
 				).To(MatchError(unary.ErrDBClosed))
 				Expect(
 					db.Delete(ctx, telem.TimeRange{}),
@@ -255,7 +255,7 @@ var _ = Describe("DB Metadata Operations", func() {
 		It(
 			"Should return an error when a DB is closed while writers are still accessing it",
 			func(ctx SpecContext) {
-				db := MustSucceed(unary.Open(ctx, unary.Config{
+				db := MustSucceed(unary.Open(unary.Config{
 					FS:        xfs.NewMem(),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{

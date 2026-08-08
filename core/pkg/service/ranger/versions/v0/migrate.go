@@ -52,7 +52,7 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 			defer func() { err = errors.Combine(err, iter.Close()) }()
 			rangeMap := make(map[Key]Range)
 			for iter.First(); iter.Valid(); iter.Next() {
-				rng := iter.Value(ctx)
+				rng := iter.Value()
 				if err = iter.Error(); err != nil {
 					return errors.Wrap(err, "invalid range")
 				}
