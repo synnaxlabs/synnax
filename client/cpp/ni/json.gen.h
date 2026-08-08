@@ -67,8 +67,14 @@ inline x::json::json MapScale::to_json() const {
 
 inline TableScale TableScale::parse(x::json::Parser parser) {
     return TableScale{
-        .pre_scaled_vals = parser.field<std::vector<double>>("pre_scaled_vals"),
-        .scaled_vals = parser.field<std::vector<double>>("scaled_vals"),
+        .pre_scaled_vals = parser.field<std::vector<double>>(
+            "pre_scaled_vals",
+            std::vector<double>{}
+        ),
+        .scaled_vals = parser.field<std::vector<double>>(
+            "scaled_vals",
+            std::vector<double>{}
+        ),
         .pre_scaled_units = parser.field<std::string>("pre_scaled_units", "Volts"),
         .scaled_units = parser.field<std::string>("scaled_units", "Volts"),
     };
@@ -94,8 +100,14 @@ inline x::json::json NoneScale::to_json() const {
 
 inline PolynomialScale PolynomialScale::parse(x::json::Parser parser) {
     return PolynomialScale{
-        .forward_coeffs = parser.field<std::vector<double>>("forward_coeffs"),
-        .reverse_coeffs = parser.field<std::vector<double>>("reverse_coeffs"),
+        .forward_coeffs = parser.field<std::vector<double>>(
+            "forward_coeffs",
+            std::vector<double>{}
+        ),
+        .reverse_coeffs = parser.field<std::vector<double>>(
+            "reverse_coeffs",
+            std::vector<double>{}
+        ),
         .pre_scaled_units = parser.field<std::string>("pre_scaled_units", "Volts"),
         .scaled_units = parser.field<std::string>("scaled_units", "Volts"),
     };
@@ -199,8 +211,14 @@ inline x::json::json Bridge::to_json() const {
 
 inline BridgePolynomial BridgePolynomial::parse(x::json::Parser parser) {
     return BridgePolynomial{
-        .forward_coeffs = parser.field<std::vector<double>>("forward_coeffs"),
-        .reverse_coeffs = parser.field<std::vector<double>>("reverse_coeffs"),
+        .forward_coeffs = parser.field<std::vector<double>>(
+            "forward_coeffs",
+            std::vector<double>{}
+        ),
+        .reverse_coeffs = parser.field<std::vector<double>>(
+            "reverse_coeffs",
+            std::vector<double>{}
+        ),
         .electrical_units = parser.field<std::string>(
             "electrical_units",
             "mVoltsPerVolt"
@@ -230,12 +248,18 @@ inline x::json::json Resistance::to_json() const {
 
 inline Table Table::parse(x::json::Parser parser) {
     return Table{
-        .electrical_vals = parser.field<std::vector<double>>("electrical_vals"),
+        .electrical_vals = parser.field<std::vector<double>>(
+            "electrical_vals",
+            std::vector<double>{}
+        ),
         .electrical_units = parser.field<std::string>(
             "electrical_units",
             "mVoltsPerVolt"
         ),
-        .physical_vals = parser.field<std::vector<double>>("physical_vals"),
+        .physical_vals = parser.field<std::vector<double>>(
+            "physical_vals",
+            std::vector<double>{}
+        ),
     };
 }
 
@@ -375,9 +399,10 @@ inline AnalogReadConfig AnalogReadConfig::parse(x::json::Parser parser) {
     ) = ::synnax::common::BaseReadConfig::parse(parser);
     result.channels = [&] {
         std::vector<AIChannel> result;
-        parser.iter("channels", [&result](x::json::Parser &p) {
-            result.push_back(parse_ai_channel(p));
-        });
+        if (parser.has("channels"))
+            parser.iter("channels", [&result](x::json::Parser &p) {
+                result.push_back(parse_ai_channel(p));
+            });
         return result;
     }();
     return result;
@@ -403,9 +428,10 @@ inline CounterReadConfig CounterReadConfig::parse(x::json::Parser parser) {
     ) = ::synnax::common::BaseReadConfig::parse(parser);
     result.channels = [&] {
         std::vector<CIChannel> result;
-        parser.iter("channels", [&result](x::json::Parser &p) {
-            result.push_back(parse_ci_channel(p));
-        });
+        if (parser.has("channels"))
+            parser.iter("channels", [&result](x::json::Parser &p) {
+                result.push_back(parse_ci_channel(p));
+            });
         return result;
     }();
     return result;
@@ -449,9 +475,10 @@ inline AnalogWriteConfig AnalogWriteConfig::parse(x::json::Parser parser) {
     static_cast<WriteConfig &>(result) = WriteConfig::parse(parser);
     result.channels = [&] {
         std::vector<AOChannel> result;
-        parser.iter("channels", [&result](x::json::Parser &p) {
-            result.push_back(parse_ao_channel(p));
-        });
+        if (parser.has("channels"))
+            parser.iter("channels", [&result](x::json::Parser &p) {
+                result.push_back(parse_ao_channel(p));
+            });
         return result;
     }();
     return result;
@@ -478,9 +505,10 @@ inline DigitalReadConfig DigitalReadConfig::parse(x::json::Parser parser) {
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.channels = [&] {
         std::vector<DIChannel> result;
-        parser.iter("channels", [&result](x::json::Parser &p) {
-            result.push_back(parse_di_channel(p));
-        });
+        if (parser.has("channels"))
+            parser.iter("channels", [&result](x::json::Parser &p) {
+                result.push_back(parse_di_channel(p));
+            });
         return result;
     }();
     return result;
@@ -505,9 +533,10 @@ inline DigitalWriteConfig DigitalWriteConfig::parse(x::json::Parser parser) {
     static_cast<WriteConfig &>(result) = WriteConfig::parse(parser);
     result.channels = [&] {
         std::vector<DOChannel> result;
-        parser.iter("channels", [&result](x::json::Parser &p) {
-            result.push_back(parse_do_channel(p));
-        });
+        if (parser.has("channels"))
+            parser.iter("channels", [&result](x::json::Parser &p) {
+                result.push_back(parse_do_channel(p));
+            });
         return result;
     }();
     return result;
@@ -1448,7 +1477,8 @@ AIRosetteStrainGageChannel::parse(x::json::Parser parser) {
     );
     result.gage_orientation = parser.field<double>("gage_orientation", 0);
     result.rosette_meas_types = parser.field<std::vector<std::string>>(
-        "rosette_meas_types"
+        "rosette_meas_types",
+        std::vector<std::string>{}
     );
     result.strain_config = parser.field<std::string>("strain_config", "FullBridgeI");
     result.units = parser.field<std::string>("units", "Strain");
