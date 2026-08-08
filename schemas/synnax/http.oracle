@@ -109,7 +109,7 @@ ReadField struct {
             timestamps. Required for timestamp channels.
         """
     }
-    enum_values      EnumEntry[]?   {
+    enum_values      EnumEntry[]    {
         @doc value "maps string labels in the response to numeric channel values."
     }
 
@@ -216,7 +216,7 @@ ChannelField struct {
             Required for timestamp channels.
         """
     }
-    enum_values EnumEntry[]?   {
+    enum_values EnumEntry[]    {
         @doc value """
             maps numeric channel values to string labels. Only valid when
             json_type is 'string'.
