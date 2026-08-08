@@ -253,5 +253,6 @@ TaskConfig struct extends task.BaseConfig {
 
     @doc value "configures an Arc task, which runs a compiled Arc module."
     @go output "core/pkg/service/arc/task"
+    @go name   "Config"
     @pb omit
 }
