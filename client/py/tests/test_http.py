@@ -242,14 +242,14 @@ class TestHTTPReadTask:
         assert field.data_type == "float64"
         assert field.name == ""
         assert field.timestamp_format is None
-        assert field.enum_values is None
+        assert field.enum_values == []
 
     def test_read_endpoint_defaults(self):
         """Test that ReadEndpoint has correct defaults."""
         ep = sy.http.ReadEndpoint(path="/data", fields=[])
         assert ep.method == "GET"
-        assert ep.headers is None
-        assert ep.query_params is None
+        assert ep.headers == []
+        assert ep.query_params == []
         assert ep.body is None
         assert ep.index is None
 
@@ -278,12 +278,12 @@ class TestHTTPReadTask:
         )
         payload = task.to_payload()
         ep = payload.config["endpoints"][0]
-        assert "query_params" not in ep
         assert "body" not in ep
-        assert "headers" not in ep
+        assert ep["headers"] == []
+        assert ep["query_params"] == []
         field = ep["fields"][0]
         assert "timestamp_format" not in field
-        assert "enum_values" not in field
+        assert field["enum_values"] == []
 
     def test_create_and_retrieve_read_task(self, client: sy.Synnax):
         """Test that ReadTask can be created and retrieved from the database."""
@@ -522,8 +522,8 @@ class TestHTTPWriteTask:
         )
         assert ep.disabled is False
         assert ep.method == "POST"
-        assert ep.headers is None
-        assert ep.query_params is None
+        assert ep.headers == []
+        assert ep.query_params == []
         assert ep.fields == []
 
     def test_channel_field_defaults(self):
@@ -567,8 +567,8 @@ class TestHTTPWriteTask:
         )
         payload = task.to_payload()
         ep = payload.config["endpoints"][0]
-        assert "query_params" not in ep
-        assert "headers" not in ep
+        assert ep["headers"] == []
+        assert ep["query_params"] == []
         assert "time_format" not in ep["channel"]
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax):
