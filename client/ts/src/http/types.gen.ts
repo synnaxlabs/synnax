@@ -197,7 +197,7 @@ export const readEndpointZ = z.object({
   /** headers contains additional headers merged into the request. */
   headers: headerZ.array().default(() => []),
   /** queryParams contains query parameters appended to the request URL. */
-  queryParams: zod.nullToUndefined(queryParamZ.array()),
+  queryParams: queryParamZ.array().default(() => []),
   /** body is an optional static body sent with each request. */
   body: z.string().optional(),
   /** fields contains the values to extract from the response. */
@@ -223,7 +223,7 @@ export const writeEndpointZ = z.object({
   /** headers contains additional headers merged into the request. */
   headers: headerZ.array().default(() => []),
   /** queryParams contains query parameters appended to the request URL. */
-  queryParams: zod.nullToUndefined(queryParamZ.array()),
+  queryParams: queryParamZ.array().default(() => []),
   /** channel is the command channel whose writes trigger this endpoint. */
   channel: channelFieldZ.prefault({}),
   /** fields contains additional static or generated body fields. */
