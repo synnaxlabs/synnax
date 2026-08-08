@@ -250,7 +250,7 @@ class TestHTTPReadTask:
         assert ep.method == "GET"
         assert ep.headers == []
         assert ep.query_params == []
-        assert ep.body is None
+        assert ep.body == ""
         assert ep.index is None
 
     def test_read_config_defaults(self):
@@ -278,7 +278,7 @@ class TestHTTPReadTask:
         )
         payload = task.to_payload()
         ep = payload.config["endpoints"][0]
-        assert "body" not in ep
+        assert ep["body"] == ""
         assert ep["headers"] == []
         assert ep["query_params"] == []
         field = ep["fields"][0]

@@ -361,10 +361,9 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     requests.reserve(cfg.endpoints.size());
     for (const auto &ep: cfg.endpoints) {
         auto req_cfg = request_config(ep);
-        const auto body = ep.body.value_or("");
-        if (!body.empty()) req_cfg.request_content_type = "application/json";
+        if (!ep.body.empty()) req_cfg.request_content_type = "application/json";
         auto req = device::build_request(conn, req_cfg);
-        req.body = body;
+        req.body = ep.body;
         requests.push_back(std::move(req));
     }
 

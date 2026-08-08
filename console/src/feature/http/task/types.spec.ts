@@ -66,6 +66,23 @@ describe("HTTP Task Types", () => {
       expect(result.endpoints[0].method).toBe("POST");
     });
 
+    it("should default an endpoint without a body to an empty body", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api/data",
+            fields: [readField],
+          },
+        ],
+      };
+      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
+      expect(result.endpoints[0].body).toBe("");
+    });
+
     it("should validate a config with endpoint headers and query params", () => {
       const config = {
         device: "dev-001",
