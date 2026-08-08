@@ -266,6 +266,30 @@ TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
     EXPECT_NE(err3.data.find("duplicate header"), std::string::npos);
 }
 
+/// @brief it should parse an endpoint that omits headers, leaving it with none.
+TEST(HTTPReadTask, ParseConfigOmittedHeadersDefaultsEmpty) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [cfg, err] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_NIL(err);
+    ASSERT_EQ(cfg.endpoints.size(), 1);
+    ASSERT_TRUE(cfg.endpoints[0].headers.empty());
+}
+
 /// @brief it should fail when duplicate query parameter names exist.
 TEST(HTTPReadTask, ParseConfigDuplicateQueryParamErrors) {
     synnax::task::Task task;

@@ -45,7 +45,7 @@ const deployReadFieldZ = http.readFieldZ.extend({
 
 const deployReadEndpointZ = http.readEndpointZ.extend({
   method: readMethodZ,
-  headers: headersZ.optional(),
+  headers: headersZ.default(() => []),
   queryParams: queryParamsZ.optional(),
   fields: deployReadFieldZ.array().check(Task.validateReadChannels),
 });
@@ -165,7 +165,7 @@ const deployWriteFieldZ = z.discriminatedUnion("type", [
 const deployWriteEndpointZ = writeEndpointZ
   .extend({
     method: writeMethodZ,
-    headers: headersZ.optional(),
+    headers: headersZ.default(() => []),
     queryParams: queryParamsZ.optional(),
     channel: http.channelFieldZ
       .extend({ pointer: json.pointerZ })

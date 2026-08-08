@@ -1291,5 +1291,24 @@ describe("openStreamer", () => {
       expect(onOpen).toHaveBeenCalledTimes(1);
       await streamer.close();
     });
+
+    it("resolves a close that outraces a failing open", async () => {
+      let rejectOpen!: (e: Error) => void;
+      const streamer = createStreamer(
+        createStreamerArgs({
+          openStreamer: async () =>
+            await new Promise((_, reject) => {
+              rejectOpen = reject;
+            }),
+        }),
+      );
+      const demanded = streamer.demand().catch((e: unknown) => e);
+      const closing = streamer.close();
+      rejectOpen(new Error("cluster unreachable"));
+      // The open's failure belongs to the demander alone; the close has
+      // nothing to tear down and must not re-report it.
+      await expect(closing).resolves.toBeUndefined();
+      expect(await demanded).toBeInstanceOf(Error);
+    });
   });
 });
