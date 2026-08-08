@@ -30,7 +30,7 @@ class RegisterValue(BaseModel):
         swap_words: Is true when the word order of multi-register values is swapped.
     """
 
-    data_type: telem.DataType = "uint8"
+    data_type: telem.DataType = telem.DataType("uint8")
     swap_bytes: bool = False
     swap_words: bool = False
 

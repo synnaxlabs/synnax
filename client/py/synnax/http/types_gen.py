@@ -152,7 +152,7 @@ class ReadField(BaseModel):
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     pointer: str = ""
-    data_type: telem.DataType = "float64"
+    data_type: telem.DataType = telem.DataType("float64")
     timestamp_format: TimeFormat | None = None
     enum_values: list[EnumEntry] | None = None
 
@@ -181,7 +181,7 @@ class ChannelField(BaseModel):
     json_type: JSONType = "number"
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     name: str = ""
-    data_type: telem.DataType = "float64"
+    data_type: telem.DataType = telem.DataType("float64")
     time_format: TimeFormat | None = None
     enum_values: list[EnumEntry] | None = None
 
