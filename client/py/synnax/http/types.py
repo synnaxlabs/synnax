@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from synnax import channel as channel_
 from synnax import device, task
+from synnax.task import client as task_client
 
 MAKE = "http"
 MODEL = "HTTP server"
@@ -115,7 +116,7 @@ class ReadEndpoint(BaseModel):
         super().__init__(**data)
 
 
-class ReadTaskConfig(task.BaseConfig):
+class ReadTaskConfig(task_client.BaseConfig):
     """Configuration for an HTTP read (polling) task."""
 
     device: str
@@ -125,7 +126,7 @@ class ReadTaskConfig(task.BaseConfig):
     endpoints: list[ReadEndpoint]
 
 
-class WriteTaskConfig(task.BaseConfig):
+class WriteTaskConfig(task_client.BaseConfig):
     """Configuration for an HTTP write task."""
 
     device: str

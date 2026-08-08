@@ -10,6 +10,7 @@
 from pydantic import BaseModel, Field, model_validator
 
 from synnax import task
+from synnax.task import client as task_client
 
 
 class AlertConfig(BaseModel):
@@ -35,7 +36,7 @@ class AlertConfig(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-class AlertTaskConfig(task.BaseConfig):
+class AlertTaskConfig(task_client.BaseConfig):
     """Configuration for a PagerDuty alert task.
 
     :param routing_key: The 32-character Integration Key for a PagerDuty service

@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from synnax import channel as channel_
 from synnax import device, task
+from synnax.task import client as task_client
 from synnax.telem import CrudeRate
 
 # Device identifiers - must match Console expectations
@@ -381,7 +382,7 @@ class HoldingRegisterOutputChan(BaseChan):
 OutputChan = CoilOutputChan | HoldingRegisterOutputChan
 
 
-class ReadTaskConfig(task.BaseReadConfig):
+class ReadTaskConfig(task_client.BaseReadConfig):
     """Configuration for a Modbus TCP read task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
@@ -404,7 +405,7 @@ class ReadTaskConfig(task.BaseReadConfig):
         return v
 
 
-class WriteTaskConfig(task.BaseWriteConfig):
+class WriteTaskConfig(task_client.BaseWriteConfig):
     """Configuration for a Modbus TCP write task.
 
     Inherits common write task fields (device, auto_start) from

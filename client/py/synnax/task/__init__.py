@@ -8,9 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.task.client import (
-    BaseConfig,
-    BaseReadConfig,
-    BaseWriteConfig,
     Client,
     JSONConfigMixin,
     Protocol,
@@ -19,6 +16,9 @@ from synnax.task.client import (
 )
 from synnax.task.types_gen import (
     ONTOLOGY_TYPE,
+    BaseConfig,
+    BaseReadConfig,
+    BaseWriteConfig,
     ConfigRecord,
     Key,
     Payload,
