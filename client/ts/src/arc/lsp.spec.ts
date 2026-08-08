@@ -173,7 +173,7 @@ describe("Arc LSP", () => {
     expect(diagMsg.jsonrpc).toBe("2.0");
 
     stream.closeSend();
-    client.close();
+    await client.close();
   });
 
   it("should handle hover request", async () => {
@@ -240,7 +240,7 @@ describe("Arc LSP", () => {
       throw new Error(`LSP error: ${responseMsg.error.message}`);
 
     stream.closeSend();
-    client.close();
+    await client.close();
   });
 
   it("should handle multiple concurrent messages", async () => {
@@ -303,7 +303,7 @@ describe("Arc LSP", () => {
     }
 
     stream.closeSend();
-    client.close();
+    await client.close();
   });
 
   it("should properly encode and decode JSON-RPC messages without headers", async () => {
@@ -326,7 +326,7 @@ describe("Arc LSP", () => {
     if ("error" in parsed) expect(parsed.error).toBeDefined();
 
     stream.closeSend();
-    client.close();
+    await client.close();
   });
 
   it("should provide semantic tokens for Arc code", async () => {
@@ -415,7 +415,7 @@ describe("Arc LSP", () => {
     }
 
     stream.closeSend();
-    client.close();
+    await client.close();
   });
 
   describe("Block Expression Wrapping", () => {
@@ -478,7 +478,7 @@ describe("Arc LSP", () => {
       }
 
       stream.closeSend();
-      client.close();
+      await client.close();
     });
 
     it("should provide correct diagnostics for block with syntax error", async () => {
@@ -545,7 +545,7 @@ describe("Arc LSP", () => {
       }
 
       stream.closeSend();
-      client.close();
+      await client.close();
     });
 
     it("should handle multi-line block expressions", async () => {
@@ -606,7 +606,7 @@ describe("Arc LSP", () => {
       }
 
       stream.closeSend();
-      client.close();
+      await client.close();
     });
 
     it("should handle textDocument/didChange for block expressions", async () => {
@@ -678,7 +678,7 @@ describe("Arc LSP", () => {
       }
 
       stream.closeSend();
-      client.close();
+      await client.close();
     });
 
     it("should reject non-block URIs without metadata", async () => {
@@ -739,7 +739,7 @@ describe("Arc LSP", () => {
       }
 
       stream.closeSend();
-      client.close();
+      await client.close();
     });
   });
 });
