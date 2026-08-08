@@ -271,9 +271,9 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueDefaultsEmpty) {
     };
     auto ctx = std::make_shared<task::MockContext>(client);
     auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(ctx, task));
-    ASSERT_TRUE(cfg.endpoints[0].headers.has_value());
-    EXPECT_EQ(cfg.endpoints[0].headers->at(0).name, "X-Key");
-    EXPECT_EQ(cfg.endpoints[0].headers->at(0).value, "");
+    ASSERT_EQ(cfg.endpoints[0].headers.size(), 1);
+    EXPECT_EQ(cfg.endpoints[0].headers.at(0).name, "X-Key");
+    EXPECT_EQ(cfg.endpoints[0].headers.at(0).value, "");
 }
 
 /// @brief it should fail when a query_params entry is missing the parameter field.
