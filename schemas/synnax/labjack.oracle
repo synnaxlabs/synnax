@@ -220,16 +220,16 @@ ReadConfig struct extends task.BaseReadConfig {
     channels                          InputChannel[] {
         @doc value "are the input channels the task acquires."
     }
-    device_scan_backlog_warn_on_count uint32?        {
+    device_scan_backlog_warn_on_count uint32 = 0 {
         @doc value """
             is the device-side scan backlog above which the task reports a skew
-            warning. Defaults to two seconds of scans.
+            warning. Zero lets the driver pick two seconds of scans.
         """
     }
-    ljm_scan_backlog_warn_on_count    uint32?        {
+    ljm_scan_backlog_warn_on_count    uint32 = 0 {
         @doc value """
             is the LJM-side scan backlog above which the task reports a skew
-            warning. Defaults to one second of scans.
+            warning. Zero lets the driver pick one second of scans.
         """
     }
 
