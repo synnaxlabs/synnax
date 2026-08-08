@@ -44,10 +44,9 @@ std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_sour
     requests.reserve(cfg.endpoints.size());
     for (const auto &ep: cfg.endpoints) {
         auto req_cfg = request_config(ep);
-        const auto body = ep.body.value_or("");
-        if (!body.empty()) req_cfg.request_content_type = "application/json";
+        if (!ep.body.empty()) req_cfg.request_content_type = "application/json";
         auto req = device::build_request(conn, req_cfg);
-        req.body = body;
+        req.body = ep.body;
         requests.push_back(std::move(req));
     }
 
@@ -313,6 +312,30 @@ TEST(HTTPReadTask, ParseConfigOmittedHeadersDefaultsEmpty) {
     ASSERT_NIL(err);
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].headers.empty());
+}
+
+/// @brief an endpoint that omits body should parse to an empty body.
+TEST(HTTPReadTask, ParseConfigOmittedBodyDefaultsEmpty) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [cfg, err] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_NIL(err);
+    ASSERT_EQ(cfg.endpoints.size(), 1);
+    ASSERT_TRUE(cfg.endpoints[0].body.empty());
 }
 
 /// @brief a field that omits enum_values should parse to an empty list.
@@ -1541,7 +1564,7 @@ TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
     std::vector<Request> requests;
     for (const auto &e: cfg.endpoints) {
         auto req = device::build_request(conn, request_config(e));
-        req.body = e.body.value_or("");
+        req.body = e.body;
         requests.push_back(std::move(req));
     }
 

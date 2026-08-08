@@ -136,8 +136,8 @@ type ReadEndpoint struct {
 	Headers []Header `json:"headers,omitzero" msgpack:"headers,omitzero"`
 	// QueryParams contains query parameters appended to the request URL.
 	QueryParams []QueryParam `json:"query_params,omitzero" msgpack:"query_params,omitzero"`
-	// Body is an optional static body sent with each request.
-	Body *string `json:"body,omitempty" msgpack:"body,omitempty"`
+	// Body is a static body sent with each request. Empty sends no body.
+	Body string `json:"body" msgpack:"body"`
 	// Fields contains the values to extract from the response.
 	Fields []ReadField `json:"fields,omitzero" msgpack:"fields,omitzero"`
 	// Index is the key of the field whose channel indexes the others. Absent when the
