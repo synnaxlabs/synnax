@@ -12,7 +12,7 @@ import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Editor, type EditorHandle } from "@/code/Editor";
-import { type EditorExtension, type Language } from "@/code/language";
+import { BASE_THEMES, type EditorExtension, type Language } from "@/code/language";
 import { Triggers } from "@/triggers";
 
 const ESCAPE: Triggers.Trigger = ["Escape"];
@@ -419,8 +419,8 @@ describe("Editor", () => {
         theme: { semanticTokenColors: { dark: {}, light: {} } },
       } satisfies Language);
       renderEditor();
-      expect(monaco.editor.create.mock.calls[0][1].theme).toEqual("Default Light+");
-      expect(monaco.editor.setTheme).toHaveBeenCalledWith("Default Light+");
+      expect(monaco.editor.create.mock.calls[0][1].theme).toEqual(BASE_THEMES.light);
+      expect(monaco.editor.setTheme).toHaveBeenCalledWith(BASE_THEMES.light);
     });
   });
 
