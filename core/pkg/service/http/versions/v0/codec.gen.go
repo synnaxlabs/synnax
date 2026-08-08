@@ -267,16 +267,14 @@ func (re ReadEndpoint) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
+	w.Bool(re.QueryParams != nil)
 	if re.QueryParams != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(re.QueryParams)))
-		for j := range re.QueryParams {
-			if err := re.QueryParams[j].EncodeOrc(w); err != nil {
+		for i := range re.QueryParams {
+			if err := re.QueryParams[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
 	if re.Body != nil {
 		w.Bool(true)
@@ -347,8 +345,8 @@ func (re *ReadEndpoint) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			re.QueryParams = make([]QueryParam, n)
-			for j := range re.QueryParams {
-				if err = re.QueryParams[j].DecodeOrc(r); err != nil {
+			for i := range re.QueryParams {
+				if err = re.QueryParams[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -588,16 +586,14 @@ func (we WriteEndpoint) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
+	w.Bool(we.QueryParams != nil)
 	if we.QueryParams != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(we.QueryParams)))
-		for j := range we.QueryParams {
-			if err := we.QueryParams[j].EncodeOrc(w); err != nil {
+		for i := range we.QueryParams {
+			if err := we.QueryParams[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
 	if err := we.Channel.EncodeOrc(w); err != nil {
 		return err
@@ -662,8 +658,8 @@ func (we *WriteEndpoint) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			we.QueryParams = make([]QueryParam, n)
-			for j := range we.QueryParams {
-				if err = we.QueryParams[j].DecodeOrc(r); err != nil {
+			for i := range we.QueryParams {
+				if err = we.QueryParams[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
