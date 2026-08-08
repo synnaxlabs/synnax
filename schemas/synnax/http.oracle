@@ -134,8 +134,8 @@ ReadEndpoint struct {
     query_params QueryParam[] {
         @doc value "contains query parameters appended to the request URL."
     }
-    body         string?      {
-        @doc value "is an optional static body sent with each request."
+    body         string = "" {
+        @doc value "is a static body sent with each request. Empty sends no body."
     }
     fields       ReadField[]  {
         @doc value "contains the values to extract from the response."
