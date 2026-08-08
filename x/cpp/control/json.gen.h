@@ -79,7 +79,10 @@ x::json::json Transfer<R>::to_json() const {
 template<typename R>
 Update<R> Update<R>::parse(x::json::Parser parser) {
     return Update<R>{
-        .transfers = parser.field<std::vector<Transfer<R>>>("transfers"),
+        .transfers = parser.field<std::vector<Transfer<R>>>(
+            "transfers",
+            std::vector<Transfer<R>>{}
+        ),
     };
 }
 

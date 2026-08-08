@@ -574,9 +574,10 @@ func (p *Plugin) parseExprForField(
 				)
 			}
 			return fmt.Sprintf(
-				`parser.field<std::vector<%s>>("%s")`,
+				`parser.field<std::vector<%s>>("%s", std::vector<%s>{})`,
 				elemType.TypeParam.Name,
 				jsonName,
+				elemType.TypeParam.Name,
 			)
 		}
 
@@ -615,9 +616,10 @@ func (p *Plugin) parseExprForField(
 					)
 				}
 				return fmt.Sprintf(
-					`parser.field<std::vector<%s>>("%s")`,
+					`parser.field<std::vector<%s>>("%s", std::vector<%s>{})`,
 					structType,
 					jsonName,
+					structType,
 				)
 			}
 			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
@@ -633,10 +635,11 @@ func (p *Plugin) parseExprForField(
 				return fmt.Sprintf(
 					`[&] {
         std::vector<%s> result;
-        parser.iter("%s", [&result](x::json::Parser& p) { result.push_back(%s(p)); });
+        if (parser.has("%s"))
+            parser.iter("%s", [&result](x::json::Parser& p) { result.push_back(%s(p)); });
         return result;
     }()`,
-					innerType, jsonName, parseFn,
+					innerType, jsonName, jsonName, parseFn,
 				)
 			}
 		}
@@ -648,7 +651,12 @@ func (p *Plugin) parseExprForField(
 				jsonName,
 			)
 		}
-		return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, innerType, jsonName)
+		return fmt.Sprintf(
+			`parser.field<std::vector<%s>>("%s", std::vector<%s>{})`,
+			innerType,
+			jsonName,
+			innerType,
+		)
 	}
 
 	resolved, resolvedOk := typeRef.Resolve(data.table)
