@@ -177,10 +177,8 @@ struct BridgeConfig {
 };
 
 struct PolynomialConfig {
-    float64 *forward_coeffs;
-    const uint32_t num_forward_coeffs;
-    float64 *reverse_coeffs;
-    const uint32_t num_reverse_coeffs;
+    std::vector<double> forward_coeffs;
+    std::vector<double> reverse_coeffs;
     int32_t electrical_units;
     int32_t physical_units;
 
@@ -188,53 +186,25 @@ struct PolynomialConfig {
         const ::synnax::ni::BridgePolynomial &b,
         const std::string &physical_units_str
     ):
-        num_forward_coeffs(static_cast<uint32_t>(b.forward_coeffs.size())),
-        num_reverse_coeffs(static_cast<uint32_t>(b.reverse_coeffs.size())) {
+        forward_coeffs(b.forward_coeffs), reverse_coeffs(b.reverse_coeffs) {
         const auto eu = channel::UNITS_MAP.find(b.electrical_units);
         electrical_units = eu == channel::UNITS_MAP.end() ? DAQmx_Val_Volts
                                                           : eu->second;
         const auto pu = channel::UNITS_MAP.find(physical_units_str);
         physical_units = pu == channel::UNITS_MAP.end() ? DAQmx_Val_Volts : pu->second;
-        forward_coeffs = new double[num_forward_coeffs];
-        reverse_coeffs = new double[num_reverse_coeffs];
-        for (uint32_t i = 0; i < num_forward_coeffs; i++)
-            forward_coeffs[i] = b.forward_coeffs[i];
-        for (uint32_t i = 0; i < num_reverse_coeffs; i++)
-            reverse_coeffs[i] = b.reverse_coeffs[i];
-    }
-
-    ~PolynomialConfig() {
-        delete[] forward_coeffs;
-        delete[] reverse_coeffs;
     }
 };
 
 struct TableConfig {
-    float64 *electrical_vals;
-    uint32_t num_electrical_vals;
-    float64 *physical_vals;
-    uint32_t num_physical_vals;
+    std::vector<double> electrical_vals;
+    std::vector<double> physical_vals;
     int32_t electrical_units;
     int32_t physical_units;
 
-    TableConfig() = default;
-
-    TableConfig(const ::synnax::ni::Table &t, const std::string &physical_units_str) {
+    TableConfig(const ::synnax::ni::Table &t, const std::string &physical_units_str):
+        electrical_vals(t.electrical_vals), physical_vals(t.physical_vals) {
         electrical_units = units_or_volts(t.electrical_units);
         physical_units = units_or_volts(physical_units_str);
-        num_electrical_vals = t.electrical_vals.size();
-        electrical_vals = new double[num_electrical_vals];
-        for (uint32_t i = 0; i < num_electrical_vals; i++)
-            electrical_vals[i] = t.electrical_vals[i];
-        num_physical_vals = t.physical_vals.size();
-        physical_vals = new double[num_physical_vals];
-        for (uint32_t i = 0; i < num_physical_vals; i++)
-            physical_vals[i] = t.physical_vals[i];
-    }
-
-    ~TableConfig() {
-        delete[] electrical_vals;
-        delete[] physical_vals;
     }
 };
 
@@ -323,12 +293,12 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto sensitivity = ch.sensitivity;
-    const auto [sensitivity_units, sensitivity_units_err] = ni_units(
+    const auto [sensitivity_units, sensitivity_units_err] = parse_units(
         ch.sensitivity_units
     );
     if (sensitivity_units_err) return sensitivity_units_err;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -366,12 +336,12 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto sensitivity = ch.sensitivity;
-    const auto [sensitivity_units, sensitivity_units_err] = ni_units(
+    const auto [sensitivity_units, sensitivity_units_err] = parse_units(
         ch.sensitivity_units
     );
     if (sensitivity_units_err) return sensitivity_units_err;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -406,12 +376,12 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto sensitivity = ch.sensitivity;
-    const auto [sensitivity_units, sensitivity_units_err] = ni_units(
+    const auto [sensitivity_units, sensitivity_units_err] = parse_units(
         ch.sensitivity_units
     );
     if (sensitivity_units_err) return sensitivity_units_err;
     const auto terminal_config = DAQmx_Val_Cfg_Default;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -443,7 +413,7 @@ inline x::errors::Error apply(
     const BridgeConfig bridge_config(ch, ch);
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -476,7 +446,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -508,7 +478,7 @@ inline x::errors::Error apply(
     const auto min_val = ch.min_val;
     const auto shunt_resistor_loc = get_shunt_resistor_loc(ch.shunt_resistor_loc);
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -542,7 +512,7 @@ inline x::errors::Error apply(
     const auto min_val = ch.min_val;
     const auto shunt_resistor_loc = get_shunt_resistor_loc(ch.shunt_resistor_loc);
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -575,7 +545,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const PolynomialConfig polynomial_config(ch, ch.physical_units);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -592,10 +562,10 @@ inline x::errors::Error apply(
         bridge_config.voltage_excit_source,
         bridge_config.voltage_excit_val,
         bridge_config.nominal_bridge_resistance,
-        polynomial_config.forward_coeffs,
-        polynomial_config.num_forward_coeffs,
-        polynomial_config.reverse_coeffs,
-        polynomial_config.num_reverse_coeffs,
+        polynomial_config.forward_coeffs.data(),
+        polynomial_config.forward_coeffs.size(),
+        polynomial_config.reverse_coeffs.data(),
+        polynomial_config.reverse_coeffs.size(),
         polynomial_config.electrical_units,
         polynomial_config.physical_units,
         scale_key
@@ -615,7 +585,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const TableConfig table_config(ch, ch.physical_units);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -632,11 +602,11 @@ inline x::errors::Error apply(
         bridge_config.voltage_excit_source,
         bridge_config.voltage_excit_val,
         bridge_config.nominal_bridge_resistance,
-        table_config.electrical_vals,
-        table_config.num_electrical_vals,
+        table_config.electrical_vals.data(),
+        table_config.electrical_vals.size(),
         table_config.electrical_units,
-        table_config.physical_vals,
-        table_config.num_physical_vals,
+        table_config.physical_vals.data(),
+        table_config.physical_vals.size(),
         table_config.physical_units,
         scale_key
     );
@@ -655,7 +625,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const TwoPointLinConfig two_point_lin_config(ch, ch.physical_units);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -697,12 +667,12 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto sensitivity = ch.sensitivity;
-    const auto [sensitivity_units, sensitivity_units_err] = ni_units(
+    const auto [sensitivity_units, sensitivity_units_err] = parse_units(
         ch.sensitivity_units
     );
     if (sensitivity_units_err) return sensitivity_units_err;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -736,7 +706,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto threshold_level = ch.threshold_level;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -771,7 +741,7 @@ inline x::errors::Error apply(
     const auto max_snd_press_level = ch.max_snd_press_level;
     const auto mic_sensitivity = ch.mic_sensitivity;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -804,7 +774,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const PolynomialConfig polynomial_config(ch, ch.physical_units);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -821,10 +791,10 @@ inline x::errors::Error apply(
         bridge_config.voltage_excit_source,
         bridge_config.voltage_excit_val,
         bridge_config.nominal_bridge_resistance,
-        polynomial_config.forward_coeffs,
-        polynomial_config.num_forward_coeffs,
-        polynomial_config.reverse_coeffs,
-        polynomial_config.num_reverse_coeffs,
+        polynomial_config.forward_coeffs.data(),
+        polynomial_config.forward_coeffs.size(),
+        polynomial_config.reverse_coeffs.data(),
+        polynomial_config.reverse_coeffs.size(),
         polynomial_config.electrical_units,
         polynomial_config.physical_units,
         scale_key
@@ -844,7 +814,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const TableConfig table_config(ch, ch.physical_units);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -861,11 +831,11 @@ inline x::errors::Error apply(
         bridge_config.voltage_excit_source,
         bridge_config.voltage_excit_val,
         bridge_config.nominal_bridge_resistance,
-        table_config.electrical_vals,
-        table_config.num_electrical_vals,
+        table_config.electrical_vals.data(),
+        table_config.electrical_vals.size(),
         table_config.electrical_units,
-        table_config.physical_vals,
-        table_config.num_physical_vals,
+        table_config.physical_vals.data(),
+        table_config.physical_vals.size(),
         table_config.physical_units,
         scale_key
     );
@@ -884,7 +854,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const TwoPointLinConfig two_point_lin_config(ch, ch.physical_units);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -926,7 +896,7 @@ inline x::errors::Error apply(
     const auto r0 = ch.r_0;
     const auto resistance_config = parse_resistance_config(ch.resistance_config);
     const auto rtd_type = get_rtd_type(ch.rtd_type);
-    const auto [units, units_err] = ni_units(ch.units);
+    const auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     return dmx->CreateAIRTDChan(
         task_handle,
@@ -958,7 +928,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto resistance_config = parse_resistance_config(ch.resistance_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1044,7 +1014,7 @@ inline x::errors::Error apply(
     const auto nominal_gage_resistance = ch.nominal_gage_resistance;
     const auto poisson_ratio = ch.poisson_ratio;
     const auto strain_config = get_strain_config(ch.strain_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1075,7 +1045,7 @@ inline x::errors::Error apply(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     const TaskHandle task_handle
 ) {
-    const auto [units, units_err] = ni_units(ch.units);
+    const auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     const auto i_name = ctx.dev_loc + "/_boardTempSensor_vs_aignd";
     return dmx->CreateAITempBuiltInSensorChan(
@@ -1102,7 +1072,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto resistance_config = parse_resistance_config(ch.resistance_config);
-    const auto [units, units_err] = ni_units(ch.units);
+    const auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     return dmx->CreateAIThrmstrChanIex(
         task_handle,
@@ -1112,8 +1082,8 @@ inline x::errors::Error apply(
         max_val,
         units,
         resistance_config,
-        excitation_config.source, // current excitation source FIXME
-        excitation_config.val, // current excitation val FIXME
+        excitation_config.source,
+        excitation_config.val,
         a,
         b,
         c
@@ -1137,7 +1107,7 @@ inline x::errors::Error apply(
     const auto min_val = ch.min_val;
     const auto r1 = ch.r_1;
     const auto resistance_config = parse_resistance_config(ch.resistance_config);
-    const auto [units, units_err] = ni_units(ch.units);
+    const auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     return dmx->CreateAIThrmstrChanVex(
         task_handle,
@@ -1147,8 +1117,8 @@ inline x::errors::Error apply(
         max_val,
         units,
         resistance_config,
-        excitation_config.source, // current excitation source FIXME
-        excitation_config.val, // current excitation val FIXME
+        excitation_config.source,
+        excitation_config.val,
         a,
         b,
         c,
@@ -1169,7 +1139,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const PolynomialConfig polynomial_config(ch, ch.physical_units);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1186,10 +1156,10 @@ inline x::errors::Error apply(
         bridge_config.voltage_excit_source,
         bridge_config.voltage_excit_val,
         bridge_config.nominal_bridge_resistance,
-        polynomial_config.forward_coeffs,
-        polynomial_config.num_forward_coeffs,
-        polynomial_config.reverse_coeffs,
-        polynomial_config.num_reverse_coeffs,
+        polynomial_config.forward_coeffs.data(),
+        polynomial_config.forward_coeffs.size(),
+        polynomial_config.reverse_coeffs.data(),
+        polynomial_config.reverse_coeffs.size(),
         polynomial_config.electrical_units,
         polynomial_config.physical_units,
         scale_key
@@ -1209,7 +1179,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const TableConfig table_config(ch, ch.physical_units);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1226,11 +1196,11 @@ inline x::errors::Error apply(
         bridge_config.voltage_excit_source,
         bridge_config.voltage_excit_val,
         bridge_config.nominal_bridge_resistance,
-        table_config.electrical_vals,
-        table_config.num_electrical_vals,
+        table_config.electrical_vals.data(),
+        table_config.electrical_vals.size(),
         table_config.electrical_units,
-        table_config.physical_vals,
-        table_config.num_physical_vals,
+        table_config.physical_vals.data(),
+        table_config.physical_vals.size(),
         table_config.physical_units,
         scale_key
     );
@@ -1249,7 +1219,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const TwoPointLinConfig two_point_lin_config(ch, ch.physical_units);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1291,12 +1261,12 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto sensitivity = ch.sensitivity;
-    const auto [sensitivity_units, sensitivity_units_err] = ni_units(
+    const auto [sensitivity_units, sensitivity_units_err] = parse_units(
         ch.sensitivity_units
     );
     if (sensitivity_units_err) return sensitivity_units_err;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1330,7 +1300,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1360,7 +1330,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1392,7 +1362,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto terminal_config = parse_terminal_config(ch.terminal_config);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1425,7 +1395,7 @@ inline x::errors::Error apply(
     if (scale_err) return scale_err;
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1475,7 +1445,7 @@ inline x::errors::Error apply(
     if (scale_err) return scale_err;
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1507,7 +1477,7 @@ inline x::errors::Error apply(
     const auto terminal_a = ch.terminal_a;
     const auto terminal_b = ch.terminal_b;
     const auto terminal_z = ch.terminal_z;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     const auto z_index_enable = ch.z_index_enable;
@@ -1581,7 +1551,7 @@ inline x::errors::Error apply(
     const auto pulses_per_rev = static_cast<uint32_t>(ch.pulses_per_rev);
     const auto terminal_a = ch.terminal_a;
     const auto terminal_b = ch.terminal_b;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1714,7 +1684,7 @@ inline x::errors::Error apply(
     const auto meas_time = ch.meas_time;
     const auto min_val = ch.min_val;
     const auto terminal = ch.terminal;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1763,7 +1733,7 @@ inline x::errors::Error apply(
     const auto terminal_a = ch.terminal_a;
     const auto terminal_b = ch.terminal_b;
     const auto terminal_z = ch.terminal_z;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     const auto z_index_enable = ch.z_index_enable;
@@ -1837,7 +1807,7 @@ inline x::errors::Error apply(
     const auto min_val = ch.min_val;
     const auto terminal_a = ch.terminal_a;
     const auto terminal_b = ch.terminal_b;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1896,7 +1866,7 @@ inline x::errors::Error apply(
     const auto meas_time = ch.meas_time;
     const auto min_val = ch.min_val;
     const auto terminal = ch.terminal;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1943,7 +1913,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto terminal = ch.terminal;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -1986,7 +1956,7 @@ inline x::errors::Error apply(
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const std::string terminal;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -2031,7 +2001,7 @@ inline x::errors::Error apply(
     const auto min_val = ch.min_val;
     const auto second_edge = get_ci_edge(ch.second_edge);
     const std::string second_terminal;
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
     auto [key, key_err] = scale->apply(dmx);
@@ -2113,7 +2083,7 @@ inline x::errors::Error apply(
     const TaskHandle task_handle
 ) {
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
-    auto [units, units_err] = ni_units(ch.units);
+    auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     const auto cjc_port = format_cjc_port(ctx.cfg_path, ch.cjc_port.value_or(0));
     return dmx->CreateAIThrmcplChan(

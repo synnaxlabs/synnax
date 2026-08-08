@@ -75,7 +75,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Ontology:        cfg.Ontology,
 		Instrumentation: cfg.Instrumentation,
 	}
-	if s.Alert, err = common.OpenConfigService[TaskConfig, *TaskConfig](
+	if s.Alert, err = common.OpenConfigService[TaskConfig](
 		ctx,
 		base,
 		common.ConfigServiceConfig{Type: ontology.ResourceTypePagerdutyAlert},
