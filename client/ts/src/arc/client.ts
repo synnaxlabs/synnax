@@ -283,7 +283,9 @@ export class Client extends query.Retriever<
    * @throws {ValidationError} when the task is running.
    */
   async undeploy(key: Key): Promise<void> {
+    const tsk = await this.retrieveTask(key);
     await this.deploy(key, 0);
+    if (tsk != null) this.cfg.tasks.dropCached(tsk.key);
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
