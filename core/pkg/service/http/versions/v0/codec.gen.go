@@ -258,16 +258,14 @@ func (re ReadEndpoint) EncodeOrc(w *orc.Writer) error {
 	w.String(re.Key)
 	w.String(string(re.Method))
 	w.String(re.Path)
+	w.Bool(re.Headers != nil)
 	if re.Headers != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(re.Headers)))
-		for j := range re.Headers {
-			if err := re.Headers[j].EncodeOrc(w); err != nil {
+		for i := range re.Headers {
+			if err := re.Headers[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
 	if re.QueryParams != nil {
 		w.Bool(true)
@@ -331,8 +329,8 @@ func (re *ReadEndpoint) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			re.Headers = make([]Header, n)
-			for j := range re.Headers {
-				if err = re.Headers[j].DecodeOrc(r); err != nil {
+			for i := range re.Headers {
+				if err = re.Headers[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -568,16 +566,14 @@ func (we WriteEndpoint) EncodeOrc(w *orc.Writer) error {
 	w.Bool(we.Disabled)
 	w.String(string(we.Method))
 	w.String(we.Path)
+	w.Bool(we.Headers != nil)
 	if we.Headers != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(we.Headers)))
-		for j := range we.Headers {
-			if err := we.Headers[j].EncodeOrc(w); err != nil {
+		for i := range we.Headers {
+			if err := we.Headers[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
 	if we.QueryParams != nil {
 		w.Bool(true)
@@ -635,8 +631,8 @@ func (we *WriteEndpoint) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			we.Headers = make([]Header, n)
-			for j := range we.Headers {
-				if err = we.Headers[j].DecodeOrc(r); err != nil {
+			for i := range we.Headers {
+				if err = we.Headers[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}

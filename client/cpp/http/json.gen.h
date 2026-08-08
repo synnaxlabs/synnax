@@ -105,12 +105,15 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key", ""),
         .method = parser.field<std::string>("method", "GET"),
         .path = parser.field<std::string>("path", ""),
-        .headers = parser.field<std::optional<std::vector<Header>>>("headers"),
+        .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
         .query_params = parser.field<std::optional<std::vector<QueryParam>>>(
             "query_params"
         ),
         .body = parser.field<std::optional<std::string>>("body"),
-        .fields = parser.field<std::vector<ReadField>>("fields"),
+        .fields = parser.field<std::vector<ReadField>>(
+            "fields",
+            std::vector<ReadField>{}
+        ),
         .index = parser.field<std::optional<std::string>>("index"),
     };
 }
@@ -120,7 +123,7 @@ inline x::json::json ReadEndpoint::to_json() const {
     j["key"] = this->key;
     j["method"] = this->method;
     j["path"] = this->path;
-    if (this->headers.has_value()) j["headers"] = x::json::to_array(*this->headers);
+    j["headers"] = x::json::to_array(this->headers);
     if (this->query_params.has_value())
         j["query_params"] = x::json::to_array(*this->query_params);
     j["body"] = this->body;
@@ -136,7 +139,10 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ) = ::synnax::common::BaseConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.rate = parser.field<::x::telem::Rate>("rate", x::telem::Rate(1));
-    result.endpoints = parser.field<std::vector<ReadEndpoint>>("endpoints");
+    result.endpoints = parser.field<std::vector<ReadEndpoint>>(
+        "endpoints",
+        std::vector<ReadEndpoint>{}
+    );
     return result;
 }
 
@@ -200,16 +206,17 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
         .disabled = parser.field<bool>("disabled", false),
         .method = parser.field<std::string>("method", "POST"),
         .path = parser.field<std::string>("path", ""),
-        .headers = parser.field<std::optional<std::vector<Header>>>("headers"),
+        .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
         .query_params = parser.field<std::optional<std::vector<QueryParam>>>(
             "query_params"
         ),
         .channel = parser.field<ChannelField>("channel"),
         .fields = [&] {
             std::vector<WriteField> result;
-            parser.iter("fields", [&result](x::json::Parser &p) {
-                result.push_back(parse_write_field(p));
-            });
+            if (parser.has("fields"))
+                parser.iter("fields", [&result](x::json::Parser &p) {
+                    result.push_back(parse_write_field(p));
+                });
             return result;
         }(),
     };
@@ -221,7 +228,7 @@ inline x::json::json WriteEndpoint::to_json() const {
     j["disabled"] = this->disabled;
     j["method"] = this->method;
     j["path"] = this->path;
-    if (this->headers.has_value()) j["headers"] = x::json::to_array(*this->headers);
+    j["headers"] = x::json::to_array(this->headers);
     if (this->query_params.has_value())
         j["query_params"] = x::json::to_array(*this->query_params);
     j["channel"] = this->channel.to_json();
@@ -241,7 +248,10 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     ) = ::synnax::common::ConfigRecord::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.auto_start = parser.field<bool>("auto_start", false);
-    result.endpoints = parser.field<std::vector<WriteEndpoint>>("endpoints");
+    result.endpoints = parser.field<std::vector<WriteEndpoint>>(
+        "endpoints",
+        std::vector<WriteEndpoint>{}
+    );
     return result;
 }
 
