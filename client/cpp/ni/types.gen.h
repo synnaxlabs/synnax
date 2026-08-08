@@ -102,10 +102,10 @@ constexpr const char *RESISTANCE_CONFIG_WIRE_2 = "2Wire";
 constexpr const char *RESISTANCE_CONFIG_WIRE_3 = "3Wire";
 constexpr const char *RESISTANCE_CONFIG_WIRE_4 = "4Wire";
 
-constexpr const char *CIZ_INDEX_PHASE_A_HIGH_B_HIGH = "AHighBHigh";
-constexpr const char *CIZ_INDEX_PHASE_A_HIGH_B_LOW = "AHighBLow";
-constexpr const char *CIZ_INDEX_PHASE_A_LOW_B_HIGH = "ALowBHigh";
-constexpr const char *CIZ_INDEX_PHASE_A_LOW_B_LOW = "ALowBLow";
+constexpr const char *Z_INDEX_PHASE_A_HIGH_B_HIGH = "AHighBHigh";
+constexpr const char *Z_INDEX_PHASE_A_HIGH_B_LOW = "AHighBLow";
+constexpr const char *Z_INDEX_PHASE_A_LOW_B_HIGH = "ALowBHigh";
+constexpr const char *Z_INDEX_PHASE_A_LOW_B_LOW = "ALowBLow";
 
 constexpr const char *ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G = "mVoltsPerG";
 constexpr const char *ACCEL_SENSITIVITY_UNITS_VOLTS_PER_G = "VoltsPerG";
@@ -122,8 +122,8 @@ constexpr const char *SHUNT_RESISTOR_LOCATION_DEFAULT = "Default";
 constexpr const char *SHUNT_RESISTOR_LOCATION_INTERNAL = "Internal";
 constexpr const char *SHUNT_RESISTOR_LOCATION_EXTERNAL = "External";
 
-constexpr const char *FORCE_UNITS_SENSITIVITY_M_VOLTS_PER_NEWTON = "mVoltsPerNewton";
-constexpr const char *FORCE_UNITS_SENSITIVITY_M_VOLTS_PER_POUND = "mVoltsPerPound";
+constexpr const char *FORCE_SENSITIVITY_UNITS_M_VOLTS_PER_NEWTON = "mVoltsPerNewton";
+constexpr const char *FORCE_SENSITIVITY_UNITS_M_VOLTS_PER_POUND = "mVoltsPerPound";
 
 constexpr const char *PRESSURE_UNITS_POUNDS_PER_SQUARE_INCH = "PoundsPerSquareInch";
 constexpr const char *PRESSURE_UNITS_PASCALS = "Pascals";
@@ -170,9 +170,9 @@ constexpr const char *CJC_SOURCE_CHAN = "Chan";
 constexpr const char *VELOCITY_UNITS_METERS_PER_SECOND = "MetersPerSecond";
 constexpr const char *VELOCITY_UNITS_INCHES_PER_SECOND = "InchesPerSecond";
 
-constexpr const char *VELOCITY_UNITS_SENSITIVITY_M_VOLTS_PER_MM_PER_SECOND =
+constexpr const char *VELOCITY_SENSITIVITY_UNITS_M_VOLTS_PER_MM_PER_SECOND =
     "MillivoltsPerMillimeterPerSecond";
-constexpr const char *VELOCITY_UNITS_SENSITIVITY_M_VOLTS_PER_INCH_PER_SECOND =
+constexpr const char *VELOCITY_SENSITIVITY_UNITS_M_VOLTS_PER_INCH_PER_SECOND =
     "MilliVoltsPerInchPerSecond";
 
 constexpr const char *CHARGE_UNITS_COULOMBS = "C";
@@ -560,7 +560,7 @@ struct ZIndex {
     /// @brief z_index_val is the count value the Z index resets to.
     double z_index_val = 0;
     /// @brief z_index_phase selects the A/B states at which the Z index is active.
-    std::string z_index_phase = CIZ_INDEX_PHASE_A_HIGH_B_HIGH;
+    std::string z_index_phase = Z_INDEX_PHASE_A_HIGH_B_HIGH;
     /// @brief terminal_z is the terminal the Z index signal is wired to.
     std::string terminal_z = "";
 
@@ -654,8 +654,8 @@ struct AIVoltageChannel : public BaseAIChannel,
 
 /// @brief AIAccelChannel reads acceleration from an accelerometer.
 struct AIAccelChannel : public BaseAIChannel,
-                        public Terminal,
                         public MinMaxVal,
+                        public Terminal,
                         public Sensitivity,
                         public CurrentExcitation,
                         public CustomScale {
@@ -685,8 +685,8 @@ struct AIBridgeChannel : public BaseAIChannel,
 
 /// @brief AICurrentChannel reads a current.
 struct AICurrentChannel : public BaseAIChannel,
-                          public Terminal,
                           public MinMaxVal,
+                          public Terminal,
                           public CustomScale {
     std::string type = "ai_current";
     /// @brief units are the units of the current measurement.
@@ -737,8 +737,8 @@ struct AIForceBridgeTwoPointLinChannel : public BaseAIChannel,
 
 /// @brief AIForceIEPEChannel reads force from an IEPE sensor.
 struct AIForceIEPEChannel : public BaseAIChannel,
-                            public Terminal,
                             public MinMaxVal,
+                            public Terminal,
                             public Sensitivity,
                             public CurrentExcitation,
                             public CustomScale {
@@ -746,7 +746,7 @@ struct AIForceIEPEChannel : public BaseAIChannel,
     /// @brief units are the units of the force measurement.
     std::string units = FORCE_UNITS_NEWTONS;
     /// @brief sensitivity_units are the units of the IEPE sensor sensitivity.
-    std::string sensitivity_units = FORCE_UNITS_SENSITIVITY_M_VOLTS_PER_NEWTON;
+    std::string sensitivity_units = FORCE_SENSITIVITY_UNITS_M_VOLTS_PER_NEWTON;
 
     static AIForceIEPEChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -928,8 +928,8 @@ struct AITorqueBridgeTwoPointLinChannel : public BaseAIChannel,
 
 /// @brief AIVelocityIEPEChannel reads velocity from an IEPE sensor.
 struct AIVelocityIEPEChannel : public BaseAIChannel,
-                               public Terminal,
                                public MinMaxVal,
+                               public Terminal,
                                public Sensitivity,
                                public CurrentExcitation,
                                public CustomScale {
@@ -938,7 +938,7 @@ struct AIVelocityIEPEChannel : public BaseAIChannel,
     std::string units = VELOCITY_UNITS_METERS_PER_SECOND;
     /// @brief sensitivity_units are the units of the IEPE sensor sensitivity.
     std::string
-        sensitivity_units = VELOCITY_UNITS_SENSITIVITY_M_VOLTS_PER_MM_PER_SECOND;
+        sensitivity_units = VELOCITY_SENSITIVITY_UNITS_M_VOLTS_PER_MM_PER_SECOND;
 
     static AIVelocityIEPEChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1317,6 +1317,8 @@ struct CISemiPeriodChannel : public BaseCIChannel, public CustomScale {
     double max_val = 0.100000;
     /// @brief units are the units of the semi-period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
+    /// @brief terminal is the terminal the counter signal is wired to.
+    std::string terminal = "";
 
     static CISemiPeriodChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1335,6 +1337,10 @@ struct CITwoEdgeSepChannel : public BaseCIChannel, public CustomScale {
     std::string first_edge = CI_EDGE_RISING;
     /// @brief second_edge selects the edge that stops the measurement.
     std::string second_edge = CI_EDGE_FALLING;
+    /// @brief first_terminal is the terminal the first edge's signal is wired to.
+    std::string first_terminal = "";
+    /// @brief second_terminal is the terminal the second edge's signal is wired to.
+    std::string second_terminal = "";
 
     static CITwoEdgeSepChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1508,9 +1514,7 @@ AOChannel parse_ao_channel(x::json::Parser parser);
 /// @brief AnalogReadConfig configures an NI analog read task. Each channel carries its
 /// own device.
 struct AnalogReadConfig : public ::synnax::common::BaseReadConfig {
-    /// @brief channels are the analog input channels the task acquires. Each carries
-    /// its
-    /// own device.
+    /// @brief channels are the analog input channels the task acquires.
     std::vector<AIChannel> channels;
 
     static AnalogReadConfig parse(x::json::Parser parser);

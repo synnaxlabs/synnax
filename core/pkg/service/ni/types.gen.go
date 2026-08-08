@@ -229,19 +229,19 @@ func (s ShuntResistorLocation) IsValid() bool {
 	}
 }
 
-// ForceUnitsSensitivity are the units of a force IEPE sensor's sensitivity rating.
-type ForceUnitsSensitivity string
+// ForceSensitivityUnits are the units of a force IEPE sensor's sensitivity rating.
+type ForceSensitivityUnits string
 
 const (
-	ForceUnitsSensitivityMVoltsPerNewton ForceUnitsSensitivity = "mVoltsPerNewton"
-	ForceUnitsSensitivityMVoltsPerPound  ForceUnitsSensitivity = "mVoltsPerPound"
+	ForceSensitivityUnitsMVoltsPerNewton ForceSensitivityUnits = "mVoltsPerNewton"
+	ForceSensitivityUnitsMVoltsPerPound  ForceSensitivityUnits = "mVoltsPerPound"
 )
 
-// IsValid reports whether f is one of the defined ForceUnitsSensitivity
+// IsValid reports whether f is one of the defined ForceSensitivityUnits
 // values.
-func (f ForceUnitsSensitivity) IsValid() bool {
+func (f ForceSensitivityUnits) IsValid() bool {
 	switch f {
-	case ForceUnitsSensitivityMVoltsPerNewton, ForceUnitsSensitivityMVoltsPerPound:
+	case ForceSensitivityUnitsMVoltsPerNewton, ForceSensitivityUnitsMVoltsPerPound:
 		return true
 	default:
 		return false
@@ -441,20 +441,20 @@ func (v VelocityUnits) IsValid() bool {
 	}
 }
 
-// VelocityUnitsSensitivity are the units of a velocity IEPE sensor's sensitivity
+// VelocitySensitivityUnits are the units of a velocity IEPE sensor's sensitivity
 // rating.
-type VelocityUnitsSensitivity string
+type VelocitySensitivityUnits string
 
 const (
-	VelocityUnitsSensitivityMVoltsPerMmPerSecond   VelocityUnitsSensitivity = "MillivoltsPerMillimeterPerSecond"
-	VelocityUnitsSensitivityMVoltsPerInchPerSecond VelocityUnitsSensitivity = "MilliVoltsPerInchPerSecond"
+	VelocitySensitivityUnitsMVoltsPerMmPerSecond   VelocitySensitivityUnits = "MillivoltsPerMillimeterPerSecond"
+	VelocitySensitivityUnitsMVoltsPerInchPerSecond VelocitySensitivityUnits = "MilliVoltsPerInchPerSecond"
 )
 
-// IsValid reports whether v is one of the defined VelocityUnitsSensitivity
+// IsValid reports whether v is one of the defined VelocitySensitivityUnits
 // values.
-func (v VelocityUnitsSensitivity) IsValid() bool {
+func (v VelocitySensitivityUnits) IsValid() bool {
 	switch v {
-	case VelocityUnitsSensitivityMVoltsPerMmPerSecond, VelocityUnitsSensitivityMVoltsPerInchPerSecond:
+	case VelocitySensitivityUnitsMVoltsPerMmPerSecond, VelocitySensitivityUnitsMVoltsPerInchPerSecond:
 		return true
 	default:
 		return false
@@ -1210,8 +1210,8 @@ func (a AIVoltageChannel) Validate() error {
 // AIAccelChannel reads acceleration from an accelerometer.
 type AIAccelChannel struct {
 	BaseAIChannel
-	Terminal
 	MinMaxVal
+	Terminal
 	Sensitivity
 	CurrentExcitation
 	CustomScale
@@ -1225,8 +1225,8 @@ func (AIAccelChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIAccelChannel) ApplyDefaults() {
-	a.Terminal.ApplyDefaults()
 	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -1275,8 +1275,8 @@ func (a AIBridgeChannel) Validate() error {
 // AICurrentChannel reads a current.
 type AICurrentChannel struct {
 	BaseAIChannel
-	Terminal
 	MinMaxVal
+	Terminal
 	CustomScale
 	// Units are the units of the current measurement.
 	Units Units `json:"units" msgpack:"units"`
@@ -1290,8 +1290,8 @@ func (AICurrentChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AICurrentChannel) ApplyDefaults() {
-	a.Terminal.ApplyDefaults()
 	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
 
@@ -1380,23 +1380,23 @@ func (a AIForceBridgeTwoPointLinChannel) Validate() error {
 // AIForceIEPEChannel reads force from an IEPE sensor.
 type AIForceIEPEChannel struct {
 	BaseAIChannel
-	Terminal
 	MinMaxVal
+	Terminal
 	Sensitivity
 	CurrentExcitation
 	CustomScale
 	// Units are the units of the force measurement.
 	Units ForceUnits `json:"units" msgpack:"units"`
 	// SensitivityUnits are the units of the IEPE sensor sensitivity.
-	SensitivityUnits ForceUnitsSensitivity `json:"sensitivity_units" msgpack:"sensitivity_units"`
+	SensitivityUnits ForceSensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
 }
 
 func (AIForceIEPEChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIForceIEPEChannel) ApplyDefaults() {
-	a.Terminal.ApplyDefaults()
 	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -1728,23 +1728,23 @@ func (a AITorqueBridgeTwoPointLinChannel) Validate() error {
 // AIVelocityIEPEChannel reads velocity from an IEPE sensor.
 type AIVelocityIEPEChannel struct {
 	BaseAIChannel
-	Terminal
 	MinMaxVal
+	Terminal
 	Sensitivity
 	CurrentExcitation
 	CustomScale
 	// Units are the units of the velocity measurement.
 	Units VelocityUnits `json:"units" msgpack:"units"`
 	// SensitivityUnits are the units of the IEPE sensor sensitivity.
-	SensitivityUnits VelocityUnitsSensitivity `json:"sensitivity_units" msgpack:"sensitivity_units"`
+	SensitivityUnits VelocitySensitivityUnits `json:"sensitivity_units" msgpack:"sensitivity_units"`
 }
 
 func (AIVelocityIEPEChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVelocityIEPEChannel) ApplyDefaults() {
-	a.Terminal.ApplyDefaults()
 	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -2866,22 +2866,21 @@ func (c CIAngularPositionUnits) IsValid() bool {
 	}
 }
 
-// CIZIndexPhase selects the encoder channel states at which the Z index resets the
-// count.
-type CIZIndexPhase string
+// ZIndexPhase selects the encoder channel states at which the Z index resets the count.
+type ZIndexPhase string
 
 const (
-	CIZIndexPhaseAHighBHigh CIZIndexPhase = "AHighBHigh"
-	CIZIndexPhaseAHighBLow  CIZIndexPhase = "AHighBLow"
-	CIZIndexPhaseALowBHigh  CIZIndexPhase = "ALowBHigh"
-	CIZIndexPhaseALowBLow   CIZIndexPhase = "ALowBLow"
+	ZIndexPhaseAHighBHigh ZIndexPhase = "AHighBHigh"
+	ZIndexPhaseAHighBLow  ZIndexPhase = "AHighBLow"
+	ZIndexPhaseALowBHigh  ZIndexPhase = "ALowBHigh"
+	ZIndexPhaseALowBLow   ZIndexPhase = "ALowBLow"
 )
 
-// IsValid reports whether c is one of the defined CIZIndexPhase
+// IsValid reports whether z is one of the defined ZIndexPhase
 // values.
-func (c CIZIndexPhase) IsValid() bool {
-	switch c {
-	case CIZIndexPhaseAHighBHigh, CIZIndexPhaseAHighBLow, CIZIndexPhaseALowBHigh, CIZIndexPhaseALowBLow:
+func (z ZIndexPhase) IsValid() bool {
+	switch z {
+	case ZIndexPhaseAHighBHigh, ZIndexPhaseAHighBLow, ZIndexPhaseALowBHigh, ZIndexPhaseALowBLow:
 		return true
 	default:
 		return false
@@ -2895,7 +2894,7 @@ type ZIndex struct {
 	// ZIndexVal is the count value the Z index resets to.
 	ZIndexVal float64 `json:"z_index_val" msgpack:"z_index_val"`
 	// ZIndexPhase selects the A/B states at which the Z index is active.
-	ZIndexPhase CIZIndexPhase `json:"z_index_phase" msgpack:"z_index_phase"`
+	ZIndexPhase ZIndexPhase `json:"z_index_phase" msgpack:"z_index_phase"`
 	// TerminalZ is the terminal the Z index signal is wired to.
 	TerminalZ string `json:"terminal_z" msgpack:"terminal_z"`
 }
@@ -2903,7 +2902,7 @@ type ZIndex struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (z *ZIndex) ApplyDefaults() {
 	if z.ZIndexPhase == "" {
-		z.ZIndexPhase = CIZIndexPhaseAHighBHigh
+		z.ZIndexPhase = ZIndexPhaseAHighBHigh
 	}
 }
 
@@ -3081,6 +3080,8 @@ type CISemiPeriodChannel struct {
 	MaxVal float64 `json:"max_val" msgpack:"max_val"`
 	// Units are the units of the semi-period measurement.
 	Units CITimeUnits `json:"units" msgpack:"units"`
+	// Terminal is the terminal the counter signal is wired to.
+	Terminal string `json:"terminal" msgpack:"terminal"`
 }
 
 func (CISemiPeriodChannel) isCIChannelVariant() {}
@@ -3112,6 +3113,10 @@ type CITwoEdgeSepChannel struct {
 	FirstEdge CIEdge `json:"first_edge" msgpack:"first_edge"`
 	// SecondEdge selects the edge that stops the measurement.
 	SecondEdge CIEdge `json:"second_edge" msgpack:"second_edge"`
+	// FirstTerminal is the terminal the first edge's signal is wired to.
+	FirstTerminal string `json:"first_terminal" msgpack:"first_terminal"`
+	// SecondTerminal is the terminal the second edge's signal is wired to.
+	SecondTerminal string `json:"second_terminal" msgpack:"second_terminal"`
 }
 
 func (CITwoEdgeSepChannel) isCIChannelVariant() {}
@@ -3900,8 +3905,7 @@ func (u *DOChannel) UnmarshalJSON(data []byte) error {
 // device.
 type AnalogReadConfig struct {
 	common.BaseReadConfig
-	// Channels are the analog input channels the task acquires. Each carries its own
-	// device.
+	// Channels are the analog input channels the task acquires.
 	Channels []AIChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
