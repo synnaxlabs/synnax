@@ -199,7 +199,9 @@ export const Provider = ({
     const detach = client.connection.onChange(handleChange);
     return () => {
       detach();
-      client.close();
+      // Effect cleanup cannot await. The failure is logged rather than pushed
+      // through handleError: a status for a client the user already left is noise.
+      client.close().catch((e: unknown) => console.error("failed to close client", e));
       setState(ZERO_CONTEXT_VALUE);
     };
   }, [connParams, handleChange, handleError]);

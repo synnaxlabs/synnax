@@ -34,7 +34,7 @@ const retrieveNodeVersion = async (): Promise<string> => {
   const {
     details: { nodeVersion },
   } = await client.connect();
-  client.close();
+  await client.close();
   if (nodeVersion == null) throw new Error("cluster did not report a node version");
   return nodeVersion;
 };

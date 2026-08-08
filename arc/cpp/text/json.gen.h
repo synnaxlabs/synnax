@@ -23,8 +23,14 @@ namespace arc::text {
 
 inline Document Document::parse(x::json::Parser parser) {
     return Document{
-        .inserts = parser.field<std::vector<::x::crdt::Insert>>("inserts"),
-        .deletes = parser.field<std::vector<::x::crdt::Delete>>("deletes"),
+        .inserts = parser.field<std::vector<::x::crdt::Insert>>(
+            "inserts",
+            std::vector<::x::crdt::Insert>{}
+        ),
+        .deletes = parser.field<std::vector<::x::crdt::Delete>>(
+            "deletes",
+            std::vector<::x::crdt::Delete>{}
+        ),
     };
 }
 

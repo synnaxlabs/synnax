@@ -665,6 +665,6 @@ describe("store", () => {
     // never advances past 0.
     await disabled.connect();
     expect(disabled.connection.status.details.epoch).toBe(0);
-    disabled.close();
+    await disabled.close();
   });
 });
