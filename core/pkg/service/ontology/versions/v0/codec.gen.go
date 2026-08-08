@@ -24,11 +24,11 @@ func (id ID) EncodeOrc(w *orc.Writer) error {
 func (id *ID) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		id.Type = ResourceType(v)
+		id.Type = ResourceType(rawV)
 	}
 	if id.Key, err = r.String(); err != nil {
 		return err
@@ -55,11 +55,11 @@ func (rv *Relationship) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		rv.Type = RelationshipType(v)
+		rv.Type = RelationshipType(rawV)
 	}
 	if err = rv.To.DecodeOrc(r); err != nil {
 		return err

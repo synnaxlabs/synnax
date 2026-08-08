@@ -11,6 +11,8 @@
 
 import { z } from "zod";
 
+import { task } from "@/task";
+
 /** Alert maps a Synnax status to a PagerDuty event routing rule. */
 export const alertZ = z.object({
   /** key uniquely identifies the alert within the task. */
@@ -32,16 +34,9 @@ export const alertZ = z.object({
 });
 export interface Alert extends z.infer<typeof alertZ> {}
 
-/**
- * TaskConfig configures a PagerDuty alert task, which forwards Synnax status changes to
- * PagerDuty as events.
- */
-export const taskConfigZ = z.object({
-  /** routingKey is the PagerDuty Events API v2 routing key. */
+export const taskConfigZ = task.configRecordZ.extend({
   routingKey: z.string().default(""),
-  /** autoStart starts the task automatically after configuration. */
   autoStart: z.boolean().default(false),
-  /** alerts are the alerts the task evaluates. */
   alerts: alertZ.array().default(() => []),
 });
 export interface TaskConfig extends z.infer<typeof taskConfigZ> {}

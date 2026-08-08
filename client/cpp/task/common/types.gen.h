@@ -14,15 +14,26 @@
 #include "client/cpp/device/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::common {
 
+struct ConfigRecord;
 struct BaseConfig;
 struct BaseReadConfig;
 struct BaseWriteConfig;
 
+/// @brief ConfigRecord is the base for every stored task configuration record.
+struct ConfigRecord {
+    /// @brief key is the unique identifier for the stored configuration record.
+    x::uuid::UUID key;
+
+    static ConfigRecord parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief BaseConfig carries the configuration fields shared by every hardware task.
-struct BaseConfig {
+struct BaseConfig : public ConfigRecord {
     /// @brief auto_start is true when the task should start as soon as it is
     /// configured.
     bool auto_start = false;

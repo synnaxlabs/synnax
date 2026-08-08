@@ -32,7 +32,8 @@ PDOAddress struct {
         @ts type   "string"
     }
 
-    @doc value "addresses a PDO entry explicitly in the CoE object dictionary."
+    @doc value  "addresses a PDO entry explicitly in the CoE object dictionary."
+    @go version 0
 }
 
 BaseInputChannel struct {
@@ -53,7 +54,8 @@ BaseInputChannel struct {
         @doc value "is the key of the slave device the channel reads from."
     }
 
-    @doc value "carries the fields every EtherCAT input channel shares."
+    @doc value  "carries the fields every EtherCAT input channel shares."
+    @go version 0
 }
 
 InputChannel union on type extends BaseInputChannel {
@@ -68,10 +70,11 @@ InputChannel union on type extends BaseInputChannel {
         @doc value "specifies its PDO address inline."
     }
 
-    @doc value """
+    @doc value  """
         is a single EtherCAT input channel (TxPDO, slave to master). The type
         field selects how the PDO entry is addressed.
     """
+    @go version 0
 }
 
 BaseOutputChannel struct {
@@ -101,7 +104,8 @@ BaseOutputChannel struct {
         @doc value "is the key of the slave device the channel writes to."
     }
 
-    @doc value "carries the fields every EtherCAT output channel shares."
+    @doc value  "carries the fields every EtherCAT output channel shares."
+    @go version 0
 }
 
 OutputChannel union on type extends BaseOutputChannel {
@@ -116,10 +120,11 @@ OutputChannel union on type extends BaseOutputChannel {
         @doc value "specifies its PDO address inline."
     }
 
-    @doc value """
+    @doc value  """
         is a single EtherCAT output channel (RxPDO, master to slave). The type
         field selects how the PDO entry is addressed.
     """
+    @go version 0
 }
 
 ReadConfig struct extends task.BaseReadConfig {
@@ -127,10 +132,13 @@ ReadConfig struct extends task.BaseReadConfig {
         @doc value "are the input channels the task acquires."
     }
 
-    @doc value """
+    @doc value  """
         configures an EtherCAT read task. Each channel addresses a PDO entry on
         its own slave; all slaves must share one network interface.
     """
+    @go version 0
+    @go marshal
+    @go migrate
 }
 
 WriteConfig struct extends task.BaseConfig {
@@ -146,8 +154,18 @@ WriteConfig struct extends task.BaseConfig {
         @doc value "are the output channels the task drives."
     }
 
-    @doc value """
+    @doc value  """
         configures an EtherCAT write task. Each channel addresses a PDO entry on
         its own slave; all slaves must share one network interface.
     """
+    @go version 0
+    @go marshal
+    @go migrate
+}
+
+ScanConfig struct extends task.ConfigRecord {
+    @doc value  "configures an EtherCAT scan task, which carries no settings."
+    @go version 0
+    @go marshal
+    @go migrate
 }

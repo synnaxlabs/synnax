@@ -27,6 +27,7 @@ namespace synnax::ethercat {
 struct PDOAddress;
 struct BaseInputChannel;
 struct BaseOutputChannel;
+struct ScanConfig;
 struct ReadConfig;
 struct WriteConfig;
 
@@ -82,6 +83,13 @@ struct BaseOutputChannel {
     ::synnax::device::Key device = "";
 
     static BaseOutputChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfig configures an EtherCAT scan task, which carries no settings.
+struct ScanConfig : public ::synnax::common::ConfigRecord {
+
+    static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

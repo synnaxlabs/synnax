@@ -230,11 +230,16 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         [{ symbolKey: symbol.key, parent: group.ontologyID(grp.key) }],
         { client, additionalRegistry: theming.REGISTRY },
       );
-      const nameInput = await waitFor(() => {
-        const input = findNameInput();
-        expect(input.value).toBe(original);
-        return input;
-      });
+      // The modal suspends on the symbol retrieve, which can outlast the default
+      // waitFor timeout on a loaded CI machine.
+      const nameInput = await waitFor(
+        () => {
+          const input = findNameInput();
+          expect(input.value).toBe(original);
+          return input;
+        },
+        { timeout: 5000 },
+      );
       const renamed = uniqueName("renamed_symbol");
       fireEvent.change(nameInput, { target: { value: renamed } });
       fireEvent.click(findButton("Save"));

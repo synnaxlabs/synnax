@@ -29,6 +29,7 @@ struct MapScale;
 struct NoneScale;
 struct BaseInputChannel;
 struct BaseOutputChannel;
+struct ScanConfig;
 struct WriteConfig;
 struct ReadConfig;
 
@@ -114,6 +115,13 @@ struct BaseOutputChannel {
     std::string port = "";
 
     static BaseOutputChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfig configures a LabJack scan task, which carries no settings.
+struct ScanConfig : public ::synnax::common::ConfigRecord {
+
+    static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

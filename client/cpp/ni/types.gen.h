@@ -32,6 +32,7 @@ struct BaseAIChannel;
 struct BaseCIChannel;
 struct BaseAOChannel;
 struct WriteConfig;
+struct ScannerConfig;
 struct LinearScale;
 struct MapScale;
 struct TableScale;
@@ -328,6 +329,14 @@ struct WriteConfig : public ::synnax::common::BaseWriteConfig {
     ::x::telem::Rate state_rate = x::telem::Rate(10);
 
     static WriteConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScannerConfig configures the NI device scanner task, which carries no
+/// settings.
+struct ScannerConfig : public ::synnax::common::ConfigRecord {
+
+    static ScannerConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

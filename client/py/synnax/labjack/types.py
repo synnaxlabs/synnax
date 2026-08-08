@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from synnax import channel as channel_
 from synnax import device, task
+from synnax.task import client as task_client
 from synnax.telem import CrudeRate
 
 # Device identifiers - must match Console expectations
@@ -324,7 +325,7 @@ class OutputChan(BaseChan):
     "The Synnax channel key to write state values to."
 
 
-class ReadTaskConfig(task.BaseReadConfig):
+class ReadTaskConfig(task_client.BaseReadConfig):
     """
     Configuration for a LabJack read task.
 
@@ -348,7 +349,7 @@ class ReadTaskConfig(task.BaseReadConfig):
         return v
 
 
-class WriteTaskConfig(task.BaseWriteConfig):
+class WriteTaskConfig(task_client.BaseWriteConfig):
     """
     Configuration for a LabJack write task.
 

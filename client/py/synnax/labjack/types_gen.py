@@ -129,6 +129,13 @@ class BaseOutputChannel(BaseModel):
         return hash(self.key)
 
 
+class ScanConfig(task.ConfigRecord):
+    """Configures a LabJack scan task, which carries no settings."""
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class ScaleLinear(LinearScale):
     type: Literal["linear"]
 
@@ -216,6 +223,9 @@ class WriteConfig(task.BaseWriteConfig):
     state_rate: telem.Rate = telem.Rate(10)
     channels: list[OutputChannel] = Field(default_factory=list)
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
 
 class ReadConfig(task.BaseReadConfig):
     """Configures a LabJack read task.
@@ -234,3 +244,6 @@ class ReadConfig(task.BaseReadConfig):
     channels: list[InputChannel] = Field(default_factory=list)
     device_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
     ljm_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
+
+    def __hash__(self) -> int:
+        return hash(self.key)

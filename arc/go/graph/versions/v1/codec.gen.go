@@ -42,11 +42,11 @@ func (e *Edge) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.Int64()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		e.Kind = ir.EdgeKind(v)
+		e.Kind = ir.EdgeKind(rawV)
 	}
 	if e.Key, err = r.String(); err != nil {
 		return err

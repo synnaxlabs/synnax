@@ -11,67 +11,19 @@
 
 package task
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
-	"github.com/synnaxlabs/x/validate"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 
 // ExecutionMode selects how the Arc runtime loop schedules execution.
-type ExecutionMode string
+type ExecutionMode = versions.ExecutionMode
 
 const (
-	ExecutionModeAuto        ExecutionMode = "AUTO"
-	ExecutionModeBusyWait    ExecutionMode = "BUSY_WAIT"
-	ExecutionModeHighRate    ExecutionMode = "HIGH_RATE"
-	ExecutionModeRtEvent     ExecutionMode = "RT_EVENT"
-	ExecutionModeHybrid      ExecutionMode = "HYBRID"
-	ExecutionModeEventDriven ExecutionMode = "EVENT_DRIVEN"
+	ExecutionModeAuto        ExecutionMode = versions.ExecutionModeAuto
+	ExecutionModeBusyWait    ExecutionMode = versions.ExecutionModeBusyWait
+	ExecutionModeHighRate    ExecutionMode = versions.ExecutionModeHighRate
+	ExecutionModeRtEvent     ExecutionMode = versions.ExecutionModeRtEvent
+	ExecutionModeHybrid      ExecutionMode = versions.ExecutionModeHybrid
+	ExecutionModeEventDriven ExecutionMode = versions.ExecutionModeEventDriven
 )
 
-// IsValid reports whether e is one of the defined ExecutionMode
-// values.
-func (e ExecutionMode) IsValid() bool {
-	switch e {
-	case ExecutionModeAuto, ExecutionModeBusyWait, ExecutionModeHighRate, ExecutionModeRtEvent, ExecutionModeHybrid, ExecutionModeEventDriven:
-		return true
-	default:
-		return false
-	}
-}
-
 // Config configures an Arc task, which runs a compiled Arc module.
-type Config struct {
-	common.BaseConfig
-	// ArcKey is the key of the Arc module the task executes.
-	ArcKey arc.Key `json:"arc_key" msgpack:"arc_key"`
-	// ExecutionMode overrides the runtime's automatic loop mode selection.
-	ExecutionMode ExecutionMode `json:"execution_mode" msgpack:"execution_mode"`
-	// RtPriority is the thread priority used by real-time loop modes.
-	RtPriority int32 `json:"rt_priority" msgpack:"rt_priority"`
-	// CPUAffinity pins the loop to a CPU core. -1 selects automatically.
-	CPUAffinity int32 `json:"cpu_affinity" msgpack:"cpu_affinity"`
-	// LockMemory locks the runtime's memory to prevent paging.
-	LockMemory bool `json:"lock_memory" msgpack:"lock_memory"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (c *Config) ApplyDefaults() {
-	if c.ExecutionMode == "" {
-		c.ExecutionMode = ExecutionModeAuto
-	}
-	if c.RtPriority == 0 {
-		c.RtPriority = 47
-	}
-	if c.CPUAffinity == 0 {
-		c.CPUAffinity = -1
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (c Config) Validate() error {
-	v := validate.New("Config")
-	v.Ternaryf("execution_mode", !c.ExecutionMode.IsValid(), "invalid execution_mode: %v", c.ExecutionMode)
-	return v.Error()
-}
+type Config = versions.Config

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/status"
+import "schemas/synnax/task"
 
 @ts output  "client/ts/src/rack"
 @py output  "client/py/synnax/rack"
@@ -96,4 +97,17 @@ New struct extends Rack {
     @pb omit
     @cpp omit
     @py name      "Rack"
+}
+
+StatusTaskConfig struct extends task.ConfigRecord {
+    @doc value  "configures the rack status reporting task, which carries no settings."
+    @go version 0
+    @go output  "core/pkg/service/rack/task"
+    @go name    "StatusConfig"
+    @go marshal
+    @go migrate
+    @pb omit
+    @ts omit
+    @py omit
+    @cpp omit
 }

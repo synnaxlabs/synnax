@@ -75,24 +75,70 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 	switch v {
 	case ontology.ResourceTypeArc:
 		return ResourceType_RESOURCE_TYPE_ARC, nil
+	case ontology.ResourceTypeArcTask:
+		return ResourceType_RESOURCE_TYPE_ARC_TASK, nil
 	case ontology.ResourceTypeBuiltin:
 		return ResourceType_RESOURCE_TYPE_BUILTIN, nil
 	case ontology.ResourceTypeChannel:
 		return ResourceType_RESOURCE_TYPE_CHANNEL, nil
 	case ontology.ResourceTypeDevice:
 		return ResourceType_RESOURCE_TYPE_DEVICE, nil
+	case ontology.ResourceTypeEthercatRead:
+		return ResourceType_RESOURCE_TYPE_ETHERCAT_READ, nil
+	case ontology.ResourceTypeEthercatScan:
+		return ResourceType_RESOURCE_TYPE_ETHERCAT_SCAN, nil
+	case ontology.ResourceTypeEthercatWrite:
+		return ResourceType_RESOURCE_TYPE_ETHERCAT_WRITE, nil
 	case ontology.ResourceTypeFramer:
 		return ResourceType_RESOURCE_TYPE_FRAMER, nil
 	case ontology.ResourceTypeGroup:
 		return ResourceType_RESOURCE_TYPE_GROUP, nil
+	case ontology.ResourceTypeHTTPRead:
+		return ResourceType_RESOURCE_TYPE_HTTP_READ, nil
+	case ontology.ResourceTypeHTTPScan:
+		return ResourceType_RESOURCE_TYPE_HTTP_SCAN, nil
+	case ontology.ResourceTypeHTTPWrite:
+		return ResourceType_RESOURCE_TYPE_HTTP_WRITE, nil
 	case ontology.ResourceTypeLabel:
 		return ResourceType_RESOURCE_TYPE_LABEL, nil
+	case ontology.ResourceTypeLabjackRead:
+		return ResourceType_RESOURCE_TYPE_LABJACK_READ, nil
+	case ontology.ResourceTypeLabjackScan:
+		return ResourceType_RESOURCE_TYPE_LABJACK_SCAN, nil
+	case ontology.ResourceTypeLabjackWrite:
+		return ResourceType_RESOURCE_TYPE_LABJACK_WRITE, nil
 	case ontology.ResourceTypeLineplot:
 		return ResourceType_RESOURCE_TYPE_LINEPLOT, nil
 	case ontology.ResourceTypeLog:
 		return ResourceType_RESOURCE_TYPE_LOG, nil
+	case ontology.ResourceTypeModbusRead:
+		return ResourceType_RESOURCE_TYPE_MODBUS_READ, nil
+	case ontology.ResourceTypeModbusScan:
+		return ResourceType_RESOURCE_TYPE_MODBUS_SCAN, nil
+	case ontology.ResourceTypeModbusWrite:
+		return ResourceType_RESOURCE_TYPE_MODBUS_WRITE, nil
+	case ontology.ResourceTypeNiAnalogRead:
+		return ResourceType_RESOURCE_TYPE_NI_ANALOG_READ, nil
+	case ontology.ResourceTypeNiAnalogWrite:
+		return ResourceType_RESOURCE_TYPE_NI_ANALOG_WRITE, nil
+	case ontology.ResourceTypeNiCounterRead:
+		return ResourceType_RESOURCE_TYPE_NI_COUNTER_READ, nil
+	case ontology.ResourceTypeNiDigitalRead:
+		return ResourceType_RESOURCE_TYPE_NI_DIGITAL_READ, nil
+	case ontology.ResourceTypeNiDigitalWrite:
+		return ResourceType_RESOURCE_TYPE_NI_DIGITAL_WRITE, nil
+	case ontology.ResourceTypeNiScanner:
+		return ResourceType_RESOURCE_TYPE_NI_SCANNER, nil
 	case ontology.ResourceTypeNode:
 		return ResourceType_RESOURCE_TYPE_NODE, nil
+	case ontology.ResourceTypeOpcRead:
+		return ResourceType_RESOURCE_TYPE_OPC_READ, nil
+	case ontology.ResourceTypeOpcScan:
+		return ResourceType_RESOURCE_TYPE_OPC_SCAN, nil
+	case ontology.ResourceTypeOpcWrite:
+		return ResourceType_RESOURCE_TYPE_OPC_WRITE, nil
+	case ontology.ResourceTypePagerdutyAlert:
+		return ResourceType_RESOURCE_TYPE_PAGERDUTY_ALERT, nil
 	case ontology.ResourceTypePanel:
 		return ResourceType_RESOURCE_TYPE_PANEL, nil
 	case ontology.ResourceTypePolicy:
@@ -101,6 +147,8 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_PROJECT, nil
 	case ontology.ResourceTypeRack:
 		return ResourceType_RESOURCE_TYPE_RACK, nil
+	case ontology.ResourceTypeRackStatus:
+		return ResourceType_RESOURCE_TYPE_RACK_STATUS, nil
 	case ontology.ResourceTypeRange:
 		return ResourceType_RESOURCE_TYPE_RANGE, nil
 	case ontology.ResourceTypeRangeAlias:
@@ -131,24 +179,70 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 	switch v {
 	case ResourceType_RESOURCE_TYPE_ARC:
 		return ontology.ResourceTypeArc, nil
+	case ResourceType_RESOURCE_TYPE_ARC_TASK:
+		return ontology.ResourceTypeArcTask, nil
 	case ResourceType_RESOURCE_TYPE_BUILTIN:
 		return ontology.ResourceTypeBuiltin, nil
 	case ResourceType_RESOURCE_TYPE_CHANNEL:
 		return ontology.ResourceTypeChannel, nil
 	case ResourceType_RESOURCE_TYPE_DEVICE:
 		return ontology.ResourceTypeDevice, nil
+	case ResourceType_RESOURCE_TYPE_ETHERCAT_READ:
+		return ontology.ResourceTypeEthercatRead, nil
+	case ResourceType_RESOURCE_TYPE_ETHERCAT_SCAN:
+		return ontology.ResourceTypeEthercatScan, nil
+	case ResourceType_RESOURCE_TYPE_ETHERCAT_WRITE:
+		return ontology.ResourceTypeEthercatWrite, nil
 	case ResourceType_RESOURCE_TYPE_FRAMER:
 		return ontology.ResourceTypeFramer, nil
 	case ResourceType_RESOURCE_TYPE_GROUP:
 		return ontology.ResourceTypeGroup, nil
+	case ResourceType_RESOURCE_TYPE_HTTP_READ:
+		return ontology.ResourceTypeHTTPRead, nil
+	case ResourceType_RESOURCE_TYPE_HTTP_SCAN:
+		return ontology.ResourceTypeHTTPScan, nil
+	case ResourceType_RESOURCE_TYPE_HTTP_WRITE:
+		return ontology.ResourceTypeHTTPWrite, nil
 	case ResourceType_RESOURCE_TYPE_LABEL:
 		return ontology.ResourceTypeLabel, nil
+	case ResourceType_RESOURCE_TYPE_LABJACK_READ:
+		return ontology.ResourceTypeLabjackRead, nil
+	case ResourceType_RESOURCE_TYPE_LABJACK_SCAN:
+		return ontology.ResourceTypeLabjackScan, nil
+	case ResourceType_RESOURCE_TYPE_LABJACK_WRITE:
+		return ontology.ResourceTypeLabjackWrite, nil
 	case ResourceType_RESOURCE_TYPE_LINEPLOT:
 		return ontology.ResourceTypeLineplot, nil
 	case ResourceType_RESOURCE_TYPE_LOG:
 		return ontology.ResourceTypeLog, nil
+	case ResourceType_RESOURCE_TYPE_MODBUS_READ:
+		return ontology.ResourceTypeModbusRead, nil
+	case ResourceType_RESOURCE_TYPE_MODBUS_SCAN:
+		return ontology.ResourceTypeModbusScan, nil
+	case ResourceType_RESOURCE_TYPE_MODBUS_WRITE:
+		return ontology.ResourceTypeModbusWrite, nil
+	case ResourceType_RESOURCE_TYPE_NI_ANALOG_READ:
+		return ontology.ResourceTypeNiAnalogRead, nil
+	case ResourceType_RESOURCE_TYPE_NI_ANALOG_WRITE:
+		return ontology.ResourceTypeNiAnalogWrite, nil
+	case ResourceType_RESOURCE_TYPE_NI_COUNTER_READ:
+		return ontology.ResourceTypeNiCounterRead, nil
+	case ResourceType_RESOURCE_TYPE_NI_DIGITAL_READ:
+		return ontology.ResourceTypeNiDigitalRead, nil
+	case ResourceType_RESOURCE_TYPE_NI_DIGITAL_WRITE:
+		return ontology.ResourceTypeNiDigitalWrite, nil
+	case ResourceType_RESOURCE_TYPE_NI_SCANNER:
+		return ontology.ResourceTypeNiScanner, nil
 	case ResourceType_RESOURCE_TYPE_NODE:
 		return ontology.ResourceTypeNode, nil
+	case ResourceType_RESOURCE_TYPE_OPC_READ:
+		return ontology.ResourceTypeOpcRead, nil
+	case ResourceType_RESOURCE_TYPE_OPC_SCAN:
+		return ontology.ResourceTypeOpcScan, nil
+	case ResourceType_RESOURCE_TYPE_OPC_WRITE:
+		return ontology.ResourceTypeOpcWrite, nil
+	case ResourceType_RESOURCE_TYPE_PAGERDUTY_ALERT:
+		return ontology.ResourceTypePagerdutyAlert, nil
 	case ResourceType_RESOURCE_TYPE_PANEL:
 		return ontology.ResourceTypePanel, nil
 	case ResourceType_RESOURCE_TYPE_POLICY:
@@ -157,6 +251,8 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeProject, nil
 	case ResourceType_RESOURCE_TYPE_RACK:
 		return ontology.ResourceTypeRack, nil
+	case ResourceType_RESOURCE_TYPE_RACK_STATUS:
+		return ontology.ResourceTypeRackStatus, nil
 	case ResourceType_RESOURCE_TYPE_RANGE:
 		return ontology.ResourceTypeRange, nil
 	case ResourceType_RESOURCE_TYPE_RANGE_ALIAS:
