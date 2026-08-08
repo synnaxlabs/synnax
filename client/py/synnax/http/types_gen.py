@@ -212,7 +212,7 @@ class ReadEndpoint(BaseModel):
         path: Is the URL path appended to the device's base URL.
         headers: Contains additional headers merged into the request.
         query_params: Contains query parameters appended to the request URL.
-        body: Is an optional static body sent with each request.
+        body: Is a static body sent with each request. Empty sends no body.
         fields: Contains the values to extract from the response.
         index: Is the key of the field whose channel indexes the others. Absent when the
             task stamps samples on arrival.
@@ -223,7 +223,7 @@ class ReadEndpoint(BaseModel):
     path: str = ""
     headers: list[Header] = Field(default_factory=list)
     query_params: list[QueryParam] = Field(default_factory=list)
-    body: str | None = None
+    body: str = ""
     fields: list[ReadField] = Field(default_factory=list)
     index: str | None = None
 

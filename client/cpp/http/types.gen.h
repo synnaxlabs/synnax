@@ -200,8 +200,8 @@ struct ReadEndpoint {
     std::vector<Header> headers;
     /// @brief query_params contains query parameters appended to the request URL.
     std::vector<QueryParam> query_params;
-    /// @brief body is an optional static body sent with each request.
-    std::optional<std::string> body;
+    /// @brief body is a static body sent with each request. Empty sends no body.
+    std::string body = "";
     /// @brief fields contains the values to extract from the response.
     std::vector<ReadField> fields;
     /// @brief index is the key of the field whose channel indexes the others. Absent

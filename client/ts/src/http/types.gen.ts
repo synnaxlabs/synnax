@@ -194,8 +194,8 @@ export const readEndpointZ = z.object({
   headers: headerZ.array().default(() => []),
   /** queryParams contains query parameters appended to the request URL. */
   queryParams: queryParamZ.array().default(() => []),
-  /** body is an optional static body sent with each request. */
-  body: z.string().optional(),
+  /** body is a static body sent with each request. Empty sends no body. */
+  body: z.string().default(""),
   /** fields contains the values to extract from the response. */
   fields: readFieldZ.array().default(() => []),
   /**
