@@ -117,7 +117,7 @@ void Scanner::set_device_status(
         .description = description,
         .time = x::telem::TimeStamp::now(),
         .details = {
-            .rack = synnax::task::rack_key_from_task_key(this->task.key),
+            .rack = this->task.rack,
             .device = dev.key,
         },
     };

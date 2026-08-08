@@ -221,7 +221,7 @@ protected:
         };
 
         task = synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "OPC UA Read Task Test",
             .type = "opc_read",
         };

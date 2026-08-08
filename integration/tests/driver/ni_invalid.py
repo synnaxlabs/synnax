@@ -22,7 +22,7 @@ from tests.driver.task import create_channel, create_index
 
 def _cleanup_task(client: sy.Synnax, task: sy.Task) -> None:
     """Delete the task if it was assigned a key during configure."""
-    if task.key and task.key != 0:
+    if task.key is not None:
         try:
             client.tasks.delete(task.key)
         except sy.NotFoundError:

@@ -7,20 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
-import { Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
+import { type rack, type task } from "@synnaxlabs/client";
+import { Icon, Rack as PRack, Task as PTask, Text, Tooltip } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { useKey } from "@/platform/task/useKey";
 
-interface ContentProps {
-  taskKey: task.Key;
+interface DeploymentProps {
+  rackKey: rack.Key;
 }
 
-const Content = ({ taskKey }: ContentProps): ReactElement => {
-  const query = { key: task.rackKey(taskKey) };
+const Deployment = ({ rackKey }: DeploymentProps): ReactElement => {
+  const query = { key: rackKey };
   PRack.useEnsure(query);
   const name = PRack.useName(query);
   return (
@@ -34,6 +35,16 @@ const Content = ({ taskKey }: ContentProps): ReactElement => {
       </Text.Text>
     </Tooltip.Dialog>
   );
+};
+
+interface ContentProps {
+  taskKey: task.Key;
+}
+
+const Content = ({ taskKey }: ContentProps): ReactElement | null => {
+  const { rack } = PTask.use({ key: taskKey });
+  if (primitive.isZero(rack)) return null;
+  return <Deployment rackKey={rack} />;
 };
 
 export const Rack = (): ReactElement | null => {

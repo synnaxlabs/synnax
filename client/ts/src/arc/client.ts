@@ -12,7 +12,15 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array, deep, type destructor, errors, id, primitive } from "@synnaxlabs/x";
+import {
+  array,
+  deep,
+  type destructor,
+  errors,
+  id,
+  primitive,
+  uuid,
+} from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -27,6 +35,7 @@ import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/type
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { type rack } from "@/rack";
 import { status } from "@/status";
 import { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -89,20 +98,30 @@ const singleQueryZ = z.union([
 
 export interface CreateParams extends New {
   /** Rack to deploy the arc on. Ensures a deployment task exists for it. */
-  rack?: number;
+  rack?: rack.Key;
 }
 
 const TASK_TYPE = "arc";
 
 const taskStatusDataZ = z.null().optional();
 
-const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusDataZ> =>
+const configuringStatus = (
+  taskKey: task.Key,
+  rack: rack.Key,
+): task.Status<typeof taskStatusDataZ> =>
   status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
     key: task.statusKey(taskKey),
     name: "Configuring task",
     variant: "loading",
     message: "Configuring task...",
-    details: { task: taskKey, running: false, cmd: "", data: undefined },
+    details: {
+      task: taskKey,
+      running: false,
+      cmd: "",
+      configHash: "",
+      rack,
+      data: undefined,
+    },
   });
 
 const TASK_SCHEMAS = {
@@ -262,20 +281,17 @@ export class Client extends query.Retriever<
   ): Promise<Arc | Arc[]> {
     const isMany = Array.isArray(arcs);
     const params = array.toArray(arcs);
-    // Resolve the deployment task for each arc targeting a rack. A task
-    // previously deployed to a different rack is deleted and recreated only
-    // after the create commits, so a failed create destroys nothing.
+    // Resolve the deployment task for each arc targeting a rack. Reuse the
+    // existing task's key when one exists; the rack field on the created task
+    // moves it between racks.
     const taskKeys = new Map<number, task.Key>();
-    const staleTasks = new Map<number, task.Key>();
     for (let i = 0; i < params.length; i++) {
       const { rack, key } = params[i];
       if (rack == null) continue;
-      let taskKey = task.newKey(rack, 0);
+      let taskKey = uuid.create();
       if (key != null) {
         const tsk = await this.retrieveTask(key);
-        if (tsk != null)
-          if (task.rackKey(tsk.key) !== rack) staleTasks.set(i, tsk.key);
-          else taskKey = tsk.key;
+        if (tsk != null) taskKey = tsk.key;
       }
       taskKeys.set(i, taskKey);
     }
@@ -294,17 +310,16 @@ export class Client extends query.Retriever<
     this.store.set(res.arcs);
     for (const [i, taskKey] of taskKeys) {
       const created = res.arcs[i];
-      const stale = staleTasks.get(i);
-      // Delete before create: a failure in between leaves the arc with no
-      // deployment task rather than two, and a retry heals it.
-      if (stale != null) await this.cfg.tasks.delete([stale]);
+      const rack = params[i].rack;
+      if (rack == null) continue;
       const newTsk = await this.cfg.tasks.create(
         {
           key: taskKey,
+          rack,
           name: created.name,
           type: TASK_TYPE,
           config: { arcKey: created.key },
-          status: configuringStatus(taskKey),
+          status: configuringStatus(taskKey, rack),
         },
         TASK_SCHEMAS,
       );

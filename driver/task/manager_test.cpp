@@ -15,6 +15,7 @@
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/task/task.h"
 
@@ -326,7 +327,7 @@ protected:
 TEST_F(TaskManagerTest, Configure) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "echo",
     };
@@ -341,7 +342,7 @@ TEST_F(TaskManagerTest, Configure) {
 TEST_F(TaskManagerTest, Delete) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "echo",
     };
@@ -363,7 +364,7 @@ TEST_F(TaskManagerTest, Command) {
         {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
     ));
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "echo",
     };
@@ -393,7 +394,7 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto other = ASSERT_NIL_P(client->racks.create("other"));
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(other.key, 0),
+        .rack = other.key,
         .name = "t",
         .type = "echo",
     };
@@ -416,7 +417,7 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
 TEST_F(TaskManagerTest, StopOnShutdown) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "echo",
     };
@@ -435,7 +436,7 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
 TEST_F(TaskManagerTest, IgnoresSnapshot) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "echo",
     };
@@ -466,7 +467,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
     start_manager(std::move(factory));
 
     auto blocking = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "b",
         .type = "blocking",
     };
@@ -474,7 +475,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
     EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
 
     auto echo = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "e",
         .type = "echo",
     };
@@ -497,7 +498,7 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
         {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
     ));
 
-    auto fake_key = synnax::task::create_key(rack.key, 99999);
+    auto fake_key = x::uuid::create();
     auto cmd = synnax::task::Command{.task = fake_key, .type = "test"};
     ASSERT_NIL(
         writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
@@ -506,7 +507,7 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "echo",
     };
@@ -519,7 +520,7 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
 TEST_F(TaskManagerTest, RapidReconfigure) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "echo",
     };
@@ -559,7 +560,7 @@ TEST_F(TaskManagerTest, Timeout) {
     );
 
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "timeout",
     };
@@ -590,7 +591,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
     ));
 
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "tracking",
     };
@@ -624,7 +625,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     start_manager(std::move(factory));
 
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "tracking",
     };
@@ -712,7 +713,7 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     start_manager(std::move(factory));
 
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "destructor_tracking",
     };
@@ -756,7 +757,7 @@ TEST_F(ShutdownTest, DuringConfiguration) {
     started.get_future().wait_for((5 * x::telem::SECOND).chrono());
 
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "blocking",
     };
@@ -784,7 +785,7 @@ TEST_F(ShutdownTest, WithPendingOps) {
 
     for (int i = 0; i < 3; i++) {
         auto task = synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "t" + std::to_string(i),
             .type = "blocking",
         };
@@ -873,7 +874,7 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
     started.get_future().wait_for((5 * x::telem::SECOND).chrono());
 
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "blocking_stop",
     };
@@ -951,7 +952,7 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
     // Create 4 tasks that each take 200ms to stop
     for (int i = 0; i < 4; i++) {
         auto task = synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "t" + std::to_string(i),
             .type = "slow_stop",
         };
@@ -1023,7 +1024,7 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
     started.get_future().wait_for((5 * x::telem::SECOND).chrono());
 
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "t",
         .type = "stuck_worker",
     };
@@ -1066,7 +1067,7 @@ TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
     start_manager(std::move(f));
 
     auto task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "capture_task",
         .type = "capture",
     };

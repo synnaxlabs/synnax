@@ -21,12 +21,12 @@ std::pair<Task, x::errors::Error>
 Client::retrieve(const Key key, const RetrieveOptions &options) const {
     auto req = grpc::task::RetrieveRequest();
     req.set_rack(rack);
-    req.add_keys(key);
+    req.add_keys(key.to_string());
     req.set_include_status(options.include_status);
     auto [res, err] = task_retrieve_client->send("/task/retrieve", req);
     if (err) return {Task(), err};
     if (res.tasks_size() == 0)
-        return {Task(), errors::not_found_error("task", "key " + std::to_string(key))};
+        return {Task(), errors::not_found_error("task", "key " + key.to_string())};
     auto [payload, proto_err] = Task::from_proto(res.tasks(0));
     if (proto_err) return {Task(), proto_err};
     return {Task(std::move(payload)), x::errors::NIL};
@@ -124,7 +124,7 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve_by_type(
 }
 
 x::errors::Error Client::create(Task &task) const {
-    if (task.key == 0 && this->rack != 0) task.key = create_key(this->rack, 0);
+    if (task.rack == 0) task.rack = this->rack;
     auto req = grpc::task::CreateRequest();
     auto [pb, pb_err] = task.to_proto();
     if (pb_err) return pb_err;
@@ -132,13 +132,15 @@ x::errors::Error Client::create(Task &task) const {
     auto [res, err] = task_create_client->send("/task/create", req);
     if (err) return err;
     if (res.tasks_size() == 0) return errors::unexpected_missing_error("task");
-    task.key = res.tasks().at(0).key();
+    auto [key, key_err] = x::uuid::UUID::parse(res.tasks().at(0).key());
+    if (key_err) return key_err;
+    task.key = key;
     return x::errors::NIL;
 }
 
 x::errors::Error Client::del(const Key key) const {
     auto req = grpc::task::DeleteRequest();
-    req.add_keys(key);
+    req.add_keys(key.to_string());
     auto [res, err] = task_delete_client->send("/task/delete", req);
     return err;
 }

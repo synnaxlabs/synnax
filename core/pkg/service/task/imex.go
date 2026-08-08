@@ -11,8 +11,8 @@ package task
 
 import (
 	"context"
-	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
@@ -31,13 +31,13 @@ var _ imex.Exporter = (*Service)(nil)
 // configs are strongly typed, Export will encode the typed struct like every other
 // resource. It returns query.ErrNotFound if no task exists for id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
-	key, err := strconv.ParseUint(id.Key, 10, 64)
+	key, err := uuid.Parse(id.Key)
 	if err != nil {
 		return imex.Envelope{}, err
 	}
 	var t Task
 	if err = s.NewRetrieve().
-		Where(MatchKeys(Key(key))).
+		Where(MatchKeys(key)).
 		Entry(&t).
 		Exec(ctx, nil); err != nil {
 		return imex.Envelope{}, err

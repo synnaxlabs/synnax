@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -19,7 +19,8 @@ import synnax as sy
 class TestTaskClient:
     def test_create_single(self, client: sy.Synnax):
         task = client.tasks.create(name="test", type="test")
-        assert task.key != 0
+        assert isinstance(task.key, UUID)
+        assert task.rack != 0
 
     def test_create_multiple(self, client: sy.Synnax):
         t1 = sy.Task(name="test1", type="test")
@@ -55,7 +56,7 @@ class TestTaskClient:
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Command executed.",
                         details=sy.task.StatusDetails(
-                            task=int(cmd["task"]),
+                            task=cmd["task"],
                             running=False,
                             cmd=cmd["key"],
                         ),
@@ -77,13 +78,13 @@ class TestTaskClient:
             with client.open_streamer("sy_task_set") as s:
                 ev.set()
                 f = s.read(timeout=2)
-                key = f["sy_task_set"][0]
+                key = f["sy_task_set"][0]["key"]
                 client.statuses.set(
                     sy.Status(
-                        key=str(sy.task.ontology_id(int(key))),
+                        key=str(sy.task.ontology_id(key)),
                         variant=sy.status.VARIANT_SUCCESS,
                         message="Task configured.",
-                        details=sy.task.StatusDetails(task=int(key), running=False),
+                        details=sy.task.StatusDetails(task=key, running=False),
                     )
                 )
 
@@ -102,13 +103,13 @@ class TestTaskClient:
             with client.open_streamer("sy_task_set") as s:
                 ev.set()
                 f = s.read(timeout=1)
-                key = f["sy_task_set"][0]
+                key = f["sy_task_set"][0]["key"]
                 client.statuses.set(
                     sy.Status(
-                        key=str(sy.task.ontology_id(int(key))),
+                        key=str(sy.task.ontology_id(key)),
                         variant=sy.status.VARIANT_ERROR,
                         message="Invalid Configuration.",
-                        details=sy.task.StatusDetails(task=int(key), running=False),
+                        details=sy.task.StatusDetails(task=key, running=False),
                     )
                 )
 

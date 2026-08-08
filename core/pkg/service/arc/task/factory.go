@@ -167,7 +167,7 @@ func (f *factory) setConfigStatus(
 		Set(ctx, &stat); err != nil {
 		f.cfg.L.Error(
 			"failed to set configuration status for task",
-			zap.Uint64("key", uint64(t.Key)),
+			zap.Stringer("key", t.Key),
 			zap.String("name", t.Name),
 			zap.Error(err),
 		)

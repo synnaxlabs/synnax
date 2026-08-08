@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -111,7 +112,7 @@ var _ = Describe("AlertTask", func() {
 		cfg pd.AlertTaskConfig,
 	) driver.Task {
 		t := task.Task{
-			Key:    task.NewKey(1, 1),
+			Key:    uuid.New(),
 			Name:   "PagerDuty Test",
 			Type:   pd.AlertTaskType,
 			Config: MustSucceed(cfg.MsgpackEncodedJSON()),
@@ -155,7 +156,7 @@ var _ = Describe("AlertTask", func() {
 			func(ctx context.Context) {
 				cfg := validConfig(pd.AlertConfig{Status: "s1", Enabled: true})
 				t := task.Task{
-					Key:    task.NewKey(1, 1),
+					Key:    uuid.New(),
 					Name:   "test",
 					Type:   pd.AlertTaskType,
 					Config: MustSucceed(cfg.MsgpackEncodedJSON()),

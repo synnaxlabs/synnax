@@ -16,8 +16,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// Key is a composite identifier for a task. The high 32 bits contain the rack key, and
-// the low 32 bits contain the local task key within that rack.
+// Key is a unique identifier for a task.
 type Key = versions.Key
 
 // StatusDetails contains task-specific status details including execution state.

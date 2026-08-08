@@ -144,7 +144,14 @@ describe("arc", () => {
             key: task.statusKey(tsk.key),
             variant: "error",
             message: "Task failed",
-            details: { task: tsk.key, running: false, cmd: "", data: {} },
+            details: {
+              task: tsk.key,
+              running: false,
+              cmd: "",
+              configHash: "",
+              rack: 0,
+              data: {},
+            },
           }),
         );
         await expect

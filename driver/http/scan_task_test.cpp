@@ -11,6 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/http/mock/server.h"
 #include "driver/http/scan_task.h"
@@ -322,7 +323,8 @@ TEST(HTTPScanTask, ScanCommandArgsEmptyArgs) {
 
 TEST(HTTPScanTask, ScannerConfig) {
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -351,7 +353,8 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -386,7 +389,8 @@ TEST(HTTPScanTask, ScanSuccessOnHTTP200) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -421,7 +425,8 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -454,7 +459,8 @@ TEST(HTTPScanTask, ScanRepeatedScans) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -485,7 +491,8 @@ TEST(HTTPScanTask, ScanUnreachableDevice) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -535,7 +542,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -587,7 +595,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -604,7 +613,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
 
 TEST(HTTPScanTask, ScanNoDevices) {
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -635,7 +645,8 @@ TEST(HTTPScanTask, ScanMultipleDevices) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -677,7 +688,8 @@ TEST(HTTPScanTask, ScanInvalidHealthCheck) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -703,7 +715,8 @@ TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -751,7 +764,8 @@ TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -804,7 +818,8 @@ TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -856,7 +871,8 @@ TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
     common::ScannerContext scan_ctx{.devices = &devices};
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -886,7 +902,8 @@ TEST(HTTPScanTask, TestConnectionSuccess) {
     ASSERT_NIL(server.start());
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -920,7 +937,8 @@ TEST(HTTPScanTask, TestConnectionSuccess) {
 
 TEST(HTTPScanTask, TestConnectionUnreachable) {
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -967,7 +985,8 @@ TEST(HTTPScanTask, TestConnectionValidationFailure) {
     ASSERT_NIL(server.start());
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -1022,7 +1041,8 @@ TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
     ASSERT_NIL(server.start());
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -1057,7 +1077,8 @@ TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
 
 TEST(HTTPScanTask, ExecUnknownCommand) {
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -1095,7 +1116,8 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
     }
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -1122,7 +1144,8 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
 
 TEST(HTTPScanTask, TestConnectionInvalidArgs) {
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 100);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "HTTP Scanner";
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, task } from "@synnaxlabs/client";
+import { device } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
@@ -108,15 +108,19 @@ describe("wrapForm", () => {
       await waitFor(() => expect(screen.getByText("rack-key:5")).toBeTruthy());
     });
 
-    it("should derive it from the task key when no rackKey arg is given", async () => {
+    it("should load it from the retrieved task when no rackKey arg is given", async () => {
       const client = createTestClient();
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const tsk = await rack.createTask({
-        name: uniqueName("task"),
+        name: uniqueName("tsk"),
         type: "test_task",
         config: { device: "", channels: [] },
       });
-      await renderProbe({ taskKey: tsk.key });
+      const Renderer = createRenderer({ Form: RackKeyProbe });
+      await renderTaskFormTab(Renderer, "test_task", {
+        client,
+        params: { taskKey: tsk.key },
+      });
       await waitFor(() =>
         expect(screen.getByText(`rack-key:${rack.key}`)).toBeTruthy(),
       );
@@ -187,7 +191,7 @@ describe("wrapForm", () => {
       const created = await client.tasks.retrieve(taskKey);
       expect(created.name).toBe("New Test Task");
       expect(created.type).toBe("test_task");
-      expect(task.rackKey(created.key)).toBe(rack.key);
+      expect(created.rack).toBe(rack.key);
       expect(selectViewArgs(result)).toEqual({ taskKey });
     });
   });

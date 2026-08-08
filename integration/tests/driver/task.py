@@ -64,7 +64,7 @@ def send_and_verify_commands(
     cmd_keys: list[int],
     writer_name: str,
     task_name: str = "",
-    task_key: int = 0,
+    task_key: sy.task.Key | None = None,
     max_attempts: int = 3,
     timeout_per_round: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
     command_values: list[list[float]] | None = None,
@@ -80,7 +80,7 @@ def send_and_verify_commands(
     Args:
         command_values: Two lists of values to send in each round, one value per
             command key. If None, defaults to [42+i, ...] and [100+i, ...].
-        task_key: If non-zero, also streams ``sy_status_set`` and fails if the
+        task_key: If set, also streams ``sy_status_set`` and fails if the
             driver emits any warning or error status for this task.
     """
     if command_values is None:
@@ -146,7 +146,7 @@ def send_and_verify_commands(
             if not verified:
                 last_err = e
         if verified:
-            if task_key:
+            if task_key is not None:
                 _assert_no_task_errors(client, task_key, task_name=task_name)
             return
         if attempt < max_attempts - 1:
@@ -162,7 +162,7 @@ def send_and_verify_commands(
 
 def _assert_no_task_errors(
     client: sy.Synnax,
-    task_key: int,
+    task_key: sy.task.Key,
     *,
     task_name: str = "",
     drain_timeout: sy.TimeSpan = 2 * sy.TimeSpan.SECOND,
@@ -358,7 +358,7 @@ class TaskCase(TestCase):
             )
         return actual_names
 
-    def assert_task_exists(self, *, task_key: int) -> sy.Task:
+    def assert_task_exists(self, *, task_key: sy.task.Key) -> sy.Task:
         """Assert that a task exists in Synnax."""
         try:
             task = self.client.tasks.retrieve(task_key)

@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -21,6 +23,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "x/go/telem/pb/frame.pb.h"
 #include "x/go/telem/pb/telem.pb.h"
@@ -959,6 +962,22 @@ public:
             ptr += 4;
             v.emplace_back(reinterpret_cast<const char *>(ptr), len);
             ptr += len;
+        }
+        return v;
+    }
+
+    /// @brief returns the data as a vector of UUIDs. This method can only be used
+    /// if the data type is UUID.
+    [[nodiscard]] std::vector<x::uuid::UUID> uuids() const {
+        if (!this->data_type().matches({UUID_T}))
+            throw std::runtime_error("cannot convert a non-UUID series to UUIDs");
+        std::vector<x::uuid::UUID> v;
+        v.reserve(this->size());
+        const auto *ptr = this->data_.get();
+        for (size_t i = 0; i < this->size(); i++, ptr += x::uuid::UUID::size()) {
+            std::array<std::uint8_t, 16> bytes;
+            std::memcpy(bytes.data(), ptr, bytes.size());
+            v.emplace_back(bytes);
         }
         return v;
     }

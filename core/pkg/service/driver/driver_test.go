@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -52,10 +53,10 @@ var _ = Describe("Driver", func() {
 		}))
 	}
 
-	var taskCounter atomic.Uint32
 	newTask := func(rackKey rack.Key) task.Task {
 		return task.Task{
-			Key:  task.NewKey(rackKey, taskCounter.Add(1)),
+			Key:  uuid.New(),
+			Rack: rackKey,
 			Name: "Test Task",
 			Type: "test",
 		}
@@ -182,10 +183,13 @@ var _ = Describe("Driver", func() {
 				t := newTask(embeddedRackKey(ctx))
 				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
 
-				Eventually(
-					func() bool { return configuredTask.Load() != nil },
-				).Should(BeTrue())
-				Expect(configuredTask.Load().(*mockTask).key).To(Equal(t.Key))
+				Eventually(func() task.Key {
+					mt, ok := configuredTask.Load().(*mockTask)
+					if !ok {
+						return task.Key{}
+					}
+					return mt.key
+				}).Should(Equal(t.Key))
 			},
 		)
 
@@ -549,12 +553,12 @@ var _ = Describe("Driver", func() {
 			rackKey := embeddedRackKey(ctx)
 
 			t1 := task.Task{
-				Key:  task.NewKey(rackKey, taskCounter.Add(1)),
+				Rack: rackKey,
 				Name: "Pre-existing Task 1",
 				Type: "test",
 			}
 			t2 := task.Task{
-				Key:  task.NewKey(rackKey, taskCounter.Add(1)),
+				Rack: rackKey,
 				Name: "Pre-existing Task 2",
 				Type: "test",
 			}
@@ -915,7 +919,7 @@ var _ = Describe("Driver", func() {
 			openDriver(ctx, factory)
 			time.Sleep(50 * time.Millisecond)
 
-			unknownTaskKey := task.NewKey(embeddedRackKey(ctx), 99999)
+			unknownTaskKey := uuid.New()
 			cmd := task.Command{
 				Task: unknownTaskKey,
 				Type: "start",
@@ -952,10 +956,11 @@ var _ = Describe("Driver", func() {
 
 			otherRack := rack.Rack{Name: "Other Rack for Commands"}
 			Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+			otherTask := newTask(otherRack.Key)
+			Expect(taskWriter.Create(ctx, &otherTask)).To(Succeed())
 
-			otherTaskKey := task.NewKey(otherRack.Key, 1)
 			cmd := task.Command{
-				Task: otherTaskKey,
+				Task: otherTask.Key,
 				Type: "start",
 				Key:  "cmd-other-rack",
 			}
@@ -1227,7 +1232,7 @@ var _ = Describe("Driver", func() {
 				rackKey := embeddedRackKey(ctx)
 				for range numTasks {
 					t := task.Task{
-						Key:  task.NewKey(rackKey, taskCounter.Add(1)),
+						Rack: rackKey,
 						Name: "Parallel Task",
 						Type: "test",
 					}

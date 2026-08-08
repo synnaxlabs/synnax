@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package task
+#pragma once
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-)
+#include <cstdint>
 
-func NewKey(rack rack.Key, localKey uint32) Key {
-	return Key(uint64(rack)<<32 | uint64(localKey))
+namespace synnax::rack {
+/// @brief Key is a composite identifier for a rack. The high 16 bits contain the core
+/// node key, and the low 16 bits contain the local sequential key. Kept in its own
+/// header so task headers can reference it without pulling in the full rack types.
+using Key = std::uint32_t;
 }

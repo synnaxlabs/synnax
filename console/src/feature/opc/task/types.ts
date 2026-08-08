@@ -123,9 +123,11 @@ export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const ZERO_READ_PAYLOAD = {
   key: "",
+  rack: 0,
   type: "opc_read",
   name: "OPC UA Read Task",
   config: ZERO_READ_CONFIG,
+  configHash: "",
   internal: false,
   snapshot: false,
 } as const satisfies ReadPayload;
@@ -175,9 +177,11 @@ export interface WritePayload extends task.Payload<WriteSchemas> {}
 
 export const ZERO_WRITE_PAYLOAD = {
   key: "",
+  rack: 0,
   type: "opc_write",
   name: "OPC UA Write Task",
   config: ZERO_WRITE_CONFIG,
+  configHash: "",
   internal: false,
   snapshot: false,
 } as const satisfies WritePayload;

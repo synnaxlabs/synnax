@@ -13,6 +13,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/scan_task.h"
 #include "driver/pipeline/mock/pipeline.h"
@@ -260,7 +261,7 @@ TEST(TestScanTask, testSingleScan) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -314,7 +315,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -381,7 +382,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -449,7 +450,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -511,7 +512,7 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -562,7 +563,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -615,7 +616,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -678,7 +679,7 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -744,7 +745,7 @@ TEST(TestScanTask, TestStatePropagation) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -814,7 +815,7 @@ TEST(TestScanTask, testCustomCommandDelegation) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -877,7 +878,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -944,7 +945,7 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -1008,7 +1009,7 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
@@ -1134,7 +1135,8 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 12345);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "Test Scan Task";
 
     ScanTask scan_task(
@@ -1206,7 +1208,8 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 12345);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "Test Scan Task";
 
     ScanTask scan_task(
@@ -1275,7 +1278,8 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = synnax::task::create_key(1, 12345);
+    task.key = x::uuid::create();
+    task.rack = 1;
     task.name = "Test Scan Task";
 
     ScanTask scan_task(

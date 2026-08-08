@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	project "github.com/synnaxlabs/synnax/pkg/service/project/versions/v1"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -37,6 +38,27 @@ var _ = Describe("Project layout to panel migration", func() {
 				Migrations: v0.Migrations,
 			},
 		))
+	}
+	// openPreTaskKeyTable opens the table with the chain as it existed before the
+	// task re-key, so specs can seed panels that predate v56_task_tab_uuid_keys.
+	openPreTaskKeyTable := func(
+		ctx context.Context, db *gorp.DB,
+	) *gorp.Table[v0.Key, v0.Panel] {
+		return MustOpen(gorp.OpenTable(
+			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
+				DB:         db,
+				Migrations: v0.Migrations[:len(v0.Migrations)-1],
+			},
+		))
+	}
+	stageTaskKey := func(
+		ctx context.Context, db *gorp.DB, legacy string, key uuid.UUID,
+	) {
+		Expect(db.Set(
+			ctx,
+			[]byte(task.LegacyKeyKVPrefix+legacy),
+			[]byte(key.String()),
+		)).To(Succeed())
 	}
 	// stageLayout stages a project's layout blob under its staging key, mirroring the
 	// project migration's Phase 1 so the panel migration finds the layout to convert.
@@ -358,4 +380,118 @@ var _ = Describe("Project layout to panel migration", func() {
 		openPanelTable(ctx, db)
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
 	})
+
+	It("Should convert staged task layout tabs into view tabs", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		legacy := "4294967395"
+		taskKey := uuid.New()
+		stageTaskKey(ctx, db, legacy, taskKey)
+		stageLayout(ctx, db, project.Project{
+			Key:  uuid.New(),
+			Name: "Ops",
+			Layout: msgpack.EncodedJSON{
+				"mosaics": map[string]any{
+					"main": map[string]any{
+						"root": map[string]any{
+							"key": 1,
+							"tabs": []any{
+								mosaicTab(legacy),
+								// Inline app view: not a task, dropped.
+								mosaicTab("docs"),
+							},
+						},
+					},
+				},
+				"layouts": map[string]any{
+					legacy: vizLayout(legacy, "ni_analog_read"),
+					"docs": map[string]any{
+						"key":      "docs",
+						"type":     "docs",
+						"name":     "Documentation",
+						"location": "mosaic",
+					},
+				},
+			},
+		})
+
+		openPanelTable(ctx, db)
+		panels := collectPanels(ctx, db)
+		Expect(panels).To(HaveLen(1))
+		lf, ok := panels[0].Root.Variant.(v0.NodeLeaf)
+		Expect(ok).To(BeTrue())
+		Expect(lf.Tabs).To(HaveLen(1))
+		view, ok := lf.Tabs[0].Variant.(v0.TabView)
+		Expect(ok).To(BeTrue())
+		Expect(view.Key).ToNot(Equal(uuid.Nil))
+		Expect(view.Type).To(Equal("ni_analog_read"))
+		Expect(view.Args).To(Equal(msgpack.EncodedJSON{"taskKey": taskKey.String()}))
+
+		By("Draining the staging entry")
+		Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
+			To(MatchError(query.ErrNotFound))
+	})
+
+	It(
+		"Should rewrite legacy task keys in existing panel view tabs",
+		func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			legacy := "4294967395"
+			taskKey := uuid.New()
+			viewTab := func(viewType string, args msgpack.EncodedJSON) v0.Tab {
+				return v0.Tab{Variant: v0.TabView{
+					TabBase: v0.TabBase{Key: uuid.New()},
+					View:    v0.View{Type: viewType, Args: args},
+				}}
+			}
+			preTable := openPreTaskKeyTable(ctx, db)
+			p := v0.Panel{
+				Key:  uuid.New(),
+				Name: "Ops",
+				Root: v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
+					Direction: spatial.DirectionX,
+					Size:      0.5,
+					First: *leaf(viewTab(
+						"ni_analog_read",
+						msgpack.EncodedJSON{"taskKey": legacy},
+					)),
+					Last: *leaf(
+						viewTab("docs", nil),
+						viewTab("opc_read", msgpack.EncodedJSON{"taskKey": "12345"}),
+					),
+				}}},
+			}
+			Expect(preTable.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
+			stageTaskKey(ctx, db, legacy, taskKey)
+
+			openPanelTable(ctx, db)
+			var got v0.Panel
+			Expect(gorp.NewRetrieve[v0.Key, v0.Panel]().
+				Where(gorp.MatchKeys[v0.Key, v0.Panel](p.Key)).
+				Entry(&got).
+				Exec(ctx, db)).To(Succeed())
+			split, ok := got.Root.Variant.(v0.NodeSplit)
+			Expect(ok).To(BeTrue())
+			first, ok := split.First.Variant.(v0.NodeLeaf)
+			Expect(ok).To(BeTrue())
+			rewritten, ok := first.Tabs[0].Variant.(v0.TabView)
+			Expect(ok).To(BeTrue())
+			Expect(rewritten.Args).To(Equal(
+				msgpack.EncodedJSON{"taskKey": taskKey.String()},
+			))
+
+			By("Leaving view tabs without staged task keys untouched")
+			last, ok := split.Last.Variant.(v0.NodeLeaf)
+			Expect(ok).To(BeTrue())
+			docs, ok := last.Tabs[0].Variant.(v0.TabView)
+			Expect(ok).To(BeTrue())
+			Expect(docs.Args).To(BeNil())
+			other, ok := last.Tabs[1].Variant.(v0.TabView)
+			Expect(ok).To(BeTrue())
+			Expect(other.Args).To(Equal(msgpack.EncodedJSON{"taskKey": "12345"}))
+
+			By("Draining the staging entry")
+			Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
+				To(MatchError(query.ErrNotFound))
+		},
+	)
 })
