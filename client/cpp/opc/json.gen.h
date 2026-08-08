@@ -89,7 +89,10 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.array_mode = parser.field<bool>("array_mode", false);
     result.array_size = parser.field<std::int32_t>("array_size", 1);
-    result.channels = parser.field<std::vector<InputChannel>>("channels");
+    result.channels = parser.field<std::vector<InputChannel>>(
+        "channels",
+        std::vector<InputChannel>{}
+    );
     return result;
 }
 
@@ -109,7 +112,10 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     static_cast<::synnax::common::BaseWriteConfig &>(
         result
     ) = ::synnax::common::BaseWriteConfig::parse(parser);
-    result.channels = parser.field<std::vector<OutputChannel>>("channels");
+    result.channels = parser.field<std::vector<OutputChannel>>(
+        "channels",
+        std::vector<OutputChannel>{}
+    );
     return result;
 }
 
