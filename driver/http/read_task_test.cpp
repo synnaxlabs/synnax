@@ -233,9 +233,9 @@ TEST(HTTPReadTask, ParseConfigEnumValueMissingValueDefaultsZero) {
     auto ctx = std::make_shared<task::MockContext>(client);
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     const auto &field = cfg.endpoints[0].fields[0];
-    ASSERT_TRUE(field.enum_values.has_value());
-    EXPECT_EQ(field.enum_values->at(0).label, "ON");
-    EXPECT_EQ(field.enum_values->at(0).value, 0.0);
+    ASSERT_EQ(field.enum_values.size(), 1);
+    EXPECT_EQ(field.enum_values.at(0).label, "ON");
+    EXPECT_EQ(field.enum_values.at(0).value, 0.0);
 }
 
 /// @brief it should fail when duplicate header names exist.
@@ -313,6 +313,31 @@ TEST(HTTPReadTask, ParseConfigOmittedHeadersDefaultsEmpty) {
     ASSERT_NIL(err);
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].headers.empty());
+}
+
+/// @brief a field that omits enum_values should parse to an empty list.
+TEST(HTTPReadTask, ParseConfigOmittedEnumValuesDefaultsEmpty) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [cfg, err] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_NIL(err);
+    ASSERT_EQ(cfg.endpoints.size(), 1);
+    ASSERT_EQ(cfg.endpoints[0].fields.size(), 1);
+    ASSERT_TRUE(cfg.endpoints[0].fields[0].enum_values.empty());
 }
 
 /// @brief it should fail when duplicate query parameter names exist.

@@ -80,21 +80,19 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
                 );
                 fmt_err)
                 parser.field_err("endpoints.channel.time_format", fmt_err);
-        if (ep.channel.enum_values.has_value()) {
-            std::set<double> values;
-            for (const auto &entry: *ep.channel.enum_values)
-                if (!values.insert(entry.value).second)
-                    parser.field_err(
-                        "endpoints.channel.enum_values.value",
-                        "duplicate enum value " + x::json::json(entry.value).dump()
-                    );
-            if (!ep.channel.enum_values->empty() &&
-                ep.channel.json_type != ::synnax::http::JSON_TYPE_STRING)
+        std::set<double> values;
+        for (const auto &entry: ep.channel.enum_values)
+            if (!values.insert(entry.value).second)
                 parser.field_err(
-                    "endpoints.channel.enum_values",
-                    "enum values are only supported when json_type is 'string'"
+                    "endpoints.channel.enum_values.value",
+                    "duplicate enum value " + x::json::json(entry.value).dump()
                 );
-        }
+        if (!ep.channel.enum_values.empty() &&
+            ep.channel.json_type != ::synnax::http::JSON_TYPE_STRING)
+            parser.field_err(
+                "endpoints.channel.enum_values",
+                "enum values are only supported when json_type is 'string'"
+            );
 
         for (const auto &field: ep.fields) {
             const std::string *pointer = nullptr;
@@ -224,9 +222,8 @@ WriteTaskSink::WriteTaskSink(
                 );
                 !fmt_err)
                 state.time_format = fmt;
-        if (ep.channel.enum_values.has_value())
-            for (const auto &entry: *ep.channel.enum_values)
-                state.enum_values.emplace(x::json::json(entry.value), entry.label);
+        for (const auto &entry: ep.channel.enum_values)
+            state.enum_values.emplace(x::json::json(entry.value), entry.label);
         for (const auto &field: ep.fields)
             if (const auto *sf = std::get_if<::synnax::http::WriteFieldStatic>(
                     &field
