@@ -51,8 +51,7 @@ export const OUTPUT_CHANNEL_SCHEMAS = labjack.OUTPUT_CHANNEL_SCHEMAS;
 
 export const createOutputChannel = <T extends OutputChannelType>(
   type: T,
-): Extract<OutputChannel, { type: T }> =>
-  OUTPUT_CHANNEL_SCHEMAS[type].parse({ type });
+): Extract<OutputChannel, { type: T }> => OUTPUT_CHANNEL_SCHEMAS[type].parse({ type });
 
 export type Channel = InputChannel | OutputChannel;
 

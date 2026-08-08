@@ -128,8 +128,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
 const selectOutputChannelType = Component.renderProp(SelectOutputChannelType);
 
 const getOpenChannel = (channels: OutputChannel[], device: Device.Device) => {
-  if (channels.length === 0)
-    return { ...createOutputChannel("DO"), key: id.create() };
+  if (channels.length === 0) return { ...createOutputChannel("DO"), key: id.create() };
   const last = channels[channels.length - 1];
   const backupType =
     last.type === Device.DO_PORT_TYPE ? Device.AO_PORT_TYPE : Device.DO_PORT_TYPE;

@@ -293,7 +293,12 @@ describe("createChannel", () => {
 
     it("should copy properties from ci_two_edge_sep channel type", () => {
       const channels: NI.Task.CIChannel[] = [
-        { ...NI.Task.createCIChannel("ci_two_edge_sep"), key: "1", port: 0, channel: 3 },
+        {
+          ...NI.Task.createCIChannel("ci_two_edge_sep"),
+          key: "1",
+          port: 0,
+          channel: 3,
+        },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
       const result = createNextCIChannel(channels, "1");

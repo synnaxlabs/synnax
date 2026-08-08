@@ -307,7 +307,6 @@ export const ANALOG_READ_SCHEMAS = {
 
 export type AnalogReadSchemas = typeof ANALOG_READ_SCHEMAS;
 
-
 const validateCounterPorts = createPortValidator("Counter");
 
 export const counterReadConfigZ = ni.counterReadConfigZ;
@@ -333,7 +332,6 @@ export const COUNTER_READ_SCHEMAS = {
 
 export type CounterReadSchemas = typeof COUNTER_READ_SCHEMAS;
 
-
 export const analogWriteConfigZ = ni.analogWriteConfigZ;
 
 export const deployAnalogWriteConfigZ = ni.analogWriteConfigZ.extend({
@@ -354,7 +352,6 @@ export const ANALOG_WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type AnalogWriteSchemas = typeof ANALOG_WRITE_SCHEMAS;
-
 
 export const digitalReadConfigZ = ni.digitalReadConfigZ;
 
@@ -379,7 +376,6 @@ export const DIGITAL_READ_SCHEMAS = {
 
 export type DigitalReadSchemas = typeof DIGITAL_READ_SCHEMAS;
 
-
 export const digitalWriteConfigZ = ni.digitalWriteConfigZ;
 
 export const deployDigitalWriteConfigZ = ni.digitalWriteConfigZ.extend({
@@ -400,7 +396,6 @@ export const DIGITAL_WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type DigitalWriteSchemas = typeof DIGITAL_WRITE_SCHEMAS;
-
 
 export const SCAN_TYPE = `${PREFIX}_scanner`;
 

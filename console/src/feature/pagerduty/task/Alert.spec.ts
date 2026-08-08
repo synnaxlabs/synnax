@@ -46,9 +46,7 @@ const createAlertConfig = (
 ): PagerDuty.Task.AlertTaskConfig => ({
   ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
   routingKey: "R".repeat(32),
-  alerts: [
-    { ...pagerduty.alertZ.parse({}), key: "a1", status: uniqueName("status") },
-  ],
+  alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: uniqueName("status") }],
   ...overrides,
 });
 

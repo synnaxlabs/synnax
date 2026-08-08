@@ -197,7 +197,8 @@ describe("draft configs", () => {
   // accept every zero config; retrieve parses with it.
   it("should accept the zero read config", () => {
     expect(
-      OPC.Task.READ_SCHEMAS.config.safeParse(OPC.Task.READ_SCHEMAS.config.parse({})).success,
+      OPC.Task.READ_SCHEMAS.config.safeParse(OPC.Task.READ_SCHEMAS.config.parse({}))
+        .success,
     ).toBe(true);
   });
   it("should accept the zero write config", () => {

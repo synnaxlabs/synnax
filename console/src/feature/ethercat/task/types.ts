@@ -35,8 +35,7 @@ export type Channel = InputChannel | OutputChannel;
 export type ChannelMode = Channel["type"];
 
 export type ChannelSchemas =
-  | typeof INPUT_CHANNEL_SCHEMAS
-  | typeof OUTPUT_CHANNEL_SCHEMAS;
+  typeof INPUT_CHANNEL_SCHEMAS | typeof OUTPUT_CHANNEL_SCHEMAS;
 
 export const READ_TYPE = `${PREFIX}_read`;
 
