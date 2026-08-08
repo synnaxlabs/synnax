@@ -39,7 +39,7 @@ const Properties = () => (
     <Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving />
+      <Task.Fields.DataSaving polarity="disabled" />
       <Task.Fields.AutoStart />
     </Flex.Box>
   </>
@@ -63,6 +63,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       canTare={false}
       path={path}
       icon={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[type] }}
+      polarity="disabled"
     />
   );
 };
@@ -85,6 +86,7 @@ const Form: FC<Task.FormProps<AnalogWriteSchemas>> = () => (
     listItem={channelListItem}
     details={channelDetails}
     createChannel={createAOChannel}
+    polarity="disabled"
     contextMenuItems={Task.writeChannelContextMenuItems}
   />
 );

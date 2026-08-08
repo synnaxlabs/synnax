@@ -110,7 +110,8 @@ const CustomScaleUnitsFields = ({ prefix }: { prefix: string }) => (
   </Flex.Box>
 );
 
-const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
+// Partial: the console does not offer polynomial scales.
+const SCALE_FORMS: Partial<Record<ScaleType, FC<CustomScaleFormProps>>> = {
   linear: ({ prefix }) => (
     <>
       <CustomScaleUnitsFields prefix={prefix} />
@@ -245,6 +246,7 @@ export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
   const path = `${prefix}.customScale`;
   const type = Form.useFieldValue<ScaleType>(`${path}.type`);
   const FormComponent = SCALE_FORMS[type];
+  if (FormComponent == null) throw new Error(`No form for scale type ${type}`);
   return (
     <>
       <SelectCustomScaleTypeField path={path} />

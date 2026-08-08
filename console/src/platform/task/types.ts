@@ -19,10 +19,22 @@ export const channelZ = z.object({ enabled: z.boolean(), key: z.string() });
 export interface Channel extends z.infer<typeof channelZ> {}
 export const ZERO_CHANNEL: Channel = { enabled: true, key: "" };
 
+// Generated config schemas store enablement inverted (RFC 0043 zero-default booleans);
+// integrations on generated types carry channels of this shape instead of Channel.
+export interface DisabledChannel {
+  disabled: boolean;
+  key: string;
+}
+
+// Polarity names which boolean a channel shape carries. Components that toggle
+// enablement take it as a prop; "enabled" is the legacy default and goes away once
+// every integration is on generated types.
+export type Polarity = "enabled" | "disabled";
+
 export const validateChannels = ({
   value: channels,
   issues,
-}: z.core.ParsePayload<Channel[]>) => {
+}: z.core.ParsePayload<{ key: string }[]>) => {
   const keyToIndexMap = new Map<string, number>();
   channels.forEach(({ key }, i) => {
     if (!keyToIndexMap.has(key)) {
@@ -67,7 +79,9 @@ export const ZERO_READ_CHANNEL: ReadChannel = {
   ...READ_CHANNEL_OVERRIDE,
 };
 
-export const validateReadChannels = (ctx: z.core.ParsePayload<ReadChannel[]>) => {
+export const validateReadChannels = (
+  ctx: z.core.ParsePayload<{ key: string; channel: channel.Key; name: string }[]>,
+) => {
   validateChannels(ctx);
   const { value: channels, issues } = ctx;
   const channelToIndexMap = new Map<channel.Key, number>();
@@ -122,7 +136,17 @@ interface IndexAndType {
   type: WriteChannelType;
 }
 
-export const validateWriteChannels = (ctx: z.core.ParsePayload<WriteChannel[]>) => {
+export const validateWriteChannels = (
+  ctx: z.core.ParsePayload<
+    {
+      key: string;
+      cmdChannel: channel.Key;
+      stateChannel: channel.Key;
+      cmdChannelName: string;
+      stateChannelName: string;
+    }[]
+  >,
+) => {
   validateChannels(ctx);
   const { value: channels, issues } = ctx;
   const channelsToIndexMap = new Map<channel.Key, IndexAndType>();
