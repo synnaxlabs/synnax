@@ -20,6 +20,7 @@ export interface SearchInputProps {
   onSearch?: (term: string) => void;
   actions?: Input.TextProps["children"];
   dialogVariant?: Dialog.FrameProps["variant"];
+  loading?: boolean;
 }
 
 export const SearchInput = ({
@@ -27,6 +28,7 @@ export const SearchInput = ({
   onSearch,
   actions,
   dialogVariant = "floating",
+  loading = false,
 }: SearchInputProps) => {
   const [term, setTerm] = useState<string>("");
   const inputContent = (
@@ -34,7 +36,7 @@ export const SearchInput = ({
       value={term}
       autoFocus
       flush
-      startContent={<Icon.Search />}
+      startContent={loading ? <Icon.Loading /> : <Icon.Search />}
       placeholder={searchPlaceholder}
       size={dialogVariant === "modal" ? "large" : "medium"}
       rounded
