@@ -979,6 +979,7 @@ describe("use", () => {
 
   it("refetches a read that failed during an outage once the connection returns", async () => {
     const proxy = await createSeverableProxy();
+    let mounted: ReturnType<typeof render> | undefined;
     try {
       const [first, second] = await client.labels.create([
         { name: `first-${id.create()}`, color: "#000000" },
@@ -1007,6 +1008,7 @@ describe("use", () => {
       // The first read opens the change stream, which is what advances the epoch
       // once the connection returns.
       const utils = render(tree(first.key));
+      mounted = utils;
       await waitFor(() => expect(utils.getByText(first.name)).toBeTruthy());
 
       // The second label was never read, so it cannot be served from the cache.
@@ -1019,6 +1021,9 @@ describe("use", () => {
         timeout: 20000,
       });
     } finally {
+      // Close the client before the port dies, or its unbounded reconnect loop
+      // churns against a dead proxy and logs into whatever test runs next.
+      mounted?.unmount();
       await proxy.close();
     }
   }, 30000);

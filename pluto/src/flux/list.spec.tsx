@@ -1027,9 +1027,8 @@ describe("list", () => {
 
     it("should paint the cached answer before the debounced retrieve fires", async () => {
       const cachedItems = [{ key: 1 }, { key: 2 }];
-      const getCached = vi.fn(
-        ({ query }: { query: { limit?: number } }) =>
-          query.limit != null ? changed(cachedItems) : undefined,
+      const getCached = vi.fn(({ query }: { query: { limit?: number } }) =>
+        query.limit != null ? changed(cachedItems) : undefined,
       );
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
       const { result } = renderHook(
