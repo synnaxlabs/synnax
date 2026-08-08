@@ -110,7 +110,7 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
             "query_params",
             std::vector<QueryParam>{}
         ),
-        .body = parser.field<std::optional<std::string>>("body"),
+        .body = parser.field<std::string>("body", ""),
         .fields = parser.field<std::vector<ReadField>>(
             "fields",
             std::vector<ReadField>{}
