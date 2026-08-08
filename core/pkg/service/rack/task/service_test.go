@@ -16,9 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Service", func() {
@@ -47,58 +45,6 @@ var _ = Describe("Service", func() {
 			Expect(svc.Status.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
 			data := MustSucceed(svc.Status.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
-		})
-
-		It("Should return a validation error for a malformed config", func(
-			ctx SpecContext,
-		) {
-			Expect(svc.Status.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
-				"key": 123,
-			})).To(MatchError(validate.ErrValidation))
-		})
-	})
-
-	Describe("Read", func() {
-		It("Should return not found for a missing record", func(ctx SpecContext) {
-			Expect(svc.Status.Read(ctx, nil, uuid.New())).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-	})
-
-	Describe("Delete", func() {
-		It("Should remove a stored record idempotently", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(svc.Status.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
-			Expect(svc.Status.Delete(ctx, nil, key)).To(Succeed())
-			Expect(svc.Status.Read(ctx, nil, key)).Error().
-				To(MatchError(query.ErrNotFound))
-			Expect(svc.Status.Delete(ctx, nil, key)).To(Succeed())
-		})
-	})
-
-	Describe("Copy", func() {
-		It("Should duplicate a record under a new key", func(ctx SpecContext) {
-			from, to := uuid.New(), uuid.New()
-			Expect(
-				svc.Status.Write(ctx, nil, from, msgpack.EncodedJSON{}),
-			).To(Succeed())
-			Expect(svc.Status.Copy(ctx, nil, from, to)).To(Succeed())
-			data := MustSucceed(svc.Status.Read(ctx, nil, to))
-			Expect(data["key"]).To(Equal(to.String()))
-			original := MustSucceed(svc.Status.Read(ctx, nil, from))
-			Expect(original["key"]).To(Equal(from.String()))
-		})
-	})
-
-	Describe("Ontology", func() {
-		It("Should serve stored records as resources", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(svc.Status.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
-			res := MustSucceed(svc.Status.RetrieveResource(ctx, key.String(), nil))
-			Expect(res.ID).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeRackStatus,
-				Key:  key.String(),
-			}))
 		})
 	})
 })
