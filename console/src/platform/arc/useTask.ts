@@ -7,14 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc, type rack, status, type task } from "@synnaxlabs/client";
-import { Arc, Task } from "@synnaxlabs/pluto";
+import {
+  type arc,
+  DisconnectedError,
+  type rack,
+  status,
+  type task,
+} from "@synnaxlabs/client";
+import { Arc, Status, Synnax, Task } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 export interface UseTaskReturn {
   running: boolean;
   taskKey: task.Key;
   taskRack: rack.Key;
+  /** Redeploys the arc to its rack, restamping the hash, then starts it. */
+  onDeploy: () => void;
+  /** Stops the running instance. */
+  onStop: () => void;
   onStartStop: () => void;
   taskStatus: status.Status;
 }
@@ -23,27 +34,38 @@ const notDeployedYet = (name: string) =>
   status.create({ name, variant: "disabled", message: "Not deployed yet" });
 
 export const useTask = (key: arc.Key, name: string): UseTaskReturn => {
-  const { data: tsk } = Arc.useResultTask({ arcKey: key });
+  const { data: tsk, variant, status: readStatus } = Arc.useResultTask({ arcKey: key });
   const cmd = Task.useCommand();
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   const isRunning = tsk?.status?.details.running ?? false;
-  const taskKey = tsk?.key;
-  const handleStartStop = useCallback(() => {
-    if (taskKey == null) return;
-    cmd.update([{ task: taskKey, type: isRunning ? "stop" : "start" }]);
-  }, [cmd, taskKey, isRunning]);
-  if (tsk == null)
-    return {
-      running: false,
-      taskKey: "",
-      taskRack: 0,
-      onStartStop: handleStartStop,
-      taskStatus: notDeployedYet(name),
-    };
+  const taskKey = tsk?.key ?? "";
+  const taskRack = tsk?.rack ?? 0;
+  const onDeploy = useCallback(() => {
+    if (!primitive.isNonZero(taskRack)) return;
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const deployed = await client.arcs.deploy(key, taskRack);
+      if (deployed == null) return;
+      await client.tasks.executeCommand({ task: deployed.key, type: "start" });
+    }, `Failed to deploy ${name}`);
+  }, [client, key, taskRack, handleError, name]);
+  const onStop = useCallback(() => {
+    if (taskKey === "") return;
+    cmd.update([{ task: taskKey, type: "stop" }]);
+  }, [cmd, taskKey]);
+  const onStartStop = useCallback(
+    () => (isRunning ? onStop() : onDeploy()),
+    [isRunning, onStop, onDeploy],
+  );
   return {
     running: isRunning,
-    taskKey: tsk.key,
-    taskRack: tsk.rack,
-    onStartStop: handleStartStop,
-    taskStatus: tsk.status ?? notDeployedYet(name),
+    taskKey,
+    taskRack,
+    onDeploy,
+    onStop,
+    onStartStop,
+    taskStatus:
+      variant !== "success" ? readStatus : (tsk?.status ?? notDeployedYet(name)),
   };
 };

@@ -68,6 +68,10 @@ struct Arc {
     ::arc::graph::Graph graph = {};
     /// @brief text is the text-based Arc source code.
     ::arc::text::Text text = {};
+    /// @brief hash is the server-computed hash of the module's semantic content. Edits
+    /// that
+    /// cannot change compiled behavior, like node moves, do not change it.
+    std::optional<std::string> hash;
     /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::program::Program> program;

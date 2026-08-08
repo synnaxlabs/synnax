@@ -10,5 +10,6 @@
 export * from "@/platform/arc/ContextMenu";
 export * from "@/platform/arc/useCreate";
 export * from "@/platform/arc/useCreateModal";
+export * from "@/platform/arc/useDrifted";
 export * from "@/platform/arc/useRename";
 export * from "@/platform/arc/useTask";

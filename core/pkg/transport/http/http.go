@@ -476,9 +476,13 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/arc/retrieve",
 		),
-		ArcDispatch: http.NewUnaryServer[arc.DispatchRequest, types.Nil](
+		ArcDispatch: http.NewUnaryServer[arc.DispatchRequest, arc.DispatchResponse](
 			router,
 			"/api/v1/arc/dispatch",
+		),
+		ArcDeploy: http.NewUnaryServer[arc.DeployRequest, arc.DeployResponse](
+			router,
+			"/api/v1/arc/deploy",
 		),
 		ArcLSP: http.NewStreamServer[arc.LSPMessage, arc.LSPMessage](
 			router,

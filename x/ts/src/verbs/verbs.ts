@@ -38,6 +38,12 @@ export const CREATE: Verbs = {
   participle: "creating",
 };
 
+export const DEPLOY: Verbs = {
+  present: "deploy",
+  past: "deployed",
+  participle: "deploying",
+};
+
 export const SNAPSHOT: Verbs = {
   present: "snapshot",
   past: "snapshotted",

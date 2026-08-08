@@ -90,6 +90,9 @@ func ArcToPB(r arc.Arc) (*Arc, error) {
 		Graph: graphVal,
 		Text:  textVal,
 	}
+	if r.Hash != nil {
+		pb.Hash = r.Hash
+	}
 	if r.Program != nil {
 		var err error
 		pb.Program, err = programpb.ProgramToPB(*r.Program)
@@ -132,6 +135,9 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 		return arc.Arc{}, err
 	}
 	r.Name = pb.Name
+	if pb.Hash != nil {
+		r.Hash = pb.Hash
+	}
 	if pb.Program != nil {
 		val, err := programpb.ProgramFromPB(pb.Program)
 		if err != nil {

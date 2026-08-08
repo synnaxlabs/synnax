@@ -72,6 +72,14 @@ Arc struct {
     text    text.Text = {} {
         @doc value "is the text-based Arc source code."
     }
+    hash    string?          {
+        @doc value  """
+            is the server-computed hash of the module's semantic content. Edits
+            that cannot change compiled behavior, like node moves, do not change
+            it.
+        """
+        @go marshal omit
+    }
     program program.Program? {
         @doc value  """
             is the compiled module output including IR and WebAssembly bytecode.
