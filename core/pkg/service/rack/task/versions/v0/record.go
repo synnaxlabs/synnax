@@ -10,6 +10,5 @@
 package v0
 
 // CustomTypeName gives StatusTaskConfig records a table prefix that cannot collide with
-// the
-// identically named config types of other integrations.
+// the identically named config types of other integrations.
 func (StatusTaskConfig) CustomTypeName() string { return "rack_status_config" }

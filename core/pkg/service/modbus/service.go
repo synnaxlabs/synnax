@@ -79,17 +79,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Ontology:        cfg.Ontology,
 		Instrumentation: cfg.Instrumentation,
 	}
-	if s.Read, err = common.OpenConfigService[ReadConfig, *ReadConfig](
+	if s.Read, err = common.OpenConfigService[ReadConfig](
 		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeModbusRead},
 	); !ok(err, s.Read) {
 		return nil, err
 	}
-	if s.Write, err = common.OpenConfigService[WriteConfig, *WriteConfig](
+	if s.Write, err = common.OpenConfigService[WriteConfig](
 		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeModbusWrite},
 	); !ok(err, s.Write) {
 		return nil, err
 	}
-	if s.Scan, err = common.OpenConfigService[ScanConfig, *ScanConfig](
+	if s.Scan, err = common.OpenConfigService[ScanConfig](
 		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeModbusScan},
 	); !ok(err, s.Scan) {
 		return nil, err

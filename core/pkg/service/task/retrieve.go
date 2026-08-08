@@ -36,15 +36,13 @@ type Retrieve struct {
 	entries    *[]Task
 }
 
-// Filter is a per-service filter that is bound to the Retrieve when passed to
-// Where. Pure filters ignore the Retrieve argument; service-bound filters read
-// from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
-// construct one from a closure.
+// Filter is a per-service filter that is bound to the Retrieve when passed to Where.
+// Pure filters ignore the Retrieve argument; service-bound filters read from it (e.g.
+// r.otg, r.configs) to evaluate. Use Match to construct one from a closure.
 //
-// Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the
-// composition helpers (Match / And / Or / Not) can be one-line wrappers
-// around their gorp.*Bound counterparts instead of re-emitting closure
-// plumbing per service.
+// Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the composition
+// helpers (Match / And / Or / Not) can be one-line wrappers around their gorp.*Bound
+// counterparts instead of re-emitting closure plumbing per service.
 type Filter = gorp.BoundFilter[Retrieve, Key, Task]
 
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
@@ -71,9 +69,8 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
-// MatchKeys returns a filter that restricts results to
-// tasks whose key matches any of the provided
-// values. Composing MatchKeys at the top level of a Where clause (i.e.
+// MatchKeys returns a filter that restricts results to tasks whose key matches any of
+// the provided values. Composing MatchKeys at the top level of a Where clause (i.e.
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
 func MatchKeys(keys ...Key) Filter {
@@ -82,9 +79,7 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
-// MatchRacks returns a filter for
-// tasks whose Rack matches any of the
-// provided values.
+// MatchRacks returns a filter for tasks whose Rack matches any of the provided values.
 func MatchRacks(vals ...rack.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
@@ -93,9 +88,7 @@ func MatchRacks(vals ...rack.Key) Filter {
 	}
 }
 
-// MatchNames returns a filter for
-// tasks whose Name matches any of the
-// provided values.
+// MatchNames returns a filter for tasks whose Name matches any of the provided values.
 func MatchNames(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
@@ -104,9 +97,7 @@ func MatchNames(vals ...string) Filter {
 	}
 }
 
-// MatchTypes returns a filter for
-// tasks whose Type matches any of the
-// provided values.
+// MatchTypes returns a filter for tasks whose Type matches any of the provided values.
 func MatchTypes(vals ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
@@ -115,8 +106,7 @@ func MatchTypes(vals ...string) Filter {
 	}
 }
 
-// MatchInternal returns a filter for tasks by their
-// Internal field.
+// MatchInternal returns a filter for tasks by their Internal field.
 func MatchInternal(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
@@ -125,8 +115,7 @@ func MatchInternal(v bool) Filter {
 	}
 }
 
-// MatchSnapshot returns a filter for tasks by their
-// Snapshot field.
+// MatchSnapshot returns a filter for tasks by their Snapshot field.
 func MatchSnapshot(v bool) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Task] {
 		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
@@ -135,26 +124,23 @@ func MatchSnapshot(v bool) Filter {
 	}
 }
 
-// Where applies the provided filter to the query, binding it to the Retrieve
-// so service-bound filters can read from r.indexes, r.label, r.hostProvider,
-// etc. To compose multiple filters, chain Where calls or pass a combined
-// filter via And / Or.
+// Where applies the provided filter to the query, binding it to the Retrieve so
+// service-bound filters can read from r.otg, r.configs, etc. To compose multiple
+// filters, chain Where calls or pass a combined filter via And / Or.
 func (r Retrieve) Where(filter Filter) Retrieve {
 	r.gorp = r.gorp.Where(filter(r))
 	return r
 }
 
-// Entry binds the provided task as the result container for the
-// query. If multiple tasks match, the first one is
-// used.
+// Entry binds the provided task as the result container for the query. If multiple
+// tasks match, the first one is used.
 func (r Retrieve) Entry(e *Task) Retrieve {
 	r.entry = e
 	r.gorp = r.gorp.Entry(e)
 	return r
 }
 
-// Entries binds the provided slice of tasks as the
-// result container for the query.
+// Entries binds the provided slice of tasks as the result container for the query.
 func (r Retrieve) Entries(es *[]Task) Retrieve {
 	r.entries = es
 	r.gorp = r.gorp.Entries(es)
@@ -164,8 +150,7 @@ func (r Retrieve) Entries(es *[]Task) Retrieve {
 // Limit sets the maximum number of tasks to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the tasks to
-// return.
+// Offset sets the starting index of the tasks to return.
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
 	return r

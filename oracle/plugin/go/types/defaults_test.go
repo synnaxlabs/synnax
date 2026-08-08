@@ -668,6 +668,9 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			Field union on type {
 				static {
 					kind Kind = KindNumber
+					name string {
+						@validate min_length 2
+					}
 				}
 				generated {}
 			}
@@ -684,6 +687,17 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 					"f.Kind = KindNumber",
 					"func (f FieldStatic) Validate() error {",
 					"!f.Kind.IsValid()",
+				)
+			},
+		)
+
+		It(
+			"Should emit constraint checks for inline variant fields",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					`v.Ternaryf("name", len(f.Name) < 2, ` +
+						`"must be at least 2 characters long")`,
 				)
 			},
 		)

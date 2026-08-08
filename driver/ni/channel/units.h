@@ -73,7 +73,7 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
 };
 
 /// @brief maps an engineering-unit string to its DAQmx constant.
-inline std::pair<int32_t, x::errors::Error> ni_units(const std::string &s) {
+inline std::pair<int32_t, x::errors::Error> parse_units(const std::string &s) {
     const auto units = UNITS_MAP.find(s);
     if (units == UNITS_MAP.end())
         return {
