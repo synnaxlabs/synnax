@@ -294,5 +294,4 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
 
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
-
 }

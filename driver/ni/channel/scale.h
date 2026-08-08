@@ -43,15 +43,13 @@ struct Scale {
 
 /// @brief base scale data structure for all scale types.
 struct BaseScale : Scale {
-    const std::string type, scaled_units;
+    const std::string scaled_units;
     const int pre_scaled_units;
 
     bool is_none() override { return false; }
 
-    BaseScale(std::string type, std::string scaled_units, const int pre_scaled_units):
-        type(std::move(type)),
-        scaled_units(std::move(scaled_units)),
-        pre_scaled_units(pre_scaled_units) {}
+    BaseScale(std::string scaled_units, const int pre_scaled_units):
+        scaled_units(std::move(scaled_units)), pre_scaled_units(pre_scaled_units) {}
 };
 
 /// @brief Linear scaling that applies y = mx + b transformation
@@ -64,7 +62,7 @@ struct LinearScale final : BaseScale {
     const double offset;
 
     LinearScale(const ::synnax::ni::ScaleLinear &s, const int pre_scaled_units):
-        BaseScale("linear", s.scaled_units, pre_scaled_units),
+        BaseScale(s.scaled_units, pre_scaled_units),
         slope(s.slope),
         offset(s.y_intercept) {}
 
@@ -98,7 +96,7 @@ struct MapScale final : BaseScale {
     const double scaled_max;
 
     MapScale(const ::synnax::ni::ScaleMap &s, const int pre_scaled_units):
-        BaseScale("map", s.scaled_units, pre_scaled_units),
+        BaseScale(s.scaled_units, pre_scaled_units),
         pre_scaled_min(s.pre_scaled_min),
         pre_scaled_max(s.pre_scaled_max),
         scaled_min(s.scaled_min),
@@ -122,8 +120,6 @@ struct MapScale final : BaseScale {
     }
 };
 
-/// @brief the default mode for calculating the reverse polynomial is to use the
-/// same number of coefficients as the forward polynomial.
 /// @brief Polynomial scaling that applies an nth-order polynomial transformation
 /// @details Transforms values using both forward and reverse polynomial
 /// coefficients
@@ -134,7 +130,7 @@ struct PolynomialScale final : BaseScale {
     const std::vector<double> reverse_coeffs;
 
     PolynomialScale(const ::synnax::ni::ScalePolynomial &s, const int pre_scaled_units):
-        BaseScale("polynomial", s.scaled_units, pre_scaled_units),
+        BaseScale(s.scaled_units, pre_scaled_units),
         forward_coeffs(s.forward_coeffs),
         reverse_coeffs(s.reverse_coeffs) {}
 
@@ -166,7 +162,7 @@ struct TableScale final : BaseScale {
     const std::vector<double> scaled;
 
     TableScale(const ::synnax::ni::ScaleTable &s, const int pre_scaled_units):
-        BaseScale("table", s.scaled_units, pre_scaled_units),
+        BaseScale(s.scaled_units, pre_scaled_units),
         pre_scaled(s.pre_scaled_vals),
         scaled(s.scaled_vals) {}
 
@@ -198,7 +194,7 @@ make_scale(const ::synnax::ni::Scale &s) {
             if constexpr (std::is_same_v<T, ::synnax::ni::ScaleNone>)
                 return {std::make_unique<Scale>(), x::errors::NIL};
             else {
-                auto [units, err] = ni_units(v.pre_scaled_units);
+                auto [units, err] = parse_units(v.pre_scaled_units);
                 if (err) return {nullptr, err};
                 if constexpr (std::is_same_v<T, ::synnax::ni::ScaleLinear>)
                     return {std::make_unique<LinearScale>(v, units), x::errors::NIL};
