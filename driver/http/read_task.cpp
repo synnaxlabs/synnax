@@ -55,20 +55,18 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                     fmt_err)
                     parser.field_err("endpoints.fields.timestamp_format", fmt_err);
 
-            if (field.enum_values.has_value()) {
-                std::set<std::string> labels;
-                for (const auto &entry: *field.enum_values)
-                    if (entry.label.empty())
-                        parser.field_err(
-                            "endpoints.fields.enum_values.label",
-                            "this field is required"
-                        );
-                    else if (!labels.insert(entry.label).second)
-                        parser.field_err(
-                            "endpoints.fields.enum_values.label",
-                            "duplicate enum label '" + entry.label + "'"
-                        );
-            }
+            std::set<std::string> labels;
+            for (const auto &entry: field.enum_values)
+                if (entry.label.empty())
+                    parser.field_err(
+                        "endpoints.fields.enum_values.label",
+                        "this field is required"
+                    );
+                else if (!labels.insert(entry.label).second)
+                    parser.field_err(
+                        "endpoints.fields.enum_values.label",
+                        "duplicate enum label '" + entry.label + "'"
+                    );
 
             if (!field.disabled) {
                 enabled_field_count++;
@@ -179,10 +177,9 @@ ReadTaskSource::ReadTaskSource(
                     );
                     !fmt_err)
                     gf.time_format = fmt;
-            if (field.enum_values.has_value())
-                for (const auto &entry: *field.enum_values)
-                    if (!entry.label.empty())
-                        gf.enum_values.emplace(entry.label, entry.value);
+            for (const auto &entry: field.enum_values)
+                if (!entry.label.empty())
+                    gf.enum_values.emplace(entry.label, entry.value);
 
             const auto idx_key = it->second.index;
             if (idx_key == 0) {

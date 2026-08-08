@@ -44,7 +44,7 @@ const deployReadFieldZ = http.readFieldZ.extend({
   enumValues: http.enumEntryZ
     .array()
     .check(checkDuplicateKeys("label", "enum label"))
-    .optional(),
+    .default(() => []),
 });
 
 const deployReadEndpointZ = http.readEndpointZ.extend({
@@ -98,7 +98,6 @@ export const ZERO_CHANNEL_FIELD: ChannelField = http.channelFieldZ.parse({});
 
 const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
   const { enumValues } = ctx.value;
-  if (enumValues == null) return;
   const seen = new Set<number>();
   enumValues.forEach((entry, i) => {
     if (seen.has(entry.value))
