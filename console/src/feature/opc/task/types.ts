@@ -42,7 +42,7 @@ export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadConfig extends opc.ReadConfig {}
 
-export const readConfigZ = opc.readConfigZ;
+const readConfigZ = opc.readConfigZ;
 
 const validateIndexChannels = ({
   value: channels,
@@ -127,9 +127,7 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export interface WriteConfig extends opc.WriteConfig {}
-
-export const writeConfigZ = opc.writeConfigZ;
+const writeConfigZ = opc.writeConfigZ;
 
 export const deployWriteConfigZ = opc.writeConfigZ.extend({
   device: Task.deviceKeyZ,

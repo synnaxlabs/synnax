@@ -29,5 +29,4 @@ inline synnax::framer::WriterMode data_saving_writer_mode(const bool data_saving
     if (data_saving) return synnax::framer::WriterMode::PersistStream;
     return synnax::framer::WriterMode::StreamOnly;
 }
-
 }
