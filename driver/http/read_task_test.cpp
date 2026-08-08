@@ -172,9 +172,9 @@ TEST(HTTPReadTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
     };
     auto ctx = std::make_shared<task::MockContext>(client);
     auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    ASSERT_TRUE(cfg.endpoints[0].query_params.has_value());
-    EXPECT_EQ(cfg.endpoints[0].query_params->at(0).parameter, "limit");
-    EXPECT_EQ(cfg.endpoints[0].query_params->at(0).value, "");
+    ASSERT_EQ(cfg.endpoints[0].query_params.size(), 1);
+    EXPECT_EQ(cfg.endpoints[0].query_params.at(0).parameter, "limit");
+    EXPECT_EQ(cfg.endpoints[0].query_params.at(0).value, "");
 }
 
 /// @brief it should fail when an enum_values entry is missing the label field.
@@ -264,6 +264,31 @@ TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
     auto [_3, err3] = ReadTaskConfig::parse(ctx, task);
     ASSERT_TRUE(err3.matches(x::errors::VALIDATION));
     EXPECT_NE(err3.data.find("duplicate header"), std::string::npos);
+}
+
+/// @brief it should parse an endpoint that omits query parameters, leaving it
+/// with none.
+TEST(HTTPReadTask, ParseConfigOmittedQueryParamsDefaultsEmpty) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [cfg, err] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_NIL(err);
+    ASSERT_EQ(cfg.endpoints.size(), 1);
+    ASSERT_TRUE(cfg.endpoints[0].query_params.empty());
 }
 
 /// @brief it should parse an endpoint that omits headers, leaving it with none.
