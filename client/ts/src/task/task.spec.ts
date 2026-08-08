@@ -555,8 +555,8 @@ describe("Task", async () => {
     it("should stamp the config hash from the task instance", async () => {
       const t = await testRack.createTask({
         name: "test",
-        config: { a: "dog" },
-        type: "ni",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
       });
       expect(t.configHash).not.toEqual("");
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
@@ -573,8 +573,8 @@ describe("Task", async () => {
     it("should stamp the config hash from the cached task row", async () => {
       const t = await testRack.createTask({
         name: "test",
-        config: { a: "dog" },
-        type: "ni",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
       });
       await client.tasks.retrieve(t.key);
       const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
