@@ -131,6 +131,59 @@ describe("Tree.Tree", () => {
     expect(screen.getByText(child.name)).toBeTruthy();
   });
 
+  it("should paint retained root children synchronously on remount", async () => {
+    const parent = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("parent"),
+    });
+    const parentID = group.ontologyID(parent.key);
+    const child = await client.groups.create({
+      parent: parentID,
+      name: uniqueName("child"),
+    });
+    const { rerender } = render(<Tree.Tree key="first" root={parentID} />, {
+      wrapper: await createWrapper(),
+    });
+    await screen.findByText(child.name);
+    // The changed key remounts the tree with fresh state. No awaits before the
+    // assertion, so the paint can only come from the cache.
+    rerender(<Tree.Tree key="second" root={parentID} />);
+    expect(screen.getByText(child.name)).toBeTruthy();
+    await act(async () => {
+      await client.ontology.children.retrieve({ ids: parentID });
+    });
+  });
+
+  it("should paint a re-expanded node's retained children synchronously after a remount", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const containerID = group.ontologyID(container.key);
+    const parent = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("parent"),
+    });
+    const parentID = group.ontologyID(parent.key);
+    const child = await client.groups.create({
+      parent: parentID,
+      name: uniqueName("child"),
+    });
+    const { rerender } = render(<Tree.Tree key="first" root={containerID} />, {
+      wrapper: await createWrapper(),
+    });
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await screen.findByText(child.name);
+    rerender(<Tree.Tree key="second" root={containerID} />);
+    expandTreeRow(parent.name);
+    expect(screen.getByText(child.name)).toBeTruthy();
+    await act(async () => {
+      await client.ontology.children.retrieve({ ids: containerID });
+      await client.ontology.children.retrieve({ ids: parentID });
+    });
+  });
+
   describe("context menu", () => {
     it("should render the default context menu when right-clicking empty space", async () => {
       const name = uniqueName("grp");
