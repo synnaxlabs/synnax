@@ -426,6 +426,36 @@ TEST_F(TestReadTask, testDisabledChannels) {
     EXPECT_TRUE(p.error());
 }
 
+/// @brief it should configure when a disabled channel has no node id or Synnax
+/// channel bound to it.
+TEST_F(TestReadTask, testUnboundDisabledChannel) {
+    x::json::json cfg{
+        {"data_saving_disabled", false},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         x::json::json::array(
+             {{{"key", "NS=2;I=1"},
+               {"name", "float_test"},
+               {"node_name", "TestFloat"},
+               {"node_id", "NS=1;S=TestFloat"},
+               {"channel", this->float_channel.key},
+               {"disabled", false},
+               {"use_as_index", false},
+               {"data_type", "float32"}},
+              {{"key", "blank"}, {"disabled", true}}}
+         )},
+        {"sample_rate", 50},
+        {"array_mode", false},
+        {"stream_rate", 25}
+    };
+
+    auto p = x::json::Parser(cfg);
+    const auto parsed = std::make_unique<ReadTaskConfig>(ctx->client, p);
+    ASSERT_FALSE(p.error()) << p.error().message();
+    EXPECT_EQ(parsed->channels.size(), 1);
+    EXPECT_EQ(parsed->channels[0]->synnax_key, this->float_channel.key);
+}
+
 /// @brief it should handle rapid start and stop cycles.
 TEST_F(TestReadTask, testRapidStartStop) {
     const auto rt = create_task();

@@ -1377,6 +1377,25 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				`.name = parser.field<std::string>("name", ""),`,
 			)
 	})
+
+	It("Should mint a UUID for create-defaulted uuid fields", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Key = uuid
+
+			Record struct {
+				key    uuid = create
+				parent Key = create
+			}
+		`
+		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`.key = parser.field<x::uuid::UUID>("key", x::uuid::create()),`,
+				`.parent = parser.field<Key>("parent", x::uuid::create()),`,
+			)
+	})
 })
 
 var _ = Describe("C++ JSON Union Array Fields", func() {
