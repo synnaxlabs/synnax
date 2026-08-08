@@ -49,7 +49,7 @@ export const Summary = ({
       className={CSS(className, !hasDescription && CSS.BE("status", "text"))}
       level={level}
       status={variant}
-      {...(description == null ? rest : {})}
+      {...(hasDescription ? {} : rest)}
     >
       {icon}
       {children}
