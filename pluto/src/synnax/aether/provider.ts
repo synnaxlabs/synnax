@@ -58,7 +58,11 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
 
   private closeClient(): void {
     if (this.internal.client == null) return;
-    this.internal.client.close();
+    // The aether lifecycle is synchronous, so the close failure is logged
+    // rather than awaited or surfaced to the user.
+    this.internal.client
+      .close()
+      .catch((e: unknown) => console.error("failed to close client", e));
     this.internal.client = null;
   }
 }

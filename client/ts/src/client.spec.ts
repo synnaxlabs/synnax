@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { type connection } from "@/connection";
 import { AuthError, DisconnectedError } from "@/errors";
@@ -29,7 +29,7 @@ describe("connect", () => {
     const state = await client.connect();
     expect(state.variant).toEqual("success");
     expect(state.details.streamLive).toBe(true);
-    client.close();
+    await client.close();
   });
 
   it("should be idempotent on an already-connected client", async () => {
@@ -37,19 +37,19 @@ describe("connect", () => {
     await client.connect();
     const state = await client.connect();
     expect(state.variant).toEqual("success");
-    client.close();
+    await client.close();
   });
 
   it("should reject with AuthError on bad credentials", async () => {
     const client = createTestClient({ password: "definitely-wrong" });
     await expect(client.connect()).rejects.toThrow(AuthError);
-    client.close();
+    await client.close();
   });
 
   it("should reject against an unreachable cluster after the retry budget", async () => {
     const client = createTestClient({ port: 9999, retry: FAST_RETRY });
     await expect(client.connect()).rejects.toThrow();
-    client.close();
+    await client.close();
   });
 
   it("should recover from an auth failure via reauthenticate", async () => {
@@ -62,7 +62,7 @@ describe("connect", () => {
     });
     const state = await client.connect();
     expect(state.variant).toEqual("success");
-    client.close();
+    await client.close();
   });
 
   it("should reject on timeout", async () => {
@@ -75,13 +75,13 @@ describe("connect", () => {
     await expect(
       client.connect({ timeout: TimeSpan.milliseconds(10) }),
     ).rejects.toThrow(/timed out after/);
-    client.close();
+    await client.close();
   });
 
   it("should become disabled on close", async () => {
     const client = createTestClient();
     await client.connect();
-    client.close();
+    await client.close();
     expect(client.connection.status.variant).toEqual("disabled");
   });
 });
@@ -99,7 +99,7 @@ describe("short circuit", () => {
       DisconnectedError,
     );
     expect(performance.now() - start).toBeLessThan(100);
-    client.close();
+    await client.close();
   });
 
   it("should not short-circuit while connected", async () => {
@@ -111,6 +111,49 @@ describe("short circuit", () => {
       virtual: true,
     });
     expect(ch.key).not.toBe(0);
-    client.close();
+    await client.close();
+  });
+});
+
+describe("close", () => {
+  // The test harness closes every client again at file end, so a spy left
+  // rejecting would fail the whole suite from afterAll.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should settle the connection status on disabled", async () => {
+    const client = createTestClient();
+    await client.connect();
+    await client.close();
+    expect(client.connection.status.variant).toEqual("disabled");
+  });
+
+  it("should close the connection when the cache close fails, rejecting instead of reporting internally", async () => {
+    const onInternalError = vi.fn();
+    const client = createTestClient({ onInternalError });
+    await client.connect();
+    // eslint-disable-next-line dot-notation -- bracket access reaches the private field
+    vi.spyOn(client["cache"], "close").mockRejectedValue(new Error("cache boom"));
+    await expect(client.close()).rejects.toThrow(AggregateError);
+    expect(client.connection.status.variant).toEqual("disabled");
+    expect(onInternalError).not.toHaveBeenCalled();
+  });
+
+  it("should carry every underlying failure in the rejection", async () => {
+    const client = createTestClient();
+    // eslint-disable-next-line dot-notation -- bracket access reaches the private field
+    vi.spyOn(client["conn"], "close").mockRejectedValue(new Error("conn boom"));
+    // eslint-disable-next-line dot-notation -- bracket access reaches the private field
+    vi.spyOn(client["cache"], "close").mockRejectedValue(new Error("cache boom"));
+    const error = await client.close().then(
+      () => null,
+      (e: unknown) => e,
+    );
+    assert(error instanceof AggregateError);
+    expect(error.errors.map((e) => (e as Error).message)).toEqual([
+      "conn boom",
+      "cache boom",
+    ]);
   });
 });
