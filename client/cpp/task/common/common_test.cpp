@@ -46,15 +46,15 @@ TEST(BaseConfig, testParseWithDataSavingDisabledOnly) {
     EXPECT_FALSE(config.auto_start);
 }
 
-/// @brief it should parse a config that carries no record key. The Core assigns
-/// the key, so a config written without one must still configure.
+/// @brief it should mint a record key for a config that carries none, so a config
+/// written by the driver still parses.
 TEST(BaseConfig, testParseWithoutKey) {
     const auto json = nlohmann::json{{"auto_start", true}};
     auto parser = x::json::Parser(json);
     const auto config = BaseConfig::parse(parser);
 
     EXPECT_FALSE(parser.error()) << parser.error().message();
-    EXPECT_TRUE(config.key.is_nil());
+    EXPECT_FALSE(config.key.is_nil());
 }
 
 /// @brief it should parse with only auto_start present.

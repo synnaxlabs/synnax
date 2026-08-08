@@ -21,7 +21,7 @@ namespace synnax::label {
 
 inline Label Label::parse(x::json::Parser parser) {
     return Label{
-        .key = parser.field<Key>("key", Key{}),
+        .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
         .color = parser.field<::x::color::Color>("color"),
     };

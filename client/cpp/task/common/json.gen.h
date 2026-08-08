@@ -21,7 +21,7 @@ namespace synnax::common {
 
 inline ConfigRecord ConfigRecord::parse(x::json::Parser parser) {
     return ConfigRecord{
-        .key = parser.field<x::uuid::UUID>("key", x::uuid::UUID{}),
+        .key = parser.field<x::uuid::UUID>("key", x::uuid::create()),
     };
 }
 

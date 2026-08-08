@@ -44,7 +44,7 @@ inline x::json::json StatusDetails::to_json() const {
 
 inline Task Task::parse(x::json::Parser parser) {
     return Task{
-        .key = parser.field<Key>("key", Key{}),
+        .key = parser.field<Key>("key", x::uuid::create()),
         .rack = parser.field<::synnax::rack::Key>("rack", 0),
         .name = parser.field<std::string>("name"),
         .type = parser.field<std::string>("type"),

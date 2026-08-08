@@ -20,7 +20,7 @@ namespace synnax::view {
 
 inline View View::parse(x::json::Parser parser) {
     return View{
-        .key = parser.field<Key>("key", Key{}),
+        .key = parser.field<Key>("key", x::uuid::create()),
         .name = parser.field<std::string>("name"),
         .type = parser.field<std::string>("type"),
         .query = parser.field<x::json::json::object_t>("query"),
