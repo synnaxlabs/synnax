@@ -645,8 +645,8 @@ inline x::json::json AIVoltageChannel::to_json() const {
 inline AIAccelChannel AIAccelChannel::parse(x::json::Parser parser) {
     AIAccelChannel result;
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
-    static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
+    static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<Sensitivity &>(result) = Sensitivity::parse(parser);
     static_cast<CurrentExcitation &>(result) = CurrentExcitation::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
@@ -663,9 +663,9 @@ inline x::json::json AIAccelChannel::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseAIChannel::to_json().items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
-        j[k] = v;
     for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: Terminal::to_json().items())
         j[k] = v;
     for (auto &[k, v]: Sensitivity::to_json().items())
         j[k] = v;
@@ -711,8 +711,8 @@ inline x::json::json AIBridgeChannel::to_json() const {
 inline AICurrentChannel AICurrentChannel::parse(x::json::Parser parser) {
     AICurrentChannel result;
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
-    static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
+    static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     result.units = parser.field<std::string>("units", "Amps");
     result.shunt_resistor_loc = parser.field<std::string>(
@@ -728,9 +728,9 @@ inline x::json::json AICurrentChannel::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseAIChannel::to_json().items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
-        j[k] = v;
     for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: Terminal::to_json().items())
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;
@@ -814,8 +814,8 @@ inline x::json::json AIForceBridgeTwoPointLinChannel::to_json() const {
 inline AIForceIEPEChannel AIForceIEPEChannel::parse(x::json::Parser parser) {
     AIForceIEPEChannel result;
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
-    static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
+    static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<Sensitivity &>(result) = Sensitivity::parse(parser);
     static_cast<CurrentExcitation &>(result) = CurrentExcitation::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
@@ -832,9 +832,9 @@ inline x::json::json AIForceIEPEChannel::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseAIChannel::to_json().items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
-        j[k] = v;
     for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: Terminal::to_json().items())
         j[k] = v;
     for (auto &[k, v]: Sensitivity::to_json().items())
         j[k] = v;
@@ -1169,8 +1169,8 @@ inline x::json::json AITorqueBridgeTwoPointLinChannel::to_json() const {
 inline AIVelocityIEPEChannel AIVelocityIEPEChannel::parse(x::json::Parser parser) {
     AIVelocityIEPEChannel result;
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
-    static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
+    static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<Sensitivity &>(result) = Sensitivity::parse(parser);
     static_cast<CurrentExcitation &>(result) = CurrentExcitation::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
@@ -1187,9 +1187,9 @@ inline x::json::json AIVelocityIEPEChannel::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseAIChannel::to_json().items())
         j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
-        j[k] = v;
     for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: Terminal::to_json().items())
         j[k] = v;
     for (auto &[k, v]: Sensitivity::to_json().items())
         j[k] = v;
@@ -1770,6 +1770,7 @@ inline CISemiPeriodChannel CISemiPeriodChannel::parse(x::json::Parser parser) {
     result.min_val = parser.field<double>("min_val", 0.000001);
     result.max_val = parser.field<double>("max_val", 0.100000);
     result.units = parser.field<std::string>("units", "Seconds");
+    result.terminal = parser.field<std::string>("terminal", "");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1783,6 +1784,7 @@ inline x::json::json CISemiPeriodChannel::to_json() const {
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
+    j["terminal"] = this->terminal;
     j["type"] = this->type;
     return j;
 }
@@ -1796,6 +1798,8 @@ inline CITwoEdgeSepChannel CITwoEdgeSepChannel::parse(x::json::Parser parser) {
     result.units = parser.field<std::string>("units", "Seconds");
     result.first_edge = parser.field<std::string>("first_edge", "Rising");
     result.second_edge = parser.field<std::string>("second_edge", "Falling");
+    result.first_terminal = parser.field<std::string>("first_terminal", "");
+    result.second_terminal = parser.field<std::string>("second_terminal", "");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1811,6 +1815,8 @@ inline x::json::json CITwoEdgeSepChannel::to_json() const {
     j["units"] = this->units;
     j["first_edge"] = this->first_edge;
     j["second_edge"] = this->second_edge;
+    j["first_terminal"] = this->first_terminal;
+    j["second_terminal"] = this->second_terminal;
     j["type"] = this->type;
     return j;
 }

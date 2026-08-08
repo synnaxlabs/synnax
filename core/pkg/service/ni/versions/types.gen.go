@@ -120,12 +120,12 @@ const (
 	ShuntResistorLocationExternal ShuntResistorLocation = v0.ShuntResistorLocationExternal
 )
 
-// ForceUnitsSensitivity are the units of a force IEPE sensor's sensitivity rating.
-type ForceUnitsSensitivity = v0.ForceUnitsSensitivity
+// ForceSensitivityUnits are the units of a force IEPE sensor's sensitivity rating.
+type ForceSensitivityUnits = v0.ForceSensitivityUnits
 
 const (
-	ForceUnitsSensitivityMVoltsPerNewton ForceUnitsSensitivity = v0.ForceUnitsSensitivityMVoltsPerNewton
-	ForceUnitsSensitivityMVoltsPerPound  ForceUnitsSensitivity = v0.ForceUnitsSensitivityMVoltsPerPound
+	ForceSensitivityUnitsMVoltsPerNewton ForceSensitivityUnits = v0.ForceSensitivityUnitsMVoltsPerNewton
+	ForceSensitivityUnitsMVoltsPerPound  ForceSensitivityUnits = v0.ForceSensitivityUnitsMVoltsPerPound
 )
 
 // PressureUnits are the engineering units for a pressure measurement.
@@ -222,13 +222,13 @@ const (
 	VelocityUnitsInchesPerSecond VelocityUnits = v0.VelocityUnitsInchesPerSecond
 )
 
-// VelocityUnitsSensitivity are the units of a velocity IEPE sensor's sensitivity
+// VelocitySensitivityUnits are the units of a velocity IEPE sensor's sensitivity
 // rating.
-type VelocityUnitsSensitivity = v0.VelocityUnitsSensitivity
+type VelocitySensitivityUnits = v0.VelocitySensitivityUnits
 
 const (
-	VelocityUnitsSensitivityMVoltsPerMmPerSecond   VelocityUnitsSensitivity = v0.VelocityUnitsSensitivityMVoltsPerMmPerSecond
-	VelocityUnitsSensitivityMVoltsPerInchPerSecond VelocityUnitsSensitivity = v0.VelocityUnitsSensitivityMVoltsPerInchPerSecond
+	VelocitySensitivityUnitsMVoltsPerMmPerSecond   VelocitySensitivityUnits = v0.VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	VelocitySensitivityUnitsMVoltsPerInchPerSecond VelocitySensitivityUnits = v0.VelocitySensitivityUnitsMVoltsPerInchPerSecond
 )
 
 // ChargeUnits are the units of a charge measurement.
@@ -601,15 +601,14 @@ const (
 	CIAngularPositionUnitsTicks   CIAngularPositionUnits = v0.CIAngularPositionUnitsTicks
 )
 
-// CIZIndexPhase selects the encoder channel states at which the Z index resets the
-// count.
-type CIZIndexPhase = v0.CIZIndexPhase
+// ZIndexPhase selects the encoder channel states at which the Z index resets the count.
+type ZIndexPhase = v0.ZIndexPhase
 
 const (
-	CIZIndexPhaseAHighBHigh CIZIndexPhase = v0.CIZIndexPhaseAHighBHigh
-	CIZIndexPhaseAHighBLow  CIZIndexPhase = v0.CIZIndexPhaseAHighBLow
-	CIZIndexPhaseALowBHigh  CIZIndexPhase = v0.CIZIndexPhaseALowBHigh
-	CIZIndexPhaseALowBLow   CIZIndexPhase = v0.CIZIndexPhaseALowBLow
+	ZIndexPhaseAHighBHigh ZIndexPhase = v0.ZIndexPhaseAHighBHigh
+	ZIndexPhaseAHighBLow  ZIndexPhase = v0.ZIndexPhaseAHighBLow
+	ZIndexPhaseALowBHigh  ZIndexPhase = v0.ZIndexPhaseALowBHigh
+	ZIndexPhaseALowBLow   ZIndexPhase = v0.ZIndexPhaseALowBLow
 )
 
 // ZIndex configures the Z-index reset behavior of an encoder.

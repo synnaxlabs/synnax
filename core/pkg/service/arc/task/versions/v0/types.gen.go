@@ -40,8 +40,8 @@ func (e ExecutionMode) IsValid() bool {
 	}
 }
 
-// TaskConfig configures an Arc task, which runs a compiled Arc module.
-type TaskConfig struct {
+// Config configures an Arc task, which runs a compiled Arc module.
+type Config struct {
 	common.BaseConfig
 	// ArcKey is the key of the Arc module the task executes.
 	ArcKey arc.Key `json:"arc_key" msgpack:"arc_key"`
@@ -56,22 +56,22 @@ type TaskConfig struct {
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (t *TaskConfig) ApplyDefaults() {
-	if t.ExecutionMode == "" {
-		t.ExecutionMode = ExecutionModeAuto
+func (c *Config) ApplyDefaults() {
+	if c.ExecutionMode == "" {
+		c.ExecutionMode = ExecutionModeAuto
 	}
-	if t.RtPriority == 0 {
-		t.RtPriority = 47
+	if c.RtPriority == 0 {
+		c.RtPriority = 47
 	}
-	if t.CPUAffinity == 0 {
-		t.CPUAffinity = -1
+	if c.CPUAffinity == 0 {
+		c.CPUAffinity = -1
 	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (t TaskConfig) Validate() error {
-	v := validate.New("TaskConfig")
-	v.Ternaryf("execution_mode", !t.ExecutionMode.IsValid(), "invalid execution_mode: %v", t.ExecutionMode)
+func (c Config) Validate() error {
+	v := validate.New("Config")
+	v.Ternaryf("execution_mode", !c.ExecutionMode.IsValid(), "invalid execution_mode: %v", c.ExecutionMode)
 	return v.Error()
 }

@@ -55,7 +55,7 @@ func (c ServiceConfig) Validate() error {
 // Service owns the stored configuration records of the Arc task type.
 type Service struct {
 	// Config stores arc_task task configuration records.
-	Config *common.ConfigService[TaskConfig, *TaskConfig]
+	Config *common.ConfigService[Config, *Config]
 	closer xio.MultiCloser
 }
 
@@ -75,7 +75,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Ontology:        cfg.Ontology,
 		Instrumentation: cfg.Instrumentation,
 	}
-	if s.Config, err = common.OpenConfigService[TaskConfig](
+	if s.Config, err = common.OpenConfigService[Config](
 		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeArcTask},
 	); !ok(err, s.Config) {
 		return nil, err

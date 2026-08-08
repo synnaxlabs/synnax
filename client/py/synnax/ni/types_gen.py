@@ -157,16 +157,16 @@ RESISTANCE_CONFIG_WIRE_4: Literal["4Wire"] = "4Wire"
 
 ResistanceConfig = Literal["2Wire", "3Wire", "4Wire"]
 
-CIZ_INDEX_PHASE_A_HIGH_B_HIGH: Literal["AHighBHigh"] = "AHighBHigh"
+Z_INDEX_PHASE_A_HIGH_B_HIGH: Literal["AHighBHigh"] = "AHighBHigh"
 
-CIZ_INDEX_PHASE_A_HIGH_B_LOW: Literal["AHighBLow"] = "AHighBLow"
+Z_INDEX_PHASE_A_HIGH_B_LOW: Literal["AHighBLow"] = "AHighBLow"
 
-CIZ_INDEX_PHASE_A_LOW_B_HIGH: Literal["ALowBHigh"] = "ALowBHigh"
+Z_INDEX_PHASE_A_LOW_B_HIGH: Literal["ALowBHigh"] = "ALowBHigh"
 
-CIZ_INDEX_PHASE_A_LOW_B_LOW: Literal["ALowBLow"] = "ALowBLow"
+Z_INDEX_PHASE_A_LOW_B_LOW: Literal["ALowBLow"] = "ALowBLow"
 
 
-CIZIndexPhase = Literal["AHighBHigh", "AHighBLow", "ALowBHigh", "ALowBLow"]
+ZIndexPhase = Literal["AHighBHigh", "AHighBLow", "ALowBHigh", "ALowBLow"]
 
 ACCEL_SENSITIVITY_UNITS_M_VOLTS_PER_G: Literal["mVoltsPerG"] = "mVoltsPerG"
 
@@ -206,14 +206,14 @@ SHUNT_RESISTOR_LOCATION_EXTERNAL: Literal["External"] = "External"
 
 ShuntResistorLocation = Literal["Default", "Internal", "External"]
 
-FORCE_UNITS_SENSITIVITY_M_VOLTS_PER_NEWTON: Literal["mVoltsPerNewton"] = (
+FORCE_SENSITIVITY_UNITS_M_VOLTS_PER_NEWTON: Literal["mVoltsPerNewton"] = (
     "mVoltsPerNewton"
 )
 
-FORCE_UNITS_SENSITIVITY_M_VOLTS_PER_POUND: Literal["mVoltsPerPound"] = "mVoltsPerPound"
+FORCE_SENSITIVITY_UNITS_M_VOLTS_PER_POUND: Literal["mVoltsPerPound"] = "mVoltsPerPound"
 
 
-ForceUnitsSensitivity = Literal["mVoltsPerNewton", "mVoltsPerPound"]
+ForceSensitivityUnits = Literal["mVoltsPerNewton", "mVoltsPerPound"]
 
 PRESSURE_UNITS_POUNDS_PER_SQUARE_INCH: Literal["PoundsPerSquareInch"] = (
     "PoundsPerSquareInch"
@@ -323,16 +323,16 @@ VELOCITY_UNITS_INCHES_PER_SECOND: Literal["InchesPerSecond"] = "InchesPerSecond"
 
 VelocityUnits = Literal["MetersPerSecond", "InchesPerSecond"]
 
-VELOCITY_UNITS_SENSITIVITY_M_VOLTS_PER_MM_PER_SECOND: Literal[
+VELOCITY_SENSITIVITY_UNITS_M_VOLTS_PER_MM_PER_SECOND: Literal[
     "MillivoltsPerMillimeterPerSecond"
 ] = "MillivoltsPerMillimeterPerSecond"
 
-VELOCITY_UNITS_SENSITIVITY_M_VOLTS_PER_INCH_PER_SECOND: Literal[
+VELOCITY_SENSITIVITY_UNITS_M_VOLTS_PER_INCH_PER_SECOND: Literal[
     "MilliVoltsPerInchPerSecond"
 ] = "MilliVoltsPerInchPerSecond"
 
 
-VelocityUnitsSensitivity = Literal[
+VelocitySensitivityUnits = Literal[
     "MillivoltsPerMillimeterPerSecond", "MilliVoltsPerInchPerSecond"
 ]
 
@@ -719,7 +719,7 @@ class ZIndex(BaseModel):
 
     z_index_enable: bool = False
     z_index_val: float = 0
-    z_index_phase: CIZIndexPhase = "AHighBHigh"
+    z_index_phase: ZIndexPhase = "AHighBHigh"
     terminal_z: str = ""
 
 
@@ -904,7 +904,7 @@ class AIVoltageChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
 
 
 class AIAccelChannel(
-    BaseAIChannel, Terminal, MinMaxVal, Sensitivity, CurrentExcitation, CustomScale
+    BaseAIChannel, MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale
 ):
     """Reads acceleration from an accelerometer."""
 
@@ -920,7 +920,7 @@ class AIBridgeChannel(BaseAIChannel, MinMaxVal, Bridge, VoltageExcitation, Custo
     units: ElectricalUnits = "mVoltsPerVolt"
 
 
-class AICurrentChannel(BaseAIChannel, Terminal, MinMaxVal, CustomScale):
+class AICurrentChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads a current."""
 
     type: Literal["ai_current"]
@@ -950,13 +950,13 @@ class AIForceBridgeTwoPointLinChannel(
 
 
 class AIForceIEPEChannel(
-    BaseAIChannel, Terminal, MinMaxVal, Sensitivity, CurrentExcitation, CustomScale
+    BaseAIChannel, MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale
 ):
     """Reads force from an IEPE sensor."""
 
     type: Literal["ai_force_iepe"]
     units: ForceUnits = "Newtons"
-    sensitivity_units: ForceUnitsSensitivity = "mVoltsPerNewton"
+    sensitivity_units: ForceSensitivityUnits = "mVoltsPerNewton"
 
 
 class AIMicrophoneChannel(BaseAIChannel, Terminal, CurrentExcitation, CustomScale):
@@ -1058,13 +1058,13 @@ class AITorqueBridgeTwoPointLinChannel(
 
 
 class AIVelocityIEPEChannel(
-    BaseAIChannel, Terminal, MinMaxVal, Sensitivity, CurrentExcitation, CustomScale
+    BaseAIChannel, MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale
 ):
     """Reads velocity from an IEPE sensor."""
 
     type: Literal["ai_velocity_iepe"]
     units: VelocityUnits = "MetersPerSecond"
-    sensitivity_units: VelocityUnitsSensitivity = "MillivoltsPerMillimeterPerSecond"
+    sensitivity_units: VelocitySensitivityUnits = "MillivoltsPerMillimeterPerSecond"
 
 
 class AIAccel4WireDCVoltageChannel(
@@ -1298,6 +1298,7 @@ class CISemiPeriodChannel(BaseCIChannel, CustomScale):
     min_val: float = 0.000001
     max_val: float = 0.100000
     units: CITimeUnits = "Seconds"
+    terminal: str = ""
 
 
 class CITwoEdgeSepChannel(BaseCIChannel, CustomScale):
@@ -1309,6 +1310,8 @@ class CITwoEdgeSepChannel(BaseCIChannel, CustomScale):
     units: CITimeUnits = "Seconds"
     first_edge: CIEdge = "Rising"
     second_edge: CIEdge = "Falling"
+    first_terminal: str = ""
+    second_terminal: str = ""
 
 
 class CIVelocityLinearChannel(BaseCIChannel, CustomScale):
@@ -1427,8 +1430,7 @@ class AnalogReadConfig(task.BaseReadConfig):
     """Configures an NI analog read task. Each channel carries its own device.
 
     Attributes:
-        channels: Are the analog input channels the task acquires. Each carries its own
-            device.
+        channels: Are the analog input channels the task acquires.
     """
 
     channels: list[AIChannel] = Field(default_factory=list)

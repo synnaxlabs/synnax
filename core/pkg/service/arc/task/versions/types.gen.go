@@ -25,5 +25,5 @@ const (
 	ExecutionModeEventDriven ExecutionMode = v0.ExecutionModeEventDriven
 )
 
-// TaskConfig configures an Arc task, which runs a compiled Arc module.
-type TaskConfig = v0.TaskConfig
+// Config configures an Arc task, which runs a compiled Arc module.
+type Config = v0.Config

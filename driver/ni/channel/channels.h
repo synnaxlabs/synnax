@@ -1955,7 +1955,7 @@ inline x::errors::Error apply(
     if (scale_err) return scale_err;
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
-    const std::string terminal;
+    const auto terminal = ch.terminal;
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
@@ -1996,11 +1996,11 @@ inline x::errors::Error apply(
     auto [scale, scale_err] = make_scale(ch.custom_scale);
     if (scale_err) return scale_err;
     const auto first_edge = get_ci_edge(ch.first_edge);
-    const std::string first_terminal;
+    const auto first_terminal = ch.first_terminal;
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
     const auto second_edge = get_ci_edge(ch.second_edge);
-    const std::string second_terminal;
+    const auto second_terminal = ch.second_terminal;
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;

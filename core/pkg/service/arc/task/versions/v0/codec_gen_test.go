@@ -25,18 +25,18 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("TaskConfig", func() {
+	Describe("Config", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.TaskConfig) {
+			func(original v0.Config) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.TaskConfig
+				var decoded v0.Config
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.TaskConfig{
+			Entry("fully populated", v0.Config{
 				BaseConfig: common.BaseConfig{
 					ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 					AutoStart:          false,
@@ -48,7 +48,7 @@ var _ = Describe("Codec", func() {
 				CPUAffinity:   8,
 				LockMemory:    false,
 			}),
-			Entry("zero values", v0.TaskConfig{
+			Entry("zero values", v0.Config{
 				BaseConfig: common.BaseConfig{
 					ConfigRecord:       common.ConfigRecord{Key: uuid.Nil},
 					AutoStart:          false,
@@ -64,8 +64,8 @@ var _ = Describe("Codec", func() {
 	})
 })
 
-func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
-	seed := v0.TaskConfig{
+func BenchmarkEncodeDecodeConfig(b *testing.B) {
+	seed := v0.Config{
 		BaseConfig: common.BaseConfig{
 			ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 			AutoStart:          false,
@@ -84,7 +84,7 @@ func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.TaskConfig
+		var decoded v0.Config
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -92,9 +92,9 @@ func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
 	}
 }
 
-func FuzzDecodeTaskConfig(f *testing.F) {
+func FuzzDecodeConfig(f *testing.F) {
 	{
-		seed := v0.TaskConfig{
+		seed := v0.Config{
 			BaseConfig: common.BaseConfig{
 				ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 				AutoStart:          false,
@@ -113,7 +113,7 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.TaskConfig{
+		seed := v0.Config{
 			BaseConfig: common.BaseConfig{
 				ConfigRecord:       common.ConfigRecord{Key: uuid.Nil},
 				AutoStart:          false,
@@ -132,7 +132,7 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.TaskConfig
+		var decoded v0.Config
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -142,7 +142,7 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.TaskConfig
+		var redecoded v0.Config
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

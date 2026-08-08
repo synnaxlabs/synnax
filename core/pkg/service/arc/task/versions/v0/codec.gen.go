@@ -14,31 +14,31 @@ package v0
 import "github.com/synnaxlabs/x/encoding/orc"
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (tc TaskConfig) EncodeOrc(w *orc.Writer) error {
-	w.Write(tc.Key[:])
-	w.Bool(tc.AutoStart)
-	w.Bool(tc.DataSavingDisabled)
-	w.Write(tc.ArcKey[:])
-	w.String(string(tc.ExecutionMode))
-	w.Int32(int32(tc.RtPriority))
-	w.Int32(int32(tc.CPUAffinity))
-	w.Bool(tc.LockMemory)
+func (c Config) EncodeOrc(w *orc.Writer) error {
+	w.Write(c.Key[:])
+	w.Bool(c.AutoStart)
+	w.Bool(c.DataSavingDisabled)
+	w.Write(c.ArcKey[:])
+	w.String(string(c.ExecutionMode))
+	w.Int32(int32(c.RtPriority))
+	w.Int32(int32(c.CPUAffinity))
+	w.Bool(c.LockMemory)
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (tc *TaskConfig) DecodeOrc(r *orc.Reader) error {
+func (c *Config) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(tc.Key[:]); err != nil {
+	if _, err := r.Read(c.Key[:]); err != nil {
 		return err
 	}
-	if tc.AutoStart, err = r.Bool(); err != nil {
+	if c.AutoStart, err = r.Bool(); err != nil {
 		return err
 	}
-	if tc.DataSavingDisabled, err = r.Bool(); err != nil {
+	if c.DataSavingDisabled, err = r.Bool(); err != nil {
 		return err
 	}
-	if _, err := r.Read(tc.ArcKey[:]); err != nil {
+	if _, err := r.Read(c.ArcKey[:]); err != nil {
 		return err
 	}
 	{
@@ -46,15 +46,15 @@ func (tc *TaskConfig) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		tc.ExecutionMode = ExecutionMode(rawV)
+		c.ExecutionMode = ExecutionMode(rawV)
 	}
-	if tc.RtPriority, err = r.Int32(); err != nil {
+	if c.RtPriority, err = r.Int32(); err != nil {
 		return err
 	}
-	if tc.CPUAffinity, err = r.Int32(); err != nil {
+	if c.CPUAffinity, err = r.Int32(); err != nil {
 		return err
 	}
-	if tc.LockMemory, err = r.Bool(); err != nil {
+	if c.LockMemory, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

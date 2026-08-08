@@ -74,14 +74,14 @@ export const RESISTANCE_CONFIGS = ["2Wire", "3Wire", "4Wire"] as const;
 export const resistanceConfigZ = z.enum(RESISTANCE_CONFIGS);
 export type ResistanceConfig = z.infer<typeof resistanceConfigZ>;
 
-export const CIZ_INDEX_PHASES = [
+export const Z_INDEX_PHASES = [
   "AHighBHigh",
   "AHighBLow",
   "ALowBHigh",
   "ALowBLow",
 ] as const;
-export const ciZIndexPhaseZ = z.enum(CIZ_INDEX_PHASES);
-export type CIZIndexPhase = z.infer<typeof ciZIndexPhaseZ>;
+export const zIndexPhaseZ = z.enum(Z_INDEX_PHASES);
+export type ZIndexPhase = z.infer<typeof zIndexPhaseZ>;
 
 export const ACCEL_SENSITIVITY_UNITS = ["mVoltsPerG", "VoltsPerG"] as const;
 export const accelSensitivityUnitsZ = z.enum(ACCEL_SENSITIVITY_UNITS);
@@ -103,9 +103,9 @@ export const SHUNT_RESISTOR_LOCATIONS = ["Default", "Internal", "External"] as c
 export const shuntResistorLocationZ = z.enum(SHUNT_RESISTOR_LOCATIONS);
 export type ShuntResistorLocation = z.infer<typeof shuntResistorLocationZ>;
 
-export const FORCE_UNITS_SENSITIVITYS = ["mVoltsPerNewton", "mVoltsPerPound"] as const;
-export const forceUnitsSensitivityZ = z.enum(FORCE_UNITS_SENSITIVITYS);
-export type ForceUnitsSensitivity = z.infer<typeof forceUnitsSensitivityZ>;
+export const FORCE_SENSITIVITY_UNITS = ["mVoltsPerNewton", "mVoltsPerPound"] as const;
+export const forceSensitivityUnitsZ = z.enum(FORCE_SENSITIVITY_UNITS);
+export type ForceSensitivityUnits = z.infer<typeof forceSensitivityUnitsZ>;
 
 export const PRESSURE_UNITS = ["PoundsPerSquareInch", "Pascals", "Bar"] as const;
 export const pressureUnitsZ = z.enum(PRESSURE_UNITS);
@@ -159,12 +159,12 @@ export const VELOCITY_UNITS = ["MetersPerSecond", "InchesPerSecond"] as const;
 export const velocityUnitsZ = z.enum(VELOCITY_UNITS);
 export type VelocityUnits = z.infer<typeof velocityUnitsZ>;
 
-export const VELOCITY_UNITS_SENSITIVITYS = [
+export const VELOCITY_SENSITIVITY_UNITS = [
   "MillivoltsPerMillimeterPerSecond",
   "MilliVoltsPerInchPerSecond",
 ] as const;
-export const velocityUnitsSensitivityZ = z.enum(VELOCITY_UNITS_SENSITIVITYS);
-export type VelocityUnitsSensitivity = z.infer<typeof velocityUnitsSensitivityZ>;
+export const velocitySensitivityUnitsZ = z.enum(VELOCITY_SENSITIVITY_UNITS);
+export type VelocitySensitivityUnits = z.infer<typeof velocitySensitivityUnitsZ>;
 
 export const CHARGE_UNITS = ["C", "uC"] as const;
 export const chargeUnitsZ = z.enum(CHARGE_UNITS);
@@ -455,7 +455,7 @@ export const zIndexZ = z.object({
   /** zIndexVal is the count value the Z index resets to. */
   zIndexVal: z.number().default(0),
   /** zIndexPhase selects the A/B states at which the Z index is active. */
-  zIndexPhase: ciZIndexPhaseZ.default("AHighBHigh"),
+  zIndexPhase: zIndexPhaseZ.default("AHighBHigh"),
   /** terminalZ is the terminal the Z index signal is wired to. */
   terminalZ: z.string().default(""),
 });
@@ -656,8 +656,8 @@ export interface AIVoltageChannel extends z.infer<typeof aiVoltageChannelZ> {}
 
 /** AIAccelChannel reads acceleration from an accelerometer. */
 export const aiAccelChannelZ = baseAIChannelZ
-  .extend(terminalZ.shape)
   .extend(minMaxValZ.shape)
+  .extend(terminalZ.shape)
   .extend(sensitivityZ.shape)
   .extend(currentExcitationZ.shape)
   .extend(customScaleZ.shape)
@@ -685,8 +685,8 @@ export interface AIBridgeChannel extends z.infer<typeof aiBridgeChannelZ> {}
 
 /** AICurrentChannel reads a current. */
 export const aiCurrentChannelZ = baseAIChannelZ
-  .extend(terminalZ.shape)
   .extend(minMaxValZ.shape)
+  .extend(terminalZ.shape)
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_current"),
@@ -740,8 +740,8 @@ export interface AIForceBridgeTwoPointLinChannel extends z.infer<
 
 /** AIForceIEPEChannel reads force from an IEPE sensor. */
 export const aiForceIEPEChannelZ = baseAIChannelZ
-  .extend(terminalZ.shape)
   .extend(minMaxValZ.shape)
+  .extend(terminalZ.shape)
   .extend(sensitivityZ.shape)
   .extend(currentExcitationZ.shape)
   .extend(customScaleZ.shape)
@@ -750,7 +750,7 @@ export const aiForceIEPEChannelZ = baseAIChannelZ
     /** units are the units of the force measurement. */
     units: forceUnitsZ.default("Newtons"),
     /** sensitivityUnits are the units of the IEPE sensor sensitivity. */
-    sensitivityUnits: forceUnitsSensitivityZ.default("mVoltsPerNewton"),
+    sensitivityUnits: forceSensitivityUnitsZ.default("mVoltsPerNewton"),
   });
 export interface AIForceIEPEChannel extends z.infer<typeof aiForceIEPEChannelZ> {}
 
@@ -929,8 +929,8 @@ export interface AITorqueBridgeTwoPointLinChannel extends z.infer<
 
 /** AIVelocityIEPEChannel reads velocity from an IEPE sensor. */
 export const aiVelocityIEPEChannelZ = baseAIChannelZ
-  .extend(terminalZ.shape)
   .extend(minMaxValZ.shape)
+  .extend(terminalZ.shape)
   .extend(sensitivityZ.shape)
   .extend(currentExcitationZ.shape)
   .extend(customScaleZ.shape)
@@ -939,7 +939,7 @@ export const aiVelocityIEPEChannelZ = baseAIChannelZ
     /** units are the units of the velocity measurement. */
     units: velocityUnitsZ.default("MetersPerSecond"),
     /** sensitivityUnits are the units of the IEPE sensor sensitivity. */
-    sensitivityUnits: velocityUnitsSensitivityZ.default(
+    sensitivityUnits: velocitySensitivityUnitsZ.default(
       "MillivoltsPerMillimeterPerSecond",
     ),
   });
@@ -1423,6 +1423,8 @@ export const ciSemiPeriodChannelZ = baseCIChannelZ.extend(customScaleZ.shape).ex
   maxVal: z.number().default(0.1),
   /** units are the units of the semi-period measurement. */
   units: ciTimeUnitsZ.default("Seconds"),
+  /** terminal is the terminal the counter signal is wired to. */
+  terminal: z.string().default(""),
 });
 export interface CISemiPeriodChannel extends z.infer<typeof ciSemiPeriodChannelZ> {}
 
@@ -1439,6 +1441,10 @@ export const ciTwoEdgeSepChannelZ = baseCIChannelZ.extend(customScaleZ.shape).ex
   firstEdge: ciEdgeZ.default("Rising"),
   /** secondEdge selects the edge that stops the measurement. */
   secondEdge: ciEdgeZ.default("Falling"),
+  /** firstTerminal is the terminal the first edge's signal is wired to. */
+  firstTerminal: z.string().default(""),
+  /** secondTerminal is the terminal the second edge's signal is wired to. */
+  secondTerminal: z.string().default(""),
 });
 export interface CITwoEdgeSepChannel extends z.infer<typeof ciTwoEdgeSepChannelZ> {}
 

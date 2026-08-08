@@ -119,11 +119,13 @@ ShuntResistorLocation enum {
     internal = "Internal"
     external = "External"
 
-    @doc value  "selects where the shunt resistor used for current measurement is located."
+    @doc value  """
+        selects where the shunt resistor used for current measurement is located.
+    """
     @go version 0
 }
 
-ForceUnitsSensitivity enum {
+ForceSensitivityUnits enum {
     m_volts_per_newton = "mVoltsPerNewton"
     m_volts_per_pound  = "mVoltsPerPound"
 
@@ -225,7 +227,7 @@ VelocityUnits enum {
     @go version 0
 }
 
-VelocityUnitsSensitivity enum {
+VelocitySensitivityUnits enum {
     m_volts_per_mm_per_second   = "MillivoltsPerMillimeterPerSecond"
     m_volts_per_inch_per_second = "MilliVoltsPerInchPerSecond"
 
@@ -456,7 +458,9 @@ Table struct {
         @doc value "are the units of the electrical breakpoints."
     }
     physical_vals    float64[] = [] {
-        @doc value "are the physical values corresponding to each electrical breakpoint."
+        @doc value """
+            are the physical values corresponding to each electrical breakpoint.
+        """
     }
 
     @doc value  "scales bridge electrical output to physical units with a lookup table."
@@ -480,7 +484,10 @@ TwoPointLin struct {
         @doc value "is the physical value at the second electrical point."
     }
 
-    @doc value  "scales bridge electrical output to physical units between two calibration points."
+    @doc value  """
+        scales bridge electrical output to physical units between two calibration
+        points.
+    """
     @go version 0
 }
 
@@ -526,7 +533,7 @@ AIChannel union on type extends BaseAIChannel {
 
         @doc value "reads a voltage."
     }
-    ai_accel extends Terminal, MinMaxVal, Sensitivity, CurrentExcitation, CustomScale {
+    ai_accel extends MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale {
         units             AccelUnits = g {
             @doc value "are the units of the acceleration measurement."
         }
@@ -543,7 +550,7 @@ AIChannel union on type extends BaseAIChannel {
 
         @doc value "reads a generic bridge-based sensor."
     }
-    ai_current extends Terminal, MinMaxVal, CustomScale {
+    ai_current extends MinMaxVal, Terminal, CustomScale {
         units                  Units = amps {
             @doc value "are the units of the current measurement."
         }
@@ -576,11 +583,11 @@ AIChannel union on type extends BaseAIChannel {
 
         @doc value "reads force from a bridge with two-point linear calibration."
     }
-    ai_force_iepe extends Terminal, MinMaxVal, Sensitivity, CurrentExcitation, CustomScale {
+    ai_force_iepe extends MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale {
         units             ForceUnits = newtons {
             @doc value "are the units of the force measurement."
         }
-        sensitivity_units ForceUnitsSensitivity = m_volts_per_newton {
+        sensitivity_units ForceSensitivityUnits = m_volts_per_newton {
             @doc value "are the units of the IEPE sensor sensitivity."
         }
 
@@ -710,11 +717,11 @@ AIChannel union on type extends BaseAIChannel {
 
         @doc value "reads torque from a bridge with two-point linear calibration."
     }
-    ai_velocity_iepe extends Terminal, MinMaxVal, Sensitivity, CurrentExcitation, CustomScale {
+    ai_velocity_iepe extends MinMaxVal, Terminal, Sensitivity, CurrentExcitation, CustomScale {
         units             VelocityUnits = meters_per_second {
             @doc value "are the units of the velocity measurement."
         }
-        sensitivity_units VelocityUnitsSensitivity = m_volts_per_mm_per_second {
+        sensitivity_units VelocitySensitivityUnits = m_volts_per_mm_per_second {
             @doc value "are the units of the IEPE sensor sensitivity."
         }
 
@@ -728,7 +735,9 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "are the units of the accelerometer sensitivity."
         }
         use_excit_for_scaling bool = false {
-            @doc value "is true when the excitation voltage is used to scale the reading."
+            @doc value """
+                is true when the excitation voltage is used to scale the reading.
+            """
         }
 
         @doc value "reads acceleration from a 4-wire DC-voltage accelerometer."
@@ -890,7 +899,9 @@ AIChannel union on type extends BaseAIChannel {
             @doc value "selects the physical bridge wiring."
         }
         use_excit_for_scaling bool = false {
-            @doc value "is true when the excitation voltage is used to scale the reading."
+            @doc value """
+                is true when the excitation voltage is used to scale the reading.
+            """
         }
 
         @doc value "reads a voltage with excitation."
@@ -991,13 +1002,15 @@ CIAngularPositionUnits enum {
     @go version 0
 }
 
-CIZIndexPhase enum {
+ZIndexPhase enum {
     a_high_b_high = "AHighBHigh"
     a_high_b_low  = "AHighBLow"
     a_low_b_high  = "ALowBHigh"
     a_low_b_low   = "ALowBLow"
 
-    @doc value  "selects the encoder channel states at which the Z index resets the count."
+    @doc value  """
+        selects the encoder channel states at which the Z index resets the count.
+    """
     @go version 0
 }
 
@@ -1008,7 +1021,7 @@ ZIndex struct {
     z_index_val    float64 = 0 {
         @doc value "is the count value the Z index resets to."
     }
-    z_index_phase  CIZIndexPhase = a_high_b_high {
+    z_index_phase  ZIndexPhase = a_high_b_high {
         @doc value "selects the A/B states at which the Z index is active."
     }
     terminal_z     string = "" {
@@ -1062,7 +1075,9 @@ CIChannel union on type extends BaseCIChannel {
             @doc value "selects the measurement method."
         }
         meas_time   float64 = 0.000006 {
-            @doc value "is the averaging window for high-frequency measurement, in seconds."
+            @doc value """
+                is the averaging window for high-frequency measurement, in seconds.
+            """
         }
         divisor     int32 = 4 {
             @doc value "is the counter divisor for large-range measurement."
@@ -1106,7 +1121,9 @@ CIChannel union on type extends BaseCIChannel {
             @doc value "selects the measurement method."
         }
         meas_time     float64 = 0.001 {
-            @doc value "is the averaging window for high-frequency measurement, in seconds."
+            @doc value """
+                is the averaging window for high-frequency measurement, in seconds.
+            """
         }
         divisor       int32 = 4 {
             @doc value "is the counter divisor for large-range measurement."
@@ -1137,33 +1154,42 @@ CIChannel union on type extends BaseCIChannel {
         @doc value "measures pulse width."
     }
     ci_semi_period extends CustomScale {
-        min_val float64 = 0.000001 {
+        min_val  float64 = 0.000001 {
             @doc value "is the minimum expected semi-period, in seconds."
         }
-        max_val float64 = 0.1 {
+        max_val  float64 = 0.1 {
             @doc value "is the maximum expected semi-period, in seconds."
         }
-        units   CITimeUnits = seconds {
+        units    CITimeUnits = seconds {
             @doc value "are the units of the semi-period measurement."
+        }
+        terminal string = "" {
+            @doc value "is the terminal the counter signal is wired to."
         }
 
         @doc value "measures semi-period."
     }
     ci_two_edge_sep extends CustomScale {
-        min_val     float64 = 0.000001 {
+        min_val         float64 = 0.000001 {
             @doc value "is the minimum expected separation, in seconds."
         }
-        max_val     float64 = 1 {
+        max_val         float64 = 1 {
             @doc value "is the maximum expected separation, in seconds."
         }
-        units       CITimeUnits = seconds {
+        units           CITimeUnits = seconds {
             @doc value "are the units of the two-edge-separation measurement."
         }
-        first_edge  CIEdge = rising {
+        first_edge      CIEdge = rising {
             @doc value "selects the edge that starts the measurement."
         }
-        second_edge CIEdge = falling {
+        second_edge     CIEdge = falling {
             @doc value "selects the edge that stops the measurement."
+        }
+        first_terminal  string = "" {
+            @doc value "is the terminal the first edge's signal is wired to."
+        }
+        second_terminal string = "" {
+            @doc value "is the terminal the second edge's signal is wired to."
         }
 
         @doc value "measures the separation between two edges."
@@ -1429,7 +1455,7 @@ DOChannel union on type {
 
 AnalogReadConfig struct extends task.BaseReadConfig {
     channels AIChannel[] {
-        @doc value "are the analog input channels the task acquires. Each carries its own device."
+        @doc value "are the analog input channels the task acquires."
     }
 
     @doc value  "configures an NI analog read task. Each channel carries its own device."
@@ -1443,7 +1469,9 @@ CounterReadConfig struct extends task.BaseReadConfig {
         @doc value "are the counter input channels the task acquires."
     }
 
-    @doc value  "configures an NI counter read task. Each channel carries its own device."
+    @doc value  """
+        configures an NI counter read task. Each channel carries its own device.
+    """
     @go version 0
     @go marshal
     @go migrate
