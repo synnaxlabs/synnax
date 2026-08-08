@@ -22,7 +22,6 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v0"
 	common "github.com/synnaxlabs/synnax/pkg/service/task/common/versions/v0"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
@@ -347,7 +346,7 @@ var _ = Describe("Codec", func() {
 							{Variant: v0.WriteFieldStatic{
 								BaseWriteField: fullyPopulatedBaseWriteField,
 								JSONType:       v0.JSONType("number"),
-								Value:          msgpack.EncodedJSON{"key_27": "value_27"},
+								Value:          new(any(map[string]any{"key_27": "value_27"})),
 							}},
 						},
 					},
@@ -398,7 +397,7 @@ var _ = Describe("Codec", func() {
 					{Variant: v0.WriteFieldStatic{
 						BaseWriteField: fullyPopulatedBaseWriteField,
 						JSONType:       v0.JSONType("number"),
-						Value:          msgpack.EncodedJSON{"key_23": "value_23"},
+						Value:          new(any(map[string]any{"key_23": "value_23"})),
 					}},
 				},
 			}),
@@ -454,7 +453,7 @@ var _ = Describe("Codec", func() {
 			Entry("static variant", v0.WriteField{Variant: v0.WriteFieldStatic{
 				BaseWriteField: fullyPopulatedBaseWriteField,
 				JSONType:       v0.JSONType("number"),
-				Value:          msgpack.EncodedJSON{"key_2": "value_2"},
+				Value:          new(any(map[string]any{"key_2": "value_2"})),
 			}}),
 			Entry("generated variant", v0.WriteField{Variant: v0.WriteFieldGenerated{
 				BaseWriteField: fullyPopulatedBaseWriteField,
@@ -714,7 +713,7 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 					{Variant: v0.WriteFieldStatic{
 						BaseWriteField: fullyPopulatedBaseWriteField,
 						JSONType:       v0.JSONType("number"),
-						Value:          msgpack.EncodedJSON{"key_27": "value_27"},
+						Value:          new(any(map[string]any{"key_27": "value_27"})),
 					}},
 				},
 			},
@@ -756,7 +755,7 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 			{Variant: v0.WriteFieldStatic{
 				BaseWriteField: fullyPopulatedBaseWriteField,
 				JSONType:       v0.JSONType("number"),
-				Value:          msgpack.EncodedJSON{"key_23": "value_23"},
+				Value:          new(any(map[string]any{"key_23": "value_23"})),
 			}},
 		},
 	}
@@ -779,7 +778,7 @@ func BenchmarkEncodeDecodeWriteField(b *testing.B) {
 	seed := v0.WriteField{Variant: v0.WriteFieldStatic{
 		BaseWriteField: fullyPopulatedBaseWriteField,
 		JSONType:       v0.JSONType("number"),
-		Value:          msgpack.EncodedJSON{"key_2": "value_2"},
+		Value:          new(any(map[string]any{"key_2": "value_2"})),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1346,7 +1345,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 						{Variant: v0.WriteFieldStatic{
 							BaseWriteField: fullyPopulatedBaseWriteField,
 							JSONType:       v0.JSONType("number"),
-							Value:          msgpack.EncodedJSON{"key_27": "value_27"},
+							Value:          new(any(map[string]any{"key_27": "value_27"})),
 						}},
 					},
 				},
@@ -1428,7 +1427,7 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 				{Variant: v0.WriteFieldStatic{
 					BaseWriteField: fullyPopulatedBaseWriteField,
 					JSONType:       v0.JSONType("number"),
-					Value:          msgpack.EncodedJSON{"key_23": "value_23"},
+					Value:          new(any(map[string]any{"key_23": "value_23"})),
 				}},
 			},
 		}
@@ -1515,7 +1514,7 @@ func FuzzDecodeWriteField(f *testing.F) {
 		seed := v0.WriteField{Variant: v0.WriteFieldStatic{
 			BaseWriteField: fullyPopulatedBaseWriteField,
 			JSONType:       v0.JSONType("number"),
-			Value:          msgpack.EncodedJSON{"key_2": "value_2"},
+			Value:          new(any(map[string]any{"key_2": "value_2"})),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
