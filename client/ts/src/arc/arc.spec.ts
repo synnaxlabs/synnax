@@ -215,6 +215,18 @@ describe("arc", () => {
       expect((await client.arcs.retrieve(created.key)).key).toEqual(created.key);
     });
 
+    it("stops serving the undeployed task from the cache", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`uncache-${id.create()}`));
+      const tsk = await client.arcs.deploy(created.key, rack.key);
+      if (tsk == null) throw new Error("expected a deployment task");
+      // Caching both the task and its status arms the cached fast-path, so a
+      // retrieve after the undeploy answers locally instead of asking the Core.
+      await client.tasks.retrieve(tsk.key);
+      await client.arcs.undeploy(created.key);
+      await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
+    });
+
     it("leaves the task untouched when the subject may not deploy", async () => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const created = await client.arcs.create(newTextArc(`denied-${id.create()}`));
