@@ -50,7 +50,7 @@ const deployReadFieldZ = http.readFieldZ.extend({
 const deployReadEndpointZ = http.readEndpointZ.extend({
   method: readMethodZ,
   headers: headersZ.default(() => []),
-  queryParams: queryParamsZ.optional(),
+  queryParams: queryParamsZ.default(() => []),
   fields: deployReadFieldZ.array().check(Task.validateReadChannels),
 });
 
@@ -189,7 +189,7 @@ const deployWriteEndpointZ = writeEndpointZ
   .extend({
     method: writeMethodZ,
     headers: headersZ.default(() => []),
-    queryParams: queryParamsZ.optional(),
+    queryParams: queryParamsZ.default(() => []),
     channel: http.channelFieldZ
       .extend({ pointer: json.pointerZ })
       .check(validateEnumValues),

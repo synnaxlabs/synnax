@@ -174,20 +174,18 @@ void validate_request(const Endpoint &ep, x::json::Parser &parser) {
                 "endpoints.headers.name",
                 "duplicate header '" + h.name + "'"
             );
-    if (ep.query_params.has_value()) {
-        std::set<std::string> params;
-        for (const auto &qp: *ep.query_params)
-            if (qp.parameter.empty())
-                parser.field_err(
-                    "endpoints.query_params.parameter",
-                    "this field is required"
-                );
-            else if (!params.insert(qp.parameter).second)
-                parser.field_err(
-                    "endpoints.query_params.parameter",
-                    "duplicate query parameter '" + qp.parameter + "'"
-                );
-    }
+    std::set<std::string> params;
+    for (const auto &qp: ep.query_params)
+        if (qp.parameter.empty())
+            parser.field_err(
+                "endpoints.query_params.parameter",
+                "this field is required"
+            );
+        else if (!params.insert(qp.parameter).second)
+            parser.field_err(
+                "endpoints.query_params.parameter",
+                "duplicate query parameter '" + qp.parameter + "'"
+            );
 }
 
 /// @brief derives the static request configuration from a read or write endpoint's
@@ -200,9 +198,8 @@ template<typename Endpoint>
     req.path = ep.path;
     for (const auto &h: ep.headers)
         if (!h.name.empty()) req.headers.emplace(h.name, h.value);
-    if (ep.query_params.has_value())
-        for (const auto &qp: *ep.query_params)
-            if (!qp.parameter.empty()) req.query_params.emplace(qp.parameter, qp.value);
+    for (const auto &qp: ep.query_params)
+        if (!qp.parameter.empty()) req.query_params.emplace(qp.parameter, qp.value);
     return req;
 }
 

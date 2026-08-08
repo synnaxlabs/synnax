@@ -322,9 +322,9 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
     };
     auto ctx = std::make_shared<task::MockContext>(client);
     auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(ctx, task));
-    ASSERT_TRUE(cfg.endpoints[0].query_params.has_value());
-    EXPECT_EQ(cfg.endpoints[0].query_params->at(0).parameter, "limit");
-    EXPECT_EQ(cfg.endpoints[0].query_params->at(0).value, "");
+    ASSERT_EQ(cfg.endpoints[0].query_params.size(), 1);
+    EXPECT_EQ(cfg.endpoints[0].query_params.at(0).parameter, "limit");
+    EXPECT_EQ(cfg.endpoints[0].query_params.at(0).value, "");
 }
 
 /// @brief it should fail when duplicate query parameter names exist.
