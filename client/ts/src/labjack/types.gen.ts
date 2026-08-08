@@ -243,7 +243,7 @@ export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 export const readConfigZ = task.baseReadConfigZ.extend({
   device: device.keyZ.default(""),
   channels: inputChannelZ.array().default(() => []),
-  deviceScanBacklogWarnOnCount: z.uint32().optional(),
-  ljmScanBacklogWarnOnCount: z.uint32().optional(),
+  deviceScanBacklogWarnOnCount: z.uint32().default(0),
+  ljmScanBacklogWarnOnCount: z.uint32().default(0),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
