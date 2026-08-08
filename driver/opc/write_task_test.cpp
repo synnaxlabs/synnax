@@ -532,4 +532,31 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
 
     ASSERT_NIL(sink->stop());
 }
+
+/// @brief it should configure when a disabled channel has no node id or Synnax
+/// channel bound to it.
+TEST_F(TestWriteTask, testUnboundDisabledChannel) {
+    x::json::json task_cfg{
+        {"data_saving_disabled", false},
+        {"device", "abc123"},
+        {"channels",
+         x::json::json::array(
+             {{{"key", "NS=2;I=1"},
+               {"name", "bool_write_test"},
+               {"node_name", "TestBoolean"},
+               {"node_id", "NS=1;S=TestBoolean"},
+               {"cmd_channel", this->bool_cmd_channel.key},
+               {"disabled", false},
+               {"data_type", "uint8"}},
+              {{"key", "blank"}, {"disabled", true}}}
+         )}
+    };
+
+    auto p = x::json::Parser(task_cfg);
+    const auto parsed = std::make_unique<WriteTaskConfig>(ctx->client, p);
+    ASSERT_FALSE(p.error()) << p.error().message();
+    EXPECT_EQ(parsed->channels.size(), 1);
+    EXPECT_TRUE(parsed->channels.contains(this->bool_cmd_channel.key));
+}
+
 }
