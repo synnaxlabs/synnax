@@ -18,6 +18,11 @@
         padding: 1rem;
     }
 
+    &.pluto-list__items--empty {
+        justify-content: center;
+        align-items: center;
+    }
+
     & > .pluto-list__virtualizer {
         width: 100%;
         position: relative;

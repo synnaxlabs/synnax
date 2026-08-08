@@ -56,7 +56,10 @@ const Base = memo(
     className,
     ...rest
   }: DialogProps<K>) => {
+    const loading = status?.variant === "loading";
+    const hasSearch = onSearch != null;
     emptyContent = useMemo(() => {
+      if (loading) return hasSearch ? null : <Status.Loading />;
       if (status != null && status.variant !== "success")
         return (
           <Status.Summary
@@ -76,19 +79,20 @@ const Base = memo(
       if (emptyContent == null)
         return <DefaultEmptyContent resourceName={resourceName} />;
       return emptyContent;
-    }, [status?.key, emptyContent]);
+    }, [status?.key, emptyContent, loading, hasSearch]);
     return (
       <BaseDialog.Dialog
         {...rest}
         className={CSS(CSS.BE("select", "dialog"), className)}
         bordered={false}
       >
-        {onSearch != null && (
+        {hasSearch && (
           <SearchInput
             dialogVariant="floating"
             onSearch={onSearch}
             searchPlaceholder={`Search ${plural(resourceName)}...`}
             actions={actions}
+            loading={loading}
           />
         )}
         {footer == null || footer === false ? (
