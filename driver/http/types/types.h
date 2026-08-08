@@ -165,17 +165,15 @@ template<typename Endpoint>
 void validate_request(const Endpoint &ep, x::json::Parser &parser) {
     if (auto [method, err] = parse_method(ep.method); err)
         parser.field_err("endpoints.method", err);
-    if (ep.headers.has_value()) {
-        std::set<std::string> names;
-        for (const auto &h: *ep.headers)
-            if (h.name.empty())
-                parser.field_err("endpoints.headers.name", "this field is required");
-            else if (!names.insert(h.name).second)
-                parser.field_err(
-                    "endpoints.headers.name",
-                    "duplicate header '" + h.name + "'"
-                );
-    }
+    std::set<std::string> names;
+    for (const auto &h: ep.headers)
+        if (h.name.empty())
+            parser.field_err("endpoints.headers.name", "this field is required");
+        else if (!names.insert(h.name).second)
+            parser.field_err(
+                "endpoints.headers.name",
+                "duplicate header '" + h.name + "'"
+            );
     if (ep.query_params.has_value()) {
         std::set<std::string> params;
         for (const auto &qp: *ep.query_params)
@@ -200,9 +198,8 @@ template<typename Endpoint>
     RequestConfig req;
     req.method = parse_method(ep.method).first;
     req.path = ep.path;
-    if (ep.headers.has_value())
-        for (const auto &h: *ep.headers)
-            if (!h.name.empty()) req.headers.emplace(h.name, h.value);
+    for (const auto &h: ep.headers)
+        if (!h.name.empty()) req.headers.emplace(h.name, h.value);
     if (ep.query_params.has_value())
         for (const auto &qp: *ep.query_params)
             if (!qp.parameter.empty()) req.query_params.emplace(qp.parameter, qp.value);
