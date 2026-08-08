@@ -157,7 +157,7 @@ var _ = Describe("Codec", func() {
 						Path:        "test_9",
 						Headers:     []v0.Header{{Name: "test_11", Value: "test_12"}},
 						QueryParams: []v0.QueryParam{{Parameter: "test_14", Value: "test_15"}},
-						Body:        new(string("test_16")),
+						Body:        "test_16",
 						Fields: []v0.ReadField{
 							{
 								Key:             "test_18",
@@ -213,7 +213,7 @@ var _ = Describe("Codec", func() {
 				Path:        "test_3",
 				Headers:     []v0.Header{{Name: "test_5", Value: "test_6"}},
 				QueryParams: []v0.QueryParam{{Parameter: "test_8", Value: "test_9"}},
-				Body:        new(string("test_10")),
+				Body:        "test_10",
 				Fields: []v0.ReadField{
 					{
 						Key:             "test_12",
@@ -234,7 +234,7 @@ var _ = Describe("Codec", func() {
 				Path:        "",
 				Headers:     nil,
 				QueryParams: nil,
-				Body:        nil,
+				Body:        "",
 				Fields:      nil,
 				Index:       nil,
 			}),
@@ -244,7 +244,7 @@ var _ = Describe("Codec", func() {
 				Path:        "test_3",
 				Headers:     []v0.Header{},
 				QueryParams: []v0.QueryParam{},
-				Body:        new(string("test_6")),
+				Body:        "test_6",
 				Fields:      []v0.ReadField{},
 				Index:       new(string("test_8")),
 			}),
@@ -573,7 +573,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Path:        "test_9",
 				Headers:     []v0.Header{{Name: "test_11", Value: "test_12"}},
 				QueryParams: []v0.QueryParam{{Parameter: "test_14", Value: "test_15"}},
-				Body:        new(string("test_16")),
+				Body:        "test_16",
 				Fields: []v0.ReadField{
 					{
 						Key:             "test_18",
@@ -612,7 +612,7 @@ func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
 		Path:        "test_3",
 		Headers:     []v0.Header{{Name: "test_5", Value: "test_6"}},
 		QueryParams: []v0.QueryParam{{Parameter: "test_8", Value: "test_9"}},
-		Body:        new(string("test_10")),
+		Body:        "test_10",
 		Fields: []v0.ReadField{
 			{
 				Key:             "test_12",
@@ -1039,7 +1039,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Path:        "test_9",
 					Headers:     []v0.Header{{Name: "test_11", Value: "test_12"}},
 					QueryParams: []v0.QueryParam{{Parameter: "test_14", Value: "test_15"}},
-					Body:        new(string("test_16")),
+					Body:        "test_16",
 					Fields: []v0.ReadField{
 						{
 							Key:             "test_18",
@@ -1126,7 +1126,7 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			Path:        "test_3",
 			Headers:     []v0.Header{{Name: "test_5", Value: "test_6"}},
 			QueryParams: []v0.QueryParam{{Parameter: "test_8", Value: "test_9"}},
-			Body:        new(string("test_10")),
+			Body:        "test_10",
 			Fields: []v0.ReadField{
 				{
 					Key:             "test_12",
@@ -1154,7 +1154,7 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			Path:        "",
 			Headers:     nil,
 			QueryParams: nil,
-			Body:        nil,
+			Body:        "",
 			Fields:      nil,
 			Index:       nil,
 		}
@@ -1171,7 +1171,7 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			Path:        "test_3",
 			Headers:     []v0.Header{},
 			QueryParams: []v0.QueryParam{},
-			Body:        new(string("test_6")),
+			Body:        "test_6",
 			Fields:      []v0.ReadField{},
 			Index:       new(string("test_8")),
 		}

@@ -274,12 +274,7 @@ func (re ReadEndpoint) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	if re.Body != nil {
-		w.Bool(true)
-		w.String(*re.Body)
-	} else {
-		w.Bool(false)
-	}
+	w.String(re.Body)
 	w.Bool(re.Fields != nil)
 	if re.Fields != nil {
 		w.Uint32(uint32(len(re.Fields)))
@@ -350,18 +345,8 @@ func (re *ReadEndpoint) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv string
-			if hv, err = r.String(); err != nil {
-				return err
-			}
-			re.Body = &hv
-		}
+	if re.Body, err = r.String(); err != nil {
+		return err
 	}
 	{
 		present, err := r.Bool()
