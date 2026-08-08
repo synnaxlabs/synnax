@@ -36,15 +36,19 @@ const createChannel = (
   overrides: CreateChannelOverrides = {},
 ): NI.Task.CIChannel =>
   ({
-    ...NI.Task.ZERO_CI_CHANNELS[type],
+    ...NI.Task.createCIChannel(type),
     key: id.create(),
     port,
     device: "placeholder_device",
     ...overrides,
   }) as NI.Task.CIChannel;
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_COUNTER_READ_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<NI.Task.CounterReadSchemas> = {
+  name: "NI Counter Read Task",
+  type: NI.Task.COUNTER_READ_TYPE,
+  config: NI.Task.COUNTER_READ_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   config: task.Payload<NI.Task.CounterReadSchemas>["config"],
@@ -75,7 +79,7 @@ const deployAndAwaitStart = async (
 };
 
 const createConfig = (channels: NI.Task.CIChannel[]) => ({
-  ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
+  ...NI.Task.COUNTER_READ_SCHEMAS.config.parse({}),
   channels,
 });
 

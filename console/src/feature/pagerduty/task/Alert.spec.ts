@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { pagerduty, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -29,8 +29,12 @@ const renderAlert = async (options: RenderTaskFormTabOptions = {}) =>
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = PagerDuty.Task.ZERO_ALERT_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<PagerDuty.Task.AlertSchemas> = {
+  name: "PagerDuty Alert Task",
+  type: PagerDuty.Task.ALERT_TYPE,
+  config: PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
+};
 
 const addAlert = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an alert"));
@@ -40,11 +44,9 @@ const addAlert = async (): Promise<void> => {
 const createAlertConfig = (
   overrides: Partial<PagerDuty.Task.AlertTaskConfig> = {},
 ): PagerDuty.Task.AlertTaskConfig => ({
-  ...PagerDuty.Task.ZERO_ALERT_TASK_CONFIG,
+  ...PagerDuty.Task.ALERT_SCHEMAS.config.parse({}),
   routingKey: "R".repeat(32),
-  alerts: [
-    { ...PagerDuty.Task.ZERO_ALERT_CONFIG, key: "a1", status: uniqueName("status") },
-  ],
+  alerts: [{ ...pagerduty.alertZ.parse({}), key: "a1", status: uniqueName("status") }],
   ...overrides,
 });
 

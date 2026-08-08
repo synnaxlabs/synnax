@@ -20,10 +20,10 @@ import {
   ZERO_PROPERTIES,
 } from "@/feature/labjack/device/types";
 import {
+  createInputChannel,
+  createOutputChannel,
   type InputChannel,
   type OutputChannel,
-  ZERO_INPUT_CHANNELS,
-  ZERO_OUTPUT_CHANNELS,
 } from "@/feature/labjack/task/types";
 
 type AIChannel = Extract<InputChannel, { type: "AI" }>;
@@ -74,26 +74,26 @@ export const createLabJackDevice = async (
 export const createAIChannel = (
   port: string,
   overrides: Partial<AIChannel> = {},
-): AIChannel => ({ ...ZERO_INPUT_CHANNELS.AI, key: id.create(), port, ...overrides });
+): AIChannel => ({ ...createInputChannel("AI"), key: id.create(), port, ...overrides });
 
 /** Builds a digital input channel on the given port. */
 export const createDIChannel = (
   port: string,
   overrides: Partial<DIChannel> = {},
-): DIChannel => ({ ...ZERO_INPUT_CHANNELS.DI, key: id.create(), port, ...overrides });
+): DIChannel => ({ ...createInputChannel("DI"), key: id.create(), port, ...overrides });
 
 /** Builds a thermocouple input channel on the given port. */
 export const createTCChannel = (
   port: string,
   overrides: Partial<TCChannel> = {},
-): TCChannel => ({ ...ZERO_INPUT_CHANNELS.TC, key: id.create(), port, ...overrides });
+): TCChannel => ({ ...createInputChannel("TC"), key: id.create(), port, ...overrides });
 
 /** Builds an analog output channel on the given port. */
 export const createAOChannel = (
   port: string,
   overrides: Partial<AOChannel> = {},
 ): AOChannel => ({
-  ...ZERO_OUTPUT_CHANNELS.AO,
+  ...createOutputChannel("AO"),
   key: id.create(),
   port,
   ...overrides,
@@ -105,7 +105,7 @@ export const createDOChannel = (
   port: string,
   overrides: Partial<DOChannel> = {},
 ): DOChannel => ({
-  ...ZERO_OUTPUT_CHANNELS.DO,
+  ...createOutputChannel("DO"),
   key: id.create(),
   port,
   ...overrides,

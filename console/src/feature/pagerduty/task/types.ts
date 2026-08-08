@@ -15,8 +15,6 @@ export const ALERT_TYPE = `${PREFIX}_alert`;
 
 export interface AlertConfig extends pagerduty.Alert {}
 
-export const ZERO_ALERT_CONFIG: AlertConfig = pagerduty.alertZ.parse({});
-
 const alertTaskConfigZ = pagerduty.taskConfigZ;
 
 const deployAlertConfigZ = pagerduty.alertZ.extend({
@@ -34,8 +32,6 @@ export const deployAlertTaskConfigZ = alertTaskConfigZ.extend({
 
 export interface AlertTaskConfig extends z.infer<typeof alertTaskConfigZ> {}
 
-export const ZERO_ALERT_TASK_CONFIG: AlertTaskConfig = alertTaskConfigZ.parse({});
-
 export const ALERT_SCHEMAS = {
   type: z.literal(ALERT_TYPE),
   config: alertTaskConfigZ,
@@ -45,14 +41,3 @@ export const ALERT_SCHEMAS = {
 export type AlertSchemas = typeof ALERT_SCHEMAS;
 
 export interface AlertPayload extends task.Payload<AlertSchemas> {}
-
-export const ZERO_ALERT_PAYLOAD: AlertPayload = {
-  key: "",
-  rack: 0,
-  type: ALERT_TYPE,
-  name: "PagerDuty Alert Task",
-  config: ZERO_ALERT_TASK_CONFIG,
-  configHash: "",
-  internal: false,
-  snapshot: false,
-};

@@ -258,7 +258,7 @@ class WriteEndpoint(BaseModel):
     path: str = ""
     headers: list[Header] | None = None
     query_params: list[QueryParam] | None = None
-    channel: ChannelField
+    channel: ChannelField = Field(default_factory=lambda: ChannelField())
     fields: list[WriteField] = Field(default_factory=list)
 
     def __hash__(self) -> int:

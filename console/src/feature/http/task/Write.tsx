@@ -38,13 +38,10 @@ import {
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteEndpoint,
+  writeEndpointZ,
   type WriteField,
   type WriteMethod,
-  type WritePayload,
   type WriteSchemas,
-  ZERO_CHANNEL_FIELD,
-  ZERO_WRITE_ENDPOINT,
-  ZERO_WRITE_PAYLOAD,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -473,12 +470,7 @@ const Form: FC<Task.FormProps<WriteSchemas>> = () => {
   const isSnapshot = Task.useIsSnapshot();
 
   const handleAddEndpoint = useCallback(() => {
-    const ep: WriteEndpoint = {
-      ...ZERO_WRITE_ENDPOINT,
-      key: id.create(),
-      channel: { ...ZERO_CHANNEL_FIELD },
-      fields: [],
-    };
+    const ep: WriteEndpoint = { ...writeEndpointZ.parse({}), key: id.create() };
     push(ep);
     setSelectedEndpoints([ep.key]);
   }, [push]);
@@ -599,17 +591,9 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
   config,
 }) => {
-  if (config != null) {
-    const pld: WritePayload = {
-      ...ZERO_WRITE_PAYLOAD,
-      config: WRITE_SCHEMAS.config.parse(config),
-    };
-    if (deviceKey != null) pld.config.device = deviceKey;
-    return pld;
-  }
-  const pld: WritePayload = { ...ZERO_WRITE_PAYLOAD };
-  if (deviceKey != null) pld.config = { ...pld.config, device: deviceKey };
-  return pld;
+  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "HTTP Write Task", type: WRITE_TYPE, config: cfg };
 };
 
 const retrieveChannel = async (

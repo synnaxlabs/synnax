@@ -41,8 +41,11 @@ const TabName: FC<PTask.FormTabProps> = () => <Task.TAB.Name />;
 
 describe("task tab", () => {
   it("should render the form editor matching the task row's type", async () => {
-    const { key: _key, ...zero } = HTTP.Task.ZERO_READ_PAYLOAD;
-    const draft = await client.tasks.create({ ...zero, name: uniqueName("http") });
+    const draft = await client.tasks.create({
+      name: uniqueName("http"),
+      type: HTTP.Task.READ_TYPE,
+      config: HTTP.Task.READ_SCHEMAS.config.parse({}),
+    });
     await renderContent(draft.key);
     await screen.findByText("Add an endpoint");
   });

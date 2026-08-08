@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/pluto";
-import { deep, type record } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import {
-  type Channel,
   type ChannelMode,
+  type ChannelSchemas,
   type InputChannel,
   type OutputChannel,
 } from "@/feature/ethercat/task/types";
@@ -33,12 +33,12 @@ const Base = Form.buildSelectField<ChannelMode, ChannelModeEntry>({
 
 export interface SelectChannelModeFieldProps {
   path: string;
-  zeroChannels: Record<ChannelMode, Channel>;
+  schemas: ChannelSchemas;
 }
 
 export const SelectChannelModeField = ({
   path,
-  zeroChannels,
+  schemas,
 }: SelectChannelModeFieldProps): ReactElement => {
   const handleChange = useCallback(
     (
@@ -49,7 +49,7 @@ export const SelectChannelModeField = ({
       if (prevType === value) return;
       const parentPath = fieldPath.slice(0, fieldPath.lastIndexOf("."));
       const prevParent = get<InputChannel | OutputChannel>(parentPath).value;
-      const next = deep.copy(zeroChannels[value]);
+      const next = schemas[value].parse({ type: value });
       set(parentPath, {
         ...next,
         key: prevParent.key,
@@ -59,7 +59,7 @@ export const SelectChannelModeField = ({
         type: value,
       });
     },
-    [zeroChannels],
+    [schemas],
   );
   return <Base path={path} onChange={handleChange} />;
 };

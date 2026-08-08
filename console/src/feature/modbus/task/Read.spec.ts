@@ -24,8 +24,12 @@ import { getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
-// Draft creates mint their own key; the zero payload's empty key must not be sent.
-const { key: _key, ...ZERO_DRAFT } = Modbus.Task.ZERO_READ_PAYLOAD;
+// Drafts carry no key; the created row mints its own.
+const ZERO_DRAFT: task.New<Modbus.Task.ReadSchemas> = {
+  name: "Modbus Read Task",
+  type: Modbus.Task.READ_TYPE,
+  config: Modbus.Task.READ_SCHEMAS.config.parse({}),
+};
 
 const createDraft = async (
   client: Synnax,
@@ -51,7 +55,7 @@ describe("Modbus.Read", () => {
   it("should build channels in the form and create them on the cluster on deploy", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
-      ...Modbus.Task.ZERO_READ_PAYLOAD.config,
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
       device: dev.key,
     });
     const { container } = await renderTaskFormTab(Modbus.Task.Read, {
@@ -103,7 +107,7 @@ describe("Modbus.Read", () => {
   it("should reuse the existing index and channels when redeploying", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
-      ...Modbus.Task.ZERO_READ_PAYLOAD.config,
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
       device: dev.key,
     });
     const first = await renderTaskFormTab(Modbus.Task.Read, {

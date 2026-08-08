@@ -70,6 +70,10 @@ func (o *OutputChannel) ApplyDefaults() {
 // ReadConfig configures an OPC UA read task.
 type ReadConfig struct {
 	common.BaseReadConfig
+	// SampleRate is the per-channel hardware sample rate, in hertz.
+	SampleRate telem.Rate `json:"sample_rate" msgpack:"sample_rate"`
+	// StreamRate is the rate at which samples are streamed to Synnax, in hertz.
+	StreamRate telem.Rate `json:"stream_rate" msgpack:"stream_rate"`
 	// Device is the key of the device representing the OPC UA server.
 	Device device.Key `json:"device" msgpack:"device"`
 	// ArrayMode is true when each read returns an array of samples per node.
@@ -82,6 +86,12 @@ type ReadConfig struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
+	if r.SampleRate == 0 {
+		r.SampleRate = 50
+	}
+	if r.StreamRate == 0 {
+		r.StreamRate = 25
+	}
 	if r.ArraySize == 0 {
 		r.ArraySize = 1
 	}

@@ -136,12 +136,14 @@ export const SCALE_SCHEMAS: {
 /** OutputChannelAO drives an analog output on a DAC port. */
 export const outputChannelAOZ = baseOutputChannelZ.extend({
   type: z.literal("AO"),
+  port: z.string().default("DAC0"),
 });
 export interface OutputChannelAO extends z.infer<typeof outputChannelAOZ> {}
 
 /** OutputChannelDO drives a digital output line on a DIO port. */
 export const outputChannelDOZ = baseOutputChannelZ.extend({
   type: z.literal("DO"),
+  port: z.string().default("DIO4"),
 });
 export interface OutputChannelDO extends z.infer<typeof outputChannelDOZ> {}
 
@@ -169,6 +171,7 @@ export const OUTPUT_CHANNEL_SCHEMAS: {
 /** InputChannelAI reads a voltage from an analog input port. */
 export const inputChannelAIZ = baseInputChannelZ.extend({
   type: z.literal("AI"),
+  port: z.string().default("AIN0"),
   /** range is the upper bound of the voltage input range, in volts. */
   range: z.number().default(10),
   /**
@@ -184,12 +187,14 @@ export interface InputChannelAI extends z.infer<typeof inputChannelAIZ> {}
 /** InputChannelDI reads a digital input line. */
 export const inputChannelDIZ = baseInputChannelZ.extend({
   type: z.literal("DI"),
+  port: z.string().default("DIO4"),
 });
 export interface InputChannelDI extends z.infer<typeof inputChannelDIZ> {}
 
 /** InputChannelTc reads temperature from a thermocouple. */
 export const inputChannelTcZ = baseInputChannelZ.extend({
   type: z.literal("TC"),
+  port: z.string().default("AIN0"),
   /** thermocoupleType selects the thermocouple alloy type. */
   thermocoupleType: thermocoupleTypeZ.default("K"),
   /** posChan is the AIN port the thermocouple's positive lead is wired to. */

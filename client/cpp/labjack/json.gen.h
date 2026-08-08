@@ -248,6 +248,7 @@ inline x::json::json ScaleNone::to_json() const {
 inline InputChannelAI InputChannelAI::parse(x::json::Parser parser) {
     InputChannelAI result;
     static_cast<BaseInputChannel &>(result) = BaseInputChannel::parse(parser);
+    result.port = parser.field<std::string>("port", "AIN0");
     result.range = parser.field<double>("range", 10);
     result.neg_chan = parser.field<std::int32_t>("neg_chan", 199);
     result.scale = parse_scale(parser.child("scale"));
@@ -259,6 +260,7 @@ inline x::json::json InputChannelAI::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseInputChannel::to_json().items())
         j[k] = v;
+    j["port"] = this->port;
     j["range"] = this->range;
     j["neg_chan"] = this->neg_chan;
     j["scale"] = ::synnax::labjack::to_json(this->scale);
@@ -269,6 +271,7 @@ inline x::json::json InputChannelAI::to_json() const {
 inline InputChannelDI InputChannelDI::parse(x::json::Parser parser) {
     InputChannelDI result;
     static_cast<BaseInputChannel &>(result) = BaseInputChannel::parse(parser);
+    result.port = parser.field<std::string>("port", "DIO4");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -277,6 +280,7 @@ inline x::json::json InputChannelDI::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseInputChannel::to_json().items())
         j[k] = v;
+    j["port"] = this->port;
     j["type"] = this->type;
     return j;
 }
@@ -284,6 +288,7 @@ inline x::json::json InputChannelDI::to_json() const {
 inline InputChannelTc InputChannelTc::parse(x::json::Parser parser) {
     InputChannelTc result;
     static_cast<BaseInputChannel &>(result) = BaseInputChannel::parse(parser);
+    result.port = parser.field<std::string>("port", "AIN0");
     result.thermocouple_type = parser.field<std::string>("thermocouple_type", "K");
     result.pos_chan = parser.field<std::int32_t>("pos_chan", 0);
     result.neg_chan = parser.field<std::int32_t>("neg_chan", 199);
@@ -300,6 +305,7 @@ inline x::json::json InputChannelTc::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseInputChannel::to_json().items())
         j[k] = v;
+    j["port"] = this->port;
     j["thermocouple_type"] = this->thermocouple_type;
     j["pos_chan"] = this->pos_chan;
     j["neg_chan"] = this->neg_chan;
@@ -315,6 +321,7 @@ inline x::json::json InputChannelTc::to_json() const {
 inline OutputChannelAO OutputChannelAO::parse(x::json::Parser parser) {
     OutputChannelAO result;
     static_cast<BaseOutputChannel &>(result) = BaseOutputChannel::parse(parser);
+    result.port = parser.field<std::string>("port", "DAC0");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -323,6 +330,7 @@ inline x::json::json OutputChannelAO::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseOutputChannel::to_json().items())
         j[k] = v;
+    j["port"] = this->port;
     j["type"] = this->type;
     return j;
 }
@@ -330,6 +338,7 @@ inline x::json::json OutputChannelAO::to_json() const {
 inline OutputChannelDO OutputChannelDO::parse(x::json::Parser parser) {
     OutputChannelDO result;
     static_cast<BaseOutputChannel &>(result) = BaseOutputChannel::parse(parser);
+    result.port = parser.field<std::string>("port", "DIO4");
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -338,6 +347,7 @@ inline x::json::json OutputChannelDO::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseOutputChannel::to_json().items())
         j[k] = v;
+    j["port"] = this->port;
     j["type"] = this->type;
     return j;
 }

@@ -21,7 +21,6 @@ import {
   type ScaleType,
   type TemperatureUnits,
   type ThermocoupleType,
-  ZERO_SCALES,
 } from "@/feature/labjack/task/types";
 
 const MaxVoltageField = PForm.buildNumericField({
@@ -40,7 +39,7 @@ const SelectScaleTypeField = PForm.buildSelectField<
     onChange: (value, { get, set, path }) => {
       const prevType = get<ScaleType>(path).value;
       if (prevType === value) return;
-      const next = deep.copy(ZERO_SCALES[value]);
+      const next = SCALE_SCHEMAS[value].parse({ type: value });
       const parentPath = path.slice(0, path.lastIndexOf("."));
       const prevParent = get<Scale>(parentPath).value;
       set(parentPath, {

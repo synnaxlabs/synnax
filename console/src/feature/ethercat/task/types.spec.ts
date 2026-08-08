@@ -209,14 +209,14 @@ describe("draft configs", () => {
   it("should accept the zero read config", () => {
     expect(
       EtherCAT.Task.READ_SCHEMAS.config.safeParse(
-        EtherCAT.Task.ZERO_READ_PAYLOAD.config,
+        EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       ).success,
     ).toBe(true);
   });
   it("should accept the zero write config", () => {
     expect(
       EtherCAT.Task.WRITE_SCHEMAS.config.safeParse(
-        EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
+        EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       ).success,
     ).toBe(true);
   });

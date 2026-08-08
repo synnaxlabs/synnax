@@ -266,6 +266,7 @@ type InputChannelVariant interface {
 // InputChannelAI reads a voltage from an analog input port.
 type InputChannelAI struct {
 	BaseInputChannel
+	Port string `json:"port" msgpack:"port"`
 	// Range is the upper bound of the voltage input range, in volts.
 	Range float64 `json:"range" msgpack:"range"`
 	// NegChan is the negative channel for differential readings on T7 devices. 199
@@ -279,6 +280,9 @@ func (InputChannelAI) isInputChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *InputChannelAI) ApplyDefaults() {
+	if i.Port == "" {
+		i.Port = "AIN0"
+	}
 	if i.Range == 0 {
 		i.Range = 10
 	}
@@ -291,13 +295,22 @@ func (i *InputChannelAI) ApplyDefaults() {
 // InputChannelDI reads a digital input line.
 type InputChannelDI struct {
 	BaseInputChannel
+	Port string `json:"port" msgpack:"port"`
 }
 
 func (InputChannelDI) isInputChannelVariant() {}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (i *InputChannelDI) ApplyDefaults() {
+	if i.Port == "" {
+		i.Port = "DIO4"
+	}
+}
+
 // InputChannelTc reads temperature from a thermocouple.
 type InputChannelTc struct {
 	BaseInputChannel
+	Port string `json:"port" msgpack:"port"`
 	// ThermocoupleType selects the thermocouple alloy type.
 	ThermocoupleType ThermocoupleType `json:"thermocouple_type" msgpack:"thermocouple_type"`
 	// PosChan is the AIN port the thermocouple's positive lead is wired to.
@@ -323,6 +336,9 @@ func (InputChannelTc) isInputChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *InputChannelTc) ApplyDefaults() {
+	if i.Port == "" {
+		i.Port = "AIN0"
+	}
 	if i.ThermocoupleType == "" {
 		i.ThermocoupleType = ThermocoupleTypeK
 	}
@@ -432,6 +448,9 @@ func (u *InputChannel) ApplyDefaults() {
 	case InputChannelAI:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	case InputChannelDI:
+		variant.ApplyDefaults()
+		u.Variant = variant
 	case InputChannelTc:
 		variant.ApplyDefaults()
 		u.Variant = variant
@@ -480,16 +499,32 @@ type OutputChannelVariant interface {
 // OutputChannelAO drives an analog output on a DAC port.
 type OutputChannelAO struct {
 	BaseOutputChannel
+	Port string `json:"port" msgpack:"port"`
 }
 
 func (OutputChannelAO) isOutputChannelVariant() {}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (o *OutputChannelAO) ApplyDefaults() {
+	if o.Port == "" {
+		o.Port = "DAC0"
+	}
+}
+
 // OutputChannelDO drives a digital output line on a DIO port.
 type OutputChannelDO struct {
 	BaseOutputChannel
+	Port string `json:"port" msgpack:"port"`
 }
 
 func (OutputChannelDO) isOutputChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (o *OutputChannelDO) ApplyDefaults() {
+	if o.Port == "" {
+		o.Port = "DIO4"
+	}
+}
 
 // OutputChannel is a single LabJack output channel. The type field selects the output
 // mode.
@@ -558,6 +593,19 @@ func (u *OutputChannel) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *OutputChannel) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case OutputChannelAO:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case OutputChannelDO:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
 // ReadConfig configures a LabJack read task.
 type ReadConfig struct {
 	common.BaseReadConfig
@@ -604,6 +652,9 @@ type WriteConfig struct {
 func (w *WriteConfig) ApplyDefaults() {
 	if w.StateRate == 0 {
 		w.StateRate = 10
+	}
+	for i := range w.Channels {
+		w.Channels[i].ApplyDefaults()
 	}
 }
 

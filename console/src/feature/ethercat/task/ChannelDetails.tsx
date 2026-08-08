@@ -14,10 +14,10 @@ import { SelectSlave } from "@/feature/ethercat/device/SelectSlave";
 import { SelectChannelModeField } from "@/feature/ethercat/task/SelectChannelModeField";
 import { SelectPDOField } from "@/feature/ethercat/task/SelectPDOField";
 import {
-  type Channel,
   type ChannelMode,
-  ZERO_INPUT_CHANNELS,
-  ZERO_OUTPUT_CHANNELS,
+  type ChannelSchemas,
+  INPUT_CHANNEL_SCHEMAS,
+  OUTPUT_CHANNEL_SCHEMAS,
 } from "@/feature/ethercat/task/types";
 import { type Task } from "@/platform/task";
 
@@ -61,15 +61,15 @@ const renderSelectDataType = Component.renderProp(
 
 export interface ChannelDetailsProps extends Task.Views.DetailsProps {
   pdoType: "inputs" | "outputs";
-  zeroChannels: Record<ChannelMode, Channel>;
+  schemas: ChannelSchemas;
 }
 
-const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, zeroChannels }) => {
+const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schemas }) => {
   const channelMode = PForm.useFieldValue<ChannelMode>(`${path}.type`);
   return (
     <Flex.Box y gap="medium" style={CHANNEL_DETAILS_STYLE}>
       <SelectSlave path={`${path}.device`} />
-      <SelectChannelModeField path={path} zeroChannels={zeroChannels} />
+      <SelectChannelModeField path={path} schemas={schemas} />
       {channelMode === "automatic" ? (
         <SelectPDOField path={path} pdoType={pdoType} />
       ) : (
@@ -82,9 +82,9 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, zeroChannels }
 const CHANNEL_DETAILS_STYLE = { padding: "1rem" } as const;
 
 export const ReadChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
-  <ChannelDetails {...props} pdoType="inputs" zeroChannels={ZERO_INPUT_CHANNELS} />
+  <ChannelDetails {...props} pdoType="inputs" schemas={INPUT_CHANNEL_SCHEMAS} />
 );
 
 export const WriteChannelDetails: FC<Task.Views.DetailsProps> = (props) => (
-  <ChannelDetails {...props} pdoType="outputs" zeroChannels={ZERO_OUTPUT_CHANNELS} />
+  <ChannelDetails {...props} pdoType="outputs" schemas={OUTPUT_CHANNEL_SCHEMAS} />
 );

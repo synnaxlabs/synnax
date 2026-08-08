@@ -22,6 +22,7 @@ import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { FORMS } from "@/feature/labjack/task/InputChannelForms";
 import { SelectInputChannelTypeField } from "@/feature/labjack/task/SelectInputChannelTypeField";
 import {
+  createInputChannel,
   deployReadConfigZ,
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
@@ -29,9 +30,6 @@ import {
   READ_SCHEMAS,
   READ_TYPE,
   type ReadSchemas,
-  ZERO_INPUT_CHANNEL,
-  ZERO_INPUT_CHANNELS,
-  ZERO_READ_PAYLOAD,
 } from "@/feature/labjack/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
@@ -106,7 +104,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
             if (value == null) return;
             const prevType = get<InputChannelType>(path).value;
             if (prevType === value) return;
-            const next = deep.copy(ZERO_INPUT_CHANNELS[value]);
+            const next = createInputChannel(value);
             const parentPath = path.slice(0, path.lastIndexOf("."));
             const prevParent = get<InputChannel>(parentPath).value;
             const schema = INPUT_CHANNEL_SCHEMAS[value];
@@ -144,7 +142,7 @@ const getOpenChannel = (
   channelKeyToCopy?: string,
 ) => {
   if (channelKeyToCopy == null)
-    return { ...deep.copy(ZERO_INPUT_CHANNEL), key: id.create() };
+    return { ...createInputChannel("AI"), key: id.create() };
   const channelToCopy = channels.find(({ key }) => key === channelKeyToCopy);
   if (channelToCopy == null) return null;
   // preferredPortType is AI or DI
@@ -163,7 +161,7 @@ const getOpenChannel = (
     port.type === preferredPortType ? channelToCopy.type : backupPortType;
   return {
     ...deep.overrideValidItems(
-      ZERO_INPUT_CHANNELS[channelTypeUsed],
+      createInputChannel(channelTypeUsed),
       channelToCopy,
       INPUT_CHANNEL_SCHEMAS[channelTypeUsed],
     ),
@@ -221,12 +219,9 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg =
-    config != null ? READ_SCHEMAS.config.parse(config) : ZERO_READ_PAYLOAD.config;
-  return {
-    ...ZERO_READ_PAYLOAD,
-    config: { ...cfg, device: deviceKey ?? cfg.device },
-  };
+  const cfg = READ_SCHEMAS.config.parse(config ?? {});
+  if (deviceKey != null) cfg.device = deviceKey;
+  return { name: "LabJack Read Task", type: READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
