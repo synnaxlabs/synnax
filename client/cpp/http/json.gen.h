@@ -80,8 +80,9 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
         .timestamp_format = parser.field<std::optional<std::string>>(
             "timestamp_format"
         ),
-        .enum_values = parser.field<std::optional<std::vector<EnumEntry>>>(
-            "enum_values"
+        .enum_values = parser.field<std::vector<EnumEntry>>(
+            "enum_values",
+            std::vector<EnumEntry>{}
         ),
     };
 }
@@ -95,8 +96,7 @@ inline x::json::json ReadField::to_json() const {
     j["pointer"] = this->pointer;
     j["data_type"] = this->data_type;
     j["timestamp_format"] = this->timestamp_format;
-    if (this->enum_values.has_value())
-        j["enum_values"] = x::json::to_array(*this->enum_values);
+    j["enum_values"] = x::json::to_array(this->enum_values);
     return j;
 }
 
@@ -167,8 +167,9 @@ inline ChannelField ChannelField::parse(x::json::Parser parser) {
             ::x::telem::DataType("float64")
         ),
         .time_format = parser.field<std::optional<std::string>>("time_format"),
-        .enum_values = parser.field<std::optional<std::vector<EnumEntry>>>(
-            "enum_values"
+        .enum_values = parser.field<std::vector<EnumEntry>>(
+            "enum_values",
+            std::vector<EnumEntry>{}
         ),
     };
 }
@@ -181,8 +182,7 @@ inline x::json::json ChannelField::to_json() const {
     j["name"] = this->name;
     j["data_type"] = this->data_type;
     j["time_format"] = this->time_format;
-    if (this->enum_values.has_value())
-        j["enum_values"] = x::json::to_array(*this->enum_values);
+    j["enum_values"] = x::json::to_array(this->enum_values);
     return j;
 }
 

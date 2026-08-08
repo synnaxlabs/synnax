@@ -147,7 +147,7 @@ class ReadField(BaseModel):
     pointer: str = ""
     data_type: telem.DataType = telem.DataType("float64")
     timestamp_format: TimeFormat | None = None
-    enum_values: list[EnumEntry] | None = None
+    enum_values: list[EnumEntry] = Field(default_factory=list)
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -176,7 +176,7 @@ class ChannelField(BaseModel):
     name: str = ""
     data_type: telem.DataType = telem.DataType("float64")
     time_format: TimeFormat | None = None
-    enum_values: list[EnumEntry] | None = None
+    enum_values: list[EnumEntry] = Field(default_factory=list)
 
 
 class WriteFieldStatic(BaseWriteField):
