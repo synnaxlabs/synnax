@@ -16,11 +16,25 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from synnax import device as device_
 from synnax import rack as rack_
 from synnax import status as status_
 from synnax.ontology.payload import ID
+from x import telem
 
 Key: TypeAlias = UUID
+
+
+class BaseConfig(BaseModel):
+    """Carries the configuration fields shared by every hardware task.
+
+    Attributes:
+        auto_start: Is true when the task should start as soon as it is configured.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
+    """
+
+    auto_start: bool = False
+    data_saving_disabled: bool = False
 
 
 class StatusDetails(BaseModel):
@@ -62,6 +76,28 @@ class Command(BaseModel):
     key: str
     config_hash: str = ""
     args: dict[str, Any] = Field(default_factory=dict)
+
+
+class BaseReadConfig(BaseConfig):
+    """Carries the configuration fields shared by hardware acquisition tasks.
+
+    Attributes:
+        sample_rate: Is the per-channel hardware sample rate, in hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in hertz.
+    """
+
+    sample_rate: telem.Rate = telem.Rate(10)
+    stream_rate: telem.Rate = telem.Rate(5)
+
+
+class BaseWriteConfig(BaseConfig):
+    """Carries the configuration fields shared by hardware control tasks.
+
+    Attributes:
+        device: Is the key of the device the task writes to.
+    """
+
+    device: device_.Key = ""
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
