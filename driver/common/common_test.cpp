@@ -9,9 +9,6 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/task/common/json.gen.h"
-#include "x/cpp/json/json.h"
-
 #include "driver/common/common.h"
 
 namespace driver::common {
@@ -25,49 +22,6 @@ TEST(DataSavingWriterMode, testDataSavingTrue) {
 TEST(DataSavingWriterMode, testDataSavingFalse) {
     const auto mode = data_saving_writer_mode(false);
     EXPECT_EQ(mode, synnax::framer::WriterMode::StreamOnly);
-}
-
-/// @brief it should parse the generated BaseConfig with both fields present.
-TEST(BaseConfig, testParseWithBothFields) {
-    const auto json = nlohmann::json{
-        {"data_saving_disabled", true},
-        {"auto_start", true}
-    };
-    auto parser = x::json::Parser(json);
-    const auto config = ::synnax::common::BaseConfig::parse(parser);
-
-    EXPECT_TRUE(config.data_saving_disabled);
-    EXPECT_TRUE(config.auto_start);
-}
-
-/// @brief it should use default values when fields are missing.
-TEST(BaseConfig, testParseWithDefaults) {
-    const auto json = nlohmann::json{};
-    auto parser = x::json::Parser(json);
-    const auto config = ::synnax::common::BaseConfig::parse(parser);
-
-    EXPECT_FALSE(config.data_saving_disabled);
-    EXPECT_FALSE(config.auto_start);
-}
-
-/// @brief it should parse with only data_saving_disabled present.
-TEST(BaseConfig, testParseWithDataSavingDisabledOnly) {
-    const auto json = nlohmann::json{{"data_saving_disabled", true}};
-    auto parser = x::json::Parser(json);
-    const auto config = ::synnax::common::BaseConfig::parse(parser);
-
-    EXPECT_TRUE(config.data_saving_disabled);
-    EXPECT_FALSE(config.auto_start);
-}
-
-/// @brief it should parse with only auto_start present.
-TEST(BaseConfig, testParseWithAutoStartOnly) {
-    const auto json = nlohmann::json{{"auto_start", true}};
-    auto parser = x::json::Parser(json);
-    const auto config = ::synnax::common::BaseConfig::parse(parser);
-
-    EXPECT_FALSE(config.data_saving_disabled);
-    EXPECT_TRUE(config.auto_start);
 }
 
 }

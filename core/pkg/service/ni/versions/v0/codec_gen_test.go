@@ -98,7 +98,7 @@ var (
 	fullyPopulatedZIndex = v0.ZIndex{
 		ZIndexEnable: true,
 		ZIndexVal:    2.5,
-		ZIndexPhase:  v0.CIZIndexPhase("AHighBHigh"),
+		ZIndexPhase:  v0.ZIndexPhase("AHighBHigh"),
 		TerminalZ:    "test_4",
 	}
 	fullyPopulatedLinearScale = v0.LinearScale{
@@ -151,8 +151,8 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("ai_accel variant", v0.AIChannel{Variant: v0.AIAccelChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
-				Terminal:          fullyPopulatedTerminal,
 				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Terminal:          fullyPopulatedTerminal,
 				Sensitivity:       fullyPopulatedSensitivity,
 				CurrentExcitation: fullyPopulatedCurrentExcitation,
 				CustomScale:       fullyPopulatedCustomScale,
@@ -169,8 +169,8 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("ai_current variant", v0.AIChannel{Variant: v0.AICurrentChannel{
 				BaseAIChannel:       fullyPopulatedBaseAIChannel,
-				Terminal:            fullyPopulatedTerminal,
 				MinMaxVal:           fullyPopulatedMinMaxVal,
+				Terminal:            fullyPopulatedTerminal,
 				CustomScale:         fullyPopulatedCustomScale,
 				Units:               v0.Units("Volts"),
 				ShuntResistorLoc:    v0.ShuntResistorLocation("Default"),
@@ -198,13 +198,13 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("ai_force_iepe variant", v0.AIChannel{Variant: v0.AIForceIEPEChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
-				Terminal:          fullyPopulatedTerminal,
 				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Terminal:          fullyPopulatedTerminal,
 				Sensitivity:       fullyPopulatedSensitivity,
 				CurrentExcitation: fullyPopulatedCurrentExcitation,
 				CustomScale:       fullyPopulatedCustomScale,
 				Units:             v0.ForceUnits("Newtons"),
-				SensitivityUnits:  v0.ForceUnitsSensitivity("mVoltsPerNewton"),
+				SensitivityUnits:  v0.ForceSensitivityUnits("mVoltsPerNewton"),
 			}}),
 			Entry("ai_microphone variant", v0.AIChannel{Variant: v0.AIMicrophoneChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -300,13 +300,13 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("ai_velocity_iepe variant", v0.AIChannel{Variant: v0.AIVelocityIEPEChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
-				Terminal:          fullyPopulatedTerminal,
 				MinMaxVal:         fullyPopulatedMinMaxVal,
+				Terminal:          fullyPopulatedTerminal,
 				Sensitivity:       fullyPopulatedSensitivity,
 				CurrentExcitation: fullyPopulatedCurrentExcitation,
 				CustomScale:       fullyPopulatedCustomScale,
 				Units:             v0.VelocityUnits("MetersPerSecond"),
-				SensitivityUnits:  v0.VelocityUnitsSensitivity("MillivoltsPerMillimeterPerSecond"),
+				SensitivityUnits:  v0.VelocitySensitivityUnits("MillivoltsPerMillimeterPerSecond"),
 			}}),
 			Entry("ai_accel_4_wire_dc_voltage variant", v0.AIChannel{Variant: v0.AIAccel4WireDCVoltageChannel{
 				BaseAIChannel:      fullyPopulatedBaseAIChannel,
@@ -751,15 +751,18 @@ var _ = Describe("Codec", func() {
 				MinVal:        1.5,
 				MaxVal:        2.5,
 				Units:         v0.CITimeUnits("Seconds"),
+				Terminal:      "test_4",
 			}}),
 			Entry("ci_two_edge_sep variant", v0.CIChannel{Variant: v0.CITwoEdgeSepChannel{
-				BaseCIChannel: fullyPopulatedBaseCIChannel,
-				CustomScale:   fullyPopulatedCustomScale,
-				MinVal:        1.5,
-				MaxVal:        2.5,
-				Units:         v0.CITimeUnits("Seconds"),
-				FirstEdge:     v0.CIEdge("Rising"),
-				SecondEdge:    v0.CIEdge("Rising"),
+				BaseCIChannel:  fullyPopulatedBaseCIChannel,
+				CustomScale:    fullyPopulatedCustomScale,
+				MinVal:         1.5,
+				MaxVal:         2.5,
+				Units:          v0.CITimeUnits("Seconds"),
+				FirstEdge:      v0.CIEdge("Rising"),
+				SecondEdge:     v0.CIEdge("Rising"),
+				FirstTerminal:  "test_6",
+				SecondTerminal: "test_7",
 			}}),
 			Entry("ci_velocity_linear variant", v0.CIChannel{Variant: v0.CIVelocityLinearChannel{
 				BaseCIChannel: fullyPopulatedBaseCIChannel,
@@ -1417,7 +1420,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.ZIndex{
 				ZIndexEnable: false,
 				ZIndexVal:    0,
-				ZIndexPhase:  v0.CIZIndexPhase(""),
+				ZIndexPhase:  v0.ZIndexPhase(""),
 				TerminalZ:    "",
 			}),
 		)
@@ -2165,8 +2168,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 	{
 		seed := v0.AIChannel{Variant: v0.AIAccelChannel{
 			BaseAIChannel:     fullyPopulatedBaseAIChannel,
-			Terminal:          fullyPopulatedTerminal,
 			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Terminal:          fullyPopulatedTerminal,
 			Sensitivity:       fullyPopulatedSensitivity,
 			CurrentExcitation: fullyPopulatedCurrentExcitation,
 			CustomScale:       fullyPopulatedCustomScale,
@@ -2197,8 +2200,8 @@ func FuzzDecodeAIChannel(f *testing.F) {
 	{
 		seed := v0.AIChannel{Variant: v0.AICurrentChannel{
 			BaseAIChannel:       fullyPopulatedBaseAIChannel,
-			Terminal:            fullyPopulatedTerminal,
 			MinMaxVal:           fullyPopulatedMinMaxVal,
+			Terminal:            fullyPopulatedTerminal,
 			CustomScale:         fullyPopulatedCustomScale,
 			Units:               v0.Units("Volts"),
 			ShuntResistorLoc:    v0.ShuntResistorLocation("Default"),
@@ -2247,13 +2250,13 @@ func FuzzDecodeAIChannel(f *testing.F) {
 	{
 		seed := v0.AIChannel{Variant: v0.AIForceIEPEChannel{
 			BaseAIChannel:     fullyPopulatedBaseAIChannel,
-			Terminal:          fullyPopulatedTerminal,
 			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Terminal:          fullyPopulatedTerminal,
 			Sensitivity:       fullyPopulatedSensitivity,
 			CurrentExcitation: fullyPopulatedCurrentExcitation,
 			CustomScale:       fullyPopulatedCustomScale,
 			Units:             v0.ForceUnits("Newtons"),
-			SensitivityUnits:  v0.ForceUnitsSensitivity("mVoltsPerNewton"),
+			SensitivityUnits:  v0.ForceSensitivityUnits("mVoltsPerNewton"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2426,13 +2429,13 @@ func FuzzDecodeAIChannel(f *testing.F) {
 	{
 		seed := v0.AIChannel{Variant: v0.AIVelocityIEPEChannel{
 			BaseAIChannel:     fullyPopulatedBaseAIChannel,
-			Terminal:          fullyPopulatedTerminal,
 			MinMaxVal:         fullyPopulatedMinMaxVal,
+			Terminal:          fullyPopulatedTerminal,
 			Sensitivity:       fullyPopulatedSensitivity,
 			CurrentExcitation: fullyPopulatedCurrentExcitation,
 			CustomScale:       fullyPopulatedCustomScale,
 			Units:             v0.VelocityUnits("MetersPerSecond"),
-			SensitivityUnits:  v0.VelocityUnitsSensitivity("MillivoltsPerMillimeterPerSecond"),
+			SensitivityUnits:  v0.VelocitySensitivityUnits("MillivoltsPerMillimeterPerSecond"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3233,6 +3236,7 @@ func FuzzDecodeCIChannel(f *testing.F) {
 			MinVal:        1.5,
 			MaxVal:        2.5,
 			Units:         v0.CITimeUnits("Seconds"),
+			Terminal:      "test_4",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3242,13 +3246,15 @@ func FuzzDecodeCIChannel(f *testing.F) {
 	}
 	{
 		seed := v0.CIChannel{Variant: v0.CITwoEdgeSepChannel{
-			BaseCIChannel: fullyPopulatedBaseCIChannel,
-			CustomScale:   fullyPopulatedCustomScale,
-			MinVal:        1.5,
-			MaxVal:        2.5,
-			Units:         v0.CITimeUnits("Seconds"),
-			FirstEdge:     v0.CIEdge("Rising"),
-			SecondEdge:    v0.CIEdge("Rising"),
+			BaseCIChannel:  fullyPopulatedBaseCIChannel,
+			CustomScale:    fullyPopulatedCustomScale,
+			MinVal:         1.5,
+			MaxVal:         2.5,
+			Units:          v0.CITimeUnits("Seconds"),
+			FirstEdge:      v0.CIEdge("Rising"),
+			SecondEdge:     v0.CIEdge("Rising"),
+			FirstTerminal:  "test_6",
+			SecondTerminal: "test_7",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4542,7 +4548,7 @@ func FuzzDecodeZIndex(f *testing.F) {
 		seed := v0.ZIndex{
 			ZIndexEnable: false,
 			ZIndexVal:    0,
-			ZIndexPhase:  v0.CIZIndexPhase(""),
+			ZIndexPhase:  v0.ZIndexPhase(""),
 			TerminalZ:    "",
 		}
 		w := orc.NewWriter(0)

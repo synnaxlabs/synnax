@@ -24,8 +24,6 @@
 
 namespace driver::opc {
 struct OutputChan {
-    /// @brief the parsed generated wire configuration for the channel.
-    const ::synnax::opc::OutputChannel cfg;
     /// @brief whether output for the channel is enabled.
     const bool enabled;
     /// @brief the OPC UA node id.
@@ -40,11 +38,10 @@ struct OutputChan {
     explicit OutputChan(x::json::Parser &parser):
         OutputChan(::synnax::opc::OutputChannel::parse(parser), parser) {}
 
-    OutputChan(::synnax::opc::OutputChannel parsed, x::json::Parser &parser):
-        cfg(std::move(parsed)),
-        enabled(!this->cfg.disabled),
+    OutputChan(const ::synnax::opc::OutputChannel &parsed, x::json::Parser &parser):
+        enabled(!parsed.disabled),
         node(types::NodeId::parse("node_id", parser)),
-        cmd_channel(this->cfg.cmd_channel) {
+        cmd_channel(parsed.cmd_channel) {
         if (this->cmd_channel == 0)
             parser.field_err("cmd_channel", "channel must be specified");
     }

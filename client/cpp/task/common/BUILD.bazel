@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "common",
@@ -20,5 +21,15 @@ cc_library(
         "//client/cpp/device",
         "//x/cpp/json",
         "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "common_test",
+    srcs = ["common_test.cpp"],
+    deps = [
+        ":common",
+        "//x/cpp/json",
+        "@googletest//:gtest_main",
     ],
 )

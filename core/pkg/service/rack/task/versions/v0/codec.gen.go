@@ -14,14 +14,14 @@ package v0
 import "github.com/synnaxlabs/x/encoding/orc"
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (stc StatusTaskConfig) EncodeOrc(w *orc.Writer) error {
-	w.Write(stc.Key[:])
+func (sc StatusConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(sc.Key[:])
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (stc *StatusTaskConfig) DecodeOrc(r *orc.Reader) error {
-	if _, err := r.Read(stc.Key[:]); err != nil {
+func (sc *StatusConfig) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(sc.Key[:]); err != nil {
 		return err
 	}
 	return nil
