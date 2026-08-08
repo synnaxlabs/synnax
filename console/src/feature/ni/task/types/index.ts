@@ -25,7 +25,7 @@ export type PressureUnits = ni.PressureUnits;
 export type TemperatureUnits = ni.TemperatureUnits;
 export type TorqueUnits = ni.TorqueUnits;
 export type VelocityUnits = ni.VelocityUnits;
-export type VelocitySensitivityUnits = ni.VelocityUnitsSensitivity;
+export type VelocitySensitivityUnits = ni.VelocitySensitivityUnits;
 
 export const WAVE_TYPES = ni.WAVE_TYPES;
 export type WaveType = ni.WaveType;
@@ -167,7 +167,7 @@ export type CILinearVelocityUnits = ni.CILinearVelocityUnits;
 export type CIAngularVelocityUnits = ni.CIAngularVelocityUnits;
 export type CILinearPositionUnits = ni.CILinearPositionUnits;
 export type CIAngularPositionUnits = ni.CIAngularPositionUnits;
-export type CIZIndexPhase = ni.CIZIndexPhase;
+export type ZIndexPhase = ni.ZIndexPhase;
 export type CIEdge = ni.CIEdge;
 export type CIMeasMethod = ni.CIMeasMethod;
 export type CICountDirection = ni.CICountDirection;
