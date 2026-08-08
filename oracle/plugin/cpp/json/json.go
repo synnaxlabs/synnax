@@ -792,7 +792,7 @@ func (p *Plugin) parseExprForField(
 		}
 		if hasDefault {
 			defaultVal := jsonDefaultLiteral(field, data.table)
-			if defaultVal == "" && field.Optional {
+			if defaultVal == "" {
 				defaultVal = defaultValueForPrimitive(typeRef.Name)
 			}
 			if defaultVal != "" {
@@ -837,6 +837,13 @@ func (p *Plugin) parseExprForField(
 				cppType,
 				jsonName,
 				defaultVal,
+			)
+		} else if isSentinelDefault(field, data.table) {
+			return fmt.Sprintf(
+				`parser.field<%s>("%s", %s{})`,
+				cppType,
+				jsonName,
+				cppType,
 			)
 		}
 	}
@@ -1090,8 +1097,8 @@ func (p *Plugin) toJSONExprForField(
 
 // hasRenderableDefault reports whether the field declares a default the parse
 // expression can honor. Struct and array defaults count (their branches render
-// them); identifier defaults count only when they resolve to an enum variant or
-// boolean literal, so sentinels like create do not relax a required field.
+// them); identifier defaults count when they resolve to an enum variant or
+// boolean literal, and sentinels fall back to the type's zero value.
 func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool {
 	if field.Default == nil {
 		return false
@@ -1099,7 +1106,16 @@ func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool 
 	if field.Default.Kind != resolution.ValueKindIdent {
 		return true
 	}
-	return jsonDefaultLiteral(field, table) != ""
+	return jsonDefaultLiteral(field, table) != "" || isSentinelDefault(field, table)
+}
+
+// isSentinelDefault reports whether the field defaults to a sentinel the producer
+// resolves, such as create or now. The value cannot be rendered as a C++ literal,
+// and a decoder must not require a field whose producer assigns it.
+func isSentinelDefault(field resolution.Field, table *resolution.Table) bool {
+	return field.Default != nil &&
+		field.Default.Kind == resolution.ValueKindIdent &&
+		jsonDefaultLiteral(field, table) == ""
 }
 
 // jsonDefaultLiteral renders a field's schema default as a C++ literal usable as

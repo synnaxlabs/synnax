@@ -25,12 +25,12 @@ namespace synnax::status {
 template<typename Details>
 Status<Details> Status<Details>::parse(x::json::Parser parser) {
     return Status<Details>{
-        .key = parser.field<std::string>("key"),
+        .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .variant = parser.field<std::string>("variant"),
         .message = parser.field<std::string>("message"),
         .description = parser.field<std::string>("description", ""),
-        .time = parser.field<::x::telem::TimeStamp>("time"),
+        .time = parser.field<::x::telem::TimeStamp>("time", ::x::telem::TimeStamp{}),
         .details = parser.field<Details>("details"),
         .labels = parser.field<std::optional<std::vector<::synnax::label::Label>>>(
             "labels"
