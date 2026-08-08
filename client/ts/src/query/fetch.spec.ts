@@ -90,7 +90,7 @@ describe("table fetch", () => {
           const res = await retrieveKeys(reader, [key]);
           expect(res.map((r) => r.key)).toEqual([key]);
         } finally {
-          reader.close();
+          await reader.close();
         }
       });
 
@@ -102,7 +102,7 @@ describe("table fetch", () => {
           const res = await retrieveKeys(reader, [key]);
           expect(res).toHaveLength(0);
         } finally {
-          reader.close();
+          await reader.close();
         }
       });
     });
