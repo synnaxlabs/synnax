@@ -120,12 +120,12 @@ const (
 	ShuntResistorLocationExternal ShuntResistorLocation = versions.ShuntResistorLocationExternal
 )
 
-// ForceUnitsSensitivity are the units of a force IEPE sensor's sensitivity rating.
-type ForceUnitsSensitivity = versions.ForceUnitsSensitivity
+// ForceSensitivityUnits are the units of a force IEPE sensor's sensitivity rating.
+type ForceSensitivityUnits = versions.ForceSensitivityUnits
 
 const (
-	ForceUnitsSensitivityMVoltsPerNewton ForceUnitsSensitivity = versions.ForceUnitsSensitivityMVoltsPerNewton
-	ForceUnitsSensitivityMVoltsPerPound  ForceUnitsSensitivity = versions.ForceUnitsSensitivityMVoltsPerPound
+	ForceSensitivityUnitsMVoltsPerNewton ForceSensitivityUnits = versions.ForceSensitivityUnitsMVoltsPerNewton
+	ForceSensitivityUnitsMVoltsPerPound  ForceSensitivityUnits = versions.ForceSensitivityUnitsMVoltsPerPound
 )
 
 // PressureUnits are the engineering units for a pressure measurement.
@@ -222,13 +222,13 @@ const (
 	VelocityUnitsInchesPerSecond VelocityUnits = versions.VelocityUnitsInchesPerSecond
 )
 
-// VelocityUnitsSensitivity are the units of a velocity IEPE sensor's sensitivity
+// VelocitySensitivityUnits are the units of a velocity IEPE sensor's sensitivity
 // rating.
-type VelocityUnitsSensitivity = versions.VelocityUnitsSensitivity
+type VelocitySensitivityUnits = versions.VelocitySensitivityUnits
 
 const (
-	VelocityUnitsSensitivityMVoltsPerMmPerSecond   VelocityUnitsSensitivity = versions.VelocityUnitsSensitivityMVoltsPerMmPerSecond
-	VelocityUnitsSensitivityMVoltsPerInchPerSecond VelocityUnitsSensitivity = versions.VelocityUnitsSensitivityMVoltsPerInchPerSecond
+	VelocitySensitivityUnitsMVoltsPerMmPerSecond   VelocitySensitivityUnits = versions.VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	VelocitySensitivityUnitsMVoltsPerInchPerSecond VelocitySensitivityUnits = versions.VelocitySensitivityUnitsMVoltsPerInchPerSecond
 )
 
 // ChargeUnits are the units of a charge measurement.
@@ -601,15 +601,14 @@ const (
 	CIAngularPositionUnitsTicks   CIAngularPositionUnits = versions.CIAngularPositionUnitsTicks
 )
 
-// CIZIndexPhase selects the encoder channel states at which the Z index resets the
-// count.
-type CIZIndexPhase = versions.CIZIndexPhase
+// ZIndexPhase selects the encoder channel states at which the Z index resets the count.
+type ZIndexPhase = versions.ZIndexPhase
 
 const (
-	CIZIndexPhaseAHighBHigh CIZIndexPhase = versions.CIZIndexPhaseAHighBHigh
-	CIZIndexPhaseAHighBLow  CIZIndexPhase = versions.CIZIndexPhaseAHighBLow
-	CIZIndexPhaseALowBHigh  CIZIndexPhase = versions.CIZIndexPhaseALowBHigh
-	CIZIndexPhaseALowBLow   CIZIndexPhase = versions.CIZIndexPhaseALowBLow
+	ZIndexPhaseAHighBHigh ZIndexPhase = versions.ZIndexPhaseAHighBHigh
+	ZIndexPhaseAHighBLow  ZIndexPhase = versions.ZIndexPhaseAHighBLow
+	ZIndexPhaseALowBHigh  ZIndexPhase = versions.ZIndexPhaseALowBHigh
+	ZIndexPhaseALowBLow   ZIndexPhase = versions.ZIndexPhaseALowBLow
 )
 
 // ZIndex configures the Z-index reset behavior of an encoder.

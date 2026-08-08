@@ -158,7 +158,7 @@ public:
             cfg.state_index_keys,
             cfg.state_channels(),
             cfg.cmd_channels(),
-            !cfg.data_saving_disabled
+            cfg.data_saving_disabled
         ),
         cfg(std::move(cfg)),
         dev(dev) {}

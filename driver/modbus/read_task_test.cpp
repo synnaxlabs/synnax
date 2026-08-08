@@ -145,6 +145,23 @@ TEST_F(ModbusReadTest, testInvalidChannelType) {
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should default the register data type to uint8 when the config omits
+/// it, preserving the behavior of configs written before the field existed.
+TEST(ModbusChannels, testMissingDataTypeDefaultsToUint8) {
+    auto parser = x::json::Parser(
+        x::json::json{
+            {"type", "register_input"},
+            {"key", "chan-1"},
+            {"address", 3},
+            {"channel", 42}
+        }
+    );
+    const auto cfg = ::synnax::modbus::InputChannelRegisterInput::parse(parser);
+    ASSERT_NIL(parser.error());
+    const channel::InputRegister ch(cfg);
+    EXPECT_EQ(ch.value_type, x::telem::UINT8_T);
+}
+
 /// @brief it should parse configuration with multiple channel types.
 TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto cfg = create_base_config();

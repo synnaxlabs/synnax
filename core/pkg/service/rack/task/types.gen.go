@@ -13,6 +13,5 @@ package task
 
 import "github.com/synnaxlabs/synnax/pkg/service/rack/task/versions"
 
-// StatusTaskConfig configures the rack status reporting task, which carries no
-// settings.
-type StatusTaskConfig = versions.StatusTaskConfig
+// StatusConfig configures the rack status reporting task, which carries no settings.
+type StatusConfig = versions.StatusConfig

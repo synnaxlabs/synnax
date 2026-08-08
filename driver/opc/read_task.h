@@ -40,8 +40,6 @@
 
 namespace driver::opc {
 struct InputChan {
-    /// @brief the parsed generated wire configuration for the channel.
-    const ::synnax::opc::InputChannel cfg;
     const bool enabled;
     /// @brief the OPC UA node id.
     types::NodeId node;
@@ -55,18 +53,16 @@ struct InputChan {
     explicit InputChan(x::json::Parser &parser):
         InputChan(::synnax::opc::InputChannel::parse(parser), parser) {}
 
-    InputChan(::synnax::opc::InputChannel parsed, x::json::Parser &parser):
-        cfg(std::move(parsed)),
-        enabled(!this->cfg.disabled),
+    InputChan(const ::synnax::opc::InputChannel &parsed, x::json::Parser &parser):
+        enabled(!parsed.disabled),
         node(types::NodeId::parse("node_id", parser)),
-        synnax_key(this->cfg.channel) {
+        synnax_key(parsed.channel) {
         if (this->synnax_key == 0)
             parser.field_err("channel", "channel must be specified");
     }
 
     // Move constructor - needed because NodeId is move-only
     InputChan(InputChan &&other) noexcept:
-        cfg(other.cfg),
         enabled(other.enabled),
         node(std::move(other.node)),
         synnax_key(other.synnax_key),
@@ -185,7 +181,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             channel_keys.push_back(idx);
         return {
             .channels = channel_keys,
-            .mode = common::data_saving_writer_mode(!this->data_saving_disabled),
+            .mode = common::data_saving_writer_mode(this->data_saving_disabled),
         };
     }
 

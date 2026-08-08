@@ -226,7 +226,7 @@ class WriteTaskSink final : public common::Sink {
 
 public:
     WriteTaskSink(const std::shared_ptr<device::Device> &dev, WriteTaskConfig cfg):
-        Sink(x::telem::Rate(0), {}, {}, cfg.cmd_keys(), !cfg.data_saving_disabled),
+        Sink(x::telem::Rate(0), {}, {}, cfg.cmd_keys(), cfg.data_saving_disabled),
         config(std::move(cfg)),
         dev(dev) {}
 

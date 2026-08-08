@@ -35,15 +35,6 @@ import (
 // Type is the type identifier for Arc tasks.
 const Type = "arc_task"
 
-// Config is the configuration for an Arc task.
-type Config struct {
-	alamos.Instrumentation
-	// ArcKey is the UUID of the Arc program to execute.
-	ArcKey arc.Key `json:"arc_key"`
-	// AutoStart sets whether the task should start automatically when configured.
-	AutoStart bool `json:"auto_start"`
-}
-
 // GetProgramFunc retrieves an Arc with its compiled Program by key.
 type GetProgramFunc func(context.Context, arc.Key) (arc.Arc, error)
 

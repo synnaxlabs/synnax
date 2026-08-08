@@ -13,8 +13,7 @@ package v0
 
 import common "github.com/synnaxlabs/synnax/pkg/service/task/common/versions/v0"
 
-// StatusTaskConfig configures the rack status reporting task, which carries no
-// settings.
-type StatusTaskConfig struct {
+// StatusConfig configures the rack status reporting task, which carries no settings.
+type StatusConfig struct {
 	common.ConfigRecord
 }
