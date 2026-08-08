@@ -191,7 +191,7 @@ class WriteFieldStatic(BaseWriteField):
 
     type: Literal["static"]
     json_type: JSONType = "number"
-    value: dict[str, Any] | None = None
+    value: Any | None = None
 
 
 class WriteFieldGenerated(BaseWriteField):
