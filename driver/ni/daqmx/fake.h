@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Code generated from api.h by scripts in SY-4299. Regenerate when api.h changes.
+// Code generated from api.h by generate_fake.py. Regenerate when api.h changes.
 
 #pragma once
 
