@@ -52,16 +52,14 @@ func (cf ChannelField) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	w.Bool(cf.EnumValues != nil)
 	if cf.EnumValues != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(cf.EnumValues)))
-		for j := range cf.EnumValues {
-			if err := cf.EnumValues[j].EncodeOrc(w); err != nil {
+		for i := range cf.EnumValues {
+			if err := cf.EnumValues[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
 	return nil
 }
@@ -124,8 +122,8 @@ func (cf *ChannelField) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			cf.EnumValues = make([]EnumEntry, n)
-			for j := range cf.EnumValues {
-				if err = cf.EnumValues[j].DecodeOrc(r); err != nil {
+			for i := range cf.EnumValues {
+				if err = cf.EnumValues[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -413,16 +411,14 @@ func (rf ReadField) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	w.Bool(rf.EnumValues != nil)
 	if rf.EnumValues != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(rf.EnumValues)))
-		for j := range rf.EnumValues {
-			if err := rf.EnumValues[j].EncodeOrc(w); err != nil {
+		for i := range rf.EnumValues {
+			if err := rf.EnumValues[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
 	return nil
 }
@@ -484,8 +480,8 @@ func (rf *ReadField) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			rf.EnumValues = make([]EnumEntry, n)
-			for j := range rf.EnumValues {
-				if err = rf.EnumValues[j].DecodeOrc(r); err != nil {
+			for i := range rf.EnumValues {
+				if err = rf.EnumValues[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
