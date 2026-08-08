@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -38,6 +39,7 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -114,6 +116,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	var (
 		svc     *task.Service
 		imexSvc *imex.Service
+		configs common.ConfigRegistry
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -173,7 +176,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB: db, Ontology: otg,
 			})).Stores()...)
-		configs := MustSucceed(common.NewConfigRegistry(stores...))
+		configs = MustSucceed(common.NewConfigRegistry(stores...))
 		imexSvc = imex.NewService()
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
@@ -185,6 +188,29 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			ImEx:     imexSvc,
 			Configs:  configs,
 		}))
+	})
+
+	// Scan task configs are created by the driver on rack boot; the released
+	// Console never exported them, so they carry no legacy fixture.
+	isScanType := func(t ontology.ResourceType) bool {
+		return strings.HasSuffix(string(t), "_scan") ||
+			t == ontology.ResourceTypeNiScanner
+	}
+
+	It("covers every registered config type with a fixture", func() {
+		entries := MustSucceed(os.ReadDir(filepath.Join("testdata", "legacy")))
+		fixtures := make(set.Set[string], len(entries))
+		for _, e := range entries {
+			fixtures.Add(strings.TrimSuffix(e.Name(), ".json"))
+		}
+		for _, t := range configs.Types() {
+			if isScanType(t) {
+				continue
+			}
+			Expect(fixtures.Contains(string(t))).To(
+				BeTrue(), "registered config type %q has no legacy fixture", t,
+			)
+		}
 	})
 
 	// Each fixture in testdata/legacy is a frozen copy of what the released Console

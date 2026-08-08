@@ -8,3 +8,10 @@ and every task type in this directory existed at that commit. Each fixture sets 
 field the schema accepts to a distinctive non-default value so a lossy import path fails
 a diff. Do not regenerate these files from newer schemas; they must stay byte-stable as
 proof of what released Consoles wrote.
+
+The fixtures were validated mechanically against the zod schemas at that commit:
+every fixture parses, and every one except the HTTP pair round-trips byte-identical
+through the schema. The HTTP fixtures freeze the older record shape for headers,
+query params, and enum values, which that schema still accepted and upgraded to the
+list shape in memory; the boot transform's `recordToList` covers the record shape and
+passes the list shape through untouched.

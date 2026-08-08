@@ -11,6 +11,7 @@ package v3
 
 import (
 	"maps"
+	"slices"
 
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
@@ -119,14 +120,15 @@ func eachChild(m msgpack.EncodedJSON, key string, f func(msgpack.EncodedJSON)) {
 
 // recordToList converts the record stored under key into a list of objects, one per
 // record entry, with the record key under keyField and its value under valueField.
+// Entries are ordered by record key so the transform is deterministic.
 func recordToList(m msgpack.EncodedJSON, key, keyField, valueField string) {
 	rec, ok := m[key].(map[string]any)
 	if !ok {
 		return
 	}
 	list := make([]any, 0, len(rec))
-	for k, v := range rec {
-		list = append(list, map[string]any{keyField: k, valueField: v})
+	for _, k := range slices.Sorted(maps.Keys(rec)) {
+		list = append(list, map[string]any{keyField: k, valueField: rec[k]})
 	}
 	m[key] = list
 }
