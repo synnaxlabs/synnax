@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include "client/cpp/task/common/json.gen.h"
+
 #include "driver/bypass/pipeline/factory.h"
+#include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
@@ -17,20 +20,14 @@
 #include "driver/task/task.h"
 
 namespace driver::common {
-/// @brief common write task configuration parameters used across multiple drivers.
-struct BaseWriteTaskConfig : BaseTaskConfig {
-    /// @brief the key of the device the task is writing to.
-    const std::string device_key;
-
-    BaseWriteTaskConfig(BaseWriteTaskConfig &&other) noexcept:
-        BaseTaskConfig(std::move(other)), device_key(other.device_key) {}
-
-    BaseWriteTaskConfig(const BaseWriteTaskConfig &) = delete;
-
-    const BaseWriteTaskConfig &operator=(const BaseWriteTaskConfig &) = delete;
-
+/// @brief common write task configuration shared across hardware control tasks.
+/// Wraps the schema-generated write config (auto_start, data_saving_disabled,
+/// device) so the field set has a single definition in the oracle schema.
+struct BaseWriteTaskConfig : ::synnax::common::BaseWriteConfig {
     explicit BaseWriteTaskConfig(x::json::Parser &cfg):
-        BaseTaskConfig(cfg), device_key(cfg.field<std::string>("device")) {}
+        ::synnax::common::BaseWriteConfig(
+            ::synnax::common::BaseWriteConfig::parse(cfg)
+        ) {}
 };
 
 class Sink : public pipeline::Sink, public pipeline::Source {

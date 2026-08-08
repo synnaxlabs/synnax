@@ -22,6 +22,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//client/cpp/ni",
         "//driver/ni/daqmx",
         "//x/cpp/json",
     ],
@@ -36,6 +37,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ni/channel",
+        "//driver/ni/daqmx:fake",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

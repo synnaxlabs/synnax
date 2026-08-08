@@ -115,7 +115,7 @@ x::json::json basic_read_task_config() {
         {"device", "230227d9-02aa-47e4-b370-0d590add1bc1"},
         {"sample_rate", 10},
         {"stream_rate", 5},
-        {"data_saving", true},
+        {"data_saving_disabled", false},
         {"channels",
          x::json::json::array(
              {{{"port", "AIN0"},
@@ -278,7 +278,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     ));
 
     auto j = basic_read_task_config();
-    j["data_saving"] = true;
+    j["data_saving_disabled"] = false;
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"enabled", true},

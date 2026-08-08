@@ -1250,6 +1250,38 @@ x::errors::Error SugaredAPI::CreateAIThrmstrChanIex(
     ));
 }
 
+x::errors::Error SugaredAPI::CreateAIThrmstrChanVex(
+    TaskHandle task,
+    const char physicalChannel[],
+    const char nameToAssignToChannel[],
+    float64 minVal,
+    float64 maxVal,
+    int32 units,
+    int32 resistanceConfig,
+    int32 voltageExcitSource,
+    float64 voltageExcitVal,
+    float64 a,
+    float64 b,
+    float64 c,
+    float64 r1
+) {
+    return process_error(dmx->CreateAIThrmstrChanVex(
+        task,
+        physicalChannel,
+        nameToAssignToChannel,
+        minVal,
+        maxVal,
+        units,
+        resistanceConfig,
+        voltageExcitSource,
+        voltageExcitVal,
+        a,
+        b,
+        c,
+        r1
+    ));
+}
+
 x::errors::Error SugaredAPI::SetScaleAttributeDouble(
     const char scaleName[],
     int32 attribute,
