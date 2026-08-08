@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task/common"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -300,7 +299,7 @@ type WriteFieldStatic struct {
 	// JSONType is the JSON type the value is serialized as.
 	JSONType JSONType `json:"json_type" msgpack:"json_type"`
 	// Value is the fixed JSON value placed at the pointer.
-	Value msgpack.EncodedJSON `json:"value,omitzero" msgpack:"value,omitzero"`
+	Value *any `json:"value,omitempty" msgpack:"value,omitempty"`
 }
 
 func (WriteFieldStatic) isWriteFieldVariant() {}
