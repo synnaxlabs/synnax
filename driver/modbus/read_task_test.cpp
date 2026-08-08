@@ -201,6 +201,25 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
     ASSERT_NIL(p.error());
 }
 
+/// @brief it should configure when a disabled channel has no Synnax channel bound
+/// to it.
+TEST_F(ModbusReadTest, testUnboundDisabledChannel) {
+    auto cfg = create_base_config();
+    const auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("coil"),
+        x::telem::UINT8_T,
+        true
+    ));
+    cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
+    synnax::channel::Channel unbound;
+    cfg["channels"].push_back(create_channel_config("coil_input", unbound, 1, true));
+
+    auto p = x::json::Parser(cfg);
+    const auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(task_cfg->data_channel_count, 1);
+}
+
 /// @brief it should read coil values from Modbus device.
 TEST(ReadTask, testBasicReadTask) {
     mock::SlaveConfig slave_cfg;

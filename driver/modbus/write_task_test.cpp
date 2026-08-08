@@ -286,6 +286,29 @@ TEST_F(ModbusWriteTest, testInvalidWriteConfiguration) {
     ASSERT_OCCURRED_AS(p4.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should configure when a disabled channel has no Synnax channel bound
+/// to it.
+TEST_F(ModbusWriteTest, testUnboundDisabledChannel) {
+    this->setup_task_config();
+
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "coil_output"},
+               {"address", 0},
+               {"disabled", false},
+               {"channel", coil_ch.key}},
+              {{"type", "coil_output"}, {"address", 1}, {"disabled", true}}}
+         )}
+    };
+
+    auto p = x::json::Parser(task_cfg);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(cfg->cmd_keys().size(), 1);
+}
+
 /// @brief it should handle concurrent writes to multiple channels.
 TEST_F(ModbusWriteTest, testConcurrentWrites) {
     this->setup_task_config();

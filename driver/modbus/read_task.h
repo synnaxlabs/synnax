@@ -214,9 +214,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 },
                 parsed
             );
+            if (base.disabled) return;
             if (base.channel == 0)
                 return ch.field_err("channel", "channel must be specified");
-            if (base.disabled) return;
             if (const auto *c = std::get_if<
                     ::synnax::modbus::InputChannelHoldingRegisterInput>(&parsed))
                 holding_registers.emplace_back(*c);
