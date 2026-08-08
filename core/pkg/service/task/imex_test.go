@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/google/uuid"
@@ -39,6 +40,7 @@ var _ = Describe("ImEx", Ordered, func() {
 		svc      *task.Service
 		rackSvc  *rack.Service
 		testRack *rack.Rack
+		imexSvc  *imex.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -77,6 +79,7 @@ var _ = Describe("ImEx", Ordered, func() {
 			Ontology: otg,
 		}))
 		configs := MustSucceed(common.NewConfigRegistry(pd.Stores()...))
+		imexSvc = imex.NewService()
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -84,7 +87,7 @@ var _ = Describe("ImEx", Ordered, func() {
 			Rack:     rackSvc,
 			Status:   statusSvc,
 			Search:   searchIdx,
-			ImEx:     imex.NewService(),
+			ImEx:     imexSvc,
 			Configs:  configs,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
@@ -130,5 +133,109 @@ var _ = Describe("ImEx", Ordered, func() {
 			id := task.OntologyID(uuid.New())
 			Expect(svc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
+	})
+
+	Describe("Import", func() {
+		reimport := func(ctx context.Context, raw []byte) task.Task {
+			GinkgoHelper()
+			var env imex.Envelope
+			Expect(json.Unmarshal(raw, &env)).To(Succeed())
+			id := MustSucceed(imexSvc.Import(
+				ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
+			))
+			var imported task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchKeys(uuid.MustParse(id.Key))).
+				Entry(&imported).
+				Exec(ctx, nil)).To(Succeed())
+			return imported
+		}
+
+		It(
+			"Should round-trip an exported task through import",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Rack: testRack.Key,
+					Name: "Round Trip Task",
+					Type: pagerduty.AlertTaskType,
+					Config: msgpack.EncodedJSON{
+						"routing_key": "rk-rt",
+						"auto_start":  true,
+						"alerts": []any{map[string]any{
+							"key":      "a1",
+							"status":   "critical",
+							"disabled": true,
+						}},
+					},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+				env := MustSucceed(svc.Export(ctx, t.OntologyID()))
+				imported := reimport(ctx, MustSucceed(json.Marshal(env)))
+
+				Expect(imported.Key).ToNot(Equal(t.Key))
+				Expect(imported.Rack).To(Equal(rack.Key(0)))
+				Expect(imported.Name).To(Equal("Round Trip Task"))
+				Expect(imported.Type).To(Equal(pagerduty.AlertTaskType))
+				Expect(imported.Config).To(HaveKeyWithValue("routing_key", "rk-rt"))
+				Expect(imported.Config).To(HaveKeyWithValue("auto_start", true))
+				alerts, ok := imported.Config["alerts"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(alerts).To(HaveLen(1))
+				Expect(alerts[0]).To(HaveKeyWithValue("disabled", true))
+				// The imported record mints its own key rather than reusing the
+				// source task's.
+				Expect(imported.Config["key"]).ToNot(Equal(t.Config["key"]))
+			},
+		)
+
+		It(
+			"Should upgrade a legacy Console export through the boot transforms",
+			func(ctx SpecContext) {
+				legacy := []byte(`{
+					"type": "pagerduty_alert",
+					"name": "Legacy PD Task",
+					"routingKey": "rk-legacy",
+					"autoStart": true,
+					"alerts": [{"key": "a1", "status": "warning", "enabled": false}]
+				}`)
+				imported := reimport(ctx, legacy)
+				Expect(imported.Config).To(HaveKeyWithValue("routing_key", "rk-legacy"))
+				Expect(imported.Config).To(HaveKeyWithValue("auto_start", true))
+				alerts, ok := imported.Config["alerts"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(alerts[0]).To(HaveKeyWithValue("disabled", true))
+				Expect(alerts[0]).ToNot(HaveKey("enabled"))
+			},
+		)
+
+		It(
+			"Should reject a file version newer than the exporter's",
+			func(ctx SpecContext) {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte(
+						`{"type": "pagerduty_alert", "name": "future", "version": 2}`,
+					),
+					&env,
+				)).To(Succeed())
+				Expect(imexSvc.Import(
+					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
+				)).Error().To(MatchError(ContainSubstring("newer than this Core supports")))
+			},
+		)
+
+		It(
+			"Should reject a file whose type has no registered importer",
+			func(ctx SpecContext) {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte(`{"type": "sequence", "name": "old sequence"}`),
+					&env,
+				)).To(Succeed())
+				Expect(imexSvc.Import(
+					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
+				)).Error().To(MatchError(ContainSubstring("no importer registered")))
+			},
+		)
 	})
 })

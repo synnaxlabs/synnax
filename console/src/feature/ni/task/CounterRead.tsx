@@ -224,10 +224,6 @@ export const useCreateCounterRead = Task.createUseCreate({
   getInitialValues,
 });
 
-export const counterReadIngester = Task.createIngester({
-  getInitialValues,
-});
-
 export const CounterReadSelectable = Selector.createSelectable({
   type: COUNTER_READ_TYPE,
   title: "NI Counter Read Task",

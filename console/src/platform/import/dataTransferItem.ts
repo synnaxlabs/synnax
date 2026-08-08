@@ -10,9 +10,8 @@
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
 
-import { ingestComponent } from "@/platform/import/import";
-import { type DirectoryIngester, type FileIngesters } from "@/platform/import/ingester";
-import { trimFileName } from "@/platform/import/trimFileName";
+import { ingestServer } from "@/platform/import/import";
+import { type DirectoryIngester } from "@/platform/import/ingester";
 import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
@@ -64,7 +63,6 @@ const parseDataTransferItem = async (
 
 interface DataTransferItemContext {
   client: Synnax | null;
-  fileIngesters: FileIngesters;
   ingestDirectory: DirectoryIngester;
   openTab: Panel.OpenTab;
   store: Store;
@@ -72,21 +70,19 @@ interface DataTransferItemContext {
 
 export const dataTransferItem = async (
   item: DataTransferItem,
-  { client, fileIngesters, ingestDirectory, openTab, store }: DataTransferItemContext,
+  { client, ingestDirectory, openTab, store }: DataTransferItemContext,
 ) => {
   const entry = await parseDataTransferItem(item);
   if (entry == null) throw new Error("path is null");
 
   // Handling a file transfer, importing a single JSON file
   if (entry instanceof File) {
-    const name = trimFileName(entry.name);
     if (entry.type !== "application/json") throw new Error("not a JSON file");
     const buffer = await entry.arrayBuffer();
     const fileData = new TextDecoder().decode(buffer);
     const parsedData = JSON.parse(fileData);
     const projectKey = Session.Project.selectSelected(store.getState());
-    await ingestComponent(parsedData, fileIngesters, {
-      name,
+    await ingestServer(parsedData, {
       openTab,
       client,
       projectKey,
@@ -103,10 +99,5 @@ export const dataTransferItem = async (
       return { name: file.name, data: JSON.parse(data) };
     }),
   );
-  await ingestDirectory(entry.name, parsedFiles, {
-    client,
-    fileIngesters,
-    openTab,
-    store,
-  });
+  await ingestDirectory(entry.name, parsedFiles, { client, openTab, store });
 };

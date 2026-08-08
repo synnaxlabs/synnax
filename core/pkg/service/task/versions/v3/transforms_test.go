@@ -17,7 +17,8 @@ import (
 )
 
 var _ = Describe("Transform", func() {
-	DescribeTable("legacy config shapes",
+	DescribeTable(
+		"legacy config shapes",
 		func(taskType string, in, want msgpack.EncodedJSON) {
 			Expect(v3.Transform(taskType, in)).To(Equal(want))
 		},
@@ -195,6 +196,59 @@ var _ = Describe("Transform", func() {
 						"enum_values": []any{map[string]any{
 							"label": "ON", "value": float64(1),
 						}},
+					}},
+				}},
+			},
+		),
+		Entry(
+			"keeps user-defined header, query parameter, and enum label keys unconverted",
+			"http_read",
+			msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{
+					"headers":     map[string]any{"xApiKey": "secret"},
+					"queryParams": map[string]any{"siteId": "site-7"},
+					"fields": []any{map[string]any{
+						"timestampFormat": "unix_ms",
+						"enumValues":      map[string]any{"runningFast": float64(2)},
+					}},
+				}},
+			},
+			msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{
+					"headers": []any{map[string]any{
+						"name": "xApiKey", "value": "secret",
+					}},
+					"query_params": []any{map[string]any{
+						"parameter": "siteId", "value": "site-7",
+					}},
+					"fields": []any{map[string]any{
+						"timestamp_format": "unix_ms",
+						"enum_values": []any{map[string]any{
+							"label": "runningFast", "value": float64(2),
+						}},
+					}},
+				}},
+			},
+		),
+		Entry("keeps user-defined values in already-listified HTTP shapes untouched",
+			"http_write",
+			msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{
+					"headers": []any{map[string]any{
+						"name": "xApiKey", "value": "secretValue",
+					}},
+					"queryParams": []any{map[string]any{
+						"parameter": "siteId", "value": "site-7",
+					}},
+				}},
+			},
+			msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{
+					"headers": []any{map[string]any{
+						"name": "xApiKey", "value": "secretValue",
+					}},
+					"query_params": []any{map[string]any{
+						"parameter": "siteId", "value": "site-7",
 					}},
 				}},
 			},

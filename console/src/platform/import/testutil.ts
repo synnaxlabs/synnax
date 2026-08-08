@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
 
 import { type dataTransferItem } from "@/platform/import/dataTransferItem";
 import { type FileIngesterContext } from "@/platform/import/ingester";
@@ -18,13 +18,24 @@ import { createTestStore } from "@/testutil";
 export type DataTransferItemContext = Parameters<typeof dataTransferItem>[1];
 
 /**
+ * Asserts the spy tab opener was called exactly once with a resource tab and
+ * returns the opened resource's ontology ID.
+ */
+export const openedResource = (openTab: ReturnType<typeof vi.fn<Panel.OpenTab>>) => {
+  expect(openTab).toHaveBeenCalledTimes(1);
+  const [tab] = openTab.mock.calls[0];
+  if (tab.variant !== "resource" || typeof tab.resource === "string")
+    throw new Error("expected a resource tab");
+  return tab.resource;
+};
+
+/**
  * Builds a real FileIngesterContext: a spy tab opener injected via DI and a
  * null client. Merge overrides over it for spec-specific fields.
  */
 export const createFileIngesterContext = (
   overrides: Partial<FileIngesterContext> = {},
 ): FileIngesterContext => ({
-  name: "test",
   openTab: vi.fn<Panel.OpenTab>(),
   client: null,
   projectKey: "project-1",
@@ -40,7 +51,6 @@ export const createDataTransferItemContext = async (
   overrides: Partial<DataTransferItemContext> = {},
 ): Promise<DataTransferItemContext> => ({
   client: null,
-  fileIngesters: {},
   ingestDirectory: vi.fn(),
   openTab: vi.fn<Panel.OpenTab>(),
   store: await createTestStore({

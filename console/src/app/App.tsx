@@ -14,7 +14,6 @@ import "@synnaxlabs/pluto/dist/pluto.css";
 import { type ReactElement } from "react";
 
 import { Haul } from "@/app/haul";
-import { Imex } from "@/app/imex";
 import { Panel } from "@/app/panel";
 import { Pluto } from "@/app/pluto";
 import { Range } from "@/app/range";
@@ -45,13 +44,11 @@ export const App = ({ workerURL }: AppProps): ReactElement => (
               <Panel.Context>
                 <Tree.Context>
                   <Range.Context>
-                    <Imex.Context>
-                      <Task.Context>
-                        <Vis.Canvas>
-                          <Window.Window />
-                        </Vis.Canvas>
-                      </Task.Context>
-                    </Imex.Context>
+                    <Task.Context>
+                      <Vis.Canvas>
+                        <Window.Window />
+                      </Vis.Canvas>
+                    </Task.Context>
                   </Range.Context>
                 </Tree.Context>
               </Panel.Context>

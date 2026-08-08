@@ -11,6 +11,7 @@ package v3
 
 import (
 	"maps"
+	"slices"
 
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
@@ -18,6 +19,13 @@ import (
 // transform rewrites a legacy config blob in place toward the shape the task type's
 // config record decodes.
 type transform func(config msgpack.EncodedJSON)
+
+// preTransforms maps task types to the transform that must run before the snake_case
+// key pass, because it moves data-bearing record keys out of key position.
+var preTransforms = map[string]transform{
+	"http_read":  preTransformHTTP,
+	"http_write": preTransformHTTP,
+}
 
 // transforms maps task types to their legacy-shape transform. Types absent from the
 // map need only the common transforms.
@@ -39,12 +47,18 @@ var transforms = map[string]transform{
 	"ni_scanner":      transformScan,
 }
 
-// Transform returns config normalized for the given task type: common legacy keys
-// are rewritten first, then the type's own transform runs. The top-level map is
-// copied; nested structures are rewritten in place.
+// Transform returns config normalized for the given task type. Record-shaped fields
+// whose keys are data are listified first, every remaining key is converted to
+// snake_case exactly as the wire codec would have, and then the common polarity flips
+// and the type's own semantic renames run. The top-level map is copied; nested
+// structures may be rewritten in place.
 func Transform(taskType string, config msgpack.EncodedJSON) msgpack.EncodedJSON {
 	out := make(msgpack.EncodedJSON, len(config))
 	maps.Copy(out, config)
+	if f, ok := preTransforms[taskType]; ok {
+		f(out)
+	}
+	out = snakeKeys(out)
 	transformCommon(out)
 	if f, ok := transforms[taskType]; ok {
 		f(out)
@@ -52,14 +66,9 @@ func Transform(taskType string, config msgpack.EncodedJSON) msgpack.EncodedJSON 
 	return out
 }
 
-// transformCommon rewrites the legacy keys every integration shared: camelCase base
-// fields, the data_saving polarity flip, and the per-channel enabled polarity flip.
+// transformCommon rewrites the legacy shapes every integration shared: the
+// data_saving polarity flip and the per-channel enabled polarity flip.
 func transformCommon(config msgpack.EncodedJSON) {
-	renameKey(config, "autoStart", "auto_start")
-	renameKey(config, "dataSaving", "data_saving")
-	renameKey(config, "sampleRate", "sample_rate")
-	renameKey(config, "streamRate", "stream_rate")
-	renameKey(config, "stateRate", "state_rate")
 	flipBool(config, "data_saving", "data_saving_disabled")
 	eachChild(config, "channels", func(ch msgpack.EncodedJSON) {
 		flipBool(ch, "enabled", "disabled")
@@ -111,14 +120,15 @@ func eachChild(m msgpack.EncodedJSON, key string, f func(msgpack.EncodedJSON)) {
 
 // recordToList converts the record stored under key into a list of objects, one per
 // record entry, with the record key under keyField and its value under valueField.
+// Entries are ordered by record key so the transform is deterministic.
 func recordToList(m msgpack.EncodedJSON, key, keyField, valueField string) {
 	rec, ok := m[key].(map[string]any)
 	if !ok {
 		return
 	}
 	list := make([]any, 0, len(rec))
-	for k, v := range rec {
-		list = append(list, map[string]any{keyField: k, valueField: v})
+	for _, k := range slices.Sorted(maps.Keys(rec)) {
+		list = append(list, map[string]any{keyField: k, valueField: rec[k]})
 	}
 	m[key] = list
 }

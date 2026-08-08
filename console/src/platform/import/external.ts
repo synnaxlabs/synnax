@@ -8,7 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/import/dataTransferItem";
-export * from "@/platform/import/FileIngestersProvider";
 export * from "@/platform/import/import";
 export * from "@/platform/import/ingester";
-export * from "@/platform/import/trimFileName";
