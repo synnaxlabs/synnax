@@ -110,6 +110,49 @@ TEST(TestInputChannelParse, testInvalidChannelType) {
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
+/// @brief it should derive the backlog threshold from the sample rate when the
+/// count is zero.
+TEST(TestBacklogWarnOnCount, testZeroDerivesFromSampleRate) {
+    const x::json::json cfg{{"device_scan_backlog_warn_on_count", 0}};
+    auto p = x::json::Parser(cfg);
+    const auto count = parse_backlog_warn_on_count(
+        p,
+        "device_scan_backlog_warn_on_count",
+        x::telem::HERTZ * 50,
+        2
+    );
+    ASSERT_NIL(p.error());
+    ASSERT_EQ(count, 100);
+}
+
+/// @brief it should derive the backlog threshold when the count is absent.
+TEST(TestBacklogWarnOnCount, testAbsentDerivesFromSampleRate) {
+    const auto cfg = x::json::json::object();
+    auto p = x::json::Parser(cfg);
+    const auto count = parse_backlog_warn_on_count(
+        p,
+        "ljm_scan_backlog_warn_on_count",
+        x::telem::HERTZ * 50,
+        1
+    );
+    ASSERT_NIL(p.error());
+    ASSERT_EQ(count, 50);
+}
+
+/// @brief it should keep an explicitly configured backlog threshold.
+TEST(TestBacklogWarnOnCount, testExplicitCountKept) {
+    const x::json::json cfg{{"device_scan_backlog_warn_on_count", 7}};
+    auto p = x::json::Parser(cfg);
+    const auto count = parse_backlog_warn_on_count(
+        p,
+        "device_scan_backlog_warn_on_count",
+        x::telem::HERTZ * 50,
+        2
+    );
+    ASSERT_NIL(p.error());
+    ASSERT_EQ(count, 7);
+}
+
 x::json::json basic_read_task_config() {
     return {
         {"device", "230227d9-02aa-47e4-b370-0d590add1bc1"},
@@ -191,6 +234,8 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(cfg->sample_rate, x::telem::HERTZ * 10);
     ASSERT_EQ(cfg->stream_rate, x::telem::HERTZ * 5);
     ASSERT_EQ(cfg->data_saving_disabled, false);
+    ASSERT_EQ(cfg->device_scan_backlog_warn_on_count, 20);
+    ASSERT_EQ(cfg->ljm_scan_backlog_warn_on_count, 10);
     ASSERT_EQ(cfg->channels.size(), 3);
 
     const auto tc_chan = dynamic_cast<ThermocoupleChan *>(cfg->channels[0].get());

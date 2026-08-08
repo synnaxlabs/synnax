@@ -123,12 +123,13 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
         });
         return result;
     }();
-    result
-        .device_scan_backlog_warn_on_count = parser.field<std::optional<std::uint32_t>>(
-        "device_scan_backlog_warn_on_count"
+    result.device_scan_backlog_warn_on_count = parser.field<std::uint32_t>(
+        "device_scan_backlog_warn_on_count",
+        0
     );
-    result.ljm_scan_backlog_warn_on_count = parser.field<std::optional<std::uint32_t>>(
-        "ljm_scan_backlog_warn_on_count"
+    result.ljm_scan_backlog_warn_on_count = parser.field<std::uint32_t>(
+        "ljm_scan_backlog_warn_on_count",
+        0
     );
     return result;
 }

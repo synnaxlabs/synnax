@@ -614,11 +614,11 @@ type ReadConfig struct {
 	// Channels are the input channels the task acquires.
 	Channels []InputChannel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 	// DeviceScanBacklogWarnOnCount is the device-side scan backlog above which the task
-	// reports a skew warning. Defaults to two seconds of scans.
-	DeviceScanBacklogWarnOnCount *uint32 `json:"device_scan_backlog_warn_on_count,omitempty" msgpack:"device_scan_backlog_warn_on_count,omitempty"`
+	// reports a skew warning. Zero lets the driver pick two seconds of scans.
+	DeviceScanBacklogWarnOnCount uint32 `json:"device_scan_backlog_warn_on_count" msgpack:"device_scan_backlog_warn_on_count"`
 	// LjmScanBacklogWarnOnCount is the LJM-side scan backlog above which the task
-	// reports a skew warning. Defaults to one second of scans.
-	LjmScanBacklogWarnOnCount *uint32 `json:"ljm_scan_backlog_warn_on_count,omitempty" msgpack:"ljm_scan_backlog_warn_on_count,omitempty"`
+	// reports a skew warning. Zero lets the driver pick one second of scans.
+	LjmScanBacklogWarnOnCount uint32 `json:"ljm_scan_backlog_warn_on_count" msgpack:"ljm_scan_backlog_warn_on_count"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

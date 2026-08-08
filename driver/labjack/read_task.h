@@ -330,6 +330,19 @@ inline void add_scale(
         );
 }
 
+/// @brief returns the scan backlog above which the task warns about skew. A zero
+/// or absent count means the caller has no preference, so the threshold falls back
+/// to seconds worth of scans at sample_rate.
+inline size_t parse_backlog_warn_on_count(
+    x::json::Parser &parser,
+    const std::string &field,
+    const x::telem::Rate sample_rate,
+    const float seconds
+) {
+    if (const auto count = parser.field<size_t>(field, 0); count != 0) return count;
+    return static_cast<size_t>(sample_rate.hz() * seconds);
+}
+
 /// @brief configuration for a LabJack read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     const std::string device_key;
@@ -346,9 +359,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief a set of transforms to apply to the frame after reading. Applies
     /// scaling information to channels.
     driver::transform::Chain transform;
-    /// @brief the number of skipped scans to allow before warning the user.
+    /// @brief the device-side scan backlog to allow before warning the user.
     size_t device_scan_backlog_warn_on_count;
-    /// @brief the size of the buffer to use for reading data from the device.
+    /// @brief the LJM-side scan backlog to allow before warning the user.
     size_t ljm_scan_backlog_warn_on_count;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
@@ -383,13 +396,17 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 return {std::move(ch), ch->enabled};
             }
         )),
-        device_scan_backlog_warn_on_count(parser.field<size_t>(
+        device_scan_backlog_warn_on_count(parse_backlog_warn_on_count(
+            parser,
             "device_scan_backlog_warn_on_count",
-            this->sample_rate.hz() * 2 // Default to 2 seconds of scans.
+            this->sample_rate,
+            2
         )),
-        ljm_scan_backlog_warn_on_count(parser.field<size_t>(
+        ljm_scan_backlog_warn_on_count(parse_backlog_warn_on_count(
+            parser,
             "ljm_scan_backlog_warn_on_count",
-            this->sample_rate.hz() // Default to 1 second of scans.
+            this->sample_rate,
+            1
         )) {
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");

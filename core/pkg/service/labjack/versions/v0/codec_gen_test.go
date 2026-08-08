@@ -236,8 +236,8 @@ var _ = Describe("Codec", func() {
 						Scale:            v0.Scale{Variant: v0.ScaleLinear{LinearScale: fullyPopulatedLinearScale}},
 					}},
 				},
-				DeviceScanBacklogWarnOnCount: new(uint32(13)),
-				LjmScanBacklogWarnOnCount:    new(uint32(14)),
+				DeviceScanBacklogWarnOnCount: 13,
+				LjmScanBacklogWarnOnCount:    14,
 			}),
 			Entry("zero values", v0.ReadConfig{
 				BaseReadConfig: common.BaseReadConfig{
@@ -251,8 +251,8 @@ var _ = Describe("Codec", func() {
 				},
 				Device:                       "",
 				Channels:                     nil,
-				DeviceScanBacklogWarnOnCount: nil,
-				LjmScanBacklogWarnOnCount:    nil,
+				DeviceScanBacklogWarnOnCount: 0,
+				LjmScanBacklogWarnOnCount:    0,
 			}),
 			Entry("empty collections", v0.ReadConfig{
 				BaseReadConfig: common.BaseReadConfig{
@@ -266,8 +266,8 @@ var _ = Describe("Codec", func() {
 				},
 				Device:                       "test_6",
 				Channels:                     []v0.InputChannel{},
-				DeviceScanBacklogWarnOnCount: new(uint32(9)),
-				LjmScanBacklogWarnOnCount:    new(uint32(10)),
+				DeviceScanBacklogWarnOnCount: 9,
+				LjmScanBacklogWarnOnCount:    10,
 			}),
 		)
 	})
@@ -521,8 +521,8 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Scale:            v0.Scale{Variant: v0.ScaleLinear{LinearScale: fullyPopulatedLinearScale}},
 			}},
 		},
-		DeviceScanBacklogWarnOnCount: new(uint32(13)),
-		LjmScanBacklogWarnOnCount:    new(uint32(14)),
+		DeviceScanBacklogWarnOnCount: 13,
+		LjmScanBacklogWarnOnCount:    14,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -961,8 +961,8 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Scale:            v0.Scale{Variant: v0.ScaleLinear{LinearScale: fullyPopulatedLinearScale}},
 				}},
 			},
-			DeviceScanBacklogWarnOnCount: new(uint32(13)),
-			LjmScanBacklogWarnOnCount:    new(uint32(14)),
+			DeviceScanBacklogWarnOnCount: 13,
+			LjmScanBacklogWarnOnCount:    14,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -983,8 +983,8 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			},
 			Device:                       "",
 			Channels:                     nil,
-			DeviceScanBacklogWarnOnCount: nil,
-			LjmScanBacklogWarnOnCount:    nil,
+			DeviceScanBacklogWarnOnCount: 0,
+			LjmScanBacklogWarnOnCount:    0,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1005,8 +1005,8 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			},
 			Device:                       "test_6",
 			Channels:                     []v0.InputChannel{},
-			DeviceScanBacklogWarnOnCount: new(uint32(9)),
-			LjmScanBacklogWarnOnCount:    new(uint32(10)),
+			DeviceScanBacklogWarnOnCount: 9,
+			LjmScanBacklogWarnOnCount:    10,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

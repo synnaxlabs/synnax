@@ -12,7 +12,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -265,12 +264,12 @@ struct ReadConfig : public ::synnax::common::BaseReadConfig {
     std::vector<InputChannel> channels;
     /// @brief device_scan_backlog_warn_on_count is the device-side scan backlog above
     /// which
-    /// the task reports a skew warning. Defaults to two seconds of scans.
-    std::optional<std::uint32_t> device_scan_backlog_warn_on_count;
+    /// the task reports a skew warning. Zero lets the driver pick two seconds of scans.
+    std::uint32_t device_scan_backlog_warn_on_count = 0;
     /// @brief ljm_scan_backlog_warn_on_count is the LJM-side scan backlog above which
     /// the
-    /// task reports a skew warning. Defaults to one second of scans.
-    std::optional<std::uint32_t> ljm_scan_backlog_warn_on_count;
+    /// task reports a skew warning. Zero lets the driver pick one second of scans.
+    std::uint32_t ljm_scan_backlog_warn_on_count = 0;
 
     static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
