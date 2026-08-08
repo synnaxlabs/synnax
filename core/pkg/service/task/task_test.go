@@ -323,7 +323,10 @@ var _ = Describe("Task", Ordered, func() {
 					Entry(&res).
 					Exec(ctx, tx),
 			).To(Succeed())
-			Expect(res).To(Equal(*m))
+			expected := *m
+			// The retrieve does not ask for a status; Create returns the one it wrote.
+			expected.Status = nil
+			Expect(res).To(Equal(expected))
 		})
 
 		It("Should filter tasks by snapshot status", func(ctx SpecContext) {
@@ -599,6 +602,44 @@ var _ = Describe("Task", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(preserved.Variant).To(Equal(status.VariantSuccess))
 				Expect(preserved.Message).To(Equal("Task is running"))
+			},
+		)
+
+		It(
+			"Should return the status it wrote for a new task",
+			func(ctx SpecContext) {
+				m := &task.Task{Rack: testRack.Key, Name: "Returned Status Task"}
+				Expect(w.Create(ctx, m)).To(Succeed())
+				Expect(m.Status).ToNot(BeNil())
+				Expect(m.Status.Variant).To(Equal(status.VariantDisabled))
+				Expect(
+					m.Status.Message,
+				).To(Equal("Returned Status Task has not been deployed"))
+				Expect(m.Status.Details.Task).To(Equal(m.Key))
+			},
+		)
+
+		It(
+			"Should return the live status on a re-configure rather than a placeholder",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Rack: testRack.Key,
+					Name: "Live Returned Status Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task is running",
+						Time:    telem.Now(),
+						Details: task.StatusDetails{Running: true},
+					},
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+
+				reconfigured := &task.Task{Key: t.Key, Name: t.Name}
+				Expect(w.Create(ctx, reconfigured)).To(Succeed())
+				Expect(reconfigured.Status).ToNot(BeNil())
+				Expect(reconfigured.Status.Variant).To(Equal(status.VariantSuccess))
+				Expect(reconfigured.Status.Message).To(Equal("Task is running"))
+				Expect(reconfigured.Status.Details.Running).To(BeTrue())
 			},
 		)
 

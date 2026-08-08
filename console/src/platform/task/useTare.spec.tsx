@@ -34,6 +34,11 @@ const RUNNING_VALUES: TaskFormValues = {
   status: { details: { running: true } },
 };
 
+const STOPPED_VALUES: TaskFormValues = {
+  key: "task-1",
+  status: { details: { running: false } },
+};
+
 const CHANNELS: Chan[] = [
   { key: "a", channel: 10 },
   { key: "b", channel: 20 },
@@ -65,7 +70,7 @@ describe("useTare", () => {
     });
 
     it("should not allow taring when the task is not running", async () => {
-      const { result } = await renderUseTare({ key: "task-1" });
+      const { result } = await renderUseTare(STOPPED_VALUES);
       expect(result.current[1](["a"], CHANNELS)).toBe(false);
     });
 

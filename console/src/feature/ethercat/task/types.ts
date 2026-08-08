@@ -125,12 +125,16 @@ export type Channel = InputChannel | OutputChannel;
 
 export type ChannelMode = Channel["type"];
 
-const readConfigZ = Task.baseReadConfigZ
-  .omit({ device: true })
+const readConfigZ = Task.baseReadConfigZ.omit({ device: true }).extend({
+  sampleRate: z.number(),
+  streamRate: z.number(),
+  channels: z.array(inputChannelZ),
+});
+
+export const deployReadConfigZ = readConfigZ
   .extend({
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
-    channels: z.array(inputChannelZ),
   })
   .check(Task.validateStreamRate);
 
@@ -177,9 +181,14 @@ export const ZERO_READ_PAYLOAD = {
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 const writeConfigZ = Task.baseConfigZ.omit({ device: true }).extend({
+  stateRate: z.number(),
+  executionRate: z.number(),
+  channels: z.array(outputChannelZ),
+});
+
+export const deployWriteConfigZ = writeConfigZ.extend({
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
-  channels: z.array(outputChannelZ),
 });
 
 interface WriteConfig extends z.infer<typeof writeConfigZ> {}

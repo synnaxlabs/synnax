@@ -7,23 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { task } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { READ_TYPE, WRITE_TYPE } from "@/feature/labjack/task/types";
-import { Task } from "@/platform/task";
+import { useCreateRead } from "@/feature/labjack/task/Read";
+import { useCreateWrite } from "@/feature/labjack/task/Write";
+import { Command } from "@/platform/command";
 
-const CreateReadCommand = Task.createCommand({
+const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
+
+const CreateReadCommand = Command.create({
   key: "labjack_create_read_task",
   name: "Create a LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  type: READ_TYPE,
+  useOnSelect: useCreateRead,
+  useVisible,
 });
 
-const CreateWriteCommand = Task.createCommand({
+const CreateWriteCommand = Command.create({
   key: "labjack_create_write_task",
   name: "Create a LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  type: WRITE_TYPE,
+  useOnSelect: useCreateWrite,
+  useVisible,
 });
 
 export const COMMANDS = [CreateReadCommand, CreateWriteCommand];

@@ -381,7 +381,7 @@ var _ = Describe("Project layout to panel migration", func() {
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
 	})
 
-	It("Should convert staged task layout tabs into view tabs", func(ctx SpecContext) {
+	It("Should convert staged task tabs into resource tabs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		legacy := "4294967395"
 		taskKey := uuid.New()
@@ -420,11 +420,13 @@ var _ = Describe("Project layout to panel migration", func() {
 		lf, ok := panels[0].Root.Variant.(v0.NodeLeaf)
 		Expect(ok).To(BeTrue())
 		Expect(lf.Tabs).To(HaveLen(1))
-		view, ok := lf.Tabs[0].Variant.(v0.TabView)
+		rt, ok := lf.Tabs[0].Variant.(v0.TabResource)
 		Expect(ok).To(BeTrue())
-		Expect(view.Key).ToNot(Equal(uuid.Nil))
-		Expect(view.Type).To(Equal("ni_analog_read"))
-		Expect(view.Args).To(Equal(msgpack.EncodedJSON{"taskKey": taskKey.String()}))
+		Expect(rt.Key).ToNot(Equal(uuid.Nil))
+		Expect(rt.Resource).To(Equal(ontology.ID{
+			Type: ontology.ResourceTypeTask,
+			Key:  taskKey.String(),
+		}))
 
 		By("Draining the staging entry")
 		Expect(db.Get(ctx, []byte(task.LegacyKeyKVPrefix+legacy))).Error().
@@ -432,7 +434,7 @@ var _ = Describe("Project layout to panel migration", func() {
 	})
 
 	It(
-		"Should rewrite legacy task keys in existing panel view tabs",
+		"Should convert legacy-keyed task view tabs into resource tabs",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			legacy := "4294967395"
@@ -473,11 +475,12 @@ var _ = Describe("Project layout to panel migration", func() {
 			Expect(ok).To(BeTrue())
 			first, ok := split.First.Variant.(v0.NodeLeaf)
 			Expect(ok).To(BeTrue())
-			rewritten, ok := first.Tabs[0].Variant.(v0.TabView)
+			converted, ok := first.Tabs[0].Variant.(v0.TabResource)
 			Expect(ok).To(BeTrue())
-			Expect(rewritten.Args).To(Equal(
-				msgpack.EncodedJSON{"taskKey": taskKey.String()},
-			))
+			Expect(converted.Resource).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeTask,
+				Key:  taskKey.String(),
+			}))
 
 			By("Leaving view tabs without staged task keys untouched")
 			last, ok := split.Last.Variant.(v0.NodeLeaf)

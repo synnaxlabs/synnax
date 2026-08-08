@@ -42,9 +42,7 @@ const readFieldZ = Task.readChannelZ.extend({
   pointer: json.pointerZ,
   dataType: z.string(),
   timestampFormat: timeFormatZ.optional(),
-  enumValues: readEnumValuesZ
-    .check(checkDuplicateKeys("label", "enum label"))
-    .optional(),
+  enumValues: readEnumValuesZ.optional(),
 });
 
 export interface ReadField extends z.infer<typeof readFieldZ> {}
@@ -60,7 +58,7 @@ const baseReadEndpointZ = z.object({
   path: z.string(),
   headers: headersZ.optional(),
   queryParams: queryParamsZ.optional(),
-  fields: z.array(readFieldZ).check(Task.validateReadChannels),
+  fields: z.array(readFieldZ),
   index: z.string().nullable().default(null),
 });
 
@@ -89,8 +87,29 @@ export const ZERO_READ_ENDPOINT = {
 } as const satisfies ReadEndpoint;
 
 const readConfigZ = Task.baseReadConfigZ.extend({
-  rate: z.number().positive("Rate must be positive"),
+  rate: z.number(),
   endpoints: z.array(readEndpointZ),
+});
+
+const deployReadFieldZ = readFieldZ.extend({
+  enumValues: readEnumValuesZ
+    .check(checkDuplicateKeys("label", "enum label"))
+    .optional(),
+});
+
+const deployReadEndpointShape = {
+  fields: z.array(deployReadFieldZ).check(Task.validateReadChannels),
+};
+
+export const deployReadConfigZ = readConfigZ.extend({
+  device: Task.deviceKeyZ,
+  rate: z.number().positive("Rate must be positive"),
+  endpoints: z.array(
+    z.discriminatedUnion("method", [
+      getReadEndpointZ.extend(deployReadEndpointShape),
+      postReadEndpointZ.extend(deployReadEndpointShape),
+    ]),
+  ),
 });
 
 interface ReadConfig extends z.infer<typeof readConfigZ> {}
@@ -133,33 +152,33 @@ const jsonTypeZ = z.enum(["number", "string", "boolean"]);
 
 const writeEnumEntryZ = z.object({ value: z.number(), label: z.string() });
 
-const channelFieldZ = z
-  .object({
-    pointer: json.pointerZ,
-    jsonType: jsonTypeZ,
-    channel: channel.keyZ.default(0),
-    name: z.string().default(""),
-    dataType: z.string().default(DataType.FLOAT64.toString()),
-    timeFormat: timeFormatZ.optional(),
-    enumValues: z.array(writeEnumEntryZ).optional(),
-  })
-  .check((ctx) => {
-    const { enumValues } = ctx.value;
-    if (enumValues == null) return;
-    const seen = new Set<number>();
-    enumValues.forEach((entry, i) => {
-      if (seen.has(entry.value))
-        ctx.issues.push({
-          code: "custom",
-          input: ctx.value,
-          message: `Duplicate enum value ${entry.value}`,
-          path: ["enumValues", i, "value"],
-        });
-      else seen.add(entry.value);
-    });
-  });
+const channelFieldZ = z.object({
+  pointer: json.pointerZ,
+  jsonType: jsonTypeZ,
+  channel: channel.keyZ.default(0),
+  name: z.string().default(""),
+  dataType: z.string().default(DataType.FLOAT64.toString()),
+  timeFormat: timeFormatZ.optional(),
+  enumValues: z.array(writeEnumEntryZ).optional(),
+});
 
 export interface ChannelField extends z.infer<typeof channelFieldZ> {}
+
+const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
+  const { enumValues } = ctx.value;
+  if (enumValues == null) return;
+  const seen = new Set<number>();
+  enumValues.forEach((entry, i) => {
+    if (seen.has(entry.value))
+      ctx.issues.push({
+        code: "custom",
+        input: ctx.value,
+        message: `Duplicate enum value ${entry.value}`,
+        path: ["enumValues", i, "value"],
+      });
+    else seen.add(entry.value);
+  });
+};
 
 export const ZERO_CHANNEL_FIELD = {
   pointer: "",
@@ -174,7 +193,7 @@ export type GeneratorType = z.infer<typeof generatorTypeZ>;
 
 const staticFieldZ = z.object({
   key: z.string(),
-  pointer: json.pointerZ.min(1, "Pointer cannot be empty"),
+  pointer: json.pointerZ,
   jsonType: jsonTypeZ,
   type: z.literal("static"),
   value: json.primitiveZ,
@@ -182,11 +201,13 @@ const staticFieldZ = z.object({
 
 const generatedFieldZ = z.object({
   key: z.string(),
-  pointer: json.pointerZ.min(1, "Pointer cannot be empty"),
+  pointer: json.pointerZ,
   type: z.literal("generated"),
   generator: generatorTypeZ,
   timeFormat: timeFormatZ.optional(),
 });
+
+const deployPointerZ = json.pointerZ.min(1, "Pointer cannot be empty");
 
 const writeFieldZ = z.discriminatedUnion("type", [staticFieldZ, generatedFieldZ]);
 
@@ -195,53 +216,53 @@ export type WriteField = z.infer<typeof writeFieldZ>;
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
 export type WriteMethod = z.infer<typeof writeMethodZ>;
 
-const writeEndpointZ = z
-  .object({
-    enabled: z.boolean().default(true),
-    key: z.string(),
-    path: z.string(),
-    method: writeMethodZ,
-    headers: headersZ.optional(),
-    queryParams: queryParamsZ.optional(),
-    channel: channelFieldZ,
-    fields: z.array(writeFieldZ),
-  })
-  .check((ctx) => {
-    const { value } = ctx;
-    const { channel, fields } = value;
-    const isBarePrimitive = channel.pointer === "";
-    if (isBarePrimitive && fields.length > 0)
+const writeEndpointZ = z.object({
+  enabled: z.boolean().default(true),
+  key: z.string(),
+  path: z.string(),
+  method: writeMethodZ,
+  headers: headersZ.optional(),
+  queryParams: queryParamsZ.optional(),
+  channel: channelFieldZ,
+  fields: z.array(writeFieldZ),
+});
+
+export type WriteEndpoint = z.infer<typeof writeEndpointZ>;
+
+const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
+  const { value } = ctx;
+  const { channel, fields } = value;
+  const isBarePrimitive = channel.pointer === "";
+  if (isBarePrimitive && fields.length > 0)
+    ctx.issues.push({
+      code: "custom",
+      input: value,
+      message:
+        "An empty channel pointer sends the raw value as the body, so additional fields are not allowed",
+      path: ["channel", "pointer"],
+    });
+  const pointers = new Set<string>();
+  pointers.add(channel.pointer);
+  for (const [i, field] of fields.entries()) {
+    if (field.pointer === "") {
       ctx.issues.push({
         code: "custom",
         input: value,
-        message:
-          "An empty channel pointer sends the raw value as the body, so additional fields are not allowed",
-        path: ["channel", "pointer"],
+        message: "Additional field pointer cannot be empty",
+        path: ["fields", i, "pointer"],
       });
-    const pointers = new Set<string>();
-    pointers.add(channel.pointer);
-    for (const [i, field] of fields.entries()) {
-      if (field.pointer === "") {
-        ctx.issues.push({
-          code: "custom",
-          input: value,
-          message: "Additional field pointer cannot be empty",
-          path: ["fields", i, "pointer"],
-        });
-        continue;
-      }
-      if (pointers.has(field.pointer))
-        ctx.issues.push({
-          code: "custom",
-          input: value,
-          message: `Pointer "${field.pointer}" is already used by another field`,
-          path: ["fields", i, "pointer"],
-        });
-      else pointers.add(field.pointer);
+      continue;
     }
-  });
-
-export type WriteEndpoint = z.infer<typeof writeEndpointZ>;
+    if (pointers.has(field.pointer))
+      ctx.issues.push({
+        code: "custom",
+        input: value,
+        message: `Pointer "${field.pointer}" is already used by another field`,
+        path: ["fields", i, "pointer"],
+      });
+    else pointers.add(field.pointer);
+  }
+};
 
 export const ZERO_WRITE_ENDPOINT = {
   enabled: true,
@@ -256,6 +277,22 @@ const writeConfigZ = z.object({
   device: z.string(),
   autoStart: z.boolean().default(false),
   endpoints: z.array(writeEndpointZ),
+});
+
+export const deployWriteConfigZ = writeConfigZ.extend({
+  endpoints: z.array(
+    writeEndpointZ
+      .extend({
+        channel: channelFieldZ.check(validateEnumValues),
+        fields: z.array(
+          z.discriminatedUnion("type", [
+            staticFieldZ.extend({ pointer: deployPointerZ }),
+            generatedFieldZ.extend({ pointer: deployPointerZ }),
+          ]),
+        ),
+      })
+      .check(validateWriteEndpoint),
+  ),
 });
 
 interface WriteConfig extends z.infer<typeof writeConfigZ> {}

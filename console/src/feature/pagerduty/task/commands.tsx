@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { task } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { ALERT_TYPE } from "@/feature/pagerduty/task/types";
-import { Task } from "@/platform/task";
+import { useCreateAlert } from "@/feature/pagerduty/task/Alert";
+import { Command } from "@/platform/command";
 
-const CreateAlertCommand = Task.createCommand({
+const CreateAlertCommand = Command.create({
   key: "pagerduty_create_alert_task",
   name: "Create a PagerDuty Alert Task",
   icon: <Icon.Logo.PagerDuty />,
-  type: ALERT_TYPE,
+  useOnSelect: useCreateAlert,
+  useVisible: () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID),
 });
 
 export const COMMANDS = [CreateAlertCommand];

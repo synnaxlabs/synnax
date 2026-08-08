@@ -202,3 +202,22 @@ describe("EtherCAT Task statusData", () => {
     });
   });
 });
+
+describe("draft configs", () => {
+  // Drafts persist server-side before configuration, so the shape schema must
+  // accept every zero config; retrieve parses with it.
+  it("should accept the zero read config", () => {
+    expect(
+      EtherCAT.Task.READ_SCHEMAS.config.safeParse(
+        EtherCAT.Task.ZERO_READ_PAYLOAD.config,
+      ).success,
+    ).toBe(true);
+  });
+  it("should accept the zero write config", () => {
+    expect(
+      EtherCAT.Task.WRITE_SCHEMAS.config.safeParse(
+        EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
+      ).success,
+    ).toBe(true);
+  });
+});

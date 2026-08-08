@@ -32,6 +32,7 @@ import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
 import {
+  deployWriteConfigZ,
   type GeneratorType,
   type TimeFormat,
   WRITE_SCHEMAS,
@@ -50,13 +51,6 @@ import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "HTTP Write Task",
-  icon: <Icon.Logo.HTTP />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -703,9 +697,24 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.HTTP,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const writeIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "HTTP Write Task",
+  icon: <Icon.Logo.HTTP />,
+  useOnSelect: useCreateWrite,
 });

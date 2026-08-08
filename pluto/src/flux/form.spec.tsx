@@ -224,6 +224,54 @@ describe("useForm", () => {
     });
   });
 
+  describe("getCached", () => {
+    const CACHED = { key: "123", name: "Apple Cat", age: 30 };
+    const FETCHED = { key: "123", name: "Fetched", age: 40 };
+    const INITIAL = { key: "", name: "", age: 0 };
+
+    // The definition is minted once, as production does: a per-render one would
+    // hand every render a fresh fetch-dedup cache.
+    const renderForm = async (
+      getCached: (params: { query: Params }) => typeof CACHED | undefined,
+      params: Partial<Flux.UseFormParams<Params, typeof formSchema>> = {},
+    ) => {
+      const retrieve = vi.fn(async () => FETCHED);
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: INITIAL,
+        schema: formSchema,
+        name: "test",
+        getCached,
+        retrieve,
+        update: vi.fn(),
+      });
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: "123" }, ...params }),
+        { wrapper: Wrapper },
+      );
+      return { result, retrieve };
+    };
+
+    it("should fill the form from the cache without fetching", async () => {
+      const { result, retrieve } = await renderForm(() => CACHED);
+      expect(result.current.form.value()).toEqual(CACHED);
+      expect(retrieve).not.toHaveBeenCalled();
+    });
+
+    it("should fetch when the cache misses", async () => {
+      const { result, retrieve } = await renderForm(() => undefined);
+      expect(retrieve).toHaveBeenCalledTimes(1);
+      expect(result.current.form.value()).toEqual(FETCHED);
+    });
+
+    it("should prefer the record it read over explicit initial values", async () => {
+      const { result, retrieve } = await renderForm(() => CACHED, {
+        initialValues: { key: "456", name: "Explicit", age: 50 },
+      });
+      expect(result.current.form.value()).toEqual(CACHED);
+      expect(retrieve).not.toHaveBeenCalled();
+    });
+  });
+
   it("should validate form values as they are set", async () => {
     const update = vi.fn();
     const retrieve = vi.fn().mockReturnValue(null);

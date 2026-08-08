@@ -22,6 +22,7 @@ import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { FORMS } from "@/feature/labjack/task/InputChannelForms";
 import { SelectInputChannelTypeField } from "@/feature/labjack/task/SelectInputChannelTypeField";
 import {
+  deployReadConfigZ,
   INPUT_CHANNEL_SCHEMAS,
   type InputChannel,
   type InputChannelType,
@@ -35,13 +36,6 @@ import {
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const ReadSelectable = Selector.createSelectable({
-  type: READ_TYPE,
-  title: "LabJack Read Task",
-  icon: <Icon.Logo.LabJack />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -305,9 +299,24 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 export const Read = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.LabJack,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "labjack_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const readIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "LabJack Read Task",
+  icon: <Icon.Logo.LabJack />,
+  useOnSelect: useCreateRead,
 });

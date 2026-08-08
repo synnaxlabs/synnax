@@ -15,12 +15,16 @@ export const ALERT_TYPE = `${PREFIX}_alert`;
 
 const alertConfigZ = z.object({
   key: z.string(),
-  status: z.string().min(1, "Status key is required"),
+  status: z.string(),
   treatErrorAsCritical: z.boolean().default(false),
   component: z.string().default(""),
   group: z.string().default(""),
   class: z.string().default(""),
   enabled: z.boolean().default(true),
+});
+
+const deployAlertConfigZ = alertConfigZ.extend({
+  status: z.string().min(1, "Status key is required"),
 });
 
 export interface AlertConfig extends z.infer<typeof alertConfigZ> {}
@@ -36,11 +40,15 @@ export const ZERO_ALERT_CONFIG: AlertConfig = {
 };
 
 const alertTaskConfigZ = z.object({
-  routingKey: z.string().length(32, "Routing key must be 32 characters"),
+  routingKey: z.string(),
   autoStart: z.boolean().default(false),
+  alerts: z.array(alertConfigZ).default([]),
+});
+
+export const deployAlertTaskConfigZ = alertTaskConfigZ.extend({
+  routingKey: z.string().length(32, "Routing key must be 32 characters"),
   alerts: z
-    .array(alertConfigZ)
-    .default([])
+    .array(deployAlertConfigZ)
     .refine((alerts) => alerts.some(({ enabled }) => enabled), {
       message: "At least one alert must be enabled",
     }),

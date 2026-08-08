@@ -53,3 +53,20 @@ describe("Modbus Write Task Types", () => {
     ).toBe(true);
   });
 });
+
+describe("draft configs", () => {
+  // Drafts persist server-side before configuration, so the shape schema must
+  // accept every zero config; retrieve parses with it.
+  it("should accept the zero read config", () => {
+    expect(
+      Modbus.Task.READ_SCHEMAS.config.safeParse(Modbus.Task.ZERO_READ_PAYLOAD.config)
+        .success,
+    ).toBe(true);
+  });
+  it("should accept the zero write config", () => {
+    expect(
+      Modbus.Task.WRITE_SCHEMAS.config.safeParse(Modbus.Task.ZERO_WRITE_PAYLOAD.config)
+        .success,
+    ).toBe(true);
+  });
+});

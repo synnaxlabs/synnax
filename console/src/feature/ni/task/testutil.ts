@@ -11,14 +11,15 @@ import { type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
+import { type FC } from "react";
 import { expect } from "vitest";
 
 import * as Device from "@/feature/ni/device/types";
-import { type Panel } from "@/platform/panel";
+import { type Task } from "@/platform/task";
 import {
   renderTaskFormTab,
-  type RenderTaskFormViewOptions,
-  type RenderTaskFormViewResult,
+  type RenderTaskFormTabOptions,
+  type RenderTaskFormTabResult,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
@@ -57,25 +58,24 @@ export const createNIDevice = async (
   return dev;
 };
 
-export interface RenderNITaskFormResult extends RenderTaskFormViewResult {
+export interface RenderNITaskFormResult extends RenderTaskFormTabResult {
   /** Live view of the status notifications raised while the form is mounted. */
   statuses: Status.NotificationSpec[];
 }
 
 /**
- * Renders a wrapped NI task form the way the mosaic does (via renderTaskFormTab)
+ * Renders a wrapped NI task form the way the task panel does (via renderTaskFormTab)
  * with a status capture mounted alongside it, so specs can assert on notifications
- * raised by the configure flow.
+ * raised by the deploy flow.
  */
 export const renderNITaskForm = async (
-  Tab: Panel.Tab,
-  type: string,
-  options: Omit<RenderTaskFormViewOptions, "onStatuses"> = {},
+  Form: FC<Task.FormTabProps>,
+  options: Omit<RenderTaskFormTabOptions, "onStatuses"> = {},
 ): Promise<RenderNITaskFormResult> => {
   const statuses: Status.NotificationSpec[] = [];
-  const result = await renderTaskFormTab(Tab, type, {
+  const result = await renderTaskFormTab(Form, {
     ...options,
-    onStatuses: (next) => {
+    onStatuses: (next: Status.NotificationSpec[]) => {
       statuses.length = 0;
       statuses.push(...next);
     },

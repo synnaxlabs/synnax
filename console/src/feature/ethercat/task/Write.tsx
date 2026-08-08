@@ -21,6 +21,7 @@ import {
 import {
   channelMapKey,
   createOutputChannel,
+  deployWriteConfigZ,
   getChannelByMapKey,
   getPDOName,
   getPortLabel,
@@ -33,13 +34,6 @@ import {
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "EtherCAT Write Task",
-  icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
-});
 
 const Properties = () => (
   <Flex.Box x grow>
@@ -183,9 +177,24 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.EtherCAT,
   schemas: WRITE_SCHEMAS,
+  deployConfigZ: deployWriteConfigZ,
   type: "ethercat_write",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const writeIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "EtherCAT Write Task",
+  icon: <Icon.Logo.EtherCAT />,
+  useOnSelect: useCreateWrite,
 });

@@ -15,9 +15,9 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "labjack";
 
-const portZ = z.string().min(1, "Port must be specified");
+const deployPortZ = z.string().min(1, "Port must be specified");
 
-const digitalPortZ = portZ.regex(
+const deployDigitalPortZ = deployPortZ.regex(
   Device.DIO_PORT_REGEX,
   "Invalid port, port must start with DIO and end with an integer",
 );
@@ -60,13 +60,15 @@ export const ZERO_SCALES: Record<ScaleType, Scale> = {
 
 const aiChannelZ = Task.readChannelZ.extend({
   type: z.literal("AI"),
-  range: z.number().positive().optional(),
+  range: z.number().optional(),
   scale: scaleZ,
-  port: portZ.regex(
-    Device.AIN_PORT_REGEX,
-    "Invalid port, ports must start with AIN and end with an integer",
-  ),
+  port: z.string(),
 });
+
+const deployAIPortZ = deployPortZ.regex(
+  Device.AIN_PORT_REGEX,
+  "Invalid port, ports must start with AIN and end with an integer",
+);
 
 interface AIChannel extends z.infer<typeof aiChannelZ> {}
 
@@ -80,7 +82,7 @@ const ZERO_AI_CHANNEL = {
 
 const diChannelZ = Task.readChannelZ.extend({
   type: z.literal("DI"),
-  port: digitalPortZ,
+  port: z.string(),
 });
 
 interface DIChannel extends z.infer<typeof diChannelZ> {}
@@ -108,7 +110,7 @@ const tcChannelZ = aiChannelZ.omit({ type: true, range: true }).extend({
   thermocoupleType: thermocoupleTypeZ,
   posChan: z.number().int(),
   negChan: z.number().int(),
-  cjcSource: z.string().min(1, "CJC Source must be specified"),
+  cjcSource: z.string(),
   cjcSlope: z.number(),
   cjcOffset: z.number(),
   units: temperatureUnitsZ,
@@ -159,11 +161,13 @@ const v0BaseOutputChannelZ = Task.channelZ.extend({
 
 const aoChannelExtension = {
   type: z.literal("AO"),
-  port: portZ.regex(
-    Device.DAC_PORT_REGEX,
-    "Invalid port, ports must start with DAC and end with an integer",
-  ),
+  port: z.string(),
 };
+
+const deployAOPortZ = deployPortZ.regex(
+  Device.DAC_PORT_REGEX,
+  "Invalid port, ports must start with DAC and end with an integer",
+);
 
 const v0AOChannelZ = v0BaseOutputChannelZ.extend(aoChannelExtension);
 
@@ -179,11 +183,13 @@ const ZERO_AO_CHANNEL = {
 
 const doChannelExtension = {
   type: z.literal("DO"),
-  port: portZ.regex(
-    Device.DIO_PORT_REGEX,
-    "Invalid port, ports must start with DIO and end with an integer",
-  ),
+  port: z.string(),
 };
+
+const deployDOPortZ = deployPortZ.regex(
+  Device.DIO_PORT_REGEX,
+  "Invalid port, ports must start with DIO and end with an integer",
+);
 
 const v0DOChannelZ = v0BaseOutputChannelZ.extend(doChannelExtension);
 
@@ -235,10 +241,26 @@ const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-const readConfigZ = Task.baseReadConfigZ
+const readConfigZ = Task.baseReadConfigZ.extend({
+  channels: z.array(inputChannelZ),
+  sampleRate: z.number(),
+  streamRate: z.number(),
+});
+
+const deployInputChannelZ = z.union([
+  aiChannelZ.extend({ range: z.number().positive().optional(), port: deployAIPortZ }),
+  diChannelZ.extend({ port: deployDigitalPortZ }),
+  tcChannelZ.extend({
+    port: deployAIPortZ,
+    cjcSource: z.string().min(1, "CJC Source must be specified"),
+  }),
+]);
+
+export const deployReadConfigZ = readConfigZ
   .extend({
+    device: Task.deviceKeyZ,
     channels: z
-      .array(inputChannelZ)
+      .array(deployInputChannelZ)
       .check(Task.validateReadChannels)
       .check(validateUniquePorts),
     sampleRate: z.number().positive().max(50000),
@@ -295,11 +317,25 @@ const writeConfigZ = Task.baseConfigZ.extend({
         ...rest,
       })),
     )
-    .or(z.array(outputChannelZ))
+    .or(z.array(outputChannelZ)),
+  stateRate: z.number(),
+  dataSaving: z.boolean().default(true),
+});
+
+// Deploy validates form values, which are always post-migration, so the v0
+// transform branch is unnecessary here.
+const deployOutputChannelZ = z.union([
+  aoChannelZ.extend({ port: deployAOPortZ }),
+  doChannelZ.extend({ port: deployDOPortZ }),
+]);
+
+export const deployWriteConfigZ = writeConfigZ.extend({
+  device: Task.deviceKeyZ,
+  channels: z
+    .array(deployOutputChannelZ)
     .check(Task.validateWriteChannels)
     .check(validateUniquePorts),
   stateRate: z.number().positive().max(50000),
-  dataSaving: z.boolean().default(true),
 });
 
 interface WriteConfig extends z.infer<typeof writeConfigZ> {}

@@ -54,6 +54,15 @@ describe("task notifications", () => {
     expect(screen.queryByText("Task running")).toBeNull();
   });
 
+  it("suppresses the not-deployed placeholder status for a task", async () => {
+    await addStatus({
+      key: "task:1",
+      variant: "disabled",
+      message: "Task has not been deployed",
+    });
+    expect(screen.queryByText("Task has not been deployed")).toBeNull();
+  });
+
   it("does not suppress a task error status", async () => {
     await addStatus({ key: "task:1", variant: "error", message: "Task failed" });
     expect(screen.getByText("Task failed")).toBeTruthy();

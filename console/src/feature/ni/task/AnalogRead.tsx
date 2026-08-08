@@ -26,19 +26,13 @@ import {
   ANALOG_READ_TYPE,
   analogReadConfigZ,
   type AnalogReadSchemas,
+  deployAnalogReadConfigZ,
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const AnalogReadSelectable = Selector.createSelectable({
-  type: ANALOG_READ_TYPE,
-  title: "NI Analog Read Task",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenTab(ANALOG_READ_TYPE),
-});
 
 const Properties = () => (
   <>
@@ -219,9 +213,24 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
 export const AnalogRead = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.NI,
   schemas: ANALOG_READ_SCHEMAS,
+  deployConfigZ: deployAnalogReadConfigZ,
   type: "ni_analog_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateAnalogRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const analogReadIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const AnalogReadSelectable = Selector.createSelectable({
+  type: ANALOG_READ_TYPE,
+  title: "NI Analog Read Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateAnalogRead,
 });

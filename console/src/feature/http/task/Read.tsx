@@ -33,6 +33,7 @@ import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
 import {
+  deployReadConfigZ,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadEndpoint,
@@ -50,13 +51,6 @@ import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-export const ReadSelectable = Selector.createSelectable({
-  type: READ_TYPE,
-  title: "HTTP Read Task",
-  icon: <Icon.Logo.HTTP />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-});
 
 const RATE_INPUT_PROPS = {
   endContent: "Hz",
@@ -693,9 +687,24 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 export const Read = Task.wrapForm({
   Properties,
   Form,
-  Icon: Icon.Logo.HTTP,
   schemas: READ_SCHEMAS,
+  deployConfigZ: deployReadConfigZ,
   type: "http_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const readIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "HTTP Read Task",
+  icon: <Icon.Logo.HTTP />,
+  useOnSelect: useCreateRead,
 });
