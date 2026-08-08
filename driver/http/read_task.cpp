@@ -223,7 +223,7 @@ synnax::framer::WriterConfig ReadTaskSource::writer_config() const {
         keys.push_back(key);
     return {
         .channels = keys,
-        .mode = common::data_saving_writer_mode(!this->cfg.data_saving_disabled),
+        .mode = common::data_saving_writer_mode(this->cfg.data_saving_disabled),
     };
 }
 

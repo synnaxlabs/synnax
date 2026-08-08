@@ -24,9 +24,10 @@ struct ConfigureResult {
     bool auto_start = false;
 };
 
-/// @brief converts a data_saving boolean to the appropriate WriterMode.
-inline synnax::framer::WriterMode data_saving_writer_mode(const bool data_saving) {
-    if (data_saving) return synnax::framer::WriterMode::PersistStream;
-    return synnax::framer::WriterMode::StreamOnly;
+/// @brief converts a data_saving_disabled boolean to the appropriate WriterMode.
+inline synnax::framer::WriterMode
+data_saving_writer_mode(const bool data_saving_disabled) {
+    if (data_saving_disabled) return synnax::framer::WriterMode::StreamOnly;
+    return synnax::framer::WriterMode::PersistStream;
 }
 }

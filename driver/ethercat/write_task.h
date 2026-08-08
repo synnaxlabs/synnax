@@ -144,7 +144,7 @@ public:
             cfg.state_indexes,
             cfg.state_channels,
             cfg.cmd_keys(),
-            !cfg.data_saving_disabled
+            cfg.data_saving_disabled
         ),
         cfg(std::move(cfg)),
         engine(std::move(eng)) {}

@@ -181,7 +181,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             channel_keys.push_back(idx);
         return {
             .channels = channel_keys,
-            .mode = common::data_saving_writer_mode(!this->data_saving_disabled),
+            .mode = common::data_saving_writer_mode(this->data_saving_disabled),
         };
     }
 
