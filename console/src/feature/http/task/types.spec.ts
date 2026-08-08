@@ -250,6 +250,23 @@ describe("HTTP Task Types", () => {
       ]);
     });
 
+    it("should default a field without enum values to an empty list", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            fields: [{ ...readField, pointer: "/status" }],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployReadConfigZ.parse(config);
+      expect(result.endpoints[0].fields[0].enumValues).toEqual([]);
+    });
+
     it("should reject duplicate enum labels", () => {
       const config = {
         device: "dev-001",
@@ -605,6 +622,23 @@ describe("HTTP Task Types", () => {
       };
       const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].channel.enumValues).toHaveLength(2);
+    });
+
+    it("should default a channel field without enum values to an empty list", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            channel: { pointer: "/state", jsonType: "string", channel: 1 },
+            fields: [],
+          },
+        ],
+      };
+      const result = HTTP.Task.deployWriteConfigZ.parse(config);
+      expect(result.endpoints[0].channel.enumValues).toEqual([]);
     });
 
     it("should reject duplicate write enum values", () => {

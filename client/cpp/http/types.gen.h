@@ -130,7 +130,7 @@ struct ReadField {
     /// holds timestamps. Required for timestamp channels.
     std::optional<std::string> timestamp_format;
     /// @brief enum_values maps string labels in the response to numeric channel values.
-    std::optional<std::vector<EnumEntry>> enum_values;
+    std::vector<EnumEntry> enum_values;
 
     static ReadField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -158,7 +158,7 @@ struct ChannelField {
     std::optional<std::string> time_format;
     /// @brief enum_values maps numeric channel values to string labels. Only valid when
     /// json_type is 'string'.
-    std::optional<std::vector<EnumEntry>> enum_values;
+    std::vector<EnumEntry> enum_values;
 
     static ChannelField parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
