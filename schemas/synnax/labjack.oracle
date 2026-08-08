@@ -1,0 +1,239 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/device"
+import "schemas/synnax/task"
+import "schemas/x/telem"
+
+@ts output  "client/ts/src/labjack"
+@py output  "client/py/synnax/labjack"
+@cpp output "client/cpp/labjack"
+@go output  "core/pkg/service/labjack"
+
+TemperatureUnits enum {
+    celsius    = "C"
+    fahrenheit = "F"
+    kelvin     = "K"
+
+    @doc value "are the engineering units for a temperature measurement."
+}
+
+ThermocoupleType enum {
+    j = "J"
+    k = "K"
+    n = "N"
+    r = "R"
+    s = "S"
+    t = "T"
+    b = "B"
+    e = "E"
+    c = "C"
+
+    @doc value "selects the thermocouple alloy type."
+}
+
+LinearScale struct {
+    slope  float64 = 1 {
+        @doc value "is the multiplier applied to the raw value."
+    }
+    offset float64 = 0 {
+        @doc value "is the offset added after scaling."
+    }
+
+    @doc value "maps raw values to engineering units with a slope and offset."
+}
+
+MapScale struct {
+    pre_scaled_min float64 = 0 {
+        @doc value "is the lower bound of the raw input range."
+    }
+    pre_scaled_max float64 = 1 {
+        @doc value "is the upper bound of the raw input range."
+    }
+    scaled_min     float64 = 0 {
+        @doc value "is the lower bound of the scaled output range."
+    }
+    scaled_max     float64 = 1 {
+        @doc value "is the upper bound of the scaled output range."
+    }
+
+    @doc value "maps a raw range linearly onto a scaled range."
+}
+
+NoneScale struct {
+    @doc value "applies no scaling; the raw value is used directly."
+}
+
+Scale union on type {
+    linear LinearScale
+    map    MapScale
+    none   NoneScale
+
+    @doc value "determines how raw sensor values are transformed to engineering units."
+}
+
+BaseInputChannel struct {
+    key      string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    name     string = "" {
+        @doc value "is the human-readable channel name."
+    }
+    disabled bool = false {
+        @doc value "is true when the channel is excluded from acquisition."
+    }
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel that raw samples are written to."
+    }
+    port     string = "" {
+        @doc value "is the physical port the channel reads from (e.g. 'AIN0', 'DIO4')."
+    }
+
+    @doc value "carries the fields every LabJack input channel shares."
+}
+
+InputChannel union on type extends BaseInputChannel {
+    AI {
+        range    float64 = 10 {
+            @doc value "is the upper bound of the voltage input range, in volts."
+        }
+        neg_chan int32 = 199 {
+            @doc value """
+                is the negative channel for differential readings on T7 devices.
+                199 selects single-ended.
+            """
+        }
+        scale    Scale   {
+            @doc value "is the scale applied to raw samples after acquisition."
+        }
+
+        @doc value "reads a voltage from an analog input port."
+    }
+    DI {
+        @doc value "reads a digital input line."
+    }
+    TC {
+        thermocouple_type ThermocoupleType = k {
+            @doc value "selects the thermocouple alloy type."
+        }
+        pos_chan          int32 = 0 {
+            @doc value "is the AIN port the thermocouple's positive lead is wired to."
+        }
+        neg_chan          int32 = 199 {
+            @doc value """
+                is the AIN port of the thermocouple's negative lead on T7 devices.
+                199 selects single-ended.
+            """
+        }
+        cjc_source        string = "TEMPERATURE_DEVICE_K" {
+            @doc value """
+                selects the cold-junction-compensation source: the device sensor
+                ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an
+                AIN port (e.g. 'AIN2').
+            """
+        }
+        cjc_slope         float64 = 1 {
+            @doc value "is the CJC voltage-to-temperature slope, in kelvin per volt."
+        }
+        cjc_offset        float64 = 0 {
+            @doc value "is the CJC temperature offset, in kelvins."
+        }
+        units             TemperatureUnits = kelvin {
+            @doc value "are the units of the temperature measurement."
+        }
+        scale             Scale            {
+            @doc value "is the scale applied to raw samples after acquisition."
+        }
+
+        @doc value "reads temperature from a thermocouple."
+    }
+
+    @doc value """
+        is a single LabJack input channel. The type field selects the input mode
+        and the fields that accompany it.
+    """
+}
+
+BaseOutputChannel struct {
+    key                string = "" {
+        @doc value "uniquely identifies the channel within the task."
+        @key
+    }
+    disabled           bool = false {
+        @doc value "is true when the channel is excluded from the task."
+    }
+    cmd_channel        channel.Key = 0 {
+        @doc value "is the Synnax channel commands are read from."
+    }
+    state_channel      channel.Key = 0 {
+        @doc value "is the Synnax channel the output state is written to."
+    }
+    cmd_channel_name   string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    state_channel_name string = "" {
+        @doc value "is the human-readable name of the state channel."
+    }
+    port               string = "" {
+        @doc value "is the physical port the channel writes to (e.g. 'DAC0', 'DIO4')."
+    }
+
+    @doc value "carries the fields every LabJack output channel shares."
+}
+
+OutputChannel union on type extends BaseOutputChannel {
+    AO {
+        @doc value "drives an analog output on a DAC port."
+    }
+    DO {
+        @doc value "drives a digital output line on a DIO port."
+    }
+
+    @doc value """
+        is a single LabJack output channel. The type field selects the output
+        mode.
+    """
+}
+
+ReadConfig struct extends task.BaseReadConfig {
+    device                            device.Key = "" {
+        @doc value "is the key of the device the task acquires from."
+    }
+    channels                          InputChannel[] {
+        @doc value "are the input channels the task acquires."
+    }
+    device_scan_backlog_warn_on_count uint32 = 0 {
+        @doc value """
+            is the device-side scan backlog above which the task reports a skew
+            warning. Zero lets the driver pick two seconds of scans.
+        """
+    }
+    ljm_scan_backlog_warn_on_count    uint32 = 0 {
+        @doc value """
+            is the LJM-side scan backlog above which the task reports a skew
+            warning. Zero lets the driver pick one second of scans.
+        """
+    }
+
+    @doc value "configures a LabJack read task."
+}
+
+WriteConfig struct extends task.BaseWriteConfig {
+    state_rate telem.Rate = 10 {
+        @doc value "is the rate at which output state is reported to Synnax, in hertz."
+        @ts type   "number"
+    }
+    channels   OutputChannel[] {
+        @doc value "are the output channels the task drives."
+    }
+
+    @doc value "configures a LabJack write task."
+}

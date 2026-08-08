@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from synnax import status as status_
+from synnax import task
 from synnax.arc import graph as graph_
 from synnax.arc import program as program_
 from synnax.arc import text as text_
@@ -29,6 +30,23 @@ MODE_GRAPH: Literal["graph"] = "graph"
 
 Mode = Literal["text", "graph"]
 
+EXECUTION_MODE_AUTO: Literal["AUTO"] = "AUTO"
+
+EXECUTION_MODE_BUSY_WAIT: Literal["BUSY_WAIT"] = "BUSY_WAIT"
+
+EXECUTION_MODE_HIGH_RATE: Literal["HIGH_RATE"] = "HIGH_RATE"
+
+EXECUTION_MODE_RT_EVENT: Literal["RT_EVENT"] = "RT_EVENT"
+
+EXECUTION_MODE_HYBRID: Literal["HYBRID"] = "HYBRID"
+
+EXECUTION_MODE_EVENT_DRIVEN: Literal["EVENT_DRIVEN"] = "EVENT_DRIVEN"
+
+
+ExecutionMode = Literal[
+    "AUTO", "BUSY_WAIT", "HIGH_RATE", "RT_EVENT", "HYBRID", "EVENT_DRIVEN"
+]
+
 Key: TypeAlias = UUID
 
 
@@ -40,6 +58,24 @@ class StatusDetails(BaseModel):
     """
 
     running: bool
+
+
+class TaskConfig(task.BaseConfig):
+    """Configures an Arc task, which runs a compiled Arc module.
+
+    Attributes:
+        arc_key: Is the key of the Arc module the task executes.
+        execution_mode: Overrides the runtime's automatic loop mode selection.
+        rt_priority: Is the thread priority used by real-time loop modes.
+        cpu_affinity: Pins the loop to a CPU core. -1 selects automatically.
+        lock_memory: Locks the runtime's memory to prevent paging.
+    """
+
+    arc_key: Key
+    execution_mode: ExecutionMode = "AUTO"
+    rt_priority: int = Field(default=47, ge=-2147483648, le=2147483647)
+    cpu_affinity: int = Field(default=-1, ge=-2147483648, le=2147483647)
+    lock_memory: bool = False
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
