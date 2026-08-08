@@ -13,17 +13,9 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Import } from "@/platform/import";
-import { createFileIngesterContext } from "@/platform/import/testutil";
+import { createFileIngesterContext, openedResource } from "@/platform/import/testutil";
 import { type Panel } from "@/platform/panel";
 import { uniqueName } from "@/testutil";
-
-const openedResource = (openTab: ReturnType<typeof vi.fn<Panel.OpenTab>>) => {
-  expect(openTab).toHaveBeenCalledTimes(1);
-  const [tab] = openTab.mock.calls[0];
-  if (tab.variant !== "resource" || typeof tab.resource === "string")
-    throw new Error("expected a resource tab");
-  return tab.resource;
-};
 
 describe("ingestServer", () => {
   it("fails when disconnected", async () => {

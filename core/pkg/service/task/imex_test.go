@@ -220,7 +220,7 @@ var _ = Describe("ImEx", Ordered, func() {
 				)).To(Succeed())
 				Expect(imexSvc.Import(
 					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
-				)).Error().To(MatchError(ContainSubstring("unsupported task file version")))
+				)).Error().To(MatchError(ContainSubstring("newer than this Core supports")))
 			},
 		)
 

@@ -10,4 +10,3 @@
 export * from "@/platform/import/dataTransferItem";
 export * from "@/platform/import/import";
 export * from "@/platform/import/ingester";
-export * from "@/platform/import/trimFileName";

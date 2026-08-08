@@ -18,8 +18,6 @@ export interface File {
 }
 
 export interface FileIngesterContext {
-  /** name is the fallback component name derived from the imported file. */
-  name?: string;
   openTab: Panel.OpenTab;
   client: Synnax | null;
   projectKey: project.Key;

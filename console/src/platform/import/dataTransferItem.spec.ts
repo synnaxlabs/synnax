@@ -15,6 +15,7 @@ import { Import } from "@/platform/import";
 import {
   createDataTransferItemContext,
   fakeDataTransferItem,
+  openedResource,
 } from "@/platform/import/testutil";
 import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
@@ -53,11 +54,7 @@ describe("dataTransferItem", () => {
     const ctx = await createDataTransferItemContext({ client, openTab });
     ctx.store.dispatch(Session.Project.select(proj.key));
     await Import.dataTransferItem(fileItem(jsonFile(data, "widget.json")), ctx);
-    expect(openTab).toHaveBeenCalledTimes(1);
-    const [tab] = openTab.mock.calls[0];
-    if (tab.variant !== "resource" || typeof tab.resource === "string")
-      throw new Error("expected a resource tab");
-    const created = await client.logs.retrieve({ key: tab.resource.key });
+    const created = await client.logs.retrieve({ key: openedResource(openTab).key });
     expect(created.name).toBe(original.name);
   });
 

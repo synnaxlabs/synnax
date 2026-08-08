@@ -9,13 +9,11 @@
 
 package v3
 
-// camelToSnake is a Go port of the TS wire codec's camelToSnake string conversion,
-// so legacy Console-written keys convert exactly as they would have on the wire. The
-// first word break is always a capital following a lowercase or digit, so the prefix
-// scan finds it without allocating (an already-snake string is returned as-is). From
-// there a capital breaks a word if it follows a lowercase/digit or continues an
-// uppercase run entered from one, so fooXY (from foo_x_y) splits fully while a
-// leading run like NS=1;ID=5 stays put.
+// camelToSnake is a Go port of the TS wire codec's camelToSnake string conversion, so
+// legacy Console-written keys convert exactly as they would have on the wire. A capital
+// breaks a word when it follows a lowercase or digit, or when it continues an uppercase
+// run entered from one: fooXY (from foo_x_y) splits fully while a leading run like
+// NS=1;ID=5 stays put.
 func camelToSnake(str string) string {
 	isUpper := func(c byte) bool { return c >= 'A' && c <= 'Z' }
 	isLowerOrDigit := func(c byte) bool {
@@ -57,9 +55,10 @@ func camelToSnake(str string) string {
 }
 
 // snakeKeys returns a copy of m with every map key recursively converted through
-// camelToSnake. When both spellings of a key are present, the snake_case one wins.
-// Values, including map keys that appear as data inside lists, are never touched.
-// The input and its nested structures are left unmodified.
+// camelToSnake, including keys of maps nested inside lists. When both spellings of a
+// key are present, the snake_case one wins. Values are never converted, even former
+// record keys that listification moved into value position. The input and its nested
+// structures are left unmodified.
 func snakeKeys(m map[string]any) map[string]any {
 	out := make(map[string]any, len(m))
 	for k, v := range m {

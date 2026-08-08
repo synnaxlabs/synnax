@@ -16,9 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Version is the per-schema version stamped on every exported task envelope.
@@ -79,11 +77,10 @@ func (s *Service) Import(
 	_ imex.ImportOptions,
 ) (ontology.ID, error) {
 	if env.Versioned() && env.Version > Version {
-		return ontology.ID{}, validate.PathedError(
-			errors.Wrapf(
-				validate.ErrValidation, "unsupported task file version %d", env.Version,
-			),
-			"version",
+		return ontology.ID{}, imex.NewErrUnsupportedVersion(
+			env.Type,
+			env.Version,
+			Version,
 		)
 	}
 	body, err := imex.Decode[map[string]any](ctx, env)

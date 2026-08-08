@@ -69,7 +69,7 @@ const remapNode = (node: panel.Node, remap: Map<string, ontology.ID>): panel.Nod
   };
 };
 
-type ComponentContext = Omit<Import.FileIngesterContext, "name" | "fileName">;
+type ComponentContext = Omit<Import.FileIngesterContext, "fileName">;
 
 const ingestComponents = async (
   files: Import.File[],
@@ -82,11 +82,7 @@ const ingestComponents = async (
     if (typeof data.type !== "string") continue;
     // TEMPORARY: a type the Core cannot import fails the whole directory, where it was
     // skipped before. Server-side project import replaces this loop before release.
-    const id = await Import.ingestServer(data, {
-      ...ctx,
-      name: Import.trimFileName(file.name),
-      fileName: file.name,
-    });
+    const id = await Import.ingestServer(data, { ...ctx, fileName: file.name });
     if (id != null && "key" in data && typeof data.key === "string")
       remap.set(data.key, id);
   }
@@ -144,11 +140,7 @@ const ingestLegacy = async (
             ("name" in file.data && file.data.name === layout.name))),
     );
     if (file == null) throw new Error(`Data for ${key} not found`);
-    await Import.ingestServer(file.data, {
-      ...ctx,
-      name: layout.name,
-      fileName: file.name,
-    });
+    await Import.ingestServer(file.data, { ...ctx, fileName: file.name });
   }
   // TODO(SY-4370): legacy exports carried a mosaic tiling for these layouts;
   // reconstructing it as panel documents is dropped, so a legacy import only
