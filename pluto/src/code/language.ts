@@ -39,6 +39,11 @@ export interface LanguageTheme {
   };
 }
 
+/** BASE_THEMES are the settings ids of the VS Code themes that a language with a theme
+ * builds on. VS Code renames these between releases, and a stale id silently drops every
+ * token color, so `language.spec.ts` pins them against the installed theme extension. */
+export const BASE_THEMES = { dark: "Dark+", light: "Light+" } as const;
+
 /** Language is the declarative contribution a consumer passes to Code.Provider. It is
  * plain data plus an optional language-server opener: the provider owns every Monaco
  * interaction, so contributors never import monaco themselves. */
@@ -55,8 +60,8 @@ export interface Language {
   /** grammar is the TextMate grammar: its top-level scope name and the raw
    * tmLanguage.json contents. */
   grammar: { scopeName: string; raw: string };
-  /** theme colors the language's tokens. Languages with a theme use VS Code's
-   * Default Dark+/Light+ base themes; languages without one fall back to vs-dark/vs. */
+  /** theme colors the language's tokens. Languages with a theme use the VS Code base
+   * themes in BASE_THEMES; languages without one fall back to vs-dark/vs. */
   theme?: LanguageTheme;
   /** editorExtensions are applied to every editor opened for this language unless the
    * editor overrides them via its own `extensions` prop. */
@@ -76,8 +81,8 @@ const applyTheme = async (theme: LanguageTheme): Promise<void> => {
       await config.update(
         "semanticTokenColorCustomizations",
         {
-          "[Default Dark+]": { rules: theme.semanticTokenColors.dark },
-          "[Default Light+]": { rules: theme.semanticTokenColors.light },
+          [`[${BASE_THEMES.dark}]`]: { rules: theme.semanticTokenColors.dark },
+          [`[${BASE_THEMES.light}]`]: { rules: theme.semanticTokenColors.light },
         },
         vscode.ConfigurationTarget.Global,
       );
@@ -85,8 +90,8 @@ const applyTheme = async (theme: LanguageTheme): Promise<void> => {
       await config.update(
         "tokenColorCustomizations",
         {
-          "[Default Dark+]": { textMateRules: theme.textMateRules.dark },
-          "[Default Light+]": { textMateRules: theme.textMateRules.light },
+          [`[${BASE_THEMES.dark}]`]: { textMateRules: theme.textMateRules.dark },
+          [`[${BASE_THEMES.light}]`]: { textMateRules: theme.textMateRules.light },
         },
         vscode.ConfigurationTarget.Global,
       );
