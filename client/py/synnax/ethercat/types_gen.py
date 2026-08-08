@@ -34,7 +34,7 @@ class PDOAddress(BaseModel):
     index: int = Field(default=0, ge=0, le=65535)
     sub_index: int = Field(default=0, ge=0, le=255)
     bit_length: int = Field(default=16, ge=0, le=255)
-    data_type: telem.DataType = "uint16"
+    data_type: telem.DataType = telem.DataType("uint16")
 
 
 class BaseInputChannel(BaseModel):

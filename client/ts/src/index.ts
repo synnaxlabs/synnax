@@ -24,7 +24,6 @@ export {
 export * from "@/connection";
 export { control } from "@/control";
 export { device } from "@/device";
-export { ethercat } from "@/ethercat";
 export {
   AuthError,
   ContiguityError,
@@ -37,6 +36,7 @@ export {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
+export { ethercat } from "@/ethercat";
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
 export { group } from "@/group";
