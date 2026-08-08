@@ -122,7 +122,7 @@ ReadEndpoint struct {
     path         string = "" {
         @doc value "is the URL path appended to the device's base URL."
     }
-    headers      Header[]?     {
+    headers      Header[]      {
         @doc value "contains additional headers merged into the request."
     }
     query_params QueryParam[]? {
@@ -271,7 +271,7 @@ WriteEndpoint struct {
     path         string = "" {
         @doc value "is the URL path appended to the device's base URL."
     }
-    headers      Header[]?     {
+    headers      Header[]      {
         @doc value "contains additional headers merged into the request."
     }
     query_params QueryParam[]? {

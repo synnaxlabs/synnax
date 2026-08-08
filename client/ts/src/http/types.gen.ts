@@ -192,7 +192,7 @@ export const readEndpointZ = z.object({
   /** path is the URL path appended to the device's base URL. */
   path: z.string().default(""),
   /** headers contains additional headers merged into the request. */
-  headers: zod.nullToUndefined(headerZ.array()),
+  headers: headerZ.array().default(() => []),
   /** queryParams contains query parameters appended to the request URL. */
   queryParams: zod.nullToUndefined(queryParamZ.array()),
   /** body is an optional static body sent with each request. */
@@ -218,7 +218,7 @@ export const writeEndpointZ = z.object({
   /** path is the URL path appended to the device's base URL. */
   path: z.string().default(""),
   /** headers contains additional headers merged into the request. */
-  headers: zod.nullToUndefined(headerZ.array()),
+  headers: headerZ.array().default(() => []),
   /** queryParams contains query parameters appended to the request URL. */
   queryParams: zod.nullToUndefined(queryParamZ.array()),
   /** channel is the command channel whose writes trigger this endpoint. */

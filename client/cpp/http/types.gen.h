@@ -197,7 +197,7 @@ struct ReadEndpoint {
     /// @brief path is the URL path appended to the device's base URL.
     std::string path = "";
     /// @brief headers contains additional headers merged into the request.
-    std::optional<std::vector<Header>> headers;
+    std::vector<Header> headers;
     /// @brief query_params contains query parameters appended to the request URL.
     std::optional<std::vector<QueryParam>> query_params;
     /// @brief body is an optional static body sent with each request.
@@ -224,7 +224,7 @@ struct WriteEndpoint {
     /// @brief path is the URL path appended to the device's base URL.
     std::string path = "";
     /// @brief headers contains additional headers merged into the request.
-    std::optional<std::vector<Header>> headers;
+    std::vector<Header> headers;
     /// @brief query_params contains query parameters appended to the request URL.
     std::optional<std::vector<QueryParam>> query_params;
     /// @brief channel is the command channel whose writes trigger this endpoint.

@@ -105,7 +105,7 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key", ""),
         .method = parser.field<std::string>("method", "GET"),
         .path = parser.field<std::string>("path", ""),
-        .headers = parser.field<std::optional<std::vector<Header>>>("headers"),
+        .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
         .query_params = parser.field<std::optional<std::vector<QueryParam>>>(
             "query_params"
         ),
@@ -123,7 +123,7 @@ inline x::json::json ReadEndpoint::to_json() const {
     j["key"] = this->key;
     j["method"] = this->method;
     j["path"] = this->path;
-    if (this->headers.has_value()) j["headers"] = x::json::to_array(*this->headers);
+    j["headers"] = x::json::to_array(this->headers);
     if (this->query_params.has_value())
         j["query_params"] = x::json::to_array(*this->query_params);
     j["body"] = this->body;
@@ -206,7 +206,7 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
         .disabled = parser.field<bool>("disabled", false),
         .method = parser.field<std::string>("method", "POST"),
         .path = parser.field<std::string>("path", ""),
-        .headers = parser.field<std::optional<std::vector<Header>>>("headers"),
+        .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
         .query_params = parser.field<std::optional<std::vector<QueryParam>>>(
             "query_params"
         ),
@@ -228,7 +228,7 @@ inline x::json::json WriteEndpoint::to_json() const {
     j["disabled"] = this->disabled;
     j["method"] = this->method;
     j["path"] = this->path;
-    if (this->headers.has_value()) j["headers"] = x::json::to_array(*this->headers);
+    j["headers"] = x::json::to_array(this->headers);
     if (this->query_params.has_value())
         j["query_params"] = x::json::to_array(*this->query_params);
     j["channel"] = this->channel.to_json();
