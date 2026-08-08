@@ -1361,22 +1361,31 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		},
 	)
 
-	It("Should keep fields with sentinel defaults required", func(ctx SpecContext) {
-		source := `
+	It(
+		"Should parse fields with sentinel defaults into the zero value",
+		func(ctx SpecContext) {
+			source := `
 			@cpp output "out"
 
+			Key = uuid
+
 			Status struct {
-				key  string = create
-				name string = ""
+				key    string = create
+				record uuid = create
+				parent Key = create
+				name   string = ""
 			}
 		`
-		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
-		ExpectContent(resp, "json.gen.h").
-			ToContain(
-				`.key = parser.field<std::string>("key"),`,
-				`.name = parser.field<std::string>("name", ""),`,
-			)
-	})
+			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+			ExpectContent(resp, "json.gen.h").
+				ToContain(
+					`.key = parser.field<std::string>("key", ""),`,
+					`.record = parser.field<x::uuid::UUID>("record", x::uuid::UUID{}),`,
+					`.parent = parser.field<Key>("parent", Key{}),`,
+					`.name = parser.field<std::string>("name", ""),`,
+				)
+		},
+	)
 })
 
 var _ = Describe("C++ JSON Union Array Fields", func() {
