@@ -126,3 +126,18 @@ class TestTaskClient:
         assert copied.name == copy_name
         assert copied.type == original.type
         assert copied.config["routing_key"] == original.config["routing_key"]
+
+
+@pytest.mark.task
+class TestConfigBases:
+    def test_read_config_mints_a_record_key(self):
+        """Should give a read config a record key it can hash on."""
+        cfg = sy.task.BaseReadConfig()
+        assert isinstance(cfg.key, UUID)
+        assert hash(cfg) == hash(cfg.key)
+
+    def test_write_config_mints_a_record_key(self):
+        """Should give a write config a record key it can hash on."""
+        cfg = sy.task.BaseWriteConfig()
+        assert isinstance(cfg.key, UUID)
+        assert hash(cfg) == hash(cfg.key)
