@@ -9,31 +9,63 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-project__selector {
-    flex-shrink: 1;
-    width: 200px;
-    max-width: 300px;
+/* The avatar as the trigger's whole face: the button clips it to its own radius. */
+.console-trigger.console--avatar-fill {
+    padding: 0;
+    overflow: hidden;
 
-    @media (max-width: 1400px) {
-        max-width: 150px;
+    .console-project-avatar {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+        font-size: 2.5rem;
     }
+}
 
-    > :first-child {
-        > :nth-child(2) {
-            flex-shrink: 1;
-            overflow: hidden;
-            margin-right: auto;
-            text-wrap: none;
-            text-overflow: ellipsis;
+/* Frosted rim: the sharp fill paints the content box while a milky translucent
+   twin of the same gradient paints the rim under it. */
+.console-trigger.console--avatar-ringed {
+    padding: 0;
+
+    .console-project-avatar {
+        width: round(5.6667rem, 1px);
+        height: round(5.6667rem, 1px);
+        font-size: round(2.6667rem, 1px);
+        position: relative;
+        background: var(--console-avatar-frost);
+        box-shadow: var(--pluto-shadow-v1);
+
+        &::before {
+            content: "";
+            position: absolute;
+            inset: 2px;
+            border-radius: calc(var(--pluto-border-radius-small) - 2px);
+            background: var(--console-avatar-fill);
+        }
+
+        /* The letter is a bare text node; this lifts it above the fill layer. */
+        z-index: 0;
+        &::before {
+            z-index: -1;
         }
     }
 }
 
-.console-project-selector-dialog {
-    min-height: 200px;
-    min-width: 400px;
+.console-project__name {
+    width: 0;
+    flex-grow: 1;
 }
 
-.console-project-selector-search {
-    border-bottom-left-radius: 0;
+.pluto-dialog__dialog.console-project-selector-dialog {
+    min-height: 200px;
+    min-width: 400px;
+    max-width: 400px;
+    /* Floating dialogs cap at 360px; the wider compound beats that rule. */
+    max-height: 412px;
+
+    .pluto-list__items > .pluto-list__virtualizer {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
 }

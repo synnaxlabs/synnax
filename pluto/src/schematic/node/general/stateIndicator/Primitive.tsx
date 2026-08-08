@@ -9,7 +9,6 @@
 
 import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 
-import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -18,7 +17,6 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
-import { Theming } from "@/theming";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
@@ -34,27 +32,25 @@ export const StateIndicator = ({
   inlineSize,
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
-  const stateColor = matched?.color;
-  const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
-  const theme = Theming.use();
-  const textColor =
-    stateColor != null
-      ? color.cssString(
-          color.pickByContrast(stateColor, theme.colors.gray.l0, theme.colors.gray.l11),
-        )
-      : undefined;
+  // The matched state's color drives the chassis; the symbol color is the
+  // fallback so an unmatched indicator still reads as its symbol.
+  const symbolColor = symbolColorVar(matched?.color) ?? symbolColorVar(colorVal);
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
-      backgroundColor,
+      [CSS.var("symbol-color")]: symbolColor,
       minWidth: inlineSize,
     }),
-    [colorVal, backgroundColor, inlineSize],
+    [symbolColor, inlineSize],
   );
   return (
     <Primitive.Div
-      className={CSS(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}
+      className={CSS(
+        CSS.B("state-indicator"),
+        CSS.B("symbol-colored"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       style={style}
     >
       <Handle.Rectangle
@@ -65,7 +61,7 @@ export const StateIndicator = ({
         bottom={102}
       />
       <div className={CSS.BE("state-indicator", "content")}>
-        <Text.Text level="p" color={textColor} variant="code">
+        <Text.Text level="p" variant="code">
           {label}
         </Text.Text>
       </div>

@@ -25,7 +25,6 @@ export const Windows = ({
   // no-ops on windows
   onFullscreen: _,
   focused: __,
-  contrast = 2,
   ...rest
 }: InternalControlsProps): ReactElement => (
   <Flex.Box pack {...rest}>
@@ -33,7 +32,6 @@ export const Windows = ({
       className={CSS.BM("windows-control", "minimize")}
       onClick={onMinimize}
       disabled={disabled.includes("minimize")}
-      contrast={contrast}
     >
       <Icon.Subtract />
     </Button>
@@ -41,7 +39,6 @@ export const Windows = ({
       className={CSS.BM("windows-control", "maximize")}
       onClick={onMaximize}
       disabled={disabled.includes("maximize")}
-      contrast={contrast}
     >
       <Icon.Box />
     </Button>
@@ -49,7 +46,6 @@ export const Windows = ({
       onClick={onClose}
       className={CSS.BM("windows-control", "close")}
       disabled={disabled.includes("close")}
-      contrast={contrast}
     >
       <Icon.Close />
     </Button>

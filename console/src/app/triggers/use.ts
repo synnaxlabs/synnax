@@ -12,9 +12,9 @@ import { Drift } from "@synnaxlabs/drift";
 import { Panel, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
-import { Selector } from "@/app/selector";
 import { useSelectorVisible } from "@/app/vis/Selector";
 import { Panel as PlatformPanel } from "@/platform/panel";
+import { Selector } from "@/platform/selector";
 import { Session } from "@/session";
 import { Modals } from "@/session/modals";
 
@@ -46,7 +46,7 @@ export const use = (): void => {
   const createTabEnabled = useSelectorVisible();
   const openSelector = Selector.useOpenTab();
   Triggers.use({
-    triggers: [["Control", "L"]],
+    triggers: [Panel.OVERLAY_TRIGGER],
     loose: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
@@ -60,6 +60,17 @@ export const use = (): void => {
         if (focused != null) sessionDispatch(Session.Panel.startOverlaying({}));
       },
       [getIsOverlaid, getFocusedTab, sessionDispatch],
+    ),
+  });
+  Triggers.use({
+    triggers: [["Escape"]],
+    double: true,
+    callback: useCallback(
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start" || !getIsOverlaid()) return;
+        sessionDispatch(Session.Panel.stopOverlaying({}));
+      },
+      [getIsOverlaid, sessionDispatch],
     ),
   });
   Triggers.use({

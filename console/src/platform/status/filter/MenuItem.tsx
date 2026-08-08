@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Component, type Dialog, Form, type Select, Status } from "@synnaxlabs/pluto";
+import { Component, Form, type position, type Select, Status } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -17,7 +17,7 @@ const TRIGGER_PROPS: Select.MultipleTriggerProps<status.Variant> = {
   variant: "text",
 };
 
-const DIALOG_LOCATION: Dialog.LocationPreference = {
+const DIALOG_LOCATION: position.LocationPreference = {
   targetCorner: location.TOP_RIGHT,
   dialogCorner: location.TOP_LEFT,
 };

@@ -91,7 +91,7 @@ const Internal = (): ReactElement => {
               {name}
             </Breadcrumb.Segment>
             {singleSelectedName !== null && (
-              <Breadcrumb.Segment weight={400} color={8} level="small">
+              <Breadcrumb.Segment weight={400} color={9} level="small">
                 {singleSelectedName}
               </Breadcrumb.Segment>
             )}

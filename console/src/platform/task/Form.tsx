@@ -15,7 +15,6 @@ import {
   Flex,
   type Flux,
   Form as PForm,
-  Icon,
   Input,
   Panel as PlutoPanel,
   Task as PTask,
@@ -76,6 +75,8 @@ export interface FormProps<
 export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
   Form: FC<FormProps<S>>;
+  /** Vendor-specific icon shown on the task's tab name and toolbar button. */
+  Icon: Panel.TabIcon;
   type: z.infer<S["type"]>;
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
@@ -114,6 +115,7 @@ const Header = ({ isSnapshot }: HeaderProps) => (
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
+  Icon: TabIcon,
   schemas,
   type,
   getInitialValues,
@@ -232,7 +234,6 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               x
               className={CSS.B("task-channel-form-container")}
               bordered
-              rounded
               grow
               empty
             >
@@ -249,6 +250,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Content.displayName = `Form(${Form.displayName ?? Form.name})`;
   const RemoteName = ({ taskKey }: { taskKey: task.Key }) => {
     const tabKey = PlutoPanel.useTabKey();
+    const isEditTarget = Panel.useIsNameEditTarget();
     PTask.useEnsureRetrieved({ key: taskKey });
     const name = PTask.useSelectName({ key: taskKey });
     const { update } = PTask.useRename();
@@ -258,9 +260,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     );
     return (
       <>
-        <Icon.Task />
+        <TabIcon />
         <Text.Editable
-          id={Panel.tabNameID(tabKey)}
+          id={isEditTarget ? Panel.tabNameID(tabKey) : undefined}
           value={name}
           onChange={handleChange}
         />
@@ -269,6 +271,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   };
   const LocalName = () => {
     const tabKey = PlutoPanel.useTabKey();
+    const isEditTarget = Panel.useIsNameEditTarget();
     const { deviceKey, rackKey, config, name } = useFormArgs();
     const setView = PlutoPanel.useSetCurrentTabView();
     const handleChange = useCallback(
@@ -280,9 +283,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     );
     return (
       <>
-        <Icon.Task />
+        <TabIcon />
         <Text.Editable
-          id={Panel.tabNameID(tabKey)}
+          id={isEditTarget ? Panel.tabNameID(tabKey) : undefined}
           value={name ?? defaultName}
           onChange={handleChange}
         />
@@ -294,5 +297,5 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     if (taskKey != null) return <RemoteName taskKey={taskKey} />;
     return <LocalName />;
   };
-  return { Content, Name, Icon: Icon.Task };
+  return { Content, Name, Icon: TabIcon };
 };

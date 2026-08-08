@@ -37,7 +37,6 @@ export const ListItem = ({
   ...props
 }: ListItemProps): ReactElement => (
   <Palette.ListItem
-    highlightHovered
     justify="between"
     align="center"
     onSelect={onSelect}

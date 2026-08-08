@@ -497,6 +497,11 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     this.wrapped.lineJoin = value;
   }
 
+  /** @returns the width in CSS pixels of a single device pixel. */
+  get hairlineWidth(): number {
+    return 1 / this.dpr;
+  }
+
   get lineWidth(): number {
     return this.cachedLineWidth ?? this.wrapped.lineWidth;
   }

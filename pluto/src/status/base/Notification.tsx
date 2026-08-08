@@ -66,7 +66,12 @@ export const Notification = ({
         grow
         className={CSS(CSS.BE("notification", "header"))}
       >
-        <Flex.Box x align="center" gap="small">
+        <Flex.Box
+          x
+          align="center"
+          gap="small"
+          className={CSS(CSS.BE("notification", "meta"))}
+        >
           <Text.Text
             level="small"
             status={variant}
@@ -99,7 +104,6 @@ export const Notification = ({
             size="small"
             tooltip="Copy diagnostics"
             square
-            contrast={2}
             textColor={10}
           />
           <Button.Button

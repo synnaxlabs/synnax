@@ -26,9 +26,7 @@ import {
   getLabeledInput,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

@@ -15,11 +15,6 @@ import { type List } from "@/list";
 import { Dialog as SelectDialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type SingleFrameProps } from "@/select/Frame";
 import { SingleTrigger, type SingleTriggerProps } from "@/select/SingleTrigger";
-import {
-  transformDialogVariant,
-  transformTriggerVariant,
-  type Variant,
-} from "@/select/variant";
 
 export interface SingleProps<
   K extends record.Key,
@@ -27,12 +22,13 @@ export interface SingleProps<
 >
   extends
     Omit<SingleFrameProps<K, E>, "multiple" | "children">,
-    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions">,
+    Pick<DialogProps<K>, "emptyContent" | "status" | "onSearch" | "actions" | "footer">,
     Omit<Dialog.FrameProps, "onChange" | "children" | "variant">,
     Pick<SingleTriggerProps, "disabled" | "icon" | "haulType">,
     Pick<List.ItemsProps<K>, "children"> {
   resourceName: string;
-  variant?: Variant;
+  variant?: Dialog.FrameProps["variant"];
+  preview?: boolean;
   triggerProps?: SingleTriggerProps;
   dialogProps?: Dialog.FrameProps;
 }
@@ -55,14 +51,16 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   icon,
   children,
   variant = "connected",
+  preview,
   actions,
+  footer,
   dialogProps,
   triggerProps,
   virtual = true,
   closeDialogOnSelect = true,
   ...rest
 }: SingleProps<K, E>): ReactElement => (
-  <Dialog.Frame {...rest} variant={transformDialogVariant(variant)}>
+  <Dialog.Frame {...rest} variant={variant}>
     <Frame<K, E>
       value={value}
       onChange={onChange}
@@ -80,7 +78,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         icon={icon}
         placeholder={`Select a ${resourceName}`}
         disabled={disabled}
-        variant={transformTriggerVariant(variant)}
+        preview={preview}
         {...triggerProps}
       />
       <SelectDialog<K>
@@ -89,6 +87,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         emptyContent={emptyContent}
         status={status}
         actions={actions}
+        footer={footer}
         {...dialogProps}
       >
         {children}

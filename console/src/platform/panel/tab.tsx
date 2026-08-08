@@ -36,8 +36,8 @@ export interface UseTombstone {
 export interface Tab {
   Content: Content;
   Name: TabName;
-  /** Represents the tab as a glyph alone. Rendered inside the tab's panel and
-   * tab scope. */
+  /** Represents the tab as a glyph alone, e.g. on the bottom toolbar button.
+   * Rendered inside the tab's panel and tab scope. */
   Icon: TabIcon;
   Toolbar?: Toolbar;
   /**
@@ -151,6 +151,16 @@ export const createStaticTabName = ({
 /** tabNameID returns the DOM id of a tab's editable name, the target of Text.edit. */
 export const tabNameID = (tabKey: string): string => `tab-name-${tabKey}`;
 
+// The selector chip is the canonical rename target: only it carries the tab-name
+// DOM id. Secondary Name mounts (e.g. the toolbar header) set this false so the
+// id stays unique and Text.edit keeps resolving to the chip.
+const [NameEditTargetContext, useIsNameEditTarget] = context.create<boolean>({
+  defaultValue: true,
+  displayName: "Tabs.NameEditTargetContext",
+});
+
+export { NameEditTargetContext, useIsNameEditTarget };
+
 /**
  * editTabName starts an in-place edit of the tab's name. Tabs with static names carry no
  * id, so editing one is a no-op.
@@ -173,6 +183,7 @@ export const createEditableTabName = (
 ): TabName => {
   const Name: TabName = () => {
     const tabKey = Panel.useTabKey();
+    const isEditTarget = useIsNameEditTarget();
     const { key } = Panel.useSelectTabResource();
     service.useEnsureRetrieved({ key });
     const name = service.useSelectName({ key });
@@ -181,7 +192,7 @@ export const createEditableTabName = (
       <>
         {icon}
         <Text.Editable
-          id={tabNameID(tabKey)}
+          id={isEditTarget ? tabNameID(tabKey) : undefined}
           value={name}
           onChange={(name) => update({ key, name })}
         />

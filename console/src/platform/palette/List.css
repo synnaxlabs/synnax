@@ -11,7 +11,7 @@
 
 .console-palette__list {
     overflow-y: auto;
-    border-bottom-left-radius: 1rem;
-    border-bottom-right-radius: 1rem;
+    border-bottom-left-radius: var(--pluto-border-radius-small);
+    border-bottom-right-radius: var(--pluto-border-radius-small);
     position: relative;
 }

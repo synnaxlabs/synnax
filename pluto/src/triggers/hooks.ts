@@ -10,16 +10,22 @@
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
 import { type RefObject, useCallback, useEffect, useState } from "react";
 
-import { useStateRef } from "@/hooks/ref";
+import { useStateRef, useSyncedRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
 import { useContext } from "@/triggers/Provider";
+import { type Condition, resolveCondition, useScope } from "@/triggers/Scope";
 import {
+  determineMode,
   diff,
   filter,
+  flattenConfig,
   type MatchOptions,
+  type ModeConfig,
   purge,
+  REDO,
   type Stage,
   type Trigger,
+  UNDO,
 } from "@/triggers/triggers";
 
 export interface UseEvent {
@@ -42,6 +48,12 @@ export interface UseProps extends MatchOptions {
   callback?: (e: UseEvent) => void;
   regionMustBeElement?: boolean;
   /**
+   * Withholds events from this subscriber while it resolves false. Use it for conditions
+   * the subscriber itself owns, such as whether its content is editable. Whether the
+   * surrounding view is the one the user is working in belongs in a {@link Scope}.
+   */
+  enabled?: Condition;
+  /**
    * Priority of this subscriber. Higher-priority subscribers receive events
    * before lower-priority ones and may call stopPropagation on the event to
    * prevent lower-priority subscribers from receiving it. Defaults to 0.
@@ -57,8 +69,11 @@ export const use = ({
   double,
   regionMustBeElement,
   priority,
+  enabled = true,
 }: UseProps): void => {
   const { listen } = useContext();
+  const scope = useScope();
+  const activeRef = useSyncedRef(() => scope() && resolveCondition(enabled));
   let baseTriggers: Trigger[];
   if (triggers != null && triggers?.length > 0 && typeof triggers[0] === "string")
     baseTriggers = [triggers as Trigger];
@@ -88,8 +103,10 @@ export const use = ({
         cursor: e.cursor,
         stopPropagation: e.stopPropagation,
       };
-      if (added.length > 0)
+      if (added.length > 0 && activeRef.current())
         f?.({ ...base, stage: "start", triggers: added, prevTriggers: e.prev });
+      // A release lands even while inactive, so a key held when the subscriber went
+      // inactive can never stick.
       if (removed.length > 0)
         f?.({ ...base, stage: "end", triggers: removed, prevTriggers: e.prev });
     }, priority);
@@ -110,6 +127,38 @@ const filterInRegion = (
     const rg = regionMustBeElement ?? t.some((v) => v.includes("Mouse"));
     if (rg) return box.contains(b, cursor) && target === region.current;
     return box.contains(b, cursor);
+  });
+};
+
+const UNDO_REDO_CONFIG: ModeConfig<"undo" | "redo" | "default"> = {
+  undo: [UNDO],
+  redo: [REDO],
+  default: [],
+  defaultMode: "default",
+};
+const UNDO_REDO_TRIGGERS = flattenConfig(UNDO_REDO_CONFIG);
+
+export interface UseUndoRedoProps {
+  undo: () => void;
+  redo: () => void;
+  enabled?: Condition;
+}
+
+/** useUndoRedo binds the standard undo and redo shortcuts to the given handlers. */
+export const useUndoRedo = ({ undo, redo, enabled }: UseUndoRedoProps): void => {
+  use({
+    triggers: UNDO_REDO_TRIGGERS,
+    loose: true,
+    enabled,
+    callback: useCallback(
+      ({ triggers, stage }: UseEvent) => {
+        if (stage !== "start") return;
+        const mode = determineMode(UNDO_REDO_CONFIG, triggers);
+        if (mode === "undo") undo();
+        else if (mode === "redo") redo();
+      },
+      [undo, redo],
+    ),
   });
 };
 

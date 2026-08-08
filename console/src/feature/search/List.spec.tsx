@@ -17,9 +17,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Channel } from "@/feature/channel";
 import { Search } from "@/feature/search";
 import { Search as PlatformSearch } from "@/platform/search";
-import { createConsoleWrapper, stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

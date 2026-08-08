@@ -95,41 +95,21 @@ export const ButtonShowcase = () => (
           </Flex.Box>
           <Flex.Box y gap="small">
             <Text.Text level="small" weight={500}>
-              Shadow
-            </Text.Text>
-            <Button.Button size="huge" variant="shadow">
-              Hello
-            </Button.Button>
-            <Button.Button size="large" variant="shadow">
-              Hello
-            </Button.Button>
-            <Button.Button size="medium" variant="shadow">
-              Hello
-            </Button.Button>
-            <Button.Button size="small" variant="shadow">
-              Hello
-            </Button.Button>
-            <Button.Button size="tiny" variant="shadow">
-              Hello
-            </Button.Button>
-          </Flex.Box>
-          <Flex.Box y gap="small">
-            <Text.Text level="small" weight={500}>
               Preview
             </Text.Text>
-            <Button.Button size="huge" variant="preview">
+            <Button.Button size="huge" preview>
               Hello
             </Button.Button>
-            <Button.Button size="large" variant="preview">
+            <Button.Button size="large" preview>
               Hello
             </Button.Button>
-            <Button.Button size="medium" variant="preview">
+            <Button.Button size="medium" preview>
               Hello
             </Button.Button>
-            <Button.Button size="small" variant="preview">
+            <Button.Button size="small" preview>
               Hello
             </Button.Button>
-            <Button.Button size="tiny" variant="preview">
+            <Button.Button size="tiny" preview>
               Hello
             </Button.Button>
           </Flex.Box>
@@ -161,11 +141,7 @@ export const ButtonShowcase = () => (
               <Icon.Add />
               Hello
             </Button.Button>
-            <Button.Button size="large" variant="shadow">
-              <Icon.Add />
-              Hello
-            </Button.Button>
-            <Button.Button size="large" variant="preview">
+            <Button.Button size="large" preview>
               <Icon.Add />
               Hello
             </Button.Button>
@@ -186,10 +162,7 @@ export const ButtonShowcase = () => (
             <Button.Button size="large" variant="outlined">
               <Icon.Auto />
             </Button.Button>
-            <Button.Button size="large" variant="shadow">
-              <Icon.Auto />
-            </Button.Button>
-            <Button.Button size="large" variant="preview">
+            <Button.Button size="large" preview>
               <Icon.Auto />
             </Button.Button>
           </Flex.Box>
@@ -214,10 +187,7 @@ export const ButtonShowcase = () => (
             <Button.Button disabled variant="text">
               Hello
             </Button.Button>
-            <Button.Button disabled variant="shadow">
-              Hello
-            </Button.Button>
-            <Button.Button disabled variant="preview">
+            <Button.Button disabled preview>
               Hello
             </Button.Button>
           </Flex.Box>
@@ -259,19 +229,19 @@ export const ButtonShowcase = () => (
             <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
               Level 1
             </Text.Text>
-            <Button.Button contrast={1}>Hello</Button.Button>
+            <Button.Button>Hello</Button.Button>
           </Flex.Box>
           <Flex.Box y background={2} style={{ padding: "2rem" }} bordered rounded={1}>
             <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
               Level 2
             </Text.Text>
-            <Button.Button contrast={2}>Hello</Button.Button>
+            <Button.Button>Hello</Button.Button>
           </Flex.Box>
           <Flex.Box y background={3} style={{ padding: "2rem" }} bordered rounded={1}>
             <Text.Text level="small" weight={500} style={{ marginBottom: "1rem" }}>
               Level 3
             </Text.Text>
-            <Button.Button contrast={3}>Hello</Button.Button>
+            <Button.Button>Hello</Button.Button>
           </Flex.Box>
         </Flex.Box>
       </SubcategorySection>
@@ -294,10 +264,7 @@ export const ButtonShowcase = () => (
             <Button.Button status="warning" variant="text">
               Hello
             </Button.Button>
-            <Button.Button status="warning" variant="shadow">
-              Hello
-            </Button.Button>
-            <Button.Button status="warning" variant="preview">
+            <Button.Button status="warning" preview>
               Hello
             </Button.Button>
           </Flex.Box>
@@ -312,10 +279,7 @@ export const ButtonShowcase = () => (
             <Button.Button status="error" variant="text">
               Hello
             </Button.Button>
-            <Button.Button status="error" variant="shadow">
-              Hello
-            </Button.Button>
-            <Button.Button status="error" variant="preview">
+            <Button.Button status="error" preview>
               Hello
             </Button.Button>
           </Flex.Box>

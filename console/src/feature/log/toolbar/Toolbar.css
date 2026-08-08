@@ -16,10 +16,6 @@
         width: 66px;
     }
 
-    .console-log-toolbar__tabs {
-        border-bottom: none;
-    }
-
     .console-log__toolbar-properties {
         padding: 2rem;
         gap: 5rem;

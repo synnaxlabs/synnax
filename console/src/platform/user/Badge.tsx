@@ -24,13 +24,13 @@ export const Badge = (): ReactElement | null => {
     u?.firstName != null && u?.firstName != "" ? u.firstName : username;
   return (
     <Dialog.Frame>
-      <Dialog.Trigger contrast={2} hideCaret textColor={10} gap="small" weight={400}>
+      <Dialog.Trigger hideCaret textColor={10} gap="small" weight={400}>
         <Icon.User />
         {displayName}
       </Dialog.Trigger>
       <Dialog.Dialog
         bordered
-        borderColor={6}
+        borderColor={7}
         className={CSS.BE("user-badge", "dialog")}
       >
         <Button.Button onClick={handleLogout} variant="text" full="x">

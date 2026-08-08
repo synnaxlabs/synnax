@@ -409,6 +409,92 @@ describe("Triggers", () => {
     });
   });
 
+  describe("scope", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    interface RenderScopedProps {
+      active: Triggers.Condition;
+      inner?: Triggers.Condition;
+      enabled?: Triggers.Condition;
+    }
+
+    const renderScoped = ({ active, inner, enabled }: RenderScopedProps) => {
+      const callback = vi.fn();
+      const C = () => {
+        Triggers.use({ callback, triggers: [["A"]], enabled });
+        return <div>Hello</div>;
+      };
+      const subject =
+        inner == null ? (
+          <C />
+        ) : (
+          <Triggers.Scope active={inner}>
+            <C />
+          </Triggers.Scope>
+        );
+      render(
+        <Triggers.Provider>
+          <Triggers.Scope active={active}>{subject}</Triggers.Scope>
+        </Triggers.Provider>,
+      );
+      const stages = () => callback.mock.calls.map(([e]) => e.stage);
+      return { stages };
+    };
+
+    const pressA = () => {
+      fireEvent.keyDown(document.body, { code: "KeyA" });
+      fireEvent.keyUp(document.body, { code: "KeyA" });
+      // Clears the provider's double-press window so the next press is a fresh one.
+      vi.advanceTimersByTime(500);
+    };
+
+    it("should deliver triggers while active", () => {
+      const { stages } = renderScoped({ active: true });
+      pressA();
+      expect(stages()).toEqual(["start", "end"]);
+    });
+
+    it("should withhold the press while inactive", () => {
+      const { stages } = renderScoped({ active: false });
+      pressA();
+      expect(stages()).not.toContain("start");
+    });
+
+    it("should deliver the release while inactive so a held key cannot stick", () => {
+      const { stages } = renderScoped({ active: false });
+      pressA();
+      expect(stages()).toEqual(["end"]);
+    });
+
+    it("should read a getter at fire time rather than at render", () => {
+      let active = false;
+      const { stages } = renderScoped({ active: () => active });
+      pressA();
+      expect(stages()).not.toContain("start");
+      active = true;
+      pressA();
+      expect(stages()).toContain("start");
+    });
+
+    it("should not let an inner scope re-enable an outer one", () => {
+      const { stages } = renderScoped({ active: false, inner: true });
+      pressA();
+      expect(stages()).not.toContain("start");
+    });
+
+    it("should withhold the press when enabled is false inside an active scope", () => {
+      const { stages } = renderScoped({ active: true, enabled: false });
+      pressA();
+      expect(stages()).not.toContain("start");
+    });
+  });
+
   describe("region-based triggers", () => {
     it("should only trigger when cursor is in the specified region", async () => {
       Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);

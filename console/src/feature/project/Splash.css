@@ -9,38 +9,43 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-project-splash {
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-    box-shadow: var(--pluto-shadow-v0);
+.console-project-splash__header {
+    padding: 2.5rem 3rem;
 }
 
-.console-project-splash__content {
-    cursor: default;
-}
-
-.console-project-splash__logo {
-    height: 10rem;
-    cursor: default;
-}
-
-.console-project-splash__container {
-    width: 800px;
-    height: 400px;
-}
-
-.console-project-splash__list {
-    width: 400px;
+/* Chromeless search line: the card frames it, so the input sheds its own box
+   and a hairline seats it above the list. Padding lands the search icon on the
+   header's 3rem gutter. */
+.pluto-input.console-project-splash__search.console-project-splash__search {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    padding: 0 1.5rem;
     flex-shrink: 0;
 }
 
-.console-project-splash__form {
-    padding: 6rem;
-    width: 400px;
-    flex-shrink: 0;
+/* The scroll region; keeps the create row pinned below it. */
+.console-project-splash__items.console-project-splash__items {
+    overflow-y: auto;
+    min-height: 0;
+    padding: 1.5rem;
 }
 
-.console-project-splash-list-header {
-    height: 6rem;
+.console-project-splash__items .pluto-list__virtualizer {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.console-project-splash__items .pluto-list__item {
+    min-height: 9rem;
+    padding: 2rem 3rem;
+    border-radius: var(--pluto-border-radius-medium);
+    gap: 2rem;
+}
+
+.console-project-splash__denied {
+    padding: 3rem;
+    text-align: center;
 }

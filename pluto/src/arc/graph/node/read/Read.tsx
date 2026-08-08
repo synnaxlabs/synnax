@@ -25,7 +25,15 @@ export const Symbol = ({ config: { channel } }: SymbolProps) => {
   const name = Channel.useRetrieve({ key: channel }).data?.name ?? "Channel";
 
   return (
-    <Flex.Box pack x align="center" background={1} bordered borderColor={6} rounded={1}>
+    <Flex.Box
+      pack
+      x
+      align="center"
+      background={1}
+      bordered
+      borderColor={6}
+      rounded="small"
+    >
       <Flex.Box
         className={CSS.BE("arc", "read-icon-frame")}
         align="center"

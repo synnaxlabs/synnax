@@ -21,16 +21,4 @@
     & .pluto-log__content {
         height: 100%;
     }
-
-    & .pluto-log__live {
-        position: absolute;
-        top: 2rem;
-        right: 2rem;
-        & .pluto-icon {
-            color: var(--pluto-success-z) !important;
-        }
-        &.pluto--active .pluto-icon {
-            color: var(--pluto-error-z) !important;
-        }
-    }
 }

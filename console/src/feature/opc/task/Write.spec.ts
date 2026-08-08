@@ -15,16 +15,9 @@ import { describe, expect, it } from "vitest";
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
 import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
-import {
-  awaitTextEditingElement,
-  commitTextEdit,
-  stubGeometry,
-  uniqueName,
-} from "@/testutil";
+import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 const createOutputChannel = (): OPC.Task.OutputChannel => {
   // Underscore-free so the device-properties record keys survive the server's

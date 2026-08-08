@@ -10,17 +10,18 @@
 import { group, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
 import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { renderOntologyTree } from "@/platform/tree/treeTestutil";
+import { createConsoleWrapper, uniqueName, withControlHeld } from "@/testutil";
 
 const client = createTestClient();
 
-const renderTree = async (root: ontology.ID | null, items: Tree.Items = {}) => {
+const createWrapper = async (items: Tree.Items = {}) => {
   const { wrapper: Console } = await createConsoleWrapper({ client });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -29,8 +30,11 @@ const renderTree = async (root: ontology.ID | null, items: Tree.Items = {}) => {
       </Haul.Provider>
     </Console>
   );
-  return render(<Tree.Tree root={root} />, { wrapper: Wrapper });
+  return Wrapper;
 };
+
+const renderTree = async (root: ontology.ID | null, items: Tree.Items = {}) =>
+  render(<Tree.Tree root={root} />, { wrapper: await createWrapper(items) });
 
 describe("Tree.Tree", () => {
   it("should render nothing when the root is null", async () => {
@@ -54,6 +58,77 @@ describe("Tree.Tree", () => {
     expandTreeRow(groupName);
     await waitFor(() => expect(screen.getByText(childName)).toBeTruthy());
     await client.groups.delete(child.key);
+  });
+
+  it("should keep a loaded subtree when its parent is collapsed and re-expanded", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const parent = await client.groups.create({
+      parent: group.ontologyID(container.key),
+      name: uniqueName("parent"),
+    });
+    const child = await client.groups.create({
+      parent: group.ontologyID(parent.key),
+      name: uniqueName("child"),
+    });
+    const grandchild = await client.groups.create({
+      parent: group.ontologyID(child.key),
+      name: uniqueName("grandchild"),
+    });
+    const parentID = group.ontologyID(parent.key);
+    await renderTree(group.ontologyID(container.key));
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await screen.findByText(child.name);
+    expandTreeRow(child.name);
+    await screen.findByText(grandchild.name);
+    expandTreeRow(parent.name);
+    await waitFor(() => expect(screen.queryByText(grandchild.name)).toBeNull());
+    expandTreeRow(parent.name);
+    // Joining the re-expansion's in-flight children fetch flushes the tree's
+    // update, so the assertion sees the state the fetch produced.
+    await act(async () => {
+      await client.ontology.children.retrieve({ ids: parentID });
+    });
+    expect(screen.getByText(grandchild.name)).toBeTruthy();
+  });
+
+  it("should keep loaded children when the root id is rebuilt on every render", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const containerID = group.ontologyID(container.key);
+    const parent = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("parent"),
+    });
+    const child = await client.groups.create({
+      parent: group.ontologyID(parent.key),
+      name: uniqueName("child"),
+    });
+    // Toolbars build the root id inline, so every render hands the tree a new
+    // object with the same contents.
+    const Harness = (): ReactElement => {
+      const [, setRenders] = useState(0);
+      return (
+        <>
+          <button onClick={() => setRenders((prev) => prev + 1)}>rerender</button>
+          <Tree.Tree root={group.ontologyID(container.key)} />
+        </>
+      );
+    };
+    render(<Harness />, { wrapper: await createWrapper() });
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await screen.findByText(child.name);
+    fireEvent.click(screen.getByText("rerender"));
+    await act(async () => {
+      await client.ontology.children.retrieve({ ids: containerID });
+    });
+    expect(screen.getByText(child.name)).toBeTruthy();
   });
 
   describe("context menu", () => {
@@ -94,6 +169,47 @@ describe("Tree.Tree", () => {
       expect(props.selection.ids[0].key).toBe(child.key);
       expect(ontology.idsEqual(props.selection.rootID, parentID)).toBe(true);
       expect(ontology.idsEqual(props.selection.parentID, parentID)).toBe(true);
+    });
+
+    it("should drop a deleted resource from the selection backing the menu", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("parent"),
+      });
+      const parentID = group.ontologyID(parent.key);
+      const doomed = await client.groups.create({
+        parent: parentID,
+        name: uniqueName("doomed"),
+      });
+      const survivor = await client.groups.create({
+        parent: parentID,
+        name: uniqueName("survivor"),
+      });
+      const menuSpy = vi.fn();
+      const TreeContextMenu = (props: Tree.ContextMenuProps): ReactElement => {
+        menuSpy(props);
+        return <span>group service menu</span>;
+      };
+      const items: Tree.Items = {
+        group: Tree.createItem({ type: "group", ContextMenu: TreeContextMenu }),
+      };
+      await renderOntologyTree({ client, root: parentID, items });
+      await screen.findByText(doomed.name);
+      await screen.findByText(survivor.name);
+      // Both must be selected: the menu falls back to the live selection only when
+      // the right-clicked row is part of it.
+      fireEvent.click(getTreeRow(doomed.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(survivor.name)));
+      await act(async () => {
+        await client.groups.delete(doomed.key);
+      });
+      await waitFor(() => expect(screen.queryByText(doomed.name)).toBeNull());
+      // The deleted group is gone from the tree, so its depth is unknowable. Left in
+      // the selection it takes down every later right-click.
+      fireEvent.contextMenu(getTreeRow(survivor.name));
+      await waitFor(() => expect(screen.getByText("group service menu")).toBeTruthy());
+      const [props] = menuSpy.mock.calls.at(-1) as [Tree.ContextMenuProps];
+      expect(props.selection.ids.map(({ key }) => key)).toEqual([survivor.key]);
     });
   });
 
@@ -157,6 +273,99 @@ describe("Tree.Tree", () => {
         ids: group.ontologyID(source.key),
       });
       expect(children.map((c) => c.id.key)).not.toContain(moved.key);
+    });
+  });
+
+  describe("dragging a multiple selection", () => {
+    const DROPPABLE: Tree.Items = {
+      group: Tree.createItem({ type: "group", canDrop: () => true }),
+    };
+
+    const createGroup = async (parent: ontology.ID, label: string) =>
+      await client.groups.create({ parent, name: uniqueName(label) });
+
+    const childKeysOf = async (id: ontology.ID): Promise<string[]> => {
+      const children = await client.ontology.children.retrieve({ ids: id });
+      return children.map((c) => c.id.key);
+    };
+
+    it("should move only the parent when a parent and its own child are selected", async () => {
+      const container = await createGroup(ontology.ROOT_ID, "container");
+      const containerID = group.ontologyID(container.key);
+      const folder = await createGroup(containerID, "folder");
+      const folderID = group.ontologyID(folder.key);
+      const report = await createGroup(folderID, "report");
+      const dest = await createGroup(containerID, "dest");
+      await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
+      await screen.findByText(folder.name);
+      expandTreeRow(folder.name);
+      await screen.findByText(report.name);
+      // The child is clicked first: a plain click on the folder row would toggle it
+      // shut and take the child's row with it.
+      fireEvent.click(getTreeRow(report.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(folder.name)));
+      fireEvent.dragStart(getTreeRow(folder.name));
+      fireEvent.drop(getTreeRow(dest.name));
+      await waitFor(async () =>
+        expect(await childKeysOf(group.ontologyID(dest.key))).toContain(folder.key),
+      );
+      // The report rides along inside the folder. Moving it explicitly would
+      // re-parent it onto the destination as a sibling of its own folder.
+      expect(await childKeysOf(group.ontologyID(dest.key))).not.toContain(report.key);
+      expect(await childKeysOf(folderID)).toContain(report.key);
+    });
+
+    it("should move both when the selection spans depths but neither contains the other", async () => {
+      const container = await createGroup(ontology.ROOT_ID, "container");
+      const containerID = group.ontologyID(container.key);
+      const loose = await createGroup(containerID, "loose");
+      const folder = await createGroup(containerID, "folder");
+      const folderID = group.ontologyID(folder.key);
+      const nested = await createGroup(folderID, "nested");
+      const dest = await createGroup(containerID, "dest");
+      await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
+      await screen.findByText(folder.name);
+      expandTreeRow(folder.name);
+      await screen.findByText(nested.name);
+      fireEvent.click(getTreeRow(loose.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(nested.name)));
+      fireEvent.dragStart(getTreeRow(loose.name));
+      fireEvent.drop(getTreeRow(dest.name));
+      await waitFor(async () =>
+        expect(await childKeysOf(group.ontologyID(dest.key))).toContain(loose.key),
+      );
+      // Deeper does not mean contained: nested is selected in its own right.
+      expect(await childKeysOf(group.ontologyID(dest.key))).toContain(nested.key);
+      expect(await childKeysOf(folderID)).not.toContain(nested.key);
+    });
+
+    it("should detach each item from its own parent when the selection spans parents", async () => {
+      const container = await createGroup(ontology.ROOT_ID, "container");
+      const containerID = group.ontologyID(container.key);
+      const folderA = await createGroup(containerID, "folderA");
+      const folderAID = group.ontologyID(folderA.key);
+      const reportA = await createGroup(folderAID, "reportA");
+      const folderB = await createGroup(containerID, "folderB");
+      const folderBID = group.ontologyID(folderB.key);
+      const reportB = await createGroup(folderBID, "reportB");
+      const dest = await createGroup(containerID, "dest");
+      await renderOntologyTree({ client, root: containerID, items: DROPPABLE });
+      await screen.findByText(folderA.name);
+      expandTreeRow(folderA.name);
+      await screen.findByText(reportA.name);
+      expandTreeRow(folderB.name);
+      await screen.findByText(reportB.name);
+      fireEvent.click(getTreeRow(reportA.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(reportB.name)));
+      fireEvent.dragStart(getTreeRow(reportA.name));
+      fireEvent.drop(getTreeRow(dest.name));
+      await waitFor(async () =>
+        expect(await childKeysOf(group.ontologyID(dest.key))).toContain(reportA.key),
+      );
+      expect(await childKeysOf(group.ontologyID(dest.key))).toContain(reportB.key);
+      expect(await childKeysOf(folderAID)).not.toContain(reportA.key);
+      // reportB left folderB, not the parent that reportA happened to have.
+      expect(await childKeysOf(folderBID)).not.toContain(reportB.key);
     });
   });
 

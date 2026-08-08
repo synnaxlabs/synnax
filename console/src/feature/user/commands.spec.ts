@@ -14,9 +14,6 @@ import { describe, expect, it } from "vitest";
 import { renderPalette } from "@/feature/command/testutil";
 import { User } from "@/feature/user";
 import { findModalButton } from "@/platform/tree/menuTestutil";
-import { stubGeometry } from "@/testutil";
-
-stubGeometry();
 
 const client = createTestClient();
 

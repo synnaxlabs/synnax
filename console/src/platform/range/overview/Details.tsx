@@ -49,7 +49,7 @@ const ParentRangeButton = ({
         Child Range of
       </Text.Text>
       <Button.Button
-        color={8}
+        color={9}
         variant="text"
         weight={400}
         gap="small"
@@ -219,7 +219,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             )}
           </Form.Field>
           <Form.Field<string[]> required={false} path="labels">
-            {({ variant: _, ...p }) => (
+            {({ preview: _, ...p }) => (
               <Label.SelectMultiple
                 zIndex={100}
                 variant="floating"

@@ -187,7 +187,7 @@ export const Browser = ({ device }: BrowserProps) => {
   else if (initialLoading)
     content = (
       <Flex.Box center>
-        <Icon.Loading className={CSS.BE("opc-browser", "loading-icon")} color={7} />
+        <Icon.Loading className={CSS.BE("opc-browser", "loading-icon")} color={9} />
       </Flex.Box>
     );
   else
@@ -211,8 +211,7 @@ export const Browser = ({ device }: BrowserProps) => {
           <Button.Button
             onClick={refresh}
             disabled={initialLoading && status?.variant !== "error"}
-            sharp
-            contrast={2}
+            size="medium"
             variant="text"
           >
             <Icon.Refresh />

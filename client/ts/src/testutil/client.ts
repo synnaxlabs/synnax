@@ -28,7 +28,11 @@ export const TEST_CLIENT_PARAMS: SynnaxParams = {
 // calls leak clients created inside test bodies. This module-level hook registers
 // during spec collection (import time) and covers every call site.
 const openClients: Synnax[] = [];
-afterAll(() => openClients.forEach((client) => client.close()));
+// Awaited so every close finishes before vitest tears down the worker; a close
+// still in flight at teardown races its logging against the closing RPC channel.
+afterAll(async () => {
+  await Promise.all(openClients.map(async (client) => await client.close()));
+});
 
 /**
  * Creates a client connected to the local test cluster. The client is closed

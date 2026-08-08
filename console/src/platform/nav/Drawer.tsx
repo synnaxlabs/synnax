@@ -74,9 +74,9 @@ export const Drawer = ({
       onMouseLeave={handleMouseLeave}
       onResize={handleResize}
       background={0}
-      rounded={1}
+      rounded="large"
       bordered
-      borderColor={5}
+      borderColor={6}
       {...rest}
     >
       <Errors.Boundary>{collapsed ? null : children}</Errors.Boundary>

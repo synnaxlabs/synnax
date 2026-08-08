@@ -157,7 +157,6 @@ export const DragButton = ({
       tabIndex={-1}
       onDoubleClick={handleDoubleClick}
       onClick={preventDefault}
-      contrast={0}
       textColor={9}
       disabled={disabled}
       {...rest}

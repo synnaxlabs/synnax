@@ -14,6 +14,7 @@ import { Auth } from "@/feature/auth";
 import { Cluster } from "@/feature/cluster";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
+import { createCluster } from "@/session/cluster/testutil";
 import {
   createSessionConsoleWrapper,
   pinLocationOrigin,
@@ -148,15 +149,7 @@ describe("auth guard", () => {
         [Session.Cluster.SLICE_NAME]: {
           ...Session.Cluster.ZERO_SLICE_STATE,
           clusters: {
-            [DEAD_KEY]: {
-              key: DEAD_KEY,
-              name: "Dead",
-              host: "localhost",
-              port: 9098,
-              username: "synnax",
-              password: "seldon",
-              secure: false,
-            },
+            [DEAD_KEY]: createCluster(DEAD_KEY, { name: "Dead", port: 9098 }),
           },
           selected: DEAD_KEY,
         },

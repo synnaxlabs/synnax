@@ -22,11 +22,10 @@
         cursor: pointer;
     }
 
-    &:focus-within {
+    &:has(:focus-visible) {
         .pluto-input__checkbox-indicator {
-            box-shadow:
-                0 0 0 2px var(--pluto-gray-l0),
-                0 0 0 3px var(--pluto-primary-z);
+            outline: 1px solid var(--pluto-primary-z);
+            outline-offset: var(--pluto-focus-ring-offset, 2px);
         }
     }
 
@@ -46,13 +45,13 @@
         display: inline-block;
         width: round(2.666rem, 1px);
         height: round(2.666rem, 1px);
-        background: var(--pluto-gray-l1);
-        border: var(--pluto-border-l5);
+        background: var(--pluto-gray-l3);
+        border: var(--pluto-border-l6);
         border-radius: 0.5rem;
         transition:
-            background-color 0.15s ease,
-            border-color 0.15s ease,
-            outline-color 0.15s ease;
+            background-color 0.1s ease,
+            border-color 0.1s ease,
+            outline-color 0.1s ease;
         cursor: pointer;
     }
 
@@ -154,6 +153,27 @@
         }
     }
 
+    /* Icon skin: the supplied glyph IS the indicator, so the box chrome and the
+       check glyph go away entirely. */
+    &.pluto--icon {
+        .pluto-input__checkbox-indicator,
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
+            width: auto;
+            height: auto;
+            background: none;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: round(2.333rem, 1px);
+        }
+
+        .pluto-input__checkbox-indicator::after,
+        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator::after {
+            display: none;
+        }
+    }
+
     &.pluto--disabled {
         * {
             cursor: not-allowed !important;
@@ -180,7 +200,7 @@
         .pluto-input__checkbox-indicator::after {
             border-color: color-mix(
                 in srgb,
-                var(--pluto-gray-l6),
+                var(--pluto-text-disabled),
                 var(--pluto-text-on-primary)
             );
         }

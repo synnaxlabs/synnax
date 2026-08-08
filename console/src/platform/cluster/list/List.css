@@ -14,5 +14,19 @@
 }
 
 .console-cluster-list__header {
-    padding: 0.666rem;
+    padding: 2.5rem 3rem;
+}
+
+/* The scroll region; keeps the add row pinned below it. */
+.console-cluster-list__items.console-cluster-list__items {
+    overflow-y: auto;
+    min-height: 0;
+    padding: 1.5rem;
+    gap: 1rem;
+}
+
+.console-cluster-list-item.console-cluster-list-item {
+    min-height: 9rem;
+    padding: 2rem 3rem;
+    border-radius: var(--pluto-border-radius-medium);
 }

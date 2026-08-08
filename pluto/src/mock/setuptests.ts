@@ -30,6 +30,9 @@ beforeAll(() => {
   HTMLElement.prototype.setPointerCapture = () => {};
   HTMLElement.prototype.releasePointerCapture = () => {};
   HTMLElement.prototype.hasPointerCapture = () => false;
+  // jsdom does not implement scrollIntoView; Tabs.Selector calls it to reveal the
+  // selected tab.
+  Element.prototype.scrollIntoView = () => {};
 });
 
 afterAll(() => {

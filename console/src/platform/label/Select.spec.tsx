@@ -19,7 +19,6 @@ import {
   createConsoleWrapper,
   findDialogTrigger,
   getIconButton,
-  stubGeometry,
   uniqueName,
 } from "@/testutil";
 
@@ -41,8 +40,6 @@ const openAddModal = async (): Promise<void> => {
   const addIcon = await waitFor(() => getIconButton(document.body, "add"));
   fireEvent.click(addIcon);
 };
-
-stubGeometry();
 
 describe("Label.Select", () => {
   it("should pass the clicked label's key to onChange in SelectSingle", async () => {
@@ -72,12 +69,16 @@ describe("Label.Select", () => {
   it("should open the label editor from the SelectSingle add action", async () => {
     await renderSelect(<Label.SelectSingle value={undefined} onChange={vi.fn()} />);
     await openAddModal();
-    await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
+    );
   });
 
   it("should open the label editor from the SelectMultiple add action", async () => {
     await renderSelect(<Label.SelectMultiple value={[]} onChange={vi.fn()} />);
     await openAddModal();
-    await waitFor(() => expect(screen.getByText("Search labels")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
+    );
   });
 });

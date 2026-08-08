@@ -57,14 +57,16 @@ describe("Docs", () => {
       expect(src).toContain("noHeader=true");
     });
 
-    it("should show the loading watermark until the iframe finishes loading", async () => {
+    it("should show the loading orbital until the iframe finishes loading", async () => {
       const { container } = await renderWithConsole(<Docs.Docs />);
       await waitFor(() => expect(container.querySelector("iframe")).not.toBeNull());
-      expect(container.querySelector("svg")).not.toBeNull();
+      expect(container.querySelector(".console-docs__loading")).not.toBeNull();
       act(() => {
         fireEvent.load(getIframe(container));
       });
-      await waitFor(() => expect(container.querySelector("svg")).toBeNull());
+      await waitFor(() =>
+        expect(container.querySelector(".console-docs__loading")).toBeNull(),
+      );
     });
 
     it("should dispatch a location update when the frame posts a message", async () => {

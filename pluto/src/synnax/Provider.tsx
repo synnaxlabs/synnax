@@ -112,15 +112,27 @@ const addVersionMismatchStatus = (
 
 interface TestProviderProps extends PropsWithChildren {
   client: Synnax | null;
+  status?: connection.Status;
 }
 
-export const TestProvider = ({ children, client }: TestProviderProps): ReactElement => {
+export const TestProvider = ({
+  children,
+  client,
+  status,
+}: TestProviderProps): ReactElement => {
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
     state: { props: null },
   });
-  const value = useMemo(() => ({ ...ZERO_CONTEXT_VALUE, client }), [client]);
+  const value = useMemo(
+    () => ({
+      ...ZERO_CONTEXT_VALUE,
+      client,
+      status: status ?? ZERO_CONTEXT_VALUE.status,
+    }),
+    [client, status],
+  );
   return (
     <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
@@ -187,7 +199,9 @@ export const Provider = ({
     const detach = client.connection.onChange(handleChange);
     return () => {
       detach();
-      client.close();
+      // Effect cleanup cannot await. The failure is logged rather than pushed
+      // through handleError: a status for a client the user already left is noise.
+      client.close().catch((e: unknown) => console.error("failed to close client", e));
       setState(ZERO_CONTEXT_VALUE);
     };
   }, [connParams, handleChange, handleError]);

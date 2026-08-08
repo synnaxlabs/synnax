@@ -22,6 +22,21 @@
     &.pluto--rounded {
         border-radius: var(--pluto-border-radius);
     }
+    &.pluto--rounded-tiny {
+        border-radius: var(--pluto-border-radius-tiny);
+    }
+    &.pluto--rounded-small {
+        border-radius: var(--pluto-border-radius-small);
+    }
+    &.pluto--rounded-medium {
+        border-radius: var(--pluto-border-radius-medium);
+    }
+    &.pluto--rounded-large {
+        border-radius: var(--pluto-border-radius-large);
+    }
+    &.pluto--rounded-huge {
+        border-radius: var(--pluto-border-radius-huge);
+    }
     &.pluto--sharp {
         border-radius: 0;
     }
@@ -134,27 +149,32 @@
         flex-grow: 1;
     }
     &.pluto--height-huge {
-        min-height: var(--pluto-height-huge);
+        --pluto-height: var(--pluto-height-huge);
+        min-height: var(--pluto-height);
         height: fit-content;
     }
 
     &.pluto--height-large {
-        min-height: var(--pluto-height-large);
+        --pluto-height: var(--pluto-height-large);
+        min-height: var(--pluto-height);
         height: fit-content;
     }
 
     &.pluto--height-medium {
-        min-height: var(--pluto-height-medium);
+        --pluto-height: var(--pluto-height-medium);
+        min-height: var(--pluto-height);
         height: fit-content;
     }
 
     &.pluto--height-tiny {
-        min-height: var(--pluto-height-tiny);
+        --pluto-height: var(--pluto-height-tiny);
+        min-height: var(--pluto-height);
         height: fit-content;
     }
 
     &.pluto--height-small {
-        min-height: var(--pluto-height-small);
+        --pluto-height: var(--pluto-height-small);
+        min-height: var(--pluto-height);
         height: fit-content;
     }
 
@@ -206,6 +226,14 @@
         border-color: var(--pluto-gray-l11);
     }
 
+    /* Declaring a canvas or raised surface resets the fill ladder, so panes nested
+       inside recessed chrome resume the standard upward fills. */
+    &.pluto--bg-0,
+    &.pluto--bg-1 {
+        --pluto-fill-rest: var(--pluto-gray-l3);
+        --pluto-fill-hover: var(--pluto-gray-l4);
+        --pluto-fill-press: var(--pluto-gray-l5);
+    }
     &.pluto--bg-0 {
         background-color: var(--pluto-gray-l0);
     }
@@ -288,10 +316,10 @@
         color: var(--pluto-primary-z);
     }
     &.pluto--status-disabled {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-text-disabled);
     }
     &.pluto--status-loading {
-        color: var(--pluto-gray-l8);
+        color: var(--pluto-gray-l9);
     }
 
     &.pluto--square {
@@ -318,9 +346,6 @@
     }
 
     &.pluto--pack {
-        &:not(.pluto--sharp) {
-            border-radius: var(--pluto-border-radius);
-        }
         & > * {
             border-radius: 0;
         }

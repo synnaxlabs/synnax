@@ -17,8 +17,11 @@ type Value<K extends record.Key = record.Key> = Store.MembershipValue<K>;
 // Focus is only defined for ordered multi-selections: the key heading the value
 // array is the focused key. A scalar selection carries no ordering, so nothing is
 // focused.
-const head = <K extends record.Key>(value: Value<K>): K | undefined =>
+const focusOf = <K extends record.Key>(value: Value<K>): K | undefined =>
   Array.isArray(value) ? value[0] : undefined;
+
+const headOf = <K extends record.Key>(value: Value<K>): K | undefined =>
+  Array.isArray(value) ? value[0] : value;
 
 interface SelectionState<K extends record.Key = record.Key> {
   value: Value<K>;
@@ -46,6 +49,7 @@ export interface UseItemStateReturn {
    * array and this key is its first element. Always false for scalar selections.
    */
   focused: boolean;
+  head: boolean;
   hovered: boolean;
   onSelect: () => void;
 }
@@ -56,6 +60,7 @@ export interface UseItemStateReturn {
 const Members = Store.createMembership("Selection");
 const Hover = Store.createPresence("Selection.Hover");
 const Focus = Store.createPresence("Selection.Focus");
+const Head = Store.createPresence("Selection.Head");
 const members = <K extends record.Key>(): Store.Membership<K> =>
   Members as unknown as Store.Membership<K>;
 const hover = <K extends record.Key>(): Store.Presence<K> =>
@@ -78,8 +83,10 @@ export const Context = <K extends record.Key = record.Key>({
   const H = hover<K>();
   return (
     <M.Context value={value} onItem={onSelect} setValue={setSelected} clear={clear}>
-      <Focus.Context value={head(value)}>
-        <H.Context value={hoverValue}>{children}</H.Context>
+      <Focus.Context value={focusOf(value)}>
+        <Head.Context value={headOf(value)}>
+          <H.Context value={hoverValue}>{children}</H.Context>
+        </Head.Context>
       </Focus.Context>
     </M.Context>
   );
@@ -111,10 +118,11 @@ export const useContext = <K extends record.Key = record.Key>(): ContextValue<K>
 export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
   const { member, onItem } = members<K>().useItem(key);
   const focused = Focus.useIsPresent(key);
+  const head = Head.useIsPresent(key);
   const hovered = hover<K>().useIsPresent(key);
   return useMemo(
-    () => ({ selected: member, focused, hovered, onSelect: onItem }),
-    [member, focused, hovered, onItem],
+    () => ({ selected: member, focused, head, hovered, onSelect: onItem }),
+    [member, focused, head, hovered, onItem],
   );
 };
 

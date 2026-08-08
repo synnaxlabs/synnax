@@ -75,6 +75,25 @@ describe("Selection", () => {
       expect(result.current.focused).toBe(false);
     });
 
+    it("should mark only the head of an ordered multi-selection", () => {
+      const head = renderHook(() => useItemState("a"), {
+        wrapper: staticWrapper({ value: ["a", "b"] }),
+      });
+      const tail = renderHook(() => useItemState("b"), {
+        wrapper: staticWrapper({ value: ["a", "b"] }),
+      });
+      expect(head.result.current.head).toBe(true);
+      expect(tail.result.current.head).toBe(false);
+    });
+
+    it("should mark a scalar selection's value as the head", () => {
+      const { result } = renderHook(() => useItemState("a"), {
+        wrapper: staticWrapper({ value: "a" }),
+      });
+      expect(result.current.head).toBe(true);
+      expect(result.current.focused).toBe(false);
+    });
+
     it("should move focus to the new head when the selection is reordered", () => {
       let setValue: (value: string[]) => void = () => {};
       const wrapper = ({ children }: PropsWithChildren): ReactElement => {
@@ -107,6 +126,7 @@ describe("Selection", () => {
       const { result } = renderHook(() => useItemState("a"));
       expect(result.current.selected).toBe(false);
       expect(result.current.focused).toBe(false);
+      expect(result.current.head).toBe(false);
       expect(result.current.hovered).toBe(false);
     });
 

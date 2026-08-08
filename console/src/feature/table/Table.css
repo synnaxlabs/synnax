@@ -13,10 +13,16 @@
     width: 100%;
     height: 100%;
     overflow: auto;
+    padding: 1rem;
 }
 
 .console-table__toolbar-buttons {
     width: 66px;
+}
+
+/* Insets the cell form's tab strip off the pane edge. */
+.console-table__toolbar-content {
+    padding: 1rem 0.75rem;
 }
 
 .console-table__multi-cell-form {

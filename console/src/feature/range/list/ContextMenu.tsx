@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ranger } from "@synnaxlabs/client";
-import { Access, Divider, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
+import { Access, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { Cluster } from "@/platform/cluster";
@@ -17,7 +17,6 @@ import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
@@ -36,9 +35,9 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const someAreNotFavorites = ranges.some((r) => !favoriteKeys.includes(r.key));
   const dispatch = Session.useDispatch();
   const renameModal = Modals.useRename();
-  const confirm = Tree.useConfirmDelete({
+  const confirm = Modals.useConfirmDelete({
     type: "Range",
-    description: "Deleting this range will also delete all child ranges.",
+    description: "Deleting a range also deletes its child ranges.",
   });
   const { update: del } = Ranger.useDelete();
   const { update: renameRange } = Ranger.useRename();
@@ -81,11 +80,14 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   return (
     <Base.Menu>
       {isSingle && (
+        <Menu.Item itemKey="details" onClick={handleDetails}>
+          <Icon.Details />
+          View details
+        </Menu.Item>
+      )}
+      <Menu.Divider />
+      {isSingle && (
         <>
-          <Menu.Item itemKey="details" onClick={handleDetails}>
-            <Icon.Details />
-            View details
-          </Menu.Item>
           {hasUpdatePermission && <Base.RenameItem onClick={handleRename} />}
           {hasCreatePermission && (
             <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
@@ -93,35 +95,29 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
               Create child range
             </Menu.Item>
           )}
-          <Divider.Divider x />
         </>
       )}
+      <Menu.Divider />
       <Base.FavoriteItems
         anyFavorited={someAreFavorites}
         anyNotFavorited={someAreNotFavorites}
         onFavorite={handleFavorite}
         onUnfavorite={handleUnfavorite}
       />
-      {(someAreFavorites || someAreNotFavorites) && <Divider.Divider x />}
-      {hasDeletePermission && isNotEmpty && (
-        <>
-          <Base.DeleteItem onClick={handleDelete} />
-          <Divider.Divider x />
-        </>
-      )}
+      <Menu.Divider />
       {isSingle && (
-        <>
-          <Link.CopyContextMenuItem
-            onClick={() =>
-              handleLink({
-                name: ranges[0].name,
-                ontologyID: ranger.ontologyID(ranges[0].key),
-              })
-            }
-          />
-          <Divider.Divider x />
-        </>
+        <Link.CopyContextMenuItem
+          onClick={() =>
+            handleLink({
+              name: ranges[0].name,
+              ontologyID: ranger.ontologyID(ranges[0].key),
+            })
+          }
+        />
       )}
+      <Menu.Divider />
+      {hasDeletePermission && isNotEmpty && <Base.DeleteItem onClick={handleDelete} />}
+      <Menu.Divider />
       <Base.ReloadConsoleItem />
     </Base.Menu>
   );
