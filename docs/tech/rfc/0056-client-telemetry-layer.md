@@ -47,10 +47,9 @@ The audit showed this is not one bug but the layer's character:
    forever with its keys pinned to the socket (`streamer.ts:93` before `:99`); a dead
    stream loop is never restarted, freezing live data app-wide with nothing logged; a
    read pending during client swap hangs forever (`reader.ts:101-107`).
-2. **Failure is collective**: `DebouncedBatchRetriever` rejects every coalesced caller
-   when one key fails (`client/ts/src/channel/retriever.ts:139-141`). The reader's batch
-   cycle rejects all pending reads on any error. One bad key in the stream loop
-   terminates streaming for everyone.
+2. **Failure is collective**: The reader's batch cycle rejects every pending read when
+   any one fetch fails (`reader.ts:115-118`). One bad key in the stream loop terminates
+   streaming for everyone.
 3. **Metadata has three diverging copies**: Sources fetch through `retrieveChannel`,
    `populateMissing` fetches again, and `Unary` freezes a snapshot at construction
    (`cache/unary.ts:27-34`) that no rename, delete, or data-type change ever reaches.
@@ -359,8 +358,8 @@ benefit. The boundary is the public surface.
 
 **Keeping `DebouncedBatchRetriever` with fixes, rejected**: Its dedupe, caching, and
 miss-only fetching are all duplicated by the query table; its request map is keyed by
-array identity so identical key sets never coalesce; names bypass it; one failure
-rejects all callers. Fixing it means rebuilding it inside a layer that should not exist.
+array identity so identical key sets never coalesce; names bypass it. Fixing it means
+rebuilding it inside a layer that should not exist.
 
 **Status plumbing without visual change, rejected**: It rebuilds the machinery but
 leaves the lie on screen: the customer's frozen valve would render identically. The "no
