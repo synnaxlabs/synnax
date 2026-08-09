@@ -170,7 +170,7 @@ struct WriteFieldStatic : public BaseWriteField {
     /// @brief json_type is the JSON type the value is serialized as.
     std::string json_type = JSON_TYPE_NUMBER;
     /// @brief value is the fixed JSON value placed at the pointer.
-    std::optional<x::json::json> value;
+    x::json::json value;
 
     static WriteFieldStatic parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

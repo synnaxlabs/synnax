@@ -25,7 +25,11 @@ describe("writeFieldStaticZ", () => {
     expect(writeFieldStaticZ.parse({ ...FIELD, value }).value).toEqual(value);
   });
 
-  it("should accept a field with no value", () => {
-    expect(writeFieldStaticZ.parse(FIELD).value).toBeUndefined();
+  it("should accept an explicit null value", () => {
+    expect(writeFieldStaticZ.parse({ ...FIELD, value: null }).value).toBeNull();
+  });
+
+  it("should reject a field with no value", () => {
+    expect(() => writeFieldStaticZ.parse(FIELD)).toThrow();
   });
 });

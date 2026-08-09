@@ -651,17 +651,12 @@ func (wf WriteField) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.String(string(v.JSONType))
-		if v.Value != nil {
-			w.Bool(true)
-			{
-				b, err := json.Marshal(v.Value)
-				if err != nil {
-					return err
-				}
-				w.WriteWithLen(b)
+		{
+			b, err := json.Marshal(v.Value)
+			if err != nil {
+				return err
 			}
-		} else {
-			w.Bool(false)
+			w.WriteWithLen(b)
 		}
 	case WriteFieldGenerated:
 		w.String("generated")
@@ -701,20 +696,12 @@ func (wf *WriteField) DecodeOrc(r *orc.Reader) error {
 			v.JSONType = JSONType(rawV)
 		}
 		{
-			present, err := r.Bool()
+			b, err := r.ReadWithLen()
 			if err != nil {
 				return err
 			}
-			if present {
-				{
-					b, err := r.ReadWithLen()
-					if err != nil {
-						return err
-					}
-					if err = json.Unmarshal(b, &v.Value); err != nil {
-						return err
-					}
-				}
+			if err = json.Unmarshal(b, &v.Value); err != nil {
+				return err
 			}
 		}
 		wf.Variant = v
