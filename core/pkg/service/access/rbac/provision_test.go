@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	taskcommon "github.com/synnaxlabs/synnax/pkg/service/task/common"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -174,7 +173,7 @@ var _ = Describe("Provision", func() {
 						{Type: ontology.ResourceTypeArc},
 						{Type: ontology.ResourceTypeStatus},
 					},
-					taskcommon.ConfigResourceIDs()...,
+					taskConfigObjects...,
 				)))
 			},
 		)
@@ -193,11 +192,12 @@ var _ = Describe("Provision", func() {
 				).To(Succeed())
 
 				svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-					DB:       db,
-					Ontology: otg,
-					Group:    groupSvc,
-					Search:   searchIdx,
-					User:     userSvc,
+					DB:                db,
+					Ontology:          otg,
+					Group:             groupSvc,
+					Search:            searchIdx,
+					User:              userSvc,
+					TaskConfigObjects: taskConfigObjects,
 				}))
 
 				var ownerAfter role.Role
@@ -236,11 +236,12 @@ var _ = Describe("Provision", func() {
 
 				// Re-open service, which re-provisions
 				svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-					DB:       db,
-					Ontology: otg,
-					Group:    groupSvc,
-					Search:   searchIdx,
-					User:     userSvc,
+					DB:                db,
+					Ontology:          otg,
+					Group:             groupSvc,
+					Search:            searchIdx,
+					User:              userSvc,
+					TaskConfigObjects: taskConfigObjects,
 				}))
 
 				var updated policy.Policy

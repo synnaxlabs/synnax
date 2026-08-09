@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack/task/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/task/common"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -73,6 +74,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	base := common.ConfigServiceConfig{
 		DB:              cfg.DB,
 		Ontology:        cfg.Ontology,
+		Version:         legacy.LastVersion + 1,
 		Instrumentation: cfg.Instrumentation,
 	}
 	if s.Status, err = common.OpenConfigService[StatusConfig](

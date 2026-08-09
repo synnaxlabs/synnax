@@ -33,7 +33,7 @@ PDOAddress struct {
     }
 
     @doc value  "addresses a PDO entry explicitly in the CoE object dictionary."
-    @go version 0
+    @go version 1
 }
 
 BaseInputChannel struct {
@@ -55,7 +55,7 @@ BaseInputChannel struct {
     }
 
     @doc value  "carries the fields every EtherCAT input channel shares."
-    @go version 0
+    @go version 1
 }
 
 InputChannel union on type extends BaseInputChannel {
@@ -74,7 +74,7 @@ InputChannel union on type extends BaseInputChannel {
         is a single EtherCAT input channel (TxPDO, slave to master). The type
         field selects how the PDO entry is addressed.
     """
-    @go version 0
+    @go version 1
 }
 
 BaseOutputChannel struct {
@@ -105,7 +105,7 @@ BaseOutputChannel struct {
     }
 
     @doc value  "carries the fields every EtherCAT output channel shares."
-    @go version 0
+    @go version 1
 }
 
 OutputChannel union on type extends BaseOutputChannel {
@@ -124,7 +124,7 @@ OutputChannel union on type extends BaseOutputChannel {
         is a single EtherCAT output channel (RxPDO, master to slave). The type
         field selects how the PDO entry is addressed.
     """
-    @go version 0
+    @go version 1
 }
 
 ReadConfig struct extends task.BaseReadConfig {
@@ -136,7 +136,7 @@ ReadConfig struct extends task.BaseReadConfig {
         configures an EtherCAT read task. Each channel addresses a PDO entry on
         its own slave; all slaves must share one network interface.
     """
-    @go version 0
+    @go version 1
     @go marshal
     @go migrate
 }
@@ -158,14 +158,14 @@ WriteConfig struct extends task.BaseConfig {
         configures an EtherCAT write task. Each channel addresses a PDO entry on
         its own slave; all slaves must share one network interface.
     """
-    @go version 0
+    @go version 1
     @go marshal
     @go migrate
 }
 
 ScanConfig struct extends task.BaseScanConfig {
     @doc value  "configures an EtherCAT scan task, which carries no settings."
-    @go version 0
+    @go version 1
     @go marshal
     @go migrate
 }

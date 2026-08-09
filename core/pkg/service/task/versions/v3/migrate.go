@@ -133,10 +133,17 @@ func migrateConfigsToRecords(
 			}
 			continue
 		}
+		// Stored blobs are all console-era, which every store's legacy rewrite
+		// handles as version 0.
+		converted, err := store.Normalize(0, t.Config)
+		if err != nil {
+			if err := quarantine(ctx, tx, ins, otgW, t, err.Error()); err != nil {
+				return err
+			}
+			continue
+		}
 		recordKey := uuid.New()
-		if err := store.Write(
-			ctx, tx, recordKey, Transform(newType, t.Config),
-		); err != nil {
+		if err := store.Write(ctx, tx, recordKey, converted); err != nil {
 			if err := store.Delete(ctx, tx, recordKey); err != nil {
 				return err
 			}

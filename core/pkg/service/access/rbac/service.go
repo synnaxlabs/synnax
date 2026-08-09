@@ -70,6 +70,12 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	User *user.Service
+	// TaskConfigObjects are the type-scoped ontology IDs of the task config record
+	// types, derived from the task config registry at wiring. The built-in roles
+	// splice them in so a grant on tasks also covers their config records.
+	//
+	// [OPTIONAL] - Defaults to nil.
+	TaskConfigObjects []ontology.ID
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -83,6 +89,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.User = override.Nil(c.User, other.User)
+	c.TaskConfigObjects = override.Slice(c.TaskConfigObjects, other.TaskConfigObjects)
 	return c
 }
 
@@ -152,7 +159,9 @@ func OpenService(
 	}
 	// Provision built-in roles and policies. This is idempotent and runs every startup
 	// to ensure policy definitions stay up to date.
-	builtinRoles, err := builtin.Provision(ctx, cfg.DB, s.Policy, s.Role)
+	builtinRoles, err := builtin.Provision(
+		ctx, cfg.DB, s.Policy, s.Role, cfg.TaskConfigObjects,
+	)
 	if !ok(err, nil) {
 		return nil, err
 	}

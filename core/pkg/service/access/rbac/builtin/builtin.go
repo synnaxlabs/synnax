@@ -14,35 +14,39 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	taskcommon "github.com/synnaxlabs/synnax/pkg/service/task/common"
 )
 
-var allObjects = append([]ontology.ID{
-	{Type: ontology.ResourceTypeLabel},
-	{Type: ontology.ResourceTypeLog},
-	{Type: ontology.ResourceTypeNode},
-	{Type: ontology.ResourceTypeChannel},
-	{Type: ontology.ResourceTypeGroup},
-	{Type: ontology.ResourceTypeRange},
-	{Type: ontology.ResourceTypeFramer},
-	{Type: ontology.ResourceTypeRangeAlias},
-	{Type: ontology.ResourceTypeUser},
-	{Type: ontology.ResourceTypeProject},
-	{Type: ontology.ResourceTypePanel},
-	{Type: ontology.ResourceTypeSchematic},
-	{Type: ontology.ResourceTypeLineplot},
-	{Type: ontology.ResourceTypeRack},
-	{Type: ontology.ResourceTypeDevice},
-	{Type: ontology.ResourceTypeTask},
-	{Type: ontology.ResourceTypeTable},
-	{Type: ontology.ResourceTypeArc},
-	{Type: ontology.ResourceTypeSchematicSymbol},
-	{Type: ontology.ResourceTypeStatus},
-	{Type: ontology.ResourceTypeRole},
-	{Type: ontology.ResourceTypePolicy},
-	{Type: ontology.ResourceTypeBuiltin},
-	{Type: ontology.ResourceTypeView},
-}, taskcommon.ConfigResourceIDs()...)
+// allObjects returns every object type the built-in roles cover: the static resource
+// types plus the task config record types the caller derives from the config
+// registry.
+func allObjects(taskConfigObjects []ontology.ID) []ontology.ID {
+	return append([]ontology.ID{
+		{Type: ontology.ResourceTypeLabel},
+		{Type: ontology.ResourceTypeLog},
+		{Type: ontology.ResourceTypeNode},
+		{Type: ontology.ResourceTypeChannel},
+		{Type: ontology.ResourceTypeGroup},
+		{Type: ontology.ResourceTypeRange},
+		{Type: ontology.ResourceTypeFramer},
+		{Type: ontology.ResourceTypeRangeAlias},
+		{Type: ontology.ResourceTypeUser},
+		{Type: ontology.ResourceTypeProject},
+		{Type: ontology.ResourceTypePanel},
+		{Type: ontology.ResourceTypeSchematic},
+		{Type: ontology.ResourceTypeLineplot},
+		{Type: ontology.ResourceTypeRack},
+		{Type: ontology.ResourceTypeDevice},
+		{Type: ontology.ResourceTypeTask},
+		{Type: ontology.ResourceTypeTable},
+		{Type: ontology.ResourceTypeArc},
+		{Type: ontology.ResourceTypeSchematicSymbol},
+		{Type: ontology.ResourceTypeStatus},
+		{Type: ontology.ResourceTypeRole},
+		{Type: ontology.ResourceTypePolicy},
+		{Type: ontology.ResourceTypeBuiltin},
+		{Type: ontology.ResourceTypeView},
+	}, taskConfigObjects...)
+}
 
 var (
 	ownerRoleName = "Owner"
@@ -51,13 +55,16 @@ var (
 		Description: "Full control of deployment, including user registration and security.",
 		Internal:    true,
 	}
-	ownerPolicy = policy.Policy{
+)
+
+func ownerPolicy(taskConfigObjects []ontology.ID) policy.Policy {
+	return policy.Policy{
 		Name:     ownerRoleName,
-		Objects:  allObjects,
+		Objects:  allObjects(taskConfigObjects),
 		Actions:  access.AllActions,
 		Internal: true,
 	}
-)
+}
 
 var (
 	engineerRoleName = "Engineer"
@@ -66,7 +73,10 @@ var (
 		Description: "Full access to system configuration, except for user management.",
 		Internal:    true,
 	}
-	engineerPolicies = []policy.Policy{
+)
+
+func engineerPolicies(taskConfigObjects []ontology.ID) []policy.Policy {
+	return []policy.Policy{
 		{
 			Name: "Engineer Edit Access",
 			Objects: append([]ontology.ID{
@@ -90,7 +100,7 @@ var (
 				{Type: ontology.ResourceTypeSchematicSymbol},
 				{Type: ontology.ResourceTypeStatus},
 				{Type: ontology.ResourceTypeView},
-			}, taskcommon.ConfigResourceIDs()...),
+			}, taskConfigObjects...),
 			Actions:  access.AllActions,
 			Internal: true,
 		},
@@ -106,7 +116,7 @@ var (
 			Internal: true,
 		},
 	}
-)
+}
 
 var (
 	hostRoleName = "Host"
@@ -115,7 +125,10 @@ var (
 		Description: "For machines running the Synnax driver. Full access to hardware and task configuration.",
 		Internal:    true,
 	}
-	hostPolicies = []policy.Policy{
+)
+
+func hostPolicies(taskConfigObjects []ontology.ID) []policy.Policy {
+	return []policy.Policy{
 		{
 			Name: "Host Edit Access",
 			Objects: append([]ontology.ID{
@@ -125,7 +138,7 @@ var (
 				{Type: ontology.ResourceTypeTask},
 				{Type: ontology.ResourceTypeArc},
 				{Type: ontology.ResourceTypeStatus},
-			}, taskcommon.ConfigResourceIDs()...),
+			}, taskConfigObjects...),
 			Actions:  access.AllActions,
 			Internal: true,
 		},
@@ -145,7 +158,7 @@ var (
 			Internal: true,
 		},
 	}
-)
+}
 
 var (
 	operatorRoleName = "Operator"
@@ -154,7 +167,10 @@ var (
 		Description: "Can view projects and visualizations, control hardware and data acquisition tasks. Cannot modify system configuration.",
 		Internal:    true,
 	}
-	operatorPolicies = []policy.Policy{
+)
+
+func operatorPolicies(taskConfigObjects []ontology.ID) []policy.Policy {
+	return []policy.Policy{
 		{
 			Name: "Operator Edit Access",
 			Objects: []ontology.ID{
@@ -166,12 +182,12 @@ var (
 		},
 		{
 			Name:     "Operator View Access",
-			Objects:  allObjects,
+			Objects:  allObjects(taskConfigObjects),
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
 		},
 	}
-)
+}
 
 var (
 	viewerRoleName = "Viewer"
@@ -180,10 +196,13 @@ var (
 		Description: "View access to all resources.",
 		Internal:    true,
 	}
-	viewerPolicy = policy.Policy{
+)
+
+func viewerPolicy(taskConfigObjects []ontology.ID) policy.Policy {
+	return policy.Policy{
 		Name:     viewerRoleName,
-		Objects:  allObjects,
+		Objects:  allObjects(taskConfigObjects),
 		Actions:  []access.Action{access.ActionRetrieve},
 		Internal: true,
 	}
-)
+}

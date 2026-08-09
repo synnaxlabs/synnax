@@ -11,102 +11,102 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/http/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
 
 // Method is the HTTP method used when requesting an endpoint.
-type Method = v0.Method
+type Method = v2.Method
 
 const (
-	MethodGet     Method = v0.MethodGet
-	MethodHead    Method = v0.MethodHead
-	MethodPost    Method = v0.MethodPost
-	MethodPut     Method = v0.MethodPut
-	MethodDelete  Method = v0.MethodDelete
-	MethodPatch   Method = v0.MethodPatch
-	MethodOptions Method = v0.MethodOptions
-	MethodTrace   Method = v0.MethodTrace
-	MethodConnect Method = v0.MethodConnect
+	MethodGet     Method = v2.MethodGet
+	MethodHead    Method = v2.MethodHead
+	MethodPost    Method = v2.MethodPost
+	MethodPut     Method = v2.MethodPut
+	MethodDelete  Method = v2.MethodDelete
+	MethodPatch   Method = v2.MethodPatch
+	MethodOptions Method = v2.MethodOptions
+	MethodTrace   Method = v2.MethodTrace
+	MethodConnect Method = v2.MethodConnect
 )
 
 // TimeFormat is the encoding of a timestamp value within a JSON body.
-type TimeFormat = v0.TimeFormat
+type TimeFormat = v2.TimeFormat
 
 const (
-	TimeFormatISO8601 TimeFormat = v0.TimeFormatISO8601
-	TimeFormatUnixSec TimeFormat = v0.TimeFormatUnixSec
-	TimeFormatUnixMs  TimeFormat = v0.TimeFormatUnixMs
-	TimeFormatUnixUs  TimeFormat = v0.TimeFormatUnixUs
-	TimeFormatUnixNs  TimeFormat = v0.TimeFormatUnixNs
+	TimeFormatISO8601 TimeFormat = v2.TimeFormatISO8601
+	TimeFormatUnixSec TimeFormat = v2.TimeFormatUnixSec
+	TimeFormatUnixMs  TimeFormat = v2.TimeFormatUnixMs
+	TimeFormatUnixUs  TimeFormat = v2.TimeFormatUnixUs
+	TimeFormatUnixNs  TimeFormat = v2.TimeFormatUnixNs
 )
 
 // Header is a single HTTP header sent with a request.
-type Header = v0.Header
+type Header = v2.Header
 
 // QueryParam is a single URL query parameter sent with a request.
-type QueryParam = v0.QueryParam
+type QueryParam = v2.QueryParam
 
 // EnumEntry maps a string label in a JSON body to a numeric channel value for
 // enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry = v0.EnumEntry
+type EnumEntry = v2.EnumEntry
 
 // ReadField is a single value extracted from an endpoint's JSON response.
-type ReadField = v0.ReadField
+type ReadField = v2.ReadField
 
 // ReadEndpoint is a single HTTP endpoint polled by a read task.
-type ReadEndpoint = v0.ReadEndpoint
+type ReadEndpoint = v2.ReadEndpoint
 
 // ReadConfig configures an HTTP read task, which polls one or more endpoints on an HTTP
 // server device and writes extracted JSON values to Synnax channels.
-type ReadConfig = v0.ReadConfig
+type ReadConfig = v2.ReadConfig
 
 // JSONType is the JSON type a channel value is serialized as in a request body.
-type JSONType = v0.JSONType
+type JSONType = v2.JSONType
 
 const (
-	JSONTypeNumber  JSONType = v0.JSONTypeNumber
-	JSONTypeString  JSONType = v0.JSONTypeString
-	JSONTypeBoolean JSONType = v0.JSONTypeBoolean
+	JSONTypeNumber  JSONType = v2.JSONTypeNumber
+	JSONTypeString  JSONType = v2.JSONTypeString
+	JSONTypeBoolean JSONType = v2.JSONTypeBoolean
 )
 
 // GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType = v0.GeneratorType
+type GeneratorType = v2.GeneratorType
 
 const (
-	GeneratorTypeUUID      GeneratorType = v0.GeneratorTypeUUID
-	GeneratorTypeTimestamp GeneratorType = v0.GeneratorTypeTimestamp
+	GeneratorTypeUUID      GeneratorType = v2.GeneratorTypeUUID
+	GeneratorTypeTimestamp GeneratorType = v2.GeneratorTypeTimestamp
 )
 
 // ChannelField is the command channel value placed into a write endpoint's body.
-type ChannelField = v0.ChannelField
+type ChannelField = v2.ChannelField
 
 // BaseWriteField carries the fields every write body field shares.
-type BaseWriteField = v0.BaseWriteField
+type BaseWriteField = v2.BaseWriteField
 
 // WriteField is an additional body field on a write endpoint. The type field selects
 // whether the value is fixed or generated per request.
-type WriteField = v0.WriteField
-type WriteFieldVariant = v0.WriteFieldVariant
-type WriteFieldType = v0.WriteFieldType
+type WriteField = v2.WriteField
+type WriteFieldVariant = v2.WriteFieldVariant
+type WriteFieldType = v2.WriteFieldType
 
 const (
 	// WriteFieldTypeStatic places a fixed value in the request body.
-	WriteFieldTypeStatic WriteFieldType = v0.WriteFieldTypeStatic
+	WriteFieldTypeStatic WriteFieldType = v2.WriteFieldTypeStatic
 	// WriteFieldTypeGenerated places a freshly generated UUID or timestamp in the body.
-	WriteFieldTypeGenerated WriteFieldType = v0.WriteFieldTypeGenerated
+	WriteFieldTypeGenerated WriteFieldType = v2.WriteFieldTypeGenerated
 )
 
 // WriteFieldStatic places a fixed value in the request body.
-type WriteFieldStatic = v0.WriteFieldStatic
+type WriteFieldStatic = v2.WriteFieldStatic
 
 // WriteFieldGenerated places a freshly generated UUID or timestamp in the body.
-type WriteFieldGenerated = v0.WriteFieldGenerated
+type WriteFieldGenerated = v2.WriteFieldGenerated
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
-type WriteEndpoint = v0.WriteEndpoint
+type WriteEndpoint = v2.WriteEndpoint
 
 // WriteConfig configures an HTTP write task, which sends an HTTP request whenever a
 // value is written to an endpoint's command channel.
-type WriteConfig = v0.WriteConfig
+type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures an HTTP scan task, which carries no settings.
-type ScanConfig = v0.ScanConfig
+type ScanConfig = v2.ScanConfig
