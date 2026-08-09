@@ -763,7 +763,6 @@ export class Client extends query.Retriever<
     });
   }
 
-  /** Fetches channel payloads. Missing channels are omitted, not thrown. */
   private async execRetrieve(
     channels: Params | RetrieveRequest,
     options?: RetrieveOptions,

@@ -33,12 +33,6 @@ describe("data access", () => {
     data: new Float32Array(1000).buffer,
     dataType: DataType.FLOAT32,
   });
-  let sink = 0;
-  bench("partial buffer", () => {
-    sink += partial.data.length;
-  });
-  bench("full buffer", () => {
-    sink += full.data.length;
-  });
-  void sink;
+  bench("partial buffer", () => partial.data.length);
+  bench("full buffer", () => full.data.length);
 });
