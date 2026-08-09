@@ -12,8 +12,8 @@ package v3
 import "github.com/synnaxlabs/x/encoding/msgpack"
 
 // transformNIRead rewrites legacy NI analog and counter read configs: the v0
-// config-level device is copied onto every channel missing one, and the renamed AI
-// type alias is replaced.
+// config-level device is copied onto every channel missing one, the renamed AI type
+// alias is replaced, and the flat cold-junction fields collapse into their union.
 func transformNIRead(config msgpack.EncodedJSON) {
 	device, hasDevice := config["device"]
 	delete(config, "device")
@@ -26,7 +26,41 @@ func transformNIRead(config msgpack.EncodedJSON) {
 		if ch["type"] == "ai_frequency_voltage" {
 			ch["type"] = "ai_freq_voltage"
 		}
+		collapseNICJC(ch)
 	})
+}
+
+// collapseNICJC replaces a thermocouple channel's flat cjc_source, cjc_val, and
+// cjc_port with the nested cjc union, keeping only the value the source selects. An
+// unrecognized source falls back to the built-in sensor, which is what the Driver did
+// with it before.
+func collapseNICJC(ch msgpack.EncodedJSON) {
+	source, hadSource := ch["cjc_source"]
+	if !hadSource && ch["type"] != "ai_thermocouple" {
+		return
+	}
+	val, port := ch["cjc_val"], ch["cjc_port"]
+	delete(ch, "cjc_source")
+	delete(ch, "cjc_val")
+	delete(ch, "cjc_port")
+	if _, taken := ch["cjc"]; taken {
+		return
+	}
+	switch source {
+	case "ConstVal":
+		ch["cjc"] = map[string]any{"source": "const_val", "val": zeroIfNil(val)}
+	case "Chan":
+		ch["cjc"] = map[string]any{"source": "chan", "port": zeroIfNil(port)}
+	default:
+		ch["cjc"] = map[string]any{"source": "built_in"}
+	}
+}
+
+func zeroIfNil(v any) any {
+	if v == nil {
+		return 0
+	}
+	return v
 }
 
 // transformOPCWrite renames the legacy v0 output channel key "channel" to
