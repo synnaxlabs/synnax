@@ -202,10 +202,10 @@ export const readEndpointZ = z.object({
   /** fields contains the values to extract from the response. */
   fields: readFieldZ.array().default(() => []),
   /**
-   * index is the key of the field whose channel indexes the others. Absent when the
-   * task stamps samples on arrival.
+   * index is the key of the field whose channel indexes the others. Empty when the task
+   * stamps samples on arrival.
    */
-  index: z.string().optional(),
+  index: z.string().default(""),
 });
 export interface ReadEndpoint extends z.infer<typeof readEndpointZ> {}
 
