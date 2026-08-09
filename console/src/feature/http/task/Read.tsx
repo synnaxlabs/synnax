@@ -329,7 +329,7 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
           `${path}.fields`,
           fields.filter((f) => !isTimingField(f)),
         );
-        set(`${path}.index`, undefined);
+        set(`${path}.index`, "");
       }
     },
     [fields, isValueTiming, path, set],

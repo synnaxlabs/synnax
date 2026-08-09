@@ -338,6 +338,30 @@ TEST(HTTPReadTask, ParseConfigOmittedBodyDefaultsEmpty) {
     ASSERT_TRUE(cfg.endpoints[0].body.empty());
 }
 
+/// @brief an endpoint that omits index should parse to an empty index.
+TEST(HTTPReadTask, ParseConfigOmittedIndexDefaultsEmpty) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"rate", 1.0},
+        {"endpoints",
+         {{
+             {"method", "GET"},
+             {"path", "/api/data"},
+             {"fields",
+              {{
+                  {"pointer", "/value"},
+                  {"channel", 1},
+              }}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [cfg, err] = ReadTaskConfig::parse(ctx, task);
+    ASSERT_NIL(err);
+    ASSERT_EQ(cfg.endpoints.size(), 1);
+    ASSERT_TRUE(cfg.endpoints[0].index.empty());
+}
+
 /// @brief a field that omits enum_values should parse to an empty list.
 TEST(HTTPReadTask, ParseConfigOmittedEnumValuesDefaultsEmpty) {
     synnax::task::Task task;
