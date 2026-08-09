@@ -61,7 +61,8 @@ export class ReadAdapter {
     const fetched = await this.retrieveChannels(normalized);
     const newKeys = fetched.map((c) => c.key);
     const newKeySet = new Set(newKeys);
-    if (newKeySet.size === this.keys.size && newKeySet.isSubsetOf(this.keys)) return false;
+    if (newKeySet.size === this.keys.size && newKeySet.isSubsetOf(this.keys))
+      return false;
     this.codec.update(
       newKeys,
       fetched.map((c) => c.dataType),

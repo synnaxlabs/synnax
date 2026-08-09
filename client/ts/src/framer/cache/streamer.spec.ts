@@ -223,7 +223,10 @@ describe("MultiplexedStreamer", () => {
         return next;
       };
 
-      const streamer = new MultiplexedStreamer({ cache: new Cache(), openStreamer: slowOpener });
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: slowOpener,
+      });
 
       const sub1 = streamer.stream(() => {}, [1]);
       // Advance so reconcile #1 is mid-open (sleep ends at T=400).
@@ -250,7 +253,10 @@ describe("MultiplexedStreamer", () => {
         openCalls++;
         return pendingStreamer([1]);
       };
-      const streamer = new MultiplexedStreamer({ cache: new Cache(), openStreamer: opener });
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: opener,
+      });
 
       streamer.stream(() => {}, [1]);
       await streamer.close();
@@ -267,7 +273,10 @@ describe("MultiplexedStreamer", () => {
         await sleep.sleep(TimeSpan.milliseconds(300));
         return ms1;
       };
-      const streamer = new MultiplexedStreamer({ cache: new Cache(), openStreamer: slowOpener });
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: slowOpener,
+      });
 
       streamer.stream(() => {}, [1]);
       await vi.advanceTimersByTimeAsync(150);
@@ -321,7 +330,10 @@ describe("MultiplexedStreamer", () => {
           openedWith.push(config.channels);
         return pendingStreamer([2]);
       };
-      const streamer = new MultiplexedStreamer({ cache: new Cache(), openStreamer: opener });
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: opener,
+      });
 
       expect(() =>
         streamer.stream(() => {
@@ -447,7 +459,10 @@ describe("MultiplexedStreamer", () => {
           };
         });
       };
-      const streamer = new MultiplexedStreamer({ cache: new Cache(), openStreamer: opener });
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: opener,
+      });
 
       let brokenCalls = 0;
       const broken = streamer.stream(() => {
@@ -503,7 +518,10 @@ describe("MultiplexedStreamer", () => {
           }),
         };
       });
-      const streamer = new MultiplexedStreamer({ cache, openStreamer: createStreamOpener([ms]) });
+      const streamer = new MultiplexedStreamer({
+        cache,
+        openStreamer: createStreamOpener([ms]),
+      });
 
       const received: Map<channel.Key, MultiSeries>[] = [];
       const sub = streamer.stream((d) => received.push(d), [1, 2]);
