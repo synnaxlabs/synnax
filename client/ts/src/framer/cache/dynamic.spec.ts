@@ -58,6 +58,31 @@ describe("DynamicCache", () => {
         expect(allocated).toHaveLength(0);
         expect(cache.length).toEqual(4); // [0, 4): 3 held + 1 genuinely new sample
       });
+      it("should drop a single re-sent sample instead of duplicating it", () => {
+        const cache = new Dynamic({ dynamicBufferSize: 100 });
+        cache.write(new MultiSeries([f32([1, 2, 3])])); // occupies [0, 3)
+        // Steps back by exactly one: the first sample duplicates the buffer's last.
+        const overlapping = f32([3, 4]).reAlign(2n);
+        const { flushed, allocated } = cache.write(new MultiSeries([overlapping]));
+        expect(flushed).toHaveLength(0);
+        expect(allocated).toHaveLength(0);
+        expect(cache.length).toEqual(4); // [0, 4): the duplicate is trimmed
+        expect(cache.leadingBuffer?.data.slice(0, 4)).toEqual(
+          new Float32Array([1, 2, 3, 4]),
+        );
+      });
+      it("should reset the buffer across a single-sample gap", () => {
+        const cache = new Dynamic({ dynamicBufferSize: 100 });
+        cache.write(new MultiSeries([f32([1, 2, 3])])); // occupies [0, 3)
+        // Alignment 4 leaves sample 3 missing. Appending would write the series as
+        // if contiguous, shifting the buffer's alignment off the Core's counter.
+        const gapped = f32([5, 6]).reAlign(4n);
+        const { flushed, allocated } = cache.write(new MultiSeries([gapped]));
+        expect(flushed).toHaveLength(3);
+        expect(allocated).toHaveLength(2);
+        expect(cache.leadingBuffer?.alignment).toEqual(4n);
+        expect(cache.length).toEqual(2);
+      });
       it("should drop a fully-duplicate overlapping frame", () => {
         const cache = new Dynamic({ dynamicBufferSize: 100 });
         cache.write(new MultiSeries([f32([1, 2, 3, 4, 5])])); // occupies [0, 5)

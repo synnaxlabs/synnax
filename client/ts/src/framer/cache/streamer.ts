@@ -23,7 +23,7 @@ import {
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type Cache } from "@/framer/cache/cache";
-import { type Streamer as Base, type StreamerConfig } from "@/framer/streamer";
+import { type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { status } from "@/status";
 
 /** Stream lifecycle hooks the streamer uses to track connection health. */
@@ -34,9 +34,9 @@ export interface StreamHooks {
   onDrop: (error: Error) => void;
 }
 
-/** Opens the underlying frame stream. */
-export interface StreamOpener {
-  (config: StreamerConfig, hooks: StreamHooks): Promise<Base>;
+/** Opens the underlying frame stream, hardened against connection loss. */
+export interface HardenedOpener {
+  (config: StreamerConfig, hooks: StreamHooks): Promise<Streamer>;
 }
 
 /**
@@ -68,9 +68,9 @@ interface Entry {
   removed: boolean;
 }
 
-export interface StreamerProps {
+export interface MultiplexedStreamerProps {
   cache: Cache;
-  openStreamer: StreamOpener;
+  openStreamer: HardenedOpener;
   instrumentation?: alamos.Instrumentation;
   /**
    * How long a closed subscription's keys stay on the stream, damping churn from
@@ -97,8 +97,10 @@ const RECONNECTING: status.Crude = { variant: "warning", message: "reconnecting"
  * registration is synchronous and cannot fail per key; all convergence work
  * surfaces as per-key statuses instead of thrown errors.
  */
-export class Streamer {
-  private readonly props: Required<Omit<StreamerProps, "removalDelay" | "breaker">> & {
+export class MultiplexedStreamer {
+  private readonly props: Required<
+    Omit<MultiplexedStreamerProps, "removalDelay" | "breaker">
+  > & {
     removalDelay: TimeSpan;
   };
 
@@ -109,13 +111,14 @@ export class Streamer {
   private readonly entries = new Set<Entry>();
   private readonly statuses = new Map<channel.Key, status.Status>();
   private reconcileTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly removalTimers = new Set<ReturnType<typeof setTimeout>>();
   private runLoop: Promise<void> | null = null;
-  private streamer: Base | null = null;
+  private streamer: Streamer | null = null;
   // The key set last accepted by the stream. Kept separately from the streamer so a
   // mid-reconnect streamer cannot be consulted for it.
   private sentKeys = new Set<channel.Key>();
 
-  constructor(props: StreamerProps) {
+  constructor(props: MultiplexedStreamerProps) {
     const {
       cache,
       openStreamer,
@@ -189,6 +192,8 @@ export class Streamer {
     const { instrumentation: ins } = this.props;
     if (this.reconcileTimer != null) clearTimeout(this.reconcileTimer);
     this.reconcileTimer = null;
+    this.removalTimers.forEach(clearTimeout);
+    this.removalTimers.clear();
     await this.connMu.runExclusive(async () => {
       this.connMu.closed = true;
       try {
@@ -210,10 +215,12 @@ export class Streamer {
 
   private remove(entry: Entry): void {
     entry.removed = true;
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      this.removalTimers.delete(timer);
       this.entries.delete(entry);
       this.scheduleReconcile();
     }, this.props.removalDelay.milliseconds);
+    this.removalTimers.add(timer);
   }
 
   private scheduleReconcile(delay: TimeSpan = RECONCILE_DELAY): void {
@@ -269,8 +276,9 @@ export class Streamer {
           return;
         }
         if (
+          this.streamer != null &&
           desired.size === this.sentKeys.size &&
-          Array.from(desired).every((k) => this.sentKeys.has(k))
+          desired.isSubsetOf(this.sentKeys)
         )
           return;
         const arrKeys = Array.from(desired);
@@ -289,10 +297,10 @@ export class Streamer {
           this.streamer = streamer;
           this.runLoop = this.run(streamer);
         } else {
-          ins.L.debug("updating streamer", {
+          ins.L.debug("updating streamer", () => ({
             prev: Array.from(this.sentKeys),
             next: arrKeys,
-          });
+          }));
           await this.streamer.update(arrKeys);
         }
         this.sentKeys = desired;
@@ -316,7 +324,7 @@ export class Streamer {
     if (await this.breaker.wait()) this.scheduleReconcile(TimeSpan.ZERO);
   }
 
-  private async run(streamer: Base): Promise<void> {
+  private async run(streamer: Streamer): Promise<void> {
     const { cache, instrumentation: ins } = this.props;
     try {
       for await (const frame of streamer) {

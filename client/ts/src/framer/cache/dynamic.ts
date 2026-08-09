@@ -203,12 +203,12 @@ export class Dynamic {
       // overlap > 0: the incoming series steps back into samples the current buffer
       // already holds. overlap < 0: there is a gap between the buffer and the series.
       const overlap = Number(curr.alignment + BigInt(curr.length) - series.alignment);
-      if (overlap > 1) {
+      if (overlap > 0) {
         // Drop the re-sent leading samples; a fresh allocation here would fragment
         // the cache with overlapping series. sub() is zero-copy.
         if (overlap >= series.length) return;
         series = series.sub(overlap);
-      } else if (overlap < -1) {
+      } else if (overlap < 0) {
         this.flushCurr(res);
         curr = this.allocCurr(
           res,

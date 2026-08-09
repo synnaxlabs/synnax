@@ -13,8 +13,8 @@ import { type channel } from "@/channel";
 import { Cache, type CacheProps } from "@/framer/cache/cache";
 import { Reader, type ReaderProps } from "@/framer/cache/reader";
 import {
-  Streamer,
-  type StreamerProps,
+  MultiplexedStreamer,
+  type MultiplexedStreamerProps,
   type StreamHandler,
   type Subscription,
 } from "@/framer/cache/streamer";
@@ -25,7 +25,7 @@ export interface FeedProps
   extends
     CacheProps,
     Omit<ReaderProps, "cache">,
-    Omit<StreamerProps, "cache" | "openStreamer"> {
+    Omit<MultiplexedStreamerProps, "cache" | "openStreamer"> {
   openStreamer: StreamOpener;
 }
 
@@ -39,7 +39,7 @@ export interface FeedOptions extends Omit<FeedProps, "readRemote" | "openStreame
 export class Feed {
   private readonly cache: Cache;
   private readonly reader: Reader;
-  private readonly streamer: Streamer;
+  private readonly streamer: MultiplexedStreamer;
 
   constructor(props: FeedProps) {
     const {
@@ -68,7 +68,7 @@ export class Feed {
       batchDebounce,
       overlapThreshold,
     });
-    this.streamer = new Streamer({
+    this.streamer = new MultiplexedStreamer({
       cache: this.cache,
       openStreamer: async (config, { onReopen, onDrop }) =>
         await HardenedStreamer.open(openStreamer, config, breaker, onReopen, onDrop),
@@ -80,7 +80,10 @@ export class Feed {
 
   /**
    * Registers durable streaming demand for the given keys. Returns synchronously;
-   * failures surface as per-key statuses on the subscription, never as rejections.
+   * convergence failures surface as per-key statuses, never as rejections. The
+   * handler's first call precedes registration, so a throw from it leaves no
+   * subscription behind.
+   * @throws {UnexpectedError} if the feed has been closed.
    */
   stream(handler: StreamHandler, keys: channel.Key[]): Subscription {
     return this.streamer.stream(handler, keys);
