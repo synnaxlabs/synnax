@@ -207,8 +207,7 @@ benefits, not just telemetry.
 
 The failure contract is DataLoader's: per-key resolution. A key the server does not
 return resolves as not-found for that key alone; a transport-level failure rejects the
-callers of that window but is never cached, so the next attempt refetches. The query
-cache's own bootstrap stream stays on the raw stream opener to avoid circularity.
+callers of that window but is never cached, so the next attempt refetches.
 
 The Feed resolves metadata internally through the cached channel client and does not
 re-expose what it resolves (Principle 3).
@@ -245,6 +244,11 @@ directly, deletes its duplicated structural `ObservableStream` and `StreamOpener
 interfaces (both carried TODOs naming this cycle), and takes a plain
 `framer.StreamOpener`. The `Synnax` wiring for the query cache shrinks to handing over
 its own `openStreamer`.
+
+That opener resolves its own channel names through the cache, so the first open
+re-enters the demand that triggered it. The streamer memoizes the open before the opener
+body runs (`query/streamer.ts:182`), so the re-entrant demand joins the open in flight
+instead of starting a second one.
 
 ### 4.6 The pluto side: bindings replace the wrapper client
 
