@@ -94,7 +94,7 @@ const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
 
 // The form edits primitive values; the stored shape accepts any JSON.
 const writeFieldStaticZ = http.writeFieldStaticZ.extend({
-  value: json.primitiveZ.optional(),
+  value: json.primitiveZ,
 });
 
 const writeFieldZ = z.discriminatedUnion("type", [
