@@ -36,7 +36,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/common"
-	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/set"
@@ -241,16 +240,17 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			var legacy map[string]any
 			Expect(json.Unmarshal(raw, &legacy)).To(Succeed())
 			delete(legacy, "type")
-			expected := v3.Transform(fixture, legacy)
+			store := MustBeOk(configs.Store(ontology.ResourceType(fixture)))
+			expected := MustSucceed(store.Normalize(0, legacy))
 			expectSubset(
 				"config",
 				map[string]any(expected),
 				map[string]any(imported.Config),
 			)
 
-			// A canonical config must pass through the transform unchanged, so
-			// re-importing a current-format export never rewrites it.
-			Expect(v3.Transform(fixture, imported.Config)).
+			// A canonical config must pass through the legacy rewrite unchanged, so
+			// re-importing an unversioned copy of a current export never rewrites it.
+			Expect(store.Normalize(0, imported.Config)).
 				To(Equal(imported.Config))
 		},
 		Entry(nil, "ethercat_read"),
