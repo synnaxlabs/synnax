@@ -155,6 +155,34 @@ describe("HTTP Write form", () => {
     await screen.findByText(/\/seeded/);
   });
 
+  // Waits on the channel name so the negative case asserts against a settled lookup
+  // rather than one still in flight.
+  const renderWithCommandChannel = async (dataType: string) => {
+    const client = createTestClient();
+    const ch = await client.channels.create({
+      name: uniqueName("http_cmd"),
+      dataType,
+      virtual: true,
+    });
+    const config = createWriteConfig("dev_1", [
+      createWriteEndpoint("ep1", "/cmd", { channel: ch.key }),
+    ]);
+    const draft = await createDraft(client, config);
+    await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText("JSON pointer");
+    await screen.findByText(ch.name);
+  };
+
+  it("should show the time format field for a timestamp command channel", async () => {
+    await renderWithCommandChannel("timestamp");
+    await screen.findByText("Time format");
+  });
+
+  it("should hide the time format field for a numeric command channel", async () => {
+    await renderWithCommandChannel("float64");
+    expect(screen.queryByText("Time format")).toBeNull();
+  });
+
   describe("deploying against a live cluster", () => {
     const client = createTestClient();
 

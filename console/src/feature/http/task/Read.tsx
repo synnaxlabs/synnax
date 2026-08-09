@@ -32,6 +32,7 @@ import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
+import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -41,7 +42,6 @@ import {
   type ReadMethod,
   type ReadPayload,
   type ReadSchemas,
-  type TimeFormat,
   ZERO_READ_ENDPOINT,
   ZERO_READ_FIELD,
   ZERO_READ_PAYLOAD,
@@ -88,14 +88,6 @@ const ReadEndpointListItem = (props: List.ItemProps<string>) => {
 };
 
 const readEndpointListItem = Component.renderProp(ReadEndpointListItem);
-
-const TIME_FORMAT_DATA: Select.StaticEntry<TimeFormat>[] = [
-  { key: "iso8601", name: "ISO 8601" },
-  { key: "unix_sec", name: "Unix (s)" },
-  { key: "unix_ms", name: "Unix (ms)" },
-  { key: "unix_us", name: "Unix (µs)" },
-  { key: "unix_ns", name: "Unix (ns)" },
-];
 
 const isTimingField = (f: ReadField): boolean => f.timestampFormat != null;
 
@@ -355,13 +347,10 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
             inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
             grow
           />
-          <PForm.Field<TimeFormat>
+          <TimeFormatField
             path={`${path}.fields.${indexField.key}.timestampFormat`}
             label="Format"
-            className={CSS.B("timestamp-format")}
-          >
-            {renderSelectTimeFormat}
-          </PForm.Field>
+          />
         </>
       )}
     </Flex.Box>
@@ -369,21 +358,6 @@ const TimingToggle: FC<{ path: string }> = ({ path }) => {
 };
 
 const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
-
-const renderSelectTimeFormat = Component.renderProp(
-  (
-    p: Omit<
-      Select.StaticProps<TimeFormat, Select.StaticEntry<TimeFormat>>,
-      "data" | "resourceName"
-    >,
-  ) => (
-    <Select.Static<TimeFormat, Select.StaticEntry<TimeFormat>>
-      {...p}
-      data={TIME_FORMAT_DATA}
-      resourceName="time format"
-    />
-  ),
-);
 
 const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
   const path = `config.endpoints.${epKey}`;
