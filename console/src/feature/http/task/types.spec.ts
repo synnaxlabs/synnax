@@ -338,7 +338,7 @@ describe("HTTP Task Types", () => {
   });
 
   describe("read endpoint", () => {
-    it("should leave index undefined by default", () => {
+    it("should leave index empty by default", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -352,7 +352,7 @@ describe("HTTP Task Types", () => {
         ],
       };
       const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].index).toBeUndefined();
+      expect(result.endpoints[0].index).toBe("");
     });
 
     it("should reject duplicate header names on an endpoint at deploy", () => {

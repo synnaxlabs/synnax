@@ -212,10 +212,10 @@ struct ReadEndpoint {
     std::string body = "";
     /// @brief fields contains the values to extract from the response.
     std::vector<ReadField> fields;
-    /// @brief index is the key of the field whose channel indexes the others. Absent
+    /// @brief index is the key of the field whose channel indexes the others. Empty
     /// when
     /// the task stamps samples on arrival.
-    std::optional<std::string> index;
+    std::string index = "";
 
     static ReadEndpoint parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
