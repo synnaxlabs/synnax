@@ -244,11 +244,11 @@ describe("StaticReadCache", () => {
       expect(gaps).toHaveLength(0);
     });
   });
-  describe("provisional entries", () => {
+  describe("streamed entries", () => {
     // Streamed data carries leading-region alignments that never match the
     // positional alignments of the same samples read back from disk, so the two
-    // forms of one sample can coexist in the cache. Provisional eviction is what
-    // prevents that.
+    // forms of one sample can coexist in the cache. Evicting streamed entries is
+    // what prevents that.
     const LEADING_ALIGNMENT = (BigInt(0xffffffff) - 1_000_000n) << 32n;
     const streamed = (tr: TimeRange, data: number[], offset = 0n) =>
       new MultiSeries([
@@ -269,7 +269,7 @@ describe("StaticReadCache", () => {
         }),
       ]);
 
-    it("should evict a provisional entry when an authoritative write overlaps it", () => {
+    it("should evict a streamed entry when a fetched write overlaps it", () => {
       const c = new Static({});
       const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
       c.write(streamed(tr, [1, 2]), true);
@@ -280,7 +280,7 @@ describe("StaticReadCache", () => {
       expect(gaps).toHaveLength(0);
     });
 
-    it("should evict a provisional entry on partial time overlap", () => {
+    it("should evict a streamed entry on partial time overlap", () => {
       const c = new Static({});
       c.write(
         streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(20)), [1, 2]),
@@ -294,7 +294,7 @@ describe("StaticReadCache", () => {
       expect(series.series[0].alignment).toEqual(0n);
     });
 
-    it("should keep provisional entries that do not overlap the write", () => {
+    it("should keep streamed entries that do not overlap the write", () => {
       const c = new Static({});
       c.write(
         streamed(TimeStamp.seconds(30).range(TimeStamp.seconds(40)), [3, 4]),
@@ -307,7 +307,7 @@ describe("StaticReadCache", () => {
       expect(series.series).toHaveLength(2);
     });
 
-    it("should not evict provisional entries on a provisional write", () => {
+    it("should not evict streamed entries on a streamed write", () => {
       const c = new Static({});
       c.write(
         streamed(TimeStamp.seconds(10).range(TimeStamp.seconds(20)), [1, 2]),
@@ -323,7 +323,7 @@ describe("StaticReadCache", () => {
       expect(series.series).toHaveLength(2);
     });
 
-    it("should not evict authoritative entries", () => {
+    it("should not evict fetched entries", () => {
       const c = new Static({});
       const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
       c.write(fetched(tr, [1, 2]));

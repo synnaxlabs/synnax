@@ -82,8 +82,8 @@ describe("Unary", () => {
     });
   });
 
-  describe("provisional flushes", () => {
-    it("should evict a flushed buffer when an authoritative write covers it", () => {
+  describe("streamed flushes", () => {
+    it("should evict a flushed buffer when a fetched write covers it", () => {
       const u = newUnary();
       u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
       // An alignment gap flushes the first buffer into the static cache.
@@ -97,7 +97,7 @@ describe("Unary", () => {
       expect(gaps).toHaveLength(0);
     });
 
-    it("should keep a flushed buffer that no authoritative write covers", () => {
+    it("should keep a flushed buffer that no fetched write covers", () => {
       const u = newUnary();
       u.writeDynamic(stamped(10, 13, [1, 2, 3], LEADING_ALIGNMENT));
       u.writeDynamic(stamped(20, 23, [4, 5, 6], LEADING_ALIGNMENT + 100n));

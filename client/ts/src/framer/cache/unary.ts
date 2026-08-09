@@ -43,7 +43,7 @@ export class Unary {
   writeDynamic(series: MultiSeries): MultiSeries {
     this.checkOpen("writeDynamic");
     const { flushed, allocated } = this.dynamic.write(series);
-    // Flushed buffers are provisional until an authoritative fetch replaces them.
+    // Flushed buffers stay streamed until a fetch replaces them.
     if (flushed.length > 0) this.static.write(flushed, true);
     return allocated;
   }

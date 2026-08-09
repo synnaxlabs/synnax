@@ -143,7 +143,7 @@ describe("feed", () => {
     expect(values.length).toBeGreaterThan(0);
     expect(new Set(values).size).toEqual(values.length);
     // A second writer opens a new alignment domain, which flushes the old leading
-    // buffer into the static cache as a provisional entry.
+    // buffer into the static cache as a streamed entry.
     const w2 = await client.openWriter({
       start: TimeStamp.now(),
       channels: [time.key, data.key],

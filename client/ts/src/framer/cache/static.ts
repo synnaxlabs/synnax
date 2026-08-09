@@ -55,10 +55,12 @@ export const DEFAULT_STATIC_PROPS: Required<StaticProps> = {
 };
 
 interface CacheEntry {
+  /** The cached samples, after the transform and any insertion trimming. */
   data: Series;
+  /** When the entry entered the cache, for garbage collection staleness. */
   addedAt: TimeStamp;
   /** True when the entry came from the live stream instead of a fetch. */
-  provisional: boolean;
+  streamed: boolean;
 }
 
 /**
@@ -82,22 +84,22 @@ export class Static {
    * existing series in the cache.
    *
    * @param series - The series to write.
-   * @param provisional - Marks the series as live-streamed data. An authoritative
-   * (fetched) write overlapping a provisional entry's time range evicts it.
+   * @param streamed - Marks the series as live-streamed data. A fetched write
+   * evicts every streamed entry that overlaps its time range.
    */
-  write(series: MultiSeries, provisional: boolean = false): void {
+  write(series: MultiSeries, streamed: boolean = false): void {
     if (series.length === 0) return;
-    if (!provisional) this.evictProvisional(series);
+    if (!streamed) this.evictStreamed(series);
     series.series.forEach((s) =>
-      this.writeOne(this.props.transform.convert(s), provisional),
+      this.writeOne(this.props.transform.convert(s), streamed),
     );
     this.repairIntegrity(series);
   }
 
-  private evictProvisional(written: MultiSeries): void {
+  private evictStreamed(written: MultiSeries): void {
     this.data = this.data.filter(
       (e) =>
-        !e.provisional ||
+        !e.streamed ||
         !written.series.some((s) => s.timeRange.overlapsWith(e.data.timeRange)),
     );
   }
@@ -153,7 +155,7 @@ export class Static {
     this.data = [];
   }
 
-  private writeOne(series: Series, provisional: boolean): void {
+  private writeOne(series: Series, streamed: boolean): void {
     const {
       instrumentation: { L },
     } = this.props;
@@ -173,7 +175,7 @@ export class Static {
     this.data.splice(insertInto, deleteInBetween, {
       data: series,
       addedAt: TimeStamp.now(),
-      provisional,
+      streamed,
     });
   }
 
