@@ -1319,12 +1319,89 @@ describe("referential stability", () => {
       single: true,
     });
 
+  /** Query-dependent compose: the answer is assembled per read, as the channel
+   *  alias, device status, and rack status composes are. */
+  const composingSpace = (
+    table: query.Table<string, Doc>,
+    suffix: () => string,
+    fetch: (query: Q) => Promise<string[]> = async () => ["a"],
+  ) =>
+    new Queries<Q, Doc, string, Doc>({
+      name: "doc",
+      table,
+      fetch,
+      compose: (records) => ({ ...records[0], name: `${records[0].name}${suffix()}` }),
+      keyOf: (query) => query.k,
+      single: true,
+    });
+
   it("returns the table row itself for identity composes", () => {
     const table = newDocTable();
     const row = doc("a", "one");
     table.set("a", row);
     const answers = identitySpace(table, async () => ["a"]);
     expect(answers.getCached(qA)).toBe(row);
+  });
+
+  it("returns the same reference across entry-less reads of an allocating compose", () => {
+    const table = newDocTable();
+    table.set("a", doc("a", "one"));
+    const answers = composingSpace(table, () => "");
+    expect(answers.getCached(qA)).toBe(answers.getCached(qA));
+  });
+
+  it("returns a new reference from an allocating compose only after the row changes", () => {
+    const table = newDocTable();
+    table.set("a", doc("a", "one"));
+    const answers = composingSpace(table, () => "");
+    const first = answers.getCached(qA);
+    table.set("a", doc("a", "two"));
+    const second = answers.getCached(qA);
+    expect(second).not.toBe(first);
+    expect(query.isLive(second) ? second.name : null).toEqual("two");
+  });
+
+  it("holds an entry-less answer when an input outside the table changes", () => {
+    const table = newDocTable();
+    table.set("a", doc("a", "one"));
+    let suffix = "";
+    const answers = composingSpace(table, () => suffix);
+    expect(query.isLive(answers.getCached(qA))).toBe(true);
+    suffix = "-aliased";
+    const next = answers.getCached(qA);
+    expect(query.isLive(next) ? next.name : null).toEqual("one");
+  });
+
+  it("recomposes a subscribed answer when a watched foreign table changes", async () => {
+    const table = newDocTable();
+    const foreign = new query.Table<string, Doc>({ onError: () => {} });
+    let suffix = "";
+    const answers = new Queries<Q, Doc, string, Doc>({
+      name: "doc",
+      table,
+      fetch: async () => {
+        table.set("a", doc("a", "one"));
+        return ["a"];
+      },
+      compose: (records) => ({ ...records[0], name: `${records[0].name}${suffix}` }),
+      keyOf: (query) => query.k,
+      single: true,
+      watch: [query.watch(foreign, () => ["a"])],
+    });
+    const off = answers.onChange(qA, vi.fn());
+    try {
+      await answers.retrieve(qA);
+      suffix = "-aliased";
+      foreign.set("a", doc("a", "trigger"));
+      await expect
+        .poll(() => {
+          const cached = answers.getCached(qA);
+          return query.isLive(cached) ? cached.name : null;
+        })
+        .toEqual("one-aliased");
+    } finally {
+      off();
+    }
   });
 
   it("returns the same reference across repeated entry-less reads", () => {
