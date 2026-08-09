@@ -555,6 +555,46 @@ inline x::json::json DigitalWriteConfig::to_json() const {
     return j;
 }
 
+inline CJCBuiltIn CJCBuiltIn::parse(x::json::Parser parser) {
+    CJCBuiltIn result;
+    result.source = parser.field<std::string>("source");
+    return result;
+}
+
+inline x::json::json CJCBuiltIn::to_json() const {
+    x::json::json j;
+    j["source"] = this->source;
+    return j;
+}
+
+inline CJCConstVal CJCConstVal::parse(x::json::Parser parser) {
+    CJCConstVal result;
+    result.val = parser.field<double>("val", 0);
+    result.source = parser.field<std::string>("source");
+    return result;
+}
+
+inline x::json::json CJCConstVal::to_json() const {
+    x::json::json j;
+    j["val"] = this->val;
+    j["source"] = this->source;
+    return j;
+}
+
+inline CJCChan CJCChan::parse(x::json::Parser parser) {
+    CJCChan result;
+    result.port = parser.field<std::int32_t>("port", 0);
+    result.source = parser.field<std::string>("source");
+    return result;
+}
+
+inline x::json::json CJCChan::to_json() const {
+    x::json::json j;
+    j["port"] = this->port;
+    j["source"] = this->source;
+    return j;
+}
+
 inline ScaleLinear ScaleLinear::parse(x::json::Parser parser) {
     ScaleLinear result;
     static_cast<LinearScale &>(result) = LinearScale::parse(parser);
@@ -1088,9 +1128,7 @@ inline AIThermocoupleChannel AIThermocoupleChannel::parse(x::json::Parser parser
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.units = parser.field<std::string>("units", "DegC");
     result.thermocouple_type = parser.field<std::string>("thermocouple_type", "J");
-    result.cjc_source = parser.field<std::string>("cjc_source", "BuiltIn");
-    result.cjc_val = parser.field<std::optional<double>>("cjc_val");
-    result.cjc_port = parser.field<std::optional<std::int32_t>>("cjc_port");
+    result.cjc = parse_cjc(parser.child("cjc"));
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1103,9 +1141,7 @@ inline x::json::json AIThermocoupleChannel::to_json() const {
         j[k] = v;
     j["units"] = this->units;
     j["thermocouple_type"] = this->thermocouple_type;
-    j["cjc_source"] = this->cjc_source;
-    j["cjc_val"] = this->cjc_val;
-    j["cjc_port"] = this->cjc_port;
+    j["cjc"] = ::synnax::ni::to_json(this->cjc);
     j["type"] = this->type;
     return j;
 }
@@ -2113,6 +2149,19 @@ inline x::json::json DOChannelDigitalOutput::to_json() const {
     j["line"] = this->line;
     j["type"] = this->type;
     return j;
+}
+
+inline CJC parse_cjc(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("source");
+    if (discriminator == "built_in") return CJCBuiltIn::parse(parser);
+    if (discriminator == "const_val") return CJCConstVal::parse(parser);
+    if (discriminator == "chan") return CJCChan::parse(parser);
+    parser.field_err("source", "unknown CJC source: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const CJC &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 inline Scale parse_scale(x::json::Parser parser) {
