@@ -23,7 +23,7 @@ import {
   useState,
 } from "react";
 
-import { type EditorExtension } from "@/code/language";
+import { BASE_THEMES, type EditorExtension } from "@/code/language";
 import { type Monaco, useLanguage, useMonaco } from "@/code/Provider";
 import { diff, utf16Offset } from "@/code/text";
 import { CSS } from "@/css";
@@ -154,7 +154,7 @@ interface UseProps {
 const useTheme = (hasCustomTheme: boolean) => {
   const theme = Theming.use();
   const prefersDark = theme.key.includes("Dark");
-  if (hasCustomTheme) return prefersDark ? "Default Dark+" : "Default Light+";
+  if (hasCustomTheme) return prefersDark ? BASE_THEMES.dark : BASE_THEMES.light;
   return prefersDark ? "vs-dark" : "vs";
 };
 
