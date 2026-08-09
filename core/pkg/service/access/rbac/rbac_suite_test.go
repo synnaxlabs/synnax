@@ -35,6 +35,13 @@ var (
 	authSvc   *auth.Service
 )
 
+// taskConfigObjects stands in for the registry-derived task config types the
+// production wiring passes.
+var taskConfigObjects = []ontology.ID{
+	{Type: "ni_analog_read"},
+	{Type: "opc_scan"},
+}
+
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
@@ -63,13 +70,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		TaskConfigObjects: taskConfigObjects,
 	}))
 })
-
-// taskConfigObjects stands in for the registry-derived task config types the
-// production wiring passes.
-var taskConfigObjects = []ontology.ID{
-	{Type: "ni_analog_read"},
-	{Type: "opc_scan"},
-}
 
 func TestRBAC(t *testing.T) {
 	RegisterFailHandler(Fail)
