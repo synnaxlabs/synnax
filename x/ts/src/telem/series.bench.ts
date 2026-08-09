@@ -33,6 +33,6 @@ describe("data access", () => {
     data: new Float32Array(1000).buffer,
     dataType: DataType.FLOAT32,
   });
-  bench("partial buffer", () => partial.data.length);
-  bench("full buffer", () => full.data.length);
+  bench("partial buffer", () => void partial.data.length);
+  bench("full buffer", () => void full.data.length);
 });
