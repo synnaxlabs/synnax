@@ -262,10 +262,22 @@ inline int32_t parse_thermocouple_type(const std::string &type) {
     return DAQmx_Val_J_Type_TC;
 }
 
-inline int32_t parse_cjc_source(const std::string &source) {
-    if (source == "ConstVal") return DAQmx_Val_ConstVal;
-    if (source == "Chan") return DAQmx_Val_Chan;
-    return DAQmx_Val_BuiltIn;
+/// @brief the DAQmx cold-junction arguments a thermocouple channel is created with.
+struct CJCArgs {
+    /// @brief the DAQmx source constant.
+    int32_t source = DAQmx_Val_BuiltIn;
+    /// @brief the reference temperature, used only when the source is a constant.
+    double val = 0;
+    /// @brief the reference channel's port, used only when the source is a channel.
+    int32_t port = 0;
+};
+
+inline CJCArgs parse_cjc(const ::synnax::ni::CJC &cjc) {
+    if (const auto *c = std::get_if<::synnax::ni::CJCConstVal>(&cjc))
+        return {DAQmx_Val_ConstVal, c->val, 0};
+    if (const auto *c = std::get_if<::synnax::ni::CJCChan>(&cjc))
+        return {DAQmx_Val_Chan, 0, c->port};
+    return {};
 }
 
 /// @brief per-channel context the owning task binds before configuration is
@@ -2085,7 +2097,8 @@ inline x::errors::Error apply(
     const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
-    const auto cjc_port = format_cjc_port(ctx.cfg_path, ch.cjc_port.value_or(0));
+    const auto cjc = parse_cjc(ch.cjc);
+    const auto cjc_port = format_cjc_port(ctx.cfg_path, cjc.port);
     return dmx->CreateAIThrmcplChan(
         task_handle,
         loc.c_str(),
@@ -2094,8 +2107,8 @@ inline x::errors::Error apply(
         ch.max_val,
         units,
         parse_thermocouple_type(ch.thermocouple_type),
-        parse_cjc_source(ch.cjc_source),
-        ch.cjc_val.value_or(0),
+        cjc.source,
+        cjc.val,
         cjc_port.c_str()
     );
 }
