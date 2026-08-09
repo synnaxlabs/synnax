@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF } from "@synnaxlabs/freighter";
-import { type breaker, DataType, errors, unique } from "@synnaxlabs/x";
+import { type breaker, DataType, errors } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { isConnectionError, NotFoundError } from "@/errors";
@@ -121,12 +121,8 @@ export const createStreamer = ({
   };
   const open = async (): Promise<ObservableStreamer> => {
     if (closed) throw new EOF();
-    const channels = unique.unique(allListeners.map(({ channel }) => channel));
-    const listenersForChannels: Record<string, Listener<z.ZodType>[]> = {};
-    allListeners.forEach((lis) => {
-      const { channel } = lis;
-      listenersForChannels[channel] = [...(listenersForChannels[channel] || []), lis];
-    });
+    const listenersForChannels = Map.groupBy(allListeners, ({ channel }) => channel);
+    const channels = Array.from(listenersForChannels.keys());
     const h = new HardenedStreamer(
       openStreamer,
       { channels },
@@ -148,12 +144,11 @@ export const createStreamer = ({
     onOpen?.();
     onLive?.();
     const handleChange = (frame: framer.Frame) => {
-      const namesInFrame = [...frame.uniqueNames];
-      namesInFrame.sort(channelNameSort);
+      const namesInFrame = frame.uniqueNames.sort(channelNameSort);
       void (async () => {
         for (const name of namesInFrame) {
           const series = frame.get(name);
-          const listeners = listenersForChannels[name];
+          const listeners = listenersForChannels.get(name);
           if (listeners == null) continue;
           for (const { onChange, schema } of listeners) {
             let parsed: z.output<typeof schema>[];

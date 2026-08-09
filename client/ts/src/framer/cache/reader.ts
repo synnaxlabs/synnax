@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { debounce, type MultiSeries, sync, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import {
+  debounce,
+  MultiSeries,
+  type Series,
+  sync,
+  TimeRange,
+  TimeSpan,
+} from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
@@ -121,7 +128,17 @@ export class Reader {
       batched.map(async ({ gap, channels, entries: served }) => {
         try {
           const frame = await readRemote(gap, Array.from(channels));
-          channels.forEach((key) => cache.get(key).writeStatic(frame.get(key)));
+          // Group series by key in one pass; per-key get() scans the whole frame.
+          const grouped = new Map<channel.Key, Series[]>();
+          frame.forEach((k, s) => {
+            const key = k as channel.Key;
+            const existing = grouped.get(key);
+            if (existing == null) grouped.set(key, [s]);
+            else existing.push(s);
+          });
+          channels.forEach((key) =>
+            cache.get(key).writeStatic(new MultiSeries(grouped.get(key) ?? [])),
+          );
         } catch (err) {
           served.forEach((entry) => {
             if (!failures.has(entry)) failures.set(entry, err);

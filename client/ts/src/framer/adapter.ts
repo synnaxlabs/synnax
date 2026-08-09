@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, type CrudeSeries, Series } from "@synnaxlabs/x";
+import { type CrudeSeries, Series } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { analyzeParams, paramsZ } from "@/channel/payload";
@@ -60,11 +60,8 @@ export class ReadAdapter {
     const { variant, normalized } = analyzeParams(channels);
     const fetched = await this.retrieveChannels(normalized);
     const newKeys = fetched.map((c) => c.key);
-    if (
-      compare.uniqueUnorderedPrimitiveArrays(Array.from(this.keys), newKeys) ===
-      compare.EQUAL
-    )
-      return false;
+    const newKeySet = new Set(newKeys);
+    if (newKeySet.size === this.keys.size && newKeySet.isSubsetOf(this.keys)) return false;
     this.codec.update(
       newKeys,
       fetched.map((c) => c.dataType),
@@ -143,10 +140,8 @@ export class WriteAdapter {
     const newKeys = results.map((c) => c.key);
     const previousKeySet = new Set(this.keys);
     const newKeySet = new Set(newKeys);
-    const hasAddedKeys = !newKeySet.isSubsetOf(previousKeySet);
-    const hasRemovedKeys = !previousKeySet.isSubsetOf(newKeySet);
-    const hasChanged = hasAddedKeys || hasRemovedKeys;
-    if (!hasChanged) return false;
+    if (newKeySet.size === previousKeySet.size && newKeySet.isSubsetOf(previousKeySet))
+      return false;
     this.byName = new Map(results.map((c) => [c.name, c]));
     this.byKey = new Map(results.map((c) => [c.key, c]));
     this.keys = newKeys;

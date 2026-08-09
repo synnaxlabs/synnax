@@ -42,15 +42,15 @@ export class Reader {
     } = request;
     const channelPayloads = await this.retrieveChannels(channelParams);
     const allKeys = new Set<channel.Key>();
+    const payloadKeys = new Set<channel.Key>();
     channelPayloads.forEach((ch) => {
       allKeys.add(ch.key);
+      payloadKeys.add(ch.key);
       if (ch.index !== 0) allKeys.add(ch.index);
     });
-    const missingIndexKeys = Array.from(allKeys).filter(
-      (k) => !channelPayloads.some((ch) => ch.key === k),
-    );
-    if (missingIndexKeys.length > 0) {
-      const indexChannels = await this.retrieveChannels(missingIndexKeys);
+    const missingIndexKeys = allKeys.difference(payloadKeys);
+    if (missingIndexKeys.size > 0) {
+      const indexChannels = await this.retrieveChannels(Array.from(missingIndexKeys));
       channelPayloads.push(...indexChannels);
     }
     const iterator = await Iterator._open(

@@ -163,10 +163,10 @@ export class Static {
       series.alignmentBounds,
     );
     if (insertionPlan === null)
-      return L.debug("Found no viable insertion plan", {
+      return L.debug("Found no viable insertion plan", () => ({
         inserting: series.digest,
         cacheContents: this.data.map((s) => s.data.digest),
-      });
+      }));
     const { removeBefore, removeAfter, insertInto, deleteInBetween } = insertionPlan;
     series = series.slice(removeBefore, series.length - removeAfter);
     if (series.length === 0) return;
