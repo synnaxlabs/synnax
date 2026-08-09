@@ -292,18 +292,8 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(string(v.Units))
 		w.String(string(v.ThermocoupleType))
-		w.String(string(v.CjcSource))
-		if v.CjcVal != nil {
-			w.Bool(true)
-			w.Float64(float64(*v.CjcVal))
-		} else {
-			w.Bool(false)
-		}
-		if v.CjcPort != nil {
-			w.Bool(true)
-			w.Int32(int32(*v.CjcPort))
-		} else {
-			w.Bool(false)
+		if err := v.Cjc.EncodeOrc(w); err != nil {
+			return err
 		}
 	case AITorqueBridgeTableChannel:
 		w.String("ai_torque_bridge_table")
@@ -1090,38 +1080,8 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			}
 			v.ThermocoupleType = ThermocoupleType(rawV)
 		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.CjcSource = CJCSource(rawV)
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv float64
-				if hv, err = r.Float64(); err != nil {
-					return err
-				}
-				v.CjcVal = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv int32
-				if hv, err = r.Int32(); err != nil {
-					return err
-				}
-				v.CjcPort = &hv
-			}
+		if err = v.Cjc.DecodeOrc(r); err != nil {
+			return err
 		}
 		aic.Variant = v
 	case "ai_torque_bridge_table":
@@ -2710,6 +2670,51 @@ func (cic *CIChannel) DecodeOrc(r *orc.Reader) error {
 		cic.Variant = v
 	default:
 		return errors.Newf("CIChannel: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (cjc CJC) EncodeOrc(w *orc.Writer) error {
+	switch v := cjc.Variant.(type) {
+	case CJCBuiltIn:
+		w.String("built_in")
+	case CJCConstVal:
+		w.String("const_val")
+		w.Float64(float64(v.Val))
+	case CJCChan:
+		w.String("chan")
+		w.Int32(int32(v.Port))
+	default:
+		return errors.Newf("CJC: nil or unknown variant %T", cjc.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (cjc *CJC) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "built_in":
+		var v CJCBuiltIn
+		cjc.Variant = v
+	case "const_val":
+		var v CJCConstVal
+		if v.Val, err = r.Float64(); err != nil {
+			return err
+		}
+		cjc.Variant = v
+	case "chan":
+		var v CJCChan
+		if v.Port, err = r.Int32(); err != nil {
+			return err
+		}
+		cjc.Variant = v
+	default:
+		return errors.Newf("CJC: unknown variant %q", tag)
 	}
 	return nil
 }

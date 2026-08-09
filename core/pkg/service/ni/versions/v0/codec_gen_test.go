@@ -274,9 +274,7 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:        fullyPopulatedMinMaxVal,
 				Units:            v0.TemperatureUnits("DegC"),
 				ThermocoupleType: v0.ThermocoupleType("J"),
-				CjcSource:        v0.CJCSource("BuiltIn"),
-				CjcVal:           new(float64(4.5)),
-				CjcPort:          new(int32(6)),
+				Cjc:              v0.CJC{Variant: v0.CJCBuiltIn{}},
 			}}),
 			Entry("ai_torque_bridge_table variant", v0.AIChannel{Variant: v0.AITorqueBridgeTableChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
@@ -816,6 +814,22 @@ var _ = Describe("Codec", func() {
 				ActiveEdge:    v0.CIEdge("Rising"),
 				Terminal:      "test_4",
 			}}),
+		)
+	})
+	Describe("CJC", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.CJC) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.CJC
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("built_in variant", v0.CJC{Variant: v0.CJCBuiltIn{}}),
+			Entry("const_val variant", v0.CJC{Variant: v0.CJCConstVal{Val: 1.5}}),
+			Entry("chan variant", v0.CJC{Variant: v0.CJCChan{Port: 2}}),
 		)
 	})
 	Describe("CounterReadConfig", func() {
@@ -1658,6 +1672,23 @@ func BenchmarkEncodeDecodeCIChannel(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeCJC(b *testing.B) {
+	seed := v0.CJC{Variant: v0.CJCBuiltIn{}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.CJC
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeCounterReadConfig(b *testing.B) {
 	seed := v0.CounterReadConfig{
 		BaseReadConfig: common.BaseReadConfig{
@@ -2382,9 +2413,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:        fullyPopulatedMinMaxVal,
 			Units:            v0.TemperatureUnits("DegC"),
 			ThermocoupleType: v0.ThermocoupleType("J"),
-			CjcSource:        v0.CJCSource("BuiltIn"),
-			CjcVal:           new(float64(4.5)),
-			CjcPort:          new(int32(6)),
+			Cjc:              v0.CJC{Variant: v0.CJCBuiltIn{}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3361,6 +3390,53 @@ func FuzzDecodeCIChannel(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v0.CIChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCJC(f *testing.F) {
+	{
+		seed := v0.CJC{Variant: v0.CJCBuiltIn{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.CJC{Variant: v0.CJCConstVal{Val: 1.5}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.CJC{Variant: v0.CJCChan{Port: 2}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.CJC
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.CJC
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

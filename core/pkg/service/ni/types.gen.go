@@ -205,14 +205,29 @@ const (
 	ThermocoupleTypeE ThermocoupleType = versions.ThermocoupleTypeE
 )
 
-// CJCSource selects the cold-junction-compensation source for a thermocouple.
-type CJCSource = versions.CJCSource
+// CJC is the cold-junction compensation for a thermocouple. The source selects where
+// the reference temperature comes from.
+type CJC = versions.CJC
+type CJCVariant = versions.CJCVariant
+type CJCType = versions.CJCType
 
 const (
-	CJCSourceBuiltIn  CJCSource = versions.CJCSourceBuiltIn
-	CJCSourceConstVal CJCSource = versions.CJCSourceConstVal
-	CJCSourceChan     CJCSource = versions.CJCSourceChan
+	// CJCTypeBuiltIn reads the reference temperature from the device's own sensor.
+	CJCTypeBuiltIn CJCType = versions.CJCTypeBuiltIn
+	// CJCTypeConstVal uses a fixed reference temperature.
+	CJCTypeConstVal CJCType = versions.CJCTypeConstVal
+	// CJCTypeChan reads the reference temperature from another channel.
+	CJCTypeChan CJCType = versions.CJCTypeChan
 )
+
+// CJCBuiltIn reads the reference temperature from the device's own sensor.
+type CJCBuiltIn = versions.CJCBuiltIn
+
+// CJCConstVal uses a fixed reference temperature.
+type CJCConstVal = versions.CJCConstVal
+
+// CJCChan reads the reference temperature from another channel.
+type CJCChan = versions.CJCChan
 
 // VelocityUnits are the engineering units for a velocity measurement.
 type VelocityUnits = versions.VelocityUnits

@@ -47,9 +47,7 @@ class TestNITask:
                     "max_val": 1,
                     "units": "DegC",
                     "thermocouple_type": "J",
-                    "cjc_source": "BuiltIn",
-                    "cjc_val": 0,
-                    "cjc_port": 0,
+                    "cjc": {"source": "built_in"},
                 },
                 {
                     "name": "",

@@ -162,7 +162,9 @@ describe("AnalogRead", () => {
     await renderAnalogRead({
       ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
       channels: [
-        createChannel("ai_thermocouple", 0, { cjcSource: "ConstVal", cjcVal: 5 }),
+        createChannel("ai_thermocouple", 0, {
+          cjc: { source: "const_val", val: 5 },
+        }),
       ],
     });
     await screen.findByText("CJC Source");
@@ -171,7 +173,7 @@ describe("AnalogRead", () => {
     await selectFromDropdown("Constant Value", "Channel");
     await waitFor(() => expect(getLabeledInput("CJC Port").value).toBe("0"));
     expect(screen.queryByText("CJC Value")).toBeNull();
-    // Switching back must re-seed cjcVal to 0, not resurface the stale 5.
+    // Switching back must re-seed the value to 0, not resurface the stale 5.
     await selectFromDropdown("Channel", "Constant Value");
     await waitFor(() => expect(getLabeledInput("CJC Value").value).toBe("0"));
     expect(screen.queryByText("CJC Port")).toBeNull();
