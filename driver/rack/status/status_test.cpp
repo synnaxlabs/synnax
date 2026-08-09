@@ -24,7 +24,11 @@ TEST(stateTests, testNominal) {
         client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
     );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
-    auto task = synnax::task::Task{.name = "state", .type = "state", .internal = true};
+    auto task = synnax::task::Task{
+        .name = "state",
+        .type = driver::rack::status::TASK_TYPE,
+        .internal = true
+    };
     ASSERT_NIL(rack.tasks.create(task));
     auto hb = driver::rack::status::Task::configure(ctx, task);
     auto cmd = synnax::task::Command{
