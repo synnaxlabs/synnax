@@ -140,9 +140,9 @@ type ReadEndpoint struct {
 	Body string `json:"body" msgpack:"body"`
 	// Fields contains the values to extract from the response.
 	Fields []ReadField `json:"fields,omitzero" msgpack:"fields,omitzero"`
-	// Index is the key of the field whose channel indexes the others. Absent when the
+	// Index is the key of the field whose channel indexes the others. Empty when the
 	// task stamps samples on arrival.
-	Index *string `json:"index,omitempty" msgpack:"index,omitempty"`
+	Index string `json:"index" msgpack:"index"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

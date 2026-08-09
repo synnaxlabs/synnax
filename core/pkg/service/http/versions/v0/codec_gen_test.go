@@ -170,7 +170,7 @@ var _ = Describe("Codec", func() {
 								EnumValues:      []v0.EnumEntry{{Label: "test_26", Value: 27.5}},
 							},
 						},
-						Index: new(string("test_28")),
+						Index: "test_28",
 					},
 				},
 			}),
@@ -226,7 +226,7 @@ var _ = Describe("Codec", func() {
 						EnumValues:      []v0.EnumEntry{{Label: "test_20", Value: 21.5}},
 					},
 				},
-				Index: new(string("test_22")),
+				Index: "test_22",
 			}),
 			Entry("zero values", v0.ReadEndpoint{
 				Key:         "",
@@ -236,7 +236,7 @@ var _ = Describe("Codec", func() {
 				QueryParams: nil,
 				Body:        "",
 				Fields:      nil,
-				Index:       nil,
+				Index:       "",
 			}),
 			Entry("empty collections", v0.ReadEndpoint{
 				Key:         "test_1",
@@ -246,7 +246,7 @@ var _ = Describe("Codec", func() {
 				QueryParams: []v0.QueryParam{},
 				Body:        "test_6",
 				Fields:      []v0.ReadField{},
-				Index:       new(string("test_8")),
+				Index:       "test_8",
 			}),
 		)
 	})
@@ -586,7 +586,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 						EnumValues:      []v0.EnumEntry{{Label: "test_26", Value: 27.5}},
 					},
 				},
-				Index: new(string("test_28")),
+				Index: "test_28",
 			},
 		},
 	}
@@ -625,7 +625,7 @@ func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
 				EnumValues:      []v0.EnumEntry{{Label: "test_20", Value: 21.5}},
 			},
 		},
-		Index: new(string("test_22")),
+		Index: "test_22",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1052,7 +1052,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 							EnumValues:      []v0.EnumEntry{{Label: "test_26", Value: 27.5}},
 						},
 					},
-					Index: new(string("test_28")),
+					Index: "test_28",
 				},
 			},
 		}
@@ -1139,7 +1139,7 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 					EnumValues:      []v0.EnumEntry{{Label: "test_20", Value: 21.5}},
 				},
 			},
-			Index: new(string("test_22")),
+			Index: "test_22",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1156,7 +1156,7 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			QueryParams: nil,
 			Body:        "",
 			Fields:      nil,
-			Index:       nil,
+			Index:       "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1173,7 +1173,7 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			QueryParams: []v0.QueryParam{},
 			Body:        "test_6",
 			Fields:      []v0.ReadField{},
-			Index:       new(string("test_8")),
+			Index:       "test_8",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
