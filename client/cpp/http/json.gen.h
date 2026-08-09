@@ -115,7 +115,7 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
             "fields",
             std::vector<ReadField>{}
         ),
-        .index = parser.field<std::optional<std::string>>("index"),
+        .index = parser.field<std::string>("index", ""),
     };
 }
 

@@ -214,7 +214,7 @@ class ReadEndpoint(BaseModel):
         query_params: Contains query parameters appended to the request URL.
         body: Is a static body sent with each request. Empty sends no body.
         fields: Contains the values to extract from the response.
-        index: Is the key of the field whose channel indexes the others. Absent when the
+        index: Is the key of the field whose channel indexes the others. Empty when the
             task stamps samples on arrival.
     """
 
@@ -225,7 +225,7 @@ class ReadEndpoint(BaseModel):
     query_params: list[QueryParam] = Field(default_factory=list)
     body: str = ""
     fields: list[ReadField] = Field(default_factory=list)
-    index: str | None = None
+    index: str = ""
 
     def __hash__(self) -> int:
         return hash(self.key)

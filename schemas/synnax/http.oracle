@@ -134,9 +134,9 @@ ReadEndpoint struct {
     fields       ReadField[]  {
         @doc value "contains the values to extract from the response."
     }
-    index        string?      {
+    index        string = "" {
         @doc value """
-            is the key of the field whose channel indexes the others. Absent
+            is the key of the field whose channel indexes the others. Empty
             when the task stamps samples on arrival.
         """
     }
