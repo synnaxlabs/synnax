@@ -277,12 +277,18 @@ stalled or reconnecting, `error` while the module retries a data-plane failure. 
 merge this with the metadata query's verdict (missing, deleted, disconnected) and expose
 one status to the component layer.
 
-Scope is deliberately minimal: statuses are plumbed through every source, errors surface
-through the existing status and toast machinery instead of vanishing, and schematic
-symbols gain exactly one new visual treatment, a "no data" state visually distinct from
-any real value. A valve with a dead feed dims instead of confidently drawing closed. The
-full per-widget quality overlay program stays deferred per RFC 0049 §7 and builds on the
-per-key status model without touching this module.
+The `Subscription` status surface ships with the module and stays unconsumed until
+phase 5. A source's only sink today is an adder that appends to the notification list,
+and the transitions above are normal operation, so a twenty-channel plot would raise
+forty notifications on mount and twenty more on every reconnect. The plumbing lands with
+its destination: one new visual treatment on schematic symbols, a "no data" state
+visually distinct from any real value. A valve with a dead feed dims instead of
+confidently drawing closed. Errors a source catches itself keep going to that adder in
+the meantime.
+
+Scope stays deliberately minimal. The full per-widget quality overlay program stays
+deferred per RFC 0049 §7 and builds on the per-key status model without touching this
+module.
 
 ## 5 Implementation phases
 
