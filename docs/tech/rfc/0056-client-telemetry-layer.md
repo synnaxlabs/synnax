@@ -261,12 +261,13 @@ both disappear structurally. The close stays fire-and-forget, because the aether
 lifecycle hooks are synchronous, and reports its failures to the status aggregator.
 
 What pluto keeps is a lowercase, worker-safe lifecycle binding in the `flux.Retrieve`
-shape (precedent: `pluto/src/flux/aether/retrieve.ts:48-136`): created in `afterUpdate`,
-deduped when props are unchanged, torn down in `afterDelete`, calling `requestRender` on
-delivery. Telem sources become thin compositions of two such bindings: a `flux.Retrieve`
-over the channel query definition for metadata (the RFC 0055 §5.5 migration, killing the
-hand-rolled `valid` flags) and a Feed subscription for data. A null client renders as
-disconnected status through the binding.
+shape: created in `afterUpdate`, deduped when props are unchanged, torn down in
+`afterDelete`, calling `requestRender` on delivery. Telem sources become thin
+compositions of two such bindings: a `flux.Retrieve` over the channel query definition
+for metadata (the RFC 0055 §5.5 migration, killing the hand-rolled `valid` flags) and a
+Feed subscription for data. A null client renders as disconnected status through the
+binding. The metadata half waits on the binding itself, which the RFC 0055 read
+unification introduces; until then the sources keep the hand-rolled flags (phase 4).
 
 ### 4.7 Status surface
 
@@ -290,15 +291,19 @@ per-key status model without touching this module.
   the query table fetch seam. Nothing consumes the new module yet; the tree stays green
   and the machinery reviews as one unit.
 - **Phase 2: atomic pluto cutover.** Telem sources and log sources rewritten onto the
-  new module plus flux metadata bindings; deletion of `pluto/src/telem/client/`,
-  `NoopClient`, `DebouncedBatchRetriever`, and `createDebouncedBatchRetriever`; spec
-  migration. No coexistence window.
+  new module; deletion of `pluto/src/telem/client/`, `NoopClient`,
+  `DebouncedBatchRetriever`, and `createDebouncedBatchRetriever`; spec migration. No
+  coexistence window. The sources keep their hand-rolled `valid` flags until phase 4.
 - **Phase 3: the framer merge and the cycle severing.** The module moves into `framer`
   as the `Feed` with `openFeed` on `framer.Client`; `Synnax` drops its auto-built
   instance and the construction-site transform option; the pluto telem provider opens
   its own Feed with the GL transform; `channel.Retriever`, `ClusterRetriever`, and the
   query cache's structural stream interfaces are deleted per §4.5.
-- **Phase 4: symbol status treatment.** The "no data" visual state and status plumbing
+- **Phase 4: flux metadata bindings.** Telem sources resolve channels through the
+  `flux.Retrieve` binding instead of a direct `channels.retrieve` call, which deletes
+  the hand-rolled `valid` flags and closes the §1 no-retry defect. Blocked on the
+  worker-safe `flux.Retrieve` binding, which lands with the RFC 0055 read unification.
+- **Phase 5: symbol status treatment.** The "no data" visual state and status plumbing
   into schematic symbols. Split from phase 3 so rendering regressions bisect separately.
 
 **Compatibility.** No wire or persisted formats change. Behavioral deltas are
@@ -310,6 +315,9 @@ client surface.
 ## 6 What this RFC does not cover
 
 - The full per-widget quality overlay UX (deferred, RFC 0049 §7).
+- Retry of the channel lookup a telem source makes before it subscribes. The Feed's
+  durable intent starts at `stream()`, so a failed lookup ahead of it still strands the
+  source until an unrelated redraw. Phase 4 closes this.
 - Migrating the control controller, control state, and lineplot range provider off their
   raw `Synnax` streamers onto the Feed; they keep independent streams for now and
   consolidate in a follow-on.
