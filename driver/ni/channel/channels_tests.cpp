@@ -479,9 +479,7 @@ TEST(ChannelsTest, ParseAIThermoChan) {
           {"max_val", 1},
           {"units", "DegC"},
           {"thermocouple_type", "J"},
-          {"cjc_source", "Chan"},
-          {"cjc_val", 0},
-          {"cjc_port", 1},
+          {"cjc", {{"source", "chan"}, {"port", 1}}},
           {"device", "cdaq1Mod2"}}}
     };
     x::json::Parser p(j);
@@ -498,6 +496,71 @@ TEST(ChannelsTest, ParseAIThermoChan) {
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["thermocoupleType"], DAQmx_Val_J_Type_TC);
     EXPECT_EQ(call["args"]["cjcSource"], DAQmx_Val_Chan);
+    EXPECT_EQ(call["args"]["cjcVal"], 0);
+}
+
+/// @brief a constant CJC source carries the reference temperature and no port.
+TEST(ChannelsTest, ParseAIThermocoupleConstCJC) {
+    x::json::json j = {
+        {"channels.0",
+         {{"type", "ai_thermocouple"},
+          {"key", "ks1VnWdrSVA"},
+          {"port", 0},
+          {"disabled", false},
+          {"name", ""},
+          {"channel", 0},
+          {"min_val", 0},
+          {"max_val", 1},
+          {"units", "DegC"},
+          {"thermocouple_type", "J"},
+          {"cjc", {{"source", "const_val"}, {"val", 25.5}}},
+          {"device", "cdaq1Mod2"}}}
+    };
+    x::json::Parser p(j);
+    auto child = p.child("channels.0");
+    const auto chan = channel::parse_input(child, "ni_analog_read");
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::FakeAPI> fake;
+    const auto dmx = fake_dmx(fake);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = fake->calls_to("CreateAIThrmcplChan");
+    ASSERT_EQ(calls.size(), 1);
+    EXPECT_EQ(calls[0]["args"]["cjcSource"], DAQmx_Val_ConstVal);
+    EXPECT_EQ(calls[0]["args"]["cjcVal"], 25.5);
+}
+
+/// @brief a built-in CJC source carries neither the reference nor the port.
+TEST(ChannelsTest, ParseAIThermocoupleBuiltInCJC) {
+    x::json::json j = {
+        {"channels.0",
+         {{"type", "ai_thermocouple"},
+          {"key", "ks1VnWdrSVA"},
+          {"port", 0},
+          {"disabled", false},
+          {"name", ""},
+          {"channel", 0},
+          {"min_val", 0},
+          {"max_val", 1},
+          {"units", "DegC"},
+          {"thermocouple_type", "J"},
+          {"cjc", {{"source", "built_in"}}},
+          {"device", "cdaq1Mod2"}}}
+    };
+    x::json::Parser p(j);
+    auto child = p.child("channels.0");
+    const auto chan = channel::parse_input(child, "ni_analog_read");
+    ASSERT_FALSE(p.error()) << p.error();
+    ASSERT_NE(chan, nullptr);
+    chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+    std::shared_ptr<daqmx::FakeAPI> fake;
+    const auto dmx = fake_dmx(fake);
+    ASSERT_NIL(chan->apply(dmx, nullptr));
+    const auto calls = fake->calls_to("CreateAIThrmcplChan");
+    ASSERT_EQ(calls.size(), 1);
+    EXPECT_EQ(calls[0]["args"]["cjcSource"], DAQmx_Val_BuiltIn);
+    EXPECT_EQ(calls[0]["args"]["cjcVal"], 0);
 }
 
 TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
