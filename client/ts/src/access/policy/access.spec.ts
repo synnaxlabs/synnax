@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import {
   createTestClient,
@@ -64,7 +64,7 @@ describe("policy", () => {
       });
       await expect(
         userClient.access.policies.retrieve(randomPolicy.key),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to retrieve policies with the correct policy", async () => {
@@ -111,7 +111,7 @@ describe("policy", () => {
           objects: [],
           actions: ["retrieve"],
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete policies with the correct policy", async () => {
@@ -143,9 +143,9 @@ describe("policy", () => {
         objects: [],
         actions: ["retrieve"],
       });
-      await expect(userClient.access.policies.delete(randomPolicy.key)).rejects.toThrow(
-        AuthError,
-      );
+      await expect(
+        userClient.access.policies.delete(randomPolicy.key),
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
   });
 });

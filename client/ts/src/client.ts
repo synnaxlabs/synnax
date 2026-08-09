@@ -10,6 +10,7 @@
 import {
   breaker,
   type CrudeTimeSpan,
+  errors,
   TimeSpan,
   TimeStamp,
   url,
@@ -25,7 +26,7 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
-import { errorsMiddleware } from "@/errors";
+import { AccessDeniedError, errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { imex } from "@/imex";
@@ -155,7 +156,7 @@ export default class Synnax extends framer.Client {
     super({ stream: transport.stream, unary: transport.unary, retriever: chRetriever });
     const cache = new query.Cache({
       openStreamer: parsedParams.cache
-        ? async (channels, { onOpen, onReopen }) => {
+        ? async (channels, { onOpen, onReopen, onDead }) => {
             const hardened = await framer.HardenedStreamer.open(
               (config) => this.openStreamer(config),
               channels,
@@ -167,12 +168,26 @@ export default class Synnax extends framer.Client {
                 onReopen?.();
               },
               (error) => this.conn.notify({ type: "stream.drop", error }),
-            );
+            ).catch((error: unknown) => {
+              if (AccessDeniedError.matches(error))
+                this.conn.notify({
+                  type: "stream.denied",
+                  error: errors.fromUnknown(error),
+                });
+              throw error;
+            });
             // Reads start when the ObservableStreamer is constructed below,
             // so onOpen fires strictly before any frame or reconnect.
             onOpen?.();
             this.conn.notify({ type: "stream.live" });
-            return new framer.ObservableStreamer(hardened);
+            return new framer.ObservableStreamer(hardened, undefined, (error) => {
+              this.conn.notify(
+                AccessDeniedError.matches(error)
+                  ? { type: "stream.denied", error }
+                  : { type: "stream.drop", error },
+              );
+              onDead?.(error);
+            });
           }
         : null,
       onError: parsedParams.onInternalError,
@@ -295,8 +310,9 @@ export default class Synnax extends framer.Client {
   }
 
   /**
-   * Awaits the connection's first success. Idempotent: resolves immediately
-   * when already connected.
+   * Awaits the connection becoming usable: success, or warning when the cluster
+   * refuses live updates. Idempotent: resolves immediately when already
+   * connected.
    * @throws {AuthError} on a definitive credential rejection.
    * @throws {DisconnectedError} when the cluster cannot be reached after the
    * configured retry budget, or when the client is closed while waiting.

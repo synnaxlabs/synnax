@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { type channel } from "@/channel";
-import { DisconnectedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
 import { query } from "@/query";
 
@@ -58,7 +58,7 @@ class MockStreamer implements framer.Streamer {
 
 const wrapOpener =
   (opener: framer.StreamOpener): query.StreamOpener =>
-  async (channels, { onOpen, onReopen }) => {
+  async (channels, { onOpen, onReopen, onDead }) => {
     const hardened = await framer.HardenedStreamer.open(
       opener,
       channels,
@@ -67,7 +67,7 @@ const wrapOpener =
       onReopen,
     );
     onOpen?.();
-    return new framer.ObservableStreamer(hardened);
+    return new framer.ObservableStreamer(hardened, undefined, onDead);
   };
 
 const makeEngine = (openStreamer?: framer.StreamOpener) =>
@@ -146,6 +146,34 @@ describe("Cache", () => {
       expect(cache.epoch).toEqual(0);
       const late = () => cache.createTable({ name: "late" });
       expect(late).not.toThrow();
+      await cache.close();
+    });
+
+    it("refetches subscribed answers, as nothing keeps them current", async () => {
+      const cache = new query.Cache({ openStreamer: null, onError: vi.fn() });
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      let name = "first";
+      const fetch = vi.fn(async (key: string) => {
+        table.set(key, { key, name });
+        return [key];
+      });
+      const space = cache.queries<string, Doc, string, Doc>({
+        name: "docs",
+        table,
+        fetch,
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
+      });
+      const detach = space.onChange("k1", vi.fn());
+      await expect(space.retrieve("k1")).resolves.toEqual({ key: "k1", name: "first" });
+      name = "second";
+      await expect(space.retrieve("k1")).resolves.toEqual({
+        key: "k1",
+        name: "second",
+      });
+      expect(fetch).toHaveBeenCalledTimes(2);
+      detach();
       await cache.close();
     });
   });
@@ -322,6 +350,111 @@ describe("Cache", () => {
         name: "deleted-on-server",
       });
       expect(table.get("kept")).toEqual({ key: "kept", name: "kept-fresh" });
+      await cache.close();
+    });
+  });
+
+  describe("denied change stream", () => {
+    /** An opener the cluster refuses until `allow` flips. */
+    const deniedOpener = () => {
+      const state = { allow: false, opens: 0 };
+      const opener = async (): Promise<framer.Streamer> => {
+        state.opens += 1;
+        if (!state.allow) throw new AccessDeniedError("no permission to stream");
+        return new MockStreamer();
+      };
+      return { state, opener };
+    };
+
+    it("rejects ensureStreaming and stays at epoch 0", async () => {
+      const { opener } = deniedOpener();
+      const cache = makeEngine(opener);
+      cache.createTable<string, Doc>({ name: "docs" });
+      await expect(cache.ensureStreaming()).rejects.toThrow(AccessDeniedError);
+      expect(cache.epoch).toBe(0);
+      await cache.close();
+    });
+
+    it("refetches subscribed answers until the stream is allowed", async () => {
+      const { state, opener } = deniedOpener();
+      const cache = makeEngine(opener);
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      let name = "first";
+      const fetch = vi.fn(async (key: string) => {
+        table.set(key, { key, name });
+        return [key];
+      });
+      const space = cache.queries<string, Doc, string, Doc>({
+        name: "docs",
+        table,
+        fetch,
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
+      });
+      const detach = space.onChange("k1", vi.fn());
+      await space.retrieve("k1");
+      await expect.poll(() => state.opens).toBeGreaterThan(0);
+      name = "second";
+      // denied: the subscribed answer has nothing keeping it current
+      await expect(space.retrieve("k1")).resolves.toEqual({
+        key: "k1",
+        name: "second",
+      });
+      expect(fetch).toHaveBeenCalledTimes(2);
+      state.allow = true;
+      await cache.ensureStreaming();
+      // the epoch bump reconfirms maintained answers: let it land before
+      // measuring what the next read costs
+      await expect.poll(() => fetch.mock.calls.length).toBeGreaterThan(2);
+      const reconfirmed = fetch.mock.calls.length;
+      name = "third";
+      // live again: maintenance is trustworthy, so the read serves the cache
+      await expect(space.retrieve("k1")).resolves.toEqual({
+        key: "k1",
+        name: "second",
+      });
+      expect(fetch).toHaveBeenCalledTimes(reconfirmed);
+      detach();
+      await cache.close();
+    });
+
+    it("stops maintaining answers when the stream is revoked mid-session", async () => {
+      const state = { opens: 0 };
+      const opener = async (): Promise<framer.Streamer> => {
+        state.opens += 1;
+        if (state.opens === 1) return failingStreamer();
+        throw new AccessDeniedError("access revoked");
+      };
+      const cache = makeEngine(opener);
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      let name = "first";
+      const fetch = vi.fn(async (key: string) => {
+        table.set(key, { key, name });
+        return [key];
+      });
+      const space = cache.queries<string, Doc, string, Doc>({
+        name: "docs",
+        table,
+        fetch,
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
+      });
+      const detach = space.onChange("k1", vi.fn());
+      await cache.ensureStreaming();
+      await space.retrieve("k1");
+      await expect.poll(() => state.opens).toBeGreaterThan(1);
+      name = "second";
+      await expect(space.retrieve("k1")).resolves.toEqual({
+        key: "k1",
+        name: "second",
+      });
+      // the dead stream is discarded, so the next demand asks the cluster again
+      const opens = state.opens;
+      await expect(cache.ensureStreaming()).rejects.toThrow(AccessDeniedError);
+      expect(state.opens).toBeGreaterThan(opens);
+      detach();
       await cache.close();
     });
   });
