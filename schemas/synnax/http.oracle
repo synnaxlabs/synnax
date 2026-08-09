@@ -231,7 +231,7 @@ WriteField union on type extends BaseWriteField {
         json_type JSONType = number {
             @doc value "is the JSON type the value is serialized as."
         }
-        value     any?     {
+        value     any      {
             @doc value "is the fixed JSON value placed at the pointer."
         }
 

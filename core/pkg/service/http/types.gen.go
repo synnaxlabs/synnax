@@ -299,7 +299,7 @@ type WriteFieldStatic struct {
 	// JSONType is the JSON type the value is serialized as.
 	JSONType JSONType `json:"json_type" msgpack:"json_type"`
 	// Value is the fixed JSON value placed at the pointer.
-	Value *any `json:"value,omitempty" msgpack:"value,omitempty"`
+	Value any `json:"value" msgpack:"value"`
 }
 
 func (WriteFieldStatic) isWriteFieldVariant() {}
