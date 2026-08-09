@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
@@ -32,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/opc"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -152,6 +154,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		var stores []common.ConfigStore
 		stores = append(
 			stores,
+			MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
+				DB: db, Ontology: otg,
+			})).Stores()...)
+		stores = append(
+			stores,
 			MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
 				DB: db, Ontology: otg,
 			})).Stores()...)
@@ -175,6 +182,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB: db, Ontology: otg,
 			})).Stores()...)
+		stores = append(
+			stores,
+			MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{
+				DB: db, Ontology: otg,
+			})).Stores()...)
 		configs = MustSucceed(common.NewConfigRegistry(stores...))
 		imexSvc = imex.NewService()
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
@@ -189,35 +201,54 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		}))
 	})
 
-	// Scan task configs are created by the driver on rack boot; the released
-	// Console never exported them, so they carry no legacy fixture.
-	isScanType := func(t ontology.ResourceType) bool {
+	// Scan and rack status task configs are created by the driver on rack boot, and
+	// arc task configs deploy from Arc; the released Console never exported any of
+	// them, so they carry no legacy fixture.
+	neverExported := func(t ontology.ResourceType) bool {
 		return strings.HasSuffix(string(t), "_scan") ||
-			t == ontology.ResourceTypeNiScanner
+			t == ontology.ResourceTypeNiScanner ||
+			t == ontology.ResourceTypeRackStatus ||
+			t == ontology.ResourceTypeArcTask
 	}
 
 	It("covers every registered config type with a fixture", func() {
 		entries := MustSucceed(os.ReadDir(filepath.Join("testdata", "legacy")))
 		fixtures := make(set.Set[string], len(entries))
 		for _, e := range entries {
+			if !strings.HasSuffix(e.Name(), ".json") {
+				continue
+			}
 			fixtures.Add(strings.TrimSuffix(e.Name(), ".json"))
 		}
 		for _, t := range configs.Types() {
-			if isScanType(t) {
+			if neverExported(t) {
 				continue
 			}
 			Expect(fixtures.Contains(string(t))).To(
 				BeTrue(), "registered config type %q has no legacy fixture", t,
 			)
 		}
+		for f := range fixtures {
+			owned := false
+			for _, t := range configs.Types() {
+				if strings.HasPrefix(f, string(t)) {
+					owned = true
+					break
+				}
+			}
+			Expect(owned).To(
+				BeTrue(), "fixture %q matches no registered config type", f,
+			)
+		}
 	})
 
-	// Each fixture in testdata/legacy is a frozen copy of what the released Console
-	// exported for that task type, with every schema field set to a distinctive
-	// non-default value. Importing it must land every field in the typed config
-	// store: the boot transform's output must be a subset of the stored record, so a
-	// key the new schema does not accept, a mis-renamed key, or a corrupted value
-	// fails with the exact path.
+	// Each fixture in testdata/legacy is a frozen copy of what a released Console
+	// exported for its task type, with every schema field set to a distinctive
+	// non-default value. A type with more than one released shape carries one fixture
+	// per shape, suffixed with the shape's distinguishing trait. Importing a fixture
+	// must land every field in the typed config store: the legacy rewrite's output
+	// must be a subset of the stored record, so a key the new schema does not accept,
+	// a mis-renamed key, or a corrupted value fails with the exact path.
 	DescribeTable("preserves every field of a released Console export",
 		func(ctx SpecContext, fixture string) {
 			raw := MustSucceed(os.ReadFile(
@@ -225,6 +256,9 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			))
 			var env imex.Envelope
 			Expect(json.Unmarshal(raw, &env)).To(Succeed())
+			Expect(strings.HasPrefix(fixture, env.Type)).To(
+				BeTrue(), "fixture %q must be named for its type %q", fixture, env.Type,
+			)
 			id := MustSucceed(imexSvc.Import(ctx, nil, env, imex.ImportOptions{
 				Parent:   ontology.RootID,
 				FileName: fixture + ".json",
@@ -234,13 +268,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				Where(task.MatchKeys(uuid.MustParse(id.Key))).
 				Entry(&imported).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(imported.Type).To(Equal(fixture))
+			Expect(imported.Type).To(Equal(env.Type))
 			Expect(imported.Name).To(Equal(fixture))
 
 			var legacy map[string]any
 			Expect(json.Unmarshal(raw, &legacy)).To(Succeed())
 			delete(legacy, "type")
-			store := MustBeOk(configs.Store(ontology.ResourceType(fixture)))
+			store := MustBeOk(configs.Store(ontology.ResourceType(env.Type)))
 			expected := MustSucceed(store.Normalize(0, legacy))
 			expectSubset(
 				"config",
@@ -259,9 +293,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "http_write"),
 		Entry(nil, "labjack_read"),
 		Entry(nil, "labjack_write"),
+		Entry(nil, "labjack_write_cmd_key"),
 		Entry(nil, "modbus_read"),
 		Entry(nil, "modbus_write"),
 		Entry(nil, "ni_analog_read"),
+		Entry(nil, "ni_analog_read_config_device"),
 		Entry(nil, "ni_analog_write"),
 		Entry(nil, "ni_counter_read"),
 		Entry(nil, "ni_digital_read"),
