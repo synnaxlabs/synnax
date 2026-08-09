@@ -107,6 +107,61 @@ var _ = Describe("Transform", func() {
 				"channels": []any{map[string]any{"type": "ai_freq_voltage"}},
 			},
 		),
+		Entry("collapses the NI constant cold-junction source",
+			"ni_analog_read",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":       "ai_thermocouple",
+					"cjc_source": "ConstVal",
+					"cjc_val":    float64(25),
+					"cjc_port":   float64(3),
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type": "ai_thermocouple",
+					"cjc":  map[string]any{"source": "const_val", "val": float64(25)},
+				}},
+			},
+		),
+		Entry("collapses the NI cold-junction reference channel",
+			"ni_analog_read",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":       "ai_thermocouple",
+					"cjc_source": "Chan",
+					"cjc_val":    float64(25),
+					"cjc_port":   float64(3),
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type": "ai_thermocouple",
+					"cjc":  map[string]any{"source": "chan", "port": float64(3)},
+				}},
+			},
+		),
+		Entry("gives a thermocouple with no cold-junction source the built-in one",
+			"ni_analog_read",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "ai_thermocouple"}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type": "ai_thermocouple",
+					"cjc":  map[string]any{"source": "built_in"},
+				}},
+			},
+		),
+		Entry("leaves a non-thermocouple channel's cold junction alone",
+			"ni_analog_read",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "ai_voltage"}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "ai_voltage"}},
+			},
+		),
 		Entry("keeps the NI digital read config device",
 			"ni_digital_read",
 			msgpack.EncodedJSON{
