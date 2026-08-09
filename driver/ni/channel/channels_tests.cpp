@@ -1243,8 +1243,8 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
         {"units", "m/s"},
         {"decoding_type", "X4"},
         {"dist_per_pulse", 0.001},
-        {"terminalA", "PFI0"},
-        {"terminalB", "PFI1"},
+        {"terminal_a", "PFI0"},
+        {"terminal_b", "PFI1"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
@@ -1282,8 +1282,8 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
         {"units", "in/s"},
         {"decoding_type", "X2"},
         {"dist_per_pulse", 0.01},
-        {"terminalA", ""},
-        {"terminalB", ""},
+        {"terminal_a", ""},
+        {"terminal_b", ""},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
@@ -1320,8 +1320,8 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
         {"units", "RPM"},
         {"decoding_type", "X4"},
         {"pulses_per_rev", 24},
-        {"terminalA", "PFI2"},
-        {"terminalB", "PFI3"},
+        {"terminal_a", "PFI2"},
+        {"terminal_b", "PFI3"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
@@ -1359,8 +1359,8 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
         {"units", "Radians/s"},
         {"decoding_type", "X1"},
         {"pulses_per_rev", 100},
-        {"terminalA", ""},
-        {"terminalB", ""},
+        {"terminal_a", ""},
+        {"terminal_b", ""},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
@@ -1401,9 +1401,9 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
         {"z_index_enable", true},
         {"z_index_val", 0.0},
         {"z_index_phase", "AHighBHigh"},
-        {"terminalA", "PFI0"},
-        {"terminalB", "PFI1"},
-        {"terminalZ", "PFI2"},
+        {"terminal_a", "PFI0"},
+        {"terminal_b", "PFI1"},
+        {"terminal_z", "PFI2"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
@@ -1447,9 +1447,9 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
         {"z_index_enable", false},
         {"z_index_val", 0.0},
         {"z_index_phase", "AHighBLow"},
-        {"terminalA", ""},
-        {"terminalB", ""},
-        {"terminalZ", ""},
+        {"terminal_a", ""},
+        {"terminal_b", ""},
+        {"terminal_z", ""},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
@@ -1492,9 +1492,9 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
         {"z_index_enable", true},
         {"z_index_val", 0.0},
         {"z_index_phase", "AHighBHigh"},
-        {"terminalA", "PFI10"},
-        {"terminalB", "PFI12"},
-        {"terminalZ", "PFI11"},
+        {"terminal_a", "PFI10"},
+        {"terminal_b", "PFI12"},
+        {"terminal_z", "PFI11"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
@@ -1538,9 +1538,9 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
         {"z_index_enable", false},
         {"z_index_val", 0.0},
         {"z_index_phase", "ALowBLow"},
-        {"terminalA", ""},
-        {"terminalB", ""},
-        {"terminalZ", ""},
+        {"terminal_a", ""},
+        {"terminal_b", ""},
+        {"terminal_z", ""},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
     };
@@ -1576,7 +1576,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
         {"channel", 0},
         {"min_val", 2},
         {"max_val", 10000},
-        {"activeEdge", "Rising"},
+        {"active_edge", "Rising"},
         {"terminal", "PFI0"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
@@ -1608,7 +1608,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
         {"channel", 0},
         {"min_val", 10},
         {"max_val", 5000},
-        {"activeEdge", "Falling"},
+        {"active_edge", "Falling"},
         {"terminal", ""},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
