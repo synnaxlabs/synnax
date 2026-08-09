@@ -356,7 +356,7 @@ var _ = Describe("Codec", func() {
 							{Variant: v0.WriteFieldStatic{
 								BaseWriteField: fullyPopulatedBaseWriteField,
 								JSONType:       v0.JSONType("number"),
-								Value:          new(any(map[string]any{"key_27": "value_27"})),
+								Value:          any(map[string]any{"key_27": "value_27"}),
 							}},
 						},
 					},
@@ -407,7 +407,7 @@ var _ = Describe("Codec", func() {
 					{Variant: v0.WriteFieldStatic{
 						BaseWriteField: fullyPopulatedBaseWriteField,
 						JSONType:       v0.JSONType("number"),
-						Value:          new(any(map[string]any{"key_23": "value_23"})),
+						Value:          any(map[string]any{"key_23": "value_23"}),
 					}},
 				},
 			}),
@@ -463,7 +463,7 @@ var _ = Describe("Codec", func() {
 			Entry("static variant", v0.WriteField{Variant: v0.WriteFieldStatic{
 				BaseWriteField: fullyPopulatedBaseWriteField,
 				JSONType:       v0.JSONType("number"),
-				Value:          new(any(map[string]any{"key_2": "value_2"})),
+				Value:          any(map[string]any{"key_2": "value_2"}),
 			}}),
 			Entry("generated variant", v0.WriteField{Variant: v0.WriteFieldGenerated{
 				BaseWriteField: fullyPopulatedBaseWriteField,
@@ -727,7 +727,7 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 					{Variant: v0.WriteFieldStatic{
 						BaseWriteField: fullyPopulatedBaseWriteField,
 						JSONType:       v0.JSONType("number"),
-						Value:          new(any(map[string]any{"key_27": "value_27"})),
+						Value:          any(map[string]any{"key_27": "value_27"}),
 					}},
 				},
 			},
@@ -769,7 +769,7 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 			{Variant: v0.WriteFieldStatic{
 				BaseWriteField: fullyPopulatedBaseWriteField,
 				JSONType:       v0.JSONType("number"),
-				Value:          new(any(map[string]any{"key_23": "value_23"})),
+				Value:          any(map[string]any{"key_23": "value_23"}),
 			}},
 		},
 	}
@@ -792,7 +792,7 @@ func BenchmarkEncodeDecodeWriteField(b *testing.B) {
 	seed := v0.WriteField{Variant: v0.WriteFieldStatic{
 		BaseWriteField: fullyPopulatedBaseWriteField,
 		JSONType:       v0.JSONType("number"),
-		Value:          new(any(map[string]any{"key_2": "value_2"})),
+		Value:          any(map[string]any{"key_2": "value_2"}),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1369,7 +1369,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 						{Variant: v0.WriteFieldStatic{
 							BaseWriteField: fullyPopulatedBaseWriteField,
 							JSONType:       v0.JSONType("number"),
-							Value:          new(any(map[string]any{"key_27": "value_27"})),
+							Value:          any(map[string]any{"key_27": "value_27"}),
 						}},
 					},
 				},
@@ -1451,7 +1451,7 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 				{Variant: v0.WriteFieldStatic{
 					BaseWriteField: fullyPopulatedBaseWriteField,
 					JSONType:       v0.JSONType("number"),
-					Value:          new(any(map[string]any{"key_23": "value_23"})),
+					Value:          any(map[string]any{"key_23": "value_23"}),
 				}},
 			},
 		}
@@ -1538,7 +1538,7 @@ func FuzzDecodeWriteField(f *testing.F) {
 		seed := v0.WriteField{Variant: v0.WriteFieldStatic{
 			BaseWriteField: fullyPopulatedBaseWriteField,
 			JSONType:       v0.JSONType("number"),
-			Value:          new(any(map[string]any{"key_2": "value_2"})),
+			Value:          any(map[string]any{"key_2": "value_2"}),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

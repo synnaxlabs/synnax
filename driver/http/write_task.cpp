@@ -96,16 +96,9 @@ std::pair<WriteTaskConfig, x::errors::Error> WriteTaskConfig::parse(
 
         for (const auto &field: ep.fields) {
             const std::string *pointer = nullptr;
-            if (const auto *sf = std::get_if<::synnax::http::WriteFieldStatic>(
-                    &field
-                )) {
+            if (const auto *sf = std::get_if<::synnax::http::WriteFieldStatic>(&field))
                 pointer = &sf->pointer;
-                if (!sf->value.has_value())
-                    parser.field_err(
-                        "endpoints.fields.value",
-                        "this field is required"
-                    );
-            } else if (
+            else if (
                 const auto *gf = std::get_if<::synnax::http::WriteFieldGenerated>(
                     &field
                 )
@@ -230,7 +223,7 @@ WriteTaskSink::WriteTaskSink(
                 )) {
                 StaticField state_field;
                 state_field.pointer = x::json::json::json_pointer(sf->pointer);
-                state_field.value = sf->value.value_or(x::json::json());
+                state_field.value = sf->value;
                 state.static_fields.push_back(std::move(state_field));
             } else if (
                 const auto *gf = std::get_if<::synnax::http::WriteFieldGenerated>(

@@ -296,6 +296,26 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingParameterErrors) {
     EXPECT_NE(err4.data.find("parameter"), std::string::npos);
 }
 
+/// @brief it should fail when a static field is missing the value field.
+TEST(HTTPWriteTask, ParseConfigStaticFieldMissingValueErrors) {
+    synnax::task::Task task;
+    task.config = {
+        {"device", "dev-001"},
+        {"endpoints",
+         {{
+             {"method", "POST"},
+             {"path", "/api/data"},
+             {"channel",
+              {{"pointer", "/value"}, {"json_type", "number"}, {"channel", 1}}},
+             {"fields", {{{"type", "static"}, {"pointer", "/extra"}}}},
+         }}},
+    };
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto [_, err] = WriteTaskConfig::parse(ctx, task);
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    EXPECT_NE(err.data.find("value"), std::string::npos);
+}
+
 /// @brief a query_params entry may omit the value field; it defaults to an empty
 /// string.
 TEST(HTTPWriteTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
