@@ -117,7 +117,7 @@ class ReadTask(task.StarterStopperMixin, task.JSONConfigMixin, task.Protocol):
             index_key: str | None = None
             for field in ep.fields:
                 channels[field.pointer] = field.channel
-                if ep.index is not None and field.key == ep.index:
+                if ep.index != "" and field.key == ep.index:
                     index_key = field.key
             props["read"][ep.path] = {"index": index_key, "channels": channels}
         dev.properties = props

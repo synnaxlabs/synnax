@@ -251,7 +251,7 @@ class TestHTTPReadTask:
         assert ep.headers == []
         assert ep.query_params == []
         assert ep.body == ""
-        assert ep.index is None
+        assert ep.index == ""
 
     def test_read_config_defaults(self):
         """Test that ReadConfig has correct defaults."""
