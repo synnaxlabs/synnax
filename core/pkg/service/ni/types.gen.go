@@ -402,24 +402,113 @@ func (t ThermocoupleType) IsValid() bool {
 	}
 }
 
-// CJCSource selects the cold-junction-compensation source for a thermocouple.
-type CJCSource string
+type CJCType string
 
 const (
-	CJCSourceBuiltIn  CJCSource = "BuiltIn"
-	CJCSourceConstVal CJCSource = "ConstVal"
-	CJCSourceChan     CJCSource = "Chan"
+	CJCTypeBuiltIn  CJCType = "built_in"
+	CJCTypeConstVal CJCType = "const_val"
+	CJCTypeChan     CJCType = "chan"
 )
 
-// IsValid reports whether c is one of the defined CJCSource
-// values.
-func (c CJCSource) IsValid() bool {
-	switch c {
-	case CJCSourceBuiltIn, CJCSourceConstVal, CJCSourceChan:
-		return true
-	default:
-		return false
+type CJCVariant interface {
+	isCJCVariant()
+}
+
+// CJCBuiltIn reads the reference temperature from the device's own sensor.
+type CJCBuiltIn struct {
+}
+
+func (CJCBuiltIn) isCJCVariant() {}
+
+// CJCConstVal uses a fixed reference temperature.
+type CJCConstVal struct {
+	// Val is the reference temperature, in the channel's units.
+	Val float64 `json:"val" msgpack:"val"`
+}
+
+func (CJCConstVal) isCJCVariant() {}
+
+// CJCChan reads the reference temperature from another channel.
+type CJCChan struct {
+	// Port is the port of the channel that measures the reference.
+	Port int32 `json:"port" msgpack:"port"`
+}
+
+func (CJCChan) isCJCVariant() {}
+
+// CJC is the cold-junction compensation for a thermocouple. The source selects where
+// the reference temperature comes from.
+type CJC struct {
+	Variant CJCVariant
+}
+
+// MarshalJSON encodes the active variant with its "source" tag injected.
+func (u CJC) MarshalJSON() ([]byte, error) {
+	if u.Variant == nil {
+		return []byte("null"), nil
 	}
+	var t CJCType
+	switch u.Variant.(type) {
+	case CJCBuiltIn:
+		t = CJCTypeBuiltIn
+	case CJCConstVal:
+		t = CJCTypeConstVal
+	case CJCChan:
+		t = CJCTypeChan
+	default:
+		return nil, errors.Newf("CJC: nil or unknown variant %T", u.Variant)
+	}
+	raw, err := json.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	fields["source"] = tag
+	return json.Marshal(fields)
+}
+
+// UnmarshalJSON decodes the variant selected by the "source" field.
+func (u *CJC) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type CJCType `json:"source"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CJCTypeBuiltIn:
+		var v CJCBuiltIn
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CJCTypeConstVal:
+		var v CJCConstVal
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CJCTypeChan:
+		var v CJCChan
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("CJC: unknown source %q", disc.Type)
+	}
+	return nil
 }
 
 // VelocityUnits are the engineering units for a velocity measurement.
@@ -1743,12 +1832,8 @@ type AIThermocoupleChannel struct {
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 	// ThermocoupleType selects the thermocouple alloy type.
 	ThermocoupleType ThermocoupleType `json:"thermocouple_type" msgpack:"thermocouple_type"`
-	// CjcSource selects the cold-junction-compensation source.
-	CjcSource CJCSource `json:"cjc_source" msgpack:"cjc_source"`
-	// CjcVal is the CJC temperature when cjc_source is const_val.
-	CjcVal *float64 `json:"cjc_val,omitempty" msgpack:"cjc_val,omitempty"`
-	// CjcPort is the CJC channel port when cjc_source is chan.
-	CjcPort *int32 `json:"cjc_port,omitempty" msgpack:"cjc_port,omitempty"`
+	// Cjc is the cold-junction compensation applied to the reading.
+	Cjc CJC `json:"cjc" msgpack:"cjc"`
 }
 
 func (AIThermocoupleChannel) isAIChannelVariant() {}
