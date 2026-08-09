@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  compare,
   type destructor,
   errors,
   primitive,
@@ -216,7 +217,12 @@ type EntryState<K extends record.Key, D extends Data> =
   | { variant: "error"; error: Error }
   | { variant: "deleted"; key: K };
 
-interface Entry<Q extends Params, K extends record.Key, D extends Data> {
+interface Entry<
+  Q extends Params,
+  K extends record.Key,
+  D extends Data,
+  V extends state.State,
+> {
   query: Q;
   state: EntryState<K, D>;
   handlers: Set<ChangeHandler<D>>;
@@ -232,10 +238,11 @@ interface Entry<Q extends Params, K extends record.Key, D extends Data> {
   /** When the last subscriber left; the sweep tears the entry down once this
    *  outlives the grace window. Cleared on resubscribe. */
   idleSince?: TimeStamp;
-  /** Composed answer interned while maintained, so repeated reads stay
-   *  referentially stable for useSyncExternalStore consumers. Dropped by
-   *  touch, which every content and membership change routes through. */
-  composed?: { state: EntryState<K, D>; value: D };
+  /** Answer interned against the records it was composed from, so repeated
+   *  reads stay referentially stable for useSyncExternalStore consumers. A
+   *  table replaces a row only when its content changes, so a surviving row
+   *  set means a surviving answer. */
+  composed?: { records: V[]; value: D };
 }
 
 /**
@@ -254,10 +261,12 @@ export class Queries<
   K extends record.Key = record.Key,
   V extends state.State = state.State,
 > {
-  private readonly entries = new Map<string, Entry<Q, K, D>>();
+  private readonly entries = new Map<string, Entry<Q, K, D, V>>();
   /** Composed corpses interned per tombstone and query, so deleted answers
    *  stay referentially stable. Identity composes reuse the tombstone. */
   private readonly corpses = new WeakMap<Deleted<V>, Map<string, Deleted<D>>>();
+  /** Composed entry-less answers interned per row and query. */
+  private readonly rowAnswers = new WeakMap<object, Map<string, D>>();
   private readonly params: QueriesParams<Q, D, K, V>;
   private readonly hooks: AnswersHooks & {
     onError: NonNullable<AnswersHooks["onError"]>;
@@ -295,7 +304,7 @@ export class Queries<
     if (entry.teardown != null)
       switch (state.variant) {
         case "ready":
-          return Promise.resolve(this.compose(state.keys, entry.query));
+          return Promise.resolve(this.composedOf(entry, state.keys));
         case "deleted":
           return Promise.reject(new NotFoundError(`${this.params.name} was deleted`));
       }
@@ -321,7 +330,7 @@ export class Queries<
     if (key == null) return undefined;
     const { table } = this.params;
     const row = table.get(key);
-    if (row != null) return this.params.compose([row], query);
+    if (row != null) return this.rowAnswerOf(row, query);
     const tombstone = table.getTombstone(key);
     if (tombstone == null) return undefined;
     return this.deletedOf(tombstone, query);
@@ -386,7 +395,7 @@ export class Queries<
     this.entries.clear();
   }
 
-  private teardownEntry(entry: Entry<Q, K, D>): void {
+  private teardownEntry(entry: Entry<Q, K, D, V>): void {
     entry.idleSince = undefined;
     entry.teardown?.forEach((d) => d());
     entry.teardown = undefined;
@@ -426,7 +435,7 @@ export class Queries<
     if (anyIdle) this.armSweep();
   }
 
-  private ensure(query: Q): Entry<Q, K, D> {
+  private ensure(query: Q): Entry<Q, K, D, V> {
     const hashed = hash(query);
     let entry = this.entries.get(hashed);
     if (entry == null) {
@@ -449,28 +458,44 @@ export class Queries<
     this.hooks.onError(new Error(message, { cause: exc }));
   }
 
-  private compose(keys: K[], query: Q): D {
+  /** Composes a ready answer, interned against the records it was built from. */
+  private composedOf(entry: Entry<Q, K, D, V>, keys: K[]): D {
     const records = this.params.table.get(keys);
-    return this.params.compose(records, query);
+    const { composed } = entry;
+    if (composed != null && compare.arraysEqual(composed.records, records))
+      return composed.value;
+    const value = this.params.compose(records, entry.query);
+    entry.composed = { records, value };
+    return value;
   }
 
-  private cachedOf(entry: Entry<Q, K, D>): Cached<D> | undefined {
+  private cachedOf(entry: Entry<Q, K, D, V>): Cached<D> | undefined {
     const { state } = entry;
-    if (state.variant === "ready") {
-      if (entry.teardown != null && entry.composed?.state === state)
-        return entry.composed.value;
-      const value = this.compose(state.keys, entry.query);
-      // An unmaintained entry observes no changes to drop the memo on, so it
-      // recomposes against live tables instead.
-      if (entry.teardown != null) entry.composed = { state, value };
-      return value;
-    }
+    if (state.variant === "ready") return this.composedOf(entry, state.keys);
     if (state.variant === "deleted") {
       const tombstone = this.params.table.getTombstone(state.key);
       if (tombstone == null) return undefined;
       return this.deletedOf(tombstone, entry.query);
     }
     return undefined;
+  }
+
+  /** Composes an entry-less rule-1 answer, interned per row and query. The
+   *  memo dies with the row it is keyed on, which a table replaces on every
+   *  content change. */
+  private rowAnswerOf(row: V, query: Q): D {
+    if (typeof row !== "object" || row === null)
+      return this.params.compose([row], query);
+    const hashed = hash(query);
+    let perRow = this.rowAnswers.get(row);
+    if (perRow == null) {
+      perRow = new Map();
+      this.rowAnswers.set(row, perRow);
+    }
+    if (perRow.has(hashed)) return perRow.get(hashed) as D;
+    const value = this.params.compose([row], query);
+    perRow.set(hashed, value);
+    return value;
   }
 
   private deletedOf(tombstone: Deleted<V>, query: Q): Deleted<D> {
@@ -493,7 +518,7 @@ export class Queries<
 
   /** Notifies subscribers when any of the keys is a member of the ready
    *  answer; otherwise just drops the memo so the next read recomposes. */
-  private touchMembers(entry: Entry<Q, K, D>, keys: K[]): void {
+  private touchMembers(entry: Entry<Q, K, D, V>, keys: K[]): void {
     entry.composed = undefined;
     if (entry.state.variant !== "ready") return;
     const { keys: members } = entry.state;
@@ -501,7 +526,9 @@ export class Queries<
   }
 
   /** Notifies every subscriber with the entry's current answer. */
-  private touch(entry: Entry<Q, K, D>): void {
+  private touch(entry: Entry<Q, K, D, V>): void {
+    // A watched foreign table is an input the records do not carry, so an
+    // event is the only signal that a composed answer changed.
     entry.composed = undefined;
     if (entry.handlers.size === 0) return;
     const result = this.cachedOf(entry);
@@ -515,7 +542,7 @@ export class Queries<
   }
 
   private settle(
-    entry: Entry<Q, K, D>,
+    entry: Entry<Q, K, D, V>,
     expected: EntryState<K, D>,
     next: EntryState<K, D>,
   ): void {
@@ -540,18 +567,18 @@ export class Queries<
    * it publishes. Applies quietly: the settle that calls this notifies once for the
    * whole answer.
    */
-  private drainRechecks(entry: Entry<Q, K, D>): void {
+  private drainRechecks(entry: Entry<Q, K, D, V>): void {
     const pending = entry.pendingRechecks;
     if (pending == null) return;
     entry.pendingRechecks = undefined;
     this.applyRechecks(entry, pending);
   }
 
-  private fetch(entry: Entry<Q, K, D>, options?: FetchOptions): Promise<D> {
+  private fetch(entry: Entry<Q, K, D, V>, options?: FetchOptions): Promise<D> {
     const promise = this.params.fetch(entry.query, options).then(
       (keys) => {
         this.settle(entry, loading, { variant: "ready", keys });
-        return this.compose(keys, entry.query);
+        return this.composedOf(entry, keys);
       },
       (reason: unknown) => {
         const error = errors.fromUnknown(reason);
@@ -564,7 +591,7 @@ export class Queries<
     return promise;
   }
 
-  private refetch(entry: Entry<Q, K, D>): void {
+  private refetch(entry: Entry<Q, K, D, V>): void {
     if (entry.refetchTimer != null) {
       clearTimeout(entry.refetchTimer);
       entry.refetchTimer = undefined;
@@ -588,7 +615,7 @@ export class Queries<
     );
   }
 
-  private scheduleRefetch(entry: Entry<Q, K, D>): void {
+  private scheduleRefetch(entry: Entry<Q, K, D, V>): void {
     // A fetch in flight publishes its own keys on settle, and a refetch racing
     // it resolves into a state its result no longer matches, so it is dropped.
     if (entry.state.variant === "loading") {
@@ -612,7 +639,7 @@ export class Queries<
     );
   }
 
-  private maintain(entry: Entry<Q, K, D>): void {
+  private maintain(entry: Entry<Q, K, D, V>): void {
     const teardown: destructor.Destructor[] = [];
     entry.teardown = teardown;
     const { table, keyOf, matches, watch: watches } = this.params;
@@ -715,7 +742,7 @@ export class Queries<
    * last member flips the entry to deleted or unfetched. Returns whether the answer
    * changed: membership moved, or a member's content was touched.
    */
-  private applyRechecks(entry: Entry<Q, K, D>, keys: Iterable<K>): boolean {
+  private applyRechecks(entry: Entry<Q, K, D, V>, keys: Iterable<K>): boolean {
     if (entry.state.variant === "loading") {
       const pending = (entry.pendingRechecks ??= new Set<K>());
       for (const key of keys) pending.add(key);
@@ -760,11 +787,11 @@ export class Queries<
   }
 
   /** Applies rechecks for the keys, then notifies once when anything changed. */
-  private recheckKeys(entry: Entry<Q, K, D>, keys: Iterable<K>): void {
+  private recheckKeys(entry: Entry<Q, K, D, V>, keys: Iterable<K>): void {
     if (this.applyRechecks(entry, keys)) this.touch(entry);
   }
 
-  private recheckMany(entry: Entry<Q, K, D>, keys: K[]): void {
+  private recheckMany(entry: Entry<Q, K, D, V>, keys: K[]): void {
     const { table } = this.params;
     this.recheckKeys(entry, keys);
     const missing = keys.filter((key) => table.status(key) === "unknown");
