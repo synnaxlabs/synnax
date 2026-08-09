@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -31,18 +32,21 @@ type ProvisionResult struct {
 
 // Provision creates or updates all built-in roles and their associated policies.
 // This is idempotent and should be called on every startup to ensure policy
-// definitions stay up to date.
+// definitions stay up to date. taskConfigObjects are the type-scoped ontology IDs of
+// the task config record types, spliced into the built-in policies so a grant on
+// tasks also covers their config records.
 func Provision(
 	ctx context.Context,
 	db *gorp.DB,
 	policySvc *policy.Service,
 	roleSvc *role.Service,
+	taskConfigObjects []ontology.ID,
 ) (result ProvisionResult, err error) {
 	err = db.WithTx(ctx, func(tx gorp.Tx) error {
 		if result.ViewerKey, err = provisionRole(
 			ctx,
 			viewerRole,
-			[]policy.Policy{viewerPolicy},
+			[]policy.Policy{viewerPolicy(taskConfigObjects)},
 			tx,
 			policySvc,
 			roleSvc,
@@ -52,7 +56,7 @@ func Provision(
 		if result.HostKey, err = provisionRole(
 			ctx,
 			hostRole,
-			hostPolicies,
+			hostPolicies(taskConfigObjects),
 			tx,
 			policySvc,
 			roleSvc,
@@ -62,7 +66,7 @@ func Provision(
 		if result.OperatorKey, err = provisionRole(
 			ctx,
 			operatorRole,
-			operatorPolicies,
+			operatorPolicies(taskConfigObjects),
 			tx,
 			policySvc,
 			roleSvc,
@@ -72,7 +76,7 @@ func Provision(
 		if result.EngineerKey, err = provisionRole(
 			ctx,
 			engineerRole,
-			engineerPolicies,
+			engineerPolicies(taskConfigObjects),
 			tx,
 			policySvc,
 			roleSvc,
@@ -82,7 +86,7 @@ func Provision(
 		if result.OwnerKey, err = provisionRole(
 			ctx,
 			ownerRole,
-			[]policy.Policy{ownerPolicy},
+			[]policy.Policy{ownerPolicy(taskConfigObjects)},
 			tx,
 			policySvc,
 			roleSvc,

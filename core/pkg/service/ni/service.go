@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task/common"
 	"github.com/synnaxlabs/x/config"
@@ -83,12 +84,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	base := common.ConfigServiceConfig{
 		DB:              cfg.DB,
 		Ontology:        cfg.Ontology,
+		Version:         legacy.LastVersion + 1,
 		Instrumentation: cfg.Instrumentation,
 	}
 	if s.AnalogRead, err = common.OpenConfigService[AnalogReadConfig](
 		ctx,
 		base,
-		common.ConfigServiceConfig{Type: ontology.ResourceTypeNiAnalogRead},
+		common.ConfigServiceConfig{
+			Type:   ontology.ResourceTypeNiAnalogRead,
+			Legacy: &legacy.AnalogRead,
+		},
 	); !ok(
 		err,
 		s.AnalogRead,
@@ -136,7 +141,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.Scanner, err = common.OpenConfigService[ScannerConfig](
-		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeNiScanner},
+		ctx,
+		base,
+		common.ConfigServiceConfig{
+			Type:   ontology.ResourceTypeNiScanner,
+			Legacy: &legacy.Scanner,
+		},
 	); !ok(err, s.Scanner) {
 		return nil, err
 	}

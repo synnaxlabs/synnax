@@ -55,13 +55,21 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
 	}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-		Search:   searchIdx,
-		User:     userSvc,
+		DB:                db,
+		Ontology:          otg,
+		Group:             groupSvc,
+		Search:            searchIdx,
+		User:              userSvc,
+		TaskConfigObjects: taskConfigObjects,
 	}))
 })
+
+// taskConfigObjects stands in for the registry-derived task config types the
+// production wiring passes.
+var taskConfigObjects = []ontology.ID{
+	{Type: "ni_analog_read"},
+	{Type: "opc_scan"},
+}
 
 func TestRBAC(t *testing.T) {
 	RegisterFailHandler(Fail)

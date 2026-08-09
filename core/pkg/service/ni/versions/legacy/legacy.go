@@ -1,0 +1,81 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Package legacy converts the NI config shapes released Consoles wrote: v0 stored the
+// analog read device at the config level, v1 moved it onto each channel. Both eras
+// are camelCase; shapes are discriminated structurally because released task files
+// carry no version stamp.
+package legacy
+
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/task/common/legacy"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+)
+
+// LastVersion is the newest legacy NI shape. The typed shape sits directly above it.
+const LastVersion imex.Version = 1
+
+// AnalogRead converts both released analog read shapes.
+var AnalogRead = legacy.Rewrite{Post: analogRead}
+
+// Scanner converts the stored driver scan form.
+var Scanner = legacy.Scan
+
+// analogRead copies the v0 config-level device onto every channel missing one,
+// replaces the renamed AI type alias, and collapses the flat cold-junction fields
+// into their union.
+func analogRead(config msgpack.EncodedJSON) {
+	device, hasDevice := config["device"]
+	delete(config, "device")
+	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
+		if hasDevice {
+			if _, ok := ch["device"]; !ok {
+				ch["device"] = device
+			}
+		}
+		if ch["type"] == "ai_frequency_voltage" {
+			ch["type"] = "ai_freq_voltage"
+		}
+		collapseCJC(ch)
+	})
+}
+
+// collapseCJC replaces a thermocouple channel's flat cjc_source, cjc_val, and
+// cjc_port with the nested cjc union, keeping only the value the source selects. An
+// unrecognized source falls back to the built-in sensor, which is what the Driver did
+// with it before.
+func collapseCJC(ch msgpack.EncodedJSON) {
+	source, hadSource := ch["cjc_source"]
+	if !hadSource && ch["type"] != "ai_thermocouple" {
+		return
+	}
+	val, port := ch["cjc_val"], ch["cjc_port"]
+	delete(ch, "cjc_source")
+	delete(ch, "cjc_val")
+	delete(ch, "cjc_port")
+	if _, taken := ch["cjc"]; taken {
+		return
+	}
+	switch source {
+	case "ConstVal":
+		ch["cjc"] = map[string]any{"source": "const_val", "val": zeroIfNil(val)}
+	case "Chan":
+		ch["cjc"] = map[string]any{"source": "chan", "port": zeroIfNil(port)}
+	default:
+		ch["cjc"] = map[string]any{"source": "built_in"}
+	}
+}
+
+func zeroIfNil(v any) any {
+	if v == nil {
+		return 0
+	}
+	return v
+}

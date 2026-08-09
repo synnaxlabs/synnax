@@ -230,7 +230,7 @@ ExecutionMode enum {
     event_driven = "EVENT_DRIVEN"
 
     @doc value  "selects how the Arc runtime loop schedules execution."
-    @go version 0
+    @go version 1
     @go output  "core/pkg/service/arc/task"
     @pb omit
 }
@@ -256,7 +256,7 @@ TaskConfig struct extends task.BaseConfig {
     }
 
     @doc value  "configures an Arc task, which runs a compiled Arc module."
-    @go version 0
+    @go version 1
     @go marshal
     @go migrate
     @go output  "core/pkg/service/arc/task"

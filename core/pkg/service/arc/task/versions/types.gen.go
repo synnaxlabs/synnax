@@ -11,19 +11,19 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions/v1"
 
 // ExecutionMode selects how the Arc runtime loop schedules execution.
-type ExecutionMode = v0.ExecutionMode
+type ExecutionMode = v1.ExecutionMode
 
 const (
-	ExecutionModeAuto        ExecutionMode = v0.ExecutionModeAuto
-	ExecutionModeBusyWait    ExecutionMode = v0.ExecutionModeBusyWait
-	ExecutionModeHighRate    ExecutionMode = v0.ExecutionModeHighRate
-	ExecutionModeRtEvent     ExecutionMode = v0.ExecutionModeRtEvent
-	ExecutionModeHybrid      ExecutionMode = v0.ExecutionModeHybrid
-	ExecutionModeEventDriven ExecutionMode = v0.ExecutionModeEventDriven
+	ExecutionModeAuto        ExecutionMode = v1.ExecutionModeAuto
+	ExecutionModeBusyWait    ExecutionMode = v1.ExecutionModeBusyWait
+	ExecutionModeHighRate    ExecutionMode = v1.ExecutionModeHighRate
+	ExecutionModeRtEvent     ExecutionMode = v1.ExecutionModeRtEvent
+	ExecutionModeHybrid      ExecutionMode = v1.ExecutionModeHybrid
+	ExecutionModeEventDriven ExecutionMode = v1.ExecutionModeEventDriven
 )
 
 // Config configures an Arc task, which runs a compiled Arc module.
-type Config = v0.Config
+type Config = v1.Config

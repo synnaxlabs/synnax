@@ -11,110 +11,110 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v2"
 
 // TemperatureUnits are the engineering units for a temperature measurement.
-type TemperatureUnits = v0.TemperatureUnits
+type TemperatureUnits = v2.TemperatureUnits
 
 const (
-	TemperatureUnitsCelsius    TemperatureUnits = v0.TemperatureUnitsCelsius
-	TemperatureUnitsFahrenheit TemperatureUnits = v0.TemperatureUnitsFahrenheit
-	TemperatureUnitsKelvin     TemperatureUnits = v0.TemperatureUnitsKelvin
+	TemperatureUnitsCelsius    TemperatureUnits = v2.TemperatureUnitsCelsius
+	TemperatureUnitsFahrenheit TemperatureUnits = v2.TemperatureUnitsFahrenheit
+	TemperatureUnitsKelvin     TemperatureUnits = v2.TemperatureUnitsKelvin
 )
 
 // ThermocoupleType selects the thermocouple alloy type.
-type ThermocoupleType = v0.ThermocoupleType
+type ThermocoupleType = v2.ThermocoupleType
 
 const (
-	ThermocoupleTypeJ ThermocoupleType = v0.ThermocoupleTypeJ
-	ThermocoupleTypeK ThermocoupleType = v0.ThermocoupleTypeK
-	ThermocoupleTypeN ThermocoupleType = v0.ThermocoupleTypeN
-	ThermocoupleTypeR ThermocoupleType = v0.ThermocoupleTypeR
-	ThermocoupleTypeS ThermocoupleType = v0.ThermocoupleTypeS
-	ThermocoupleTypeT ThermocoupleType = v0.ThermocoupleTypeT
-	ThermocoupleTypeB ThermocoupleType = v0.ThermocoupleTypeB
-	ThermocoupleTypeE ThermocoupleType = v0.ThermocoupleTypeE
-	ThermocoupleTypeC ThermocoupleType = v0.ThermocoupleTypeC
+	ThermocoupleTypeJ ThermocoupleType = v2.ThermocoupleTypeJ
+	ThermocoupleTypeK ThermocoupleType = v2.ThermocoupleTypeK
+	ThermocoupleTypeN ThermocoupleType = v2.ThermocoupleTypeN
+	ThermocoupleTypeR ThermocoupleType = v2.ThermocoupleTypeR
+	ThermocoupleTypeS ThermocoupleType = v2.ThermocoupleTypeS
+	ThermocoupleTypeT ThermocoupleType = v2.ThermocoupleTypeT
+	ThermocoupleTypeB ThermocoupleType = v2.ThermocoupleTypeB
+	ThermocoupleTypeE ThermocoupleType = v2.ThermocoupleTypeE
+	ThermocoupleTypeC ThermocoupleType = v2.ThermocoupleTypeC
 )
 
 // LinearScale maps raw values to engineering units with a slope and offset.
-type LinearScale = v0.LinearScale
+type LinearScale = v2.LinearScale
 
 // MapScale maps a raw range linearly onto a scaled range.
-type MapScale = v0.MapScale
+type MapScale = v2.MapScale
 
 // NoneScale applies no scaling; the raw value is used directly.
-type NoneScale = v0.NoneScale
+type NoneScale = v2.NoneScale
 
 // Scale determines how raw sensor values are transformed to engineering units.
-type Scale = v0.Scale
-type ScaleVariant = v0.ScaleVariant
-type ScaleType = v0.ScaleType
+type Scale = v2.Scale
+type ScaleVariant = v2.ScaleVariant
+type ScaleType = v2.ScaleType
 
 const (
-	ScaleTypeLinear ScaleType = v0.ScaleTypeLinear
-	ScaleTypeMap    ScaleType = v0.ScaleTypeMap
-	ScaleTypeNone   ScaleType = v0.ScaleTypeNone
+	ScaleTypeLinear ScaleType = v2.ScaleTypeLinear
+	ScaleTypeMap    ScaleType = v2.ScaleTypeMap
+	ScaleTypeNone   ScaleType = v2.ScaleTypeNone
 )
 
-type ScaleLinear = v0.ScaleLinear
-type ScaleMap = v0.ScaleMap
-type ScaleNone = v0.ScaleNone
+type ScaleLinear = v2.ScaleLinear
+type ScaleMap = v2.ScaleMap
+type ScaleNone = v2.ScaleNone
 
 // BaseInputChannel carries the fields every LabJack input channel shares.
-type BaseInputChannel = v0.BaseInputChannel
+type BaseInputChannel = v2.BaseInputChannel
 
 // InputChannel is a single LabJack input channel. The type field selects the input mode
 // and the fields that accompany it.
-type InputChannel = v0.InputChannel
-type InputChannelVariant = v0.InputChannelVariant
-type InputChannelType = v0.InputChannelType
+type InputChannel = v2.InputChannel
+type InputChannelVariant = v2.InputChannelVariant
+type InputChannelType = v2.InputChannelType
 
 const (
 	// InputChannelTypeAI reads a voltage from an analog input port.
-	InputChannelTypeAI InputChannelType = v0.InputChannelTypeAI
+	InputChannelTypeAI InputChannelType = v2.InputChannelTypeAI
 	// InputChannelTypeDI reads a digital input line.
-	InputChannelTypeDI InputChannelType = v0.InputChannelTypeDI
+	InputChannelTypeDI InputChannelType = v2.InputChannelTypeDI
 	// InputChannelTypeTc reads temperature from a thermocouple.
-	InputChannelTypeTc InputChannelType = v0.InputChannelTypeTc
+	InputChannelTypeTc InputChannelType = v2.InputChannelTypeTc
 )
 
 // InputChannelAI reads a voltage from an analog input port.
-type InputChannelAI = v0.InputChannelAI
+type InputChannelAI = v2.InputChannelAI
 
 // InputChannelDI reads a digital input line.
-type InputChannelDI = v0.InputChannelDI
+type InputChannelDI = v2.InputChannelDI
 
 // InputChannelTc reads temperature from a thermocouple.
-type InputChannelTc = v0.InputChannelTc
+type InputChannelTc = v2.InputChannelTc
 
 // BaseOutputChannel carries the fields every LabJack output channel shares.
-type BaseOutputChannel = v0.BaseOutputChannel
+type BaseOutputChannel = v2.BaseOutputChannel
 
 // OutputChannel is a single LabJack output channel. The type field selects the output
 // mode.
-type OutputChannel = v0.OutputChannel
-type OutputChannelVariant = v0.OutputChannelVariant
-type OutputChannelType = v0.OutputChannelType
+type OutputChannel = v2.OutputChannel
+type OutputChannelVariant = v2.OutputChannelVariant
+type OutputChannelType = v2.OutputChannelType
 
 const (
 	// OutputChannelTypeAO drives an analog output on a DAC port.
-	OutputChannelTypeAO OutputChannelType = v0.OutputChannelTypeAO
+	OutputChannelTypeAO OutputChannelType = v2.OutputChannelTypeAO
 	// OutputChannelTypeDO drives a digital output line on a DIO port.
-	OutputChannelTypeDO OutputChannelType = v0.OutputChannelTypeDO
+	OutputChannelTypeDO OutputChannelType = v2.OutputChannelTypeDO
 )
 
 // OutputChannelAO drives an analog output on a DAC port.
-type OutputChannelAO = v0.OutputChannelAO
+type OutputChannelAO = v2.OutputChannelAO
 
 // OutputChannelDO drives a digital output line on a DIO port.
-type OutputChannelDO = v0.OutputChannelDO
+type OutputChannelDO = v2.OutputChannelDO
 
 // ReadConfig configures a LabJack read task.
-type ReadConfig = v0.ReadConfig
+type ReadConfig = v2.ReadConfig
 
 // WriteConfig configures a LabJack write task.
-type WriteConfig = v0.WriteConfig
+type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures a LabJack scan task.
-type ScanConfig = v0.ScanConfig
+type ScanConfig = v2.ScanConfig
