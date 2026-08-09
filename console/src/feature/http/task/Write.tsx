@@ -12,6 +12,7 @@ import "@/feature/http/task/Form.css";
 import { channel, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
+  Channel as PChannel,
   Component,
   Divider,
   Flex,
@@ -31,6 +32,7 @@ import { Select as SelectDevice } from "@/feature/http/device/Select";
 import * as Device from "@/feature/http/device/types";
 import { ContextMenu } from "@/feature/http/task/ContextMenu";
 import { EndpointListItem } from "@/feature/http/task/EndpointListItem";
+import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
   deployWriteConfigZ,
   type GeneratorType,
@@ -135,6 +137,11 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
   const channelPath = `${epPath}.channel`;
   const channelKey = PForm.useFieldValue<number>(`${channelPath}.channel`);
   const jsonType = PForm.useFieldValue<string>(`${channelPath}.jsonType`);
+  const channelQuery = useMemo(
+    () => (primitive.isNonZero(channelKey) ? { key: channelKey } : null),
+    [channelKey],
+  );
+  const { data: dataType } = PChannel.useResultDataType(channelQuery);
 
   return (
     <>
@@ -168,6 +175,9 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
           >
             {renderSelectDataType}
           </PForm.Field>
+        )}
+        {dataType != null && DataType.TIMESTAMP.equals(dataType) && (
+          <TimeFormatField path={`${channelPath}.timeFormat`} label="Time format" />
         )}
         {jsonType === "string" && <EnumValuesEditor channelPath={channelPath} />}
       </Flex.Box>

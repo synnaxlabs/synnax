@@ -80,9 +80,9 @@ export interface CreateRetrieveParams<
   normalizeQuery?: <Q extends Query>(query: Q) => Q;
 }
 
-// A getCached that composes a list answer allocates a fresh array per call,
-// which spins useSyncExternalStore forever. Single-record answers come back as
-// the domain client's own row, so identity already holds for them.
+// The domain query cache interns its answers, so identity holds for anything
+// it serves. This backstops a hand-written getCached that allocates instead,
+// which would otherwise spin useSyncExternalStore forever.
 const answersEqual = <Data>(prev: Data, next: Data): boolean =>
   Array.isArray(prev) && Array.isArray(next)
     ? compare.arraysEqual(prev, next)
