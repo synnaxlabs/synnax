@@ -182,6 +182,10 @@ these contract changes:
   the buffer head as an epoch reset: flush, warn, and continue from the incoming
   alignment, never today's silent drop of every write after a Core restart rewinds its
   alignment counter.
+- **Streamed series carry their write group's time range**: The Core stamps a data
+  series with the range its index established, so a buffer starts at a real timestamp
+  instead of the wall clock at arrival. An unstamped series (a virtual channel, or a
+  write with no in-frame index) still falls back to the wall clock.
 - **Terminal close**: The cache sets a closed flag; late operations throw typed errors
   instead of resurrecting a dead cache or warn-and-dropping data.
 - **No negative caching, no permanent misses**: A key with no data is simply a key with
@@ -312,11 +316,22 @@ module.
 - **Phase 5: symbol status treatment.** The "no data" visual state and status plumbing
   into schematic symbols. Split from phase 3 so rendering regressions bisect separately.
 
-**Compatibility.** No wire or persisted formats change. Behavioral deltas are
-user-visible only as fixes: symbols that silently froze now recover or report, and
-disconnected mounts no longer produce spurious not-found errors. The
-`channel.DebouncedBatchRetriever` and `channel.Retriever` exports leave the public
-client surface.
+**Compatibility.** No schema or persisted format changes, but one payload semantic does:
+a streamed series now carries the time range the index established for its write group,
+where it previously carried none. The dynamic buffer reads that stamp to start a buffer
+and falls back to the wall clock when it is absent, so a client that ignores it is
+unaffected.
+
+Behavioral deltas are user-visible only as fixes: symbols that silently froze now
+recover or report, disconnected mounts no longer produce spurious not-found errors, and
+the streamer's open ack fires after the relay applies the demand, so a write issued
+after the ack can no longer be missed.
+
+These exports leave the public client surface: `channel.Retriever`,
+`channel.ClusterRetriever`, `channel.DebouncedBatchRetriever`,
+`channel.retrieveRequired`, `channel.PageOptions`, `channel.PromiseFns`,
+`channel.Client.createDebouncedBatchRetriever`, `query.ObservableStream`,
+`query.StreamOpener`, and `query.StreamOpenerHooks`.
 
 ## 6 What this RFC does not cover
 
