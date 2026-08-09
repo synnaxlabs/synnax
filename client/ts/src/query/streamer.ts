@@ -176,10 +176,15 @@ export const createStreamer = ({
   };
   return {
     demand: async () => {
-      // The memo must be assigned before open's body runs: opening resolves
-      // channels through the cached read path, which re-enters demand
-      // synchronously. An unset memo there recurses instead of joining.
-      opened ??= Promise.resolve().then(open);
+      if (opened == null) {
+        const { promise, resolve, reject } =
+          Promise.withResolvers<ObservableStreamer>();
+        // Assigned before open runs: opening resolves channels through the cached
+        // read path, which re-enters demand synchronously. An unset memo there
+        // recurses instead of joining. Keep these two statements in this order.
+        opened = promise;
+        open().then(resolve, reject);
+      }
       try {
         await opened;
       } catch (exc) {
