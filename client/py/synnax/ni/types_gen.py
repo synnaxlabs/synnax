@@ -307,15 +307,6 @@ THERMOCOUPLE_TYPE_E: Literal["E"] = "E"
 
 ThermocoupleType = Literal["J", "K", "N", "R", "S", "T", "B", "E"]
 
-CJC_SOURCE_BUILT_IN: Literal["BuiltIn"] = "BuiltIn"
-
-CJC_SOURCE_CONST_VAL: Literal["ConstVal"] = "ConstVal"
-
-CJC_SOURCE_CHAN: Literal["Chan"] = "Chan"
-
-
-CJCSource = Literal["BuiltIn", "ConstVal", "Chan"]
-
 VELOCITY_UNITS_METERS_PER_SECOND: Literal["MetersPerSecond"] = "MetersPerSecond"
 
 VELOCITY_UNITS_INCHES_PER_SECOND: Literal["InchesPerSecond"] = "InchesPerSecond"
@@ -791,6 +782,34 @@ class ScannerConfig(task.ConfigRecord):
         return hash(self.key)
 
 
+class CJCBuiltIn(BaseModel):
+    """Reads the reference temperature from the device's own sensor."""
+
+    source: Literal["built_in"]
+
+
+class CJCConstVal(BaseModel):
+    """Uses a fixed reference temperature."""
+
+    source: Literal["const_val"]
+    val: float = 0
+
+
+class CJCChan(BaseModel):
+    """Reads the reference temperature from another channel."""
+
+    source: Literal["chan"]
+    port: int = Field(default=0, ge=-2147483648, le=2147483647)
+
+
+# Is the cold-junction compensation for a thermocouple. The source selects
+# where the reference temperature comes from.
+CJC = Annotated[
+    Union[CJCBuiltIn, CJCConstVal, CJCChan],
+    Field(discriminator="source"),
+]
+
+
 class DigitalInputChannel(BaseModel):
     """Carries the fields of an NI digital input channel."""
 
@@ -1032,9 +1051,7 @@ class AIThermocoupleChannel(BaseAIChannel, MinMaxVal):
     type: Literal["ai_thermocouple"]
     units: TemperatureUnits = "DegC"
     thermocouple_type: ThermocoupleType = "J"
-    cjc_source: CJCSource = "BuiltIn"
-    cjc_val: float | None = None
-    cjc_port: int | None = Field(default=None, ge=-2147483648, le=2147483647)
+    cjc: CJC
 
 
 class AITorqueBridgeTableChannel(

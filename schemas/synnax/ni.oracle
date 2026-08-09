@@ -210,12 +210,29 @@ ThermocoupleType enum {
     @go version 0
 }
 
-CJCSource enum {
-    built_in  = "BuiltIn"
-    const_val = "ConstVal"
-    chan      = "Chan"
+CJC union on source {
+    built_in {
+        @doc value "reads the reference temperature from the device's own sensor."
+    }
+    const_val {
+        val float64 = 0 {
+            @doc value "is the reference temperature, in the channel's units."
+        }
 
-    @doc value  "selects the cold-junction-compensation source for a thermocouple."
+        @doc value "uses a fixed reference temperature."
+    }
+    chan {
+        port int32 = 0 {
+            @doc value "is the port of the channel that measures the reference."
+        }
+
+        @doc value "reads the reference temperature from another channel."
+    }
+
+    @doc value  """
+        is the cold-junction compensation for a thermocouple. The source selects
+        where the reference temperature comes from.
+    """
     @go version 0
 }
 
@@ -685,14 +702,8 @@ AIChannel union on type extends BaseAIChannel {
         thermocouple_type ThermocoupleType = j {
             @doc value "selects the thermocouple alloy type."
         }
-        cjc_source        CJCSource = built_in {
-            @doc value "selects the cold-junction-compensation source."
-        }
-        cjc_val           float64?         {
-            @doc value "is the CJC temperature when cjc_source is const_val."
-        }
-        cjc_port          int32?           {
-            @doc value "is the CJC channel port when cjc_source is chan."
+        cjc               CJC              {
+            @doc value "is the cold-junction compensation applied to the reading."
         }
 
         @doc value "reads temperature from a thermocouple."

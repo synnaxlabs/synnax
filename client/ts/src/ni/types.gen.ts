@@ -151,10 +151,6 @@ export const THERMOCOUPLE_TYPES = ["J", "K", "N", "R", "S", "T", "B", "E"] as co
 export const thermocoupleTypeZ = z.enum(THERMOCOUPLE_TYPES);
 export type ThermocoupleType = z.infer<typeof thermocoupleTypeZ>;
 
-export const CJC_SOURCES = ["BuiltIn", "ConstVal", "Chan"] as const;
-export const cjcSourceZ = z.enum(CJC_SOURCES);
-export type CJCSource = z.infer<typeof cjcSourceZ>;
-
 export const VELOCITY_UNITS = ["MetersPerSecond", "InchesPerSecond"] as const;
 export const velocityUnitsZ = z.enum(VELOCITY_UNITS);
 export type VelocityUnits = z.infer<typeof velocityUnitsZ>;
@@ -504,6 +500,51 @@ export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 export const scannerConfigZ = task.configRecordZ;
 export interface ScannerConfig extends z.infer<typeof scannerConfigZ> {}
+
+/** CJCBuiltIn reads the reference temperature from the device's own sensor. */
+export const cjcBuiltInZ = z.object({
+  source: z.literal("built_in"),
+});
+export interface CJCBuiltIn extends z.infer<typeof cjcBuiltInZ> {}
+
+/** CJCConstVal uses a fixed reference temperature. */
+export const cjcConstValZ = z.object({
+  source: z.literal("const_val"),
+  /** val is the reference temperature, in the channel's units. */
+  val: z.number().default(0),
+});
+export interface CJCConstVal extends z.infer<typeof cjcConstValZ> {}
+
+/** CJCChan reads the reference temperature from another channel. */
+export const cjcChanZ = z.object({
+  source: z.literal("chan"),
+  /** port is the port of the channel that measures the reference. */
+  port: z.int32().default(0),
+});
+export interface CJCChan extends z.infer<typeof cjcChanZ> {}
+
+export const CJC_TYPES = ["built_in", "const_val", "chan"] as const;
+export const cjcTypeZ = z.enum(CJC_TYPES);
+export type CJCType = z.infer<typeof cjcTypeZ>;
+
+/**
+ * CJC is the cold-junction compensation for a thermocouple. The source selects where
+ * the reference temperature comes from.
+ */
+export const cjcZ = z.discriminatedUnion("source", [
+  cjcBuiltInZ,
+  cjcConstValZ,
+  cjcChanZ,
+]);
+export type CJC = CJCBuiltIn | CJCConstVal | CJCChan;
+
+export const CJC_SCHEMAS: {
+  [K in CJCType]: z.ZodType<Extract<CJC, { source: K }>>;
+} = {
+  built_in: cjcBuiltInZ,
+  const_val: cjcConstValZ,
+  chan: cjcChanZ,
+};
 
 /** DigitalInputChannel carries the fields of an NI digital input channel. */
 export const digitalInputChannelZ = z.object({
@@ -879,12 +920,8 @@ export const aiThermocoupleChannelZ = baseAIChannelZ.extend(minMaxValZ.shape).ex
   units: temperatureUnitsZ.default("DegC"),
   /** thermocoupleType selects the thermocouple alloy type. */
   thermocoupleType: thermocoupleTypeZ.default("J"),
-  /** cjcSource selects the cold-junction-compensation source. */
-  cjcSource: cjcSourceZ.default("BuiltIn"),
-  /** cjcVal is the CJC temperature when cjc_source is const_val. */
-  cjcVal: z.number().optional(),
-  /** cjcPort is the CJC channel port when cjc_source is chan. */
-  cjcPort: z.int32().optional(),
+  /** cjc is the cold-junction compensation applied to the reading. */
+  cjc: cjcZ,
 });
 export interface AIThermocoupleChannel extends z.infer<typeof aiThermocoupleChannelZ> {}
 

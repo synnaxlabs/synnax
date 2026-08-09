@@ -12,7 +12,6 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -163,10 +162,6 @@ constexpr const char *THERMOCOUPLE_TYPE_S = "S";
 constexpr const char *THERMOCOUPLE_TYPE_T = "T";
 constexpr const char *THERMOCOUPLE_TYPE_B = "B";
 constexpr const char *THERMOCOUPLE_TYPE_E = "E";
-
-constexpr const char *CJC_SOURCE_BUILT_IN = "BuiltIn";
-constexpr const char *CJC_SOURCE_CONST_VAL = "ConstVal";
-constexpr const char *CJC_SOURCE_CHAN = "Chan";
 
 constexpr const char *VELOCITY_UNITS_METERS_PER_SECOND = "MetersPerSecond";
 constexpr const char *VELOCITY_UNITS_INCHES_PER_SECOND = "InchesPerSecond";
@@ -339,6 +334,41 @@ struct ScannerConfig : public ::synnax::common::ConfigRecord {
     static ScannerConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief CJCBuiltIn reads the reference temperature from the device's own sensor.
+struct CJCBuiltIn {
+    std::string source = "built_in";
+
+    static CJCBuiltIn parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CJCConstVal uses a fixed reference temperature.
+struct CJCConstVal {
+    std::string source = "const_val";
+    /// @brief val is the reference temperature, in the channel's units.
+    double val = 0;
+
+    static CJCConstVal parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CJCChan reads the reference temperature from another channel.
+struct CJCChan {
+    std::string source = "chan";
+    /// @brief port is the port of the channel that measures the reference.
+    std::int32_t port = 0;
+
+    static CJCChan parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CJC is the cold-junction compensation for a thermocouple. The source selects
+/// where the reference temperature comes from.
+using CJC = std::variant<CJCBuiltIn, CJCConstVal, CJCChan>;
+
+CJC parse_cjc(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const CJC &value);
 
 /// @brief DigitalInputChannel carries the fields of an NI digital input channel.
 struct DigitalInputChannel {
@@ -888,12 +918,8 @@ struct AIThermocoupleChannel : public BaseAIChannel, public MinMaxVal {
     std::string units = TEMPERATURE_UNITS_DEG_C;
     /// @brief thermocouple_type selects the thermocouple alloy type.
     std::string thermocouple_type = THERMOCOUPLE_TYPE_J;
-    /// @brief cjc_source selects the cold-junction-compensation source.
-    std::string cjc_source = CJC_SOURCE_BUILT_IN;
-    /// @brief cjc_val is the CJC temperature when cjc_source is const_val.
-    std::optional<double> cjc_val;
-    /// @brief cjc_port is the CJC channel port when cjc_source is chan.
-    std::optional<std::int32_t> cjc_port;
+    /// @brief cjc is the cold-junction compensation applied to the reading.
+    CJC cjc;
 
     static AIThermocoupleChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
