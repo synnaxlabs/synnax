@@ -12,6 +12,8 @@ package task_test
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	pdlegacy "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -110,7 +113,9 @@ var _ = Describe("ImEx", Ordered, func() {
 				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
 
 				env := MustSucceed(svc.Export(ctx, t.OntologyID()))
-				Expect(env.Version).To(Equal(task.Version))
+				// The version is the config type's own number line: one above
+				// PagerDuty's last legacy shape.
+				Expect(env.Version).To(Equal(pdlegacy.LastVersion + 1))
 				Expect(env.Type).To(Equal(pagerduty.AlertTaskType))
 				Expect(env.Name).To(Equal("Exported Task"))
 
@@ -209,15 +214,34 @@ var _ = Describe("ImEx", Ordered, func() {
 		)
 
 		It(
-			"Should reject a file version newer than the exporter's",
+			"Should import a file stamped at the current version without rewriting",
 			func(ctx SpecContext) {
+				raw := MustSucceed(os.ReadFile(
+					filepath.Join("testdata", "import_typed_stamped.json"),
+				))
+				imported := reimport(ctx, raw)
+				var body map[string]any
+				Expect(json.Unmarshal(raw, &body)).To(Succeed())
+				delete(body, "version")
+				delete(body, "type")
+				delete(body, "name")
+				config := map[string]any(imported.Config)
+				// The store mints a record key and fills defaults; every stamped
+				// field must survive exactly as written.
+				for k, v := range body {
+					Expect(config[k]).To(BeComparableTo(v), "field %q changed", k)
+				}
+			},
+		)
+
+		It(
+			"Should reject a file version newer than the type's",
+			func(ctx SpecContext) {
+				raw := MustSucceed(os.ReadFile(
+					filepath.Join("testdata", "import_bad_version.json"),
+				))
 				var env imex.Envelope
-				Expect(json.Unmarshal(
-					[]byte(
-						`{"type": "pagerduty_alert", "name": "future", "version": 2}`,
-					),
-					&env,
-				)).To(Succeed())
+				Expect(json.Unmarshal(raw, &env)).To(Succeed())
 				Expect(imexSvc.Import(
 					ctx, nil, env, imex.ImportOptions{Parent: ontology.RootID},
 				)).Error().To(MatchError(ContainSubstring("newer than this Core supports")))

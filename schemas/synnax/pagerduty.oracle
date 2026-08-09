@@ -38,7 +38,7 @@ Alert struct {
     }
 
     @doc value  "maps a Synnax status to a PagerDuty event routing rule."
-    @go version 0
+    @go version 1
 }
 
 TaskConfig struct extends task.ConfigRecord {
@@ -56,7 +56,7 @@ TaskConfig struct extends task.ConfigRecord {
         configures a PagerDuty alert task, which forwards Synnax status changes
         to PagerDuty as events.
     """
-    @go version 0
+    @go version 1
     @go marshal
     @go migrate
 }

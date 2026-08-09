@@ -13,10 +13,13 @@ import (
 	"context"
 	"encoding/json"
 	"iter"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/task/common/legacy"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -52,6 +55,17 @@ type ConfigStore interface {
 	// Copy duplicates the record stored under from into a new record stored under
 	// to. It returns an error wrapping query.ErrNotFound when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
+	// Normalize converts a config blob at the given version to the current stored
+	// shape: a legacy version runs the type's legacy rewrite, the current version
+	// returns data unchanged, and a version above the current one returns an error
+	// wrapping validate.ErrValidation.
+	Normalize(
+		version imex.Version,
+		data msgpack.EncodedJSON,
+	) (msgpack.EncodedJSON, error)
+	// Version returns the current version of the store's config type, stamped on
+	// exported envelopes.
+	Version() imex.Version
 }
 
 // ConfigPtr constrains a pointer to a config record type.
@@ -74,6 +88,13 @@ type ConfigServiceConfig struct {
 	// Migrations is the stored-shape migration chain for the record type. Empty for
 	// a type whose stored shape has never changed.
 	Migrations []migrate.Migration
+	// Version is the current version of the config type, one above the integration's
+	// legacy.LastVersion. Envelopes below it decode through Legacy; envelopes above
+	// it are rejected.
+	Version imex.Version
+	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
+	// applies era normalization alone.
+	Legacy *legacy.Rewrite
 	alamos.Instrumentation
 }
 
@@ -85,6 +106,8 @@ func (c ConfigServiceConfig) Override(other ConfigServiceConfig) ConfigServiceCo
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Type = override.String(c.Type, other.Type)
 	c.Migrations = override.Slice(c.Migrations, other.Migrations)
+	c.Version = override.Numeric(c.Version, other.Version)
+	c.Legacy = override.Nil(c.Legacy, other.Legacy)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -175,6 +198,28 @@ func (s *ConfigService[E, PE]) create(ctx context.Context, tx gorp.Tx, e *E) err
 		ctx, ontology.ID{Type: s.cfg.Type, Key: (*e).GorpKey().String()},
 	)
 }
+
+// Normalize implements ConfigStore.
+func (s *ConfigService[E, PE]) Normalize(
+	version imex.Version,
+	data msgpack.EncodedJSON,
+) (msgpack.EncodedJSON, error) {
+	if version > s.cfg.Version {
+		return nil, imex.NewErrUnsupportedVersion(
+			string(s.cfg.Type), version, s.cfg.Version,
+		)
+	}
+	if version == s.cfg.Version {
+		return data, nil
+	}
+	if s.cfg.Legacy != nil {
+		return s.cfg.Legacy.Apply(data), nil
+	}
+	return legacy.Rewrite{}.Apply(data), nil
+}
+
+// Version implements ConfigStore.
+func (s *ConfigService[E, PE]) Version() imex.Version { return s.cfg.Version }
 
 // Read implements ConfigStore.
 func (s *ConfigService[E, PE]) Read(
@@ -327,4 +372,17 @@ func (r ConfigRegistry) Types() []ontology.ResourceType {
 		types = append(types, t)
 	}
 	return types
+}
+
+// IDs returns one type-scoped ontology ID per registered task type, sorted by type.
+// Built-in access policies splice this slice in so a grant on tasks also covers
+// their config records.
+func (r ConfigRegistry) IDs() []ontology.ID {
+	types := r.Types()
+	slices.Sort(types)
+	ids := make([]ontology.ID, len(types))
+	for i, t := range types {
+		ids[i] = ontology.ID{Type: t}
+	}
+	return ids
 }

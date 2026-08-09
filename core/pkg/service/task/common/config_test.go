@@ -18,8 +18,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/common/legacy"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -224,6 +226,88 @@ var _ = Describe("ConfigService", func() {
 		})
 	})
 
+	Describe("Normalize", func() {
+		var versioned *common.ConfigService[arctask.Config, *arctask.Config]
+		BeforeEach(func(ctx SpecContext) {
+			versioned = MustOpen(common.OpenConfigService[arctask.Config](
+				ctx,
+				common.ConfigServiceConfig{
+					DB:       db,
+					Ontology: otg,
+					Type:     "versioned_test",
+					Version:  2,
+					Legacy: &legacy.Rewrite{
+						Post: func(cfg msgpack.EncodedJSON) {
+							legacy.RenameKey(cfg, "old_name", "new_name")
+						},
+					},
+				},
+			))
+		})
+
+		It("Should reject a version above the store's version", func() {
+			Expect(versioned.Normalize(3, msgpack.EncodedJSON{})).Error().
+				To(SatisfyAll(
+					MatchError(ContainSubstring("validation")),
+					MatchError(ContainSubstring("newer than this Core supports")),
+				))
+		})
+
+		It("Should return current-version data unchanged", func() {
+			data := msgpack.EncodedJSON{"camelKey": 1, "old_name": 2}
+			Expect(versioned.Normalize(2, data)).To(Equal(data))
+		})
+
+		It("Should run the legacy rewrite on a legacy version", func() {
+			out := MustSucceed(versioned.Normalize(0, msgpack.EncodedJSON{
+				"camelKey": 1,
+				"oldName":  2,
+			}))
+			Expect(out).To(Equal(msgpack.EncodedJSON{
+				"camel_key": 1,
+				"new_name":  2,
+			}))
+		})
+
+		It("Should apply era normalization alone when no legacy rewrite is set", func(
+			ctx SpecContext,
+		) {
+			eraOnly := MustOpen(common.OpenConfigService[arctask.Config](
+				ctx,
+				common.ConfigServiceConfig{
+					DB:       db,
+					Ontology: otg,
+					Type:     "era_only_test",
+					Version:  1,
+				},
+			))
+			out := MustSucceed(eraOnly.Normalize(0, msgpack.EncodedJSON{
+				"camelKey":   1,
+				"dataSaving": true,
+			}))
+			Expect(out).To(Equal(msgpack.EncodedJSON{
+				"camel_key":            1,
+				"data_saving_disabled": false,
+			}))
+		})
+	})
+
+	Describe("Version", func() {
+		It("Should report the configured version", func(ctx SpecContext) {
+			versioned := MustOpen(common.OpenConfigService[arctask.Config](
+				ctx,
+				common.ConfigServiceConfig{
+					DB:       db,
+					Ontology: otg,
+					Type:     "version_report_test",
+					Version:  3,
+				},
+			))
+			Expect(versioned.Version()).To(Equal(imex.Version(3)))
+			Expect(svc.Version()).To(Equal(imex.Version(0)))
+		})
+	})
+
 	Describe("OnChange", func() {
 		It("Should notify on writes and deletes", func(ctx SpecContext) {
 			var (
@@ -301,6 +385,33 @@ var _ = Describe("ConfigRegistry", func() {
 	Describe("IsZero", func() {
 		It("Should report true for a never-constructed registry", func() {
 			Expect(common.ConfigRegistry{}.IsZero()).To(BeTrue())
+		})
+	})
+
+	Describe("IDs", func() {
+		It("Should return one type-scoped ID per store, sorted by type", func(
+			ctx SpecContext,
+		) {
+			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+			open := func(t ontology.ResourceType) common.ConfigStore {
+				GinkgoHelper()
+				return MustOpen(common.OpenConfigService[arctask.Config](
+					ctx,
+					common.ConfigServiceConfig{DB: db, Ontology: otg, Type: t},
+				))
+			}
+			reg := MustSucceed(common.NewConfigRegistry(
+				open("zz_last"), open("aa_first"),
+			))
+			Expect(reg.IDs()).To(Equal([]ontology.ID{
+				{Type: "aa_first"},
+				{Type: "zz_last"},
+			}))
+		})
+
+		It("Should return an empty slice for an empty registry", func() {
+			reg := MustSucceed(common.NewConfigRegistry())
+			Expect(reg.IDs()).To(BeEmpty())
 		})
 	})
 })

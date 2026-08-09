@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task/common"
 	"github.com/synnaxlabs/x/config"
@@ -77,20 +78,36 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	base := common.ConfigServiceConfig{
 		DB:              cfg.DB,
 		Ontology:        cfg.Ontology,
+		Version:         legacy.LastVersion + 1,
 		Instrumentation: cfg.Instrumentation,
 	}
 	if s.Read, err = common.OpenConfigService[ReadConfig](
-		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeHTTPRead},
+		ctx,
+		base,
+		common.ConfigServiceConfig{
+			Type:   ontology.ResourceTypeHTTPRead,
+			Legacy: &legacy.Read,
+		},
 	); !ok(err, s.Read) {
 		return nil, err
 	}
 	if s.Write, err = common.OpenConfigService[WriteConfig](
-		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeHTTPWrite},
+		ctx,
+		base,
+		common.ConfigServiceConfig{
+			Type:   ontology.ResourceTypeHTTPWrite,
+			Legacy: &legacy.Write,
+		},
 	); !ok(err, s.Write) {
 		return nil, err
 	}
 	if s.Scan, err = common.OpenConfigService[ScanConfig](
-		ctx, base, common.ConfigServiceConfig{Type: ontology.ResourceTypeHTTPScan},
+		ctx,
+		base,
+		common.ConfigServiceConfig{
+			Type:   ontology.ResourceTypeHTTPScan,
+			Legacy: &legacy.Scan,
+		},
 	); !ok(err, s.Scan) {
 		return nil, err
 	}

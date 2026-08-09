@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/task/common"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -73,12 +74,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	base := common.ConfigServiceConfig{
 		DB:              cfg.DB,
 		Ontology:        cfg.Ontology,
+		Version:         legacy.LastVersion + 1,
 		Instrumentation: cfg.Instrumentation,
 	}
 	if s.Alert, err = common.OpenConfigService[TaskConfig](
 		ctx,
 		base,
-		common.ConfigServiceConfig{Type: ontology.ResourceTypePagerdutyAlert},
+		common.ConfigServiceConfig{
+			Type:   ontology.ResourceTypePagerdutyAlert,
+			Legacy: &legacy.Alert,
+		},
 	); !ok(err, s.Alert) {
 		return nil, err
 	}

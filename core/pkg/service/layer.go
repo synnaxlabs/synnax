@@ -396,14 +396,87 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.User) {
 		return nil, err
 	}
-	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
-		Instrumentation: cfg.Child("rbac"),
+	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
+		Instrumentation: cfg.Child("ni"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        l.Ontology,
-		Signals:         l.Signals,
-		Group:           l.Group,
-		Search:          l.Search,
-		User:            l.User,
+	}); !ok(err, l.NI) {
+		return nil, err
+	}
+	if l.OPC, err = opc.OpenService(ctx, opc.ServiceConfig{
+		Instrumentation: cfg.Child("opc"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+	}); !ok(err, l.OPC) {
+		return nil, err
+	}
+	if l.LabJack, err = labjack.OpenService(ctx, labjack.ServiceConfig{
+		Instrumentation: cfg.Child("labjack"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+	}); !ok(err, l.LabJack) {
+		return nil, err
+	}
+	if l.Modbus, err = modbus.OpenService(ctx, modbus.ServiceConfig{
+		Instrumentation: cfg.Child("modbus"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+	}); !ok(err, l.Modbus) {
+		return nil, err
+	}
+	if l.EtherCAT, err = ethercat.OpenService(ctx, ethercat.ServiceConfig{
+		Instrumentation: cfg.Child("ethercat"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+	}); !ok(err, l.EtherCAT) {
+		return nil, err
+	}
+	if l.HTTP, err = http.OpenService(ctx, http.ServiceConfig{
+		Instrumentation: cfg.Child("http"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+	}); !ok(err, l.HTTP) {
+		return nil, err
+	}
+	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
+		Instrumentation: cfg.Child("arc_task"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+	}); !ok(err, l.ArcTask) {
+		return nil, err
+	}
+	if l.RackTask, err = racktask.OpenService(ctx, racktask.ServiceConfig{
+		Instrumentation: cfg.Child("rack_task"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+	}); !ok(err, l.RackTask) {
+		return nil, err
+	}
+	if l.PagerDuty, err = pdruntime.OpenService(ctx, pdruntime.ServiceConfig{
+		Instrumentation: cfg.Child("pagerduty"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+	}); !ok(err, l.PagerDuty) {
+		return nil, err
+	}
+	configStores := slices.Concat(
+		l.NI.Stores(), l.OPC.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
+		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
+		l.RackTask.Stores(), l.PagerDuty.Stores(),
+	)
+	taskConfigs, err := taskcommon.NewConfigRegistry(configStores...)
+	if !ok(err, nil) {
+		return nil, err
+	}
+	if l.RBAC, err = rbac.OpenService(ctx, rbac.ServiceConfig{
+		Instrumentation:   cfg.Child("rbac"),
+		DB:                cfg.Distribution.DB,
+		Ontology:          l.Ontology,
+		Signals:           l.Signals,
+		Group:             l.Group,
+		Search:            l.Search,
+		User:              l.User,
+		TaskConfigObjects: taskConfigs.IDs(),
 	}); !ok(err, l.RBAC) {
 		return nil, err
 	}
@@ -512,78 +585,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Status:          l.Status,
 		Rack:            l.Rack,
 	}); !ok(err, l.Device) {
-		return nil, err
-	}
-	if l.NI, err = ni.OpenService(ctx, ni.ServiceConfig{
-		Instrumentation: cfg.Child("ni"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-	}); !ok(err, l.NI) {
-		return nil, err
-	}
-	if l.OPC, err = opc.OpenService(ctx, opc.ServiceConfig{
-		Instrumentation: cfg.Child("opc"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-	}); !ok(err, l.OPC) {
-		return nil, err
-	}
-	if l.LabJack, err = labjack.OpenService(ctx, labjack.ServiceConfig{
-		Instrumentation: cfg.Child("labjack"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-	}); !ok(err, l.LabJack) {
-		return nil, err
-	}
-	if l.Modbus, err = modbus.OpenService(ctx, modbus.ServiceConfig{
-		Instrumentation: cfg.Child("modbus"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-	}); !ok(err, l.Modbus) {
-		return nil, err
-	}
-	if l.EtherCAT, err = ethercat.OpenService(ctx, ethercat.ServiceConfig{
-		Instrumentation: cfg.Child("ethercat"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-	}); !ok(err, l.EtherCAT) {
-		return nil, err
-	}
-	if l.HTTP, err = http.OpenService(ctx, http.ServiceConfig{
-		Instrumentation: cfg.Child("http"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-	}); !ok(err, l.HTTP) {
-		return nil, err
-	}
-	if l.ArcTask, err = arctask.OpenService(ctx, arctask.ServiceConfig{
-		Instrumentation: cfg.Child("arc_task"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-	}); !ok(err, l.ArcTask) {
-		return nil, err
-	}
-	if l.RackTask, err = racktask.OpenService(ctx, racktask.ServiceConfig{
-		Instrumentation: cfg.Child("rack_task"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-	}); !ok(err, l.RackTask) {
-		return nil, err
-	}
-	if l.PagerDuty, err = pdruntime.OpenService(ctx, pdruntime.ServiceConfig{
-		Instrumentation: cfg.Child("pagerduty"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-	}); !ok(err, l.PagerDuty) {
-		return nil, err
-	}
-	configStores := slices.Concat(
-		l.NI.Stores(), l.OPC.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
-		l.EtherCAT.Stores(), l.HTTP.Stores(), l.ArcTask.Stores(),
-		l.RackTask.Stores(), l.PagerDuty.Stores(),
-	)
-	taskConfigs, err := taskcommon.NewConfigRegistry(configStores...)
-	if !ok(err, nil) {
 		return nil, err
 	}
 	if l.Task, err = task.OpenService(ctx, task.ServiceConfig{
