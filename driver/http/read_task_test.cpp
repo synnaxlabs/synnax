@@ -268,6 +268,17 @@ TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
 /// @brief it should parse an endpoint that omits query parameters, leaving it
 /// with none.
 TEST(HTTPReadTask, ParseConfigOmittedQueryParamsDefaultsEmpty) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("value"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -279,19 +290,29 @@ TEST(HTTPReadTask, ParseConfigOmittedQueryParamsDefaultsEmpty) {
              {"fields",
               {{
                   {"pointer", "/value"},
-                  {"channel", 1},
+                  {"channel", ch.key},
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [cfg, err] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_NIL(err);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].query_params.empty());
 }
 
 /// @brief it should parse an endpoint that omits headers, leaving it with none.
 TEST(HTTPReadTask, ParseConfigOmittedHeadersDefaultsEmpty) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("value"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -303,19 +324,29 @@ TEST(HTTPReadTask, ParseConfigOmittedHeadersDefaultsEmpty) {
              {"fields",
               {{
                   {"pointer", "/value"},
-                  {"channel", 1},
+                  {"channel", ch.key},
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [cfg, err] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_NIL(err);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].headers.empty());
 }
 
 /// @brief an endpoint that omits body should parse to an empty body.
 TEST(HTTPReadTask, ParseConfigOmittedBodyDefaultsEmpty) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("value"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -327,19 +358,29 @@ TEST(HTTPReadTask, ParseConfigOmittedBodyDefaultsEmpty) {
              {"fields",
               {{
                   {"pointer", "/value"},
-                  {"channel", 1},
+                  {"channel", ch.key},
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [cfg, err] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_NIL(err);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].body.empty());
 }
 
 /// @brief an endpoint that omits index should parse to an empty index.
 TEST(HTTPReadTask, ParseConfigOmittedIndexDefaultsEmpty) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("value"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -351,19 +392,29 @@ TEST(HTTPReadTask, ParseConfigOmittedIndexDefaultsEmpty) {
              {"fields",
               {{
                   {"pointer", "/value"},
-                  {"channel", 1},
+                  {"channel", ch.key},
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [cfg, err] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_NIL(err);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].index.empty());
 }
 
 /// @brief a field that omits enum_values should parse to an empty list.
 TEST(HTTPReadTask, ParseConfigOmittedEnumValuesDefaultsEmpty) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto idx = ASSERT_NIL_P(
+        client->channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("value"),
+        x::telem::FLOAT64_T,
+        idx.key,
+        false
+    ));
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -375,13 +426,12 @@ TEST(HTTPReadTask, ParseConfigOmittedEnumValuesDefaultsEmpty) {
              {"fields",
               {{
                   {"pointer", "/value"},
-                  {"channel", 1},
+                  {"channel", ch.key},
               }}},
          }}},
     };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [cfg, err] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_NIL(err);
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints.size(), 1);
     ASSERT_EQ(cfg.endpoints[0].fields.size(), 1);
     ASSERT_TRUE(cfg.endpoints[0].fields[0].enum_values.empty());
