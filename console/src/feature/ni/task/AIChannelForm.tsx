@@ -9,7 +9,7 @@
 
 import "@/feature/ni/task/AIChannelForm.css";
 
-import { Divider, Flex, Form, Icon } from "@synnaxlabs/pluto";
+import { Divider, Flex, Form, Icon, type Select as PSelect } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -20,6 +20,8 @@ import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import {
   type AccelSensitivityUnits,
   type AIChannelType,
+  type CJC,
+  type CJCType,
   type ElectricalUnits,
   type ForceUnits,
   type PressureUnits,
@@ -277,15 +279,27 @@ const RTDTypeField = Form.buildSelectField({
   },
 });
 
-const CJCSourceField = Form.buildSelectField({
-  fieldKey: "cjcSource",
-  fieldProps: { label: "CJC Source" },
+const ZERO_CJCS: Record<CJCType, CJC> = {
+  built_in: { source: "built_in" },
+  const_val: { source: "const_val", val: 0 },
+  chan: { source: "chan", port: 0 },
+};
+
+const CJCSourceField = Form.buildSelectField<CJCType, PSelect.StaticEntry<CJCType>>({
+  fieldKey: "cjc.source",
+  fieldProps: {
+    label: "CJC Source",
+    onChange: (value, { get, set, path }) => {
+      if (get<CJCType>(path).value === value) return;
+      set(path.slice(0, path.lastIndexOf(".")), ZERO_CJCS[value]);
+    },
+  },
   inputProps: {
     resourceName: "CJC source",
     data: [
-      { key: "BuiltIn", name: "Built In", icon: <Icon.Device /> },
-      { key: "ConstVal", name: "Constant Value", icon: <Icon.Constant /> },
-      { key: "Chan", name: "Channel", icon: <Icon.Channel /> },
+      { key: "built_in", name: "Built In", icon: <Icon.Device /> },
+      { key: "const_val", name: "Constant Value", icon: <Icon.Constant /> },
+      { key: "chan", name: "Channel", icon: <Icon.Channel /> },
     ],
   },
 });
@@ -793,7 +807,7 @@ const CHANNEL_FORMS: Partial<Record<AIChannelType, FC<FormProps>>> = {
   ),
   ai_temp_builtin: ({ prefix }) => <TemperatureUnitsField path={prefix} />,
   ai_thermocouple: ({ prefix }) => {
-    const cjcSource = Form.useFieldValue<string>(`${prefix}.cjcSource`, {
+    const cjcSource = Form.useFieldValue<CJCType>(`${prefix}.cjc.source`, {
       optional: true,
     });
     return (
@@ -804,19 +818,12 @@ const CHANNEL_FORMS: Partial<Record<AIChannelType, FC<FormProps>>> = {
           <ThermocoupleTypeField path={prefix} grow />
         </Flex.Box>
         <Flex.Box x>
-          <CJCSourceField
-            path={prefix}
-            grow
-            onChange={(value, { set }) => {
-              if (value === "ConstVal") set(`${prefix}.cjcVal`, 0);
-              else if (value === "Chan") set(`${prefix}.cjcPort`, 0);
-            }}
-          />
-          {cjcSource === "ConstVal" && (
-            <Form.NumericField path={`${prefix}.cjcVal`} label="CJC Value" grow />
+          <CJCSourceField path={prefix} grow />
+          {cjcSource === "const_val" && (
+            <Form.NumericField path={`${prefix}.cjc.val`} label="CJC Value" grow />
           )}
-          {cjcSource === "Chan" && (
-            <Form.NumericField path={`${prefix}.cjcPort`} label="CJC Port" grow />
+          {cjcSource === "chan" && (
+            <Form.NumericField path={`${prefix}.cjc.port`} label="CJC Port" grow />
           )}
         </Flex.Box>
       </>
