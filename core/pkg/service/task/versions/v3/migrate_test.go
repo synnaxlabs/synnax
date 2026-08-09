@@ -10,11 +10,16 @@
 package v3_test
 
 import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/cespare/xxhash/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/common"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
@@ -104,7 +109,6 @@ var _ = Describe("NewMigration", func() {
 				Entry(&migrated).Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Type).To(Equal("arc_task"))
 			Expect(migrated.Config).To(BeEmpty())
-			Expect(migrated.ConfigHash).To(HaveLen(16))
 
 			taskID := ontology.ID{
 				Type: ontology.ResourceTypeTask,
@@ -119,6 +123,52 @@ var _ = Describe("NewMigration", func() {
 			))
 			Expect(record).To(HaveKeyWithValue("arc_key", arcKey.String()))
 			Expect(record).To(HaveKeyWithValue("hash", "abc123"))
+
+			// The hash must follow the frozen rule — xxhash64 of the JSON
+			// encoding of the canonical record without its key — or drivers
+			// see phantom config drift after the upgrade.
+			content := make(map[string]any, len(record))
+			for k, v := range record {
+				if k != "key" {
+					content[k] = v
+				}
+			}
+			b := MustSucceed(json.Marshal(content))
+			Expect(migrated.ConfigHash).To(
+				Equal(fmt.Sprintf("%016x", xxhash.Sum64(b))),
+			)
+		},
+	)
+
+	It(
+		"Should rename a released driver's rack status task onto its store",
+		func(ctx SpecContext) {
+			key := uuid.New()
+			seed(ctx, v2.Task{
+				Key:      key,
+				Name:     "Rack Status",
+				Type:     "Rack Status",
+				Internal: true,
+			})
+			rt := MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{
+				DB: db, Ontology: otg,
+			}))
+			run(ctx, rt.Stores()...)
+
+			var migrated v2.Task
+			Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
+				Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
+				Entry(&migrated).Exec(ctx, db)).To(Succeed())
+			Expect(migrated.Type).To(Equal("rack_status"))
+			Expect(migrated.ConfigHash).To(HaveLen(16))
+			taskID := ontology.ID{
+				Type: ontology.ResourceTypeTask,
+				Key:  key.String(),
+			}
+			parents := MustSucceed(otg.RetrieveParents(nil, taskID))
+			ids := parents[taskID]
+			Expect(ids).To(HaveLen(1))
+			Expect(ids[0].Type).To(Equal(ontology.ResourceTypeRackStatus))
 		},
 	)
 

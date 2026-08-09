@@ -10,6 +10,7 @@
 package v2_test
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -251,6 +253,45 @@ var _ = Describe("Migrations", func() {
 					Config: msgpack.EncodedJSON{},
 				},
 			}
+			// A v0-era console row: snake_case from the wire, the device at the
+			// config level, the renamed AI type alias, and flat cold-junction
+			// fields.
+			niTask := v1.Task{
+				Key:  v1.Key(uint64(testRack.Key)<<32 | 9),
+				Name: "Stored NI Analog Read Task",
+				Type: "ni_analog_read",
+				Config: msgpack.EncodedJSON{
+					"device":      "dev-ni",
+					"sample_rate": float64(100),
+					"stream_rate": float64(10),
+					"data_saving": true,
+					"channels": []any{
+						map[string]any{
+							"key":        "ch-ni-tc",
+							"channel":    float64(101),
+							"port":       float64(1),
+							"type":       "ai_thermocouple",
+							"units":      "DegC",
+							"enabled":    true,
+							"min_val":    float64(-100),
+							"max_val":    float64(900),
+							"cjc_source": "ConstVal",
+							"cjc_val":    float64(25.5),
+						},
+						map[string]any{
+							"key":          "ch-ni-freq",
+							"channel":      float64(102),
+							"port":         float64(2),
+							"type":         "ai_frequency_voltage",
+							"units":        "Hz",
+							"enabled":      false,
+							"min_val":      float64(1),
+							"max_val":      float64(5000),
+							"custom_scale": map[string]any{"type": "none"},
+						},
+					},
+				},
+			}
 			ljTask := v1.Task{
 				Key:  v1.Key(uint64(testRack.Key)<<32 | 4),
 				Name: "Stored LabJack Write Task",
@@ -271,7 +312,9 @@ var _ = Describe("Migrations", func() {
 				},
 			}
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
-				Entries(&[]v1.Task{pdTask, arcTask, bogusTask, ljTask, ljScanTask}).
+				Entries(&[]v1.Task{
+					pdTask, arcTask, bogusTask, ljTask, ljScanTask, niTask,
+				}).
 				Exec(ctx, seedDB)).To(Succeed())
 			Expect(gorp.NewCreate[v1.Key, v1.Task]().
 				Entries(&retiredTasks).
@@ -289,9 +332,13 @@ var _ = Describe("Migrations", func() {
 				DB:       db,
 				Ontology: otg,
 			}))
-			configs := MustSucceed(common.NewConfigRegistry(
-				append(append(pd.Stores(), at.Stores()...), lj.Stores()...)...,
-			))
+			niSvc := MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+			}))
+			configs := MustSucceed(common.NewConfigRegistry(slices.Concat(
+				pd.Stores(), at.Stores(), lj.Stores(), niSvc.Stores(),
+			)...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -371,6 +418,33 @@ var _ = Describe("Migrations", func() {
 			Expect(ljCh).To(HaveKeyWithValue("disabled", false))
 			Expect(ljCh).ToNot(HaveKey("cmd_key"))
 			Expect(ljCh).ToNot(HaveKey("state_key"))
+
+			var migratedNI task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchNames("Stored NI Analog Read Task")).
+				Entry(&migratedNI).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(migratedNI.Config).ToNot(HaveKey("device"))
+			Expect(migratedNI.Config).To(
+				HaveKeyWithValue("data_saving_disabled", false),
+			)
+			niChannels, ok := migratedNI.Config["channels"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(niChannels).To(HaveLen(2))
+			tc, ok := niChannels[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(tc).To(HaveKeyWithValue("device", "dev-ni"))
+			Expect(tc).To(HaveKeyWithValue("cjc", SatisfyAll(
+				HaveKeyWithValue("source", "const_val"),
+				HaveKeyWithValue("val", BeEquivalentTo(25.5)),
+			)))
+			Expect(tc).ToNot(HaveKey("cjc_source"))
+			Expect(tc).ToNot(HaveKey("cjc_val"))
+			freq, ok := niChannels[1].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(freq).To(HaveKeyWithValue("device", "dev-ni"))
+			Expect(freq).To(HaveKeyWithValue("type", "ai_freq_voltage"))
+			Expect(freq).To(HaveKeyWithValue("disabled", true))
 
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Bogus Task")).
