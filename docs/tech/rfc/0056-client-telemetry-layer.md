@@ -251,9 +251,10 @@ its own `openStreamer`.
 `pluto/src/telem/client/` is deleted: `Core`, `NoopClient`, the telem aether provider's
 wrapper, and the frame cache all go. The telem aether provider opens a Feed from the
 current client with the GL series transform and closes it when the client identity
-changes, so the transform lives with the thread that renders. The fire-and-forget close
-race, the `prevCore` deadlock, and the NoopClient that throws `NotFoundError` into every
-symbol mounting during login all disappear structurally.
+changes, so the transform lives with the thread that renders. The `prevCore` deadlock
+and the NoopClient that throws `NotFoundError` into every symbol mounting during login
+both disappear structurally. The close stays fire-and-forget, because the aether
+lifecycle hooks are synchronous, and reports its failures to the status aggregator.
 
 What pluto keeps is a lowercase, worker-safe lifecycle binding in the `flux.Retrieve`
 shape (precedent: `pluto/src/flux/aether/retrieve.ts:48-136`): created in `afterUpdate`,

@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { alamos } from "@synnaxlabs/alamos";
 import { MultiSeries } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { type aether } from "@/aether/aether";
+import { aetherTest } from "@/aether/test";
+import { alamos } from "@/alamos/aether";
+import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 
@@ -24,19 +26,9 @@ vi.mock("@/synnax/aether", async (importOriginal) => {
   return { synnax: { ...(actual.synnax as object), use: mockUse } };
 });
 
-const MockSender = { send: vi.fn() };
-const NOOP = alamos.Instrumentation.NOOP;
-
-const update = (provider: aether.Component, key: string): void => {
-  provider._updateState({
-    path: [key],
-    state: {},
-    type: telem.PROVIDER_TYPE,
-    create: () => {
-      throw new Error("should not create a child");
-    },
-  });
-};
+const ALAMOS_KEY = "alamos";
+const STATUS_KEY = "status";
+const TELEM_KEY = "telem";
 
 interface StubCore {
   openFeed: Mock;
@@ -56,19 +48,37 @@ const stubCore = (): StubCore => ({
   },
 });
 
-const makeProvider = (
+interface MountedProvider {
+  /** Re-runs the provider's lifecycle. */
+  update: () => void;
+  /** The status aggregator the provider reports failures to. */
+  aggregator: status.Aggregator;
+}
+
+/** Mounts the provider under the alamos and status providers it reads context from,
+ * in production's nesting order. */
+const mountProvider = (
   createFactory: (client: telem.Client | null) => telem.CompoundFactory,
-  key: string,
-): aether.Component => {
-  const Provider = telem.createProvider(createFactory);
-  const props: aether.ComponentConstructorProps = {
-    path: [key],
-    type: telem.PROVIDER_TYPE,
-    sender: MockSender,
-    instrumentation: NOOP,
-    parent: null,
+): MountedProvider => {
+  const registry: aether.ComponentRegistry = {
+    ...alamos.REGISTRY,
+    ...status.REGISTRY,
+    [telem.PROVIDER_TYPE]: telem.createProvider(createFactory),
   };
-  return new Provider(props);
+  const driver = aetherTest.createDriver(registry);
+  const path = [aetherTest.ROOT_KEY, ALAMOS_KEY];
+  driver.update(path, alamos.Provider.TYPE, alamos.providerStateZ.parse({}));
+  path.push(STATUS_KEY);
+  driver.update(
+    path,
+    status.Aggregator.TYPE,
+    status.aggregatorStateZ.parse({ statuses: [] }),
+  );
+  const aggregator = driver.find<status.Aggregator>([...path]);
+  path.push(TELEM_KEY);
+  const update = (): void => driver.update([...path], telem.PROVIDER_TYPE, {});
+  update();
+  return { update, aggregator };
 };
 
 describe("telem.Provider", () => {
@@ -80,8 +90,7 @@ describe("telem.Provider", () => {
     const core = stubCore();
     mockUse.mockReturnValue(core);
     const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));
-    const provider = makeProvider(spy, "telem-provider");
-    update(provider, "telem-provider");
+    mountProvider(spy);
     expect(spy).toHaveBeenCalledTimes(1);
     expect(core.openFeed).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenCalledWith({
@@ -92,14 +101,13 @@ describe("telem.Provider", () => {
 
   it("rebuilds the context when the core swaps", () => {
     const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));
-    const provider = makeProvider(spy, "telem-provider-swap");
     mockUse.mockReturnValue(null);
-    update(provider, "telem-provider-swap");
+    const { update } = mountProvider(spy);
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenLastCalledWith(null);
     const core = stubCore();
     mockUse.mockReturnValue(core);
-    update(provider, "telem-provider-swap");
+    update();
     expect(spy).toHaveBeenCalledTimes(2);
     expect(spy).toHaveBeenLastCalledWith({
       feed: core.openFeed.mock.results[0].value,
@@ -111,9 +119,38 @@ describe("telem.Provider", () => {
     const core = stubCore();
     mockUse.mockReturnValue(core);
     const spy = vi.fn((client: telem.Client | null) => telem.createFactory(client));
-    const provider = makeProvider(spy, "telem-provider-stable");
-    update(provider, "telem-provider-stable");
-    update(provider, "telem-provider-stable");
+    const { update } = mountProvider(spy);
+    update();
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands the feed instrumentation so cache anomalies are not silenced", () => {
+    const core = stubCore();
+    mockUse.mockReturnValue(core);
+    mountProvider((client) => telem.createFactory(client));
+    const [props] = core.openFeed.mock.calls[0] as [{ instrumentation?: unknown }];
+    expect(props.instrumentation).toBeDefined();
+  });
+
+  it("reports a failed feed close to the status aggregator", async () => {
+    const core = stubCore();
+    const err = new Error("close failed");
+    core.openFeed.mockReturnValue({
+      read: async () => new MultiSeries([]),
+      stream: () => telemTest.mockSubscription(() => {}),
+      close: async () => {
+        throw err;
+      },
+    });
+    mockUse.mockReturnValue(core);
+    const { update, aggregator } = mountProvider((client) =>
+      telem.createFactory(client),
+    );
+    mockUse.mockReturnValue(null);
+    update();
+    await expect.poll(() => aggregator.state.statuses).toHaveLength(1);
+    expect(aggregator.state.statuses[0].message).toEqual(
+      "failed to close telemetry feed",
+    );
   });
 });
