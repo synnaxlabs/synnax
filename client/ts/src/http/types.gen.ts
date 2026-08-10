@@ -227,23 +227,15 @@ export const writeEndpointZ = z.object({
 });
 export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
 
-export const readConfigZ = task.baseConfigZ.extend({
+export const readConfigZ = task.basePersistConfigZ.extend({
   device: device.keyZ.default(""),
   rate: z.number().default(1),
   endpoints: readEndpointZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-/**
- * WriteConfig configures an HTTP write task, which sends an HTTP request whenever a
- * value is written to an endpoint's command channel.
- */
-export const writeConfigZ = z.object({
-  /** device is the key of the HTTP server device to write to. */
+export const writeConfigZ = task.baseConfigZ.extend({
   device: device.keyZ.default(""),
-  /** autoStart starts the task automatically after configuration. */
-  autoStart: z.boolean().default(false),
-  /** endpoints contains the endpoints to write to. */
   endpoints: writeEndpointZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

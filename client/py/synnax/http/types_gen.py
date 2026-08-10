@@ -258,7 +258,7 @@ class WriteEndpoint(BaseModel):
         return hash(self.key)
 
 
-class ReadConfig(task.BaseConfig):
+class ReadConfig(task.BasePersistConfig):
     """Configures an HTTP read task, which polls one or more endpoints on an HTTP server
     device and writes extracted JSON values to Synnax channels.
 
@@ -273,16 +273,14 @@ class ReadConfig(task.BaseConfig):
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
 
 
-class WriteConfig(BaseModel):
+class WriteConfig(task.BaseConfig):
     """Configures an HTTP write task, which sends an HTTP request whenever a value is
     written to an endpoint's command channel.
 
     Attributes:
         device: Is the key of the HTTP server device to write to.
-        auto_start: Starts the task automatically after configuration.
         endpoints: Contains the endpoints to write to.
     """
 
     device: device_.Key = ""
-    auto_start: bool = False
     endpoints: list[WriteEndpoint] = Field(default_factory=list)

@@ -138,7 +138,7 @@ class ReadConfig(task.BaseReadConfig):
     channels: list[InputChannel] = Field(default_factory=list)
 
 
-class WriteConfig(task.BaseConfig):
+class WriteConfig(task.BasePersistConfig):
     """Configures an EtherCAT write task. Each channel addresses a PDO entry on its own
     slave; all slaves must share one network interface.
 

@@ -11,6 +11,8 @@
 
 package pagerduty
 
+import "github.com/synnaxlabs/synnax/pkg/service/task/common"
+
 // Alert maps a Synnax status to a PagerDuty event routing rule.
 type Alert struct {
 	// Key uniquely identifies the alert within the task.
@@ -33,10 +35,9 @@ type Alert struct {
 // TaskConfig configures a PagerDuty alert task, which forwards Synnax status changes to
 // PagerDuty as events.
 type TaskConfig struct {
+	common.BaseConfig
 	// RoutingKey is the PagerDuty Events API v2 routing key.
 	RoutingKey string `json:"routing_key" msgpack:"routing_key"`
-	// AutoStart starts the task automatically after configuration.
-	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
 	// Alerts are the alerts the task evaluates.
 	Alerts []Alert `json:"alerts,omitzero" msgpack:"alerts,omitzero"`
 }

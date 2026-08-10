@@ -137,9 +137,9 @@ inline x::json::json ReadEndpoint::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::common::BaseConfig &>(
+    static_cast<::synnax::common::BasePersistConfig &>(
         result
-    ) = ::synnax::common::BaseConfig::parse(parser);
+    ) = ::synnax::common::BasePersistConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.rate = parser.field<::x::telem::Rate>("rate", ::x::telem::Rate(1));
     result.endpoints = parser.field<std::vector<ReadEndpoint>>(
@@ -151,7 +151,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::BaseConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::common::BasePersistConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     j["rate"] = this->rate;
@@ -248,20 +248,23 @@ inline x::json::json WriteEndpoint::to_json() const {
 }
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
-    return WriteConfig{
-        .device = parser.field<::synnax::device::Key>("device", ""),
-        .auto_start = parser.field<bool>("auto_start", false),
-        .endpoints = parser.field<std::vector<WriteEndpoint>>(
-            "endpoints",
-            std::vector<WriteEndpoint>{}
-        ),
-    };
+    WriteConfig result;
+    static_cast<::synnax::common::BaseConfig &>(
+        result
+    ) = ::synnax::common::BaseConfig::parse(parser);
+    result.device = parser.field<::synnax::device::Key>("device", "");
+    result.endpoints = parser.field<std::vector<WriteEndpoint>>(
+        "endpoints",
+        std::vector<WriteEndpoint>{}
+    );
+    return result;
 }
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
+    for (auto &[k, v]: ::synnax::common::BaseConfig::to_json().items())
+        j[k] = v;
     j["device"] = this->device;
-    j["auto_start"] = this->auto_start;
     j["endpoints"] = x::json::to_array(this->endpoints);
     return j;
 }

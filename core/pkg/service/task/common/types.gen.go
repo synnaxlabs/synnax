@@ -16,17 +16,23 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// BaseConfig carries the configuration fields shared by every hardware task.
+// BaseConfig carries the configuration fields shared by every task.
 type BaseConfig struct {
 	// AutoStart is true when the task should start as soon as it is configured.
 	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
+}
+
+// BasePersistConfig carries the configuration fields shared by tasks that write
+// telemetry.
+type BasePersistConfig struct {
+	BaseConfig
 	// DataSavingDisabled is true when task telemetry is not persisted to disk.
 	DataSavingDisabled bool `json:"data_saving_disabled" msgpack:"data_saving_disabled"`
 }
 
 // BaseReadConfig carries the configuration fields shared by hardware acquisition tasks.
 type BaseReadConfig struct {
-	BaseConfig
+	BasePersistConfig
 	// SampleRate is the per-channel hardware sample rate, in hertz.
 	SampleRate telem.Rate `json:"sample_rate" msgpack:"sample_rate"`
 	// StreamRate is the rate at which samples are streamed to Synnax, in hertz.
@@ -45,7 +51,7 @@ func (b *BaseReadConfig) ApplyDefaults() {
 
 // BaseWriteConfig carries the configuration fields shared by hardware control tasks.
 type BaseWriteConfig struct {
-	BaseConfig
+	BasePersistConfig
 	// Device is the key of the device the task writes to.
 	Device device.Key `json:"device" msgpack:"device"`
 }

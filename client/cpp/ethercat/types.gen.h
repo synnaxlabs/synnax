@@ -149,7 +149,7 @@ struct ReadConfig : public ::synnax::common::BaseReadConfig {
 
 /// @brief WriteConfig configures an EtherCAT write task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
-struct WriteConfig : public ::synnax::common::BaseConfig {
+struct WriteConfig : public ::synnax::common::BasePersistConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
     /// hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(25);

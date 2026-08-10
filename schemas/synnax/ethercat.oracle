@@ -133,7 +133,7 @@ ReadConfig struct extends task.BaseReadConfig {
     """
 }
 
-WriteConfig struct extends task.BaseConfig {
+WriteConfig struct extends task.BasePersistConfig {
     state_rate     telem.Rate = 25 {
         @doc value "is the rate at which output state is reported to Synnax, in hertz."
         @ts type   "number"

@@ -42,7 +42,7 @@ func (e ExecutionMode) IsValid() bool {
 
 // Config configures an Arc task, which runs a compiled Arc module.
 type Config struct {
-	common.BaseConfig
+	common.BasePersistConfig
 	// ArcKey is the key of the Arc module the task executes.
 	ArcKey arc.Key `json:"arc_key" msgpack:"arc_key"`
 	// ExecutionMode overrides the runtime's automatic loop mode selection.

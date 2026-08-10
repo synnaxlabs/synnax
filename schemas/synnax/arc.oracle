@@ -234,7 +234,7 @@ ExecutionMode enum {
     @pb omit
 }
 
-TaskConfig struct extends task.BaseConfig {
+TaskConfig struct extends task.BasePersistConfig {
     arc_key        Key           {
         @doc value "is the key of the Arc module the task executes."
     }

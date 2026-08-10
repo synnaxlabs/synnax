@@ -64,7 +64,7 @@ struct StatusDetails {
 using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief TaskConfig configures an Arc task, which runs a compiled Arc module.
-struct TaskConfig : public ::synnax::common::BaseConfig {
+struct TaskConfig : public ::synnax::common::BasePersistConfig {
     /// @brief arc_key is the key of the Arc module the task executes.
     Key arc_key;
     /// @brief execution_mode overrides the runtime's automatic loop mode selection.

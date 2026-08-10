@@ -144,7 +144,7 @@ ReadEndpoint struct {
     @doc value "is a single HTTP endpoint polled by a read task."
 }
 
-ReadConfig struct extends task.BaseConfig {
+ReadConfig struct extends task.BasePersistConfig {
     device    device.Key = "" {
         @doc value "is the key of the HTTP server device to poll."
     }
@@ -287,14 +287,11 @@ WriteEndpoint struct {
     @doc value "is a single HTTP endpoint written to by a write task."
 }
 
-WriteConfig struct {
-    device     device.Key = "" {
+WriteConfig struct extends task.BaseConfig {
+    device    device.Key = "" {
         @doc value "is the key of the HTTP server device to write to."
     }
-    auto_start bool = false {
-        @doc value "starts the task automatically after configuration."
-    }
-    endpoints  WriteEndpoint[] {
+    endpoints WriteEndpoint[] {
         @doc value "contains the endpoints to write to."
     }
 
