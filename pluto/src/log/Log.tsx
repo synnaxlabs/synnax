@@ -17,7 +17,7 @@ import { useRedo, useRetrieveSuspended, useUndo } from "@/log/queries";
 import { useKey } from "@/log/Suspended";
 import { Triggers } from "@/triggers";
 
-const DEFAULT_RETENTION = TimeSpan.days(1);
+const DEFAULT_RETENTION = TimeSpan.days(7);
 const PRELOAD = TimeSpan.seconds(30);
 
 type UndoRedoMode = "undo" | "redo" | "default";

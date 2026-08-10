@@ -197,6 +197,12 @@ export class Series<T extends TelemValue = TelemValue>
   private cachedLength?: number;
   /** Caches the indexes of the array for variable length data types. */
   private _cachedIndexes?: number[];
+  /** Caches the full typed-array view for ArrayBuffer-backed series. */
+  private cachedUnderlyingView?: TypedArray;
+  /** Caches the partial view returned by data while the series is filling. */
+  private cachedDataView?: TypedArray;
+  /** The write position cachedDataView was built at. */
+  private cachedDataViewWritePos: number = FULL_BUFFER;
 
   /**
    * A zod schema that can be used to validate that a particular value
@@ -551,8 +557,12 @@ export class Series<T extends TelemValue = TelemValue>
     return this._data;
   }
 
+  // Views are cached only for ArrayBuffer backing: the buffer and data type never
+  // change after construction, so a cached view stays a live window over the data.
   private get underlyingData(): TypedArray {
-    return new this.dataType.Array(this._data);
+    const data = this._data as ArrayBuffer | TypedArray;
+    if (!(data instanceof ArrayBuffer)) return new this.dataType.Array(this._data);
+    return (this.cachedUnderlyingView ??= new this.dataType.Array(data));
   }
 
   /**
@@ -562,7 +572,14 @@ export class Series<T extends TelemValue = TelemValue>
    */
   get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
-    return new this.dataType.Array(this._data, 0, this.writePos);
+    // Partially written series are always alloc()'d, so the backing is an ArrayBuffer.
+    let view = this.cachedDataView;
+    if (view == null || this.cachedDataViewWritePos !== this.writePos) {
+      view = new this.dataType.Array(this._data, 0, this.writePos);
+      this.cachedDataView = view;
+      this.cachedDataViewWritePos = this.writePos;
+    }
+    return view;
   }
 
   /**
@@ -1071,7 +1088,8 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * Returns a subarray view of the series from start to end.
+   * Returns a subarray view of the series from start to end. Variable-density
+   * series copy instead of viewing.
    * @param start The start index (inclusive).
    * @param end The end index (exclusive).
    * @returns A new series containing the subarray data.
@@ -1107,8 +1125,12 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   private subBytes(start: number, end?: number): Series {
-    if (start >= 0 && (end == null || end >= this.byteLength.valueOf())) return this;
-    const data = this.data.subarray(start, end);
+    if (start <= 0 && (end == null || end >= this.byteLength.valueOf())) return this;
+    return this.derive(this.data.subarray(start, end), start);
+  }
+
+  // Builds the series produced by a slice, offsetting the alignment by start.
+  private derive(data: TypedArray, start: number): Series {
     return new Series({
       data,
       dataType: this.dataType,
@@ -1121,17 +1143,22 @@ export class Series<T extends TelemValue = TelemValue>
 
   private sliceSub(sub: boolean, start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.length)) return this;
-    let data: TypedArray;
-    if (sub) data = this.data.subarray(start, end);
-    else data = this.data.slice(start, end);
-    return new Series({
-      data,
-      dataType: this.dataType,
-      timeRange: this.timeRange,
-      sampleOffset: this.sampleOffset,
-      glBufferUsage: this.gl.bufferUsage,
-      alignment: this.alignment + BigInt(start),
-    });
+    if (this.dataType.isVariable) return this.sliceVariable(start, end ?? this.length);
+    const data = sub ? this.data.subarray(start, end) : this.data.slice(start, end);
+    return this.derive(data, start);
+  }
+
+  // The result always copies: variable-length readers scan their buffer from offset
+  // zero, so a view over a shared buffer would decode the wrong samples.
+  private sliceVariable(start: number, end: number): Series {
+    const len = this.length;
+    if (start < 0) start = 0;
+    if (this._cachedIndexes == null) this.calculateCachedLength();
+    const indexes = this._cachedIndexes as number[];
+    const byteLen = this.byteLength.valueOf();
+    const byteStart = start >= len ? byteLen : indexes[start] - UINT32_SIZE;
+    const byteEnd = end >= len ? byteLen : indexes[end] - UINT32_SIZE;
+    return this.derive(this.data.slice(byteStart, byteEnd), start);
   }
 
   /**
