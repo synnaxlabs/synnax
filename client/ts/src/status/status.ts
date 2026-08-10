@@ -218,7 +218,8 @@ export const toString = <Details extends z.ZodType = z.ZodNever>(
   header += `: ${stat.message}`;
   if (opts.includeTimestamp) header += ` (${stat.time.toString("dateTime", "local")})`;
   parts.push(header);
-  if (stat.description != null) parts.push(renderDescription(stat.description));
+  if (primitive.isNonZero(stat.description))
+    parts.push(renderDescription(stat.description));
   if ("details" in stat && narrow.isObject(stat.details)) {
     const details = stat.details as Record<string, unknown>;
     if ("stack" in details && typeof details.stack === "string" && details.stack !== "")

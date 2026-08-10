@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { rack } from "@/rack";
 import { task } from "@/task";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
@@ -32,8 +32,8 @@ describe("task", () => {
         type: "ni",
         config: {},
       });
-      await expect(userClient.tasks.retrieve(randomTask.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.tasks.retrieve(randomTask.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -85,7 +85,7 @@ describe("task", () => {
           type: "ni",
           config: {},
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete tasks with the correct policy", async () => {
@@ -122,7 +122,9 @@ describe("task", () => {
         type: "ni",
         config: {},
       });
-      await expect(userClient.tasks.delete(randomTask.key)).rejects.toThrow(AuthError);
+      await expect(userClient.tasks.delete(randomTask.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
   });
 });

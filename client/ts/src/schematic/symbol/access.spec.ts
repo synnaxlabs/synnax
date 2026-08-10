@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { symbol } from "@/schematic/symbol";
@@ -41,7 +41,7 @@ describe("schematic_symbol", () => {
       });
       await expect(
         userClient.schematics.symbols.retrieve(randomSymbol.key),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to retrieve symbols with the correct policy", async () => {
@@ -112,7 +112,7 @@ describe("schematic_symbol", () => {
           },
           parent: group.ontologyID(symbolGroup.key),
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete symbols with the correct policy", async () => {
@@ -163,7 +163,7 @@ describe("schematic_symbol", () => {
       });
       await expect(
         userClient.schematics.symbols.delete(randomSymbol.key),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
   });
 });
