@@ -16,6 +16,7 @@ from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 from console.tree import Tree
+from console.views import ViewsClient
 from framework.run_dir import resolve_results_path
 from x.color import Color
 
@@ -36,6 +37,8 @@ class RangesClient:
     UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
     CREATE_MODAL_SELECTOR = ".console-range-create-layout"
     NAME_INPUT_PLACEHOLDER = "Range Name"
+    SEARCH_INPUT_PLACEHOLDER = "Search ranges..."
+    STATIC_VIEW_NAME = "All Ranges"
 
     def __init__(
         self,
@@ -47,6 +50,9 @@ class RangesClient:
         self.ctx_menu = ContextMenu(layout.page)
         self.notifications = NotificationsClient(layout.page)
         self.tree = Tree(layout.page)
+        self.views = ViewsClient(
+            layout, self.SEARCH_INPUT_PLACEHOLDER, self.STATIC_VIEW_NAME
+        )
 
     # ── Private Helpers ──────────────────────────────────────────────────
 
@@ -136,9 +142,7 @@ class RangesClient:
     def open_explorer(self) -> None:
         """Open the Range Explorer page (shows all ranges)."""
         self.layout.command_palette("Open the Range Explorer")
-        self.layout.page.get_by_text("All Ranges").wait_for(
-            state="visible", timeout=5000
-        )
+        self.views.wait_for_static_view()
 
     def get_toolbar_item(self, name: str) -> Locator:
         """Get a range item locator from the toolbar by name."""
@@ -1074,82 +1078,25 @@ class RangesClient:
 
     # ── Explorer Search & Filter ──────────────────────────────────────────
 
-    SEARCH_INPUT_PLACEHOLDER = "Search ranges..."
-
-    def enable_explorer_editing(self) -> None:
-        """Enable editing mode in the explorer to show search/filter controls."""
-        search_input = self.layout.page.locator(
-            f"input[placeholder='{self.SEARCH_INPUT_PLACEHOLDER}']"
-        )
-        if search_input.is_visible():
-            return
-        edit_button = (
-            self.layout.page.locator("button")
-            .filter(has=self.layout.page.locator("svg.pluto-icon--edit"))
-            .first
-        )
-        edit_button.click()
-        search_input.wait_for(state="visible", timeout=5000)
-
     def search_explorer(self, term: str) -> None:
         """Type a search term in the explorer search input.
 
         Args:
             term: The search string to type.
         """
-        self.enable_explorer_editing()
-        search_input = self.layout.page.get_by_placeholder(
-            self.SEARCH_INPUT_PLACEHOLDER
-        )
-        search_input.fill(term)
-        search_input.dispatch_event(
-            "input",
-            {"bubbles": True, "data": term, "inputType": "insertText"},
-        )
+        self.views.search(term)
 
     def clear_explorer_search(self) -> None:
         """Clear the explorer search input."""
-        self.search_explorer("")
-
-    def open_explorer_label_filter(self) -> Locator:
-        """Open the label filter dropdown in the explorer.
-
-        Returns:
-            Locator for the visible filter dialog.
-        """
-        self.enable_explorer_editing()
-        filter_button = (
-            self.layout.page.locator("button")
-            .filter(has=self.layout.page.locator("svg.pluto-icon--filter"))
-            .first
-        )
-        filter_button.click()
-        dialog = self.layout.page.locator(".pluto-dialog__dialog.pluto--visible")
-        dialog.wait_for(state="visible", timeout=5000)
-        return dialog
+        self.views.clear_search()
 
     def select_explorer_label_filter(self, label_name: str) -> None:
         """Select a label in the explorer's label filter dropdown.
 
-        The filter is a two-level dialog:
-        1. Filter button → first dialog with "Select labels" trigger
-        2. "Select labels" → second dialog with label list
-
         Args:
             label_name: The name of the label to select.
         """
-        filter_dialog = self.open_explorer_label_filter()
-        select_labels_trigger = filter_dialog.get_by_text("Select labels")
-        select_labels_trigger.click()
-        label_dialog = self.layout.page.locator(".pluto-select__dialog.pluto--visible")
-        label_dialog.wait_for(state="visible", timeout=5000)
-        item = (
-            label_dialog.locator(".pluto-list__item").filter(has_text=label_name).first
-        )
-        item.wait_for(state="visible", timeout=5000)
-        item.click()
-        self.layout.press_escape()
-        self.layout.press_escape()
+        self.views.select_filter("Select labels", label_name)
 
     def clear_explorer_label_filter(self, label_name: str) -> None:
         """Remove a label from the active filter by clicking its chip close button.
@@ -1157,15 +1104,7 @@ class RangesClient:
         Args:
             label_name: The name of the label chip to remove.
         """
-        tag = (
-            self.layout.page.locator(".pluto-tag:has(button)")
-            .filter(has_text=label_name)
-            .first
-        )
-        tag.wait_for(state="visible", timeout=5000)
-        close_btn = tag.locator("button")
-        close_btn.click()
-        tag.wait_for(state="hidden", timeout=5000)
+        self.views.clear_filter(label_name)
 
     # ── Range Label Operations ─────────────────────────────────────────────
 

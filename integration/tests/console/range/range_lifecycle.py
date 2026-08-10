@@ -182,8 +182,9 @@ class RangeLifecycle(ConsoleCase):
         """Test opening the Range Explorer."""
         self.log("Testing: Open Range Explorer")
         self.console.ranges.open_explorer()
-        all_ranges_header = self.page.get_by_text("All Ranges")
-        assert all_ranges_header.is_visible(), "Range Explorer should show 'All Ranges'"
+        static_view_name = self.console.ranges.views.static_view_name
+        header = self.page.get_by_text(static_view_name)
+        assert header.is_visible(), f"Range Explorer should show '{static_view_name}'"
 
     def test_range_exists_in_explorer(self) -> None:
         """Test that created range exists in the explorer."""
