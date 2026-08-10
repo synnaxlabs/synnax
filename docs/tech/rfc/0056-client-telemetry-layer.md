@@ -68,8 +68,8 @@ everything the batcher does except cross-call coalescing.
   historical reads plus durable multiplexed subscriptions.
 - **Frame cache**: per-channel rolling buffers of `Series`, split into a dynamic leading
   buffer receiving live writes and static historical buffers.
-- **Multiplexer**: maps N subscriptions onto one shared hardened streamer carrying the
-  union of all demand.
+- **MultiplexedStreamer**: maps N subscriptions onto one shared hardened streamer
+  carrying the union of all demand.
 - **Demand set**: the union of keys across live subscriptions; the client-side intent
   the socket key set must converge to.
 - **Data-plane status**: per-key state describing the flow of data (resolving, live,
@@ -146,7 +146,7 @@ use. `Synnax` itself carries no Feed: it has no internal consumer for one, and a
 that never streams should not pay for a cache and its GC timer. Each consumer opens and
 closes its own; a process may hold several with different transforms.
 
-### 4.1 The multiplexer
+### 4.1 The `MultiplexedStreamer`
 
 Holds the demand set and reconciles the shared streamer against it. Changes from the
 current design, each closing an audited defect:
@@ -250,9 +250,9 @@ interfaces (both carried TODOs naming this cycle), and takes a plain
 its own `openStreamer`.
 
 That opener resolves its own channel names through the cache, so the first open
-re-enters the demand that triggered it. The streamer memoizes the open before the opener
-body runs (`query/streamer.ts:182`), so the re-entrant demand joins the open in flight
-instead of starting a second one.
+re-enters the demand that triggered it. The `demand` returned by `createStreamer`
+memoizes the open before the opener body runs, so the re-entrant demand joins the open
+in flight instead of starting a second one.
 
 ### 4.6 The pluto side: bindings replace the wrapper client
 
