@@ -28,7 +28,21 @@ import (
 
 func isBool(t basetypes.Type) bool    { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
-func isInteger(t basetypes.Type) bool { return t.IsInteger() }
+
+// isInteger accepts untyped integer constants: they resolve to an integer type
+// through unification or the i64 default.
+func isInteger(t basetypes.Type) bool {
+	return t.IsInteger() || t.Kind == basetypes.KindIntegerConstant
+}
+
+// resolveConstraint replaces an unresolved constant's type variable with its
+// constraint so operand checks can classify it. Concrete types pass through.
+func resolveConstraint(t basetypes.Type) basetypes.Type {
+	if t.Kind == basetypes.KindVariable && t.Constraint != nil {
+		return *t.Constraint
+	}
+	return t
+}
 
 func isNumericOrString(
 	t basetypes.Type,
@@ -161,8 +175,8 @@ func operatorSuggestion(op string, t basetypes.Type) string {
 	if !ok || counterpart == "" {
 		return ""
 	}
-	unwrapped := t.Unwrap()
-	fits := (wants == "bool" && unwrapped.IsInteger()) ||
+	unwrapped := resolveConstraint(t.Unwrap())
+	fits := (wants == "bool" && isInteger(unwrapped)) ||
 		(wants == "integer" && unwrapped.IsBool())
 	if !fits {
 		return ""
@@ -181,16 +195,9 @@ func operatorHint(op string, t basetypes.Type) string {
 }
 
 // isBitwiseNotOperand reports whether t is a valid ~ operand: an integer, an integer
-// channel, or an untyped integer constant, which resolves through the i64 default.
+// channel, or an untyped integer constant.
 func isBitwiseNotOperand(t basetypes.Type) bool {
-	u := t.UnwrapChan()
-	if u.Kind == basetypes.KindVariable {
-		if u.Constraint == nil {
-			return false
-		}
-		u = *u.Constraint
-	}
-	return u.IsInteger() || u.Kind == basetypes.KindIntegerConstant
+	return isInteger(resolveConstraint(t.UnwrapChan()))
 }
 
 func getBitwiseXorOperator(ctx antlr.ParserRuleContext) string {
@@ -276,7 +283,8 @@ func validateType[T, N antlr.ParserRuleContext](
 		return
 	}
 
-	if firstType.Kind != basetypes.KindVariable && !check(firstType) {
+	resolvedFirst := resolveConstraint(firstType)
+	if resolvedFirst.Kind != basetypes.KindVariable && !check(resolvedFirst) {
 		ctx.Diagnostics.Add(
 			diagnostics.Errorf(
 				ctx.AST,

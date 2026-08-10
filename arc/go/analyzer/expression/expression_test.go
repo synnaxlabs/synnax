@@ -150,6 +150,16 @@ var _ = Describe("Expressions", func() {
 					c := a xor b
 				}
 			`),
+			Entry("bitwise AND on untyped integer constants", `
+				func testFunc() {
+					c := 12 & 10
+				}
+			`),
+			Entry("bitwise XOR keyword on untyped integer constants", `
+				func testFunc() {
+					c := 12 xor 10
+				}
+			`),
 			Entry("multiple additions", `
 				func testFunc() {
 					a i32 := 1
@@ -318,6 +328,26 @@ var _ = Describe("Expressions", func() {
 					z := x || y
 				}
 			`, "i32", "or"),
+			Entry("AND on untyped integer constants", `
+				func testFunc() {
+					z := 1 and 0
+				}
+			`, "integer", "and"),
+			Entry("OR on untyped integer constants", `
+				func testFunc() {
+					z := 1 or 0
+				}
+			`, "integer", "or"),
+			Entry("&& on untyped integer constants", `
+				func testFunc() {
+					z := 1 && 0
+				}
+			`, "integer", "&&"),
+			Entry("|| on untyped integer constants", `
+				func testFunc() {
+					z := 1 || 0
+				}
+			`, "integer", "||"),
 		)
 
 		DescribeTable("invalid bitwise operations on non-integers",
@@ -373,6 +403,11 @@ var _ = Describe("Expressions", func() {
 					z := x ^ y
 				}
 			`, "f64", "^"),
+			Entry("AND on untyped float constants", `
+				func testFunc() {
+					z := 1.5 & 2.5
+				}
+			`, "float", "&"),
 		)
 
 		DescribeTable("type mismatch errors",

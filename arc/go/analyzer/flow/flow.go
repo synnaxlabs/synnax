@@ -391,6 +391,28 @@ func flowSourceType(
 		srcValueType := srcSym.Type.Unwrap()
 		return srcValueType, fmt.Sprintf("%s value type %s", srcName, srcValueType)
 	}
+	if prevFn := prevNode.Function(); prevFn != nil {
+		// Resolve without ctx.Resolve: the call node already resolved this
+		// name, and resolving it again would duplicate deprecation warnings.
+		head, tail := parser.FunctionNameParts(prevFn)
+		fnName := head
+		fnSym, err := ctx.Scope.Resolve(ctx, head)
+		if err == nil && tail != "" {
+			fnName = head + "." + tail
+			fnSym, err = fnSym.Resolve(ctx, tail)
+		}
+		if err != nil || fnSym.Kind != symbol.KindFunction {
+			return types.Type{}, ""
+		}
+		// A polymorphic func has one output type shared by all of its calls;
+		// checking it here would lock it to this sink's type for every call.
+		out, ok := fnSym.Type.Outputs.Get(ir.DefaultOutputParam)
+		if ok && out.Type.Kind != types.KindVariable {
+			return out.Type, fmt.Sprintf(
+				"func %s output type %s", fnName, out.Type,
+			)
+		}
+	}
 	return types.Type{}, ""
 }
 

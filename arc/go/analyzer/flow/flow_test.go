@@ -3207,6 +3207,8 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 		{Name: "num_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 		{Name: "sink_f64", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
 		{Name: "num_i64", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
+		{Name: "num_u8", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+		{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.Bool())},
 	}
 
 	type mismatchCase struct {
@@ -3252,6 +3254,22 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 				"does not match channel log_str value type str",
 			},
 		}),
+		Entry("bool function output into a u8 channel", mismatchCase{
+			source: "func check() bool { return true }\n\ncheck{} -> num_u8",
+			line:   2,
+			substrings: []string{
+				"func check output type bool",
+				"does not match channel num_u8 value type u8",
+			},
+		}),
+		Entry("bool channel into a u8 channel", mismatchCase{
+			source: "flag -> num_u8",
+			line:   0,
+			substrings: []string{
+				"flag value type bool",
+				"does not match channel num_u8 value type u8",
+			},
+		}),
 	)
 
 	DescribeTable("Should accept a source whose type matches the channel sink",
@@ -3263,6 +3281,10 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 		},
 		Entry("value variable to matching channel", "z := 3\n\nz -> num_i64"),
 		Entry("channel to matching channel", "num_f64 -> sink_f64"),
+		Entry(
+			"bool function output to matching bool channel",
+			"func check() bool { return true }\n\ncheck{} -> flag",
+		),
 	)
 
 	Describe("Writing to a channelRead variable", func() {

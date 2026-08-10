@@ -241,6 +241,26 @@ var _ = Describe("Semantic Tokens", func() {
 				Expect(str[1].Line).To(Equal(uint32(1)))
 			},
 		)
+
+		It(
+			"routes bool literals to the keyword token type, not number",
+			func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, uri, `x := true && !false`)
+				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+				Expect(filterByType(tokens, tokenTypeKeyword)).To(HaveLen(2))
+				Expect(filterByType(tokens, tokenTypeNumber)).To(BeEmpty())
+			},
+		)
+
+		It(
+			"routes symbol logical and bitwise operators to the operator token type",
+			func(ctx SpecContext) {
+				OpenArcDocument(server, ctx, uri, `x := 12 & ~10 | 3 ^ 1`)
+				tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+				// :=, &, ~, |, ^
+				Expect(filterByType(tokens, tokenTypeOperator)).To(HaveLen(5))
+			},
+		)
 	})
 
 	Describe("Numeric-literal unit suffixes", func() {

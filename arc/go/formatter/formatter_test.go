@@ -53,6 +53,8 @@ var _ = Describe("Formatter", func() {
 		Entry("power operator", "x := 2 ** 3", "x := 2 ** 3\n"),
 		Entry("chained power", "x := a ** b ** c", "x := a ** b ** c\n"),
 		Entry("power with multiply", "x := 2 ** 3 * 4", "x := 2 ** 3 * 4\n"),
+		Entry("symbolic logical operators", "x:=a&&b||!c", "x := a && b || !c\n"),
+		Entry("bitwise operators", "x:=a&b|c^d", "x := a & b | c ^ d\n"),
 	)
 
 	DescribeTable(
@@ -413,6 +415,9 @@ var _ = Describe("Formatter", func() {
 		Entry("not with and", "x := not a and b", "x := not a and b\n"),
 		Entry("and with not", "x := a and not b", "x := a and not b\n"),
 		Entry("negation after xor", "x := a xor -b", "x := a xor -b\n"),
+		Entry("negation after bitwise and", "x := a & -b", "x := a & -b\n"),
+		Entry("negation after logical and", "x := a && -b", "x := a && -b\n"),
+		Entry("bitwise not", "x:=~y", "x := ~y\n"),
 	)
 
 	DescribeTable("Type Casts",

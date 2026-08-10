@@ -1756,6 +1756,45 @@ var _ = Describe("Compiler", func() {
 			},
 		)
 
+		DescribeTable(
+			"unary minus binds to the base: -2 ** 2 is (-2) ** 2",
+			func(ctx SpecContext, returnType, body string, expected uint64) {
+				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
+			func power() %s {
+				return %s
+			}
+			`, returnType, body), nil))
+
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				power := mod.ExportedFunction("power")
+				Expect(power).ToNot(BeNil())
+
+				results := MustSucceed(power.Call(ctx))
+				Expect(results).To(ConsistOf(expected))
+			},
+			Entry("negative base", "i64", "-2 ** 2", uint64(4)),
+			Entry(
+				"negative base odd exponent",
+				"i64",
+				"-2 ** 3",
+				uint64(18446744073709551608), // -8
+			),
+			Entry(
+				"negated power",
+				"i64",
+				"-(2 ** 2)",
+				uint64(18446744073709551612), // -4
+			),
+			Entry("negative base i32", "i32", "-i32(2) ** i32(2)", uint64(4)),
+			Entry("negative base f64", "f64", "-2.0 ** 2.0", math.Float64bits(4.0)),
+			Entry(
+				"negative f64 exponent",
+				"f64",
+				"2.0 ** -1.0",
+				math.Float64bits(0.5),
+			),
+		)
+
 		It(
 			"Should execute power with parentheses: (2 + 3)**2 = 5**2 = 25",
 			func(ctx SpecContext) {

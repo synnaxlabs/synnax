@@ -448,7 +448,8 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
 		parser.ArcLexerNEXT, parser.ArcLexerAND, parser.ArcLexerOR,
 		parser.ArcLexerNOT, parser.ArcLexerXOR, parser.ArcLexerAUTHORITY,
-		parser.ArcLexerIMPORT, parser.ArcLexerAS:
+		parser.ArcLexerIMPORT, parser.ArcLexerAS,
+		parser.ArcLexerTRUE, parser.ArcLexerFALSE:
 		tokenType = SemanticTokenTypeKeyword
 	case parser.ArcLexerI8, parser.ArcLexerI16, parser.ArcLexerI32, parser.ArcLexerI64,
 		parser.ArcLexerU8, parser.ArcLexerU16, parser.ArcLexerU32, parser.ArcLexerU64,
@@ -465,12 +466,14 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		parser.ArcLexerPLUS, parser.ArcLexerMINUS, parser.ArcLexerSTAR,
 		parser.ArcLexerSLASH, parser.ArcLexerPERCENT, parser.ArcLexerSTARSTAR,
 		parser.ArcLexerEQ, parser.ArcLexerNEQ, parser.ArcLexerLT, parser.ArcLexerGT,
-		parser.ArcLexerLEQ, parser.ArcLexerGEQ:
+		parser.ArcLexerLEQ, parser.ArcLexerGEQ,
+		parser.ArcLexerAMPAMP, parser.ArcLexerPIPEPIPE, parser.ArcLexerBANG,
+		parser.ArcLexerAMP, parser.ArcLexerPIPE, parser.ArcLexerCARET,
+		parser.ArcLexerTILDE:
 		tokenType = SemanticTokenTypeOperator
 	case parser.ArcLexerSTR_LITERAL, parser.ArcLexerSTR_LITERAL_MULTI:
 		tokenType = SemanticTokenTypeString
-	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL,
-		parser.ArcLexerTRUE, parser.ArcLexerFALSE:
+	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL:
 		tokenType = SemanticTokenTypeNumber
 	case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:
 		tokenType = SemanticTokenTypeComment

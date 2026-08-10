@@ -451,7 +451,7 @@ var _ = Describe("Text", func() {
 		)
 
 		It("Should reject a non-literal config input value", func(ctx SpecContext) {
-			source := `count_ch -> wait{duration=1s+1s} -> sink_ch`
+			source := `count_ch -> wait{duration=1s+1s} -> flag_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(
 				ctx,

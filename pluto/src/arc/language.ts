@@ -25,7 +25,7 @@ const TOKEN_CONFIG = {
     scopes: [
       "keyword.control.arc",
       "keyword.other.arc",
-      "keyword.operator.logical.arc",
+      "keyword.operator.word.arc",
       "constant.language.boolean.arc",
       "constant.language.null.arc",
     ],
@@ -36,6 +36,7 @@ const TOKEN_CONFIG = {
     scopes: [
       "keyword.operator.arithmetic.arc",
       "keyword.operator.comparison.arc",
+      "keyword.operator.symbol.arc",
       "keyword.operator.assignment.arc",
       "keyword.operator.assignment.declare.arc",
       "keyword.operator.channel.arc",
