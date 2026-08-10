@@ -46,7 +46,7 @@ export class StateIndicator
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     this.internal.source = telem.useSource(ctx, this.state.source, i.source);
-    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this);
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source);
     this.updateMatchedOption();
     i.stopListening?.();
     i.stopListening = i.source.onChange(() => {

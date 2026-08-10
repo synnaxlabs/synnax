@@ -57,7 +57,7 @@ export class Toggle
     const { internal: i } = this;
     i.source = telem.useSource(ctx, sourceProps, i.source);
     i.sink = telem.useSink(ctx, sinkProps, i.sink);
-    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this);
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source);
 
     this.updateEnabledState();
     i.stopListening?.();

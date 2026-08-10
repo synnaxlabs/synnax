@@ -81,8 +81,12 @@ export class Value
     i.theme = theming.use(ctx);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.staleness = staleness.useInternalRegistration(ctx, i.staleness, this, () =>
-      this.requestRender(),
+    i.staleness = staleness.useInternalRegistration(
+      ctx,
+      i.staleness,
+      this,
+      i.telem,
+      () => this.requestRender(),
     );
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {

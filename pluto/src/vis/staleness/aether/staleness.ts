@@ -52,6 +52,9 @@ export interface Registration {
   received: () => void;
   /** Releases the registration. */
   cleanup: destructor.Destructor;
+  /** The source this registration counts arrivals for. Arrival state belongs to one
+   * source, so a caller holding a registration for a different one must replace it. */
+  readonly source: unknown;
 }
 
 interface Entry {
@@ -114,12 +117,16 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     this.stop();
   }
 
-  /** @returns a registration for a source. Cleanup releases it. */
-  register(props: EntryProps): Registration {
+  /** @returns a registration for `source`. Cleanup releases it. */
+  register(props: EntryProps, source: unknown): Registration {
     const entry: Entry = { props, lastReceived: null };
     this.entries.add(entry);
     this.start();
+    // A source that has not sent cannot be stale, so a caller that registers while
+    // reporting stale is carrying the state of a source it no longer reads.
+    setStale(entry, false);
     return {
+      source,
       received: () => {
         entry.lastReceived = performance.now();
         setStale(entry, false);
@@ -168,8 +175,10 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
 const use = (ctx: aether.Context): Provider => ctx.get<Provider>(CONTEXT_KEY);
 
 /**
- * Registers a source with the nearest {@link Provider}, reusing `prev` when it is
- * already registered.
+ * Registers `source` with the nearest {@link Provider}, reusing `prev` when it already
+ * covers that source. A source swap gets a new registration, because arrival state
+ * belongs to the source that produced it: carrying it over reports a channel stale that
+ * the caller has never read a sample from.
  * @param prev - The registration returned by an earlier call, if any. A reused
  * registration keeps the props it was created with, so pass accessors that read live
  * values rather than props captured on this call.
@@ -179,7 +188,13 @@ export const useRegistration = (
   ctx: aether.Context,
   prev: Registration | undefined,
   props: EntryProps,
-): Registration => prev ?? use(ctx).register(props);
+  source: unknown,
+): Registration => {
+  if (prev != null && prev.source === source) return prev;
+  const next = use(ctx).register(props, source);
+  prev?.cleanup();
+  return next;
+};
 
 /** The leaf surface {@link useStateRegistration} drives. */
 interface StatefulLeaf<S extends z.infer<typeof stateZ>> {
@@ -195,12 +210,18 @@ export const useStateRegistration = <S extends z.infer<typeof stateZ>>(
   ctx: aether.Context,
   prev: Registration | undefined,
   leaf: StatefulLeaf<S>,
+  source: unknown,
 ): Registration =>
-  useRegistration(ctx, prev, {
-    timeout: () => leaf.state.stalenessTimeout,
-    stale: () => leaf.state.stale,
-    onChange: (stale) => leaf.setState((p) => ({ ...p, stale })),
-  });
+  useRegistration(
+    ctx,
+    prev,
+    {
+      timeout: () => leaf.state.stalenessTimeout,
+      stale: () => leaf.state.stale,
+      onChange: (stale) => leaf.setState((p) => ({ ...p, stale })),
+    },
+    source,
+  );
 
 /** The leaf surface {@link useInternalRegistration} drives. */
 interface InternalLeaf {
@@ -219,17 +240,23 @@ export const useInternalRegistration = (
   ctx: aether.Context,
   prev: Registration | undefined,
   leaf: InternalLeaf,
+  source: unknown,
   onTransition: () => void,
 ): Registration => {
   leaf.internal.stale ??= false;
-  return useRegistration(ctx, prev, {
-    timeout: () => leaf.state.stalenessTimeout,
-    stale: () => leaf.internal.stale,
-    onChange: (stale) => {
-      leaf.internal.stale = stale;
-      onTransition();
+  return useRegistration(
+    ctx,
+    prev,
+    {
+      timeout: () => leaf.state.stalenessTimeout,
+      stale: () => leaf.internal.stale,
+      onChange: (stale) => {
+        leaf.internal.stale = stale;
+        onTransition();
+      },
     },
-  });
+    source,
+  );
 };
 
 /**

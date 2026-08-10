@@ -43,7 +43,7 @@ export class StringValue
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     i.source = telem.useSource(ctx, this.state.telem, i.source);
-    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this);
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this, i.source);
     this.publish();
     i.stopListening?.();
     i.stopListening = i.source.onChange(() => {

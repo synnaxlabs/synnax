@@ -27,17 +27,25 @@ class Leaf extends aether.Leaf<
   schema = Leaf.z;
 
   readonly transitions: boolean[] = [];
+  // Stands in for the telem source. Specs reassign it to model the user picking a
+  // different channel, which builds a new source under the same leaf.
+  source: unknown = { id: "initial" };
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.registration = staleness.useRegistration(ctx, i.registration, {
-      timeout: () => this.state.stalenessTimeout,
-      stale: () => this.state.stale,
-      onChange: (stale) => {
-        this.transitions.push(stale);
-        this.setState((p) => ({ ...p, stale }));
+    i.registration = staleness.useRegistration(
+      ctx,
+      i.registration,
+      {
+        timeout: () => this.state.stalenessTimeout,
+        stale: () => this.state.stale,
+        onChange: (stale) => {
+          this.transitions.push(stale);
+          this.setState((p) => ({ ...p, stale }));
+        },
       },
-    });
+      this.source,
+    );
   }
 
   received(): void {
@@ -60,11 +68,16 @@ class LeakyLeaf extends aether.Leaf<
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.registration = staleness.useRegistration(ctx, i.registration, {
-      timeout: () => this.state.stalenessTimeout,
-      stale: () => this.state.stale,
-      onChange: () => {},
-    });
+    i.registration = staleness.useRegistration(
+      ctx,
+      i.registration,
+      {
+        timeout: () => this.state.stalenessTimeout,
+        stale: () => this.state.stale,
+        onChange: () => {},
+      },
+      this,
+    );
   }
 }
 
@@ -95,6 +108,14 @@ const setup = ({
     leaves,
     leaf: leaves[0],
     deleteLeaf: (i: number) => stack.driver.delete([...stack.basePath, `leaf${i}`]),
+    // Models the user picking a different channel: a new source is built, then the leaf
+    // updates and registers again.
+    swapSource: (i: number) => {
+      const path = [...stack.basePath, `leaf${i}`];
+      const leaf = stack.driver.find<Leaf>(path);
+      leaf.source = { id: `swapped${i}` };
+      stack.driver.update(path, Leaf.TYPE, leaf.state);
+    },
     // basePath is the deepest mounted provider, which is staleness while render is off.
     setSweepInterval: (next: CrudeTimeSpan) =>
       stack.driver.update(stack.basePath, staleness.Provider.TYPE, {
@@ -301,6 +322,57 @@ describe("staleness", () => {
       setSweepInterval(TimeSpan.milliseconds(100));
       vi.advanceTimersByTime(100);
       expect(leaf.transitions).toEqual([true]);
+    });
+  });
+
+  // Arrival state belongs to the source that produced it. A leaf that swaps sources has
+  // never read a sample from the new one, so it must start over as empty.
+  describe("source swap", () => {
+    it("should not carry the old source's arrivals into the new one", () => {
+      const { leaf, swapSource } = mountLive({ timeouts: [5] });
+      vi.advanceTimersByTime(4000);
+      swapSource(0);
+      // The old source would have crossed its timeout here. The new one has never sent.
+      vi.advanceTimersByTime(2000);
+      expect(leaf.transitions).toEqual([]);
+      expect(leaf.state.stale).toBe(false);
+    });
+
+    it("should never turn a source that has not sent stale", () => {
+      const { leaf, swapSource } = mountLive({ timeouts: [1] });
+      swapSource(0);
+      vi.advanceTimersByTime(10000);
+      expect(leaf.state.stale).toBe(false);
+    });
+
+    it("should report live again when a stale leaf swaps sources", () => {
+      const { leaf, swapSource } = mountLive({ timeouts: [1] });
+      vi.advanceTimersByTime(1250);
+      expect(leaf.state.stale).toBe(true);
+      swapSource(0);
+      expect(leaf.transitions).toEqual([true, false]);
+      expect(leaf.state.stale).toBe(false);
+    });
+
+    it("should count arrivals from the new source", () => {
+      const { leaf, swapSource } = mountLive({ timeouts: [1] });
+      swapSource(0);
+      leaf.received();
+      vi.advanceTimersByTime(1250);
+      expect(leaf.state.stale).toBe(true);
+    });
+
+    it("should keep one entry per leaf across a swap", () => {
+      const { swapSource } = mountLive({ timeouts: [5] });
+      swapSource(0);
+      expect(vi.getTimerCount()).toEqual(1);
+    });
+
+    it("should reuse the registration while the source is unchanged", () => {
+      const { leaf } = mountLive({ timeouts: [5] });
+      const before = leaf.internal.registration;
+      leaf.setState((p) => ({ ...p, stalenessTimeout: 10 }));
+      expect(leaf.internal.registration).toBe(before);
     });
   });
 

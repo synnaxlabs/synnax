@@ -95,8 +95,12 @@ export class Gauge
     if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l8;
     else i.textColor = this.state.color;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.staleness = staleness.useInternalRegistration(ctx, i.staleness, this, () =>
-      this.requestRender(),
+    i.staleness = staleness.useInternalRegistration(
+      ctx,
+      i.staleness,
+      this,
+      i.telem,
+      () => this.requestRender(),
     );
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {

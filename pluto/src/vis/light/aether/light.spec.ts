@@ -112,5 +112,35 @@ describe("light/aether/Light", () => {
       h.unmount();
       expect(vi.getTimerCount()).toEqual(0);
     });
+
+    // Picking a channel builds a new source. The arrivals of the old one say nothing
+    // about the new one, so the light starts over as empty.
+    it("should treat a newly picked channel as never having sent", () => {
+      const { h, source } = setup({ stalenessTimeout: 5 });
+      source.setValue(true);
+      const next = telemTest.source<boolean>(false);
+      h.setState((p) => ({ ...p, source: telemTest.booleanSourceSpec(next) }));
+      vi.advanceTimersByTime(10000);
+      expect(h.state.stale).toBe(false);
+    });
+
+    it("should turn live again when a stale light is pointed at a new channel", () => {
+      const { h, source } = setup({ stalenessTimeout: 1 });
+      source.setValue(true);
+      vi.advanceTimersByTime(1250);
+      expect(h.state.stale).toBe(true);
+      const next = telemTest.source<boolean>(false);
+      h.setState((p) => ({ ...p, source: telemTest.booleanSourceSpec(next) }));
+      expect(h.state.stale).toBe(false);
+    });
+
+    it("should count arrivals from the newly picked channel", () => {
+      const { h } = setup({ stalenessTimeout: 1 });
+      const next = telemTest.source<boolean>(false);
+      h.setState((p) => ({ ...p, source: telemTest.booleanSourceSpec(next) }));
+      next.setValue(true);
+      vi.advanceTimersByTime(1250);
+      expect(h.state.stale).toBe(true);
+    });
   });
 });
