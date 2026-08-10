@@ -46,13 +46,14 @@ export const StateIndicator = ({
       : undefined;
   const textColor = color.cssString(staleColor ?? legible);
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
+  const symbolColor = symbolColorVar(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      [CSS.var("symbol-color")]: symbolColor,
       backgroundColor,
       minWidth: inlineSize,
     }),
-    [colorVal, backgroundColor, inlineSize],
+    [symbolColor, backgroundColor, inlineSize],
   );
   return (
     <Primitive.Div

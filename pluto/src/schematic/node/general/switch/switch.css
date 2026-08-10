@@ -11,16 +11,22 @@
 
 /*
  * The switch draws itself from the input theme rather than the symbol color, so a stale
- * switch paints its track instead. The track carries the state, so it is the part that
- * must stop looking authoritative.
+ * switch paints its own track and knob. On fills the track. Off tints the track and
+ * paints the knob, which keeps the two stale states apart.
  */
 .pluto-switch-symbol--stale {
-    .pluto-input__switch-indicator,
+    .pluto-input__switch-indicator {
+        background: oklch(from var(--pluto-symbol-display) l c h / 25%);
+    }
+
+    .pluto-input__switch-indicator::before {
+        background: var(--pluto-symbol-display);
+    }
+
     input:checked ~ .pluto-input__switch-indicator {
         background: var(--pluto-symbol-display);
     }
 
-    .pluto-input__switch-indicator::before,
     input:checked ~ .pluto-input__switch-indicator::before {
         background: var(--pluto-gray-l1);
     }
