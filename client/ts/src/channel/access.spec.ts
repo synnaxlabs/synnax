@@ -11,7 +11,7 @@ import { DataType, id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -29,8 +29,8 @@ describe("channel", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      await expect(userClient.channels.retrieve(randomChannel.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.channels.retrieve(randomChannel.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -76,7 +76,7 @@ describe("channel", () => {
           dataType: DataType.FLOAT32,
           virtual: true,
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete channels with the correct policy", async () => {
@@ -107,8 +107,8 @@ describe("channel", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      await expect(userClient.channels.delete(randomChannel.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.channels.delete(randomChannel.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });
