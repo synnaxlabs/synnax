@@ -81,7 +81,7 @@ describe("EtherCAT Device queries", () => {
           {
             name: "Status",
             index: 0x6000,
-            subindex: 1,
+            subIndex: 1,
             bitLength: 16,
             dataType: "uint16",
           },
@@ -90,7 +90,7 @@ describe("EtherCAT Device queries", () => {
           {
             name: "Control",
             index: 0x7000,
-            subindex: 1,
+            subIndex: 1,
             bitLength: 16,
             dataType: "uint16",
           },
