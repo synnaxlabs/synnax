@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   control,
-  type CrudeDensity,
   type CrudeTimeRange,
   type CrudeTimeSpan,
   type CrudeTimeStamp,
@@ -146,9 +145,7 @@ export class Channel {
     operations = [],
     concurrency = control.Concurrency.exclusive,
   }: New & {
-    internal?: boolean;
     frameClient?: framer.Client;
-    density?: CrudeDensity;
     status?: status.New;
     operations?: Operation[];
   }) {
@@ -192,6 +189,7 @@ export class Channel {
       expression: this.expression,
       status: this.status,
       operations: this.operations,
+      concurrency: this.concurrency,
     });
   }
 

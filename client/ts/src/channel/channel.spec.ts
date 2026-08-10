@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { control, DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { Channel } from "@/channel/client";
@@ -365,6 +365,19 @@ describe("Channel", () => {
 
       const retrieved = await client.channels.retrieve(channel.key);
       expect(retrieved.name).toEqual(updated.name);
+    });
+  });
+
+  describe("payload", () => {
+    it("keeps shared concurrency through a round trip", () => {
+      const ch = new Channel({
+        name: "shared",
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        concurrency: control.Concurrency.shared,
+      });
+      expect(ch.payload.concurrency).toEqual(control.Concurrency.shared);
+      expect(new Channel(ch.payload).concurrency).toEqual(control.Concurrency.shared);
     });
   });
 });
