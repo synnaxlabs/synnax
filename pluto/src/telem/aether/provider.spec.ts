@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Instrumentation } from "@synnaxlabs/alamos";
 import { MultiSeries } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
@@ -124,12 +125,42 @@ describe("telem.Provider", () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  it("hands the feed instrumentation so cache anomalies are not silenced", () => {
+  it("hands the feed live instrumentation so cache anomalies are not silenced", () => {
     const core = stubCore();
     mockUse.mockReturnValue(core);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     mountProvider((client) => telem.createFactory(client));
-    const [props] = core.openFeed.mock.calls[0] as [{ instrumentation?: unknown }];
-    expect(props.instrumentation).toBeDefined();
+    const [props] = core.openFeed.mock.calls[0] as [
+      { instrumentation: Instrumentation },
+    ];
+    props.instrumentation.L.error("cache anomaly");
+    expect(error).toHaveBeenCalledWith(
+      "ERROR",
+      "aether.telem.provider",
+      "cache anomaly",
+    );
+    error.mockRestore();
+  });
+
+  it("closes a feed once when the close re-enters the swap", () => {
+    const core = stubCore();
+    const close = vi.fn(async () => {});
+    core.openFeed.mockReturnValue({
+      read: async () => new MultiSeries([]),
+      stream: () => telemTest.mockSubscription(() => {}),
+      close,
+    });
+    mockUse.mockReturnValue(core);
+    const { update } = mountProvider((client) => telem.createFactory(client));
+    // The error handler runs the close on the swap's own stack, so a core arriving
+    // here re-enters afterUpdate before the first close settles.
+    close.mockImplementationOnce(async () => {
+      mockUse.mockReturnValue(stubCore());
+      update();
+    });
+    mockUse.mockReturnValue(null);
+    update();
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it("reports a failed feed close to the status aggregator", async () => {
