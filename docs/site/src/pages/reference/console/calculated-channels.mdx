@@ -140,7 +140,7 @@ return offset
 
 Arc supports standard operators for calculations:
 
-**Arithmetic:** `+`, `-`, `*`, `/`, `%`
+**Arithmetic:** `+`, `-`, `*`, `/`, `%`, `**`
 
 ```arc
 return(temp_1 + temp_2 + temp_3) / 3 // Average
@@ -152,14 +152,16 @@ style={{fontVariantLigatures: 'none'}}>&lt;=</code>, <code
 style={{fontVariantLigatures: 'none'}}>&gt;=</code>
 
 ```arc
-return pressure > 100 // Returns 1 (true) or 0 (false)
+return pressure > 100 // Returns true or false (bool)
 ```
 
-**Logical:** `and`, `or`, `not`
+**Logical:** `and` (`&&`), `or` (`||`), `not` (`!`)
 
 ```arc
 return temp > 100 and pressure > 50
 ```
+
+**Bitwise:** `&`, `|`, `~`, `^` (`xor`) on integer operands
 
 ### Conditionals
 
@@ -167,9 +169,9 @@ Use `if` statements with curly braces for conditional logic:
 
 ```arc
 if (temperature > 100) {
-    return 1
+    return true
 } else {
-    return 0
+    return false
 }
 ```
 

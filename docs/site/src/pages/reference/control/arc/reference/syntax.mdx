@@ -48,13 +48,17 @@ ox_pt_1
 
 **Reserved keywords** cannot be used as identifiers:
 
-| Keywords   |             |                        |                   |
-| ---------- | ----------- | ---------------------- | ----------------- |
-| `func`     | `if`        | `else`                 | `return`          |
-| `for`      | `break`     | `continue`             | `chan`            |
-| `sequence` | `stage`     | `next`                 | `series`          |
-| `and`      | `or`        | `not`                  | `authority`       |
-| `i8` `i16` | `i32` `i64` | `u8` `u16` `u32` `u64` | `f32` `f64` `str` |
+| Category        | Keywords                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| Functions       | `func` `return`                                                                             |
+| Conditionals    | `if` `else`                                                                                 |
+| Loops           | `for` `break` `continue`                                                                    |
+| Operators       | `and` `or` `not` `xor`                                                                      |
+| Sequences       | `sequence` `stage` `next`                                                                   |
+| Control         | `authority`                                                                                 |
+| Literals        | `true` `false`                                                                              |
+| Data types      | `i8` `i16` `i32` `i64` <br /> `u8` `u16` `u32` `u64` <br /> `f32` `f64` <br /> `str` `bool` |
+| Composite types | `chan` `series`                                                                             |
 
 <Divider.Divider x />
 
@@ -103,6 +107,10 @@ parameter that expects a time span.
 | `hz`            | hertz     |
 | `khz`           | kilohertz |
 | `mhz`           | megahertz |
+
+### Boolean Literals
+
+`true` and `false`.
 
 ### String Literals
 
@@ -164,8 +172,9 @@ rf"C:\logs\{name}.txt"           // backslashes literal; {name} substituted
 ```
 
 Each placeholder is a regular Arc expression. Numeric values are converted to their
-default string form unless a format spec is given. Format specs follow printf-style
-conventions and are validated against the placeholder type at compile time.
+default string form unless a format spec is given. A `bool` renders as `true` or
+`false`. Format specs follow printf-style conventions and are validated against the
+placeholder type at compile time.
 
 | Form          | Meaning                                               |
 | ------------- | ----------------------------------------------------- |
@@ -417,7 +426,7 @@ Stage bodies contain flow statements; newlines separate them.
 
 ```arc
 stage pressurize {
-    1 -> valve
+    true -> valve
     sensor -> controller{}
     pressure > 500 => next
 }
@@ -428,9 +437,9 @@ and nested sequences.
 
 ```arc
 sequence prime {
-    1 -> press_vlv_cmd
+    true -> press_vlv_cmd
     time.wait{5s}
     tank_pressure > 500
-    0 -> press_vlv_cmd
+    false -> press_vlv_cmd
 }
 ```

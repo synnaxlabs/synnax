@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Operators"
 description:
-  "Arc operator reference for arithmetic, comparison, logical, assignment, and flow
-  operators"
+  "Arc operator reference for arithmetic, comparison, logical, bitwise, assignment, and
+  flow operators"
 prev: "Variables"
 prevURL: "/reference/control/arc/reference/variables"
 next: "Flow"
@@ -59,16 +59,16 @@ result := 2 ** 3 ** 2 // 2 ** (3 ** 2) = 2 ** 9 = 512
 
 ## Comparison Operators
 
-All comparisons return `u8` (0 for false, 1 for true).
+All comparisons return `bool` (`true` or `false`).
 
 | Operator | Name                  | Example  | Result |
 | -------- | --------------------- | -------- | ------ |
-| `==`     | Equal                 | `5 == 5` | `1`    |
-| `!=`     | Not equal             | `5 != 3` | `1`    |
-| `<`      | Less than             | `3 < 5`  | `1`    |
-| `>`      | Greater than          | `5 > 3`  | `1`    |
-| `<=`     | Less than or equal    | `3 <= 3` | `1`    |
-| `>=`     | Greater than or equal | `5 >= 5` | `1`    |
+| `==`     | Equal                 | `5 == 5` | `true` |
+| `!=`     | Not equal             | `5 != 3` | `true` |
+| `<`      | Less than             | `3 < 5`  | `true` |
+| `>`      | Greater than          | `5 > 3`  | `true` |
+| `<=`     | Less than or equal    | `3 <= 3` | `true` |
+| `>=`     | Greater than or equal | `5 >= 5` | `true` |
 
 ```arc
 in_range := pressure >= 100 and pressure <= 500
@@ -78,18 +78,19 @@ in_range := pressure >= 100 and pressure <= 500
 
 ## Logical Operators
 
-Logical operators use short-circuit evaluation and return `u8` (0 or 1).
+Logical operators require `bool` operands, use short-circuit evaluation, and return
+`bool`.
 
-| Operator | Name        | Example   | Result |
-| -------- | ----------- | --------- | ------ |
-| `and`    | Logical AND | `1 and 1` | `1`    |
-| `or`     | Logical OR  | `0 or 1`  | `1`    |
-| `not`    | Logical NOT | `not 1`   | `0`    |
+| Operator | Alias | Name        | Example          | Result  |
+| -------- | ----- | ----------- | ---------------- | ------- |
+| `&&`     | `and` | Logical AND | `true and false` | `false` |
+| `\|\|`   | `or`  | Logical OR  | `false or true`  | `true`  |
+| `!`      | `not` | Logical NOT | `not true`       | `false` |
 
 ### Short-Circuit Evaluation
 
-- `and`: If left operand is false (0), right operand is not evaluated
-- `or`: If left operand is true (non-zero), right operand is not evaluated
+- `and`: If the left operand is `false`, the right operand is not evaluated
+- `or`: If the left operand is `true`, the right operand is not evaluated
 
 ```arc
 // Safe: division only happens if b != 0
@@ -98,22 +99,42 @@ safe := b != 0 and (a / b) > 10
 
 ### Truthiness
 
-Any non-zero value is truthy:
+In `if` and `for` conditions and `=>` conditional edges, any non-zero value is truthy:
 
 ```arc
-result := 5 and 3 // 1 (both truthy)
-result := 0 or 7 // 1 (7 is truthy)
-negated := not 42 // 0
+errors := 3
+if errors { // truthy: non-zero numeric
+    alarm = true
+}
 ```
+
+<Divider.Divider x />
+
+## Bitwise Operators
+
+Bitwise operators take integer operands and return the operand type. `xor` is the
+keyword alias of `^`.
+
+| Operator | Name        | Example               | Result |
+| -------- | ----------- | --------------------- | ------ |
+| `&`      | Bitwise AND | `i64(12) & i64(10)`   | `8`    |
+| `\|`     | Bitwise OR  | `i64(12) \| i64(10)`  | `14`   |
+| `~`      | Bitwise NOT | `~i64(12)`            | `-13`  |
+| `^`      | Bitwise XOR | `i64(12) ^ i64(10)`   | `6`    |
+| `xor`    | Bitwise XOR | `i64(12) xor i64(10)` | `6`    |
+
+Bitwise operators are not supported on series.
 
 <Divider.Divider x />
 
 ## Unary Operators
 
-| Operator | Name        | Example | Result |
-| -------- | ----------- | ------- | ------ |
-| `-`      | Negation    | `-5`    | `-5`   |
-| `not`    | Logical NOT | `not 1` | `0`    |
+| Operator | Name        | Example    | Result  |
+| -------- | ----------- | ---------- | ------- |
+| `-`      | Negation    | `-5`       | `-5`    |
+| `not`    | Logical NOT | `not true` | `false` |
+| `!`      | Logical NOT | `!true`    | `false` |
+| `~`      | Bitwise NOT | `~i64(12)` | `-13`   |
 
 Unary minus applies to numeric values:
 
@@ -148,24 +169,35 @@ y := -x // -5
 
 Operators listed from highest to lowest precedence.
 
-| Precedence  | Operators                        | Associativity |
-| ----------- | -------------------------------- | ------------- |
-| 1 (highest) | `**`                             | Right         |
-| 2           | `-` (unary), `not`               | Right         |
-| 3           | `*`, `/`, `%`                    | Left          |
-| 4           | `+`, `-`                         | Left          |
-| 5           | `<`, `>`, `<=`, `>=`, `==`, `!=` | Left          |
-| 6 (lowest)  | `and`, `or`                      | Left          |
+| Precedence  | Operators                    | Associativity |
+| ----------- | ---------------------------- | ------------- |
+| 1 (highest) | `-` (unary), `not`, `!`, `~` | Right         |
+| 2           | `**`                         | Right         |
+| 3           | `*`, `/`, `%`                | Left          |
+| 4           | `+`, `-`                     | Left          |
+| 5           | `<`, `>`, `<=`, `>=`         | Left          |
+| 6           | `==`, `!=`                   | Left          |
+| 7           | `&`                          | Left          |
+| 8           | `^`, `xor`                   | Left          |
+| 9           | `\|`                         | Left          |
+| 10          | `and`, `&&`                  | Left          |
+| 11 (lowest) | `or`, `\|\|`                 | Left          |
 
 ### Precedence Examples
 
 ```arc
-// Exponentiation binds tighter than unary minus
--2 ** 2 // -(2 ** 2) = -4
+// Unary minus binds tighter than exponentiation
+-2 ** 2 // (-2) ** 2 = 4; write -(2 ** 2) for -4
+
 // Multiplication before addition
 2 + 3 * 4 // 2 + (3 * 4) = 14
+
 // Comparison before logical
 a > 5 and b < 10 // (a > 5) and (b < 10)
+
+// Bitwise binds looser than comparison; parenthesize
+is_set := (flags & i64(4)) == i64(4)
+
 // Use parentheses for clarity
 (a + b) * c
 ```
@@ -174,16 +206,23 @@ a > 5 and b < 10 // (a > 5) and (b < 10)
 
 ## Series Operators
 
-Arithmetic and comparison operators work element-wise on series:
+Arithmetic, comparison, and logical operators work element-wise on series. Bitwise
+operators are not supported on series.
 
 ```arc
 data := [1.0, 2.0, 3.0]
+
 // Series with scalar
 scaled := data * 2.0 // [2.0, 4.0, 6.0]
+
 // Series with series (must be equal length)
 sum := data + [4.0, 5.0, 6.0] // [5.0, 7.0, 9.0]
-// Comparison returns series u8
-mask := data > 2.0 // [0, 0, 1]
+
+// Comparison returns series bool
+mask := data > 2.0 // [false, false, true]
+
+// Logical operators apply element-wise to series bool
+inverted := not mask // [true, true, false]
 ```
 
 <Divider.Divider x />
@@ -199,5 +238,5 @@ mask := data > 2.0 // [0, 0, 1]
 ```arc
 msg := "Hello"
 greeting := msg + " World" // "Hello World"
-is_empty := msg == "" // 0 (false)
+is_empty := msg == "" // false
 ```

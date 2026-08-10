@@ -52,11 +52,8 @@ channel updates, Arc automatically runs the relevant computations:
 
 ```arc
 // Open the valve when pressure is below threshold, close it otherwise
-func bang_bang{threshold f64} (pressure f64) u8 {
-    if pressure < threshold {
-        return 1
-    }
-    return 0
+func bang_bang{threshold f64} (pressure f64) bool {
+    return pressure < threshold
 }
 
 pressure -> bang_bang{threshold=100.0} -> press_vlv_cmd

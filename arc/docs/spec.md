@@ -19,7 +19,7 @@ Comments are allowed anywhere in the source code.
 ```
 Type ::= PrimitiveType | ChannelType | SeriesType
 
-PrimitiveType ::= NumericType | 'str'
+PrimitiveType ::= NumericType | 'str' | 'bool'
 
 NumericType ::= IntegerType | FloatType
 
@@ -28,17 +28,18 @@ IntegerType ::= 'i8' | 'i16' | 'i32' | 'i64' | 'u8' | 'u16' | 'u32' | 'u64'
 FloatType ::= 'f32' | 'f64'
 ```
 
-**Type defaults**: Integer literals default to `i64`, float literals to `f64`.
+**NumericType defaults**: Integer literals default to `i64`, float literals to `f64`.
 
 ### Boolean Semantics
 
-Type `u8` serves as boolean: `0` is false, non-zero is true. Logical operators normalize
-to `0` or `1` with short-circuit evaluation.
+Comparisons and logical operators return `bool`. Logical operators (`&&`/`||`/`!`,
+keywords `and`/`or`/`not`) take `bool` only. No implicit `bool`/numeric conversion; `if`
+and `=>` also accept numerics (non-zero is true) and strings (non-empty is true).
 
 ```arc
-result := 2 and 3 // 1 (both truthy)
-result := 5 or 0 // 1 (short-circuits)
-negated := not 5 // 0
+ready := true
+in_range := temp > 20.0 and temp < 30.0 // bool
+inverted := not ready // false
 ```
 
 ### Channel Types
@@ -65,14 +66,14 @@ first := data[0] // indexing
 subset := data[1: 3] // slicing [2.0, 3.0]
 scaled := data * 2.0 // [2.0, 4.0, 6.0]
 sum := data + [4.0, 5.0, 6.0] // [5.0, 7.0, 9.0]
-mask := data > 2.0 // [0, 0, 1] (series u8)
+mask := data > 2.0 // [false, false, true] (series bool)
 ```
 
 **Rules**:
 
 - Out-of-bounds access = runtime error
 - Binary ops require equal-length series
-- Comparisons return `series u8` elementwise
+- Comparisons return `series bool` elementwise
 - Empty `[]` requires type annotation
 
 ### Strings
@@ -85,10 +86,14 @@ greeting := msg + " World" // concatenation
 first := msg[0] // indexing
 sub := msg[1: 4] // slicing
 length := len(msg) // length
-equal := msg == "Hello" // equality (returns u8: 1 or 0)
+equal := msg == "Hello" // equality (returns bool)
 ```
 
 **Supported operations**: `+` (concatenation), `==`, `!=`, indexing, slicing, `len()`.
+
+**Format strings**: `f"..."` interpolates `{expr}` placeholders. Numeric, string, and
+`bool` values are supported. A placeholder that reads a channel takes its latest value
+(non-blocking snapshot).
 
 ### Numeric Literals
 
@@ -100,14 +105,22 @@ FloatLiteral ::= Digit+ '.' Digit* | '.' Digit+  // defaults to f64
 
 Examples: `42`, `3.14`, `u8(255)`, `f32(1.5)`
 
+### Boolean Literals
+
+```
+BooleanLiteral ::= 'true' | 'false'
+```
+
+Examples: `armed := true`, `enabled bool := false`
+
 ### Zero Values
 
-All types have default zero values: integers/floats `0`, string `""`, channels return
-zero on first read before write.
+All types have default zero values: integers/floats `0`, `bool` `false`, string `""`,
+channels return zero on first read before write.
 
 ### Type Casting
 
-Explicit casting between numeric types:
+Explicit casting between primitive types:
 
 ```
 TypeCast ::= Type '(' Expression ')'
@@ -120,6 +133,8 @@ TypeCast ::= Type '(' Expression ')'
 - Signed ↔ Unsigned saturates at bounds
 - Float → Integer truncates toward zero, saturates on overflow
 - Integer overflow uses two's-complement wrapping
+- Numeric → `bool` is `x != 0`; `bool` → numeric is `1` or `0`
+- Numeric or `bool` → `str` renders text (`"3.14"`, `"true"`); no casts from `str`
 
 ## Unit System
 
@@ -231,29 +246,46 @@ initializer.
 ```
 Expression ::= UnaryExpression | BinaryExpression | PrimaryExpression
 
-UnaryOperator ::= '-' | 'not'
-BinaryOperator ::= ArithmeticOp | ComparisonOp | LogicalOp
+UnaryOperator ::= '-' | 'not' | '!' | '~'
+BinaryOperator ::= ArithmeticOp | ComparisonOp | LogicalOp | BitwiseOp
 ArithmeticOp ::= '+' | '-' | '*' | '/' | '%' | '**'
 ComparisonOp ::= '==' | '!=' | '<' | '>' | '<=' | '>='
-LogicalOp ::= 'and' | 'or'
+LogicalOp ::= 'and' | '&&' | 'or' | '||'
+BitwiseOp ::= '&' | '|' | '^' | 'xor'
 ```
 
 **Precedence** (highest to lowest):
 
-1. `**` (right-associative)
-2. `-`, `not` (unary, right-associative)
+1. `-`, `not`, `!`, `~` (unary, right-associative)
+2. `**` (right-associative)
 3. `*`, `/`, `%` (left-associative)
 4. `+`, `-` (left-associative)
-5. `<`, `>`, `<=`, `>=`, `==`, `!=`
-6. `and`, `or` (short-circuit)
+5. `<`, `>`, `<=`, `>=`
+6. `==`, `!=`
+7. `&` (bitwise and)
+8. `^`, `xor` (bitwise xor)
+9. `|` (bitwise or)
+10. `and`, `&&` (short-circuit)
+11. `or`, `||` (short-circuit)
+
+Bitwise operators take integer operands; `~` requires a typed operand (`~i64(1)`).
 
 Examples:
 
 ```arc
-power := 2 ** 8 // 256
-neg := -2 ** 2 // -4 (** binds tighter than unary -)
-remainder := 10 % 3 // 1
-in_range := temp >= 20 and temp <= 30
+func example{}(){
+    power := 2 ** 8 // 256
+    neg := -2 ** 2 // 4: parses as (-2) ** 2
+    remainder := 10 % 3 // 1
+    in_range := temp >= 20 and temp <= 30 // bool
+    ready := in_range && !fault // aliases of and, not
+    a := i64(12)
+    b := i64(10)
+    masked := a & b // 8
+    flipped := a xor b // 6 (same as a ^ b)
+    inverted := ~a // -13
+    is_set := (a & b) == i64(8) // true; & binds looser than ==, so parenthesize
+}
 ```
 
 ## Built-in Functions
@@ -315,7 +347,7 @@ func controller{
     setpoint f64,       // literal-valued: static at instantiation
     sensor chan f64,    // channel-reference: resolved by key
     actuator chan f64,  // channel-reference: resolved by key
-} (enable u8) f64 {
+} (enable bool) f64 {
 // function body
 }
 ```
@@ -409,6 +441,7 @@ func counter() i64 {
 ```
 
 A `$=` initializer must be a literal value; only literal variables can be stateful.
+`true` and `false` are literals.
 
 ### Channel Operations in Functions
 
@@ -440,11 +473,11 @@ events + stateful variables).
 
 ```arc
 if pressure > 100 {
-    alarm = 1
+    alarm = true
 } else if pressure > 80 {
-    warning = 1
+    warning = true
 } else {
-    alarm = 0
+    alarm = false
 }
 ```
 
@@ -483,7 +516,9 @@ FlowOperator ::= '->'       // continuous flow
 
 RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
-RoutingEntry ::= Identifier ':' FlowNode ('->' FlowNode)* (':' Identifier)?
+RoutingEntry ::= RoutingKey ':' FlowNode ('->' FlowNode)* (':' Identifier)?
+
+RoutingKey ::= Identifier | 'true' | 'false'
 
 FlowNode ::= Identifier           // channel, variable, stage, or sequence name
            | FunctionInvocation   // func{...}
@@ -538,9 +573,21 @@ scope (channels, variables), literals, and function calls, but not function-loca
 variables.
 
 ```arc
-temperature > 100 -> alarm{} // comparison
+temperature > 100 -> alarm{} // comparison (the edge carries a bool)
  (sensor1 + sensor2) / 2.0 -> display // arithmetic
-pressure > 100 or emergency -> shutdown{} // logical
+pressure > 100 or emergency -> shutdown{} // logical (emergency is a chan bool)
+```
+
+### Selecting on a Boolean
+
+`select{}` routes a `bool` input by value using the `true` and `false` routing keys.
+Each output is `u8` and emits `1` when its branch fires.
+
+```arc
+pressure > 500.0 -> select{} -> {
+    true: alarm{},
+    false: all_clear{}
+}
 ```
 
 ### Cycle Detection
@@ -567,7 +614,8 @@ inactive, they don't.
 **Two edge types**:
 
 - `->` (Continuous): Reactive flow that runs while the stage is active
-- `=>` (Conditional): Propagates only when the source output is truthy
+- `=>` (Conditional): Propagates only when the source output is truthy (a `bool` `true`,
+  a non-zero numeric, or a non-empty string)
 
 ### Sequence Syntax
 
@@ -592,7 +640,7 @@ sequence main {
     }
 
     stage ignite {
-        igniter_cmd = 1
+        igniter_cmd = true
         flame_detected => next
     }
 
@@ -603,7 +651,7 @@ sequence main {
 
 sequence abort {
     stage safed {
-        all_valves_cmd = 0
+        all_valves_cmd = false
     }
 }
 ```
@@ -614,10 +662,10 @@ The `next` keyword resolves to the next stage in definition order:
 
 ```arc
 stage step1 {
-    1 => next
+    true => next
 } // next = step2
 stage step2 {
-    1 => next
+    true => next
 } // next = step3
 stage step3 {} // terminal (no outgoing transitions)
 ```
@@ -638,8 +686,9 @@ stage step3 {} // terminal (no outgoing transitions)
 **Reactive flows (`->`)**: Execute every time the source produces a value while the
 stage is active.
 
-**Conditional transitions (`=>`)**: Propagate only when the condition is truthy
-(non-zero). A transition to an already-active stage is a no-op, preventing re-entry.
+**Conditional transitions (`=>`)**: Propagate only when the condition is truthy (a
+`bool` `true`, a non-zero numeric, or a non-empty string). A transition to an
+already-active stage is a no-op, preventing re-entry.
 
 ### Stage Entry Semantics
 
@@ -704,6 +753,8 @@ These simplify implementation while maintaining expressiveness:
 - **Flow graph**: Cycles in non-transition flows, unconnected inputs, type mismatches
 - **Dimensional**: Incompatible units in operations, non-literal exponent with
   dimensioned base
+- **Operands**: Non-`bool` logical operands, non-integer bitwise operands, `~` on an
+  untyped constant
 
 ### Runtime Errors
 
@@ -745,11 +796,12 @@ Example imports:
 "env"."channel_write_i32": [i32, i32] -> []
 "env"."series_len": [i32] -> [i64]
 "env"."state_load_f64": [i32, i32] -> [f64]
+"env"."channel_read_bool": [i32] -> [i32]
 "env"."now": [] -> [i64]
 ```
 
-**Type mapping**: `i8`-`i32`, `u8`-`u32` → WASM `i32`; `i64`, `u64` → WASM `i64`; `f32`
-→ WASM `f32`; `f64` → WASM `f64`.
+**Type mapping**: `i8`-`i32`, `u8`-`u32`, `bool` → WASM `i32` (`bool` is `0`/`1`);
+`i64`, `u64` → WASM `i64`; `f32` → WASM `f32`; `f64` → WASM `f64`.
 
 ### Stratified Execution
 
