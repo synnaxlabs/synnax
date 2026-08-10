@@ -257,13 +257,13 @@ const SYNNAX_BASE: ThemeSpec = {
   typography: {
     family: fontFamily,
     codeFamily: codeFontFamily,
-    h1: { size: 5.5, weight: "500", lineHeight: 5.5 * 1.5 },
-    h2: { size: 4.5, weight: "medium", lineHeight: 4.5 * 1.5 },
-    h3: { size: 3.5, weight: "medium", lineHeight: 3.5 * 1.5 },
-    h4: { size: 2.6666, weight: "medium", lineHeight: 2.6666 * 1.5 },
+    h1: { size: 5.5, weight: 500, lineHeight: 5.5 * 1.5 },
+    h2: { size: 4.5, weight: 500, lineHeight: 4.5 * 1.5 },
+    h3: { size: 3.5, weight: 500, lineHeight: 3.5 * 1.5 },
+    h4: { size: 2.6666, weight: 500, lineHeight: 2.6666 * 1.5 },
     h5: { size: 2.333333, weight: 450, lineHeight: 2.333333 * 1.5 },
-    p: { size: 2.1666666666, weight: "regular", lineHeight: 2 * 1.5 },
-    small: { size: 1.916666, weight: "regular", lineHeight: 2.3333333 },
+    p: { size: 2.1666666666, weight: 400, lineHeight: 2 * 1.5 },
+    small: { size: 1.916666, weight: 400, lineHeight: 2.3333333 },
   },
 };
 

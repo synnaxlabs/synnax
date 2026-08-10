@@ -95,7 +95,7 @@ const Message = ({ variant, message, description, children }: MessageProps) => (
       <Text.Text status={variant} level="p" color={10} weight={500}>
         {message}
       </Text.Text>
-      {description != null && (
+      {primitive.isNonZero(description) && (
         <Text.Text level="small" color={9} weight={450}>
           {description}
         </Text.Text>

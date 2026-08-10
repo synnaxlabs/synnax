@@ -49,7 +49,6 @@ const Internal = ({ rangeKey }: ParentRangeButtonProps): ReactElement | null => 
       <Button.Button
         color={9}
         variant="text"
-        weight={400}
         gap="small"
         className={CSS.BE("range-overview", "parent-button")}
         onClick={() =>
