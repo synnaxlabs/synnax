@@ -18,14 +18,14 @@
 
 namespace synnax::common {
 
-inline BaseConfig BaseConfig::parse(x::json::Parser parser) {
-    return BaseConfig{
+inline BaseStartConfig BaseStartConfig::parse(x::json::Parser parser) {
+    return BaseStartConfig{
         .auto_start = parser.field<bool>("auto_start", false),
         .data_saving_disabled = parser.field<bool>("data_saving_disabled", false),
     };
 }
 
-inline x::json::json BaseConfig::to_json() const {
+inline x::json::json BaseStartConfig::to_json() const {
     x::json::json j;
     j["auto_start"] = this->auto_start;
     j["data_saving_disabled"] = this->data_saving_disabled;
@@ -34,7 +34,7 @@ inline x::json::json BaseConfig::to_json() const {
 
 inline BaseReadConfig BaseReadConfig::parse(x::json::Parser parser) {
     BaseReadConfig result;
-    static_cast<BaseConfig &>(result) = BaseConfig::parse(parser);
+    static_cast<BaseStartConfig &>(result) = BaseStartConfig::parse(parser);
     result.sample_rate = parser.field<::x::telem::Rate>(
         "sample_rate",
         x::telem::Rate(10)
@@ -48,7 +48,7 @@ inline BaseReadConfig BaseReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json BaseReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseConfig::to_json().items())
+    for (auto &[k, v]: BaseStartConfig::to_json().items())
         j[k] = v;
     j["sample_rate"] = this->sample_rate;
     j["stream_rate"] = this->stream_rate;
@@ -57,14 +57,14 @@ inline x::json::json BaseReadConfig::to_json() const {
 
 inline BaseWriteConfig BaseWriteConfig::parse(x::json::Parser parser) {
     BaseWriteConfig result;
-    static_cast<BaseConfig &>(result) = BaseConfig::parse(parser);
+    static_cast<BaseStartConfig &>(result) = BaseStartConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     return result;
 }
 
 inline x::json::json BaseWriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseConfig::to_json().items())
+    for (auto &[k, v]: BaseStartConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     return j;

@@ -25,7 +25,7 @@ from x import telem
 Key: TypeAlias = UUID
 
 
-class BaseConfig(BaseModel):
+class BaseStartConfig(BaseModel):
     """Carries the configuration fields shared by every hardware task.
 
     Attributes:
@@ -78,7 +78,7 @@ class Command(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
-class BaseReadConfig(BaseConfig):
+class BaseReadConfig(BaseStartConfig):
     """Carries the configuration fields shared by hardware acquisition tasks.
 
     Attributes:
@@ -90,7 +90,7 @@ class BaseReadConfig(BaseConfig):
     stream_rate: telem.Rate = telem.Rate(5)
 
 
-class BaseWriteConfig(BaseConfig):
+class BaseWriteConfig(BaseStartConfig):
     """Carries the configuration fields shared by hardware control tasks.
 
     Attributes:
