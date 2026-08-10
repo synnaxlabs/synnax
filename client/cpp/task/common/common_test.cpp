@@ -13,20 +13,20 @@
 #include "x/cpp/json/json.h"
 
 namespace synnax::common {
-/// @brief it should parse the generated BaseConfig with auto_start present.
-TEST(BaseConfig, testParseWithAutoStart) {
+/// @brief it should parse the generated BaseStartConfig with auto_start present.
+TEST(BaseStartConfig, testParseWithAutoStart) {
     const auto json = nlohmann::json{{"auto_start", true}};
     auto parser = x::json::Parser(json);
-    const auto config = BaseConfig::parse(parser);
+    const auto config = BaseStartConfig::parse(parser);
 
     EXPECT_TRUE(config.auto_start);
 }
 
 /// @brief it should use default values when fields are missing.
-TEST(BaseConfig, testParseWithDefaults) {
+TEST(BaseStartConfig, testParseWithDefaults) {
     const auto json = nlohmann::json{};
     auto parser = x::json::Parser(json);
-    const auto config = BaseConfig::parse(parser);
+    const auto config = BaseStartConfig::parse(parser);
 
     EXPECT_FALSE(config.auto_start);
 }
