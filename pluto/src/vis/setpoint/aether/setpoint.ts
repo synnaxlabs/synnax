@@ -14,7 +14,6 @@ import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
 
 export const stateZ = z.object({
-  value: z.number(),
   sink: telem.numberSinkSpecZ.default(telem.noopNumericSinkSpec),
 });
 

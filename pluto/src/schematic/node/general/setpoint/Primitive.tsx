@@ -20,16 +20,19 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/setpoint/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
-interface RenderProps extends Omit<Config, "variant">, BaseInput.Control<number> {
+interface RenderProps
+  extends Omit<Config, "variant">, Omit<BaseInput.Control<number>, "value"> {
   className?: string;
   style?: CSSProperties;
+  /** Seeds the input. The primitive owns the value from there on. */
+  value?: number;
 }
 
 export const Setpoint = ({
   orientation = "left",
   className,
   style,
-  value,
+  value = 0,
   units,
   color,
   onChange,

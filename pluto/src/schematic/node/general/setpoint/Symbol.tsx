@@ -23,13 +23,12 @@ export const Symbol = ({
   selected,
   config: { label, orientation = "left", control, units, sink, color, size, disabled },
 }: NodeProps<Config>): ReactElement => {
-  const { value, set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
+  const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   return (
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
       <Control.State config={control} onChange={onConfigChange} />
       <Label.Label config={label} onChange={onConfigChange} />
       <Setpoint
-        value={value}
         onChange={set}
         units={units}
         color={color}

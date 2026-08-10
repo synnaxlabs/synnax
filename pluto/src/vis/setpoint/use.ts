@@ -18,17 +18,17 @@ export interface UseProps extends Pick<z.input<typeof setpoint.stateZ>, "sink"> 
   aetherKey: string;
 }
 
-export interface UseReturn extends Pick<z.infer<typeof setpoint.stateZ>, "value"> {
+export interface UseReturn {
   set: (value: number) => void;
 }
 
 export const use = ({ aetherKey, sink }: UseProps): UseReturn => {
   const memoProps = useMemoDeepEqual({ sink });
-  const [, { value }, setState, methods] = Aether.use({
+  const [, , setState, methods] = Aether.use({
     aetherKey,
     type: setpoint.Setpoint.TYPE,
     schema: setpoint.stateZ,
-    initialState: { value: 0, ...memoProps },
+    initialState: memoProps,
     methods: setpoint.methodsZ,
   });
 
@@ -36,5 +36,5 @@ export const use = ({ aetherKey, sink }: UseProps): UseReturn => {
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
 
-  return { set: methods.set, value };
+  return { set: methods.set };
 };
