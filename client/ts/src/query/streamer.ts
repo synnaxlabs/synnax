@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, errors, unique } from "@synnaxlabs/x";
+import { EOF } from "@synnaxlabs/freighter";
+import { type breaker, DataType, errors } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { isConnectionError, NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
+import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
 
 /**
  * A raw channel reaction: parses frames from the channel with the schema and
@@ -45,41 +47,6 @@ const channelNameSort = (a: string, b: string) => {
 };
 
 /**
- * An opened change stream: frame notifications plus close.
- *
- * TODO: exists only because a concrete framer.ObservableStreamer would close
- * the import cycle query -> framer -> channel -> query. Re-architect the
- * cache to remove it.
- */
-export interface ObservableStream {
-  onChange: (handler: (frame: framer.Frame) => void) => void;
-  close: () => Promise<void>;
-}
-
-/**
- * Hooks passed to a {@link StreamOpener}. The implementation must fire onOpen
- * after the stream is live but before any frame is delivered, onReopen after
- * every successful reconnect (not the initial open), and onDead when the
- * stream ends on a failure it cannot recover from.
- */
-export interface StreamOpenerHooks {
-  onOpen?: () => void;
-  onReopen?: () => void;
-  onDead?: (error: Error) => void;
-}
-
-/**
- * Opens a change stream over the given channels. Injected at construction so
- * the cache carries no dependency on the streaming transport.
- *
- * TODO: exists for the same import cycle as {@link ObservableStream}; remove
- * both when the cache is re-architected.
- */
-export interface StreamOpener {
-  (channels: string[], hooks: StreamOpenerHooks): Promise<ObservableStream>;
-}
-
-/**
  * Arguments for opening a cache streamer.
  */
 export interface StreamerParams {
@@ -87,8 +54,10 @@ export interface StreamerParams {
   onError: (error: Error) => void;
   /** The channel listeners to drive with streamed changes. */
   listeners: Listener[];
-  /** Function to open the change stream */
-  openStreamer: StreamOpener;
+  /** Opens the raw frame stream; hardening is applied internally. */
+  openStreamer: framer.StreamOpener;
+  /** Retry behavior for stream reconnect attempts. */
+  breaker?: breaker.Config;
   /**
    * Called once when the stream first opens, before any frame is processed.
    */
@@ -98,6 +67,14 @@ export interface StreamerParams {
    * initial open). Changes may have been missed while disconnected.
    */
   onReopen?: () => void;
+  /**
+   * Called whenever the stream goes live: after the initial open and before
+   * every onReopen, so reconciliation fetches never race a stale liveness
+   * verdict.
+   */
+  onLive?: () => void;
+  /** Called when the underlying stream fails and reconnection begins. */
+  onDrop?: (error: Error) => void;
   /**
    * Called when the stream ends on a failure it cannot recover from. The next
    * demand opens a new stream.
@@ -128,14 +105,19 @@ export interface Streamer {
  * @returns The lazy streamer handle
  */
 export const createStreamer = ({
-  openStreamer: streamOpener,
+  openStreamer,
+  breaker: breakerConfig,
   listeners: allListeners,
   onError,
   onOpen,
   onReopen,
+  onLive,
+  onDrop,
   onDead,
 }: StreamerParams): Streamer => {
-  let opened: Promise<ObservableStream> | null = null;
+  let opened: Promise<ObservableStreamer> | null = null;
+  let hardened: HardenedStreamer | null = null;
+  let closed = false;
   const report = (exc: unknown, message: string) => {
     if (NotFoundError.matches(exc)) return;
     // A connectivity failure mid-change is repaired by the reconcile that
@@ -143,29 +125,36 @@ export const createStreamer = ({
     if (isConnectionError(exc)) return;
     onError(new Error(message, { cause: exc }));
   };
-  const open = async (): Promise<ObservableStream> => {
-    const channels = unique.unique(allListeners.map(({ channel }) => channel));
-    const listenersForChannels: Record<string, Listener<z.ZodType>[]> = {};
-    allListeners.forEach((lis) => {
-      const { channel } = lis;
-      listenersForChannels[channel] = [...(listenersForChannels[channel] || []), lis];
-    });
-    const stream = await streamOpener(channels, {
-      onOpen,
-      onReopen,
-      onDead: (error) => {
-        // drop the memoized stream so the next demand opens a fresh one
-        opened = null;
-        onDead?.(error);
+  const open = async (): Promise<ObservableStreamer> => {
+    if (closed) throw new EOF();
+    const listenersForChannels = Map.groupBy(allListeners, ({ channel }) => channel);
+    const channels = Array.from(listenersForChannels.keys());
+    const h = new HardenedStreamer(
+      openStreamer,
+      { channels },
+      breakerConfig,
+      // onLive first: onReopen's reconcile fetches must not hit a stale
+      // liveness short circuit
+      () => {
+        onLive?.();
+        onReopen?.();
       },
-    });
+      onDrop,
+    );
+    // Held outside so close() can interrupt the retry loop while this call
+    // is still waiting on a first successful open.
+    hardened = h;
+    await h.start();
+    // ObservableStreamer construction below starts reads, so onOpen precedes any
+    // frame.
+    onOpen?.();
+    onLive?.();
     const handleChange = (frame: framer.Frame) => {
-      const namesInFrame = [...frame.uniqueNames];
-      namesInFrame.sort(channelNameSort);
+      const namesInFrame = frame.uniqueNames.sort(channelNameSort);
       void (async () => {
         for (const name of namesInFrame) {
           const series = frame.get(name);
-          const listeners = listenersForChannels[name];
+          const listeners = listenersForChannels.get(name);
           if (listeners == null) continue;
           for (const { onChange, schema } of listeners) {
             let parsed: z.output<typeof schema>[];
@@ -187,32 +176,42 @@ export const createStreamer = ({
         }
       })();
     };
+    const stream = new ObservableStreamer(h, undefined, (error) => {
+      // drop the memoized stream so the next demand opens a fresh one
+      opened = null;
+      onDead?.(error);
+    });
     stream.onChange(handleChange);
     return stream;
   };
   return {
     demand: async () => {
-      opened ??= open();
+      if (opened == null) {
+        const { promise, resolve, reject } =
+          Promise.withResolvers<ObservableStreamer>();
+        // Assigned before open runs: opening resolves channels through the cached
+        // read path, which re-enters demand synchronously. An unset memo there
+        // recurses instead of joining. Keep these two statements in this order.
+        opened = promise;
+        open().then(resolve, reject);
+      }
       try {
         await opened;
       } catch (exc) {
         // clear the memoized failure so a later demand can retry the open
         opened = null;
+        // a close mid-open retires the stream; the demand did not fail
+        if (closed) return;
         throw errors.fromUnknown(exc);
       }
     },
     close: async () => {
+      closed = true;
+      // Interrupts an in-flight open's retry loop; opened then settles.
+      hardened?.close();
       if (opened == null) return;
-      let streamer: ObservableStream;
-      try {
-        streamer = await opened;
-      } catch {
-        // A close that outraces a failing open has nothing to tear down. The
-        // failure already reached the demander, so it is not re-reported here.
-        opened = null;
-        return;
-      }
-      await streamer.close();
+      const streamer = await opened.catch(() => null);
+      if (streamer != null) await streamer.close();
     },
   };
 };
