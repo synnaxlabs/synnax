@@ -41,6 +41,7 @@ import {
   type New,
   ontologyID,
   type Operation,
+  operationZ,
   type Payload,
   payloadZ,
   statusZ,
@@ -54,7 +55,7 @@ import { query } from "@/query";
 import { type ranger } from "@/ranger";
 import { createKey, decodeDeleteChange } from "@/ranger/alias/payload";
 import { keyZ as rangerKeyZ } from "@/ranger/types.gen";
-import { status } from "@/status";
+import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_channel_set";
@@ -144,11 +145,7 @@ export class Channel {
     expression = "",
     operations = [],
     concurrency = control.Concurrency.exclusive,
-  }: New & {
-    frameClient?: framer.Client;
-    status?: status.New;
-    operations?: Operation[];
-  }) {
+  }: New & { frameClient?: framer.Client }) {
     this.key = keyZ.parse(key);
     this.name = name;
     this.dataType = new DataType(dataType);
@@ -159,9 +156,9 @@ export class Channel {
     this.alias = alias;
     this.virtual = virtual;
     this.expression = expression;
-    this.operations = operations;
+    this.operations = operationZ.array().parse(operations);
     this.concurrency = concurrency;
-    if (argsStatus != null) this.status = status.create(argsStatus);
+    if (argsStatus != null) this.status = statusZ.parse(argsStatus);
     this.frameClient = frameClient ?? null;
   }
 
