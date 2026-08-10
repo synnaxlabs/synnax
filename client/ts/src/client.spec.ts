@@ -10,6 +10,7 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
+import type Synnax from "@/client";
 import { type connection } from "@/connection";
 import { AuthError, DisconnectedError } from "@/errors";
 import { label } from "@/label";
@@ -21,6 +22,9 @@ import {
 
 const reasonOf = (status: connection.Status): connection.Reason | undefined =>
   status.variant === "error" ? status.details.reason : undefined;
+
+const spyOnCloseOf = (client: Synnax, field: "conn" | "cache") =>
+  vi.spyOn(client[field], "close");
 
 const FAST_RETRY = {
   baseInterval: TimeSpan.milliseconds(5),
@@ -164,8 +168,7 @@ describe("close", () => {
     const onInternalError = vi.fn();
     const client = createTestClient({ onInternalError });
     await client.connect();
-    // eslint-disable-next-line dot-notation -- bracket access reaches the private field
-    vi.spyOn(client["cache"], "close").mockRejectedValue(new Error("cache boom"));
+    spyOnCloseOf(client, "cache").mockRejectedValue(new Error("cache boom"));
     await expect(client.close()).rejects.toThrow(AggregateError);
     expect(client.connection.status.variant).toEqual("disabled");
     expect(onInternalError).not.toHaveBeenCalled();
@@ -173,18 +176,18 @@ describe("close", () => {
 
   it("should carry every underlying failure in the rejection", async () => {
     const client = createTestClient();
-    // eslint-disable-next-line dot-notation -- bracket access reaches the private field
-    vi.spyOn(client["conn"], "close").mockRejectedValue(new Error("conn boom"));
-    // eslint-disable-next-line dot-notation -- bracket access reaches the private field
-    vi.spyOn(client["cache"], "close").mockRejectedValue(new Error("cache boom"));
+    spyOnCloseOf(client, "conn").mockRejectedValue(new Error("conn boom"));
+    spyOnCloseOf(client, "cache").mockRejectedValue(new Error("cache boom"));
     const error = await client.close().then(
       () => null,
       (e: unknown) => e,
     );
     assert(error instanceof AggregateError);
-    expect(error.errors.map((e) => (e as Error).message)).toEqual([
-      "conn boom",
-      "cache boom",
-    ]);
+    expect(
+      error.errors.map((e) => {
+        assert(e instanceof Error);
+        return e.message;
+      }),
+    ).toEqual(["conn boom", "cache boom"]);
   });
 });
