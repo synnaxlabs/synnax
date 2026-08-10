@@ -27,12 +27,7 @@ export {
   type WatchEntry,
 } from "@/query/query";
 export { keyListZ, Retriever, type RetrieverParams } from "@/query/retriever";
-export {
-  type Listener,
-  type ObservableStream,
-  type StreamOpener,
-  type StreamOpenerHooks,
-} from "@/query/streamer";
+export { type Listener } from "@/query/streamer";
 export {
   createDeleteListener,
   createFetchListener,
