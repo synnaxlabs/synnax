@@ -170,4 +170,41 @@ describe("auth guard", () => {
     expect(screen.queryByText("Preparing your workspace...")).toBeNull();
     expect(screen.queryByText("authenticated content")).toBeNull();
   });
+
+  it("should disable the retry button while a check is in flight", async () => {
+    const DEAD_KEY = "dead";
+    const { wrapper } = await createSessionConsoleWrapper({
+      client: null,
+      preloadedState: {
+        [Session.Cluster.SLICE_NAME]: {
+          ...Session.Cluster.ZERO_SLICE_STATE,
+          clusters: {
+            [DEAD_KEY]: createCluster(DEAD_KEY, { name: "Dead", port: 9098 }),
+          },
+          selected: DEAD_KEY,
+        },
+      },
+    });
+    render(
+      <Session.SettledProvider>
+        <Auth.Guard>
+          <Auth.ConnectionGuard>
+            <span>authenticated content</span>
+          </Auth.ConnectionGuard>
+        </Auth.Guard>
+      </Session.SettledProvider>,
+      { wrapper },
+    );
+    await screen.findByText("Retry now", {}, { timeout: 10000 });
+    // The scheduled retries raise the same flag, so the assertion starts from a
+    // gap between them rather than from whatever the countdown happens to be doing.
+    await waitFor(
+      () => expect(findButton("Retry now").getAttribute("aria-disabled")).toBeNull(),
+      { timeout: 10000 },
+    );
+    fireEvent.click(findButton("Retry now"));
+    await waitFor(() =>
+      expect(findButton("Retry now").getAttribute("aria-disabled")).toBe("true"),
+    );
+  });
 });
