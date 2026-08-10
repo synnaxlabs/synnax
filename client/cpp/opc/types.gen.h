@@ -80,10 +80,10 @@ struct OutputChannel : public BaseChannel {
 /// @brief ReadConfig configures an OPC UA read task.
 struct ReadConfig : public ::synnax::common::BaseReadConfig {
     /// @brief sample_rate is the per-channel hardware sample rate, in hertz.
-    ::x::telem::Rate sample_rate = x::telem::Rate(50);
+    ::x::telem::Rate sample_rate = ::x::telem::Rate(50);
     /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
     /// hertz.
-    ::x::telem::Rate stream_rate = x::telem::Rate(25);
+    ::x::telem::Rate stream_rate = ::x::telem::Rate(25);
     /// @brief device is the key of the device representing the OPC UA server.
     ::synnax::device::Key device = "";
     /// @brief array_mode is true when each read returns an array of samples per node.

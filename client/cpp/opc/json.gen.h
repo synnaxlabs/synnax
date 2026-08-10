@@ -94,11 +94,11 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ) = ::synnax::common::BaseReadConfig::parse(parser);
     result.sample_rate = parser.field<::x::telem::Rate>(
         "sample_rate",
-        x::telem::Rate(50)
+        ::x::telem::Rate(50)
     );
     result.stream_rate = parser.field<::x::telem::Rate>(
         "stream_rate",
-        x::telem::Rate(25)
+        ::x::telem::Rate(25)
     );
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.array_mode = parser.field<bool>("array_mode", false);

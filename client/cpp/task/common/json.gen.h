@@ -34,7 +34,7 @@ inline x::json::json ConfigRecord::to_json() const {
 inline BaseScanConfig BaseScanConfig::parse(x::json::Parser parser) {
     BaseScanConfig result;
     static_cast<ConfigRecord &>(result) = ConfigRecord::parse(parser);
-    result.rate = parser.field<::x::telem::Rate>("rate", x::telem::Rate(0.200000));
+    result.rate = parser.field<::x::telem::Rate>("rate", ::x::telem::Rate(0.200000));
     result.disabled = parser.field<bool>("disabled", false);
     return result;
 }
