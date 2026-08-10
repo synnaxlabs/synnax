@@ -28,8 +28,7 @@ export const defaultConfig = (): Config => ({
   level: "p",
   inlineSize: 100,
   label: Label.defaultConfig("String Display"),
-  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
-  stalenessColor: color.ZERO,
+  ...Staleness.ZERO_CONFIG,
   telem: telem.streamChannelStringValue({ channel: 0 }),
 });
 

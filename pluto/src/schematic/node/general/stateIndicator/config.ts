@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 
 export const stateMappingZ = z.object({
   key: z.string(),
@@ -29,7 +30,6 @@ export const configZ = Label.labeledConfigZ.extend({
   color: color.crudeZ.optional(),
   inlineSize: z.number().optional(),
   options: z.array(stateMappingZ),
-  stalenessTimeout: z.number().optional(),
-  stalenessColor: color.colorZ.optional(),
+  ...Staleness.configZ.shape,
 });
 export type Config = z.infer<typeof configZ>;

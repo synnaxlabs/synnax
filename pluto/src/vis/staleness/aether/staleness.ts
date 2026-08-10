@@ -100,7 +100,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   schema = Provider.z;
 
   private readonly entries = new Set<Entry>();
-  private interval?: NodeJS.Timeout;
+  private interval?: ReturnType<typeof setInterval>;
   // The interval the running timer was started with. Null until the first sweep starts.
   private sweepInterval: TimeSpan | null = null;
 

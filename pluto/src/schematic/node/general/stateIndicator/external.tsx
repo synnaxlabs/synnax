@@ -28,8 +28,7 @@ export const defaultConfig = (): Config => ({
   inlineSize: 100,
   options: [],
   label: Label.defaultConfig("State Indicator"),
-  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
-  stalenessColor: color.ZERO,
+  ...Staleness.ZERO_CONFIG,
   source: telem.sourcePipeline("number", {
     connections: [],
     segments: { valueStream: telem.streamChannelValue({ channel: 0 }) },

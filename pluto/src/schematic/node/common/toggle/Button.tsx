@@ -27,11 +27,6 @@ export interface ButtonBaseProps extends Omit<
   enabled?: boolean;
   color?: color.Crude;
   onClickDelay?: CrudeTimeSpan;
-  /**
-   * Set when the state source has gone quiet. Symbols that take their whole appearance
-   * from `color` can ignore it; those that do not must show staleness some other way.
-   */
-  stale?: boolean;
 }
 
 export interface ButtonProps extends ButtonBaseProps, OrientableProps {}
@@ -46,9 +41,6 @@ export const Button = ({
   onClick,
   onMouseDown,
   style,
-  // Consumed by symbols that render staleness themselves. Dropped here so it never
-  // reaches the DOM.
-  stale: _stale,
   ...rest
 }: ButtonProps): ReactElement => {
   const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);

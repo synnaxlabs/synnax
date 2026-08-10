@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 
 export const VARIANT = "light" as const;
 
@@ -20,7 +21,6 @@ export const configZ = Label.labeledConfigZ.extend({
   source: telem.booleanSourceSpecZ.optional(),
   color: color.crudeZ.optional(),
   scale: z.number().optional(),
-  stalenessTimeout: z.number().optional(),
-  stalenessColor: color.colorZ.optional(),
+  ...Staleness.configZ.shape,
 });
 export type Config = z.infer<typeof configZ>;

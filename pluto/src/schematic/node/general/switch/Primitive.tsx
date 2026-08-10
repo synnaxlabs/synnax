@@ -27,17 +27,16 @@ export const Switch = ({
   onClick,
   orientation = "left",
   color: colorVal,
-  stale = false,
 }: Props): ReactElement => {
-  const style: CSSProperties | undefined = stale
-    ? { [CSS.var("symbol-color")]: symbolColorVar(colorVal) }
-    : undefined;
+  const colorVar = symbolColorVar(colorVal);
+  const style: CSSProperties | undefined =
+    colorVar != null ? { [CSS.var("symbol-color")]: colorVar } : undefined;
   return (
     <Primitive.Div
       orientation={orientation}
       className={CSS(
-        stale && CSS.B("symbol-colored"),
-        stale && CSS.BM("switch-symbol", "stale"),
+        colorVar != null && CSS.B("symbol-colored"),
+        colorVar != null && CSS.BM("switch-symbol", "colored"),
       )}
       style={style}
     >

@@ -31,8 +31,7 @@ export const defaultConfig = (): Config => ({
   level: "h5",
   inlineSize: 70,
   label: Label.defaultConfig("Value"),
-  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
-  stalenessColor: color.ZERO,
+  ...Staleness.ZERO_CONFIG,
   telem: telem.sourcePipeline("string", {
     connections: [
       { from: "valueStream", to: "rollingAverage" },

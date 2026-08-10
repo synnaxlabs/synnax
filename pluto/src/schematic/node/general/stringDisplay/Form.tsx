@@ -49,7 +49,9 @@ const TelemForm = (): ReactElement => {
           filter={(ch) => ch.dataType.isVariable}
         />
       </Input.Item>
-      <Staleness.Fields />
+      <Flex.Box x>
+        <Staleness.Fields />
+      </Flex.Box>
     </>
   );
 };

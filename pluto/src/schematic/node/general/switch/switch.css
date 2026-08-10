@@ -10,11 +10,11 @@
  */
 
 /*
- * The switch draws itself from the input theme rather than the symbol color, so a stale
- * switch paints its own track and knob. On fills the track. Off tints the track and
- * paints the knob, which keeps the two stale states apart.
+ * The switch draws itself from the input theme, so a colored switch paints its own
+ * track and knob. On fills the track. Off tints the track and paints the knob, which
+ * keeps the two states apart.
  */
-.pluto-switch-symbol--stale {
+.pluto-switch-symbol--colored {
     .pluto-input__switch-indicator {
         background: oklch(from var(--pluto-symbol-display) l c h / 25%);
     }

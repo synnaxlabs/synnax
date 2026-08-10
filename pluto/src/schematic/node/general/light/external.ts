@@ -26,8 +26,7 @@ export const defaultConfig = (): Config => ({
   scale: 1,
   color: color.ZERO,
   label: Label.defaultConfig("Light"),
-  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
-  stalenessColor: color.ZERO,
+  ...Staleness.ZERO_CONFIG,
   source: telem.sourcePipeline("boolean", {
     connections: [{ from: "valueStream", to: "threshold" }],
     segments: {

@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
+import { Staleness } from "@/vis/staleness";
 
 export const VARIANT = "gauge" as const;
 
@@ -23,8 +24,7 @@ export const configZ = Label.labeledConfigZ.extend({
   barWidth: z.number().optional(),
   telem: telem.stringSourceSpecZ.optional(),
   precision: z.number().optional(),
-  stalenessTimeout: z.number().optional(),
-  stalenessColor: color.colorZ.optional(),
+  ...Staleness.configZ.shape,
   minWidth: z.number().optional(),
   width: z.number().optional(),
   notation: notation.notationZ.optional(),

@@ -28,8 +28,7 @@ export const toggleConfigZ = Label.labeledConfigZ.extend({
   control: Control.stateConfigZ.optional(),
   onClickDelay: z.number().optional(),
   color: color.crudeZ.optional(),
-  stalenessTimeout: z.number().optional(),
-  stalenessColor: color.colorZ.optional(),
+  ...Staleness.configZ.shape,
 });
 export type ToggleConfig = z.infer<typeof toggleConfigZ>;
 
@@ -56,8 +55,7 @@ export const ZERO_TOGGLE_DEFAULTS: Partial<ToggleConfig> = {
   sink: ZERO_BOOLEAN_SINK,
   control: { show: true },
   onClickDelay: 0,
-  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
-  stalenessColor: color.ZERO,
+  ...Staleness.ZERO_CONFIG,
 };
 
 export const ZERO_DUMMY_TOGGLE_DEFAULTS: Partial<DummyToggleConfig> = {
@@ -117,7 +115,6 @@ export const createToggle = <C extends ToggleConfig>(
           onClick={toggle}
           onClickDelay={onClickDelay}
           orientation={orientation}
-          stale={stale}
           color={stale ? Staleness.resolveColor(stalenessColor, theme) : symbolColor}
           {...rest}
         />

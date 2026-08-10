@@ -11,31 +11,25 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Theming } from "@/theming";
 import { staleness } from "@/vis/staleness/aether";
 
-export interface FieldsProps {
-  /** Prefix the staleness keys sit under. Defaults to the form root. */
-  path?: string;
-}
-
 /**
  * Fields edits the color a component takes on, and the delay before it does, once its
- * source stops sending. Both fields carry a default so they still render on a symbol
+ * source stops sending. It renders as a pair of siblings, so the caller places it in a
+ * row of its own choosing. Both fields carry a default so they still render on a symbol
  * saved before it gained staleness config.
  */
-export const Fields = ({ path = "" }: FieldsProps): ReactElement => {
+export const Fields = (): ReactElement => {
   const theme = Theming.use();
-  const prefix = path.length === 0 ? "" : `${path}.`;
   return (
-    <Flex.Box x>
+    <>
       <Form.Field<color.Crude>
         label="Stale color"
         align="start"
         padHelpText={false}
-        path={`${prefix}stalenessColor`}
+        path="stalenessColor"
         defaultValue={color.ZERO}
       >
         {({ value, onChange }) => (
@@ -47,13 +41,13 @@ export const Fields = ({ path = "" }: FieldsProps): ReactElement => {
         )}
       </Form.Field>
       <Form.NumericField
-        path={`${prefix}stalenessTimeout`}
+        path="stalenessTimeout"
         label="Stale timeout"
         padHelpText={false}
         defaultValue={staleness.DEFAULT_TIMEOUT}
         inputProps={INPUT_PROPS}
       />
-    </Flex.Box>
+    </>
   );
 };
 

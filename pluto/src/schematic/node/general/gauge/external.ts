@@ -29,8 +29,7 @@ export const defaultConfig = (): Config => ({
   bounds: bounds.construct(0, 100),
   barWidth: 10,
   label: Label.defaultConfig("Gauge"),
-  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
-  stalenessColor: color.ZERO,
+  ...Staleness.ZERO_CONFIG,
   telem: telem.sourcePipeline("string", {
     connections: [
       { from: "valueStream", to: "rollingAverage" },
