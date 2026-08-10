@@ -19,10 +19,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-// ephemeralAddress binds to a port the operating system chooses, so parallel suites
-// never contend for the same one.
-const ephemeralAddress address.Address = "localhost:0"
-
 type Builder struct {
 	TmpDirs        map[aspen.NodeKey]string
 	Nodes          map[aspen.NodeKey]NodeInfo
@@ -60,7 +56,7 @@ func (b *Builder) New(ctx context.Context, opts ...aspen.Option) (*aspen.DB, err
 	db, err := aspen.Open(
 		ctx,
 		dir,
-		ephemeralAddress,
+		"localhost:0",
 		b.peerAddresses,
 		append(b.DefaultOptions, opts...)...)
 	if err != nil {

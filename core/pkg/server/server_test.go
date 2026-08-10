@@ -10,7 +10,7 @@
 package server_test
 
 import (
-	stdnet "net"
+	"net"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,7 +35,7 @@ var _ = Describe("Server", func() {
 			addr := s.Addresses()[0]
 			Expect(addr.Host()).To(Equal("localhost"))
 			Expect(addr.Port()).ToNot(BeZero())
-			Expect(MustSucceed(stdnet.Dial("tcp", addr.String())).Close()).To(Succeed())
+			Expect(MustSucceed(net.Dial("tcp", addr.String())).Close()).To(Succeed())
 		})
 	})
 })

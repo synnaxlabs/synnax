@@ -11,7 +11,7 @@ package aspen_test
 
 import (
 	"context"
-	stdnet "net"
+	"net"
 	"sync"
 	"time"
 
@@ -30,7 +30,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			db := MustSucceed(aspen.Open(
 				ctx,
 				"",
-				ephemeralAddress,
+				"localhost:0",
 				[]aspen.Address{},
 				aspen.Bootstrap(),
 				aspen.InMemory(),
@@ -51,11 +51,12 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		It(
 			"Should correctly bootstrap a cluster with peers provided",
 			func(ctx SpecContext) {
+				// Bootstrapping discards the peers, so port 1 never has to answer.
 				db := MustSucceed(aspen.Open(
 					ctx,
 					"",
-					ephemeralAddress,
-					[]aspen.Address{unreachableAddress},
+					"localhost:0",
+					[]aspen.Address{"localhost:1"},
 					aspen.InMemory(),
 					aspen.Bootstrap(),
 				))
@@ -73,7 +74,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				wg.Add(1)
 				// The pledging node must know where the bootstrapper will be before the
 				// bootstrapper opens, so hold the address until it is needed.
-				reserved := MustSucceed(stdnet.Listen("tcp", ephemeralAddress.String()))
+				reserved := MustSucceed(net.Listen("tcp", "localhost:0"))
 				bootstrapAddr := address.Address(reserved.Addr().String())
 				go func() {
 					defer GinkgoRecover()
@@ -83,7 +84,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					db := MustSucceed(aspen.Open(
 						ctx,
 						"",
-						ephemeralAddress,
+						"localhost:0",
 						[]aspen.Address{bootstrapAddr},
 						aspen.InMemory(),
 					))
@@ -120,7 +121,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				bootstrapper := MustSucceed(aspen.Open(
 					ctx,
 					"",
-					ephemeralAddress,
+					"localhost:0",
 					[]aspen.Address{},
 					aspen.InMemory(),
 					aspen.Bootstrap(),
@@ -139,7 +140,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 						db := MustSucceed(aspen.Open(
 							ctx,
 							"",
-							ephemeralAddress,
+							"localhost:0",
 							peers,
 							aspen.InMemory(),
 						))

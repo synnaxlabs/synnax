@@ -11,7 +11,7 @@ package server_test
 
 import (
 	"crypto/tls"
-	stdnet "net"
+	"net"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,13 +22,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/address"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("MultiListener", func() {
 	It("Should present each listener's own certificate", func() {
-		fs := xfs.NewMem()
+		fs := fs.NewMem()
 		mock.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			LoaderConfig: cert.LoaderConfig{FS: fs},
@@ -59,10 +59,10 @@ var _ = Describe("MultiListener", func() {
 	It("Should close earlier listeners when a later listener fails to bind", func() {
 		// The server binds every interface, so the port must be occupied the same way
 		// for the second listener to collide with it.
-		occupied := MustSucceed(stdnet.Listen("tcp", ":0"))
+		occupied := MustSucceed(net.Listen("tcp", ":0"))
 		defer func() { Expect(occupied.Close()).To(Succeed()) }()
 		occupiedAddr := address.Newf(
-			"localhost:%d", occupied.Addr().(*stdnet.TCPAddr).Port,
+			"localhost:%d", occupied.Addr().(*net.TCPAddr).Port,
 		)
 		Expect(server.Serve(server.Config{
 			Debug:    new(false),
