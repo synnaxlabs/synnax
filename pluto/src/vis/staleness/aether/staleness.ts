@@ -15,19 +15,23 @@ import { type theming } from "@/theming/aether";
 
 const CONTEXT_KEY = "pluto-vis-staleness";
 
-/// Seconds without a sample before a source is considered stale.
+/** Seconds without a sample before a source is considered stale. */
 export const DEFAULT_TIMEOUT = 5;
 
-/// configZ carries the staleness config every source-backed component adds to its own
-/// state. Components that resolve the stale color on the worker add stalenessColor
-/// themselves; DOM-rendered ones read it from their config instead.
+/**
+ * configZ carries the staleness config every source-backed component adds to its own
+ * state. Components that resolve the stale color on the worker add stalenessColor
+ * themselves; DOM-rendered ones read it from their config instead.
+ */
 export const configZ = z.object({
   stalenessTimeout: z.number().default(DEFAULT_TIMEOUT),
 });
 
-/// stateZ adds the reported staleness, which crosses to the DOM on every transition.
-/// Extend it only when the DOM half renders the stale state. A component that draws on
-/// the worker extends configZ and keeps staleness in its internal state.
+/**
+ * stateZ adds the reported staleness, which crosses to the DOM on every transition.
+ * Extend it only when the DOM half renders the stale state. A component that draws on
+ * the worker extends configZ and keeps staleness in its internal state.
+ */
 export const stateZ = configZ.extend({
   // stale reports that no sample has arrived within stalenessTimeout.
   stale: z.boolean().default(false),

@@ -19,7 +19,7 @@ import { type Config } from "@/schematic/node/general/stringDisplay/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
-import { staleness } from "@/vis/staleness/aether";
+import { Staleness } from "@/vis/staleness";
 
 interface RenderProps extends Omit<Config, "label" | "variant"> {
   className?: string;
@@ -47,7 +47,7 @@ export const StringDisplay = ({
   );
   const theme = Theming.use();
   const resolvedTextColor = stale
-    ? staleness.resolveColor(stalenessColor, theme)
+    ? Staleness.resolveColor(stalenessColor, theme)
     : textColor;
   return (
     <Primitive.Div

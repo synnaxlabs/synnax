@@ -84,7 +84,7 @@ export class Toggle
 
   afterDelete(): void {
     this.internal.stopListening?.();
-    this.internal.staleness?.cleanup();
+    this.internal.staleness.cleanup();
     this.internal.source.cleanup?.();
     this.internal.sink.cleanup?.();
   }

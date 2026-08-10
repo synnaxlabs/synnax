@@ -16,7 +16,7 @@ import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive
 import { type NodeProps } from "@/schematic/node/spec";
 import { Theming } from "@/theming";
 import { Light as BaseLight } from "@/vis/light";
-import { staleness } from "@/vis/staleness/aether";
+import { Staleness } from "@/vis/staleness";
 
 export const Symbol = ({
   nodeKey,
@@ -51,7 +51,7 @@ export const Symbol = ({
       <Light
         enabled={enabled}
         orientation={orientation}
-        color={stale ? staleness.resolveColor(stalenessColor, theme) : color}
+        color={stale ? Staleness.resolveColor(stalenessColor, theme) : color}
         {...rest}
       />
     </Grid.Grid>

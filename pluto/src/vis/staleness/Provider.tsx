@@ -13,7 +13,8 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Aether } from "@/aether";
 import { staleness } from "@/vis/staleness/aether";
 
-// A quarter second keeps the reporting error small against timeouts measured in seconds.
+// A quarter second keeps the reporting error small against timeouts measured in
+// seconds.
 const DEFAULT_SWEEP_INTERVAL = TimeSpan.milliseconds(250);
 
 export interface ProviderProps extends PropsWithChildren {

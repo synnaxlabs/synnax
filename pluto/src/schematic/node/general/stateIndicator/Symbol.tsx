@@ -15,7 +15,7 @@ import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Theming } from "@/theming";
-import { staleness } from "@/vis/staleness/aether";
+import { Staleness } from "@/vis/staleness";
 import { StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 
 export const Symbol = ({
@@ -53,7 +53,7 @@ export const Symbol = ({
         options={options}
         color={color}
         inlineSize={inlineSize}
-        staleColor={stale ? staleness.resolveColor(stalenessColor, theme) : undefined}
+        staleColor={stale ? Staleness.resolveColor(stalenessColor, theme) : undefined}
       />
     </Grid.Grid>
   );

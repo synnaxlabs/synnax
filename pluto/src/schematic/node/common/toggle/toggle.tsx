@@ -19,7 +19,7 @@ import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Theming } from "@/theming";
-import { staleness } from "@/vis/staleness/aether";
+import { Staleness } from "@/vis/staleness";
 import { Toggle as Base } from "@/vis/toggle";
 
 export const toggleConfigZ = Label.labeledConfigZ.extend({
@@ -56,7 +56,7 @@ export const ZERO_TOGGLE_DEFAULTS: Partial<ToggleConfig> = {
   sink: ZERO_BOOLEAN_SINK,
   control: { show: true },
   onClickDelay: 0,
-  stalenessTimeout: staleness.DEFAULT_TIMEOUT,
+  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
   stalenessColor: color.ZERO,
 };
 
@@ -118,7 +118,7 @@ export const createToggle = <C extends ToggleConfig>(
           onClickDelay={onClickDelay}
           orientation={orientation}
           stale={stale}
-          color={stale ? staleness.resolveColor(stalenessColor, theme) : symbolColor}
+          color={stale ? Staleness.resolveColor(stalenessColor, theme) : symbolColor}
           {...rest}
         />
       </Grid.Grid>

@@ -16,7 +16,7 @@ import { Gauge } from "@/schematic/node/general/gauge/Primitive";
 import { Symbol } from "@/schematic/node/general/gauge/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { staleness } from "@/vis/staleness/aether";
+import { Staleness } from "@/vis/staleness";
 
 export * from "@/schematic/node/general/gauge/config";
 
@@ -29,7 +29,7 @@ export const defaultConfig = (): Config => ({
   bounds: bounds.construct(0, 100),
   barWidth: 10,
   label: Label.defaultConfig("Gauge"),
-  stalenessTimeout: staleness.DEFAULT_TIMEOUT,
+  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
   stalenessColor: color.ZERO,
   telem: telem.sourcePipeline("string", {
     connections: [

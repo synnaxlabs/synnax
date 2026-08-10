@@ -66,7 +66,7 @@ export class StringValue
   afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
-    i.staleness?.cleanup();
+    i.staleness.cleanup();
     i.source.cleanup?.();
   }
 }

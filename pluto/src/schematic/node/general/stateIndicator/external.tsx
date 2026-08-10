@@ -17,7 +17,7 @@ import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitiv
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { staleness } from "@/vis/staleness/aether";
+import { Staleness } from "@/vis/staleness";
 
 export * from "@/schematic/node/general/stateIndicator/config";
 
@@ -28,7 +28,7 @@ export const defaultConfig = (): Config => ({
   inlineSize: 100,
   options: [],
   label: Label.defaultConfig("State Indicator"),
-  stalenessTimeout: staleness.DEFAULT_TIMEOUT,
+  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
   stalenessColor: color.ZERO,
   source: telem.sourcePipeline("number", {
     connections: [],

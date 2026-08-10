@@ -88,6 +88,7 @@ export { Diagram } from "@/vis/diagram";
 export { Eraser } from "@/vis/eraser";
 export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
+export { Staleness } from "@/vis/staleness";
 export { Value } from "@/vis/value";
 export {
   type CrudeDataType,
