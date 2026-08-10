@@ -17,12 +17,13 @@
 
 namespace synnax::common {
 
-struct BaseConfig;
+struct BaseStartConfig;
 struct BaseReadConfig;
 struct BaseWriteConfig;
 
-/// @brief BaseConfig carries the configuration fields shared by every hardware task.
-struct BaseConfig {
+/// @brief BaseStartConfig carries the configuration fields shared by every hardware
+/// task.
+struct BaseStartConfig {
     /// @brief auto_start is true when the task should start as soon as it is
     /// configured.
     bool auto_start = false;
@@ -30,13 +31,13 @@ struct BaseConfig {
     /// disk.
     bool data_saving_disabled = false;
 
-    static BaseConfig parse(x::json::Parser parser);
+    static BaseStartConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief BaseReadConfig carries the configuration fields shared by hardware
 /// acquisition tasks.
-struct BaseReadConfig : public BaseConfig {
+struct BaseReadConfig : public BaseStartConfig {
     /// @brief sample_rate is the per-channel hardware sample rate, in hertz.
     ::x::telem::Rate sample_rate = ::x::telem::Rate(10);
     /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
@@ -49,7 +50,7 @@ struct BaseReadConfig : public BaseConfig {
 
 /// @brief BaseWriteConfig carries the configuration fields shared by hardware control
 /// tasks.
-struct BaseWriteConfig : public BaseConfig {
+struct BaseWriteConfig : public BaseStartConfig {
     /// @brief device is the key of the device the task writes to.
     ::synnax::device::Key device = "";
 
