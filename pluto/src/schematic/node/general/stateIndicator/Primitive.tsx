@@ -23,7 +23,7 @@ import { Theming } from "@/theming";
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   matchedOptionKey?: string | null;
-  /** Overrides the matched option's color while the state channel is stale. */
+  /** Colors the label while the state channel is stale. */
   staleColor?: color.Crude;
 }
 
@@ -37,15 +37,14 @@ export const StateIndicator = ({
   staleColor,
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
-  const stateColor = staleColor ?? matched?.color;
-  const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
+  const stateColor = matched?.color;
+  const backgroundColor = color.cssString(stateColor);
   const theme = Theming.use();
-  const textColor =
+  const legible =
     stateColor != null
-      ? color.cssString(
-          color.pickByContrast(stateColor, theme.colors.gray.l0, theme.colors.gray.l11),
-        )
+      ? color.pickByContrast(stateColor, theme.colors.gray.l0, theme.colors.gray.l11)
       : undefined;
+  const textColor = color.cssString(staleColor ?? legible);
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   const style = useMemo<CSSProperties>(
     () => ({
