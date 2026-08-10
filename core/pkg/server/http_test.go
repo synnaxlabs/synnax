@@ -22,8 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/server"
-	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -35,10 +33,8 @@ var _ = Describe("HTTP", func() {
 			req++
 			return req, nil
 		})
-		port := MustSucceed(net.FindOpenPort())
-		addr := address.Newf("localhost:%d", port)
-		MustOpen(server.Serve(server.Config{
-			Listeners: []server.Listener{{Address: addr}},
+		srv := MustOpen(server.Serve(server.Config{
+			Listeners: []server.Listener{{Address: "localhost:0"}},
 			Security:  server.SecurityConfig{Insecure: new(true)},
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
@@ -47,7 +43,7 @@ var _ = Describe("HTTP", func() {
 				},
 			},
 		}))
-		url := "http://" + addr.String() + "/basic"
+		url := "http://" + srv.Addresses()[0].String() + "/basic"
 		body := MustSucceed(json.Marshal(1))
 		req := MustSucceed(http.NewRequestWithContext(
 			ctx, http.MethodPost, url, bytes.NewReader(body),

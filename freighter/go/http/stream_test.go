@@ -23,25 +23,19 @@ import (
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// serveRouter serves the router on an open port, returning once the app is answering
-// requests. All servers must be registered on the router first.
+// serveRouter serves the router on an ephemeral port, returning once the app is
+// answering requests. All servers must be registered on the router first.
 func serveRouter(router *fhttp.Router) (*fiber.App, address.Address) {
-	addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
+	GinkgoHelper()
 	app := newFiberApp(fiber.Config{})
 	app.Get("/health", func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
 	router.BindTo(app)
-	go func() {
-		defer GinkgoRecover()
-		Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-			DisableStartupMessage: true,
-		})).To(Succeed())
-	}()
+	addr := serveApp(app)
 	Eventually(func(g Gomega) {
 		g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
 	}).WithPolling(time.Millisecond).Should(Succeed())

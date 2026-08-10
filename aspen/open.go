@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/service"
@@ -57,6 +58,16 @@ func Open(
 	if err = configureTransport(o); !ok(err, nil) {
 		return nil, err
 	}
+	// configureTransport binds the address, and nothing registers the transport as a
+	// closer until it serves. Release the address if an intervening step fails.
+	defer func() {
+		if err != nil {
+			err = errors.Combine(err, o.transport.Close())
+		}
+	}()
+	// The transport binds in configureTransport, so this is the first point at which an
+	// operating system assigned port is known.
+	o.cluster.HostAddress = o.transport.Address()
 	if db.Cluster, err = cluster.Open(ctx, o.cluster); !ok(err, db.Cluster) {
 		return nil, err
 	}

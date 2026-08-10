@@ -28,7 +28,7 @@ var _ = Describe("Open", func() {
 		db1 = MustSucceed(aspen.Open(
 			context.Background(),
 			"",
-			"localhost:22646",
+			ephemeralAddress,
 			[]address.Address{},
 			aspen.Bootstrap(),
 			aspen.InMemory(),
@@ -37,8 +37,8 @@ var _ = Describe("Open", func() {
 		db2 = MustSucceed(aspen.Open(
 			context.Background(),
 			"",
-			"localhost:22647",
-			[]address.Address{"localhost:22646"},
+			ephemeralAddress,
+			[]address.Address{db1.Cluster.Host().Address},
 			aspen.InMemory(),
 			aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 		))

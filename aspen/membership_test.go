@@ -11,6 +11,7 @@ package aspen_test
 
 import (
 	"context"
+	stdnet "net"
 	"sync"
 	"time"
 
@@ -20,7 +21,6 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/mock"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -30,7 +30,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			db := MustSucceed(aspen.Open(
 				ctx,
 				"",
-				"localhost:22546",
+				ephemeralAddress,
 				[]aspen.Address{},
 				aspen.Bootstrap(),
 				aspen.InMemory(),
@@ -51,12 +51,11 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		It(
 			"Should correctly bootstrap a cluster with peers provided",
 			func(ctx SpecContext) {
-				addr1 := address.Newf("localhost:%v", MustSucceed(net.FindOpenPort()))
 				db := MustSucceed(aspen.Open(
 					ctx,
 					"",
-					addr1,
-					[]aspen.Address{"localhost:22547"},
+					ephemeralAddress,
+					[]aspen.Address{unreachableAddress},
 					aspen.InMemory(),
 					aspen.Bootstrap(),
 				))
@@ -72,8 +71,10 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			func(ctx SpecContext) {
 				wg := sync.WaitGroup{}
 				wg.Add(1)
-				addr1 := address.Newf("localhost:%v", MustSucceed(net.FindOpenPort()))
-				addr2 := address.Newf("localhost:%v", MustSucceed(net.FindOpenPort()))
+				// The pledging node must know where the bootstrapper will be before the
+				// bootstrapper opens, so hold the address until it is needed.
+				reserved := MustSucceed(stdnet.Listen("tcp", ephemeralAddress.String()))
+				bootstrapAddr := address.Address(reserved.Addr().String())
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
@@ -82,8 +83,8 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					db := MustSucceed(aspen.Open(
 						ctx,
 						"",
-						addr1,
-						[]aspen.Address{addr2},
+						ephemeralAddress,
+						[]aspen.Address{bootstrapAddr},
 						aspen.InMemory(),
 					))
 					defer func() { Expect(db.Close()).To(Succeed()) }()
@@ -91,10 +92,11 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					By("Assigning a unique Name of 2")
 					Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(2)))
 				}()
+				Expect(reserved.Close()).To(Succeed())
 				db := MustSucceed(aspen.Open(
 					ctx,
 					"",
-					addr2,
+					bootstrapAddr,
 					[]aspen.Address{},
 					aspen.InMemory(),
 					aspen.Bootstrap(),
@@ -114,28 +116,32 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		It(
 			"Should correctly join many nodes to the cluster concurrently",
 			func(ctx SpecContext) {
-				numNodes := 10
+				numPledges := 9
+				bootstrapper := MustSucceed(aspen.Open(
+					ctx,
+					"",
+					ephemeralAddress,
+					[]aspen.Address{},
+					aspen.InMemory(),
+					aspen.Bootstrap(),
+				))
+				peers := []aspen.Address{bootstrapper.Cluster.Host().Address}
 				wg := sync.WaitGroup{}
-				wg.Add(numNodes)
+				wg.Add(numPledges)
 				var (
-					addresses = address.NewLocalFactory(22546).NextN(numNodes)
-					ids       = make([]aspen.NodeKey, numNodes)
-					dbs       = make([]*aspen.DB, numNodes)
+					ids = make([]aspen.NodeKey, numPledges)
+					dbs = make([]*aspen.DB, numPledges)
 				)
-				for i := range numNodes {
+				for i := range numPledges {
 					go func(i int) {
 						defer GinkgoRecover()
 						defer wg.Done()
-						opts := []aspen.Option{aspen.InMemory()}
-						if i == 0 {
-							opts = append(opts, aspen.Bootstrap())
-						}
 						db := MustSucceed(aspen.Open(
 							ctx,
 							"",
-							addresses[i],
-							addresses,
-							opts...,
+							ephemeralAddress,
+							peers,
+							aspen.InMemory(),
 						))
 						ids[i] = db.Cluster.HostKey()
 						dbs[i] = db
@@ -144,9 +150,11 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				wg.Wait()
 
 				By("Assigning a unique Name to each node")
+				ids = append(ids, bootstrapper.Cluster.HostKey())
 				Expect(lo.Uniq(ids)).To(HaveLen(len(ids)))
 
 				By("Safely closing the database")
+				Expect(bootstrapper.Close()).To(Succeed())
 				for _, db := range dbs {
 					Expect(db.Close()).To(Succeed())
 				}
@@ -166,8 +174,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 							ClusterGossipInterval: 50 * time.Millisecond,
 						}
 						builder := &mock.Builder{
-							PortRangeStart: 22546,
-							DataDir:        "./testdata",
+							DataDir: "./testdata",
 							DefaultOptions: []aspen.Option{
 								aspen.WithPropagationConfig(propConfig),
 							},

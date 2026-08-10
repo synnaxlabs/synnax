@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/address"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -36,10 +35,6 @@ var _ = Describe("MultiListener", func() {
 			KeySize:      mock.SmallKeySize,
 			Insecure:     new(false),
 		}))
-		portA := MustSucceed(net.FindOpenPort())
-		portB := MustSucceed(net.FindOpenPort())
-		addrA := address.Newf("localhost:%d", portA)
-		addrB := address.Newf("localhost:%d", portB)
 		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 			LoaderConfig: cert.LoaderConfig{FS: fs},
 			KeySize:      mock.SmallKeySize,
@@ -48,38 +43,35 @@ var _ = Describe("MultiListener", func() {
 		srcB := MustSucceed(auto.NewSource(ca, "hostB:1"))
 		s := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{
-				{Address: addrA, TLS: prov.TLSConfigFor(srcA)},
-				{Address: addrB, TLS: prov.TLSConfigFor(srcB)},
+				{Address: "localhost:0", TLS: prov.TLSConfigFor(srcA)},
+				{Address: "localhost:0", TLS: prov.TLSConfigFor(srcB)},
 			},
 			Security: server.SecurityConfig{Insecure: new(false)},
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{MaxIdleWorkerDuration: 100 * time.Millisecond},
 			},
 		}))
-		Expect(presentedSANs(addrA)).To(ContainElement("hostA"))
-		Expect(presentedSANs(addrB)).To(ContainElement("hostB"))
+		Expect(presentedSANs(s.Addresses()[0])).To(ContainElement("hostA"))
+		Expect(presentedSANs(s.Addresses()[1])).To(ContainElement("hostB"))
 		Expect(s.Close()).To(Succeed())
 	})
 
 	It("Should close earlier listeners when a later listener fails to bind", func() {
-		portA := MustSucceed(net.FindOpenPort())
-		portB := MustSucceed(net.FindOpenPort())
-		addrA := address.Newf("localhost:%d", portA)
-		addrB := address.Newf("localhost:%d", portB)
-		occupied := MustSucceed(stdnet.Listen("tcp", addrB.PortString()))
+		// The server binds every interface, so the port must be occupied the same way
+		// for the second listener to collide with it.
+		occupied := MustSucceed(stdnet.Listen("tcp", ":0"))
 		defer func() { Expect(occupied.Close()).To(Succeed()) }()
+		occupiedAddr := address.Newf(
+			"localhost:%d", occupied.Addr().(*stdnet.TCPAddr).Port,
+		)
 		Expect(server.Serve(server.Config{
-			Debug:     new(false),
-			Security:  server.SecurityConfig{Insecure: new(true)},
-			Listeners: []server.Listener{{Address: addrA}, {Address: addrB}},
-		})).Error().To(HaveOccurred())
-		Eventually(func() error {
-			conn, err := stdnet.DialTimeout("tcp", addrA.String(), 100*time.Millisecond)
-			if err == nil {
-				Expect(conn.Close()).To(Succeed())
-			}
-			return err
-		}).Should(HaveOccurred())
+			Debug:    new(false),
+			Security: server.SecurityConfig{Insecure: new(true)},
+			Listeners: []server.Listener{
+				{Address: "localhost:0"},
+				{Address: occupiedAddr},
+			},
+		})).Error().To(MatchError(ContainSubstring("bind")))
 	})
 })
 

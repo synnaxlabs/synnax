@@ -21,7 +21,7 @@ import (
 var _ = Describe("Grpc", func() {
 	It("Should start a grpc server", func() {
 		b := MustSucceed(server.Serve(server.Config{
-			Listeners: []server.Listener{{Address: "localhost:26260"}},
+			Listeners: []server.Listener{{Address: "localhost:0"}},
 			Security: server.SecurityConfig{
 				Insecure: new(true),
 			},

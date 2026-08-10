@@ -60,6 +60,7 @@ type transport struct {
 	recoveryServer    *mock.StreamServer[kv.RecoveryRequest, kv.RecoveryResponse]
 	recoveryClient    *mock.StreamClient[kv.RecoveryRequest, kv.RecoveryResponse]
 	pendingMiddleware []freighter.Middleware
+	addr              address.Address
 }
 
 // Configure implements aspen.transport.
@@ -80,12 +81,15 @@ func (t *transport) Configure(
 	t.feedbackClient = t.net.feedback.UnaryClient()
 	t.recoveryServer = t.net.recovery.StreamServer(addr)
 	t.recoveryClient = t.net.recovery.StreamClient()
+	t.addr = addr
 	if len(t.pendingMiddleware) > 0 {
 		t.applyMiddleware(t.pendingMiddleware...)
 		t.pendingMiddleware = nil
 	}
 	return nil
 }
+
+func (t *transport) Address() address.Address { return t.addr }
 
 func (t *transport) Serve() error { return nil }
 

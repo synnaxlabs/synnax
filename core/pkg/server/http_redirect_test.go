@@ -40,7 +40,7 @@ var _ = Describe("HttpRedirect", func() {
 		received := false
 		b := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{{
-				Address: "localhost:26260",
+				Address: "localhost:0",
 				TLS:     prov.TLSConfigFor(src),
 			}},
 			Security: server.SecurityConfig{Insecure: new(false)},
@@ -60,7 +60,7 @@ var _ = Describe("HttpRedirect", func() {
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 		client := &http.Client{Transport: tr}
-		resp, err := client.Get("http://localhost:26260")
+		resp, err := client.Get("http://" + b.Addresses()[0].String())
 		Expect(err).To(Succeed())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(received).To(BeTrue())

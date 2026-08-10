@@ -14,7 +14,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/aspen"
 	. "github.com/synnaxlabs/x/testutil"
+)
+
+const (
+	// ephemeralAddress binds to a port the operating system chooses, so parallel
+	// suites never contend for the same one.
+	ephemeralAddress aspen.Address = "localhost:0"
+	// unreachableAddress never accepts a connection. Port 1 needs privileges no test
+	// process has.
+	unreachableAddress aspen.Address = "localhost:1"
 )
 
 func TestAspen(t *testing.T) {

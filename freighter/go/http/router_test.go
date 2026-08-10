@@ -20,10 +20,8 @@ import (
 	"github.com/synnaxlabs/freighter"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/test"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/json"
 	xhttp "github.com/synnaxlabs/x/http"
-	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -134,7 +132,6 @@ var _ = Describe("Router", func() {
 		It(
 			"should register a unary route on the bound fiber app",
 			func(specCtx SpecContext) {
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
 				router := MustSucceed(fhttp.NewRouter())
 				server := fhttp.NewUnaryServer[test.Request, test.Response](
@@ -147,12 +144,7 @@ var _ = Describe("Router", func() {
 					},
 				)
 				router.BindTo(app)
-				go func() {
-					defer GinkgoRecover()
-					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-						DisableStartupMessage: true,
-					})).To(Succeed())
-				}()
+				addr := serveApp(app)
 				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 
 				Eventually(func(g Gomega) {
@@ -180,7 +172,6 @@ var _ = Describe("Router", func() {
 		It(
 			"should cancel in-flight streams when the bound fiber app shuts down",
 			func(specCtx SpecContext) {
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 				app := newFiberApp(fiber.Config{})
 				router := MustSucceed(fhttp.NewRouter())
 
@@ -201,12 +192,7 @@ var _ = Describe("Router", func() {
 				})
 				router.BindTo(app)
 
-				go func() {
-					defer GinkgoRecover()
-					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-						DisableStartupMessage: true,
-					})).To(Succeed())
-				}()
+				addr := serveApp(app)
 
 				Eventually(func(g Gomega) {
 					g.Expect(
@@ -233,7 +219,6 @@ var _ = Describe("Router", func() {
 		It(
 			"should install middleware on every server registered before the call",
 			func(specCtx SpecContext) {
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
 				router := MustSucceed(fhttp.NewRouter())
 
@@ -256,12 +241,7 @@ var _ = Describe("Router", func() {
 				}))
 				router.BindTo(app)
 
-				go func() {
-					defer GinkgoRecover()
-					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-						DisableStartupMessage: true,
-					})).To(Succeed())
-				}()
+				addr := serveApp(app)
 				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 				Eventually(func(g Gomega) {
 					g.Expect(
@@ -289,7 +269,6 @@ var _ = Describe("Router", func() {
 		It(
 			"should not install middleware on servers registered after the call",
 			func(specCtx SpecContext) {
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
 				router := MustSucceed(fhttp.NewRouter())
 
@@ -312,12 +291,7 @@ var _ = Describe("Router", func() {
 				)
 				router.BindTo(app)
 
-				go func() {
-					defer GinkgoRecover()
-					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-						DisableStartupMessage: true,
-					})).To(Succeed())
-				}()
+				addr := serveApp(app)
 				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 				Eventually(func(g Gomega) {
 					g.Expect(
@@ -348,7 +322,6 @@ var _ = Describe("Router", func() {
 		It(
 			"should chain multiple middlewares in registration order",
 			func(specCtx SpecContext) {
-				addr := address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
 				router := MustSucceed(fhttp.NewRouter())
 
@@ -381,12 +354,7 @@ var _ = Describe("Router", func() {
 				)
 				router.BindTo(app)
 
-				go func() {
-					defer GinkgoRecover()
-					Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-						DisableStartupMessage: true,
-					})).To(Succeed())
-				}()
+				addr := serveApp(app)
 				DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 				Eventually(func(g Gomega) {
 					g.Expect(

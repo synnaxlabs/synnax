@@ -279,8 +279,12 @@ type Transport struct {
 	recServer      *recoveryServer
 	recClient      *recoveryClient
 	server         *grpc.Server
-	addr           address.Address
-	shutdown       io.Closer
+	// lis is the listener Configure bound. It is nil for an external transport.
+	lis net.Listener
+	// addr is the address lis bound to, which differs from the configured address
+	// when the caller asked for an operating system assigned port.
+	addr     address.Address
+	shutdown io.Closer
 }
 
 var _ transport.Transport = (*Transport)(nil)
@@ -342,6 +346,7 @@ func (t *Transport) Configure(
 	ins alamos.Instrumentation,
 	external bool,
 ) error {
+	t.addr = addr
 	if external {
 		return nil
 	}
@@ -350,7 +355,12 @@ func (t *Transport) Configure(
 		grpc.ChainStreamInterceptor(fgrpc.RecoveryStreamServerInterceptor(ins)),
 	)
 	t.BindTo(t.server)
-	t.addr = addr
+	lis, err := net.Listen("tcp", addr.String())
+	if err != nil {
+		return err
+	}
+	t.lis = lis
+	t.addr = address.Address(lis.Addr().String())
 	mw, err := falamos.Middleware(falamos.Config{Instrumentation: ins})
 	if err != nil {
 		return err
@@ -359,20 +369,18 @@ func (t *Transport) Configure(
 	return nil
 }
 
+func (t *Transport) Address() address.Address { return t.addr }
+
 func (t *Transport) Serve() error {
 	if t.server == nil {
 		return nil
-	}
-	lis, err := net.Listen("tcp", t.addr.String())
-	if err != nil {
-		return err
 	}
 	sCtx, cancel := signal.WithCancel(context.Background())
 	t.shutdown = signal.NewHardShutdown(sCtx, cancel)
 	sCtx.Go(func(ctx context.Context) error {
 		errC := make(chan error, 1)
 		go func() {
-			errC <- t.server.Serve(lis)
+			errC <- t.server.Serve(t.lis)
 		}()
 		defer t.server.Stop()
 		select {
@@ -392,7 +400,12 @@ func (t *Transport) Serve() error {
 
 func (t *Transport) Close() error {
 	if t.shutdown == nil {
-		return nil
+		// Configure bound the listener, so a transport that never reached Serve still
+		// holds the address.
+		if t.lis == nil {
+			return nil
+		}
+		return t.lis.Close()
 	}
 	return t.shutdown.Close()
 }
