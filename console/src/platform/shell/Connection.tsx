@@ -47,7 +47,8 @@ export const Connection = ({ cluster }: ConnectionProps): ReactElement | null =>
     client != null &&
     cluster != null &&
     client.params.host === cluster.host &&
-    Number(client.params.port) === Number(cluster.port);
+    Number(client.params.port) === Number(cluster.port) &&
+    (cluster.secure ?? false) === client.params.secure;
   const checked = Synnax.useCheckConnection(
     isActive || cluster == null
       ? null

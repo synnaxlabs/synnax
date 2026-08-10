@@ -240,12 +240,18 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	inst, ok := d.mu.instances[cmd.Task]
 	d.mu.RUnlock()
 	if !ok || inst.hash != tsk.ConfigHash {
-		if err := d.configure(ctx, tsk, true); err != nil {
+		if err := d.configure(ctx, tsk, cmd.Key); err != nil {
 			d.cfg.L.Error("failed to configure task",
 				zap.Stringer("task", tsk),
 				zap.Error(err),
 			)
-			d.ackStartFailure(ctx, tsk, cmd, err)
+			// Factories answer their own failures. Neither of these reaches one:
+			// an unhandled type never gets to a factory, and a factory that ran
+			// out of time has no live context to write with.
+			if errors.Is(err, ErrTaskNotHandled) ||
+				errors.Is(err, context.DeadlineExceeded) {
+				d.ackFailure(ctx, tsk, cmd, err)
+			}
 			return
 		}
 		d.mu.RLock()
@@ -258,10 +264,9 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	d.exec(ctx, inst.task, cmd)
 }
 
-// ackStartFailure acknowledges a start command whose deploy failed. Factories
-// don't know the command key, so their failure statuses never resolve sync
-// waiters keyed on details.cmd.
-func (d *Driver) ackStartFailure(
+// ackFailure acknowledges a start command whose deploy failed without a factory
+// reporting it.
+func (d *Driver) ackFailure(
 	ctx context.Context,
 	t task.Task,
 	cmd task.Command,
@@ -342,7 +347,7 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	for _, t := range tasks {
 		sCtx.Go(
 			func(ctx context.Context) error {
-				if err := d.configure(ctx, t, false); err != nil {
+				if err := d.configure(ctx, t, NoCommand); err != nil {
 					d.cfg.L.Error("failed to configure task",
 						zap.Stringer("task", t),
 						zap.Error(err),
@@ -358,7 +363,7 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	}
 }
 
-func (d *Driver) configure(ctx context.Context, t task.Task, startPending bool) error {
+func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) error {
 	d.mu.Lock()
 	existing, hadExisting := d.mu.instances[t.Key]
 	delete(d.mu.instances, t.Key)
@@ -380,7 +385,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task, startPending bool) 
 
 	sCtx.Go(func(ctx context.Context) error {
 		for _, f := range d.cfg.Factories {
-			newTask, err := f.ConfigureTask(ctx, t, startPending)
+			newTask, err := f.ConfigureTask(ctx, t, cmdKey)
 			if errors.Is(err, ErrTaskNotHandled) {
 				continue
 			}
@@ -399,7 +404,9 @@ func (d *Driver) configure(ctx context.Context, t task.Task, startPending bool) 
 }
 
 func (d *Driver) delete(key task.Key) {
-	if d.release(key, true) {
+	// The teardown is silent: deleting a task deletes its status, and a terminal
+	// status written afterwards would resurrect it for a task that no longer exists.
+	if d.release(key, false) {
 		d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 	}
 }
