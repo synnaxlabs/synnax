@@ -135,7 +135,11 @@ export class StreamChannelValue
           this.leadingBuffer?.release();
           this.leadingBuffer = first;
         }
-        // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
+        // Just because we didn't get a new buffer doesn't mean one wasn't allocated: an
+        // empty update means the leading buffer was appended to in place. A frame that
+        // holds nothing for this channel looks the same, so with no buffer yet there is
+        // nothing to report.
+        else if (this.leadingBuffer == null) return;
         this.notify();
       };
       if (generation !== this.generation) return;
@@ -448,6 +452,10 @@ export class StreamChannelStringValue
           this.leadingBuffer = leading;
           this.decodedAt = -1;
         }
+        // An empty update means the leading buffer was appended to in place. A frame
+        // that holds nothing for this channel looks the same, so with no buffer yet
+        // there is nothing to report.
+        else if (this.leadingBuffer == null) return;
         this.notify();
       };
       if (generation !== this.generation) return;
