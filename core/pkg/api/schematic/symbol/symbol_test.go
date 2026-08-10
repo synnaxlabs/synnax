@@ -13,30 +13,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("ExportGroup", func() {
-	// Writes commit immediately so the api enforcers, which read committed state, can
-	// observe the new ontology resources.
-	createGroup := func(ctx SpecContext, name string) group.Group {
-		GinkgoHelper()
-		return MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, ontology.RootID))
-	}
-	createSymbol := func(ctx SpecContext, g group.Group, name string) symbol.Symbol {
-		GinkgoHelper()
-		sym := symbol.Symbol{
-			Name: name,
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-		}
-		Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
-		return sym
-	}
-
 	It("Should export the bundle when retrieve is granted on the group and its members",
 		func(ctx SpecContext) {
 			g := createGroup(ctx, "granted")
@@ -74,20 +56,6 @@ var _ = Describe("ExportGroup", func() {
 })
 
 var _ = Describe("DeleteGroup", func() {
-	createGroup := func(ctx SpecContext, name string) group.Group {
-		GinkgoHelper()
-		return MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, ontology.RootID))
-	}
-	createSymbol := func(ctx SpecContext, g group.Group, name string) symbol.Symbol {
-		GinkgoHelper()
-		sym := symbol.Symbol{
-			Name: name,
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-		}
-		Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
-		return sym
-	}
-
 	It("Should delete the group and its symbols when both are granted", func(
 		ctx SpecContext,
 	) {

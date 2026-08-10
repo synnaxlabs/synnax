@@ -16,13 +16,39 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// unsafeFileNameChars matches the path separators and the characters Windows reserves.
-var unsafeFileNameChars = regexp.MustCompile(`[/\\<>:"|?*]`)
+var (
+	// unsafeFileNameChars matches the path separators, the control characters, and the
+	// characters Windows reserves.
+	unsafeFileNameChars = regexp.MustCompile(`[/\\<>:"|?*\x00-\x1f\x7f]`)
+	// reservedFileNames matches the device names Windows refuses to open a file under,
+	// bare or carrying an extension.
+	reservedFileNames = regexp.MustCompile(
+		`(?i)^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)`,
+	)
+)
 
-// SanitizeFileName replaces every character a file name cannot hold with an underscore,
-// turning a user-supplied name into one that writes to disk on any platform.
+// UnnamedFile is the file name SanitizeFileName gives a name that sanitizes to nothing.
+const UnnamedFile = "unnamed"
+
+// SanitizeFileName turns a user-supplied name into one that writes to disk on any
+// platform. It replaces every character a file name cannot hold with an underscore,
+// drops trailing dots and spaces, and prefixes an underscore to a Windows device name.
+// A name left with nothing becomes UnnamedFile.
+//
+// The result stays a single path element, but it is not unique: two names can sanitize
+// to one. Callers that need distinct files must compare the results with FoldFileName.
 func SanitizeFileName(name string) string {
-	return unsafeFileNameChars.ReplaceAllString(name, "_")
+	name = unsafeFileNameChars.ReplaceAllString(name, "_")
+	// Windows drops trailing dots and spaces, so a name keeping them addresses a
+	// different file than the one the caller asked for.
+	name = strings.TrimRight(name, ". ")
+	if name == "" {
+		return UnnamedFile
+	}
+	if reservedFileNames.MatchString(name) {
+		return "_" + name
+	}
+	return name
 }
 
 // FoldFileName reduces name to the form two file names must be compared in:

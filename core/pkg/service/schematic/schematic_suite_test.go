@@ -64,6 +64,7 @@ var (
 		svc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
+			Group:    g,
 			Search:   searchIdx,
 			ImEx:     imexSvc,
 		}))

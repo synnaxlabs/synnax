@@ -94,6 +94,22 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	return fctx
 }
 
+// createGroup creates a group under the ontology root. It writes outside a transaction
+// so the api enforcers, which read committed state, observe the new resource.
+func createGroup(ctx SpecContext, name string) group.Group {
+	GinkgoHelper()
+	return MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, ontology.RootID))
+}
+
+// createSymbol creates a symbol under g, committing it for the same reason createGroup
+// does.
+func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
+	GinkgoHelper()
+	sym := symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}}
+	Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
+	return sym
+}
+
 // grantOn grants the action on the given objects to the subject through a fresh role.
 // Writes commit directly so the api enforcers, which read committed state with no
 // transaction, observe them.

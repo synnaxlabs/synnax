@@ -45,7 +45,9 @@ type GroupBundle struct {
 	// Files holds the bundle contents keyed by file name: one envelope per symbol plus
 	// manifest.json. The namespace is flat.
 	Files zip.Files
-	// Members holds the ontology ID of every exported symbol, in file-name order.
+	// Members holds the ontology ID of every exported symbol, in the order the
+	// ontology returned the group's children. Members never reaches the wire: the
+	// archive carries Files alone.
 	Members []ontology.ID
 }
 
@@ -71,21 +73,17 @@ func (s *Service) ExportGroup(
 	if err != nil {
 		return GroupBundle{}, err
 	}
+	members, err := symbolIDs("export", root, children)
+	if err != nil {
+		return GroupBundle{}, err
+	}
 	manifestFileName := manifestBaseName + encoder.Extension()
 	var (
-		files   = make(zip.Files, len(children)+1)
-		members = make([]ontology.ID, 0, len(children))
+		files = make(zip.Files, len(children)+1)
 		// claimed maps each folded file name to the symbol that took it.
 		claimed = make(map[string]string, len(children))
 	)
 	for _, child := range children {
-		if child.ID.Type != ontology.ResourceTypeSchematicSymbol {
-			return GroupBundle{}, errors.Wrapf(
-				validate.ErrValidation,
-				"cannot export group %q: child %s is not a schematic symbol",
-				root.Name, child.ID,
-			)
-		}
 		fileName := os.SanitizeFileName(child.Name) + encoder.Extension()
 		folded := os.FoldFileName(fileName)
 		if folded == os.FoldFileName(manifestFileName) {
@@ -110,7 +108,6 @@ func (s *Service) ExportGroup(
 		if files[fileName], err = encoder.Encode(ctx, env); err != nil {
 			return GroupBundle{}, err
 		}
-		members = append(members, child.ID)
 	}
 	manifest, err := encoder.Encode(ctx, GroupManifest{
 		Version: manifestVersion,

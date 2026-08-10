@@ -248,7 +248,9 @@ func (s *Service) DeleteGroup(
 	tx gorp.Tx,
 	req DeleteGroupRequest,
 ) (types.Nil, error) {
-	symbols, err := s.internal.RetrieveGroupSymbols(ctx, req.Key)
+	// Read through tx so the symbols enforced on and the symbols deleted come from one
+	// snapshot.
+	symbols, err := s.internal.RetrieveGroupSymbols(ctx, tx, req.Key)
 	if err != nil {
 		return types.Nil{}, err
 	}

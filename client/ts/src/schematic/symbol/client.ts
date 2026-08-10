@@ -226,17 +226,23 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
    * @throws {ValidationError} if the group holds a resource that is not a symbol.
    */
   async deleteGroup(key: group.Key): Promise<void> {
+    const groupID = group.ontologyID(key);
+    const rels = this.cfg.ontology.cache.relationships;
+    // Read the members before the delete drops the relationships naming them.
+    const memberKeys = rels.get((r) => matchChildRel(r, groupID)).map((r) => r.to.key);
     await this.cfg.unary.send(
       "/schematic/symbol/group/delete",
       { key },
       deleteGroupReqZ,
       emptyResZ,
     );
-    this.cfg.ontology.cache.relationships.delete(
+    this.store.delete(memberKeys);
+    // Both the relationships to the group's children and the one naming the group as
+    // its parent's child: the group and every symbol in it are gone.
+    rels.delete(
       (r) =>
         r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
-        r.from.type === "group" &&
-        r.from.key === key,
+        (ontology.idsEqual(r.from, groupID) || ontology.idsEqual(r.to, groupID)),
     );
   }
 
