@@ -140,7 +140,9 @@ export class StreamChannelValue
       };
       if (generation !== this.generation) return;
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
-      this.notify();
+      // Opening the stream is not a sample. Notify only when a buffer already holds
+      // one, so a consumer that counts arrivals does not count the open.
+      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) this.notify();
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel value"));
@@ -450,7 +452,9 @@ export class StreamChannelStringValue
       };
       if (generation !== this.generation) return;
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
-      this.notify();
+      // Opening the stream is not a sample. Notify only when a buffer already holds
+      // one, so a consumer that counts arrivals does not count the open.
+      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) this.notify();
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(
