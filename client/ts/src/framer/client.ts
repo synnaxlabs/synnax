@@ -17,8 +17,11 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
+import { analyzeParams } from "@/channel/payload";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { Deleter } from "@/framer/deleter";
+import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
 import { Reader, type ReadRequest } from "@/framer/reader";
@@ -32,7 +35,7 @@ export const TYPE_ONTOLOGY_ID = ontologyID("");
 export interface ClientConfig {
   stream: WebSocketClient;
   unary: UnaryClient;
-  retriever: channel.Retriever;
+  retrieveChannels: ChannelRetriever;
 }
 
 export class Client {
@@ -41,10 +44,10 @@ export class Client {
   private readonly reader: Reader;
 
   constructor(cfg: ClientConfig) {
-    const { stream, unary, retriever } = cfg;
+    const { stream, unary, retrieveChannels } = cfg;
     this.cfg = cfg;
     this.deleter = new Deleter(unary);
-    this.reader = new Reader(retriever, stream);
+    this.reader = new Reader(retrieveChannels, stream);
   }
 
   /**
@@ -63,7 +66,7 @@ export class Client {
     return await Iterator._open(
       tr,
       channels,
-      this.cfg.retriever,
+      this.cfg.retrieveChannels,
       this.cfg.stream,
       opts,
     );
@@ -77,7 +80,7 @@ export class Client {
    * @returns a new {@link Writer}.
    */
   async openWriter(config: WriterConfig): Promise<Writer> {
-    return await Writer._open(this.cfg.retriever, this.cfg.stream, config);
+    return await Writer._open(this.cfg.retrieveChannels, this.cfg.stream, config);
   }
 
   /**
@@ -92,7 +95,19 @@ export class Client {
    *
    */
   async openStreamer(config: StreamerConfig): Promise<Streamer> {
-    return await openStreamer(this.cfg.retriever, this.cfg.stream, config);
+    return await openStreamer(this.cfg.retrieveChannels, this.cfg.stream, config);
+  }
+
+  /**
+   * Opens a feed over this client. The underlying stream opens on first demand;
+   * the caller must close the feed.
+   */
+  openFeed(options: FeedOptions = {}): Feed {
+    return new Feed({
+      ...options,
+      readRemote: async (tr, keys) => await this.read(tr, keys),
+      openStreamer: async (config) => await this.openStreamer(config),
+    });
   }
 
   async write(
@@ -160,7 +175,7 @@ export class Client {
     channels?: channel.Params,
   ): Promise<MultiSeries | Frame | ReadableStream<Uint8Array>> {
     if (!("start" in tr)) return await this.reader.read(tr);
-    const { single } = channel.analyzeParams(channels!);
+    const { single } = analyzeParams(channels!);
     const fr = await this.readFrame(tr, channels!);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
@@ -203,7 +218,7 @@ export class Client {
     channels: channel.Params,
     n: number = 1,
   ): Promise<MultiSeries | Frame> {
-    const { single } = channel.analyzeParams(channels);
+    const { single } = analyzeParams(channels);
     const fr = await this.readLatestNFrame(channels, n);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
@@ -224,7 +239,7 @@ export class Client {
   }
 
   async delete(channels: channel.Params, timeRange: CrudeTimeRange): Promise<void> {
-    const { normalized, variant } = channel.analyzeParams(channels);
+    const { normalized, variant } = analyzeParams(channels);
     const bounds = new TimeRange(timeRange);
     if (variant === "keys")
       return await this.deleter.delete({ keys: normalized, bounds });

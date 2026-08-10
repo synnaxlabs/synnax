@@ -168,7 +168,11 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         .key = synnax::task::status_key(this->task),
         .name = this->task.name,
         .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{.task = task.key, .cmd = cmd.key}
+        .details = synnax::task::StatusDetails{
+            .task = task.key,
+            .cmd = cmd.key,
+            .config_hash = task.config_hash,
+        }
     };
     if (!parser.ok()) {
         status.message = "Failed to parse scan command";
@@ -211,6 +215,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
             .task = task.key,
             .running = true,
             .cmd = cmd.key,
+            .config_hash = task.config_hash,
         }
     };
     if (!parser.ok()) {

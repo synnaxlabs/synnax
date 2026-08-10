@@ -734,6 +734,14 @@ TEST_F(TaskManagerTest, Timeout) {
         5 * x::telem::SECOND
     );
     ASSERT_EQ(s.details.task, task.key);
+    // The timeout report is the only signal a stuck task gives, so it carries
+    // everything needed to identify what hung: the command waiting on it, the task,
+    // and the config the stuck operation is deploying.
+    ASSERT_EQ(s.details.cmd, "start-cmd");
+    ASSERT_EQ(s.name, task.name);
+    ASSERT_FALSE(task.config_hash.empty());
+    ASSERT_EQ(s.details.config_hash, task.config_hash);
+    ASSERT_FALSE(s.details.running);
 
     f->release_all();
 }
