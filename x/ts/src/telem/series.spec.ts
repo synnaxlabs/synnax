@@ -616,6 +616,39 @@ describe("Series", () => {
       expect(b.byteCapacity).toEqual(Size.bytes(4));
       expect(b.capacity).toEqual(1);
     });
+
+    it("should slice a string series by sample index", () => {
+      const s = new Series({
+        data: ["apple", "banana", "carrot", "durian"],
+        alignment: 10n,
+      });
+      const b = s.slice(1, 3);
+      expect(b.toStrings()).toEqual(["banana", "carrot"]);
+      expect(b.length).toEqual(2);
+      expect(b.alignment).toEqual(11n);
+    });
+
+    it("should slice a JSON series by sample index", () => {
+      const s = new Series([{ a: 1 }, { a: 2 }, { a: 3 }]);
+      const b = s.slice(2);
+      expect(b.length).toEqual(1);
+      expect(b.at(0)).toEqual({ a: 3 });
+      expect(b.alignment).toEqual(2n);
+    });
+
+    it("should return an empty series when slicing a string series past its end", () => {
+      const s = new Series(["apple", "banana"]);
+      const b = s.slice(2, 4);
+      expect(b.length).toEqual(0);
+    });
+
+    it("should copy a string sub-series so it decodes independently", () => {
+      const s = new Series(["apple", "banana", "carrot"]);
+      const b = s.sub(1, 3);
+      expect(b.buffer).not.toBe(s.buffer);
+      expect(b.toStrings()).toEqual(["banana", "carrot"]);
+      expect(s.toStrings()).toEqual(["apple", "banana", "carrot"]);
+    });
   });
 
   describe("min and max", () => {
@@ -745,6 +778,33 @@ describe("Series", () => {
       series.write(writeTwo);
       expect(series.max).toEqual(5);
       expect(series.min).toEqual(2);
+    });
+
+    it("should reflect writes made after a prior data access", () => {
+      const series = Series.alloc({ capacity: 4, dataType: DataType.FLOAT32 });
+      series.write(new Series({ data: new Float32Array([1]) }));
+      expect(series.data).toEqual(new Float32Array([1]));
+      series.write(new Series({ data: new Float32Array([2, 3]) }));
+      expect(series.data).toEqual(new Float32Array([1, 2, 3]));
+      series.write(new Series({ data: new Float32Array([4]) }));
+      expect(series.data).toEqual(new Float32Array([1, 2, 3, 4]));
+    });
+
+    it("should expose buffer mutations through a previously read data view", () => {
+      const buf = new ArrayBuffer(8);
+      const series = new Series({ data: buf, dataType: DataType.FLOAT32 });
+      expect(series.data).toEqual(new Float32Array([0, 0]));
+      new Float32Array(buf)[0] = 42;
+      expect(series.data[0]).toEqual(42);
+    });
+
+    it("should keep typed-array-backed data insulated from source mutation", () => {
+      const src = new Float32Array([1, 2]);
+      const series = new Series({ data: src });
+      const first = series.data;
+      src[0] = 99;
+      expect(first[0]).toEqual(1);
+      expect(series.data[0]).toEqual(99);
     });
 
     it("should recompute the length of a variable density array", () => {
