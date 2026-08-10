@@ -93,8 +93,7 @@ func (s *Service) ExportGroup(
 		if fileName == "" {
 			return GroupBundle{}, errors.Wrapf(
 				validate.ErrValidation,
-				"symbol %q holds no character a file name can keep; rename it and "+
-					"export again",
+				"symbol %q holds no character a file name can keep; rename it and export again",
 				child.Name,
 			)
 		}
