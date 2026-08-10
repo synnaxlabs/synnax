@@ -81,17 +81,9 @@ export class Value
     i.theme = theming.use(ctx);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
-    i.stale ??= false;
-    i.staleness = staleness.useRegistration(ctx, i.staleness, {
-      timeout: () => this.state.stalenessTimeout,
-      stale: () => this.internal.stale,
-      // A transition needs a repaint of its own: with the source quiet, nothing else
-      // asks the canvas to redraw.
-      onChange: (stale) => {
-        this.internal.stale = stale;
-        this.requestRender();
-      },
-    });
+    i.staleness = staleness.useInternalRegistration(ctx, i.staleness, this, () =>
+      this.requestRender(),
+    );
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
       i.staleness.received();

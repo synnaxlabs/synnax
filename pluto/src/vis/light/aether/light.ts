@@ -33,17 +33,14 @@ export class Light
   implements diagram.Element
 {
   static readonly TYPE = "Light";
+  static readonly z = stateZ;
 
-  schema = stateZ;
+  schema = Light.z;
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     this.internal.source = telem.useSource(ctx, this.state.source, i.source);
-    i.staleness = staleness.useRegistration(ctx, i.staleness, {
-      timeout: () => this.state.stalenessTimeout,
-      stale: () => this.state.stale,
-      onChange: (stale) => this.setState((p) => ({ ...p, stale })),
-    });
+    i.staleness = staleness.useStateRegistration(ctx, i.staleness, this);
     this.updateEnabledState();
     i.stopListening?.();
     i.stopListening = i.source.onChange(() => {

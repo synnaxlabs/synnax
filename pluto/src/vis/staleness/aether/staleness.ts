@@ -170,7 +170,9 @@ const use = (ctx: aether.Context): Provider => ctx.get<Provider>(CONTEXT_KEY);
 /**
  * Registers a source with the nearest {@link Provider}, reusing `prev` when it is
  * already registered.
- * @param prev - The registration returned by an earlier call, if any.
+ * @param prev - The registration returned by an earlier call, if any. A reused
+ * registration keeps the props it was created with, so pass accessors that read live
+ * values rather than props captured on this call.
  * @throws {NotFoundError} if no {@link Provider} is mounted above the caller.
  */
 export const useRegistration = (
@@ -178,6 +180,57 @@ export const useRegistration = (
   prev: Registration | undefined,
   props: EntryProps,
 ): Registration => prev ?? use(ctx).register(props);
+
+/** The leaf surface {@link useStateRegistration} drives. */
+interface StatefulLeaf<S extends z.infer<typeof stateZ>> {
+  readonly state: S;
+  setState: (next: (prev: S) => S) => void;
+}
+
+/**
+ * Registers a source that reports staleness through its aether state, where the DOM
+ * half reads it. See {@link useRegistration} for reuse semantics.
+ */
+export const useStateRegistration = <S extends z.infer<typeof stateZ>>(
+  ctx: aether.Context,
+  prev: Registration | undefined,
+  leaf: StatefulLeaf<S>,
+): Registration =>
+  useRegistration(ctx, prev, {
+    timeout: () => leaf.state.stalenessTimeout,
+    stale: () => leaf.state.stale,
+    onChange: (stale) => leaf.setState((p) => ({ ...p, stale })),
+  });
+
+/** The leaf surface {@link useInternalRegistration} drives. */
+interface InternalLeaf {
+  readonly state: z.infer<typeof configZ>;
+  readonly internal: { stale: boolean };
+}
+
+/**
+ * Registers a source that keeps staleness in `internal.stale`, off the state that
+ * crosses to the DOM. See {@link useRegistration} for reuse semantics.
+ * @param onTransition - Runs after each transition. A component that draws itself must
+ * ask for a repaint here: with the source quiet, nothing else asks the canvas to
+ * redraw.
+ */
+export const useInternalRegistration = (
+  ctx: aether.Context,
+  prev: Registration | undefined,
+  leaf: InternalLeaf,
+  onTransition: () => void,
+): Registration => {
+  leaf.internal.stale ??= false;
+  return useRegistration(ctx, prev, {
+    timeout: () => leaf.state.stalenessTimeout,
+    stale: () => leaf.internal.stale,
+    onChange: (stale) => {
+      leaf.internal.stale = stale;
+      onTransition();
+    },
+  });
+};
 
 /**
  * Resolves the color that stale content renders in.
