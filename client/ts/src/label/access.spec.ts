@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { label } from "@/label";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -27,8 +27,8 @@ describe("label", () => {
         name: "test",
         color: "#E774D0",
       });
-      await expect(userClient.labels.retrieve(randomLabel.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.labels.retrieve(randomLabel.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -71,7 +71,7 @@ describe("label", () => {
           name: "test",
           color: "#E774D0",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete labels with the correct policy", async () => {
@@ -100,8 +100,8 @@ describe("label", () => {
         name: "test",
         color: "#E774D0",
       });
-      await expect(userClient.labels.delete(randomLabel.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.labels.delete(randomLabel.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });

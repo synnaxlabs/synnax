@@ -309,9 +309,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
               <Divider.Divider x />
             </Flex.Box>
             <Flex.Box gap="large">
-              <Text.Text level="h4" weight={500}>
-                Health Check
-              </Text.Text>
+              <Text.Text level="h4">Health Check</Text.Text>
               <Flex.Box gap="small">
                 <Flex.Box x align="end">
                   <Form.Field<HealthCheckMethod>

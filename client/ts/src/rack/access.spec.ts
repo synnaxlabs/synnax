@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { rack } from "@/rack";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -26,8 +26,8 @@ describe("rack", () => {
       const randomRack = await client.racks.create({
         name: "test",
       });
-      await expect(userClient.racks.retrieve(randomRack.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.racks.retrieve(randomRack.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -66,7 +66,7 @@ describe("rack", () => {
         userClient.racks.create({
           name: "test",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete racks with the correct policy", async () => {
@@ -93,7 +93,9 @@ describe("rack", () => {
       const randomRack = await client.racks.create({
         name: "test",
       });
-      await expect(userClient.racks.delete(randomRack.key)).rejects.toThrow(AuthError);
+      await expect(userClient.racks.delete(randomRack.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
   });
 });

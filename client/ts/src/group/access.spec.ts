@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { AuthError } from "@/errors";
+import { AccessDeniedError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
@@ -42,7 +42,7 @@ describe("group", () => {
           parent: ontology.ROOT_ID,
           name: `test-${id.create()}`,
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete groups with the correct policy", async () => {
@@ -68,8 +68,8 @@ describe("group", () => {
         parent: ontology.ROOT_ID,
         name: `test-${id.create()}`,
       });
-      await expect(userClient.groups.delete(randomGroup.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.groups.delete(randomGroup.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });
