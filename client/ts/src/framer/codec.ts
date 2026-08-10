@@ -55,19 +55,16 @@ const unpackBoolBits = (src: Uint8Array, sampleCount: number): ArrayBuffer => {
   return buf;
 };
 
-interface KeyedSeries extends SeriesPayload {
-  key: number;
-}
-
 const sortFramePayloadByKey = (framePayload: Payload): void => {
   const { keys, series } = framePayload;
-  keys.forEach((key, index) => {
-    (series[index] as KeyedSeries).key = key;
-  });
-  series.sort((a, b) => (a as KeyedSeries).key - (b as KeyedSeries).key);
-  keys.sort((a, b) => a - b);
-  // @ts-expect-error - deleting static property keys.
-  series.forEach((ser) => delete (ser as KeyedSeries).key);
+  if (keys.every((k, i) => i === 0 || keys[i - 1] <= k)) return;
+  const order = keys.map((_, i) => i).sort((a, b) => keys[a] - keys[b]);
+  const orderedKeys = order.map((i) => keys[i]);
+  const orderedSeries = order.map((i) => series[i]);
+  for (let i = 0; i < keys.length; i++) {
+    keys[i] = orderedKeys[i];
+    series[i] = orderedSeries[i];
+  }
 };
 
 const ZERO_ALIGNMENTS_FLAG_POS = 5;

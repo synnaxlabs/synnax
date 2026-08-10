@@ -469,7 +469,8 @@ TEST(TestHandleConfigErr, testErrorAtBootWithAutoStart) {
     EXPECT_TRUE(ctx->statuses[0].details.cmd.empty());
 }
 
-/// @brief a successful configure during a deploy should write a success status.
+/// @brief a successful configure during a deploy should write no status. The start
+/// that follows it is what answers the command.
 TEST(TestHandleConfigErr, testSuccessWithPendingStart) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
@@ -483,9 +484,7 @@ TEST(TestHandleConfigErr, testSuccessWithPendingStart) {
     );
     EXPECT_TRUE(handled);
     EXPECT_NE(tsk, nullptr);
-    ASSERT_EQ(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[0].message, "Task configured successfully");
+    EXPECT_TRUE(ctx->statuses.empty());
 }
 
 /// @brief a successful configure at boot should not write a status.
