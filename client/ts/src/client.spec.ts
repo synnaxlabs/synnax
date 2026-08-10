@@ -112,8 +112,8 @@ describe("denied change stream", () => {
     await expect(restricted.labels.retrieve(created.key)).resolves.toMatchObject({
       key: created.key,
     });
-    restricted.close();
-    root.close();
+    await restricted.close();
+    await root.close();
   });
 });
 
