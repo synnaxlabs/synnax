@@ -203,7 +203,15 @@ export const createStreamer = ({
     },
     close: async () => {
       if (opened == null) return;
-      const streamer = await opened;
+      let streamer: ObservableStream;
+      try {
+        streamer = await opened;
+      } catch {
+        // A close that outraces a failing open has nothing to tear down. The
+        // failure already reached the demander, so it is not re-reported here.
+        opened = null;
+        return;
+      }
       await streamer.close();
     },
   };

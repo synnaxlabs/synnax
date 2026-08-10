@@ -630,3 +630,30 @@ describe("removeVariants", () => {
     expect(status.removeVariants("success", [])).toBe("success");
   });
 });
+
+describe("toString", () => {
+  it("should render the variant, name, and message as the header", () => {
+    const s = status.create({
+      variant: "error",
+      name: "Task",
+      message: "failed to start",
+    });
+    expect(status.toString(s)).toBe("ERROR [Task]: failed to start");
+  });
+
+  it("should omit the description when the status carries an empty one", () => {
+    const s = status.create({ variant: "info", message: "connected" });
+    expect(status.toString(s)).toBe("INFO: connected");
+  });
+
+  it("should render a description when the status carries one", () => {
+    const s = status.create({
+      variant: "error",
+      message: "failed to start",
+      description: "channel is not writable",
+    });
+    expect(status.toString(s)).toBe(
+      "ERROR: failed to start\n\nDescription: channel is not writable",
+    );
+  });
+});

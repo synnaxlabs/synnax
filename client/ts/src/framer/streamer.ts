@@ -316,6 +316,9 @@ export class HardenedStreamer implements Streamer {
         // only a policy change lifts a denial, and no reconnect carries one
         if (AccessDeniedError.matches(e) || !(await this.breaker.wait()))
           throw errors.fromUnknown(e);
+        // close() interrupts the backoff above, so re-check: a retired
+        // streamer's failed reconnect is expected, not a fault to report.
+        if (this.closed) break;
         console.error("failed to open streamer", e);
       }
     throw new EOF();
