@@ -28,6 +28,9 @@ var (
 	ErrInvalidToken = errors.Wrap(ErrAuth, "invalid token")
 	// ErrExpiredToken is returned when a bearer token has expired.
 	ErrExpiredToken = errors.Wrap(ErrAuth, "expired token")
+	// ErrAccessDenied is returned when a subject does not have permission to
+	// perform an action on a resource.
+	ErrAccessDenied = errors.Wrap(ErrAuth, "access denied")
 )
 
 const (
@@ -36,6 +39,7 @@ const (
 	invalidTokenType       = errorType + ".invalid_token"
 	expiredTokenType       = errorType + ".expired_token"
 	repeatedUsernameType   = errorType + ".repeated-username"
+	accessDeniedType       = errorType + ".access_denied"
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
@@ -50,6 +54,9 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 	}
 	if errors.CheapIs(err, ErrRepeatedUsername) {
 		return errors.Payload{Type: repeatedUsernameType, Data: err.Error()}, true
+	}
+	if errors.CheapIs(err, ErrAccessDenied) {
+		return errors.Payload{Type: accessDeniedType, Data: err.Error()}, true
 	}
 	if errors.CheapIs(err, ErrAuth) {
 		return errors.Payload{Type: errorType, Data: err.Error()}, true
@@ -67,6 +74,8 @@ func decode(_ context.Context, p errors.Payload) (error, bool) {
 		return errors.Wrap(ErrRepeatedUsername, p.Data), true
 	case expiredTokenType:
 		return errors.Wrap(ErrExpiredToken, p.Data), true
+	case accessDeniedType:
+		return errors.Wrap(ErrAccessDenied, p.Data), true
 	}
 	if strings.HasPrefix(p.Type, errorType) {
 		return errors.Wrap(ErrAuth, p.Data), true
