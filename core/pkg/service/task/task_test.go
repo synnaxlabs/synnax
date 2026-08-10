@@ -933,6 +933,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
 				t := &task.Task{
+					Type: testType,
 					Rack: r.Key,
 					Name: "Test Task",
 					Status: &task.Status{
