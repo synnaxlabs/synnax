@@ -58,12 +58,14 @@ export interface ObservableStream {
 
 /**
  * Hooks passed to a {@link StreamOpener}. The implementation must fire onOpen
- * after the stream is live but before any frame is delivered, and onReopen
- * after every successful reconnect (not the initial open).
+ * after the stream is live but before any frame is delivered, onReopen after
+ * every successful reconnect (not the initial open), and onDead when the
+ * stream ends on a failure it cannot recover from.
  */
 export interface StreamOpenerHooks {
   onOpen?: () => void;
   onReopen?: () => void;
+  onDead?: (error: Error) => void;
 }
 
 /**
@@ -96,6 +98,11 @@ export interface StreamerParams {
    * initial open). Changes may have been missed while disconnected.
    */
   onReopen?: () => void;
+  /**
+   * Called when the stream ends on a failure it cannot recover from. The next
+   * demand opens a new stream.
+   */
+  onDead?: (error: Error) => void;
 }
 
 /**
@@ -126,6 +133,7 @@ export const createStreamer = ({
   onError,
   onOpen,
   onReopen,
+  onDead,
 }: StreamerParams): Streamer => {
   let opened: Promise<ObservableStream> | null = null;
   const report = (exc: unknown, message: string) => {
@@ -142,7 +150,15 @@ export const createStreamer = ({
       const { channel } = lis;
       listenersForChannels[channel] = [...(listenersForChannels[channel] || []), lis];
     });
-    const stream = await streamOpener(channels, { onOpen, onReopen });
+    const stream = await streamOpener(channels, {
+      onOpen,
+      onReopen,
+      onDead: (error) => {
+        // drop the memoized stream so the next demand opens a fresh one
+        opened = null;
+        onDead?.(error);
+      },
+    });
     const handleChange = (frame: framer.Frame) => {
       const namesInFrame = [...frame.uniqueNames];
       namesInFrame.sort(channelNameSort);

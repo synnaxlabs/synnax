@@ -16,7 +16,7 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
@@ -175,6 +175,11 @@ export interface AnswersHooks {
   ensureStreaming?: () => Promise<void>;
   /** Subscribes to connection-epoch changes; maintained answers refetch on bump. */
   onEpoch?: (callback: (epoch: number) => void) => destructor.Destructor;
+  /**
+   * Whether change delivery keeps subscribed answers current. False when the
+   * cache is detached or the cluster refused the stream. Defaults to true.
+   */
+  maintained?: () => boolean;
   /** Reports maintenance errors that have no caller to throw to. Defaults to
    *  console logging. */
   onError?: (error: Error) => void;
@@ -247,14 +252,16 @@ export class Queries<
    * Returns the answer to the query: instantly when cached and subscribed,
    * joining the in-flight fetch when one exists, fetching otherwise. Settled
    * answers are kept fresh only while subscribed, so an unsubscribed read
-   * always refetches. A previously failed query refetches.
+   * always refetches. A previously failed query refetches. Every read refetches
+   * while change delivery is off, as nothing keeps a subscribed answer
+   * current.
    * @throws {NotFoundError} if the queried record was deleted.
    */
   retrieve(query: Q, options?: FetchOptions): Promise<D> {
     const entry = this.ensure(query);
     const { state } = entry;
     if (state.variant === "loading") return state.promise;
-    if (entry.teardown != null)
+    if (entry.teardown != null && this.hooks.maintained?.() !== false)
       switch (state.variant) {
         case "ready":
           return Promise.resolve(this.compose(state.keys, entry.query));
@@ -359,9 +366,13 @@ export class Queries<
   }
 
   private startStreaming(): void {
-    // Streaming failure (e.g. no streamer permission) must never block reads,
-    // so the change stream opens in the background rather than being awaited.
-    void this.hooks.ensureStreaming?.().catch((exc: unknown) => this.report(exc));
+    // Streaming failure must never block reads, so the change stream opens in
+    // the background rather than being awaited. A denial belongs to the
+    // connection, which reports it once, not to every query that reads.
+    void this.hooks.ensureStreaming?.().catch((exc: unknown) => {
+      if (AccessDeniedError.matches(exc)) return;
+      this.report(exc);
+    });
   }
 
   private report(
