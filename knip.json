@@ -52,7 +52,7 @@
       "project": ["src/**/*.{ts,tsx}"]
     },
     "x/ts": {
-      "entry": ["src/index.ts"],
+      "entry": ["src/index.ts", "src/bench/index.ts"],
       "project": ["src/**/*.ts"],
       "ignoreDependencies": ["@vitest/coverage-v8"]
     },

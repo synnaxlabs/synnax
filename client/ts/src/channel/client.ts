@@ -13,7 +13,6 @@ import {
   control,
   type CrudeDensity,
   type CrudeTimeRange,
-  type CrudeTimeSpan,
   type CrudeTimeStamp,
   DataType,
   deep,
@@ -21,20 +20,17 @@ import {
   errors,
   type MultiSeries,
   primitive,
-  TimeSpan,
   type TypedArray,
+  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Params, type PrimitiveParams, statusKey } from "@/channel/payload";
 import {
   analyzeParams,
-  DebouncedBatchRetriever,
-  type RetrieveOptions,
-  type Retriever,
-  type RetrieveRequest,
-  retrieveRequestZ,
-} from "@/channel/retriever";
+  type Params,
+  type PrimitiveParams,
+  statusKey,
+} from "@/channel/payload";
 import {
   type Key,
   keyZ,
@@ -228,6 +224,27 @@ export class Channel {
   }
 }
 
+export const retrieveRequestZ = z.object({
+  nodeKey: zod.uint12.optional(),
+  keys: keyZ.array().optional(),
+  names: z.string().array().optional(),
+  searchTerm: z.string().optional(),
+  rangeKey: rangerKeyZ.optional(),
+  limit: z.int().optional(),
+  offset: z.int().optional(),
+  dataTypes: DataType.z.array().optional(),
+  notDataTypes: DataType.z.array().optional(),
+  virtual: z.boolean().optional(),
+  isIndex: z.boolean().optional(),
+  internal: z.boolean().optional(),
+  legacyCalculated: z.boolean().optional(),
+});
+export type RetrieveRequest = z.input<typeof retrieveRequestZ>;
+
+export type RetrieveOptions = Omit<RetrieveRequest, "keys" | "names" | "search">;
+
+const retrieveResZ = z.object({ channels: payloadZ.array().default(() => []) });
+
 const retrieveGroupReqZ = z.object({});
 
 const retrieveGroupResZ = z.object({ group: group.groupZ });
@@ -344,7 +361,6 @@ const affectedChannelKeys = (
  */
 export interface ClientConfig {
   framer: framer.Client;
-  retriever: Retriever;
   unary: UnaryClient;
   writer: Writer;
   statuses: status.Client;
@@ -362,12 +378,11 @@ export class Client extends query.Retriever<
   RetrieveSingleParams
 > {
   private readonly cfg: ClientConfig;
-  readonly retriever: Retriever;
   readonly writer: Writer;
   private readonly store: query.Table<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
-    const { retriever, writer, statuses, ranges, cache } = cfg;
+    const { writer, statuses, ranges, cache } = cfg;
     const statusStore = statuses.store;
     const aliasStore = ranges.aliases;
     const sugar = (payload: Payload): Channel => this.sugar(payload);
@@ -375,7 +390,7 @@ export class Client extends query.Retriever<
       name: "channels",
       equal: (a, b) => deep.equal(a.payload, b.payload),
       fetch: async (keys) =>
-        (await retriever.retrieve(keys)).map((p) => sugar(stripComposed(p))),
+        (await this.execRetrieve(keys)).map((p) => sugar(stripComposed(p))),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
           value: (changed) => sugar(stripComposed(changed)),
@@ -435,7 +450,6 @@ export class Client extends query.Retriever<
       single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
-    this.retriever = retriever;
     this.writer = writer;
     this.store = store;
   }
@@ -511,7 +525,7 @@ export class Client extends query.Retriever<
     let toCreate = array.toArray(channels);
     let created: Channel[] = [];
     if (retrieveIfNameExists) {
-      const res = await this.retriever.retrieve(toCreate.map((c) => c.name));
+      const res = await this.execRetrieve(toCreate.map((c) => c.name));
       const existingNames = new Set(res.map((c) => c.name));
       toCreate = toCreate.filter((c) => !existingNames.has(c.name));
       created = this.sugar(res);
@@ -691,25 +705,6 @@ export class Client extends query.Retriever<
     );
   }
 
-  createDebouncedBatchRetriever(
-    deb: CrudeTimeSpan = TimeSpan.milliseconds(10),
-  ): Retriever {
-    const cached: Retriever = {
-      retrieve: async (
-        channels: Params | RetrieveRequest,
-        options?: RetrieveOptions,
-      ): Promise<Payload[]> => {
-        if (!Array.isArray(channels) && typeof channels === "object")
-          return await this.retriever.retrieve(channels);
-        const { variant, normalized } = analyzeParams(channels);
-        if (variant === "keys" && options == null)
-          return (await this.store.retrieve(normalized)).map((ch) => ch.payload);
-        return await this.retriever.retrieve(channels, options);
-      },
-    };
-    return new DebouncedBatchRetriever(cached, deb);
-  }
-
   sugar(payload: Payload): Channel;
   sugar(payloads: Payload[]): Channel[];
   sugar(payloads: Payload | Payload[]): Channel | Channel[] {
@@ -768,11 +763,38 @@ export class Client extends query.Retriever<
     });
   }
 
+  /** Fetches channel payloads. Missing channels are omitted, not thrown. */
+  private async execRetrieve(
+    channels: Params | RetrieveRequest,
+    options?: RetrieveOptions,
+  ): Promise<Payload[]> {
+    let request: RetrieveRequest;
+    if (
+      !Array.isArray(channels) &&
+      typeof channels === "object" &&
+      !("key" in channels)
+    )
+      request = channels;
+    else {
+      const { variant, normalized: raw } = analyzeParams(channels);
+      const normalized = raw.filter((k) => k !== 0);
+      if (normalized.length === 0) return [];
+      request = { [variant]: normalized, ...options };
+    }
+    const res = await this.cfg.unary.send(
+      "/channel/retrieve",
+      request,
+      retrieveRequestZ,
+      retrieveResZ,
+    );
+    return res.channels;
+  }
+
   private async fetchSingle(query: RetrieveSingleParams): Promise<Channel> {
     const { key, rangeKey } = query;
     let ch = this.store.get(key);
     if (ch == null) {
-      const payloads = await this.retriever.retrieve([key]);
+      const payloads = await this.execRetrieve([key]);
       checkForMultipleOrNoResults("channel", key, payloads, true);
       ch = this.sugar(stripComposed(payloads[0]));
       this.store.set(key, ch);
@@ -794,7 +816,7 @@ export class Client extends query.Retriever<
     let channels: Channel[];
     if (isKeysOnly(query)) channels = await this.store.retrieve(query.keys);
     else
-      channels = (await this.retriever.retrieve(query)).map((p) =>
+      channels = (await this.execRetrieve(query)).map((p) =>
         this.sugar(stripComposed(p)),
       );
     if (rangeKey != null)

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { DataType, Series } from "@synnaxlabs/x";
+import { DataType, Series, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
@@ -16,7 +16,7 @@ import { type channel } from "@/channel";
 import { DisconnectedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
 import { type query } from "@/query";
-import { createStreamer, type StreamerParams } from "@/query/streamer";
+import { createStreamer, type Streamer, type StreamerParams } from "@/query/streamer";
 
 class MockHardenedStreamer implements framer.Streamer {
   private keysI: channel.Params[];
@@ -76,27 +76,15 @@ class MockHardenedStreamer implements framer.Streamer {
   }
 }
 
-const wrapOpener =
-  (opener: framer.StreamOpener): query.StreamOpener =>
-  async (channels, { onOpen, onReopen }) => {
-    const hardened = await framer.HardenedStreamer.open(
-      opener,
-      channels,
-      undefined,
-      onReopen,
-    );
-    onOpen?.();
-    return new framer.ObservableStreamer(hardened);
-  };
-
-const createFrameStreamer = (frames: framer.Frame[]) =>
-  wrapOpener(async () => {
+const createFrameStreamer =
+  (frames: framer.Frame[]): framer.StreamOpener =>
+  async () => {
     let i = 0;
     return new MockHardenedStreamer([], async () => {
       if (i >= frames.length) return { done: true, value: undefined };
       return { done: false, value: frames[i++] };
     });
-  });
+  };
 
 const createListeners = (
   channel: string,
@@ -107,7 +95,7 @@ const createListeners = (
 const createStreamerArgs = (overrides?: Partial<StreamerParams>): StreamerParams => ({
   onError: vi.fn(),
   listeners: [],
-  openStreamer: wrapOpener(async () => new MockHardenedStreamer([])),
+  openStreamer: async () => new MockHardenedStreamer([]),
   ...overrides,
 });
 
@@ -199,7 +187,7 @@ describe("openStreamer", () => {
         createStreamerArgs({
           onError,
           listeners: createListeners("test", schema, onChange),
-          openStreamer: wrapOpener(async () => {
+          openStreamer: async () => {
             let i = 0;
             return new MockHardenedStreamer([], async () => {
               if (i === 0) {
@@ -215,7 +203,7 @@ describe("openStreamer", () => {
               }
               return { done: true, value: undefined };
             });
-          }),
+          },
         }),
       );
 
@@ -1059,10 +1047,10 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           listeners: createListeners("test", schema, onChange),
-          openStreamer: wrapOpener(async () => {
+          openStreamer: async () => {
             mockStreamer = new MockHardenedStreamer([]);
             return mockStreamer;
-          }),
+          },
         }),
       );
 
@@ -1155,10 +1143,10 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           listeners: createListeners("test", schema, onChange),
-          openStreamer: wrapOpener(async () => {
+          openStreamer: async () => {
             mockStreamer = new MockHardenedStreamer([]);
             return mockStreamer;
-          }),
+          },
         }),
       );
 
@@ -1180,14 +1168,14 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           listeners: createListeners("test", schema, onChange),
-          openStreamer: wrapOpener(async () => {
+          openStreamer: async () => {
             const mockStreamer = new MockHardenedStreamer([]);
             // Make close throw an error
             mockStreamer.closeVi.mockImplementation(() => {
               throw new Error("Close error");
             });
             return mockStreamer;
-          }),
+          },
         }),
       );
 
@@ -1232,13 +1220,13 @@ describe("openStreamer", () => {
       const streamer = createStreamer(
         createStreamerArgs({
           onOpen,
-          openStreamer: async (channels, hooks) => {
+          // no reconnect budget: the open failure must reject this demand so
+          // the next demand exercises the retry of the memoized open
+          breaker: { maxRetries: 0 },
+          openStreamer: async () => {
             opens++;
             if (opens === 1) throw new Error("cluster unreachable");
-            return await wrapOpener(async () => new MockHardenedStreamer([]))(
-              channels,
-              hooks,
-            );
+            return new MockHardenedStreamer([]);
           },
         }),
       );
@@ -1248,6 +1236,40 @@ describe("openStreamer", () => {
       expect(opens).toBe(2);
       expect(onOpen).toHaveBeenCalledTimes(1);
       await streamer.close();
+    });
+
+    it("joins an open whose opener re-enters demand synchronously", async () => {
+      // Reproduces the production shape: opening the change stream resolves
+      // channels through the cached read path, which demands the stream again
+      // before the first open has resolved.
+      let opens = 0;
+      const streamer: Streamer = createStreamer(
+        createStreamerArgs({
+          openStreamer: async () => {
+            opens++;
+            void streamer.demand().catch(() => {});
+            return new MockHardenedStreamer([]);
+          },
+        }),
+      );
+      await expect(streamer.demand()).resolves.toBeUndefined();
+      expect(opens).toBe(1);
+      await streamer.close();
+    });
+
+    it("interrupts a retrying open on close", async () => {
+      const streamer = createStreamer(
+        createStreamerArgs({
+          breaker: { baseInterval: TimeSpan.milliseconds(1) },
+          openStreamer: async () => {
+            throw new Unreachable({ message: "cluster unreachable" });
+          },
+        }),
+      );
+      const demanded = streamer.demand();
+      await sleep.sleep(5);
+      await streamer.close();
+      await expect(demanded).resolves.toBeUndefined();
     });
   });
 });

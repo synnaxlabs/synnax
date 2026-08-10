@@ -19,7 +19,11 @@ import {
   type Payload,
   payloadZ,
 } from "@/channel/types.gen";
-import { ontology } from "@/ontology";
+import { idToString } from "@/ontology/payload";
+import {
+  analyzeParams as baseAnalyzeParams,
+  type ParamAnalysisResult,
+} from "@/util/retrieve";
 
 export type PrimitiveParams = Key | Name | Key[] | Name[];
 
@@ -47,5 +51,16 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
   return result;
 };
 
-export const statusKey = (channel: Key): string =>
-  ontology.idToString(ontologyID(channel));
+export const statusKey = (channel: Key): string => idToString(ontologyID(channel));
+
+export const analyzeParams = (
+  channels: Params,
+): ParamAnalysisResult<Key | Name, { number: "keys"; string: "names" }> => {
+  if (Array.isArray(channels) && channels.length > 0 && typeof channels[0] === "object")
+    channels = (channels as Payload[]).map((c) => c.key);
+  else if (typeof channels === "object" && "key" in channels) channels = [channels.key];
+  return baseAnalyzeParams(channels as PrimitiveParams, {
+    number: "keys",
+    string: "names",
+  });
+};
