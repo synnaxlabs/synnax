@@ -82,17 +82,15 @@ func (s *Service) ExportGroup(
 	}
 	ext := encoder.Extension()
 	manifestFileName := manifestBaseName + ext
+	foldedManifestFileName := os.FoldFileName(manifestFileName)
 	var (
 		files = make(zip.Files, len(children)+1)
 		// claimed maps each folded file name to the symbol that took it.
 		claimed = make(map[string]string, len(children))
-		// The extension counts against the file name limit, so the name a symbol takes
-		// gets what the extension leaves.
-		maxBase = os.MaxFileNameLength - len(ext)
 	)
 	for _, child := range children {
-		base := os.SanitizeFileName(child.Name, maxBase)
-		if base == "" {
+		fileName := os.SanitizeFileName(child.Name, ext)
+		if fileName == "" {
 			return GroupBundle{}, errors.Wrapf(
 				validate.ErrValidation,
 				"symbol %q holds no character a file name can keep; rename it and "+
@@ -100,9 +98,8 @@ func (s *Service) ExportGroup(
 				child.Name,
 			)
 		}
-		fileName := base + ext
 		folded := os.FoldFileName(fileName)
-		if folded == os.FoldFileName(manifestFileName) {
+		if folded == foldedManifestFileName {
 			return GroupBundle{}, errors.Wrapf(
 				validate.ErrValidation,
 				"symbol %q takes the reserved file name %q; rename it and export again",

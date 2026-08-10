@@ -17,10 +17,10 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// MaxFileNameLength is the longest single path element ext4, APFS, and NTFS accept. It
+// maxFileNameLength is the longest single path element ext4, APFS, and NTFS accept. It
 // counts bytes, which bounds NTFS's UTF-16 limit too: a rune never takes more UTF-16
 // code units than it takes UTF-8 bytes.
-const MaxFileNameLength = 255
+const maxFileNameLength = 255
 
 var (
 	// unsafeFileNameChars matches the path separators, the control characters, and the
@@ -33,29 +33,32 @@ var (
 	)
 )
 
-// SanitizeFileName turns a user-supplied name into one that writes to disk on any
-// platform. It replaces every character a file name cannot hold with an underscore,
-// drops trailing dots and spaces, prefixes an underscore to a Windows device name, and
-// shortens the result to maxBytes bytes.
-//
-// Pass MaxFileNameLength as maxBytes for a whole file name. A caller that appends an
-// extension must hold that many bytes back, because the extension counts against the
-// same limit.
+// SanitizeFileName turns a user-supplied name into a file name that writes to disk on
+// any platform, carrying extension. It replaces every character a file name cannot hold
+// with an underscore, drops trailing dots and spaces, prefixes an underscore to a
+// Windows device name, and shortens the name until it and extension together fit the
+// longest path element a filesystem takes. Pass an empty extension for a name that
+// carries none.
 //
 // It returns an empty string for a name that sanitizes to nothing, such as one holding
-// dots and spaces alone. The caller decides what a nameless file means: substituting a
-// placeholder here would invent a name the caller never gave.
+// dots and spaces alone, rather than a file named by its extension. The caller decides
+// what a nameless file means: substituting a placeholder here would invent a name the
+// caller never gave.
 //
 // The result is a single path element, but it is not unique: two names can sanitize to
 // one, and shortening makes that more likely. Callers that need distinct files must
 // compare the results with FoldFileName.
-func SanitizeFileName(name string, maxBytes int) string {
-	name = fitFileName(unsafeFileNameChars.ReplaceAllString(name, "_"), maxBytes)
+func SanitizeFileName(name, extension string) string {
+	budget := maxFileNameLength - len(extension)
+	name = fitFileName(unsafeFileNameChars.ReplaceAllString(name, "_"), budget)
 	if reservedFileNames.MatchString(name) {
-		// Hold a byte back for the prefix so the result still fits.
-		return "_" + fitFileName(name, maxBytes-1)
+		// Hold a byte back for the prefix so the whole name still fits.
+		name = "_" + fitFileName(name, budget-1)
 	}
-	return name
+	if name == "" {
+		return ""
+	}
+	return name + extension
 }
 
 // fitFileName shortens name to maxBytes bytes, cutting on a rune boundary, and drops

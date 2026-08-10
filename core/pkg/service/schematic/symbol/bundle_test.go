@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
-	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -130,10 +129,7 @@ var _ = Describe("ExportGroup", func() {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, strings.Repeat("a", 400))
 		Expect(fileNames(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)))).
-			To(ConsistOf(
-				"manifest.json",
-				strings.Repeat("a", xos.MaxFileNameLength-len(".json"))+".json",
-			))
+			To(ConsistOf("manifest.json", HaveLen(255)))
 	})
 	It("Should return not found for a missing group", func(ctx SpecContext) {
 		Expect(svc.ExportGroup(ctx, uuid.New(), xjson.Codec)).Error().

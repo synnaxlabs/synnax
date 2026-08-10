@@ -17,10 +17,11 @@ import (
 	xos "github.com/synnaxlabs/x/os"
 )
 
-// sanitize applies the full length budget, which the cases below do not exercise.
-func sanitize(name string) string {
-	return xos.SanitizeFileName(name, xos.MaxFileNameLength)
-}
+// maxFileNameLength mirrors the limit the package keeps to itself.
+const maxFileNameLength = 255
+
+// sanitize names a file that carries no extension, which the cases below do not vary.
+func sanitize(name string) string { return xos.SanitizeFileName(name, "") }
 
 var _ = Describe("SanitizeFileName", func() {
 	DescribeTable("Should replace every character a file name cannot hold",
@@ -60,34 +61,41 @@ var _ = Describe("SanitizeFileName", func() {
 		Entry("a name a device name only prefixes", "console.json"),
 		Entry("a device name outside the first element", "my nul"),
 	)
-	Describe("Length", func() {
-		It("Should shorten a name to the budget", func() {
-			Expect(xos.SanitizeFileName(strings.Repeat("a", 300), 10)).
-				To(Equal(strings.Repeat("a", 10)))
+	Describe("Extension", func() {
+		It("Should carry the extension", func() {
+			Expect(xos.SanitizeFileName("in/let", ".json")).To(Equal("in_let.json"))
 		})
-		It("Should hold the budget over a whole name and its extension", func() {
-			name := xos.SanitizeFileName(
-				strings.Repeat("a", 300), xos.MaxFileNameLength-len(".json"),
-			)
-			Expect(name + ".json").To(HaveLen(xos.MaxFileNameLength))
+		It("Should name no file when only the extension survives", func() {
+			Expect(xos.SanitizeFileName("...", ".json")).To(BeEmpty())
+		})
+	})
+	Describe("Length", func() {
+		It("Should shorten a name too long for a file name", func() {
+			Expect(sanitize(strings.Repeat("a", 400))).
+				To(Equal(strings.Repeat("a", maxFileNameLength)))
+		})
+		It("Should hold the extension's bytes back", func() {
+			Expect(xos.SanitizeFileName(strings.Repeat("a", 400), ".json")).
+				To(Equal(strings.Repeat("a", maxFileNameLength-len(".json")) + ".json"))
 		})
 		It("Should cut on a rune boundary", func() {
-			// Each rune takes two bytes, so an odd budget cannot be filled exactly.
-			Expect(xos.SanitizeFileName(strings.Repeat("é", 10), 5)).To(Equal("éé"))
+			// Each rune takes two bytes, so an odd limit cannot be filled exactly.
+			Expect(sanitize(strings.Repeat("é", 200))).
+				To(Equal(strings.Repeat("é", maxFileNameLength/2)))
 		})
 		It("Should drop a trailing space the cut exposes", func() {
-			Expect(xos.SanitizeFileName("report x", 7)).To(Equal("report"))
+			name := strings.Repeat("a", maxFileNameLength-1) + " b"
+			Expect(sanitize(name)).To(Equal(strings.Repeat("a", maxFileNameLength-1)))
 		})
 		It("Should hold a byte back for a device name's prefix", func() {
-			Expect(xos.SanitizeFileName("nul.jsonnn", 8)).To(Equal("_nul.jso"))
+			Expect(sanitize("nul." + strings.Repeat("a", 400))).
+				To(SatisfyAll(HaveLen(maxFileNameLength), HavePrefix("_nul.")))
 		})
-		DescribeTable("Should leave a name with no room empty",
-			func(maxBytes int) {
-				Expect(xos.SanitizeFileName("report", maxBytes)).To(BeEmpty())
-			},
-			Entry("a zero budget", 0),
-			Entry("a negative budget", -1),
-		)
+		It("Should name no file when the extension leaves no room", func() {
+			Expect(
+				xos.SanitizeFileName("report", strings.Repeat("a", 300)),
+			).To(BeEmpty())
+		})
 	})
 })
 
