@@ -43,6 +43,7 @@ var (
 	rbacSvc   *rbac.Service
 	groupSvc  *group.Service
 	symbolSvc *symbol.Service
+	userSvc   *user.Service
 	apiSvc    *Service
 	author    user.User
 )
@@ -58,7 +59,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 	}))
 	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:              db,
 		Ontology:        otg,
 		Group:           groupSvc,
@@ -81,6 +82,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ImEx:     imex.NewService(),
 	}))
 	apiSvc = &Service{internal: symbolSvc, access: rbacSvc}
+	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Username: "test",
 	}))
@@ -101,13 +103,28 @@ func createGroup(ctx SpecContext, name string) group.Group {
 	return MustSucceed(groupSvc.NewWriter(nil).Create(ctx, name, ontology.RootID))
 }
 
+// newSymbol returns an unsaved symbol a create request can carry.
+func newSymbol(name string) symbol.Symbol {
+	return symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}}
+}
+
 // createSymbol creates a symbol under g, committing it for the same reason createGroup
 // does.
 func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 	GinkgoHelper()
-	sym := symbol.Symbol{Name: name, Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"}}
+	sym := newSymbol(name)
 	Expect(symbolSvc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
 	return sym
+}
+
+// createUser creates a user to author a request. Specs granting on an object the whole
+// suite shares — the symbol type or the permanent group — take a user of their own, so
+// the grant cannot reach another spec.
+func createUser(ctx SpecContext) user.User {
+	GinkgoHelper()
+	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+		Username: "test-" + uuid.NewString(),
+	}))
 }
 
 // grantOn grants the action on the given objects to the subject through a fresh role.
@@ -134,9 +151,19 @@ func grantOn(
 	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 }
 
+func grantCreateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+	GinkgoHelper()
+	grantOn(ctx, subject, access.ActionCreate, objects...)
+}
+
 func grantRetrieveOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionRetrieve, objects...)
+}
+
+func grantUpdateOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {
+	GinkgoHelper()
+	grantOn(ctx, subject, access.ActionUpdate, objects...)
 }
 
 func grantDeleteOn(ctx SpecContext, subject ontology.ID, objects ...ontology.ID) {

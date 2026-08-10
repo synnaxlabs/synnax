@@ -10,7 +10,9 @@
 package symbol_test
 
 import (
+	"context"
 	"encoding/json"
+	"io"
 	"maps"
 	"slices"
 	"strings"
@@ -21,12 +23,44 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// errEncode is the failure failEncoder reports.
+var errEncode = errors.New("the encoder refused the value")
+
+// failEncoder encodes as JSON but refuses half of a bundle: the manifest when
+// onManifest is true, every symbol envelope otherwise.
+type failEncoder struct{ onManifest bool }
+
+var _ encoding.FileEncoder = failEncoder{}
+
+func (e failEncoder) refuses(value any) bool {
+	_, isManifest := value.(symbol.GroupManifest)
+	return isManifest == e.onManifest
+}
+
+func (e failEncoder) Encode(ctx context.Context, value any) ([]byte, error) {
+	if e.refuses(value) {
+		return nil, errEncode
+	}
+	return xjson.Codec.Encode(ctx, value)
+}
+
+func (e failEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	if e.refuses(value) {
+		return errEncode
+	}
+	return xjson.Codec.EncodeStream(ctx, w, value)
+}
+
+func (failEncoder) Extension() string { return xjson.Codec.Extension() }
 
 // ExportGroup reads committed data, so every fixture below is created outside the
 // per-spec tx and deleted afterwards to keep the shared DB's counts intact.
@@ -171,6 +205,22 @@ var _ = Describe("ExportGroup", func() {
 		Entry("manifest", "manifest"),
 		Entry("MANIFEST", "MANIFEST"),
 	)
+	It("Should return the encoder's error when a symbol fails to encode", func(
+		ctx SpecContext,
+	) {
+		g := createRoot(ctx, "Valves")
+		createSymbol(ctx, g, "Inlet")
+		Expect(svc.ExportGroup(ctx, g.Key, failEncoder{})).Error().
+			To(MatchError(errEncode))
+	})
+	It("Should return the encoder's error when the manifest fails to encode", func(
+		ctx SpecContext,
+	) {
+		g := createRoot(ctx, "Valves")
+		createSymbol(ctx, g, "Inlet")
+		Expect(svc.ExportGroup(ctx, g.Key, failEncoder{onManifest: true})).Error().
+			To(MatchError(errEncode))
+	})
 })
 
 var _ = Describe("GroupBundle", func() {

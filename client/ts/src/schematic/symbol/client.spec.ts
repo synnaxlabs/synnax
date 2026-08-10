@@ -10,6 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { NotFoundError } from "@/errors";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -311,6 +312,87 @@ describe("Symbol Client", () => {
         name: "Nested",
       });
       await expect(download(exported.key)).rejects.toThrow("not a schematic symbol");
+    });
+  });
+
+  describe("deleteGroup", () => {
+    const createTarget = async (parent: ontology.ID = ontology.ROOT_ID) =>
+      await client.groups.create({ parent, name: `symbol-delete-${id.create()}` });
+
+    it("should delete the group's symbols", async () => {
+      const target = await createTarget();
+      const symbols = await client.schematics.symbols.create({
+        symbols: [
+          { name: "Inlet", data: SYMBOL_DATA },
+          { name: "Outlet", data: SYMBOL_DATA },
+        ],
+        parent: group.ontologyID(target.key),
+      });
+      await client.schematics.symbols.deleteGroup(target.key);
+      await expect(client.schematics.symbols.retrieve(symbols[0].key)).rejects.toThrow(
+        NotFoundError,
+      );
+      await expect(client.schematics.symbols.retrieve(symbols[1].key)).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
+    it("should drop the group from its parent's children", async () => {
+      const parent = await createParent();
+      const target = await createTarget(parent);
+      let latest: query.Cached<group.Group[]> | undefined;
+      const stop = client.groups.onChange({ parent }, (cached) => {
+        latest = cached;
+      });
+      try {
+        expect(await client.groups.retrieve({ parent })).toHaveLength(1);
+        await client.schematics.symbols.deleteGroup(target.key);
+        await expect
+          .poll(() => (query.isLive(latest) ? latest : undefined))
+          .toEqual([]);
+      } finally {
+        stop();
+      }
+    });
+
+    it("should drop the deleted symbols from parent subscribers", async () => {
+      const target = await createTarget();
+      const parent = group.ontologyID(target.key);
+      await client.schematics.symbols.create({
+        name: "Inlet",
+        data: SYMBOL_DATA,
+        parent,
+      });
+      let latest: query.Cached<schematic.symbol.Symbol[]> | undefined;
+      const stop = client.schematics.symbols.onChange({ parent }, (cached) => {
+        latest = cached;
+      });
+      try {
+        await client.schematics.symbols.retrieve({ parent });
+        await client.schematics.symbols.deleteGroup(target.key);
+        await expect
+          .poll(() => (query.isLive(latest) ? latest : undefined))
+          .toEqual([]);
+      } finally {
+        stop();
+      }
+    });
+
+    it("should error when the group holds a resource that is not a symbol", async () => {
+      const target = await createTarget();
+      const parent = group.ontologyID(target.key);
+      const created = await client.schematics.symbols.create({
+        name: "Inlet",
+        data: SYMBOL_DATA,
+        parent,
+      });
+      await client.groups.create({ parent, name: "Nested" });
+      await expect(client.schematics.symbols.deleteGroup(target.key)).rejects.toThrow(
+        "not a schematic symbol",
+      );
+      // The delete never landed, so the members must survive in the cache too.
+      const remaining = await client.schematics.symbols.retrieve({ parent });
+      expect(remaining.map((s) => s.key)).toEqual([created.key]);
     });
   });
 });
