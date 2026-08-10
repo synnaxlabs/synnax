@@ -68,7 +68,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.TaskConfig{
-				BaseConfig: common.BaseConfig{
+				BaseStartConfig: common.BaseStartConfig{
 					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 					AutoStart:    false,
 				},
@@ -86,7 +86,7 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v0.TaskConfig{
-				BaseConfig: common.BaseConfig{
+				BaseStartConfig: common.BaseStartConfig{
 					ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
 					AutoStart:    false,
 				},
@@ -94,7 +94,7 @@ var _ = Describe("Codec", func() {
 				Alerts:     nil,
 			}),
 			Entry("empty collections", v0.TaskConfig{
-				BaseConfig: common.BaseConfig{
+				BaseStartConfig: common.BaseStartConfig{
 					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 					AutoStart:    false,
 				},
@@ -132,7 +132,7 @@ func BenchmarkEncodeDecodeAlert(b *testing.B) {
 
 func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
 	seed := v0.TaskConfig{
-		BaseConfig: common.BaseConfig{
+		BaseStartConfig: common.BaseStartConfig{
 			ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 			AutoStart:    false,
 		},
@@ -222,7 +222,7 @@ func FuzzDecodeAlert(f *testing.F) {
 func FuzzDecodeTaskConfig(f *testing.F) {
 	{
 		seed := v0.TaskConfig{
-			BaseConfig: common.BaseConfig{
+			BaseStartConfig: common.BaseStartConfig{
 				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 				AutoStart:    false,
 			},
@@ -247,7 +247,7 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	}
 	{
 		seed := v0.TaskConfig{
-			BaseConfig: common.BaseConfig{
+			BaseStartConfig: common.BaseStartConfig{
 				ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
 				AutoStart:    false,
 			},
@@ -262,7 +262,7 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	}
 	{
 		seed := v0.TaskConfig{
-			BaseConfig: common.BaseConfig{
+			BaseStartConfig: common.BaseStartConfig{
 				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 				AutoStart:    false,
 			},

@@ -27,10 +27,10 @@ export interface ConfigRecord extends z.infer<typeof configRecordZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const baseConfigZ = configRecordZ.extend({
+export const baseStartConfigZ = configRecordZ.extend({
   autoStart: z.boolean().default(false),
 });
-export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
+export interface BaseStartConfig extends z.infer<typeof baseStartConfigZ> {}
 
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
   task: typeof keyZ;
@@ -84,7 +84,7 @@ export const commandZ = z.object({
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
-export const basePersistConfigZ = baseConfigZ.extend({
+export const basePersistConfigZ = baseStartConfigZ.extend({
   dataSavingDisabled: z.boolean().default(false),
 });
 export interface BasePersistConfig extends z.infer<typeof basePersistConfigZ> {}

@@ -31,14 +31,14 @@ inline x::json::json ConfigRecord::to_json() const {
     return j;
 }
 
-inline BaseConfig BaseConfig::parse(x::json::Parser parser) {
-    BaseConfig result;
+inline BaseStartConfig BaseStartConfig::parse(x::json::Parser parser) {
+    BaseStartConfig result;
     static_cast<ConfigRecord &>(result) = ConfigRecord::parse(parser);
     result.auto_start = parser.field<bool>("auto_start", false);
     return result;
 }
 
-inline x::json::json BaseConfig::to_json() const {
+inline x::json::json BaseStartConfig::to_json() const {
     x::json::json j;
     for (auto &[k, v]: ConfigRecord::to_json().items())
         j[k] = v;
@@ -48,14 +48,14 @@ inline x::json::json BaseConfig::to_json() const {
 
 inline BasePersistConfig BasePersistConfig::parse(x::json::Parser parser) {
     BasePersistConfig result;
-    static_cast<BaseConfig &>(result) = BaseConfig::parse(parser);
+    static_cast<BaseStartConfig &>(result) = BaseStartConfig::parse(parser);
     result.data_saving_disabled = parser.field<bool>("data_saving_disabled", false);
     return result;
 }
 
 inline x::json::json BasePersistConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseConfig::to_json().items())
+    for (auto &[k, v]: BaseStartConfig::to_json().items())
         j[k] = v;
     j["data_saving_disabled"] = this->data_saving_disabled;
     return j;

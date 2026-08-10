@@ -41,7 +41,7 @@ Alert struct {
     @go version 0
 }
 
-TaskConfig struct extends task.BaseConfig {
+TaskConfig struct extends task.BaseStartConfig {
     routing_key string = "" {
         @doc value "is the PagerDuty Events API v2 routing key."
     }

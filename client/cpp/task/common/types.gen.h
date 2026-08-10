@@ -19,7 +19,7 @@
 namespace synnax::common {
 
 struct ConfigRecord;
-struct BaseConfig;
+struct BaseStartConfig;
 struct BasePersistConfig;
 struct BaseReadConfig;
 struct BaseWriteConfig;
@@ -33,19 +33,19 @@ struct ConfigRecord {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseConfig carries the configuration fields shared by every task.
-struct BaseConfig : public ConfigRecord {
+/// @brief BaseStartConfig carries the configuration fields shared by every task.
+struct BaseStartConfig : public ConfigRecord {
     /// @brief auto_start is true when the task should start as soon as it is
     /// configured.
     bool auto_start = false;
 
-    static BaseConfig parse(x::json::Parser parser);
+    static BaseStartConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief BasePersistConfig carries the configuration fields shared by tasks that write
 /// telemetry.
-struct BasePersistConfig : public BaseConfig {
+struct BasePersistConfig : public BaseStartConfig {
     /// @brief data_saving_disabled is true when task telemetry is not persisted to
     /// disk.
     bool data_saving_disabled = false;

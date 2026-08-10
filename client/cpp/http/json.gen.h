@@ -249,9 +249,9 @@ inline x::json::json WriteEndpoint::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::common::BaseConfig &>(
+    static_cast<::synnax::common::BaseStartConfig &>(
         result
-    ) = ::synnax::common::BaseConfig::parse(parser);
+    ) = ::synnax::common::BaseStartConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.endpoints = parser.field<std::vector<WriteEndpoint>>(
         "endpoints",
@@ -262,7 +262,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::BaseConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::common::BaseStartConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     j["endpoints"] = x::json::to_array(this->endpoints);

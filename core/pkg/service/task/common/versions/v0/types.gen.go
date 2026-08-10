@@ -23,8 +23,8 @@ type ConfigRecord struct {
 	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
-// BaseConfig carries the configuration fields shared by every task.
-type BaseConfig struct {
+// BaseStartConfig carries the configuration fields shared by every task.
+type BaseStartConfig struct {
 	ConfigRecord
 	// AutoStart is true when the task should start as soon as it is configured.
 	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
@@ -33,7 +33,7 @@ type BaseConfig struct {
 // BasePersistConfig carries the configuration fields shared by tasks that write
 // telemetry.
 type BasePersistConfig struct {
-	BaseConfig
+	BaseStartConfig
 	// DataSavingDisabled is true when task telemetry is not persisted to disk.
 	DataSavingDisabled bool `json:"data_saving_disabled" msgpack:"data_saving_disabled"`
 }

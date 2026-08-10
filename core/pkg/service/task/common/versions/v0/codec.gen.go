@@ -17,25 +17,6 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (bc BaseConfig) EncodeOrc(w *orc.Writer) error {
-	w.Write(bc.Key[:])
-	w.Bool(bc.AutoStart)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (bc *BaseConfig) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if _, err := r.Read(bc.Key[:]); err != nil {
-		return err
-	}
-	if bc.AutoStart, err = r.Bool(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (bpc BasePersistConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(bpc.Key[:])
 	w.Bool(bpc.AutoStart)
@@ -93,6 +74,25 @@ func (brc *BaseReadConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		brc.StreamRate = telem.Rate(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (bsc BaseStartConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(bsc.Key[:])
+	w.Bool(bsc.AutoStart)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bsc *BaseStartConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(bsc.Key[:]); err != nil {
+		return err
+	}
+	if bsc.AutoStart, err = r.Bool(); err != nil {
+		return err
 	}
 	return nil
 }

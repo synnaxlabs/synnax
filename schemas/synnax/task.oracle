@@ -168,7 +168,7 @@ ConfigRecord struct {
     @pb omit
 }
 
-BaseConfig struct extends ConfigRecord {
+BaseStartConfig struct extends ConfigRecord {
     auto_start bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }
@@ -180,7 +180,7 @@ BaseConfig struct extends ConfigRecord {
     @pb omit
 }
 
-BasePersistConfig struct extends BaseConfig {
+BasePersistConfig struct extends BaseStartConfig {
     data_saving_disabled bool = false {
         @doc value "is true when task telemetry is not persisted to disk."
     }

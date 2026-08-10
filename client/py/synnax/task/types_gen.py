@@ -79,7 +79,7 @@ class Command(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
-class BaseConfig(ConfigRecord):
+class BaseStartConfig(ConfigRecord):
     """Carries the configuration fields shared by every task.
 
     Attributes:
@@ -95,7 +95,7 @@ class BaseConfig(ConfigRecord):
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
-class BasePersistConfig(BaseConfig):
+class BasePersistConfig(BaseStartConfig):
     """Carries the configuration fields shared by tasks that write telemetry.
 
     Attributes:
