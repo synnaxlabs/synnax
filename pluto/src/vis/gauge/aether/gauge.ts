@@ -160,7 +160,7 @@ export class Gauge
   afterDelete(): void {
     const { internal: i } = this;
     i.stopListening?.();
-    i.staleness.cleanup();
+    i.staleness?.cleanup();
     i.telem.cleanup?.();
     if (i.requestRender == null)
       i.render.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);

@@ -24,22 +24,19 @@ interface RenderProps
   extends Omit<Config, "variant">, Omit<BaseInput.Control<number>, "value"> {
   className?: string;
   style?: CSSProperties;
-  /** Seeds the input. The primitive owns the value from there on. */
-  value?: number;
 }
 
 export const Setpoint = ({
   orientation = "left",
   className,
   style,
-  value = 0,
   units,
   color,
   onChange,
   size = "small",
   disabled,
 }: RenderProps): ReactElement => {
-  const [currValue, setCurrValue] = useState(value);
+  const [currValue, setCurrValue] = useState(0);
   const mergedStyle = useMemo(
     () => ({ ...style, [CSS.var("symbol-color")]: symbolColorVar(color) }),
     [style, color],

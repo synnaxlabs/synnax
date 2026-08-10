@@ -24,7 +24,8 @@ export const DEFAULT_TIMEOUT = 5;
  * themselves; DOM-rendered ones read it from their config instead.
  */
 export const configZ = z.object({
-  stalenessTimeout: z.number().default(DEFAULT_TIMEOUT),
+  // A non-positive timeout would pin a source stale from its first sample onward.
+  stalenessTimeout: z.number().positive().default(DEFAULT_TIMEOUT),
 });
 
 /**

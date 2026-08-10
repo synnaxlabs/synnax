@@ -113,7 +113,7 @@ export class Value
     const { internal: i } = this;
     i.stopListening?.();
     i.stopListeningBackground?.();
-    i.staleness.cleanup();
+    i.staleness?.cleanup();
     i.telem.cleanup?.();
     i.backgroundTelem.cleanup?.();
     if (i.requestRender == null)

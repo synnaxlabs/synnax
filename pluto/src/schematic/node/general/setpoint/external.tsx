@@ -39,7 +39,6 @@ export const defaultConfig = (): Config => ({
 
 const Preview = ({ ...rest }: Config): ReactElement => (
   <Setpoint
-    value={12}
     onChange={() => {}}
     units="mV"
     className={CSS.BM("setpoint", "preview")}
