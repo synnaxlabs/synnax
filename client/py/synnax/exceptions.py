@@ -64,6 +64,12 @@ class ExpiredToken(AuthError):
     TYPE = AuthError.TYPE + ".expired_token"
 
 
+class AccessDenied(AuthError):
+    """Raised when a user does not have permission to perform an action."""
+
+    TYPE = AuthError.TYPE + ".access_denied"
+
+
 class UnexpectedError(Exception):
     """Raised when an unexpected error occurs."""
 
@@ -125,6 +131,8 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
     if encoded.type.startswith(AuthError.TYPE):
         if encoded.type.startswith(InvalidCredentials.TYPE):
             return InvalidCredentials(encoded.data)
+        if encoded.type.startswith(AccessDenied.TYPE):
+            return AccessDenied(encoded.data)
         return AuthError(encoded.data)
 
     if encoded.type.startswith(UnexpectedError.TYPE):

@@ -32,6 +32,9 @@ export const statusDetailsZ = z.object({
   error: z.instanceof(Error).optional(),
   authenticated: z.boolean(),
   streamLive: z.boolean(),
+  // The cluster refused the change stream. Unary calls the user is allowed to
+  // make still work; live updates do not arrive.
+  streamDenied: z.boolean(),
   epoch: z.number(),
   clusterKey: z.string(),
   clientVersion: z.string(),
@@ -80,6 +83,7 @@ export type Status = ErrorStatus | NonErrorStatus;
 const DEFAULT_STATUS_DETAILS: StatusDetails = {
   authenticated: false,
   streamLive: false,
+  streamDenied: false,
   epoch: 0,
   clusterKey: "",
   clientVersion: __VERSION__,
@@ -131,12 +135,16 @@ export interface Handle {
 }
 
 const isSettled = ({ variant }: Status): boolean =>
-  variant === "success" || variant === "error" || variant === "disabled";
+  variant === "success" ||
+  variant === "warning" ||
+  variant === "error" ||
+  variant === "disabled";
 
 /**
- * Resolves once the connection reaches success. Rejects with the stored failure
- * when it settles on an error variant or is closed. The current status is
- * evaluated first, so an already-connected handle resolves without waiting.
+ * Resolves once the connection is usable: success, or warning when the cluster
+ * refuses live updates. Rejects with the stored failure when it settles on an
+ * error variant or is closed. The current status is evaluated first, so an
+ * already-connected handle resolves without waiting.
  * @throws {Error} if the timeout elapses first.
  */
 export const awaitConnected = async (
@@ -144,7 +152,7 @@ export const awaitConnected = async (
   timeout?: CrudeTimeSpan,
 ): Promise<Status> => {
   const settled = await observe.until(handle, () => handle.status, isSettled, timeout);
-  if (settled.variant !== "success")
+  if (settled.variant !== "success" && settled.variant !== "warning")
     throw settled.details.error ?? new DisconnectedError(settled.message);
   return settled;
 };
@@ -168,6 +176,7 @@ export type Event =
   | { type: "check.failure"; error: Error; attempt: number }
   | { type: "stream.live" }
   | { type: "stream.drop"; error?: Error }
+  | { type: "stream.denied"; error?: Error }
   | { type: "auth.success" }
   | { type: "auth.failure"; error: Error }
   | { type: "epoch.advanced"; epoch: number }
@@ -180,6 +189,8 @@ export type Event =
 const CONNECTING = "Connecting";
 const RECONNECTING = "Reconnecting";
 const UNREACHABLE = "Cannot reach cluster";
+const STREAM_DENIED =
+  "Live updates are unavailable. This user cannot read the change channels.";
 
 const connectedMessage = ({ name }: Config): string =>
   `Connected to ${name ?? "cluster"}`;
@@ -207,12 +218,13 @@ const enter = (
   variant: Exclude<status.Variant, "error">,
   message: string,
   details: Partial<StatusDetails> = {},
+  description: string = "",
 ): NonErrorStatus => {
   const { reason: _, ...merged }: StatusDetails & { reason?: Reason } = {
     ...prev.details,
     ...details,
   };
-  return { ...prev, variant, message, details: merged };
+  return { ...prev, variant, message, description, details: merged };
 };
 
 const enterError = (
@@ -224,6 +236,7 @@ const enterError = (
   ...prev,
   variant: "error",
   message,
+  description: "",
   details: { ...prev.details, ...details, reason },
 });
 
@@ -244,6 +257,27 @@ const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
 });
 
+// Connected, with live updates refused. A settled outcome: only a policy
+// change lifts it, so the machine rests here instead of chasing the stream.
+const enterStreamDenied = (
+  prev: Status,
+  config: Config,
+  details: Partial<StatusDetails> = {},
+): Status =>
+  enter(
+    prev,
+    "warning",
+    connectedMessage(config),
+    {
+      ...details,
+      streamDenied: true,
+      streamLive: false,
+      error: undefined,
+      retry: null,
+    },
+    STREAM_DENIED,
+  );
+
 const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status => {
   const { clusterKey } = prev.details;
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
@@ -254,6 +288,7 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   // lift out of error: the short circuit it drives would starve the very
   // stream reopen this state waits on.
   if (config.requiresStream && !prev.details.streamLive) {
+    if (prev.details.streamDenied) return enterStreamDenied(prev, config, facts);
     if (prev.variant === "error" && prev.details.reason === "unreachable")
       return enter(prev, "loading", RECONNECTING, {
         ...facts,
@@ -277,6 +312,7 @@ const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status
   enter(prev, "loading", `Connecting to ${config.name ?? "cluster"}`, {
     ...checkFacts(info, config),
     streamLive: false,
+    streamDenied: false,
     epoch: 0,
     error: undefined,
     retry: null,
@@ -306,9 +342,10 @@ const reduceCheckFailure = (
 
 const reduceStreamLive = (prev: Status, config: Config): Status => {
   const parked = prev.variant === "error" && prev.details.reason !== "unreachable";
-  if (parked) return update(prev, { streamLive: true });
+  if (parked) return update(prev, { streamLive: true, streamDenied: false });
   return enter(prev, "success", connectedMessage(config), {
     streamLive: true,
+    streamDenied: false,
     error: undefined,
     retry: null,
   });
@@ -345,6 +382,8 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
       return reduceStreamLive(prev, config);
     case "stream.drop":
       return reduceStreamDrop(prev, event.error);
+    case "stream.denied":
+      return enterStreamDenied(prev, config);
     case "auth.success":
       return update(prev, { authenticated: true });
     case "auth.failure":
@@ -362,7 +401,11 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
         return prev;
       return enter(prev, "loading", CONNECTING);
     case "credentials.replaced":
-      return enter(prev, "loading", CONNECTING, { error: undefined });
+      // the new user may hold the permissions the old one lacked
+      return enter(prev, "loading", CONNECTING, {
+        error: undefined,
+        streamDenied: false,
+      });
     case "closed":
       return enter(prev, "disabled", "Closed", {
         streamLive: false,

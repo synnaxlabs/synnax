@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, observe, type record, type state } from "@synnaxlabs/x";
+import {
+  type destructor,
+  errors,
+  observe,
+  type record,
+  type state,
+} from "@synnaxlabs/x";
 import type z from "zod";
 
 import { isConnectionError } from "@/errors";
@@ -93,6 +99,7 @@ export class Cache {
   private readonly openStreamer: StreamOpener | null;
   private streamer: Streamer | null = null;
   private epochCount = 0;
+  private unmaintained = false;
 
   /**
    * Stable error sink for machinery built on this cache (dispatch
@@ -175,6 +182,7 @@ export class Cache {
     const space = new Queries(params, {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
+      maintained: () => !this.unmaintained && this.openStreamer != null,
       onError: this.onError,
     });
     this.spaces.push(space);
@@ -185,6 +193,8 @@ export class Cache {
    * Ensures the change stream is open, opening it on first call. Callers that
    * populate or read tables await this first so no change is missed between a
    * fetch and the stream opening.
+   * @throws {AccessDeniedError} if the caller cannot stream the mirrored
+   * channels. Answers stop being maintained until a later call succeeds.
    */
   async ensureStreaming(): Promise<void> {
     const { openStreamer } = this;
@@ -201,6 +211,7 @@ export class Cache {
         onError: this.onError,
         onOpen: () => {
           if (this.streamer !== streamer) return;
+          this.unmaintained = false;
           this.epochCount = 1;
           this.epochObserver.notify(this.epochCount);
         },
@@ -208,10 +219,19 @@ export class Cache {
           if (this.streamer !== streamer) return;
           this.bumpEpoch();
         },
+        onDead: () => {
+          if (this.streamer !== streamer) return;
+          this.unmaintained = true;
+        },
       });
       this.streamer = streamer;
     }
-    await this.streamer.demand();
+    try {
+      await this.streamer.demand();
+    } catch (exc) {
+      this.unmaintained = true;
+      throw errors.fromUnknown(exc);
+    }
   }
 
   /**
@@ -266,6 +286,7 @@ export class Cache {
     }
     this.entries.forEach(({ reset }) => reset());
     this.spaces.forEach((space) => space.reset());
+    this.unmaintained = false;
     this.epochCount = 0;
     this.epochObserver.notify(0);
   }

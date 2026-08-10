@@ -21,7 +21,7 @@ import {
   materialChange,
   reduce,
 } from "@/connection/status";
-import { AuthError, DisconnectedError } from "@/errors";
+import { AccessDeniedError, AuthError, DisconnectedError } from "@/errors";
 import { TEST_CLIENT_PARAMS, waitForStatus } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -344,6 +344,43 @@ describe("connection", () => {
       expect(reopened.variant).toEqual("success");
     });
 
+    it("should settle on warning when the cluster denies the stream", () => {
+      const config = createConfig({ requiresStream: true });
+      const denied = apply(
+        config,
+        { type: "check.success", info: createInfo() },
+        { type: "stream.denied" },
+      );
+      expect(denied.variant).toEqual("warning");
+      expect(denied.details.streamDenied).toBe(true);
+      expect(denied.details.streamLive).toBe(false);
+      expect(denied.description).not.toEqual("");
+      // later checks must not drag the settled denial back into loading
+      const checked = reduce(
+        denied,
+        { type: "check.success", info: createInfo() },
+        config,
+      );
+      expect(checked.variant).toEqual("warning");
+      expect(checked.details.streamDenied).toBe(true);
+    });
+
+    it("should clear a denial when the stream comes up or credentials change", () => {
+      const config = createConfig({ requiresStream: true });
+      const denied = apply(
+        config,
+        { type: "check.success", info: createInfo() },
+        { type: "stream.denied" },
+      );
+      const live = reduce(denied, { type: "stream.live" }, config);
+      expect(live.variant).toEqual("success");
+      expect(live.details.streamDenied).toBe(false);
+      expect(live.description).toEqual("");
+      const replaced = reduce(denied, { type: "credentials.replaced" }, config);
+      expect(replaced.variant).toEqual("loading");
+      expect(replaced.details.streamDenied).toBe(false);
+    });
+
     it("should degrade to reconnecting when a heartbeat fails while connected", () => {
       const config = createConfig();
       const connected = apply(config, { type: "check.success", info: createInfo() });
@@ -562,6 +599,7 @@ describe("connection", () => {
         "error",
         "authenticated",
         "streamLive",
+        "streamDenied",
         "epoch",
         "clusterKey",
         "clientVersion",
@@ -590,6 +628,7 @@ describe("connection", () => {
       });
       expect(modeFor(initial)).toEqual("checking");
       expect(modeFor({ ...initial, variant: "success" })).toEqual("heartbeat");
+      expect(modeFor({ ...initial, variant: "warning" })).toEqual("heartbeat");
       expect(modeFor(asError("unreachable"))).toEqual("checking");
       expect(modeFor(asError("auth"))).toEqual("idle");
       expect(modeFor({ ...initial, variant: "disabled" })).toEqual("idle");
@@ -766,6 +805,38 @@ describe("connection", () => {
       expect(client.status.variant).toEqual("loading");
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
+      await client.close();
+    });
+
+    it("should probe a denied stream on a slow cadence and report it once", async () => {
+      const internal: Error[] = [];
+      let checks = 0;
+      let probes = 0;
+      const unary = mockUnary(() => {
+        checks += 1;
+        return TimeStamp.now();
+      });
+      const client: connection.Client = createClient(unary, {
+        requiresStream: true,
+        deniedStreamProbeAfter: 3,
+        stream: {
+          reset: async () => {},
+          ensure: async () => {
+            probes += 1;
+            client.notify({ type: "stream.denied" });
+            throw new AccessDeniedError("no permission to stream");
+          },
+        },
+        onInternalError: (error) => internal.push(error),
+      });
+      await waitForStatus(client, (s) => s.details.streamDenied);
+      expect(client.status.variant).toEqual("warning");
+      expect(probes).toEqual(1);
+      const checksAtDenial = checks;
+      while (probes < 2) await sleep(TimeSpan.milliseconds(1));
+      expect(checks - checksAtDenial).toBeGreaterThanOrEqual(3);
+      expect(internal).toHaveLength(1);
+      expect(AccessDeniedError.matches(internal[0])).toBe(true);
       await client.close();
     });
 

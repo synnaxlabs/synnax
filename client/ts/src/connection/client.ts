@@ -37,7 +37,7 @@ import {
   reduce,
   type Status,
 } from "@/connection/status";
-import { DisconnectedError, errorsMiddleware } from "@/errors";
+import { AccessDeniedError, DisconnectedError, errorsMiddleware } from "@/errors";
 import { Transport } from "@/transport";
 
 const CHECK_ENDPOINT = "/connectivity/check";
@@ -111,7 +111,10 @@ export type Mode = "checking" | "heartbeat" | "idle";
 /** The mode a given connection status calls for. */
 export const modeFor = ({ variant, details }: Status): Mode => {
   switch (variant) {
+    // warning is settled, not in progress: a denied stream checks on the
+    // slow cadence like a healthy one
     case "success":
+    case "warning":
       return "heartbeat";
     case "disabled":
       return "idle";
@@ -146,10 +149,16 @@ export type FactEvent = Extract<
       | "auth.failure"
       | "stream.live"
       | "stream.drop"
+      | "stream.denied"
       | "credentials.replaced"
       | "epoch.advanced";
   }
 >;
+
+/** Heartbeats between re-probes of a denied change stream. */
+const DEFAULT_DENIED_STREAM_PROBE_AFTER = 10;
+
+const STREAM_DENIED = "cannot stream changes: live updates are unavailable";
 
 export interface ClientParams {
   /**
@@ -173,6 +182,11 @@ export interface ClientParams {
   retry?: breaker.Config;
   /** Check cadence while connected. Defaults to 30 seconds. */
   heartbeatInterval?: CrudeTimeSpan;
+  /**
+   * Heartbeats between re-probes of a denied change stream. Only a policy
+   * change lifts a denial, and the client cannot hear about one. Defaults to 10.
+   */
+  deniedStreamProbeAfter?: number;
   /** Levers on the change stream, pulled when transitions demand it. */
   stream?: {
     /** Tears down cached state after a cluster replacement. */
@@ -197,6 +211,7 @@ export class Client implements Handle {
   private readonly config: Config;
   private readonly retry: breaker.Config;
   private readonly heartbeatInterval: TimeSpan;
+  private readonly deniedStreamProbeAfter: number;
   private readonly stream?: ClientParams["stream"];
   private readonly onInternalError: (error: Error) => void;
   private readonly observer = new observe.Observer<Status>();
@@ -207,6 +222,7 @@ export class Client implements Handle {
   private closed = false;
   private attempts = 0;
   private generation = 0;
+  private probeCountdown = 0;
   private brk: breaker.Breaker | null = null;
   private versionWarned = false;
 
@@ -219,6 +235,7 @@ export class Client implements Handle {
     requiresStream = false,
     retry,
     heartbeatInterval = TimeSpan.seconds(30),
+    deniedStreamProbeAfter = DEFAULT_DENIED_STREAM_PROBE_AFTER,
     stream,
     onInternalError = console.error,
   }: ClientParams) {
@@ -233,6 +250,7 @@ export class Client implements Handle {
     };
     this.retry = { ...DEFAULT_RETRY, ...retry };
     this.heartbeatInterval = new TimeSpan(heartbeatInterval);
+    this.deniedStreamProbeAfter = deniedStreamProbeAfter;
     this.stream = stream;
     this.onInternalError = onInternalError;
     this.current = createInitialStatus(this.config);
@@ -261,9 +279,10 @@ export class Client implements Handle {
   }
 
   /**
-   * Resolves once the connection reaches success. Rejects with the stored
-   * failure when it settles on an error variant or is closed. An
-   * already-connected client resolves without waiting.
+   * Resolves once the connection is usable: success, or warning when the
+   * cluster refuses live updates. Rejects with the stored failure when it
+   * settles on an error variant or is closed. An already-connected client
+   * resolves without waiting.
    * @throws {Error} if the timeout elapses first.
    */
   async connect(timeout?: CrudeTimeSpan): Promise<Status> {
@@ -272,7 +291,16 @@ export class Client implements Handle {
 
   /** Folds an outside fact into the connection status. */
   notify(event: FactEvent): void {
+    const wasDenied = this.current.details.streamDenied;
     this.dispatch(event);
+    if (event.type === "stream.denied") {
+      this.probeCountdown = this.deniedStreamProbeAfter;
+      // every probe hits the same refusal; only the first is news
+      if (!wasDenied)
+        this.onInternalError(
+          new AccessDeniedError(STREAM_DENIED, { cause: event.error }),
+        );
+    }
     // a reopened stream may lead to a replaced cluster, and new credentials
     // deserve an immediate verdict: both check right away
     if (event.type === "stream.live" || event.type === "credentials.replaced")
@@ -356,6 +384,22 @@ export class Client implements Handle {
     this.notifier.notify();
   }
 
+  /**
+   * Consumes this check's turn at re-demanding a dark stream, returning whether
+   * it gets one. A denied stream probes on a slow cadence: every probe costs an
+   * open the cluster refuses until an administrator changes the caller's
+   * policies.
+   */
+  private takeStreamProbe(): boolean {
+    if (!this.current.details.streamDenied) return true;
+    if (this.probeCountdown > 0) {
+      this.probeCountdown -= 1;
+      return false;
+    }
+    this.probeCountdown = this.deniedStreamProbeAfter;
+    return true;
+  }
+
   private async runCheck(): Promise<void> {
     const generation = this.generation;
     const prevKey = this.current.details.clusterKey;
@@ -369,14 +413,19 @@ export class Client implements Handle {
       const replaced = prevKey !== "" && info.clusterKey !== prevKey;
       // reachable but the stream is still dark: re-demand it, in case its own
       // retry budget was exhausted. Replacement already brings it up.
-      if (!replaced && this.config.requiresStream && !this.current.details.streamLive)
-        this.stream
-          ?.ensure()
-          .catch((err: unknown) =>
-            this.onInternalError(
-              new Error("failed to bring up change stream", { cause: err }),
-            ),
+      if (
+        !replaced &&
+        this.config.requiresStream &&
+        !this.current.details.streamLive &&
+        this.takeStreamProbe()
+      )
+        this.stream?.ensure().catch((err: unknown) => {
+          // the transition into denied already reported it
+          if (AccessDeniedError.matches(err)) return;
+          this.onInternalError(
+            new Error("failed to bring up change stream", { cause: err }),
           );
+        });
     } catch (err) {
       if (generation !== this.generation || this.closed) return;
       this.attempts += 1;
