@@ -44,6 +44,10 @@
       "types": "./dist/src/index.d.ts",
       "default": "./dist/x.js"
     },
+    "./bench": {
+      "types": "./dist/src/bench/index.d.ts",
+      "default": "./dist/bench.js"
+    },
     "./dist/*": "./dist/*"
   }
 }
