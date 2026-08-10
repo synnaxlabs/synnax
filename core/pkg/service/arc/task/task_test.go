@@ -1851,7 +1851,7 @@ var _ = Describe("Task", Ordered, func() {
 							counter = read_val
 						}
 
-						if input and not prev {
+						if input != 0 and prev == 0 {
 							counter = counter + 1.0
 						}
 

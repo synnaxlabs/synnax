@@ -2831,7 +2831,7 @@ class TestCalcChannelStress:
         )
         c_power = client.channels.create(
             name=random_name(),
-            expression=f"return {alpha.name} ^ 2",
+            expression=f"return {alpha.name} ** 2",
         )
         c_temp_conv = client.channels.create(
             name=random_name(),
@@ -2873,7 +2873,7 @@ class TestCalcChannelStress:
         # Calc referencing the L2 gamma calc (on index B)
         c_gamma_chain = client.channels.create(
             name=random_name(),
-            expression=f"return {c_gamma_offset.name} ^ 2",
+            expression=f"return {c_gamma_offset.name} ** 2",
         )
 
         # ── EXPECTED VALUE FUNCTIONS ──────────────────────────────────────
