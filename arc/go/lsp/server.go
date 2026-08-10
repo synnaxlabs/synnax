@@ -154,15 +154,16 @@ func New(cfgs ...Config) (*Server, error) {
 			},
 			HoverProvider: protocol.Boolean(true),
 			CompletionProvider: &protocol.CompletionOptions{
-				// A comma is deliberately absent: the caret usually moves to the
-				// next line right after one, where a popup only gets in the way.
+				// Each entry must be one character: a client matches the last
+				// character the user typed. A comma is deliberately absent, since
+				// the caret usually moves to the next line right after one, where a
+				// popup only gets in the way.
 				TriggerCharacters: []string{
 					parser.LiteralCOLON,
 					parser.LiteralLT,
 					parser.LiteralMINUS,
 					parser.LiteralGT,
 					parser.LiteralLBRACE,
-					parser.LiteralEQ,
 					parser.LiteralDOT,
 				},
 			},

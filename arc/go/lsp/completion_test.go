@@ -2065,5 +2065,9 @@ var _ = Describe("Completion", func() {
 		It("offers the member and block openers", func() {
 			Expect(triggers).To(ContainElements(".", ":", "{"))
 		})
+
+		It("offers only single characters, which is all a client matches", func() {
+			Expect(triggers).To(HaveEach(HaveLen(1)))
+		})
 	})
 })
