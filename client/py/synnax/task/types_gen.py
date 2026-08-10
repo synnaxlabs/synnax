@@ -25,7 +25,7 @@ from x import telem
 Key: TypeAlias = UUID
 
 
-class ConfigRecord(BaseModel):
+class KeyedConfig(BaseModel):
     """Is the base for every stored task configuration record.
 
     Attributes:
@@ -79,7 +79,20 @@ class Command(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
-class BaseScanConfig(ConfigRecord):
+class BaseStartConfig(KeyedConfig):
+    """Carries the configuration fields shared by every task.
+
+    Attributes:
+        auto_start: Is true when the task should start as soon as it is configured.
+    """
+
+    auto_start: bool = False
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class BaseScanConfig(KeyedConfig):
     """Carries the fields shared by every scan task configuration.
 
     Attributes:
@@ -94,23 +107,10 @@ class BaseScanConfig(ConfigRecord):
         return hash(self.key)
 
 
-class BaseConfig(ConfigRecord):
-    """Carries the configuration fields shared by every task.
-
-    Attributes:
-        auto_start: Is true when the task should start as soon as it is configured.
-    """
-
-    auto_start: bool = False
-
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
-class BasePersistConfig(BaseConfig):
+class BasePersistConfig(BaseStartConfig):
     """Carries the configuration fields shared by tasks that write telemetry.
 
     Attributes:

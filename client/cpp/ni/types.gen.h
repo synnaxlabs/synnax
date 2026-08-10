@@ -31,7 +31,7 @@ struct BaseAIChannel;
 struct BaseCIChannel;
 struct BaseAOChannel;
 struct WriteConfig;
-struct ScannerConfig;
+struct ScanConfig;
 struct LinearScale;
 struct MapScale;
 struct TableScale;
@@ -327,11 +327,10 @@ struct WriteConfig : public ::synnax::common::BaseWriteConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ScannerConfig configures the NI device scanner task, which carries no
-/// settings.
-struct ScannerConfig : public ::synnax::common::BaseScanConfig {
+/// @brief ScanConfig configures the NI device scanner task, which carries no settings.
+struct ScanConfig : public ::synnax::common::BaseScanConfig {
 
-    static ScannerConfig parse(x::json::Parser parser);
+    static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

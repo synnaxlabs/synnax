@@ -4548,12 +4548,12 @@ func (d *DigitalWriteConfig) ApplyDefaults() {
 	d.WriteConfig.ApplyDefaults()
 }
 
-// ScannerConfig configures the NI device scanner task, which carries no settings.
-type ScannerConfig struct {
+// ScanConfig configures the NI device scanner task, which carries no settings.
+type ScanConfig struct {
 	common.BaseScanConfig
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *ScannerConfig) ApplyDefaults() {
+func (s *ScanConfig) ApplyDefaults() {
 	s.BaseScanConfig.ApplyDefaults()
 }

@@ -29,6 +29,6 @@ func (DigitalReadConfig) CustomTypeName() string { return "ni_digital_read_confi
 // with the identically named config types of other integrations.
 func (DigitalWriteConfig) CustomTypeName() string { return "ni_digital_write_config" }
 
-// CustomTypeName gives ScannerConfig records a table prefix that cannot collide with
+// CustomTypeName gives ScanConfig records a table prefix that cannot collide with
 // the identically named config types of other integrations.
-func (ScannerConfig) CustomTypeName() string { return "ni_scanner_config" }
+func (ScanConfig) CustomTypeName() string { return "ni_scanner_config" }

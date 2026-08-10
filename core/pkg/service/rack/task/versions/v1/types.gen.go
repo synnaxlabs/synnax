@@ -15,5 +15,5 @@ import common "github.com/synnaxlabs/synnax/pkg/service/task/common/versions/v0"
 
 // StatusConfig configures the rack status reporting task, which carries no settings.
 type StatusConfig struct {
-	common.ConfigRecord
+	common.KeyedConfig
 }

@@ -17,31 +17,15 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
-// ConfigRecord is the base for every stored task configuration record.
-type ConfigRecord struct {
+// KeyedConfig is the base for every stored task configuration record.
+type KeyedConfig struct {
 	// Key is the unique identifier for the stored configuration record.
 	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
-// BaseScanConfig carries the fields shared by every scan task configuration.
-type BaseScanConfig struct {
-	ConfigRecord
-	// Rate is the rate at which the scan runs, in hertz.
-	Rate telem.Rate `json:"rate" msgpack:"rate"`
-	// Disabled is true when scanning is paused.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BaseScanConfig) ApplyDefaults() {
-	if b.Rate == 0 {
-		b.Rate = 0.2
-	}
-}
-
-// BaseConfig carries the configuration fields shared by every task.
-type BaseConfig struct {
-	ConfigRecord
+// BaseStartConfig carries the configuration fields shared by every task.
+type BaseStartConfig struct {
+	KeyedConfig
 	// AutoStart is true when the task should start as soon as it is configured.
 	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
 }
@@ -49,7 +33,7 @@ type BaseConfig struct {
 // BasePersistConfig carries the configuration fields shared by tasks that write
 // telemetry.
 type BasePersistConfig struct {
-	BaseConfig
+	BaseStartConfig
 	// DataSavingDisabled is true when task telemetry is not persisted to disk.
 	DataSavingDisabled bool `json:"data_saving_disabled" msgpack:"data_saving_disabled"`
 }
@@ -78,4 +62,20 @@ type BaseWriteConfig struct {
 	BasePersistConfig
 	// Device is the key of the device the task writes to.
 	Device device.Key `json:"device" msgpack:"device"`
+}
+
+// BaseScanConfig carries the fields shared by every scan task configuration.
+type BaseScanConfig struct {
+	KeyedConfig
+	// Rate is the rate at which the scan runs, in hertz.
+	Rate telem.Rate `json:"rate" msgpack:"rate"`
+	// Disabled is true when scanning is paused.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (b *BaseScanConfig) ApplyDefaults() {
+	if b.Rate == 0 {
+		b.Rate = 0.2
+	}
 }

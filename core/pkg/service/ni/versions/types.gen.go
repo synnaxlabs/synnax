@@ -775,5 +775,5 @@ type DigitalReadConfig = v2.DigitalReadConfig
 // DigitalWriteConfig configures an NI digital write task.
 type DigitalWriteConfig = v2.DigitalWriteConfig
 
-// ScannerConfig configures the NI device scanner task, which carries no settings.
-type ScannerConfig = v2.ScannerConfig
+// ScanConfig configures the NI device scanner task, which carries no settings.
+type ScanConfig = v2.ScanConfig
