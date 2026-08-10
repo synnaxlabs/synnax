@@ -29,9 +29,9 @@
         flex-shrink: 0;
 
         .pluto-btn {
-            --pluto-bg: color-mix(in srgb, var(--pluto-gray-l2) 70%, transparent);
-            -webkit-backdrop-filter: blur(3rem) saturate(140%);
-            backdrop-filter: blur(3rem) saturate(140%);
+            --pluto-bg: color-mix(in srgb, var(--pluto-gray-l2) 75%, transparent);
+            -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
+            backdrop-filter: blur(3.5rem) saturate(140%);
         }
     }
 }

@@ -11,7 +11,7 @@ import { crdt, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
-import { AuthError } from "@/errors";
+import { AccessDeniedError } from "@/errors";
 import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
@@ -248,8 +248,8 @@ describe("arc", () => {
         objects: [arc.ontologyID(""), task.ontologyID("")],
         actions: ["retrieve"],
       });
-      await expect(userClient.arcs.deploy(created.key, rack.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.arcs.deploy(created.key, rack.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
       const surviving = await client.tasks.retrieve(tsk.key);
       expect(surviving.rack).toEqual(rack.key);

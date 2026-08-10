@@ -12,7 +12,12 @@ import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { type connection } from "@/connection";
 import { AuthError, DisconnectedError } from "@/errors";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
+import { label } from "@/label";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  TEST_CLIENT_PARAMS,
+} from "@/testutil";
 
 const reasonOf = (status: connection.Status): connection.Reason | undefined =>
   status.variant === "error" ? status.details.reason : undefined;
@@ -83,6 +88,32 @@ describe("connect", () => {
     await client.connect();
     await client.close();
     expect(client.connection.status.variant).toEqual("disabled");
+  });
+});
+
+describe("denied change stream", () => {
+  it("should connect with a warning when the user cannot stream changes", async () => {
+    const root = createTestClient();
+    const restricted = await createTestClientWithPolicy(root, {
+      name: "test",
+      objects: [label.ontologyID("")],
+      actions: ["retrieve"],
+    });
+    const status = await restricted.connect();
+    expect(status.variant).toEqual("warning");
+    expect(status.details.streamDenied).toBe(true);
+    expect(status.details.authenticated).toBe(true);
+    expect(status.description).not.toEqual("");
+    // the reads the user is allowed to make still work
+    const created = await root.labels.create({
+      name: "denied-stream",
+      color: "#000000",
+    });
+    await expect(restricted.labels.retrieve(created.key)).resolves.toMatchObject({
+      key: created.key,
+    });
+    restricted.close();
+    root.close();
   });
 });
 
