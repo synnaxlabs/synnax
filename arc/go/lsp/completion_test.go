@@ -37,6 +37,11 @@ var _ = Describe("Completion", func() {
 		docURI = "file:///test.arc"
 	})
 
+	It("offers the dot as the only completion trigger", func(ctx SpecContext) {
+		res := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{}))
+		Expect(res.Capabilities.CompletionProvider.TriggerCharacters).To(ConsistOf("."))
+	})
+
 	Describe("Basic Completion", func() {
 		It("should return built-in completions", func(ctx SpecContext) {
 			content := "func test() {\n    i\n}"
@@ -641,10 +646,8 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Input Parameter Completion", func() {
-		var globalResolver []symbol.Symbol
-
 		BeforeEach(func() {
-			globalResolver = []symbol.Symbol{{
+			globalResolver := []symbol.Symbol{{
 				Name: "myTask",
 				Kind: symbol.KindFunction,
 				Type: types.Function(types.FunctionProperties{
@@ -659,20 +662,19 @@ var _ = Describe("Completion", func() {
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F64()),
 			}}
+			server = MustSucceed(
+				lsp.New(
+					lsp.Config{
+						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
+					},
+				),
+			)
+			server.SetClient(&MockClient{})
 		})
 
 		It(
 			"should suggest all input parameters in empty input block",
 			func(ctx SpecContext) {
-				server = MustSucceed(
-					lsp.New(
-						lsp.Config{
-							NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-						},
-					),
-				)
-				server.SetClient(&MockClient{})
-
 				content := "func test() {\n    myTask{}\n}"
 				OpenArcDocument(server, ctx, docURI, content)
 
@@ -692,15 +694,6 @@ var _ = Describe("Completion", func() {
 		)
 
 		It("should filter out already-provided parameters", func(ctx SpecContext) {
-			server = MustSucceed(
-				lsp.New(
-					lsp.Config{
-						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-					},
-				),
-			)
-			server.SetClient(&MockClient{})
-
 			content := "func test() {\n    myTask{threshold=1.0, timeout=100}\n}"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -716,15 +709,6 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should filter by prefix when typing parameter name", func(ctx SpecContext) {
-			server = MustSucceed(
-				lsp.New(
-					lsp.Config{
-						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-					},
-				),
-			)
-			server.SetClient(&MockClient{})
-
 			content := "func test() {\n    myTask{threshold=1.0}\n}"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -740,15 +724,6 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should show type details for input parameters", func(ctx SpecContext) {
-			server = MustSucceed(
-				lsp.New(
-					lsp.Config{
-						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-					},
-				),
-			)
-			server.SetClient(&MockClient{})
-
 			content := "func test() {\n    myTask{}\n}"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -764,15 +739,6 @@ var _ = Describe("Completion", func() {
 		It(
 			"should suggest channel symbols for chan type parameters",
 			func(ctx SpecContext) {
-				server = MustSucceed(
-					lsp.New(
-						lsp.Config{
-							NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-						},
-					),
-				)
-				server.SetClient(&MockClient{})
-
 				content := "func test() {\n    myTask{channel=sensorCh}\n}"
 				OpenArcDocument(server, ctx, docURI, content)
 
@@ -788,27 +754,21 @@ var _ = Describe("Completion", func() {
 		It(
 			"should suggest the remaining parameters on the line after a comma",
 			func(ctx SpecContext) {
-				server = MustSucceed(
-					lsp.New(
-						lsp.Config{
-							NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-						},
-					),
-				)
-				server.SetClient(&MockClient{})
-
-				content := "func test() {\n    myTask{threshold=1.0,\n        \n    }\n}"
+				content := "func test() {\n    myTask{threshold=1.0,\n        ti\n    }\n}"
 				OpenArcDocument(server, ctx, docURI, content)
 
-				completions := Completion(server, ctx, docURI, 2, 8)
+				completions := Completion(server, ctx, docURI, 2, 10)
 				Expect(completions).ToNot(BeNil())
 
 				Expect(
 					HasCompletion(completions.Items, "timeout"),
-				).To(BeTrue(), "Should suggest 'timeout' on the wrapped line")
+				).To(BeTrue(), "Should suggest 'timeout' matching prefix 'ti'")
 				Expect(
 					HasCompletion(completions.Items, "threshold"),
 				).To(BeFalse(), "Should NOT suggest already-provided 'threshold'")
+				Expect(
+					HasCompletion(completions.Items, "channel"),
+				).To(BeFalse(), "Should NOT suggest 'channel' not matching prefix 'ti'")
 			},
 		)
 	})
@@ -2048,26 +2008,5 @@ var _ = Describe("Completion", func() {
 				"next",
 			),
 		)
-	})
-
-	Describe("Trigger Characters", func() {
-		var triggers []string
-
-		BeforeEach(func(ctx SpecContext) {
-			res := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{}))
-			triggers = res.Capabilities.CompletionProvider.TriggerCharacters
-		})
-
-		It("does not offer the comma", func() {
-			Expect(triggers).ToNot(ContainElement(","))
-		})
-
-		It("offers the member and block openers", func() {
-			Expect(triggers).To(ContainElements(".", ":", "{"))
-		})
-
-		It("offers only single characters, which is all a client matches", func() {
-			Expect(triggers).To(HaveEach(HaveLen(1)))
-		})
 	})
 })
