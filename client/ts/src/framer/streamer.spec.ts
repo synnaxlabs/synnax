@@ -21,6 +21,7 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
+import { AccessDeniedError } from "@/errors";
 import { Frame } from "@/framer/frame";
 import {
   HardenedStreamer,
@@ -822,6 +823,21 @@ describe("Streamer", () => {
       ).rejects.toThrow("very unreachable");
     });
 
+    it("should give up on the first denial instead of retrying", async () => {
+      const openerMock = vi.fn();
+      await expect(
+        HardenedStreamer.open(
+          async () => {
+            openerMock();
+            throw new AccessDeniedError("no permission to stream");
+          },
+          { channels: [1] },
+          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+        ),
+      ).rejects.toThrow(AccessDeniedError);
+      expect(openerMock).toHaveBeenCalledTimes(1);
+    });
+
     it("should fire onDrop when the stream fails and onReopen after recovery", async () => {
       const streamer1 = new MockStreamer();
       const streamer2 = new MockStreamer();
@@ -1020,6 +1036,28 @@ describe("Streamer", () => {
       await observable.close();
 
       expect(mockStreamer.closeMock).toHaveBeenCalled();
+    });
+
+    test("should report the failure that ended the stream", async () => {
+      const mockStreamer = new MockStreamer();
+      mockStreamer.responses = [[new Frame(), new AccessDeniedError("access revoked")]];
+      const onDead = vi.fn();
+      const observable = new ObservableStreamer(mockStreamer, undefined, onDead);
+
+      await expect.poll(() => onDead.mock.calls.length).toBe(1);
+      expect(AccessDeniedError.matches(onDead.mock.calls[0][0])).toBe(true);
+
+      await observable.close();
+    });
+
+    test("should not report a stream the caller closed", async () => {
+      const mockStreamer = new MockStreamer();
+      const onDead = vi.fn();
+      const observable = new ObservableStreamer(mockStreamer, undefined, onDead);
+
+      await observable.close();
+
+      expect(onDead).not.toHaveBeenCalled();
     });
   });
 });

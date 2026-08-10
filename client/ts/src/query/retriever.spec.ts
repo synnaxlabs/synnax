@@ -32,7 +32,15 @@ interface Request extends z.infer<typeof requestZ> {}
 
 const paramsZ = requestZ.or(query.keyListZ(z.string()));
 
-const newCache = () => new query.Cache({ openStreamer: null });
+// A live but silent stream: subscribed answers stay maintained, so reads
+// serve from the cache without a network fetch.
+const newCache = () =>
+  new query.Cache({
+    openStreamer: async (_, { onOpen }) => {
+      onOpen?.();
+      return { onChange: () => {}, close: async () => {} };
+    },
+  });
 
 class Client extends query.Retriever<typeof paramsZ, string, Thing> {
   constructor(

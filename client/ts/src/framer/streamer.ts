@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import { type channel } from "@/channel";
 import { paramsZ } from "@/channel/payload";
+import { AccessDeniedError } from "@/errors";
 import { ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
@@ -312,7 +313,9 @@ export class HardenedStreamer implements Streamer {
       } catch (e) {
         this.current = null;
         if (this.closed) break;
-        if (!(await this.breaker.wait())) throw errors.fromUnknown(e);
+        // only a policy change lifts a denial, and no reconnect carries one
+        if (AccessDeniedError.matches(e) || !(await this.breaker.wait()))
+          throw errors.fromUnknown(e);
         console.error("failed to open streamer", e);
       }
     throw new EOF();
@@ -386,17 +389,26 @@ export class ObservableStreamer<V = Frame>
 {
   private readonly streamer: Streamer;
   private readonly closePromise: Promise<void>;
+  private readonly onDead?: (error: Error) => void;
+  private closeRequested = false;
 
   /**
    * Creates a new observable streamer.
    * @param streamer - The streamer to wrap
    * @param transform - An optional transform function to apply to each frame
+   * @param onDead - Called when the stream ends on a failure the wrapped
+   * streamer will not recover from. No frames follow.
    * @template V - The type of the transformed value. Only relevant if transform is
    * provided. Defaults to Frame.
    */
-  constructor(streamer: Streamer, transform?: observe.Transform<Frame, V>) {
+  constructor(
+    streamer: Streamer,
+    transform?: observe.Transform<Frame, V>,
+    onDead?: (error: Error) => void,
+  ) {
     super(transform);
     this.streamer = streamer;
+    this.onDead = onDead;
     this.closePromise = this.stream();
   }
 
@@ -405,11 +417,18 @@ export class ObservableStreamer<V = Frame>
   }
 
   async close(): Promise<void> {
+    this.closeRequested = true;
     this.streamer.close();
     await this.closePromise;
   }
 
   private async stream(): Promise<void> {
-    for await (const frame of this.streamer) this.notify(frame);
+    try {
+      for await (const frame of this.streamer) this.notify(frame);
+    } catch (exc) {
+      this.onDead?.(errors.fromUnknown(exc));
+      return;
+    }
+    if (!this.closeRequested) this.onDead?.(new EOF());
   }
 }
