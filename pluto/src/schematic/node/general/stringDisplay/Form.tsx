@@ -41,7 +41,7 @@ const TelemForm = (): ReactElement => {
     throw new Error("Must pass in a channel by key to the String Display form");
   return (
     <>
-      <Input.Item label="Input channel" grow>
+      <Input.Item label="Channel" grow>
         <Channel.SelectSingle
           value={source.channel}
           onChange={handleSourceChange}

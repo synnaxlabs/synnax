@@ -57,7 +57,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
 
   return (
     <Form.Wrapper x align="stretch">
-      <Input.Item label="Input channel" grow>
+      <Input.Item label="Channel" grow>
         <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
       </Input.Item>
       <Input.Item label="Lower threshold">

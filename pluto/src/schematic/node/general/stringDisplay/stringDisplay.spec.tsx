@@ -152,7 +152,7 @@ describe("StringDisplay", () => {
     it("should render the telemetry controls", () => {
       const { getByText } = renderForm();
       fireEvent.click(getByText("Telemetry"));
-      expect(getByText("Input channel")).toBeDefined();
+      expect(getByText("Channel")).toBeDefined();
       expect(getByText("Stale color")).toBeDefined();
       expect(getByText("Stale timeout")).toBeDefined();
     });

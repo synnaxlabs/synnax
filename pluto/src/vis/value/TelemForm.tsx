@@ -94,7 +94,7 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
 
   return (
     <>
-      <Input.Item label="Input channel" grow>
+      <Input.Item label="Channel" grow>
         <Channel.SelectSingle value={channelKey} onChange={handleSourceChange} />
       </Input.Item>
       <Flex.Box x>
