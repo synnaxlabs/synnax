@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/json"
-	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -213,9 +212,9 @@ type (
 		// Key identifies the group to export.
 		Key group.Key `json:"key" msgpack:"key"`
 	}
-	// ExportGroupResponse is the exported bundle's contents keyed by file name. The
-	// HTTP transport encodes it as a zip archive.
-	ExportGroupResponse = zip.Files
+	// ExportGroupResponse is the exported bundle. The HTTP transport encodes it as a
+	// zip archive.
+	ExportGroupResponse = symbol.GroupBundle
 )
 
 // ExportGroup exports every symbol in the group as a bundle.
@@ -225,16 +224,16 @@ func (s *Service) ExportGroup(
 ) (ExportGroupResponse, error) {
 	bundle, err := s.internal.ExportGroup(ctx, req.Key, json.Codec)
 	if err != nil {
-		return nil, err
+		return ExportGroupResponse{}, err
 	}
 	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: append(bundle.Members, group.OntologyID(req.Key)),
 	}); err != nil {
-		return nil, err
+		return ExportGroupResponse{}, err
 	}
-	return bundle.Files, nil
+	return bundle, nil
 }
 
 // DeleteGroupRequest names the group to delete.

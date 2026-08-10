@@ -49,6 +49,12 @@ type GroupBundle struct {
 	Members []ontology.ID
 }
 
+var _ zip.Marshaler = GroupBundle{}
+
+// MarshalZIP returns the bundle's files, so a transport can archive the bundle itself
+// instead of reaching for its contents.
+func (b GroupBundle) MarshalZIP() (zip.Files, error) { return b.Files, nil }
+
 // ExportGroup serializes every symbol in the group identified by key into a bundle.
 // Each symbol becomes one envelope named after the symbol, beside a manifest naming the
 // group. The encoder decides both the serialization and the extension every file takes.

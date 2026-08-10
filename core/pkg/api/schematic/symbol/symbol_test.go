@@ -44,11 +44,11 @@ var _ = Describe("ExportGroup", func() {
 			grantRetrieveOn(
 				ctx, author.OntologyID(), g.OntologyID(), symbol.OntologyID(sym.Key),
 			)
-			files := MustSucceed(apiSvc.ExportGroup(
+			bundle := MustSucceed(apiSvc.ExportGroup(
 				authedCtx(ctx, author), ExportGroupRequest{Key: g.Key},
 			))
-			Expect(files).To(HaveKey("manifest.json"))
-			Expect(files).To(HaveKey("Inlet.json"))
+			Expect(bundle.Files).To(HaveKey("manifest.json"))
+			Expect(bundle.Files).To(HaveKey("Inlet.json"))
 		},
 	)
 	It("Should reject the request when retrieve is not granted on the group", func(

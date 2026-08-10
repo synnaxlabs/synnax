@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xjson "github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -143,4 +144,11 @@ var _ = Describe("ExportGroup", func() {
 		Entry("manifest", "manifest"),
 		Entry("MANIFEST", "MANIFEST"),
 	)
+})
+
+var _ = Describe("GroupBundle", func() {
+	It("Should marshal to the bundle's files", func() {
+		files := zip.Files{"manifest.json": []byte(`{"version":2}`)}
+		Expect(symbol.GroupBundle{Files: files}.MarshalZIP()).To(Equal(files))
+	})
 })

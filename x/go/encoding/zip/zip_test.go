@@ -18,8 +18,22 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding"
 	xzip "github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// errBundle is the failure a bundle reports from MarshalZIP.
+var errBundle = errors.New("cannot marshal bundle")
+
+// bundle is a value that converts itself into a file map.
+type bundle struct {
+	files xzip.Files
+	err   error
+}
+
+var _ xzip.Marshaler = bundle{}
+
+func (b bundle) MarshalZIP() (xzip.Files, error) { return b.files, b.err }
 
 // read unpacks b into the file map it was encoded from.
 func read(b []byte) xzip.Files {
@@ -63,6 +77,15 @@ var _ = Describe("Encoder", func() {
 			second := xzip.Files{"b.json": []byte("2"), "a.json": []byte("1")}
 			Expect(xzip.Encoder.Encode(ctx, first)).
 				To(Equal(MustSucceed(xzip.Encoder.Encode(ctx, second))))
+		})
+		It("Should encode the files a marshaler returns", func(ctx SpecContext) {
+			files := xzip.Files{"valve.json": []byte(`{"name":"valve"}`)}
+			Expect(read(MustSucceed(xzip.Encoder.Encode(ctx, bundle{files: files})))).
+				To(Equal(files))
+		})
+		It("Should reject a marshaler that fails", func(ctx SpecContext) {
+			Expect(xzip.Encoder.Encode(ctx, bundle{err: errBundle})).Error().
+				To(MatchError(encoding.ErrEncode))
 		})
 		DescribeTable("Should reject a value that is not a file map",
 			func(ctx SpecContext, value any) {
