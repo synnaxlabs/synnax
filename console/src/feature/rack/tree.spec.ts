@@ -33,7 +33,7 @@ const createNIRackWithScanner = async () => {
     {
       name: uniqueName("ni_scanner"),
       type: NI.Task.SCAN_TYPE,
-      config: ni.scannerConfigZ.parse({}),
+      config: ni.scanConfigZ.parse({}),
     },
     NI.Task.SCAN_SCHEMAS,
   );
