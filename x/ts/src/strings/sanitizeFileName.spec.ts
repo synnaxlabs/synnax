@@ -29,8 +29,35 @@ describe("sanitizeFileName", () => {
     expect(sanitizeFileName('a<b>c:d"e|f?g*h')).toEqual("a_b_c_d_e_f_g_h");
   });
 
+  it("replaces control characters", () => {
+    expect(sanitizeFileName("a\x00b\x1fc\x7f")).toEqual("a_b_c_");
+  });
+
+  it("drops trailing dots and spaces", () => {
+    expect(sanitizeFileName("report.")).toEqual("report");
+    expect(sanitizeFileName("report ")).toEqual("report");
+    expect(sanitizeFileName("report. . ")).toEqual("report");
+  });
+
+  it("prefixes an underscore to a Windows device name", () => {
+    expect(sanitizeFileName("CON")).toEqual("_CON");
+    expect(sanitizeFileName("nul")).toEqual("_nul");
+    expect(sanitizeFileName("COM1")).toEqual("_COM1");
+    expect(sanitizeFileName("lpt9")).toEqual("_lpt9");
+    expect(sanitizeFileName("aux.tar")).toEqual("_aux.tar");
+  });
+
+  it("leaves a name that only starts with a device name alone", () => {
+    expect(sanitizeFileName("console")).toEqual("console");
+    expect(sanitizeFileName("com10")).toEqual("com10");
+  });
+
   it("returns an empty string unchanged", () => {
     expect(sanitizeFileName("")).toEqual("");
+  });
+
+  it("returns an empty string for a name of dots and spaces alone", () => {
+    expect(sanitizeFileName(". . ")).toEqual("");
   });
 
   it("does not collapse repeated unsafe characters", () => {

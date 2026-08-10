@@ -7,12 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-const UNSAFE_FILE_NAME_CHARS = /[/\\<>:"|?*]/g;
+// Matches the path separators, the control characters, and the characters Windows
+// reserves.
+const UNSAFE_FILE_NAME_CHARS = /[/\\<>:"|?*\p{Cc}]/gu;
+const TRAILING_DOTS_AND_SPACES = /[. ]+$/;
+// Matches the device names Windows refuses to open a file under, bare or carrying an
+// extension.
+const RESERVED_FILE_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 
 /**
- * Replaces characters that are unsafe in filenames across platforms (path separators
- * and Windows-reserved characters) with underscores. Useful for turning user-supplied
- * names into directory and file names on disk.
+ * Turns a user-supplied name into a directory or file name that writes to disk on any
+ * platform. Replaces every character a file name cannot hold with an underscore, drops
+ * trailing dots and spaces, and prefixes an underscore to a Windows device name.
+ *
+ * @returns an empty string for a name that sanitizes to nothing, such as one holding
+ * dots and spaces alone.
  */
-export const sanitizeFileName = (name: string): string =>
-  name.replace(UNSAFE_FILE_NAME_CHARS, "_");
+export const sanitizeFileName = (name: string): string => {
+  const sanitized = name
+    .replace(UNSAFE_FILE_NAME_CHARS, "_")
+    .replace(TRAILING_DOTS_AND_SPACES, "");
+  return RESERVED_FILE_NAMES.test(sanitized) ? `_${sanitized}` : sanitized;
+};
