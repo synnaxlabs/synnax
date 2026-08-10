@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 import { isNotFound } from "@/feature/panel/Mosaic";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { ResourceGuard, useTab } from "@/platform/panel/tab";
+import { NameEditTargetContext, ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -22,11 +22,11 @@ interface EmptyContentProps {
 }
 
 const EmptyContent = ({
-  message = "No tab selected.",
+  message = "No component selected.",
 }: EmptyContentProps): ReactElement => (
   <Toolbar.Content>
     <Toolbar.Header>
-      <Toolbar.Title icon={<Icon.Visualize />}>Tab</Toolbar.Title>
+      <Toolbar.Title icon={<Icon.Component />}>Component</Toolbar.Title>
     </Toolbar.Header>
     <Empty.Action x message={message} />
   </Toolbar.Content>
@@ -39,19 +39,35 @@ const DeletedContent = ({ name }: Flux.Tombstone): ReactElement => (
   <EmptyContent message={`${name ?? "This resource"} was deleted.`} />
 );
 
-// The toolbar reads the same queries as the tab's content, so a missing
-// resource throws here too. Deletion is handled by the ResourceGuard.
+// Deletion is handled by the ResourceGuard, so only the not-found race lands here.
 const NotFoundFallback = (props: Errors.FallbackProps): ReactElement => {
   if (!isNotFound(props.error)) return <Errors.Fallback {...props} />;
   return <EmptyContent message="This resource could not be found." />;
 };
 
+// Header for a focused component without its own toolbar: the tab's Name (icon +
+// name, renames included) with an explanatory empty body.
+const NoToolbarContent = (): ReactElement => {
+  const { Name } = useTab();
+  return (
+    <Toolbar.Content>
+      <Toolbar.Header>
+        <Toolbar.Title>
+          <NameEditTargetContext value={false}>
+            <Name />
+          </NameEditTargetContext>
+        </Toolbar.Title>
+      </Toolbar.Header>
+      <Empty.Action x message="This component has no configurable properties." />
+    </Toolbar.Content>
+  );
+};
+
 const LiveContent = (): ReactElement => {
-  const { Toolbar } = useTab();
-  if (Toolbar == null) return <EmptyContent />;
+  const { Toolbar: TabToolbar } = useTab();
   return (
     <Errors.SuspenseBoundary FallbackComponent={NotFoundFallback}>
-      <Toolbar />
+      {TabToolbar == null ? <NoToolbarContent /> : <TabToolbar />}
     </Errors.SuspenseBoundary>
   );
 };
@@ -61,6 +77,34 @@ const Content = (): ReactElement => (
     <LiveContent />
   </ResourceGuard>
 );
+
+const IconFallback = (): ReactElement => <Icon.Component />;
+
+const FocusedTabIcon = (props: Icon.IconProps): ReactElement => {
+  const { Icon: TabIcon } = useTab();
+  return <TabIcon {...props} />;
+};
+
+// The focused tab's Icon, rendered inside its panel and tab scope. Falls back
+// to a generic glyph when no tab is focused or the icon fails.
+const ToolbarIcon = (props: Icon.IconProps): ReactElement => {
+  const panelKey = Session.Panel.useSelectSelected();
+  const tabKey = Session.Panel.useSelectFocusedTab(panelKey);
+  if (panelKey == null || tabKey == null) return <Icon.Component {...props} />;
+  return (
+    <Panel.Scope.Provider value={panelKey}>
+      <Panel.TabScope.Provider value={tabKey}>
+        <Errors.SuspenseBoundary
+          key={`${panelKey}:${tabKey}`}
+          loading={<Icon.Component {...props} />}
+          FallbackComponent={IconFallback}
+        >
+          <FocusedTabIcon {...props} />
+        </Errors.SuspenseBoundary>
+      </Panel.TabScope.Provider>
+    </Panel.Scope.Provider>
+  );
+};
 
 const Wrapper = () => {
   const panelKey = Session.Panel.useSelectSelected();
@@ -79,8 +123,8 @@ const Wrapper = () => {
 export const TOOLBAR: Nav.Toolbar = {
   key: "tab",
   content: <Wrapper />,
-  tooltip: "Tab",
-  icon: <Icon.Visualize />,
+  tooltip: "Component",
+  icon: <ToolbarIcon />,
   sizeBounds: { lower: 160, upper: 300 },
   trigger: ["V"],
 };
