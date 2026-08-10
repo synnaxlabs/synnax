@@ -10,6 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
+  binary,
   caseconv,
   type CrudeTimeSpan,
   deep,
@@ -883,14 +884,16 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   try {
     while (true) {
       const frame = await Promise.race([streamer.read(), timeoutPromise]);
-      const parseResult = statusZ(statusDataZ).safeParse(
-        frame.at(-1)[status.SET_CHANNEL_NAME],
-      );
-      if (!parseResult.success) continue;
-      const state = parseResult.data;
-      if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
-      states = [...states.filter((s) => s.key !== state.key), state];
-      if (states.length === cmdKeys.length) return states;
+      // A frame can hold statuses for other tasks and racks, which have a different
+      // shape and fail to parse.
+      for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
+        const res = statusZ(statusDataZ).safeParse(binary.JSON_CODEC.decodeString(str));
+        if (!res.success) continue;
+        const state = res.data;
+        if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
+        states = [...states.filter((s) => s.key !== state.key), state];
+        if (states.length === cmdKeys.length) return states;
+      }
     }
   } finally {
     clearTimeout(timeoutID);

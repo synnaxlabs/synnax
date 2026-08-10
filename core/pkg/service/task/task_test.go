@@ -652,6 +652,42 @@ var _ = Describe("Task", Ordered, func() {
 				}).Should(Succeed())
 			},
 		)
+
+		It(
+			"Should preserve the config hash and rack the Driver reported",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "suspect rack"}
+				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+
+				t := &task.Task{
+					Rack: r.Key,
+					Name: "Test Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task is running",
+						Time:    telem.Now(),
+						Details: task.StatusDetails{
+							Running:    true,
+							ConfigHash: "deployed",
+							Rack:       r.Key,
+						},
+					},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+
+				Eventually(func(g Gomega) {
+					var taskStatus task.Status
+					g.Expect(status.NewRetrieve[task.StatusDetails](stat).
+						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+						Entry(&taskStatus).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
+					g.Expect(taskStatus.Details.Running).To(BeFalse())
+					g.Expect(taskStatus.Details.ConfigHash).To(Equal("deployed"))
+					g.Expect(taskStatus.Details.Rack).To(Equal(r.Key))
+				}).Should(Succeed())
+			},
+		)
 	})
 
 	Describe("Command", func() {

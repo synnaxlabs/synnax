@@ -42,20 +42,26 @@ public:
     }
 };
 
-/// @brief it should catch and handle unknown exceptions in run().
+/// @brief it should catch an unknown exception in run() and leave the pipeline
+/// stopped, so a later start() runs it again instead of doing nothing.
 TEST(BasePipeline, testUnknownExceptionHandling) {
     auto pipeline = ThrowingPipeline(x::breaker::Config{});
     ASSERT_TRUE(pipeline.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    ASSERT_FALSE(pipeline.stop());
 }
 
-/// @brief it should catch and handle std::exception in run().
+/// @brief it should catch a std::exception in run() and leave the pipeline stopped,
+/// so a later start() runs it again instead of doing nothing.
 TEST(BasePipeline, testStdExceptionHandling) {
     auto pipeline = StdExceptionPipeline(x::breaker::Config{});
     ASSERT_TRUE(pipeline.start());
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    ASSERT_TRUE(pipeline.stop());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    ASSERT_FALSE(pipeline.stop());
 }
 
 /// @brief calling start() after run() self-stops must not abort or deadlock.

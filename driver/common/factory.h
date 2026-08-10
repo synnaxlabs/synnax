@@ -79,7 +79,7 @@ configure_initial_factory_tasks(
                 << " already exists on rack. Skipping creation.";
         return tasks;
     }
-    auto [task, _] = factory->configure_task(ctx, sy_task, "");
+    auto [task, _] = factory->configure_task(ctx, sy_task, driver::task::NO_COMMAND);
     if (task != nullptr)
         tasks.emplace_back(sy_task, std::move(task));
     else
