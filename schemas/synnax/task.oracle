@@ -155,7 +155,7 @@ Command struct {
     @doc value "is a command to execute on a task in the Driver system."
 }
 
-BaseConfig struct {
+BaseStartConfig struct {
     auto_start           bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }
@@ -169,7 +169,7 @@ BaseConfig struct {
     @pb omit
 }
 
-BaseReadConfig struct extends BaseConfig {
+BaseReadConfig struct extends BaseStartConfig {
     sample_rate telem.Rate = 10 {
         @doc value "is the per-channel hardware sample rate, in hertz."
         @ts type   "number"
@@ -185,7 +185,7 @@ BaseReadConfig struct extends BaseConfig {
     @pb omit
 }
 
-BaseWriteConfig struct extends BaseConfig {
+BaseWriteConfig struct extends BaseStartConfig {
     device device.Key = "" {
         @doc value "is the key of the device the task writes to."
     }

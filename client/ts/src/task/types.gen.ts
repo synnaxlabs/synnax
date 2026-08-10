@@ -17,25 +17,25 @@ import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { status } from "@/status";
 
-/** BaseConfig carries the configuration fields shared by every hardware task. */
-export const baseConfigZ = z.object({
+/** BaseStartConfig carries the configuration fields shared by every hardware task. */
+export const baseStartConfigZ = z.object({
   /** autoStart is true when the task should start as soon as it is configured. */
   autoStart: z.boolean().default(false),
   /** dataSavingDisabled is true when task telemetry is not persisted to disk. */
   dataSavingDisabled: z.boolean().default(false),
 });
-export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
+export interface BaseStartConfig extends z.infer<typeof baseStartConfigZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const baseReadConfigZ = baseConfigZ.extend({
+export const baseReadConfigZ = baseStartConfigZ.extend({
   sampleRate: z.number().default(10),
   streamRate: z.number().default(5),
 });
 export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
 
-export const baseWriteConfigZ = baseConfigZ.extend({
+export const baseWriteConfigZ = baseStartConfigZ.extend({
   device: device.keyZ.default(""),
 });
 export interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
