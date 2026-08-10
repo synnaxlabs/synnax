@@ -62,8 +62,9 @@ func (b GroupBundle) MarshalZIP() (zip.Files, error) { return b.Files, nil }
 // group. The encoder decides both the serialization and the extension every file takes.
 //
 // It returns query.ErrNotFound if no group has key. It returns a validation error if
-// the group holds a child that is not a schematic symbol, if two symbols resolve to the
-// same file name, or if a symbol claims a reserved file name.
+// the group holds a child that is not a schematic symbol, if a symbol's name holds no
+// character a file name can keep, if two symbols resolve to the same file name, or if a
+// symbol claims a reserved file name.
 func (s *Service) ExportGroup(
 	ctx context.Context,
 	key group.Key,
@@ -84,7 +85,16 @@ func (s *Service) ExportGroup(
 		claimed = make(map[string]string, len(children))
 	)
 	for _, child := range children {
-		fileName := os.SanitizeFileName(child.Name) + encoder.Extension()
+		base := os.SanitizeFileName(child.Name)
+		if base == "" {
+			return GroupBundle{}, errors.Wrapf(
+				validate.ErrValidation,
+				"symbol %q holds no character a file name can keep; rename it and "+
+					"export again",
+				child.Name,
+			)
+		}
+		fileName := base + encoder.Extension()
 		folded := os.FoldFileName(fileName)
 		if folded == os.FoldFileName(manifestFileName) {
 			return GroupBundle{}, errors.Wrapf(

@@ -27,24 +27,21 @@ var (
 	)
 )
 
-// UnnamedFile is the file name SanitizeFileName gives a name that sanitizes to nothing.
-const UnnamedFile = "unnamed"
-
 // SanitizeFileName turns a user-supplied name into one that writes to disk on any
 // platform. It replaces every character a file name cannot hold with an underscore,
 // drops trailing dots and spaces, and prefixes an underscore to a Windows device name.
-// A name left with nothing becomes UnnamedFile.
 //
-// The result stays a single path element, but it is not unique: two names can sanitize
-// to one. Callers that need distinct files must compare the results with FoldFileName.
+// It returns an empty string for a name that sanitizes to nothing, such as one holding
+// dots and spaces alone. The caller decides what a nameless file means: substituting a
+// placeholder here would invent a name the caller never gave.
+//
+// The result is a single path element, but it is not unique: two names can sanitize to
+// one. Callers that need distinct files must compare the results with FoldFileName.
 func SanitizeFileName(name string) string {
 	name = unsafeFileNameChars.ReplaceAllString(name, "_")
 	// Windows drops trailing dots and spaces, so a name keeping them addresses a
 	// different file than the one the caller asked for.
 	name = strings.TrimRight(name, ". ")
-	if name == "" {
-		return UnnamedFile
-	}
 	if reservedFileNames.MatchString(name) {
 		return "_" + name
 	}

@@ -106,6 +106,24 @@ var _ = Describe("ExportGroup", func() {
 		Expect(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Files).
 			To(HaveKey("in_let_1.json"))
 	})
+	DescribeTable("Should reject a symbol a file name cannot hold",
+		func(ctx SpecContext, name string) {
+			g := createRoot(ctx, "Valves")
+			createSymbol(ctx, g, name)
+			Expect(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("holds no character a file name can keep")),
+			))
+		},
+		Entry("dots alone", "..."),
+		Entry("spaces alone", "   "),
+	)
+	It("Should push a symbol off a Windows device name", func(ctx SpecContext) {
+		g := createRoot(ctx, "Valves")
+		createSymbol(ctx, g, "NUL")
+		Expect(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Files).
+			To(HaveKey("_NUL.json"))
+	})
 	It("Should return not found for a missing group", func(ctx SpecContext) {
 		Expect(svc.ExportGroup(ctx, uuid.New(), xjson.Codec)).Error().
 			To(MatchError(query.ErrNotFound))

@@ -34,10 +34,8 @@ var _ = Describe("SanitizeFileName", func() {
 		Entry("both, repeated", "report. . ", "report"),
 		Entry("a leading dot", ".hidden", ".hidden"),
 	)
-	DescribeTable("Should give a name that sanitizes to nothing a fallback",
-		func(name string) {
-			Expect(xos.SanitizeFileName(name)).To(Equal(xos.UnnamedFile))
-		},
+	DescribeTable("Should leave a name that sanitizes to nothing empty",
+		func(name string) { Expect(xos.SanitizeFileName(name)).To(BeEmpty()) },
 		Entry("an empty name", ""),
 		Entry("dots alone", "..."),
 		Entry("spaces alone", "   "),
