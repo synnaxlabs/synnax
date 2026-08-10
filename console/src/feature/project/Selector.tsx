@@ -81,12 +81,7 @@ export const Selector = (): ReactElement | null => {
         subscribe={subscribe}
         onFetchMore={() => retrieve({})}
       >
-        <Dialog.Trigger
-          size="medium"
-          className={CSS.B("trigger")}
-          contrast={2}
-          weight={400}
-        >
+        <Dialog.Trigger size="medium" className={CSS.B("trigger")} weight={400}>
           <Icon.Project key="project" />
           <ActiveName itemKey={activeKey} />
         </Dialog.Trigger>
@@ -105,7 +100,6 @@ export const Selector = (): ReactElement | null => {
                   Search projects
                 </>
               }
-              contrast={0}
               value={search}
               onChange={(v) => {
                 setSearch(v);

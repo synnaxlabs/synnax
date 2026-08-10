@@ -12,44 +12,39 @@
 .pluto-list__item {
     position: relative;
     cursor: pointer;
-    padding: 1.5rem 2rem;
+    padding: 1rem 2rem;
     width: 100%;
     border-color: var(--pluto-gray-l2);
     outline: none;
-    min-height: 6rem;
-    border-radius: 0;
+    min-height: 5.5rem;
+    border-radius: var(--pluto-border-radius-small);
 
-    &:is(:hover, .pluto--hovered) {
-        &.pluto--highlight-hover {
-            box-shadow: inset 0.5rem 0 0 var(--pluto-primary-z);
-            &.pluto--location-right-aligned {
-                box-shadow: inset -0.5rem 0 0 var(--pluto-primary-z);
-            }
-        }
+    /* Rows speak the list selection tier. The extra .pluto-btn outranks the
+       control-tier default in Button.css; color resets to inherited because rows
+       carry multi-color content. */
+    &.pluto-btn.pluto--selected {
+        --pluto-bg: var(--pluto-selected-list-bg);
+        --pluto-hover-bg: var(--pluto-selected-list-hover-bg);
+        --pluto-active-bg: var(--pluto-selected-list-active-bg);
+        --pluto-border-color: var(--pluto-selected-list-border-color);
+        --pluto-hover-border-color: var(--pluto-selected-list-border-color);
+        --pluto-active-border-color: var(--pluto-selected-list-border-color);
+        color: unset;
     }
 
-    &.pluto--selected {
-        background: var(--pluto-hover-bg);
-        box-shadow: inset 0.5rem 0 0 var(--pluto-primary-z);
-        &.pluto--location-right-aligned {
-            box-shadow: inset -0.5rem 0 0 var(--pluto-primary-z);
-        }
+    /* Contiguous selected rows merge into one box: only the run's first row keeps
+       its top radius and only its last keeps the bottom. */
+    &.pluto--selected + &.pluto--selected {
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+
+    &.pluto--selected:has(+ &.pluto--selected) {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
     }
 
     &.pluto--dragging-over {
-        background: var(--pluto-gray-l2);
-    }
-}
-
-.pluto-list__item {
-    .pluto-btn--ghost {
-        opacity: 0;
-    }
-    &:hover {
-        .pluto-btn--ghost {
-            opacity: 1;
-            border-color: var(--pluto-hover-border-color);
-            background: var(--pluto-hover-bg);
-        }
+        background: var(--pluto-gray-l4);
     }
 }

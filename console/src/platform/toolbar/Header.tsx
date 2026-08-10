@@ -20,20 +20,15 @@ export const Content = (props: ContentProps): ReactElement => (
   <Flex.Box empty y pack full {...props} />
 );
 
-export interface HeaderProps extends PHeader.HeaderProps {
-  padded?: boolean;
-}
+export interface HeaderProps extends PHeader.HeaderProps {}
 
-export const Header = ({ padded, ...rest }: HeaderProps): ReactElement => (
+export const Header = (props: HeaderProps): ReactElement => (
   <PHeader.Header
-    className={CSS(
-      CSS.BE("toolbar", "header"),
-      padded && CSS.BEM("toolbar", "header", "padded"),
-    )}
+    className={CSS.BE("toolbar", "header")}
     level="h5"
     shrink={false}
     background={1}
-    {...rest}
+    {...props}
   />
 );
 
@@ -45,9 +40,9 @@ export interface ActionProps extends Button.ButtonProps {}
 
 export const Action = ({ className, ...rest }: ActionProps): ReactElement => (
   <Button.Button
-    contrast={2}
     size="small"
-    rounded={1}
+    rounded="small"
+    variant="outlined"
     className={CSS(CSS.BE("toolbar", "action"), className)}
     {...rest}
   />

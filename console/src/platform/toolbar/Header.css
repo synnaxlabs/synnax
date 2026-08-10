@@ -10,10 +10,16 @@
  */
 
 .console-toolbar__header {
-    &.console-toolbar__header--padded {
-        padding: 0.5rem round(0.66rem, 1px);
-    }
+    padding: 1rem 1.5rem;
     & .console-toolbar__action {
         box-shadow: var(--pluto-shadow-v1);
     }
+}
+
+/* Visualization toolbars (the bottom drawer) embed tab selectors that must fill
+   the header's height: fixed height, only the title side takes an inset. */
+.console-nav__drawer.pluto--location-bottom .console-toolbar__header {
+    padding: 0 0 0 1.5rem;
+    height: 6rem;
+    flex-shrink: 0;
 }

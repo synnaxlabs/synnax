@@ -23,7 +23,11 @@ const Actions = (): ReactElement | null => {
   if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
-      <Toolbar.Action onClick={() => openCreate()} tooltip="Create project">
+      <Toolbar.Action
+        onClick={() => openCreate()}
+        tooltip="Create project"
+        variant="filled"
+      >
         <Icon.Add />
       </Toolbar.Action>
     </Toolbar.Actions>
@@ -34,7 +38,7 @@ const Content = (): ReactElement => {
   const { data: groupID } = Project.useRetrieveGroupID({});
   return (
     <Toolbar.Content>
-      <Toolbar.Header padded>
+      <Toolbar.Header>
         <Toolbar.Title icon={<Icon.Project />}>Projects</Toolbar.Title>
         <Actions />
       </Toolbar.Header>

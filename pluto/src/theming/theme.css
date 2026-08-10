@@ -9,8 +9,42 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto--pack button:is(:focus, :focus-within, :active, :hover) {
+.pluto--pack .pluto-btn:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
+}
+
+/* Wins the negative-margin border collapse against unselected neighbors. */
+.pluto--pack .pluto-btn.pluto--selected {
+    z-index: 2;
+}
+
+/* A pluto--reveals container hides marked child actions until hovered. Keyboard
+   focus always shows one, so reveal never hides the only keyboard path. */
+.pluto--reveals .pluto--reveal {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease-out;
+}
+
+.pluto--reveals:hover .pluto--reveal {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Reveal comes from the nearest container: an un-hovered inner one (a tag in a
+   hovered row) keeps its own actions hidden. */
+.pluto--reveals:not(:hover) .pluto--reveal {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pluto--reveals .pluto--reveal:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.pluto--reveals:not(:hover) .pluto-btn--close:not(:focus-visible) svg {
+    transform: scale(0.9);
 }
 
 .pluto-input {
@@ -29,31 +63,77 @@
 }
 
 :root {
+    /* The interactive fill band. Elevated chrome re-points these to step toward the
+       canvas (l0-l2) so its controls recess instead of lighten. */
+    --pluto-fill-rest: var(--pluto-gray-l3);
+    --pluto-fill-hover: var(--pluto-gray-l4);
+    --pluto-fill-press: var(--pluto-gray-l5);
+
+    /* The three selection tiers. Every selected state speaks exactly one; never
+       hand-roll a selection fill. */
+    --pluto-selected-bg: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 15%,
+        var(--pluto-gray-l1)
+    );
+    --pluto-selected-hover-bg: var(--pluto-selected-bg);
+    --pluto-selected-active-bg: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 20%,
+        var(--pluto-gray-l1)
+    );
+    --pluto-selected-border-color: color-mix(
+        in srgb,
+        var(--pluto-primary-z) 65%,
+        var(--pluto-gray-l1)
+    );
+    --pluto-selected-color: var(--pluto-primary-z);
+
+    --pluto-selected-subtle-bg: var(--pluto-fill-hover);
+    --pluto-selected-subtle-hover-bg: var(--pluto-fill-press);
+    --pluto-selected-subtle-active-bg: var(--pluto-gray-l6);
+    --pluto-selected-subtle-border-color: var(--pluto-gray-l7);
+    --pluto-selected-subtle-color: var(--pluto-gray-l11);
+
+    /* List tier: rows (list, menu, tree). Text color is deliberately untouched,
+       since rows carry multi-color content. */
+    --pluto-selected-list-bg: oklch(from var(--pluto-gray-l5-70) l calc(c + 0.025) h);
+    --pluto-selected-list-hover-bg: oklch(
+        from var(--pluto-gray-l5-85) l calc(c + 0.025) h
+    );
+    --pluto-selected-list-active-bg: oklch(
+        from var(--pluto-gray-l6) l calc(c + 0.025) h
+    );
+    --pluto-selected-list-border-color: transparent;
+
+    --pluto-border-width: 1px;
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
-    --pluto-border-l5: var(--pluto-border-width) solid var(--pluto-gray-l5);
-    --pluto-height-large: 5rem;
-    --pluto-height-medium: 4.5rem;
+    --pluto-border-l6: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    --pluto-height-large: 6rem;
+    --pluto-height-medium: round(4.6667rem, 1px);
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;
     --pluto-height-tiny: 3.5rem;
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out,
-        fill 0.15s ease-in-out, opacity 0.15s ease-in-out;
+        fill 0.15s ease-in-out, opacity 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
     --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
 }
 
+@media (resolution >= 2dppx) {
+    :root {
+        --pluto-border-width: 0.5px;
+    }
+}
+
 .pluto-theme-synnax-light {
-    /* achromatic (grey/black/white) symbols snap to pure black, legible on the light bg */
     --pluto-symbol-l-extreme: 0;
 
-    /* no floor: dark colors already read fine on the light bg */
     --pluto-symbol-l-min: 0;
 
-    /* cap lightness so pale colors darken enough to read on the light bg */
     --pluto-symbol-l-max: 0.8;
 
-    /* low cutoff: only near-pure greys snap; muddy darks already read as near-black */
     --pluto-symbol-c-thresh: 0.05;
     --pluto-shadow-v1:
         0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
@@ -66,19 +146,20 @@
     --pluto-shadow-v3:
         lch(0 0 0 / 0.088) 0px 9px 48px, lch(0 0 0 / 0.11) 0px 6px 24px,
         lch(0 0 0 / 0.044) 0px 1px 1px;
+
+    /* v2 without its widest layer, which reaches past a gap between stacked
+       surfaces and pools on the neighbor instead of the page. */
+    --pluto-shadow-tight:
+        lch(0 0 0 / 0.044) 0px 3px 9px, lch(0 0 0 / 0.044) 0px 1px 1px;
 }
 
 .pluto-theme-synnax-dark {
-    /* achromatic (grey/black/white) symbols snap to pure white, legible on the dark bg */
     --pluto-symbol-l-extreme: 1;
 
-    /* floor lightness so dark colors lift enough to read on the dark bg */
     --pluto-symbol-l-min: 0.4;
 
-    /* no ceiling: light colors already read fine on the dark bg */
     --pluto-symbol-l-max: 1;
 
-    /* higher than light so muddy darks (invisible on the dark bg) also snap to white */
     --pluto-symbol-c-thresh: 0.09;
     --pluto-shadow-v1:
         lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
@@ -113,14 +194,12 @@
             c h
     );
 
-    /* black or white, whichever is legible on top of the display color. Pinned
-       fully opaque so transparent symbols still get legible text and pills. */
+    /* Pinned fully opaque so transparent symbols still get legible text and pills. */
     --pluto-symbol-contrast: oklch(
         from var(--pluto-symbol-display) clamp(0, (0.6 - l) * 100, 1) 0 0deg / 100%
     );
 
-    /* SVG stroke is inherited, so descendants (node shapes, edge decorations, the
-       gauge arc) pick up the display color without restating it per shape. */
+    /* Inherited, so descendants pick up the display color per shape. */
     stroke: var(--pluto-symbol-display);
 }
 

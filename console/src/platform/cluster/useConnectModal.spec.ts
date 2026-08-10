@@ -11,13 +11,13 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Cluster } from "@/platform/cluster";
-import { createCluster, createClusterState } from "@/platform/cluster/testutil";
 import {
   findButton,
   type ModalOpenerHandle,
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import { Session } from "@/session";
+import { createCluster, createClusterState } from "@/session/cluster/testutil";
 import { type ConsolePreloadedState } from "@/testutil";
 
 const openConnect = async (

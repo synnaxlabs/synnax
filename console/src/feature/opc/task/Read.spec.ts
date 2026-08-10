@@ -15,11 +15,9 @@ import { describe, expect, it } from "vitest";
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
 import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
-import { getLabeledInput, stubGeometry, uniqueName } from "@/testutil";
+import { getLabeledInput, uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 interface CreateInputChannelOverrides extends Partial<OPC.Task.InputChannel> {}
 

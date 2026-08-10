@@ -13,7 +13,6 @@ import { useCallback, useMemo } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
@@ -24,10 +23,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
 
-  const confirm = Tree.useConfirmDelete({
-    type: "Status",
-    description: "This action cannot be undone.",
-  });
+  const confirm = Modals.useConfirmDelete({ type: "Status" });
   const { update: del } = Status.useDelete();
   const handleError = Status.useErrorHandler();
   const renameModal = Modals.useRename();
@@ -66,25 +62,27 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
 
   return (
     <Base.Menu>
+      {hasUpdatePermission && isSingle && (
+        <Base.RenameItem onClick={() => rename.update(statuses[0])} />
+      )}
+      <Menu.Divider />
       <Base.FavoriteItems
         anyFavorited={anyFavorited}
         anyNotFavorited={anyNotFavorited}
         onFavorite={() => dispatch(Session.Status.addFavorites(keys))}
         onUnfavorite={() => dispatch(Session.Status.removeFavorites(keys))}
       />
-      {(anyFavorited || anyNotFavorited) && <Menu.Divider />}
+      <Menu.Divider />
       {!isEmpty && (
-        <>
-          <Menu.CopyItem
-            itemKey="copyDiagnostics"
-            text={getCopyText}
-            successMessage="Copied diagnostics to clipboard"
-          >
-            Copy Diagnostics
-          </Menu.CopyItem>
-          <Menu.Divider />
-        </>
+        <Menu.CopyItem
+          itemKey="copyDiagnostics"
+          text={getCopyText}
+          successMessage="Copied diagnostics to clipboard"
+        >
+          Copy diagnostics
+        </Menu.CopyItem>
       )}
+      <Menu.Divider />
       {hasDeletePermission && !isEmpty && (
         <Base.DeleteItem
           onClick={() => {
@@ -95,9 +93,8 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
           }}
         />
       )}
-      {hasUpdatePermission && isSingle && (
-        <Base.RenameItem onClick={() => rename.update(statuses[0])} />
-      )}
+      <Menu.Divider />
+      <Base.ReloadConsoleItem />
     </Base.Menu>
   );
 };

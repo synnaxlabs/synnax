@@ -24,8 +24,8 @@ import { useCallback } from "react";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Link } from "@/platform/link";
+import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
@@ -48,10 +48,7 @@ export const ContextMenu = ({
   const openTab = Panel.useOpenTab();
   const addStatus = Status.useAdder();
   const handleLink = Cluster.useCopyLinkToClipboard();
-  const confirm = Tree.useConfirmDelete({
-    type: "Arc",
-    description: "Deleting this Arc will permanently remove it.",
-  });
+  const confirm = Modals.useConfirmDelete({ type: "Arc" });
   const { update: del } = Arc.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<arc.Key | arc.Key[]>) => {
@@ -93,21 +90,15 @@ export const ContextMenu = ({
           </Menu.Item>
           <Menu.Divider />
           <Base.RenameItem onClick={() => Text.edit(`${textIdPrefix}-${keys[0]}`)} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
+      {isSingle && <Link.CopyContextMenuItem onClick={handleCopyLink} />}
+      <Menu.Divider />
       {hasDeletePermission && someSelected && (
-        <>
-          <Base.DeleteItem onClick={() => del(keys)} />
-          <Menu.Divider />
-        </>
+        <Base.DeleteItem onClick={() => del(keys)} />
       )}
-      {isSingle && (
-        <>
-          <Link.CopyContextMenuItem onClick={handleCopyLink} />
-          <Menu.Divider />
-        </>
-      )}
+      <Menu.Divider />
       <Base.ReloadConsoleItem />
     </Base.Menu>
   );

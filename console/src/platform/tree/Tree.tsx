@@ -119,6 +119,32 @@ const itemRenderProp = Component.renderProp(
   },
 );
 
+// Returns the keys that sit inside another key in the same set. Depth cannot answer
+// this: two nodes at different depths are often unrelated.
+const findContainedKeys = (tree: Base.Node<string>[], keys: string[]): Set<string> => {
+  const all = new Set(keys);
+  const contained = new Set<string>();
+  keys.forEach((key) => {
+    const node = Base.findNode({ tree, key });
+    if (node?.children == null) return;
+    Base.getDescendants(...node.children).forEach(({ key: descendant }) => {
+      if (all.has(descendant)) contained.add(descendant);
+    });
+  });
+  return contained;
+};
+
+// A parent's child list says nothing about each child's own subtree, so a node
+// that is already in the tree keeps the children it has already loaded.
+const keepLoadedChildren = (
+  prev: Base.Node<string>[],
+  next: Base.Node<string>[],
+): Base.Node<string>[] =>
+  next.map((node) => {
+    const existing = prev.find(({ key }) => key === node.key);
+    return existing == null ? node : { ...node, children: existing.children };
+  });
+
 const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = useCallback(
@@ -165,14 +191,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
               tree: prevNodes,
               parent: ontology.idToString(id),
               throwOnMissing: false,
-              updater: (prevNodes) => [
-                ...prevNodes.filter(({ key }) => !ids.has(key)),
-                ...converted,
+              updater: (prevChildren) => [
+                ...prevChildren.filter(({ key }) => !ids.has(key)),
+                ...keepLoadedChildren(prevChildren, converted),
               ],
             }),
           ]);
         }
-        setLoading(false);
+        if (variant !== "loading") setLoading(false);
       },
       [resolveItem],
     ),
@@ -211,9 +237,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         key: ontology.idToString(c.id),
         children: resolveItem(c.id.type).hasChildren ? [] : undefined,
       }));
-      setNodes(nodes);
+      setNodes((prevNodes) => keepLoadedChildren(prevNodes, nodes));
     },
-    [client, root],
+    [client, ontology.idToString(root)],
   );
 
   const handleSyncResourceSet = useCallback(
@@ -228,6 +254,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const handleRelationshipDelete = useCallback(
     (rel: ontology.Relationship) => {
       if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
+      const removed = ontology.idToString(rel.to);
+      const node = Base.findNode({ tree: nodesRef.current, key: removed });
       setNodes((prevNodes) => {
         const parent = ontology.idsEqual(rel.from, root)
           ? null
@@ -235,46 +263,66 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         const nextNodes = [
           ...Base.removeNode({
             parent,
-            keys: ontology.idToString(rel.to),
+            keys: removed,
             tree: Base.deepCopy(prevNodes),
           }),
         ];
         return nextNodes;
       });
+      // A deleted node must leave the selection with its subtree. Selection drives
+      // the context menu, and a key with no node poisons every later right-click.
+      const gone = new Set(
+        node == null ? [removed] : Base.getDescendants(node).map(({ key }) => key),
+      );
+      setSelected((prev) =>
+        prev.some((key) => gone.has(key)) ? prev.filter((key) => !gone.has(key)) : prev,
+      );
     },
-    [setNodes, parent],
+    [setNodes, setSelected, nodesRef, root],
   );
   Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
-  const handleRelationshipSet = useCallback((rel: ontology.Relationship) => {
-    if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
-    const { from, to } = rel;
-    setNodes((prevNodes) => {
-      let destination: string | null = ontology.idToString(from);
-      if (ontology.idsEqual(from, root)) destination = null;
-      const nextNodes = [
-        ...Base.setNode({
-          tree: Base.deepCopy(prevNodes),
-          destination,
-          additions: [
-            {
-              key: ontology.idToString(to),
-              children: resolveItem(to.type).hasChildren ? [] : undefined,
-            },
-          ],
-          throwOnMissing: false,
-        }),
-      ];
-      return nextNodes;
-    });
-  }, []);
+  const handleRelationshipSet = useCallback(
+    (rel: ontology.Relationship) => {
+      if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
+      const { from, to } = rel;
+      setNodes((prevNodes) => {
+        let destination: string | null = ontology.idToString(from);
+        if (ontology.idsEqual(from, root)) destination = null;
+        const tree = Base.deepCopy(prevNodes);
+        const key = ontology.idToString(to);
+        const existing = Base.findNode({ tree, key });
+        const nextNodes = [
+          ...Base.setNode({
+            tree,
+            destination,
+            additions: [
+              {
+                key,
+                children:
+                  existing?.children ??
+                  (resolveItem(to.type).hasChildren ? [] : undefined),
+              },
+            ],
+            throwOnMissing: false,
+          }),
+        ];
+        return nextNodes;
+      });
+    },
+    [setNodes, root, resolveItem],
+  );
   Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
-  const handleExpand = useCallback(({ action, clicked }: Base.HandleExpandProps) => {
-    if (action !== "expand") return;
-    const clickedID = ontology.idZ.parse(clicked);
-    setLoading(clicked);
-    retrieveChildren.retrieve({ id: clickedID });
-  }, []);
+  const { retrieve: retrieveChildrenOf } = retrieveChildren;
+  const handleExpand = useCallback(
+    ({ action, clicked }: Base.HandleExpandProps) => {
+      if (action !== "expand") return;
+      const clickedID = ontology.idZ.parse(clicked);
+      setLoading(clicked);
+      retrieveChildrenOf({ id: clickedID });
+    },
+    [retrieveChildrenOf, setLoading],
+  );
 
   const getResource = useCallback(
     ((id: ontology.ID | ontology.ID[] | string | string[]) => {
@@ -390,19 +438,30 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const svc = resolveItem(destination.type);
       if (!svc.canDrop({ source, items })) return [];
 
-      const minDepth = Math.min(...dropped.map(({ data }) => data.depth));
-      const firstNodeOfMinDepth = dropped.find(({ data }) => data.depth === minDepth);
-      if (firstNodeOfMinDepth == null) return [];
-      const moved = dropped.filter(({ data }) => data.depth === minDepth);
-      const keys = moved.map(({ key }) => key);
-      const parent = Base.findNodeParent({
-        tree: nodesSnapshot,
-        key: firstNodeOfMinDepth.key,
+      // An item inside another dragged item travels with it. Moving it explicitly
+      // would re-parent it onto the destination as a sibling of its own parent.
+      const droppedKeys = dropped.map(({ key }) => key);
+      const contained = findContainedKeys(nodesSnapshot, droppedKeys);
+      const moved = dropped.filter(({ key }) => !contained.has(key));
+      if (moved.length === 0) return [];
+
+      // Each item leaves its own parent: a selection can span several.
+      const bySource = new Map<string, ontology.ID[]>();
+      moved.forEach(({ key }) => {
+        const parent = Base.findNodeParent({ tree: nodesSnapshot, key });
+        const sourceKey = parent?.key ?? ontology.idToString(root);
+        const ids = bySource.get(sourceKey) ?? [];
+        ids.push(ontology.idZ.parse(key));
+        bySource.set(sourceKey, ids);
       });
-      const sourceID = ontology.idZ.parse(parent?.key ?? ontology.idToString(root));
-      contract(...keys);
-      const ids = keys.map((key) => ontology.idZ.parse(key));
-      moveChildren.update({ source: sourceID, destination, ids });
+      contract(...moved.map(({ key }) => key));
+      bySource.forEach((ids, sourceKey) =>
+        moveChildren.update({
+          source: ontology.idZ.parse(sourceKey),
+          destination,
+          ids,
+        }),
+      );
       return moved;
     },
     [client, contract, root],
@@ -412,24 +471,19 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleDragStart = useCallback(
     (itemKey: string) => {
-      const selectedResources = getResource(selectedRef.current);
       if (selectedRef.current.includes(itemKey)) {
-        const selectedHaulItems = selectedResources.flatMap((res) => {
-          const depth = Base.getDepth(itemKey, shapeRef.current);
-          const items: Haul.Item[] = [
-            Base.createHaulItem(ontology.idToString(res.id), depth),
-          ];
+        const selectedHaulItems = getResource(selectedRef.current).flatMap((res) => {
+          const items: Haul.Item[] = [Base.createHaulItem(ontology.idToString(res.id))];
           const svcItems = resolveItem(res.id.type).haulItems(res);
           if (svcItems != null) items.push(...svcItems);
           return items;
         });
         return startDrag(selectedHaulItems);
       }
-      const depth = Base.getDepth(itemKey, shapeRef.current);
       const haulItems = resolveItem(ontology.idZ.parse(itemKey).type).haulItems(
         getResource(itemKey),
       );
-      startDrag([Base.createHaulItem(itemKey, depth), ...haulItems]);
+      startDrag([Base.createHaulItem(itemKey), ...haulItems]);
     },
     [getResource, selectedRef],
   );
@@ -460,10 +514,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we
         // might be selecting nodes AND their children.
-        key: keys.sort(
-          (a, b) =>
-            Base.getDepth(a, shapeRef.current) - Base.getDepth(b, shapeRef.current),
-        )[0],
+        key: keys.sort(Base.compareDepth(shapeRef.current))[0],
       });
 
       const parentID = parent == null ? root : ontology.idZ.parse(parent.key);

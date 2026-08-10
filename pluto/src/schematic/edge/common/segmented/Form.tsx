@@ -48,12 +48,12 @@ const SelectVariant = (props: SelectVariantProps): ReactElement => (
 export const Form = (): ReactElement => (
   <Flex.Box className={CSS.B("schematic-edge-form")} align="start" x>
     <Base.Field<color.Color> path="color" label="Color" padHelpText={false}>
-      {({ value, onChange, variant: _, ...rest }) => (
+      {({ value, onChange, preview: _, ...rest }) => (
         <Color.Swatch value={value} onChange={onChange} {...rest} />
       )}
     </Base.Field>
     <Base.Field<Variant> path="variant" label="Variant" padHelpText={false}>
-      {({ value, onChange, variant: _, ...rest }) => (
+      {({ value, onChange, preview: _, ...rest }) => (
         <SelectVariant value={value} onChange={onChange} {...rest} />
       )}
     </Base.Field>

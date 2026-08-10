@@ -74,17 +74,18 @@ const RangeAnnotationContextMenu = ({
   };
   return (
     <ContextMenu.Menu>
-      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
-        <Icon.CSV />
-        Download as CSV
+      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
+        <Icon.Annotate />
+        View details
       </Menu.Item>
       <Menu.Item itemKey="line-plot" onClick={handleOpenInNewPlot}>
         <Icon.LinePlot />
         Open in new plot
       </Menu.Item>
-      <Menu.Item itemKey="metadata" onClick={handleViewDetails}>
-        <Icon.Annotate />
-        View details
+      <Menu.Divider />
+      <Menu.Item itemKey="download" onClick={handleDownloadAsCSV}>
+        <Icon.CSV />
+        Download as CSV
       </Menu.Item>
     </ContextMenu.Menu>
   );
@@ -171,7 +172,6 @@ const ContextMenuContent = ({
 
 const Internal = (): ReactElement => {
   const key = Base.useKey();
-  const focused = Session.Panel.useSelectIsTabOverlaid();
   const visible = Session.Panel.useSelectIsTabVisible();
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
@@ -223,13 +223,7 @@ const Internal = (): ReactElement => {
     [vis.viewport.renderTrigger],
   );
 
-  const modals = Session.Modals.useStore("LinePlot");
-  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
-  const enableTriggers = useCallback(
-    () => !modals.isAnyOpen() && getTabIsFocused() && hasUpdatePermission,
-    [getTabIsFocused, hasUpdatePermission, modals],
-  );
-  useTriggerHold({ key, enabled: enableTriggers });
+  useTriggerHold({ key, enabled: hasUpdatePermission });
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
@@ -293,9 +287,8 @@ const Internal = (): ReactElement => {
           ref={linePlotRef}
           aetherKey={key}
           editable={hasUpdatePermission}
-          enableTriggers={enableTriggers}
+          enableTriggers={hasUpdatePermission}
           resolvedRanges={resolvedRanges}
-          legendVariant={focused ? "fixed" : "floating"}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           measureMode={vis.measure.mode}
@@ -314,10 +307,9 @@ const Internal = (): ReactElement => {
           clearOverScan={CLEAR_OVERSCAN}
           visible={visible}
         >
-          {!focused && <Controls hasAnnotations={hasAnnotations} />}
+          <Controls hasAnnotations={hasAnnotations} />
         </Base.LinePlot>
       </Menu.ContextMenu>
-      {focused && <Controls hasAnnotations={hasAnnotations} />}
     </div>
   );
 };

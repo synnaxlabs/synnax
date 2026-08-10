@@ -43,14 +43,12 @@ export const SelectMode = ({
   value,
   onChange,
   disable = ["zoomReset", "click", "cancel"],
-  tooltipDelay,
   tooltipLocation,
   hideTooltip,
   ...rest
 }: SelectModeProps): ReactElement => {
   const data = useMemo(() => MODES.filter((m) => !disable.includes(m)), [disable]);
   const commonProps: Partial<Select.ButtonProps<Mode>> = {
-    tooltipDelay,
     tooltipLocation,
     hideTooltip,
     size: "small",

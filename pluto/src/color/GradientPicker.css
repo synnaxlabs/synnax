@@ -36,7 +36,7 @@
             transform: translateX(-50%);
             width: 4rem;
             height: 2.5rem;
-            border-radius: 0.5rem;
+            border-radius: var(--pluto-border-radius-tiny);
             border: var(--pluto-border);
             border-color: var(--pluto-gray-l10);
             box-shadow: var(--pluto-shadow-v1);

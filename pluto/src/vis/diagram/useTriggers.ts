@@ -34,7 +34,7 @@ export interface UseTriggersProps {
   onPaste?: (cursor: xy.XY) => void;
   onClearSelection?: () => void;
   onSelectAll?: () => void;
-  enabled?: boolean | (() => boolean);
+  enabled?: Triggers.Condition;
 }
 
 export const useTriggers = ({
@@ -49,10 +49,10 @@ export const useTriggers = ({
   Triggers.use({
     triggers: FLATTENED_CONFIG,
     loose: true,
+    enabled,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || enabled === false) return;
-        if (typeof enabled === "function" && !enabled()) return;
+        if (stage !== "start") return;
         const mode = Triggers.determineMode(CONFIG, triggers);
         if (mode == "undo") return onUndo?.();
         if (mode == "redo") return onRedo?.();
@@ -61,7 +61,7 @@ export const useTriggers = ({
         if (mode == "clear") return onClear?.();
         if (mode == "all") return onSelectAll?.();
       },
-      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll, enabled],
+      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll],
     ),
   });
 };

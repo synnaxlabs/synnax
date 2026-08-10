@@ -13,9 +13,6 @@ import { describe, expect, it } from "vitest";
 
 import { Command } from "@/feature/command";
 import { renderPalette } from "@/feature/command/testutil";
-import { stubGeometry } from "@/testutil";
-
-stubGeometry();
 
 const command = (
   key: string,

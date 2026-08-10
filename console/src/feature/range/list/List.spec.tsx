@@ -23,13 +23,10 @@ import {
   createConsoleWrapper,
   getIconButton,
   getInputByNodePlaceholder,
-  stubGeometry,
   uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
-
-stubGeometry();
 
 const Harness = (): ReactElement => {
   const { data, getItem, subscribe, retrieve } = Ranger.useList({});

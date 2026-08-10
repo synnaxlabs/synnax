@@ -9,12 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-kv-row {
-    .pluto-btn--ghost {
-        opacity: 0;
-    }
-
-    &:hover .pluto-btn--ghost {
-        opacity: 1;
-    }
+.console-view__filter-chip {
+    padding: 0 1rem;
+    box-shadow: var(--pluto-shadow-v1);
 }

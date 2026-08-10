@@ -11,8 +11,8 @@
 
 .console-opc-connect {
     position: relative;
-    width: 915px;
-    height: 720px;
+    width: 155rem;
+    height: 125rem;
 
     & .console-description {
         width: 100%;

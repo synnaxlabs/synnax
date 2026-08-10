@@ -44,7 +44,7 @@ export const TypeText = ({ type, icon, color, textColor }: TypeTextProps) => (
     bordered
     overflow="nowrap"
     variant="code"
-    rounded={0.5}
+    rounded="tiny"
     background={color}
     borderColor={textColor}
     className={CSS.BE("arc", "type-text")}

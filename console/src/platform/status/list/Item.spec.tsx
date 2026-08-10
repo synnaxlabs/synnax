@@ -47,11 +47,8 @@ const Fixture = ({ status: stat }: { status: status.Status }): ReactElement => {
 };
 Fixture.displayName = "Fixture";
 
-const favoriteButton = (): HTMLButtonElement => {
-  const btn = document.querySelector<HTMLButtonElement>(".console-favorite-button");
-  if (btn == null) throw new Error("favorite button not found");
-  return btn;
-};
+const favoriteCheckbox = (): HTMLInputElement =>
+  screen.getByRole("checkbox", { name: "Favorite" });
 
 describe("Status.List.Item", () => {
   it("should render the status name and message", async () => {
@@ -71,9 +68,7 @@ describe("Status.List.Item", () => {
       },
     });
     render(<Fixture status={stat} />, { wrapper });
-    await waitFor(() =>
-      expect(favoriteButton().className).toContain("console--favorite"),
-    );
+    await waitFor(() => expect(favoriteCheckbox().checked).toBe(true));
   });
 
   it("should toggle the favorite in the slice when the favorite button is clicked", async () => {
@@ -82,7 +77,7 @@ describe("Status.List.Item", () => {
     render(<Fixture status={stat} />, { wrapper });
     await waitFor(() => expect(screen.getByText(stat.name)).toBeTruthy());
     expect(Session.Status.selectIsFavorite(store.getState(), stat.key)).toBe(false);
-    fireEvent.click(favoriteButton());
+    fireEvent.click(favoriteCheckbox());
     await waitFor(() =>
       expect(Session.Status.selectIsFavorite(store.getState(), stat.key)).toBe(true),
     );

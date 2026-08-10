@@ -29,9 +29,7 @@ const listItemRenderProp = Component.renderProp(
     const { name } = item;
     return (
       <Select.ListItem itemKey={itemKey} y gap="small" {...rest}>
-        <Text.Text level="p" weight={400}>
-          {name}
-        </Text.Text>
+        <Text.Text level="p">{name}</Text.Text>
       </Select.ListItem>
     );
   },

@@ -23,11 +23,10 @@
     cursor: pointer !important;
     padding: 0;
 
-    &:focus-within {
+    &:has(:focus-visible) {
         .pluto-input__switch-indicator {
-            box-shadow:
-                0 0 0 2px var(--pluto-gray-l1),
-                0 0 0 3px var(--pluto-primary-z);
+            outline: 1px solid var(--pluto-primary-z);
+            outline-offset: var(--pluto-focus-ring-offset, 2px);
         }
     }
 
@@ -48,7 +47,7 @@
         display: inline-block;
         width: 5rem;
         height: 2.5rem;
-        border-radius: 1.5rem;
+        border-radius: var(--pluto-border-radius-medium);
         background: var(--pluto-gray-l4);
         cursor: pointer;
         transition: 0.15s;

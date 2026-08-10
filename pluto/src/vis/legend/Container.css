@@ -16,7 +16,7 @@
     backdrop-filter: blur(4rem);
     padding: 0.5rem 1rem;
     -webkit-backdrop-filter: blur(3rem);
-    border-radius: 1rem;
+    border-radius: var(--pluto-border-radius-small);
     max-height: 50%;
     overflow-y: auto;
     overflow-x: visible;
@@ -46,6 +46,7 @@
 
     .pluto-legend-entry {
         height: round(3.25rem, 1px);
+        flex-shrink: 0;
         cursor: pointer;
     }
 }

@@ -137,7 +137,7 @@ const Internal = <
                         identifierRef.current?.focus();
                       }}
                       size="small"
-                      variant="suggestion"
+                      variant="text"
                     >
                       {id}
                     </Button.Button>

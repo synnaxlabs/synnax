@@ -67,7 +67,6 @@ const CommandPalette = ({ commands }: CommandPaletteProps): ReactElement => {
  * Renders a domain's COMMANDS through the real command list plus a live modal stack, so
  * a spec can drive them end to end: filter, select, and interact with any modal a
  * command opens. Only commands are wired here; resource search lives in a separate seam.
- * Specs must opt in to stubGeometry() for the virtualized list.
  */
 export const renderPalette = async ({
   commands = [],

@@ -24,7 +24,7 @@ export const Constant = ({ config: { value }, scale }: SymbolProps) => (
     sources={[{ key: "output", Icon: Icon.Value }]}
     scale={scale}
   >
-    <Text.Text level="h4" weight={500} variant="code">
+    <Text.Text level="h4" variant="code">
       {value.toString()}
     </Text.Text>
   </Base>

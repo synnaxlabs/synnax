@@ -219,6 +219,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
 export const AnalogRead = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.NI,
   schemas: ANALOG_READ_SCHEMAS,
   type: "ni_analog_read",
   getInitialValues,

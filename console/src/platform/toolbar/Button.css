@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-label__filter-chips {
-    padding: 0 1rem;
-    box-shadow: var(--pluto-shadow-v1);
+.console-toolbar__button {
+    height: 100%;
+    width: var(--pluto-height-medium);
 }

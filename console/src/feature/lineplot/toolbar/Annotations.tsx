@@ -95,7 +95,12 @@ const List = ({
       align="start"
     >
       <Flex.Box className={CSS.BE("line-plot", "toolbar", "annotations-add")}>
-        <Button.Button tooltip="Add Rule" onClick={onCreate} size="small">
+        <Button.Button
+          tooltip="Add Rule"
+          onClick={onCreate}
+          size="small"
+          variant="filled"
+        >
           <Icon.Add />
         </Button.Button>
       </Flex.Box>
@@ -112,7 +117,7 @@ const List = ({
           menu={({ keys }) => (
             <ContextMenu.Menu>
               <ContextMenu.DeleteItem onClick={() => onRemoveAnnotations(keys)} />
-              <Divider.Divider x />
+              <Menu.Divider />
               <ContextMenu.ReloadConsoleItem />
             </ContextMenu.Menu>
           )}

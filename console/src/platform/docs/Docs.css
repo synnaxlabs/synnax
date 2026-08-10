@@ -10,12 +10,18 @@
  */
 
 .console-docs {
+    position: relative;
     width: 100%;
     height: 100%;
 }
 
+.console-docs__loading {
+    position: absolute;
+    inset: 0;
+}
+
 .console--os-macos .console-docs__open-button {
-    border-top-right-radius: 1rem;
+    border-top-right-radius: var(--pluto-border-radius-small);
 }
 
 .console-docs iframe {
