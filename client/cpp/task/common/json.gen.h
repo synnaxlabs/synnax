@@ -53,11 +53,11 @@ inline BaseReadConfig BaseReadConfig::parse(x::json::Parser parser) {
     static_cast<BaseConfig &>(result) = BaseConfig::parse(parser);
     result.sample_rate = parser.field<::x::telem::Rate>(
         "sample_rate",
-        x::telem::Rate(10)
+        ::x::telem::Rate(10)
     );
     result.stream_rate = parser.field<::x::telem::Rate>(
         "stream_rate",
-        x::telem::Rate(5)
+        ::x::telem::Rate(5)
     );
     return result;
 }

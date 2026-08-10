@@ -52,7 +52,10 @@ inline x::json::json BaseChannel::to_json() const {
 inline InputChannel InputChannel::parse(x::json::Parser parser) {
     InputChannel result;
     static_cast<BaseChannel &>(result) = BaseChannel::parse(parser);
-    result.channel = parser.field<::synnax::channel::Key>("channel", 0);
+    result.channel = parser.field<::synnax::channel::Key>(
+        "channel",
+        ::synnax::channel::Key(0)
+    );
     result.use_as_index = parser.field<bool>("use_as_index", false);
     return result;
 }
@@ -69,7 +72,10 @@ inline x::json::json InputChannel::to_json() const {
 inline OutputChannel OutputChannel::parse(x::json::Parser parser) {
     OutputChannel result;
     static_cast<BaseChannel &>(result) = BaseChannel::parse(parser);
-    result.cmd_channel = parser.field<::synnax::channel::Key>("cmd_channel", 0);
+    result.cmd_channel = parser.field<::synnax::channel::Key>(
+        "cmd_channel",
+        ::synnax::channel::Key(0)
+    );
     return result;
 }
 

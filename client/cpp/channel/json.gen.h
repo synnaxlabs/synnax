@@ -25,9 +25,11 @@ namespace synnax::channel {
 inline Operation Operation::parse(x::json::Parser parser) {
     return Operation{
         .type = parser.field<std::string>("type"),
-        .reset_channel = parser.field<Key>("reset_channel", 0),
-        .duration = parser
-                        .field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0)),
+        .reset_channel = parser.field<Key>("reset_channel", Key(0)),
+        .duration = parser.field<::x::telem::TimeSpan>(
+            "duration",
+            ::x::telem::TimeSpan(0)
+        ),
     };
 }
 
@@ -41,12 +43,15 @@ inline x::json::json Operation::to_json() const {
 
 inline Channel Channel::parse(x::json::Parser parser) {
     return Channel{
-        .key = parser.field<Key>("key", 0),
+        .key = parser.field<Key>("key", Key(0)),
         .name = parser.field<Name>("name"),
-        .leaseholder = parser.field<::synnax::node::Key>("leaseholder", 0),
+        .leaseholder = parser.field<::synnax::node::Key>(
+            "leaseholder",
+            ::synnax::node::Key(0)
+        ),
         .data_type = parser.field<::x::telem::DataType>("data_type"),
         .is_index = parser.field<bool>("is_index", false),
-        .index = parser.field<Key>("index", 0),
+        .index = parser.field<Key>("index", Key(0)),
         .alias = parser.field<std::optional<std::string>>("alias"),
         .is_virtual = parser.field<bool>("virtual", false),
         .internal = parser.field<bool>("internal", false),

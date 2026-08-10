@@ -56,7 +56,7 @@ struct BaseInputChannel {
     /// @brief disabled is true when the channel is excluded from acquisition.
     bool disabled = false;
     /// @brief channel is the Synnax channel that samples are written to.
-    ::synnax::channel::Key channel = 0;
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief address is the Modbus address the channel reads from.
     std::uint16_t address = 0;
 
@@ -73,7 +73,7 @@ struct BaseOutputChannel {
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
     /// @brief channel is the Synnax channel commands are read from.
-    ::synnax::channel::Key channel = 0;
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief address is the Modbus address the channel writes to.
     std::uint16_t address = 0;
 
