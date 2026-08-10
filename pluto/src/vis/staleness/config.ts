@@ -19,7 +19,9 @@ import { DEFAULT_TIMEOUT } from "@/vis/staleness/aether/staleness";
  * neither.
  */
 export const configZ = z.object({
-  stalenessTimeout: z.number().optional(),
+  // Positive matches the aether schema, so the form rejects a timeout the worker would
+  // rather than pushing it across and failing there.
+  stalenessTimeout: z.number().positive().optional(),
   stalenessColor: color.colorZ.optional(),
 });
 export interface Config extends z.infer<typeof configZ> {}

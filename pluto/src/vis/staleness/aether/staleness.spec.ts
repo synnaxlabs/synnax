@@ -304,6 +304,25 @@ describe("staleness", () => {
     });
   });
 
+  describe("stalenessTimeout", () => {
+    it("should default an absent timeout", () => {
+      expect(staleness.configZ.parse({}).stalenessTimeout).toEqual(
+        staleness.DEFAULT_TIMEOUT,
+      );
+    });
+
+    it("should keep a positive timeout", () => {
+      expect(
+        staleness.configZ.parse({ stalenessTimeout: 30 }).stalenessTimeout,
+      ).toEqual(30);
+    });
+
+    // A non-positive timeout would pin a source stale from its first sample onward.
+    it.each([0, -1])("should reject a non-positive timeout of %s", (t) => {
+      expect(() => staleness.configZ.parse({ stalenessTimeout: t })).toThrow();
+    });
+  });
+
   describe("resolveColor", () => {
     const theme = Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark);
 
