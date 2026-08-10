@@ -27,6 +27,9 @@ var templateFuncs = template.FuncMap{
 	"lbrace": func() string { return "{" },
 }
 
+// protoTemplate wraps a generic field's conversions in an if constexpr block. That
+// block scopes the unbraced declarations generateJSONFieldConversion and
+// generateTypeParamConversion emit.
 var protoTemplate = template.Must(
 	template.New("cpp-pb-proto").
 		Funcs(templateFuncs).

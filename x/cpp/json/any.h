@@ -20,9 +20,8 @@
 
 namespace x::json {
 /// @brief Converts json to a google::protobuf::Any that holds a Struct.
-/// @param j The JSON to convert. Struct only holds objects, so j must be an object or
-/// null. A null value converts to an empty object. Any other value returns a VALIDATION
-/// error.
+/// @param j The JSON to convert. It must be an object or null. A null value converts
+/// to an empty object. Any other value returns a VALIDATION error.
 /// @returns A pair containing the Any and an error if one occurred.
 inline std::pair<google::protobuf::Any, errors::Error> to_any(const json &j) {
     if (!j.is_null() && !j.is_object())
@@ -34,8 +33,8 @@ inline std::pair<google::protobuf::Any, errors::Error> to_any(const json &j) {
             )
         };
     google::protobuf::Struct s;
-    if (!j.is_null())
-        if (const auto err = to_struct(j, &s)) return {{}, err};
+    const auto err = j.is_null() ? errors::NIL : to_struct(j, &s);
+    if (err) return {{}, err};
     google::protobuf::Any any;
     if (!any.PackFrom(s))
         return {{}, errors::Error(errors::INTERNAL, "failed to pack Struct into Any")};

@@ -1631,12 +1631,17 @@ var _ = Describe("C++ PB Plugin", func() {
 						ToContain(
 							// Forward: compile-time branch on Details via if constexpr,
 							// ultimately calling x::json::to_any.
-							"if constexpr (std::is_same_v<Details, std::monostate>)",
+							"if constexpr (!std::is_same_v<Details, std::monostate>)",
 							"auto [v, err] = x::json::to_any(j)",
 							"*pb.mutable_details() = v;",
 							// Backward: x::json::from_any with Parser::parse fallback.
-							"auto [val, err] = x::json::from_any(pb.details())",
-							"Details::parse(x::json::Parser(val))",
+							"auto [v, err] = x::json::from_any(pb.details())",
+							"Details::parse(x::json::Parser(v))",
+						).
+						ToNotContain(
+							// A monostate has no to_json(), so the branch only ever
+							// assigns a real value. j defaults to null.
+							"j = x::json::json(nullptr)",
 						)
 				},
 			)
@@ -1661,7 +1666,7 @@ var _ = Describe("C++ PB Plugin", func() {
 							"auto [v, err] = x::json::to_any(j)",
 							"*pb.mutable_details() = v;",
 							"if (pb.has_details())",
-							"auto [val, err] = x::json::from_any(pb.details())",
+							"auto [v, err] = x::json::from_any(pb.details())",
 						)
 				},
 			)

@@ -86,9 +86,7 @@ Status<Details>::to_proto() const {
         *pb.mutable_details() = v;
     } else {
         x::json::json j;
-        if constexpr (std::is_same_v<Details, std::monostate>)
-            j = x::json::json(nullptr);
-        else
+        if constexpr (!std::is_same_v<Details, std::monostate>)
             j = this->details.to_json();
         auto [v, err] = x::json::to_any(j);
         if (err) return {{}, err};
@@ -124,12 +122,12 @@ Status<Details>::from_proto(const ::service::status::pb::Status &pb) {
         if (err) return {{}, err};
         cpp.details = v;
     } else {
-        auto [val, err] = x::json::from_any(pb.details());
+        auto [v, err] = x::json::from_any(pb.details());
         if (err) return {{}, err};
         if constexpr (std::is_same_v<Details, std::monostate>)
             cpp.details = std::monostate{};
         else
-            cpp.details = Details::parse(x::json::Parser(val));
+            cpp.details = Details::parse(x::json::Parser(v));
     }
     if (pb.has_labels()) {
         cpp.labels.emplace();
