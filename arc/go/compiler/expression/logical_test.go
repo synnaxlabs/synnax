@@ -574,4 +574,39 @@ var _ = Describe("Logical Operations", func() {
 			OpLocalGet, 0, OpI32Const, int32(0), OpCall, uint32(0),
 		),
 	)
+
+	DescribeTable(
+		"should propagate operand compile errors through logical expressions",
+		expectCompileError,
+		Entry(
+			"first or operand fails",
+			"(s | 1) or true",
+			"bitwise operators are not supported on series",
+		),
+		Entry(
+			"first and operand fails",
+			"(s | 1) and true",
+			"bitwise operators are not supported on series",
+		),
+		Entry(
+			"series or right operand fails",
+			"b or (s & 1)",
+			"bitwise operators are not supported on series",
+		),
+		Entry(
+			"series and right operand fails",
+			"b and (s & 1)",
+			"bitwise operators are not supported on series",
+		),
+		Entry(
+			"short-circuit and right operand fails",
+			"true and (s & 1)",
+			"bitwise operators are not supported on series",
+		),
+		Entry(
+			"short-circuit or right operand fails",
+			"false or (s & 1)",
+			"bitwise operators are not supported on series",
+		),
+	)
 })

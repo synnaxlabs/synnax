@@ -3270,6 +3270,14 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 				"does not match channel num_u8 value type u8",
 			},
 		}),
+		Entry("qualified func output into a bool channel", mismatchCase{
+			source: "import time\ntime.wait{duration=1s} -> flag",
+			line:   1,
+			substrings: []string{
+				"func time.wait output type u8",
+				"does not match channel flag value type bool",
+			},
+		}),
 	)
 
 	DescribeTable("Should accept a source whose type matches the channel sink",
@@ -3285,6 +3293,22 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 			"bool function output to matching bool channel",
 			"func check() bool { return true }\n\ncheck{} -> flag",
 		),
+		Entry(
+			"qualified func output to a matching u8 channel",
+			"import time\ntime.wait{duration=1s} -> num_u8",
+		),
+	)
+
+	It(
+		"Should report an unknown qualified func source without a sink mismatch",
+		func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse("import time\ntime.nosuch{} -> num_u8"))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, sinkResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("nosuch"))
+			Expect(ctx.Diagnostics.String()).ToNot(ContainSubstring("does not match"))
+		},
 	)
 
 	Describe("Writing to a channelRead variable", func() {

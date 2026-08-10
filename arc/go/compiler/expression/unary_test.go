@@ -362,4 +362,24 @@ var _ = Describe("Unary Operations", func() {
 			OpLocalGet, 0, OpCall, uint32(0),
 		),
 	)
+
+	DescribeTable(
+		"should reject invalid unary operands",
+		expectCompileError,
+		Entry(
+			"logical NOT on a non-bool series",
+			"not s",
+			"logical NOT on series requires a bool element type, got i64",
+		),
+		Entry(
+			"~ on a float operand",
+			"~1.5",
+			"operator ~ requires an integer operand, got f64",
+		),
+		Entry(
+			"~ operand compile error propagates",
+			"~(s & 1)",
+			"bitwise operators are not supported on series",
+		),
+	)
 })

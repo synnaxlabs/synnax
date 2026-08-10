@@ -44,6 +44,25 @@ func compileExpression(bCtx context.Context, source string) ([]byte, types.Type)
 	return compileWithCtx(NewContext(bCtx), source)
 }
 
+// expectCompileError compiles source in a scope holding an i64 series "s" and a
+// bool series "b", asserting the compile fails with a message containing substr.
+func expectCompileError(bCtx SpecContext, source, substr string) {
+	ctx := NewContext(bCtx)
+	MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: "s",
+		Kind: symbol.KindVariable,
+		Type: types.Series(types.I64()),
+	}))
+	MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+		Name: "b",
+		Kind: symbol.KindVariable,
+		Type: types.Series(types.Bool()),
+	}))
+	expr := MustSucceed(parser.ParseExpression(source))
+	Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+		To(MatchError(ContainSubstring(substr)))
+}
+
 func compileWithCtx(
 	ctx ccontext.Context[antlr.ParserRuleContext],
 	source string,

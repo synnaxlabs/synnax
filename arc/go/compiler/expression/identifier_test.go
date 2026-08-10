@@ -398,6 +398,8 @@ var _ = Describe("Identifier Compilation", func() {
 				int64(3),
 				[]any{OpF32Const, float32(3)},
 			),
+			Entry("bool true", types.Bool(), true, []any{OpI32Const, int32(1)}),
+			Entry("bool false", types.Bool(), false, []any{OpI32Const, int32(0)}),
 		)
 
 		DescribeTable(

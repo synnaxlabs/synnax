@@ -368,6 +368,48 @@ var _ = Describe("Type Cast Compilation", func() {
 			OpI32Const, int32(0),
 			OpCall, uint32(0),
 		),
+
+		// Numeric to Bool — bool(x) normalizes to x != 0 per WASM value type.
+		Entry(
+			"i32 to bool",
+			"bool(i32(5))",
+			types.Bool(),
+			OpI32Const, int32(5),
+			OpI32Const, int32(0),
+			OpI32Ne,
+		),
+		Entry(
+			"u8 to bool",
+			"bool(u8(1))",
+			types.Bool(),
+			OpI32Const, int32(1),
+			OpI32Const, int32(0),
+			OpI32Ne,
+		),
+		Entry(
+			"i64 to bool",
+			"bool(i64(5))",
+			types.Bool(),
+			OpI64Const, int64(5),
+			OpI64Const, int64(0),
+			OpI64Ne,
+		),
+		Entry(
+			"f32 to bool",
+			"bool(f32(1.5))",
+			types.Bool(),
+			OpF32Const, float32(1.5),
+			OpF32Const, float32(0),
+			OpF32Ne,
+		),
+		Entry(
+			"f64 to bool",
+			"bool(f64(1.5))",
+			types.Bool(),
+			OpF64Const, float64(1.5),
+			OpF64Const, float64(0),
+			OpF64Ne,
+		),
 	)
 
 	DescribeTable(

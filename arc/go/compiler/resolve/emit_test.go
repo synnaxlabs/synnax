@@ -176,4 +176,69 @@ var _ = Describe("Emit", func() {
 				To(MatchError(ContainSubstring("no scope")))
 		})
 	})
+
+	Describe("EmitSeriesComparison", func() {
+		DescribeTable("Should emit a compare_<op>_<type> series import",
+			func(op, wantWASMName string) {
+				Expect(
+					resolver.EmitSeriesComparison(writer, writerID, op, types.I64()),
+				).To(Succeed())
+				resolver.Finalize(wasmModule)
+				Expect(wasmModule.ImportNames()).To(ConsistOf(wantWASMName))
+			},
+			Entry("> emits compare_gt_i64", ">", "compare_gt_i64"),
+			Entry("< emits compare_lt_i64", "<", "compare_lt_i64"),
+			Entry("== emits compare_eq_i64", "==", "compare_eq_i64"),
+			Entry("!= emits compare_ne_i64", "!=", "compare_ne_i64"),
+		)
+
+		It("Should return an error for an unknown operator", func() {
+			Expect(resolver.EmitSeriesComparison(writer, writerID, "??", types.I64())).
+				To(MatchError(ContainSubstring("unknown comparison operator")))
+		})
+	})
+
+	Describe("EmitSeriesLogical", func() {
+		It("Should emit and_bool for a series right operand", func() {
+			Expect(
+				resolver.EmitSeriesLogical(
+					writer,
+					writerID,
+					"and",
+					types.Bool(),
+					false,
+				),
+			).To(Succeed())
+			resolver.Finalize(wasmModule)
+			Expect(wasmModule.ImportNames()).To(ConsistOf("and_bool"))
+		})
+
+		It("Should emit or_scalar_bool for a scalar right operand", func() {
+			Expect(
+				resolver.EmitSeriesLogical(writer, writerID, "or", types.Bool(), true),
+			).To(Succeed())
+			resolver.Finalize(wasmModule)
+			Expect(wasmModule.ImportNames()).To(ConsistOf("or_scalar_bool"))
+		})
+
+		It("Should return an error for an unknown operator", func() {
+			Expect(
+				resolver.EmitSeriesLogical(
+					writer,
+					writerID,
+					"xor",
+					types.Bool(),
+					false,
+				),
+			).To(MatchError(ContainSubstring("unknown logical operator")))
+		})
+	})
+
+	Describe("EmitSeriesNotBool", func() {
+		It("Should emit a not_bool series import", func() {
+			resolver.EmitSeriesNotBool(writer, writerID)
+			resolver.Finalize(wasmModule)
+			Expect(wasmModule.ImportNames()).To(ConsistOf("not_bool"))
+		})
+	})
 })

@@ -225,6 +225,11 @@ var _ = Describe("Channel", func() {
 				result := rt.Call(ctx, "channels", "read_f64", testutil.U32(1))
 				Expect(testutil.AsF64(result[0])).To(Equal(float64(0)))
 			})
+
+			It("Should return 0 for a bool read with no data", func(ctx SpecContext) {
+				result := rt.Call(ctx, "channels", "read_bool", testutil.U32(4))
+				Expect(testutil.AsU32(result[0])).To(Equal(uint32(0)))
+			})
 		})
 	})
 

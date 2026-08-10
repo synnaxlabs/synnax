@@ -1742,6 +1742,12 @@ var _ = Describe("Expressions", func() {
 					y := x**2s
 				}
 			`, "dimensionless"),
+			Entry("dimensioned base with chained power exponent", `
+				func testFunc() {
+					x f64 m := 5m
+					y := x**2**2
+				}
+			`, "literal integer exponent"),
 		)
 	})
 
@@ -1882,6 +1888,18 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					x i32 := 1
 					y := u8(x)
+				}
+			`),
+			Entry("bool to u8", `
+				func testFunc() {
+					x bool := true
+					y := u8(x)
+				}
+			`),
+			Entry("i32 to bool", `
+				func testFunc() {
+					x i32 := 1
+					y := bool(x)
 				}
 			`),
 		)

@@ -169,9 +169,11 @@ var _ = Describe("AST Utilities", func() {
 			Entry("comparison", "a > b"),
 			Entry("logical or", "a or b"),
 			Entry("symbolic logical or", "a || b"),
+			Entry("logical and", "a and b"),
 			Entry("bitwise or", "a | b"),
 			Entry("bitwise xor", "a ^ b"),
 			Entry("bitwise xor keyword", "a xor b"),
+			Entry("bitwise and", "a & b"),
 			Entry("unary minus", "-1"),
 			Entry("power", "2 ** 3"),
 		)

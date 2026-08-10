@@ -947,6 +947,58 @@ var _ = Describe("Series", func() {
 		})
 	})
 
+	Describe("index_bool", func() {
+		It("Should read bool elements by index", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_bool", testutil.U32(2))
+			callU32(
+				ctx,
+				"set_element_bool",
+				testutil.U32(h),
+				testutil.U32(0),
+				testutil.U32(1),
+			)
+			callU32(
+				ctx,
+				"set_element_bool",
+				testutil.U32(h),
+				testutil.U32(1),
+				testutil.U32(0),
+			)
+			Expect(
+				callU32(ctx, "index_bool", testutil.U32(h), testutil.U32(0)),
+			).To(Equal(uint32(1)))
+			Expect(
+				callU32(ctx, "index_bool", testutil.U32(h), testutil.U32(1)),
+			).To(Equal(uint32(0)))
+		})
+
+		It("Should return 0 for an out-of-range index", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_bool", testutil.U32(1))
+			Expect(
+				callU32(ctx, "index_bool", testutil.U32(h), testutil.U32(5)),
+			).To(BeZero())
+		})
+
+		It("Should return 0 for an invalid handle", func(ctx SpecContext) {
+			Expect(
+				callU32(ctx, "index_bool", testutil.U32(9999), testutil.U32(0)),
+			).To(BeZero())
+		})
+	})
+
+	Describe("NewSymbols", func() {
+		It("Should register the logical and not_bool host funcs", func() {
+			mod := series.NewSymbols()[0]
+			names := make([]string, 0, len(mod.Children()))
+			for _, child := range mod.Children() {
+				names = append(names, child.Name)
+			}
+			Expect(names).To(ContainElements(
+				"and", "or", "and_scalar", "or_scalar", "not_bool",
+			))
+		})
+	})
+
 	Describe("not_bool", func() {
 		It("Should logically negate a bool series", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_bool", testutil.U32(2))

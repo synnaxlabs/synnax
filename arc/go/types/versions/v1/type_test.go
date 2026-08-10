@@ -552,6 +552,7 @@ var _ = Describe("Type", func() {
 			Entry("Sequence", types.Sequence(), "sequence"),
 			Entry("Stage", types.Stage(), "stage"),
 			Entry("String", types.String(), "str"),
+			Entry("Bool", types.Bool(), "bool"),
 			Entry("TimeStamp", types.TimeStamp(), "i64 ns"),
 			Entry("TimeSpan", types.TimeSpan(), "i64 ns"),
 		)
@@ -662,6 +663,7 @@ var _ = Describe("Type", func() {
 			Entry("F32", types.F32(), telem.Float32T),
 			Entry("F64", types.F64(), telem.Float64T),
 			Entry("String", types.String(), telem.StringT),
+			Entry("Bool", types.Bool(), telem.BoolT),
 			Entry("TimeStamp", types.TimeStamp(), telem.TimeStampT),
 			Entry("TimeSpan", types.TimeSpan(), telem.TimeStampT),
 		)

@@ -12,10 +12,14 @@ package expression_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	ccontext "github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/expression"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Binary Operations", func() {
@@ -1453,6 +1457,49 @@ var _ = Describe("Binary Operations", func() {
 		),
 	)
 
+	DescribeTable(
+		"should reject series operands in bitwise expressions",
+		func(bCtx SpecContext, source string) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "s",
+				Kind: symbol.KindVariable,
+				Type: types.Series(types.I64()),
+			}))
+			expr := MustSucceed(parser.ParseExpression(source))
+			Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+				To(MatchError(ContainSubstring(
+					"bitwise operators are not supported on series",
+				)))
+		},
+		Entry("series on the left of |", "s | 1"),
+		Entry("series on the right of |", "1 | s"),
+		Entry("series on the left of ^", "s ^ 1"),
+		Entry("series on the right of ^", "1 ^ s"),
+		Entry("series on the left of &", "s & 1"),
+		Entry("series on the right of &", "1 & s"),
+		Entry("series error propagates from the left of |", "(s & 1) | 1"),
+		Entry("series error propagates from the right of |", "1 | (s & 1)"),
+		Entry("series error propagates from the left of ^", "(s & 1) ^ 1"),
+		Entry("series error propagates from the right of ^", "1 ^ (s & 1)"),
+		Entry("series error propagates from the left of &", "(s | 1) & 1"),
+		Entry("series error propagates from the right of &", "1 & (s | 1)"),
+	)
+
+	Describe("String Equality", func() {
+		It("Should compile string equality to bool", func(bCtx SpecContext) {
+			bytecode, exprType := compileWithAnalyzer(bCtx, `"a" == "a"`, nil)
+			Expect(exprType).To(Equal(types.Bool()))
+			Expect(bytecode).ToNot(BeEmpty())
+		})
+
+		It("Should compile string inequality to bool", func(bCtx SpecContext) {
+			bytecode, exprType := compileWithAnalyzer(bCtx, `"a" != "b"`, nil)
+			Expect(exprType).To(Equal(types.Bool()))
+			Expect(bytecode).ToNot(BeEmpty())
+		})
+	})
+
 	Describe("Literal Coercion", func() {
 		It("Should coerce a literal type", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
@@ -1918,6 +1965,60 @@ var _ = Describe("Binary Operations", func() {
 				OpF64Const,
 				float64(2),
 				OpF64Mul,
+			),
+			Entry(
+				"i64 channel | i64 literal",
+				"flags | 2",
+				[]symbol.Symbol{{
+					Name: "flags",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+					ID:   0,
+				}},
+				types.I64(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(0),
+				OpI64Const,
+				int64(2),
+				OpI64Or,
+			),
+			Entry(
+				"i64 channel ^ i64 literal",
+				"flags ^ 2",
+				[]symbol.Symbol{{
+					Name: "flags",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+					ID:   0,
+				}},
+				types.I64(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(0),
+				OpI64Const,
+				int64(2),
+				OpI64Xor,
+			),
+			Entry(
+				"i64 channel & i64 literal",
+				"flags & 2",
+				[]symbol.Symbol{{
+					Name: "flags",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+					ID:   0,
+				}},
+				types.I64(),
+				OpI32Const,
+				int32(0),
+				OpCall,
+				uint32(0),
+				OpI64Const,
+				int64(2),
+				OpI64And,
 			),
 		)
 	})

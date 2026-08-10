@@ -1594,6 +1594,31 @@ var _ = Describe("ProgramState", func() {
 				},
 			)
 
+			DescribeTable("bool series truthiness follows the last element",
+				func(ctx SpecContext, last bool) {
+					g := graph.Graph{
+						Nodes: []graph.Node{{Key: "test"}},
+						Inputs: map[string]msgpack.EncodedJSON{
+							"test": {"type": "test"},
+						},
+						Functions: []ir.Function{{
+							Key: "test",
+							Outputs: types.Params{
+								{Name: outputParam, Type: types.Bool()},
+							},
+						}},
+					}
+					prog, diagnostics := graph.Analyze(ctx, g, nil)
+					Expect(diagnostics.Ok()).To(BeTrue())
+					s := node.New(prog)
+					n := s.Node("test")
+					*n.Output(0) = telem.NewSeriesV[bool](!last, last)
+					Expect(n.IsOutputTruthy(0)).To(Equal(last))
+				},
+				Entry("true last element", true),
+				Entry("false last element", false),
+			)
+
 			It(
 				"Should return false for series with last element 0 (int32)",
 				func(ctx SpecContext) {

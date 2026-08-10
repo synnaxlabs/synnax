@@ -968,6 +968,9 @@ var _ = Describe("Type Inference", func() {
 
 			// String type
 			Entry("str", "x str := \"\"", types.KindString),
+
+			// Bool type
+			Entry("bool", "x bool := true", types.KindBool),
 		)
 
 		DescribeTable("composite types",
@@ -1067,5 +1070,76 @@ var _ = Describe("Type Inference", func() {
 				Expect(t.IsValid()).To(BeFalse())
 			},
 		)
+	})
+})
+
+var _ = Describe("Series operand inference", func() {
+	seriesResolver := []symbol.Symbol{
+		{Name: "s", Kind: symbol.KindVariable, Type: types.Series(types.I64())},
+		{Name: "x", Kind: symbol.KindVariable, Type: types.String()},
+	}
+
+	DescribeTable("should propagate series operands through operator inference",
+		func(bCtx SpecContext, expr string, expected types.Type) {
+			Expect(inferExprType(bCtx, seriesResolver, expr)).To(Equal(expected))
+		},
+		Entry("series on the left of |", "s | 1", types.Series(types.I64())),
+		Entry("series on the right of |", "1 | s", types.Series(types.I64())),
+		Entry("series on the left of ^", "s ^ 1", types.Series(types.I64())),
+		Entry("series on the right of ^", "1 ^ s", types.Series(types.I64())),
+		Entry("series on the left of &", "s & 1", types.Series(types.I64())),
+		Entry("series on the right of &", "1 & s", types.Series(types.I64())),
+		Entry(
+			"series equality yields a bool series",
+			"s == 1",
+			types.Series(types.Bool()),
+		),
+		Entry(
+			"series inequality yields a bool series",
+			"s != 1",
+			types.Series(types.Bool()),
+		),
+		Entry(
+			"incompatible | operand keeps the series element type",
+			"s | x",
+			types.Series(types.I64()),
+		),
+		Entry(
+			"incompatible ^ operand keeps the series element type",
+			"s ^ x",
+			types.Series(types.I64()),
+		),
+		Entry(
+			"incompatible & operand keeps the series element type",
+			"s & x",
+			types.Series(types.I64()),
+		),
+	)
+
+	It("should return an invalid type for an empty | node", func(bCtx SpecContext) {
+		node := parser.NewBitwiseOrExpressionContext(nil, nil, 0)
+		ctx := acontext.NewRoot[parser.IBitwiseOrExpressionContext](
+			bCtx, node, NewRoot(nil),
+		)
+		t := atypes.InferBitwiseOr(ctx)
+		Expect(t.IsValid()).To(BeFalse())
+	})
+
+	It("should return an invalid type for an empty ^ node", func(bCtx SpecContext) {
+		node := parser.NewBitwiseXorExpressionContext(nil, nil, 0)
+		ctx := acontext.NewRoot[parser.IBitwiseXorExpressionContext](
+			bCtx, node, NewRoot(nil),
+		)
+		t := atypes.InferBitwiseXor(ctx)
+		Expect(t.IsValid()).To(BeFalse())
+	})
+
+	It("should return an invalid type for an empty & node", func(bCtx SpecContext) {
+		node := parser.NewBitwiseAndExpressionContext(nil, nil, 0)
+		ctx := acontext.NewRoot[parser.IBitwiseAndExpressionContext](
+			bCtx, node, NewRoot(nil),
+		)
+		t := atypes.InferBitwiseAnd(ctx)
+		Expect(t.IsValid()).To(BeFalse())
 	})
 })

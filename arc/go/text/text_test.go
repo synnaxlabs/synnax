@@ -4360,6 +4360,93 @@ time.wait{duration=500ms} -> output`
 				},
 			)
 
+			It(
+				"Should apply the entry param mapping to the entry's final node",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "signal",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+							ID:   10105,
+						},
+					}
+					source := `
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
+				}
+
+				func doubler{} (b f64) f64 {
+				    return b * 2.0
+				}
+
+				func mix{} (a f64, b f64) {}
+
+				signal -> demux{threshold=100.0} -> {
+				    high: doubler{}: b
+				} -> mix{}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					_, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					// The entry mapping resolves onto doubler's input 'b'. The text
+					// pipeline does not yet wire the func after the routing table, so
+					// whole-graph validation reports mix's inputs as unconnected.
+					Expect(diagnostics.Ok()).To(BeFalse())
+					Expect(diagnostics.String()).To(
+						ContainSubstring("missing required input 'a'"),
+					)
+				},
+			)
+
+			It(
+				"Should reject an explicit target param the func does not have",
+				func(ctx SpecContext) {
+					resolver := []symbol.Symbol{
+						{
+							Name: "signal",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F64()),
+							ID:   10106,
+						},
+					}
+					source := `
+				func demux{threshold f64} (value f64) (high f64, low f64) {
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
+				}
+
+				func doubler{} (v f64) f64 {
+				    return v * 2.0
+				}
+
+				func mix{} (a f64, b f64) {}
+
+				signal -> demux{threshold=100.0} -> {
+				    high: doubler{}: nosuch
+				} -> mix{}`
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					_, diagnostics := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diagnostics.Ok()).To(BeFalse())
+					Expect(diagnostics.String()).To(
+						ContainSubstring("does not have parameter 'nosuch'"),
+					)
+				},
+			)
+
 			It("Should handle routing with chained processing", func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
