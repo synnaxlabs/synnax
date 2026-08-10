@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { log } from "@/log";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -25,7 +25,9 @@ describe("log", () => {
       });
       const proj = await client.projects.create({ name: "test", layout: {} });
       const randomLog = await client.logs.create(proj.key, { name: "test" });
-      await expect(userClient.logs.retrieve(randomLog.key)).rejects.toThrow(AuthError);
+      await expect(userClient.logs.retrieve(randomLog.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
 
     it("should allow the caller to retrieve logs with the correct policy", async () => {
@@ -58,9 +60,9 @@ describe("log", () => {
         actions: [],
       });
       const proj = await client.projects.create({ name: "test", layout: {} });
-      await expect(userClient.logs.create(proj.key, { name: "test" })).rejects.toThrow(
-        AuthError,
-      );
+      await expect(
+        userClient.logs.create(proj.key, { name: "test" }),
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete logs with the correct policy", async () => {
@@ -85,7 +87,9 @@ describe("log", () => {
       });
       const proj = await client.projects.create({ name: "test", layout: {} });
       const randomLog = await client.logs.create(proj.key, { name: "test" });
-      await expect(userClient.logs.delete(randomLog.key)).rejects.toThrow(AuthError);
+      await expect(userClient.logs.delete(randomLog.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
   });
 });

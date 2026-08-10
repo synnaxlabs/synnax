@@ -42,6 +42,28 @@ describe("Notification Component", () => {
     expect(c.getByText("Test notification description")).toBeTruthy();
   });
 
+  it("omits the description entirely when the status carries an empty one", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, description: "" }}
+      />,
+    );
+
+    expect(c.container.querySelector(".pluto-notification__description")).toBeNull();
+  });
+
+  it("omits the name entirely when the status carries an empty one", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, name: "" }}
+      />,
+    );
+
+    expect(c.container.querySelector(".pluto-notification__name")).toBeNull();
+  });
+
   it("calls silence function when close button is clicked", () => {
     const c = render(<Notification {...notificationProps} />);
 
