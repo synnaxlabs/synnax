@@ -13,15 +13,15 @@ The fixtures were validated mechanically against the zod schemas at that commit:
 fixture parses, and every one except the HTTP pair round-trips byte-identical through
 the schema. The HTTP fixtures freeze the older record shape for headers, query params,
 and enum values, which that schema still accepted and upgraded to the list shape in
-memory; the legacy rewrite's `RecordToList` covers the record shape and passes the
-list shape through untouched.
+memory; the legacy rewrite's `RecordToList` covers the record shape and passes the list
+shape through untouched.
 
-A task type with more than one released shape carries one extra fixture per older
-shape, suffixed with the shape's distinguishing trait:
+A task type with more than one released shape carries one extra fixture per older shape,
+suffixed with the shape's distinguishing trait:
 
-- `ni_analog_read_config_device.json` freezes the earlier analog read shape: the
-  device at the config level instead of on each channel, and the
-  `ai_frequency_voltage` type name. It also exercises the `Chan` and `BuiltIn`
-  cold-junction sources, which the newer fixture does not carry.
+- `ni_analog_read_config_device.json` freezes the earlier analog read shape: the device
+  at the config level instead of on each channel, and the `ai_frequency_voltage` type
+  name. It also exercises the `Chan` and `BuiltIn` cold-junction sources, which the
+  newer fixture does not carry.
 - `labjack_write_cmd_key.json` freezes the earlier write shape, which keyed channels
   with `cmdKey` and `stateKey` instead of `cmdChannel` and `stateChannel`.
