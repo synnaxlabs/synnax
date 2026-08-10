@@ -10,7 +10,7 @@
 import { type destructor, observe, type record, type state } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { AccessDeniedError, isConnectionError } from "@/errors";
+import { isConnectionError } from "@/errors";
 import { bindDerived, type DeriveParams } from "@/query/derived";
 import { Queries, type QueriesParams, type Retrieves } from "@/query/query";
 import {
@@ -93,7 +93,7 @@ export class Cache {
   private readonly openStreamer: StreamOpener | null;
   private streamer: Streamer | null = null;
   private epochCount = 0;
-  private denied = false;
+  private unmaintained = false;
 
   /**
    * Stable error sink for machinery built on this cache (dispatch
@@ -176,7 +176,7 @@ export class Cache {
     const space = new Queries(params, {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
-      maintained: () => !this.denied && this.openStreamer != null,
+      maintained: () => !this.unmaintained && this.openStreamer != null,
       onError: this.onError,
     });
     this.spaces.push(space);
@@ -205,7 +205,7 @@ export class Cache {
         onError: this.onError,
         onOpen: () => {
           if (this.streamer !== streamer) return;
-          this.denied = false;
+          this.unmaintained = false;
           this.epochCount = 1;
           this.epochObserver.notify(this.epochCount);
         },
@@ -213,9 +213,9 @@ export class Cache {
           if (this.streamer !== streamer) return;
           this.bumpEpoch();
         },
-        onDead: (error) => {
+        onDead: () => {
           if (this.streamer !== streamer) return;
-          if (AccessDeniedError.matches(error)) this.denied = true;
+          this.unmaintained = true;
         },
       });
       this.streamer = streamer;
@@ -223,7 +223,7 @@ export class Cache {
     try {
       await this.streamer.demand();
     } catch (exc) {
-      if (AccessDeniedError.matches(exc)) this.denied = true;
+      this.unmaintained = true;
       throw exc;
     }
   }
@@ -280,7 +280,7 @@ export class Cache {
     }
     this.entries.forEach(({ reset }) => reset());
     this.spaces.forEach((space) => space.reset());
-    this.denied = false;
+    this.unmaintained = false;
     this.epochCount = 0;
     this.epochObserver.notify(0);
   }

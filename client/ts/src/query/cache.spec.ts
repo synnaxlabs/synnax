@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-import { type record, Series, TimeSpan } from "@synnaxlabs/x";
+import { type breaker, type record, Series, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -57,22 +57,22 @@ class MockStreamer implements framer.Streamer {
 }
 
 const wrapOpener =
-  (opener: framer.StreamOpener): query.StreamOpener =>
+  (opener: framer.StreamOpener, retry?: breaker.Config): query.StreamOpener =>
   async (channels, { onOpen, onReopen, onDead }) => {
     const hardened = await framer.HardenedStreamer.open(
       opener,
       channels,
       // near-zero backoff so forced reopens land within poll timeouts
-      { baseInterval: TimeSpan.milliseconds(1) },
+      { baseInterval: TimeSpan.milliseconds(1), ...retry },
       onReopen,
     );
     onOpen?.();
     return new framer.ObservableStreamer(hardened, undefined, onDead);
   };
 
-const makeEngine = (openStreamer?: framer.StreamOpener) =>
+const makeEngine = (openStreamer?: framer.StreamOpener, retry?: breaker.Config) =>
   new query.Cache({
-    openStreamer: wrapOpener(openStreamer ?? (async () => new MockStreamer())),
+    openStreamer: wrapOpener(openStreamer ?? (async () => new MockStreamer()), retry),
     onError: vi.fn(),
   });
 
@@ -454,6 +454,36 @@ describe("Cache", () => {
       const opens = state.opens;
       await expect(cache.ensureStreaming()).rejects.toThrow(AccessDeniedError);
       expect(state.opens).toBeGreaterThan(opens);
+      detach();
+      await cache.close();
+    });
+  });
+
+  describe("dead change stream", () => {
+    it("stops maintaining answers once reconnects run out", async () => {
+      const cache = makeEngine(async () => failingStreamer(), { maxRetries: 1 });
+      const table = cache.createTable<string, Doc>({ name: "docs" });
+      let name = "first";
+      const fetch = vi.fn(async (key: string) => {
+        table.set(key, { key, name });
+        return [key];
+      });
+      const space = cache.queries<string, Doc, string, Doc>({
+        name: "docs",
+        table,
+        fetch,
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
+      });
+      const detach = space.onChange("k1", vi.fn());
+      await cache.ensureStreaming();
+      await space.retrieve("k1");
+      name = "second";
+      // the cached answer stands until the stream gives up reconnecting
+      await expect
+        .poll(async () => (await space.retrieve("k1")).name)
+        .toEqual("second");
       detach();
       await cache.close();
     });

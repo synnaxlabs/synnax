@@ -159,11 +159,7 @@ export const Provider = ({
         prev.message !== connStatus.message ||
         reasonOf(prev) !== reasonOf(connStatus)
       )
-        addStatus({
-          variant: connStatus.variant,
-          message: connStatus.message,
-          description: connStatus.description,
-        });
+        addStatus(connStatus);
       if (connStatus.variant === "success") {
         if (connStatus.details.clockSkewExceeded)
           addClockSkewStatus(addStatus, connStatus);
