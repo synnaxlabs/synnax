@@ -1,0 +1,215 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-shell {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    box-shadow: var(--pluto-shadow-v0);
+}
+
+.console-shell__content {
+    cursor: default;
+    position: relative;
+    /* Stacking context holds the nebula's negative z-index above this fill. */
+    z-index: 0;
+}
+
+.console-shell__logo {
+    height: 10rem;
+    cursor: default;
+}
+
+.console--logo-corner .console-shell__logo {
+    position: absolute;
+    top: 4rem;
+    left: 4rem;
+    height: 5rem;
+}
+
+.console-shell__stage {
+    position: relative;
+    z-index: 0;
+}
+
+.console--ornament-echo .console-shell__stage::before,
+.console--ornament-echo .console-shell__stage::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+}
+
+.console--ornament-echo .console-shell__stage::before {
+    inset: -2.5rem;
+    border: var(--pluto-border-width) solid
+        color-mix(in srgb, var(--pluto-gray-l7) 45%, transparent);
+    border-radius: calc(var(--pluto-border-radius-huge) + 2.5rem);
+}
+
+.console--ornament-echo .console-shell__stage::after {
+    inset: -5.5rem;
+    border: var(--pluto-border-width) solid
+        color-mix(in srgb, var(--pluto-gray-l7) 20%, transparent);
+    border-radius: calc(var(--pluto-border-radius-huge) + 5.5rem);
+}
+
+.console--ornament-dashed .console-shell__stage::before {
+    content: "";
+    position: absolute;
+    inset: -3rem;
+    border: var(--pluto-border-width) dashed var(--pluto-gray-l7);
+    border-radius: calc(var(--pluto-border-radius-huge) + 3rem);
+    pointer-events: none;
+}
+
+.console-shell__orbits {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 175%;
+    transform: translate(-50%, -50%);
+    color: var(--pluto-gray-l7);
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* The one frosted-glass recipe; shape stays with each surface that wears it. */
+.console-shell__frost {
+    background: color-mix(in srgb, var(--pluto-gray-l0) 45%, transparent);
+    -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
+    backdrop-filter: blur(3.5rem) saturate(140%);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    box-shadow: var(--pluto-shadow-v2);
+}
+
+/* One fixed size, so guard handoffs read as content changes, not page swaps. */
+.console-shell__card {
+    position: relative;
+    width: 420px;
+    height: 480px;
+    overflow: hidden;
+    transition:
+        width 0.25s ease,
+        height 0.25s ease;
+}
+
+/* Turns a surface swap into a crossfade, keeping sub-250ms transients faint. */
+.console-shell__card > * {
+    animation: console-shell-reveal 0.25s ease;
+}
+
+@keyframes console-shell-reveal {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.console--card-surface .console-shell__card {
+    background: var(--pluto-gray-l0);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    box-shadow: var(--pluto-shadow-v2);
+}
+
+.console--card-outline .console-shell__card {
+    background: transparent;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l7);
+}
+
+.console--card-none .console-shell__card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.console--shape-sharp .console-shell__card {
+    border-radius: var(--pluto-border-radius-small);
+}
+
+.console--shape-soft .console-shell__card {
+    border-radius: var(--pluto-border-radius-huge);
+}
+
+.console--shape-round .console-shell__card {
+    border-radius: 4rem;
+}
+
+/* One fixed height, so cluster and project surfaces match. The doubled class beats
+   the bordered and background variants. */
+.console-shell__list.console-shell__list {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+}
+
+.console-shell__islands {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    padding: 2rem;
+    pointer-events: none;
+}
+
+.console-shell__island {
+    pointer-events: auto;
+    min-height: 6rem;
+    padding: 0 2rem;
+    border-radius: var(--pluto-border-radius-medium);
+}
+
+.console-shell__island:empty {
+    display: none;
+}
+
+.console-shell__connection {
+    padding: 0 3.5rem;
+
+    flex-wrap: wrap;
+    justify-content: center;
+
+    & > .pluto-text--overflow-ellipsis {
+        min-width: 0;
+    }
+}
+
+.console-shell__connection-status {
+    flex-shrink: 0;
+}
+
+.console-shell__connection-dot {
+    font-size: 2.25rem;
+}
+
+.console-shell__mark-ring {
+    width: 12rem;
+    height: 12rem;
+    min-width: 12rem;
+    min-height: 12rem;
+    max-width: 12rem;
+    max-height: 12rem;
+    flex-shrink: 0;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l7);
+    border-radius: 50%;
+    margin: 2rem 0 1rem;
+}
+
+/* The media Logo's white/gradient color props are dead; only "auto" is implemented,
+   and it resolves this var. */
+.console-shell__mark {
+    height: 5.5rem;
+    --pluto-logo-color: var(--pluto-gray-l11);
+}

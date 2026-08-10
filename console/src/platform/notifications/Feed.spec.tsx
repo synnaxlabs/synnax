@@ -183,4 +183,85 @@ describe("Notifications", () => {
       expect(screen.getByText("Device ok")).toBeTruthy();
     });
   });
+
+  describe("overflow", () => {
+    const BatchHarness = ({
+      crudes,
+      notifications = [],
+    }: {
+      crudes: status.Crude[];
+      notifications?: Notifications.Notification[];
+    }): ReactElement => {
+      const add = Status.useAdder();
+      return (
+        <>
+          <button onClick={() => crudes.forEach((c) => add(c))}>add</button>
+          <Notifications.Feed notifications={notifications} />
+        </>
+      );
+    };
+    BatchHarness.displayName = "BatchHarness";
+
+    const addStatuses = async (
+      crudes: status.Crude[],
+      notifications?: Notifications.Notification[],
+    ): Promise<void> => {
+      await renderWithConsole(
+        <BatchHarness crudes={crudes} notifications={notifications} />,
+      );
+      fireEvent.click(screen.getByText("add"));
+    };
+
+    const createCrudes = (count: number, keyPrefix = "n"): status.Crude[] =>
+      Array.from({ length: count }, (_, i) => ({
+        key: `${keyPrefix}${i + 1}`,
+        variant: "info" as const,
+        message: `Message ${keyPrefix}${i + 1}`,
+      }));
+
+    it("shows only the four newest toasts and an overflow chip", async () => {
+      await addStatuses(createCrudes(6));
+      expect(screen.getByText("Message n6")).toBeTruthy();
+      expect(screen.getByText("Message n3")).toBeTruthy();
+      expect(screen.queryByText("Message n2")).toBeNull();
+      expect(screen.queryByText("Message n1")).toBeNull();
+      expect(screen.getByText("+2 More")).toBeTruthy();
+    });
+
+    it("shows no overflow controls at or below the cap", async () => {
+      await addStatuses(createCrudes(4));
+      expect(screen.getByText("Message n1")).toBeTruthy();
+      expect(screen.queryByText(/More/)).toBeNull();
+      expect(screen.queryByText("Clear All")).toBeNull();
+    });
+
+    it("expands to show every toast and collapses back", async () => {
+      await addStatuses(createCrudes(6));
+      fireEvent.click(screen.getByText("+2 More"));
+      expect(screen.getByText("Message n1")).toBeTruthy();
+      fireEvent.click(screen.getByText("Show Less"));
+      expect(screen.queryByText("Message n1")).toBeNull();
+      expect(screen.getByText("+2 More")).toBeTruthy();
+    });
+
+    it("clears every toast, including hidden overflow, from the chip", async () => {
+      await addStatuses(createCrudes(6));
+      fireEvent.click(screen.getByText("Clear All"));
+      expect(screen.queryByText(/Message n/)).toBeNull();
+      expect(screen.queryByText("Clear All")).toBeNull();
+    });
+
+    it("does not count suppressed statuses toward the cap or overflow", async () => {
+      const suppressed = Notifications.createSuppressed(
+        Notifications.matchPrefix("hidden"),
+      );
+      await addStatuses(
+        [...createCrudes(2, "hidden"), ...createCrudes(4)],
+        [suppressed],
+      );
+      expect(screen.getByText("Message n1")).toBeTruthy();
+      expect(screen.getByText("Message n4")).toBeTruthy();
+      expect(screen.queryByText(/More/)).toBeNull();
+    });
+  });
 });
