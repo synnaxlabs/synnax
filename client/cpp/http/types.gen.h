@@ -112,7 +112,7 @@ struct ReadField {
     /// @brief disabled is true when the field is excluded from polling.
     bool disabled = false;
     /// @brief channel is the Synnax channel the extracted value is written to.
-    ::synnax::channel::Key channel = 0;
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief pointer is the JSON Pointer to the value within the response body.
     std::string pointer = "";
     /// @brief data_type is the data type of the extracted value.
@@ -139,7 +139,7 @@ struct ChannelField {
     /// @brief json_type is the JSON type the channel value is serialized as.
     std::string json_type = JSON_TYPE_NUMBER;
     /// @brief channel is the Synnax command channel that triggers the request.
-    ::synnax::channel::Key channel = 0;
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief name is the human-readable name of the command channel.
     std::string name = "";
     /// @brief data_type is the data type of the command channel.
@@ -242,7 +242,7 @@ struct ReadConfig : public ::synnax::common::BaseConfig {
     /// @brief device is the key of the HTTP server device to poll.
     ::synnax::device::Key device = "";
     /// @brief rate is the polling rate applied to all endpoints, in hertz.
-    ::x::telem::Rate rate = x::telem::Rate(1);
+    ::x::telem::Rate rate = ::x::telem::Rate(1);
     /// @brief endpoints contains the endpoints to poll.
     std::vector<ReadEndpoint> endpoints;
 

@@ -71,7 +71,10 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
-        .channel = parser.field<::synnax::channel::Key>("channel", 0),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
         .pointer = parser.field<std::string>("pointer", ""),
         .data_type = parser.field<::x::telem::DataType>(
             "data_type",
@@ -138,7 +141,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
         result
     ) = ::synnax::common::BaseConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
-    result.rate = parser.field<::x::telem::Rate>("rate", x::telem::Rate(1));
+    result.rate = parser.field<::x::telem::Rate>("rate", ::x::telem::Rate(1));
     result.endpoints = parser.field<std::vector<ReadEndpoint>>(
         "endpoints",
         std::vector<ReadEndpoint>{}
@@ -160,7 +163,10 @@ inline ChannelField ChannelField::parse(x::json::Parser parser) {
     return ChannelField{
         .pointer = parser.field<std::string>("pointer", ""),
         .json_type = parser.field<std::string>("json_type", "number"),
-        .channel = parser.field<::synnax::channel::Key>("channel", 0),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
         .name = parser.field<std::string>("name", ""),
         .data_type = parser.field<::x::telem::DataType>(
             "data_type",

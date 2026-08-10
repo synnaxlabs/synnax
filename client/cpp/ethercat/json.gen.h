@@ -51,7 +51,10 @@ inline BaseInputChannel BaseInputChannel::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
-        .channel = parser.field<::synnax::channel::Key>("channel", 0),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
         .device = parser.field<::synnax::device::Key>("device", ""),
     };
 }
@@ -71,8 +74,14 @@ inline BaseOutputChannel BaseOutputChannel::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
-        .cmd_channel = parser.field<::synnax::channel::Key>("cmd_channel", 0),
-        .state_channel = parser.field<::synnax::channel::Key>("state_channel", 0),
+        .cmd_channel = parser.field<::synnax::channel::Key>(
+            "cmd_channel",
+            ::synnax::channel::Key(0)
+        ),
+        .state_channel = parser.field<::synnax::channel::Key>(
+            "state_channel",
+            ::synnax::channel::Key(0)
+        ),
         .cmd_channel_name = parser.field<std::string>("cmd_channel_name", ""),
         .state_channel_name = parser.field<std::string>("state_channel_name", ""),
         .device = parser.field<::synnax::device::Key>("device", ""),
@@ -128,11 +137,11 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     ) = ::synnax::common::BaseConfig::parse(parser);
     result.state_rate = parser.field<::x::telem::Rate>(
         "state_rate",
-        x::telem::Rate(25)
+        ::x::telem::Rate(25)
     );
     result.execution_rate = parser.field<::x::telem::Rate>(
         "execution_rate",
-        x::telem::Rate(1000)
+        ::x::telem::Rate(1000)
     );
     result.channels = [&] {
         std::vector<OutputChannel> result;

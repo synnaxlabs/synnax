@@ -54,7 +54,7 @@ struct BaseInputChannel {
     /// @brief disabled is true when the channel is excluded from acquisition.
     bool disabled = false;
     /// @brief channel is the Synnax channel that raw samples are written to.
-    ::synnax::channel::Key channel = 0;
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief device is the key of the slave device the channel reads from.
     ::synnax::device::Key device = "";
 
@@ -71,9 +71,9 @@ struct BaseOutputChannel {
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
     /// @brief cmd_channel is the Synnax channel commands are read from.
-    ::synnax::channel::Key cmd_channel = 0;
+    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
     /// @brief state_channel is the Synnax channel the output state is written to.
-    ::synnax::channel::Key state_channel = 0;
+    ::synnax::channel::Key state_channel = ::synnax::channel::Key(0);
     /// @brief cmd_channel_name is the human-readable name of the command channel.
     std::string cmd_channel_name = "";
     /// @brief state_channel_name is the human-readable name of the state channel.
@@ -152,10 +152,10 @@ struct ReadConfig : public ::synnax::common::BaseReadConfig {
 struct WriteConfig : public ::synnax::common::BaseConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
     /// hertz.
-    ::x::telem::Rate state_rate = x::telem::Rate(25);
+    ::x::telem::Rate state_rate = ::x::telem::Rate(25);
     /// @brief execution_rate is the rate at which commands are applied to the bus, in
     /// hertz.
-    ::x::telem::Rate execution_rate = x::telem::Rate(1000);
+    ::x::telem::Rate execution_rate = ::x::telem::Rate(1000);
     /// @brief channels are the output channels the task drives.
     std::vector<OutputChannel> channels;
 
