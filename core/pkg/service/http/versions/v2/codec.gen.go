@@ -490,8 +490,8 @@ func (sc *ScanConfig) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(wc.Key[:])
-	w.String(wc.Device)
 	w.Bool(wc.AutoStart)
+	w.String(wc.Device)
 	w.Bool(wc.Endpoints != nil)
 	if wc.Endpoints != nil {
 		w.Uint32(uint32(len(wc.Endpoints)))
@@ -510,10 +510,10 @@ func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
 	if _, err := r.Read(wc.Key[:]); err != nil {
 		return err
 	}
-	if wc.Device, err = r.String(); err != nil {
+	if wc.AutoStart, err = r.Bool(); err != nil {
 		return err
 	}
-	if wc.AutoStart, err = r.Bool(); err != nil {
+	if wc.Device, err = r.String(); err != nil {
 		return err
 	}
 	{

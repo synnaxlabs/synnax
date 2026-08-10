@@ -13,16 +13,12 @@
 #include "x/cpp/json/json.h"
 
 namespace synnax::common {
-/// @brief it should parse the generated BaseConfig with both fields present.
-TEST(BaseConfig, testParseWithBothFields) {
-    const auto json = nlohmann::json{
-        {"data_saving_disabled", true},
-        {"auto_start", true}
-    };
+/// @brief it should parse the generated BaseConfig with auto_start present.
+TEST(BaseConfig, testParseWithAutoStart) {
+    const auto json = nlohmann::json{{"auto_start", true}};
     auto parser = x::json::Parser(json);
     const auto config = BaseConfig::parse(parser);
 
-    EXPECT_TRUE(config.data_saving_disabled);
     EXPECT_TRUE(config.auto_start);
 }
 
@@ -32,15 +28,37 @@ TEST(BaseConfig, testParseWithDefaults) {
     auto parser = x::json::Parser(json);
     const auto config = BaseConfig::parse(parser);
 
+    EXPECT_FALSE(config.auto_start);
+}
+
+/// @brief it should parse the generated BasePersistConfig with both fields present.
+TEST(BasePersistConfig, testParseWithBothFields) {
+    const auto json = nlohmann::json{
+        {"data_saving_disabled", true},
+        {"auto_start", true}
+    };
+    auto parser = x::json::Parser(json);
+    const auto config = BasePersistConfig::parse(parser);
+
+    EXPECT_TRUE(config.data_saving_disabled);
+    EXPECT_TRUE(config.auto_start);
+}
+
+/// @brief it should use default values when fields are missing.
+TEST(BasePersistConfig, testParseWithDefaults) {
+    const auto json = nlohmann::json{};
+    auto parser = x::json::Parser(json);
+    const auto config = BasePersistConfig::parse(parser);
+
     EXPECT_FALSE(config.data_saving_disabled);
     EXPECT_FALSE(config.auto_start);
 }
 
 /// @brief it should parse with only data_saving_disabled present.
-TEST(BaseConfig, testParseWithDataSavingDisabledOnly) {
+TEST(BasePersistConfig, testParseWithDataSavingDisabledOnly) {
     const auto json = nlohmann::json{{"data_saving_disabled", true}};
     auto parser = x::json::Parser(json);
-    const auto config = BaseConfig::parse(parser);
+    const auto config = BasePersistConfig::parse(parser);
 
     EXPECT_TRUE(config.data_saving_disabled);
     EXPECT_FALSE(config.auto_start);
@@ -58,10 +76,10 @@ TEST(BaseConfig, testParseWithoutKey) {
 }
 
 /// @brief it should parse with only auto_start present.
-TEST(BaseConfig, testParseWithAutoStartOnly) {
+TEST(BasePersistConfig, testParseWithAutoStartOnly) {
     const auto json = nlohmann::json{{"auto_start", true}};
     auto parser = x::json::Parser(json);
-    const auto config = BaseConfig::parse(parser);
+    const auto config = BasePersistConfig::parse(parser);
 
     EXPECT_FALSE(config.data_saving_disabled);
     EXPECT_TRUE(config.auto_start);

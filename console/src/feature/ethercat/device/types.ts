@@ -23,7 +23,7 @@ export const modelZ = z.literal(SLAVE_MODEL);
 export const pdoEntryZ = z.object({
   name: z.string(),
   index: z.number(),
-  subindex: z.number(),
+  subIndex: z.number(),
   bitLength: z.number(),
   dataType: z.string(),
 });

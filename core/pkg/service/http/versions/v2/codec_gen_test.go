@@ -143,9 +143,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.ReadConfig{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: true,
 				},
 				Device: "test_4",
@@ -175,9 +177,11 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.ReadConfig{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.Nil},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: false,
 				},
 				Device:    "",
@@ -185,9 +189,11 @@ var _ = Describe("Codec", func() {
 				Endpoints: nil,
 			}),
 			Entry("empty collections", v2.ReadConfig{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: true,
 				},
 				Device:    "test_4",
@@ -332,9 +338,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.WriteConfig{
-				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				Device:       "test_2",
-				AutoStart:    true,
+				BaseConfig: common.BaseConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:    false,
+				},
+				Device: "test_3",
 				Endpoints: []v2.WriteEndpoint{
 					{
 						Key:         "test_5",
@@ -363,16 +371,20 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("zero values", v2.WriteConfig{
-				ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
-				Device:       "",
-				AutoStart:    false,
-				Endpoints:    nil,
+				BaseConfig: common.BaseConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+					AutoStart:    false,
+				},
+				Device:    "",
+				Endpoints: nil,
 			}),
 			Entry("empty collections", v2.WriteConfig{
-				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				Device:       "test_2",
-				AutoStart:    true,
-				Endpoints:    []v2.WriteEndpoint{},
+				BaseConfig: common.BaseConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:    false,
+				},
+				Device:    "test_3",
+				Endpoints: []v2.WriteEndpoint{},
 			}),
 		)
 	})
@@ -569,9 +581,11 @@ func BenchmarkEncodeDecodeQueryParam(b *testing.B) {
 
 func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 	seed := v2.ReadConfig{
-		BaseConfig: common.BaseConfig{
-			ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			AutoStart:          false,
+		BasePersistConfig: common.BasePersistConfig{
+			BaseConfig: common.BaseConfig{
+				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:    false,
+			},
 			DataSavingDisabled: true,
 		},
 		Device: "test_4",
@@ -703,9 +717,11 @@ func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 
 func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 	seed := v2.WriteConfig{
-		ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-		Device:       "test_2",
-		AutoStart:    true,
+		BaseConfig: common.BaseConfig{
+			ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			AutoStart:    false,
+		},
+		Device: "test_3",
 		Endpoints: []v2.WriteEndpoint{
 			{
 				Key:         "test_5",
@@ -1039,9 +1055,11 @@ func FuzzDecodeQueryParam(f *testing.F) {
 func FuzzDecodeReadConfig(f *testing.F) {
 	{
 		seed := v2.ReadConfig{
-			BaseConfig: common.BaseConfig{
-				ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:          false,
+			BasePersistConfig: common.BasePersistConfig{
+				BaseConfig: common.BaseConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:    false,
+				},
 				DataSavingDisabled: true,
 			},
 			Device: "test_4",
@@ -1078,9 +1096,11 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ReadConfig{
-			BaseConfig: common.BaseConfig{
-				ConfigRecord:       common.ConfigRecord{Key: uuid.Nil},
-				AutoStart:          false,
+			BasePersistConfig: common.BasePersistConfig{
+				BaseConfig: common.BaseConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+					AutoStart:    false,
+				},
 				DataSavingDisabled: false,
 			},
 			Device:    "",
@@ -1095,9 +1115,11 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	}
 	{
 		seed := v2.ReadConfig{
-			BaseConfig: common.BaseConfig{
-				ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:          false,
+			BasePersistConfig: common.BasePersistConfig{
+				BaseConfig: common.BaseConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:    false,
+				},
 				DataSavingDisabled: true,
 			},
 			Device:    "test_4",
@@ -1345,9 +1367,11 @@ func FuzzDecodeScanConfig(f *testing.F) {
 func FuzzDecodeWriteConfig(f *testing.F) {
 	{
 		seed := v2.WriteConfig{
-			ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			Device:       "test_2",
-			AutoStart:    true,
+			BaseConfig: common.BaseConfig{
+				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:    false,
+			},
+			Device: "test_3",
 			Endpoints: []v2.WriteEndpoint{
 				{
 					Key:         "test_5",
@@ -1383,10 +1407,12 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.WriteConfig{
-			ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
-			Device:       "",
-			AutoStart:    false,
-			Endpoints:    nil,
+			BaseConfig: common.BaseConfig{
+				ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+				AutoStart:    false,
+			},
+			Device:    "",
+			Endpoints: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1396,10 +1422,12 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v2.WriteConfig{
-			ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			Device:       "test_2",
-			AutoStart:    true,
-			Endpoints:    []v2.WriteEndpoint{},
+			BaseConfig: common.BaseConfig{
+				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:    false,
+			},
+			Device:    "test_3",
+			Endpoints: []v2.WriteEndpoint{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

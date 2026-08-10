@@ -21,6 +21,7 @@ namespace synnax::common {
 struct ConfigRecord;
 struct BaseScanConfig;
 struct BaseConfig;
+struct BasePersistConfig;
 struct BaseReadConfig;
 struct BaseWriteConfig;
 
@@ -44,22 +45,30 @@ struct BaseScanConfig : public ConfigRecord {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseConfig carries the configuration fields shared by every hardware task.
+/// @brief BaseConfig carries the configuration fields shared by every task.
 struct BaseConfig : public ConfigRecord {
     /// @brief auto_start is true when the task should start as soon as it is
     /// configured.
     bool auto_start = false;
-    /// @brief data_saving_disabled is true when task telemetry is not persisted to
-    /// disk.
-    bool data_saving_disabled = false;
 
     static BaseConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief BasePersistConfig carries the configuration fields shared by tasks that write
+/// telemetry.
+struct BasePersistConfig : public BaseConfig {
+    /// @brief data_saving_disabled is true when task telemetry is not persisted to
+    /// disk.
+    bool data_saving_disabled = false;
+
+    static BasePersistConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief BaseReadConfig carries the configuration fields shared by hardware
 /// acquisition tasks.
-struct BaseReadConfig : public BaseConfig {
+struct BaseReadConfig : public BasePersistConfig {
     /// @brief sample_rate is the per-channel hardware sample rate, in hertz.
     ::x::telem::Rate sample_rate = ::x::telem::Rate(10);
     /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
@@ -72,7 +81,7 @@ struct BaseReadConfig : public BaseConfig {
 
 /// @brief BaseWriteConfig carries the configuration fields shared by hardware control
 /// tasks.
-struct BaseWriteConfig : public BaseConfig {
+struct BaseWriteConfig : public BasePersistConfig {
     /// @brief device is the key of the device the task writes to.
     ::synnax::device::Key device = "";
 
