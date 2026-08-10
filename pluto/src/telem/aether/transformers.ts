@@ -214,14 +214,13 @@ export class RollingAverage extends UnarySourceTransformer<
   }
 
   // The window advances here because this is the only hook that runs once per arriving
-  // sample. Staleness counts arrivals, so every sample must also reach the listener.
+  // sample. Staleness counts arrivals, so every sample must also reach the listener. A
+  // NaN sample enters the window like any other, so the average reports it until it
+  // slides out.
   protected shouldNotify(value: math.Numeric): boolean {
     if (this.props.windowSize < 2) return true;
-    const num = Number(value);
-    if (!isNaN(num)) {
-      this.window.push(num);
-      if (this.window.length > this.props.windowSize) this.window.shift();
-    }
+    this.window.push(Number(value));
+    if (this.window.length > this.props.windowSize) this.window.shift();
     return true;
   }
 }

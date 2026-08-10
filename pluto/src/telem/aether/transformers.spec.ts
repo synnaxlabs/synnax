@@ -515,7 +515,7 @@ describe("RollingAverage", () => {
     expect(t.value()).toBe(20);
   });
 
-  it("keeps a NaN sample out of the window", () => {
+  it("reports NaN while a NaN sample sits in the window", () => {
     const t = new RollingAverage({ windowSize: 3 });
     const source = new TestSource(0);
     t.setSources({ in: source });
@@ -524,7 +524,17 @@ describe("RollingAverage", () => {
     source.setValue(NaN);
     expect(Number.isNaN(t.value())).toBe(true);
     source.setValue(6);
-    expect(t.value()).toBe(5);
+    expect(Number.isNaN(t.value())).toBe(true);
+  });
+
+  it("recovers once a NaN sample slides out of the window", () => {
+    const t = new RollingAverage({ windowSize: 3 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    t.onChange(() => {});
+    source.setValue(NaN);
+    [2, 4, 6].forEach((v) => source.setValue(v));
+    expect(t.value()).toBe(4);
   });
 
   // Staleness counts arrivals, so a window above 1 must not stretch the countdown.
