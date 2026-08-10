@@ -19,8 +19,12 @@ type ConfigRecord = versions.ConfigRecord
 // BaseScanConfig carries the fields shared by every scan task configuration.
 type BaseScanConfig = versions.BaseScanConfig
 
-// BaseConfig carries the configuration fields shared by every hardware task.
+// BaseConfig carries the configuration fields shared by every task.
 type BaseConfig = versions.BaseConfig
+
+// BasePersistConfig carries the configuration fields shared by tasks that write
+// telemetry.
+type BasePersistConfig = versions.BasePersistConfig
 
 // BaseReadConfig carries the configuration fields shared by hardware acquisition tasks.
 type BaseReadConfig = versions.BaseReadConfig
