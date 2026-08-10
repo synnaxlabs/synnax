@@ -611,6 +611,8 @@ func (w *idxWriter) write(
 		alignment              telem.Alignment
 		alignmentSet           bool
 		idxUnauthorized        bool
+		idxTimeRange           telem.TimeRange
+		idxTimeRangeSet        bool
 	)
 	// Pass 1: the index channel establishes the alignment for the whole frame. Its
 	// sample position is the space every channel it indexes is expressed in, so it must
@@ -642,6 +644,15 @@ func (w *idxWriter) write(
 			incrementedSampleCount = true
 			w.hasUncommittedData = true
 			series.Alignment = alignment
+			// The index series carries the timestamps for the whole group, so data
+			// series can be stamped with a real time range without consulting the
+			// index on disk.
+			idxTimeRange = telem.TimeRange{
+				Start: telem.ValueAt[telem.TimeStamp](series, 0),
+				End:   w.idx.highWaterMark + 1,
+			}
+			idxTimeRangeSet = true
+			series.TimeRange = idxTimeRange
 			fr.SetRawSeriesAt(i, series)
 			break
 		}
@@ -693,6 +704,9 @@ func (w *idxWriter) write(
 			w.hasUncommittedData = true
 		}
 		series.Alignment = alignment
+		if idxTimeRangeSet {
+			series.TimeRange = idxTimeRange
+		}
 		fr.SetRawSeriesAt(i, series)
 	}
 	if errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {

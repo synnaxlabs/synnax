@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -487,6 +488,77 @@ var _ = Describe("Driver", func() {
 		})
 
 		It(
+			"should not resurrect the status of a deleted task",
+			func(ctx SpecContext) {
+				var (
+					stopped    atomic.Bool
+					configured atomic.Bool
+					taskKey    atomic.Value
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == taskKey.Load() {
+							configured.Store(true)
+						}
+						return &mockTask{
+							key: t.Key,
+							// A real task reports a terminal status when asked to,
+							// so the mock does too.
+							stopFunc: func(sendStatus bool) error {
+								if t.Key != taskKey.Load() {
+									return nil
+								}
+								defer stopped.Store(true)
+								if !sendStatus {
+									return nil
+								}
+								stat := task.Status{
+									Key:     t.OntologyID().String(),
+									Name:    t.Name,
+									Variant: status.VariantSuccess,
+									Message: "Task stopped successfully",
+									Time:    telem.Now(),
+									Details: task.NewStatusDetails(t, false),
+								}
+								return status.NewWriter[task.StatusDetails](
+									statusSvc,
+									nil,
+								).Set(ctx, &stat)
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				time.Sleep(50 * time.Millisecond)
+
+				t := newTask(embeddedRackKey(ctx))
+				taskKey.Store(t.Key)
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+				Eventually(func() bool { return configured.Load() }).Should(BeTrue())
+
+				// Deleting the task deletes its status too, so nothing should be
+				// left behind once the driver tears the instance down.
+				Expect(taskWriter.Delete(ctx, t.Key, false)).To(Succeed())
+				Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
+				var stat task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](
+						t.OntologyID().String(),
+					)).
+					Entry(&stat).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		It(
 			"should handle stop error gracefully during deletion",
 			func(ctx SpecContext) {
 				var (
@@ -659,6 +731,35 @@ var _ = Describe("Driver", func() {
 					g.Expect(statuses[0].Message).To(ContainSubstring("bad config"))
 					g.Expect(statuses[0].Details.Cmd).To(Equal("cmd-ack"))
 					g.Expect(statuses[0].Details.Running).To(BeFalse())
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"should acknowledge a start command for an unhandled task type",
+			func(ctx SpecContext) {
+				factory := &mockFactory{name: "test"}
+				openDriver(ctx, factory)
+				time.Sleep(50 * time.Millisecond)
+
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-unhandled"},
+				)
+
+				Eventually(func(g Gomega) {
+					var stat status.Status[task.StatusDetails]
+					g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+						Where(status.MatchKeys[task.StatusDetails](
+							task.OntologyID(t.Key).String(),
+						)).
+						Entry(&stat).
+						Exec(ctx, node.DB)).To(Succeed())
+					g.Expect(stat.Variant).To(Equal(status.VariantError))
+					g.Expect(stat.Details.Cmd).To(Equal("cmd-unhandled"))
+					g.Expect(stat.Details.Running).To(BeFalse())
 				}).Should(Succeed())
 			},
 		)
@@ -897,7 +998,7 @@ var _ = Describe("Driver", func() {
 		})
 
 		It(
-			"should configure with startPending true on a start command",
+			"should configure with the command key on a start command",
 			func(ctx SpecContext) {
 				factory := &mockFactory{
 					name: "test",
@@ -918,13 +1019,13 @@ var _ = Describe("Driver", func() {
 					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
 				)
 				Eventually(func() bool {
-					pending, ok := factory.startPending.Load(t.Key)
-					return ok && pending == true
+					key, ok := factory.cmdKey.Load(t.Key)
+					return ok && key == "cmd-1"
 				}).Should(BeTrue())
 			},
 		)
 
-		It("should configure with startPending false at boot", func(ctx SpecContext) {
+		It("should configure with NoCommand at boot", func(ctx SpecContext) {
 			factory := &mockFactory{
 				name: "test",
 				configureFunc: func(
@@ -960,8 +1061,8 @@ var _ = Describe("Driver", func() {
 				Host:      hostProvider,
 			}))
 			Eventually(func() bool {
-				pending, ok := factory.startPending.Load(t.Key)
-				return ok && pending == false
+				key, ok := factory.cmdKey.Load(t.Key)
+				return ok && key == driver.NoCommand
 			}).Should(BeTrue())
 		})
 	})
@@ -1633,6 +1734,19 @@ var _ = Describe("Driver", func() {
 			Eventually(configureStarted, time.Second).Should(BeClosed())
 			// The goroutine should receive context cancellation after the timeout.
 			Eventually(func() bool { return timedOut.Load() }).Should(BeTrue())
+			// The factory had no live context to report with, so the driver owes
+			// the start command an answer.
+			Eventually(func(g Gomega) {
+				var stat status.Status[task.StatusDetails]
+				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](
+						task.OntologyID(t.Key).String(),
+					)).
+					Entry(&stat).
+					Exec(ctx, node.DB)).To(Succeed())
+				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+			}).Should(Succeed())
 		})
 
 		It("should timeout a hanging Exec", func(ctx SpecContext) {

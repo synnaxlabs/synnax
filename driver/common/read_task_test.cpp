@@ -440,6 +440,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
 }
 
 /// @brief it should report warning status on temporary hardware error and recover.
+/// Neither the warning nor the recovery answers the start, so neither claims its key.
 TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     const auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
@@ -472,14 +473,14 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     auto warning_state = ctx->statuses[1];
     EXPECT_EQ(warning_state.key, synnax::task::status_key(t));
-    EXPECT_EQ(warning_state.details.cmd, "start_cmd");
+    EXPECT_EQ(warning_state.details.cmd, driver::task::NO_COMMAND);
     EXPECT_EQ(warning_state.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(warning_state.message, errors::TEMPORARY_HARDWARE_ERROR.message());
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     auto recovered_state = ctx->statuses[2];
     EXPECT_EQ(recovered_state.key, synnax::task::status_key(t));
-    EXPECT_EQ(recovered_state.details.cmd, "start_cmd");
+    EXPECT_EQ(recovered_state.details.cmd, driver::task::NO_COMMAND);
     EXPECT_EQ(recovered_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(recovered_state.message, "Task running");
 

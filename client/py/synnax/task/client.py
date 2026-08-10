@@ -223,19 +223,22 @@ class Task:
                 elif _TASK_STATE_CHANNEL not in frame:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
-                try:
-                    status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
+                # A frame can carry several statuses, and only some of them answer
+                # this command.
+                for sample in frame[_TASK_STATE_CHANNEL]:
+                    try:
+                        status = Status.model_validate(sample)
+                    except ValidationError:
+                        # The status channel carries statuses for all tasks and
+                        # racks. Rack statuses have a different schema, so
+                        # validation failures are expected and should be skipped.
+                        continue
                     if (
                         status.details is not None
                         and status.details.cmd is not None
                         and status.details.cmd == key
                     ):
                         return status
-                except ValidationError:
-                    # The status channel carries statuses for all tasks and
-                    # racks. Rack statuses have a different schema, so
-                    # validation failures are expected and should be skipped.
-                    continue
 
 
 class Protocol(BaseProtocol):

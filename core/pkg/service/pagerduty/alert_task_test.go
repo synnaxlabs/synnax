@@ -117,7 +117,7 @@ var _ = Describe("AlertTask", func() {
 			Type:   pd.AlertTaskType,
 			Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 		}
-		tsk := MustSucceed(factory.ConfigureTask(ctx, t, true))
+		tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 		Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		return tsk
 	}
@@ -161,11 +161,44 @@ var _ = Describe("AlertTask", func() {
 					Type:   pd.AlertTaskType,
 					Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 				}
-				tsk := MustSucceed(factory.ConfigureTask(ctx, t, true))
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 				err := tsk.Exec(ctx, task.Command{Type: "restart"})
 				Expect(err).To(MatchError(driver.ErrUnsupportedCommand))
 			},
+		)
+
+		DescribeTable("Should acknowledge a command that needs no work",
+			func(ctx context.Context, cmdType string, running bool) {
+				t := task.Task{
+					Key:  uuid.New(),
+					Name: "PagerDuty Test",
+					Type: pd.AlertTaskType,
+					Config: MustSucceed(validConfig(
+						pd.AlertConfig{Status: "s1", Enabled: true},
+					).MsgpackEncodedJSON()),
+				}
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+				defer func() { Expect(tsk.Stop(false)).To(Succeed()) }()
+				if running {
+					Expect(tsk.Exec(ctx, task.Command{
+						Type: "start",
+						Key:  "cmd-first",
+					})).To(Succeed())
+				}
+				Expect(tsk.Exec(ctx, task.Command{
+					Type: cmdType,
+					Key:  "cmd-again",
+				})).To(Succeed())
+				var stat task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Expect(stat.Details.Cmd).To(Equal("cmd-again"))
+				Expect(stat.Details.Running).To(Equal(running))
+			},
+			Entry("start on a running task", "start", true),
+			Entry("stop on a stopped task", "stop", false),
 		)
 	})
 

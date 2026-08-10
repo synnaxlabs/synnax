@@ -7,29 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, TimeRange } from "@synnaxlabs/client";
 import {
-  bounds,
-  type destructor,
-  id,
-  MultiSeries,
-  Series,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+  channel,
+  DataType,
+  type framer,
+  type status as cstatus,
+  TimeRange,
+} from "@synnaxlabs/client";
+import { bounds, id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createFactory } from "@/telem/aether/factory";
 import {
   ChannelData,
   type ChannelDataProps,
+  type Client,
   StreamChannelData,
   type StreamChannelDataProps,
   StreamChannelStringValue,
   StreamChannelValue,
+  streamChannelValue,
   type StreamChannelValueProps,
 } from "@/telem/aether/remote";
 import { type Source } from "@/telem/aether/telem";
-import { type client } from "@/telem/client";
+import { telemTest } from "@/telem/aether/test";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
@@ -41,11 +42,11 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
 
 describe("remote", () => {
   describe("StreamChannelValue", () => {
-    class MockClient implements client.Client {
+    class MockClient implements Client {
       key: string = id.create();
 
       // Stream
-      streamHandler: client.StreamHandler | null = null;
+      streamHandler: framer.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -61,25 +62,20 @@ describe("remote", () => {
       // Data
       response: MultiSeries = new MultiSeries([]);
 
-      async retrieveChannel(): Promise<channel.Channel> {
-        return this.channel;
-      }
+      channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
 
-      async read(): Promise<MultiSeries> {
-        return this.response;
-      }
-
-      async stream(
-        handler: client.StreamHandler,
-        keys: channel.Key[],
-      ): Promise<destructor.Async> {
-        this.streamHandler = handler;
-        this.streamKeys = keys;
-        this.streamF(handler, keys);
-        return this.streamDestructorF;
-      }
-
-      async close(): Promise<void> {}
+      feed = {
+        read: async (): Promise<MultiSeries> => this.response,
+        stream: (
+          handler: framer.StreamHandler,
+          keys: channel.Key[],
+        ): framer.Subscription => {
+          this.streamHandler = handler;
+          this.streamKeys = keys;
+          this.streamF(handler, keys);
+          return telemTest.mockSubscription(this.streamDestructorF);
+        },
+      };
     }
 
     let c: MockClient;
@@ -196,13 +192,28 @@ describe("remote", () => {
       expect(scv.value()).toBe(6);
       expect(newSeriesTwo.refCount).toBe(1);
     });
+
+    it("should not subscribe when cleaned up while retrieving the channel", async () => {
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      c.channels.retrieve = async (): Promise<channel.Channel> => {
+        await gate;
+        return c.channel;
+      };
+      const scv = new StreamChannelValue(c, { channel: c.channel.key });
+      scv.value();
+      scv.cleanup();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(c.streamF).not.toHaveBeenCalled();
+    });
   });
 
   describe("StreamChannelStringValue", () => {
-    class MockClient implements client.Client {
+    class MockClient implements Client {
       key: string = id.create();
 
-      streamHandler: client.StreamHandler | null = null;
+      streamHandler: framer.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -216,25 +227,20 @@ describe("remote", () => {
 
       response: MultiSeries = new MultiSeries([]);
 
-      async retrieveChannel(): Promise<channel.Channel> {
-        return this.channel;
-      }
+      channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
 
-      async read(): Promise<MultiSeries> {
-        return this.response;
-      }
-
-      async stream(
-        handler: client.StreamHandler,
-        keys: channel.Key[],
-      ): Promise<destructor.Async> {
-        this.streamHandler = handler;
-        this.streamKeys = keys;
-        this.streamF(handler, keys);
-        return this.streamDestructorF;
-      }
-
-      async close(): Promise<void> {}
+      feed = {
+        read: async (): Promise<MultiSeries> => this.response,
+        stream: (
+          handler: framer.StreamHandler,
+          keys: channel.Key[],
+        ): framer.Subscription => {
+          this.streamHandler = handler;
+          this.streamKeys = keys;
+          this.streamF(handler, keys);
+          return telemTest.mockSubscription(this.streamDestructorF);
+        },
+      };
     }
 
     let c: MockClient;
@@ -351,35 +357,19 @@ describe("remote", () => {
     // next line lands between the awaits. Without the generation guard the resumed
     // read subscribes a source that nothing will clean up again.
     describe("cleanup during an in-flight read", () => {
-      it("should unsubscribe when cleaned up while retrieving the channel", async () => {
-        const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
-        scsv.value();
-        scsv.cleanup();
-        await expect.poll(() => c.streamF.mock.calls.length).toBe(1);
-        expect(c.streamDestructorF).toHaveBeenCalledTimes(1);
-      });
-
-      it("should unsubscribe when cleaned up while opening the stream", async () => {
-        let releaseStream = (): void => {};
-        const gate = new Promise<void>((resolve) => (releaseStream = resolve));
-        c.stream = async (
-          handler: client.StreamHandler,
-          keys: channel.Key[],
-        ): Promise<destructor.Async> => {
-          c.streamHandler = handler;
-          c.streamKeys = keys;
-          c.streamF(handler, keys);
+      it("should not subscribe when cleaned up while retrieving the channel", async () => {
+        let release = (): void => {};
+        const gate = new Promise<void>((resolve) => (release = resolve));
+        c.channels.retrieve = async (): Promise<channel.Channel> => {
           await gate;
-          return c.streamDestructorF;
+          return c.channel;
         };
         const scsv = new StreamChannelStringValue(c, { channel: c.channel.key });
         scsv.value();
-        await expect.poll(() => c.streamF.mock.calls.length).toBe(1);
-        // cleanup cannot unsubscribe here, because the destructor does not exist yet.
         scsv.cleanup();
-        expect(c.streamDestructorF).not.toHaveBeenCalled();
-        releaseStream();
-        await expect.poll(() => c.streamDestructorF.mock.calls.length).toBe(1);
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(c.streamF).not.toHaveBeenCalled();
       });
 
       it("should not acquire buffers delivered to a stale handler", async () => {
@@ -436,7 +426,7 @@ describe("remote", () => {
   });
 
   describe("ChannelData", () => {
-    class MockClient implements client.ReadClient, client.ChannelClient {
+    class MockClient implements Client {
       key: string = id.create();
       readMock = vi.fn();
       retrieveChannelMock = vi.fn();
@@ -463,19 +453,22 @@ describe("remote", () => {
         [this.channel.index]: new MultiSeries([]),
       };
 
-      async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
-        this.retrieveChannelMock(key);
-        if (key === this.channel.key) return this.channel;
-        if (key === this.channel.index) return this.indexChannel;
-        throw new Error(`Channel with key ${key} not found`);
-      }
+      channels = {
+        retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
+          this.retrieveChannelMock(key);
+          if (key === this.channel.key) return this.channel;
+          if (key === this.channel.index) return this.indexChannel;
+          throw new Error(`Channel with key ${key} not found`);
+        },
+      };
 
-      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
-        this.readMock(tr, key);
-        return this.response[key];
-      }
-
-      close(): void {}
+      feed = {
+        read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
+          this.readMock(tr, key);
+          return this.response[key];
+        },
+        stream: (): framer.Subscription => telemTest.mockSubscription(vi.fn()),
+      };
     }
 
     let c: MockClient;
@@ -569,14 +562,33 @@ describe("remote", () => {
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(series);
     });
+
+    it("should not retain data when cleaned up while reading", async () => {
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      c.feed.read = async (): Promise<MultiSeries> => {
+        await gate;
+        return new MultiSeries([series]);
+      };
+      const cd = new ChannelData(c, {
+        timeRange: TimeRange.MAX,
+        channel: c.channel.key,
+      });
+      cd.value();
+      cd.cleanup();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(series.refCount).toBe(0);
+    });
   });
 
   describe("StreamChannelData", () => {
-    class MockClient implements client.Client {
+    class MockClient implements Client {
       key: string = id.create();
 
       // Stream
-      streamHandler: client.StreamHandler | null = null;
+      streamHandler: framer.StreamHandler | null = null;
       streamKeys: channel.Key[] = [];
       streamF = vi.fn();
       streamDestructorF = vi.fn();
@@ -601,28 +613,29 @@ describe("remote", () => {
         isIndex: true,
       });
 
-      async retrieveChannel(key: channel.Key | channel.Name): Promise<channel.Channel> {
-        if (key === this.channel.key) return this.channel;
-        if (key === this.channel.index) return this.indexChannel;
-        throw new Error(`Channel with key ${key} not found`);
-      }
+      channels = {
+        retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
+          if (key === this.channel.key) return this.channel;
+          if (key === this.channel.index) return this.indexChannel;
+          throw new Error(`Channel with key ${key} not found`);
+        },
+      };
 
-      async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
-        this.readMock(tr, key);
-        return this.response;
-      }
-
-      async stream(
-        handler: client.StreamHandler,
-        keys: channel.Key[],
-      ): Promise<destructor.Async> {
-        this.streamHandler = handler;
-        this.streamKeys = keys;
-        this.streamF(handler, keys);
-        return this.streamDestructorF;
-      }
-
-      async close(): Promise<void> {}
+      feed = {
+        read: async (tr: TimeRange, key: channel.Key): Promise<MultiSeries> => {
+          this.readMock(tr, key);
+          return this.response;
+        },
+        stream: (
+          handler: framer.StreamHandler,
+          keys: channel.Key[],
+        ): framer.Subscription => {
+          this.streamHandler = handler;
+          this.streamKeys = keys;
+          this.streamF(handler, keys);
+          return telemTest.mockSubscription(this.streamDestructorF);
+        },
+      };
     }
 
     let c: MockClient;
@@ -664,6 +677,27 @@ describe("remote", () => {
       expect(data.series[0]).toBe(series);
     });
 
+    it("should not duplicate a series delivered by both read and stream", async () => {
+      const now = TimeStamp.now();
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(now.sub(TimeSpan.milliseconds(3)), TimeStamp.MAX),
+      });
+      c.response = new MultiSeries([series]);
+      const props: StreamChannelDataProps = {
+        timeSpan: TimeSpan.MAX,
+        channel: c.channel.key,
+      };
+      const cd = new StreamChannelData(c, props);
+      await waitForResolve(cd);
+      // The feed's stream subscription re-delivers the live buffer that read
+      // already returned.
+      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
+      const [, data] = cd.value();
+      expect(data.series).toHaveLength(1);
+      expect(series.refCount).toBe(1);
+    });
+
     it("should bind a stream handler", async () => {
       const props: StreamChannelDataProps = {
         timeSpan: TimeSpan.MAX,
@@ -674,6 +708,26 @@ describe("remote", () => {
       expect(c.streamHandler).not.toBeNull();
       expect(c.streamF).toHaveBeenCalled();
       expect(c.streamF).toHaveBeenCalledWith(c.streamHandler, [c.channel.key]);
+    });
+
+    it("should not subscribe or retain data when cleaned up while reading", async () => {
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      let release = (): void => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      c.feed.read = async (): Promise<MultiSeries> => {
+        await gate;
+        return new MultiSeries([series]);
+      };
+      const cd = new StreamChannelData(c, {
+        timeSpan: TimeSpan.MAX,
+        channel: c.channel.key,
+      });
+      cd.value();
+      cd.cleanup();
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      expect(c.streamF).not.toHaveBeenCalled();
+      expect(series.refCount).toBe(0);
     });
 
     it("should garbage collect data that goes out of range", async () => {
@@ -909,6 +963,43 @@ describe("remote", () => {
       expect(b).toStrictEqual(bounds.ZERO);
       expect(data.series).toHaveLength(1);
       expect(data.series[0]).toBe(d);
+    });
+  });
+
+  describe("disconnected", () => {
+    it("should still create remote sources from a null-client factory", () => {
+      const factory = createFactory(null);
+      const source = factory.create(streamChannelValue({ channel: 1 }));
+      expect(source).not.toBeNull();
+    });
+
+    it("should report a disconnected status once instead of throwing", () => {
+      const statuses: cstatus.Crude[] = [];
+      const scv = new StreamChannelValue(
+        null,
+        { channel: 1 },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      expect(scv.value()).toBe(NaN);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].variant).toEqual("warning");
+      // A repeated read must not re-report: the source is rebuilt on reconnect.
+      expect(scv.value()).toBe(NaN);
+      expect(statuses).toHaveLength(1);
+    });
+
+    it("should return empty data from a disconnected ChannelData source", () => {
+      const statuses: cstatus.Crude[] = [];
+      const cd = new ChannelData(
+        null,
+        { timeRange: TimeRange.MAX, channel: 1 },
+        { onStatusChange: (s) => statuses.push(s) },
+      );
+      const [b, data] = cd.value();
+      expect(b).toStrictEqual(bounds.ZERO);
+      expect(data).toHaveLength(0);
+      expect(statuses).toHaveLength(1);
+      expect(statuses[0].variant).toEqual("warning");
     });
   });
 });

@@ -827,20 +827,16 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_TRUE(ok);
     ASSERT_NE(configured_task, nullptr);
 
-    // Task should NOT have auto-started - check that the status is "configured" not
-    // "running"
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    const auto &initial_state = ctx->statuses[0];
-    ASSERT_FALSE(initial_state.details.running);
-    ASSERT_EQ(initial_state.variant, synnax::status::VARIANT_SUCCESS);
-    ASSERT_EQ(initial_state.message, "Task configured successfully");
+    // Task should NOT have auto-started. A successful configure writes no status, and
+    // an auto-start would have written its start status before returning.
+    ASSERT_TRUE(ctx->statuses.empty());
 
     // Manually start the task
     synnax::task::Command start_cmd{.task = task.key, .type = "start"};
     configured_task->exec(start_cmd);
 
     // Now task should be running
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     bool found_start = false;
     for (const auto &s: ctx->statuses) {
         if (s.details.running && s.variant == synnax::status::VARIANT_SUCCESS) {

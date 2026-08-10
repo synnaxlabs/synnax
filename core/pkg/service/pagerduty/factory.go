@@ -70,43 +70,41 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 func (f *factory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
-	startPending bool,
+	cmdKey string,
 ) (driver.Task, error) {
 	if t.Type != AlertTaskType {
 		return nil, driver.ErrTaskNotHandled
 	}
 	var cfg AlertTaskConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		if startPending {
-			f.setConfigStatus(ctx, t, status.VariantError, err.Error())
-		} else {
+		if cmdKey == driver.NoCommand {
 			f.cfg.L.Warn("failed to configure task",
 				zap.Stringer("task", t),
 				zap.Error(err),
 			)
+		} else {
+			f.setConfigStatus(ctx, t, cmdKey, status.VariantError, err.Error())
 		}
 		return nil, err
 	}
 	if err := cfg.Validate(); err != nil {
-		if startPending || cfg.AutoStart {
-			f.setConfigStatus(ctx, t, status.VariantError, err.Error())
-		} else {
+		if cmdKey == driver.NoCommand && !cfg.AutoStart {
 			f.cfg.L.Warn("failed to configure task",
 				zap.Stringer("task", t),
 				zap.Error(err),
 			)
+		} else {
+			f.setConfigStatus(ctx, t, cmdKey, status.VariantError, err.Error())
 		}
 		return nil, err
 	}
 	pdTask := &alertTask{factoryCfg: f.cfg, task: t, cfg: cfg}
+	// A successful configure writes no status: the start that follows it answers the
+	// command, and a "configured" status would answer it first with running false.
 	if cfg.AutoStart {
-		if err := pdTask.start(ctx); err != nil {
+		if err := pdTask.start(ctx, driver.NoCommand); err != nil {
 			return nil, err
 		}
-	} else if startPending {
-		f.setConfigStatus(
-			ctx, t, status.VariantSuccess, "Task configured successfully",
-		)
 	}
 	return pdTask, nil
 }
@@ -114,16 +112,19 @@ func (f *factory) ConfigureTask(
 func (f *factory) setConfigStatus(
 	ctx context.Context,
 	t task.Task,
+	cmdKey string,
 	variant status.Variant,
 	message string,
 ) {
+	details := task.NewStatusDetails(t, false)
+	details.Cmd = cmdKey
 	stat := task.Status{
 		Key:     t.OntologyID().String(),
 		Name:    t.Name,
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.NewStatusDetails(t, false),
+		Details: details,
 	}
 	if err := status.NewWriter[task.StatusDetails](f.cfg.Status, nil).
 		Set(ctx, &stat); err != nil {
