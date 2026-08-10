@@ -57,8 +57,8 @@ const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
   formatOnPaste: false,
   formatOnType: true,
   suggestOnTriggerCharacters: true,
-  // A popup raised by a trigger character starts with nothing selected, so Enter
-  // stays a newline. Typing a prefix selects the first item and Enter accepts again.
+  // A popup raised by a trigger character starts with nothing selected, so Enter stays
+  // a newline. Typing a prefix selects the first item and Enter accepts again.
   suggest: { selectionMode: "whenQuickSuggestion" },
   showFoldingControls: "mouseover",
   hover: { above: false },
