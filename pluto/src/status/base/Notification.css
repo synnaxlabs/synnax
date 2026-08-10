@@ -28,35 +28,49 @@
     border-radius: var(--pluto-border-radius-medium);
     overflow: hidden;
     animation: pop 0.2s ease-in-out;
-    /* Let the name ellipsize instead of pushing the actions past the card edge:
-       every box between the header and the nowrap span must be allowed to shrink. */
-    .pluto-notification__meta {
+    /* Two horizontal positions. Chrome sits at the card padding; text insets 1rem
+       further to the gutter. The 1px trims the indicator's optical overhang so the
+       name reads as flush with the message. */
+    .pluto-notification__header {
+        padding-left: calc(1rem - 1px);
+    }
+    /* Both boxes down to the nowrap span must shrink, or the name pushes the header
+       past the card edge instead of ellipsizing. */
+    .pluto-notification__name {
         min-width: 0;
 
-        .pluto-notification__name {
+        .pluto-text--overflow-ellipsis {
             min-width: 0;
-
-            .pluto-text--overflow-ellipsis {
-                min-width: 0;
-            }
         }
     }
-    .pluto-notification__header-actions {
+    /* The stamp and the actions share one grid cell, so the header keeps the width
+       of the wider cluster and the name never reflows on hover. */
+    .pluto-notification__header-end {
         flex-shrink: 0;
+        display: grid;
+        align-items: center;
+        justify-items: end;
+
+        > * {
+            grid-area: 1 / 1;
+        }
+    }
+    .pluto-notification__stamp {
+        padding-right: 1rem;
+    }
+    .pluto-notification__header-actions {
         opacity: 0;
     }
     &:hover {
+        .pluto-notification__stamp {
+            opacity: 0;
+            pointer-events: none;
+        }
         .pluto-notification__header-actions {
             opacity: 1;
         }
     }
     .pluto-notification__content {
-        padding-top: 0;
-        padding-left: 1rem;
-        padding-right: 1rem;
-        padding-bottom: 1rem;
-    }
-    .pluto-notification__message {
-        font-weight: 450;
+        padding: 0 1rem 1rem;
     }
 }
