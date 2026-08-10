@@ -17,46 +17,85 @@
         transform: scale(1);
     }
 }
+
+/* An indicator column beside a text column, with the actions under the text. */
 .pluto-notification {
-    padding: 0.75rem;
-    background: color-mix(in srgb, var(--pluto-gray-l2) 70%, transparent);
-    -webkit-backdrop-filter: blur(3rem) saturate(140%);
-    backdrop-filter: blur(3rem) saturate(140%);
+    --first-line: var(--pluto-p-line-height);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 1rem;
     width: 275px;
-    box-shadow: var(--pluto-shadow-tight);
+    padding: 1.5rem;
     border: var(--pluto-border-l6);
     border-radius: var(--pluto-border-radius-medium);
+    background: color-mix(in srgb, var(--pluto-gray-l2) 75%, transparent);
+    box-shadow: var(--pluto-shadow-tight);
+    -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
+    backdrop-filter: blur(3.5rem) saturate(140%);
     overflow: hidden;
     animation: pop 0.2s ease-in-out;
-    /* Let the name ellipsize instead of pushing the actions past the card edge:
-       every box between the header and the nowrap span must be allowed to shrink. */
-    .pluto-notification__meta {
+
+    /* A name makes the small line the card's first line, so the indicator and the stamp
+       centre on it instead of on the message. */
+    &:has(.pluto-notification__name) {
+        --first-line: var(--pluto-small-line-height);
+        padding-block: 2rem;
+    }
+    /* The icon draws at 1em, so the font size sets its diameter and the margin centres
+       it on the first line. */
+    .pluto-notification__indicator {
+        margin-top: calc((var(--first-line) - 1em) / 2);
+        font-size: var(--pluto-p-size);
+    }
+    .pluto-notification__text {
         min-width: 0;
+    }
+    /* Floated rather than a column of its own, so the stamp insets only the line it
+       sits on and every wrapped line below reclaims the full width of the card. The row
+       is sized explicitly because both children share one cell, and an implicit row
+       would take the height of the taller hover buttons and centre the stamp against
+       that instead of against the first line of text. */
+    .pluto-notification__chrome {
+        float: right;
+        margin-left: 2rem;
+        display: grid;
+        grid-template-rows: var(--first-line);
+        align-items: center;
+        justify-items: end;
 
-        .pluto-notification__name {
-            min-width: 0;
-
-            .pluto-text--overflow-ellipsis {
-                min-width: 0;
-            }
+        > * {
+            grid-area: 1 / 1;
         }
     }
-    .pluto-notification__header-actions {
-        flex-shrink: 0;
+    /* The buttons carry their own padding, so they overhang the stamp's right edge to
+       keep their glyphs on the same optical line. */
+    .pluto-notification__controls {
+        margin-right: -0.5rem;
         opacity: 0;
     }
+    .pluto-notification__name {
+        margin-bottom: 0.5rem;
+    }
+    /* Only inline text wraps around a float. A flex or line-clamped box establishes a
+       formatting context and gets narrowed for its whole height instead, which is the
+       cramping this layout exists to avoid. */
+    .pluto-notification__message {
+        display: inline;
+    }
+    .pluto-notification__description {
+        margin-top: 1rem;
+    }
+    .pluto-notification__actions {
+        grid-column: 2;
+        margin-top: 1.5rem;
+    }
     &:hover {
-        .pluto-notification__header-actions {
+        .pluto-notification__stamp {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .pluto-notification__controls {
             opacity: 1;
         }
-    }
-    .pluto-notification__content {
-        padding-top: 0;
-        padding-left: 1rem;
-        padding-right: 1rem;
-        padding-bottom: 1rem;
-    }
-    .pluto-notification__message {
-        font-weight: 450;
     }
 }

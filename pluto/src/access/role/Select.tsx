@@ -37,9 +37,7 @@ const listItemRenderProp = Component.renderProp(
         {...rest}
         className={CSS(className, CSS.BE("access-role", "item"))}
       >
-        <Text.Text level="p" weight={400}>
-          {name}
-        </Text.Text>
+        <Text.Text level="p">{name}</Text.Text>
         {item?.description != null && (
           <Text.Text level="small" color={9} overflow="wrap">
             {description}
