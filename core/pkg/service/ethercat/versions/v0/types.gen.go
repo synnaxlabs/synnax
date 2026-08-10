@@ -340,5 +340,5 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures an EtherCAT scan task, which carries no settings.
 type ScanConfig struct {
-	common.ConfigRecord
+	common.KeyedConfig
 }

@@ -163,7 +163,7 @@ WriteConfig struct extends task.BasePersistConfig {
     @go migrate
 }
 
-ScanConfig struct extends task.ConfigRecord {
+ScanConfig struct extends task.KeyedConfig {
     @doc value  "configures an EtherCAT scan task, which carries no settings."
     @go version 0
     @go marshal

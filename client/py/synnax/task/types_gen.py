@@ -25,7 +25,7 @@ from x import telem
 Key: TypeAlias = UUID
 
 
-class ConfigRecord(BaseModel):
+class KeyedConfig(BaseModel):
     """Is the base for every stored task configuration record.
 
     Attributes:
@@ -79,7 +79,7 @@ class Command(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
-class BaseStartConfig(ConfigRecord):
+class BaseStartConfig(KeyedConfig):
     """Carries the configuration fields shared by every task.
 
     Attributes:

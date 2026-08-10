@@ -498,8 +498,8 @@ export const writeConfigZ = task.baseWriteConfigZ.extend({
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
-export const scannerConfigZ = task.configRecordZ;
-export interface ScannerConfig extends z.infer<typeof scannerConfigZ> {}
+export const scanConfigZ = task.keyedConfigZ;
+export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 /** CJCBuiltIn reads the reference temperature from the device's own sensor. */
 export const cjcBuiltInZ = z.object({

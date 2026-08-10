@@ -609,5 +609,5 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures a LabJack scan task, which carries no settings.
 type ScanConfig struct {
-	common.ConfigRecord
+	common.KeyedConfig
 }

@@ -155,7 +155,7 @@ Command struct {
     @doc value "is a command to execute on a task in the Driver system."
 }
 
-ConfigRecord struct {
+KeyedConfig struct {
     key uuid = create {
         @key
         @doc value "is the unique identifier for the stored configuration record."
@@ -168,7 +168,7 @@ ConfigRecord struct {
     @pb omit
 }
 
-BaseStartConfig struct extends ConfigRecord {
+BaseStartConfig struct extends KeyedConfig {
     auto_start bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }

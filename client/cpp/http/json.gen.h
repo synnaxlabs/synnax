@@ -271,15 +271,15 @@ inline x::json::json WriteConfig::to_json() const {
 
 inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     ScanConfig result;
-    static_cast<::synnax::common::ConfigRecord &>(
+    static_cast<::synnax::common::KeyedConfig &>(
         result
-    ) = ::synnax::common::ConfigRecord::parse(parser);
+    ) = ::synnax::common::KeyedConfig::parse(parser);
     return result;
 }
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::ConfigRecord::to_json().items())
+    for (auto &[k, v]: ::synnax::common::KeyedConfig::to_json().items())
         j[k] = v;
     return j;
 }

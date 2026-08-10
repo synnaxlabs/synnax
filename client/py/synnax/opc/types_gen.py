@@ -42,7 +42,7 @@ class BaseChannel(BaseModel):
         return hash(self.key)
 
 
-class ScanConfig(task.ConfigRecord):
+class ScanConfig(task.KeyedConfig):
     """Configures an OPC UA scan task, which carries no settings."""
 
     def __hash__(self) -> int:

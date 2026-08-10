@@ -17,15 +17,15 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
-// ConfigRecord is the base for every stored task configuration record.
-type ConfigRecord struct {
+// KeyedConfig is the base for every stored task configuration record.
+type KeyedConfig struct {
 	// Key is the unique identifier for the stored configuration record.
 	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
 // BaseStartConfig carries the configuration fields shared by every task.
 type BaseStartConfig struct {
-	ConfigRecord
+	KeyedConfig
 	// AutoStart is true when the task should start as soon as it is configured.
 	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
 }

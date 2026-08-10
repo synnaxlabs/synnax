@@ -69,8 +69,8 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v0.TaskConfig{
 				BaseStartConfig: common.BaseStartConfig{
-					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:    false,
+					KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:   false,
 				},
 				RoutingKey: "test_3",
 				Alerts: []v0.Alert{
@@ -87,16 +87,16 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v0.TaskConfig{
 				BaseStartConfig: common.BaseStartConfig{
-					ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
-					AutoStart:    false,
+					KeyedConfig: common.KeyedConfig{Key: uuid.Nil},
+					AutoStart:   false,
 				},
 				RoutingKey: "",
 				Alerts:     nil,
 			}),
 			Entry("empty collections", v0.TaskConfig{
 				BaseStartConfig: common.BaseStartConfig{
-					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:    false,
+					KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:   false,
 				},
 				RoutingKey: "test_3",
 				Alerts:     []v0.Alert{},
@@ -133,8 +133,8 @@ func BenchmarkEncodeDecodeAlert(b *testing.B) {
 func BenchmarkEncodeDecodeTaskConfig(b *testing.B) {
 	seed := v0.TaskConfig{
 		BaseStartConfig: common.BaseStartConfig{
-			ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			AutoStart:    false,
+			KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			AutoStart:   false,
 		},
 		RoutingKey: "test_3",
 		Alerts: []v0.Alert{
@@ -223,8 +223,8 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	{
 		seed := v0.TaskConfig{
 			BaseStartConfig: common.BaseStartConfig{
-				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:    false,
+				KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:   false,
 			},
 			RoutingKey: "test_3",
 			Alerts: []v0.Alert{
@@ -248,8 +248,8 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	{
 		seed := v0.TaskConfig{
 			BaseStartConfig: common.BaseStartConfig{
-				ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
-				AutoStart:    false,
+				KeyedConfig: common.KeyedConfig{Key: uuid.Nil},
+				AutoStart:   false,
 			},
 			RoutingKey: "",
 			Alerts:     nil,
@@ -263,8 +263,8 @@ func FuzzDecodeTaskConfig(f *testing.F) {
 	{
 		seed := v0.TaskConfig{
 			BaseStartConfig: common.BaseStartConfig{
-				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:    false,
+				KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:   false,
 			},
 			RoutingKey: "test_3",
 			Alerts:     []v0.Alert{},

@@ -19,13 +19,13 @@
 
 namespace synnax::common {
 
-inline ConfigRecord ConfigRecord::parse(x::json::Parser parser) {
-    return ConfigRecord{
+inline KeyedConfig KeyedConfig::parse(x::json::Parser parser) {
+    return KeyedConfig{
         .key = parser.field<x::uuid::UUID>("key", x::uuid::create()),
     };
 }
 
-inline x::json::json ConfigRecord::to_json() const {
+inline x::json::json KeyedConfig::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
     return j;
@@ -33,14 +33,14 @@ inline x::json::json ConfigRecord::to_json() const {
 
 inline BaseStartConfig BaseStartConfig::parse(x::json::Parser parser) {
     BaseStartConfig result;
-    static_cast<ConfigRecord &>(result) = ConfigRecord::parse(parser);
+    static_cast<KeyedConfig &>(result) = KeyedConfig::parse(parser);
     result.auto_start = parser.field<bool>("auto_start", false);
     return result;
 }
 
 inline x::json::json BaseStartConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ConfigRecord::to_json().items())
+    for (auto &[k, v]: KeyedConfig::to_json().items())
         j[k] = v;
     j["auto_start"] = this->auto_start;
     return j;

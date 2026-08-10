@@ -509,5 +509,5 @@ func (w WriteConfig) Validate() error {
 
 // ScanConfig configures an HTTP scan task, which carries no settings.
 type ScanConfig struct {
-	common.ConfigRecord
+	common.KeyedConfig
 }

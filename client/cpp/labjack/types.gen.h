@@ -119,7 +119,7 @@ struct BaseOutputChannel {
 };
 
 /// @brief ScanConfig configures a LabJack scan task, which carries no settings.
-struct ScanConfig : public ::synnax::common::ConfigRecord {
+struct ScanConfig : public ::synnax::common::KeyedConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

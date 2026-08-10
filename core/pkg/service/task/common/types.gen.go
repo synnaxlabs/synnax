@@ -13,8 +13,8 @@ package common
 
 import "github.com/synnaxlabs/synnax/pkg/service/task/common/versions"
 
-// ConfigRecord is the base for every stored task configuration record.
-type ConfigRecord = versions.ConfigRecord
+// KeyedConfig is the base for every stored task configuration record.
+type KeyedConfig = versions.KeyedConfig
 
 // BaseStartConfig carries the configuration fields shared by every task.
 type BaseStartConfig = versions.BaseStartConfig

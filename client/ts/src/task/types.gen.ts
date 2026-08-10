@@ -17,17 +17,17 @@ import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { status } from "@/status";
 
-/** ConfigRecord is the base for every stored task configuration record. */
-export const configRecordZ = z.object({
+/** KeyedConfig is the base for every stored task configuration record. */
+export const keyedConfigZ = z.object({
   /** key is the unique identifier for the stored configuration record. */
   key: z.uuid().default(uuid.create),
 });
-export interface ConfigRecord extends z.infer<typeof configRecordZ> {}
+export interface KeyedConfig extends z.infer<typeof keyedConfigZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const baseStartConfigZ = configRecordZ.extend({
+export const baseStartConfigZ = keyedConfigZ.extend({
   autoStart: z.boolean().default(false),
 });
 export interface BaseStartConfig extends z.infer<typeof baseStartConfigZ> {}

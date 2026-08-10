@@ -3349,13 +3349,13 @@ func (s *Scale) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (sc ScannerConfig) EncodeOrc(w *orc.Writer) error {
+func (sc ScanConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(sc.Key[:])
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (sc *ScannerConfig) DecodeOrc(r *orc.Reader) error {
+func (sc *ScanConfig) DecodeOrc(r *orc.Reader) error {
 	if _, err := r.Read(sc.Key[:]); err != nil {
 		return err
 	}

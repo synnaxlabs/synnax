@@ -125,14 +125,14 @@ func (bwc *BaseWriteConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (cr ConfigRecord) EncodeOrc(w *orc.Writer) error {
-	w.Write(cr.Key[:])
+func (kc KeyedConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(kc.Key[:])
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (cr *ConfigRecord) DecodeOrc(r *orc.Reader) error {
-	if _, err := r.Read(cr.Key[:]); err != nil {
+func (kc *KeyedConfig) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(kc.Key[:]); err != nil {
 		return err
 	}
 	return nil

@@ -99,7 +99,7 @@ New struct extends Rack {
     @py name      "Rack"
 }
 
-StatusTaskConfig struct extends task.ConfigRecord {
+StatusTaskConfig struct extends task.KeyedConfig {
     @doc value  "configures the rack status reporting task, which carries no settings."
     @go version 0
     @go output  "core/pkg/service/rack/task"

@@ -86,7 +86,7 @@ export const baseWriteFieldZ = z.object({
 });
 export interface BaseWriteField extends z.infer<typeof baseWriteFieldZ> {}
 
-export const scanConfigZ = task.configRecordZ;
+export const scanConfigZ = task.keyedConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
 /** ReadField is a single value extracted from an endpoint's JSON response. */

@@ -4548,7 +4548,7 @@ func (d *DigitalWriteConfig) ApplyDefaults() {
 	d.WriteConfig.ApplyDefaults()
 }
 
-// ScannerConfig configures the NI device scanner task, which carries no settings.
-type ScannerConfig struct {
-	common.ConfigRecord
+// ScanConfig configures the NI device scanner task, which carries no settings.
+type ScanConfig struct {
+	common.KeyedConfig
 }

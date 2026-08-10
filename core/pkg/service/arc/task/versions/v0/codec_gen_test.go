@@ -39,8 +39,8 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v0.Config{
 				BasePersistConfig: common.BasePersistConfig{
 					BaseStartConfig: common.BaseStartConfig{
-						ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:    false,
+						KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:   false,
 					},
 					DataSavingDisabled: true,
 				},
@@ -53,8 +53,8 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Config{
 				BasePersistConfig: common.BasePersistConfig{
 					BaseStartConfig: common.BaseStartConfig{
-						ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
-						AutoStart:    false,
+						KeyedConfig: common.KeyedConfig{Key: uuid.Nil},
+						AutoStart:   false,
 					},
 					DataSavingDisabled: false,
 				},
@@ -72,8 +72,8 @@ func BenchmarkEncodeDecodeConfig(b *testing.B) {
 	seed := v0.Config{
 		BasePersistConfig: common.BasePersistConfig{
 			BaseStartConfig: common.BaseStartConfig{
-				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:    false,
+				KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:   false,
 			},
 			DataSavingDisabled: true,
 		},
@@ -103,8 +103,8 @@ func FuzzDecodeConfig(f *testing.F) {
 		seed := v0.Config{
 			BasePersistConfig: common.BasePersistConfig{
 				BaseStartConfig: common.BaseStartConfig{
-					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:    false,
+					KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:   false,
 				},
 				DataSavingDisabled: true,
 			},
@@ -124,8 +124,8 @@ func FuzzDecodeConfig(f *testing.F) {
 		seed := v0.Config{
 			BasePersistConfig: common.BasePersistConfig{
 				BaseStartConfig: common.BaseStartConfig{
-					ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
-					AutoStart:    false,
+					KeyedConfig: common.KeyedConfig{Key: uuid.Nil},
+					AutoStart:   false,
 				},
 				DataSavingDisabled: false,
 			},
