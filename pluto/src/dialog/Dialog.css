@@ -35,9 +35,9 @@
                 0 0 0 var(--pluto-border-width) var(--pluto-gray-l7),
                 var(--pluto-shadow-v1);
             border-radius: var(--pluto-border-radius-large);
-            background: color-mix(in srgb, var(--pluto-gray-l0) 70%, transparent);
-            -webkit-backdrop-filter: blur(3rem) saturate(140%);
-            backdrop-filter: blur(3rem) saturate(140%);
+            background: color-mix(in srgb, var(--pluto-gray-l0) 75%, transparent);
+            -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
+            backdrop-filter: blur(3.5rem) saturate(140%);
             &.pluto-dialog--modal-position-shifted {
                 top: 8%;
             }
