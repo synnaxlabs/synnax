@@ -97,7 +97,7 @@ export const ChannelName = ({
         <Text.Text status={variant} level="p" color={10} weight={500}>
           {stat.message}
         </Text.Text>
-        {stat.description != null && (
+        {primitive.isNonZero(stat.description) && (
           <Text.Text level="small" color={9} weight={450}>
             {stat.description}
           </Text.Text>

@@ -11,7 +11,7 @@ import "@/status/base/Notification.css";
 
 import { status } from "@synnaxlabs/client";
 import { array, primitive } from "@synnaxlabs/x";
-import { isValidElement, type ReactElement, useRef } from "react";
+import { type ComponentPropsWithRef, isValidElement, type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -33,7 +33,7 @@ const Action = ({ action }: ActionProps): ReactElement =>
     <Button.Button {...action} key={action.key} size="tiny" />
   );
 
-export interface NotificationProps extends Flex.BoxProps {
+export interface NotificationProps extends ComponentPropsWithRef<"div"> {
   status: NotificationSpec;
   silence: (key: string) => void;
   actions?: ReactElement | Button.ButtonProps[];
@@ -47,49 +47,31 @@ export const Notification = ({
   children,
   ...rest
 }: NotificationProps): ReactElement => {
-  const ref = useRef<HTMLDivElement>(null);
   const { key, time, count, message, description, variant, name } = stat;
   const getCopyText = () => status.toString(stat);
 
   return (
-    <Flex.Box
+    // The key remounts the card when a repeat arrives, replaying the entrance animation.
+    <div
       className={CSS(CSS.B("notification"), className)}
-      y
       key={time.toString()}
-      empty
-      ref={ref}
       {...rest}
     >
-      <Flex.Box x justify="between" className={CSS(CSS.BE("notification", "header"))}>
-        <Text.Text
-          level="small"
-          status={variant}
-          weight={500}
-          gap="tiny"
-          className={CSS(CSS.BE("notification", "name"))}
-        >
-          <Indicator variant={variant} />
-          <Text.Text el="span" overflow="ellipsis" status={variant}>
-            {primitive.isNonZero(name) && name}
-          </Text.Text>
-        </Text.Text>
-        <div className={CSS(CSS.BE("notification", "header-end"))}>
+      <Indicator variant={variant} className={CSS.BE("notification", "indicator")} />
+      <div className={CSS.BE("notification", "text")}>
+        <div className={CSS.BE("notification", "chrome")}>
           <Flex.Box
             x
             align="center"
             gap="small"
-            className={CSS(CSS.BE("notification", "stamp"))}
+            className={CSS.BE("notification", "stamp")}
           >
             {count > 1 && <Text.Text level="small" color={9}>{`x${count}`}</Text.Text>}
             <TelemText.TimeStamp level="small" color={9} format="time">
               {time}
             </TelemText.TimeStamp>
           </Flex.Box>
-          <Flex.Box
-            x
-            className={CSS(CSS.BE("notification", "header-actions"))}
-            gap="tiny"
-          >
+          <Flex.Box x gap="tiny" className={CSS.BE("notification", "controls")}>
             <Button.Copy
               text={getCopyText}
               variant="text"
@@ -103,33 +85,43 @@ export const Notification = ({
             </Button.Button>
           </Flex.Box>
         </div>
-      </Flex.Box>
-      <Flex.Box
-        y
-        align="start"
-        className={CSS(CSS.BE("notification", "content"))}
-        gap="small"
-      >
-        {children != null ? (
-          children
-        ) : (
-          <Text.Text lineClamp={3} grow>
-            {message}
+        {primitive.isNonZero(name) && (
+          <Text.Text
+            level="small"
+            status={variant}
+            weight={500}
+            overflow="ellipsis"
+            className={CSS.BE("notification", "name")}
+          >
+            {name}
           </Text.Text>
         )}
-        {description != null && (
-          <Text.Text level="small" color={9} lineClamp={8} grow>
+        {children ?? (
+          <Text.Text className={CSS.BE("notification", "message")}>{message}</Text.Text>
+        )}
+        {primitive.isNonZero(description) && (
+          <Text.Text
+            level="small"
+            color={9}
+            lineClamp={8}
+            className={CSS.BE("notification", "description")}
+          >
             {description}
           </Text.Text>
         )}
-      </Flex.Box>
+      </div>
       {actions != null && (
-        <Flex.Box x align="center" justify="end">
+        <Flex.Box
+          x
+          align="center"
+          justify="end"
+          className={CSS.BE("notification", "actions")}
+        >
           {array.toArray<ReactElement | Button.ButtonProps>(actions).map((a) => (
             <Action key={a.key} action={a} />
           ))}
         </Flex.Box>
       )}
-    </Flex.Box>
+    </div>
   );
 };
