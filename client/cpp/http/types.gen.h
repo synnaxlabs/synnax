@@ -246,7 +246,7 @@ struct WriteEndpoint {
 
 /// @brief ReadConfig configures an HTTP read task, which polls one or more endpoints on
 /// an HTTP server device and writes extracted JSON values to Synnax channels.
-struct ReadConfig : public ::synnax::common::BaseConfig {
+struct ReadConfig : public ::synnax::common::BasePersistConfig {
     /// @brief device is the key of the HTTP server device to poll.
     ::synnax::device::Key device = "";
     /// @brief rate is the polling rate applied to all endpoints, in hertz.
@@ -260,11 +260,9 @@ struct ReadConfig : public ::synnax::common::BaseConfig {
 
 /// @brief WriteConfig configures an HTTP write task, which sends an HTTP request
 /// whenever a value is written to an endpoint's command channel.
-struct WriteConfig : public ::synnax::common::ConfigRecord {
+struct WriteConfig : public ::synnax::common::BaseConfig {
     /// @brief device is the key of the HTTP server device to write to.
     ::synnax::device::Key device = "";
-    /// @brief auto_start starts the task automatically after configuration.
-    bool auto_start = false;
     /// @brief endpoints contains the endpoints to write to.
     std::vector<WriteEndpoint> endpoints;
 

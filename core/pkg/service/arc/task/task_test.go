@@ -477,8 +477,10 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-auto-start",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BaseConfig: common.BaseConfig{AutoStart: true},
-						ArcKey:     uuid.New(),
+						BasePersistConfig: common.BasePersistConfig{
+							BaseConfig: common.BaseConfig{AutoStart: true},
+						},
+						ArcKey: uuid.New(),
 					}),
 				}
 				t := MustSucceed(newGraphFactory(
@@ -510,8 +512,10 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-silent-stop",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BaseConfig: common.BaseConfig{AutoStart: true},
-						ArcKey:     uuid.New(),
+						BasePersistConfig: common.BasePersistConfig{
+							BaseConfig: common.BaseConfig{AutoStart: true},
+						},
+						ArcKey: uuid.New(),
 					}),
 				}
 				t := MustSucceed(newGraphFactory(
@@ -593,8 +597,10 @@ var _ = Describe("Task", Ordered, func() {
 					Name: "test-boot-auto-start-failure",
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
-						BaseConfig: common.BaseConfig{AutoStart: true},
-						ArcKey:     uuid.New(),
+						BasePersistConfig: common.BasePersistConfig{
+							BaseConfig: common.BaseConfig{AutoStart: true},
+						},
+						ArcKey: uuid.New(),
 					}),
 				}
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
@@ -648,8 +654,10 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "test-boot-auto-start",
 				Type: arctask.Type,
 				Config: configToMap(arctask.Config{
-					BaseConfig: common.BaseConfig{AutoStart: true},
-					ArcKey:     uuid.New(),
+					BasePersistConfig: common.BasePersistConfig{
+						BaseConfig: common.BaseConfig{AutoStart: true},
+					},
+					ArcKey: uuid.New(),
 				}),
 			}
 			t := MustSucceed(newGraphFactory(

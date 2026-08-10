@@ -47,7 +47,7 @@ export type Key = z.infer<typeof keyZ>;
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
-export const taskConfigZ = task.baseConfigZ.extend({
+export const taskConfigZ = task.basePersistConfigZ.extend({
   arcKey: keyZ,
   hash: z.string().default(""),
   executionMode: executionModeZ.default("AUTO"),

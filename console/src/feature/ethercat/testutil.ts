@@ -38,10 +38,10 @@ export const createIdentifier = (): string =>
 /** Builds a PDO set with one input ("Status") and one output ("Control") entry. */
 export const createPDOs = (): PDOs => ({
   inputs: [
-    { name: "Status", index: 0x6000, subindex: 1, bitLength: 16, dataType: "uint16" },
+    { name: "Status", index: 0x6000, subIndex: 1, bitLength: 16, dataType: "uint16" },
   ],
   outputs: [
-    { name: "Control", index: 0x7000, subindex: 1, bitLength: 16, dataType: "uint16" },
+    { name: "Control", index: 0x7000, subIndex: 1, bitLength: 16, dataType: "uint16" },
   ],
 });
 

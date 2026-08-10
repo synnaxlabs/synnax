@@ -141,9 +141,11 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v1.ReadConfig{
 				BaseReadConfig: common.BaseReadConfig{
-					BaseConfig: common.BaseConfig{
-						ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:          false,
+					BasePersistConfig: common.BasePersistConfig{
+						BaseConfig: common.BaseConfig{
+							ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+							AutoStart:    false,
+						},
 						DataSavingDisabled: true,
 					},
 					SampleRate: telem.Rate(4.5),
@@ -171,9 +173,11 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v1.ReadConfig{
 				BaseReadConfig: common.BaseReadConfig{
-					BaseConfig: common.BaseConfig{
-						ConfigRecord:       common.ConfigRecord{Key: uuid.Nil},
-						AutoStart:          false,
+					BasePersistConfig: common.BasePersistConfig{
+						BaseConfig: common.BaseConfig{
+							ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+							AutoStart:    false,
+						},
 						DataSavingDisabled: false,
 					},
 					SampleRate: telem.Rate(0),
@@ -188,9 +192,11 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("empty collections", v1.ReadConfig{
 				BaseReadConfig: common.BaseReadConfig{
-					BaseConfig: common.BaseConfig{
-						ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:          false,
+					BasePersistConfig: common.BasePersistConfig{
+						BaseConfig: common.BaseConfig{
+							ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+							AutoStart:    false,
+						},
 						DataSavingDisabled: true,
 					},
 					SampleRate: telem.Rate(4.5),
@@ -245,9 +251,11 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v1.WriteConfig{
 				BaseWriteConfig: common.BaseWriteConfig{
-					BaseConfig: common.BaseConfig{
-						ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:          false,
+					BasePersistConfig: common.BasePersistConfig{
+						BaseConfig: common.BaseConfig{
+							ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+							AutoStart:    false,
+						},
 						DataSavingDisabled: true,
 					},
 					Device: "test_4",
@@ -268,9 +276,11 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v1.WriteConfig{
 				BaseWriteConfig: common.BaseWriteConfig{
-					BaseConfig: common.BaseConfig{
-						ConfigRecord:       common.ConfigRecord{Key: uuid.Nil},
-						AutoStart:          false,
+					BasePersistConfig: common.BasePersistConfig{
+						BaseConfig: common.BaseConfig{
+							ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+							AutoStart:    false,
+						},
 						DataSavingDisabled: false,
 					},
 					Device: "",
@@ -279,9 +289,11 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("empty collections", v1.WriteConfig{
 				BaseWriteConfig: common.BaseWriteConfig{
-					BaseConfig: common.BaseConfig{
-						ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-						AutoStart:          false,
+					BasePersistConfig: common.BasePersistConfig{
+						BaseConfig: common.BaseConfig{
+							ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+							AutoStart:    false,
+						},
 						DataSavingDisabled: true,
 					},
 					Device: "test_4",
@@ -374,9 +386,11 @@ func BenchmarkEncodeDecodeOutputChannel(b *testing.B) {
 func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 	seed := v1.ReadConfig{
 		BaseReadConfig: common.BaseReadConfig{
-			BaseConfig: common.BaseConfig{
-				ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:          false,
+			BasePersistConfig: common.BasePersistConfig{
+				BaseConfig: common.BaseConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:    false,
+				},
 				DataSavingDisabled: true,
 			},
 			SampleRate: telem.Rate(4.5),
@@ -443,9 +457,11 @@ func BenchmarkEncodeDecodeScanConfig(b *testing.B) {
 func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 	seed := v1.WriteConfig{
 		BaseWriteConfig: common.BaseWriteConfig{
-			BaseConfig: common.BaseConfig{
-				ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:          false,
+			BasePersistConfig: common.BasePersistConfig{
+				BaseConfig: common.BaseConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:    false,
+				},
 				DataSavingDisabled: true,
 			},
 			Device: "test_4",
@@ -656,9 +672,11 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	{
 		seed := v1.ReadConfig{
 			BaseReadConfig: common.BaseReadConfig{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: true,
 				},
 				SampleRate: telem.Rate(4.5),
@@ -693,9 +711,11 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	{
 		seed := v1.ReadConfig{
 			BaseReadConfig: common.BaseReadConfig{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.Nil},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: false,
 				},
 				SampleRate: telem.Rate(0),
@@ -717,9 +737,11 @@ func FuzzDecodeReadConfig(f *testing.F) {
 	{
 		seed := v1.ReadConfig{
 			BaseReadConfig: common.BaseReadConfig{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: true,
 				},
 				SampleRate: telem.Rate(4.5),
@@ -815,9 +837,11 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	{
 		seed := v1.WriteConfig{
 			BaseWriteConfig: common.BaseWriteConfig{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: true,
 				},
 				Device: "test_4",
@@ -845,9 +869,11 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	{
 		seed := v1.WriteConfig{
 			BaseWriteConfig: common.BaseWriteConfig{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.Nil},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: false,
 				},
 				Device: "",
@@ -863,9 +889,11 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 	{
 		seed := v1.WriteConfig{
 			BaseWriteConfig: common.BaseWriteConfig{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: true,
 				},
 				Device: "test_4",
