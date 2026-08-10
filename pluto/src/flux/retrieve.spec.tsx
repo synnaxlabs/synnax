@@ -29,7 +29,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { Errors } from "@/errors";
@@ -257,6 +257,8 @@ describe("retrieve", () => {
   });
 
   describe("useObservable", () => {
+    type OnChange = (result: Flux.Result<string>, query: { key: string }) => void;
+
     it("should drop the subscription of a query superseded mid-fetch", async () => {
       const handlers = new Map<string, query.ChangeHandler<string>>();
       let resolveSlow: ((value: string) => void) | null = null;
@@ -271,7 +273,7 @@ describe("retrieve", () => {
           return () => handlers.delete(key);
         },
       });
-      const onChange = vi.fn();
+      const onChange = vi.fn<OnChange>();
       const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
         wrapper: Wrapper,
       });
@@ -286,10 +288,9 @@ describe("retrieve", () => {
       });
       expect(handlers.has("slow")).toBe(false);
       act(() => handlers.get("fast")?.("updated"));
-      const [lastResult, lastQuery] = onChange.mock.calls.at(-1) as [
-        Flux.Result<string>,
-        { key: string },
-      ];
+      const lastCall = onChange.mock.calls.at(-1);
+      assert(lastCall != null);
+      const [lastResult, lastQuery] = lastCall;
       expect(lastResult.data).toEqual("updated");
       expect(lastQuery.key).toEqual("fast");
     });
@@ -303,7 +304,7 @@ describe("retrieve", () => {
             ? await new Promise<string>((resolve) => (resolveSlow = resolve))
             : key,
       });
-      const onChange = vi.fn();
+      const onChange = vi.fn<OnChange>();
       const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
         wrapper: Wrapper,
       });
@@ -316,7 +317,7 @@ describe("retrieve", () => {
         resolveSlow?.("slow");
         await slow;
       });
-      const results = onChange.mock.calls.map(([res]) => res as Flux.Result<string>);
+      const results = onChange.mock.calls.map(([res]) => res);
       expect(results.some(({ data }) => data === "slow")).toBe(false);
       expect(results.at(-1)?.data).toEqual("fast");
     });
@@ -330,7 +331,7 @@ describe("retrieve", () => {
             ? await new Promise<string>((_, reject) => (rejectSlow = reject))
             : key,
       });
-      const onChange = vi.fn();
+      const onChange = vi.fn<OnChange>();
       const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
         wrapper: Wrapper,
       });
@@ -343,7 +344,7 @@ describe("retrieve", () => {
         rejectSlow?.(new Error("slow failed"));
         await slow;
       });
-      const results = onChange.mock.calls.map(([res]) => res as Flux.Result<string>);
+      const results = onChange.mock.calls.map(([res]) => res);
       expect(results.some(({ variant }) => variant === "error")).toBe(false);
       expect(results.at(-1)?.data).toEqual("fast");
     });
