@@ -107,17 +107,9 @@ export class WithinBounds
   static readonly TYPE = "boolean-source";
   static readonly propsZ = withinBoundsProps;
   schema = WithinBounds.propsZ;
-  curr: boolean | null = null;
-
-  protected shouldNotify(value: number): boolean {
-    const shouldNotify = bounds.contains(this.props.trueBound, value) !== this.curr;
-    this.curr = bounds.contains(this.props.trueBound, value);
-    return shouldNotify;
-  }
 
   protected transform(value: number): boolean {
-    this.curr = bounds.contains(this.props.trueBound, value);
-    return this.curr;
+    return bounds.contains(this.props.trueBound, value);
   }
 }
 

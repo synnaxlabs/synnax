@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, MultiSeries, Series, TimeRange } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { TestSource } from "@/telem/aether/test/source";
 import {
@@ -16,6 +16,7 @@ import {
   ScaleNumber,
   SeriesDownsampler,
   StringifyNumber,
+  WithinBounds,
 } from "@/telem/aether/transformers";
 
 describe("SeriesDownsampler", () => {
@@ -507,5 +508,32 @@ describe("ScaleNumber", () => {
     const t = new ScaleNumber({ scale: { scale: 2, offset: 3 } });
     t.setSources({ in: new TestSource(NaN) });
     expect(Number.isNaN(t.value())).toBe(true);
+  });
+});
+
+describe("WithinBounds", () => {
+  it("returns true for a value inside the bounds", () => {
+    const t = new WithinBounds({ trueBound: { lower: 5, upper: 15 } });
+    t.setSources({ in: new TestSource(10) });
+    expect(t.value()).toBe(true);
+  });
+
+  it("returns false for a value outside the bounds", () => {
+    const t = new WithinBounds({ trueBound: { lower: 5, upper: 15 } });
+    t.setSources({ in: new TestSource(20) });
+    expect(t.value()).toBe(false);
+  });
+
+  // Staleness counts arrivals, so a sample that leaves the boolean unchanged must still
+  // reach the listener.
+  it("notifies on every sample, even when the boolean stays the same", () => {
+    const t = new WithinBounds({ trueBound: { lower: 5, upper: 15 } });
+    const source = new TestSource(10);
+    t.setSources({ in: source });
+    const handler = vi.fn();
+    t.onChange(handler);
+    source.setValue(11);
+    source.setValue(12);
+    expect(handler).toHaveBeenCalledTimes(2);
   });
 });
