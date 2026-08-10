@@ -324,7 +324,7 @@ export const createList =
             client,
             query,
           });
-          if (signal?.aborted) return;
+          if (signal?.aborted || queryRef.current !== query) return;
           value = value.filter(filterRef.current);
           if (sortRef.current != null) value = [...value].sort(sortRef.current);
 
@@ -346,7 +346,7 @@ export const createList =
 
           return setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
         } catch (error) {
-          if (signal?.aborted) return;
+          if (signal?.aborted || queryRef.current !== query) return;
           setResult(errorResult(`retrieve ${name}`, error));
         }
       },
