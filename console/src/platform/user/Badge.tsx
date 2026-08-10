@@ -24,7 +24,7 @@ export const Badge = (): ReactElement | null => {
     u?.firstName != null && u?.firstName != "" ? u.firstName : username;
   return (
     <Dialog.Frame>
-      <Dialog.Trigger hideCaret textColor={10} gap="small" weight={400}>
+      <Dialog.Trigger hideCaret textColor={10} gap="small">
         <Icon.User />
         {displayName}
       </Dialog.Trigger>

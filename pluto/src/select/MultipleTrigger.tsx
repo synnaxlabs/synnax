@@ -183,10 +183,7 @@ export const MultipleTrigger = <
       grow
     >
       {value.length === 0 && (
-        <Text.Text
-          weight={400}
-          className={CSS.B("select-multiple-trigger-placeholder")}
-        >
+        <Text.Text className={CSS.B("select-multiple-trigger-placeholder")}>
           {icon}
           {placeholder}
         </Text.Text>
