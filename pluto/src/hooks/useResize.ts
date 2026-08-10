@@ -10,7 +10,7 @@
 import {
   box,
   type CrudeTimeSpan,
-  debounce as debounceF,
+  debounce as xDebounce,
   type direction,
 } from "@synnaxlabs/x";
 import { type RefCallback, useCallback, useEffect, useRef } from "react";
@@ -57,7 +57,7 @@ export const useResize = <E extends HTMLElement>(
     (el: HTMLElement) => {
       if (obs.current != null) obs.current.disconnect();
       prev.current ??= box.ZERO;
-      const deb = debounceF(() => {
+      const deb = xDebounce.debounce(() => {
         const next = box.construct(el);
         if (shouldResize(memoTriggers, prev.current, next)) {
           prev.current = next;

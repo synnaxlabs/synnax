@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type framer } from "@synnaxlabs/client";
 import { DataType, type math, type Series } from "@synnaxlabs/x";
 
 /**
@@ -45,4 +46,10 @@ export const convertSeriesToSupportedGL = (
 export const resolveGLDataType = (dt: DataType): DataType => {
   if (dt.isVariable || dt.equals(DataType.UINT8)) return dt;
   return DataType.FLOAT32;
+};
+
+/** Stores cached series in a WebGL-uploadable representation. */
+export const GL_TRANSFORM: framer.Transform = {
+  resolveDataType: resolveGLDataType,
+  convert: convertSeriesToSupportedGL,
 };

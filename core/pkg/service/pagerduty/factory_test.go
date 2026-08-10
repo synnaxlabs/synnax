@@ -111,7 +111,7 @@ var _ = Describe("Factory", func() {
 			It("Should return ErrTaskNotHandled for non-pagerduty types",
 				func(ctx context.Context) {
 					t := task.Task{Key: uuid.New(), Name: "test", Type: "modbus_read"}
-					Expect(factory.ConfigureTask(ctx, t, true)).Error().
+					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(driver.ErrTaskNotHandled))
 				},
 			)
@@ -124,7 +124,7 @@ var _ = Describe("Factory", func() {
 						Type:   pd.AlertTaskType,
 						Config: msgpack.EncodedJSON{"invalid": func() {}},
 					}
-					Expect(factory.ConfigureTask(ctx, t, true)).Error().
+					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(ContainSubstring("json")))
 				})
 
@@ -140,12 +140,38 @@ var _ = Describe("Factory", func() {
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
 					}
-					Expect(factory.ConfigureTask(ctx, t, true)).Error().
+					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 				},
 			)
-			It("Should configure a task successfully without auto-start",
+
+			It("Should attribute a failed configure to the start command",
 				func(ctx context.Context) {
+					cfg := MustSucceed(pd.AlertTaskConfig{
+						RoutingKey: "tooshort",
+						Alerts: []pd.AlertConfig{
+							{Status: "test-status", Enabled: true},
+						},
+					}.MsgpackEncodedJSON())
+					t := task.Task{
+						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
+						Config: cfg,
+					}
+					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
+						To(MatchError(ContainSubstring("routing_key")))
+					var stat task.Status
+					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Expect(stat.Variant).To(BeEquivalentTo("error"))
+					Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+					Expect(stat.Details.Running).To(BeFalse())
+				},
+			)
+
+			DescribeTable("Should write no status for a successful configure "+
+				"without auto-start",
+				func(ctx context.Context, cmdKey string) {
 					cfg := MustSucceed(pd.AlertTaskConfig{
 						RoutingKey: strings.Repeat("a", 32),
 						AutoStart:  false,
@@ -157,17 +183,16 @@ var _ = Describe("Factory", func() {
 						Key: uuid.New(), Name: "PagerDuty Test",
 						Type: pd.AlertTaskType, Config: cfg,
 					}
-					tsk := MustSucceed(factory.ConfigureTask(ctx, t, true))
+					tsk := MustSucceed(factory.ConfigureTask(ctx, t, cmdKey))
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
 					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
-					Expect(stat.Variant).To(BeEquivalentTo("success"))
-					Expect(stat.Message).To(Equal("Task configured successfully"))
-					Expect(stat.Details.Running).To(BeFalse())
+						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 					Expect(tsk.Stop(true)).To(Succeed())
 				},
+				Entry("driven by a start command", "cmd-1"),
+				Entry("at boot", driver.NoCommand),
 			)
 
 			It("Should configure and auto-start a task", func(ctx context.Context) {
@@ -182,7 +207,7 @@ var _ = Describe("Factory", func() {
 					Key: uuid.New(), Name: "PagerDuty Test",
 					Type: pd.AlertTaskType, Config: cfg,
 				}
-				tsk := MustSucceed(factory.ConfigureTask(ctx, t, true))
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
 				Expect(tsk).ToNot(BeNil())
 				var stat task.Status
 				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -206,7 +231,7 @@ var _ = Describe("Factory", func() {
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
 					}
-					Expect(factory.ConfigureTask(ctx, t, false)).Error().
+					Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -228,7 +253,7 @@ var _ = Describe("Factory", func() {
 						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
 					}
-					Expect(factory.ConfigureTask(ctx, t, false)).Error().
+					Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 						To(MatchError(ContainSubstring("routing_key")))
 					var stat task.Status
 					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -236,29 +261,6 @@ var _ = Describe("Factory", func() {
 						Entry(&stat).Exec(ctx, nil)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Message).To(ContainSubstring("routing_key"))
-				},
-			)
-
-			It("Should not write a status when configured successfully at boot",
-				func(ctx context.Context) {
-					cfg := MustSucceed(pd.AlertTaskConfig{
-						RoutingKey: strings.Repeat("a", 32),
-						AutoStart:  false,
-						Alerts: []pd.AlertConfig{
-							{Status: "test-status", Enabled: true},
-						},
-					}.MsgpackEncodedJSON())
-					t := task.Task{
-						Key: uuid.New(), Name: "PagerDuty Test",
-						Type: pd.AlertTaskType, Config: cfg,
-					}
-					tsk := MustSucceed(factory.ConfigureTask(ctx, t, false))
-					Expect(tsk).ToNot(BeNil())
-					var stat task.Status
-					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-						Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
-						Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-					Expect(tsk.Stop(true)).To(Succeed())
 				},
 			)
 
@@ -275,7 +277,7 @@ var _ = Describe("Factory", func() {
 						Key: uuid.New(), Name: "PagerDuty Test",
 						Type: pd.AlertTaskType, Config: cfg,
 					}
-					tsk := MustSucceed(factory.ConfigureTask(ctx, t, false))
+					tsk := MustSucceed(factory.ConfigureTask(ctx, t, driver.NoCommand))
 					Expect(tsk).ToNot(BeNil())
 					var stat task.Status
 					Expect(status.NewRetrieve[task.StatusDetails](statusSvc).

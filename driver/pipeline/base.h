@@ -32,6 +32,8 @@ class Base {
         } catch (const std::exception &e) {
             LOG(ERROR) << "[control] Unhandled standard exception: " << e.what();
         } catch (...) { LOG(ERROR) << "[control] Unhandled unknown exception"; }
+        // A breaker left running makes start() a permanent no-op.
+        this->breaker.stop();
     }
 
 protected:
