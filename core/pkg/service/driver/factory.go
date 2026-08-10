@@ -16,14 +16,19 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// NoCommand is the cmdKey given to ConfigureTask when no command drives the
+// configure, as at boot. Nothing is waiting on the outcome.
+const NoCommand = ""
+
 // Factory is an interface for creating tasks based on their type.
 type Factory interface {
 	// ConfigureTask creates a task instance if this factory handles the task type.
 	// ConfigureTask should return ErrNotHandled if it does not handle the task type.
-	// startPending reports whether a start command is driving the configure. When
-	// false (boot) and the config does not request auto-start, the factory must not
-	// write statuses: failures are logged, not reported.
-	ConfigureTask(ctx context.Context, t task.Task, startPending bool) (Task, error)
+	// cmdKey is the start command driving the deploy, NoCommand at boot. A factory
+	// returning any other error must first write a status carrying cmdKey: that
+	// status is what answers the caller waiting on the command. Given NoCommand
+	// there is no caller, so failures on tasks that do not auto-start are logged.
+	ConfigureTask(ctx context.Context, t task.Task, cmdKey string) (Task, error)
 	// Name returns the integration name of this factory. This is used to identify the
 	// integrations allowed on the rack.
 	Name() string
