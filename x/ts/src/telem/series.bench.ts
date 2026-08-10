@@ -33,6 +33,13 @@ describe("data access", () => {
     data: new Float32Array(1000).buffer,
     dataType: DataType.FLOAT32,
   });
-  bench("partial buffer", () => void partial.data.length);
-  bench("full buffer", () => void full.data.length);
+  // Accumulating keeps the read observable, so the optimizer cannot drop the access
+  // the benchmark is timing.
+  const sink = { full: 0, partial: 0 };
+  bench("partial buffer", () => {
+    sink.partial += partial.data.length;
+  });
+  bench("full buffer", () => {
+    sink.full += full.data.length;
+  });
 });
