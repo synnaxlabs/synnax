@@ -775,13 +775,13 @@ var _ = Describe("Literal Parser", func() {
 var _ = Describe("Boolean literals", func() {
 	It("Should parse true with no target type", func() {
 		parsed := MustSucceed(literal.Parse(getLiteral("true"), types.Type{}))
-		Expect(parsed.Value).To(Equal(true))
+		Expect(parsed.Value).To(BeTrue())
 		Expect(parsed.Type).To(Equal(types.Bool()))
 	})
 
 	It("Should parse false with a bool target type", func() {
 		parsed := MustSucceed(literal.Parse(getLiteral("false"), types.Bool()))
-		Expect(parsed.Value).To(Equal(false))
+		Expect(parsed.Value).To(BeFalse())
 		Expect(parsed.Type).To(Equal(types.Bool()))
 	})
 
