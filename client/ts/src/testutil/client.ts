@@ -31,7 +31,13 @@ const openClients: Synnax[] = [];
 // Awaited so every close finishes before vitest tears down the worker; a close
 // still in flight at teardown races its logging against the closing RPC channel.
 afterAll(async () => {
-  await Promise.all(openClients.map(async (client) => await client.close()));
+  const results = await Promise.allSettled(openClients.map((client) => client.close()));
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0)
+    throw new AggregateError(
+      failures.map((failure) => failure.reason),
+      "failed to close test clients",
+    );
 });
 
 /**
