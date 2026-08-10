@@ -725,6 +725,77 @@ describe("list", () => {
     });
   });
 
+  describe("superseded retrieves", () => {
+    interface Item extends record.Keyed<number> {
+      value: string;
+    }
+
+    interface Fixture {
+      useList: Flux.UseList<{ term: string }, number, Item>;
+      handlers: Map<string, query.ChangeHandler<Item[]>>;
+      resolveSlow: (items: Item[]) => void;
+    }
+
+    /**
+     * A list whose `slow` query hangs until `resolveSlow` runs, so a `fast`
+     * query can overtake it. `handlers` holds the live page subscription per
+     * term, tracking which pages are still open.
+     */
+    const createFixture = (): Fixture => {
+      let resolveSlow!: (items: Item[]) => void;
+      const slow = new Promise<Item[]>((resolve) => (resolveSlow = resolve));
+      const handlers = new Map<string, query.ChangeHandler<Item[]>>();
+      const useList = Flux.createList<{ term: string }, number, Item>({
+        name: "Resource",
+        retrieve: async ({ query: { term } }) =>
+          term === "slow" ? await slow : [{ key: 2, value: "fast" }],
+        retrieveByKey: async () => undefined,
+        onChange: ({ query: { term } }, handler) => {
+          handlers.set(term, handler);
+          return () => handlers.delete(term);
+        },
+      });
+      return { useList, handlers, resolveSlow };
+    };
+
+    const overtake = async (fixture: Fixture) => {
+      const { result } = renderHook(() => fixture.useList(), { wrapper });
+      let slow!: Promise<void>;
+      await act(async () => {
+        slow = result.current.retrieveAsync({ term: "slow" });
+        await result.current.retrieveAsync({ term: "fast" });
+      });
+      await act(async () => {
+        fixture.resolveSlow([{ key: 1, value: "slow" }]);
+        await slow;
+      });
+      return result;
+    };
+
+    it("should keep the newer query's items when an older retrieve lands late", async () => {
+      const fixture = createFixture();
+      const result = await overtake(fixture);
+      expect(result.current.data).toEqual([2]);
+      expect(result.current.getItem(2)?.value).toEqual("fast");
+    });
+
+    it("should keep the newer query's page subscribed when an older retrieve lands late", async () => {
+      const fixture = createFixture();
+      await overtake(fixture);
+      expect(fixture.handlers.has("fast")).toBe(true);
+      expect(fixture.handlers.has("slow")).toBe(false);
+    });
+
+    it("should let the newer query keep updating after an older retrieve lands late", async () => {
+      const fixture = createFixture();
+      const result = await overtake(fixture);
+      await act(async () => {
+        fixture.handlers.get("fast")?.([{ key: 2, value: "updated" }]);
+      });
+      await waitFor(() => expect(result.current.getItem(2)?.value).toEqual("updated"));
+    });
+  });
+
   describe("getCached", () => {
     it("should use cached data as initial state when available", () => {
       const cachedItems = [
