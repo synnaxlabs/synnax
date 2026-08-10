@@ -91,10 +91,20 @@ var _ = Describe("SanitizeFileName", func() {
 			Expect(sanitize("nul." + strings.Repeat("a", 400))).
 				To(SatisfyAll(HaveLen(maxFileNameLength), HavePrefix("_nul.")))
 		})
-		It("Should name no file when the extension leaves no room", func() {
-			Expect(
-				xos.SanitizeFileName("report", strings.Repeat("a", 300)),
-			).To(BeEmpty())
+		DescribeTable("Should panic on an extension that fills a file name by itself",
+			func(extension string) {
+				Expect(func() { xos.SanitizeFileName("report", extension) }).
+					To(PanicWith(ContainSubstring("leaves no room for a file name")))
+			},
+			Entry("an extension the length of the limit",
+				strings.Repeat("a", maxFileNameLength)),
+			Entry("an extension past the limit",
+				strings.Repeat("a", maxFileNameLength+1)),
+		)
+		It("Should name a file when the extension leaves one byte", func() {
+			extension := strings.Repeat("a", maxFileNameLength-1)
+			Expect(xos.SanitizeFileName("report", extension)).
+				To(Equal("r" + extension))
 		})
 	})
 })

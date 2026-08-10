@@ -45,11 +45,18 @@ var (
 // what a nameless file means: substituting a placeholder here would invent a name the
 // caller never gave.
 //
+// It panics on an extension that fills a file name by itself, which no name can rescue.
+// Extensions come from codecs, not from users, so a caller cannot answer for one and an
+// empty return would blame the name instead.
+//
 // The result is a single path element, but it is not unique: two names can sanitize to
 // one, and shortening makes that more likely. Callers that need distinct files must
 // compare the results with FoldFileName.
 func SanitizeFileName(name, extension string) string {
 	budget := maxFileNameLength - len(extension)
+	if budget <= 0 {
+		panic("[x/os] - extension leaves no room for a file name: " + extension)
+	}
 	name = fitFileName(unsafeFileNameChars.ReplaceAllString(name, "_"), budget)
 	if reservedFileNames.MatchString(name) {
 		// Hold a byte back for the prefix so the whole name still fits.
