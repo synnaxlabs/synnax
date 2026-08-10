@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { schematic } from "@/schematic";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -30,9 +30,9 @@ describe("schematic", () => {
       const randomSchematic = await client.schematics.create(proj.key, {
         name: "test",
       });
-      await expect(userClient.schematics.retrieve(randomSchematic.key)).rejects.toThrow(
-        AuthError,
-      );
+      await expect(
+        userClient.schematics.retrieve(randomSchematic.key),
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to retrieve schematics with the correct policy", async () => {
@@ -82,7 +82,7 @@ describe("schematic", () => {
         userClient.schematics.create(proj.key, {
           name: "test",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete schematics with the correct policy", async () => {
@@ -117,8 +117,8 @@ describe("schematic", () => {
       const randomSchematic = await client.schematics.create(proj.key, {
         name: "test",
       });
-      await expect(userClient.schematics.delete(randomSchematic.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.schematics.delete(randomSchematic.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });

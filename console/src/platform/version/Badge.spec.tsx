@@ -50,6 +50,7 @@ const MISMATCH_STATUS: connection.Status = {
   details: {
     authenticated: true,
     streamLive: true,
+    streamDenied: false,
     epoch: 1,
     clusterKey: "test",
     clientVersion: "1.5.0",

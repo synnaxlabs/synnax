@@ -213,5 +213,5 @@ class TestAccessAuthClient:
             password="pwd2",
         )
 
-        with pytest.raises(sy.AuthError):
+        with pytest.raises(sy.AccessDenied):
             client2.users.create(username=str(uuid.uuid4()), password="pwd3")

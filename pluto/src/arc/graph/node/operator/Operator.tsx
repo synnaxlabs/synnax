@@ -34,7 +34,6 @@ export const createOperator = (
     >
       <Text.Text
         level="h4"
-        weight={500}
         variant="code"
         color={10}
         className={CSS.BE("arc", "operator-label")}
