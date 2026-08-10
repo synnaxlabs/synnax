@@ -202,15 +202,15 @@ importers:
 
   client/ts:
     dependencies:
+      '@synnaxlabs/alamos':
+        specifier: workspace:^
+        version: link:../../alamos/ts
       '@synnaxlabs/freighter':
         specifier: workspace:^
         version: link:../../freighter/ts
       '@synnaxlabs/x':
         specifier: workspace:^
         version: link:../../x/ts
-      async-mutex:
-        specifier: 'catalog:'
-        version: 0.5.0
       immer:
         specifier: 'catalog:'
         version: 11.1.15

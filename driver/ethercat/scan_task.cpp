@@ -238,6 +238,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
             .task = this->task.key,
             .running = true,
             .cmd = cmd.key,
+            .config_hash = this->task.config_hash,
         }
     };
 

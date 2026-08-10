@@ -124,7 +124,8 @@ export class Frame {
         data_.keys ??= [];
         const series = data_.series.map((a) => seriesFromPayload(a));
         validateMatchedColsAndSeries(data_.keys, series);
-        data_.keys.forEach((key, i) => this.push(key, series[i]));
+        this.columns = data_.keys.slice();
+        this.series = series;
       } else
         Object.entries(columnsOrData).forEach(([k, v]) => {
           const key = parseInt(k, 10);
