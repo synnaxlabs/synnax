@@ -297,6 +297,13 @@ describe("Editor", () => {
       });
     });
 
+    it("should leave a trigger-character suggestion unselected so enter stays a newline", () => {
+      renderEditor();
+      expect(monaco.editor.create.mock.calls[0][1]).toMatchObject({
+        suggest: { selectionMode: "whenQuickSuggestion" },
+      });
+    });
+
     it("should default scrollBeyondLastLine to false", () => {
       renderEditor();
       expect(monaco.editor.create.mock.calls[0][1]).toMatchObject({

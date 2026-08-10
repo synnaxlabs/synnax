@@ -154,6 +154,8 @@ func New(cfgs ...Config) (*Server, error) {
 			},
 			HoverProvider: protocol.Boolean(true),
 			CompletionProvider: &protocol.CompletionOptions{
+				// A comma is deliberately absent: the caret usually moves to the
+				// next line right after one, where a popup only gets in the way.
 				TriggerCharacters: []string{
 					parser.LiteralCOLON,
 					parser.LiteralLT,
@@ -161,7 +163,6 @@ func New(cfgs ...Config) (*Server, error) {
 					parser.LiteralGT,
 					parser.LiteralLBRACE,
 					parser.LiteralEQ,
-					parser.LiteralCOMMA,
 					parser.LiteralDOT,
 				},
 			},
