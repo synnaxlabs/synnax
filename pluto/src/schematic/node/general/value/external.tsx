@@ -18,13 +18,12 @@ import { Symbol } from "@/schematic/node/general/value/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { Text } from "@/text";
-import { type Theming } from "@/theming";
-import { staleness } from "@/vis/staleness/aether";
+import { Staleness } from "@/vis/staleness";
 import { Value as BaseValue } from "@/vis/value";
 
 export * from "@/schematic/node/general/value/config";
 
-export const defaultConfig = (t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: color.ZERO,
@@ -32,8 +31,8 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   level: "h5",
   inlineSize: 70,
   label: Label.defaultConfig("Value"),
-  stalenessTimeout: staleness.DEFAULT_TIMEOUT,
-  stalenessColor: t.colors.warning.m1,
+  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
+  stalenessColor: color.ZERO,
   telem: telem.sourcePipeline("string", {
     connections: [
       { from: "valueStream", to: "rollingAverage" },

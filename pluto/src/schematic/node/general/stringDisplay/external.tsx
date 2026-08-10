@@ -17,20 +17,19 @@ import { StringDisplay } from "@/schematic/node/general/stringDisplay/Primitive"
 import { Symbol } from "@/schematic/node/general/stringDisplay/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { type Theming } from "@/theming";
-import { staleness } from "@/vis/staleness/aether";
+import { Staleness } from "@/vis/staleness";
 
 export * from "@/schematic/node/general/stringDisplay/config";
 
-export const defaultConfig = (t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: color.ZERO,
   level: "p",
   inlineSize: 100,
   label: Label.defaultConfig("String Display"),
-  stalenessTimeout: staleness.DEFAULT_TIMEOUT,
-  stalenessColor: t.colors.warning.m1,
+  stalenessTimeout: Staleness.DEFAULT_TIMEOUT,
+  stalenessColor: color.ZERO,
   telem: telem.streamChannelStringValue({ channel: 0 }),
 });
 
