@@ -9,11 +9,14 @@
 
 import {
   array,
+  type CrudeTimeSpan,
+  debounce,
   deep,
   destructor,
   errors,
   type record,
   state,
+  TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 import type z from "zod";
@@ -78,6 +81,11 @@ export interface TableParams<
    * "if-absent" so fetches never clobber locally replayed edits.
    */
   hydrate?: HydrateMode;
+  /**
+   * Window for coalescing concurrent miss fetches into one fetch call.
+   * @default TimeSpan.milliseconds(10)
+   */
+  fetchDebounce?: CrudeTimeSpan;
 }
 
 /**
@@ -108,6 +116,8 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
   return probed.flat();
 };
 
+const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
+
 /**
  * The sole owner of one resource's record content and tombstones. Everything
  * else in the cache holds keys into it: answers store key lists, dispatch
@@ -131,6 +141,10 @@ export class Table<
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
   private readonly fetchRows?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   private readonly hydrateMode: HydrateMode;
+  private readonly fetchBatcher: debounce.Batcher<
+    Key[],
+    Array<Keyed<Key, Value>>
+  > | null;
   private gen = 0;
 
   constructor({
@@ -138,11 +152,29 @@ export class Table<
     equal = deep.equal,
     fetch,
     hydrate = "set",
+    fetchDebounce = DEFAULT_FETCH_DEBOUNCE,
   }: TableParams<Key, Value>) {
     this.onError = onError;
     this.equal = equal;
     this.fetchRows = fetch;
     this.hydrateMode = hydrate;
+    this.fetchBatcher =
+      fetch == null
+        ? null
+        : new debounce.Batcher({
+            interval: fetchDebounce,
+            exec: async (entries) => {
+              const keys = new Set<Key>();
+              entries.forEach(({ req }) => req.forEach((key) => keys.add(key)));
+              const rows = await fetch(Array.from(keys));
+              // The window's fetch carries other callers' keys too; each caller
+              // hydrates only the rows it asked for.
+              entries.forEach(({ req, resolve }) => {
+                const mine = new Set(req);
+                resolve(rows.filter(({ key }) => mine.has(key)));
+              });
+            },
+          });
   }
 
   private setOne(
@@ -265,16 +297,15 @@ export class Table<
    * cached rows only.
    */
   async retrieve(keys: Key[], opts: { refresh?: boolean } = {}): Promise<Value[]> {
-    const { fetchRows } = this;
-    if (fetchRows != null) {
+    if (this.fetchBatcher != null) {
       const misses =
         opts.refresh === true ? keys : keys.filter((key) => !this.rows.has(key));
       if (misses.length > 0) {
         const gen = this.gen;
-        const fetched = await fetchRows(misses);
-        if (gen === this.gen && fetched.length > 0)
-          if (opts.refresh === true) this.set(fetched);
-          else this.ingest(fetched);
+        const rows = await this.fetchBatcher.enqueue(misses);
+        if (gen === this.gen && rows.length > 0)
+          if (opts.refresh === true) this.set(rows);
+          else this.ingest(rows);
       }
     }
     const seen = new Set<Key>();

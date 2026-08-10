@@ -56,23 +56,11 @@ class MockStreamer implements framer.Streamer {
   }
 }
 
-const wrapOpener =
-  (opener: framer.StreamOpener, retry?: breaker.Config): query.StreamOpener =>
-  async (channels, { onOpen, onReopen, onDead }) => {
-    const hardened = await framer.HardenedStreamer.open(
-      opener,
-      channels,
-      // near-zero backoff so forced reopens land within poll timeouts
-      { baseInterval: TimeSpan.milliseconds(1), ...retry },
-      onReopen,
-    );
-    onOpen?.();
-    return new framer.ObservableStreamer(hardened, undefined, onDead);
-  };
-
 const makeEngine = (openStreamer?: framer.StreamOpener, retry?: breaker.Config) =>
   new query.Cache({
-    openStreamer: wrapOpener(openStreamer ?? (async () => new MockStreamer()), retry),
+    openStreamer: openStreamer ?? (async () => new MockStreamer()),
+    // near-zero backoff so forced reopens land within poll timeouts
+    breaker: { baseInterval: TimeSpan.milliseconds(1), ...retry },
     onError: vi.fn(),
   });
 
@@ -532,11 +520,12 @@ describe("Cache", () => {
       const onError = vi.fn();
       let opens = 0;
       const cache = new query.Cache({
-        openStreamer: wrapOpener(async (): Promise<framer.Streamer> => {
+        openStreamer: async (): Promise<framer.Streamer> => {
           opens++;
           if (opens === 1) return failingStreamer();
           return new MockStreamer();
-        }),
+        },
+        breaker: { baseInterval: TimeSpan.milliseconds(1) },
         onError,
       });
       const fetch = vi.fn(async (keys: string[]): Promise<Doc[]> => {
@@ -558,11 +547,12 @@ describe("Cache", () => {
       const onError = vi.fn();
       let opens = 0;
       const cache = new query.Cache({
-        openStreamer: wrapOpener(async (): Promise<framer.Streamer> => {
+        openStreamer: async (): Promise<framer.Streamer> => {
           opens++;
           if (opens === 1) return failingStreamer();
           return new MockStreamer();
-        }),
+        },
+        breaker: { baseInterval: TimeSpan.milliseconds(1) },
         onError,
       });
       const fetch = vi.fn(async (keys: string[]): Promise<Doc[]> => {
@@ -589,11 +579,12 @@ describe("Cache", () => {
       const onError = vi.fn();
       let opens = 0;
       const cache = new query.Cache({
-        openStreamer: wrapOpener(async (): Promise<framer.Streamer> => {
+        openStreamer: async (): Promise<framer.Streamer> => {
           opens++;
           if (opens === 1) return failingStreamer();
           return new MockStreamer();
-        }),
+        },
+        breaker: { baseInterval: TimeSpan.milliseconds(1) },
         onError,
       });
       const unreachable = cache.createTable<string, Doc>({
@@ -777,14 +768,12 @@ describe("Cache", () => {
       const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
       try {
         const cache = new query.Cache({
-          openStreamer: async (_channels, { onOpen }) => {
-            onOpen?.();
-            return {
-              onChange: () => {},
-              close: async () => {
-                throw new Error("socket already dead");
-              },
+          openStreamer: async () => {
+            const streamer = new MockStreamer();
+            streamer.close = () => {
+              throw new Error("socket already dead");
             };
+            return streamer;
           },
           onError: vi.fn(),
         });
