@@ -84,9 +84,9 @@
 
 /* The one frosted-glass recipe; shape stays with each surface that wears it. */
 .console-shell__frost {
-    background: color-mix(in srgb, var(--pluto-gray-l0) 40%, transparent);
-    -webkit-backdrop-filter: blur(3rem) saturate(140%);
-    backdrop-filter: blur(3rem) saturate(140%);
+    background: color-mix(in srgb, var(--pluto-gray-l0) 45%, transparent);
+    -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
+    backdrop-filter: blur(3.5rem) saturate(140%);
     border: var(--pluto-border-width) solid var(--pluto-gray-l6);
     box-shadow: var(--pluto-shadow-v2);
 }

@@ -36,7 +36,6 @@ const Internal = ({ taskKey }: InternalProps) => {
         onClick={handleClick}
         className={CSS.B("task-parent-range-button")}
         variant="text"
-        weight={400}
       >
         <Icon.Range />
         {name}

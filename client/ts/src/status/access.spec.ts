@@ -10,7 +10,7 @@
 import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { status } from "@/status";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -31,8 +31,8 @@ describe("status", () => {
         message: "test",
         time: TimeStamp.now(),
       });
-      await expect(userClient.statuses.retrieve(randomStatus.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.statuses.retrieve(randomStatus.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -83,7 +83,7 @@ describe("status", () => {
           message: "test",
           time: TimeStamp.now(),
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete statuses with the correct policy", async () => {
@@ -118,8 +118,8 @@ describe("status", () => {
         message: "test",
         time: TimeStamp.now(),
       });
-      await expect(userClient.statuses.delete(randomStatus.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.statuses.delete(randomStatus.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });
