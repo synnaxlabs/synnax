@@ -417,6 +417,13 @@ void Manager::worker_loop() {
         }
         if (!entry) continue;
 
+        {
+            std::lock_guard entry_lock{entry->mu};
+            entry->op_cmd = op.cmd.key;
+            entry->op_config_hash = op.task.config_hash.empty() ? entry->deployed_hash
+                                                                : op.task.config_hash;
+        }
+        entry->timed_out = false;
         entry->op_started = x::telem::TimeStamp::now();
         lock.unlock();
         this->execute_op(op, entry);
@@ -436,6 +443,7 @@ void Manager::monitor_loop() {
             auto started = entry->op_started.load();
             if (started.nanoseconds() == 0) continue;
             if (x::telem::TimeStamp::now() - started > this->op_timeout) {
+                if (entry->timed_out.exchange(true)) continue;
                 LOG(ERROR) << "task " << key << " operation timed out";
                 synnax::task::Status status;
                 status.key = synnax::task::ontology_id(key).string();
@@ -444,7 +452,11 @@ void Manager::monitor_loop() {
                 status.details.task = key;
                 {
                     std::lock_guard entry_lock{entry->mu};
-                    status.details.config_hash = entry->deployed_hash;
+                    status.name = entry->row.name;
+                    status.details.config_hash = entry->op_config_hash;
+                    // running is left false: the operation is stuck, and the
+                    // instance belongs to the claiming worker while processing.
+                    status.details.cmd = entry->op_cmd;
                 }
                 this->ctx->set_status(status);
             }

@@ -195,6 +195,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
             .task = task.key,
             .running = true,
             .cmd = cmd.key,
+            .config_hash = task.config_hash,
         }
     };
     if (!parser.ok()) {

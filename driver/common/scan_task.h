@@ -202,6 +202,14 @@ class ScanTask final : public task::Task, public pipeline::Base {
     std::thread signal_thread;
     std::mutex mu;
 
+    /// @brief sends the current status, then clears the command key so later
+    /// unsolicited updates do not claim it.
+    void send_status() {
+        this->status.time = x::telem::TimeStamp::now();
+        this->ctx->set_status(this->status);
+        this->status.details.cmd = driver::task::NO_COMMAND;
+    }
+
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = x::telem::TimeStamp(0);
         if (const auto dev_state = this->dev_states.find(dev_key);
@@ -321,6 +329,8 @@ public:
         this->status.key = synnax::task::status_key(task);
         this->status.name = task.name;
         this->status.details.task = task.key;
+        this->status.details.config_hash = task.config_hash;
+        this->status.variant = synnax::status::VARIANT_SUCCESS;
     }
 
     ScanTask(
@@ -353,17 +363,18 @@ public:
     }
 
     void run() override {
+        this->status.details.running = false;
         if (const auto err = this->init()) {
             this->status.variant = synnax::status::VARIANT_ERROR;
             this->status.message = err.message();
-            this->ctx->set_status(this->status);
+            this->send_status();
             return;
         }
 
         if (const auto err = this->scanner->start()) {
             this->status.variant = synnax::status::VARIANT_ERROR;
             this->status.message = err.message();
-            this->ctx->set_status(this->status);
+            this->send_status();
             return;
         }
 
@@ -372,13 +383,14 @@ public:
                          << "failed to start signal monitoring: " << err;
 
         this->status.variant = synnax::status::VARIANT_SUCCESS;
+        this->status.details.running = true;
         this->status.message = "Scan task started";
-        this->ctx->set_status(this->status);
+        this->send_status();
         while (this->breaker.running()) {
             if (const auto err = this->scan()) {
                 this->status.variant = synnax::status::VARIANT_WARNING;
                 this->status.message = err.message();
-                this->ctx->set_status(this->status);
+                this->send_status();
                 LOG(WARNING) << this->log_prefix
                              << "failed to scan for devices: " << err;
             }
@@ -393,14 +405,20 @@ public:
             this->status.variant = synnax::status::VARIANT_SUCCESS;
             this->status.message = "scan task stopped";
         }
-        this->ctx->set_status(this->status);
+        this->status.details.running = false;
+        this->send_status();
     }
 
     void exec(synnax::task::Command &cmd) override {
         this->status.details.cmd = cmd.key;
-        if (cmd.type == STOP_CMD_TYPE) return this->stop(false);
+        // run() writes the status that answers a start or a stop. A command that
+        // changes nothing never reaches it, so the current status answers instead.
+        if (cmd.type == STOP_CMD_TYPE) {
+            if (!this->stop()) this->send_status();
+            return;
+        }
         if (cmd.type == synnax::task::START_CMD_TYPE) {
-            this->start();
+            if (!this->start()) this->send_status();
             return;
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
@@ -408,12 +426,18 @@ public:
             this->status.variant = err ? synnax::status::VARIANT_ERROR
                                        : synnax::status::VARIANT_SUCCESS;
             this->status.message = err ? err.message() : "Scan complete";
-            this->ctx->set_status(this->status);
+            this->send_status();
             return;
         }
-        // Delegate unknown commands to scanner
-        if (this->scanner->exec(cmd, this->task, this->ctx)) return;
+        // The scanner answers the commands it handles with its own status.
+        if (this->scanner->exec(cmd, this->task, this->ctx)) {
+            this->status.details.cmd = driver::task::NO_COMMAND;
+            return;
+        }
         LOG(ERROR) << this->log_prefix << "unknown command type: " << cmd.type;
+        this->status.variant = synnax::status::VARIANT_ERROR;
+        this->status.message = "Unknown command type '" + cmd.type + "'";
+        this->send_status();
     }
 
     x::errors::Error scan() {
