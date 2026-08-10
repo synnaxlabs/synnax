@@ -208,6 +208,7 @@ const Trouble = ({ client, status, checking }: TroubleProps): ReactElement => {
           size="large"
           full="x"
           justify="center"
+          disabled={checking}
           onClick={() => client.connection.retryNow()}
         >
           <Icon.Refresh />
