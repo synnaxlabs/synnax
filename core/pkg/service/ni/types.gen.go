@@ -1846,9 +1846,6 @@ func (a *AIThermocoupleChannel) ApplyDefaults() {
 	if a.ThermocoupleType == "" {
 		a.ThermocoupleType = ThermocoupleTypeJ
 	}
-	if a.CjcSource == "" {
-		a.CjcSource = CJCSourceBuiltIn
-	}
 	a.MinMaxVal.ApplyDefaults()
 }
 
@@ -1858,7 +1855,6 @@ func (a AIThermocoupleChannel) Validate() error {
 	v := validate.New("AIThermocoupleChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("thermocouple_type", !a.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", a.ThermocoupleType)
-	v.Ternaryf("cjc_source", !a.CjcSource.IsValid(), "invalid cjc_source: %v", a.CjcSource)
 	return v.Error()
 }
 
