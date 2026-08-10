@@ -100,6 +100,8 @@ public:
     /// @modifies statuses May update keys if auto-generated.
     /// @returns An error where ok() is false if the statuses could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
+    /// A status that does not convert to protobuf sends none of the batch and names
+    /// the offending status key in the error.
     template<typename Details = x::json::json>
     [[nodiscard]] x::errors::Error
     set(std::vector<synnax::status::Status<Details>> &statuses) const {
@@ -107,7 +109,7 @@ public:
         req.mutable_statuses()->Reserve(static_cast<int>(statuses.size()));
         for (const auto &s: statuses) {
             auto [pb, pb_err] = s.to_proto();
-            if (pb_err) return pb_err;
+            if (pb_err) return {pb_err, "status " + s.key + ": " + pb_err.data};
             *req.add_statuses() = pb;
         }
         auto [res, err] = this->set_client->send("/status/set", req);

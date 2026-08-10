@@ -11,6 +11,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/json/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
 std::mt19937 gen_rand_task = random_generator("Task Tests");
@@ -303,31 +304,31 @@ TEST(StatusDetailsTests, testRoundTrip) {
     ASSERT_EQ((*recovered.data)["version"], 2);
 }
 
-/// @brief returns an object nested deeper than the protobuf JSON parser accepts.
-x::json::json::object_t unconvertible_object() {
-    x::json::json j = x::json::json::object();
-    for (int i = 0; i < 150; i++)
-        j = x::json::json{{"nested", j}};
-    return j.get<x::json::json::object_t>();
-}
-
 /// @brief it should report a config that does not convert instead of sending an empty
 /// one.
 TEST(TaskTests, testToProtoReportsBadConfig) {
-    const Task t{.name = "test_task", .type = "mock", .config = unconvertible_object()};
+    const Task t{
+        .name = "test_task",
+        .type = "mock",
+        .config = x::json::deeply_nested_object()
+    };
     ASSERT_OCCURRED_AS_P(t.to_proto(), x::errors::VALIDATION);
 }
 
 /// @brief it should report command arguments that do not convert.
 TEST(CommandTests, testToProtoReportsBadArgs) {
-    const Command c{.task = 1, .type = "start", .args = unconvertible_object()};
+    const Command c{
+        .task = 1,
+        .type = "start",
+        .args = x::json::deeply_nested_object()
+    };
     ASSERT_OCCURRED_AS_P(c.to_proto(), x::errors::VALIDATION);
 }
 
 /// @brief it should report optional status data that does not convert.
 TEST(StatusDetailsTests, testToProtoReportsBadData) {
     StatusDetails d;
-    d.data = unconvertible_object();
+    d.data = x::json::deeply_nested_object();
     ASSERT_OCCURRED_AS_P(d.to_proto(), x::errors::VALIDATION);
 }
 

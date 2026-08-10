@@ -1629,19 +1629,24 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// Forward: compile-time branch on Details via if constexpr,
-							// ultimately calling x::json::to_any.
+							// Forward, json branch: convert the value itself.
+							"auto [v, err] = x::json::to_any(this->details)",
+							// Forward, other branch: compile-time branch on Details via
+							// if constexpr, ultimately calling x::json::to_any.
 							"if constexpr (!std::is_same_v<Details, std::monostate>)",
 							"auto [v, err] = x::json::to_any(j)",
 							"*pb.mutable_details() = v;",
 							// Backward: x::json::from_any with Parser::parse fallback.
 							"auto [v, err] = x::json::from_any(pb.details())",
+							"cpp.details = v;",
 							"Details::parse(x::json::Parser(v))",
 						).
 						ToNotContain(
 							// A monostate has no to_json(), so the branch only ever
 							// assigns a real value. j defaults to null.
 							"j = x::json::json(nullptr)",
+							// The conversion error must never be dropped.
+							"*pb.mutable_details() = x::json::to_any(this->details)",
 						)
 				},
 			)
@@ -1663,10 +1668,16 @@ var _ = Describe("C++ PB Plugin", func() {
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
 							"if (this->details.has_value())",
+							// Forward, json branch: convert the value itself.
+							"auto [v, err] = x::json::to_any(*this->details)",
 							"auto [v, err] = x::json::to_any(j)",
 							"*pb.mutable_details() = v;",
 							"if (pb.has_details())",
 							"auto [v, err] = x::json::from_any(pb.details())",
+						).
+						ToNotContain(
+							// The conversion error must never be dropped.
+							"*pb.mutable_details() = x::json::to_any(*this->details)",
 						)
 				},
 			)

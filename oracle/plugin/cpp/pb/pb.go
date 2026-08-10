@@ -586,14 +586,16 @@ func (p *Plugin) generateJSONFieldConversion(
         cpp.%s = v;
     }`, pbAccessorName, pbAccessorName, cppFieldName)
 	} else {
-		// Only a generic field reaches here, and the template wraps one in an if
-		// constexpr block, so these declarations already have a scope of their own.
-		forward = fmt.Sprintf(`auto [v, err] = x::json::to_any(this->%s);
+		forward = fmt.Sprintf(`{
+        auto [v, err] = x::json::to_any(this->%s);
         if (err) return {{}, err};
-        *pb.mutable_%s() = v;`, cppFieldName, pbAccessorName)
-		backward = fmt.Sprintf(`auto [v, err] = x::json::from_any(pb.%s());
+        *pb.mutable_%s() = v;
+    }`, cppFieldName, pbAccessorName)
+		backward = fmt.Sprintf(`{
+        auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = v;`, pbAccessorName, cppFieldName)
+        cpp.%s = v;
+    }`, pbAccessorName, cppFieldName)
 	}
 	return forward, backward
 }
@@ -863,20 +865,22 @@ func (p *Plugin) generateTypeParamConversion(
 			typeParamName,
 		)
 	} else {
-		// Only a generic field reaches here, and the template wraps one in an if
-		// constexpr block, so these declarations already have a scope of their own.
-		forward = fmt.Sprintf(`x::json::json j;
+		forward = fmt.Sprintf(`{
+        x::json::json j;
         if constexpr (!std::is_same_v<%s, std::monostate>)
             j = this->%s.to_json();
         auto [v, err] = x::json::to_any(j);
         if (err) return {{}, err};
-        *pb.mutable_%s() = v;`, typeParamName, cppFieldName, pbAccessorName)
-		backward = fmt.Sprintf(`auto [v, err] = x::json::from_any(pb.%s());
+        *pb.mutable_%s() = v;
+    }`, typeParamName, cppFieldName, pbAccessorName)
+		backward = fmt.Sprintf(`{
+        auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
         if constexpr (std::is_same_v<%s, std::monostate>)
             cpp.%s = std::monostate{};
         else
-            cpp.%s = %s::parse(x::json::Parser(v));`,
+            cpp.%s = %s::parse(x::json::Parser(v));
+    }`,
 			pbAccessorName,
 			typeParamName,
 			cppFieldName,

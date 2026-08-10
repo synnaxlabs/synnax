@@ -201,6 +201,22 @@ TEST(StatusTest, NonObjectDetailsFailConversion) {
     ASSERT_OCCURRED_AS_P(s.to_proto(), x::errors::VALIDATION);
 }
 
+/// @brief it should name the status that does not convert when setting a batch.
+TEST(StatusTest, BatchConversionErrorNamesTheStatus) {
+    const auto client = new_test_client();
+    Status<x::json::json> ok;
+    ok.key = "test-batch-convertible";
+    ok.variant = synnax::status::VARIANT_INFO;
+    ok.time = x::telem::TimeStamp::now();
+    Status<x::json::json> bad = ok;
+    bad.key = "test-batch-scalar-details";
+    bad.details = 42;
+    std::vector<Status<x::json::json>> statuses = {ok, bad};
+    const auto err = client.statuses.set(statuses);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_NE(err.data.find(bad.key), std::string::npos);
+}
+
 /// @brief it should set and retrieve a status with custom details type.
 TEST(StatusTest, CustomDetailsSetAndRetrieve) {
     const auto client = new_test_client();

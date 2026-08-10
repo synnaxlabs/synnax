@@ -11,6 +11,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/struct.h"
+#include "x/cpp/json/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
 namespace x::json {
@@ -184,10 +185,7 @@ TEST(ToStruct, NonObjectError) {
 /// @brief it should return a validation error for an object nested deeper than the
 /// protobuf JSON parser accepts.
 TEST(ToStruct, DeeplyNestedError) {
-    json j = json::object();
-    for (int i = 0; i < 150; i++)
-        j = json{{"nested", j}};
-    ASSERT_OCCURRED_AS_P(to_struct(j), errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(to_struct(deeply_nested_object()), errors::VALIDATION);
 }
 
 /// @brief it should populate a Struct pointer from a JSON object.

@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/any.h"
+#include "x/cpp/json/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
 namespace x::json {
@@ -43,10 +44,7 @@ TEST(ToAny, NonObjectErrorNamesTheType) {
 }
 
 TEST(ToAny, StructConversionErrorPropagates) {
-    json j = json::object();
-    for (int i = 0; i < 150; i++)
-        j = json{{"nested", j}};
-    ASSERT_OCCURRED_AS_P(to_any(j), errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(to_any(deeply_nested_object()), errors::VALIDATION);
 }
 
 TEST(FromAny, EmptyAnyReturnsEmptyObject) {
