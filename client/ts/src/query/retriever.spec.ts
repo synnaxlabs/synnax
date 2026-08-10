@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { EOF } from "@synnaxlabs/freighter";
 import { type record } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
+import { type framer } from "@/framer";
 import { query } from "@/query";
 import { Deleted } from "@/query/deleted";
 
@@ -34,13 +36,29 @@ const paramsZ = requestZ.or(query.keyListZ(z.string()));
 
 // A live but silent stream: subscribed answers stay maintained, so reads
 // serve from the cache without a network fetch.
-const newCache = () =>
-  new query.Cache({
-    openStreamer: async (_, { onOpen }) => {
-      onOpen?.();
-      return { onChange: () => {}, close: async () => {} };
+const silentStreamer = (): framer.Streamer => {
+  let closed = false;
+  const streamer: framer.Streamer = {
+    keys: [],
+    update: async () => {},
+    close: () => {
+      closed = true;
     },
-  });
+    next: async () => {
+      // Blocks until closed so the read loop stays alive like a real stream.
+      while (!closed) await new Promise((resolve) => setTimeout(resolve, 5));
+      return { done: true, value: undefined };
+    },
+    read: async () => {
+      await streamer.next();
+      throw new EOF();
+    },
+    [Symbol.asyncIterator]: () => streamer,
+  };
+  return streamer;
+};
+
+const newCache = () => new query.Cache({ openStreamer: async () => silentStreamer() });
 
 class Client extends query.Retriever<typeof paramsZ, string, Thing> {
   constructor(
@@ -244,7 +262,11 @@ describe("Retriever", () => {
 
     it("hashes equivalent requests identically after schema normalization", async () => {
       const fetchRequest = vi.fn(async () => [thing("a", 5)]);
-      const client = new Client(newCache(), async () => [], fetchRequest);
+      const cache = newCache();
+      const client = new Client(cache, async () => [], fetchRequest);
+      // An answer read before the stream goes live refetches on the epoch bump,
+      // which would count here as a second fetch.
+      await cache.ensureStreaming();
       const handler = vi.fn();
       const stop = client.onChange({ minSize: 3 }, handler);
       await client.retrieve({ minSize: 3 });
