@@ -440,6 +440,34 @@ describe("MultiplexedStreamer", () => {
       expect(sub.status(1).variant).toEqual("success");
       sub.close();
     });
+
+    it("should reopen when the loop ends during a slow update", async () => {
+      const dying = pendingStreamer([1]);
+      const replacement = pendingStreamer([1, 2]);
+      const { promise: updateGate, resolve: releaseUpdate } =
+        Promise.withResolvers<void>();
+      dying.update = async () => await updateGate;
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([dying, replacement]),
+      });
+
+      const sub1 = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      const sub2 = streamer.stream(() => {}, [2]);
+      await vi.advanceTimersByTimeAsync(200);
+
+      // The loop dies mid-update, so its repair clears the sent keys before the
+      // update that is still in flight writes the new demand back over them.
+      dying.close();
+      await vi.advanceTimersByTimeAsync(0);
+      releaseUpdate();
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(replacement.iteratorVi).toHaveBeenCalled();
+      sub1.close();
+      sub2.close();
+    });
   });
 
   describe("subscriber isolation", () => {
@@ -598,6 +626,22 @@ describe("MultiplexedStreamer", () => {
   });
 
   describe("close path", () => {
+    it("should cancel a pending removal timer on close", async () => {
+      const ms1 = pendingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([ms1]),
+        removalDelay: TimeSpan.seconds(5),
+      });
+      const baseline = vi.getTimerCount();
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      sub.close();
+      expect(vi.getTimerCount()).toBeGreaterThan(baseline);
+      await streamer.close();
+      expect(vi.getTimerCount()).toEqual(baseline);
+    });
+
     it("should log an error when streamer.close throws and still mark the streamer closed", async () => {
       const ms1 = pendingStreamer([1]);
       const closeErr = new Error("close boom");
