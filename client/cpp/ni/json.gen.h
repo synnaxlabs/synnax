@@ -311,7 +311,10 @@ inline BaseAIChannel BaseAIChannel::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
-        .channel = parser.field<::synnax::channel::Key>("channel", 0),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
         .port = parser.field<std::int32_t>("port", 0),
         .device = parser.field<::synnax::device::Key>("device", ""),
     };
@@ -351,7 +354,10 @@ inline BaseCIChannel BaseCIChannel::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
-        .channel = parser.field<::synnax::channel::Key>("channel", 0),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
         .port = parser.field<std::int32_t>("port", 0),
         .device = parser.field<::synnax::device::Key>("device", ""),
     };
@@ -372,8 +378,14 @@ inline BaseAOChannel BaseAOChannel::parse(x::json::Parser parser) {
     return BaseAOChannel{
         .key = parser.field<std::string>("key", ""),
         .disabled = parser.field<bool>("disabled", false),
-        .cmd_channel = parser.field<::synnax::channel::Key>("cmd_channel", 0),
-        .state_channel = parser.field<::synnax::channel::Key>("state_channel", 0),
+        .cmd_channel = parser.field<::synnax::channel::Key>(
+            "cmd_channel",
+            ::synnax::channel::Key(0)
+        ),
+        .state_channel = parser.field<::synnax::channel::Key>(
+            "state_channel",
+            ::synnax::channel::Key(0)
+        ),
         .cmd_channel_name = parser.field<std::string>("cmd_channel_name", ""),
         .state_channel_name = parser.field<std::string>("state_channel_name", ""),
         .port = parser.field<std::int32_t>("port", 0),
@@ -457,7 +469,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     ) = ::synnax::common::BaseWriteConfig::parse(parser);
     result.state_rate = parser.field<::x::telem::Rate>(
         "state_rate",
-        x::telem::Rate(10)
+        ::x::telem::Rate(10)
     );
     return result;
 }
@@ -2104,7 +2116,10 @@ inline DigitalInputChannel DigitalInputChannel::parse(x::json::Parser parser) {
     result.key = parser.field<std::string>("key", "");
     result.name = parser.field<std::string>("name", "");
     result.disabled = parser.field<bool>("disabled", false);
-    result.channel = parser.field<::synnax::channel::Key>("channel", 0);
+    result.channel = parser.field<::synnax::channel::Key>(
+        "channel",
+        ::synnax::channel::Key(0)
+    );
     result.port = parser.field<std::int32_t>("port", 0);
     result.line = parser.field<std::int32_t>("line", 0);
     result.type = parser.field<std::string>("type");
@@ -2127,8 +2142,14 @@ inline DOChannelDigitalOutput DOChannelDigitalOutput::parse(x::json::Parser pars
     DOChannelDigitalOutput result;
     result.key = parser.field<std::string>("key", "");
     result.disabled = parser.field<bool>("disabled", false);
-    result.cmd_channel = parser.field<::synnax::channel::Key>("cmd_channel", 0);
-    result.state_channel = parser.field<::synnax::channel::Key>("state_channel", 0);
+    result.cmd_channel = parser.field<::synnax::channel::Key>(
+        "cmd_channel",
+        ::synnax::channel::Key(0)
+    );
+    result.state_channel = parser.field<::synnax::channel::Key>(
+        "state_channel",
+        ::synnax::channel::Key(0)
+    );
     result.cmd_channel_name = parser.field<std::string>("cmd_channel_name", "");
     result.state_channel_name = parser.field<std::string>("state_channel_name", "");
     result.port = parser.field<std::int32_t>("port", 0);
