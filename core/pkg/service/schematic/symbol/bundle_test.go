@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
+	xos "github.com/synnaxlabs/x/os"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -124,6 +126,15 @@ var _ = Describe("ExportGroup", func() {
 		Expect(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Files).
 			To(HaveKey("_NUL.json"))
 	})
+	It("Should shorten a name a file name cannot hold whole", func(ctx SpecContext) {
+		g := createRoot(ctx, "Valves")
+		createSymbol(ctx, g, strings.Repeat("a", 400))
+		Expect(fileNames(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)))).
+			To(ConsistOf(
+				"manifest.json",
+				strings.Repeat("a", xos.MaxFileNameLength-len(".json"))+".json",
+			))
+	})
 	It("Should return not found for a missing group", func(ctx SpecContext) {
 		Expect(svc.ExportGroup(ctx, uuid.New(), xjson.Codec)).Error().
 			To(MatchError(query.ErrNotFound))
@@ -147,6 +158,8 @@ var _ = Describe("ExportGroup", func() {
 			))
 		},
 		Entry("identical names", "Inlet", "Inlet"),
+		Entry("differing past the file name limit",
+			strings.Repeat("a", 300)+"one", strings.Repeat("a", 300)+"two"),
 		Entry("differing only in case", "Inlet", "inlet"),
 		Entry("sanitized to the same name", "in/let", `in\let`),
 	)

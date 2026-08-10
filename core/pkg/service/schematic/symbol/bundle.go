@@ -40,15 +40,16 @@ type GroupManifest struct {
 	Name string `json:"name"`
 }
 
-// GroupBundle is an exported symbol group.
+// GroupBundle is an exported symbol group. The archive is its only wire form, so both
+// fields are tagged out of every other codec.
 type GroupBundle struct {
 	// Files holds the bundle contents keyed by file name: one envelope per symbol plus
 	// manifest.json. The namespace is flat.
-	Files zip.Files
+	Files zip.Files `json:"-" msgpack:"-"`
 	// Members holds the ontology ID of every exported symbol, in the order the ontology
-	// returned the group's children. Members never reaches the wire: the archive
-	// carries Files alone.
-	Members []ontology.ID
+	// returned the group's children. It serves the access check the api layer runs and
+	// never leaves the Core.
+	Members []ontology.ID `json:"-" msgpack:"-"`
 }
 
 var _ zip.Marshaler = GroupBundle{}
@@ -60,6 +61,7 @@ func (b GroupBundle) MarshalZIP() (zip.Files, error) { return b.Files, nil }
 // ExportGroup serializes every symbol in the group identified by key into a bundle.
 // Each symbol becomes one envelope named after the symbol, beside a manifest naming the
 // group. The encoder decides both the serialization and the extension every file takes.
+// A name too long for a file name is shortened, which can make two symbols collide.
 //
 // It returns query.ErrNotFound if no group has key. It returns a validation error if
 // the group holds a child that is not a schematic symbol, if a symbol's name holds no
@@ -78,14 +80,18 @@ func (s *Service) ExportGroup(
 	if err != nil {
 		return GroupBundle{}, err
 	}
-	manifestFileName := manifestBaseName + encoder.Extension()
+	ext := encoder.Extension()
+	manifestFileName := manifestBaseName + ext
 	var (
 		files = make(zip.Files, len(children)+1)
 		// claimed maps each folded file name to the symbol that took it.
 		claimed = make(map[string]string, len(children))
+		// The extension counts against the file name limit, so the name a symbol takes
+		// gets what the extension leaves.
+		maxBase = os.MaxFileNameLength - len(ext)
 	)
 	for _, child := range children {
-		base := os.SanitizeFileName(child.Name)
+		base := os.SanitizeFileName(child.Name, maxBase)
 		if base == "" {
 			return GroupBundle{}, errors.Wrapf(
 				validate.ErrValidation,
@@ -94,7 +100,7 @@ func (s *Service) ExportGroup(
 				child.Name,
 			)
 		}
-		fileName := base + encoder.Extension()
+		fileName := base + ext
 		folded := os.FoldFileName(fileName)
 		if folded == os.FoldFileName(manifestFileName) {
 			return GroupBundle{}, errors.Wrapf(

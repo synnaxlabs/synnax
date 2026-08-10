@@ -60,7 +60,7 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-// Type returns the ontology resource type for schematic symbols.
+// Type implements ontology.Service.
 func (s *Service) Type() ontology.ResourceType {
 	return ontology.ResourceTypeSchematicSymbol
 }

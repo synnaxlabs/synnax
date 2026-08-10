@@ -19,14 +19,8 @@ import (
 	"github.com/synnaxlabs/x/http"
 )
 
-// Codec is a JSON implementation of encoding.Codec, http.Codec, and
-// encoding.FileEncoder.
-var Codec = &codec{}
-
-var (
-	_ http.Codec           = Codec
-	_ encoding.FileEncoder = Codec
-)
+// Codec is a JSON implementation of encoding.Codec and http.FileCodec.
+var Codec http.FileCodec = &codec{}
 
 type codec struct{}
 

@@ -17,6 +17,7 @@ import (
 	"io"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
@@ -24,7 +25,7 @@ import (
 )
 
 // Files is a flat namespace of file name to file contents. It carries no directories
-// and no nesting: every name is a leaf.
+// and no nesting: every name is a leaf, which the Encoder enforces.
 type Files = map[string][]byte
 
 // Marshaler is implemented by types that convert themselves into a flat file namespace.
@@ -37,8 +38,9 @@ type Marshaler interface {
 
 // Encoder encodes a Files value into a zip archive with one entry per file. It also
 // accepts a Marshaler, which it marshals to Files first. Entries are written in sorted
-// name order, so equal Files always encode to equal bytes. Encoding any other value,
-// and a Marshaler that fails, returns encoding.ErrEncode.
+// name order, so equal Files always encode to equal bytes. Encoding any other value, a
+// Marshaler that fails, and a file name that is not a leaf all return
+// encoding.ErrEncode.
 var Encoder http.Encoder = encoder{}
 
 type encoder struct{}
@@ -69,8 +71,16 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 			"value is not zip.Files and does not implement zip.Marshaler",
 		))
 	}
+	// Every name is checked before the first entry is written, so a rejected archive
+	// leaves no partial output on w.
+	names := slices.Sorted(maps.Keys(files))
+	for _, name := range names {
+		if err := validateLeaf(name); err != nil {
+			return err
+		}
+	}
 	zw := zip.NewWriter(w)
-	for _, name := range slices.Sorted(maps.Keys(files)) {
+	for _, name := range names {
 		f, err := zw.Create(name)
 		if err != nil {
 			return encoding.SugarEncodingErr(value, err)
@@ -80,4 +90,24 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 		}
 	}
 	return encoding.SugarEncodingErr(value, zw.Close())
+}
+
+// validateLeaf returns an error wrapping encoding.ErrEncode when name cannot be a flat
+// archive entry: an empty name, a name holding a path separator, or a name addressing a
+// directory. It names the offender itself rather than going through
+// encoding.SugarEncodingErr, which reports the whole file map and drops the reason.
+func validateLeaf(name string) error {
+	switch {
+	case name == "":
+		return errors.Wrap(encoding.ErrEncode, "file name is empty")
+	case strings.ContainsAny(name, `/\`):
+		return errors.Wrapf(
+			encoding.ErrEncode, "file name %q holds a path separator", name,
+		)
+	case name == "." || name == "..":
+		return errors.Wrapf(
+			encoding.ErrEncode, "file name %q addresses a directory", name,
+		)
+	}
+	return nil
 }
