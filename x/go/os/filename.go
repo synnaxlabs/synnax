@@ -14,18 +14,25 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
+	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 )
 
-// maxFileNameLength is the longest single path element ext4, APFS, and NTFS accept. It
-// counts bytes, which bounds NTFS's UTF-16 limit too: a rune never takes more UTF-16
-// code units than it takes UTF-8 bytes.
-const maxFileNameLength = 255
+const (
+	// maxFileNameLength is the longest single path element ext4, APFS, and NTFS accept.
+	// It counts bytes, which bounds NTFS's UTF-16 limit too: a rune never takes more
+	// UTF-16 code units than it takes UTF-8 bytes.
+	maxFileNameLength = 255
+	// placeholderFileName names a file whose name sanitizes to nothing.
+	placeholderFileName = "_"
+)
 
 var (
-	// unsafeFileNameChars matches the path separators, the control characters, and the
-	// characters Windows reserves.
-	unsafeFileNameChars = regexp.MustCompile(`[/\\<>:"|?*\x00-\x1f\x7f]`)
+	// unsafeFileNameChars matches the path separators, the characters Windows reserves,
+	// and the control characters Windows forbids.
+	unsafeFileNameChars = regexp.MustCompile(`[/\\<>:"|?*\x00-\x1f]`)
 	// reservedFileNames matches the device names Windows refuses to open a file under,
 	// bare or carrying an extension.
 	reservedFileNames = regexp.MustCompile(
@@ -40,22 +47,23 @@ var (
 // longest path element a filesystem takes. Pass an empty extension for a name that
 // carries none.
 //
-// It returns an empty string for a name that sanitizes to nothing, such as one holding
-// dots and spaces alone, rather than a file named by its extension. The caller decides
-// what a nameless file means: substituting a placeholder here would invent a name the
-// caller never gave.
+// A name that sanitizes to nothing, such as one holding dots and spaces alone, comes
+// back as a single underscore.
 //
-// It panics on an extension that fills a file name by itself, which no name can rescue.
-// Extensions come from codecs, not from users, so a caller cannot answer for one and an
-// empty return would blame the name instead.
+// It returns a validation error for an extension that fills a file name by itself,
+// which no name can rescue.
 //
 // The result is a single path element, but it is not unique: two names can sanitize to
 // one, and shortening makes that more likely. Callers that need distinct files must
 // compare the results with FoldFileName.
-func SanitizeFileName(name, extension string) string {
+func SanitizeFileName(name, extension string) (string, error) {
 	budget := maxFileNameLength - len(extension)
 	if budget <= 0 {
-		panic("[x/os] - extension leaves no room for a file name: " + extension)
+		return "", errors.Wrapf(
+			validate.ErrValidation,
+			"extension %q leaves no room for a file name",
+			extension,
+		)
 	}
 	name = fitFileName(unsafeFileNameChars.ReplaceAllString(name, "_"), budget)
 	if reservedFileNames.MatchString(name) {
@@ -63,9 +71,9 @@ func SanitizeFileName(name, extension string) string {
 		name = "_" + fitFileName(name, budget-1)
 	}
 	if name == "" {
-		return ""
+		name = placeholderFileName
 	}
-	return name + extension
+	return name + extension, nil
 }
 
 // fitFileName shortens name to maxBytes bytes, cutting on a rune boundary, and drops
@@ -83,7 +91,11 @@ func fitFileName(name string, maxBytes int) string {
 }
 
 // FoldFileName reduces name to the form two file names must be compared in:
-// Unicode-normalized and case-folded. Names differing only by case or by Unicode
+// case-folded and Unicode-normalized. Names differing only by case or by Unicode
 // composition address the same file on macOS and Windows, so comparing the raw strings
 // reports two files where the filesystem has one.
-func FoldFileName(name string) string { return strings.ToLower(norm.NFC.String(name)) }
+func FoldFileName(name string) string {
+	// Folding is stateful, so it cannot be shared between goroutines. It can also
+	// denormalize, so the result is normalized again.
+	return norm.NFC.String(cases.Fold().String(norm.NFC.String(name)))
+}

@@ -12,6 +12,7 @@ import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { type group } from "@/group";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -85,6 +86,7 @@ export interface ClientConfig {
   file: FileTransport;
   ontology: ontology.Client;
   cache: query.Cache;
+  groupStore: query.Table<group.Key, group.Group>;
 }
 
 export class Client extends query.Retriever<

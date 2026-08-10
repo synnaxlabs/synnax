@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -212,28 +213,41 @@ type (
 		// Key identifies the group to export.
 		Key group.Key `json:"key" msgpack:"key"`
 	}
-	// ExportGroupResponse is the exported bundle. The HTTP transport encodes it as a
-	// zip archive.
-	ExportGroupResponse = symbol.GroupBundle
+	// ExportGroupResponse holds the bundle's contents keyed by file name. The HTTP
+	// transport encodes it as a zip archive.
+	ExportGroupResponse = zip.Files
 )
 
-// ExportGroup exports every symbol in the group as a bundle.
+// ExportGroup exports every symbol in the group as a bundle. It requires retrieve
+// access on the group, which it enforces before it reads a symbol, and on every symbol
+// the group holds.
 func (s *Service) ExportGroup(
 	ctx context.Context,
 	req ExportGroupRequest,
 ) (ExportGroupResponse, error) {
-	bundle, err := s.internal.ExportGroup(ctx, req.Key, json.Codec)
-	if err != nil {
-		return ExportGroupResponse{}, err
-	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+	var (
+		enforcer = s.access.NewEnforcer(nil)
+		subject  = auth.GetSubject(ctx)
+	)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
 		Action:  access.ActionRetrieve,
-		Objects: append(bundle.Members, group.OntologyID(req.Key)),
+		Objects: []ontology.ID{group.OntologyID(req.Key)},
 	}); err != nil {
-		return ExportGroupResponse{}, err
+		return nil, err
 	}
-	return bundle, nil
+	files, members, err := s.internal.ExportGroup(ctx, req.Key, json.Codec)
+	if err != nil {
+		return nil, err
+	}
+	if err = enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionRetrieve,
+		Objects: members,
+	}); err != nil {
+		return nil, err
+	}
+	return files, nil
 }
 
 // DeleteGroupRequest names the group to delete.
@@ -242,24 +256,37 @@ type DeleteGroupRequest struct {
 	Key group.Key `json:"key" msgpack:"key"`
 }
 
-// DeleteGroup deletes the group and every symbol in it in a single transaction.
+// DeleteGroup deletes the group and every symbol in it in a single transaction. It
+// requires delete access on the group, which it enforces before it reads a symbol, and
+// on every symbol the group holds.
 func (s *Service) DeleteGroup(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteGroupRequest,
 ) (types.Nil, error) {
+	var (
+		enforcer = s.access.NewEnforcer(tx)
+		subject  = auth.GetSubject(ctx)
+	)
+	if err := enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionDelete,
+		Objects: []ontology.ID{group.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
 	// Read through tx so the symbols enforced on and the symbols deleted come from one
 	// snapshot.
 	symbols, err := s.internal.RetrieveGroupSymbols(ctx, tx, req.Key)
 	if err != nil {
 		return types.Nil{}, err
 	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+	if err = enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
 		Action:  access.ActionDelete,
-		Objects: append(symbols, group.OntologyID(req.Key)),
+		Objects: symbols,
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.internal.DeleteGroup(ctx, tx, req.Key)
+	return types.Nil{}, s.internal.DeleteGroup(ctx, tx, req.Key, symbols)
 }

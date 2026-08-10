@@ -50,20 +50,25 @@ func (s *Service) RetrieveGroupSymbols(
 	if err != nil {
 		return nil, err
 	}
-	return symbolIDs("delete", root, children)
+	ids, err := symbolIDs(children)
+	if err != nil {
+		return nil, errors.Wrapf(err, "group %q", root.Name)
+	}
+	return ids, nil
 }
 
-// DeleteGroup deletes the group identified by key and every symbol in it. It returns
-// query.ErrNotFound if no group has key, and a validation error if the group holds a
-// child that is not a schematic symbol.
+// DeleteGroup deletes the group identified by key together with the symbols that ids
+// names. Pass the ids RetrieveGroupSymbols returned under tx, so the symbols removed
+// and the symbols the caller enforced access on come from one snapshot.
 //
 // Symbols are deleted first because the group service refuses to delete a group that
 // still holds children.
-func (s *Service) DeleteGroup(ctx context.Context, tx gorp.Tx, key group.Key) error {
-	ids, err := s.RetrieveGroupSymbols(ctx, tx, key)
-	if err != nil {
-		return err
-	}
+func (s *Service) DeleteGroup(
+	ctx context.Context,
+	tx gorp.Tx,
+	key group.Key,
+	ids []ontology.ID,
+) error {
 	keys, err := KeysFromOntologyIDs(ids)
 	if err != nil {
 		return err
@@ -74,21 +79,16 @@ func (s *Service) DeleteGroup(ctx context.Context, tx gorp.Tx, key group.Key) er
 	return s.cfg.Group.NewWriter(tx).Delete(ctx, key)
 }
 
-// symbolIDs returns the ontology ID of every child. It returns a validation error
-// naming the first child that is not a schematic symbol, where verb is the operation
-// the error reports on.
-func symbolIDs(
-	verb string,
-	root ontology.Resource,
-	children []ontology.Resource,
-) ([]ontology.ID, error) {
+// symbolIDs returns the ontology ID of every child, and a validation error naming the
+// first child that is not a schematic symbol.
+func symbolIDs(children []ontology.Resource) ([]ontology.ID, error) {
 	ids := make([]ontology.ID, 0, len(children))
 	for _, child := range children {
 		if child.ID.Type != ontology.ResourceTypeSchematicSymbol {
 			return nil, errors.Wrapf(
 				validate.ErrValidation,
-				"cannot %s group %q: child %s is not a schematic symbol",
-				verb, root.Name, child.ID,
+				"child %s is not a schematic symbol",
+				child.ID,
 			)
 		}
 		ids = append(ids, child.ID)

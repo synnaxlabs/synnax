@@ -29,8 +29,12 @@ describe("sanitizeFileName", () => {
     expect(sanitizeFileName('a<b>c:d"e|f?g*h')).toEqual("a_b_c_d_e_f_g_h");
   });
 
-  it("replaces control characters", () => {
-    expect(sanitizeFileName("a\x00b\x1fc\x7f")).toEqual("a_b_c_");
+  it("replaces the control characters Windows forbids", () => {
+    expect(sanitizeFileName("a\x00b\x1fc")).toEqual("a_b_c");
+  });
+
+  it("leaves the delete character, which Windows allows, alone", () => {
+    expect(sanitizeFileName("a\x7fb")).toEqual("a\x7fb");
   });
 
   it("drops trailing dots and spaces", () => {
@@ -52,15 +56,62 @@ describe("sanitizeFileName", () => {
     expect(sanitizeFileName("com10")).toEqual("com10");
   });
 
-  it("returns an empty string unchanged", () => {
-    expect(sanitizeFileName("")).toEqual("");
-  });
-
-  it("returns an empty string for a name of dots and spaces alone", () => {
-    expect(sanitizeFileName(". . ")).toEqual("");
+  it("names a file that sanitizes to nothing with an underscore", () => {
+    expect(sanitizeFileName("")).toEqual("_");
+    expect(sanitizeFileName(". . ")).toEqual("_");
   });
 
   it("does not collapse repeated unsafe characters", () => {
     expect(sanitizeFileName("a///b")).toEqual("a___b");
+  });
+
+  describe("extension", () => {
+    it("carries the extension", () => {
+      expect(sanitizeFileName("in/let", ".json")).toEqual("in_let.json");
+    });
+
+    it("names the file with an underscore when only the extension survives", () => {
+      expect(sanitizeFileName("...", ".json")).toEqual("_.json");
+    });
+
+    it("throws when the extension fills a file name by itself", () => {
+      expect(() => sanitizeFileName("report", "a".repeat(255))).toThrow(
+        "leaves no room for a file name",
+      );
+    });
+  });
+
+  describe("length", () => {
+    it("shortens a name too long for a file name", () => {
+      expect(sanitizeFileName("a".repeat(400))).toEqual("a".repeat(255));
+    });
+
+    it("holds the extension's bytes back", () => {
+      expect(sanitizeFileName("a".repeat(400), ".json")).toEqual(
+        `${"a".repeat(255 - ".json".length)}.json`,
+      );
+    });
+
+    it("cuts on a code point boundary", () => {
+      // Each code point takes two bytes, so an odd limit cannot be filled exactly.
+      expect(sanitizeFileName("é".repeat(200))).toEqual("é".repeat(127));
+    });
+
+    it("cuts without splitting a surrogate pair", () => {
+      // Each emoji takes four bytes, so the limit lands mid-emoji.
+      const sanitized = sanitizeFileName("🛰".repeat(100));
+      expect(sanitized).toEqual("🛰".repeat(63));
+      expect(sanitized).not.toContain("�");
+    });
+
+    it("drops a trailing space the cut exposes", () => {
+      expect(sanitizeFileName(`${"a".repeat(254)} b`)).toEqual("a".repeat(254));
+    });
+
+    it("holds a byte back for a device name's prefix", () => {
+      const sanitized = sanitizeFileName(`nul.${"a".repeat(400)}`);
+      expect(sanitized).toHaveLength(255);
+      expect(sanitized.startsWith("_nul.")).toBe(true);
+    });
   });
 });

@@ -40,45 +40,28 @@ type GroupManifest struct {
 	Name string `json:"name"`
 }
 
-// GroupBundle is an exported symbol group. The archive is its only wire form, so both
-// fields are tagged out of every other codec.
-type GroupBundle struct {
-	// Files holds the bundle contents keyed by file name: one envelope per symbol plus
-	// manifest.json. The namespace is flat.
-	Files zip.Files `json:"-" msgpack:"-"`
-	// Members holds the ontology ID of every exported symbol, in the order the ontology
-	// returned the group's children. It serves the access check the api layer runs and
-	// never leaves the Core.
-	Members []ontology.ID `json:"-" msgpack:"-"`
-}
-
-var _ zip.Marshaler = GroupBundle{}
-
-// MarshalZIP returns the bundle's files, so a transport can archive the bundle itself
-// instead of reaching for its contents.
-func (b GroupBundle) MarshalZIP() (zip.Files, error) { return b.Files, nil }
-
-// ExportGroup serializes every symbol in the group identified by key into a bundle.
-// Each symbol becomes one envelope named after the symbol, beside a manifest naming the
-// group. The encoder decides both the serialization and the extension every file takes.
-// A name too long for a file name is shortened, which can make two symbols collide.
+// ExportGroup serializes every symbol in the group identified by key into a flat file
+// namespace: one envelope named after each symbol, beside a manifest naming the group.
+// It also returns the ontology ID of every exported symbol, in the order the ontology
+// returned the group's children, so a caller can enforce access on them. The encoder
+// decides both the serialization and the extension every file takes. A name too long
+// for a file name is shortened, which can make two symbols collide.
 //
 // It returns query.ErrNotFound if no group has key. It returns a validation error if
-// the group holds a child that is not a schematic symbol, if a symbol's name holds no
-// character a file name can keep, if two symbols resolve to the same file name, or if a
-// symbol claims a reserved file name.
+// the group holds a child that is not a schematic symbol, if two symbols resolve to the
+// same file name, or if a symbol claims a reserved file name.
 func (s *Service) ExportGroup(
 	ctx context.Context,
 	key group.Key,
 	encoder encoding.FileEncoder,
-) (GroupBundle, error) {
+) (zip.Files, []ontology.ID, error) {
 	root, children, err := s.retrieveGroup(ctx, nil, key)
 	if err != nil {
-		return GroupBundle{}, err
+		return nil, nil, err
 	}
-	members, err := symbolIDs("export", root, children)
+	members, err := symbolIDs(children)
 	if err != nil {
-		return GroupBundle{}, err
+		return nil, nil, errors.Wrapf(err, "cannot export group %q", root.Name)
 	}
 	ext := encoder.Extension()
 	manifestFileName := manifestBaseName + ext
@@ -89,24 +72,20 @@ func (s *Service) ExportGroup(
 		claimed = make(map[string]string, len(children))
 	)
 	for _, child := range children {
-		fileName := os.SanitizeFileName(child.Name, ext)
-		if fileName == "" {
-			return GroupBundle{}, errors.Wrapf(
-				validate.ErrValidation,
-				"symbol %q holds no character a file name can keep; rename it and export again",
-				child.Name,
-			)
+		fileName, err := os.SanitizeFileName(child.Name, ext)
+		if err != nil {
+			return nil, nil, err
 		}
 		folded := os.FoldFileName(fileName)
 		if folded == foldedManifestFileName {
-			return GroupBundle{}, errors.Wrapf(
+			return nil, nil, errors.Wrapf(
 				validate.ErrValidation,
 				"symbol %q takes the reserved file name %q; rename it and export again",
 				child.Name, fileName,
 			)
 		}
 		if prev, ok := claimed[folded]; ok {
-			return GroupBundle{}, errors.Wrapf(
+			return nil, nil, errors.Wrapf(
 				validate.ErrValidation,
 				"symbols %q and %q both export to %q; rename one and export again",
 				prev, child.Name, fileName,
@@ -115,10 +94,10 @@ func (s *Service) ExportGroup(
 		claimed[folded] = child.Name
 		env, err := s.Export(ctx, child.ID)
 		if err != nil {
-			return GroupBundle{}, err
+			return nil, nil, err
 		}
 		if files[fileName], err = encoder.Encode(ctx, env); err != nil {
-			return GroupBundle{}, err
+			return nil, nil, err
 		}
 	}
 	manifest, err := encoder.Encode(ctx, GroupManifest{
@@ -127,8 +106,8 @@ func (s *Service) ExportGroup(
 		Name:    root.Name,
 	})
 	if err != nil {
-		return GroupBundle{}, err
+		return nil, nil, err
 	}
 	files[manifestFileName] = manifest
-	return GroupBundle{Files: files, Members: members}, nil
+	return files, members, nil
 }

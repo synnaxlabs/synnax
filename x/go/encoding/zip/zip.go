@@ -28,19 +28,9 @@ import (
 // and no nesting: every name is a leaf, which the Encoder enforces.
 type Files = map[string][]byte
 
-// Marshaler is implemented by types that convert themselves into a flat file namespace.
-// The Encoder accepts such a type in place of a Files value, so a caller can hand a
-// domain type to the encoder and keep the file layout with the type it belongs to.
-type Marshaler interface {
-	// MarshalZIP returns the files the value encodes to.
-	MarshalZIP() (Files, error)
-}
-
-// Encoder encodes a Files value into a zip archive with one entry per file. It also
-// accepts a Marshaler, which it marshals to Files first. Entries are written in sorted
-// name order, so equal Files always encode to equal bytes. Encoding any other value, a
-// Marshaler that fails, and a file name that is not a leaf all return
-// encoding.ErrEncode.
+// Encoder encodes a Files value into a zip archive with one entry per file. Entries are
+// written in sorted name order, so equal Files always encode to equal bytes. Encoding
+// any other value, and a file name that is not a leaf, both return encoding.ErrEncode.
 var Encoder http.Encoder = encoder{}
 
 type encoder struct{}
@@ -56,20 +46,11 @@ func (e encoder) Encode(ctx context.Context, value any) ([]byte, error) {
 }
 
 func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
-	var files Files
-	switch value := value.(type) {
-	case Files:
-		files = value
-	case Marshaler:
-		var err error
-		files, err = value.MarshalZIP()
-		if err != nil {
-			return encoding.SugarEncodingErr(value, err)
-		}
-	default:
-		return encoding.SugarEncodingErr(value, errors.New(
-			"value is not zip.Files and does not implement zip.Marshaler",
-		))
+	files, ok := value.(Files)
+	if !ok {
+		return encoding.SugarEncodingErr(
+			value, errors.New("value is not zip.Files"),
+		)
 	}
 	// Every name is checked before the first entry is written, so a rejected archive
 	// leaves no partial output on w.

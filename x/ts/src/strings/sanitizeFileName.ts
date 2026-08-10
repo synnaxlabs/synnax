@@ -7,25 +7,66 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Matches the path separators, the control characters, and the characters Windows
-// reserves.
-const UNSAFE_FILE_NAME_CHARS = /[/\\<>:"|?*\p{Cc}]/gu;
+// Matches the path separators, the characters Windows reserves, and the control
+// characters Windows forbids.
+// eslint-disable-next-line no-control-regex
+const UNSAFE_FILE_NAME_CHARS = /[/\\<>:"|?*\x00-\x1f]/gu;
 const TRAILING_DOTS_AND_SPACES = /[. ]+$/;
 // Matches the device names Windows refuses to open a file under, bare or carrying an
 // extension.
 const RESERVED_FILE_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
+// The longest single path element ext4, APFS, and NTFS accept. It counts bytes, which
+// bounds NTFS's UTF-16 limit too: a code point never takes more UTF-16 code units than
+// it takes UTF-8 bytes.
+const MAX_FILE_NAME_LENGTH = 255;
+// Names a file whose name sanitizes to nothing.
+const PLACEHOLDER_FILE_NAME = "_";
+
+const encoder = new TextEncoder();
+
+const utf8Length = (value: string): number => encoder.encode(value).length;
+
+/**
+ * Shortens name to maxBytes bytes, cutting on a code point boundary, and drops the
+ * trailing dots and spaces Windows drops. It trims after cutting because the cut can
+ * expose a dot or a space the original name buried.
+ */
+const fit = (name: string, maxBytes: number): string => {
+  if (maxBytes <= 0) return "";
+  let fitted = "";
+  let bytes = 0;
+  for (const codePoint of name) {
+    const size = utf8Length(codePoint);
+    if (bytes + size > maxBytes) break;
+    bytes += size;
+    fitted += codePoint;
+  }
+  return fitted.replace(TRAILING_DOTS_AND_SPACES, "");
+};
 
 /**
  * Turns a user-supplied name into a directory or file name that writes to disk on any
- * platform. Replaces every character a file name cannot hold with an underscore, drops
- * trailing dots and spaces, and prefixes an underscore to a Windows device name.
+ * platform, carrying extension. Replaces every character a file name cannot hold with
+ * an underscore, drops trailing dots and spaces, prefixes an underscore to a Windows
+ * device name, and shortens the name until it and extension together fit the longest
+ * path element a filesystem takes. Omit extension for a name that carries none.
  *
- * @returns an empty string for a name that sanitizes to nothing, such as one holding
- * dots and spaces alone.
+ * The result is a single path element, but it is not unique: two names can sanitize to
+ * one, and shortening makes that more likely.
+ *
+ * @param name - The user-supplied name.
+ * @param extension - The extension the result carries, leading dot included.
+ * @returns a single underscore for a name that sanitizes to nothing, such as one
+ * holding dots and spaces alone.
+ * @throws {Error} if extension fills a file name by itself, which no name can rescue.
  */
-export const sanitizeFileName = (name: string): string => {
-  const sanitized = name
-    .replace(UNSAFE_FILE_NAME_CHARS, "_")
-    .replace(TRAILING_DOTS_AND_SPACES, "");
-  return RESERVED_FILE_NAMES.test(sanitized) ? `_${sanitized}` : sanitized;
+export const sanitizeFileName = (name: string, extension = ""): string => {
+  const budget = MAX_FILE_NAME_LENGTH - utf8Length(extension);
+  if (budget <= 0)
+    throw new Error(`extension "${extension}" leaves no room for a file name`);
+  let sanitized = fit(name.replace(UNSAFE_FILE_NAME_CHARS, "_"), budget);
+  // Hold a byte back for the prefix so the whole name still fits.
+  if (RESERVED_FILE_NAMES.test(sanitized)) sanitized = `_${fit(sanitized, budget - 1)}`;
+  if (sanitized === "") sanitized = PLACEHOLDER_FILE_NAME;
+  return sanitized + extension;
 };

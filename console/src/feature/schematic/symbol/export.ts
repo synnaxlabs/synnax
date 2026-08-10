@@ -18,6 +18,8 @@ import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
+const ARCHIVE_EXTENSION = ".zip";
+
 interface ExportGroupParams {
   client: Client | null;
   group: group.Group;
@@ -35,8 +37,7 @@ const exportGroup = async ({
   if (client == null) throw new DisconnectedError();
   await Runtime.downloadStream({
     stream: await client.schematics.symbols.exportGroup(key),
-    name: strings.sanitizeFileName(name),
-    extension: "zip",
+    name: strings.sanitizeFileName(name, ARCHIVE_EXTENSION),
     addStatus,
   });
 };

@@ -89,13 +89,18 @@ var _ = Describe("ExportGroup", func() {
 		})
 		return sym
 	}
-	fileNames := func(bundle symbol.GroupBundle) []string {
-		return slices.Collect(maps.Keys(bundle.Files))
+	exportFiles := func(ctx SpecContext, key group.Key) zip.Files {
+		GinkgoHelper()
+		files, _ := MustSucceed2(svc.ExportGroup(ctx, key, xjson.Codec))
+		return files
 	}
-	manifestOf := func(bundle symbol.GroupBundle) symbol.GroupManifest {
+	fileNames := func(files zip.Files) []string {
+		return slices.Collect(maps.Keys(files))
+	}
+	manifestOf := func(files zip.Files) symbol.GroupManifest {
 		GinkgoHelper()
 		var m symbol.GroupManifest
-		Expect(json.Unmarshal(bundle.Files["manifest.json"], &m)).To(Succeed())
+		Expect(json.Unmarshal(files["manifest.json"], &m)).To(Succeed())
 		return m
 	}
 
@@ -103,52 +108,46 @@ var _ = Describe("ExportGroup", func() {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
 		createSymbol(ctx, g, "Outlet")
-		Expect(fileNames(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)))).
+		Expect(fileNames(exportFiles(ctx, g.Key))).
 			To(ConsistOf("Inlet.json", "Outlet.json", "manifest.json"))
 	})
 	It("Should stamp the manifest with the group's name", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "Inlet")
-		Expect(
-			manifestOf(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec))),
-		).To(Equal(
+		Expect(manifestOf(exportFiles(ctx, g.Key))).To(Equal(
 			symbol.GroupManifest{Version: 2, Type: "symbol_group", Name: "Valves"},
 		))
 	})
 	It("Should write each member as its leaf export envelope", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		sym := createSymbol(ctx, g, "Inlet")
-		bundle := MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec))
 		env := MustSucceed(svc.Export(ctx, symbol.OntologyID(sym.Key)))
-		Expect(bundle.Files["Inlet.json"]).To(Equal(MustSucceed(json.Marshal(env))))
+		Expect(exportFiles(ctx, g.Key)["Inlet.json"]).
+			To(Equal(MustSucceed(json.Marshal(env))))
 	})
 	It("Should report every exported symbol as a member", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		sym := createSymbol(ctx, g, "Inlet")
-		Expect(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Members).
-			To(ConsistOf(symbol.OntologyID(sym.Key)))
+		_, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+		Expect(members).To(ConsistOf(symbol.OntologyID(sym.Key)))
 	})
 	It("Should export an empty group as a manifest alone", func(ctx SpecContext) {
 		g := createRoot(ctx, "Empty")
-		bundle := MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec))
-		Expect(fileNames(bundle)).To(ConsistOf("manifest.json"))
-		Expect(bundle.Members).To(BeEmpty())
-		Expect(manifestOf(bundle).Name).To(Equal("Empty"))
+		files, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+		Expect(fileNames(files)).To(ConsistOf("manifest.json"))
+		Expect(members).To(BeEmpty())
+		Expect(manifestOf(files).Name).To(Equal("Empty"))
 	})
 	It("Should replace characters a file name cannot hold", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "in/let:1")
-		Expect(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Files).
-			To(HaveKey("in_let_1.json"))
+		Expect(exportFiles(ctx, g.Key)).To(HaveKey("in_let_1.json"))
 	})
-	DescribeTable("Should reject a symbol a file name cannot hold",
+	DescribeTable("Should name a symbol a file name cannot hold with an underscore",
 		func(ctx SpecContext, name string) {
 			g := createRoot(ctx, "Valves")
 			createSymbol(ctx, g, name)
-			Expect(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("holds no character a file name can keep")),
-			))
+			Expect(exportFiles(ctx, g.Key)).To(HaveKey("_.json"))
 		},
 		Entry("dots alone", "..."),
 		Entry("spaces alone", "   "),
@@ -156,13 +155,12 @@ var _ = Describe("ExportGroup", func() {
 	It("Should push a symbol off a Windows device name", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, "NUL")
-		Expect(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Files).
-			To(HaveKey("_NUL.json"))
+		Expect(exportFiles(ctx, g.Key)).To(HaveKey("_NUL.json"))
 	})
 	It("Should shorten a name a file name cannot hold whole", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		createSymbol(ctx, g, strings.Repeat("a", 400))
-		Expect(fileNames(MustSucceed(svc.ExportGroup(ctx, g.Key, xjson.Codec)))).
+		Expect(fileNames(exportFiles(ctx, g.Key))).
 			To(ConsistOf("manifest.json", HaveLen(255)))
 	})
 	It("Should return not found for a missing group", func(ctx SpecContext) {
@@ -174,6 +172,7 @@ var _ = Describe("ExportGroup", func() {
 		createGroup(ctx, "Nested", g.OntologyID())
 		Expect(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`cannot export group "Valves"`)),
 			MatchError(ContainSubstring("not a schematic symbol")),
 		))
 	})
@@ -192,6 +191,7 @@ var _ = Describe("ExportGroup", func() {
 			strings.Repeat("a", 300)+"one", strings.Repeat("a", 300)+"two"),
 		Entry("differing only in case", "Inlet", "inlet"),
 		Entry("sanitized to the same name", "in/let", `in\let`),
+		Entry("sanitized to nothing", "...", "   "),
 	)
 	DescribeTable("Should reject a symbol taking a reserved file name",
 		func(ctx SpecContext, name string) {
@@ -220,12 +220,5 @@ var _ = Describe("ExportGroup", func() {
 		createSymbol(ctx, g, "Inlet")
 		Expect(svc.ExportGroup(ctx, g.Key, failEncoder{onManifest: true})).Error().
 			To(MatchError(errEncode))
-	})
-})
-
-var _ = Describe("GroupBundle", func() {
-	It("Should marshal to the bundle's files", func() {
-		files := zip.Files{"manifest.json": []byte(`{"version":2}`)}
-		Expect(symbol.GroupBundle{Files: files}.MarshalZIP()).To(Equal(files))
 	})
 })

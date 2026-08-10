@@ -32,7 +32,7 @@ interface WindowWithShowSaveFilePicker extends Window {
 export interface DownloadStreamParams {
   stream: ReadableStream<Uint8Array>;
   name: string;
-  extension: string;
+  extension?: string;
   addStatus: Status.Adder;
   onDownloadStart?: () => void;
 }
@@ -42,7 +42,8 @@ export interface DownloadStreamParams {
  * performant method to download the stream.
  * @param stream - The stream to download.
  * @param name - The name of the file to download.
- * @param extension - The extension of the file to download.
+ * @param extension - The extension of the file to download. Omit when name already
+ * carries one.
  * @param addStatus - The function to add a status message.
  */
 export const downloadStream = async ({
@@ -52,7 +53,7 @@ export const downloadStream = async ({
   onDownloadStart,
   addStatus,
 }: DownloadStreamParams): Promise<void> => {
-  const nameWithExtension = `${name}.${extension}`;
+  const nameWithExtension = extension == null ? name : `${name}.${extension}`;
   const addStartStatus = (location: string) => {
     onDownloadStart?.();
     addStatus({

@@ -337,6 +337,18 @@ describe("Symbol Client", () => {
       );
     });
 
+    it("should drop the deleted group from the group cache", async () => {
+      const target = await createTarget();
+      // Warm the cache, so a record the delete leaves behind answers the next read.
+      expect((await client.groups.retrieve({ key: target.key })).key).toEqual(
+        target.key,
+      );
+      await client.schematics.symbols.deleteGroup(target.key);
+      await expect(client.groups.retrieve({ key: target.key })).rejects.toThrow(
+        NotFoundError,
+      );
+    });
+
     it("should drop the group from its parent's children", async () => {
       const parent = await createParent();
       const target = await createTarget(parent);

@@ -92,6 +92,7 @@ export interface ClientConfig {
   file: FileTransport;
   ontology: ontology.Client;
   cache: query.Cache;
+  groupStore: query.Table<group.Key, group.Group>;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Symbol> {
@@ -237,6 +238,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       emptyResZ,
     );
     this.store.delete(memberKeys);
+    this.cfg.groupStore.delete(key);
     // Both the relationships to the group's children and the one naming the group as
     // its parent's child: the group and every symbol in it are gone.
     rels.delete(

@@ -53,10 +53,18 @@ func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 }
 
 var _ = Describe("DeleteGroup", func() {
+	// The api reads the members through the same tx it deletes under, which every spec
+	// below mirrors.
+	deleteGroup := func(ctx SpecContext, key group.Key) error {
+		GinkgoHelper()
+		return svc.DeleteGroup(ctx, tx, key, MustSucceed(
+			svc.RetrieveGroupSymbols(ctx, tx, key),
+		))
+	}
 	It("Should delete the group and every symbol in it", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.OntologyID())
 		sym := createSymbol(ctx, g)
-		Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(Succeed())
+		Expect(deleteGroup(ctx, g.Key)).To(Succeed())
 		Expect(svc.NewRetrieve().
 			Where(symbol.MatchKeys(sym.Key)).
 			Entry(&symbol.Symbol{}).
@@ -64,26 +72,13 @@ var _ = Describe("DeleteGroup", func() {
 	})
 	It("Should delete an empty group", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.OntologyID())
-		Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(Succeed())
+		Expect(deleteGroup(ctx, g.Key)).To(Succeed())
 	})
-	It("Should return not found for a missing group", func(ctx SpecContext) {
-		Expect(svc.DeleteGroup(ctx, tx, uuid.New())).To(MatchError(query.ErrNotFound))
-	})
-	It("Should refuse a group holding a non-symbol child, deleting nothing", func(
-		ctx SpecContext,
-	) {
+	It("Should reject an id no symbol key can come from", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.OntologyID())
-		createGroup(ctx, g.OntologyID())
-		sym := createSymbol(ctx, g)
-		Expect(svc.DeleteGroup(ctx, tx, g.Key)).To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("cannot delete group")),
-			MatchError(ContainSubstring("not a schematic symbol")),
-		))
-		Expect(svc.NewRetrieve().
-			Where(symbol.MatchKeys(sym.Key)).
-			Entry(&symbol.Symbol{}).
-			Exec(ctx, tx)).To(Succeed())
+		Expect(svc.DeleteGroup(ctx, tx, g.Key, []ontology.ID{
+			{Type: ontology.ResourceTypeSchematicSymbol, Key: "not-a-uuid"},
+		})).To(MatchError(ContainSubstring("invalid UUID")))
 	})
 })
 

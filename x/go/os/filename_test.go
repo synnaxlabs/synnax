@@ -15,13 +15,18 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xos "github.com/synnaxlabs/x/os"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // maxFileNameLength mirrors the limit the package keeps to itself.
 const maxFileNameLength = 255
 
 // sanitize names a file that carries no extension, which the cases below do not vary.
-func sanitize(name string) string { return xos.SanitizeFileName(name, "") }
+func sanitize(name string) string {
+	GinkgoHelper()
+	return MustSucceed(xos.SanitizeFileName(name, ""))
+}
 
 var _ = Describe("SanitizeFileName", func() {
 	DescribeTable("Should replace every character a file name cannot hold",
@@ -29,7 +34,7 @@ var _ = Describe("SanitizeFileName", func() {
 		Entry("path separators", `a/b\c`, "a_b_c"),
 		Entry("Windows-reserved characters", `a<b>c:d"e|f?g*h`, "a_b_c_d_e_f_g_h"),
 		Entry("consecutive separators", "a///b", "a___b"),
-		Entry("control characters", "a\x00b\tc\x7fd", "a_b_c_d"),
+		Entry("control characters", "a\x00b\tc\x1fd", "a_b_c_d"),
 	)
 	DescribeTable("Should drop the trailing dots and spaces Windows drops",
 		func(name, expected string) { Expect(sanitize(name)).To(Equal(expected)) },
@@ -38,8 +43,8 @@ var _ = Describe("SanitizeFileName", func() {
 		Entry("both, repeated", "report. . ", "report"),
 		Entry("a leading dot", ".hidden", ".hidden"),
 	)
-	DescribeTable("Should leave a name that sanitizes to nothing empty",
-		func(name string) { Expect(sanitize(name)).To(BeEmpty()) },
+	DescribeTable("Should name a file that sanitizes to nothing with an underscore",
+		func(name string) { Expect(sanitize(name)).To(Equal("_")) },
 		Entry("an empty name", ""),
 		Entry("dots alone", "..."),
 		Entry("spaces alone", "   "),
@@ -60,14 +65,17 @@ var _ = Describe("SanitizeFileName", func() {
 		Entry("an extension", "file.json"),
 		Entry("a name a device name only prefixes", "console.json"),
 		Entry("a device name outside the first element", "my nul"),
+		Entry("a delete character, which Windows allows", "a\x7fb"),
 	)
 	Describe("Extension", func() {
 		It("Should carry the extension", func() {
 			Expect(xos.SanitizeFileName("in/let", ".json")).To(Equal("in_let.json"))
 		})
-		It("Should name no file when only the extension survives", func() {
-			Expect(xos.SanitizeFileName("...", ".json")).To(BeEmpty())
-		})
+		It("Should name the file with an underscore when only the extension survives",
+			func() {
+				Expect(xos.SanitizeFileName("...", ".json")).To(Equal("_.json"))
+			},
+		)
 	})
 	Describe("Length", func() {
 		It("Should shorten a name too long for a file name", func() {
@@ -91,10 +99,12 @@ var _ = Describe("SanitizeFileName", func() {
 			Expect(sanitize("nul." + strings.Repeat("a", 400))).
 				To(SatisfyAll(HaveLen(maxFileNameLength), HavePrefix("_nul.")))
 		})
-		DescribeTable("Should panic on an extension that fills a file name by itself",
+		DescribeTable("Should reject an extension that fills a file name by itself",
 			func(extension string) {
-				Expect(func() { xos.SanitizeFileName("report", extension) }).
-					To(PanicWith(ContainSubstring("leaves no room for a file name")))
+				Expect(xos.SanitizeFileName("report", extension)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("leaves no room for a file name")),
+				))
 			},
 			Entry("an extension the length of the limit",
 				strings.Repeat("a", maxFileNameLength)),

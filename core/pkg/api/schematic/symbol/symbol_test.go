@@ -184,11 +184,9 @@ var _ = Describe("ExportGroup", func() {
 			grantRetrieveOn(
 				ctx, author.OntologyID(), g.OntologyID(), symbol.OntologyID(sym.Key),
 			)
-			bundle := MustSucceed(apiSvc.ExportGroup(
+			Expect(MustSucceed(apiSvc.ExportGroup(
 				authedCtx(ctx, author), ExportGroupRequest{Key: g.Key},
-			))
-			Expect(bundle.Files).To(HaveKey("manifest.json"))
-			Expect(bundle.Files).To(HaveKey("Inlet.json"))
+			))).To(SatisfyAll(HaveKey("manifest.json"), HaveKey("Inlet.json")))
 		},
 	)
 	It("Should reject the request when retrieve is not granted on the group", func(
@@ -199,6 +197,15 @@ var _ = Describe("ExportGroup", func() {
 		grantRetrieveOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
 		Expect(apiSvc.ExportGroup(
 			authedCtx(ctx, author), ExportGroupRequest{Key: g.Key},
+		)).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should refuse the group before it names the child that is not a symbol", func(
+		ctx SpecContext,
+	) {
+		g := createGroup(ctx, "ungranted-with-nested")
+		MustSucceed(groupSvc.NewWriter(nil).Create(ctx, "Nested", g.OntologyID()))
+		Expect(apiSvc.ExportGroup(
+			authedCtx(ctx, createUser(ctx)), ExportGroupRequest{Key: g.Key},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 	It("Should reject the request when retrieve is not granted on a member", func(
@@ -246,6 +253,15 @@ var _ = Describe("DeleteGroup", func() {
 		grantDeleteOn(ctx, author.OntologyID(), g.OntologyID())
 		Expect(apiSvc.DeleteGroup(
 			authedCtx(ctx, author), nil, DeleteGroupRequest{Key: g.Key},
+		)).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should refuse the group before it names the child that is not a symbol", func(
+		ctx SpecContext,
+	) {
+		g := createGroup(ctx, "ungranted-with-nested")
+		MustSucceed(groupSvc.NewWriter(nil).Create(ctx, "Nested", g.OntologyID()))
+		Expect(apiSvc.DeleteGroup(
+			authedCtx(ctx, createUser(ctx)), nil, DeleteGroupRequest{Key: g.Key},
 		)).Error().To(MatchError(access.ErrDenied))
 	})
 })
