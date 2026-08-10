@@ -27,6 +27,7 @@ from synnax.channel import Channel
 from synnax.control import Controller
 from synnax.device import Device
 from synnax.exceptions import (
+    AccessDenied,
     AuthError,
     ConfigurationError,
     ControlError,
@@ -108,6 +109,7 @@ __all__ = [
     "Alignment",
     "Arc",
     "AUTO_SPAN",
+    "AccessDenied",
     "AuthError",
     "Authority",
     "Controller",
