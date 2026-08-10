@@ -69,32 +69,82 @@ type impl struct {
 	cfg        Config
 	prog       arc.Arc
 
+	// closer shuts down the runtime, nil once released.
 	closer io.Closer
+	// sCtx is the runtime's context. A runtime that fails cancels it.
+	sCtx signal.Context
 }
 
 var _ driver.Task = (*impl)(nil)
 
+// Exec implements driver.Task. Every command it handles ends in a status carrying the
+// command key, so a caller waiting on the command always resolves.
 func (t *impl) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
-		return t.start(ctx)
+		return t.start(ctx, cmd.Key)
 	case "stop":
-		return t.Stop(true)
+		return t.stop(ctx, cmd.Key, true)
 	default:
 		return driver.ErrUnsupportedCommand
 	}
 }
 
-func (t *impl) isRunning() bool { return t.closer != nil }
+// isRunning reports whether the runtime is up. A runtime that failed on its own
+// cancels sCtx without releasing the closer, so the closer alone is not enough.
+func (t *impl) isRunning() bool { return t.closer != nil && t.sCtx.Err() == nil }
 
-func (t *impl) start(ctx context.Context) (err error) {
+// release shuts the runtime down and clears it, returning the error that ended it.
+func (t *impl) release() error {
+	err := t.closer.Close()
+	t.closer = nil
+	return err
+}
+
+func (t *impl) start(ctx context.Context, cmdKey string) error {
 	if t.isRunning() {
+		t.ackCurrent(ctx, cmdKey, true)
 		return nil
 	}
+	if t.closer != nil {
+		if err := t.release(); err != nil {
+			t.factoryCfg.L.Warn("arc runtime failed",
+				zap.Stringer("task", t.task.Key),
+				zap.Error(err),
+			)
+		}
+	}
+	if err := t.open(ctx); err != nil {
+		t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+		return err
+	}
+	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Task started successfully")
+	return nil
+}
+
+// ackCurrent answers cmdKey with the task's current status, for a command that needs
+// no work.
+func (t *impl) ackCurrent(ctx context.Context, cmdKey string, running bool) {
+	if err := driver.AckCurrentStatus(
+		ctx,
+		t.factoryCfg.Status,
+		t.task,
+		cmdKey,
+		running,
+	); err != nil {
+		t.factoryCfg.L.Error("failed to acknowledge command",
+			zap.Stringer("task", t.task.Key),
+			zap.String("cmd", cmdKey),
+			zap.Error(err),
+		)
+	}
+}
+
+// open builds and flows the Arc runtime. It writes no statuses: start owns them.
+func (t *impl) open(ctx context.Context) (err error) {
 	drt := dataRuntime{}
 	deps, err := runtime.NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 
@@ -121,7 +171,6 @@ func (t *impl) start(ctx context.Context) (err error) {
 
 	timeMod, err := time.NewHost(ctx, wasmRT)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	channelMod, err := channels.NewHost(
@@ -131,7 +180,6 @@ func (t *impl) start(ctx context.Context) (err error) {
 		drt.state.strings,
 	)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	statefulMod, err := stateful.NewHost(
@@ -141,26 +189,21 @@ func (t *impl) start(ctx context.Context) (err error) {
 		drt.state.strings,
 	)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	if _, err = series.NewHost(ctx, wasmRT, drt.state.series); err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	stringsMod, err := strings.NewHost(ctx, wasmRT, drt.state.strings, nil)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	mathMod, err := math.NewHost(ctx, wasmRT)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	statusMod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
@@ -170,7 +213,6 @@ func (t *impl) start(ctx context.Context) (err error) {
 		Reporter: t.reporter(),
 	})
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	rangesMod, err := ranges.NewModule(ctx, ranges.ModuleConfig{
@@ -180,7 +222,6 @@ func (t *impl) start(ctx context.Context) (err error) {
 		Reporter: t.reporter(),
 	})
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 
@@ -202,7 +243,6 @@ func (t *impl) start(ctx context.Context) (err error) {
 	if len(t.prog.Program.WASM) > 0 {
 		guest, guestErr := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
 		if guestErr != nil {
-			t.setStatus(ctx, status.VariantError, false, guestErr.Error())
 			return guestErr
 		}
 		stringsMod.SetMemory(guest.Memory())
@@ -226,7 +266,6 @@ func (t *impl) start(ctx context.Context) (err error) {
 			State:   drt.state.nodes.Node(irNode.Key),
 		})
 		if nodeErr != nil {
-			t.setStatus(ctx, status.VariantError, false, nodeErr.Error())
 			return nodeErr
 		}
 		nodes[irNode.Key] = n
@@ -269,7 +308,6 @@ func (t *impl) start(ctx context.Context) (err error) {
 			framer.StreamerConfig{Keys: deps.Reads.Slice()},
 		)
 		if err != nil {
-			t.setStatus(ctx, status.VariantError, false, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, streamerAddr, streamer)
@@ -308,7 +346,6 @@ func (t *impl) start(ctx context.Context) (err error) {
 		var wrt framer.StreamWriter
 		wrt, err = t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
 		if err != nil {
-			t.setStatus(ctx, status.VariantError, false, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, writerAddr, wrt)
@@ -321,7 +358,13 @@ func (t *impl) start(ctx context.Context) (err error) {
 						zap.Int("seqNum", res.SeqNum),
 						zap.Error(res.Err),
 					)
-					t.setStatus(ctx, status.VariantError, false, res.Err.Error())
+					t.setStatus(
+						ctx,
+						driver.NoCommand,
+						status.VariantError,
+						false,
+						res.Err.Error(),
+					)
 					return res.Err
 				} else if !res.Authorized {
 					t.factoryCfg.L.Warn("unauthorized writer response",
@@ -345,6 +388,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
 	)
+	t.sCtx = sCtx
 	t.closer = append(
 		closers,
 		signal.NewGracefulShutdown(sCtx, cancel),
@@ -357,27 +401,39 @@ func (t *impl) start(ctx context.Context) (err error) {
 		confluence.RecoverWithErrOnPanic(),
 		confluence.CancelOnFail(),
 	)
-	t.setStatus(ctx, status.VariantSuccess, true, "Task started successfully")
 	return nil
 }
 
 func (t *impl) Stop(sendStatus bool) error {
-	if !t.isRunning() {
-		return nil
-	}
-	err := t.closer.Close()
-	t.closer = nil
 	/// TODO until we fix our usage of contexts in general:
 	// https://linear.app/synnax/issue/SY-4002/refactor-usages-of-contextcontext
-	ctx := context.TODO()
+	return t.stop(context.TODO(), driver.NoCommand, sendStatus)
+}
+
+// stop releases the runtime. It guards on the closer rather than isRunning so that a
+// runtime that already failed is still released, and its failure still reported.
+func (t *impl) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
+	if t.closer == nil {
+		if sendStatus {
+			t.ackCurrent(ctx, cmdKey, false)
+		}
+		return nil
+	}
+	err := t.release()
 	if err != nil {
 		if sendStatus {
-			t.setStatus(ctx, status.VariantError, false, err.Error())
+			t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
 		}
 		return err
 	}
 	if sendStatus {
-		t.setStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
+		t.setStatus(
+			ctx,
+			cmdKey,
+			status.VariantSuccess,
+			false,
+			"Task stopped successfully",
+		)
 	}
 	return nil
 }
@@ -386,6 +442,7 @@ func (t *impl) reporter() taskreporter.Reporter {
 	return func(ctx context.Context, variant status.Variant, message string) {
 		t.setStatus(
 			ctx,
+			driver.NoCommand,
 			variant,
 			t.isRunning(),
 			fmt.Sprintf("[%s] %s", t.task.Name, message),
@@ -395,16 +452,20 @@ func (t *impl) reporter() taskreporter.Reporter {
 
 func (t *impl) setStatus(
 	ctx context.Context,
+	cmdKey string,
 	variant status.Variant,
 	running bool,
 	message string,
 ) {
+	details := task.NewStatusDetails(t.task, running)
+	details.Cmd = cmdKey
 	stat := task.Status{
 		Key:     t.task.OntologyID().String(),
+		Name:    t.task.Name,
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.NewStatusDetails(t.task, running),
+		Details: details,
 	}
 	if err := status.NewWriter[task.StatusDetails](
 		t.factoryCfg.Status,
@@ -426,6 +487,7 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	}
 	stat := task.Status{
 		Key:         t.task.OntologyID().String(),
+		Name:        t.task.Name,
 		Variant:     status.VariantWarning,
 		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
 		Description: err.Error(),
