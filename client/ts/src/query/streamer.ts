@@ -75,6 +75,11 @@ export interface StreamerParams {
   onLive?: () => void;
   /** Called when the underlying stream fails and reconnection begins. */
   onDrop?: (error: Error) => void;
+  /**
+   * Called when the stream ends on a failure it cannot recover from. The next
+   * demand opens a new stream.
+   */
+  onDead?: (error: Error) => void;
 }
 
 /**
@@ -108,6 +113,7 @@ export const createStreamer = ({
   onReopen,
   onLive,
   onDrop,
+  onDead,
 }: StreamerParams): Streamer => {
   let opened: Promise<ObservableStreamer> | null = null;
   let hardened: HardenedStreamer | null = null;
@@ -170,7 +176,11 @@ export const createStreamer = ({
         }
       })();
     };
-    const stream = new ObservableStreamer(h);
+    const stream = new ObservableStreamer(h, undefined, (error) => {
+      // drop the memoized stream so the next demand opens a fresh one
+      opened = null;
+      onDead?.(error);
+    });
     stream.onChange(handleChange);
     return stream;
   };

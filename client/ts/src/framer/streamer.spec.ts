@@ -20,7 +20,7 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
-import { AuthError } from "@/errors";
+import { AccessDeniedError, ExpiredTokenError } from "@/errors";
 import { Frame } from "@/framer/frame";
 import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
 import { type Streamer, streamerConfigZ } from "@/framer/streamer";
@@ -841,18 +841,33 @@ describe("Streamer", () => {
       ).rejects.toThrow("very unreachable");
     });
 
-    it("should not retry an open the server definitively rejected", async () => {
+    it("should retry an open the auth middleware could not refresh", async () => {
       const openerMock = vi.fn();
       await expect(
         HardenedStreamer.open(
           async () => {
             openerMock();
-            throw new AuthError("access denied");
+            throw new ExpiredTokenError("token expired");
           },
           { channels: [1] },
-          { baseInterval: TimeSpan.milliseconds(1) },
+          { maxRetries: 2, baseInterval: TimeSpan.milliseconds(1) },
         ),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toThrow(ExpiredTokenError);
+      expect(openerMock.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    it("should give up on the first denial instead of retrying", async () => {
+      const openerMock = vi.fn();
+      await expect(
+        HardenedStreamer.open(
+          async () => {
+            openerMock();
+            throw new AccessDeniedError("no permission to stream");
+          },
+          { channels: [1] },
+          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
+        ),
+      ).rejects.toThrow(AccessDeniedError);
       expect(openerMock).toHaveBeenCalledTimes(1);
     });
 
@@ -1054,6 +1069,28 @@ describe("Streamer", () => {
       await observable.close();
 
       expect(mockStreamer.closeMock).toHaveBeenCalled();
+    });
+
+    test("should report the failure that ended the stream", async () => {
+      const mockStreamer = new MockStreamer();
+      mockStreamer.responses = [[new Frame(), new AccessDeniedError("access revoked")]];
+      const onDead = vi.fn();
+      const observable = new ObservableStreamer(mockStreamer, undefined, onDead);
+
+      await expect.poll(() => onDead.mock.calls.length).toBe(1);
+      expect(AccessDeniedError.matches(onDead.mock.calls[0][0])).toBe(true);
+
+      await observable.close();
+    });
+
+    test("should not report a stream the caller closed", async () => {
+      const mockStreamer = new MockStreamer();
+      const onDead = vi.fn();
+      const observable = new ObservableStreamer(mockStreamer, undefined, onDead);
+
+      await observable.close();
+
+      expect(onDead).not.toHaveBeenCalled();
     });
   });
 });

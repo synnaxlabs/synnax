@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { device } from "@/device";
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -36,8 +36,8 @@ describe("device", () => {
         model: "test",
         properties: {},
       });
-      await expect(userClient.devices.retrieve(randomDevice.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.devices.retrieve(randomDevice.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
 
@@ -103,7 +103,7 @@ describe("device", () => {
           model: "test",
           properties: {},
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete devices with the correct policy", async () => {
@@ -148,8 +148,8 @@ describe("device", () => {
         model: "test",
         properties: {},
       });
-      await expect(userClient.devices.delete(randomDevice.key)).rejects.toThrow(
-        AuthError,
+      await expect(userClient.devices.delete(randomDevice.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
       );
     });
   });

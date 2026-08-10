@@ -15,7 +15,7 @@ import { EOF } from "@synnaxlabs/freighter";
 import { breaker, errors, observe, sync, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { AuthError, NotFoundError, ValidationError } from "@/errors";
+import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
 import { type Frame } from "@/framer/frame";
 import {
   type Streamer,
@@ -147,9 +147,10 @@ export class HardenedStreamer implements Streamer {
         if (this.closed) break;
         const err = errors.fromUnknown(e);
         // Retrying only fixes connectivity; a definitive rejection recurs on every
-        // attempt.
+        // attempt. Expired and invalid tokens are not definitive: the auth
+        // middleware refreshes them, and a later attempt gets a fresh budget.
         if (
-          AuthError.matches(err) ||
+          AccessDeniedError.matches(err) ||
           ValidationError.matches(err) ||
           NotFoundError.matches(err)
         )
@@ -228,17 +229,26 @@ export class ObservableStreamer<V = Frame>
 {
   private readonly streamer: Streamer;
   private readonly closePromise: Promise<void>;
+  private readonly onDead?: (error: Error) => void;
+  private closeRequested = false;
 
   /**
    * Creates a new observable streamer.
    * @param streamer - The streamer to wrap
    * @param transform - An optional transform function to apply to each frame
+   * @param onDead - Called when the stream ends on a failure the wrapped streamer
+   * will not recover from. No frames follow.
    * @template V - The type of the transformed value. Only relevant if transform is
    * provided. Defaults to Frame.
    */
-  constructor(streamer: Streamer, transform?: observe.Transform<Frame, V>) {
+  constructor(
+    streamer: Streamer,
+    transform?: observe.Transform<Frame, V>,
+    onDead?: (error: Error) => void,
+  ) {
     super(transform);
     this.streamer = streamer;
+    this.onDead = onDead;
     // Nothing awaits closePromise until close(), so a failure would go unhandled.
     this.closePromise = this.stream().catch(console.error);
   }
@@ -248,11 +258,18 @@ export class ObservableStreamer<V = Frame>
   }
 
   async close(): Promise<void> {
+    this.closeRequested = true;
     this.streamer.close();
     await this.closePromise;
   }
 
   private async stream(): Promise<void> {
-    for await (const frame of this.streamer) this.notify(frame);
+    try {
+      for await (const frame of this.streamer) this.notify(frame);
+    } catch (exc) {
+      this.onDead?.(errors.fromUnknown(exc));
+      return;
+    }
+    if (!this.closeRequested) this.onDead?.(new EOF());
   }
 }

@@ -167,6 +167,7 @@ export default class Synnax extends framer.Client {
       breaker: retry,
       onStreamLive: () => this.conn.notify({ type: "stream.live" }),
       onStreamDrop: (error) => this.conn.notify({ type: "stream.drop", error }),
+      onStreamDenied: (error) => this.conn.notify({ type: "stream.denied", error }),
       onError: parsedParams.onInternalError,
     });
     this.cache = cache;
@@ -286,8 +287,9 @@ export default class Synnax extends framer.Client {
   }
 
   /**
-   * Awaits the connection's first success. Idempotent: resolves immediately
-   * when already connected.
+   * Awaits the connection becoming usable: success, or warning when the cluster
+   * refuses live updates. Idempotent: resolves immediately when already
+   * connected.
    * @throws {AuthError} on a definitive credential rejection.
    * @throws {DisconnectedError} when the cluster cannot be reached after the
    * configured retry budget, or when the client is closed while waiting.
