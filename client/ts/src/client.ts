@@ -168,12 +168,10 @@ export default class Synnax extends framer.Client {
                 onReopen?.();
               },
               (error) => this.conn.notify({ type: "stream.drop", error }),
-            ).catch((error: unknown) => {
+            ).catch((exc: unknown) => {
+              const error = errors.fromUnknown(exc);
               if (AccessDeniedError.matches(error))
-                this.conn.notify({
-                  type: "stream.denied",
-                  error: errors.fromUnknown(error),
-                });
+                this.conn.notify({ type: "stream.denied", error });
               throw error;
             });
             // Reads start when the ObservableStreamer is constructed below,

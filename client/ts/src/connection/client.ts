@@ -111,8 +111,9 @@ export type Mode = "checking" | "heartbeat" | "idle";
 /** The mode a given connection status calls for. */
 export const modeFor = ({ variant, details }: Status): Mode => {
   switch (variant) {
+    // warning is settled, not in progress: a denied stream checks on the
+    // slow cadence like a healthy one
     case "success":
-    // a denied stream is settled, not in progress: check on the slow cadence
     case "warning":
       return "heartbeat";
     case "disabled":
