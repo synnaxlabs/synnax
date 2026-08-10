@@ -7,10 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  bounds,
+  DataType,
+  MultiSeries,
+  Series,
+  type TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { Static } from "@/telem/client/cache/static";
+import { Static } from "@/framer/cache/static";
 
 // NOTE: Most of the insertion algorithm logic is not implemented in the static cache,
 // but inside the x/ts/src/spatial/bounds module, where there are comprehensive tests.
@@ -96,6 +104,34 @@ describe("StaticReadCache", () => {
       expect(gaps[1].start).toEqual(TimeStamp.seconds(6));
       expect(gaps[1].end).toEqual(TimeStamp.seconds(7));
     });
+    test("overlapping insert on a string series trims by sample", () => {
+      const c = new Static({});
+      c.write(
+        new MultiSeries([
+          new Series({
+            data: ["a", "bb", "ccc", "dddd"],
+            timeRange: TimeStamp.seconds(1).range(TimeStamp.seconds(3)),
+            alignment: 0n,
+          }),
+        ]),
+      );
+      c.write(
+        new MultiSeries([
+          new Series({
+            data: ["ccc", "dddd", "ee", "f"],
+            timeRange: TimeStamp.seconds(2).range(TimeStamp.seconds(4)),
+            alignment: 2n,
+          }),
+        ]),
+      );
+      const { series, gaps } = c.dirtyRead(
+        TimeStamp.seconds(1).range(TimeStamp.seconds(4)),
+      );
+      expect(gaps).toHaveLength(0);
+      const strings = series.series.flatMap((s) => s.toStrings());
+      expect(strings).toEqual(["a", "bb", "ccc", "dddd", "ee", "f"]);
+    });
+
     // Input:
     // [2,3,4,5]
     //     [4,5,6]
@@ -208,6 +244,97 @@ describe("StaticReadCache", () => {
       expect(gaps).toHaveLength(0);
     });
   });
+  describe("streamed entries", () => {
+    // Streamed data carries leading-region alignments that never match the
+    // positional alignments of the same samples read back from disk, so the two
+    // forms of one sample can coexist in the cache. Evicting streamed entries is
+    // what prevents that.
+    const LEADING_ALIGNMENT = (BigInt(0xffffffff) - 1_000_000n) << 32n;
+    const streamed = (tr: TimeRange, data: number[], offset = 0n) =>
+      new MultiSeries([
+        new Series({
+          data: new Float32Array(data),
+          dataType: DataType.FLOAT32,
+          timeRange: tr,
+          alignment: LEADING_ALIGNMENT + offset,
+        }),
+      ]);
+    const fetched = (tr: TimeRange, data: number[], alignment = 0n) =>
+      new MultiSeries([
+        new Series({
+          data: new Float32Array(data),
+          dataType: DataType.FLOAT32,
+          timeRange: tr,
+          alignment,
+        }),
+      ]);
+
+    it("should evict a streamed entry when a fetched write overlaps it", () => {
+      const c = new Static({});
+      const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
+      c.write(streamed(tr, [1, 2]), true);
+      c.write(fetched(tr, [1, 2]));
+      const { series, gaps } = c.dirtyRead(tr);
+      expect(series.series).toHaveLength(1);
+      expect(series.series[0].alignment).toEqual(0n);
+      expect(gaps).toHaveLength(0);
+    });
+
+    it("should evict a streamed entry on partial time overlap", () => {
+      const c = new Static({});
+      c.write(
+        streamed(TimeStamp.seconds(12).range(TimeStamp.seconds(20)), [1, 2]),
+        true,
+      );
+      c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(15)), [1, 2]));
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(20)),
+      );
+      expect(series.series).toHaveLength(1);
+      expect(series.series[0].alignment).toEqual(0n);
+    });
+
+    it("should keep streamed entries that do not overlap the write", () => {
+      const c = new Static({});
+      c.write(
+        streamed(TimeStamp.seconds(30).range(TimeStamp.seconds(40)), [3, 4]),
+        true,
+      );
+      c.write(fetched(TimeStamp.seconds(10).range(TimeStamp.seconds(20)), [1, 2]));
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(40)),
+      );
+      expect(series.series).toHaveLength(2);
+    });
+
+    it("should not evict streamed entries on a streamed write", () => {
+      const c = new Static({});
+      c.write(
+        streamed(TimeStamp.seconds(10).range(TimeStamp.seconds(20)), [1, 2]),
+        true,
+      );
+      c.write(
+        streamed(TimeStamp.seconds(15).range(TimeStamp.seconds(25)), [3, 4], 100n),
+        true,
+      );
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(25)),
+      );
+      expect(series.series).toHaveLength(2);
+    });
+
+    it("should not evict fetched entries", () => {
+      const c = new Static({});
+      const tr = TimeStamp.seconds(10).range(TimeStamp.seconds(20));
+      c.write(fetched(tr, [1, 2]));
+      c.write(fetched(TimeStamp.seconds(30).range(TimeStamp.seconds(40)), [3, 4], 20n));
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(10).range(TimeStamp.seconds(40)),
+      );
+      expect(series.series).toHaveLength(2);
+    });
+  });
+
   describe("garbage collection", () => {
     it("should correctly garbage collect series that have a reference count of zero", async () => {
       const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
@@ -272,6 +399,62 @@ describe("StaticReadCache", () => {
       ).toHaveLength(0);
     });
   });
+  describe("integrity repair", () => {
+    // Reports honest bounds until the corrupt flag flips, simulating an insertion
+    // bug that leaves stored entries overlapping.
+    class CorruptedSeries extends Series {
+      corrupt = false;
+      override get alignmentBounds(): bounds.Bounds<bigint> {
+        if (this.corrupt) return bounds.construct(0n, 3n);
+        return super.alignmentBounds;
+      }
+    }
+    const plain = (startSec: number, data: number[], alignment: bigint) =>
+      new Series({
+        data: new Float32Array(data),
+        dataType: DataType.FLOAT32,
+        timeRange: TimeStamp.seconds(startSec).range(TimeStamp.seconds(startSec + 3)),
+        alignment,
+      });
+
+    it("should evict overlapping entries instead of failing every later write", () => {
+      const c = new Static({});
+      c.write(new MultiSeries([plain(0, [1, 2, 3], 0n)]));
+      const corrupted = new CorruptedSeries({
+        data: new Float32Array([4, 5, 6]),
+        dataType: DataType.FLOAT32,
+        timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(13)),
+        alignment: 10n,
+      });
+      c.write(new MultiSeries([corrupted]));
+      corrupted.corrupt = true;
+      c.write(new MultiSeries([plain(20, [7, 8, 9], 20n)]));
+      const { series } = c.dirtyRead(TimeStamp.seconds(0).range(TimeStamp.seconds(25)));
+      expect(series.series).toHaveLength(1);
+      expect(series.series[0].alignment).toEqual(20n);
+    });
+
+    it("should keep accepting writes after a repair", () => {
+      const c = new Static({});
+      const corrupted = new CorruptedSeries({
+        data: new Float32Array([4, 5, 6]),
+        dataType: DataType.FLOAT32,
+        timeRange: TimeStamp.seconds(10).range(TimeStamp.seconds(13)),
+        alignment: 10n,
+      });
+      c.write(new MultiSeries([plain(0, [1, 2, 3], 0n)]));
+      c.write(new MultiSeries([corrupted]));
+      corrupted.corrupt = true;
+      c.write(new MultiSeries([plain(20, [7, 8, 9], 20n)]));
+      c.write(new MultiSeries([plain(30, [10, 11, 12], 30n)]));
+      const { series, gaps } = c.dirtyRead(
+        TimeStamp.seconds(20).range(TimeStamp.seconds(33)),
+      );
+      expect(series.series).toHaveLength(2);
+      expect(gaps).toHaveLength(1);
+    });
+  });
+
   describe("integrity", () => {
     it("should accept many sequential non-overlapping writes without error", () => {
       const c = new Static({});

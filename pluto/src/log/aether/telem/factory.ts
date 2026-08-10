@@ -13,10 +13,10 @@ import { type telem } from "@/telem/aether";
 
 export class LogFactory implements telem.Factory {
   type = "log";
-  private readonly client: telem.client.Client;
+  private readonly client: telem.Client | null;
 
-  constructor(cl: telem.client.Client) {
-    this.client = cl;
+  constructor(client: telem.Client | null) {
+    this.client = client;
   }
 
   create(spec: telem.Spec, options?: telem.CreateOptions): telem.Telem | null {

@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError, status as cstatus } from "@synnaxlabs/client";
+import {
+  channel,
+  type framer,
+  NotFoundError,
+  status as cstatus,
+} from "@synnaxlabs/client";
 import {
   bounds,
   DataType,
@@ -35,7 +40,20 @@ import {
   type StringSourceSpec,
   type Telem,
 } from "@/telem/aether/telem";
-import { type client } from "@/telem/client";
+
+/** The slice of a Synnax client that remote telemetry sources consume. */
+export interface Client {
+  feed: Pick<framer.Feed, "read" | "stream">;
+  channels: {
+    retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
+  };
+}
+
+/** Reported by remote sources created while the cluster is disconnected. */
+export const DISCONNECTED_STATUS: cstatus.Crude = {
+  variant: "warning",
+  message: "cluster disconnected",
+};
 
 export const streamChannelValuePropsZ = z.object({
   channel: z.number().or(z.string()),
@@ -52,12 +70,13 @@ export class StreamChannelValue
   static readonly TYPE = "stream-channel-value";
   schema = streamChannelValuePropsZ;
 
-  private readonly client: client.Client;
+  private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
+  private generation = 0;
   private valid = false;
   private readonly onStatusChange?: status.Adder;
-  constructor(client: client.Client, props: unknown, options?: CreateOptions) {
+  constructor(client: Client | null, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
@@ -74,6 +93,7 @@ export class StreamChannelValue
   }
 
   cleanup(): void {
+    this.generation++;
     // Start off by stopping telemetry streaming.
     this.removeStreamHandler?.();
     // Set valid to false so if we read again, we know to update the buffer.
@@ -95,11 +115,18 @@ export class StreamChannelValue
   }
 
   private async read(): Promise<void> {
+    const generation = this.generation;
+    this.valid = true;
+    const { client } = this;
+    if (client == null) {
+      this.onStatusChange?.(DISCONNECTED_STATUS);
+      return;
+    }
     try {
-      this.valid = true;
       this.removeStreamHandler?.();
-      const ch = await this.client.retrieveChannel(this.props.channel);
-      const handler: client.StreamHandler = (res) => {
+      const ch = await client.channels.retrieve(this.props.channel);
+      const handler: framer.StreamHandler = (res) => {
+        if (generation !== this.generation) return;
         const data = res.get(ch.key);
         if (data == null) return;
         const first = data.series.at(-1);
@@ -111,7 +138,8 @@ export class StreamChannelValue
         // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
         this.notify();
       };
-      this.removeStreamHandler = await this.client.stream(handler, [ch.key]);
+      if (generation !== this.generation) return;
+      this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
       this.notify();
     } catch (e) {
       this.valid = false;
@@ -128,11 +156,11 @@ interface SelectedChannelProperties extends Pick<
 }
 
 const fetchChannelProperties = async (
-  client: client.ChannelClient,
+  client: Client,
   ch: channel.Key | channel.Name,
   fetchIndex: boolean,
 ): Promise<SelectedChannelProperties> => {
-  const c = await client.retrieveChannel(ch);
+  const c = await client.channels.retrieve(ch);
   const isCalculated = channel.isCalculated(c);
   if (!fetchIndex || c.isIndex)
     return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
@@ -155,25 +183,23 @@ export class ChannelData
   implements SeriesSource
 {
   static readonly TYPE = "series-source";
-  private readonly client: client.ReadClient & client.ChannelClient;
+  private readonly client: Client | null;
   schema = channelDataSourcePropsZ;
 
   private data: MultiSeries = new MultiSeries();
   private valid: boolean = false;
+  private generation = 0;
   private channel: SelectedChannelProperties | null = null;
   private readonly onStatusChange?: status.Adder;
 
-  constructor(
-    client: client.ReadClient & client.ChannelClient,
-    props: unknown,
-    options?: CreateOptions,
-  ) {
+  constructor(client: Client | null, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
   }
 
   cleanup(): void {
+    this.generation++;
     this.data.release();
     this.valid = false;
     this.channel = null;
@@ -194,15 +220,20 @@ export class ChannelData
   }
 
   private async read(): Promise<void> {
+    const generation = this.generation;
+    this.valid = true;
+    const { client } = this;
+    if (client == null) {
+      this.onStatusChange?.(DISCONNECTED_STATUS);
+      return;
+    }
     try {
-      this.valid = true;
       const { timeRange, channel, useIndexOfChannel } = this.props;
-      this.channel = await fetchChannelProperties(
-        this.client,
-        channel,
-        useIndexOfChannel,
-      );
-      const series = await this.client.read(timeRange, this.channel.key);
+      const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
+      if (generation !== this.generation) return;
+      this.channel = ch;
+      const series = await client.feed.read(timeRange, ch.key);
+      if (generation !== this.generation) return;
       series.acquire();
       this.data = series;
       this.notify();
@@ -227,7 +258,7 @@ export class StreamChannelData
   implements SeriesSource
 {
   static readonly TYPE = "dynamic-series-source";
-  private readonly client: client.Client;
+  private readonly client: Client | null;
   private readonly data: MultiSeries = new MultiSeries([]);
   private readonly now: () => TimeStamp;
   private readonly onStatusChange?: status.Adder;
@@ -235,10 +266,11 @@ export class StreamChannelData
   private channel: SelectedChannelProperties | null = null;
   private stopStreaming?: destructor.Destructor;
   private valid: boolean = false;
+  private generation = 0;
   schema = streamChannelDataPropsZ;
 
   constructor(
-    client: client.Client,
+    client: Client | null,
     props: unknown,
     options?: CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
@@ -266,24 +298,27 @@ export class StreamChannelData
   }
 
   private async read(): Promise<void> {
+    const generation = this.generation;
+    this.valid = true;
+    const { client } = this;
+    if (client == null) {
+      this.onStatusChange?.(DISCONNECTED_STATUS);
+      return;
+    }
     try {
-      this.valid = true;
       const { channel, useIndexOfChannel, timeSpan } = this.props;
-      this.channel = await fetchChannelProperties(
-        this.client,
-        channel,
-        useIndexOfChannel,
-      );
+      const fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
+      if (generation !== this.generation) return;
+      this.channel = fetched;
       const tr = this.now().spanRange(-timeSpan);
       if (!this.channel.virtual || this.channel.isCalculated)
         try {
-          const res = await this.client.read(tr, this.channel.key);
-          res.acquire();
-          this.data.push(res);
+          const res = await client.feed.read(tr, this.channel.key);
+          if (generation !== this.generation) return;
+          this.pushNew(res.series);
         } catch (e) {
-          // Certain calculated channels can fail to read because they need access
-          // to virtual channels that cannot be read from historically. Instead of
-          // throwing an
+          // Certain calculated channels can fail to read because they need access to
+          // virtual channels that cannot be read from historically.
           if (
             e instanceof Error &&
             (e.message.includes("cannot open iterator on virtual channel") ||
@@ -294,20 +329,30 @@ export class StreamChannelData
         }
 
       this.stopStreaming?.();
-      const handler: client.StreamHandler = (res) => {
-        if (this.channel == null) return;
+      const handler: framer.StreamHandler = (res) => {
+        if (generation !== this.generation || this.channel == null) return;
         const series = res.get(this.channel.key);
         if (series == null) return;
-        series.acquire();
-        this.data.push(series);
+        this.pushNew(series.series);
         this.notify();
         this.gcOutOfRangeData();
       };
-      this.stopStreaming = await this.client.stream(handler, [this.channel.key]);
+      if (generation !== this.generation) return;
+      this.stopStreaming = client.feed.stream(handler, [this.channel.key]).close;
       this.notify();
     } catch (e) {
       this.valid = false;
       this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel data"));
+    }
+  }
+
+  // feed.read returns the live leading buffer that the stream's first delivery
+  // repeats, so series already held by identity are skipped.
+  private pushNew(series: Series[]): void {
+    for (const s of series) {
+      if (this.data.series.includes(s)) continue;
+      s.acquire();
+      this.data.push(s);
     }
   }
 
@@ -320,6 +365,7 @@ export class StreamChannelData
   }
 
   cleanup(): void {
+    this.generation++;
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     this.data.release();
@@ -336,7 +382,7 @@ export class StreamChannelStringValue
   static readonly TYPE = "stream-channel-string-value";
   schema = streamChannelValuePropsZ;
 
-  private readonly client: client.Client;
+  private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
   private latest = "";
@@ -346,7 +392,7 @@ export class StreamChannelStringValue
   private generation = 0;
   private valid = false;
   private readonly onStatusChange?: status.Adder;
-  constructor(client: client.Client, props: unknown, options?: CreateOptions) {
+  constructor(client: Client | null, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
@@ -380,11 +426,16 @@ export class StreamChannelStringValue
 
   private async read(): Promise<void> {
     const generation = this.generation;
+    this.valid = true;
+    const { client } = this;
+    if (client == null) {
+      this.onStatusChange?.(DISCONNECTED_STATUS);
+      return;
+    }
     try {
-      this.valid = true;
       this.removeStreamHandler?.();
-      const ch = await this.client.retrieveChannel(this.props.channel);
-      const handler: client.StreamHandler = (res) => {
+      const ch = await client.channels.retrieve(this.props.channel);
+      const handler: framer.StreamHandler = (res) => {
         if (generation !== this.generation) return;
         const data = res.get(ch.key);
         if (data == null) return;
@@ -397,12 +448,8 @@ export class StreamChannelStringValue
         }
         this.notify();
       };
-      const removeStreamHandler = await this.client.stream(handler, [ch.key]);
-      if (generation !== this.generation) {
-        removeStreamHandler();
-        return;
-      }
-      this.removeStreamHandler = removeStreamHandler;
+      if (generation !== this.generation) return;
+      this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
       this.notify();
     } catch (e) {
       this.valid = false;
@@ -414,7 +461,7 @@ export class StreamChannelStringValue
 }
 
 type Constructor = new (
-  client: client.Client,
+  client: Client | null,
   props: unknown,
   options?: CreateOptions,
 ) => Telem;
@@ -426,10 +473,10 @@ const REGISTRY: Record<string, Constructor> = {
   [StreamChannelStringValue.TYPE]: StreamChannelStringValue,
 };
 
-export class RemoteFactory implements RemoteFactory {
+export class RemoteFactory {
   type = "remote";
-  private readonly client: client.Client;
-  constructor(client: client.Client) {
+  private readonly client: Client | null;
+  constructor(client: Client | null) {
     this.client = client;
   }
 
