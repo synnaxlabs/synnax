@@ -180,22 +180,17 @@ func operatorHint(op string, t basetypes.Type) string {
 	return ": " + op + " takes " + wants + " operands." + operatorSuggestion(op, t)
 }
 
-// isUntypedConstant reports whether t is a numeric literal constant that has not
-// resolved to a concrete type yet.
-func isUntypedConstant(t basetypes.Type) bool {
-	u := t.Unwrap()
+// isBitwiseNotOperand reports whether t is a valid ~ operand: an integer, an integer
+// channel, or an untyped integer constant, which resolves through the i64 default.
+func isBitwiseNotOperand(t basetypes.Type) bool {
+	u := t.UnwrapChan()
 	if u.Kind == basetypes.KindVariable {
 		if u.Constraint == nil {
 			return false
 		}
 		u = *u.Constraint
 	}
-	switch u.Kind {
-	case basetypes.KindNumericConstant, basetypes.KindIntegerConstant,
-		basetypes.KindFloatConstant, basetypes.KindExactIntegerFloatConstant:
-		return true
-	}
-	return false
+	return u.IsInteger() || u.Kind == basetypes.KindIntegerConstant
 }
 
 func getBitwiseXorOperator(ctx antlr.ParserRuleContext) string {
@@ -540,18 +535,7 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 				return
 			}
 		} else if ctx.AST.TILDE() != nil {
-			if !operandType.UnwrapChan().IsInteger() {
-				if isUntypedConstant(operandType) {
-					ctx.Diagnostics.Add(
-						diagnostics.Errorf(
-							ctx.AST,
-							"operator ~ requires a typed integer operand, "+
-								"received an untyped constant; cast it first, "+
-								"e.g. ~i64(1)",
-						),
-					)
-					return
-				}
+			if !isBitwiseNotOperand(operandType) {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,

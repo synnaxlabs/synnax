@@ -704,6 +704,11 @@ var _ = Describe("Expressions", func() {
 					y := ~x
 				}
 			`),
+			Entry("bitwise not on untyped integer constant", `
+				func testFunc() {
+					y := ~1
+				}
+			`),
 		)
 
 		DescribeTable("invalid unary operations",
@@ -770,16 +775,11 @@ var _ = Describe("Expressions", func() {
 					y := ~x
 				}
 			`, "operator ~ requires integer operand"),
-			Entry("bitwise not on untyped integer constant", `
-				func testFunc() {
-					y := ~1
-				}
-			`, "received an untyped constant; cast it first"),
 			Entry("bitwise not on untyped float constant", `
 				func testFunc() {
 					y := ~1.5
 				}
-			`, "received an untyped constant; cast it first"),
+			`, "operator ~ requires integer operand, received float"),
 		)
 	})
 

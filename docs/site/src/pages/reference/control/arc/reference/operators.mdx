@@ -97,17 +97,6 @@ Logical operators require `bool` operands, use short-circuit evaluation, and ret
 safe := b != 0 and (a / b) > 10
 ```
 
-### Truthiness
-
-In `if` and `for` conditions and `=>` conditional edges, any non-zero value is truthy:
-
-```arc
-errors := 3
-if errors { // truthy: non-zero numeric
-    alarm = true
-}
-```
-
 <Divider.Divider x />
 
 ## Bitwise Operators
@@ -115,13 +104,13 @@ if errors { // truthy: non-zero numeric
 Bitwise operators take integer operands and return the operand type. `xor` is the
 keyword alias of `^`.
 
-| Operator | Name        | Example               | Result |
-| -------- | ----------- | --------------------- | ------ |
-| `&`      | Bitwise AND | `i64(12) & i64(10)`   | `8`    |
-| `\|`     | Bitwise OR  | `i64(12) \| i64(10)`  | `14`   |
-| `~`      | Bitwise NOT | `~i64(12)`            | `-13`  |
-| `^`      | Bitwise XOR | `i64(12) ^ i64(10)`   | `6`    |
-| `xor`    | Bitwise XOR | `i64(12) xor i64(10)` | `6`    |
+| Operator | Name        | Example     | Result |
+| -------- | ----------- | ----------- | ------ |
+| `&`      | Bitwise AND | `12 & 10`   | `8`    |
+| `\|`     | Bitwise OR  | `12 \| 10`  | `14`   |
+| `~`      | Bitwise NOT | `~12`       | `-13`  |
+| `^`      | Bitwise XOR | `12 ^ 10`   | `6`    |
+| `xor`    | Bitwise XOR | `12 xor 10` | `6`    |
 
 Bitwise operators are not supported on series.
 
@@ -129,12 +118,12 @@ Bitwise operators are not supported on series.
 
 ## Unary Operators
 
-| Operator | Name        | Example    | Result  |
-| -------- | ----------- | ---------- | ------- |
-| `-`      | Negation    | `-5`       | `-5`    |
-| `~`      | Bitwise NOT | `~i64(12)` | `-13`   |
-| `!`      | Logical NOT | `!true`    | `false` |
-| `not`    | Logical NOT | `not true` | `false` |
+| Operator | Name        | Example    | Result        |
+| -------- | ----------- | ---------- | ------------- |
+| `-`      | Negation    | `-5`       | `-5`          |
+| `~`      | Bitwise NOT | `~12`      | `-13` (`i64`) |
+| `!`      | Logical NOT | `!true`    | `false`       |
+| `not`    | Logical NOT | `not true` | `false`       |
 
 Unary minus applies to numeric values:
 
@@ -196,7 +185,7 @@ Operators listed from highest to lowest precedence.
 a > 5 and b < 10 // (a > 5) and (b < 10)
 
 // Bitwise binds looser than comparison; parenthesize
-is_set := (flags & i64(4)) == i64(4)
+is_set := (flags & 4) == 4
 
 // Use parentheses for clarity
 (a + b) * c

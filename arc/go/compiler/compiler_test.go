@@ -4225,6 +4225,23 @@ var _ = Describe("Compiler", func() {
 				return ~~x
 			}`, int32(12)),
 			Entry("bitwise not i64", `{ return ~i64(0) }`, int64(-1)),
+			Entry("bitwise not i8", `{ return ~i8(12) }`, int8(-13)),
+			Entry("bitwise not i16", `{ return ~i16(12) }`, int16(-13)),
+			Entry("bitwise not i64 value", `{ return ~i64(12) }`, int64(-13)),
+			Entry("bitwise not u8", `{ return ~u8(12) }`, uint8(243)),
+			Entry("bitwise not u16", `{ return ~u16(12) }`, uint16(65523)),
+			Entry("bitwise not u32", `{ return ~u32(12) }`, uint32(4294967283)),
+			Entry(
+				"bitwise not u64",
+				`{ return ~u64(12) }`,
+				uint64(18446744073709551603),
+			),
+			Entry("bitwise not untyped constant", `{ return ~45 }`, int64(-46)),
+			Entry(
+				"bitwise not untyped equals i64 cast",
+				`{ return ~45 == ~i64(45) }`,
+				true,
+			),
 		)
 
 		DescribeTable("control flow",

@@ -108,6 +108,8 @@ func do_bitwise_i64(a i64) {
     bool_xor_sym_self_out = a ^ bool_xor_sym_self_b
     bool_xor_neg_out = a ^ bool_xor_neg_b
     bool_tilde_out = ~a
+    bool_tilde_lit_out = ~12
+    bool_tilde_eq_out = ~12 == ~i64(12)
 }
 bool_i64_trigger -> do_bitwise_i64{}
 
@@ -120,6 +122,8 @@ bool_i64_flow_trigger -> stage {
     bool_i64_flow_trigger ^ bool_xor_sym_self_b -> bool_xor_sym_self_out
     bool_i64_flow_trigger ^ bool_xor_neg_b -> bool_xor_neg_out
     ~bool_i64_flow_trigger -> bool_tilde_out
+    ~12 -> bool_tilde_lit_out
+    ~12 == ~i64(12) -> bool_tilde_eq_out
 }
 
 // ─────────────────────── bitwise operators (i32) ────────────────────
@@ -299,6 +303,8 @@ BITWISE_I64 = Section(
         Case("xor_sym_self", b_val=12, expected=0),
         Case("xor_neg", b_val=-1, expected=-13),
         Case("tilde", expected=-13),
+        Case("tilde_lit", expected=-13),
+        Case("tilde_eq", expected=1, out_type=BOOL),
     ],
 )
 

@@ -268,7 +268,7 @@ BitwiseOp ::= '&' | '|' | '^' | 'xor'
 10. `and`, `&&` (short-circuit)
 11. `or`, `||` (short-circuit)
 
-Bitwise operators take integer operands; `~` requires a typed operand (`~i64(1)`).
+Bitwise operators take integer operands.
 
 Examples:
 
@@ -279,12 +279,12 @@ func example{}(){
     remainder := 10 % 3 // 1
     in_range := temp >= 20 and temp <= 30 // bool
     ready := in_range && !fault // aliases of and, not
-    a := i64(12)
-    b := i64(10)
+    a := 12
+    b := 10
     masked := a & b // 8
     flipped := a xor b // 6 (same as a ^ b)
     inverted := ~a // -13
-    is_set := (a & b) == i64(8) // true; & binds looser than ==, so parenthesize
+    is_set := (a & b) == 8 // true; & binds looser than ==, so parenthesize
 }
 ```
 
@@ -753,8 +753,7 @@ These simplify implementation while maintaining expressiveness:
 - **Flow graph**: Cycles in non-transition flows, unconnected inputs, type mismatches
 - **Dimensional**: Incompatible units in operations, non-literal exponent with
   dimensioned base
-- **Operands**: Non-`bool` logical operands, non-integer bitwise operands, `~` on an
-  untyped constant
+- **Operands**: Non-`bool` logical operands, non-integer bitwise operands
 
 ### Runtime Errors
 
