@@ -44,7 +44,7 @@ export const ListItem = ({
     data-command-key={itemKey}
     {...props}
   >
-    <Text.Text weight={400} gap="medium">
+    <Text.Text gap="medium">
       {icon}
       {name}
     </Text.Text>
