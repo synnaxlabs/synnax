@@ -16,9 +16,9 @@ import { useCallback } from "react";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Link } from "@/platform/link";
+import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export const fetchIfNotInState = async (
@@ -53,9 +53,9 @@ const useDelete = () => {
   const handleRemove = (keys: string[]): void => {
     dispatch(Session.Range.remove({ keys }));
   };
-  const confirm = Tree.useConfirmDelete({
+  const confirm = Modals.useConfirmDelete({
     type: "Range",
-    description: "Deleting this range will also delete all child ranges.",
+    description: "Deleting a range also deletes its child ranges.",
   });
   const { update } = Ranger.useDelete({
     beforeUpdate: useCallback(
@@ -154,11 +154,9 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
               View details
             </Menu.Item>
           )}
+          <Menu.Divider />
           {hasUpdatePermission && (
-            <>
-              <Menu.Divider />
-              <Base.RenameItem onClick={() => Text.edit(`text-${key}`)} />
-            </>
+            <Base.RenameItem onClick={() => Text.edit(`text-${key}`)} />
           )}
           {hasCreatePermission && rng.persisted && (
             <Menu.Item itemKey="addChildRange" onClick={handleAddChildRange}>
@@ -179,32 +177,27 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
               Add to new plot
             </Menu.Item>
           )}
+          {!rng.persisted && hasCreatePermission && client != null && (
+            <Menu.Item itemKey="save" onClick={() => persist(rng.key)}>
+              <Icon.Save />
+              Save to Synnax
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          {rng.persisted && (
+            <Link.CopyContextMenuItem
+              onClick={() =>
+                handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) })
+              }
+            />
+          )}
           <Menu.Divider />
           <Menu.Item itemKey="remove" onClick={() => handleRemove([rng.key])}>
             <Icon.Close />
             Unfavorite
           </Menu.Item>
-          {rng.persisted ? (
-            <>
-              {hasDeletePermission && <Base.DeleteItem onClick={() => del(rng.key)} />}
-              <Menu.Divider />
-              <Link.CopyContextMenuItem
-                onClick={() =>
-                  handleLink({ name: rng.name, ontologyID: ranger.ontologyID(rng.key) })
-                }
-              />
-            </>
-          ) : (
-            hasCreatePermission &&
-            client != null && (
-              <>
-                <Menu.Divider />
-                <Menu.Item itemKey="save" onClick={() => persist(rng.key)}>
-                  <Icon.Save />
-                  Save to Synnax
-                </Menu.Item>
-              </>
-            )
+          {rng.persisted && hasDeletePermission && (
+            <Base.DeleteItem onClick={() => del(rng.key)} />
           )}
         </>
       )}
