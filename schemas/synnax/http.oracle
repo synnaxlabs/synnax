@@ -287,7 +287,7 @@ WriteEndpoint struct {
     @doc value "is a single HTTP endpoint written to by a write task."
 }
 
-WriteConfig struct extends task.BaseConfig {
+WriteConfig struct extends task.BaseStartConfig {
     device    device.Key = "" {
         @doc value "is the key of the HTTP server device to write to."
     }

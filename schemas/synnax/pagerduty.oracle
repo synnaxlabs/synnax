@@ -40,7 +40,7 @@ Alert struct {
     @doc value "maps a Synnax status to a PagerDuty event routing rule."
 }
 
-TaskConfig struct extends task.BaseConfig {
+TaskConfig struct extends task.BaseStartConfig {
     routing_key string = "" {
         @doc value "is the PagerDuty Events API v2 routing key."
     }

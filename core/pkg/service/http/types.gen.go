@@ -483,7 +483,7 @@ func (w WriteEndpoint) Validate() error {
 // WriteConfig configures an HTTP write task, which sends an HTTP request whenever a
 // value is written to an endpoint's command channel.
 type WriteConfig struct {
-	common.BaseConfig
+	common.BaseStartConfig
 	// Device is the key of the HTTP server device to write to.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Endpoints contains the endpoints to write to.

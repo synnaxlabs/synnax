@@ -273,7 +273,7 @@ class ReadConfig(task.BasePersistConfig):
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
 
 
-class WriteConfig(task.BaseConfig):
+class WriteConfig(task.BaseStartConfig):
     """Configures an HTTP write task, which sends an HTTP request whenever a value is
     written to an endpoint's command channel.
 

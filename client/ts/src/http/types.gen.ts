@@ -234,7 +234,7 @@ export const readConfigZ = task.basePersistConfigZ.extend({
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const writeConfigZ = task.baseConfigZ.extend({
+export const writeConfigZ = task.baseStartConfigZ.extend({
   device: device.keyZ.default(""),
   endpoints: writeEndpointZ.array().default(() => []),
 });

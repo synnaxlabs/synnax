@@ -18,13 +18,13 @@
 
 namespace synnax::common {
 
-inline BaseConfig BaseConfig::parse(x::json::Parser parser) {
-    return BaseConfig{
+inline BaseStartConfig BaseStartConfig::parse(x::json::Parser parser) {
+    return BaseStartConfig{
         .auto_start = parser.field<bool>("auto_start", false),
     };
 }
 
-inline x::json::json BaseConfig::to_json() const {
+inline x::json::json BaseStartConfig::to_json() const {
     x::json::json j;
     j["auto_start"] = this->auto_start;
     return j;
@@ -32,14 +32,14 @@ inline x::json::json BaseConfig::to_json() const {
 
 inline BasePersistConfig BasePersistConfig::parse(x::json::Parser parser) {
     BasePersistConfig result;
-    static_cast<BaseConfig &>(result) = BaseConfig::parse(parser);
+    static_cast<BaseStartConfig &>(result) = BaseStartConfig::parse(parser);
     result.data_saving_disabled = parser.field<bool>("data_saving_disabled", false);
     return result;
 }
 
 inline x::json::json BasePersistConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseConfig::to_json().items())
+    for (auto &[k, v]: BaseStartConfig::to_json().items())
         j[k] = v;
     j["data_saving_disabled"] = this->data_saving_disabled;
     return j;

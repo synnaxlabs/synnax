@@ -25,7 +25,7 @@ from x import telem
 Key: TypeAlias = UUID
 
 
-class BaseConfig(BaseModel):
+class BaseStartConfig(BaseModel):
     """Carries the configuration fields shared by every task.
 
     Attributes:
@@ -76,7 +76,7 @@ class Command(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
-class BasePersistConfig(BaseConfig):
+class BasePersistConfig(BaseStartConfig):
     """Carries the configuration fields shared by tasks that write telemetry.
 
     Attributes:

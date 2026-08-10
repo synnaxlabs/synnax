@@ -252,7 +252,7 @@ struct ReadConfig : public ::synnax::common::BasePersistConfig {
 
 /// @brief WriteConfig configures an HTTP write task, which sends an HTTP request
 /// whenever a value is written to an endpoint's command channel.
-struct WriteConfig : public ::synnax::common::BaseConfig {
+struct WriteConfig : public ::synnax::common::BaseStartConfig {
     /// @brief device is the key of the HTTP server device to write to.
     ::synnax::device::Key device = "";
     /// @brief endpoints contains the endpoints to write to.

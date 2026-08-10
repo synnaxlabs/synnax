@@ -17,17 +17,17 @@ import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { status } from "@/status";
 
-/** BaseConfig carries the configuration fields shared by every task. */
-export const baseConfigZ = z.object({
+/** BaseStartConfig carries the configuration fields shared by every task. */
+export const baseStartConfigZ = z.object({
   /** autoStart is true when the task should start as soon as it is configured. */
   autoStart: z.boolean().default(false),
 });
-export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
+export interface BaseStartConfig extends z.infer<typeof baseStartConfigZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const basePersistConfigZ = baseConfigZ.extend({
+export const basePersistConfigZ = baseStartConfigZ.extend({
   dataSavingDisabled: z.boolean().default(false),
 });
 export interface BasePersistConfig extends z.infer<typeof basePersistConfigZ> {}
