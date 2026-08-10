@@ -12,7 +12,7 @@ import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Editor, type EditorHandle } from "@/code/Editor";
-import { type EditorExtension, type Language } from "@/code/language";
+import { BASE_THEMES, type EditorExtension, type Language } from "@/code/language";
 
 // Mock the Provider module — the real one pulls in the monaco-vscode-api runtime, whose
 // deep CSS imports cannot be evaluated under Node's ESM loader. We feed Editor a fake
@@ -401,8 +401,8 @@ describe("Editor", () => {
         theme: { semanticTokenColors: { dark: {}, light: {} } },
       } satisfies Language);
       renderEditor();
-      expect(monaco.editor.create.mock.calls[0][1].theme).toEqual("Default Light+");
-      expect(monaco.editor.setTheme).toHaveBeenCalledWith("Default Light+");
+      expect(monaco.editor.create.mock.calls[0][1].theme).toEqual(BASE_THEMES.light);
+      expect(monaco.editor.setTheme).toHaveBeenCalledWith(BASE_THEMES.light);
     });
   });
 
