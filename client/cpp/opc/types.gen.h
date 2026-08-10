@@ -51,7 +51,7 @@ struct BaseChannel {
 /// @brief InputChannel is a single OPC UA node the task reads from.
 struct InputChannel : public BaseChannel {
     /// @brief channel is the Synnax channel that samples are written to.
-    ::synnax::channel::Key channel = 0;
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief use_as_index is true when the channel's Synnax channel is the task's
     /// index.
     bool use_as_index = false;
@@ -63,7 +63,7 @@ struct InputChannel : public BaseChannel {
 /// @brief OutputChannel is a single OPC UA node the task drives.
 struct OutputChannel : public BaseChannel {
     /// @brief cmd_channel is the Synnax channel commands are read from.
-    ::synnax::channel::Key cmd_channel = 0;
+    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
 
     static OutputChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

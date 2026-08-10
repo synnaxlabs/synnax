@@ -266,7 +266,7 @@ struct BaseAIChannel {
     /// @brief disabled is true when the channel is excluded from acquisition.
     bool disabled = false;
     /// @brief channel is the Synnax channel that raw samples are written to.
-    ::synnax::channel::Key channel = 0;
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical port the channel reads from.
     std::int32_t port = 0;
     /// @brief device is the key of the device the channel belongs to.
@@ -285,7 +285,7 @@ struct BaseCIChannel {
     /// @brief disabled is true when the channel is excluded from acquisition.
     bool disabled = false;
     /// @brief channel is the Synnax channel that raw samples are written to.
-    ::synnax::channel::Key channel = 0;
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical counter the channel uses.
     std::int32_t port = 0;
     /// @brief device is the key of the device the counter belongs to.
@@ -302,9 +302,9 @@ struct BaseAOChannel {
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
     /// @brief cmd_channel is the Synnax channel commands are read from.
-    ::synnax::channel::Key cmd_channel = 0;
+    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
     /// @brief state_channel is the Synnax channel the output state is written to.
-    ::synnax::channel::Key state_channel = 0;
+    ::synnax::channel::Key state_channel = ::synnax::channel::Key(0);
     /// @brief cmd_channel_name is the human-readable name of the command channel.
     std::string cmd_channel_name = "";
     /// @brief state_channel_name is the human-readable name of the state channel.
@@ -320,7 +320,7 @@ struct BaseAOChannel {
 struct WriteConfig : public ::synnax::common::BaseWriteConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
     /// hertz.
-    ::x::telem::Rate state_rate = x::telem::Rate(10);
+    ::x::telem::Rate state_rate = ::x::telem::Rate(10);
 
     static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -371,7 +371,7 @@ struct DigitalInputChannel {
     /// @brief disabled is true when the channel is excluded from acquisition.
     bool disabled = false;
     /// @brief channel is the Synnax channel that raw samples are written to.
-    ::synnax::channel::Key channel = 0;
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical port the channel reads from.
     std::int32_t port = 0;
     /// @brief line is the digital line within the port the channel reads from.
@@ -395,9 +395,9 @@ struct DOChannelDigitalOutput {
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
     /// @brief cmd_channel is the Synnax channel commands are read from.
-    ::synnax::channel::Key cmd_channel = 0;
+    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
     /// @brief state_channel is the Synnax channel the output state is written to.
-    ::synnax::channel::Key state_channel = 0;
+    ::synnax::channel::Key state_channel = ::synnax::channel::Key(0);
     /// @brief cmd_channel_name is the human-readable name of the command channel.
     std::string cmd_channel_name = "";
     /// @brief state_channel_name is the human-readable name of the state channel.
