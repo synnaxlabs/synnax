@@ -45,27 +45,27 @@ func concat_xx(s str) {
 str_trigger -> concat_xx{}
 // ───────────────────────────── equal (==) ────────────────────────────
 // equal(const, const)
-func equal_cc(s str) u8 {
+func equal_cc(s str) bool {
     return "abc" == "abc"
 }
 str_trigger -> equal_cc{} -> equal_cc_out
 // equal(chan, const) — match
-func equal_xc_match(s str) u8 {
+func equal_xc_match(s str) bool {
     return s == "hello"
 }
 str_trigger -> equal_xc_match{} -> equal_xc_match_out
 // equal(chan, const) — mismatch
-func equal_xc_mismatch(s str) u8 {
+func equal_xc_mismatch(s str) bool {
     return s == "world"
 }
 str_trigger -> equal_xc_mismatch{} -> equal_xc_mismatch_out
 // equal(const, chan)
-func equal_cx(s str) u8 {
+func equal_cx(s str) bool {
     return "hello" == s
 }
 str_trigger -> equal_cx{} -> equal_cx_out
 // equal(chan, chan) — same
-func equal_xx_same(s str) u8 {
+func equal_xx_same(s str) bool {
     return s == s
 }
 str_trigger -> equal_xx_same{} -> equal_xx_same_out
@@ -158,7 +158,7 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("str_second", sy.DataType.STRING),
     ("str_third", sy.DataType.STRING),
     ("concat_xx_out", sy.DataType.INT64),
-    ("equal_xx_diff_out", sy.DataType.UINT8),
+    ("equal_xx_diff_out", sy.DataType.BOOL),
     ("concat_nested_out", sy.DataType.INT64),
     ("multi_add_out", sy.DataType.INT64),
     # Format string inputs and outputs (all virtual to keep setup uniform).
@@ -226,11 +226,11 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("concat_cc_out", sy.DataType.INT64),
     ("concat_xc_out", sy.DataType.INT64),
     ("concat_cx_out", sy.DataType.INT64),
-    ("equal_cc_out", sy.DataType.UINT8),
-    ("equal_xc_match_out", sy.DataType.UINT8),
-    ("equal_xc_mismatch_out", sy.DataType.UINT8),
-    ("equal_cx_out", sy.DataType.UINT8),
-    ("equal_xx_same_out", sy.DataType.UINT8),
+    ("equal_cc_out", sy.DataType.BOOL),
+    ("equal_xc_match_out", sy.DataType.BOOL),
+    ("equal_xc_mismatch_out", sy.DataType.BOOL),
+    ("equal_cx_out", sy.DataType.BOOL),
+    ("equal_xx_same_out", sy.DataType.BOOL),
 ]
 
 ALL_CHANNELS = [name for name, _ in VIRTUAL_CHANNELS]
