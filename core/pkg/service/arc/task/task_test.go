@@ -192,7 +192,7 @@ var _ = Describe("Task", Ordered, func() {
 			Type:   arctask.Type,
 			Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 		}
-		return MustSucceed(factory.ConfigureTask(ctx, svcTask, true))
+		return MustSucceed(factory.ConfigureTask(ctx, svcTask, "cmd-1"))
 	}
 
 	simpleGraph := func(chKey channel.Key) graph.Graph {
@@ -298,7 +298,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   "not-arc",
 					Config: map[string]any{},
 				}
-				Expect(factory.ConfigureTask(ctx, svcTask, true)).Error().
+				Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 					To(MatchError(driver.ErrTaskNotHandled))
 			},
 		)
@@ -327,7 +327,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
-			Expect(factory.ConfigureTask(ctx, svcTask, true)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(HaveOccurred())
 		})
 
@@ -344,7 +344,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
-			Expect(factory.ConfigureTask(ctx, svcTask, true)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 
@@ -362,7 +362,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
-			Expect(factory.ConfigureTask(ctx, svcTask, true)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(HaveOccurred())
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -387,7 +387,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
-			Expect(factory.ConfigureTask(ctx, svcTask, true)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -398,33 +398,69 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
-		It("Should set success status when task is configured", func(ctx SpecContext) {
-			ch := &channel.Channel{
-				Name:     "config_status_test_ch_" + uuid.NewString()[:8],
-				Virtual:  true,
-				DataType: telem.Float32T,
-			}
-			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
-			svcTask := task.Task{
-				Key:    uuid.New(),
-				Name:   "test-config-success",
-				Type:   arctask.Type,
-				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
-			}
-			t := MustSucceed(
-				newGraphFactory(simpleGraph(ch.Key())).
-					ConfigureTask(ctx, svcTask, true),
-			)
-			Expect(t).ToNot(BeNil())
-			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
-			var stat task.Status
-			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
-				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
-				Entry(&stat).Exec(ctx, nil)).To(Succeed())
-			Expect(stat.Variant).To(BeEquivalentTo("success"))
-			Expect(stat.Message).To(Equal("Task configured successfully"))
-			Expect(stat.Details.Running).To(BeFalse())
-		})
+		It(
+			"Should write no status for a successful configure driven by a command",
+			func(ctx SpecContext) {
+				ch := &channel.Channel{
+					Name:     "config_status_test_ch_" + uuid.NewString()[:8],
+					Virtual:  true,
+					DataType: telem.Float32T,
+				}
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-config-success",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newGraphFactory(simpleGraph(ch.Key())).
+						ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t).ToNot(BeNil())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+				var stat task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
+					Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		It(
+			"Should attribute a start acknowledgment to the command and name it",
+			func(ctx SpecContext) {
+				ch := &channel.Channel{
+					Name:     "start_ack_test_ch_" + uuid.NewString()[:8],
+					Virtual:  true,
+					DataType: telem.Float32T,
+				}
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-start-ack",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newGraphFactory(simpleGraph(ch.Key())).
+						ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t).ToNot(BeNil())
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+				Expect(t.Exec(ctx, task.Command{
+					Task: svcTask.Key,
+					Type: "start",
+					Key:  "cmd-start",
+				})).To(Succeed())
+				var stat task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				Expect(stat.Name).To(Equal(svcTask.Name))
+				Expect(stat.Details.Cmd).To(Equal("cmd-start"))
+				Expect(stat.Details.Running).To(BeTrue())
+			},
+		)
 
 		It(
 			"Should auto-start task and set running status when auto_start is true",
@@ -446,7 +482,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key())).
-					ConfigureTask(ctx, svcTask, true))
+					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
@@ -479,7 +515,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key())).
-					ConfigureTask(ctx, svcTask, true))
+					ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t).ToNot(BeNil())
 				Expect(t.Stop(false)).To(Succeed())
 				var stat task.Status
@@ -507,7 +543,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 				}
-				Expect(factory.ConfigureTask(ctx, svcTask, false)).Error().
+				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(HaveOccurred())
 				var stat task.Status
 				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -532,7 +568,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
-				Expect(factory.ConfigureTask(ctx, svcTask, false)).Error().
+				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
 				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -560,7 +596,7 @@ var _ = Describe("Task", Ordered, func() {
 						AutoStart: true,
 					}),
 				}
-				Expect(factory.ConfigureTask(ctx, svcTask, false)).Error().
+				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(query.ErrNotFound))
 				var stat task.Status
 				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -589,7 +625,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key())).
-					ConfigureTask(ctx, svcTask, false))
+					ConfigureTask(ctx, svcTask, driver.NoCommand))
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
@@ -617,7 +653,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			t := MustSucceed(newGraphFactory(
 				simpleGraph(ch.Key())).
-				ConfigureTask(ctx, svcTask, false))
+				ConfigureTask(ctx, svcTask, driver.NoCommand))
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
@@ -767,8 +803,11 @@ var _ = Describe("Task", Ordered, func() {
 					Type:   arctask.Type,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
-				Expect(newGraphFactory(badNodeGraph).ConfigureTask(ctx, svcTask, true)).
-					Error().To(MatchError(ContainSubstring("undefined symbol")))
+				Expect(
+					newGraphFactory(badNodeGraph).ConfigureTask(ctx, svcTask, "cmd-1"),
+				).
+					Error().
+					To(MatchError(ContainSubstring("undefined symbol")))
 			},
 		)
 	})
@@ -920,7 +959,7 @@ var _ = Describe("Task", Ordered, func() {
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			t := MustSucceed(
-				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, true),
+				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 			)
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
@@ -1018,7 +1057,7 @@ var _ = Describe("Task", Ordered, func() {
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				t := MustSucceed(
-					newGraphFactory(reportGraph).ConfigureTask(ctx, svcTask, true),
+					newGraphFactory(reportGraph).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
 				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
@@ -1975,7 +2014,7 @@ var _ = Describe("Task", Ordered, func() {
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				t := MustSucceed(
-					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, true),
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 				)
 				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				defer func() {
@@ -2114,7 +2153,7 @@ var _ = Describe("Task", Ordered, func() {
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			t := MustSucceed(
-				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, true),
+				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
 			)
 
 			responses, closeStreamer := openTestStreamer(

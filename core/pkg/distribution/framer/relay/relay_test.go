@@ -107,6 +107,58 @@ var _ = Describe("Relay", func() {
 			})
 		}
 	})
+	Describe("Time Range Stamping", func() {
+		It(
+			"Should deliver series stamped with the index's time range",
+			func(ctx SpecContext) {
+				node := mock.NewNode(ctx)
+				idx := channel.Channel{
+					Name:     "stamp_time",
+					IsIndex:  true,
+					DataType: telem.TimeStampT,
+				}
+				idx = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idx}))[0]
+				data := channel.Channel{
+					Name:       "stamp_data",
+					DataType:   telem.Float32T,
+					LocalIndex: idx.LocalKey,
+				}
+				data = MustSucceed(node.Channel.Create(ctx, []channel.Channel{data}))[0]
+				keys := channel.KeysFromChannels([]channel.Channel{idx, data})
+
+				reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
+					Keys: keys,
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				streamerReq, readerRes := confluence.Attach(reader, 10)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				time.Sleep(10 * time.Millisecond)
+
+				w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+				}))
+				Expect(w.Write(frame.NewMulti(
+					keys,
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+						telem.NewSeriesV[float32](1, 2, 3),
+					},
+				))).To(BeTrue())
+				var res relay.Response
+				Eventually(readerRes.Outlet()).Should(Receive(&res))
+				Expect(res.Frame.Count()).To(Equal(2))
+				expected := (10 * telem.SecondTS).Range(12*telem.SecondTS + 1)
+				for i := range res.Frame.Count() {
+					Expect(res.Frame.SeriesAt(i).TimeRange).To(Equal(expected))
+				}
+				Expect(w.Close()).To(Succeed())
+				streamerReq.Close()
+				confluence.Drain(readerRes)
+			},
+		)
+	})
 	Describe("ExcludeGroups", Ordered, func() {
 		It(
 			"Should filter out frames from a matching group on gateway writes",

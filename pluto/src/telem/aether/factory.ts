@@ -11,10 +11,9 @@ import { type status } from "@/status/aether";
 import { type telem } from "@/telem/aether";
 import { NoopFactory } from "@/telem/aether/noop";
 import { PipelineFactory } from "@/telem/aether/pipeline";
-import { RemoteFactory } from "@/telem/aether/remote";
+import { type Client, RemoteFactory } from "@/telem/aether/remote";
 import { StaticFactory } from "@/telem/aether/static";
 import { TransformerFactory } from "@/telem/aether/transformers";
-import { type client } from "@/telem/client";
 
 export interface CreateOptions {
   onStatusChange?: status.Adder;
@@ -50,10 +49,17 @@ export class CompoundFactory {
   }
 }
 
-export const createFactory = (client?: client.Client): CompoundFactory => {
-  const base = [new TransformerFactory(), new StaticFactory(), new NoopFactory()];
-  const f = new CompoundFactory(base);
-  if (client != null) f.add(new RemoteFactory(client));
+export const createFactory = (
+  client: Client | null = null,
+  extra: Factory[] = [],
+): CompoundFactory => {
+  const f = new CompoundFactory([
+    new TransformerFactory(),
+    new StaticFactory(),
+    new NoopFactory(),
+  ]);
+  f.add(new RemoteFactory(client));
+  extra.forEach((e) => f.add(e));
   f.add(new PipelineFactory(f));
   return f;
 };
