@@ -13,14 +13,11 @@ package common
 
 import "github.com/synnaxlabs/synnax/pkg/service/task/common/versions"
 
-// ConfigRecord is the base for every stored task configuration record.
-type ConfigRecord = versions.ConfigRecord
+// KeyedConfig is the base for every stored task configuration record.
+type KeyedConfig = versions.KeyedConfig
 
-// BaseScanConfig carries the fields shared by every scan task configuration.
-type BaseScanConfig = versions.BaseScanConfig
-
-// BaseConfig carries the configuration fields shared by every task.
-type BaseConfig = versions.BaseConfig
+// BaseStartConfig carries the configuration fields shared by every task.
+type BaseStartConfig = versions.BaseStartConfig
 
 // BasePersistConfig carries the configuration fields shared by tasks that write
 // telemetry.
@@ -31,3 +28,6 @@ type BaseReadConfig = versions.BaseReadConfig
 
 // BaseWriteConfig carries the configuration fields shared by hardware control tasks.
 type BaseWriteConfig = versions.BaseWriteConfig
+
+// BaseScanConfig carries the fields shared by every scan task configuration.
+type BaseScanConfig = versions.BaseScanConfig

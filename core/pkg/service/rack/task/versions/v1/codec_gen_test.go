@@ -37,16 +37,16 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.StatusConfig{
-				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 			}),
-			Entry("zero values", v1.StatusConfig{ConfigRecord: common.ConfigRecord{Key: uuid.Nil}}),
+			Entry("zero values", v1.StatusConfig{KeyedConfig: common.KeyedConfig{Key: uuid.Nil}}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeStatusConfig(b *testing.B) {
 	seed := v1.StatusConfig{
-		ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+		KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -66,7 +66,7 @@ func BenchmarkEncodeDecodeStatusConfig(b *testing.B) {
 func FuzzDecodeStatusConfig(f *testing.F) {
 	{
 		seed := v1.StatusConfig{
-			ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			KeyedConfig: common.KeyedConfig{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -75,7 +75,7 @@ func FuzzDecodeStatusConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.StatusConfig{ConfigRecord: common.ConfigRecord{Key: uuid.Nil}}
+		seed := v1.StatusConfig{KeyedConfig: common.KeyedConfig{Key: uuid.Nil}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

@@ -66,7 +66,7 @@ type Service struct {
 	// DigitalWrite stores ni_digital_write task configuration records.
 	DigitalWrite *common.ConfigService[DigitalWriteConfig, *DigitalWriteConfig]
 	// Scanner stores ni_scanner task configuration records.
-	Scanner *common.ConfigService[ScannerConfig, *ScannerConfig]
+	Scanner *common.ConfigService[ScanConfig, *ScanConfig]
 	closer  xio.MultiCloser
 }
 
@@ -140,7 +140,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	) {
 		return nil, err
 	}
-	if s.Scanner, err = common.OpenConfigService[ScannerConfig](
+	if s.Scanner, err = common.OpenConfigService[ScanConfig](
 		ctx,
 		base,
 		common.ConfigServiceConfig{

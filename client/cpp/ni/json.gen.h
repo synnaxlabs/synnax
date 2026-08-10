@@ -567,15 +567,15 @@ inline x::json::json DigitalWriteConfig::to_json() const {
     return j;
 }
 
-inline ScannerConfig ScannerConfig::parse(x::json::Parser parser) {
-    ScannerConfig result;
+inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
+    ScanConfig result;
     static_cast<::synnax::common::BaseScanConfig &>(
         result
     ) = ::synnax::common::BaseScanConfig::parse(parser);
     return result;
 }
 
-inline x::json::json ScannerConfig::to_json() const {
+inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
     for (auto &[k, v]: ::synnax::common::BaseScanConfig::to_json().items())
         j[k] = v;

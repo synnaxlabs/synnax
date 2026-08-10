@@ -154,7 +154,7 @@ Command struct {
     @doc value "is a command to execute on a task in the Driver system."
 }
 
-ConfigRecord struct {
+KeyedConfig struct {
     key uuid = create {
         @key
         @doc value "is the unique identifier for the stored configuration record."
@@ -167,23 +167,7 @@ ConfigRecord struct {
     @pb omit
 }
 
-BaseScanConfig struct extends ConfigRecord {
-    rate     telem.Rate = 0.2 {
-        @doc value "is the rate at which the scan runs, in hertz."
-        @ts type   "number"
-    }
-    disabled bool = false {
-        @doc value "is true when scanning is paused."
-    }
-
-    @doc value  "carries the fields shared by every scan task configuration."
-    @go version 0
-    @go output  "core/pkg/service/task/common"
-    @cpp output "client/cpp/task/common"
-    @pb omit
-}
-
-BaseConfig struct extends ConfigRecord {
+BaseStartConfig struct extends KeyedConfig {
     auto_start bool = false {
         @doc value "is true when the task should start as soon as it is configured."
     }
@@ -195,7 +179,7 @@ BaseConfig struct extends ConfigRecord {
     @pb omit
 }
 
-BasePersistConfig struct extends BaseConfig {
+BasePersistConfig struct extends BaseStartConfig {
     data_saving_disabled bool = false {
         @doc value "is true when task telemetry is not persisted to disk."
     }
@@ -230,6 +214,22 @@ BaseWriteConfig struct extends BasePersistConfig {
     }
 
     @doc value  "carries the configuration fields shared by hardware control tasks."
+    @go version 0
+    @go output  "core/pkg/service/task/common"
+    @cpp output "client/cpp/task/common"
+    @pb omit
+}
+
+BaseScanConfig struct extends KeyedConfig {
+    rate     telem.Rate = 0.2 {
+        @doc value "is the rate at which the scan runs, in hertz."
+        @ts type   "number"
+    }
+    disabled bool = false {
+        @doc value "is true when scanning is paused."
+    }
+
+    @doc value  "carries the fields shared by every scan task configuration."
     @go version 0
     @go output  "core/pkg/service/task/common"
     @cpp output "client/cpp/task/common"
