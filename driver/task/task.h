@@ -133,6 +133,10 @@ public:
     }
 };
 
+/// @brief the cmd_key given to configure_task when no command drives the configure,
+/// as at boot. Nothing is waiting on the outcome.
+inline constexpr auto NO_COMMAND = "";
+
 class Factory {
 public:
     virtual std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
@@ -146,7 +150,7 @@ public:
     virtual std::string name() { return ""; }
 
     /// @brief builds a live instance of the task if this factory handles its type.
-    /// @param cmd_key the start command driving the deploy, empty at boot.
+    /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot.
     /// @returns the instance and whether this factory handled the type.
     virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
@@ -327,6 +331,15 @@ private:
         std::atomic<bool> processing{false};
         /// @brief when the current operation started (0 if idle).
         std::atomic<x::telem::TimeStamp> op_started{x::telem::TimeStamp(0)};
+        /// @brief the command key driving the current operation, NO_COMMAND when
+        /// none. Guarded by mu.
+        std::string op_cmd;
+        /// @brief the config hash the current operation deploys, or the deployed
+        /// hash for operations that carry no config. Guarded by mu.
+        std::string op_config_hash;
+        /// @brief true once the current operation has been reported as timed out,
+        /// so it is reported once instead of every poll.
+        std::atomic<bool> timed_out{false};
 
         [[nodiscard]] bool relevant(const synnax::rack::Key rack) {
             std::lock_guard lock{this->mu};
