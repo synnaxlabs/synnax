@@ -489,6 +489,54 @@ describe("RollingAverage", () => {
     t.setSources({ in: new TestSource(123n) });
     expect(t.value()).toBe(123);
   });
+
+  it("returns the latest value until the window holds a sample", () => {
+    const t = new RollingAverage({ windowSize: 3 });
+    t.setSources({ in: new TestSource(42) });
+    expect(t.value()).toBe(42);
+  });
+
+  it("averages the samples the window holds before it fills", () => {
+    const t = new RollingAverage({ windowSize: 4 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    t.onChange(() => {});
+    source.setValue(2);
+    source.setValue(4);
+    expect(t.value()).toBe(3);
+  });
+
+  it("averages the last windowSize samples once the window fills", () => {
+    const t = new RollingAverage({ windowSize: 3 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    t.onChange(() => {});
+    [1, 2, 3, 10, 20, 30].forEach((v) => source.setValue(v));
+    expect(t.value()).toBe(20);
+  });
+
+  it("keeps a NaN sample out of the window", () => {
+    const t = new RollingAverage({ windowSize: 3 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    t.onChange(() => {});
+    source.setValue(4);
+    source.setValue(NaN);
+    expect(Number.isNaN(t.value())).toBe(true);
+    source.setValue(6);
+    expect(t.value()).toBe(5);
+  });
+
+  // Staleness counts arrivals, so a window above 1 must not stretch the countdown.
+  it("notifies on every sample, even with a window above 1", () => {
+    const t = new RollingAverage({ windowSize: 5 });
+    const source = new TestSource(0);
+    t.setSources({ in: source });
+    const handler = vi.fn();
+    t.onChange(handler);
+    for (let i = 0; i < 3; i++) source.setValue(i);
+    expect(handler).toHaveBeenCalledTimes(3);
+  });
 });
 
 describe("ScaleNumber", () => {

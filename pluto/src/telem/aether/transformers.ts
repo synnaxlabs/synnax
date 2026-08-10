@@ -203,21 +203,26 @@ export class RollingAverage extends UnarySourceTransformer<
   typeof rollingAverageProps
 > {
   static readonly TYPE = "rolling-average";
-  static readonly propsZ = meanProps;
+  static readonly propsZ = rollingAverageProps;
   schema = rollingAverageProps;
-  private values: number[] = [];
+  private readonly window: number[] = [];
 
   protected transform(value: math.Numeric): number {
     const num = Number(value);
-    if (this.props.windowSize < 2 || isNaN(num)) return num;
-    return this.values.reduce((a, b) => a + b, 0) / this.values.length;
+    if (this.props.windowSize < 2 || isNaN(num) || this.window.length === 0) return num;
+    return this.window.reduce((a, b) => a + b, 0) / this.window.length;
   }
 
+  // The window advances here because this is the only hook that runs once per arriving
+  // sample. Staleness counts arrivals, so every sample must also reach the listener.
   protected shouldNotify(value: math.Numeric): boolean {
     if (this.props.windowSize < 2) return true;
-    if (this.values.length > this.props.windowSize) this.values = [];
-    this.values.push(Number(value));
-    return this.values.length === this.props.windowSize;
+    const num = Number(value);
+    if (!isNaN(num)) {
+      this.window.push(num);
+      if (this.window.length > this.props.windowSize) this.window.shift();
+    }
+    return true;
   }
 }
 
