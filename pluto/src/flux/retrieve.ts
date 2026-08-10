@@ -307,17 +307,19 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
         listeners.cleanup();
         const value = await retrieve(params);
         if (signal?.aborted) return;
-        // Subscribing after the fetch keeps mount-time reads fresh: an
-        // unsubscribed retrieve always refetches, a subscribed one is served
-        // from the cache. A newer retrieve started while this one was in flight
-        // is the one whose subscription stays mounted.
-        if (subscribe != null && queryRef.current === query)
+        // A newer retrieve started while this one was in flight owns the result:
+        // publishing here would revert the caller to the superseded answer.
+        if (queryRef.current !== query) return;
+        // Subscribing after the fetch keeps mount-time reads fresh: an unsubscribed
+        // retrieve always refetches, a subscribed one is served from the cache.
+        if (subscribe != null)
           listeners.set(
             subscribe(params, (result) => handleCacheChange(result, query)),
           );
         onChange(successResult<Data>(`retrieved ${name}`, value), query);
       } catch (error) {
         if (signal?.aborted) return;
+        if (queryRef.current !== query) return;
         const res = errorResult(`retrieve ${name}`, error);
         // Nobody asked for this read, and the connection status already reports
         // an unreachable Core. The result still carries the failure.
