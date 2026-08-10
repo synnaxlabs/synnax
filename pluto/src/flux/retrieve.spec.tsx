@@ -293,6 +293,60 @@ describe("retrieve", () => {
       expect(lastResult.data).toEqual("updated");
       expect(lastQuery.key).toEqual("fast");
     });
+
+    it("should drop the value of a query superseded mid-fetch", async () => {
+      let resolveSlow: ((value: string) => void) | null = null;
+      const { useRetrieveObservable } = Flux.createRetrieve<{ key: string }, string>({
+        name: "Resource",
+        retrieve: async ({ query: { key } }) =>
+          key === "slow"
+            ? await new Promise<string>((resolve) => (resolveSlow = resolve))
+            : key,
+      });
+      const onChange = vi.fn();
+      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
+        wrapper: Wrapper,
+      });
+      let slow: Promise<void> | null = null;
+      await act(async () => {
+        slow = result.current.retrieveAsync({ key: "slow" });
+        await result.current.retrieveAsync({ key: "fast" });
+      });
+      await act(async () => {
+        resolveSlow?.("slow");
+        await slow;
+      });
+      const results = onChange.mock.calls.map(([res]) => res as Flux.Result<string>);
+      expect(results.some(({ data }) => data === "slow")).toBe(false);
+      expect(results.at(-1)?.data).toEqual("fast");
+    });
+
+    it("should drop the failure of a query superseded mid-fetch", async () => {
+      let rejectSlow: ((error: Error) => void) | null = null;
+      const { useRetrieveObservable } = Flux.createRetrieve<{ key: string }, string>({
+        name: "Resource",
+        retrieve: async ({ query: { key } }) =>
+          key === "slow"
+            ? await new Promise<string>((_, reject) => (rejectSlow = reject))
+            : key,
+      });
+      const onChange = vi.fn();
+      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
+        wrapper: Wrapper,
+      });
+      let slow: Promise<void> | null = null;
+      await act(async () => {
+        slow = result.current.retrieveAsync({ key: "slow" });
+        await result.current.retrieveAsync({ key: "fast" });
+      });
+      await act(async () => {
+        rejectSlow?.(new Error("slow failed"));
+        await slow;
+      });
+      const results = onChange.mock.calls.map(([res]) => res as Flux.Result<string>);
+      expect(results.some(({ variant }) => variant === "error")).toBe(false);
+      expect(results.at(-1)?.data).toEqual("fast");
+    });
   });
 
   describe("useEffect", () => {
