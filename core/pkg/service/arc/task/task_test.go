@@ -478,7 +478,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
 						BasePersistConfig: common.BasePersistConfig{
-							BaseConfig: common.BaseConfig{AutoStart: true},
+							BaseStartConfig: common.BaseStartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -513,7 +513,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
 						BasePersistConfig: common.BasePersistConfig{
-							BaseConfig: common.BaseConfig{AutoStart: true},
+							BaseStartConfig: common.BaseStartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -598,7 +598,7 @@ var _ = Describe("Task", Ordered, func() {
 					Type: arctask.Type,
 					Config: configToMap(arctask.Config{
 						BasePersistConfig: common.BasePersistConfig{
-							BaseConfig: common.BaseConfig{AutoStart: true},
+							BaseStartConfig: common.BaseStartConfig{AutoStart: true},
 						},
 						ArcKey: uuid.New(),
 					}),
@@ -655,7 +655,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type: arctask.Type,
 				Config: configToMap(arctask.Config{
 					BasePersistConfig: common.BasePersistConfig{
-						BaseConfig: common.BaseConfig{AutoStart: true},
+						BaseStartConfig: common.BaseStartConfig{AutoStart: true},
 					},
 					ArcKey: uuid.New(),
 				}),

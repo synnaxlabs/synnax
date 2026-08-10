@@ -18,24 +18,34 @@
 
 namespace synnax::common {
 
-struct ConfigRecord;
+struct KeyedConfig;
+struct BaseStartConfig;
 struct BaseScanConfig;
-struct BaseConfig;
 struct BasePersistConfig;
 struct BaseReadConfig;
 struct BaseWriteConfig;
 
-/// @brief ConfigRecord is the base for every stored task configuration record.
-struct ConfigRecord {
+/// @brief KeyedConfig is the base for every stored task configuration record.
+struct KeyedConfig {
     /// @brief key is the unique identifier for the stored configuration record.
     x::uuid::UUID key;
 
-    static ConfigRecord parse(x::json::Parser parser);
+    static KeyedConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief BaseStartConfig carries the configuration fields shared by every task.
+struct BaseStartConfig : public KeyedConfig {
+    /// @brief auto_start is true when the task should start as soon as it is
+    /// configured.
+    bool auto_start = false;
+
+    static BaseStartConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief BaseScanConfig carries the fields shared by every scan task configuration.
-struct BaseScanConfig : public ConfigRecord {
+struct BaseScanConfig : public KeyedConfig {
     /// @brief rate is the rate at which the scan runs, in hertz.
     ::x::telem::Rate rate = ::x::telem::Rate(0.200000);
     /// @brief disabled is true when scanning is paused.
@@ -45,19 +55,9 @@ struct BaseScanConfig : public ConfigRecord {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseConfig carries the configuration fields shared by every task.
-struct BaseConfig : public ConfigRecord {
-    /// @brief auto_start is true when the task should start as soon as it is
-    /// configured.
-    bool auto_start = false;
-
-    static BaseConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief BasePersistConfig carries the configuration fields shared by tasks that write
 /// telemetry.
-struct BasePersistConfig : public BaseConfig {
+struct BasePersistConfig : public BaseStartConfig {
     /// @brief data_saving_disabled is true when task telemetry is not persisted to
     /// disk.
     bool data_saving_disabled = false;

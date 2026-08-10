@@ -17,26 +17,26 @@ import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { status } from "@/status";
 
-/** ConfigRecord is the base for every stored task configuration record. */
-export const configRecordZ = z.object({
+/** KeyedConfig is the base for every stored task configuration record. */
+export const keyedConfigZ = z.object({
   /** key is the unique identifier for the stored configuration record. */
   key: z.uuid().default(uuid.create),
 });
-export interface ConfigRecord extends z.infer<typeof configRecordZ> {}
+export interface KeyedConfig extends z.infer<typeof keyedConfigZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const baseScanConfigZ = configRecordZ.extend({
+export const baseStartConfigZ = keyedConfigZ.extend({
+  autoStart: z.boolean().default(false),
+});
+export interface BaseStartConfig extends z.infer<typeof baseStartConfigZ> {}
+
+export const baseScanConfigZ = keyedConfigZ.extend({
   rate: z.number().default(0.2),
   disabled: z.boolean().default(false),
 });
 export interface BaseScanConfig extends z.infer<typeof baseScanConfigZ> {}
-
-export const baseConfigZ = configRecordZ.extend({
-  autoStart: z.boolean().default(false),
-});
-export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
 
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
   task: typeof keyZ;
@@ -90,7 +90,7 @@ export const commandZ = z.object({
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
-export const basePersistConfigZ = baseConfigZ.extend({
+export const basePersistConfigZ = baseStartConfigZ.extend({
   dataSavingDisabled: z.boolean().default(false),
 });
 export interface BasePersistConfig extends z.infer<typeof basePersistConfigZ> {}
