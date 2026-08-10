@@ -45,9 +45,9 @@ type GroupBundle struct {
 	// Files holds the bundle contents keyed by file name: one envelope per symbol plus
 	// manifest.json. The namespace is flat.
 	Files zip.Files
-	// Members holds the ontology ID of every exported symbol, in the order the
-	// ontology returned the group's children. Members never reaches the wire: the
-	// archive carries Files alone.
+	// Members holds the ontology ID of every exported symbol, in the order the ontology
+	// returned the group's children. Members never reaches the wire: the archive
+	// carries Files alone.
 	Members []ontology.ID
 }
 

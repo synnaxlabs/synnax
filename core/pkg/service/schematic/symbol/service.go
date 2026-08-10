@@ -43,8 +43,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create and manage the permanent group for symbols, and to
-	// delete the groups that hold them.
+	// Group is used to create and manage the permanent group for symbols, and to delete
+	// the groups that hold them.
 	//
 	// [REQUIRED]
 	Group *group.Service

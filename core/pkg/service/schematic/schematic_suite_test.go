@@ -48,7 +48,7 @@ var (
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		var (
 			searchIdx = MustOpen(search.OpenIndex())
-			g         = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			groupSvc  = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Search:   searchIdx,
@@ -56,7 +56,7 @@ var (
 			projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    g,
+				Group:    groupSvc,
 				Search:   searchIdx,
 			}))
 		)
@@ -64,7 +64,7 @@ var (
 		svc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
+			Group:    groupSvc,
 			Search:   searchIdx,
 			ImEx:     imexSvc,
 		}))
