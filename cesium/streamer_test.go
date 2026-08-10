@@ -95,6 +95,7 @@ var _ = Describe("Streamer Behavior", func() {
 						Eventually(o.Outlet()).Should(Receive(&f))
 						Expect(f.Frame.Count()).To(Equal(1))
 						d.Alignment = alignment.Leading(1, 0)
+						d.TimeRange = (10 * telem.SecondTS).Range(12*telem.SecondTS + 1)
 						Expect(f.Frame.SeriesAt(0)).To(Equal(d))
 						Expect(closer.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
@@ -210,6 +211,156 @@ var _ = Describe("Streamer Behavior", func() {
 						Expect(res.Frame.Count()).To(Equal(1))
 						written.Alignment = alignment.Leading(1, 0)
 						Expect(res.Frame.SeriesAt(0)).To(Equal(written))
+						Expect(closer.Close()).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+			})
+
+			Describe("Time Range Stamping", func() {
+				It(
+					"Should stamp streamed series with the index series' time range",
+					func(ctx SpecContext) {
+						idx := GenerateChannelKey()
+						data := GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      idx,
+								Name:     "Noether",
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+							},
+							cesium.Channel{
+								Key:      data,
+								Name:     "Germain",
+								DataType: telem.Float32T,
+								Index:    idx,
+							},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{idx, data},
+							Start:    10 * telem.SecondTS,
+						}))
+						_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
+							Channels: []cesium.ChannelKey{idx, data},
+						})
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{idx, data},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11, 12),
+								telem.NewSeriesV[float32](1, 2, 3),
+							},
+						)))
+						var res cesium.StreamerResponse
+						Eventually(o.Outlet()).Should(Receive(&res))
+						expected := (10 * telem.SecondTS).Range(12*telem.SecondTS + 1)
+						Expect(
+							res.Frame.Get(idx).Series[0].TimeRange,
+						).To(Equal(expected))
+						Expect(
+							res.Frame.Get(data).Series[0].TimeRange,
+						).To(Equal(expected))
+						Expect(closer.Close()).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should stamp auto-indexed frames with the generated timestamps",
+					func(ctx SpecContext) {
+						idx := GenerateChannelKey()
+						data := GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      idx,
+								Name:     "Hopper",
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+							},
+							cesium.Channel{
+								Key:      data,
+								Name:     "Lovelace",
+								DataType: telem.Float32T,
+								Index:    idx,
+							},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:  []cesium.ChannelKey{idx, data},
+							Start:     telem.Now(),
+							AutoIndex: new(true),
+						}))
+						_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
+							Channels: []cesium.ChannelKey{idx, data},
+						})
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{data},
+							[]telem.Series{telem.NewSeriesV[float32](1, 2, 3)},
+						)))
+						var res cesium.StreamerResponse
+						Eventually(o.Outlet()).Should(Receive(&res))
+						idxSeries := res.Frame.Get(idx).Series[0]
+						expected := telem.TimeRange{
+							Start: telem.ValueAt[telem.TimeStamp](idxSeries, 0),
+							End:   telem.ValueAt[telem.TimeStamp](idxSeries, -1) + 1,
+						}
+						Expect(expected.Start).ToNot(Equal(telem.TimeStamp(0)))
+						Expect(idxSeries.TimeRange).To(Equal(expected))
+						Expect(
+							res.Frame.Get(data).Series[0].TimeRange,
+						).To(Equal(expected))
+						Expect(closer.Close()).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+
+				It(
+					"Should leave series unstamped when the frame does not carry the index",
+					func(ctx SpecContext) {
+						idx := GenerateChannelKey()
+						data := GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      idx,
+								Name:     "Franklin",
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+							},
+							cesium.Channel{
+								Key:      data,
+								Name:     "Meitner",
+								DataType: telem.Float32T,
+								Index:    idx,
+							},
+						)).To(Succeed())
+						idxW := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{idx},
+							Start:    10 * telem.SecondTS,
+						}))
+						MustSucceed(idxW.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{idx},
+							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+						)))
+						MustSucceed(idxW.Commit())
+						Expect(idxW.Close()).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{data},
+							Start:    10 * telem.SecondTS,
+						}))
+						_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
+							Channels: []cesium.ChannelKey{data},
+						})
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{data},
+							[]telem.Series{telem.NewSeriesV[float32](1, 2, 3)},
+						)))
+						var res cesium.StreamerResponse
+						Eventually(o.Outlet()).Should(Receive(&res))
+						Expect(res.Frame.Get(data).Series[0].TimeRange).To(
+							Equal(telem.TimeRangeZero),
+						)
 						Expect(closer.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 					},

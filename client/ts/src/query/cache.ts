@@ -7,28 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, observe, type record, type state } from "@synnaxlabs/x";
+import {
+  type breaker,
+  type destructor,
+  errors,
+  observe,
+  type record,
+  type state,
+} from "@synnaxlabs/x";
 import type z from "zod";
 
-import { isConnectionError } from "@/errors";
+import { AccessDeniedError, isConnectionError } from "@/errors";
+import { type framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
 import { Queries, type QueriesParams, type Retrieves } from "@/query/query";
-import {
-  createStreamer,
-  type Listener,
-  type Streamer,
-  type StreamOpener,
-} from "@/query/streamer";
+import { createStreamer, type Listener, type Streamer } from "@/query/streamer";
 import { type Keyed, type ListenerSpec, Table, type TableParams } from "@/query/table";
 import { type Data, type Params } from "@/query/types";
 
 export interface CacheParams {
   /**
-   * Opens the frame streamer used to receive change signals. Null constructs
-   * a detached cache: purely local tables and no change stream. Used for
-   * clients constructed with `cache: false`.
+   * Opens the raw frame streamer used to receive change signals; reconnect
+   * hardening is applied internally. Null constructs a detached cache: purely
+   * local tables and no change stream. Used for clients constructed with
+   * `cache: false`.
    */
-  openStreamer: StreamOpener | null;
+  openStreamer: framer.StreamOpener | null;
+  /** Retry behavior for change-stream reconnect attempts. */
+  breaker?: breaker.Config;
+  /** Called whenever the change stream goes live, before reconciliation begins. */
+  onStreamLive?: () => void;
+  /** Called when the change stream fails and reconnection begins. */
+  onStreamDrop?: (error: Error) => void;
+  /**
+   * Called when the change stream is refused because the caller lacks access to
+   * the mirrored channels. Only a policy change lifts a denial.
+   */
+  onStreamDenied?: (error: Error) => void;
   /**
    * Receives errors that have no caller to throw to: listener fan-out,
    * streamer frame handling, and background reconciliation. Defaults to
@@ -90,9 +105,10 @@ export class Cache {
   private readonly spaces: Space[] = [];
   private readonly detachers: destructor.Destructor[] = [];
   private readonly epochObserver = new observe.Observer<number>();
-  private readonly openStreamer: StreamOpener | null;
+  private readonly params: CacheParams;
   private streamer: Streamer | null = null;
   private epochCount = 0;
+  private unmaintained = false;
 
   /**
    * Stable error sink for machinery built on this cache (dispatch
@@ -100,9 +116,9 @@ export class Cache {
    */
   readonly onError: (error: Error) => void;
 
-  constructor({ openStreamer, onError = console.error }: CacheParams) {
-    this.openStreamer = openStreamer;
-    this.onError = onError;
+  constructor(params: CacheParams) {
+    this.params = params;
+    this.onError = params.onError ?? console.error;
   }
 
   /**
@@ -175,6 +191,7 @@ export class Cache {
     const space = new Queries(params, {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
+      maintained: () => !this.unmaintained && this.params.openStreamer != null,
       onError: this.onError,
     });
     this.spaces.push(space);
@@ -185,22 +202,29 @@ export class Cache {
    * Ensures the change stream is open, opening it on first call. Callers that
    * populate or read tables await this first so no change is missed between a
    * fetch and the stream opening.
+   * @throws {AccessDeniedError} if the caller cannot stream the mirrored
+   * channels. Answers stop being maintained until a later call succeeds.
    */
   async ensureStreaming(): Promise<void> {
-    const { openStreamer } = this;
+    const { openStreamer, breaker, onStreamLive, onStreamDrop, onStreamDenied } =
+      this.params;
     if (openStreamer == null) return;
     if (this.streamer == null) {
       // A reset can retire the streamer while its open is in flight; a
       // retired streamer's lifecycle callbacks must not touch the epoch.
       const streamer = createStreamer({
         openStreamer,
+        breaker,
         listeners: [
           ...this.entries.flatMap(({ listeners }) => listeners),
           ...this.reactions,
         ],
         onError: this.onError,
+        onLive: onStreamLive,
+        onDrop: onStreamDrop,
         onOpen: () => {
           if (this.streamer !== streamer) return;
+          this.unmaintained = false;
           this.epochCount = 1;
           this.epochObserver.notify(this.epochCount);
         },
@@ -208,10 +232,24 @@ export class Cache {
           if (this.streamer !== streamer) return;
           this.bumpEpoch();
         },
+        onDead: (error) => {
+          if (this.streamer !== streamer) return;
+          this.unmaintained = true;
+          if (AccessDeniedError.matches(error)) onStreamDenied?.(error);
+        },
       });
       this.streamer = streamer;
     }
-    await this.streamer.demand();
+    try {
+      await this.streamer.demand();
+    } catch (exc) {
+      this.unmaintained = true;
+      const error = errors.fromUnknown(exc);
+      // The first open never reaches onDead: the stream dies before there is
+      // one to observe.
+      if (AccessDeniedError.matches(error)) onStreamDenied?.(error);
+      throw error;
+    }
   }
 
   /**
@@ -266,6 +304,7 @@ export class Cache {
     }
     this.entries.forEach(({ reset }) => reset());
     this.spaces.forEach((space) => space.reset());
+    this.unmaintained = false;
     this.epochCount = 0;
     this.epochObserver.notify(0);
   }

@@ -27,8 +27,15 @@ var _ = Describe("Errors", func() {
 		Entry("RepeatedUsername", auth.ErrRepeatedUsername),
 		Entry("InvalidToken", auth.ErrInvalidToken),
 		Entry("ExpiredToken", auth.ErrExpiredToken),
+		Entry("AccessDenied", auth.ErrAccessDenied),
 		Entry("Auth", auth.ErrAuth),
 	)
+	It("Should keep a denial distinct from a plain auth error", func(ctx SpecContext) {
+		pld := errors.Encode(ctx, auth.ErrAccessDenied, false)
+		Expect(errors.Is(errors.Decode(ctx, pld), auth.ErrAccessDenied)).To(BeTrue())
+		pld = errors.Encode(ctx, auth.ErrAuth, false)
+		Expect(errors.Is(errors.Decode(ctx, pld), auth.ErrAccessDenied)).To(BeFalse())
+	})
 	It("Should defer non-auth errors to other encoders", func(ctx SpecContext) {
 		errTest := errors.New("test error")
 		pld := errors.Encode(ctx, errTest, false)

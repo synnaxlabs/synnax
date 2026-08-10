@@ -9,9 +9,8 @@
 
 package access
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/x/errors"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/auth"
 
-var ErrDenied = errors.Wrap(auth.ErrAuth, "access denied")
+// ErrDenied is returned when a subject does not have permission to perform an
+// action on a resource.
+var ErrDenied = auth.ErrAccessDenied

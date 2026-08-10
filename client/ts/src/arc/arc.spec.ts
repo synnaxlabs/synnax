@@ -11,7 +11,7 @@ import { crdt, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
-import { AuthError } from "@/errors";
+import { AccessDeniedError } from "@/errors";
 import { query } from "@/query";
 import { status } from "@/status";
 import { task } from "@/task";
@@ -184,7 +184,7 @@ describe("arc", () => {
           key: created.key,
           rack: rackB.key,
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
       const surviving = await client.tasks.retrieve(tsk.key);
       expect(surviving.key).toEqual(tsk.key);
     });
