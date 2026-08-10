@@ -26,7 +26,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
         .running = parser.field<bool>("running"),
         .cmd = parser.field<std::string>("cmd", ""),
         .config_hash = parser.field<std::string>("config_hash", ""),
-        .rack = parser.field<::synnax::rack::Key>("rack", 0),
+        .rack = parser.field<::synnax::rack::Key>("rack", ::synnax::rack::Key(0)),
         .data = parser.field<std::optional<x::json::json::object_t>>("data"),
     };
 }
@@ -45,7 +45,7 @@ inline x::json::json StatusDetails::to_json() const {
 inline Task Task::parse(x::json::Parser parser) {
     return Task{
         .key = parser.field<Key>("key", x::uuid::create()),
-        .rack = parser.field<::synnax::rack::Key>("rack", 0),
+        .rack = parser.field<::synnax::rack::Key>("rack", ::synnax::rack::Key(0)),
         .name = parser.field<std::string>("name"),
         .type = parser.field<std::string>("type"),
         .config = parser.field<x::json::json::object_t>("config"),

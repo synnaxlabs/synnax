@@ -835,24 +835,11 @@ func (p *Plugin) parseExprForField(
 	}
 	if hasDefault {
 		if defaultVal := jsonDefaultLiteral(field, data.table); defaultVal != "" {
-			// Telem time types have explicit integer constructors, so bare
-			// numeric defaults must be wrapped to bind as the fallback value.
-			if field.Default != nil &&
-				(field.Default.Kind == resolution.ValueKindInt ||
-					field.Default.Kind == resolution.ValueKindFloat) {
-				if strings.Contains(cppType, "::telem::TimeStamp") {
-					defaultVal = fmt.Sprintf("x::telem::TimeStamp(%s)", defaultVal)
-				} else if strings.Contains(cppType, "::telem::TimeSpan") {
-					defaultVal = fmt.Sprintf("x::telem::TimeSpan(%s)", defaultVal)
-				} else if strings.Contains(cppType, "::telem::Rate") {
-					defaultVal = fmt.Sprintf("x::telem::Rate(%s)", defaultVal)
-				}
-			}
-			// Distinct string types (e.g. x::telem::DataType) may declare an
-			// explicit constructor, so the fallback must be wrapped too.
-			if field.Default != nil &&
-				field.Default.Kind == resolution.ValueKindString &&
-				isDistinctType(field.Type, data.table) {
+			// Hand-written distinct types such as x::telem::Rate and
+			// x::telem::DataType expose only explicit constructors, so a bare
+			// literal fails to bind as the fallback value.
+			if isScalarDefault(field.Default) &&
+				resolution.IsDistinct(field.Type, data.table) {
 				defaultVal = fmt.Sprintf("%s(%s)", cppType, defaultVal)
 			}
 			return fmt.Sprintf(
@@ -1125,17 +1112,19 @@ func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool 
 	return jsonDefaultLiteral(field, table) != ""
 }
 
-// isDistinctType reports whether the type reference resolves to a distinct type.
-func isDistinctType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	if resolution.IsPrimitive(typeRef.Name) {
+// isScalarDefault reports whether the default renders as a bare string, integer,
+// or float literal, the three kinds a distinct type's constructor must wrap.
+func isScalarDefault(val *resolution.ExpressionValue) bool {
+	if val == nil {
 		return false
 	}
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return false
+	switch val.Kind {
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat:
+		return true
 	}
-	_, isDistinct := resolved.Form.(resolution.DistinctForm)
-	return isDistinct
+	return false
 }
 
 // jsonDefaultLiteral renders a field's schema default as a C++ literal usable as

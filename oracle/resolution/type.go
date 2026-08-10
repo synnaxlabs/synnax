@@ -229,6 +229,20 @@ func (r TypeRef) MustResolve(table *Table) Type {
 	return table.MustGet(r.Name)
 }
 
+// IsDistinct reports whether ref resolves to a distinct type. Primitives and
+// references the table cannot resolve are not distinct.
+func IsDistinct(ref TypeRef, table *Table) bool {
+	if IsPrimitive(ref.Name) {
+		return false
+	}
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return false
+	}
+	_, isDistinct := resolved.Form.(DistinctForm)
+	return isDistinct
+}
+
 // RefersTo reports whether ref directly or transitively references a type
 // identified by targetQualifiedName. The search follows type arguments, struct
 // field types and extends bases, union bases and variant payloads, alias

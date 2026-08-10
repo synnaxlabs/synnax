@@ -49,7 +49,10 @@ inline BaseInputChannel BaseInputChannel::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
-        .channel = parser.field<::synnax::channel::Key>("channel", 0),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
         .address = parser.field<std::uint16_t>("address", 0),
     };
 }
@@ -69,7 +72,10 @@ inline BaseOutputChannel BaseOutputChannel::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key", ""),
         .name = parser.field<std::string>("name", ""),
         .disabled = parser.field<bool>("disabled", false),
-        .channel = parser.field<::synnax::channel::Key>("channel", 0),
+        .channel = parser.field<::synnax::channel::Key>(
+            "channel",
+            ::synnax::channel::Key(0)
+        ),
         .address = parser.field<std::uint16_t>("address", 0),
     };
 }
