@@ -29,7 +29,6 @@ export type Key = z.infer<typeof keyZ>;
 
 export const baseConfigZ = configRecordZ.extend({
   autoStart: z.boolean().default(false),
-  dataSavingDisabled: z.boolean().default(false),
 });
 export interface BaseConfig extends z.infer<typeof baseConfigZ> {}
 
@@ -85,22 +84,27 @@ export const commandZ = z.object({
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
-export const baseReadConfigZ = baseConfigZ.extend({
-  sampleRate: z.number().default(10),
-  streamRate: z.number().default(5),
+export const basePersistConfigZ = baseConfigZ.extend({
+  dataSavingDisabled: z.boolean().default(false),
 });
-export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
-
-export const baseWriteConfigZ = baseConfigZ.extend({
-  device: device.keyZ.default(""),
-});
-export interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
+export interface BasePersistConfig extends z.infer<typeof basePersistConfigZ> {}
 
 export const statusZ = <Data extends z.ZodType = z.ZodNever>(data?: Data) =>
   status.statusZ({ details: statusDetailsZ(data) });
 export type Status<Data extends z.ZodType = z.ZodNever> = z.infer<
   ReturnType<typeof statusZ<Data>>
 >;
+
+export const baseReadConfigZ = basePersistConfigZ.extend({
+  sampleRate: z.number().default(10),
+  streamRate: z.number().default(5),
+});
+export interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
+
+export const baseWriteConfigZ = basePersistConfigZ.extend({
+  device: device.keyZ.default(""),
+});
+export interface BaseWriteConfig extends z.infer<typeof baseWriteConfigZ> {}
 
 export interface PayloadSchemas<
   Type extends z.ZodType<string> = z.ZodType<string>,

@@ -316,7 +316,7 @@ func (r *ReadConfig) ApplyDefaults() {
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
 type WriteConfig struct {
-	common.BaseConfig
+	common.BasePersistConfig
 	// StateRate is the rate at which output state is reported to Synnax, in hertz.
 	StateRate telem.Rate `json:"state_rate" msgpack:"state_rate"`
 	// ExecutionRate is the rate at which commands are applied to the bus, in hertz.

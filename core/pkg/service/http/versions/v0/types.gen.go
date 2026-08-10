@@ -166,7 +166,7 @@ func (r ReadEndpoint) Validate() error {
 // ReadConfig configures an HTTP read task, which polls one or more endpoints on an HTTP
 // server device and writes extracted JSON values to Synnax channels.
 type ReadConfig struct {
-	common.BaseConfig
+	common.BasePersistConfig
 	// Device is the key of the HTTP server device to poll.
 	Device device.Key `json:"device" msgpack:"device"`
 	// Rate is the polling rate applied to all endpoints, in hertz.
@@ -483,11 +483,9 @@ func (w WriteEndpoint) Validate() error {
 // WriteConfig configures an HTTP write task, which sends an HTTP request whenever a
 // value is written to an endpoint's command channel.
 type WriteConfig struct {
-	common.ConfigRecord
+	common.BaseConfig
 	// Device is the key of the HTTP server device to write to.
 	Device device.Key `json:"device" msgpack:"device"`
-	// AutoStart starts the task automatically after configuration.
-	AutoStart bool `json:"auto_start" msgpack:"auto_start"`
 	// Endpoints contains the endpoints to write to.
 	Endpoints []WriteEndpoint `json:"endpoints,omitzero" msgpack:"endpoints,omitzero"`
 }

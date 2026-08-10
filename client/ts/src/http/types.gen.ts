@@ -230,16 +230,15 @@ export const writeEndpointZ = z.object({
 });
 export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
 
-export const readConfigZ = task.baseConfigZ.extend({
+export const readConfigZ = task.basePersistConfigZ.extend({
   device: device.keyZ.default(""),
   rate: z.number().default(1),
   endpoints: readEndpointZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 
-export const writeConfigZ = task.configRecordZ.extend({
+export const writeConfigZ = task.baseConfigZ.extend({
   device: device.keyZ.default(""),
-  autoStart: z.boolean().default(false),
   endpoints: writeEndpointZ.array().default(() => []),
 });
 export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

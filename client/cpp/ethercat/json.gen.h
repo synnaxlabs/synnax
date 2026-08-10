@@ -132,9 +132,9 @@ inline x::json::json ReadConfig::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::common::BaseConfig &>(
+    static_cast<::synnax::common::BasePersistConfig &>(
         result
-    ) = ::synnax::common::BaseConfig::parse(parser);
+    ) = ::synnax::common::BasePersistConfig::parse(parser);
     result.state_rate = parser.field<::x::telem::Rate>(
         "state_rate",
         ::x::telem::Rate(25)
@@ -156,7 +156,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::BaseConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::common::BasePersistConfig::to_json().items())
         j[k] = v;
     j["state_rate"] = this->state_rate;
     j["execution_rate"] = this->execution_rate;

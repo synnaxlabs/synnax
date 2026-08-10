@@ -20,7 +20,6 @@ import (
 func (bc BaseConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(bc.Key[:])
 	w.Bool(bc.AutoStart)
-	w.Bool(bc.DataSavingDisabled)
 	return nil
 }
 
@@ -33,7 +32,27 @@ func (bc *BaseConfig) DecodeOrc(r *orc.Reader) error {
 	if bc.AutoStart, err = r.Bool(); err != nil {
 		return err
 	}
-	if bc.DataSavingDisabled, err = r.Bool(); err != nil {
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (bpc BasePersistConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(bpc.Key[:])
+	w.Bool(bpc.AutoStart)
+	w.Bool(bpc.DataSavingDisabled)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bpc *BasePersistConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(bpc.Key[:]); err != nil {
+		return err
+	}
+	if bpc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if bpc.DataSavingDisabled, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

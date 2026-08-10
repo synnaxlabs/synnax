@@ -60,7 +60,7 @@ class StatusDetails(BaseModel):
     running: bool
 
 
-class TaskConfig(task.BaseConfig):
+class TaskConfig(task.BasePersistConfig):
     """Configures an Arc task, which runs a compiled Arc module.
 
     Attributes:

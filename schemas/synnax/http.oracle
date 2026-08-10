@@ -151,7 +151,7 @@ ReadEndpoint struct {
     @go version 0
 }
 
-ReadConfig struct extends task.BaseConfig {
+ReadConfig struct extends task.BasePersistConfig {
     device    device.Key = "" {
         @doc value "is the key of the HTTP server device to poll."
     }
@@ -303,14 +303,11 @@ WriteEndpoint struct {
     @go version 0
 }
 
-WriteConfig struct extends task.ConfigRecord {
-    device     device.Key = "" {
+WriteConfig struct extends task.BaseConfig {
+    device    device.Key = "" {
         @doc value "is the key of the HTTP server device to write to."
     }
-    auto_start bool = false {
-        @doc value "starts the task automatically after configuration."
-    }
-    endpoints  WriteEndpoint[] {
+    endpoints WriteEndpoint[] {
         @doc value "contains the endpoints to write to."
     }
 

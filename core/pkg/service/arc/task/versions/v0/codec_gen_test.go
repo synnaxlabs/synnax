@@ -37,9 +37,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.Config{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: true,
 				},
 				ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
@@ -49,9 +51,11 @@ var _ = Describe("Codec", func() {
 				LockMemory:    false,
 			}),
 			Entry("zero values", v0.Config{
-				BaseConfig: common.BaseConfig{
-					ConfigRecord:       common.ConfigRecord{Key: uuid.Nil},
-					AutoStart:          false,
+				BasePersistConfig: common.BasePersistConfig{
+					BaseConfig: common.BaseConfig{
+						ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: false,
 				},
 				ArcKey:        uuid.Nil,
@@ -66,9 +70,11 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeConfig(b *testing.B) {
 	seed := v0.Config{
-		BaseConfig: common.BaseConfig{
-			ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			AutoStart:          false,
+		BasePersistConfig: common.BasePersistConfig{
+			BaseConfig: common.BaseConfig{
+				ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:    false,
+			},
 			DataSavingDisabled: true,
 		},
 		ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
@@ -95,9 +101,11 @@ func BenchmarkEncodeDecodeConfig(b *testing.B) {
 func FuzzDecodeConfig(f *testing.F) {
 	{
 		seed := v0.Config{
-			BaseConfig: common.BaseConfig{
-				ConfigRecord:       common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:          false,
+			BasePersistConfig: common.BasePersistConfig{
+				BaseConfig: common.BaseConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:    false,
+				},
 				DataSavingDisabled: true,
 			},
 			ArcKey:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
@@ -114,9 +122,11 @@ func FuzzDecodeConfig(f *testing.F) {
 	}
 	{
 		seed := v0.Config{
-			BaseConfig: common.BaseConfig{
-				ConfigRecord:       common.ConfigRecord{Key: uuid.Nil},
-				AutoStart:          false,
+			BasePersistConfig: common.BasePersistConfig{
+				BaseConfig: common.BaseConfig{
+					ConfigRecord: common.ConfigRecord{Key: uuid.Nil},
+					AutoStart:    false,
+				},
 				DataSavingDisabled: false,
 			},
 			ArcKey:        uuid.Nil,

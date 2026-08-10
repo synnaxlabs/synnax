@@ -80,15 +80,13 @@ class Command(BaseModel):
 
 
 class BaseConfig(ConfigRecord):
-    """Carries the configuration fields shared by every hardware task.
+    """Carries the configuration fields shared by every task.
 
     Attributes:
         auto_start: Is true when the task should start as soon as it is configured.
-        data_saving_disabled: Is true when task telemetry is not persisted to disk.
     """
 
     auto_start: bool = False
-    data_saving_disabled: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -97,29 +95,14 @@ class BaseConfig(ConfigRecord):
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
-class BaseReadConfig(BaseConfig):
-    """Carries the configuration fields shared by hardware acquisition tasks.
+class BasePersistConfig(BaseConfig):
+    """Carries the configuration fields shared by tasks that write telemetry.
 
     Attributes:
-        sample_rate: Is the per-channel hardware sample rate, in hertz.
-        stream_rate: Is the rate at which samples are streamed to Synnax, in hertz.
+        data_saving_disabled: Is true when task telemetry is not persisted to disk.
     """
 
-    sample_rate: telem.Rate = telem.Rate(10)
-    stream_rate: telem.Rate = telem.Rate(5)
-
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class BaseWriteConfig(BaseConfig):
-    """Carries the configuration fields shared by hardware control tasks.
-
-    Attributes:
-        device: Is the key of the device the task writes to.
-    """
-
-    device: device_.Key = ""
+    data_saving_disabled: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -156,6 +139,34 @@ class Payload(BaseModel):
     internal: bool = False
     snapshot: bool = False
     status: Status | None = None
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class BaseReadConfig(BasePersistConfig):
+    """Carries the configuration fields shared by hardware acquisition tasks.
+
+    Attributes:
+        sample_rate: Is the per-channel hardware sample rate, in hertz.
+        stream_rate: Is the rate at which samples are streamed to Synnax, in hertz.
+    """
+
+    sample_rate: telem.Rate = telem.Rate(10)
+    stream_rate: telem.Rate = telem.Rate(5)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class BaseWriteConfig(BasePersistConfig):
+    """Carries the configuration fields shared by hardware control tasks.
+
+    Attributes:
+        device: Is the key of the device the task writes to.
+    """
+
+    device: device_.Key = ""
 
     def __hash__(self) -> int:
         return hash(self.key)

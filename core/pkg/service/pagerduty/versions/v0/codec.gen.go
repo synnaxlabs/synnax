@@ -55,8 +55,8 @@ func (a *Alert) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (tc TaskConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(tc.Key[:])
-	w.String(tc.RoutingKey)
 	w.Bool(tc.AutoStart)
+	w.String(tc.RoutingKey)
 	w.Bool(tc.Alerts != nil)
 	if tc.Alerts != nil {
 		w.Uint32(uint32(len(tc.Alerts)))
@@ -75,10 +75,10 @@ func (tc *TaskConfig) DecodeOrc(r *orc.Reader) error {
 	if _, err := r.Read(tc.Key[:]); err != nil {
 		return err
 	}
-	if tc.RoutingKey, err = r.String(); err != nil {
+	if tc.AutoStart, err = r.Bool(); err != nil {
 		return err
 	}
-	if tc.AutoStart, err = r.Bool(); err != nil {
+	if tc.RoutingKey, err = r.String(); err != nil {
 		return err
 	}
 	{

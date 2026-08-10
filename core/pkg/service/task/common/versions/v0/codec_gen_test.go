@@ -37,13 +37,32 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.BaseConfig{
-				ConfigRecord:       v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:          false,
+				ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:    false,
+			}),
+			Entry("zero values", v0.BaseConfig{ConfigRecord: v0.ConfigRecord{Key: uuid.Nil}, AutoStart: false}),
+		)
+	})
+	Describe("BasePersistConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.BasePersistConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.BasePersistConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.BasePersistConfig{
+				BaseConfig: v0.BaseConfig{
+					ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:    false,
+				},
 				DataSavingDisabled: true,
 			}),
-			Entry("zero values", v0.BaseConfig{
-				ConfigRecord:       v0.ConfigRecord{Key: uuid.Nil},
-				AutoStart:          false,
+			Entry("zero values", v0.BasePersistConfig{
+				BaseConfig:         v0.BaseConfig{ConfigRecord: v0.ConfigRecord{Key: uuid.Nil}, AutoStart: false},
 				DataSavingDisabled: false,
 			}),
 		)
@@ -60,18 +79,19 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.BaseReadConfig{
-				BaseConfig: v0.BaseConfig{
-					ConfigRecord:       v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:          false,
+				BasePersistConfig: v0.BasePersistConfig{
+					BaseConfig: v0.BaseConfig{
+						ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: true,
 				},
 				SampleRate: telem.Rate(4.5),
 				StreamRate: telem.Rate(5.5),
 			}),
 			Entry("zero values", v0.BaseReadConfig{
-				BaseConfig: v0.BaseConfig{
-					ConfigRecord:       v0.ConfigRecord{Key: uuid.Nil},
-					AutoStart:          false,
+				BasePersistConfig: v0.BasePersistConfig{
+					BaseConfig:         v0.BaseConfig{ConfigRecord: v0.ConfigRecord{Key: uuid.Nil}, AutoStart: false},
 					DataSavingDisabled: false,
 				},
 				SampleRate: telem.Rate(0),
@@ -91,17 +111,18 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v0.BaseWriteConfig{
-				BaseConfig: v0.BaseConfig{
-					ConfigRecord:       v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-					AutoStart:          false,
+				BasePersistConfig: v0.BasePersistConfig{
+					BaseConfig: v0.BaseConfig{
+						ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+						AutoStart:    false,
+					},
 					DataSavingDisabled: true,
 				},
 				Device: "test_4",
 			}),
 			Entry("zero values", v0.BaseWriteConfig{
-				BaseConfig: v0.BaseConfig{
-					ConfigRecord:       v0.ConfigRecord{Key: uuid.Nil},
-					AutoStart:          false,
+				BasePersistConfig: v0.BasePersistConfig{
+					BaseConfig:         v0.BaseConfig{ConfigRecord: v0.ConfigRecord{Key: uuid.Nil}, AutoStart: false},
 					DataSavingDisabled: false,
 				},
 				Device: "",
@@ -127,9 +148,8 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeBaseConfig(b *testing.B) {
 	seed := v0.BaseConfig{
-		ConfigRecord:       v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-		AutoStart:          false,
-		DataSavingDisabled: true,
+		ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+		AutoStart:    false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -146,11 +166,36 @@ func BenchmarkEncodeDecodeBaseConfig(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeBasePersistConfig(b *testing.B) {
+	seed := v0.BasePersistConfig{
+		BaseConfig: v0.BaseConfig{
+			ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			AutoStart:    false,
+		},
+		DataSavingDisabled: true,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v0.BasePersistConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeBaseReadConfig(b *testing.B) {
 	seed := v0.BaseReadConfig{
-		BaseConfig: v0.BaseConfig{
-			ConfigRecord:       v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			AutoStart:          false,
+		BasePersistConfig: v0.BasePersistConfig{
+			BaseConfig: v0.BaseConfig{
+				ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:    false,
+			},
 			DataSavingDisabled: true,
 		},
 		SampleRate: telem.Rate(4.5),
@@ -173,9 +218,11 @@ func BenchmarkEncodeDecodeBaseReadConfig(b *testing.B) {
 
 func BenchmarkEncodeDecodeBaseWriteConfig(b *testing.B) {
 	seed := v0.BaseWriteConfig{
-		BaseConfig: v0.BaseConfig{
-			ConfigRecord:       v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			AutoStart:          false,
+		BasePersistConfig: v0.BasePersistConfig{
+			BaseConfig: v0.BaseConfig{
+				ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:    false,
+			},
 			DataSavingDisabled: true,
 		},
 		Device: "test_4",
@@ -215,9 +262,8 @@ func BenchmarkEncodeDecodeConfigRecord(b *testing.B) {
 func FuzzDecodeBaseConfig(f *testing.F) {
 	{
 		seed := v0.BaseConfig{
-			ConfigRecord:       v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			AutoStart:          false,
-			DataSavingDisabled: true,
+			ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+			AutoStart:    false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -226,11 +272,7 @@ func FuzzDecodeBaseConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.BaseConfig{
-			ConfigRecord:       v0.ConfigRecord{Key: uuid.Nil},
-			AutoStart:          false,
-			DataSavingDisabled: false,
-		}
+		seed := v0.BaseConfig{ConfigRecord: v0.ConfigRecord{Key: uuid.Nil}, AutoStart: false}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -259,12 +301,62 @@ func FuzzDecodeBaseConfig(f *testing.F) {
 	})
 }
 
+func FuzzDecodeBasePersistConfig(f *testing.F) {
+	{
+		seed := v0.BasePersistConfig{
+			BaseConfig: v0.BaseConfig{
+				ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+				AutoStart:    false,
+			},
+			DataSavingDisabled: true,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v0.BasePersistConfig{
+			BaseConfig:         v0.BaseConfig{ConfigRecord: v0.ConfigRecord{Key: uuid.Nil}, AutoStart: false},
+			DataSavingDisabled: false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v0.BasePersistConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v0.BasePersistConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !cmp.Equal(decoded, redecoded, cmpopts.EquateNaNs()) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeBaseReadConfig(f *testing.F) {
 	{
 		seed := v0.BaseReadConfig{
-			BaseConfig: v0.BaseConfig{
-				ConfigRecord:       v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:          false,
+			BasePersistConfig: v0.BasePersistConfig{
+				BaseConfig: v0.BaseConfig{
+					ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:    false,
+				},
 				DataSavingDisabled: true,
 			},
 			SampleRate: telem.Rate(4.5),
@@ -278,9 +370,8 @@ func FuzzDecodeBaseReadConfig(f *testing.F) {
 	}
 	{
 		seed := v0.BaseReadConfig{
-			BaseConfig: v0.BaseConfig{
-				ConfigRecord:       v0.ConfigRecord{Key: uuid.Nil},
-				AutoStart:          false,
+			BasePersistConfig: v0.BasePersistConfig{
+				BaseConfig:         v0.BaseConfig{ConfigRecord: v0.ConfigRecord{Key: uuid.Nil}, AutoStart: false},
 				DataSavingDisabled: false,
 			},
 			SampleRate: telem.Rate(0),
@@ -317,9 +408,11 @@ func FuzzDecodeBaseReadConfig(f *testing.F) {
 func FuzzDecodeBaseWriteConfig(f *testing.F) {
 	{
 		seed := v0.BaseWriteConfig{
-			BaseConfig: v0.BaseConfig{
-				ConfigRecord:       v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				AutoStart:          false,
+			BasePersistConfig: v0.BasePersistConfig{
+				BaseConfig: v0.BaseConfig{
+					ConfigRecord: v0.ConfigRecord{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
+					AutoStart:    false,
+				},
 				DataSavingDisabled: true,
 			},
 			Device: "test_4",
@@ -332,9 +425,8 @@ func FuzzDecodeBaseWriteConfig(f *testing.F) {
 	}
 	{
 		seed := v0.BaseWriteConfig{
-			BaseConfig: v0.BaseConfig{
-				ConfigRecord:       v0.ConfigRecord{Key: uuid.Nil},
-				AutoStart:          false,
+			BasePersistConfig: v0.BasePersistConfig{
+				BaseConfig:         v0.BaseConfig{ConfigRecord: v0.ConfigRecord{Key: uuid.Nil}, AutoStart: false},
 				DataSavingDisabled: false,
 			},
 			Device: "",

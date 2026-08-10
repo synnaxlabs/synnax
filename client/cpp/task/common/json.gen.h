@@ -35,7 +35,6 @@ inline BaseConfig BaseConfig::parse(x::json::Parser parser) {
     BaseConfig result;
     static_cast<ConfigRecord &>(result) = ConfigRecord::parse(parser);
     result.auto_start = parser.field<bool>("auto_start", false);
-    result.data_saving_disabled = parser.field<bool>("data_saving_disabled", false);
     return result;
 }
 
@@ -44,13 +43,27 @@ inline x::json::json BaseConfig::to_json() const {
     for (auto &[k, v]: ConfigRecord::to_json().items())
         j[k] = v;
     j["auto_start"] = this->auto_start;
+    return j;
+}
+
+inline BasePersistConfig BasePersistConfig::parse(x::json::Parser parser) {
+    BasePersistConfig result;
+    static_cast<BaseConfig &>(result) = BaseConfig::parse(parser);
+    result.data_saving_disabled = parser.field<bool>("data_saving_disabled", false);
+    return result;
+}
+
+inline x::json::json BasePersistConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: BaseConfig::to_json().items())
+        j[k] = v;
     j["data_saving_disabled"] = this->data_saving_disabled;
     return j;
 }
 
 inline BaseReadConfig BaseReadConfig::parse(x::json::Parser parser) {
     BaseReadConfig result;
-    static_cast<BaseConfig &>(result) = BaseConfig::parse(parser);
+    static_cast<BasePersistConfig &>(result) = BasePersistConfig::parse(parser);
     result.sample_rate = parser.field<::x::telem::Rate>(
         "sample_rate",
         ::x::telem::Rate(10)
@@ -64,7 +77,7 @@ inline BaseReadConfig BaseReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json BaseReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseConfig::to_json().items())
+    for (auto &[k, v]: BasePersistConfig::to_json().items())
         j[k] = v;
     j["sample_rate"] = this->sample_rate;
     j["stream_rate"] = this->stream_rate;
@@ -73,14 +86,14 @@ inline x::json::json BaseReadConfig::to_json() const {
 
 inline BaseWriteConfig BaseWriteConfig::parse(x::json::Parser parser) {
     BaseWriteConfig result;
-    static_cast<BaseConfig &>(result) = BaseConfig::parse(parser);
+    static_cast<BasePersistConfig &>(result) = BasePersistConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     return result;
 }
 
 inline x::json::json BaseWriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseConfig::to_json().items())
+    for (auto &[k, v]: BasePersistConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     return j;

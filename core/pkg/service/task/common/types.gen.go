@@ -16,8 +16,12 @@ import "github.com/synnaxlabs/synnax/pkg/service/task/common/versions"
 // ConfigRecord is the base for every stored task configuration record.
 type ConfigRecord = versions.ConfigRecord
 
-// BaseConfig carries the configuration fields shared by every hardware task.
+// BaseConfig carries the configuration fields shared by every task.
 type BaseConfig = versions.BaseConfig
+
+// BasePersistConfig carries the configuration fields shared by tasks that write
+// telemetry.
+type BasePersistConfig = versions.BasePersistConfig
 
 // BaseReadConfig carries the configuration fields shared by hardware acquisition tasks.
 type BaseReadConfig = versions.BaseReadConfig
