@@ -33,11 +33,11 @@
             overflow: var(--pluto-dialog-overflow, hidden);
             box-shadow:
                 0 0 0 var(--pluto-border-width) var(--pluto-gray-l7),
-                var(--pluto-shadow-v1);
+                var(--pluto-shadow-modal);
             border-radius: var(--pluto-border-radius-large);
             background: color-mix(in srgb, var(--pluto-gray-l0) 75%, transparent);
-            -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
-            backdrop-filter: blur(3.5rem) saturate(140%);
+            -webkit-backdrop-filter: var(--pluto-frost);
+            backdrop-filter: var(--pluto-frost);
             &.pluto-dialog--modal-position-shifted {
                 top: 8%;
             }
@@ -53,7 +53,7 @@
 
     &:not(.pluto--modal) {
         animation: var(--pluto-dialog-animation);
-        box-shadow: var(--pluto-shadow-v1);
+        box-shadow: var(--pluto-shadow-overlay);
         max-height: 360px;
         z-index: 6;
         &.pluto-height-small {

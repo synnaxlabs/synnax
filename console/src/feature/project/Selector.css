@@ -33,7 +33,7 @@
         font-size: round(2.6667rem, 1px);
         position: relative;
         background: var(--console-avatar-frost);
-        box-shadow: var(--pluto-shadow-v1);
+        box-shadow: var(--pluto-shadow-lift);
 
         &::before {
             content: "";

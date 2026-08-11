@@ -11,7 +11,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Editable } from "@/text/Editable";
+import { edit, Editable, MaybeEditable } from "@/text/Editable";
 
 describe("Editable", () => {
   describe("rendering", () => {
@@ -150,6 +150,32 @@ describe("Editable", () => {
       text.innerText = "";
       fireEvent.keyDown(text, { key: "Enter" });
       expect(onChange).toHaveBeenCalledWith("");
+    });
+  });
+
+  describe("edit", () => {
+    it("should put the element with the given id into edit mode", () => {
+      const c = render(<Editable id="tab-name" value="Hello" onChange={vi.fn()} />);
+      edit("tab-name");
+      expect(c.getByText("Hello").getAttribute("contenteditable")).toBe("true");
+    });
+
+    it("should edit the editable copy when a read-only copy shares its id", () => {
+      const c = render(
+        <>
+          <MaybeEditable
+            id="tab-name"
+            value="Hello"
+            onChange={vi.fn<(value: string) => void>()}
+            disabled
+          />
+          <Editable id="tab-name" value="Hello" onChange={vi.fn()} />
+        </>,
+      );
+      edit("tab-name");
+      const [readOnly, editable] = c.getAllByText("Hello");
+      expect(editable.getAttribute("contenteditable")).toBe("true");
+      expect(readOnly.getAttribute("contenteditable")).toBeNull();
     });
   });
 });
