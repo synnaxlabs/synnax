@@ -57,6 +57,7 @@ cc_test(
     deps = [
         "//x/cpp/json",
         "//x/cpp/json:convert",
+        "//x/cpp/json/testutil",
         "//x/cpp/telem",
         "//x/cpp/test",
         "@googletest//:gtest_main",
