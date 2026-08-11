@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { type ReactElement } from "react";
+import { cloneElement, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { VARIANT_COLORS } from "@/status/base/colors";
 
@@ -43,14 +44,24 @@ const Concentric = Icon.wrapSVGIcon(ConcentricSVG, "status-concentric");
 
 export interface IndicatorProps extends Icon.IconProps {
   variant?: status.Variant;
+  /** Replaces the concentric glyph, tinted with the variant color. */
+  children?: ReactElement<Icon.IconProps>;
 }
 
-export const Indicator = ({ variant, ...rest }: IndicatorProps): ReactElement =>
-  variant === "loading" ? (
-    <Icon.Loading {...rest} />
-  ) : (
-    <Concentric
-      color={variant != null ? VARIANT_COLORS[variant] : undefined}
-      {...rest}
-    />
-  );
+export const Indicator = ({
+  variant,
+  children,
+  ...rest
+}: IndicatorProps): ReactElement => {
+  if (variant === "loading") return <Icon.Loading {...rest} />;
+  const color = variant != null ? VARIANT_COLORS[variant] : undefined;
+  if (children == null) return <Concentric color={color} {...rest} />;
+  const { className, style, ...others } = rest;
+  // The color rides on style because `.pluto-icon` sets `color: inherit`, and a
+  // class rule outranks a presentation attribute.
+  return cloneElement(children, {
+    ...others,
+    className: CSS(children.props.className, className),
+    style: { ...children.props.style, ...(color != null && { color }), ...style },
+  });
+};
