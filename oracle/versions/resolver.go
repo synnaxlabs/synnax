@@ -449,15 +449,18 @@ func (b *tableBuilder) addSurface(
 	return nil
 }
 
-// addLive copies the unversioned live shapes a version file resolves against, so a
-// frozen surface built from it resolves them too. Live types carry no version, so they
-// register under their own namespace unchanged.
+// addLive copies the live shapes a version file resolves against, so a
+// frozen surface built from it resolves them too. Live types carry no
+// version, so they register under their own namespace unchanged. The live
+// path is marked imported so a later import of the same schema resolves to
+// these copies instead of redeclaring every type.
 func (b *tableBuilder) addLive(f *File) error {
-	for _, ns := range f.Live {
+	for i, ns := range f.Live {
 		if b.done.Contains(ns) {
 			continue
 		}
 		b.done.Add(ns)
+		b.table.MarkImported(f.LivePaths[i])
 		for _, t := range f.Table.TypesInNamespace(ns) {
 			if _, exists := b.table.Get(t.QualifiedName); exists {
 				continue

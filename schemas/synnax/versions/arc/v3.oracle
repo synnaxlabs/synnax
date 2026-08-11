@@ -11,7 +11,7 @@ import "schemas/arc/program"
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/ir/v1"
 import "schemas/arc/versions/text/v1"
-import "schemas/synnax/versions/status/v1"
+import "schemas/synnax/status"
 import "schemas/x/versions/crdt/v0"
 import "schemas/x/versions/spatial/v0"
 

@@ -114,24 +114,125 @@ Channel struct {
 		Expect(report.Status).To(Equal(check.StatusPass))
 	})
 
-	It("Should fail on drift between the live schema and the current file", func() {
+	mergeLive := func(source string) []byte {
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(
+			chains, analyzer.NewStandardFileLoader(root),
+		)
+		return []byte(MustSucceed(versions.MergeLive(
+			GinkgoT().Context(), resolver,
+			chains["schemas/synnax/channel"], source,
+		)))
+	}
+
+	It("Should pass when the live file matches its merged projection", func() {
 		write("schemas/synnax/versions/channel/v0.oracle", channelV0)
+		merged := mergeLive(liveV0)
+		write("schemas/synnax/channel.oracle", string(merged))
+		p := analyzeLive(string(merged))
+		p.MergedSources = map[string][]byte{
+			"schemas/synnax/channel.oracle": merged,
+		}
+		report := run(p)
+		Expect(report.Findings).To(BeEmpty())
+		Expect(report.Status).To(Equal(check.StatusPass))
+	})
+
+	It("Should fail on drift between the live file and its version files", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", channelV0)
+		// The on-disk live file lacks the version-owned marshal tag the
+		// merged projection carries.
+		write("schemas/synnax/channel.oracle", liveV0)
 		p := analyzeLive(liveV0)
-		canonicalV0(p)
-		drifted := analyzeLive(`
-@go output "core/pkg/service/channel"
+		p.MergedSources = map[string][]byte{
+			"schemas/synnax/channel.oracle": mergeLive(liveV0),
+		}
+		report := run(p)
+		Expect(report.Status).To(Equal(check.StatusFail))
+		Expect(report.Findings[0].Message).
+			To(ContainSubstring("drifts from its version files"))
+		Expect(report.Findings[0].FixHint).To(ContainSubstring("oracle sync"))
+	})
+
+	It("Should fail a stored reference that imports a live schema", func() {
+		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/telem"
 
 Channel struct {
 	key uuid @key
-	name string
-	virtual bool
+	created telem.TimeStamp
 
+	@go marshal
 }
 `)
-		report := run(drifted)
+		p := analyzeLive(liveV0)
+		report := run(p)
 		Expect(report.Status).To(Equal(check.StatusFail))
-		Expect(report.Findings[0].Message).To(ContainSubstring("drifts"))
-		Expect(report.Findings[0].FixHint).To(ContainSubstring("oracle migrate"))
+		var placement bool
+		for _, f := range report.Findings {
+			if f.Message == "schemas/synnax/channel v0 stores telem "+
+				"but imports its live schema" {
+				placement = true
+			}
+		}
+		Expect(placement).To(BeTrue(), "expected a placement finding")
+	})
+
+	It("Should fail a resolved-only reference that pins", func() {
+		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	seen telem.TimeStamp {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+`)
+		p := analyzeLive(liveV0)
+		report := run(p)
+		Expect(report.Status).To(Equal(check.StatusFail))
+		var placement bool
+		for _, f := range report.Findings {
+			if f.Message == "schemas/synnax/channel v0 only resolves telem "+
+				"at read time but pins it" {
+				placement = true
+			}
+		}
+		Expect(placement).To(BeTrue(), "expected a placement finding")
+	})
+
+	It("Should fail a stored pin lagging its dependency's current version", func() {
+		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
+		write("schemas/x/versions/telem/v1.oracle", "TimeStamp = int32\n")
+		write("schemas/x/telem.oracle", "TimeStamp = int32\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Channel struct {
+	key uuid @key
+	created telem.TimeStamp
+
+	@go marshal
+}
+`)
+		p := analyzeLive(liveV0)
+		report := run(p)
+		Expect(report.Status).To(Equal(check.StatusFail))
+		var currency bool
+		for _, f := range report.Findings {
+			if f.Message == "schemas/synnax/channel's current surface resolves "+
+				"telem at v0, but schemas/x/telem's current version is v1" {
+				currency = true
+			}
+		}
+		Expect(currency).To(BeTrue(), "expected a pin-currency finding")
 	})
 
 	It("Should fail a redeclaration identical to its predecessor", func() {

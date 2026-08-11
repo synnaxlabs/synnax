@@ -11,6 +11,7 @@ package versions
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -165,15 +166,17 @@ func MergeLive(
 	importList := imports.Slice()
 	slices.Sort(importList)
 	for _, imp := range importList {
-		b.WriteString("import \"" + imp + "\"\n")
+		fmt.Fprintf(&b, "import %q\n", imp)
 	}
 	if len(importList) > 0 {
 		b.WriteString("\n")
 	}
 	if len(lc.fileDomains) > 0 {
-		b.WriteString(strings.Join(lc.fileDomains, "\n") + "\n\n")
+		b.WriteString(strings.Join(lc.fileDomains, "\n"))
+		b.WriteString("\n\n")
 	}
-	b.WriteString(strings.Join(parts, "\n\n") + "\n")
+	b.WriteString(strings.Join(parts, "\n\n"))
+	b.WriteString("\n")
 
 	formatted, err := formatter.Format(b.String())
 	if err != nil {

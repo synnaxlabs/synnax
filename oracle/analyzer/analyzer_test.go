@@ -127,7 +127,7 @@ var _ = Describe("Analyzer", func() {
 			)
 		}
 
-		It("Should reject a versioned resource's live schema from a version file", func(
+		It("Should allow a versioned resource's live schema from a version file", func(
 			ctx SpecContext,
 		) {
 			loader.Add("schemas/x/telem", "TimeStamp = int64\n")
@@ -140,10 +140,7 @@ Entry struct {
 }
 `,
 				"schemas/synnax/versions/channel/v0.oracle", "v0")
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring(
-				"may only import other version files",
-			))
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
 		It(
@@ -227,26 +224,10 @@ Entry struct {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
-		It("Should reject marshal tags in a live schema", func(ctx SpecContext) {
-			diag := analyzeAt(ctx, `
-@go output "out"
-
-Entry struct {
-	key uuid @key
-
-	@go marshal
-}
-`,
-				"schemas/synnax/channel.oracle", "channel")
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring(
-				"declare it in the resource's version file",
-			))
-		})
-
-		It("Should reject field-level marshal in a live schema", func(
-			ctx SpecContext,
-		) {
+		It("Should accept marshal tags in a live schema", func(ctx SpecContext) {
+			// The live file carries version-owned marshal tags as emitted
+			// content; the versions gate, not the analyzer, holds them equal
+			// to chain resolution.
 			diag := analyzeAt(ctx, `
 @go output "out"
 
@@ -255,13 +236,12 @@ Entry struct {
 	cached string {
 		@go marshal omit
 	}
+
+	@go marshal
 }
 `,
 				"schemas/synnax/channel.oracle", "channel")
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(
-				diag.String(),
-			).To(ContainSubstring("Entry.cached declares @go marshal"))
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 	})
 

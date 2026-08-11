@@ -155,7 +155,7 @@ Channel struct {
 			Expect(ch.Namespace).To(Equal("v0"))
 		})
 
-		It("Should reject the live schema of a versioned resource", func(
+		It("Should resolve the live schema of a versioned resource", func(
 			ctx SpecContext,
 		) {
 			r := resolverFor(map[string]string{
@@ -166,14 +166,16 @@ import "schemas/x/telem"
 
 Channel struct {
 	key uuid @key
-	created telem.TimeStamp
+	created telem.TimeStamp {
+		@go marshal omit
+	}
 }
 `,
 			})
-			Expect(r.File(ctx, "schemas/synnax/channel", 0)).Error().
-				To(MatchError(ContainSubstring(
-					"may only import other version files",
-				)))
+			f := MustSucceed(r.File(ctx, "schemas/synnax/channel", 0))
+			Expect(f.Live).To(ContainElement("telem"))
+			Expect(f.LivePaths).To(ContainElement("schemas/x/telem"))
+			Expect(f.Pins).To(BeEmpty())
 		})
 
 		It("Should resolve an unversioned schema through a transitive pin", func(
