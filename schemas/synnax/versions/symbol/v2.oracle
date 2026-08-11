@@ -31,9 +31,10 @@ Region struct {
         @doc value "is an optional fill color override for the region."
     }
 
-    @doc value """is a visual styling area within a symbol state, targeting specific SVG
-elements for dynamic coloring."""
-
+    @doc value  """
+is a visual styling area within a symbol state, targeting specific SVG
+elements for dynamic coloring.
+    """
     @go marshal
 }
 
@@ -48,7 +49,9 @@ State struct {
         @doc value "contains style regions defining visual appearance for this state."
     }
 
-    @doc value "is a named visual state of a symbol with regional styling configurations."
+    @doc value  """
+        is a named visual state of a symbol with regional styling configurations.
+    """
     @go marshal
 }
 
@@ -63,7 +66,9 @@ Handle struct {
         @doc value "is the direction the handle faces (top, right, bottom, left)."
     }
 
-    @doc value "is a connection point on a symbol for linking to other diagram elements."
+    @doc value  """
+        is a connection point on a symbol for linking to other diagram elements.
+    """
     @go marshal
 }
 
@@ -72,10 +77,14 @@ Spec struct {
         @doc value "is the SVG markup defining the symbol's visual geometry."
     }
     states           State[]           {
-        @doc value "contains available visual states with regional styling configurations."
+        @doc value """
+            contains available visual states with regional styling configurations.
+        """
     }
     variant          string            {
-        @doc value "is the symbol variant or category identifier (e.g., 'sensor', 'valve')."
+        @doc value """
+            is the symbol variant or category identifier (e.g., 'sensor', 'valve').
+        """
     }
     handles          Handle[]          {
         @doc value "contains connection points for linking to other diagram elements."
@@ -90,9 +99,10 @@ Spec struct {
         @doc value "is an optional viewport configuration for symbol preview rendering."
     }
 
-    @doc value """is the complete symbol definition including geometry, states, handles, and
-rendering properties."""
-
+    @doc value  """
+is the complete symbol definition including geometry, states, handles, and
+rendering properties.
+    """
     @go marshal
 }
 
@@ -108,7 +118,7 @@ Symbol struct {
         @doc value "is the complete symbol specification."
     }
 
-    @doc value """
+    @doc value  """
         is a persisted schematic symbol defining reusable visual components for
         diagrams.
     """

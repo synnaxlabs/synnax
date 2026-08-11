@@ -543,6 +543,91 @@ var _ = Describe("Format", func() {
 		})
 	})
 
+	Describe("Doc Strings", func() {
+		It("should keep a single-quoted doc that fits its line", func() {
+			source := "Color struct {\n" +
+				"    b uint8 {\n" +
+				"        @doc value \"is the blue component (0-255).\"\n" +
+				"    }\n" +
+				"}\n"
+			Expect(format(source)).To(Equal(source))
+		})
+
+		It("should convert an over-long single-quoted doc to wrapped triple form",
+			func() {
+				doc := "is the blue component of the color measured on the usual " +
+					"eight bit integer scale running from zero up to two hundred " +
+					"fifty five inclusive."
+				source := "Color struct {\n" +
+					"    b uint8 {\n" +
+					"        @doc value \"" + doc + "\"\n" +
+					"    }\n" +
+					"}\n"
+				result := format(source)
+				Expect(result).To(Equal("Color struct {\n" +
+					"    b uint8 {\n" +
+					"        @doc value \"\"\"\n" +
+					"            is the blue component of the color measured on the " +
+					"usual eight bit integer\n" +
+					"            scale running from zero up to two hundred fifty " +
+					"five inclusive.\n" +
+					"        \"\"\"\n" +
+					"    }\n" +
+					"}\n"))
+				Expect(format(result)).To(Equal(result))
+			})
+
+		It("should not convert an over-long string outside the doc domain", func() {
+			path := "core/pkg/service/some/very/deeply/nested/output/path/that/" +
+				"keeps/going/well/past/the/line/limit"
+			source := "@go output \"" + path + "\"\n\nUser struct {}\n"
+			Expect(format(source)).To(ContainSubstring("output \"" + path + "\""))
+		})
+
+		It("should move triple-quoted content off the quote lines", func() {
+			source := "Level enum {\n" +
+				"    h1 = \"h1\"\n" +
+				"\n" +
+				"    @doc value \"\"\"is a typography level.\n" +
+				"Order is descending.\"\"\"\n" +
+				"}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring(
+				"    @doc value \"\"\"\n" +
+					"is a typography level.\n" +
+					"Order is descending.\n" +
+					"    \"\"\"\n"))
+			Expect(format(result)).To(Equal(result))
+		})
+
+		It("should keep interior lines of a compliant triple string verbatim",
+			func() {
+				source := "Symbol struct {\n" +
+					"    key string {\n" +
+					"        @doc value \"\"\"\n" +
+					"            is the handle identifier used when\n" +
+					"            linking symbols.\n" +
+					"        \"\"\"\n" +
+					"    }\n" +
+					"}\n"
+				Expect(format(source)).To(Equal(source))
+			})
+
+		It("should break an inline triple-quoted doc into brace form", func() {
+			source := "Thing struct {\n" +
+				"    key string @doc value \"\"\"is short.\"\"\"\n" +
+				"}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring(
+				"    key string {\n" +
+					"        @doc value \"\"\"\n" +
+					"is short.\n" +
+					"        \"\"\"\n" +
+					"    }\n"))
+			Expect(format(result)).To(Equal(result))
+		})
+	})
+
 	Describe("Union Definitions", func() {
 		It("should format an empty union", func() {
 			Expect(

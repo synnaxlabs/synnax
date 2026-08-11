@@ -34,8 +34,10 @@ Region struct {
         @doc value "is an optional fill color override for the region."
     }
 
-    @doc value  """is a visual styling area within a symbol state, targeting specific SVG
-elements for dynamic coloring."""
+    @doc value  """
+is a visual styling area within a symbol state, targeting specific SVG
+elements for dynamic coloring.
+    """
     @go marshal
 }
 
@@ -50,7 +52,9 @@ State struct {
         @doc value "contains style regions defining visual appearance for this state."
     }
 
-    @doc value  "is a named visual state of a symbol with regional styling configurations."
+    @doc value  """
+        is a named visual state of a symbol with regional styling configurations.
+    """
     @go marshal
 }
 
@@ -65,7 +69,9 @@ Handle struct {
         @doc value "is the direction the handle faces (top, right, bottom, left)."
     }
 
-    @doc value  "is a connection point on a symbol for linking to other diagram elements."
+    @doc value  """
+        is a connection point on a symbol for linking to other diagram elements.
+    """
     @go marshal
 }
 
@@ -75,10 +81,14 @@ Spec struct {
         @validate min_length 1
     }
     states           State[]           {
-        @doc value "contains available visual states with regional styling configurations."
+        @doc value """
+            contains available visual states with regional styling configurations.
+        """
     }
     variant          string            {
-        @doc value           "is the symbol variant or category identifier (e.g., 'sensor', 'valve')."
+        @doc value           """
+            is the symbol variant or category identifier (e.g., 'sensor', 'valve').
+        """
         @validate min_length 1
     }
     handles          Handle[]          {
@@ -94,8 +104,10 @@ Spec struct {
         @doc value "is an optional viewport configuration for symbol preview rendering."
     }
 
-    @doc value  """is the complete symbol definition including geometry, states, handles, and
-rendering properties."""
+    @doc value  """
+is the complete symbol definition including geometry, states, handles, and
+rendering properties.
+    """
     @go marshal
 }
 
@@ -112,8 +124,10 @@ Symbol struct {
         @doc value "is the complete symbol specification."
     }
 
-    @doc value     """is a persisted schematic symbol defining reusable visual components for
-diagrams."""
+    @doc value     """
+is a persisted schematic symbol defining reusable visual components for
+diagrams.
+    """
     @go imex
     @go marshal
     @ontology type "schematic_symbol"

@@ -22,21 +22,29 @@ Range struct {
         @doc value "is a human-readable name for the range."
     }
     time_range telem.TimeRange {
-        @doc value """is the temporal extent of the range, defining its start and end
-timestamps."""
+        @doc value """
+is the temporal extent of the range, defining its start and end
+timestamps.
+        """
     }
     color      color.Color?    {
-        @doc value """is an optional display color for visual identification of the range
-in user interfaces."""
+        @doc value """
+is an optional display color for visual identification of the range
+in user interfaces.
+        """
     }
     labels     label.Label[]?  {
-        @doc value  """contains optional labels attached to this range for categorization
-and filtering."""
+        @doc value  """
+contains optional labels attached to this range for categorization
+and filtering.
+        """
         @go marshal omit
     }
     parent     Range?          {
-        @doc value  """is an optional parent range for hierarchical organization. Ranges
-can be nested within other ranges."""
+        @doc value  """
+is an optional parent range for hierarchical organization. Ranges
+can be nested within other ranges.
+        """
         @go marshal omit
     }
 

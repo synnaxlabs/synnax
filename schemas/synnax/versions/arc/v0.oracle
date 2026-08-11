@@ -20,8 +20,10 @@ Mode enum {
     text  = "text"
     graph = "graph"
 
-    @doc value """specifies whether an Arc module uses text-based or graph-based
-representation."""
+    @doc value """
+specifies whether an Arc module uses text-based or graph-based
+representation.
+    """
 }
 
 StatusDetails struct {
@@ -45,8 +47,10 @@ Arc struct {
         @doc value "is a human-readable name for the module."
     }
     mode    Mode             {
-        @doc value """specifies the representation mode for this module.
-Either "text" for text-based Arc code or "graph" for visual dataflow."""
+        @doc value """
+specifies the representation mode for this module.
+Either "text" for text-based Arc code or "graph" for visual dataflow.
+        """
     }
     graph   graph.Graph = {} {
         @doc value "is the visual dataflow graph representation of the module."
@@ -55,15 +59,19 @@ Either "text" for text-based Arc code or "graph" for visual dataflow."""
         @doc value "is the text-based Arc source code."
     }
     program program.Program? {
-        @doc value "is the compiled module output including IR and WebAssembly bytecode."
+        @doc value """
+            is the compiled module output including IR and WebAssembly bytecode.
+        """
     }
     status  Status?          {
         @doc value "is the current execution status of the module."
     }
 
-    @doc value  """is an Arc module combining visual graph representation and text-based
+    @doc value  """
+is an Arc module combining visual graph representation and text-based
 source code for reactive control systems. Compiles to WebAssembly for
-sandboxed execution."""
+sandboxed execution.
+    """
     @go marshal
     @go migrate
 }

@@ -38,8 +38,10 @@ Kind enum {
     stage                        = 23
     var_ref                      = 24
 
-    @doc value """is the type category for Arc's type system, including primitives, compound
-types, and meta-types."""
+    @doc value """
+is the type category for Arc's type system, including primitives, compound
+types, and meta-types.
+    """
 }
 
 ChanDirection enum {
@@ -82,8 +84,10 @@ Type struct extends FunctionProperties {
         @doc value "indicates read/write direction for channel-typed parameters."
     }
 
-    @doc value           """is a type in Arc's type system with optional element type for compounds,
-physical units, and constraints."""
+    @doc value           """
+is a type in Arc's type system with optional element type for compounds,
+physical units, and constraints.
+    """
     @cpp includes        "x/cpp/telem/telem.h"
     @cpp system_includes "ostream"
     @cpp methods         "[[nodiscard]] size_t density() const" "[[nodiscard]] bool is_valid() const" "[[nodiscard]] bool is_timestamp() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] x::telem::DataType telem() const" "friend std::ostream& operator<<(std::ostream& os, const Type& t)"
@@ -105,8 +109,10 @@ Param struct {
 }
 
 Params Param[] {
-    @doc value   """is a collection of named, typed parameters for function inputs or
-outputs."""
+    @doc value   """
+is a collection of named, typed parameters for function inputs or
+outputs.
+    """
     @cpp methods "[[nodiscard]] const Param& operator[](const std::string& name) const" "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Params& p)"
 }
 
@@ -118,7 +124,9 @@ Channels struct {
         @doc value "contains writable channel indices mapped to parameter names."
     }
 
-    @doc value   "contains channel declarations for reading from and writing to Synnax channels."
+    @doc value   """
+        contains channel declarations for reading from and writing to Synnax channels.
+    """
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Channels& c)"
 }
 
@@ -148,7 +156,10 @@ Dimensions struct {
         @doc value "is the data size dimension exponent (bytes)."
     }
 
-    @doc value   "contains physical dimension exponents for dimensional analysis (SI base quantities)."
+    @doc value   """
+contains physical dimension exponents for dimensional analysis (SI base
+quantities).
+    """
     @cpp methods "bool operator==(const Dimensions& other) const" "[[nodiscard]] bool is_zero() const"
 }
 
@@ -163,6 +174,8 @@ Unit struct {
         @doc value "is the unit name (e.g., 'psi', 'ns', 'm/s')."
     }
 
-    @doc value   "is a physical unit with dimensions and scale factor for unit-aware computation."
+    @doc value   """
+        is a physical unit with dimensions and scale factor for unit-aware computation.
+    """
     @cpp methods "bool operator==(const Unit& other) const" "[[nodiscard]] bool is_timestamp() const"
 }

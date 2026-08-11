@@ -19,12 +19,14 @@ Node struct {
         @doc value "is the top-left position of the node."
     }
     z_index  int16 = 0 {
-        @doc value """is the stacking order of the node within the schematic. Higher
+        @doc value """
+is the stacking order of the node within the schematic. Higher
 values render above lower values. Set by the user via
-send-to-back / bring-to-front actions."""
+send-to-back / bring-to-front actions.
+        """
     }
 
-    @doc value "is a diagram node representing a symbol in the schematic."
+    @doc value  "is a diagram node representing a symbol in the schematic."
     @go marshal
 }
 
@@ -36,9 +38,10 @@ Handle struct {
         @doc value "is the connection point identifier on the node."
     }
 
-    @doc value """is a reference to a specific connection point on a specific node.
-For schematics, param is the symbol handle key (e.g. inlet, outlet)."""
-
+    @doc value  """
+is a reference to a specific connection point on a specific node.
+For schematics, param is the symbol handle key (e.g. inlet, outlet).
+    """
     @go marshal
 }
 
@@ -53,7 +56,7 @@ Edge struct {
         @doc value "is the target endpoint of the edge."
     }
 
-    @doc value "is a connection between two nodes in the schematic."
+    @doc value  "is a connection between two nodes in the schematic."
     @go marshal
 }
 
@@ -75,16 +78,20 @@ Schematic struct {
         @doc value "contains all connections between nodes."
     }
     configs  map<string, record> = {} {
-        @doc value """contains per-element configuration keyed by node or edge key. The
+        @doc value """
+contains per-element configuration keyed by node or edge key. The
 shape of each value is determined by the element's variant; the
-wire format intentionally stores it as an opaque record."""
+wire format intentionally stores it as an opaque record.
+        """
     }
 
     action Create {
         schematic Schematic
 
-        @doc value """replaces the document with the given created state. Emitted by the Core on
-create so remote caches ingest new documents; clients never dispatch it."""
+        @doc value """
+replaces the document with the given created state. Emitted by the Core on
+create so remote caches ingest new documents; clients never dispatch it.
+        """
     }
 
     action Rename {
@@ -104,9 +111,11 @@ create so remote caches ingest new documents; clients never dispatch it."""
         node   Node
         config record?
 
-        @doc value """inserts the node if no node with the same key exists, otherwise
+        @doc value """
+inserts the node if no node with the same key exists, otherwise
 replaces the existing node in place. If config is non-empty it is
-stored under the node's key in the schematic configs map."""
+stored under the node's key in the schematic configs map.
+        """
     }
 
     action RemoveNode {
@@ -118,8 +127,10 @@ stored under the node's key in the schematic configs map."""
     action AddEdge {
         edge Edge
 
-        @doc value """appends the edge to the schematic. No-op when an edge with the
-same key already exists."""
+        @doc value """
+appends the edge to the schematic. No-op when an edge with the
+same key already exists.
+        """
     }
 
     action RemoveEdge {
@@ -132,12 +143,14 @@ same key already exists."""
         key    string
         config record
 
-        @doc value """merges the given config fields into the existing config entry for
+        @doc value """
+merges the given config fields into the existing config entry for
 the given node or edge key. Top-level fields present in the payload
 overwrite existing fields; fields absent from the payload are
 preserved. When no entry exists yet and the key matches an edge
 whose source node carries a color, the source color overrides
-whatever color (if any) was in the payload."""
+whatever color (if any) was in the payload.
+        """
     }
 
     @go migrate

@@ -14,13 +14,15 @@ Policy struct {
     subjects ontology.ID[]
     objects  ontology.ID[]
     actions  access.Action[]
-    key      uuid {
+    key      uuid            {
         @key
     }
 
-    @doc value  """represents the old policy format with a subjects field that
+    @doc value  """
+represents the old policy format with a subjects field that
 associated policies directly with users. Used only for reading legacy data
-during migration."""
+during migration.
+    """
     @go hand
     @go migrate
 }

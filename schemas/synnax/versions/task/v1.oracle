@@ -45,12 +45,16 @@ Task struct<
         @doc value "is a human-readable name for the task."
     }
     type     Type                {
-        @doc value """is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
-Determines which hardware integration handles the task."""
+        @doc value """
+is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+Determines which hardware integration handles the task.
+        """
     }
     config   Config              {
-        @doc value """is task-specific configuration stored as JSON. Structure varies by
-task type."""
+        @doc value """
+is task-specific configuration stored as JSON. Structure varies by
+task type.
+        """
     }
     internal bool = false {
         @doc value "is true if this is an internal system task."

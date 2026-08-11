@@ -13,7 +13,9 @@ package formatter
 
 import (
 	"sort"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/oracle/parser"
@@ -22,6 +24,7 @@ import (
 const (
 	indent      = "    " // 4 spaces
 	maxLineLen  = 88
+	tripleQuote = `"""`
 	hiddenChan  = 1 // ANTLR hidden channel
 	commentLine = parser.OracleLexerLINE_COMMENT
 	commentBlk  = parser.OracleLexerBLOCK_COMMENT
@@ -79,6 +82,9 @@ type formatter struct {
 	sb            *strings.Builder
 	lastTokenIdx  int
 	currentIndent int
+	// currentDomain is the name of the domain whose content is being
+	// emitted ("doc", "go", ...); doc strings get prose layout rules.
+	currentDomain string
 }
 
 func (f *formatter) write(s string) {
@@ -233,6 +239,7 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 		f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
 		f.write("@")
 		f.write(dom.IDENT().GetText())
+		f.currentDomain = dom.IDENT().GetText()
 		if dom.DomainContent() != nil {
 			f.write(" ")
 			f.formatDomainContentAligned(
@@ -277,6 +284,10 @@ func (f *formatter) formatExpressionAligned(
 		padding := max(maxPrefixLen-fullPrefixLen, 0)
 		f.writePadding(padding)
 		f.write(" ")
+		if len(values) == 1 {
+			f.formatSoleExpressionValue(values[0])
+			return
+		}
 		for i, val := range values {
 			if i > 0 {
 				f.write(" ")
@@ -652,7 +663,8 @@ func (f *formatter) formatFieldDefAligned(
 		inlineStr := f.formatInlineDomainsToString(inlineDomains) +
 			f.formatDomainOmitsToString(domainOmits)
 
-		if ctx.FieldBody() != nil || f.currentLineLen()+len(inlineStr) > maxLineLen {
+		if ctx.FieldBody() != nil || hasTripleString(inlineDomains) ||
+			f.currentLineLen()+len(inlineStr) > maxLineLen {
 			f.formatFieldWithBraces(inlineDomains, domainOmits, ctx.FieldBody())
 		} else {
 			f.write(inlineStr)
@@ -709,6 +721,23 @@ func (f *formatter) formatTypeRefToString(ctx parser.ITypeRefContext) string {
 		}
 	}
 	return sb.String()
+}
+
+// hasTripleString reports whether any inline domain carries a triple-quoted
+// string value, which can never render on a single line.
+func hasTripleString(domains []parser.IInlineDomainContext) bool {
+	for _, dom := range domains {
+		content := dom.DomainContent()
+		if content == nil || content.Expression() == nil {
+			continue
+		}
+		for _, val := range content.Expression().AllExpressionValue() {
+			if val.TRIPLE_STRING_LIT() != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // standaloneFieldModifier returns the optionality marker of a typeless override
@@ -989,6 +1018,7 @@ func (f *formatter) formatFieldWithBraces(
 		f.writeIndent()
 		f.write("@")
 		f.write(dom.IDENT().GetText())
+		f.currentDomain = dom.IDENT().GetText()
 		if dom.DomainContent() != nil {
 			f.write(" ")
 			f.formatDomainContentAligned(
@@ -1008,6 +1038,7 @@ func (f *formatter) formatFieldWithBraces(
 			f.writeIndent()
 			f.write("@")
 			f.write(dom.IDENT().GetText())
+			f.currentDomain = dom.IDENT().GetText()
 			if dom.DomainContent() != nil {
 				f.write(" ")
 				f.formatDomainContentAligned(
@@ -1068,6 +1099,7 @@ func (f *formatter) formatDomains(domains []parser.IDomainContext) {
 		f.writeIndent()
 		f.write("@")
 		f.write(dom.IDENT().GetText())
+		f.currentDomain = dom.IDENT().GetText()
 		if dom.DomainContent() != nil {
 			f.write(" ")
 			f.formatDomainContentAligned(
@@ -1106,10 +1138,97 @@ func (f *formatter) formatDomainBlock(ctx parser.IDomainBlockContext) {
 
 func (f *formatter) formatExpression(ctx parser.IExpressionContext) {
 	f.write(ctx.IDENT().GetText())
-	for _, val := range ctx.AllExpressionValue() {
+	values := ctx.AllExpressionValue()
+	if len(values) == 1 {
+		f.write(" ")
+		f.formatSoleExpressionValue(values[0])
+		return
+	}
+	for _, val := range values {
 		f.write(" ")
 		f.formatExpressionValue(val)
 	}
+}
+
+// formatSoleExpressionValue emits an expression's only value, applying the
+// prose layout rules: triple-quoted strings keep their content off the quote
+// lines, and a doc string too long for its line converts to triple-quoted
+// wrapped form. Both re-layouts preserve the value the analyzer reads, so
+// they never apply to a value sharing its expression with others, where a
+// line break would detach the neighbors.
+func (f *formatter) formatSoleExpressionValue(ctx parser.IExpressionValueContext) {
+	if ts := ctx.TRIPLE_STRING_LIT(); ts != nil {
+		f.writeTripleString(ts.GetText())
+		return
+	}
+	if s := ctx.STRING_LIT(); s != nil && f.currentDomain == "doc" {
+		text := s.GetText()
+		if f.currentLineLen()+utf8.RuneCountInString(text) > maxLineLen {
+			if value, err := strconv.Unquote(text); err == nil &&
+				!strings.Contains(value, tripleQuote) {
+				f.writeWrappedDoc(value)
+				return
+			}
+		}
+	}
+	f.formatExpressionValue(ctx)
+}
+
+// writeTripleString lays a triple-quoted string out canonically: nothing
+// follows the opening quotes on their line, content lines keep their own
+// bytes, and the closing quotes sit alone at the current indent. Only
+// newlines and trimmable whitespace move, so the dedented value the
+// analyzer reads is unchanged.
+func (f *formatter) writeTripleString(text string) {
+	content := text[len(tripleQuote) : len(text)-len(tripleQuote)]
+	lines := strings.Split(content, "\n")
+	start, end := 0, len(lines)
+	for start < end && strings.TrimSpace(lines[start]) == "" {
+		start++
+	}
+	for end > start && strings.TrimSpace(lines[end-1]) == "" {
+		end--
+	}
+	f.write(tripleQuote)
+	f.newline()
+	for _, line := range lines[start:end] {
+		f.writeLine(strings.TrimRight(line, " \t"))
+	}
+	f.writeIndent()
+	f.write(tripleQuote)
+}
+
+// writeWrappedDoc converts an over-long single-quoted doc string to the
+// triple-quoted layout, filling content lines to the line limit one indent
+// level in. Blank lines survive as paragraph breaks; every doc consumer
+// treats a single line break as a space, so re-wrapping cannot change
+// generated output.
+func (f *formatter) writeWrappedDoc(value string) {
+	contentIndent := strings.Repeat(indent, f.currentIndent+1)
+	width := maxLineLen - len(contentIndent)
+	f.write(tripleQuote)
+	f.newline()
+	for pi, para := range strings.Split(value, "\n\n") {
+		words := strings.Fields(para)
+		if len(words) == 0 {
+			continue
+		}
+		if pi > 0 {
+			f.newline()
+		}
+		line := words[0]
+		for _, word := range words[1:] {
+			if utf8.RuneCountInString(line)+1+utf8.RuneCountInString(word) <= width {
+				line += " " + word
+				continue
+			}
+			f.writeLine(contentIndent + line)
+			line = word
+		}
+		f.writeLine(contentIndent + line)
+	}
+	f.writeIndent()
+	f.write(tripleQuote)
 }
 
 func (f *formatter) formatExpressionValue(ctx parser.IExpressionValueContext) {
@@ -1278,6 +1397,7 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 			f.writeIndent()
 			f.write("@")
 			f.write(dom.IDENT().GetText())
+			f.currentDomain = dom.IDENT().GetText()
 			if dom.DomainContent() != nil {
 				f.write(" ")
 				f.formatDomainContentAligned(

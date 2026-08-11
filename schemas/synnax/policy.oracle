@@ -38,9 +38,11 @@ Policy struct {
         @filter
     }
 
-    @doc value       """is an access control policy that defines which actions are permitted on
+    @doc value       """
+is an access control policy that defines which actions are permitted on
 which resources. Policies are attached to roles, and roles are assigned
-to users via ontology relationships."""
+to users via ontology relationships.
+    """
     @go migrate
     @go marshal
     @create

@@ -31,8 +31,10 @@ Kind enum {
     sequence                     = 20
     stage                        = 21
 
-    @doc value """is the type category for Arc's type system, including primitives, compound
-types, and meta-types."""
+    @doc value """
+is the type category for Arc's type system, including primitives, compound
+types, and meta-types.
+    """
 }
 
 ChanDirection enum {
@@ -58,37 +60,39 @@ FunctionProperties struct {
 }
 
 Type struct extends FunctionProperties {
-    kind           Kind {
+    kind           Kind          {
         @doc value "is the type category (primitive, compound, or meta-type)."
     }
-    name           string {
+    name           string        {
         @doc value "is the type name for variables and user-defined types."
     }
-    elem           Type? {
+    elem           Type?         {
         @doc value "is the element type for compound types (chan, series)."
     }
-    unit           Unit? {
+    unit           Unit?         {
         @doc value "is the physical unit metadata for dimensional analysis."
     }
-    constraint     Type? {
+    constraint     Type?         {
         @doc value "is the type constraint for type variables."
     }
     chan_direction ChanDirection {
         @doc value "indicates read/write direction for channel-typed config parameters."
     }
 
-    @doc value """is a type in Arc's type system with optional element type for compounds,
-physical units, and constraints."""
+    @doc value """
+is a type in Arc's type system with optional element type for compounds,
+physical units, and constraints.
+    """
 }
 
 Param struct {
     name  string {
         @doc value "is the parameter name."
     }
-    type  Type {
+    type  Type   {
         @doc value "is the parameter type."
     }
-    value any {
+    value any    {
         @doc value "is an optional default value."
     }
 
@@ -96,8 +100,10 @@ Param struct {
 }
 
 Params Param[] {
-    @doc value """is a collection of named, typed parameters for function inputs, outputs, or
-configuration."""
+    @doc value """
+is a collection of named, typed parameters for function inputs, outputs, or
+configuration.
+    """
 }
 
 Channels struct {
@@ -108,7 +114,9 @@ Channels struct {
         @doc value "contains writable channel indices mapped to parameter names."
     }
 
-    @doc value "contains channel declarations for reading from and writing to Synnax channels."
+    @doc value """
+        contains channel declarations for reading from and writing to Synnax channels.
+    """
 }
 
 Dimensions struct {
@@ -137,19 +145,24 @@ Dimensions struct {
         @doc value "is the data size dimension exponent (bytes)."
     }
 
-    @doc value "contains physical dimension exponents for dimensional analysis (SI base quantities)."
+    @doc value """
+        contains physical dimension exponents for dimensional analysis (SI base
+        quantities).
+    """
 }
 
 Unit struct {
     dimensions Dimensions {
         @doc value "contains physical dimension exponents."
     }
-    scale      float64 {
+    scale      float64    {
         @doc value "is the scale factor relative to SI base units."
     }
-    name       string {
+    name       string     {
         @doc value "is the unit name (e.g., 'psi', 'ns', 'm/s')."
     }
 
-    @doc value "is a physical unit with dimensions and scale factor for unit-aware computation."
+    @doc value """
+        is a physical unit with dimensions and scale factor for unit-aware computation.
+    """
 }

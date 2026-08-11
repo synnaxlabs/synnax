@@ -24,8 +24,10 @@ Node struct {
         @doc value "is the canvas position (x, y) for visual layout."
     }
 
-    @doc value  """is a visual node in the Arc graph editor representing a function
-instantiation with position data."""
+    @doc value """
+is a visual node in the Arc graph editor representing a function
+instantiation with position data.
+    """
 }
 
 Nodes Node[] {
@@ -57,6 +59,8 @@ Graph struct {
         @doc value "contains visual nodes with canvas positions."
     }
 
-    @doc value  """is a visual dataflow graph representation combining IR elements with
-canvas layout for the Arc graph editor."""
+    @doc value """
+is a visual dataflow graph representation combining IR elements with
+canvas layout for the Arc graph editor.
+    """
 }

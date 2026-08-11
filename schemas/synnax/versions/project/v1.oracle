@@ -18,14 +18,18 @@ Project struct {
         @doc value "is a human-readable name for the project."
     }
     layout record {
-        @doc value """is the mosaic tree structure that defines how visualizations are
+        @doc value """
+is the mosaic tree structure that defines how visualizations are
 arranged. Contains tab layout, split configurations, and window
-positions."""
+positions.
+        """
     }
 
-    @doc value  """is a named, persistable container that stores the layout and organization
+    @doc value  """
+is a named, persistable container that stores the layout and organization
 of the Console application. Projects allow users to save and restore
-custom arrangements of visualizations, tabs, and window configurations."""
+custom arrangements of visualizations, tabs, and window configurations.
+    """
     @go migrate
     @go marshal
 }

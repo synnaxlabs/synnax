@@ -75,7 +75,10 @@ Title struct {
 
 Legend struct {
     hidden   bool = false {
-        @doc value "is whether the legend is hidden. When false (the default), the legend is shown."
+        @doc value """
+is whether the legend is hidden. When false (the default), the legend is
+shown.
+        """
     }
     position spatial.StickyXY = {
         x = 50,
@@ -110,18 +113,22 @@ Channels struct {
         @doc value "are the channels rendered on the y4 axis."
     }
 
-    @doc value  """binds channel keys to each axis. x1 and x2 are single-channel; y1
-through y4 carry zero or more channels each."""
+    @doc value  """
+binds channel keys to each axis. x1 and x2 are single-channel; y1
+through y4 carry zero or more channels each.
+    """
     @go marshal
 }
 
 Ranges struct {
     x1 string[] {
-        @doc value """are the range keys plotted against the x1 axis. Range keys are
+        @doc value """
+are the range keys plotted against the x1 axis. Range keys are
 opaque strings rather than UUIDs because the console layers
 synthetic rolling-window ranges (e.g. "recent", "rolling1m")
 alongside persisted ranges; the server stores whatever the
-client sends."""
+client sends.
+        """
     }
     x2 string[] {
         @doc value "are the range keys plotted against the x2 axis."
@@ -133,17 +140,23 @@ client sends."""
 
 ManualBounds struct {
     lower bool = false {
-        @doc value "is whether the lower bound is set manually rather than computed from data."
+        @doc value """
+            is whether the lower bound is set manually rather than computed from data.
+        """
     }
     upper bool = false {
-        @doc value "is whether the upper bound is set manually rather than computed from data."
+        @doc value """
+            is whether the upper bound is set manually rather than computed from data.
+        """
     }
 
-    @doc value  """controls whether an axis uses a manually-set bound on each side
+    @doc value  """
+controls whether an axis uses a manually-set bound on each side
 independently. When a side is false (the default), the corresponding
 entry in Axis.bounds is recomputed locally from the rendered data
 window and never broadcast to the server; when true, Axis.bounds holds
-the user-set value."""
+the user-set value.
+    """
     @go marshal
 }
 
@@ -161,9 +174,11 @@ Axis struct {
         @doc value "is the typography level of the label."
     }
     bounds          spatial.Bounds = { lower = 0, upper = 0 } {
-        @doc value """is the value-space window of the axis. When the matching entry in
+        @doc value """
+is the value-space window of the axis. When the matching entry in
 manual_bounds is false the field is overwritten locally on every
-render; otherwise it is the user-set fixed bound."""
+render; otherwise it is the user-set fixed bound.
+        """
     }
     manual_bounds   ManualBounds = {} {
         @doc value "controls per-edge manual bound override."
@@ -172,8 +187,10 @@ render; otherwise it is the user-set fixed bound."""
         @doc value "is the target pixel distance between adjacent tick marks."
     }
     type            TickType?         {
-        @doc value """selects the tick label style. Null means default (linear).
-X-axes typically carry "time" when bound to a timestamp channel."""
+        @doc value """
+selects the tick label style. Null means default (linear).
+X-axes typically carry "time" when bound to a timestamp channel.
+        """
     }
 
     @doc value  "is the configuration for a single plot axis."
@@ -206,24 +223,32 @@ Axes struct {
 
 Line struct {
     key             string         {
-        @doc value """is the line identifier derived from its channel and range
+        @doc value """
+is the line identifier derived from its channel and range
 assignment. Format is internal to the client and stable across
-re-renders so styling overrides persist."""
+re-renders so styling overrides persist.
+        """
     }
     label           string?        {
-        @doc value """is the user-specified line label. Null means derive from the
-channel name at render time; non-null is an override."""
+        @doc value """
+is the user-specified line label. Null means derive from the
+channel name at render time; non-null is an override.
+        """
     }
     color           color.Color?   {
-        @doc value """is the line color. When null, the Console assigns one from the
-visualization palette at render time."""
+        @doc value """
+is the line color. When null, the Console assigns one from the
+visualization palette at render time.
+        """
     }
     stroke_width    float64 = 2 {
         @doc value "is the line stroke width in pixels."
     }
     downsample      uint32 = 1 {
-        @doc value """is the downsample factor applied before rendering. 1 means render
-every sample; higher values render every Nth sample."""
+        @doc value """
+is the downsample factor applied before rendering. 1 means render
+every sample; higher values render every Nth sample.
+        """
     }
     downsample_mode DownsampleMode = DownsampleModeDecimate {
         @doc value "selects how the downsample factor is applied."
@@ -241,7 +266,10 @@ Rule struct {
         @doc value "is the human-readable label rendered alongside the rule."
     }
     color      color.Color? {
-        @doc value "is the display color of the rule. When null, the Console assigns a default at render time."
+        @doc value """
+is the display color of the rule. When null, the Console assigns a default
+at render time.
+        """
     }
     axis       AxisKey      {
         @doc value "is the axis the rule is anchored to."
@@ -288,9 +316,11 @@ LinePlot struct {
         @doc value "bundles per-axis configuration."
     }
     lines    Line[]   {
-        @doc value """holds per-line styling and downsampling configuration. Each entry
+        @doc value """
+holds per-line styling and downsampling configuration. Each entry
 corresponds to one channel and range combination produced by the
-channels and ranges bindings."""
+channels and ranges bindings.
+        """
     }
     rules    Rule[]   {
         @doc value "holds annotation rules drawn over the plot."
@@ -299,8 +329,10 @@ channels and ranges bindings."""
     action Create {
         line_plot LinePlot
 
-        @doc value """replaces the document with the given created state. Emitted by the Core on
-create so remote caches ingest new documents; clients never dispatch it."""
+        @doc value """
+replaces the document with the given created state. Emitted by the Core on
+create so remote caches ingest new documents; clients never dispatch it.
+        """
     }
 
     action Rename {
@@ -337,60 +369,74 @@ create so remote caches ingest new documents; clients never dispatch it."""
         axis_key YAxisKey
         channel  channel.Key
 
-        @doc value """appends the channel to the channels array bound to the y-axis
-named by axis_key. No-op when the channel is already present."""
+        @doc value """
+appends the channel to the channels array bound to the y-axis
+named by axis_key. No-op when the channel is already present.
+        """
     }
 
     action RemoveChannel {
         axis_key YAxisKey
         channel  channel.Key
 
-        @doc value """removes the channel from the y-axis named by axis_key. No-op
-when the channel is not present."""
+        @doc value """
+removes the channel from the y-axis named by axis_key. No-op
+when the channel is not present.
+        """
     }
 
     action SetChannels {
         axis_key YAxisKey
         channels channel.Key[]
 
-        @doc value """replaces the entire set of channels bound to the y-axis named by
+        @doc value """
+replaces the entire set of channels bound to the y-axis named by
 axis_key with channels. Channels absent from the new set are
 removed and their lines dropped; channels not previously present
-are added. Existing channels keep their line styling."""
+are added. Existing channels keep their line styling.
+        """
     }
 
     action SetXChannel {
         axis_key XAxisKey
         channel  channel.Key
 
-        @doc value """replaces the single channel bound to the x-axis named by
-axis_key."""
+        @doc value """
+replaces the single channel bound to the x-axis named by
+axis_key.
+        """
     }
 
     action AddRange {
         axis_key XAxisKey
         range    string
 
-        @doc value """appends the range key to the ranges array bound to the x-axis
-named by axis_key. No-op when the range is already present."""
+        @doc value """
+appends the range key to the ranges array bound to the x-axis
+named by axis_key. No-op when the range is already present.
+        """
     }
 
     action RemoveRange {
         axis_key XAxisKey
         range    string
 
-        @doc value """removes the range key from the x-axis named by axis_key. No-op
-when the range is not present."""
+        @doc value """
+removes the range key from the x-axis named by axis_key. No-op
+when the range is not present.
+        """
     }
 
     action SetRanges {
         axis_key XAxisKey
         ranges   string[]
 
-        @doc value """replaces the entire set of range keys bound to the x-axis named by
+        @doc value """
+replaces the entire set of range keys bound to the x-axis named by
 axis_key with ranges. Ranges absent from the new set are removed
 and their lines dropped; ranges not previously present are added.
-Existing ranges keep their line styling."""
+Existing ranges keep their line styling.
+        """
     }
 
     action SetAxisLabel {
@@ -419,9 +465,11 @@ Existing ranges keep their line styling."""
         bounds        spatial.Bounds
         manual_bounds ManualBounds
 
-        @doc value """sets the axis value-space window together with its per-edge manual
+        @doc value """
+sets the axis value-space window together with its per-edge manual
 override flags. The two travel together: fixing a bound enables the
-manual override for that edge, so callers set both at once."""
+manual override for that edge, so callers set both at once.
+        """
     }
 
     action SetAxisTickSpacing {
@@ -435,25 +483,31 @@ manual override for that edge, so callers set both at once."""
         key  AxisKey
         type TickType?
 
-        @doc value """sets the axis tick label style. Null resets it to the default,
+        @doc value """
+sets the axis tick label style. Null resets it to the default,
 which the Console derives (linear, or time for a timestamp-bound
-x-axis) at render time."""
+x-axis) at render time.
+        """
     }
 
     action SetLineLabel {
         key   string
         label string?
 
-        @doc value """sets the label of the line identified by key. Null resets it to
-derive from the channel name at render time."""
+        @doc value """
+sets the label of the line identified by key. Null resets it to
+derive from the channel name at render time.
+        """
     }
 
     action SetLineColor {
         key   string
         color color.Color?
 
-        @doc value """sets the color of the line identified by key. Null resets it to a
-palette color assigned at render time."""
+        @doc value """
+sets the color of the line identified by key. Null resets it to a
+palette color assigned at render time.
+        """
     }
 
     action SetLineStrokeWidth {
@@ -474,24 +528,30 @@ palette color assigned at render time."""
         key             string
         downsample_mode DownsampleMode
 
-        @doc value "sets how the downsample factor is applied for the line identified by key."
+        @doc value """
+            sets how the downsample factor is applied for the line identified by key.
+        """
     }
 
     action SetLine {
         line Line
 
-        @doc value """replaces the line with line.key in place, inserting it when no such
+        @doc value """
+replaces the line with line.key in place, inserting it when no such
 line exists. The fine-grained setLine* actions cover per-field edits;
-this full-object form restores a line dropped by reconciliation."""
+this full-object form restores a line dropped by reconciliation.
+        """
     }
 
     action SetRule {
         rule Rule
 
-        @doc value """inserts the rule if no rule with rule.key exists, otherwise
+        @doc value """
+inserts the rule if no rule with rule.key exists, otherwise
 replaces the existing entry in place. The fine-grained setRule*
 actions cover per-field edits; this full-object form creates a rule
-or restores one removed by another action's inverse."""
+or restores one removed by another action's inverse.
+        """
     }
 
     action SetRuleLabel {
@@ -505,8 +565,10 @@ or restores one removed by another action's inverse."""
         key   string
         color color.Color?
 
-        @doc value """sets the color of the rule identified by key. Null resets it to a
-default color assigned at render time."""
+        @doc value """
+sets the color of the rule identified by key. Null resets it to a
+default color assigned at render time.
+        """
     }
 
     action SetRuleAxis {
@@ -550,9 +612,11 @@ default color assigned at render time."""
         @doc value "removes the rule with the given key, if present."
     }
 
-    @doc value     """is a time-series visualization component for plotting telemetry data.
+    @doc value     """
+is a time-series visualization component for plotting telemetry data.
 Line plots support multiple channels, real-time streaming, and
-historical data display with zoom and pan capabilities."""
+historical data display with zoom and pan capabilities.
+    """
     @go migrate
     @go imex
     @go marshal

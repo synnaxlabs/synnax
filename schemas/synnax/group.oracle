@@ -25,8 +25,10 @@ Group struct {
         @filter
     }
 
-    @doc value     """is a named collection container for organizing related resources. Groups
-provide hierarchical organization through the ontology system."""
+    @doc value     """
+is a named collection container for organizing related resources. Groups
+provide hierarchical organization through the ontology system.
+    """
     @go migrate
     @go marshal
     @ontology type "group"

@@ -24,14 +24,18 @@ Variant enum {
 Status struct<Details> {
     key         string = create {
         @key
-        @doc value "is a unique identifier for this status, auto-generated if not provided."
+        @doc value """
+            is a unique identifier for this status, auto-generated if not provided.
+        """
     }
     name        string = "" {
         @doc value "is an optional human-readable name for the status."
     }
     variant     Variant         {
-        @doc value """indicates the severity of the status. One of success, info,
-warning, error, loading, or disabled."""
+        @doc value """
+indicates the severity of the status. One of success, info,
+warning, error, loading, or disabled.
+        """
     }
     message     string          {
         @doc value "is the main message text describing the status."
@@ -43,15 +47,19 @@ warning, error, loading, or disabled."""
         @doc value "is the timestamp when the status was created."
     }
     details     Details         {
-        @doc value  "contains optional component-specific custom details for the status."
+        @doc value  """
+            contains optional component-specific custom details for the status.
+        """
         @go marshal json_only
     }
     labels      label.Label[]?  {
         @doc value "contains optional labels for categorization and filtering."
     }
 
-    @doc value  """is a standardized message used to communicate state across the Synnax
+    @doc value  """
+is a standardized message used to communicate state across the Synnax
 platform. Statuses support different severity variants and can carry
-component-specific details."""
+component-specific details.
+    """
     @go marshal
 }

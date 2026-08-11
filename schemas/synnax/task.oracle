@@ -16,8 +16,10 @@ import "schemas/synnax/status"
 @pb
 
 Key uint64 {
-    @doc value    """is a composite identifier for a task. The high 32 bits contain the
-rack key, and the low 32 bits contain the local task key within that rack."""
+    @doc value    """
+is a composite identifier for a task. The high 32 bits contain the
+rack key, and the low 32 bits contain the local task key within that rack.
+    """
     @go marshal   flex
     @ts type      string
     @ts to_string
@@ -37,13 +39,17 @@ StatusDetails struct<Data? = record> {
         @doc value "contains task-specific status data."
     }
 
-    @doc value         "contains task-specific status details including execution state."
+    @doc value         """
+        contains task-specific status details including execution state.
+    """
     @ts concrete_types
 }
 
 Status<Data? = record> = status.Status<StatusDetails<Data>> {
-    @doc value """is task-specific status information including execution state and
-task-specific data."""
+    @doc value """
+is task-specific status information including execution state and
+task-specific data.
+    """
 }
 
 Task struct<
@@ -60,13 +66,17 @@ Task struct<
         @filter
     }
     type     Type                {
-        @doc value """is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
-Determines which hardware integration handles the task."""
+        @doc value """
+is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+Determines which hardware integration handles the task.
+        """
         @filter
     }
     config   Config              {
-        @doc value """is task-specific configuration stored as JSON. Structure varies by
-task type."""
+        @doc value """
+is task-specific configuration stored as JSON. Structure varies by
+task type.
+        """
     }
     internal bool = false {
         @doc value "is true if this is an internal system task."
@@ -81,9 +91,11 @@ task type."""
         @go marshal omit
     }
 
-    @doc value               """is an executable unit of work in the Driver system. Tasks represent
+    @doc value               """
+is an executable unit of work in the Driver system. Tasks represent
 specific hardware operations such as reading sensor data, writing control
-signals, or scanning for devices."""
+signals, or scanning for devices.
+    """
     @go migrate
     @go marshal
     @ts name                 "Payload"
