@@ -19,7 +19,7 @@
     border: var(--pluto-border);
     border-color: var(--pluto-gray-l6);
     border-radius: var(--pluto-border-radius-small);
-    box-shadow: var(--pluto-shadow-v1);
+    box-shadow: var(--pluto-shadow-overlay);
     padding: 1rem 1.5rem;
     max-width: 70rem;
     animation: pluto-tooltip-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);

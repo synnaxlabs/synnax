@@ -29,8 +29,11 @@ import {
   primePanel,
 } from "@/platform/panel/testutil";
 import {
+  awaitTextEditing,
   awaitTextEditingElement,
   commitTextEdit,
+  countEditableText,
+  findEditableText,
   renderWithConsole,
   uniqueName,
 } from "@/testutil";
@@ -167,7 +170,9 @@ describe("Panel tab", () => {
   });
 
   describe("createEditableTabName", () => {
-    const renderName = async () => {
+    const renderName = async (
+      mount: (Name: Panel.TabName) => ReactElement = (Name) => <Name />,
+    ) => {
       const resourceKey = uuid.create();
       const tabKey = uuid.create();
       const existing = await createServerPanel(client, {
@@ -194,9 +199,11 @@ describe("Panel tab", () => {
         useRename: () => ({ update: rename }),
       };
       const Name = Panel.createEditableTabName(service, <Icon.Schematic />);
-      render(<Name />, { wrapper: Base });
-      await waitFor(() => expect(screen.getByText("Resolved Name")).toBeTruthy());
-      return { resourceKey, ensureRetrieved, rename };
+      render(mount(Name), { wrapper: Base });
+      await waitFor(() =>
+        expect(screen.getAllByText("Resolved Name").length).toBeTruthy(),
+      );
+      return { resourceKey, tabKey, ensureRetrieved, rename };
     };
 
     it("renders the injected service's name for the tab's resource", async () => {
@@ -212,6 +219,37 @@ describe("Panel tab", () => {
       await waitFor(() =>
         expect(rename).toHaveBeenCalledWith({ key: resourceKey, name: "Renamed Tab" }),
       );
+    });
+
+    it("renders static text that cannot be edited when renaming is not allowed", async () => {
+      const { tabKey, rename } = await renderName((Name) => (
+        <Name allowRename={false} />
+      ));
+      expect(() => findEditableText(Panel.tabNameID(tabKey))).toThrow();
+      fireEvent.doubleClick(screen.getByText("Resolved Name"));
+      expect(document.querySelector('[contenteditable="true"]')).toBeNull();
+      expect(rename).not.toHaveBeenCalled();
+    });
+
+    it("routes editTabName to the renameable mount when the name renders twice", async () => {
+      const { resourceKey, tabKey, rename } = await renderName((Name) => (
+        <>
+          <Name allowRename={false} />
+          <Name />
+        </>
+      ));
+      expect(screen.getAllByText("Resolved Name")).toHaveLength(2);
+      expect(countEditableText(Panel.tabNameID(tabKey))).toEqual(1);
+      act(() => Panel.editTabName(tabKey));
+      const editing = await awaitTextEditing(Panel.tabNameID(tabKey));
+      act(() => commitTextEdit(editing, "Renamed Twice"));
+      await waitFor(() =>
+        expect(rename).toHaveBeenCalledWith({
+          key: resourceKey,
+          name: "Renamed Twice",
+        }),
+      );
+      expect(rename).toHaveBeenCalledTimes(1);
     });
   });
 });
