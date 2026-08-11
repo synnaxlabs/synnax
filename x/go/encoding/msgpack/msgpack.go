@@ -52,12 +52,11 @@ func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 }
 
 // EncodeStream implements the encoding.Encoder interface.
-func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return encoding.SugarEncodingErr(value, err)
-	}
-	_, err = w.Write(b)
+func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+	enc := msgpack.GetEncoder()
+	enc.Reset(w)
+	err := enc.Encode(value)
+	msgpack.PutEncoder(enc)
 	return encoding.SugarEncodingErr(value, err)
 }
 

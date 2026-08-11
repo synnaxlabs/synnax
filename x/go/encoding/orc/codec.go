@@ -106,11 +106,21 @@ func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
 }
 
 func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
+	m, ok := value.(SelfEncoder)
+	if !ok {
+		if c.fallback != nil {
+			return c.fallback.EncodeStream(ctx, w, value)
+		}
+		return errors.Newf("orc: %T does not implement SelfEncoder", value)
 	}
-	_, err = w.Write(b)
+	ow := writerPool.Get().(*Writer)
+	ow.Reset()
+	ow.Write(magic[:])
+	err := m.EncodeOrc(ow)
+	if err == nil {
+		_, err = w.Write(ow.Bytes())
+	}
+	writerPool.Put(ow)
 	return err
 }
 

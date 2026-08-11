@@ -43,16 +43,17 @@ func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 
 func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := json.Marshal(value)
-	return b, encoding.SugarEncodingErr(value, err)
+	if err != nil {
+		return nil, encoding.SugarEncodingErr(value, err)
+	}
+	return b, nil
 }
 
-func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
-	if err != nil {
-		return err
+func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		return encoding.SugarEncodingErr(value, err)
 	}
-	_, err = w.Write(b)
-	return encoding.SugarEncodingErr(value, err)
+	return nil
 }
 
 func (c *codec) Extension() string { return ".json" }
