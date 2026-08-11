@@ -18,8 +18,7 @@ import (
 var _ = Describe("SecureCredentials", func() {
 	Describe("GorpKey", func() {
 		It("Should return the username", func() {
-			Expect(v0.SecureCredentials{Username: "root"}.GorpKey()).
-				To(Equal("root"))
+			Expect(v0.SecureCredentials{Username: "root"}.GorpKey()).To(Equal("root"))
 		})
 	})
 

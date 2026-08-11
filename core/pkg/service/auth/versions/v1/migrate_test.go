@@ -34,8 +34,8 @@ var _ = Describe("Migration", func() {
 		Expect(t.NewCreate().Entry(&sc).Exec(ctx, legacyDB)).To(Succeed())
 	}
 
-	// retrieveMigrated opens the current credentials table with the migration wired
-	// in, driving the v0 -> Orc lift end-to-end through gorp.
+	// retrieveMigrated opens the current credentials table with the migration wired in,
+	// driving the v0 -> Orc lift end-to-end through gorp.
 	retrieveMigrated := func(
 		ctx SpecContext,
 		db *gorp.DB,

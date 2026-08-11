@@ -14,8 +14,6 @@ import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
-const ARCHIVE_EXTENSION = ".zip";
-
 export const useExportGroup = (): ((group: group.Group) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
@@ -26,7 +24,7 @@ export const useExportGroup = (): ((group: group.Group) => void) => {
         if (client == null) throw new DisconnectedError();
         await Runtime.downloadStream({
           stream: await client.schematics.symbols.exportGroup(group.key),
-          name: filename.sanitize(group.name, ARCHIVE_EXTENSION),
+          name: filename.sanitize(group.name, ".zip"),
           addStatus,
         });
       }, `Failed to export ${group.name}`);
