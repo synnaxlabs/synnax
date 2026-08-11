@@ -64,7 +64,11 @@ TEST(stateTests, testTaskRunningTransitions) {
         client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
     );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
-    auto task = synnax::task::Task{.name = "state", .type = "state", .internal = true};
+    auto task = synnax::task::Task{
+        .name = "state",
+        .type = driver::rack::status::TASK_TYPE,
+        .internal = true,
+    };
     ASSERT_NIL(rack.tasks.create(task));
     const auto key = synnax::task::status_key(task);
     // The started status is written once, so the streamer must be open before the
