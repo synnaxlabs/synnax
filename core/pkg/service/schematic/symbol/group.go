@@ -26,13 +26,15 @@ func (s *Service) retrieveGroup(
 	tx gorp.Tx,
 	key group.Key,
 ) (root ontology.Resource, children []ontology.Resource, err error) {
-	err = s.cfg.Ontology.NewRetrieve().
+	if err = s.cfg.Ontology.NewRetrieve().
 		WhereIDs(group.OntologyID(key)).
 		Entry(&root).
 		TraverseTo(ontology.ChildrenTraverser).
 		Entries(&children).
-		Exec(ctx, tx)
-	return root, children, err
+		Exec(ctx, tx); err != nil {
+		return ontology.Resource{}, nil, err
+	}
+	return root, children, nil
 }
 
 // RetrieveGroupSymbols returns the ontology ID of every symbol in the group identified
