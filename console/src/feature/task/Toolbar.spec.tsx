@@ -41,6 +41,7 @@ interface CreateTaskOptions {
   config?: Record<string, unknown>;
   running?: boolean;
   type?: string;
+  drifted?: boolean;
 }
 
 // The toolbar lists every task on the cluster, so leaked tasks from prior tests slow
@@ -62,6 +63,7 @@ const createTask = async ({
   config = {},
   running,
   type = NI.Task.ANALOG_READ_TYPE,
+  drifted,
 }: CreateTaskOptions = {}) => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   createdRacks.push(rack.key);
@@ -75,7 +77,12 @@ const createTask = async ({
     await client.statuses.set(
       createTaskStatus({
         key: task.statusKey(t.key),
-        details: { task: t.key, running },
+        details: {
+          task: t.key,
+          running,
+          configHash: drifted === true ? "stale" : t.configHash,
+          rack: t.rack,
+        },
       }),
     );
   return t;
@@ -179,6 +186,27 @@ describe("task/Toolbar", () => {
       } finally {
         streamer.close();
       }
+    });
+
+    it("redeploys a drifted running task from the context menu", async () => {
+      const t = await createTask({ running: true, drifted: true });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        await renderToolbar();
+        await openContextMenuUntil(t.name, "Redeploy");
+        fireEvent.click(screen.getByText("Redeploy"));
+        const cmd = await awaitCommand(streamer, t.key);
+        expect(cmd.type).toBe("start");
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("hides Redeploy when the running instance matches the stored config", async () => {
+      const t = await createTask({ running: true });
+      await renderToolbar();
+      await openContextMenuUntil(t.name, "Stop");
+      expect(screen.queryByText("Redeploy")).toBeNull();
     });
 
     it("enables data saving for a task whose config has it disabled", async () => {

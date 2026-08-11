@@ -257,7 +257,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
                   level="small"
                   status="warning"
                 >
-                  <Icon.Warning />
+                  <Icon.Refresh />
                 </Text.Text>
               </Tooltip.Dialog>
             )}
@@ -270,12 +270,13 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
       {hasUpdatePermission && (
         <Button.Button
           variant="outlined"
-          status={isLoading ? "loading" : undefined}
+          size="small"
+          status={isLoading ? "loading" : isRunning ? "error" : undefined}
           onClick={handleStartStopClick}
           onDoubleClick={stopPropagation}
           tooltip={`${isRunning ? "Stop" : "Start"} ${task_?.name ?? ""}`}
         >
-          {isRunning ? <Icon.Pause /> : <Icon.Play />}
+          {isRunning ? <Icon.Stop /> : <Icon.Play />}
         </Button.Button>
       )}
     </Select.ListItem>
@@ -314,6 +315,9 @@ const ContextMenu = ({
     ({ status }) => status?.details.running === false,
   );
   const canStop = selectedTasks.some(({ status }) => status?.details.running === true);
+  const redeployKeys = selectedTasks
+    .filter((t) => t.status?.details.running === true && task.drifted(t.payload))
+    .map(({ key }) => key);
   const someSelected = selectedTasks.length > 0;
   const isSingle = selectedTasks.length === 1;
 
@@ -369,8 +373,18 @@ const ContextMenu = ({
           )}
           {canStop && (
             <Menu.Item itemKey="stop" onClick={() => onStop(keys)}>
-              <Icon.Pause />
+              <Icon.Stop />
               Stop
+            </Menu.Item>
+          )}
+          {redeployKeys.length > 0 && (
+            <Menu.Item
+              className={CSS.BE("task", "redeploy-item")}
+              itemKey="redeploy"
+              onClick={() => onStart(redeployKeys)}
+            >
+              <Icon.Refresh />
+              Redeploy
             </Menu.Item>
           )}
         </>
