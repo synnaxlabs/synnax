@@ -130,7 +130,6 @@ var _ = Describe("Fold", func() {
 		Expect(filename.Fold(precomposed)).To(Equal(filename.Fold(decomposed)))
 	})
 	It("Should keep distinct names apart", func() {
-		Expect(filename.Fold("inlet.json")).
-			ToNot(Equal(filename.Fold("outlet.json")))
+		Expect(filename.Fold("inlet.json")).ToNot(Equal(filename.Fold("outlet.json")))
 	})
 })

@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestFilename(t *testing.T) {
+func TestFileName(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Filename Suite")
+	RunSpecs(t, "File Name Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
