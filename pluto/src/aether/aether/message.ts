@@ -68,10 +68,7 @@ export type WorkerMessage =
 
 /** Any message sent from the main thread to the worker thread. */
 export type MainMessage =
-  | MainUpdateRequest
-  | MainDeleteRequest
-  | MainClearRequest
-  | MainInvokeRequest;
+  MainUpdateRequest | MainDeleteRequest | MainClearRequest | MainInvokeRequest;
 
 /** Send-only channel from the worker side. Held by individual aether components to post
  * {@link WorkerMessage}s back to the main thread. */
