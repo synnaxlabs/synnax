@@ -13,6 +13,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
+import { Icon } from "@/icon";
 import { Notification, type NotificationProps } from "@/status/base/Notification";
 
 const mockSilence = vi.fn();
@@ -62,6 +63,36 @@ describe("Notification Component", () => {
     );
 
     expect(c.container.querySelector(".pluto-notification__name")).toBeNull();
+  });
+
+  it("renders a custom icon tinted with the variant color as the indicator", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, variant: "error" }}
+        icon={<Icon.Device />}
+      />,
+    );
+
+    expect(c.container.querySelector(".pluto-icon--status-concentric")).toBeNull();
+    const icon = c.container.querySelector<SVGElement>(
+      ".pluto-notification__indicator",
+    );
+    expect(icon?.getAttribute("aria-label")).toContain("device");
+    expect(icon?.style.color).toBe("var(--pluto-error-z)");
+  });
+
+  it("keeps the loading spinner even when a custom icon is given", () => {
+    const c = render(
+      <Notification
+        {...notificationProps}
+        status={{ ...notificationProps.status, variant: "loading" }}
+        icon={<Icon.Device />}
+      />,
+    );
+
+    const icon = c.container.querySelector(".pluto-notification__indicator");
+    expect(icon?.getAttribute("aria-label")).toContain("loading");
   });
 
   it("calls silence function when close button is clicked", () => {
