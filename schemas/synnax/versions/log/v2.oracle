@@ -23,6 +23,7 @@ TimestampConfig struct {
     }
 
     @doc value "is per-channel timestamp display configuration."
+    @go marshal
 }
 
 ChannelEntry struct {
@@ -48,6 +49,7 @@ float64."""
     }
 
     @doc value "is a per-channel display configuration entry within a log."
+    @go marshal
 }
 
 Log struct {

@@ -73,6 +73,49 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("explicit tagging", func() {
+			It("Should not generate a codec for an untagged referenced type", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Inner struct {
+						value int32
+					}
+
+					Outer struct {
+						inner Inner
+
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain("func (o Outer) EncodeOrc").
+					ToNotContain("func (i Inner) EncodeOrc")
+			})
+
+			It("Should generate a codec for a tagged union", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Circle struct {
+						radius float64
+					}
+
+					Shape union on variant {
+						circle Circle
+
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain("func (s Shape) EncodeOrc")
+			})
+		})
+
 		Context("nested struct (same package delegation)", func() {
 			It("Should delegate to nested struct EncodeOrc/DecodeOrc methods", func() {
 				source := `

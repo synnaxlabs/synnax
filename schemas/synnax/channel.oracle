@@ -68,10 +68,11 @@ duration-based reset is used."""
         @doc value "is the time window for aggregation when reset_channel is 0."
     }
 
-    @doc value """defines an aggregation operation applied to channel data. Operations
+    @doc value  """defines an aggregation operation applied to channel data. Operations
 calculate min, max, or average values over a time duration or triggered
 by a reset channel."""
-    @go output "core/pkg/service/channel"
+    @go marshal
+    @go output  "core/pkg/service/channel"
     @pb
 }
 

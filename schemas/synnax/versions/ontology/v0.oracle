@@ -61,6 +61,7 @@ The ID has two elements for several reasons. First, by storing the Type we know 
 service to query for additional info on the Resource. Second, while a Key may be
 unique for a particular resource (e.g. channel), it might not be unique across all
 resources. We need something universally unique across the entire Synnax Core."""
+    @go marshal
 }
 
 Resource struct {

@@ -25,6 +25,7 @@ send-to-back / bring-to-front actions."""
     }
 
     @doc value "is a diagram node representing a symbol in the schematic."
+    @go marshal
 }
 
 Handle struct {
@@ -37,6 +38,8 @@ Handle struct {
 
     @doc value """is a reference to a specific connection point on a specific node.
 For schematics, param is the symbol handle key (e.g. inlet, outlet)."""
+
+    @go marshal
 }
 
 Edge struct {
@@ -51,6 +54,7 @@ Edge struct {
     }
 
     @doc value "is a connection between two nodes in the schematic."
+    @go marshal
 }
 
 Schematic struct {

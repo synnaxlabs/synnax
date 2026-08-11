@@ -89,10 +89,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	versionedReq.Resolutions = rewritten
 	req = &versionedReq
 
-	// Collect all entry types.
+	// Collect all entry types. Codecs are explicit: a struct or union gets
+	// one iff it declares @go marshal; references never pull a codec in.
 	var entryTypes []resolution.Type
-	for _, entry := range req.Resolutions.StructTypes() {
-		if !domain.HasExprFromType(entry, "go", "marshal") {
+	for _, entry := range append(
+		req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...,
+	) {
+		if entry.Synthetic || !domain.HasExprFromType(entry, "go", "marshal") {
 			continue
 		}
 		goPath := output.GetPath(entry, "go")
@@ -130,21 +133,17 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		})
 	}
 
-	// Merge all entry types' dependency trees per package.
+	// Group the tagged entries per package.
 	merged := make(map[string]map[string]resolution.Type)
 	for _, entry := range entryTypes {
-		byPkg, _ := collectSerializableTypes(entry, req.Resolutions)
-		for goPath, types := range byPkg {
-			if merged[goPath] == nil {
-				merged[goPath] = make(map[string]resolution.Type)
-			}
-			for _, t := range types {
-				if aliased.Contains(t.QualifiedName) {
-					continue
-				}
-				merged[goPath][t.QualifiedName] = t
-			}
+		if aliased.Contains(entry.QualifiedName) {
+			continue
 		}
+		goPath := output.GetPath(entry, "go")
+		if merged[goPath] == nil {
+			merged[goPath] = make(map[string]resolution.Type)
+		}
+		merged[goPath][entry.QualifiedName] = entry
 	}
 
 	// Collect all packages that need a codec file (from structs or flex types).

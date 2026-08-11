@@ -31,7 +31,8 @@ migration."""
         @ts preserve_case
     }
 
-    @doc value "is a single cell in a table, identified by key and variant."
+    @doc value  "is a single cell in a table, identified by key and variant."
+    @go marshal
 }
 
 CellTemplate struct extends Cell {
@@ -54,7 +55,8 @@ Row struct {
 Each key points at an entry in the table's cells map."""
     }
 
-    @doc value "is a single row in a table, with height and ordered cell keys."
+    @doc value  "is a single row in a table, with height and ordered cell keys."
+    @go marshal
 }
 
 Column struct {
@@ -62,7 +64,8 @@ Column struct {
         @doc value "is the width of the column in pixels."
     }
 
-    @doc value "is a single column in a table, with width."
+    @doc value  "is a single column in a table, with width."
+    @go marshal
 }
 
 Table struct {

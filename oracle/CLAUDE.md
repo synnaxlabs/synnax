@@ -35,7 +35,8 @@ or generator logic and schemas disagree.
   no `@go version` tag; the current version is the highest vN file, and membership in it
   marks a type persisted. Version-owned content: fields, optionality, docs, `@key`, and
   the `@go` persistence set (`marshal` incl. field-level `omit`, `hand`, `migrate`,
-  `pinned`, `imex`).
+  `pinned`, `imex`). Codecs are explicit: a struct or union gets one iff its declaration
+  carries `@go marshal`; references never pull a codec in.
 - **The live file is a generated projection, then an annotation surface.** Sync writes
   each versioned resource's live schema by merging chain resolution (version-owned
   content) with the live file's own annotations (outputs, `@ts`/`@py`/`@cpp` bindings,

@@ -26,6 +26,7 @@ migration."""
     }
 
     @doc value "is a single cell in a table, identified by key and variant."
+    @go marshal
 }
 
 Row struct {
@@ -38,6 +39,7 @@ Each key points at an entry in the table's cells map."""
     }
 
     @doc value "is a single row in a table, with height and ordered cell keys."
+    @go marshal
 }
 
 Column struct {
@@ -46,6 +48,7 @@ Column struct {
     }
 
     @doc value "is a single column in a table, with width."
+    @go marshal
 }
 
 Table struct {

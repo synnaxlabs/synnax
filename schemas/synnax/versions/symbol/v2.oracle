@@ -33,6 +33,8 @@ Region struct {
 
     @doc value """is a visual styling area within a symbol state, targeting specific SVG
 elements for dynamic coloring."""
+
+    @go marshal
 }
 
 State struct {
@@ -47,6 +49,7 @@ State struct {
     }
 
     @doc value "is a named visual state of a symbol with regional styling configurations."
+    @go marshal
 }
 
 Handle struct {
@@ -61,6 +64,7 @@ Handle struct {
     }
 
     @doc value "is a connection point on a symbol for linking to other diagram elements."
+    @go marshal
 }
 
 Spec struct {
@@ -88,6 +92,8 @@ Spec struct {
 
     @doc value """is the complete symbol definition including geometry, states, handles, and
 rendering properties."""
+
+    @go marshal
 }
 
 Symbol struct {

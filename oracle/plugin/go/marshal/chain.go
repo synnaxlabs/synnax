@@ -68,18 +68,18 @@ func (p *Plugin) frozenCodecFiles(
 	}
 	vkPath := versioning.VersionedPath(origPath, k)
 	merged := make(map[string]resolution.Type)
-	for _, entry := range table.StructTypes() {
+	for _, entry := range append(table.StructTypes(), table.UnionTypes()...) {
 		if entry.Namespace != ns ||
 			!domain.HasExprFromType(entry, "go", "marshal") {
 			continue
 		}
-		byPkg, _ := collectSerializableTypes(entry, table)
-		for _, t := range byPkg[vkPath] {
-			if _, isAlias := f.Aliases[t.Name]; isAlias {
-				continue
-			}
-			merged[t.QualifiedName] = t
+		if _, isAlias := f.Aliases[entry.Name]; isAlias {
+			continue
 		}
+		if entry.Synthetic {
+			continue
+		}
+		merged[entry.QualifiedName] = entry
 	}
 	var flex []FlexCodec
 	for _, dt := range table.DistinctTypes() {

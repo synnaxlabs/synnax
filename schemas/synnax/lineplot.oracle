@@ -69,7 +69,8 @@ Title struct {
         @doc value "is whether the title is shown above the plot."
     }
 
-    @doc value "is the plot title configuration."
+    @doc value  "is the plot title configuration."
+    @go marshal
 }
 
 Legend struct {
@@ -85,7 +86,8 @@ Legend struct {
         @doc value "is the anchor position of the legend within the plot container."
     }
 
-    @doc value "is the plot legend configuration."
+    @doc value  "is the plot legend configuration."
+    @go marshal
 }
 
 Channels struct {
@@ -108,8 +110,9 @@ Channels struct {
         @doc value "are the channels rendered on the y4 axis."
     }
 
-    @doc value """binds channel keys to each axis. x1 and x2 are single-channel; y1
+    @doc value  """binds channel keys to each axis. x1 and x2 are single-channel; y1
 through y4 carry zero or more channels each."""
+    @go marshal
 }
 
 Ranges struct {
@@ -124,7 +127,8 @@ client sends."""
         @doc value "are the range keys plotted against the x2 axis."
     }
 
-    @doc value "binds range keys to each x-axis."
+    @doc value  "binds range keys to each x-axis."
+    @go marshal
 }
 
 ManualBounds struct {
@@ -135,11 +139,12 @@ ManualBounds struct {
         @doc value "is whether the upper bound is set manually rather than computed from data."
     }
 
-    @doc value """controls whether an axis uses a manually-set bound on each side
+    @doc value  """controls whether an axis uses a manually-set bound on each side
 independently. When a side is false (the default), the corresponding
 entry in Axis.bounds is recomputed locally from the rendered data
 window and never broadcast to the server; when true, Axis.bounds holds
 the user-set value."""
+    @go marshal
 }
 
 Axis struct {
@@ -171,7 +176,8 @@ render; otherwise it is the user-set fixed bound."""
 X-axes typically carry "time" when bound to a timestamp channel."""
     }
 
-    @doc value "is the configuration for a single plot axis."
+    @doc value  "is the configuration for a single plot axis."
+    @go marshal
 }
 
 Axes struct {
@@ -194,7 +200,8 @@ Axes struct {
         @doc value "is the y4 axis configuration."
     }
 
-    @doc value "bundles configuration for all six fixed plot axes."
+    @doc value  "bundles configuration for all six fixed plot axes."
+    @go marshal
 }
 
 Line struct {
@@ -222,7 +229,8 @@ every sample; higher values render every Nth sample."""
         @doc value "selects how the downsample factor is applied."
     }
 
-    @doc value "is the per-line styling and downsampling configuration."
+    @doc value  "is the per-line styling and downsampling configuration."
+    @go marshal
 }
 
 Rule struct {
@@ -251,7 +259,8 @@ Rule struct {
         @doc value "is the value-space position of the rule along its anchored axis."
     }
 
-    @doc value "is a horizontal or vertical annotation line drawn over the plot."
+    @doc value  "is a horizontal or vertical annotation line drawn over the plot."
+    @go marshal
 }
 
 LinePlot struct {

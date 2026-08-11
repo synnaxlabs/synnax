@@ -20,6 +20,7 @@ without changing the tab's identity or position."""
     }
 
     @doc value "carries the identity shared by every tab variant."
+    @go marshal
 }
 
 View struct {
@@ -36,6 +37,8 @@ view. Core never interprets it; it round-trips as-is."""
 opaque configuration payload, with no backing core document. Used
 for app-views and tools (docs, explorers, task forms, and the
 selector pickers)."""
+
+    @go marshal
 }
 
 Tab union on variant extends TabBase {
@@ -61,6 +64,8 @@ tab is a view whose type is a selector picker; SetTabResource or
 SetTabView swaps content in place. Display attributes (name, icon,
 closability) are resolved at render time from the content. A
 resource may back at most one tab per panel; views may repeat."""
+
+    @go marshal
 }
 
 Leaf struct {
@@ -69,6 +74,7 @@ Leaf struct {
     }
 
     @doc value "is a leaf node in the panel tree displaying a tab strip."
+    @go marshal
 }
 
 Split struct {
@@ -87,6 +93,7 @@ The remainder is allocated to last."""
     }
 
     @doc value "is an interior split node dividing its area between two children."
+    @go marshal
 }
 
 Node union on variant {
@@ -96,6 +103,8 @@ Node union on variant {
     @doc value """is a node in the panel tree: either a leaf displaying a tab strip
 or an interior split. Nodes are identified by path-derived numeric
 keys during traversal (1 = root, 2k = first child, 2k+1 = last child)."""
+
+    @go marshal
 }
 
 Key = uuid {
