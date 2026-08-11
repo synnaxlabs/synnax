@@ -235,12 +235,16 @@ export class Store {
     this.errorListeners.forEach((l) => l());
   }
 
-  /** Detaches the worker handler, terminates any owned `Worker`, and aborts in-flight
-   * invokes. The store remains usable: a subsequent send lazily re-attaches via a fresh
-   * `Worker`. Idempotent. */
+  /** Clears the worker-side tree, detaches the worker handler, terminates any owned
+   * `Worker`, and aborts in-flight invokes. The store remains usable: a subsequent
+   * send lazily re-attaches via a fresh `Worker`. Idempotent. */
   dispose(): void {
     if (this.worker === aether.NOOP_MAIN_COMMS) return;
     this.invokeTracker.abort(new Error("aether store disposed"));
+    // Render-phase registration means a render React discarded can leak a worker-side
+    // component no delete message will ever name. In-process comms have no thread to
+    // die with, so tear the tree down explicitly to release leaked resources.
+    this.worker.send({ variant: "clear" });
     this.worker.handle(() => {});
     this.worker = aether.NOOP_MAIN_COMMS;
     this.ownedWorker?.terminate();
