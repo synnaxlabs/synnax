@@ -41,6 +41,9 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   }
 
   private async loadFonts(): Promise<void> {
+    // Hosts without a font registry (jsdom, some worker runtimes) have no FontFace.
+    // A throw reports an error that re-renders consumers, looping any that suspend.
+    if (typeof FontFace === "undefined") return;
     await Promise.all(
       this.state.fontURLs.map(async ({ name, url }) => {
         const face = new FontFace(name, `url(${url})`);
