@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <string>
 #include <utility>
 
 #include "google/protobuf/any.pb.h"
@@ -16,28 +17,36 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/struct.h"
+#include "x/cpp/json/value.h"
 
 namespace x::json {
-inline google::protobuf::Any to_any(const json &j) {
+/// @brief Converts json to a google::protobuf::Any that holds a Value.
+/// @param j The JSON to convert. Every JSON type is valid.
+/// @returns A pair containing the Any and an error if one occurred.
+inline std::pair<google::protobuf::Any, errors::Error> to_any(const json &j) {
+    auto [v, err] = to_value(j);
+    if (err) return {{}, err};
     google::protobuf::Any any;
-    // Struct only supports objects - convert null/non-object to empty object
-    const auto &obj = j.is_object() ? j : json::object();
-    auto [s, err] = to_struct(obj);
-    if (err) return any;
-    if (!any.PackFrom(s)) return google::protobuf::Any{};
-    return any;
+    if (!any.PackFrom(v))
+        return {{}, errors::Error(errors::INTERNAL, "failed to pack Value into Any")};
+    return {any, errors::NIL};
 }
 
+/// @brief Converts a google::protobuf::Any that holds a Value or a Struct to json.
+/// @param any The Any to convert. An unset Any converts to null.
+/// @returns A pair containing the JSON and an error if one occurred.
 inline std::pair<nlohmann::json, errors::Error>
 from_any(const google::protobuf::Any &any) {
-    // Handle empty Any (no type_url set) - return empty JSON object
-    if (any.type_url().empty()) return {json::object(), errors::NIL};
-    google::protobuf::Struct s;
-    if (!any.UnpackTo(&s))
-        return {
-            {},
-            errors::Error(errors::VALIDATION, "failed to unpack Any to Struct")
-        };
-    return from_struct(s);
+    if (any.type_url().empty()) return {json(), errors::NIL};
+    if (google::protobuf::Value v; any.UnpackTo(&v)) return from_value(v);
+    // Peers on releases before value packing send a Struct.
+    if (google::protobuf::Struct s; any.UnpackTo(&s)) return from_struct(s);
+    return {
+        {},
+        errors::Error(
+            errors::VALIDATION,
+            "failed to unpack Any of type " + any.type_url()
+        )
+    };
 }
 }
