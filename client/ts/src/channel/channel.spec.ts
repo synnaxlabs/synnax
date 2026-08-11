@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { control, DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { Channel } from "@/channel/client";
@@ -365,6 +365,53 @@ describe("Channel", () => {
 
       const retrieved = await client.channels.retrieve(channel.key);
       expect(retrieved.name).toEqual(updated.name);
+    });
+  });
+
+  describe("payload", () => {
+    it("keeps shared concurrency through a round trip", () => {
+      const ch = new Channel({
+        name: "shared",
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        concurrency: control.Concurrency.shared,
+      });
+      expect(ch.payload.concurrency).toEqual(control.Concurrency.shared);
+      expect(new Channel(ch.payload).concurrency).toEqual(control.Concurrency.shared);
+    });
+  });
+
+  describe("constructor normalization", () => {
+    it("fills the defaults omitted from a crude operation", () => {
+      const [op] = new Channel({
+        name: "op",
+        dataType: DataType.FLOAT32,
+        operations: [{ type: "avg" }],
+      }).operations;
+      expect(op.resetChannel).toEqual(0);
+      expect(op.duration).toEqual(TimeSpan.ZERO);
+    });
+
+    it("parses a crude status time into a TimeStamp", () => {
+      const date = new Date("2026-08-10T00:00:00.000Z");
+      const ch = new Channel({
+        name: "stat",
+        dataType: DataType.FLOAT32,
+        status: { variant: "error", message: "boom", time: date },
+      });
+      expect(ch.status?.time).toBeInstanceOf(TimeStamp);
+      expect(ch.status?.time).toEqual(new TimeStamp(date));
+    });
+
+    it("throws when the status is malformed", () => {
+      expect(
+        () =>
+          new Channel({
+            name: "bad",
+            dataType: DataType.FLOAT32,
+            status: { variant: "not_a_variant" } as never,
+          }),
+      ).toThrow();
     });
   });
 });
