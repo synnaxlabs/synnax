@@ -575,20 +575,22 @@ func (p *Plugin) generateJSONFieldConversion(
 	pbAccessorName string,
 ) (forward, backward string) {
 	if field.Optional {
-		forward = fmt.Sprintf(`if (this->%s.has_value()) {
+		forward = fmt.Sprintf(`if (this->%s.has_value() && !this->%s->is_null()) {
         auto [v, err] = x::json::to_any(*this->%s);
         if (err) return {{}, err};
         *pb.mutable_%s() = v;
-    }`, cppFieldName, cppFieldName, pbAccessorName)
+    }`, cppFieldName, cppFieldName, cppFieldName, pbAccessorName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;
     }`, pbAccessorName, pbAccessorName, cppFieldName)
 	} else {
-		forward = fmt.Sprintf(`auto [v, err] = x::json::to_any(this->%s);
+		forward = fmt.Sprintf(`if (!this->%s.is_null()) {
+        auto [v, err] = x::json::to_any(this->%s);
         if (err) return {{}, err};
-        *pb.mutable_%s() = v;`, cppFieldName, pbAccessorName)
+        *pb.mutable_%s() = v;
+    }`, cppFieldName, cppFieldName, pbAccessorName)
 		backward = fmt.Sprintf(`auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
         cpp.%s = v;`, pbAccessorName, cppFieldName)
@@ -837,14 +839,15 @@ func (p *Plugin) generateTypeParamConversion(
 	// This ensures compatibility with the Go server which stores details as JSON.
 	// Handle monostate specially since it doesn't have to_json()/parse() methods.
 	if field.Optional {
-		forward = fmt.Sprintf(`if (this->%s.has_value()) {
-        x::json::json j;
-        if constexpr (!std::is_same_v<%s, std::monostate>)
-            j = this->%s->to_json();
-        auto [v, err] = x::json::to_any(j);
-        if (err) return {{}, err};
-        *pb.mutable_%s() = v;
-    }`, cppFieldName, typeParamName, cppFieldName, pbAccessorName)
+		forward = fmt.Sprintf(`if constexpr (!std::is_same_v<%s, std::monostate>) {
+        if (this->%s.has_value()) {
+            if (const auto j = this->%s->to_json(); !j.is_null()) {
+                auto [v, err] = x::json::to_any(j);
+                if (err) return {{}, err};
+                *pb.mutable_%s() = v;
+            }
+        }
+    }`, typeParamName, cppFieldName, cppFieldName, pbAccessorName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
@@ -861,12 +864,13 @@ func (p *Plugin) generateTypeParamConversion(
 			typeParamName,
 		)
 	} else {
-		forward = fmt.Sprintf(`x::json::json j;
-        if constexpr (!std::is_same_v<%s, std::monostate>)
-            j = this->%s.to_json();
-        auto [v, err] = x::json::to_any(j);
-        if (err) return {{}, err};
-        *pb.mutable_%s() = v;`, typeParamName, cppFieldName, pbAccessorName)
+		forward = fmt.Sprintf(`if constexpr (!std::is_same_v<%s, std::monostate>) {
+        if (const auto j = this->%s.to_json(); !j.is_null()) {
+            auto [v, err] = x::json::to_any(j);
+            if (err) return {{}, err};
+            *pb.mutable_%s() = v;
+        }
+    }`, typeParamName, cppFieldName, pbAccessorName)
 		backward = fmt.Sprintf(`auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
         if constexpr (std::is_same_v<%s, std::monostate>)
