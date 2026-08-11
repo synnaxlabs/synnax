@@ -58,7 +58,6 @@ type jsonOnlyRecord struct {
 }
 
 var _ = Describe("Codec", func() {
-
 	Describe("Decode", func() {
 		It("Should reject empty data", func(ctx SpecContext) {
 			Expect(orc.Codec.Decode(ctx, []byte{}, &testRecord{})).
@@ -170,5 +169,4 @@ var _ = Describe("Codec", func() {
 			},
 		)
 	})
-
 })
