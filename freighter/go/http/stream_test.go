@@ -91,6 +91,49 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		)
 	})
 
+	Describe("Compression", func() {
+		// The extension is negotiated at upgrade time and reported back in the
+		// Sec-WebSocket-Extensions response header, which is the only place the choice
+		// is observable from outside the connection.
+		dial := func(ctx context.Context, enable bool) *http.Response {
+			GinkgoHelper()
+			headers := http.Header{}
+			headers.Set(fiber.HeaderContentType, "application/json")
+			conn, res := MustSucceed2((&ws.Dialer{
+				EnableCompression: enable,
+			}).DialContext(ctx, "ws://"+addr.String()+"/", headers))
+			DeferCleanup(func() {
+				Expect(conn.Close()).To(Succeed())
+				Expect(res.Body.Close()).To(Succeed())
+			})
+			return res
+		}
+
+		It("should negotiate permessage-deflate with a client that offers it",
+			func(ctx context.Context) {
+				server.BindHandler(func(
+					_ context.Context,
+					_ freighter.ServerStream[test.Request, test.Response],
+				) error {
+					return nil
+				})
+				Expect(dial(ctx, true).Header.Get("Sec-WebSocket-Extensions")).
+					To(ContainSubstring("permessage-deflate"))
+			})
+
+		It("should leave a client that does not offer compression uncompressed",
+			func(ctx context.Context) {
+				server.BindHandler(func(
+					_ context.Context,
+					_ freighter.ServerStream[test.Request, test.Response],
+				) error {
+					return nil
+				})
+				Expect(dial(ctx, false).Header.Get("Sec-WebSocket-Extensions")).
+					To(BeEmpty())
+			})
+	})
+
 	Describe("Upgrade Negotiation", func() {
 		It(
 			"should return 415 Unsupported Media Type when the upgrade request advertises a Content-Type with no registered codec",

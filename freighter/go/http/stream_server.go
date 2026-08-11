@@ -150,10 +150,16 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 	if !ok {
 		return upgradeCtx.SendStatus(fiber.StatusUnsupportedMediaType)
 	}
-	// Upgrade the connection to a websocket connection.
-	return fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, codec, c) })(
-		upgradeCtx,
-	)
+	// Upgrade the connection to a websocket connection. Compression is offered on
+	// every stream: peers that advertise permessage-deflate get their messages
+	// deflated, and peers that do not are unaffected. The extension applies no minimum
+	// message size, so a frame carrying a single sample per channel grows by the few
+	// bytes of a stored block rather than shrinking; frames start to pay from roughly
+	// ten samples per channel upward.
+	return fiberws.New(
+		func(c *fiberws.Conn) { s.handleSocket(iCtx, codec, c) },
+		fiberws.Config{EnableCompression: true},
+	)(upgradeCtx)
 }
 
 func (s *streamServer[RQ, RS]) handleSocket(
