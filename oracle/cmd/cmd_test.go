@@ -18,7 +18,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-
 var _ = Describe("writeFileIfChanged", func() {
 	var tmpDir string
 
@@ -63,4 +62,3 @@ var _ = Describe("writeFileIfChanged", func() {
 		Expect(content).To(Equal("deep"))
 	})
 })
-

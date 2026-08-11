@@ -54,7 +54,10 @@ func (r *Resolver) Annotate(
 				if declared != current {
 					return errors.Newf(
 						"%s.%s declares @go version %d but its chain's current file is v%d",
-						chain.Resource, t.Name, declared, current,
+						chain.Resource,
+						t.Name,
+						declared,
+						current,
 					)
 				}
 				continue

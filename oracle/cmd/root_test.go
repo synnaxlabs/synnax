@@ -96,7 +96,6 @@ var _ = Describe("NewRootCmd", func() {
 		Expect(names).To(ContainElements("check", "fmt", "lsp", "migrate", "sync"))
 	})
 
-
 	It("should have the verbose persistent flag", func() {
 		cmd := NewRootCmd()
 		flag := cmd.PersistentFlags().Lookup("verbose")
@@ -305,8 +304,6 @@ var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 	})
 })
 
-
-
 var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
@@ -328,8 +325,6 @@ var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 			NotTo(MatchError(ContainSubstring("no schema files found")))
 	})
 })
-
-
 
 var _ = Describe("expandGlobs", func() {
 	var (
@@ -369,7 +364,6 @@ var _ = Describe("expandGlobs", func() {
 		Expect(files).To(HaveLen(2))
 	})
 })
-
 
 var _ = Describe("fmt --diff flag", Ordered, func() {
 	var cleanup func()

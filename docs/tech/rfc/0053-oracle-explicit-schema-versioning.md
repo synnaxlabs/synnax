@@ -197,10 +197,11 @@ Frozen files keep their historical pins untouched.
 - **Amend**: edit the current version file in place. For versions that have never
   shipped in a release.
 - **Mint**: `oracle migrate <resource>` scaffolds `v(N+1).oracle` — every type as an
-  alias line to its definer, pins carried forward — and the developer converts the
-  changed types to full declarations. Sync then regenerates `migrate.gen.go`, the frozen
-  packages, and the live file's versioned content, and scaffolds the hand-written
-  `migrate.go` entry points per RFC 0048 §4.3.
+  alias line to its definer, pinned declarations redeclared, imports carried forward —
+  and the developer converts the changed types to full declarations. Sync then
+  regenerates `migrate.gen.go`, the frozen packages, and the live file's versioned
+  content. The hand-written `migrate.go` entry points of RFC 0048 §4.3 stay
+  hand-authored; compile errors against the regenerated auto-copies guide them.
 
 There is no drift detection and no bare `oracle migrate`: shape edits happen in the
 record itself, so there is nothing to drift. The old model's tripwire — "you changed a

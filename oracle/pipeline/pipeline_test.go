@@ -88,7 +88,6 @@ Thing struct {
 		Expect(paths.Contains("out/widget_Thing.gen.go")).To(BeTrue())
 	})
 
-
 	It(
 		"does not double-register types when a schema imports another",
 		func(ctx SpecContext) {
@@ -280,8 +279,8 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 		})
 		write := func(rel string) {
 			abs := filepath.Join(repoRoot, rel)
-			Expect(os.MkdirAll(filepath.Dir(abs), 0755)).To(Succeed())
-			Expect(os.WriteFile(abs, []byte(""), 0644)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Dir(abs), 0o755)).To(Succeed())
+			Expect(os.WriteFile(abs, []byte(""), 0o644)).To(Succeed())
 		}
 		write("schemas/synnax/channel.oracle")
 		write("schemas/synnax/versions/channel/v0.oracle")

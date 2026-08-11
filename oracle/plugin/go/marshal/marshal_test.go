@@ -1469,7 +1469,6 @@ var _ = Describe("Recursive Codec Depth Guard", func() {
 	})
 })
 
-
 var _ = Describe("Same-Named Entries Across Namespaces", func() {
 	It("Should emit each entry's codec at its own path", func(ctx SpecContext) {
 		loader := NewMockFileLoader()
