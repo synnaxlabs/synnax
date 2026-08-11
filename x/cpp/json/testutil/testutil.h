@@ -14,10 +14,10 @@
 namespace x::json {
 /// @brief returns an object nested 150 levels deep. The protobuf JSON parser accepts
 /// 100 levels, so every conversion to a Struct rejects this object.
-inline json::object_t deeply_nested_object() {
+inline json deeply_nested_object() {
     json j = json::object();
     for (int i = 0; i < 150; i++)
         j = json{{"nested", j}};
-    return j.get<json::object_t>();
+    return j;
 }
 }
