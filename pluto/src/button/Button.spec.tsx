@@ -501,6 +501,22 @@ describe("Button", () => {
       fireEvent.keyUp(c.container, { code: "T" });
       expect(onClick).toHaveBeenCalledTimes(2);
     });
+
+    it("Should not call onClick when the button is inside an inactive scope", () => {
+      const onClick = vi.fn();
+      const c = render(
+        <Triggers.Provider>
+          <Triggers.Scope active={false}>
+            <Button.Button trigger={["T"]} onClick={onClick}>
+              Hello
+            </Button.Button>
+          </Triggers.Scope>
+        </Triggers.Provider>,
+      );
+      fireEvent.keyDown(c.container, { code: "T" });
+      fireEvent.keyUp(c.container, { code: "T" });
+      expect(onClick).not.toHaveBeenCalled();
+    });
   });
 
   describe("textVariant", () => {

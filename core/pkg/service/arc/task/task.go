@@ -68,6 +68,8 @@ type impl struct {
 	task       task.Task
 	cfg        Config
 	prog       arc.Arc
+	// status is the authority on this instance's current status.
+	status *driver.StatusHandler
 
 	// closer shuts down the runtime, nil once released.
 	closer io.Closer
@@ -125,13 +127,7 @@ func (t *impl) start(ctx context.Context, cmdKey string) error {
 // ackCurrent answers cmdKey with the task's current status, for a command that needs
 // no work.
 func (t *impl) ackCurrent(ctx context.Context, cmdKey string, running bool) {
-	if err := driver.AckCurrentStatus(
-		ctx,
-		t.factoryCfg.Status,
-		t.task,
-		cmdKey,
-		running,
-	); err != nil {
+	if err := t.status.Ack(ctx, cmdKey, running); err != nil {
 		t.factoryCfg.L.Error("failed to acknowledge command",
 			zap.Stringer("task", t.task.Key),
 			zap.String("cmd", cmdKey),
@@ -457,20 +453,7 @@ func (t *impl) setStatus(
 	running bool,
 	message string,
 ) {
-	details := task.NewStatusDetails(t.task, running)
-	details.Cmd = cmdKey
-	stat := task.Status{
-		Key:     t.task.OntologyID().String(),
-		Name:    t.task.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
-		Details: details,
-	}
-	if err := status.NewWriter[task.StatusDetails](
-		t.factoryCfg.Status,
-		nil,
-	).Set(ctx, &stat); err != nil {
+	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
 		t.factoryCfg.L.Error(
 			"failed to set status for Arc task",
 			zap.Stringer("key", t.task.Key),
@@ -485,19 +468,11 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
-	stat := task.Status{
-		Key:         t.task.OntologyID().String(),
-		Name:        t.task.Name,
-		Variant:     status.VariantWarning,
-		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
-		Description: err.Error(),
-		Time:        telem.Now(),
-		Details:     task.NewStatusDetails(t.task, true),
-	}
-	if setErr := status.NewWriter[task.StatusDetails](
-		t.factoryCfg.Status,
-		nil,
-	).Set(ctx, &stat); setErr != nil {
+	if setErr := t.status.Warn(
+		ctx,
+		fmt.Sprintf("Runtime error in %s", nodeType),
+		err.Error(),
+	); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}
 }

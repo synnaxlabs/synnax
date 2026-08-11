@@ -214,11 +214,15 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 		Where(task.MatchKeys(cmd.Task)).
 		Entry(&tsk).
 		Exec(ctx, nil); err != nil {
+		// A not-found task was deleted: a status written now would recreate the
+		// one the delete removed. Other errors answer the start so the sender
+		// does not wait forever.
 		if !errors.Is(err, query.ErrNotFound) {
 			d.cfg.L.Error("failed to retrieve task for start",
 				zap.Stringer("task", cmd.Task),
 				zap.Error(err),
 			)
+			d.ackFailure(ctx, task.Task{Key: cmd.Task}, cmd, err)
 		}
 		return
 	}
