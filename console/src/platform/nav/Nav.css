@@ -107,16 +107,16 @@
         position: absolute;
         z-index: 200;
         &.pluto--location-bottom {
-            bottom: var(--bottom-drawer-inset-bottom, 0);
-            left: var(--bottom-drawer-inset-left, 0);
-            right: var(--bottom-drawer-inset-right, 0);
+            bottom: var(--console-bottom-drawer-inset-bottom, 0);
+            left: var(--console-bottom-drawer-inset-left, 0);
+            right: var(--console-bottom-drawer-inset-right, 0);
             /* The resize box's full-x/full-y 100% would beat the opposing inset. */
             width: auto;
         }
         &.pluto--location-left {
-            left: var(--left-drawer-inset-left, 0);
-            top: var(--left-drawer-inset-top, 0);
-            bottom: var(--left-drawer-inset-bottom, 0);
+            left: var(--console-left-drawer-inset-left, 0);
+            top: var(--console-left-drawer-inset-top, 0);
+            bottom: var(--console-left-drawer-inset-bottom, 0);
             height: auto;
         }
     }

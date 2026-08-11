@@ -10,7 +10,7 @@
  */
 
 .console-main__workspace {
-    --left-bar-size: 7.5rem;
+    --console-left-bar-size: 7.5rem;
     --inset-left: 0.5rem;
     --inset-right: 1rem;
     --inset-bottom: 1rem;
@@ -20,22 +20,24 @@
        footprint: tucked under the top bar, fused into the left bar's border, bled
        past the content inset. */
     --bleed: 0.5rem;
-    --left-drawer-inset-left: calc(
-        var(--inset-left) + var(--left-bar-size) + var(--gutter)
+    --console-left-drawer-inset-left: calc(
+        var(--inset-left) + var(--console-left-bar-size) + var(--gutter)
     );
-    --left-drawer-inset-top: calc(var(--top-bar-size) - var(--bleed));
-    --left-drawer-inset-bottom: calc(var(--inset-bottom) - var(--bleed));
-    --bottom-drawer-inset-left: calc(var(--inset-left) + var(--left-bar-size) - 2px);
-    --bottom-drawer-inset-right: calc(var(--inset-right) - var(--bleed));
-    --bottom-drawer-inset-bottom: var(--inset-bottom);
+    --console-left-drawer-inset-top: calc(var(--console-top-bar-size) - var(--bleed));
+    --console-left-drawer-inset-bottom: calc(var(--inset-bottom) - var(--bleed));
+    --console-bottom-drawer-inset-left: calc(
+        var(--inset-left) + var(--console-left-bar-size) - 2px
+    );
+    --console-bottom-drawer-inset-right: calc(var(--inset-right) - var(--bleed));
+    --console-bottom-drawer-inset-bottom: var(--inset-bottom);
 
     flex-grow: 1;
     min-height: 0;
     display: grid;
     grid-template-columns:
-        var(--inset-left) var(--left-bar-size) var(--gutter) minmax(0, 1fr)
+        var(--inset-left) var(--console-left-bar-size) var(--gutter) minmax(0, 1fr)
         var(--inset-right);
-    grid-template-rows: var(--top-bar-size) minmax(0, 1fr) var(--inset-bottom);
+    grid-template-rows: var(--console-top-bar-size) minmax(0, 1fr) var(--inset-bottom);
     grid-template-areas:
         ". rail top top     top"
         ". rail .   content ."
