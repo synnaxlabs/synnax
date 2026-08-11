@@ -12,13 +12,13 @@ package lsp
 import (
 	"context"
 	"io"
-	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/parser"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
 	xlsp "github.com/synnaxlabs/x/lsp"
@@ -239,16 +239,11 @@ func (s *Server) publishDiagnostics(
 	})
 }
 
-// deriveNamespaceFromURI extracts a namespace from the document URI.
+// deriveNamespaceFromURI extracts a namespace from the document URI. A version
+// file's namespace is its resource ("crdt" for versions/crdt/v0.oracle), never
+// the vN base name.
 func deriveNamespaceFromURI(docURI uri.URI) string {
-	path := string(docURI)
-	path = strings.TrimPrefix(path, "file://")
-	base := filepath.Base(path)
-	ext := filepath.Ext(base)
-	if ext != "" {
-		base = base[:len(base)-len(ext)]
-	}
-	return base
+	return paths.DeriveNamespace(strings.TrimPrefix(string(docURI), "file://"))
 }
 
 // noopLoader is a FileLoader that doesn't load any files.

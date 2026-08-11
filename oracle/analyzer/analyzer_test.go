@@ -127,6 +127,21 @@ var _ = Describe("Analyzer", func() {
 			)
 		}
 
+		It("Should count a referenced version-file pin import as used", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/versions/spatial/v0", "XLocation = string\n")
+			diag := analyzeAt(ctx, `
+import "schemas/x/versions/spatial/v0"
+
+Insert struct {
+	side spatial.XLocation
+}
+`,
+				"schemas/x/versions/crdt/v0.oracle", "crdt")
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
 		It("Should allow a versioned resource's live schema from a version file", func(
 			ctx SpecContext,
 		) {
