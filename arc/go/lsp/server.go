@@ -154,16 +154,10 @@ func New(cfgs ...Config) (*Server, error) {
 			},
 			HoverProvider: protocol.Boolean(true),
 			CompletionProvider: &protocol.CompletionOptions{
-				TriggerCharacters: []string{
-					parser.LiteralCOLON,
-					parser.LiteralLT,
-					parser.LiteralMINUS,
-					parser.LiteralGT,
-					parser.LiteralLBRACE,
-					parser.LiteralEQ,
-					parser.LiteralCOMMA,
-					parser.LiteralDOT,
-				},
+				// The dot always precedes a member name, so it is the only trigger.
+				// Every other separator can end a line, where a popup takes the enter
+				// key from the user. A prefix still raises one anywhere.
+				TriggerCharacters: []string{parser.LiteralDOT},
 			},
 			DefinitionProvider:              protocol.Boolean(true),
 			DocumentFormattingProvider:      protocol.Boolean(true),
