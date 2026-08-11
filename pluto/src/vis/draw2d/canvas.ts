@@ -101,6 +101,16 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
 
   reset(): void {
     this.wrapped.reset();
+    this.cachedFont = null;
+    this.cachedFillStyle = null;
+    this.cachedStrokeStyle = null;
+    this.cachedLineWidth = null;
+    this.cachedGlobalAlpha = null;
+    this.cachedTextAlign = null;
+    this.cachedTextBaseline = null;
+    this.cachedLineCap = null;
+    this.cachedLineJoin = null;
+    this.cachedMiterLimit = null;
   }
 
   applyScale(scale: scale.XY): SugaredOffscreenCanvasRenderingContext2D {

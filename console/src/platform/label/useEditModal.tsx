@@ -94,7 +94,7 @@ const LabelListItem = ({
             padHelpText={false}
             showLabel={false}
           >
-            {({ onChange, preview: _, ...p }) => (
+            {({ onChange, ...p }) => (
               <Color.Swatch onChange={(v) => onChange(color.hex(v))} {...p} />
             )}
           </Form.Field>
@@ -199,12 +199,12 @@ export const useEditModal = Modals.create(() => {
             {listItem}
           </List.Items>
           {!newFormVisible && (
-            <PlatformButton.Create
+            <PlatformButton.CreateListItem
               onClick={() => setNewFormVisible(true)}
               className={CSS.BE("label", "create")}
             >
               New Label
-            </PlatformButton.Create>
+            </PlatformButton.CreateListItem>
           )}
         </Flex.Box>
       </List.Frame>

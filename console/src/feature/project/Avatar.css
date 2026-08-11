@@ -44,7 +44,7 @@
     box-shadow:
         inset 0 0 0 var(--pluto-border-width)
             oklch(0.8 0.09 var(--console-avatar-hue) / 0.4),
-        var(--pluto-shadow-v1);
+        var(--pluto-shadow-lift);
 }
 
 .console-project-avatar--tint {
