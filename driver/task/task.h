@@ -305,8 +305,10 @@ private:
     struct Op {
         /// @brief types of operations that can be queued. RELEASE frees the live
         /// instance without a terminal status: a successor on another rack owns
-        /// status reporting.
-        enum class Type { CONFIGURE, COMMAND, SHUTDOWN, REMOVE, RELEASE };
+        /// status reporting. A DEPLOY carrying the task body trusts it (boot);
+        /// one without fetches the stored task on the worker, keeping the
+        /// streamer loop off the network.
+        enum class Type { DEPLOY, COMMAND, SHUTDOWN, REMOVE, RELEASE };
         Type type;
         synnax::task::Key task_key;
         synnax::task::Task task;
@@ -397,9 +399,10 @@ private:
     void process_start(const synnax::task::Command &cmd);
     /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
     std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
-    /// @brief drops the entry for key unless it is still relevant. Callers must hold
+    /// @brief drops the entry for key unless it is still relevant or claimed by a
+    /// worker. even_if_processing is for a worker's own entry. Callers must hold
     /// mu.
-    void remove(const synnax::task::Key &key);
+    void remove(const synnax::task::Key &key, bool even_if_processing = false);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
     /// @brief stops workers and waits for them to finish.

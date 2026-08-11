@@ -43,6 +43,7 @@ struct StatusHandler {
         // hash is what the Console renders as drift.
         this->status.details.config_hash = task.config_hash;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
+        this->status.message = "Task configured";
     }
 
     /// @brief resets the state handler to its initial state.
@@ -131,6 +132,16 @@ struct StatusHandler {
             this->status.message = this->accumulated_err.data;
         } else
             this->status.message = "Task stopped successfully";
+        this->set_status();
+    }
+
+    /// @brief answers cmd_key by re-sending the current status unchanged, for a
+    /// command that needs no work. Bypasses the rate limiter because the Console
+    /// waits for command acknowledgments keyed by cmd.
+    void ack(const std::string &cmd_key, const bool running) {
+        this->status.key = synnax::task::status_key(this->task);
+        this->status.details.running = running;
+        this->status.details.cmd = cmd_key;
         this->set_status();
     }
 
