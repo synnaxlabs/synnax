@@ -27,8 +27,7 @@ export type HTMLInputProps = Omit<
    edit-in-place cell whose invisible chassis materializes on hover. */
 export type Variant = Extract<Button.Variant, "outlined" | "text"> | "shadow";
 
-export interface InputProps<I = unknown, O = I> extends HTMLInputProps, Control<I, O> {
+export interface InputProps<I = unknown, O = I>
+  extends HTMLInputProps, Control<I, O>, Pick<Button.ExtensionProps, "preview"> {
   variant?: Variant;
-  /** Renders a non-interactive, chrome-less display of the input. */
-  preview?: boolean;
 }

@@ -91,8 +91,9 @@ export const isSquare = (children: ReactNode): boolean => {
   return false;
 };
 
-const parseElement = <E extends Generic.ElementType = "p">(
-  level: text.Level,
+/** Resolves which element a text-based component renders as. */
+export const parseElement = <E extends Generic.ElementType = "p">(
+  level?: text.Level,
   el?: E,
   defaultEl?: Generic.ElementType,
   variant?: Variant,

@@ -10,13 +10,7 @@
 import "@/log/Log.css";
 
 import { box, strings } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-} from "react";
+import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
@@ -52,8 +46,6 @@ export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
   enableTriggers?: Triggers.Condition;
-  /** Controlled pause state. When set, the log pauses scrolling while true. */
-  hold?: boolean;
   /** Called when an internal gesture (scroll up, H trigger) changes the pause
    * state. Controlled callers must reflect the value back through hold. */
   onHold?: (hold: boolean) => void;
@@ -92,6 +84,7 @@ export const Base = ({
     channels,
     color,
     telem,
+    hold,
   });
 
   const {
@@ -104,10 +97,13 @@ export const Base = ({
     computedLineHeight,
   } = state;
 
-  useEffect(() => {
-    if (hold == null || hold === scrolling) return;
-    setState((s) => ({ ...s, scrolling: hold }));
-  }, [hold, scrolling, setState]);
+  const setHold = useCallback(
+    (hold: boolean) => {
+      setState((s) => ({ ...s, scrolling: hold }));
+      onHold?.(hold);
+    },
+    [setState, onHold],
+  );
 
   const resizeRef = Canvas.useRegion(
     useCallback((b) => setState((s) => ({ ...s, region: b })), [setState]),
@@ -202,12 +198,9 @@ export const Base = ({
             selectionEnd: -1,
             selectedText: "",
           }));
-        else if (mode === "togglePause") {
-          onHold?.(!scrolling);
-          setState((s) => ({ ...s, scrolling: !s.scrolling }));
-        }
+        else if (mode === "togglePause") setHold(!scrolling);
       },
-      [setState, scrolling, onHold],
+      [setState, scrolling, setHold],
     ),
   });
 
@@ -251,12 +244,8 @@ export const Base = ({
         tabIndex={0}
         className={CSS(CSS.B("log"), className)}
         onWheel={(e) => {
-          if (e.deltaY < 0 && !scrolling) onHold?.(true);
-          setState((s) => ({
-            ...s,
-            wheelPos: s.wheelPos - e.deltaY,
-            scrolling: s.scrolling ? s.scrolling : e.deltaY < 0,
-          }));
+          if (e.deltaY < 0 && !scrolling) setHold(true);
+          setState((s) => ({ ...s, wheelPos: s.wheelPos - e.deltaY }));
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}

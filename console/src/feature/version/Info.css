@@ -10,11 +10,10 @@
  */
 
 .console-version-info {
-    &.pluto-dialog__dialog.pluto--modal.pluto--visible {
-        min-width: 0;
-        width: 500px;
-        height: 325px;
-    }
+    --pluto-dialog-min-width: 0;
+
+    width: 500px;
+    height: 325px;
 
     .console-version-info__content {
         padding-top: 6rem;
