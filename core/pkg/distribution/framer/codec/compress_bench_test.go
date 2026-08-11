@@ -10,11 +10,15 @@
 package codec_test
 
 import (
+	"bytes"
+	"compress/flate"
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"math/rand/v2"
 	"os"
+	"sync"
 	"testing"
 	"text/tabwriter"
 	"time"
@@ -176,6 +180,103 @@ func TestStreamFrameCompression(t *testing.T) {
 				breakEven,
 			)
 		}
+	}
+	if err := errors.Combine(writeErr, w.Flush()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// deflateWriters mirrors the pool the websocket library keeps, so the measured cost is
+// per message rather than per writer allocation.
+var deflateWriters = sync.Pool{New: func() any {
+	w, err := flate.NewWriter(io.Discard, 1)
+	if err != nil {
+		panic(err)
+	}
+	return w
+}}
+
+// permessageDeflate compresses src the way a websocket negotiating permessage-deflate
+// does: raw flate at level 1, with a window that is not carried between messages. The
+// four-byte empty block that terminates a message is dropped by the protocol, so it is
+// subtracted here.
+func permessageDeflate(src []byte) ([]byte, error) {
+	w := deflateWriters.Get().(*flate.Writer)
+	defer deflateWriters.Put(w)
+	var buf bytes.Buffer
+	w.Reset(&buf)
+	if _, err := w.Write(src); err != nil {
+		return nil, err
+	}
+	if err := w.Flush(); err != nil {
+		return nil, err
+	}
+	out := buf.Bytes()
+	if len(out) >= 4 {
+		out = out[:len(out)-4]
+	}
+	return out, nil
+}
+
+// TestStreamFrameSmall reports what permessage-deflate does to the small frames a live
+// subscription actually produces. The extension has no minimum size, so every data
+// message is deflated however small, and no dictionary carries between messages: each
+// frame is compressed alone, against nothing.
+//
+//	go test ./pkg/distribution/framer/codec/ -run TestStreamFrameSmall -v
+func TestStreamFrameSmall(t *testing.T) {
+	ctx := context.Background()
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	var writeErr error
+	row := func(format string, args ...any) {
+		if writeErr == nil {
+			_, writeErr = fmt.Fprintf(w, format+"\n", args...)
+		}
+	}
+	row("channels\tsamples\tencoded\tdeflated\tdelta\tratio\tdeflate")
+	// A live Console subscription receives a frame per acquisition tick. One sample
+	// per channel is the high-rate limit; the larger counts cover slower consumers
+	// that batch several ticks together.
+	for _, shape := range []struct{ channels, samples int }{
+		{1, 1}, {8, 1}, {32, 1}, {8, 10}, {32, 10}, {8, 100}, {32, 100},
+	} {
+		// Each channel gets its own baseline and its own jitter, so the frame is not
+		// N copies of one series. Identical channels would make deflate look far
+		// better here than it does against a real rack.
+		r := rand.New(rand.NewPCG(42, uint64(shape.channels)))
+		keys := make(channel.Keys, shape.channels)
+		types := make([]telem.DataType, shape.channels)
+		series := make([]telem.Series, shape.channels)
+		for i := range shape.channels {
+			keys[i] = channel.Key(i + 1)
+			types[i] = telem.Float64T
+			values := make([]float64, shape.samples)
+			base := 10 + float64(i)*13.7
+			for j := range values {
+				values[j] = base + math.Round(r.NormFloat64()*1000)/1000
+			}
+			series[i] = telem.NewSeriesV(values...)
+		}
+		cdc := codec.NewStatic(keys, types)
+		encoded, err := cdc.Encode(ctx, frame.NewMulti(keys, series))
+		if err != nil {
+			t.Fatal(err)
+		}
+		deflated, err := permessageDeflate(encoded)
+		if err != nil {
+			t.Fatal(err)
+		}
+		elapsed := timeCompression(t, func() error {
+			_, err := permessageDeflate(encoded)
+			return err
+		})
+		row(
+			"%d\t%d\t%d\t%d\t%+d\t%.3f\t%v",
+			shape.channels, shape.samples, len(encoded), len(deflated),
+			len(deflated)-len(encoded),
+			float64(len(deflated))/float64(len(encoded)),
+			elapsed.Round(time.Microsecond),
+		)
 	}
 	if err := errors.Combine(writeErr, w.Flush()); err != nil {
 		t.Fatal(err)
