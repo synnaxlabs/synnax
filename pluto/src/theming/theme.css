@@ -116,6 +116,9 @@
     --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
     --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
     --pluto-frost: blur(3.5rem) saturate(140%);
+
+    --pluto-focus-ring-offset: 2px;
+    --pluto-focus-ring-inset: -2px;
 }
 
 @media (resolution >= 2dppx) {
