@@ -322,7 +322,6 @@ func (p *Plugin) generateFile(
 				s,
 				form,
 				data,
-				req,
 			)
 			if err != nil {
 				return nil, errors.Wrapf(
@@ -338,7 +337,7 @@ func (p *Plugin) generateFile(
 				)
 			}
 		} else {
-			translator, err := p.processStructForTranslation(s, form, data, req)
+			translator, err := p.processStructForTranslation(s, data)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to process struct %s", s.Name)
 			}
@@ -376,11 +375,10 @@ func (p *Plugin) generateFile(
 			if !ok {
 				continue
 			}
-			pform, ok := payload.Form.(resolution.StructForm)
-			if !ok {
+			if _, ok = payload.Form.(resolution.StructForm); !ok {
 				continue
 			}
-			pt, err := p.processStructForTranslation(payload, pform, data, req)
+			pt, err := p.processStructForTranslation(payload, data)
 			if err != nil || pt == nil {
 				return nil, errors.Wrapf(err,
 					"failed to process inline payload for union %s variant %q",
@@ -437,7 +435,7 @@ func (p *Plugin) generateFile(
 		if !ok {
 			continue
 		}
-		delegator, err := p.processDelegationTranslator(td, form, data, req)
+		delegator, err := p.processDelegationTranslator(td, form, data)
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
@@ -622,9 +620,7 @@ func (p *Plugin) resolveUnionTranslatorName(
 
 func (p *Plugin) processStructForTranslation(
 	s resolution.Type,
-	form resolution.StructForm,
 	data *templateData,
-	req *plugin.Request,
 ) (*translatorData, error) {
 	if _, ok := s.Form.(resolution.AliasForm); ok {
 		return nil, nil
@@ -719,7 +715,7 @@ func (p *Plugin) processFieldForTranslation(
 				resolution.IsPrimitive(form.Base.Name) {
 				fd.NeedsPtrConversion = true
 				fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generateTypeDefConversion(
-					typeRef, resolved, form, data, "*r."+goName, "*pb."+pbName,
+					resolved, form, data, "*r."+goName, "*pb."+pbName,
 				)
 			}
 		}
@@ -849,7 +845,6 @@ func (p *Plugin) processGenericStructForTranslation(
 	s resolution.Type,
 	form resolution.StructForm,
 	data *templateData,
-	req *plugin.Request,
 ) (*genericTranslatorData, error) {
 	if _, ok := s.Form.(resolution.AliasForm); ok {
 		return nil, nil
@@ -904,13 +899,7 @@ func (p *Plugin) processGenericStructForTranslation(
 	}
 
 	for _, field := range resolution.UnifiedFields(s, data.table) {
-		fieldData, isTypeParam := p.processGenericFieldForTranslation(
-			field,
-			data,
-			s,
-			form,
-			typeParams,
-		)
+		fieldData, isTypeParam := p.processGenericFieldForTranslation(field, data, s)
 		if isTypeParam {
 			translator.TypeParamFields = append(translator.TypeParamFields, fieldData)
 		} else if fieldData.IsOptional {
@@ -929,8 +918,6 @@ func (p *Plugin) processGenericFieldForTranslation(
 	field resolution.Field,
 	data *templateData,
 	parentStruct resolution.Type,
-	parentForm resolution.StructForm,
-	typeParams []typeParamData,
 ) (fieldTranslatorData, bool) {
 	goName := naming.GetFieldName(field)
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
@@ -1030,7 +1017,6 @@ func (p *Plugin) processDelegationTranslator(
 	td resolution.Type,
 	form resolution.DistinctForm,
 	data *templateData,
-	req *plugin.Request,
 ) (*delegationTranslatorData, error) {
 	goName := naming.GetGoName(td)
 
@@ -1411,7 +1397,6 @@ func (p *Plugin) generateFieldConversion(
 
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
 		f, b := p.generateEnumConversion(
-			typeRef,
 			resolved,
 			data,
 			goFieldName,
@@ -1452,7 +1437,6 @@ func (p *Plugin) generateFieldConversion(
 			}
 		}
 		f, b, c, be := p.generateTypeDefConversion(
-			typeRef,
 			resolved,
 			form,
 			data,
@@ -1465,7 +1449,6 @@ func (p *Plugin) generateFieldConversion(
 	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		if resolution.IsPrimitive(aliasForm.Target.Name) {
 			f, b, c, be := p.generateAliasConversion(
-				typeRef,
 				resolved,
 				aliasForm,
 				data,
@@ -1596,8 +1579,6 @@ func (p *Plugin) generateStructConversion(
 
 	if actualForm.IsGeneric() && len(typeArgs) > 0 {
 		return p.generateGenericStructConversion(
-			typeRef,
-			resolved,
 			actualStruct,
 			actualForm,
 			typeArgs,
@@ -1642,8 +1623,6 @@ func (p *Plugin) generateStructConversion(
 }
 
 func (p *Plugin) generateGenericStructConversion(
-	typeRef resolution.TypeRef,
-	originalResolved resolution.Type,
 	actualStruct resolution.Type,
 	actualForm resolution.StructForm,
 	typeArgs []resolution.TypeRef,
@@ -1753,6 +1732,7 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
 	data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
 	data.imports.AddExternal("google.golang.org/protobuf/encoding/protojson")
+	data.imports.AddExternal("google.golang.org/protobuf/proto")
 	data.imports.AddExternal("encoding/json")
 
 	goName := naming.GetGoName(s)
@@ -1770,7 +1750,6 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 }
 
 func (p *Plugin) generateEnumConversion(
-	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	data *templateData,
 	goField, pbField string,
@@ -1806,7 +1785,6 @@ func (p *Plugin) generateEnumConversion(
 }
 
 func (p *Plugin) generateTypeDefConversion(
-	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	form resolution.DistinctForm,
 	data *templateData,
@@ -1852,7 +1830,6 @@ func (p *Plugin) generateTypeDefConversion(
 }
 
 func (p *Plugin) generateAliasConversion(
-	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	form resolution.AliasForm,
 	data *templateData,
