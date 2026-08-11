@@ -59,7 +59,11 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
       <Status status={taskStatus} expanded={expanded} onToggle={handleToggle} />
       {!isSnapshot && (
         <Actions>
-          {drifted && <RedeployButton onClick={handleRedeploy} />}
+          <RedeployButton
+            visible={drifted}
+            onClick={handleRedeploy}
+            disabled={taskStatus.variant === "loading"}
+          />
           <StartStopButton
             running={running}
             onClick={handleStartStop}

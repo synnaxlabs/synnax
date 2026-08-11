@@ -32,7 +32,6 @@ import { type z } from "zod";
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
-import { DriftBadge } from "@/platform/task/DriftBadge";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
 import { useStatus } from "@/platform/task/useStatus";
@@ -98,10 +97,7 @@ const Header = ({ isSnapshot }: HeaderProps) => (
       </PForm.Field>
       <Flex.Box align="end" gap="small">
         <UtilityButtons />
-        <Flex.Box x align="center" gap="small">
-          <DriftBadge />
-          <Rack />
-        </Flex.Box>
+        <Rack />
       </Flex.Box>
     </Flex.Box>
     {!isSnapshot && <ParentRangeButton />}

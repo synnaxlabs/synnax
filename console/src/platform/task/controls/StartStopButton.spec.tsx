@@ -14,16 +14,40 @@ import { Task } from "@/platform/task";
 import { queryIcon, renderWithConsole } from "@/testutil";
 
 describe("Controls.StartStopButton", () => {
-  it("should swap from the play icon to the pause icon when running flips", async () => {
+  it("should swap from the play icon to the stop icon when running flips", async () => {
     const { container, rerender } = await renderWithConsole(
       <Task.Controls.StartStopButton running={false} onClick={vi.fn()} />,
     );
     expect(queryIcon(container, "play")).toBeTruthy();
-    expect(queryIcon(container, "pause")).toBeNull();
+    expect(queryIcon(container, "stop")).toBeNull();
 
     rerender(<Task.Controls.StartStopButton running onClick={vi.fn()} />);
-    expect(queryIcon(container, "pause")).toBeTruthy();
+    expect(queryIcon(container, "stop")).toBeTruthy();
     expect(queryIcon(container, "play")).toBeNull();
+  });
+
+  it("should style the stop state as an error and keep the start state neutral", async () => {
+    const { rerender } = await renderWithConsole(
+      <Task.Controls.StartStopButton running={false} onClick={vi.fn()} />,
+    );
+    const button = screen.getByRole("button");
+    expect(button.className).not.toContain("pluto--status-error");
+
+    rerender(<Task.Controls.StartStopButton running onClick={vi.fn()} />);
+    expect(button.className).toContain("pluto--status-error");
+  });
+
+  it("should let a loading status variant override the running error styling", async () => {
+    await renderWithConsole(
+      <Task.Controls.StartStopButton
+        running
+        statusVariant="loading"
+        onClick={vi.fn()}
+      />,
+    );
+    const button = screen.getByRole("button");
+    expect(button.className).toContain("pluto--status-loading");
+    expect(button.className).not.toContain("pluto--status-error");
   });
 
   it("should invoke onClick when pressed", async () => {
