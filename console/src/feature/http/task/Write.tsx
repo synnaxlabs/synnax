@@ -464,7 +464,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
 
 const PATH_INPUT_PROPS = { placeholder: "/api/control" };
 
-const Form: FC<Task.FormProps<WriteSchemas>> = () => {
+const Form: FC = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
   const { data, push, remove } = PForm.useFieldList<string, WriteEndpoint>(
     "config.endpoints",
