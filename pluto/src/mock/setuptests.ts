@@ -26,12 +26,9 @@ beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
-  // jsdom does not implement the pointer capture APIs that Cursor.useDrag relies on.
   HTMLElement.prototype.setPointerCapture = () => {};
   HTMLElement.prototype.releasePointerCapture = () => {};
   HTMLElement.prototype.hasPointerCapture = () => false;
-  // jsdom does not implement scrollIntoView; Tabs.Selector calls it to reveal the
-  // selected tab.
   Element.prototype.scrollIntoView = () => {};
 });
 

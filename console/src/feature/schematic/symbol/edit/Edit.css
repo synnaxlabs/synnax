@@ -24,7 +24,7 @@
     }
 
     .console-schematic__sidebar {
-        box-shadow: var(--pluto-shadow-v2);
+        box-shadow: var(--pluto-shadow-overlay);
         min-width: 300px;
         max-width: 300px;
         overflow-y: scroll;
@@ -165,7 +165,7 @@
     }
 
     .console-schematic-file-drop {
-        box-shadow: var(--pluto-shadow-v2);
+        box-shadow: var(--pluto-shadow-overlay);
     }
 
     .console-schematic-file-drop-overlay {
