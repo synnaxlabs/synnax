@@ -59,6 +59,16 @@ func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 
 func (*codec) Extension() string { return ".json" }
 
+// MarshalStringInt64 marshals the int64 value to a UTF-8 string.
+func MarshalStringInt64(n int64) []byte {
+	return []byte(`"` + strconv.FormatInt(n, 10) + `"`)
+}
+
+// MarshalStringUint64 marshals the uint64 value to a UTF-8 string.
+func MarshalStringUint64(n uint64) []byte {
+	return []byte(`"` + strconv.FormatUint(n, 10) + `"`)
+}
+
 // UnmarshalStringInt64 attempts to unmarshal an int64 directly. If that fails, it
 // attempts to convert a string to an int64.
 func UnmarshalStringInt64(b []byte) (int64, error) {
@@ -111,14 +121,4 @@ func UnmarshalStringUint32(b []byte) (uint32, error) {
 		return 0, err
 	}
 	return uint32(v), nil
-}
-
-// MarshalStringInt64 marshals the int64 value to a UTF-8 string.
-func MarshalStringInt64(n int64) []byte {
-	return []byte(`"` + strconv.FormatInt(n, 10) + `"`)
-}
-
-// MarshalStringUint64 marshals the uint64 value to a UTF-8 string.
-func MarshalStringUint64(n uint64) []byte {
-	return []byte(`"` + strconv.FormatUint(n, 10) + `"`)
 }
