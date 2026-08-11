@@ -65,6 +65,15 @@ var _ = Describe("Sequence", func() {
 		return n
 	}
 
+	// drainStrings collects every string value flushed to a channel in order.
+	drainStrings := func(fr telem.Frame[uint32], key uint32) []string {
+		var out []string
+		for _, ser := range fr.Get(key).Series {
+			out = append(out, telem.UnmarshalSeries[string](ser)...)
+		}
+		return out
+	}
+
 	// trigger ingests a u8=1 onto the given channel and ticks the scheduler
 	// long enough for the on-channel-read → entry → step cascade to settle.
 	trigger := func(h *runtimeHarness, ctx SpecContext, key uint32) {
@@ -80,6 +89,486 @@ var _ = Describe("Sequence", func() {
 		h.Tick(ctx, elapsed)
 		h.channelState.ClearReads()
 	}
+
+	// A nested sequence is one step of its parent: when its last step
+	// completes, the parent advances, or exits when that step was terminal. A
+	// sequence declared inside a stage body freezes on completion instead.
+	Describe("Nested sequence completion", func() {
+		// settle ticks the scheduler enough times for boot activation and
+		// multi-step cascades to fully propagate.
+		settle := func(h *runtimeHarness, ctx SpecContext) {
+			for i := range 5 {
+				advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+			}
+		}
+
+		DescribeTable(
+			"Advances past a completed nested sequence to the following step",
+			func(ctx SpecContext, header string) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    `+header+` {
+				        "one" -> log
+				    }
+				    "two" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				settle(h, ctx)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"one", "two"}))
+			},
+			Entry("named", "sequence first"),
+			Entry("anonymous", "sequence"),
+		)
+
+		It("Advances through consecutive nested sequences", func(ctx SpecContext) {
+			resolver := channelSymbols(
+				map[string]channelDef{"log": {types.String(), 101}},
+			)
+			h := newRuntimeHarness(ctx, `
+			sequence main {
+			    sequence a {
+			        "a" -> log
+			    }
+			    sequence b {
+			        "b" -> log
+			    }
+			    "c" -> log
+			}
+			1 => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			settle(h, ctx)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"a", "b", "c"}))
+		})
+
+		It(
+			"Escalates completion through deeply nested sequences",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    sequence mid {
+				        sequence deep {
+				            "deep" -> log
+				        }
+				    }
+				    "after" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				settle(h, ctx)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"deep", "after"}))
+			},
+		)
+
+		It(
+			"Exits a gated parent whose last step is a nested sequence and re-triggers",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"log":       {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    sequence only {
+				        "ran" -> log
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(countOf(out, 101, "ran")).To(Equal(1))
+
+				trigger(h, ctx, 100)
+				out, _ = h.Flush()
+				Expect(countOf(out, 101, "ran")).To(Equal(1),
+					"a completed parent must deactivate and accept a new trigger")
+			},
+		)
+
+		It(
+			"Advances past a nested sequence whose only step is an invocation",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    sequence pause {
+				        time.wait{100ms}
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(out.Get(101).Series).To(BeEmpty(),
+					"main must hold while the nested wait is pending")
+
+				advance(h, ctx, 160*telem.Millisecond)
+				advance(h, ctx, 165*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"done"}))
+			},
+		)
+
+		It(
+			"Keeps a sequence inside a stage from exiting the stage on completion",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"trigger": {types.U8(), 100},
+					"log":     {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    stage monitor {
+				        sequence {
+				            "ramp start" -> log
+				            time.wait{100ms}
+				            "ramp done" -> log
+				        }
+				        trigger == 1 => next
+				    }
+				    "after" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				advance(h, ctx, telem.Millisecond)
+				advance(h, ctx, 160*telem.Millisecond)
+				advance(h, ctx, 200*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(
+					Equal([]string{"ramp start", "ramp done"}),
+					"inner completion must freeze, not exit the stage",
+				)
+
+				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				advance(h, ctx, 210*telem.Millisecond)
+				advance(h, ctx, 220*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"after"}))
+			},
+		)
+
+		It(
+			"Advances past a completed inline sequence flow target",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    "before" -> log
+				    1 -> sequence {
+				        "s1" -> log
+				        "s2" -> log
+				    }
+				    "final" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				settle(h, ctx)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(
+					Equal([]string{"before", "s1", "s2", "final"}),
+				)
+			},
+		)
+
+		It(
+			"Preserves stage transitions around nested and inline stages",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"trigger": {types.U8(), 100},
+					"log":     {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    stage pressurize {
+				        "pressurize" -> log
+				        trigger > 0 => next
+				    }
+				    stage hold {
+				        "hold" -> log
+				        time.wait{100ms} -> 50 > 40 => next
+				    }
+				    stage {
+				        "inline" -> log
+				        time.wait{100ms} => pressurize
+				    }
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				advance(h, ctx, telem.Millisecond)
+				trigger(h, ctx, 100)
+				advance(h, ctx, 160*telem.Millisecond)
+				advance(h, ctx, 170*telem.Millisecond)
+				advance(h, ctx, 320*telem.Millisecond)
+				advance(h, ctx, 330*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(
+					Equal([]string{"pressurize", "hold", "inline", "pressurize"}),
+				)
+			},
+		)
+
+		It(
+			"Advances past a nested sequence whose terminal step is an assignment",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    sequence bump {
+				        x := 1
+				        str(x) -> log
+				        x = x + 1
+				    }
+				    "after" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				settle(h, ctx)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"1", "after"}))
+			},
+		)
+
+		It(
+			"Holds forever when a nested sequence ends in a transitionless stage",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    sequence inner {
+				        "held" -> log
+				        stage hold {}
+				    }
+				    "after" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				settle(h, ctx)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"held"}),
+					"a stage without transitions is a deliberate hold; main must not advance")
+			},
+		)
+
+		It(
+			"Keeps an inline sequence target inside a stage from exiting the stage",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"trigger": {types.U8(), 100},
+					"log":     {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    stage m {
+				        1 -> sequence {
+				            "body" -> log
+				        }
+				        trigger == 1 => next
+				    }
+				    "after" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				settle(h, ctx)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"body"}),
+					"inline body completion must freeze, not exit the stage")
+
+				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				advance(h, ctx, 10*telem.Millisecond)
+				advance(h, ctx, 11*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"after"}))
+			},
+		)
+
+		It(
+			"Re-arms a wait inside a re-entered nested sequence",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    sequence s1 {
+				        time.wait{100ms}
+				        "tick" -> log
+				    }
+				    stage s2 {
+				        time.wait{100ms} => s1
+				    }
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				// Two passes per boundary so each fire settles before the next.
+				step := func(now telem.TimeSpan) {
+					advance(h, ctx, now)
+					advance(h, ctx, now)
+				}
+				step(0)
+				step(100 * telem.Millisecond)
+				step(200 * telem.Millisecond)
+				step(300 * telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(countOf(out, 101, "tick")).To(Equal(2),
+					"a stale timer would fire immediately on re-entry and over-count")
+			},
+		)
+
+		It(
+			"Advances past a completed routing case body in a sequence step",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"trigger": {types.U8(), 100},
+					"log":     {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    trigger -> select{} -> {
+				        true: sequence {
+				            "case" -> log
+				        }
+				    }
+				    "after" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				settle(h, ctx)
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"case", "after"}))
+			},
+		)
+
+		It(
+			"Hands off to a top-level scope from inside a nested sequence",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    sequence ramp {
+				        "ramp" -> log
+				        1 => abort
+				    }
+				    stage hold {
+				        "hold" -> log
+				    }
+				}
+				sequence abort {
+				    "abort" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				settle(h, ctx)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(
+					Equal([]string{"ramp", "abort"}),
+					"the cross-scope jump hands control away; hold must not run",
+				)
+			},
+		)
+
+		It(
+			"Skips the steps after an explicit => in a nested sequence",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"trigger": {types.U8(), 100},
+					"log":     {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    sequence inner {
+				        "inner" -> log
+				        trigger => skip
+				        "unreachable" -> log
+				    }
+				    stage skip {
+				        "skip" -> log
+				    }
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				settle(h, ctx)
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(
+					Equal([]string{"inner", "skip"}),
+					"the write after the explicit => must never run",
+				)
+			},
+		)
+	})
 
 	// A reassignment takes effect when its stage runs, even reached out of source
 	// order or after a skipped stage; guards against the old source-order chain.
@@ -5150,6 +5639,36 @@ var _ = Describe("Sequence", func() {
 					drainStrings(out, 101),
 				).To(Equal([]string{"0", "1", "2", "3", "4"}))
 			},
+		)
+
+		DescribeTable(
+			"Scope-entry reset in a re-entered nested sequence",
+			func(ctx SpecContext, decl string, expected []string) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    sequence s1 {
+				        counter `+decl+` 0
+				        counter = counter + 1
+				        str(counter) => log
+				    }
+				    stage s2 {
+				        time.wait{100ms} => s1
+				    }
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				loop(h, ctx)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal(expected))
+			},
+			Entry("a $= variable persists", "$=", []string{"1", "2", "3", "4"}),
+			Entry("a := variable resets", ":=", []string{"1", "1", "1", "1"}),
 		)
 
 		It(
