@@ -41,6 +41,7 @@ cc_test(
         ":status",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
+        "//x/cpp/json/testutil",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
