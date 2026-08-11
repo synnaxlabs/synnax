@@ -10,7 +10,7 @@
 import { type record, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { Deleted } from "@/query/deleted";
 import { type AnswersHooks, Queries } from "@/query/query";
@@ -319,6 +319,47 @@ describe("Answers", () => {
       );
       expect(await answers.retrieve(qA)).toEqual(1);
       expect(ensureStreaming).toHaveBeenCalledTimes(1);
+    });
+
+    it("should refetch every read of a subscribed query while unmaintained", async () => {
+      const table = newTable();
+      let maintained = true;
+      let value = 1;
+      const fetch = vi.fn(async () => {
+        table.set("a", rec("a", value));
+        return ["a"];
+      });
+      const answers = singleSpace(table, fetch, { maintained: () => maintained });
+      answers.onChange(qA, vi.fn());
+      expect(await answers.retrieve(qA)).toEqual(1);
+      value = 2;
+      // maintained and streaming: the cached answer stands
+      expect(await answers.retrieve(qA)).toEqual(1);
+      maintained = false;
+      // nothing feeds the table now, so the answer must be reconfirmed
+      expect(await answers.retrieve(qA)).toEqual(2);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should stay silent when the change stream is denied", async () => {
+      const table = newTable();
+      const onError = vi.fn();
+      const answers = singleSpace(
+        table,
+        async () => {
+          table.set("a", rec("a", 1));
+          return ["a"];
+        },
+        {
+          ensureStreaming: async () => {
+            throw new AccessDeniedError("no permission to stream");
+          },
+          onError,
+        },
+      );
+      expect(await answers.retrieve(qA)).toEqual(1);
+      await wait(5);
+      expect(onError).not.toHaveBeenCalled();
     });
   });
 

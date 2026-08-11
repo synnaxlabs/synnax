@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  array,
   breaker,
   type CrudeTimeSpan,
   TimeSpan,
@@ -151,30 +152,22 @@ export default class Synnax extends framer.Client {
       secure,
     );
     transport.use(errorsMiddleware);
-    const chRetriever = new channel.ClusterRetriever(transport.unary);
-    super({ stream: transport.stream, unary: transport.unary, retriever: chRetriever });
+    // The arrow reads this.channels only when called, after construction completes.
+    const retrieveChannels: framer.ChannelRetriever = async (toRetrieve) => {
+      const result = await this.channels.retrieve(
+        array.toArray(toRetrieve) as channel.Key[] | channel.Name[],
+      );
+      return result.map((ch) => ch.payload);
+    };
+    super({ stream: transport.stream, unary: transport.unary, retrieveChannels });
     const cache = new query.Cache({
       openStreamer: parsedParams.cache
-        ? async (channels, { onOpen, onReopen }) => {
-            const hardened = await framer.HardenedStreamer.open(
-              (config) => this.openStreamer(config),
-              channels,
-              retry,
-              () => {
-                // stream.live first: onReopen's reconcile fetches must not hit
-                // the unreachable short circuit
-                this.conn.notify({ type: "stream.live" });
-                onReopen?.();
-              },
-              (error) => this.conn.notify({ type: "stream.drop", error }),
-            );
-            // Reads start when the ObservableStreamer is constructed below,
-            // so onOpen fires strictly before any frame or reconnect.
-            onOpen?.();
-            this.conn.notify({ type: "stream.live" });
-            return new framer.ObservableStreamer(hardened);
-          }
+        ? async (config) => await this.openStreamer(config)
         : null,
+      breaker: retry,
+      onStreamLive: () => this.conn.notify({ type: "stream.live" }),
+      onStreamDrop: (error) => this.conn.notify({ type: "stream.drop", error }),
+      onStreamDenied: (error) => this.conn.notify({ type: "stream.denied", error }),
       onError: parsedParams.onInternalError,
     });
     this.cache = cache;
@@ -224,14 +217,13 @@ export default class Synnax extends framer.Client {
     this.ranges = new ranger.Client({
       framer: this,
       unary,
-      channels: chRetriever,
+      channels: retrieveChannels,
       labels: this.labels,
       ontology: this.ontology,
       cache,
     });
     this.channels = new channel.Client({
       framer: this,
-      retriever: chRetriever,
       unary,
       writer: chCreator,
       statuses: this.statuses,
@@ -295,8 +287,9 @@ export default class Synnax extends framer.Client {
   }
 
   /**
-   * Awaits the connection's first success. Idempotent: resolves immediately
-   * when already connected.
+   * Awaits the connection becoming usable: success, or warning when the cluster
+   * refuses live updates. Idempotent: resolves immediately when already
+   * connected.
    * @throws {AuthError} on a definitive credential rejection.
    * @throws {DisconnectedError} when the cluster cannot be reached after the
    * configured retry budget, or when the client is closed while waiting.

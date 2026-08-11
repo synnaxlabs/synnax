@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { arc } from "@/arc";
-import { AuthError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -28,7 +28,9 @@ describe("arc", () => {
         mode: "text",
       };
       const randomArc = await client.arcs.create(a);
-      await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toThrow(AuthError);
+      await expect(userClient.arcs.retrieve(randomArc.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
 
     it("should allow the caller to retrieve arcs with the correct policy", async () => {
@@ -69,7 +71,7 @@ describe("arc", () => {
           name: "test",
           mode: "text",
         }),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toSatisfy(AccessDeniedError.matches);
     });
 
     it("should allow the caller to delete arcs with the correct policy", async () => {
@@ -98,7 +100,9 @@ describe("arc", () => {
         name: "test",
         mode: "text",
       });
-      await expect(userClient.arcs.delete(randomArc.key)).rejects.toThrow(AuthError);
+      await expect(userClient.arcs.delete(randomArc.key)).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
   });
 });

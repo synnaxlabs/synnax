@@ -71,6 +71,42 @@ or generator logic and schemas disagree.
   files route `> legacy.LastVersion` envelopes to the ladder and keep only frozen
   Console-era decoding.
 
+## Field Optionality
+
+Four states. Pick by asking whether the field always means something, and when it does
+not, whether the schema itself can tell.
+
+- **`X = value`**: always meaningful, and absence is harmless, because absence and the
+  default were always the same value. Most fields.
+- **`X`** (bare, no `?`, no default): always meaningful, but no value is a safe guess.
+  Required everywhere: TS parse fails, C++ raises "this field is required", and Python
+  raises. Use for values only the author knows, such as a timestamp encoding.
+- **Union variants**: the field applies only in some cases, and the deciding fact is in
+  the same message. Split the type so the field exists only where it applies, then apply
+  the two rules above inside each variant. Restructuring beats a validation rule. A new
+  client forgets a rule, but cannot forget a shape.
+- **`X?`**: the field applies only in some cases, and the deciding fact is outside the
+  message, such as a channel data type. No schema can settle it, so absence is the
+  honest encoding.
+
+Never fake absence with a value. No `none` enum member, no empty string meaning "not
+applicable". A sentinel claims the question was answered when it was not, and it makes
+the "did you forget" check impossible to write.
+
+`?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
+
+## Contextual Validation
+
+A rule that needs facts outside the config, such as the data type of a referenced
+channel, belongs in the Core service, on the write path only.
+
+- The Core is the one layer every client passes through, so Python and TypeScript
+  inherit the rule without writing any validation of their own.
+- Never validate on read. Stored records predate the rule and must stay readable.
+- The Driver keeps its own check as a second line, because channels drift between config
+  time and deploy.
+- The Console duplicates a rule only for better messages, never as the guarantee.
+
 ## Tag Minimization
 
 Prefer the tagging that minimizes total tag count. When only a few types in a file need

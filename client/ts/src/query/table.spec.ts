@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
+import { type record, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { query } from "@/query";
@@ -1292,12 +1292,82 @@ describe("Table", () => {
       );
       const table = fetchTable(fetch);
       const pending = table.retrieve(["a"]);
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
       table.reset();
       release([item("a", "old-cluster")]);
       const results = await pending;
       expect(results).toEqual([]);
       expect(table.get("a")).toBeUndefined();
       expect(table.status("a")).toBe("unknown");
+    });
+
+    it("should coalesce concurrent retrieves into one fetch", async () => {
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.filter((k) => k !== "gone").map((k) => item(k, k)),
+      );
+      const table = fetchTable(fetch);
+      const [a, b] = await Promise.all([
+        table.retrieve(["a", "gone"]),
+        table.retrieve(["b", "c"]),
+      ]);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fetch).toHaveBeenCalledWith(["a", "gone", "b", "c"]);
+      expect(a.map((i) => i.key)).toEqual(["a"]);
+      expect(b.map((i) => i.key)).toEqual(["b", "c"]);
+    });
+
+    it("should fetch even while joins keep arriving", async () => {
+      const fetch = vi.fn(async (keys: string[]) => keys.map((k) => item(k, k)));
+      const table = new query.Table<string, Item>({
+        onError: noopError,
+        fetch,
+        fetchDebounce: TimeSpan.milliseconds(30),
+      });
+      const pending = [table.retrieve(["k0"])];
+      for (let i = 1; i <= 5; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        pending.push(table.retrieve([`k${i}`]));
+      }
+      // A timer reset by each join would still be pending here.
+      expect(fetch).toHaveBeenCalled();
+      await Promise.all(pending);
+    });
+
+    it("should reject every retrieve in a failed window and refetch on the next call", async () => {
+      const fetch = vi.fn(async (keys: string[]) => {
+        if (fetch.mock.calls.length === 1) throw new Error("transport exploded");
+        return keys.map((k) => item(k, k));
+      });
+      const table = fetchTable(fetch);
+      const [a, b] = await Promise.allSettled([
+        table.retrieve(["a"]),
+        table.retrieve(["b"]),
+      ]);
+      expect(a.status).toEqual("rejected");
+      expect(b.status).toEqual("rejected");
+      const res = await table.retrieve(["a"]);
+      expect(res).toEqual([item("a", "a")]);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should hydrate only the caller's own keys from a shared window", async () => {
+      let release: (rows: Item[]) => void = () => {};
+      let windowKeys: string[] = [];
+      const fetch = vi.fn(async (keys: string[]) => {
+        windowKeys = keys;
+        return await new Promise<Item[]>((resolve) => (release = resolve));
+      });
+      const table = fetchTable(fetch, "if-absent");
+      const a = table.retrieve(["x"], { refresh: true });
+      const b = table.retrieve(["y"]);
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      // A local edit lands mid-fetch: the refresh caller must not clobber it
+      // by setting the whole window's rows.
+      table.set([item("y", "local-edit")]);
+      release(windowKeys.map((k) => item(k, `${k}-fetched`)));
+      await Promise.all([a, b]);
+      expect(table.get("x")).toEqual(item("x", "x-fetched"));
+      expect(table.get("y")).toEqual(item("y", "local-edit"));
     });
   });
 });
