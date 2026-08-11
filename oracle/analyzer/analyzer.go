@@ -740,7 +740,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
-			field := collectField(c, f, form.TypeParams, &form.HasKeyDomain)
+			field := collectField(f, form.TypeParams, &form.HasKeyDomain)
 			form.Fields = append(form.Fields, field)
 		}
 		for _, fo := range body.AllFieldOmit() {
@@ -797,7 +797,7 @@ func collectAction(
 	}
 	hasKeyDomain := false
 	for _, f := range body.AllFieldDef() {
-		field := collectField(c, f, typeParams, &hasKeyDomain)
+		field := collectField(f, typeParams, &hasKeyDomain)
 		if !field.HasType() {
 			d := diagnostics.Errorf(
 				f,
@@ -952,12 +952,7 @@ func collectMapTypeRef(
 	return ref
 }
 
-func collectField(
-	c *analysisCtx,
-	def parser.IFieldDefContext,
-	typeParams []resolution.TypeParam,
-	hasKeyDomain *bool,
-) resolution.Field {
+func collectField(def parser.IFieldDefContext, typeParams []resolution.TypeParam, hasKeyDomain *bool) resolution.Field {
 	field := resolution.Field{
 		Name:    def.IDENT().GetText(),
 		Domains: make(map[string]resolution.Domain),
@@ -1298,7 +1293,7 @@ func collectInlineVariant(
 		for _, f := range body.AllFieldDef() {
 			form.Fields = append(
 				form.Fields,
-				collectField(c, f, nil, &form.HasKeyDomain),
+				collectField(f, nil, &form.HasKeyDomain),
 			)
 		}
 		for _, fo := range body.AllFieldOmit() {
@@ -1363,7 +1358,8 @@ func pascalIdent(s string) string {
 		if p == "" {
 			continue
 		}
-		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
+		b.WriteString(strings.ToUpper(p[:1]))
+		b.WriteString(p[1:])
 	}
 	return b.String()
 }
@@ -2043,9 +2039,9 @@ func hasCircularInheritance(
 	return false
 }
 
-// dedent removes leading indentation from a multi-line string.
-// It finds the minimum indentation (ignoring empty lines) and removes that
-// amount from each line. Leading/trailing empty lines are also trimmed.
+// dedent removes leading indentation from a multi-line string. It finds the minimum
+// indentation (ignoring empty lines) and removes that amount from each line.
+// Leading/trailing empty lines are also trimmed.
 func dedent(s string) string {
 	lines := strings.Split(s, "\n")
 

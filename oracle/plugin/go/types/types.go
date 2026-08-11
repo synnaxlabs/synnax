@@ -39,8 +39,8 @@ import (
 
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
-// fieldDocIndent is the display width of the single tab indenting field-level
-// doc comments (tabs render at four columns per .editorconfig).
+// fieldDocIndent is the display width of the single tab indenting field-level doc
+// comments (tabs render at four columns per .editorconfig).
 const fieldDocIndent = 4
 
 // primitiveMapper is the Go-specific primitive type mapper.
@@ -91,7 +91,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	preds, err := computeSplit(req, rewritten)
+	preds, err := computeSplit(req)
 	if err != nil {
 		return nil, err
 	}
@@ -217,8 +217,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// predecessor identifies the version package that a current version package's
-// unchanged types alias.
+// predecessor identifies the version package that a current version package's unchanged
+// types alias.
 type predecessor struct {
 	// path is the repo-relative predecessor package directory (…/versions/vN).
 	path string
@@ -228,21 +228,19 @@ type predecessor struct {
 
 // computeSplit resolves the alias split for every version-laid-out current
 // package: the chain's current file enumerates it.
-func computeSplit(
-	req *plugin.Request, rewritten *resolution.Table,
-) (map[string]predecessor, error) {
+func computeSplit(req *plugin.Request) (map[string]predecessor, error) {
 	return chainPredecessors(context.Background(), req)
 }
 
-// AliasedTypes returns the qualified names of all types that alias their
-// predecessor version package instead of being defined at the current one.
-// Sibling plugins (go/marshal) use it to skip emission for aliased types.
+// AliasedTypes returns the qualified names of all types that alias their predecessor
+// version package instead of being defined at the current one. Sibling plugins
+// (go/marshal) use it to skip emission for aliased types.
 func AliasedTypes(req *plugin.Request) (set.Set[string], error) {
-	rewritten, _, err := versioning.RewriteCurrent(req.Resolutions)
+	_, _, err := versioning.RewriteCurrent(req.Resolutions)
 	if err != nil {
 		return nil, err
 	}
-	preds, err := computeSplit(req, rewritten)
+	preds, err := computeSplit(req)
 	if err != nil {
 		return nil, err
 	}
@@ -257,18 +255,17 @@ func AliasedTypes(req *plugin.Request) (set.Set[string], error) {
 
 // goFileGenerator implements framework.FileGenerator for Go code generation.
 type goFileGenerator struct {
-	// preds maps current version output paths to their predecessor alias
-	// split; types in the split alias the predecessor instead of defining.
+	// preds maps current version output paths to their predecessor alias split; types
+	// in the split alias the predecessor instead of defining.
 	preds map[string]predecessor
-	// original is the unrewritten table; set only for the versioned pass,
-	// where transient declarations resolve against it (self path rewritten)
-	// so their dependency references track the latest version.
+	// original is the unrewritten table; set only for the versioned pass, where
+	// transient declarations resolve against it (self path rewritten) so their
+	// dependency references track the latest version.
 	original *resolution.Table
-	// pathMap maps each version-laid-out root path to its current versions/vN
-	// sub-path.
+	// pathMap maps each version-laid-out root path to its current versions/vN sub-path.
 	pathMap map[string]string
-	// closure is the persisted closure of the whole table; declarations
-	// outside it at marshal-rooted paths are transient.
+	// closure is the persisted closure of the whole table; declarations outside it at
+	// marshal-rooted paths are transient.
 	closure set.Set[string]
 }
 
@@ -286,13 +283,12 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 	return string(content), nil
 }
 
-// latestTable returns the latest-resolution table for a current version path:
-// the original table with only this path rewritten to its version directory,
-// so local references stay in-package while dependency references resolve to
-// the root re-export. For a versioned root path (the transient pass) the
-// original table already resolves this way: versioned siblings stay local and
-// dependencies hit their root re-exports. Nil when original is nil or the
-// path is not versioned.
+// latestTable returns the latest-resolution table for a current version path: the
+// original table with only this path rewritten to its version directory, so local
+// references stay in-package while dependency references resolve to the root re-export.
+// For a versioned root path (the transient pass) the original table already resolves
+// this way: versioned siblings stay local and dependencies hit their root re-exports.
+// Nil when original is nil or the path is not versioned.
 func latestTable(
 	original *resolution.Table, pathMap map[string]string, outputPath string,
 ) *resolution.Table {
@@ -312,8 +308,8 @@ func latestTable(
 	return nil
 }
 
-// VersionPinned reports whether the type's @go version carries the `pinned`
-// marker (see versioning.Pinned).
+// VersionPinned reports whether the type's @go version carries the `pinned` marker (see
+// versioning.Pinned).
 func VersionPinned(t resolution.Type) bool { return versioning.Pinned(t) }
 
 // DeclaredClosure returns the qualified names of every type reachable from a @go
@@ -460,10 +456,10 @@ func generateGoFile(
 		ctx:        ctx,
 	}
 
-	// Transient declarations — outside the persisted closure of a
-	// marshal-rooted package — never reach the stored wire format, so their
-	// dependency references resolve against the latest table and track the
-	// dependencies' current versions instead of pinning one.
+	// Transient declarations — outside the persisted closure of a marshal-rooted
+	// package — never reach the stored wire format, so their dependency references
+	// resolve against the latest table and track the dependencies' current versions
+	// instead of pinning one.
 	var latestData *templateData
 	if latest != nil && (transientPass || pathHasMarshalRoot(structs)) {
 		lctx := *ctx
@@ -913,8 +909,8 @@ type templateData struct {
 	table    *resolution.Table
 	resolver *resolver.Resolver
 	ctx      *resolver.Context
-	// latest, when set, resolves omitted (memory-only) fields against the
-	// latest table so they track dependencies' current versions.
+	// latest, when set, resolves omitted (memory-only) fields against the latest table
+	// so they track dependencies' current versions.
 	latest     *templateData
 	Package    string
 	OutputPath string
@@ -923,8 +919,8 @@ type templateData struct {
 	Decls      []declData
 }
 
-// declData wraps one processed declaration in schema order; exactly one field
-// is non-nil.
+// declData wraps one processed declaration in schema order; exactly one field is
+// non-nil.
 type declData struct {
 	TypeDef *typeDefData
 	Enum    *enumData
@@ -987,9 +983,9 @@ type fieldData struct {
 	IsContainer bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix for the field. Collection fields
-// use `,omitzero` so a nil collection is omitted while an allocated empty one
-// serializes as [] / {}. Other optional fields use `,omitempty`.
+// TagSuffix returns the JSON/msgpack tag suffix for the field. Collection fields use
+// `,omitzero` so a nil collection is omitted while an allocated empty one serializes as
+// [] / {}. Other optional fields use `,omitempty`.
 func (f fieldData) TagSuffix() string {
 	if f.IsContainer {
 		return ",omitzero"
@@ -1463,9 +1459,9 @@ func (u {{.Name}}) Validate() error {
 `),
 )
 
-// WalkTypeRefs visits every type t directly references: all struct fields
-// (omitted included), extends, type parameters, alias targets, distinct
-// bases, and union variants.
+// WalkTypeRefs visits every type t directly references: all struct fields (omitted
+// included), extends, type parameters, alias targets, distinct bases, and union
+// variants.
 func WalkTypeRefs(
 	t resolution.Type,
 	table *resolution.Table,

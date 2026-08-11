@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package pipeline is the single in-memory execution path that takes a set of
-// .oracle schema files and produces (a) the canonical formatted schema source
-// for each input and (b) the canonical generated output for each registered
-// plugin. Every other oracle entrypoint - sync, generate, check - is a
-// consumer of this pipeline. There is no other code path that turns schemas
-// into outputs; sync and generate cannot disagree with check about what is
-// "valid", because they all run the same Run.
+// Package pipeline is the single in-memory execution path that takes a set of .oracle
+// schema files and produces (a) the canonical formatted schema source for each input
+// and (b) the canonical generated output for each registered plugin. Every other oracle
+// entrypoint - sync, generate, check - is a consumer of this pipeline. There is no
+// other code path that turns schemas into outputs; sync and generate cannot disagree
+// with check about what is "valid", because they all run the same Run.
 //
-// The pipeline does not touch the filesystem outside of reading inputs.
-// Writing canonical schema source, writing generated outputs, or invoking
-// post-write hooks are all consumer concerns layered on top of the Result.
+// The pipeline does not touch the filesystem outside of reading inputs. Writing
+// canonical schema source, writing generated outputs, or invoking post-write hooks are
+// all consumer concerns layered on top of the Result.
 package pipeline
 
 import (
 	"context"
+	"maps"
 	"os"
 	"runtime"
 	"sort"
@@ -44,23 +44,23 @@ import (
 type Options struct {
 	// RepoRoot is the absolute path to the repository root.
 	RepoRoot string
-	// Schemas is the set of repo-relative .oracle file paths to analyze.
-	// Callers must normalize these via paths.Normalize before passing them
-	// in; see DiscoverSchemas for the canonical discovery helper.
+	// Schemas is the set of repo-relative .oracle file paths to analyze. Callers must
+	// normalize these via paths.Normalize before passing them in; see DiscoverSchemas
+	// for the canonical discovery helper.
 	Schemas []string
-	// Plugins is the registry of code generators to run. Pass nil to skip
-	// plugin generation entirely (analyze-only mode).
+	// Plugins is the registry of code generators to run. Pass nil to skip plugin
+	// generation entirely (analyze-only mode).
 	Plugins *plugin.Registry
-	// Loader is the analyzer file loader for resolving schema imports. Pass
-	// nil to use a StandardFileLoader rooted at RepoRoot.
+	// Loader is the analyzer file loader for resolving schema imports. Pass nil to use
+	// a StandardFileLoader rooted at RepoRoot.
 	Loader analyzer.FileLoader
-	// Workers caps fan-out across schema formatting and plugin generation.
-	// Zero (or negative) defaults to GOMAXPROCS.
+	// Workers caps fan-out across schema formatting and plugin generation. Zero (or
+	// negative) defaults to GOMAXPROCS.
 	Workers int
 }
 
-// Result is the artifact set produced by a single pipeline run, held entirely
-// in memory.
+// Result is the artifact set produced by a single pipeline run, held entirely in
+// memory.
 //
 // Field rules:
 //   - Sources is always populated with the as-read source bytes for every
@@ -88,9 +88,9 @@ type Result struct {
 	Resolutions      *resolution.Table
 	Diagnostics      *diagnostics.Files
 	Outputs          map[string][]plugin.File
-	// Deletions holds repo-relative paths of files plugins requested be
-	// removed from disk (e.g. when migrate retargets a transform). Keyed
-	// by plugin name to mirror Outputs.
+	// Deletions holds repo-relative paths of files plugins requested be removed from
+	// disk (e.g. when migrate retargets a transform). Keyed by plugin name to mirror
+	// Outputs.
 	Deletions map[string][]string
 	Timings   Timings
 }
@@ -103,12 +103,11 @@ type Timings struct {
 	Generate time.Duration
 }
 
-// Run executes the pipeline end to end. The returned Result is always non-nil
-// and reflects whatever was completed before the first fatal failure.
-// Diagnostics surface non-fatal issues (warnings, info, hints). The error
-// return is reserved for IO failures and unexpected errors that prevent the
-// pipeline from running at all; analyzer or plugin diagnostics do not
-// surface as a Go error.
+// Run executes the pipeline end to end. The returned Result is always non-nil and
+// reflects whatever was completed before the first fatal failure. Diagnostics surface
+// non-fatal issues (warnings, info, hints). The error return is reserved for IO
+// failures and unexpected errors that prevent the pipeline from running at all;
+// analyzer or plugin diagnostics do not surface as a Go error.
 func Run(ctx context.Context, opts Options) (*Result, error) {
 	if opts.RepoRoot == "" {
 		return nil, errors.New("pipeline: RepoRoot is required")
@@ -163,9 +162,9 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 	return r, nil
 }
 
-// EffectiveSource returns the canonical bytes a schema contributes to analysis
-// and to disk after sync: the merged live projection when one exists, the
-// formatted source otherwise.
+// EffectiveSource returns the canonical bytes a schema contributes to analysis and to
+// disk after sync: the merged live projection when one exists, the formatted source
+// otherwise.
 func (r *Result) EffectiveSource(path string) []byte {
 	if merged, ok := r.MergedSources[path]; ok {
 		return merged
@@ -176,19 +175,15 @@ func (r *Result) EffectiveSource(path string) []byte {
 // effectiveSources overlays MergedSources onto FormattedSources.
 func (r *Result) effectiveSources() map[string][]byte {
 	out := make(map[string][]byte, len(r.FormattedSources)+len(r.MergedSources))
-	for p, b := range r.FormattedSources {
-		out[p] = b
-	}
-	for p, b := range r.MergedSources {
-		out[p] = b
-	}
+	maps.Copy(out, r.FormattedSources)
+	maps.Copy(out, r.MergedSources)
 	return out
 }
 
-// mergeLiveSources computes the canonical live-file projection for every
-// version chain, iterating to a fixpoint: a merged live file can change what
-// another chain's version files resolve through a live import, so merges
-// re-run over their own output until stable.
+// mergeLiveSources computes the canonical live-file projection for every version chain,
+// iterating to a fixpoint: a merged live file can change what another chain's version
+// files resolve through a live import, so merges re-run over their own output until
+// stable.
 func mergeLiveSources(
 	ctx context.Context,
 	r *Result,
@@ -203,12 +198,8 @@ func mergeLiveSources(
 	prev := make(map[string][]byte)
 	for range 3 {
 		overlay := make(map[string][]byte, len(r.FormattedSources)+len(prev))
-		for p, b := range r.FormattedSources {
-			overlay[p] = b
-		}
-		for p, b := range prev {
-			overlay[p] = b
-		}
+		maps.Copy(overlay, r.FormattedSources)
+		maps.Copy(overlay, prev)
 		resolver := versions.NewResolver(chains, newOverlayLoader(loader, overlay))
 		next := make(map[string][]byte, len(chains))
 		for _, livePath := range livePaths {
@@ -252,10 +243,9 @@ func sourcesEqual(a, b map[string][]byte) bool {
 	return true
 }
 
-// DiscoverSchemas finds every .oracle file under <repoRoot>/schemas and
-// returns the repo-relative paths in sorted order. This is the discovery
-// helper sync, generate, and check share; it is the only correct way to
-// build Options.Schemas from a glob.
+// DiscoverSchemas finds every .oracle file under <repoRoot>/schemas and returns the
+// repo-relative paths in sorted order. This is the discovery helper sync, generate, and
+// check share; it is the only correct way to build Options.Schemas from a glob.
 func DiscoverSchemas(repoRoot string) ([]string, error) {
 	abs, err := globOracleSchemas(repoRoot)
 	if err != nil {
@@ -332,9 +322,8 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 
 func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
 	start := time.Now()
-	// The loader already overlays the canonical in-memory bytes (formatted
-	// sources plus merged live projections), so analysis sees exactly what
-	// sync would write to disk.
+	// The loader already overlays the canonical in-memory bytes (formatted sources plus
+	// merged live projections), so analysis sees exactly what sync would write to disk.
 	table, diag := analyzer.Analyze(ctx, r.Schemas, loader)
 	r.Timings.Analyze = time.Since(start)
 	if diag != nil {
@@ -357,9 +346,9 @@ func generate(
 	start := time.Now()
 	defer func() { r.Timings.Generate = time.Since(start) }()
 
-	// Explicitly managed version chains are the versioning baseline. The
-	// resolver loads through the same overlay analysis used, so frozen
-	// surfaces resolve live imports against the merged projections.
+	// Explicitly managed version chains are the versioning baseline. The resolver loads
+	// through the same overlay analysis used, so frozen surfaces resolve live imports
+	// against the merged projections.
 	var resolver *versions.Resolver
 	if len(chains) > 0 {
 		resolver = versions.NewResolver(chains, loader)

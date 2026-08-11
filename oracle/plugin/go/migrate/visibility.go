@@ -20,13 +20,13 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// wrapperNames decides each type's developer-wrapper name. A wrapper is
-// exported when another versioned resource references the type: its migration
-// is a cross-package contract. It is unexported when consumption is
-// same-package only: a @go migrate entry's gorp wiring, or references from the
-// package's own changed types. A type nothing consumes keeps the exported name
-// so a generated wrapper is never an unused unexported function. counterpart maps a
-// qualified name in oldTable to the name newTable files the same type under.
+// wrapperNames decides each type's developer-wrapper name. A wrapper is exported when
+// another versioned resource references the type: its migration is a cross-package
+// contract. It is unexported when consumption is same-package only: a @go migrate
+// entry's gorp wiring, or references from the package's own changed types. A type
+// nothing consumes keeps the exported name so a generated wrapper is never an unused
+// unexported function. counterpart maps a qualified name in oldTable to the name
+// newTable files the same type under.
 func wrapperNames(
 	diff map[string]schemadiff.TypeDiff,
 	oldTable, newTable *resolution.Table,
@@ -88,18 +88,9 @@ func wrapperNames(
 	return names
 }
 
-// wrapperNameFor returns the decided wrapper name for qn, defaulting to the
-// exported form when the map has no entry.
-func wrapperNameFor(wrappers map[string]string, qn, goName string) string {
-	if n, ok := wrappers[qn]; ok {
-		return n
-	}
-	return "Migrate" + goName
-}
-
-// walkRefs visits every type a migration of typ references: field and extends
-// targets, and the element types of arrays. Fields with @go marshal omit never
-// reach the wire and are skipped.
+// walkRefs visits every type a migration of typ references: field and extends targets,
+// and the element types of arrays. Fields with @go marshal omit never reach the wire
+// and are skipped.
 func walkRefs(
 	typ resolution.Type,
 	table *resolution.Table,
@@ -123,8 +114,8 @@ func walkRefs(
 	}
 }
 
-// visitRef resolves ref and its type arguments, visiting each resolved type
-// and the element types of array forms.
+// visitRef resolves ref and its type arguments, visiting each resolved type and the
+// element types of array forms.
 func visitRef(
 	ref resolution.TypeRef,
 	table *resolution.Table,

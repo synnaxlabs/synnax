@@ -35,8 +35,8 @@ type concreteCodec struct {
 	EncodeBody string
 	DecodeBody string
 	UsesErr    bool
-	// Recursive marks types whose DecodeOrc can re-enter itself; their decode
-	// bodies are guarded with PushDepth/PopDepth against malicious nesting.
+	// Recursive marks types whose DecodeOrc can re-enter itself; their decode bodies
+	// are guarded with PushDepth/PopDepth against malicious nesting.
 	Recursive bool
 }
 
@@ -52,8 +52,8 @@ type genericCodec struct {
 	EncodeBody string
 	DecodeBody string
 	UsesErr    bool
-	// Recursive marks types whose DecodeOrc can re-enter itself; their decode
-	// bodies are guarded with PushDepth/PopDepth against malicious nesting.
+	// Recursive marks types whose DecodeOrc can re-enter itself; their decode bodies
+	// are guarded with PushDepth/PopDepth against malicious nesting.
 	Recursive bool
 }
 
@@ -1149,19 +1149,6 @@ func (b *encoderBuilder) addIntLeaf(
 				writerMethod,
 			),
 		)
-	}
-}
-
-// addNestedTypeParams collects type parameters referenced inside a field's
-// type arguments; nested parameter uses always encode through the SelfEncoder
-// assertion path.
-func addNestedTypeParams(ref resolution.TypeRef, out set.Set[string]) {
-	if ref.IsTypeParam() {
-		out.Add(ref.Name)
-		return
-	}
-	for _, a := range ref.TypeArgs {
-		addNestedTypeParams(a, out)
 	}
 }
 

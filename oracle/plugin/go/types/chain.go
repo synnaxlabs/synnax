@@ -17,7 +17,6 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
-	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -26,11 +25,10 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// chainPredecessors resolves the alias split from explicitly managed version
-// chains. A chain's current file enumerates the split directly: its alias
-// lines alias, its full declarations define. Types whose live declarations
-// carry omit fields always define — the frozen counterpart is persisted-only,
-// so the two can never be the same Go type.
+// chainPredecessors resolves the alias split from explicitly managed version chains. A
+// chain's current file enumerates the split directly: its alias lines alias, its full
+// declarations define. Types whose live declarations carry omit fields always define —
+// the frozen counterpart is persisted-only, so the two can never be the same Go type.
 func chainPredecessors(
 	ctx context.Context, req *plugin.Request,
 ) (map[string]predecessor, error) {
@@ -78,11 +76,11 @@ func chainPredecessors(
 	return preds, nil
 }
 
-// chainFrozenFiles regenerates every frozen version package of every chain:
-// for each version k below current, the package at <path>/versions/vk is
-// emitted from the chain's surface at k — full declarations for types defined
-// at k, predecessor aliases for the rest. Frozen packages are persisted-only:
-// they render exactly what the version files record.
+// chainFrozenFiles regenerates every frozen version package of every chain: for each
+// version k below current, the package at <path>/versions/vk is emitted from the
+// chain's surface at k — full declarations for types defined at k, predecessor aliases
+// for the rest. Frozen packages are persisted-only: they render exactly what the
+// version files record.
 func chainFrozenFiles(
 	ctx context.Context, req *plugin.Request, fileName string,
 ) ([]plugin.File, error) {
@@ -244,9 +242,9 @@ func frozenFile(
 	return plugin.File{Path: vkPath + "/" + fileName, Content: content}, nil
 }
 
-// annotateOutputs assigns a @go output to every namespaced type in a frozen
-// emission table: chain surfaces resolve to their versions/vN directory, and
-// hand-written types resolve to their resource's live root package.
+// annotateOutputs assigns a @go output to every namespaced type in a frozen emission
+// table: chain surfaces resolve to their versions/vN directory, and hand-written types
+// resolve to their resource's live root package.
 func annotateOutputs(
 	req *plugin.Request,
 	table *resolution.Table,
@@ -268,9 +266,8 @@ func annotateOutputs(
 			}
 		}
 		path := versioning.VersionedPath(goRoot, v)
-		// A dependency's hand-written type has one Go home at its live root;
-		// the chain's own hand-written types live in the frozen directory
-		// itself.
+		// A dependency's hand-written type has one Go home at its live root; the
+		// chain's own hand-written types live in the frozen directory itself.
 		if omit.IsHand(*t, "go") && lp != ownLive {
 			path = goRoot
 		}
@@ -279,10 +276,9 @@ func annotateOutputs(
 	return nil
 }
 
-// versionedGoRoot finds the @go output path a live schema file's versions
-// directories append to: the path its version-declaring types name, or — for
-// history-only chains whose resource has since left versioning — the file's
-// plain output.
+// versionedGoRoot finds the @go output path a live schema file's versions directories
+// append to: the path its version-declaring types name, or — for history-only chains
+// whose resource has since left versioning — the file's plain output.
 func versionedGoRoot(table *resolution.Table, livePath string) (string, bool) {
 	fallback := ""
 	for _, t := range table.Types {
@@ -303,8 +299,8 @@ func versionedGoRoot(table *resolution.Table, livePath string) (string, bool) {
 	return fallback, fallback != ""
 }
 
-// withGoOutput replaces the type's @go output expression, cloning the shared
-// domain maps first.
+// withGoOutput replaces the type's @go output expression, cloning the shared domain
+// maps first.
 func withGoOutput(t *resolution.Type, path string) {
 	domains := maps.Clone(t.Domains)
 	if domains == nil {
@@ -329,8 +325,8 @@ func withGoOutput(t *resolution.Type, path string) {
 	t.Domains = domains
 }
 
-// pathResource maps a versioned output path to its schema resource and live
-// import path via any version-declaring type's source file.
+// pathResource maps a versioned output path to its schema resource and live import path
+// via any version-declaring type's source file.
 func pathResource(
 	table *resolution.Table, origPath string,
 ) (resource, livePath string, ok bool) {
@@ -341,14 +337,4 @@ func pathResource(
 		return t.Namespace, strings.TrimSuffix(t.FilePath, ".oracle"), true
 	}
 	return "", "", false
-}
-
-// hasOmitField reports whether the live declaration carries any non-persisted
-// field.
-func hasOmitField(t resolution.Type) bool {
-	form, ok := t.Form.(resolution.StructForm)
-	if !ok {
-		return false
-	}
-	return len(schemadiff.PersistedFields(form.Fields)) != len(form.Fields)
 }
