@@ -11,12 +11,18 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Button as Base } from "@/button";
+import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { useItemState } from "@/select/Context";
 import { Frame, type FrameProps } from "@/select/Frame";
+
+const [PreviewContext, usePreview] = context.create<boolean>({
+  defaultValue: false,
+  displayName: "Select.Buttons.Preview",
+});
 
 export interface ButtonsProps<
   K extends record.Key = record.Key,
@@ -26,6 +32,7 @@ export interface ButtonsProps<
     Omit<Flex.BoxProps, "onSelect" | "onChange">,
     Omit<FrameProps<K, E>, "getItem" | "subscribe" | "data"> {
   keys: K[] | readonly K[];
+  preview?: boolean;
 }
 
 export const Buttons = <K extends record.Key = record.Key>({
@@ -34,6 +41,7 @@ export const Buttons = <K extends record.Key = record.Key>({
   onChange,
   allowNone,
   multiple,
+  preview = false,
   ...rest
 }: ButtonsProps<K>): ReactElement => {
   const listProps = List.useKeysData<K>(keys);
@@ -51,7 +59,9 @@ export const Buttons = <K extends record.Key = record.Key>({
       {...listProps}
       {...selectionProps}
     >
-      <Flex.Box pack {...rest} />
+      <PreviewContext value={preview}>
+        <Flex.Box pack {...rest} />
+      </PreviewContext>
     </Frame>
   );
 };
@@ -69,8 +79,10 @@ export const Button = <K extends record.Key = record.Key>({
   ...rest
 }: ButtonProps<K>): ReactElement | null => {
   const { selected, onSelect } = useItemState<K>(itemKey);
+  const preview = usePreview();
   return (
     <Base.Toggle
+      preview={preview}
       {...rest}
       id={itemKey.toString()}
       onChange={onSelect}

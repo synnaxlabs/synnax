@@ -91,6 +91,7 @@ export const Frame = ({
 }: FrameProps): ReactElement => (
   <Flex.Box
     y
+    full
     empty
     className={CSS(
       CSS.B("shell"),

@@ -19,11 +19,7 @@ import { Synnax } from "@/synnax";
 
 const PLACEHOLDER = "Start typing to write your automation";
 
-export interface EditorProps {
-  /** autoFocus places the cursor in the editor on mount, but only when the automation
-   * has no code yet, so reopening a written one does not steal focus. */
-  autoFocus?: boolean;
-}
+export interface EditorProps extends Pick<Code.EditorProps, "autoFocus"> {}
 
 export const Editor = ({ autoFocus = false }: EditorProps) => {
   const resourceKey = useKey();
