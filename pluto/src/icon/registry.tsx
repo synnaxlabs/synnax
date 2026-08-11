@@ -170,6 +170,7 @@ import {
   MdShield,
   MdSquare,
   MdSquareFoot,
+  MdStop,
   MdTextFields,
   MdTypeSpecimen,
   MdUndo,
@@ -262,6 +263,7 @@ import { Valve } from "@/icon/Valve";
 
 export const Pause = wrapSVGIcon(MdPause, "pause");
 export const Play = wrapSVGIcon(MdPlayArrow, "play");
+export const Stop = wrapSVGIcon(MdStop, "stop");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
 export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
@@ -563,6 +565,7 @@ interface Resolve {
 const icons = {
   Pause,
   Play,
+  Stop,
   Circle,
   Edit,
   EditOff,
