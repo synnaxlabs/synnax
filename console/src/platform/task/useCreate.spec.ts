@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it } from "vitest";
@@ -80,6 +82,28 @@ describe("createUseCreate", () => {
     const key = await awaitTaskResourceTab(created);
     const tsk = await client.tasks.retrieve({ key, schemas });
     expect(tsk.config.device).toBe("dev-2");
+  });
+
+  it("should replace the tab whose key it is given instead of opening a new one", async () => {
+    const seedTab: panel.Tab = {
+      variant: "view",
+      key: uuid.create(),
+      type: "seed",
+      args: {},
+    };
+    const store = await createTestStore();
+    const { wrapper } = await createConsoleWrapper({ client, store });
+    const created = await createSelectedPanel(store, client, [seedTab]);
+    const { result } = renderHook(() => useCreateTest({ tabKey: seedTab.key }), {
+      wrapper,
+    });
+    act(() => result.current());
+    await awaitTaskResourceTab(created);
+    const doc = await client.panels.retrieve(created.panelKey);
+    if (doc.root.variant !== "leaf") throw new Error("expected a single-leaf root");
+    expect(doc.root.tabs).toHaveLength(1);
+    expect(doc.root.tabs[0].key).toBe(seedTab.key);
+    expect(doc.root.tabs[0].variant).toBe("resource");
   });
 
   it("should bind each minted hook to its own task type", async () => {
