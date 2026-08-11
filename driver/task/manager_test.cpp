@@ -668,7 +668,7 @@ TEST_F(TaskManagerTest, StartWithUnchangedConfigDoesNotReconfigure) {
     ASSERT_EVENTUALLY_EQ(f->task_states[1]->exec_count.load(), 1);
 }
 
-TEST_F(TaskManagerTest, StartWithCommandHashRunsLiveInstance) {
+TEST_F(TaskManagerTest, StartWithStaleCommandHashRedeploys) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
     start_manager(std::move(factory));
@@ -692,12 +692,49 @@ TEST_F(TaskManagerTest, StartWithCommandHashRunsLiveInstance) {
     ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
     const auto deployed_hash = task.config_hash;
 
-    // A start naming the deployed hash runs the live instance, even though the
-    // stored config has moved on.
+    // A start naming the deployed hash cannot hold the fast path once the
+    // stored config has moved on: the new revision deploys.
     task.config = x::json::json{{"rate", 100}};
     ASSERT_NIL(rack.tasks.create(task));
     ASSERT_NE(task.config_hash, deployed_hash);
     send_start(client, task, "s2", deployed_hash);
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 2;
+        },
+        [] { return "task not redeployed"; }
+    );
+    ASSERT_EVENTUALLY_TRUE(state->stopped.load());
+    ASSERT_EVENTUALLY_EQ(f->task_states[1]->exec_count.load(), 1);
+}
+
+TEST_F(TaskManagerTest, StaleCommandHashOnCurrentDeployRunsLiveInstance) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = "tracking",
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    auto state = f->task_states[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+
+    // A disagreeing hash forces the retrieve, and the retrieve proves the
+    // deployed config is current: the live instance runs, no rebuild.
+    send_start(client, task, "s2", "hash-nobody-has");
     ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 2);
     {
         std::lock_guard lock(f->mu);

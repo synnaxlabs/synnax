@@ -305,8 +305,10 @@ private:
     struct Op {
         /// @brief types of operations that can be queued. RELEASE frees the live
         /// instance without a terminal status: a successor on another rack owns
-        /// status reporting.
-        enum class Type { CONFIGURE, COMMAND, SHUTDOWN, REMOVE, RELEASE };
+        /// status reporting. A DEPLOY carrying the task body trusts it (boot);
+        /// one without fetches the stored task on the worker, keeping the
+        /// streamer loop off the network.
+        enum class Type { DEPLOY, COMMAND, SHUTDOWN, REMOVE, RELEASE };
         Type type;
         synnax::task::Key task_key;
         synnax::task::Task task;

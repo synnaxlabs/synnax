@@ -51,7 +51,8 @@ x::errors::Error Manager::open_streamer() {
             this->channels.control_state = channel;
 
     if (this->exit_early) return x::errors::NIL;
-    std::lock_guard<std::mutex> lock{this->mu};
+    // The open runs unlocked: it blocks on the network, and the workers, the
+    // monitor, and stop() all contend on mu.
     auto [s, open_err] = this->ctx->client->telem.open_streamer(
         synnax::framer::StreamerConfig{
             .channels = {
@@ -63,6 +64,13 @@ x::errors::Error Manager::open_streamer() {
         }
     );
     if (open_err) return open_err;
+    std::lock_guard<std::mutex> lock{this->mu};
+    if (this->exit_early) {
+        // stop() ran mid-open and had no streamer to signal: close this one
+        // instead of storing one nobody will ever signal.
+        s.close_send();
+        return s.close();
+    }
     this->streamer = std::make_unique<synnax::framer::Streamer>(std::move(s));
     return x::errors::NIL;
 }
@@ -99,7 +107,7 @@ x::errors::Error Manager::configure_initial_tasks() {
                 std::lock_guard entry_lock{entry->mu};
                 entry->row = task;
             }
-            this->op_queue.push_back(Op{Op::Type::CONFIGURE, task.key, task, {}});
+            this->op_queue.push_back(Op{Op::Type::DEPLOY, task.key, task, {}});
             queued++;
         }
     }
@@ -153,6 +161,12 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
     if (const auto err = this->open_streamer()) {
         this->stop_workers();
         return err;
+    }
+    // A nil error with no streamer means stop() won a race with the open.
+    if (this->streamer == nullptr) {
+        this->stop_workers();
+        this->stop_all_tasks();
+        return x::errors::NIL;
     }
     LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
@@ -237,64 +251,42 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
 }
 
 void Manager::process_start(const synnax::task::Command &cmd) {
-    {
-        std::lock_guard<std::mutex> lock(this->mu);
-        if (const auto it = this->entries.find(cmd.task); it != this->entries.end()) {
-            const auto entry = it->second;
-            bool ours;
-            std::string deployed, wanted;
-            {
-                std::lock_guard entry_lock{entry->mu};
-                ours = entry->row.rack == this->rack.key;
-                deployed = entry->deployed_hash;
-                // A command carrying a hash states what the sender wants running
-                // without waiting for a set event to land.
-                wanted = cmd.config_hash.empty() ? entry->row.config_hash
-                                                 : cmd.config_hash;
-            }
-            if (!ours) {
-                // The start deploys the task on its new rack and doubles as the
-                // teardown signal for the instance held here.
-                VLOG(1) << "releasing task moved to another rack " << cmd.task;
-                this->op_queue.push_back(Op{Op::Type::RELEASE, cmd.task, {}, {}});
-                this->cv.notify_one();
-                return;
-            }
-            if (!deployed.empty() && deployed == wanted) {
-                VLOG(1) << "queuing start for live task " << cmd.task;
-                this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
-                this->cv.notify_one();
-                return;
-            }
-        }
-    }
-    // A deploy needs the config, which set events omit.
-    auto [tsk, err] = this->rack.tasks.retrieve(cmd.task);
-    if (err) {
-        LOG(WARNING) << "failed to retrieve task for start: " << err;
-        return;
-    }
-    if (tsk.snapshot) {
-        VLOG(1) << "ignoring start for snapshot task " << tsk;
-        return;
-    }
     std::lock_guard<std::mutex> lock(this->mu);
-    if (tsk.rack != this->rack.key) {
-        if (this->entries.find(tsk.key) == this->entries.end()) {
-            VLOG(1) << "ignoring start for task " << tsk;
+    if (const auto it = this->entries.find(cmd.task); it != this->entries.end()) {
+        const auto entry = it->second;
+        bool ours;
+        std::string deployed, wanted;
+        {
+            std::lock_guard entry_lock{entry->mu};
+            ours = entry->row.rack == this->rack.key;
+            deployed = entry->deployed_hash;
+            // The sender's hash can force a deploy but never confirm a
+            // match: a sender that disagrees with our copy may have seen a
+            // revision whose set event has not landed here yet.
+            wanted = entry->row.config_hash;
+            if (!cmd.config_hash.empty() && cmd.config_hash != wanted) wanted.clear();
+        }
+        if (!ours) {
+            // The start deploys the task on its new rack and doubles as the
+            // teardown signal for the instance held here.
+            VLOG(1) << "releasing task moved to another rack " << cmd.task;
+            this->op_queue.push_back(Op{Op::Type::RELEASE, cmd.task, {}, {}});
+            this->cv.notify_one();
             return;
         }
-        this->op_queue.push_back(Op{Op::Type::RELEASE, tsk.key, {}, {}});
-        this->cv.notify_one();
-        return;
+        if (!deployed.empty() && deployed == wanted) {
+            VLOG(1) << "queuing start for live task " << cmd.task;
+            this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
+            this->cv.notify_one();
+            return;
+        }
     }
-    VLOG(1) << "queuing deploy and start for task " << tsk;
-    const auto entry = this->entry_for(tsk.key);
-    {
-        std::lock_guard entry_lock{entry->mu};
-        entry->row = tsk;
-    }
-    this->op_queue.push_back(Op{Op::Type::CONFIGURE, tsk.key, tsk, cmd});
+    // The deploy needs the config, which set events omit. The worker fetches it
+    // so the streamer loop never blocks on the network. The entry must exist
+    // before the op lands: workers drop ops whose entry is gone.
+    this->entry_for(cmd.task);
+    VLOG(1) << "queuing deploy and start for task " << cmd.task;
+    this->op_queue.push_back(Op{Op::Type::DEPLOY, cmd.task, {}, cmd});
     this->cv.notify_one();
 }
 
@@ -325,6 +317,8 @@ void Manager::stop_all_tasks() {
         }
         std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
     }
+    // A worker stuck past the deadline is still alive and using the map.
+    std::lock_guard<std::mutex> lock(this->mu);
     this->entries.clear();
 }
 
@@ -428,7 +422,11 @@ void Manager::worker_loop() {
         lock.unlock();
         this->execute_op(op, entry);
         entry->op_started = x::telem::TimeStamp(0);
+        // The flag flips under mu so a waiter mid-predicate cannot miss the
+        // notify and sleep past a claimable op.
+        lock.lock();
         entry->processing = false;
+        lock.unlock();
         this->cv.notify_all();
     }
 }
@@ -437,50 +435,111 @@ void Manager::monitor_loop() {
     while (this->breaker.running()) {
         this->breaker.wait_for(this->poll_interval);
         if (!this->breaker.running()) break;
-        std::lock_guard<std::mutex> lock(this->mu);
-        for (auto &[key, entry]: this->entries) {
-            if (!entry->processing) continue;
-            auto started = entry->op_started.load();
-            if (started.nanoseconds() == 0) continue;
-            if (x::telem::TimeStamp::now() - started > this->op_timeout) {
-                if (entry->timed_out.exchange(true)) continue;
-                LOG(ERROR) << "task " << key << " operation timed out";
-                synnax::task::Status status;
-                status.key = synnax::task::ontology_id(key).string();
-                status.variant = synnax::status::VARIANT_ERROR;
-                status.message = "operation timed out";
-                status.details.task = key;
-                {
-                    std::lock_guard entry_lock{entry->mu};
-                    status.name = entry->row.name;
-                    status.details.config_hash = entry->op_config_hash;
-                    // running is left false: the operation is stuck, and the
-                    // instance belongs to the claiming worker while processing.
-                    status.details.cmd = entry->op_cmd;
+        // Statuses are sent after the lock is released: the write blocks on the
+        // network, and a stuck Core is exactly when timeouts fire.
+        std::vector<synnax::task::Status> timed_out;
+        {
+            std::lock_guard<std::mutex> lock(this->mu);
+            for (auto &[key, entry]: this->entries) {
+                if (!entry->processing) continue;
+                auto started = entry->op_started.load();
+                if (started.nanoseconds() == 0) continue;
+                if (x::telem::TimeStamp::now() - started > this->op_timeout) {
+                    if (entry->timed_out.exchange(true)) continue;
+                    LOG(ERROR) << "task " << key << " operation timed out";
+                    synnax::task::Status status;
+                    status.key = synnax::task::ontology_id(key).string();
+                    status.variant = synnax::status::VARIANT_ERROR;
+                    status.message = "operation timed out";
+                    status.details.task = key;
+                    {
+                        std::lock_guard entry_lock{entry->mu};
+                        status.name = entry->row.name;
+                        status.details.config_hash = entry->op_config_hash;
+                        // running is left false: the operation is stuck, and the
+                        // instance belongs to the claiming worker while
+                        // processing.
+                        status.details.cmd = entry->op_cmd;
+                    }
+                    timed_out.push_back(std::move(status));
                 }
-                this->ctx->set_status(status);
             }
         }
+        for (const auto &status: timed_out)
+            this->ctx->set_status(status);
     }
 }
 
 void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
     switch (op.type) {
-        case Op::Type::CONFIGURE: {
+        case Op::Type::DEPLOY: {
+            auto tsk = op.task;
+            // An op without the task body needs the fetch, done here to keep
+            // the streamer loop off the network.
+            if (tsk.key.is_nil()) {
+                auto [fetched, err] = this->rack.tasks.retrieve(op.task_key);
+                if (err) {
+                    LOG(WARNING) << "failed to retrieve task for start: " << err;
+                    std::lock_guard lock{this->mu};
+                    this->remove(op.task_key);
+                    break;
+                }
+                tsk = std::move(fetched);
+                if (tsk.snapshot) {
+                    VLOG(1) << "ignoring start for snapshot task " << tsk;
+                    std::lock_guard lock{this->mu};
+                    this->remove(op.task_key);
+                    break;
+                }
+                if (tsk.rack != this->rack.key) {
+                    // The start deploys the task on its new rack and doubles as
+                    // the teardown signal for the instance held here.
+                    if (entry->instance != nullptr) {
+                        LOG(INFO) << "releasing task moved to another rack: "
+                                  << entry->instance->name();
+                        entry->instance->stop(true);
+                        entry->instance = nullptr;
+                    }
+                    this->clear_deploy(entry);
+                    std::lock_guard lock{this->mu};
+                    this->remove(op.task_key);
+                    break;
+                }
+                std::string deployed;
+                {
+                    std::lock_guard entry_lock{entry->mu};
+                    // Set events own the entry's copy: a fetch that raced a
+                    // save must not regress it. The fetch fills it only for a
+                    // placeholder created for an unknown task.
+                    if (entry->row.config_hash.empty()) entry->row = tsk;
+                    entry->op_config_hash = tsk.config_hash;
+                    deployed = entry->deployed_hash;
+                }
+                // The fetch is authoritative: a live instance already built
+                // from this revision only needs the command executed, not a
+                // rebuild.
+                if (!deployed.empty() && deployed == tsk.config_hash) {
+                    if (entry->instance == nullptr) break;
+                    auto cmd = op.cmd;
+                    LOG(INFO) << "executing command " << cmd << " on task "
+                              << entry->instance->name();
+                    entry->instance->exec(cmd);
+                    break;
+                }
+            }
             if (entry->instance != nullptr) {
                 entry->instance->stop(true);
                 entry->instance = nullptr;
             }
-            LOG(INFO) << "configuring task " << op.task;
+            LOG(INFO) << "configuring task " << tsk;
             auto [driver_task, handled] = this->factory->configure_task(
                 this->ctx,
-                op.task,
+                tsk,
                 op.cmd.key
             );
             {
                 std::lock_guard entry_lock{entry->mu};
-                entry->deployed_hash = driver_task != nullptr ? op.task.config_hash
-                                                              : "";
+                entry->deployed_hash = driver_task != nullptr ? tsk.config_hash : "";
             }
             if (driver_task != nullptr) {
                 entry->instance = std::move(driver_task);
@@ -493,22 +552,22 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 break;
             }
             if (!handled) {
-                LOG(WARNING) << "failed to find integration to handle task" << op.task;
+                LOG(WARNING) << "failed to find integration to handle task" << tsk;
                 if (!op.cmd.key.empty()) {
                     synnax::task::Status status;
-                    status.key = synnax::task::status_key(op.task);
-                    status.name = op.task.name;
+                    status.key = synnax::task::status_key(tsk);
+                    status.name = tsk.name;
                     status.variant = synnax::status::VARIANT_ERROR;
                     status.message = "no driver integration handles task type '" +
-                                     op.task.type + "'";
+                                     tsk.type + "'";
                     status.details.task = op.task_key;
                     status.details.running = false;
                     status.details.cmd = op.cmd.key;
-                    status.details.config_hash = op.task.config_hash;
+                    status.details.config_hash = tsk.config_hash;
                     this->ctx->set_status(status);
                 }
             }
-            VLOG(1) << "failed to configure task: " << op.task;
+            VLOG(1) << "failed to configure task: " << tsk;
             break;
         }
         case Op::Type::COMMAND: {
