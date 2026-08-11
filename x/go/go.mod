@@ -5,6 +5,7 @@ go 1.26.5
 replace github.com/synnaxlabs/alamos => ../../alamos/go
 
 require (
+	github.com/andybalholm/brotli v1.2.2
 	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/cockroachdb/errors v1.14.0
 	github.com/cockroachdb/pebble v1.1.5
@@ -12,6 +13,7 @@ require (
 	github.com/golangci/plugin-module-register v0.1.2
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
+	github.com/klauspost/compress v1.19.1
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
 	github.com/samber/lo v1.53.0
@@ -51,7 +53,6 @@ require (
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/pprof v0.0.0-20260709232956-b9395ee17fa0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
-	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/minio/minlz v1.2.0 // indirect

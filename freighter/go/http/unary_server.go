@@ -23,6 +23,7 @@ import (
 // across requests, so the registered decoders and encoders are shared instances rather
 // than per-request constructors.
 type unaryServerOptions struct {
+	compressionOptions
 	// requestDecoders is the set of decoders the unary server will consider when
 	// resolving the request body codec from the Content-Type header.
 	requestDecoders []http.Decoder
@@ -46,10 +47,31 @@ func WithResponseEncoders(encoders ...http.Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.responseEncoders = encoders }
 }
 
+// WithCompressions overrides the Content-Encodings the unary server accepts on
+// requests and offers on responses, ordered by preference. Pass no encodings to
+// disable compression entirely.
+func WithCompressions(compressions ...http.Compression) UnaryServerOption {
+	return func(o *unaryServerOptions) { o.compressions = compressions }
+}
+
+// WithMinCompressSize overrides the smallest response body the unary server
+// compresses. Bodies below it are sent uncompressed, since compressing them costs more
+// CPU than the transmission time it saves.
+func WithMinCompressSize(size int) UnaryServerOption {
+	return func(o *unaryServerOptions) { o.minCompressSize = size }
+}
+
+// WithMaxDecompressedSize overrides how far a compressed request body may expand before
+// the unary server rejects it with xhttp.ErrBodyTooLarge.
+func WithMaxDecompressedSize(size int) UnaryServerOption {
+	return func(o *unaryServerOptions) { o.maxDecompressedSize = size }
+}
+
 func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 	so := unaryServerOptions{
-		requestDecoders:  defaultDecoders,
-		responseEncoders: defaultEncoders,
+		compressionOptions: defaultCompressionOptions(),
+		requestDecoders:    defaultDecoders,
+		responseEncoders:   defaultEncoders,
 	}
 	for _, opt := range opts {
 		opt(&so)
@@ -64,9 +86,10 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 	freighter.MiddlewareCollector
 }
 
-// Report describes the unary server's protocol and the content types it accepts on
-// requests vs emits on responses. Accept and emit lists may differ — e.g. an import
-// endpoint that accepts JSON|YAML|TOML but emits only JSON|MessagePack.
+// Report describes the unary server's protocol, the content types it accepts on
+// requests vs emits on responses, and the content encodings it can compress and
+// decompress. Accept and emit lists may differ — e.g. an import endpoint that accepts
+// JSON|YAML|TOML but emits only JSON|MessagePack.
 func (s *unaryServer[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
 		"protocol": unaryProtocol,
@@ -82,6 +105,7 @@ func (s *unaryServer[RQ, RS]) Report() alamos.Report {
 				return e.ContentType()
 			},
 		),
+		"contentEncodings": s.contentEncodings(),
 	}
 }
 
@@ -99,17 +123,27 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 		return fCtx.SendStatus(fiber.StatusNotAcceptable)
 	}
 	fCtx.Set(fiber.HeaderContentType, encoder.ContentType())
+	// Responses on this route vary by the request's Accept-Encoding, so caches must key
+	// on it whether or not this particular response ends up compressed.
+	if len(s.compressions) > 0 {
+		fCtx.Set(fiber.HeaderVary, fiber.HeaderAcceptEncoding)
+	}
 	var res RS
 	oMD, err := s.Exec(
 		parseRequestCtx(fCtx.RequestCtx(), fCtx, address.Address(fCtx.Path()), false),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
-			var req RQ
-			err := decoder.Decode(ctx, fCtx.BodyRaw(), &req)
 			oCtx := freighter.Context{
 				Protocol: ctx.Protocol,
 				Params:   make(freighter.Params),
 			}
+			body, err := s.decompressIncoming(
+				fCtx.BodyRaw(), fCtx.Get(fiber.HeaderContentEncoding),
+			)
 			if err != nil {
+				return oCtx, err
+			}
+			var req RQ
+			if err = decoder.Decode(ctx, body, &req); err != nil {
 				return oCtx, err
 			}
 			res, err = s.handle(ctx, req)
@@ -119,10 +153,10 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	setResponseCtx(fCtx, oMD)
 	fErr := errors.Encode(fCtx.RequestCtx(), err, false)
 	if fErr.Type == errors.TypeNil {
-		return encodeAndWrite(fCtx, encoder, res)
+		return s.encodeAndWrite(fCtx, encoder, res)
 	}
 	fCtx.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(fCtx, encoder, fErr)
+	return s.encodeAndWrite(fCtx, encoder, fErr)
 }
 
 func (s *unaryServer[RQ, RS]) resolveRequestDecoder(
@@ -154,10 +188,23 @@ func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 	return nil, false
 }
 
-func encodeAndWrite(c fiber.Ctx, encoder http.Encoder, v any) error {
+func (s *unaryServer[RQ, RS]) encodeAndWrite(
+	c fiber.Ctx,
+	encoder http.Encoder,
+	v any,
+) error {
 	b, err := encoder.Encode(c.RequestCtx(), v)
 	if err != nil {
 		return err
+	}
+	b, contentEncoding, err := s.compressNegotiated(
+		b, c.Get(fiber.HeaderAcceptEncoding),
+	)
+	if err != nil {
+		return err
+	}
+	if contentEncoding != "" {
+		c.Set(fiber.HeaderContentEncoding, contentEncoding)
 	}
 	_, err = c.Write(b)
 	return err

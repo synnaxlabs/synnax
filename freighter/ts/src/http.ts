@@ -22,6 +22,57 @@ import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 const ACCEPT_HEADER_KEY = "Accept";
+const CONTENT_ENCODING_HEADER_KEY = "Content-Encoding";
+
+/**
+ * The encodings a request body can be compressed with. The set is limited to what
+ * CompressionStream implements — brotli and zstd are decode-only in every runtime, so
+ * they are available on responses but never on requests.
+ */
+export type CompressionEncoding = "gzip" | "deflate";
+
+/**
+ * Configures compression of outgoing request bodies. Responses need no configuration:
+ * the runtime advertises Accept-Encoding and decompresses on its own.
+ */
+export interface CompressionConfig {
+  /** The encoding to compress request bodies with. Null sends them uncompressed. */
+  encoding: CompressionEncoding | null;
+  /**
+   * The smallest request body, in bytes, that gets compressed. Below roughly a
+   * kilobyte the CPU spent compressing exceeds the transmission time saved, and below
+   * about 128 bytes gzip framing makes the body larger.
+   */
+  minSize: number;
+}
+
+/** The compression HTTPClient applies unless the caller supplies its own. */
+export const DEFAULT_COMPRESSION: CompressionConfig = {
+  encoding: "gzip",
+  minSize: 1024,
+};
+
+/**
+ * Compresses body according to config, returning the body to send and the
+ * Content-Encoding to declare. The encoding is null, and the body untouched, when
+ * compression is off, when the body is under minSize, when the runtime has no
+ * CompressionStream, or when compressing would not have shrunk it.
+ */
+const compressBody = async (
+  body: Uint8Array<ArrayBuffer>,
+  { encoding, minSize }: CompressionConfig,
+): Promise<{ body: BodyInit; encoding: CompressionEncoding | null }> => {
+  if (encoding == null || body.byteLength < minSize) return { body, encoding: null };
+  if (typeof CompressionStream === "undefined") return { body, encoding: null };
+  const compressed = new Response(
+    new Blob([body]).stream().pipeThrough(new CompressionStream(encoding)),
+  );
+  const buf = new Uint8Array(await compressed.arrayBuffer());
+  // A body that grew under compression is sent as-is; this happens on small or
+  // already-compressed payloads.
+  if (buf.byteLength >= body.byteLength) return { body, encoding: null };
+  return { body: buf, encoding };
+};
 
 /**
  * The prefix freighter servers require on query-string parameters that should be
@@ -108,11 +159,18 @@ export class HTTPClient
 {
   endpoint: url.URL;
   encoder: binary.Codec;
+  compression: CompressionConfig;
 
-  constructor(endpoint: url.URL, encoder: binary.Codec, secure: boolean = false) {
+  constructor(
+    endpoint: url.URL,
+    encoder: binary.Codec,
+    secure: boolean = false,
+    compression: CompressionConfig = DEFAULT_COMPRESSION,
+  ) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
+    this.compression = compression;
 
     return new Proxy(this, {
       get: (target, prop, receiver) => {
@@ -141,10 +199,18 @@ export class HTTPClient
       this.context(url),
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
+        const { body, encoding } = await compressBody(
+          this.encoder.encode(req, reqSchema),
+          this.compression,
+        );
         const httpRes = await this.fetch(url, ctx.target, {
           method: "POST",
-          body: this.encoder.encode(req, reqSchema),
-          headers: { ...this.defaultHeaders, ...ctx.params },
+          body,
+          headers: {
+            ...this.defaultHeaders,
+            ...(encoding != null ? { [CONTENT_ENCODING_HEADER_KEY]: encoding } : {}),
+            ...ctx.params,
+          },
         });
         const data = await httpRes.arrayBuffer();
         if (httpRes.ok) {
@@ -211,12 +277,17 @@ export class HTTPClient
       this.context(url),
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
+        const { body, encoding } = await compressBody(
+          this.encoder.encode(req, reqSchema),
+          this.compression,
+        );
         const httpRes = await this.fetch(url, appendQueryParams(ctx.target, options), {
           method: "POST",
-          body: this.encoder.encode(req, reqSchema),
+          body,
           headers: {
             ...this.defaultHeaders,
             [ACCEPT_HEADER_KEY]: ENCODING_CONTENT_TYPES[options.encoding],
+            ...(encoding != null ? { [CONTENT_ENCODING_HEADER_KEY]: encoding } : {}),
             ...ctx.params,
           },
         });

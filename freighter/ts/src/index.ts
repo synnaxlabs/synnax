@@ -14,7 +14,12 @@ export {
   type FileTransport,
   type UploadBody,
 } from "@/file";
-export { HTTPClient } from "@/http";
+export {
+  type CompressionConfig,
+  type CompressionEncoding,
+  DEFAULT_COMPRESSION,
+  HTTPClient,
+} from "@/http";
 export { type Context, type Middleware, type Next } from "@/middleware";
 export { type Stream, type StreamClient } from "@/stream";
 export { type UnaryClient, unaryWithBreaker } from "@/unary";

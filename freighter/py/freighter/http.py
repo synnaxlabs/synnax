@@ -7,17 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import gzip
 import json
 import os
 import pathlib
+import zlib
 from collections.abc import Iterable
-from typing import IO, Any
+from typing import IO, Any, Literal
 from urllib.parse import urlencode
 
 import urllib3
 from urllib3 import PoolManager, Retry
 from urllib3.exceptions import MaxRetryError
 from urllib3.response import BaseHTTPResponse
+from urllib3.util.request import ACCEPT_ENCODING
 
 from freighter.context import Context
 from freighter.exceptions import Unreachable
@@ -28,6 +31,30 @@ from x.exceptions import ExceptionPayload, decode_exception
 from x.fs import FilePath, stream_to_file
 
 _FILE_CONTENT_TYPES: dict[str, str] = {"json": "application/json"}
+
+CompressionEncoding = Literal["gzip", "deflate"]
+
+DEFAULT_COMPRESSION: CompressionEncoding | None = "gzip"
+"""The encoding HTTPClient compresses request bodies with unless told otherwise."""
+
+DEFAULT_MIN_COMPRESS_SIZE = 1024
+"""The smallest request body HTTPClient compresses, in bytes.
+
+Below roughly a kilobyte the CPU spent compressing exceeds the transmission time saved,
+and below about 128 bytes gzip framing makes the body larger.
+"""
+
+
+def _compress(body: bytes, encoding: CompressionEncoding) -> bytes:
+    """:returns: body compressed under encoding.
+
+    :raises ValueError: if encoding is not a supported request encoding.
+    """
+    if encoding == "gzip":
+        return gzip.compress(body)
+    if encoding == "deflate":
+        return zlib.compress(body)
+    raise ValueError(f"unsupported request content encoding {encoding!r}")
 
 
 def _file_content_type(path: FilePath) -> str:
@@ -67,12 +94,16 @@ class HTTPClient(MiddlewareCollector):
     _pool: PoolManager
     _endpoint: URL
     _codec: Codec
+    _compression: CompressionEncoding | None
+    _min_compress_size: int
 
     def __init__(
         self,
         url: URL,
         codec: Codec,
         secure: bool = False,
+        compression: CompressionEncoding | None = DEFAULT_COMPRESSION,
+        min_compress_size: int = DEFAULT_MIN_COMPRESS_SIZE,
         **kwargs: Any,
     ) -> None:
         """
@@ -80,20 +111,41 @@ class HTTPClient(MiddlewareCollector):
         :param codec: The codec used to encode and decode typed request and response
             payloads.
         :param secure: Whether to use HTTPS.
+        :param compression: The encoding to compress request bodies with, or None to
+            send them uncompressed. Response compression is negotiated separately and is
+            always on: urllib3 decodes whatever it advertised.
+        :param min_compress_size: The smallest request body to compress, in bytes.
         """
         super().__init__()
         self._endpoint = url
         self._endpoint.protocol = "https" if secure else "http"
         self._codec = codec
+        self._compression = compression
+        self._min_compress_size = min_compress_size
         self._pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
         urllib3.disable_warnings()
 
+    def _maybe_compress(self, body: bytes) -> tuple[bytes, str | None]:
+        """:returns: body and the Content-Encoding to declare for it.
+
+        The encoding is None, and the body untouched, when compression is off, when the
+        body is under the minimum size, or when compressing would not have shrunk it.
+        """
+        if self._compression is None or len(body) < self._min_compress_size:
+            return body, None
+        compressed = _compress(body, self._compression)
+        if len(compressed) >= len(body):
+            return body, None
+        return compressed, self._compression
+
     def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
         """Implements the UnaryClient protocol — typed request, typed response."""
+        body, content_encoding = self._maybe_compress(self._codec.encode(req))
         return self._typed_response_request(
             target=target,
-            body=self._codec.encode(req),
+            body=body,
             content_type=self._codec.content_type(),
+            content_encoding=content_encoding,
             res_t=res_t,
         )
 
@@ -149,6 +201,7 @@ class HTTPClient(MiddlewareCollector):
         zero-byte file, so dest is left untouched in that case too.
         """
         url = self._build_url(target)
+        body, content_encoding = self._maybe_compress(self._codec.encode(req))
 
         def finalizer(ctx: Context) -> Context:
             http_res, out_ctx = self._request(
@@ -156,7 +209,8 @@ class HTTPClient(MiddlewareCollector):
                 url=url,
                 content_type=self._codec.content_type(),
                 accept=_file_content_type(dest),
-                body=self._codec.encode(req),
+                body=body,
+                content_encoding=content_encoding,
                 preload_content=False,
             )
             try:
@@ -181,6 +235,7 @@ class HTTPClient(MiddlewareCollector):
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         content_type: str,
         res_t: type[RS],
+        content_encoding: str | None = None,
         retries: Retry | bool | None = None,
         params: dict[str, str] | None = None,
     ) -> RS:
@@ -195,6 +250,7 @@ class HTTPClient(MiddlewareCollector):
                 content_type=content_type,
                 accept=self._codec.content_type(),
                 body=body,
+                content_encoding=content_encoding,
                 preload_content=True,
                 retries=retries,
             )
@@ -216,6 +272,7 @@ class HTTPClient(MiddlewareCollector):
         accept: str,
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         preload_content: bool,
+        content_encoding: str | None = None,
         retries: Retry | bool | None = None,
     ) -> tuple[BaseHTTPResponse, Context]:
         """Issues a POST to url and returns the response alongside an outgoing context.
@@ -225,9 +282,21 @@ class HTTPClient(MiddlewareCollector):
         preload_content is False the caller owns release_conn. A retries value of None
         defers to the pool default; pass False to disable retries (e.g. for an
         unreplayable streaming body).
+
+        The Accept-Encoding header advertises exactly the encodings urllib3 can decode,
+        so a compressed response is transparently decoded before the caller sees it. It
+        must be set explicitly: passing any headers at all suppresses the default
+        urllib3 would otherwise attach.
         """
         out_ctx = Context(url, self._endpoint.protocol, "client")
-        headers = {"Content-Type": content_type, "Accept": accept, **ctx.params}
+        headers = {
+            "Content-Type": content_type,
+            "Accept": accept,
+            "Accept-Encoding": ACCEPT_ENCODING,
+            **ctx.params,
+        }
+        if content_encoding is not None:
+            headers["Content-Encoding"] = content_encoding
         try:
             http_res = self._pool.request(
                 method="POST",

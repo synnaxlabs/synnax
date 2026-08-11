@@ -12,6 +12,7 @@ package http
 import (
 	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"strings"
 
@@ -41,6 +42,28 @@ type UnaryClientConfig struct {
 	//
 	// [REQUIRED] - At least one decoder must be supplied.
 	Decoders []xhttp.Decoder
+	// Compressions are the Content-Encodings the client compresses requests with and
+	// accepts on responses, ordered by preference. The client compresses a request with
+	// the first entry and advertises all of them via the Accept-Encoding header.
+	//
+	// [OPTIONAL] - Defaults to zstd, brotli, and gzip.
+	Compressions []xhttp.Compression
+	// DisableCompression stops the client compressing requests and stops it
+	// advertising Accept-Encoding, so responses arrive uncompressed too.
+	//
+	// [OPTIONAL] - Defaults to false.
+	DisableCompression bool
+	// MinCompressSize is the smallest request body the client compresses. Bodies below
+	// it are sent uncompressed, since compressing them costs more CPU than the
+	// transmission time it saves.
+	//
+	// [OPTIONAL] - Defaults to 1 kilobyte.
+	MinCompressSize int
+	// MaxDecompressedSize bounds how far a compressed response body may expand before
+	// the client rejects it with xhttp.ErrBodyTooLarge.
+	//
+	// [OPTIONAL] - Defaults to 64 megabytes.
+	MaxDecompressedSize int
 }
 
 // Validate implements config.Config.
@@ -48,6 +71,8 @@ func (c UnaryClientConfig) Validate() error {
 	v := validate.New("http.unary_client")
 	validate.NotNil(v, "encoder", c.Encoder)
 	validate.NotEmptySlice(v, "decoders", c.Decoders)
+	validate.GreaterThanEq(v, "min_compress_size", c.MinCompressSize, 0)
+	validate.GreaterThanEq(v, "max_decompressed_size", c.MaxDecompressedSize, 0)
 	return v.Error()
 }
 
@@ -55,6 +80,12 @@ func (c UnaryClientConfig) Validate() error {
 func (c UnaryClientConfig) Override(other UnaryClientConfig) UnaryClientConfig {
 	c.Encoder = override.Nil(c.Encoder, other.Encoder)
 	c.Decoders = override.Slice(c.Decoders, other.Decoders)
+	c.Compressions = override.Slice(c.Compressions, other.Compressions)
+	c.DisableCompression = c.DisableCompression || other.DisableCompression
+	c.MinCompressSize = override.Numeric(c.MinCompressSize, other.MinCompressSize)
+	c.MaxDecompressedSize = override.Numeric(
+		c.MaxDecompressedSize, other.MaxDecompressedSize,
+	)
 	return c
 }
 
@@ -62,32 +93,52 @@ func (c UnaryClientConfig) Override(other UnaryClientConfig) UnaryClientConfig {
 // layered on top of the defaults. Returns an error if the merged config fails to
 // validate. The client encodes outgoing requests with Encoder, advertises Decoders via
 // the Accept header, and dispatches the response on its Content-Type to pick a decoder.
+// Request bodies at or above MinCompressSize are compressed with the first entry in
+// Compressions, and responses are decompressed according to their Content-Encoding.
 func NewUnaryClient[RQ, RS freighter.Payload](
 	configs ...UnaryClientConfig,
 ) (freighter.UnaryClient[RQ, RS], error) {
 	cfg, err := config.New(UnaryClientConfig{
-		Encoder:  json.Codec,
-		Decoders: []xhttp.Decoder{json.Codec, msgpack.Codec},
+		Encoder:             json.Codec,
+		Decoders:            []xhttp.Decoder{json.Codec, msgpack.Codec},
+		Compressions:        defaultCompressions,
+		MinCompressSize:     defaultMinCompressSize,
+		MaxDecompressedSize: defaultMaxDecompressedSize,
 	}, configs...)
 	if err != nil {
 		return nil, err
 	}
+	compression := compressionOptions{
+		compressions:        cfg.Compressions,
+		minCompressSize:     cfg.MinCompressSize,
+		maxDecompressedSize: cfg.MaxDecompressedSize,
+	}
+	if cfg.DisableCompression {
+		compression.compressions = nil
+	}
 	return &unaryClient[RQ, RS]{
-		encoder:      cfg.Encoder,
-		decoders:     cfg.Decoders,
-		acceptHeader: buildAcceptHeader(cfg.Decoders),
+		compressionOptions:   compression,
+		encoder:              cfg.Encoder,
+		decoders:             cfg.Decoders,
+		acceptHeader:         buildAcceptHeader(cfg.Decoders),
+		acceptEncodingHeader: compression.acceptEncodingHeader(),
 	}, nil
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {
+	compressionOptions
 	encoder      xhttp.Encoder
 	decoders     []xhttp.Decoder
 	acceptHeader string
+	// acceptEncodingHeader is the rendered Accept-Encoding value, empty when
+	// compression is disabled.
+	acceptEncodingHeader string
 	freighter.MiddlewareCollector
 }
 
 // Report describes the unary client's protocol, the content type it sends on requests,
-// and the content types it can decode from responses.
+// the content types it can decode from responses, and the content encodings it can
+// compress and decompress.
 func (u *unaryClient[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
 		"protocol":        unaryProtocol,
@@ -95,6 +146,7 @@ func (u *unaryClient[RQ, RS]) Report() alamos.Report {
 		"acceptedContentTypes": lo.Map(u.decoders, func(d xhttp.Decoder, _ int) string {
 			return d.ContentType()
 		}),
+		"contentEncodings": u.contentEncodings(),
 	}
 }
 
@@ -135,6 +187,10 @@ func (u *unaryClient[RQ, RS]) Send(
 			if err != nil {
 				return freighter.Context{}, err
 			}
+			b, contentEncoding, err := u.compressPreferred(b)
+			if err != nil {
+				return freighter.Context{}, err
+			}
 			httpReq, err := http.NewRequestWithContext(
 				ctx,
 				http.MethodPost,
@@ -151,6 +207,15 @@ func (u *unaryClient[RQ, RS]) Send(
 			httpReq.Close = true
 			httpReq.Header.Set(fiber.HeaderContentType, u.encoder.ContentType())
 			httpReq.Header.Set(fiber.HeaderAccept, u.acceptHeader)
+			if contentEncoding != "" {
+				httpReq.Header.Set(fiber.HeaderContentEncoding, contentEncoding)
+			}
+			// Setting Accept-Encoding explicitly stops net/http adding its own and
+			// transparently decompressing the response, leaving the body for
+			// decompressIncoming below.
+			if u.acceptEncodingHeader != "" {
+				httpReq.Header.Set(fiber.HeaderAcceptEncoding, u.acceptEncodingHeader)
+			}
 
 			httpRes, err := (&http.Client{}).Do(httpReq)
 			if err != nil {
@@ -165,15 +230,25 @@ func (u *unaryClient[RQ, RS]) Send(
 			if err != nil {
 				return outCtx, err
 			}
+			body, err := io.ReadAll(httpRes.Body)
+			if err != nil {
+				return outCtx, err
+			}
+			body, err = u.decompressIncoming(
+				body, httpRes.Header.Get(fiber.HeaderContentEncoding),
+			)
+			if err != nil {
+				return outCtx, err
+			}
 
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
 				var pld errors.Payload
-				if err := decoder.DecodeStream(outCtx, httpRes.Body, &pld); err != nil {
+				if err := decoder.Decode(outCtx, body, &pld); err != nil {
 					return outCtx, err
 				}
 				return outCtx, errors.Decode(ctx, pld)
 			}
-			return outCtx, decoder.DecodeStream(outCtx, httpRes.Body, &res)
+			return outCtx, decoder.Decode(outCtx, body, &res)
 		}),
 	)
 	return res, err
