@@ -12,6 +12,7 @@ package symbol
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding"
@@ -47,9 +48,11 @@ type GroupManifest struct {
 // decides both the serialization and the extension every file takes. A name too long
 // for a file name is shortened, which can make two symbols collide.
 //
+// Children that are not schematic symbols are skipped and logged as a warning.
+//
 // It returns query.ErrNotFound if no group has key. It returns a validation error if
-// the group holds a child that is not a schematic symbol, if two symbols resolve to the
-// same file name, or if a symbol claims a reserved file name.
+// two symbols resolve to the same file name, or if a symbol claims a reserved file
+// name.
 func (s *Service) ExportGroup(
 	ctx context.Context,
 	key group.Key,
@@ -59,19 +62,20 @@ func (s *Service) ExportGroup(
 	if err != nil {
 		return nil, nil, err
 	}
-	members, err := symbolIDs(children)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "cannot export group %q", root.Name)
-	}
+	symbols, skipped := partitionSymbols(children)
+	s.warnSkipped(root.Name, skipped)
+	members := lo.Map(symbols, func(r ontology.Resource, _ int) ontology.ID {
+		return r.ID
+	})
 	ext := encoder.Extension()
 	manifestFileName := manifestBaseName + ext
 	foldedManifestFileName := filename.Fold(manifestFileName)
 	var (
-		files = make(zip.Files, len(children)+1)
+		files = make(zip.Files, len(symbols)+1)
 		// claimed maps each folded file name to the symbol that took it.
-		claimed = make(map[string]string, len(children))
+		claimed = make(map[string]string, len(symbols))
 	)
-	for _, child := range children {
+	for _, child := range symbols {
 		fileName, err := filename.Sanitize(child.Name, ext)
 		if err != nil {
 			return nil, nil, err

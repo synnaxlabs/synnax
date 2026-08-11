@@ -12,11 +12,11 @@ package symbol
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // retrieveGroup returns the group identified by key together with its children. It
@@ -38,8 +38,8 @@ func (s *Service) retrieveGroup(
 }
 
 // RetrieveGroupSymbols returns the ontology ID of every symbol in the group identified
-// by key, reading through tx. It returns query.ErrNotFound if no group has key, and a
-// validation error if the group holds a child that is not a schematic symbol.
+// by key, reading through tx. Children that are not schematic symbols are skipped and
+// logged as a warning. It returns query.ErrNotFound if no group has key.
 //
 // Callers that go on to write must pass the same tx they write under, so the IDs they
 // act on and the IDs the write touches come from one snapshot.
@@ -52,16 +52,18 @@ func (s *Service) RetrieveGroupSymbols(
 	if err != nil {
 		return nil, err
 	}
-	ids, err := symbolIDs(children)
-	if err != nil {
-		return nil, errors.Wrapf(err, "group %q", root.Name)
-	}
-	return ids, nil
+	symbols, skipped := partitionSymbols(children)
+	s.warnSkipped(root.Name, skipped)
+	return lo.Map(symbols, func(r ontology.Resource, _ int) ontology.ID {
+		return r.ID
+	}), nil
 }
 
 // DeleteGroup deletes the group identified by key together with the symbols that ids
-// names. Pass the ids RetrieveGroupSymbols returned under tx, so the symbols removed
-// and the symbols the caller enforced access on come from one snapshot.
+// names. Children that are not schematic symbols survive: they move to the permanent
+// symbol group before the group is deleted. Pass the ids RetrieveGroupSymbols returned
+// under tx, so the symbols removed and the symbols the caller enforced access on come
+// from one snapshot.
 //
 // Symbols are deleted first because the group service refuses to delete a group that
 // still holds children.
@@ -78,22 +80,69 @@ func (s *Service) DeleteGroup(
 	if err = s.NewWriter(tx).Delete(ctx, keys...); err != nil {
 		return err
 	}
+	if err = s.rescueStrays(ctx, tx, key); err != nil {
+		return err
+	}
 	return s.cfg.Group.NewWriter(tx).Delete(ctx, key)
 }
 
-// symbolIDs returns the ontology ID of every child, and a validation error naming the
-// first child that is not a schematic symbol.
-func symbolIDs(children []ontology.Resource) ([]ontology.ID, error) {
-	ids := make([]ontology.ID, 0, len(children))
-	for _, child := range children {
-		if child.ID.Type != ontology.ResourceTypeSchematicSymbol {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"child %s is not a schematic symbol",
-				child.ID,
-			)
-		}
-		ids = append(ids, child.ID)
+// rescueStrays moves any children the delete skipped to the permanent symbol group, so
+// the children survive the delete and the group service's no-children rule passes.
+func (s *Service) rescueStrays(ctx context.Context, tx gorp.Tx, key group.Key) error {
+	groupID := group.OntologyID(key)
+	var strays []ontology.Resource
+	if err := s.cfg.Ontology.NewRetrieve().
+		WhereIDs(groupID).
+		TraverseTo(ontology.ChildrenTraverser).
+		ExcludeFieldData(true).
+		Entries(&strays).
+		Exec(ctx, tx); err != nil {
+		return err
 	}
-	return ids, nil
+	if len(strays) == 0 {
+		return nil
+	}
+	ids := lo.Map(strays, func(r ontology.Resource, _ int) ontology.ID { return r.ID })
+	w := s.cfg.Ontology.NewWriter(tx)
+	rels := lo.Map(ids, func(id ontology.ID, _ int) ontology.Relationship {
+		return ontology.Relationship{
+			From: groupID,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   id,
+		}
+	})
+	if err := w.DeleteRelationships(ctx, rels...); err != nil {
+		return err
+	}
+	return w.DefineRelationships(
+		ctx, s.group.OntologyID(), ontology.RelationshipTypeParentOf, ids...,
+	)
+}
+
+// partitionSymbols splits children into schematic symbols and the IDs of children of
+// any other type.
+func partitionSymbols(
+	children []ontology.Resource,
+) (symbols []ontology.Resource, skipped []ontology.ID) {
+	for _, child := range children {
+		if child.ID.Type == ontology.ResourceTypeSchematicSymbol {
+			symbols = append(symbols, child)
+		} else {
+			skipped = append(skipped, child.ID)
+		}
+	}
+	return symbols, skipped
+}
+
+// warnSkipped logs the children a group operation ignored because they are not
+// schematic symbols.
+func (s *Service) warnSkipped(groupName string, skipped []ontology.ID) {
+	if len(skipped) == 0 {
+		return
+	}
+	s.cfg.L.Warn(
+		"skipping children that are not schematic symbols",
+		zap.String("group", groupName),
+		zap.Stringers("children", skipped),
+	)
 }
