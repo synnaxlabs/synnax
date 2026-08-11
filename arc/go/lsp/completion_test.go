@@ -37,6 +37,13 @@ var _ = Describe("Completion", func() {
 		docURI = "file:///test.arc"
 	})
 
+	It("should offer the dot as the only completion trigger", func(ctx SpecContext) {
+		res := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{}))
+		provider := res.Capabilities.CompletionProvider
+		Expect(provider).ToNot(BeNil())
+		Expect(provider.TriggerCharacters).To(ConsistOf("."))
+	})
+
 	Describe("Basic Completion", func() {
 		It("should return built-in completions", func(ctx SpecContext) {
 			content := "func test() {\n    i\n}"
@@ -641,10 +648,8 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Input Parameter Completion", func() {
-		var globalResolver []symbol.Symbol
-
 		BeforeEach(func() {
-			globalResolver = []symbol.Symbol{{
+			globalResolver := []symbol.Symbol{{
 				Name: "myTask",
 				Kind: symbol.KindFunction,
 				Type: types.Function(types.FunctionProperties{
@@ -659,20 +664,19 @@ var _ = Describe("Completion", func() {
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F64()),
 			}}
+			server = MustSucceed(
+				lsp.New(
+					lsp.Config{
+						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
+					},
+				),
+			)
+			server.SetClient(&MockClient{})
 		})
 
 		It(
 			"should suggest all input parameters in empty input block",
 			func(ctx SpecContext) {
-				server = MustSucceed(
-					lsp.New(
-						lsp.Config{
-							NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-						},
-					),
-				)
-				server.SetClient(&MockClient{})
-
 				content := "func test() {\n    myTask{}\n}"
 				OpenArcDocument(server, ctx, docURI, content)
 
@@ -692,15 +696,6 @@ var _ = Describe("Completion", func() {
 		)
 
 		It("should filter out already-provided parameters", func(ctx SpecContext) {
-			server = MustSucceed(
-				lsp.New(
-					lsp.Config{
-						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-					},
-				),
-			)
-			server.SetClient(&MockClient{})
-
 			content := "func test() {\n    myTask{threshold=1.0, timeout=100}\n}"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -716,15 +711,6 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should filter by prefix when typing parameter name", func(ctx SpecContext) {
-			server = MustSucceed(
-				lsp.New(
-					lsp.Config{
-						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-					},
-				),
-			)
-			server.SetClient(&MockClient{})
-
 			content := "func test() {\n    myTask{threshold=1.0}\n}"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -740,15 +726,6 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should show type details for input parameters", func(ctx SpecContext) {
-			server = MustSucceed(
-				lsp.New(
-					lsp.Config{
-						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-					},
-				),
-			)
-			server.SetClient(&MockClient{})
-
 			content := "func test() {\n    myTask{}\n}"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -764,15 +741,6 @@ var _ = Describe("Completion", func() {
 		It(
 			"should suggest channel symbols for chan type parameters",
 			func(ctx SpecContext) {
-				server = MustSucceed(
-					lsp.New(
-						lsp.Config{
-							NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-						},
-					),
-				)
-				server.SetClient(&MockClient{})
-
 				content := "func test() {\n    myTask{channel=sensorCh}\n}"
 				OpenArcDocument(server, ctx, docURI, content)
 
@@ -784,13 +752,32 @@ var _ = Describe("Completion", func() {
 				).To(BeTrue(), "Should suggest 'sensorCh' channel for chan type parameter")
 			},
 		)
+
+		It(
+			"should suggest the remaining parameters on the line after a comma",
+			func(ctx SpecContext) {
+				content := "func test() {\n    myTask{threshold=1.0,\n        ti\n    }\n}"
+				OpenArcDocument(server, ctx, docURI, content)
+
+				completions := Completion(server, ctx, docURI, 2, 10)
+				Expect(completions).ToNot(BeNil())
+
+				Expect(
+					HasCompletion(completions.Items, "timeout"),
+				).To(BeTrue(), "Should suggest 'timeout' matching prefix 'ti'")
+				Expect(
+					HasCompletion(completions.Items, "threshold"),
+				).To(BeFalse(), "Should NOT suggest already-provided 'threshold'")
+				Expect(
+					HasCompletion(completions.Items, "channel"),
+				).To(BeFalse(), "Should NOT suggest 'channel' not matching prefix 'ti'")
+			},
+		)
 	})
 
 	Describe("Authority Block Completion", func() {
-		var globalResolver []symbol.Symbol
-
 		BeforeEach(func() {
-			globalResolver = []symbol.Symbol{{
+			globalResolver := []symbol.Symbol{{
 				Name: "vent_vlv_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
@@ -805,9 +792,6 @@ var _ = Describe("Completion", func() {
 				Kind: symbol.KindVariable,
 				Type: types.I32(),
 			}}
-		})
-
-		It("should suggest authority keyword at top level", func(ctx SpecContext) {
 			server = MustSucceed(
 				lsp.New(
 					lsp.Config{
@@ -816,7 +800,9 @@ var _ = Describe("Completion", func() {
 				),
 			)
 			server.SetClient(&MockClient{})
+		})
 
+		It("should suggest authority keyword at top level", func(ctx SpecContext) {
 			content := "auth"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -826,15 +812,6 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should suggest channels inside authority block", func(ctx SpecContext) {
-			server = MustSucceed(
-				lsp.New(
-					lsp.Config{
-						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-					},
-				),
-			)
-			server.SetClient(&MockClient{})
-
 			content := "authority (\n    200\n    \n)"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -848,15 +825,6 @@ var _ = Describe("Completion", func() {
 		It(
 			"should not suggest non-channel symbols inside authority block",
 			func(ctx SpecContext) {
-				server = MustSucceed(
-					lsp.New(
-						lsp.Config{
-							NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-						},
-					),
-				)
-				server.SetClient(&MockClient{})
-
 				content := "authority (\n    200\n    \n)"
 				OpenArcDocument(server, ctx, docURI, content)
 
@@ -868,15 +836,6 @@ var _ = Describe("Completion", func() {
 		)
 
 		It("should filter out already-listed channels", func(ctx SpecContext) {
-			server = MustSucceed(
-				lsp.New(
-					lsp.Config{
-						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-					},
-				),
-			)
-			server.SetClient(&MockClient{})
-
 			content := "authority (\n    200\n    vent_vlv_cmd 100\n    \n)"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -888,15 +847,6 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should filter by prefix inside authority block", func(ctx SpecContext) {
-			server = MustSucceed(
-				lsp.New(
-					lsp.Config{
-						NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-					},
-				),
-			)
-			server.SetClient(&MockClient{})
-
 			content := "authority (\n    200\n    v\n)"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -1014,10 +964,8 @@ var _ = Describe("Completion", func() {
 	})
 
 	Describe("Stage Body Completion", func() {
-		var globalResolver []symbol.Symbol
-
 		BeforeEach(func() {
-			globalResolver = []symbol.Symbol{{
+			globalResolver := []symbol.Symbol{{
 				Name: "vent_vlv_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
@@ -1033,9 +981,6 @@ var _ = Describe("Completion", func() {
 				Type: types.Chan(types.F64()),
 				ID:   3,
 			}}
-		})
-
-		It("should suggest channels inside stage body", func(ctx SpecContext) {
 			server = MustSucceed(
 				lsp.New(
 					lsp.Config{
@@ -1044,7 +989,9 @@ var _ = Describe("Completion", func() {
 				),
 			)
 			server.SetClient(&MockClient{})
+		})
 
+		It("should suggest channels inside stage body", func(ctx SpecContext) {
 			content := "sequence main {\n    stage first {\n        \n    }\n}"
 			OpenArcDocument(server, ctx, docURI, content)
 
@@ -1065,15 +1012,6 @@ var _ = Describe("Completion", func() {
 		It(
 			"should suggest channels with prefix filter inside stage body",
 			func(ctx SpecContext) {
-				server = MustSucceed(
-					lsp.New(
-						lsp.Config{
-							NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-						},
-					),
-				)
-				server.SetClient(&MockClient{})
-
 				content := "sequence main {\n    stage first {\n        v\n    }\n}"
 				OpenArcDocument(server, ctx, docURI, content)
 
@@ -1092,15 +1030,6 @@ var _ = Describe("Completion", func() {
 		It(
 			"should suggest channels inside stage after flow statement",
 			func(ctx SpecContext) {
-				server = MustSucceed(
-					lsp.New(
-						lsp.Config{
-							NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-						},
-					),
-				)
-				server.SetClient(&MockClient{})
-
 				content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd\n        \n    }\n}"
 				OpenArcDocument(server, ctx, docURI, content)
 
@@ -1119,15 +1048,6 @@ var _ = Describe("Completion", func() {
 		It(
 			"should suggest channels with prefix after flow statement",
 			func(ctx SpecContext) {
-				server = MustSucceed(
-					lsp.New(
-						lsp.Config{
-							NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) },
-						},
-					),
-				)
-				server.SetClient(&MockClient{})
-
 				content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd\n        v\n    }\n}"
 				OpenArcDocument(server, ctx, docURI, content)
 
