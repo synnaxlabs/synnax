@@ -10,7 +10,6 @@
 package msgpack
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -23,41 +22,50 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Codec is a MessagePack implementation of encoding.Codec and http.Codec.
+// Codec is a MessagePack implementation of http.Codec.
 var Codec http.Codec = &codec{}
 
 type codec struct{}
 
-func (c *codec) ContentType() string { return "application/msgpack" }
+func (*codec) ContentType() string { return "application/msgpack" }
 
-// Encode implements the encoding.Encoder interface.
-func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
-	b, err := msgpack.Marshal(value)
-	return b, encoding.SugarEncodingErr(value, err)
-}
-
-// Decode implements the encoding.Decoder interface.
 func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
-	err := c.DecodeStream(ctx, bytes.NewReader(data), value)
-	return encoding.SugarDecodingErr(data, value, err)
-}
-
-// DecodeStream implements the encoding.Decoder interface.
-func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
-	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
-		data, _ := io.ReadAll(r)
+	err := msgpack.Unmarshal(data, value)
+	if err != nil {
 		return encoding.SugarDecodingErr(data, value, err)
 	}
 	return nil
 }
 
-// EncodeStream implements the encoding.Encoder interface.
-func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+	dec := msgpack.GetDecoder()
+	dec.Reset(r)
+	err := dec.Decode(value)
+	msgpack.PutDecoder(dec)
+	if err != nil {
+		data, ioErr := io.ReadAll(r)
+		return encoding.SugarDecodingErr(data, value, errors.Combine(err, ioErr))
+	}
+	return nil
+}
+
+func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
+	b, err := msgpack.Marshal(value)
+	if err != nil {
+		return nil, encoding.SugarEncodingErr(value, err)
+	}
+	return b, nil
+}
+
+func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	enc := msgpack.GetEncoder()
 	enc.Reset(w)
 	err := enc.Encode(value)
 	msgpack.PutEncoder(enc)
-	return encoding.SugarEncodingErr(value, err)
+	if err != nil {
+		return encoding.SugarEncodingErr(value, err)
+	}
+	return nil
 }
 
 // EncodedJSON is a map[string]any that handles backwards-compatible MessagePack

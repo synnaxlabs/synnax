@@ -16,6 +16,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
 )
 
@@ -35,8 +36,8 @@ func (*codec) Decode(_ context.Context, data []byte, value any) error {
 
 func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := json.NewDecoder(r).Decode(value); err != nil {
-		data, _ := io.ReadAll(r)
-		return encoding.SugarDecodingErr(data, value, err)
+		data, ioErr := io.ReadAll(r)
+		return encoding.SugarDecodingErr(data, value, errors.Combine(err, ioErr))
 	}
 	return nil
 }
@@ -56,7 +57,7 @@ func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	return nil
 }
 
-func (c *codec) Extension() string { return ".json" }
+func (*codec) Extension() string { return ".json" }
 
 // UnmarshalStringInt64 attempts to unmarshal an int64 directly. If that fails, it
 // attempts to convert a string to an int64.
