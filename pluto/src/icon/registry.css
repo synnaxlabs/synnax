@@ -83,6 +83,11 @@
     transform: scale(1.25);
 }
 
+.pluto-icon--stop {
+    --pluto-base-scale: 1.15;
+    transform: scale(var(--pluto-base-scale));
+}
+
 .pluto-icon--fitting {
     --pluto-base-scale: 1.8;
     transform: scale(var(--pluto-base-scale));

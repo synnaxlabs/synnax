@@ -37,9 +37,7 @@ const schemas = {
 const ChildForm: FC = () => <div>child-form-body</div>;
 ChildForm.displayName = "TestChildForm";
 
-const RackProbe: FC = () => (
-  <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>
-);
+const RackProbe: FC = () => <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>;
 RackProbe.displayName = "RackProbe";
 
 interface MakeRendererParams {
