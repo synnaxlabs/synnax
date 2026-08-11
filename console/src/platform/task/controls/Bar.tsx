@@ -38,7 +38,7 @@ export interface BarProps extends Flex.BoxProps {
 
 /**
  * Presentational task controls bar: an expandable status next to the deploy,
- * redeploy, and start/stop actions. Play deploys; pause stops.
+ * redeploy, and start/stop actions. Play deploys; stop stops.
  */
 export const Bar = ({
   status: stat,
@@ -71,7 +71,11 @@ export const Bar = ({
       {!snapshot && (
         <Actions>
           {extraActions}
-          {drifted && <RedeployButton onClick={onDeploy} disabled={disabled} />}
+          <RedeployButton
+            visible={drifted}
+            onClick={onDeploy}
+            disabled={disabled || startStopVariant === "loading"}
+          />
           <StartStopButton
             running={running}
             onClick={handleStartStop}
