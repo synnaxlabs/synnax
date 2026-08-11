@@ -414,7 +414,7 @@ const PATH_INPUT_PROPS = { placeholder: "/api/data" } as const;
 
 const REQUEST_BODY_INPUT_PROPS = { placeholder: '{"query": "latest"}' } as const;
 
-const Form: FC<Task.FormProps<ReadSchemas>> = () => {
+const Form: FC = () => {
   const [selectedEndpoints, setSelectedEndpoints] = useState<string[]>([]);
   const { data, push, remove } = PForm.useFieldList<string, ReadEndpoint>(
     "config.endpoints",

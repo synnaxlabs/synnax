@@ -124,7 +124,7 @@ const getOpenChannel = (channels: InputChannel[]): InputChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Task.FormProps<ReadSchemas>> = () => (
+const Form: FC = () => (
   <Task.Views.List<InputChannel>
     createChannel={getOpenChannel}
     contextMenuItems={Task.readChannelContextMenuItem}

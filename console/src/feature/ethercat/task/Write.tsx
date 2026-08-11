@@ -73,7 +73,7 @@ const channelDetails = Component.renderProp(WriteChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Task.FormProps<WriteSchemas>> = () => (
+const Form: FC = () => (
   <Task.Views.ListAndDetails<OutputChannel>
     listItem={listItem}
     details={channelDetails}
