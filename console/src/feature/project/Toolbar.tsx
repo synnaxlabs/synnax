@@ -39,7 +39,10 @@ const Content = (): ReactElement => {
   return (
     <Toolbar.Content>
       <Toolbar.Header>
-        <Toolbar.Title icon={<Icon.Project />}>Projects</Toolbar.Title>
+        <Toolbar.Title>
+          <Icon.Project />
+          Projects
+        </Toolbar.Title>
         <Actions />
       </Toolbar.Header>
       <Toolbar.Body>

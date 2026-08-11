@@ -31,8 +31,8 @@
         align-items: center;
         justify-content: center;
         border-color: var(--pluto-gray-l9);
-        backdrop-filter: blur(3.5rem) saturate(180%);
-        -webkit-backdrop-filter: blur(3.5rem) saturate(180%);
+        backdrop-filter: var(--pluto-frost);
+        -webkit-backdrop-filter: var(--pluto-frost);
         .pluto-rule__label,
         .pluto-rule__value {
             padding: 0.5rem 1rem;

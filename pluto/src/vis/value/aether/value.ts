@@ -160,8 +160,6 @@ export class Value
     const bTopLeft = box.topLeft(b);
     const bWidth = box.width(b);
     const bHeight = box.height(b);
-    // upper2d: the value box now has an opaque fill, and the lower canvas
-    // renders beneath the DOM, which would hide the text and redline.
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
     let value = telem.value();
     canvas.font = fontString;

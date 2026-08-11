@@ -7,17 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Header, type Icon } from "@synnaxlabs/pluto";
+import { Header } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-export interface TitleProps extends Pick<Header.TitleProps, "children"> {
-  /** Omit when the children render their own icon, e.g. a tab Name component. */
-  icon?: Icon.ReactElement;
-}
+export interface TitleProps extends Pick<Header.TitleProps, "children"> {}
 
-export const Title = ({ icon, children }: TitleProps): ReactElement => (
+export const Title = ({ children }: TitleProps): ReactElement => (
   <Header.Title color={10} weight={500}>
-    {icon}
     {children}
   </Header.Title>
 );

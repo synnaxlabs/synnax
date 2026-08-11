@@ -23,7 +23,7 @@ export const Overview: Panel.Content = () => {
   // leaving the stale form on screen. Also warms the cache the sections share.
   Ranger.use({ key });
   return (
-    <Flex.Box key={key} y className={CSS.BE("range", "overview")} empty>
+    <Flex.Box key={key} y full className={CSS.BE("range", "overview")} empty>
       <Flex.Box y grow gap="large">
         <Range.Details rangeKey={key} />
         <ChildRanges rangeKey={key} />
