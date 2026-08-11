@@ -104,9 +104,10 @@ Dependencies are explicit, injected inputs — never reached for ambiently. All 
 
 ## Prose
 
-Whenever you are writing prose (documentation, comments, RFCs, commit messages, PRs,
-etc.), use ASD-STE100 Simplified Technical English. Always write in sentence case
-instead of title case for headings, titles, and menu options unless explicitly directed
+Whenever you are writing prose (documentation, comments, RFCs, commit messages, PRs, and
+every reply you write to the user), use ASD-STE100 Simplified Technical English. A chat
+reply is prose: it gets the same rules as a doc. Always write in sentence case instead
+of title case for headings, titles, and menu options unless explicitly directed
 otherwise. Capitalize proper nouns and acronyms, including Synnax component names: Arc,
 Cesium, Aspen, Oracle, Pluto, Aether, Flux, Freighter, Alamos, Gorp, Drift, X, the
 Driver, the Core, and the Console. Third-party names are proper nouns too: Git, Go,
@@ -116,6 +117,21 @@ multi-node clusters. If you are referring to code paths, then put those in backt
 `x/go/gorp`.
 
 Prefer using the word "and" instead of an ampersand (&) in prose.
+
+### 🚨 KEEP PROSE SHORT. LENGTH IS A DEFECT. 🚨
+
+Claude sessions consistently write too much. Cut every draft in half before delivery.
+
+- **Chat replies**: answer the question, then stop. No preamble, no recap of work the
+  user watched you do, no unrequested next steps. A one-line answer is a complete
+  answer.
+- **Commit messages**: a subject under 72 characters. Add a body only for a why the diff
+  cannot show.
+- **PR descriptions**: fill the template, one short paragraph per idea. Never narrate
+  the diff file by file.
+
+Red flags: a sentence that only sets up the next one, a bullet list where one sentence
+works, a closing paragraph that repeats the opening, and praise of your own work.
 
 ## Comments (all languages)
 
