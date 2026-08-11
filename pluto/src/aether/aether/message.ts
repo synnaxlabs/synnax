@@ -23,6 +23,13 @@ export interface MainDeleteRequest {
   path: readonly string[];
 }
 
+/** Main → worker: delete every component in the tree, leaving the root usable.
+ * Sent on store disposal so components leaked by discarded renders release their
+ * resources. */
+export interface MainClearRequest {
+  variant: "clear";
+}
+
 /** Main → worker: invoke `method` on the component at `path` with `args`. `key`
  * correlates a response on {@link WorkerInvokeResponse}; omit for fire-and-forget. */
 export interface MainInvokeRequest {
@@ -60,7 +67,8 @@ export type WorkerMessage =
   WorkerUpdateRequest | WorkerNotifyErrorRequest | WorkerInvokeResponse;
 
 /** Any message sent from the main thread to the worker thread. */
-export type MainMessage = MainUpdateRequest | MainDeleteRequest | MainInvokeRequest;
+export type MainMessage =
+  MainUpdateRequest | MainDeleteRequest | MainClearRequest | MainInvokeRequest;
 
 /** Send-only channel from the worker side. Held by individual aether components to post
  * {@link WorkerMessage}s back to the main thread. */
