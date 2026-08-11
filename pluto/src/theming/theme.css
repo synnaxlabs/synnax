@@ -128,12 +128,16 @@
 }
 
 .pluto-theme-synnax-light {
+    /* achromatic (grey/black/white) symbols snap to pure black, legible on the light bg */
     --pluto-symbol-l-extreme: 0;
 
+    /* no floor: dark colors already read fine on the light bg */
     --pluto-symbol-l-min: 0;
 
+    /* cap lightness so pale colors darken enough to read on the light bg */
     --pluto-symbol-l-max: 0.8;
 
+    /* low cutoff: only near-pure greys snap; muddy darks already read as near-black */
     --pluto-symbol-c-thresh: 0.05;
 
     /* The elevation ladder: lift sits in the layout, overlay floats above it, modal
@@ -152,12 +156,16 @@
 }
 
 .pluto-theme-synnax-dark {
+    /* achromatic (grey/black/white) symbols snap to pure white, legible on the dark bg */
     --pluto-symbol-l-extreme: 1;
 
+    /* floor lightness so dark colors lift enough to read on the dark bg */
     --pluto-symbol-l-min: 0.4;
 
+    /* no ceiling: light colors already read fine on the dark bg */
     --pluto-symbol-l-max: 1;
 
+    /* higher than light so muddy darks (invisible on the dark bg) also snap to white */
     --pluto-symbol-c-thresh: 0.09;
 
     /* Restated at higher density: a shadow needs more weight to read against a dark
