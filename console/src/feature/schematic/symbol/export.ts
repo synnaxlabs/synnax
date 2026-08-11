@@ -26,9 +26,6 @@ interface ExportGroupParams {
   addStatus: Status.Adder;
 }
 
-// The Core owns membership, symbol serialization, file naming, and the manifest, and
-// the bundle travels as an archive, so the Console streams the response straight to
-// the file the user picks without ever holding it in memory.
 const exportGroup = async ({
   client,
   group: { key, name },

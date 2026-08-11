@@ -16,23 +16,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Group specs run on the per-spec tx so every row rolls back, but the fixtures they
-// read must be committed, so each one is created outside the tx.
-
 func createGroup(ctx SpecContext, parent ontology.ID) group.Group {
 	GinkgoHelper()
 	g := MustSucceed(groupSvc.NewWriter(nil).Create(ctx, "deletable", parent))
 	DeferCleanup(func(ctx SpecContext) {
-		// The spec may already have deleted it inside a committed tx.
-		Expect(errors.Skip(
-			groupSvc.NewWriter(nil).Delete(ctx, g.Key), query.ErrNotFound,
-		)).To(Succeed())
+		Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
 	})
 	return g
 }
@@ -45,9 +38,7 @@ func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 	}
 	Expect(svc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(errors.Skip(
-			svc.NewWriter(nil).Delete(ctx, sym.Key), query.ErrNotFound,
-		)).To(Succeed())
+		Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 	})
 	return sym
 }
