@@ -503,6 +503,36 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
+			"Holds on a routing case body that is a stage without a transition",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"trigger": {types.U8(), 100},
+					"log":     {types.String(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    trigger -> select{} -> {
+				        true: stage {
+				            "case" -> log
+				        }
+				    }
+				    "after" -> log
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				settle(h, ctx)
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"case"}),
+					"a stage case body has no completion; main must hold")
+			},
+		)
+
+		It(
 			"Hands off to a top-level scope from inside a nested sequence",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(
