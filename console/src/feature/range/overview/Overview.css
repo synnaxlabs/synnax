@@ -69,7 +69,7 @@
     }
     &.console--create {
         background: var(--pluto-gray-l3);
-        border: var(--pluto-border-l5);
+        border: var(--pluto-border-l6);
         border-radius: var(--pluto-border-radius);
         transition:
             height 0.1s ease,
