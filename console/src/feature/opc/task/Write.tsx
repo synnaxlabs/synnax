@@ -71,7 +71,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const TaskForm: FC<Task.FormProps<WriteSchemas>> = createForm<OutputChannel>({
+const TaskForm: FC = createForm<OutputChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems,
