@@ -14,22 +14,18 @@
 @pb
 
 TimeStamp int64 {
-    @doc value """
-        is a 64-bit signed integer representing nanoseconds since the Unix epoch
-        (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency
-        telemetry timestamps.
-    """
+    @doc value """is a 64-bit signed integer representing nanoseconds since the Unix epoch
+(1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency
+telemetry timestamps."""
     @ts hand
     @cpp hand
     @py hand
 }
 
 TimeSpan int64 {
-    @doc value """
-        is a 64-bit signed integer representing a duration in nanoseconds. Used
-        for expressing time intervals, sampling periods, and durations throughout
-        the telemetry system.
-    """
+    @doc value """is a 64-bit signed integer representing a duration in nanoseconds. Used
+for expressing time intervals, sampling periods, and durations throughout
+the telemetry system."""
     @ts hand
     @cpp hand
     @py hand
@@ -43,11 +39,10 @@ TimeRange struct {
         @doc value "is the exclusive end of the time range."
     }
 
-    @doc value """
-        is a time interval defined by a start and end timestamp. The range is
-        start-inclusive and end-exclusive, following standard interval conventions
-        for predictable boundary handling.
-    """
+    @doc value  """is a time interval defined by a start and end timestamp. The range is
+start-inclusive and end-exclusive, following standard interval conventions
+for predictable boundary handling."""
+    @go marshal
     @ts hand
     @cpp hand
     @py hand
@@ -62,21 +57,17 @@ TimeRangeBounded = TimeRange {
 }
 
 Rate float64 {
-    @doc value """
-        is a data sampling rate expressed in Hertz (Hz). Used to specify
-        acquisition frequencies and calculate sample counts over time intervals.
-    """
+    @doc value """is a data sampling rate expressed in Hertz (Hz). Used to specify
+acquisition frequencies and calculate sample counts over time intervals."""
     @ts hand
     @cpp hand
     @py hand
 }
 
 Size int64 {
-    @doc value """
-        is a byte measurement used for storage capacity and data volume
-        representation. Supports conversion to human-readable formats (B, kB,
-        MB, GB, TB).
-    """
+    @doc value """is a byte measurement used for storage capacity and data volume
+representation. Supports conversion to human-readable formats (B, kB,
+MB, GB, TB)."""
     @ts hand
     @cpp hand
     @py hand
@@ -94,12 +85,10 @@ Alignment uint64 {
 }
 
 DataType string {
-    @doc value """
-        is a string identifier specifying the format of telemetry samples.
-        Supports fixed-density types (Float64, Int32, TimeStamp, etc.) with
-        known byte sizes and variable-density types (String, JSON, Bytes) for
-        flexible data storage.
-    """
+    @doc value """is a string identifier specifying the format of telemetry samples.
+Supports fixed-density types (Float64, Int32, TimeStamp, etc.) with
+known byte sizes and variable-density types (String, JSON, Bytes) for
+flexible data storage."""
     @ts hand
     @cpp hand
     @py hand

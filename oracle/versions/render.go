@@ -38,6 +38,15 @@ type RenderOptions struct {
 	// Resolve looks up a referenced type by resolved name. Required to render
 	// inline union variants, whose synthetic payload structs re-inline.
 	Resolve func(name string) (resolution.Type, bool)
+	// ExtraTypeLines returns extra domain-expression lines appended to the
+	// named declaration's domain body. Nil appends nothing.
+	ExtraTypeLines func(typeName string) []string
+	// ExtraFieldLines returns extra domain-expression lines appended to the
+	// named field's domain body. Nil appends nothing.
+	ExtraFieldLines func(typeName, fieldName string) []string
+	// ExtraValueLines returns extra domain-expression lines appended to the
+	// named enum value's domain body. Nil appends nothing.
+	ExtraValueLines func(typeName, valueName string) []string
 }
 
 // Render renders declarations into version-file source text. The output is
@@ -99,6 +108,30 @@ func (r *renderer) renderType(t resolution.Type) {
 	}
 }
 
+// extraTypeLines returns the caller-injected extra lines for a declaration.
+func (r *renderer) extraTypeLines(typeName string) []string {
+	if r.opts.ExtraTypeLines == nil {
+		return nil
+	}
+	return r.opts.ExtraTypeLines(typeName)
+}
+
+// extraFieldLines returns the caller-injected extra lines for a field.
+func (r *renderer) extraFieldLines(typeName, fieldName string) []string {
+	if r.opts.ExtraFieldLines == nil {
+		return nil
+	}
+	return r.opts.ExtraFieldLines(typeName, fieldName)
+}
+
+// extraValueLines returns the caller-injected extra lines for an enum value.
+func (r *renderer) extraValueLines(typeName, valueName string) []string {
+	if r.opts.ExtraValueLines == nil {
+		return nil
+	}
+	return r.opts.ExtraValueLines(typeName, valueName)
+}
+
 func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	head := t.Name + " struct" + r.params(f.TypeParams)
 	if len(f.Extends) > 0 {
@@ -107,29 +140,33 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	r.line(head + " {")
 	r.indent++
 	for _, field := range f.Fields {
-		r.renderField(field)
+		r.renderField(t.Name, field)
 	}
 	for _, action := range f.Actions {
 		r.line("")
-		r.renderAction(action)
+		r.renderAction(t.Name, action)
 	}
-	r.renderDomains(t.Domains)
+	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
 	r.indent--
 	r.line("}")
 }
 
-func (r *renderer) renderAction(a resolution.Action) {
+// renderAction renders one struct action. Extra lines scope under the
+// composite "Type.action" key so action fields never collide with same-named
+// struct fields.
+func (r *renderer) renderAction(typeName string, a resolution.Action) {
+	scoped := typeName + "." + a.Name
 	r.line("action " + a.Name + " {")
 	r.indent++
 	for _, field := range a.Fields {
-		r.renderField(field)
+		r.renderField(scoped, field)
 	}
-	r.renderDomains(a.Domains)
+	r.renderDomains(a.Domains, r.extraTypeLines(scoped))
 	r.indent--
 	r.line("}")
 }
 
-func (r *renderer) renderField(f resolution.Field) {
+func (r *renderer) renderField(typeName string, f resolution.Field) {
 	head := f.Name + " " + r.ref(f.Type)
 	if f.Optional {
 		head += "?"
@@ -137,7 +174,9 @@ func (r *renderer) renderField(f resolution.Field) {
 	if f.Default != nil {
 		head += " = " + r.value(*f.Default)
 	}
-	exprs := r.keptExpressions(f.Domains)
+	exprs := append(
+		r.keptExpressions(f.Domains), r.extraFieldLines(typeName, f.Name)...,
+	)
 	if len(exprs) == 0 {
 		r.line(head)
 		return
@@ -165,7 +204,9 @@ func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {
 		} else {
 			line += strconv.Quote(v.StringValue())
 		}
-		exprs := r.keptExpressions(v.Domains)
+		exprs := append(
+			r.keptExpressions(v.Domains), r.extraValueLines(t.Name, v.Name)...,
+		)
 		if len(exprs) == 0 {
 			r.line(line)
 			continue
@@ -178,7 +219,7 @@ func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {
 		r.indent--
 		r.line("}")
 	}
-	r.renderDomains(t.Domains)
+	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
 	r.indent--
 	r.line("}")
 }
@@ -191,9 +232,9 @@ func (r *renderer) renderUnion(t resolution.Type, f resolution.UnionForm) {
 	r.line(head + " {")
 	r.indent++
 	for _, v := range f.Variants {
-		r.renderVariant(v)
+		r.renderVariant(t.Name, v)
 	}
-	r.renderDomains(t.Domains)
+	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
 	r.indent--
 	r.line("}")
 }
@@ -201,7 +242,7 @@ func (r *renderer) renderUnion(t resolution.Type, f resolution.UnionForm) {
 // renderVariant renders one union variant: inline payloads re-inline their
 // synthetic struct's fields; named payloads reference their type. Either form
 // carries a domain body when variant domains survive filtering.
-func (r *renderer) renderVariant(v resolution.UnionVariant) {
+func (r *renderer) renderVariant(typeName string, v resolution.UnionVariant) {
 	exprs := r.keptExpressions(v.Domains)
 	if v.Inline && r.opts.Resolve != nil {
 		if t, ok := r.opts.Resolve(v.Type.Name); ok {
@@ -209,7 +250,7 @@ func (r *renderer) renderVariant(v resolution.UnionVariant) {
 				r.line(v.Name + " {")
 				r.indent++
 				for _, field := range sf.Fields {
-					r.renderField(field)
+					r.renderField(typeName, field)
 				}
 				if len(exprs) > 0 {
 					r.line("")
@@ -239,18 +280,20 @@ func (r *renderer) renderVariant(v resolution.UnionVariant) {
 
 func (r *renderer) renderDistinct(t resolution.Type, f resolution.DistinctForm) {
 	head := t.Name + r.params(f.TypeParams) + " " + r.ref(f.Base)
-	r.renderWithBody(head, t.Domains)
+	r.renderWithBody(head, t.Domains, r.extraTypeLines(t.Name))
 }
 
 func (r *renderer) renderAlias(t resolution.Type, f resolution.AliasForm) {
 	head := t.Name + r.params(f.TypeParams) + " = " + r.ref(f.Target)
-	r.renderWithBody(head, t.Domains)
+	r.renderWithBody(head, t.Domains, r.extraTypeLines(t.Name))
 }
 
 // renderWithBody renders a single-line declaration, appending a domain body
-// when any domain expressions survive filtering.
-func (r *renderer) renderWithBody(head string, domains map[string]resolution.Domain) {
-	exprs := keptDomainExpressions(domains, r.opts.KeepExpression, r)
+// when any domain expressions survive filtering or extra lines exist.
+func (r *renderer) renderWithBody(
+	head string, domains map[string]resolution.Domain, extra []string,
+) {
+	exprs := append(keptDomainExpressions(domains, r.opts.KeepExpression, r), extra...)
 	if len(exprs) == 0 {
 		r.line(head)
 		return
@@ -264,8 +307,10 @@ func (r *renderer) renderWithBody(head string, domains map[string]resolution.Dom
 	r.line("}")
 }
 
-func (r *renderer) renderDomains(domains map[string]resolution.Domain) {
-	exprs := keptDomainExpressions(domains, r.opts.KeepExpression, r)
+func (r *renderer) renderDomains(
+	domains map[string]resolution.Domain, extra []string,
+) {
+	exprs := append(keptDomainExpressions(domains, r.opts.KeepExpression, r), extra...)
 	if len(exprs) == 0 {
 		return
 	}
@@ -358,6 +403,9 @@ func (r *renderer) params(params []resolution.TypeParam) string {
 	parts := make([]string, len(params))
 	for i, p := range params {
 		s := p.Name
+		if p.Optional {
+			s += "?"
+		}
 		if p.Constraint != nil {
 			s += " extends " + r.ref(*p.Constraint)
 		}

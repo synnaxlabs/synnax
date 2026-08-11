@@ -34,10 +34,8 @@ Region struct {
         @doc value "is an optional fill color override for the region."
     }
 
-    @doc value """
-        is a visual styling area within a symbol state, targeting specific SVG
-        elements for dynamic coloring.
-    """
+    @doc value """is a visual styling area within a symbol state, targeting specific SVG
+elements for dynamic coloring."""
 }
 
 State struct {
@@ -51,9 +49,7 @@ State struct {
         @doc value "contains style regions defining visual appearance for this state."
     }
 
-    @doc value """
-        is a named visual state of a symbol with regional styling configurations.
-    """
+    @doc value "is a named visual state of a symbol with regional styling configurations."
 }
 
 Handle struct {
@@ -67,22 +63,20 @@ Handle struct {
         @doc value "is the direction the handle faces (top, right, bottom, left)."
     }
 
-    @doc value """
-        is a connection point on a symbol for linking to other diagram elements.
-    """
+    @doc value "is a connection point on a symbol for linking to other diagram elements."
 }
 
 Spec struct {
     svg              string            {
-        @validate min_length 1
         @doc value           "is the SVG markup defining the symbol's visual geometry."
+        @validate min_length 1
     }
     states           State[]           {
         @doc value "contains available visual states with regional styling configurations."
     }
     variant          string            {
-        @validate min_length 1
         @doc value           "is the symbol variant or category identifier (e.g., 'sensor', 'valve')."
+        @validate min_length 1
     }
     handles          Handle[]          {
         @doc value "contains connection points for linking to other diagram elements."
@@ -97,30 +91,27 @@ Spec struct {
         @doc value "is an optional viewport configuration for symbol preview rendering."
     }
 
-    @doc value """
-        is the complete symbol definition including geometry, states, handles, and
-        rendering properties.
-    """
+    @doc value """is the complete symbol definition including geometry, states, handles, and
+rendering properties."""
 }
 
 Symbol struct {
     key  Key = create {
-        @key
         @doc value "is the unique identifier for this symbol."
+        @key
     }
     name string {
-        @validate min_length 1
         @doc value           "is a human-readable name for the symbol."
+        @validate min_length 1
     }
     data Spec   {
         @doc value "is the complete symbol specification."
     }
 
-    @doc value     """
-        is a persisted schematic symbol defining reusable visual components for
-        diagrams.
-    """
+    @doc value     """is a persisted schematic symbol defining reusable visual components for
+diagrams."""
+    @go imex
+    @go marshal
     @ontology type "schematic_symbol"
     @create
-    @go imex
 }

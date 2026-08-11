@@ -19,16 +19,14 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/oracle/analyzer"
-	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin/go/freeze"
 	"github.com/synnaxlabs/oracle/versions"
-	"github.com/synnaxlabs/x/set"
 )
 
-// VersionsGate verifies the explicitly managed version chains against the
-// live schemas: the current version file matches canonical emission
-// byte-for-byte, and every redeclaration differs structurally from its
+// VersionsGate verifies the explicitly managed version chains: the live
+// file's version-owned content matches chain resolution (the merged
+// projection), and every redeclaration differs structurally from its
 // resolved predecessor.
 type VersionsGate struct{}
 
@@ -74,62 +72,38 @@ func (g VersionsGate) checkChain(
 ) {
 	livePath := chain.LivePath()
 	current := chain.Current()
-	f, err := resolver.File(ctx, livePath, current)
-	if err != nil {
-		r.fail(Finding{
-			Path:     chain.FilePath(current) + ".oracle",
-			Severity: SeverityError,
-			Message:  err.Error(),
-		})
-		return
-	}
 
-	// Drift: the current file must equal canonical emission byte-for-byte.
-	// A chain whose live schema is gone is history-only; nothing to compare.
-	if len(p.Resolutions.TypesInNamespace(chain.Resource)) > 0 {
-		canonical, err := freeze.Canonical(ctx, freeze.Input{
-			Live:     p.Resolutions,
-			Resolver: resolver,
-			Chain:    chain,
-			N:        current,
-			Pins:     f.Pins,
-			Docs:     docOverrides(f),
-			Pinned:   pinnedNames(f),
-		})
-		if err != nil {
+	// Consistency: the live file's version-owned content must match chain
+	// resolution — the merged projection is the canonical live file. The
+	// version files are the authority; a live edit to version-owned content
+	// is overwritten by sync, and a chain edit lands in the live file the
+	// same way.
+	if merged, ok := p.MergedSources[livePath+".oracle"]; ok {
+		filePath := livePath + ".oracle"
+		onDisk, err := os.ReadFile(filepath.Join(env.RepoRoot, filePath))
+		if err != nil && !os.IsNotExist(err) {
 			r.fail(Finding{
-				Path:     chain.FilePath(current) + ".oracle",
-				Severity: SeverityError,
-				Message:  err.Error(),
+				Path: filePath, Severity: SeverityError, Message: err.Error(),
 			})
-		} else {
-			filePath := chain.FilePath(current) + ".oracle"
-			onDisk, err := os.ReadFile(filepath.Join(env.RepoRoot, filePath))
-			if err != nil {
-				r.fail(Finding{
-					Path: filePath, Severity: SeverityError,
-					Message: err.Error(),
-				})
-			} else if string(onDisk) != canonical {
-				finding := Finding{
-					Path:     filePath,
-					Severity: SeverityError,
-					Message: fmt.Sprintf(
-						"%s drifts from its current version file", livePath,
-					),
-					FixHint: fmt.Sprintf(
-						"run `oracle migrate %s` to bump, or "+
-							"`oracle migrate --amend %s` if v%d has not shipped",
-						chain.Resource, chain.Resource, current,
-					),
-				}
-				if env.IncludeDiffs {
-					finding.Diff = unifiedDiff(
-						filePath, canonical, string(onDisk), 200,
-					)
-				}
-				r.fail(finding)
+		} else if string(onDisk) != string(merged) {
+			finding := Finding{
+				Path:     filePath,
+				Severity: SeverityError,
+				Message: fmt.Sprintf(
+					"%s drifts from its version files", livePath,
+				),
+				FixHint: fmt.Sprintf(
+					"the version files under %s are the authority for "+
+						"version-owned content; run `oracle sync` to project them",
+					chain.Dir(),
+				),
 			}
+			if env.IncludeDiffs {
+				finding.Diff = unifiedDiff(
+					filePath, string(merged), string(onDisk), 200,
+				)
+			}
+			r.fail(finding)
 		}
 	}
 
@@ -205,28 +179,3 @@ func (r *GateReport) fail(f Finding) {
 	r.Status = StatusFail
 }
 
-// docOverrides extracts a file's explicit @doc declarations by type name.
-func docOverrides(f *versions.File) map[string]string {
-	docs := make(map[string]string)
-	for _, t := range f.Defined {
-		if d := doc.Get(t.Domains); d != "" {
-			docs[t.Name] = d
-		}
-	}
-	return docs
-}
-
-// pinnedNames extracts a file's @go pinned type names.
-func pinnedNames(f *versions.File) set.Set[string] {
-	pinned := make(set.Set[string])
-	for _, t := range f.Defined {
-		dom, ok := t.Domains["go"]
-		if !ok {
-			continue
-		}
-		if _, has := dom.Expressions.Find("pinned"); has {
-			pinned.Add(t.Name)
-		}
-	}
-	return pinned
-}

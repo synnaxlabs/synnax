@@ -19,10 +19,8 @@ Level enum {
     p     = "p"
     small = "small"
 
-    @doc value """
-        is a typography level identifier shared across visualizations.
-        Mirrors the heading ladder (h1 through h5) plus paragraph (p) and
-        small. Order is descending: h1 is the largest, small is the
-        smallest.
-    """
+    @doc value """is a typography level identifier shared across visualizations.
+Mirrors the heading ladder (h1 through h5) plus paragraph (p) and
+small. Order is descending: h1 is the largest, small is the
+smallest."""
 }

@@ -246,7 +246,6 @@ func analyze(c *analysisCtx) {
 	validatePinnedArgs(c, types)
 	validateImex(c, types)
 	validateImportPlacement(c)
-	validateLiveMarshal(c, types)
 	for _, typ := range types {
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {
@@ -1008,7 +1007,11 @@ func collectField(
 
 	for _, inl := range def.AllInlineDomain() {
 		de := collectInlineDomain(inl)
-		field.Domains[de.Name] = de
+		if existing, ok := field.Domains[de.Name]; ok {
+			field.Domains[de.Name] = de.Merge(existing)
+		} else {
+			field.Domains[de.Name] = de
+		}
 		if de.Name == "key" {
 			*hasKeyDomain = true
 		}
@@ -1020,7 +1023,11 @@ func collectField(
 	if fb := def.FieldBody(); fb != nil {
 		for _, d := range fb.AllDomain() {
 			de := collectDomain(d)
-			field.Domains[de.Name] = de
+			if existing, ok := field.Domains[de.Name]; ok {
+				field.Domains[de.Name] = de.Merge(existing)
+			} else {
+				field.Domains[de.Name] = de
+			}
 			if de.Name == "key" {
 				*hasKeyDomain = true
 			}

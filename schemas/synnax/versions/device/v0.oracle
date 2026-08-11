@@ -12,7 +12,7 @@ import "schemas/synnax/versions/rack/v0"
 import "schemas/synnax/versions/status/v0"
 
 Key = string {
-    @doc value "is the device's serial number, used as its unique identifier."
+    @doc value "is a unique identifier for the device"
     @go hand
 }
 

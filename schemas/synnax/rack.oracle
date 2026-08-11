@@ -16,13 +16,12 @@ import "schemas/synnax/status"
 @pb
 
 Key uint32 {
-    @doc value """
-        is a composite identifier for a rack. The high 16 bits contain the node key, and
-        the low 16 bits contain the local sequential key. Racks are leased to specific
-        nodes because task configuration signals are passed through gossip operations,
-        which can take 15s+ to propagate through a large cluster. This structure
-        minimizes hops and configuration latency.
-    """
+    @doc value  """is a composite identifier for a rack. The high 16 bits contain the
+node key, and the low 16 bits contain the local sequential key. Racks are leased
+to specific nodes because task configuration signals are passed through gossip
+operations, which can take 15s+ to propagate through a large cluster. This
+structure minimizes hops and configuration latency."""
+    @go marshal flex
 }
 
 StatusDetails struct {
@@ -49,35 +48,29 @@ Rack struct {
         @filter
     }
     task_counter uint32 = 0 {
-        @doc value """
-            is an internal counter used for generating unique local task keys.
-        """
+        @doc value "is an internal counter used for generating unique local task keys."
     }
     embedded     bool = false {
-        @doc value """
-            is true if this rack is embedded within the Synnax server process.
-        """
+        @doc value "is true if this rack is embedded within the Synnax server process."
         @filter
     }
     status       Status?  {
-        @doc value "is the current operational status of the rack."
+        @doc value  "is the current operational status of the rack."
+        @go marshal omit
     }
     integrations string[] = [] {
-        @doc value """
-            is the list of hardware integrations this rack supports (e.g., "ni", "opc",
-            "labjack"). An empty or nil list means the rack supports no integrations.
-        """
+        @doc value """is the list of hardware integrations this rack supports (e.g., "ni", "opc",
+"labjack"). An empty or nil list means the rack supports no integrations."""
         @filter
     }
 
-    @doc value       """
-        is a collection container for hardware devices and tasks running on a
-        specific cluster node. Racks serve as the integration point between the
-        Synnax server and physical hardware via the Driver system.
-    """
+    @doc value       """is a collection container for hardware devices and tasks running on a
+specific cluster node. Racks serve as the integration point between the
+Synnax server and physical hardware via the Driver system."""
+    @go migrate
+    @go marshal
     @ts name         "Payload"
     @ontology type   "rack"
-    @go migrate
     @retrieve custom
     @search
     @py name         "Base"

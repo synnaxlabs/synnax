@@ -180,25 +180,25 @@ func runSync(cmd *cobra.Command) error {
 	return nil
 }
 
-// writeSchemaSources rewrites each schema file whose canonical formatted
-// bytes differ from the on-disk source. Returns the count of files actually
-// rewritten. The pipeline already produced FormattedSources in memory; this
-// is the on-disk projection of that step.
+// writeSchemaSources rewrites each schema file whose canonical bytes differ
+// from the on-disk source: the formatter's output, or the merged live
+// projection for a versioned resource. Returns the count of files actually
+// rewritten.
 func writeSchemaSources(result *pipeline.Result, repoRoot string) (int, error) {
-	formatted := 0
+	written := 0
 	for _, rel := range result.Schemas {
-		canonical := result.FormattedSources[rel]
+		canonical := result.EffectiveSource(rel)
 		raw := result.Sources[rel]
 		if string(canonical) == string(raw) {
 			continue
 		}
 		abs := paths.Resolve(rel, repoRoot)
 		if err := os.WriteFile(abs, canonical, 0o644); err != nil {
-			return formatted, errors.Wrapf(err, "failed to write %s", abs)
+			return written, errors.Wrapf(err, "failed to write %s", abs)
 		}
-		formatted++
+		written++
 	}
-	return formatted, nil
+	return written, nil
 }
 
 // syncOutputs is the on-disk projection of the pipeline's plugin outputs.

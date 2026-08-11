@@ -68,6 +68,10 @@ type Options struct {
 //   - FormattedSources holds the canonical formatter output for every input.
 //     A schema's entry equals its Sources entry when no formatting drift
 //     exists.
+//   - MergedSources holds the canonical live-file projection for every
+//     versioned resource: version-owned content from the chain, live-owned
+//     annotations from the on-disk source. Analysis and sync use these bytes
+//     in place of FormattedSources; check compares them against disk.
 //   - Resolutions and Diagnostics are populated by the analyzer. Resolutions
 //     is nil when the analyzer produced fatal errors. Diagnostics is always
 //     non-nil and may carry warnings even on success.
@@ -80,6 +84,7 @@ type Result struct {
 	Schemas          []string
 	Sources          map[string][]byte
 	FormattedSources map[string][]byte
+	MergedSources    map[string][]byte
 	Resolutions      *resolution.Table
 	Diagnostics      *diagnostics.Files
 	Outputs          map[string][]plugin.File
@@ -134,17 +139,117 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		return r, err
 	}
 
-	if err := analyze(ctx, r, loader); err != nil {
+	chains, err := versions.Discover(opts.RepoRoot)
+	if err != nil {
+		return r, err
+	}
+	if len(chains) > 0 {
+		if err := mergeLiveSources(ctx, r, loader, chains); err != nil {
+			return r, err
+		}
+	}
+	effective := newOverlayLoader(loader, r.effectiveSources())
+
+	if err := analyze(ctx, r, effective); err != nil {
 		return r, err
 	}
 
 	if opts.Plugins != nil && r.Resolutions != nil {
-		if err := generate(ctx, r, opts, workers); err != nil {
+		if err := generate(ctx, r, opts, workers, chains, effective); err != nil {
 			return r, err
 		}
 	}
 
 	return r, nil
+}
+
+// EffectiveSource returns the canonical bytes a schema contributes to analysis
+// and to disk after sync: the merged live projection when one exists, the
+// formatted source otherwise.
+func (r *Result) EffectiveSource(path string) []byte {
+	if merged, ok := r.MergedSources[path]; ok {
+		return merged
+	}
+	return r.FormattedSources[path]
+}
+
+// effectiveSources overlays MergedSources onto FormattedSources.
+func (r *Result) effectiveSources() map[string][]byte {
+	out := make(map[string][]byte, len(r.FormattedSources)+len(r.MergedSources))
+	for p, b := range r.FormattedSources {
+		out[p] = b
+	}
+	for p, b := range r.MergedSources {
+		out[p] = b
+	}
+	return out
+}
+
+// mergeLiveSources computes the canonical live-file projection for every
+// version chain, iterating to a fixpoint: a merged live file can change what
+// another chain's version files resolve through a live import, so merges
+// re-run over their own output until stable.
+func mergeLiveSources(
+	ctx context.Context,
+	r *Result,
+	loader analyzer.FileLoader,
+	chains map[string]versions.Chain,
+) error {
+	livePaths := make([]string, 0, len(chains))
+	for livePath := range chains {
+		livePaths = append(livePaths, livePath)
+	}
+	sort.Strings(livePaths)
+	prev := make(map[string][]byte)
+	for range 3 {
+		overlay := make(map[string][]byte, len(r.FormattedSources)+len(prev))
+		for p, b := range r.FormattedSources {
+			overlay[p] = b
+		}
+		for p, b := range prev {
+			overlay[p] = b
+		}
+		resolver := versions.NewResolver(chains, newOverlayLoader(loader, overlay))
+		next := make(map[string][]byte, len(chains))
+		for _, livePath := range livePaths {
+			file := livePath + ".oracle"
+			merged, err := versions.MergeLive(
+				ctx, resolver, chains[livePath], string(r.FormattedSources[file]),
+			)
+			if err != nil {
+				return err
+			}
+			if merged == "" {
+				continue
+			}
+			next[file] = []byte(merged)
+		}
+		if sourcesEqual(prev, next) {
+			r.MergedSources = next
+			for file := range next {
+				if _, known := r.Sources[file]; !known {
+					r.Schemas = append(r.Schemas, file)
+					sort.Strings(r.Schemas)
+				}
+			}
+			return nil
+		}
+		prev = next
+	}
+	return errors.New("live-file merge did not converge")
+}
+
+// sourcesEqual reports whether two source maps hold identical bytes.
+func sourcesEqual(a, b map[string][]byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for p, ab := range a {
+		if bb, ok := b[p]; !ok || string(ab) != string(bb) {
+			return false
+		}
+	}
+	return true
 }
 
 // DiscoverSchemas finds every .oracle file under <repoRoot>/schemas and
@@ -227,11 +332,10 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 
 func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
 	start := time.Now()
-	// Use the freshly formatted bytes for analysis. This gives format
-	// drift the same semantic check the canonical source would receive,
-	// without requiring the caller to write them to disk first.
-	overlay := newOverlayLoader(loader, r.FormattedSources)
-	table, diag := analyzer.Analyze(ctx, r.Schemas, overlay)
+	// The loader already overlays the canonical in-memory bytes (formatted
+	// sources plus merged live projections), so analysis sees exactly what
+	// sync would write to disk.
+	table, diag := analyzer.Analyze(ctx, r.Schemas, loader)
 	r.Timings.Analyze = time.Since(start)
 	if diag != nil {
 		r.Diagnostics.Combine(diag)
@@ -242,20 +346,23 @@ func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
 	return nil
 }
 
-func generate(ctx context.Context, r *Result, opts Options, workers int) error {
+func generate(
+	ctx context.Context,
+	r *Result,
+	opts Options,
+	workers int,
+	chains map[string]versions.Chain,
+	loader analyzer.FileLoader,
+) error {
 	start := time.Now()
 	defer func() { r.Timings.Generate = time.Since(start) }()
 
-	// Explicitly managed version chains are the versioning baseline.
-	chains, err := versions.Discover(opts.RepoRoot)
-	if err != nil {
-		return err
-	}
+	// Explicitly managed version chains are the versioning baseline. The
+	// resolver loads through the same overlay analysis used, so frozen
+	// surfaces resolve live imports against the merged projections.
 	var resolver *versions.Resolver
 	if len(chains) > 0 {
-		resolver = versions.NewResolver(
-			chains, analyzer.NewStandardFileLoader(opts.RepoRoot),
-		)
+		resolver = versions.NewResolver(chains, loader)
 		if err := resolver.Annotate(ctx, r.Resolutions); err != nil {
 			return err
 		}

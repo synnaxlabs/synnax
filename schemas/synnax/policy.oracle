@@ -34,19 +34,16 @@ Policy struct {
         @doc value "is the list of actions this policy permits."
     }
     internal bool = false {
-        @doc value """
-            is true if this is a built-in system policy that cannot be deleted.
-        """
+        @doc value "is true if this is a built-in system policy that cannot be deleted."
         @filter
     }
 
-    @doc value       """
-        is an access control policy that defines which actions are permitted on
-        which resources. Policies are attached to roles, and roles are assigned
-        to users via ontology relationships.
-    """
-    @create
+    @doc value       """is an access control policy that defines which actions are permitted on
+which resources. Policies are attached to roles, and roles are assigned
+to users via ontology relationships."""
     @go migrate
+    @go marshal
+    @create
     @ontology type   "policy"
     @retrieve custom
 }

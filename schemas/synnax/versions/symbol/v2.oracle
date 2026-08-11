@@ -102,6 +102,10 @@ Symbol struct {
         @doc value "is the complete symbol specification."
     }
 
+    @doc value """
+        is a persisted schematic symbol defining reusable visual components for
+        diagrams.
+    """
     @go imex
     @go marshal
 }

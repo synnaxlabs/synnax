@@ -11,7 +11,7 @@ import "schemas/synnax/versions/status/v1"
 
 Key = v0.Key
 
-StatusDetails struct<Data = record> {
+StatusDetails struct<Data? = record> {
     task    Key = 0 {
         @doc value "is the key of the task this status pertains to."
     }
@@ -28,14 +28,14 @@ StatusDetails struct<Data = record> {
     @go pinned
 }
 
-Status<Data = record> = status.Status<StatusDetails<Data>> {
+Status<Data? = record> = status.Status<StatusDetails<Data>> {
     @go pinned
 }
 
 Task struct<
     Type extends string = string,
     Config extends record = record,
-    StatusData = record
+    StatusData? = record
 > {
     key      Key = 0 {
         @doc value "is the composite identifier for this task."

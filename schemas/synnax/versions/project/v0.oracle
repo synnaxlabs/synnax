@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 Key = uuid {
-    @doc value "is a unique identifier for a workspace, represented as a UUID."
+    @doc value "is a unique identifier for a project, represented as a UUID."
 }
 
 Workspace struct {

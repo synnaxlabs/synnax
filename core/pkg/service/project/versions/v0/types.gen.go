@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// Key is a unique identifier for a workspace, represented as a UUID.
+// Key is a unique identifier for a project, represented as a UUID.
 type Key = uuid.UUID
 
 // Workspace is a named, persistable container that stores the layout and organization

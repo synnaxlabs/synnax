@@ -47,10 +47,12 @@ type File struct {
 	Aliases map[string]Alias
 	// Pins maps dependency live paths to the version this file pins.
 	Pins map[string]int
-	// Live holds the namespaces of the unversioned resources the file imports
+	// Live holds the namespaces of the live schemas the file imports
 	// directly. Their shapes carry no version, so a frozen surface takes them
 	// as they stand.
 	Live []string
+	// LivePaths holds the live import paths behind Live, index-aligned.
+	LivePaths []string
 	// Order holds the file's declaration names in source order.
 	Order []string
 }
@@ -203,15 +205,17 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 	// (what the file's own references use) and its internal pinned namespace
 	// (what deep walks through copies use).
 	pins := make(map[string]int)
-	var live []string
+	var live, livePaths []string
 	for _, imp := range ast.AllImportStmt() {
 		p := strings.Trim(imp.STRING_LIT().GetText(), `"`)
 		depLive, err := LiveFromFilePath(p)
 		if err != nil {
 			live = append(live, resourceOf(p))
-			// An unversioned resource has one shape, so the file names its live
-			// schema and the analyzer resolves it like any other import. The
-			// analyzer rejects a live import that does have a chain.
+			livePaths = append(livePaths, p)
+			// A live import resolves the dependency's current surface like any
+			// other import: the one shape of an unversioned resource, or the
+			// merged live projection of a versioned one — the home of every
+			// resolved (read-time) reference.
 			continue
 		}
 		_, pv, _ := paths.VersionFile(p)
@@ -234,13 +238,14 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 	}
 
 	f := &File{
-		Chain:   chain,
-		N:       n,
-		Table:   b.table,
-		Aliases: declaredAliases(ast, n),
-		Pins:    pins,
-		Live:    live,
-		Order:   declarationOrder(ast),
+		Chain:     chain,
+		N:         n,
+		Table:     b.table,
+		Aliases:   declaredAliases(ast, n),
+		Pins:      pins,
+		Live:      live,
+		LivePaths: livePaths,
+		Order:     declarationOrder(ast),
 	}
 	for _, t := range b.table.TypesInNamespace(ns) {
 		if _, ok := f.Aliases[t.Name]; ok {
@@ -257,20 +262,8 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 func declarationOrder(ast parser.ISchemaContext) []string {
 	var names []string
 	for _, def := range ast.AllDefinition() {
-		switch {
-		case def.StructDef() != nil:
-			switch s := def.StructDef().(type) {
-			case *parser.StructFullContext:
-				names = append(names, s.IDENT().GetText())
-			case *parser.StructAliasContext:
-				names = append(names, s.IDENT().GetText())
-			}
-		case def.EnumDef() != nil:
-			names = append(names, def.EnumDef().IDENT().GetText())
-		case def.TypeDefDef() != nil:
-			names = append(names, def.TypeDefDef().IDENT().GetText())
-		case def.UnionDef() != nil:
-			names = append(names, def.UnionDef().AllIDENT()[0].GetText())
+		if name, ok := definitionName(def); ok {
+			names = append(names, name)
 		}
 	}
 	return names

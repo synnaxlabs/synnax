@@ -38,6 +38,8 @@ ChanDirection enum {
     read       = 1
     write      = 2
     read_write = 3
+
+    @doc value "indicates read/write direction for channel-typed parameters."
 }
 
 FunctionProperties struct {
@@ -82,7 +84,12 @@ Param struct {
     }
 }
 
-Params Param[]
+Params Param[] {
+    @doc value """
+        is a collection of named, typed parameters for function inputs or
+        outputs.
+    """
+}
 
 Channels = v0.Channels
 

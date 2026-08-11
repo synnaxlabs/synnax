@@ -134,6 +134,11 @@ Node struct {
     channels types.Channels {
         @doc value "contains channel read/write mappings."
     }
+
+    @doc value """
+        is a concrete instantiation of a function with typed parameters and
+        values.
+    """
 }
 
 Nodes Node[]

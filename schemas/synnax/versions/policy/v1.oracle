@@ -32,6 +32,11 @@ Policy struct {
         @doc value "is true if this is a built-in system policy that cannot be deleted."
     }
 
+    @doc value """
+        is an access control policy that defines which actions are permitted on
+        which resources. Policies are attached to roles, and roles are assigned
+        to users via ontology relationships.
+    """
     @go migrate
     @go marshal
 }

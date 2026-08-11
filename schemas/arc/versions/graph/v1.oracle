@@ -17,6 +17,13 @@ Node struct {
     position spatial.XY {
         @doc value "is the canvas position (x, y) for visual layout."
     }
+
+    @doc value """
+        is a visual node in the Arc graph editor representing a function
+        instantiation with position data. The function type and input
+        parameter values are stored in the graph's inputs map, keyed by the
+        node key.
+    """
 }
 
 Nodes Node[]

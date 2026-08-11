@@ -18,10 +18,8 @@ OuterLocation enum {
     bottom = "bottom"
     left   = "left"
 
-    @doc value """
-        is a position indicator for elements anchored to the outer edge of a
-        container. Used for orientation and positioning of UI elements.
-    """
+    @doc value """is a position indicator for elements anchored to the outer edge of a
+container. Used for orientation and positioning of UI elements."""
 }
 
 XY struct {
@@ -32,10 +30,8 @@ XY struct {
         @doc value "is the vertical coordinate."
     }
 
-    @doc value """
-        is a 2D coordinate point with x and y values. Used for positioning
-        elements in two-dimensional space.
-    """
+    @doc value """is a 2D coordinate point with x and y values. Used for positioning
+elements in two-dimensional space."""
     @pb
 }
 
@@ -65,10 +61,8 @@ StickyUnit enum {
     px      = "px"
     decimal = "decimal"
 
-    @doc value """
-        is the measurement unit for a sticky coordinate, either pixels or a
-        decimal fraction of the container.
-    """
+    @doc value """is the measurement unit for a sticky coordinate, either pixels or a
+decimal fraction of the container."""
 }
 
 CornerLocation struct {
@@ -107,10 +101,8 @@ StickyXY struct {
         @doc value "is the unit specification for the coordinates."
     }
 
-    @doc value """
-        is a position that can be anchored to different corners of a
-        container with configurable units (pixels or decimal fractions).
-    """
+    @doc value """is a position that can be anchored to different corners of a
+container with configurable units (pixels or decimal fractions)."""
 }
 
 Dimensions struct {
@@ -230,14 +222,10 @@ ClientXY struct {
 }
 
 Decimal = float64 {
-    @doc value """
-        is a normalized value in [0, 1] expressed as a decimal fraction of a
-        whole, such as a container's extent.
-    """
-    @validate {
-        min 0
-        max 1
-    }
+    @doc value    """is a normalized value in [0, 1] expressed as a decimal fraction of a
+whole, such as a container's extent."""
+    @validate min 0
+    @validate max 1
 }
 
 Bounds struct<T extends numeric = float64> {
@@ -248,10 +236,8 @@ Bounds struct<T extends numeric = float64> {
         @doc value "is the exclusive upper bound."
     }
 
-    @doc value """
-        is a closed-open interval [lower, upper) over an ordered numeric value
-        space. The TypeScript binding is generic over T so callers can express
-        bounds over either number or bigint values; other languages emit a
-        concrete float64-based type.
-    """
+    @doc value """is a closed-open interval [lower, upper) over an ordered numeric value
+space. The TypeScript binding is generic over T so callers can express
+bounds over either number or bigint values; other languages emit a
+concrete float64-based type."""
 }
