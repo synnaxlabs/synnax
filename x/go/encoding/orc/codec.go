@@ -14,7 +14,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -64,23 +63,14 @@ var (
 )
 
 // Codec is an Orc implementation of encoding.Codec that requires all values to
-// implement SelfEncoder/SelfDecoder.
+// implement SelfEncoder/SelfDecoder. Decode returns ErrInvalidFormat for data without
+// the Orc magic header; compose with encoding.NewDecodeFallbackCodec to read data
+// written by another codec.
 var Codec = &codec{}
 
-type codec struct {
-	// fallback decodes data that lacks the Orc magic header. It is never used to
-	// encode: values must implement SelfEncoder.
-	fallback encoding.Codec
-}
+type codec struct{}
 
-// NewCodec returns an Orc codec that falls back to the given codec when decoded data
-// lacks the Orc magic header. Encoding always requires the value to implement
-// SelfEncoder.
-func NewCodec(fallback encoding.Codec) encoding.Codec {
-	return &codec{fallback: fallback}
-}
-
-func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
+func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
 	m, ok := value.(SelfEncoder)
 	if !ok {
 		return nil, errors.Newf("orc: %T does not implement SelfEncoder", value)
@@ -113,12 +103,9 @@ func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	return err
 }
 
-func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
+func (*codec) Decode(_ context.Context, data []byte, value any) error {
 	if err := validateMagic(data); err != nil {
-		if c.fallback != nil {
-			return c.fallback.Decode(ctx, data, value)
-		}
-		return errors.New("orc: invalid magic header")
+		return err
 	}
 	m, ok := value.(SelfDecoder)
 	if !ok {

@@ -15,6 +15,7 @@ import (
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 	. "github.com/synnaxlabs/x/testutil"
@@ -80,19 +81,19 @@ var _ = Describe("Codec", func() {
 	Describe("Decode", func() {
 		It("Should reject empty data", func(ctx SpecContext) {
 			Expect(orc.Codec.Decode(ctx, []byte{}, &testRecord{})).
-				To(MatchError(ContainSubstring("invalid magic header")))
+				To(MatchError(orc.ErrInvalidFormat))
 		})
 
 		It("Should reject data shorter than 3 bytes", func(ctx SpecContext) {
 			Expect(orc.Codec.Decode(ctx, []byte{0x4F, 0x52}, &testRecord{})).
-				To(MatchError(ContainSubstring("invalid magic header")))
+				To(MatchError(orc.ErrInvalidFormat))
 		})
 
 		It("Should reject wrong magic bytes", func(ctx SpecContext) {
 			Expect(
 				orc.Codec.Decode(ctx, []byte{0x00, 0x00, 0x00, 0x00}, &testRecord{}),
 			).
-				To(MatchError(ContainSubstring("invalid magic header")))
+				To(MatchError(orc.ErrInvalidFormat))
 		})
 
 		It("Should return an error for non-SelfDecoder values", func(ctx SpecContext) {
@@ -165,7 +166,7 @@ var _ = Describe("Codec", func() {
 	})
 
 	Describe("Fallback", func() {
-		c := orc.NewCodec(json.Codec)
+		c := encoding.NewDecodeFallbackCodec(orc.Codec, json.Codec)
 
 		Describe("Encode", func() {
 			It(
