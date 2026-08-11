@@ -60,7 +60,9 @@ struct WriteTaskConfig : ::synnax::common::BaseStartConfig {
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &cfg
     ):
-        ::synnax::common::BaseStartConfig(::synnax::common::BaseStartConfig::parse(cfg)),
+        ::synnax::common::BaseStartConfig(
+            ::synnax::common::BaseStartConfig::parse(cfg)
+        ),
         state_rate(x::telem::Rate(cfg.field<float>("state_rate", 1.0f))),
         execution_rate(x::telem::Rate(cfg.field<float>("execution_rate", 1000.0f))) {
         std::unordered_map<std::string, slave::Properties> slave_cache;
