@@ -20,9 +20,9 @@ Node struct {
     }
     z_index  int16 = 0 {
         @doc value """
-is the stacking order of the node within the schematic. Higher
-values render above lower values. Set by the user via
-send-to-back / bring-to-front actions.
+            is the stacking order of the node within the schematic. Higher values render
+            above lower values. Set by the user via send-to-back / bring-to-front
+            actions.
         """
     }
 
@@ -39,8 +39,8 @@ Handle struct {
     }
 
     @doc value  """
-is a reference to a specific connection point on a specific node.
-For schematics, param is the symbol handle key (e.g. inlet, outlet).
+        is a reference to a specific connection point on a specific node. For
+        schematics, param is the symbol handle key (e.g. inlet, outlet).
     """
     @go marshal
 }
@@ -79,9 +79,9 @@ Schematic struct {
     }
     configs  map<string, record> = {} {
         @doc value """
-contains per-element configuration keyed by node or edge key. The
-shape of each value is determined by the element's variant; the
-wire format intentionally stores it as an opaque record.
+            contains per-element configuration keyed by node or edge key. The shape of
+            each value is determined by the element's variant; the wire format
+            intentionally stores it as an opaque record.
         """
     }
 
@@ -89,8 +89,8 @@ wire format intentionally stores it as an opaque record.
         schematic Schematic
 
         @doc value """
-replaces the document with the given created state. Emitted by the Core on
-create so remote caches ingest new documents; clients never dispatch it.
+            replaces the document with the given created state. Emitted by the Core on
+            create so remote caches ingest new documents; clients never dispatch it.
         """
     }
 
@@ -112,9 +112,9 @@ create so remote caches ingest new documents; clients never dispatch it.
         config record?
 
         @doc value """
-inserts the node if no node with the same key exists, otherwise
-replaces the existing node in place. If config is non-empty it is
-stored under the node's key in the schematic configs map.
+            inserts the node if no node with the same key exists, otherwise replaces the
+            existing node in place. If config is non-empty it is stored under the node's
+            key in the schematic configs map.
         """
     }
 
@@ -128,8 +128,8 @@ stored under the node's key in the schematic configs map.
         edge Edge
 
         @doc value """
-appends the edge to the schematic. No-op when an edge with the
-same key already exists.
+            appends the edge to the schematic. No-op when an edge with the same key
+            already exists.
         """
     }
 
@@ -144,12 +144,11 @@ same key already exists.
         config record
 
         @doc value """
-merges the given config fields into the existing config entry for
-the given node or edge key. Top-level fields present in the payload
-overwrite existing fields; fields absent from the payload are
-preserved. When no entry exists yet and the key matches an edge
-whose source node carries a color, the source color overrides
-whatever color (if any) was in the payload.
+            merges the given config fields into the existing config entry for the given
+            node or edge key. Top-level fields present in the payload overwrite existing
+            fields; fields absent from the payload are preserved. When no entry exists
+            yet and the key matches an edge whose source node carries a color, the
+            source color overrides whatever color (if any) was in the payload.
         """
     }
 

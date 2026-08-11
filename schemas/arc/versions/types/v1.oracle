@@ -86,8 +86,7 @@ Param struct {
 
 Params Param[] {
     @doc value """
-        is a collection of named, typed parameters for function inputs or
-        outputs.
+        is a collection of named, typed parameters for function inputs or outputs.
     """
 }
 

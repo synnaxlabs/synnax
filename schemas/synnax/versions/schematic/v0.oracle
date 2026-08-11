@@ -21,8 +21,8 @@ Schematic struct {
     }
     data     record {
         @doc value """
-is the schematic content including symbols, connections, and layout
-configuration.
+            is the schematic content including symbols, connections, and layout
+            configuration.
         """
     }
     snapshot bool = false {
@@ -30,9 +30,9 @@ configuration.
     }
 
     @doc value  """
-is a visual diagram editor component for drawing system schematics,
-control flows, and process diagrams. Schematics support interactive
-symbols, connection handles, and dynamic state visualization.
+        is a visual diagram editor component for drawing system schematics, control
+        flows, and process diagrams. Schematics support interactive symbols, connection
+        handles, and dynamic state visualization.
     """
     @go marshal
     @go migrate

@@ -18,14 +18,12 @@ Role struct {
     }
     name        string {
         @doc value """
-is a human-readable name for the role (e.g., 'Administrator',
-'Engineer').
+            is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
         """
     }
     description string = "" {
         @doc value """
-is an optional description explaining what permissions the role
-provides.
+            is an optional description explaining what permissions the role provides.
         """
     }
     internal    bool = false {
@@ -33,9 +31,9 @@ provides.
     }
 
     @doc value  """
-is a named collection of policies that can be assigned to users, enabling
-group-based permission management. Roles define what actions users can
-perform on resources.
+        is a named collection of policies that can be assigned to users, enabling
+        group-based permission management. Roles define what actions users can perform
+        on resources.
     """
     @go migrate
     @go marshal

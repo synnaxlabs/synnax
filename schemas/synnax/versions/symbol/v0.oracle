@@ -20,8 +20,8 @@ Symbol struct {
     }
 
     @doc value """
-is the untyped storage shape of a schematic symbol, in which the
-specification is persisted as raw JSON.
+        is the untyped storage shape of a schematic symbol, in which the specification
+        is persisted as raw JSON.
     """
     @go hand
 }

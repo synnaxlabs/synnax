@@ -14,9 +14,9 @@
 
 Authority uint8 {
     @doc value """
-        is a numeric value (0-255) representing the level of control authority a
-        subject has over a resource. Higher values indicate greater authority.
-        The maximum value of 255 represents absolute authority.
+        is a numeric value (0-255) representing the level of control authority a subject
+        has over a resource. Higher values indicate greater authority. The maximum value
+        of 255 represents absolute authority.
     """
 }
 
@@ -39,8 +39,8 @@ Subject struct {
     }
     group uint32 = 0 {
         @doc value """
-            optional identifier shared by subjects from the same logical group
-            (e.g.) all writers from the same Driver rack.
+            optional identifier shared by subjects from the same logical group (e.g.)
+            all writers from the same Driver rack.
         """
     }
 
@@ -65,8 +65,8 @@ State struct<R> {
     }
 
     @doc value         """
-        represents the state of control over a resource at a point in time,
-        capturing who controls what and with how much authority.
+        represents the state of control over a resource at a point in time, capturing
+        who controls what and with how much authority.
     """
     @ts concrete_types
 }
@@ -80,16 +80,16 @@ Transfer struct<R extends comparable> {
     }
 
     @doc value """
-    represents a transfer of control over a resource. It is represented as a
-    transition from one state to another over the same resource. A transfer between
-    resources that are different will result in a panic when any transfer methods
-    are called.
+        represents a transfer of control over a resource. It is represented as a
+        transition from one state to another over the same resource. A transfer between
+        resources that are different will result in a panic when any transfer methods
+        are called.
 
-    If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
-    resource is uncontrolled after the transfer.
+        If From is nil, the entity was uncontrolled before the transfer. If To is nil,
+        the resource is uncontrolled after the transfer.
 
-    If both From and To are nil, no transfer occurred. If both From and To are not nil,
-    and From.Subject != To.Subject, a transfer occurred.
+        If both From and To are nil, no transfer occurred. If both From and To are not
+        nil, and From.Subject != To.Subject, a transfer occurred.
     """
     @ts hand
 }

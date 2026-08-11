@@ -25,16 +25,16 @@ StatusDetails struct {
     }
 
     @doc value """
-contains device-specific status details identifying the device and
-its associated rack.
+        contains device-specific status details identifying the device and its
+        associated rack.
     """
     @go hand
 }
 
 Status = status.Status<StatusDetails> {
     @doc value """
-is device-specific status information including operational state
-and device identification.
+        is device-specific status information including operational state and device
+        identification.
     """
     @go hand
 }
@@ -52,8 +52,7 @@ Device struct {
     }
     make       string       {
         @doc value """
-is the manufacturer of the device (e.g., 'LabJack', 'National
-Instruments').
+            is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
         """
     }
     model      string       {
@@ -64,14 +63,14 @@ Instruments').
     }
     configured bool = false {
         @doc value """
-indicates whether the device has been successfully configured
-and is ready for use.
+            indicates whether the device has been successfully configured and is ready
+            for use.
         """
     }
     properties record       {
         @doc value """
-contains device-specific configuration properties stored as JSON.
-Structure varies by device make and model.
+            contains device-specific configuration properties stored as JSON. Structure
+            varies by device make and model.
         """
     }
     status     Status?      {
@@ -79,15 +78,15 @@ Structure varies by device make and model.
     }
     parent     ontology.ID? {
         @doc value """
-is an optional parent resource ID for hierarchical device
-organization (e.g., NI chassis containing modules).
+            is an optional parent resource ID for hierarchical device organization
+            (e.g., NI chassis containing modules).
         """
     }
 
     @doc value  """
-is a physical piece of hardware connected to Synnax through the
-Driver system. Devices represent external equipment like LabJack, National
-Instruments, OPC UA servers, or Modbus devices.
+        is a physical piece of hardware connected to Synnax through the Driver system.
+        Devices represent external equipment like LabJack, National Instruments, OPC UA
+        servers, or Modbus devices.
     """
     @go marshal
     @go migrate

@@ -38,9 +38,8 @@ ChannelEntry struct {
     }
     precision int32 = -1 {
         @doc value """
-is the number of decimal digits to display. -1 means "use the
-log-level precision"; 17 is the maximum significant digits for a
-float64.
+            is the number of decimal digits to display. -1 means "use the log-level
+            precision"; 17 is the maximum significant digits for a float64.
         """
     }
     alias     string = "" {
@@ -85,8 +84,8 @@ Log struct {
         log Log
 
         @doc value """
-replaces the document with the given created state. Emitted by the Core on
-create so remote caches ingest new documents; clients never dispatch it.
+            replaces the document with the given created state. Emitted by the Core on
+            create so remote caches ingest new documents; clients never dispatch it.
         """
     }
 
@@ -100,8 +99,8 @@ create so remote caches ingest new documents; clients never dispatch it.
         channel channel.Key
 
         @doc value """
-appends a default channel entry for the given channel. No-op when
-the channel is already present.
+            appends a default channel entry for the given channel. No-op when the
+            channel is already present.
         """
     }
 
@@ -109,8 +108,8 @@ the channel is already present.
         channel channel.Key
 
         @doc value """
-removes the channel entry for the given channel. No-op when the
-channel is not present.
+            removes the channel entry for the given channel. No-op when the channel is
+            not present.
         """
     }
 
@@ -118,10 +117,10 @@ channel is not present.
         entry ChannelEntry
 
         @doc value """
-inserts the channel entry if no entry with the same channel exists,
-otherwise replaces the existing entry in place. The fine-grained
-setChannel* actions cover per-field edits; this full-object form
-inserts new entries and restores an entry dropped by reconciliation.
+            inserts the channel entry if no entry with the same channel exists,
+            otherwise replaces the existing entry in place. The fine-grained setChannel*
+            actions cover per-field edits; this full-object form inserts new entries and
+            restores an entry dropped by reconciliation.
         """
     }
 
@@ -130,9 +129,9 @@ inserts new entries and restores an entry dropped by reconciliation.
         color   color.Color
 
         @doc value """
-sets the display color of the entry identified by channel. The zero
-color resets it to a palette color assigned at render time. No-op
-when no entry references the channel.
+            sets the display color of the entry identified by channel. The zero color
+            resets it to a palette color assigned at render time. No-op when no entry
+            references the channel.
         """
     }
 
@@ -141,8 +140,8 @@ when no entry references the channel.
         notation notation.Notation
 
         @doc value """
-sets the numeric notation of the entry identified by channel. No-op
-when no entry references the channel.
+            sets the numeric notation of the entry identified by channel. No-op when no
+            entry references the channel.
         """
     }
 
@@ -151,9 +150,9 @@ when no entry references the channel.
         precision int32
 
         @doc value """
-sets the number of decimal digits displayed for the entry identified
-by channel. -1 means "use the log-level precision". No-op when no
-entry references the channel.
+            sets the number of decimal digits displayed for the entry identified by
+            channel. -1 means "use the log-level precision". No-op when no entry
+            references the channel.
         """
     }
 
@@ -162,9 +161,9 @@ entry references the channel.
         alias   string
 
         @doc value """
-sets the human-readable alias of the entry identified by channel. An
-empty alias falls back to the channel name. No-op when no entry
-references the channel.
+            sets the human-readable alias of the entry identified by channel. An empty
+            alias falls back to the channel name. No-op when no entry references the
+            channel.
         """
     }
 
@@ -173,8 +172,8 @@ references the channel.
         format  telem.TimestampFormat
 
         @doc value """
-sets the timestamp render format of the entry identified by channel.
-No-op when no entry references the channel.
+            sets the timestamp render format of the entry identified by channel. No-op
+            when no entry references the channel.
         """
     }
 
@@ -183,8 +182,8 @@ No-op when no entry references the channel.
         tz      telem.TimeZone
 
         @doc value """
-sets the timestamp time zone of the entry identified by channel.
-No-op when no entry references the channel.
+            sets the timestamp time zone of the entry identified by channel. No-op when
+            no entry references the channel.
         """
     }
 
@@ -192,8 +191,8 @@ No-op when no entry references the channel.
         channels ChannelEntry[]
 
         @doc value """
-replaces the entire ordered list of channel entries. Used for bulk
-channel selection and reordering.
+            replaces the entire ordered list of channel entries. Used for bulk channel
+            selection and reordering.
         """
     }
 
@@ -202,9 +201,9 @@ channel selection and reordering.
         to   channel.Key
 
         @doc value """
-repoints the entry referencing the "from" channel at the "to"
-channel in place, preserving the entry's position and display
-configuration. No-op when no entry references "from".
+            repoints the entry referencing the "from" channel at the "to" channel in
+            place, preserving the entry's position and display configuration. No-op when
+            no entry references "from".
         """
     }
 

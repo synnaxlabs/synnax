@@ -17,8 +17,8 @@ import "schemas/synnax/status"
 
 Key uint64 {
     @doc value    """
-is a composite identifier for a task. The high 32 bits contain the
-rack key, and the low 32 bits contain the local task key within that rack.
+        is a composite identifier for a task. The high 32 bits contain the rack key, and
+        the low 32 bits contain the local task key within that rack.
     """
     @go marshal   flex
     @ts type      string
@@ -47,8 +47,8 @@ StatusDetails struct<Data? = record> {
 
 Status<Data? = record> = status.Status<StatusDetails<Data>> {
     @doc value """
-is task-specific status information including execution state and
-task-specific data.
+        is task-specific status information including execution state and task-specific
+        data.
     """
 }
 
@@ -67,15 +67,15 @@ Task struct<
     }
     type     Type                {
         @doc value """
-is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
-Determines which hardware integration handles the task.
+            is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+            Determines which hardware integration handles the task.
         """
         @filter
     }
     config   Config              {
         @doc value """
-is task-specific configuration stored as JSON. Structure varies by
-task type.
+            is task-specific configuration stored as JSON. Structure varies by task
+            type.
         """
     }
     internal bool = false {
@@ -92,9 +92,9 @@ task type.
     }
 
     @doc value               """
-is an executable unit of work in the Driver system. Tasks represent
-specific hardware operations such as reading sensor data, writing control
-signals, or scanning for devices.
+        is an executable unit of work in the Driver system. Tasks represent specific
+        hardware operations such as reading sensor data, writing control signals, or
+        scanning for devices.
     """
     @go migrate
     @go marshal

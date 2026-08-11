@@ -14,8 +14,8 @@ OuterLocation enum {
     left   = "left"
 
     @doc value """
-is a position indicator for elements anchored to the outer edge of a
-container. Used for orientation and positioning of UI elements.
+        is a position indicator for elements anchored to the outer edge of a container.
+        Used for orientation and positioning of UI elements.
     """
 }
 
@@ -28,8 +28,8 @@ XY struct {
     }
 
     @doc value """
-is a 2D coordinate point with x and y values. Used for positioning
-elements in two-dimensional space.
+        is a 2D coordinate point with x and y values. Used for positioning elements in
+        two-dimensional space.
     """
 }
 
@@ -59,8 +59,8 @@ StickyUnit enum {
     decimal = "decimal"
 
     @doc value """
-is the measurement unit for a sticky coordinate, either pixels or a
-decimal fraction of the container.
+        is the measurement unit for a sticky coordinate, either pixels or a decimal
+        fraction of the container.
     """
 }
 
@@ -101,8 +101,8 @@ StickyXY struct {
     }
 
     @doc value """
-is a position that can be anchored to different corners of a
-container with configurable units (pixels or decimal fractions).
+        is a position that can be anchored to different corners of a container with
+        configurable units (pixels or decimal fractions).
     """
 }
 
@@ -119,8 +119,8 @@ Viewport struct {
 
 Decimal = float64 {
     @doc value """
-is a normalized value in [0, 1] expressed as a decimal fraction of a
-whole, such as a container's extent.
+        is a normalized value in [0, 1] expressed as a decimal fraction of a whole, such
+        as a container's extent.
     """
 }
 
@@ -133,9 +133,9 @@ Bounds struct<T extends numeric = float64> {
     }
 
     @doc value """
-is a closed-open interval [lower, upper) over an ordered numeric value
-space. The TypeScript binding is generic over T so callers can express
-bounds over either number or bigint values; other languages emit a
-concrete float64-based type.
+        is a closed-open interval [lower, upper) over an ordered numeric value space.
+        The TypeScript binding is generic over T so callers can express bounds over
+        either number or bigint values; other languages emit a concrete float64-based
+        type.
     """
 }

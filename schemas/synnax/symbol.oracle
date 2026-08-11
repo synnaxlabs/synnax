@@ -35,8 +35,8 @@ Region struct {
     }
 
     @doc value  """
-is a visual styling area within a symbol state, targeting specific SVG
-elements for dynamic coloring.
+        is a visual styling area within a symbol state, targeting specific SVG elements
+        for dynamic coloring.
     """
     @go marshal
 }
@@ -105,8 +105,8 @@ Spec struct {
     }
 
     @doc value  """
-is the complete symbol definition including geometry, states, handles, and
-rendering properties.
+        is the complete symbol definition including geometry, states, handles, and
+        rendering properties.
     """
     @go marshal
 }
@@ -125,8 +125,8 @@ Symbol struct {
     }
 
     @doc value     """
-is a persisted schematic symbol defining reusable visual components for
-diagrams.
+        is a persisted schematic symbol defining reusable visual components for
+        diagrams.
     """
     @go imex
     @go marshal

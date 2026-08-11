@@ -25,8 +25,8 @@ Node struct {
     }
 
     @doc value """
-is a visual node in the Arc graph editor representing a function
-instantiation with position data.
+        is a visual node in the Arc graph editor representing a function instantiation
+        with position data.
     """
 }
 
@@ -60,7 +60,7 @@ Graph struct {
     }
 
     @doc value """
-is a visual dataflow graph representation combining IR elements with
-canvas layout for the Arc graph editor.
+        is a visual dataflow graph representation combining IR elements with canvas
+        layout for the Arc graph editor.
     """
 }

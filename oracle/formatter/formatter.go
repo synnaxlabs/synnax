@@ -1175,10 +1175,11 @@ func (f *formatter) formatSoleExpressionValue(ctx parser.IExpressionValueContext
 }
 
 // writeTripleString lays a triple-quoted string out canonically: nothing
-// follows the opening quotes on their line, content lines keep their own
-// bytes, and the closing quotes sit alone at the current indent. Only
-// newlines and trimmable whitespace move, so the dedented value the
-// analyzer reads is unchanged.
+// follows the opening quotes on their line, content lines sit one indent
+// level past the domain line, and the closing quotes sit alone at the
+// current indent. Doc content re-fills to the line limit; every consumer
+// treats a single line break as a space, so neither the re-indent nor the
+// re-fill changes the dedented value's meaning.
 func (f *formatter) writeTripleString(text string) {
 	content := text[len(tripleQuote) : len(text)-len(tripleQuote)]
 	lines := strings.Split(content, "\n")
@@ -1189,13 +1190,90 @@ func (f *formatter) writeTripleString(text string) {
 	for end > start && strings.TrimSpace(lines[end-1]) == "" {
 		end--
 	}
+	lines = lines[start:end]
+	minIndent := -1
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		n := len(line) - len(strings.TrimLeft(line, " \t"))
+		if minIndent < 0 || n < minIndent {
+			minIndent = n
+		}
+	}
+	dedented := make([]string, len(lines))
+	for i, line := range lines {
+		trimmed := strings.TrimRight(line, " \t")
+		if trimmed == "" {
+			continue
+		}
+		dedented[i] = trimmed[minIndent:]
+	}
+	contentIndent := strings.Repeat(indent, f.currentIndent+1)
 	f.write(tripleQuote)
 	f.newline()
-	for _, line := range lines[start:end] {
-		f.writeLine(strings.TrimRight(line, " \t"))
+	if f.currentDomain == "doc" {
+		f.writeDocLines(dedented, contentIndent)
+	} else {
+		for _, line := range dedented {
+			if line == "" {
+				f.newline()
+				continue
+			}
+			f.writeLine(contentIndent + line)
+		}
 	}
 	f.writeIndent()
 	f.write(tripleQuote)
+}
+
+// writeDocLines emits dedented doc content lines at the given indent,
+// re-filling each paragraph to the line limit. A paragraph containing an
+// indented line is structured content (an example block) and stays
+// verbatim — re-wrapping it would destroy its layout.
+func (f *formatter) writeDocLines(lines []string, contentIndent string) {
+	width := maxLineLen - len(contentIndent)
+	var para []string
+	flush := func() {
+		if len(para) == 0 {
+			return
+		}
+		structured := false
+		for _, l := range para {
+			if l[0] == ' ' || l[0] == '\t' {
+				structured = true
+				break
+			}
+		}
+		if structured {
+			for _, l := range para {
+				f.writeLine(contentIndent + l)
+			}
+		} else {
+			words := strings.Fields(strings.Join(para, " "))
+			line := words[0]
+			for _, word := range words[1:] {
+				if utf8.RuneCountInString(line)+1+
+					utf8.RuneCountInString(word) <= width {
+					line += " " + word
+					continue
+				}
+				f.writeLine(contentIndent + line)
+				line = word
+			}
+			f.writeLine(contentIndent + line)
+		}
+		para = para[:0]
+	}
+	for _, line := range lines {
+		if line == "" {
+			flush()
+			f.newline()
+			continue
+		}
+		para = append(para, line)
+	}
+	flush()
 }
 
 // writeWrappedDoc converts an over-long single-quoted doc string to the

@@ -584,34 +584,58 @@ var _ = Describe("Format", func() {
 			Expect(format(source)).To(ContainSubstring("output \"" + path + "\""))
 		})
 
-		It("should move triple-quoted content off the quote lines", func() {
-			source := "Level enum {\n" +
-				"    h1 = \"h1\"\n" +
+		It("should move triple-quoted content off the quote lines and indent it",
+			func() {
+				source := "Level enum {\n" +
+					"    h1 = \"h1\"\n" +
+					"\n" +
+					"    @doc value \"\"\"is a typography level.\n" +
+					"Order is descending.\"\"\"\n" +
+					"}\n"
+				result := format(source)
+				Expect(result).To(ContainSubstring(
+					"    @doc value \"\"\"\n" +
+						"        is a typography level. Order is descending.\n" +
+						"    \"\"\"\n"))
+				Expect(format(result)).To(Equal(result))
+			})
+
+		It("should keep relative indentation when re-indenting content", func() {
+			source := "Thing struct {\n" +
+				"    @doc value \"\"\"is an example:\n" +
 				"\n" +
-				"    @doc value \"\"\"is a typography level.\n" +
-				"Order is descending.\"\"\"\n" +
+				"id := ID{\n" +
+				"    Key: \"a\",\n" +
+				"}\"\"\"\n" +
 				"}\n"
 			result := format(source)
 			Expect(result).To(ContainSubstring(
 				"    @doc value \"\"\"\n" +
-					"is a typography level.\n" +
-					"Order is descending.\n" +
+					"        is an example:\n" +
+					"\n" +
+					"        id := ID{\n" +
+					"            Key: \"a\",\n" +
+					"        }\n" +
 					"    \"\"\"\n"))
 			Expect(format(result)).To(Equal(result))
 		})
 
-		It("should keep interior lines of a compliant triple string verbatim",
-			func() {
-				source := "Symbol struct {\n" +
-					"    key string {\n" +
-					"        @doc value \"\"\"\n" +
-					"            is the handle identifier used when\n" +
-					"            linking symbols.\n" +
-					"        \"\"\"\n" +
-					"    }\n" +
-					"}\n"
-				Expect(format(source)).To(Equal(source))
-			})
+		It("should re-fill short prose lines to the line limit", func() {
+			source := "Symbol struct {\n" +
+				"    key string {\n" +
+				"        @doc value \"\"\"\n" +
+				"            is the handle identifier used when\n" +
+				"            linking symbols.\n" +
+				"        \"\"\"\n" +
+				"    }\n" +
+				"}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring(
+				"        @doc value \"\"\"\n" +
+					"            is the handle identifier used when linking symbols.\n" +
+					"        \"\"\"\n"))
+			Expect(format(result)).To(Equal(result))
+		})
 
 		It("should break an inline triple-quoted doc into brace form", func() {
 			source := "Thing struct {\n" +
@@ -621,7 +645,7 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring(
 				"    key string {\n" +
 					"        @doc value \"\"\"\n" +
-					"is short.\n" +
+					"            is short.\n" +
 					"        \"\"\"\n" +
 					"    }\n"))
 			Expect(format(result)).To(Equal(result))

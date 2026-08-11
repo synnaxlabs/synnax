@@ -33,38 +33,36 @@ Range struct {
     }
     time_range telem.TimeRange {
         @doc value """
-is the temporal extent of the range, defining its start and end
-timestamps.
+            is the temporal extent of the range, defining its start and end timestamps.
         """
         @ts type   telem.TimeRangeBounded
     }
     color      color.Color?    {
         @doc value """
-is an optional display color for visual identification of the range
-in user interfaces.
+            is an optional display color for visual identification of the range in user
+            interfaces.
         """
     }
     labels     label.Label[]?  {
         @doc value     """
-contains optional labels attached to this range for categorization
-and filtering.
+            contains optional labels attached to this range for categorization and
+            filtering.
         """
         @go marshal    omit
         @validate skip
     }
     parent     Range?          {
         @doc value     """
-is an optional parent range for hierarchical organization. Ranges
-can be nested within other ranges.
+            is an optional parent range for hierarchical organization. Ranges can be
+            nested within other ranges.
         """
         @go marshal    omit
         @validate skip
     }
 
     @doc value       """
-is a user-defined region of time in the Synnax cluster. Ranges act as
-a method for labeling and categorizing telemetry data within specific time
-periods.
+        is a user-defined region of time in the Synnax cluster. Ranges act as a method
+        for labeling and categorizing telemetry data within specific time periods.
     """
     @go migrate
     @go marshal

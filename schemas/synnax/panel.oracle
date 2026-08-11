@@ -18,9 +18,9 @@ TabKey = uuid
 TabBase struct {
     key TabKey = create {
         @doc value """
-is the stable unique identifier of this tab within the panel. It is
-independent of the tab's content, so a tab's content may be swapped
-without changing the tab's identity or position.
+            is the stable unique identifier of this tab within the panel. It is
+            independent of the tab's content, so a tab's content may be swapped without
+            changing the tab's identity or position.
         """
     }
 
@@ -31,23 +31,22 @@ without changing the tab's identity or position.
 View struct {
     type string {
         @doc value """
-is the Console-owned view type identifier (e.g., 'docs',
-'selector') used to select a renderer.
+            is the Console-owned view type identifier (e.g., 'docs', 'selector') used to
+            select a renderer.
         """
     }
     args record = {} {
         @doc value        """
-is an opaque, Console-owned configuration payload for the
-view. Core never interprets it; it round-trips as-is.
+            is an opaque, Console-owned configuration payload for the view. Core never
+            interprets it; it round-trips as-is.
         """
         @ts preserve_case
     }
 
     @doc value  """
-is an inline, self-describing view: a Console-owned type plus an
-opaque configuration payload, with no backing core document. Used
-for app-views and tools (docs, explorers, task forms, and the
-selector pickers).
+        is an inline, self-describing view: a Console-owned type plus an opaque
+        configuration payload, with no backing core document. Used for app-views and
+        tools (docs, explorers, task forms, and the selector pickers).
     """
     @go marshal
 }
@@ -56,8 +55,8 @@ Tab union on variant extends TabBase {
     resource {
         resource ontology.ID {
             @doc value """
-is the visualization resource displayed by this tab, set via
-SetTabResource.
+                is the visualization resource displayed by this tab, set via
+                SetTabResource.
             """
         }
 
@@ -65,21 +64,20 @@ SetTabResource.
     }
     view View {
         @doc value """
-is a tab displaying an inline, self-describing view. Unlike a
-resource, a view has no backing core document: it carries its own
-type and opaque args. Used for app-views and tools (docs,
-explorers, task forms, and the selector pickers).
+            is a tab displaying an inline, self-describing view. Unlike a resource, a
+            view has no backing core document: it carries its own type and opaque args.
+            Used for app-views and tools (docs, explorers, task forms, and the selector
+            pickers).
         """
     }
 
     @doc value  """
-is a single tab in a leaf. Tab content is a discriminated union:
-a resource (a backing core document, e.g. a line plot) or a view
-(an inline, self-describing app-view, e.g. docs). A freshly created
-tab is a view whose type is a selector picker; SetTabResource or
-SetTabView swaps content in place. Display attributes (name, icon,
-closability) are resolved at render time from the content. A
-resource may back at most one tab per panel; views may repeat.
+        is a single tab in a leaf. Tab content is a discriminated union: a resource (a
+        backing core document, e.g. a line plot) or a view (an inline, self-describing
+        app-view, e.g. docs). A freshly created tab is a view whose type is a selector
+        picker; SetTabResource or SetTabView swaps content in place. Display attributes
+        (name, icon, closability) are resolved at render time from the content. A
+        resource may back at most one tab per panel; views may repeat.
     """
     @go marshal
     @create
@@ -100,8 +98,8 @@ Split struct {
     }
     size      spatial.Decimal   {
         @doc value """
-is the fraction in [0, 1] of the parent area allocated to first.
-The remainder is allocated to last.
+            is the fraction in [0, 1] of the parent area allocated to first. The
+            remainder is allocated to last.
         """
     }
     first     Node              {
@@ -120,9 +118,9 @@ Node union on variant {
     split Split
 
     @doc value  """
-is a node in the panel tree: either a leaf displaying a tab strip
-or an interior split. Nodes are identified by path-derived numeric
-keys during traversal (1 = root, 2k = first child, 2k+1 = last child).
+        is a node in the panel tree: either a leaf displaying a tab strip or an interior
+        split. Nodes are identified by path-derived numeric keys during traversal (1 =
+        root, 2k = first child, 2k+1 = last child).
     """
     @go marshal
 }
@@ -145,11 +143,10 @@ Panel struct {
     }
     parent ontology.ID? {
         @doc value  """
-is an optional parent resource for the panel in the ontology.
-When absent on create, the panel is parented to the creating
-user as a draft. Parenthood lives in the ontology graph, so the
-field is not persisted on the panel record and is absent on
-retrieve.
+            is an optional parent resource for the panel in the ontology. When absent on
+            create, the panel is parented to the creating user as a draft. Parenthood
+            lives in the ontology graph, so the field is not persisted on the panel
+            record and is absent on retrieve.
         """
         @go marshal omit
     }
@@ -158,8 +155,8 @@ retrieve.
         panel Panel
 
         @doc value """
-replaces the document with the given created state. Emitted by the Core on
-create so remote caches ingest new documents; clients never dispatch it.
+            replaces the document with the given created state. Emitted by the Core on
+            create so remote caches ingest new documents; clients never dispatch it.
         """
     }
 
@@ -167,9 +164,8 @@ create so remote caches ingest new documents; clients never dispatch it.
         name string
 
         @doc value """
-renames the panel. When the panel is owned by a user (draft),
-the writer promotes it to project ownership in the same
-transaction.
+            renames the panel. When the panel is owned by a user (draft), the writer
+            promotes it to project ownership in the same transaction.
         """
     }
 
@@ -182,20 +178,18 @@ transaction.
         singleton   bool?
 
         @doc value """
-inserts a tab into a leaf at the given index, appending when index
-is absent. The destination leaf is resolved from target_tab (the
-leaf holding that tab) when set, otherwise from the target_leaf
-path-derived key, otherwise the first leaf in traversal order. When
-location is an edge, the resolved leaf is first split at that
-location and the tab is inserted into the new empty leaf; a center
-location places the tab directly in the resolved leaf, equivalent
-to absent. Inserting a resource tab whose resource already backs
-a tab in the panel is a no-op: a resource may back at most one
-tab per panel, and callers select the existing tab instead. When
-singleton is set and the tab is a view, the insert is a no-op if a
-view of the same type already backs a tab in the panel: a singleton
-view backs at most one tab per panel, and callers select the
-existing tab instead.
+            inserts a tab into a leaf at the given index, appending when index is
+            absent. The destination leaf is resolved from target_tab (the leaf holding
+            that tab) when set, otherwise from the target_leaf path-derived key,
+            otherwise the first leaf in traversal order. When location is an edge, the
+            resolved leaf is first split at that location and the tab is inserted into
+            the new empty leaf; a center location places the tab directly in the
+            resolved leaf, equivalent to absent. Inserting a resource tab whose resource
+            already backs a tab in the panel is a no-op: a resource may back at most one
+            tab per panel, and callers select the existing tab instead. When singleton
+            is set and the tab is a view, the insert is a no-op if a view of the same
+            type already backs a tab in the panel: a singleton view backs at most one
+            tab per panel, and callers select the existing tab instead.
         """
     }
 
@@ -203,9 +197,8 @@ existing tab instead.
         key uuid
 
         @doc value """
-removes the tab with the given key. If the containing leaf
-becomes empty and has a sibling, the reducer collapses the
-parent split.
+            removes the tab with the given key. If the containing leaf becomes empty and
+            has a sibling, the reducer collapses the parent split.
         """
     }
 
@@ -216,13 +209,12 @@ parent split.
         location    spatial.Location?
 
         @doc value """
-moves a tab to a position within the panel. When location is an
-edge, the target leaf is first split at that location and the
-tab moves into the new empty leaf; moving a leaf's only tab to
-an edge of its own leaf is a no-op. A center location places the
-tab directly in the target leaf, equivalent to absent.
-Cross-panel moves are RemoveTab on the source plus InsertTab on
-the destination (two dispatches; not atomic).
+            moves a tab to a position within the panel. When location is an edge, the
+            target leaf is first split at that location and the tab moves into the new
+            empty leaf; moving a leaf's only tab to an edge of its own leaf is a no-op.
+            A center location places the tab directly in the target leaf, equivalent to
+            absent. Cross-panel moves are RemoveTab on the source plus InsertTab on the
+            destination (two dispatches; not atomic).
         """
     }
 
@@ -231,10 +223,10 @@ the destination (two dispatches; not atomic).
         direction spatial.Direction
 
         @doc value """
-splits the tab with the given key off its leaf into a new sibling
-pane, moving the tab into it. direction x places the new pane to
-the right, y to the bottom. The tab must share its leaf with at
-least one other tab; splitting the only tab in a leaf is a no-op.
+            splits the tab with the given key off its leaf into a new sibling pane,
+            moving the tab into it. direction x places the new pane to the right, y to
+            the bottom. The tab must share its leaf with at least one other tab;
+            splitting the only tab in a leaf is a no-op.
         """
     }
 
@@ -250,12 +242,11 @@ least one other tab; splitting the only tab in a leaf is a no-op.
         resource ontology.ID
 
         @doc value """
-sets the visualization resource displayed by the tab with the
-given key, swapping it in place without changing the tab's
-identity or position. Clears any view set on the tab. A no-op
-when the resource already backs another tab in the panel. Used
-to fill a freshly inserted selector tab once the user picks a
-visualization.
+            sets the visualization resource displayed by the tab with the given key,
+            swapping it in place without changing the tab's identity or position. Clears
+            any view set on the tab. A no-op when the resource already backs another tab
+            in the panel. Used to fill a freshly inserted selector tab once the user
+            picks a visualization.
         """
     }
 
@@ -264,16 +255,16 @@ visualization.
         view View
 
         @doc value """
-sets the inline view displayed by the tab with the given key,
-swapping it in place without changing the tab's identity or
-position. Clears any resource set on the tab.
+            sets the inline view displayed by the tab with the given key, swapping it in
+            place without changing the tab's identity or position. Clears any resource
+            set on the tab.
         """
     }
 
     @doc value     """
-is a tab in a project owning a tree of visualization tabs. A panel
-is owned by a project (project panel) or by a user (draft);
-renaming a draft promotes it to project ownership.
+        is a tab in a project owning a tree of visualization tabs. A panel is owned by a
+        project (project panel) or by a user (draft); renaming a draft promotes it to
+        project ownership.
     """
     @go migrate
     @go marshal

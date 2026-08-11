@@ -21,15 +21,15 @@ LinePlot struct {
     }
     data record {
         @doc value """
-is the line plot configuration including channel references, axis
-settings, and display options.
+            is the line plot configuration including channel references, axis settings,
+            and display options.
         """
     }
 
     @doc value  """
-is a time-series visualization component for plotting telemetry data.
-Line plots support multiple channels, real-time streaming, and
-historical data display with zoom and pan capabilities.
+        is a time-series visualization component for plotting telemetry data. Line plots
+        support multiple channels, real-time streaming, and historical data display with
+        zoom and pan capabilities.
     """
     @go marshal
     @go migrate

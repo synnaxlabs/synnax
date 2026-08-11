@@ -39,8 +39,8 @@ Kind enum {
     var_ref                      = 24
 
     @doc value """
-is the type category for Arc's type system, including primitives, compound
-types, and meta-types.
+        is the type category for Arc's type system, including primitives, compound
+        types, and meta-types.
     """
 }
 
@@ -85,8 +85,8 @@ Type struct extends FunctionProperties {
     }
 
     @doc value           """
-is a type in Arc's type system with optional element type for compounds,
-physical units, and constraints.
+        is a type in Arc's type system with optional element type for compounds,
+        physical units, and constraints.
     """
     @cpp includes        "x/cpp/telem/telem.h"
     @cpp system_includes "ostream"
@@ -110,8 +110,7 @@ Param struct {
 
 Params Param[] {
     @doc value   """
-is a collection of named, typed parameters for function inputs or
-outputs.
+        is a collection of named, typed parameters for function inputs or outputs.
     """
     @cpp methods "[[nodiscard]] const Param& operator[](const std::string& name) const" "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Params& p)"
 }
@@ -157,8 +156,8 @@ Dimensions struct {
     }
 
     @doc value   """
-contains physical dimension exponents for dimensional analysis (SI base
-quantities).
+        contains physical dimension exponents for dimensional analysis (SI base
+        quantities).
     """
     @cpp methods "bool operator==(const Dimensions& other) const" "[[nodiscard]] bool is_zero() const"
 }

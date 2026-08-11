@@ -39,8 +39,8 @@ Transition struct {
     }
     targetKey string? {
         @doc value """
-is the sibling step key to activate. Null when the transition
-exits the scope, yielding to the parent.
+            is the sibling step key to activate. Null when the transition exits the
+            scope, yielding to the parent.
         """
     }
 
@@ -50,8 +50,8 @@ exits the scope, yielding to the parent.
 Member struct {
     nodeKey string? {
         @doc value """
-is the key of the referenced node in IR.nodes. Null when this
-member is a nested scope.
+            is the key of the referenced node in IR.nodes. Null when this member is a
+            nested scope.
         """
     }
     scope   Scope?  {
@@ -59,10 +59,9 @@ member is a nested scope.
     }
 
     @doc value """
-is a tagged union representing a single child of a Scope. Exactly one
-of nodeKey or scope is set. The member's lookup key (used as the
-target of `=> name` transitions) is derived from the set variant via
-Member.key().
+        is a tagged union representing a single child of a Scope. Exactly one of nodeKey
+        or scope is set. The member's lookup key (used as the target of `=> name`
+        transitions) is derived from the set variant via Member.key().
     """
 }
 
@@ -90,10 +89,9 @@ Scope struct {
     }
     strata      Members[]    {
         @doc value """
-contains stratified execution layers for parallel scopes. On
-sequential scopes, strata hold variable nodes that run every
-pass alongside the active step. Stratum N depends only on
-strata 0 to N-1.
+            contains stratified execution layers for parallel scopes. On sequential
+            scopes, strata hold variable nodes that run every pass alongside the active
+            step. Stratum N depends only on strata 0 to N-1.
         """
     }
     steps       Members      {
@@ -109,10 +107,10 @@ strata 0 to N-1.
     }
 
     @doc value """
-is the unified Layer 2 execution primitive. Parameterized by mode
-(parallel or sequential) and liveness (always-live or gated). Parallel
-scopes organize members into strata; sequential scopes run one step
-at a time and advance via transitions.
+        is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
+        sequential) and liveness (always-live or gated). Parallel scopes organize
+        members into strata; sequential scopes run one step at a time and advance via
+        transitions.
     """
 }
 
@@ -156,8 +154,7 @@ Node struct {
     }
 
     @doc value """
-        is a concrete instantiation of a function with typed parameters and
-        values.
+        is a concrete instantiation of a function with typed parameters and values.
     """
 }
 
@@ -180,9 +177,9 @@ IR struct {
     }
     root        Scope       {
         @doc value """
-is the top-level execution context. The root is always a
-parallel, always-live Scope whose strata mix module-scope
-reactive flow with top-level gated scopes.
+            is the top-level execution context. The root is always a parallel,
+            always-live Scope whose strata mix module-scope reactive flow with top-level
+            gated scopes.
         """
     }
 }

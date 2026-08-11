@@ -33,9 +33,8 @@ Label struct {
     }
 
     @doc value  """
-is a tagging and categorization entity with a name and associated color.
-Labels can be attached to resources like ranges for organization and
-filtering.
+        is a tagging and categorization entity with a name and associated color. Labels
+        can be attached to resources like ranges for organization and filtering.
     """
     @go migrate
     @go marshal

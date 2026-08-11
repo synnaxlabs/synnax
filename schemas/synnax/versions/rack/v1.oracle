@@ -44,15 +44,15 @@ Rack struct {
     }
     integrations string[] = [] {
         @doc value """
-is the list of hardware integrations this rack supports (e.g., "ni", "opc",
-"labjack"). An empty or nil list means the rack supports no integrations.
+            is the list of hardware integrations this rack supports (e.g., "ni", "opc",
+            "labjack"). An empty or nil list means the rack supports no integrations.
         """
     }
 
     @doc value  """
-        is a collection container for hardware devices and tasks running on a
-        specific cluster node. Racks serve as the integration point between the
-        Synnax server and physical hardware via the Driver system.
+        is a collection container for hardware devices and tasks running on a specific
+        cluster node. Racks serve as the integration point between the Synnax server and
+        physical hardware via the Driver system.
     """
     @go migrate
     @go marshal

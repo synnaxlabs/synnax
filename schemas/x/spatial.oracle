@@ -19,8 +19,8 @@ OuterLocation enum {
     left   = "left"
 
     @doc value """
-is a position indicator for elements anchored to the outer edge of a
-container. Used for orientation and positioning of UI elements.
+        is a position indicator for elements anchored to the outer edge of a container.
+        Used for orientation and positioning of UI elements.
     """
 }
 
@@ -33,8 +33,8 @@ XY struct {
     }
 
     @doc value """
-is a 2D coordinate point with x and y values. Used for positioning
-elements in two-dimensional space.
+        is a 2D coordinate point with x and y values. Used for positioning elements in
+        two-dimensional space.
     """
     @pb
 }
@@ -66,8 +66,8 @@ StickyUnit enum {
     decimal = "decimal"
 
     @doc value """
-is the measurement unit for a sticky coordinate, either pixels or a
-decimal fraction of the container.
+        is the measurement unit for a sticky coordinate, either pixels or a decimal
+        fraction of the container.
     """
 }
 
@@ -108,8 +108,8 @@ StickyXY struct {
     }
 
     @doc value """
-is a position that can be anchored to different corners of a
-container with configurable units (pixels or decimal fractions).
+        is a position that can be anchored to different corners of a container with
+        configurable units (pixels or decimal fractions).
     """
 }
 
@@ -159,8 +159,8 @@ Location enum {
     center = "center"
 
     @doc value """
-        is a position indicator covering the four outer edges of a container
-        and its center.
+        is a position indicator covering the four outer edges of a container and its
+        center.
     """
 }
 
@@ -209,8 +209,8 @@ SignedDimensions struct {
 
     @go omit
     @doc value """
-        is a 2D size whose width and height components carry sign, allowing
-        negative values to express direction.
+        is a 2D size whose width and height components carry sign, allowing negative
+        values to express direction.
     """
 }
 
@@ -224,15 +224,15 @@ ClientXY struct {
 
     @go omit
     @doc value """
-        is a 2D coordinate point expressed in client (viewport) space, matching
-        the shape of DOM mouse events.
+        is a 2D coordinate point expressed in client (viewport) space, matching the
+        shape of DOM mouse events.
     """
 }
 
 Decimal = float64 {
     @doc value    """
-is a normalized value in [0, 1] expressed as a decimal fraction of a
-whole, such as a container's extent.
+        is a normalized value in [0, 1] expressed as a decimal fraction of a whole, such
+        as a container's extent.
     """
     @validate min 0
     @validate max 1
@@ -247,9 +247,9 @@ Bounds struct<T extends numeric = float64> {
     }
 
     @doc value """
-is a closed-open interval [lower, upper) over an ordered numeric value
-space. The TypeScript binding is generic over T so callers can express
-bounds over either number or bigint values; other languages emit a
-concrete float64-based type.
+        is a closed-open interval [lower, upper) over an ordered numeric value space.
+        The TypeScript binding is generic over T so callers can express bounds over
+        either number or bigint values; other languages emit a concrete float64-based
+        type.
     """
 }

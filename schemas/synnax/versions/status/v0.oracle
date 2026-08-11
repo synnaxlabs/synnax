@@ -33,8 +33,8 @@ Status struct<Details> {
     }
     variant     Variant         {
         @doc value """
-indicates the severity of the status. One of success, info,
-warning, error, loading, or disabled.
+            indicates the severity of the status. One of success, info, warning, error,
+            loading, or disabled.
         """
     }
     message     string          {
@@ -57,9 +57,9 @@ warning, error, loading, or disabled.
     }
 
     @doc value  """
-is a standardized message used to communicate state across the Synnax
-platform. Statuses support different severity variants and can carry
-component-specific details.
+        is a standardized message used to communicate state across the Synnax platform.
+        Statuses support different severity variants and can carry component-specific
+        details.
     """
     @go marshal
 }

@@ -24,21 +24,19 @@ Range struct {
     }
     time_range telem.TimeRange {
         @doc value """
-is the temporal extent of the range, defining its start and end
-timestamps.
+            is the temporal extent of the range, defining its start and end timestamps.
         """
     }
     color      color.Color     {
         @doc value """
-is the display color for visual identification of the range in
-user interfaces.
+            is the display color for visual identification of the range in user
+            interfaces.
         """
     }
 
     @doc value  """
-is a user-defined region of time in the Synnax cluster. Ranges act as
-a method for labeling and categorizing telemetry data within specific time
-periods.
+        is a user-defined region of time in the Synnax cluster. Ranges act as a method
+        for labeling and categorizing telemetry data within specific time periods.
     """
     @go marshal
     @go migrate

@@ -20,17 +20,16 @@ Cell struct {
     }
     variant string {
         @doc value """
-is the cell variant identifier (e.g. "text", "value"). The variant
-determines the shape of props and which Pluto cell component renders
-the cell.
+            is the cell variant identifier (e.g. "text", "value"). The variant
+            determines the shape of props and which Pluto cell component renders the
+            cell.
         """
     }
     props   record {
         @doc value        """
-is the variant-specific cell configuration. The shape is determined
-by the variant; the wire format intentionally stores it as an
-opaque record so new variants can be added without a schema
-migration.
+            is the variant-specific cell configuration. The shape is determined by the
+            variant; the wire format intentionally stores it as an opaque record so new
+            variants can be added without a schema migration.
         """
         @ts preserve_case
     }
@@ -43,10 +42,9 @@ CellTemplate struct extends Cell {
     -key
 
     @doc value """
-        is a variant + props pair describing what a cell should look like,
-        without identifying which cell. Used by actions that overwrite
-        existing cells in place (EraseCells), where the target cell's key
-        is provided separately.
+        is a variant + props pair describing what a cell should look like, without
+        identifying which cell. Used by actions that overwrite existing cells in place
+        (EraseCells), where the target cell's key is provided separately.
     """
 }
 
@@ -56,8 +54,8 @@ Row struct {
     }
     cells string[] {
         @doc value """
-is the ordered list of cell keys in this row from left to right.
-Each key points at an entry in the table's cells map.
+            is the ordered list of cell keys in this row from left to right. Each key
+            points at an entry in the table's cells map.
         """
     }
 
@@ -91,10 +89,9 @@ Table struct {
     }
     cells   map<string, Cell> = {} {
         @doc value        """
-contains all cells in the table, keyed by cell key. Cell positions
-are derived from rows[*].cells[*] references; cells not referenced
-by any row are orphaned and will be pruned on the next structural
-edit.
+            contains all cells in the table, keyed by cell key. Cell positions are
+            derived from rows[*].cells[*] references; cells not referenced by any row
+            are orphaned and will be pruned on the next structural edit.
         """
         @ts preserve_case
     }
@@ -103,8 +100,8 @@ edit.
         table Table
 
         @doc value """
-replaces the document with the given created state. Emitted by the Core on
-create so remote caches ingest new documents; clients never dispatch it.
+            replaces the document with the given created state. Emitted by the Core on
+            create so remote caches ingest new documents; clients never dispatch it.
         """
     }
 
@@ -121,21 +118,20 @@ create so remote caches ingest new documents; clients never dispatch it.
         cell_template Cell?
 
         @doc value """
-inserts a row at the given index. Three flows:
+            inserts a row at the given index. Three flows:
 
-1. User gesture with cell_template against a non-empty table:
-   replicate the template once per existing column.
-2. User gesture with cell_template against a fully-empty table:
-   seed a 1x1 grid (one template replica plus one default-sized
-   column).
-3. Undo replay of RemoveRow (cell_template is null, cells is
-   non-empty): use cells as-is. If the original RemoveRow had
-   stripped the table down to no columns, the explicit cells
-   trigger the same column-bootstrap as flow 2.
+            1. User gesture with cell_template against a non-empty table:
+               replicate the template once per existing column.
+            2. User gesture with cell_template against a fully-empty table:
+               seed a 1x1 grid (one template replica plus one default-sized
+               column).
+            3. Undo replay of RemoveRow (cell_template is null, cells is
+               non-empty): use cells as-is. If the original RemoveRow had
+               stripped the table down to no columns, the explicit cells
+               trigger the same column-bootstrap as flow 2.
 
-Derived replica keys come from the template's key with the last
-four hex digits replaced by the column index. Out-of-range
-indices clamp to the end.
+            Derived replica keys come from the template's key with the last four hex
+            digits replaced by the column index. Out-of-range indices clamp to the end.
         """
     }
 
@@ -143,9 +139,8 @@ indices clamp to the end.
         index uint32
 
         @doc value """
-removes the row at the given index. All cells referenced by the
-removed row are also dropped from the cells map. No-op if the
-index is out of range.
+            removes the row at the given index. All cells referenced by the removed row
+            are also dropped from the cells map. No-op if the index is out of range.
         """
     }
 
@@ -156,23 +151,22 @@ index is out of range.
         cell_template Cell?
 
         @doc value """
-inserts a column at the given index. Three flows:
+            inserts a column at the given index. Three flows:
 
-1. User gesture with cell_template against a non-empty table:
-   replicate the template once per existing row.
-2. User gesture with cell_template against a fully-empty table:
-   seed a 1x1 grid (one template replica plus one default-sized
-   row).
-3. Undo replay of RemoveCol (cell_template is null, cells is
-   non-empty): use cells as-is. If the original RemoveCol had
-   stripped the table down to no rows, the explicit cells
-   trigger the same row-bootstrap as flow 2.
+            1. User gesture with cell_template against a non-empty table:
+               replicate the template once per existing row.
+            2. User gesture with cell_template against a fully-empty table:
+               seed a 1x1 grid (one template replica plus one default-sized
+               row).
+            3. Undo replay of RemoveCol (cell_template is null, cells is
+               non-empty): use cells as-is. If the original RemoveCol had
+               stripped the table down to no rows, the explicit cells
+               trigger the same row-bootstrap as flow 2.
 
-Derived replica keys come from the template's key with the last
-four hex digits replaced by the row index. Cells whose row
-index exceeds the row count are added to the cells map but not
-referenced by any row. Out-of-range indices clamp to the end of
-every row's cells list.
+            Derived replica keys come from the template's key with the last four hex
+            digits replaced by the row index. Cells whose row index exceeds the row
+            count are added to the cells map but not referenced by any row. Out-of-range
+            indices clamp to the end of every row's cells list.
         """
     }
 
@@ -180,9 +174,9 @@ every row's cells list.
         index uint32
 
         @doc value """
-removes the column at the given index. All cells in that column
-(across every row) are dropped from the cells map. No-op if the
-index is out of range.
+            removes the column at the given index. All cells in that column (across
+            every row) are dropped from the cells map. No-op if the index is out of
+            range.
         """
     }
 
@@ -208,8 +202,8 @@ index is out of range.
         cell Cell
 
         @doc value """
-replaces the cell at cell.key with the provided value. No-op if
-no cell with that key exists in the table.
+            replaces the cell at cell.key with the provided value. No-op if no cell with
+            that key exists in the table.
         """
     }
 
@@ -218,19 +212,18 @@ no cell with that key exists in the table.
         template CellTemplate
 
         @doc value """
-erases the cells whose keys are in cells. Any row whose every
-cell is in the selection is removed entirely; same for columns.
-Cells that survive that row/column removal have their variant
-and props replaced with the template's, keeping their original
-keys. Cells in the selection whose keys are not in the table's
-cells map are silently skipped.
+            erases the cells whose keys are in cells. Any row whose every cell is in the
+            selection is removed entirely; same for columns. Cells that survive that
+            row/column removal have their variant and props replaced with the
+            template's, keeping their original keys. Cells in the selection whose keys
+            are not in the table's cells map are silently skipped.
         """
     }
 
     @doc value     """
-is a tabular data display component for viewing structured telemetry
-data. Tables support multiple columns, channel data sources, and
-customizable formatting options.
+        is a tabular data display component for viewing structured telemetry data.
+        Tables support multiple columns, channel data sources, and customizable
+        formatting options.
     """
     @go migrate
     @go imex

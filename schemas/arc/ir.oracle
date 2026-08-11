@@ -78,8 +78,8 @@ Transition struct {
     }
     targetKey string? {
         @doc value """
-is the sibling step key to activate. Null when the transition
-exits the scope, yielding to the parent.
+            is the sibling step key to activate. Null when the transition exits the
+            scope, yielding to the parent.
         """
     }
 
@@ -90,8 +90,8 @@ exits the scope, yielding to the parent.
 Member struct {
     nodeKey string? {
         @doc value """
-is the key of the referenced node in IR.nodes. Null when this
-member is a nested scope.
+            is the key of the referenced node in IR.nodes. Null when this member is a
+            nested scope.
         """
     }
     scope   Scope?  {
@@ -99,10 +99,9 @@ member is a nested scope.
     }
 
     @doc value   """
-is a tagged union representing a single child of a Scope. Exactly one
-of nodeKey or scope is set. The member's lookup key (used as the
-target of `=> name` transitions) is derived from the set variant via
-Member.key().
+        is a tagged union representing a single child of a Scope. Exactly one of nodeKey
+        or scope is set. The member's lookup key (used as the target of `=> name`
+        transitions) is derived from the set variant via Member.key().
     """
     @cpp methods "[[nodiscard]] const std::string& key() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Member& m)"
 }
@@ -125,16 +124,15 @@ Scope struct {
     }
     activation  Handle?      {
         @doc value """
-is the handle whose truthy value activates a gated scope. Unset for
-always-live scopes.
+            is the handle whose truthy value activates a gated scope. Unset for
+            always-live scopes.
         """
     }
     strata      Members[]    {
         @doc value """
-contains stratified execution layers for parallel scopes. On
-sequential scopes, strata hold variable nodes that run every
-pass alongside the active step. Stratum N depends only on
-strata 0 to N-1.
+            contains stratified execution layers for parallel scopes. On sequential
+            scopes, strata hold variable nodes that run every pass alongside the active
+            step. Stratum N depends only on strata 0 to N-1.
         """
     }
     steps       Members      {
@@ -144,16 +142,16 @@ strata 0 to N-1.
     }
     transitions Transition[] {
         @doc value """
-contains state-transition rules for sequential scopes. Empty for parallel
-scopes.
+            contains state-transition rules for sequential scopes. Empty for parallel
+            scopes.
         """
     }
 
     @doc value   """
-is the unified Layer 2 execution primitive. Parameterized by mode
-(parallel or sequential) and liveness (always-live or gated). Parallel
-scopes organize members into strata; sequential scopes run one step
-at a time and advance via transitions.
+        is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
+        sequential) and liveness (always-live or gated). Parallel scopes organize
+        members into strata; sequential scopes run one step at a time and advance via
+        transitions.
     """
     @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Scope& s)"
 }
@@ -186,8 +184,8 @@ Function struct {
     }
 
     @doc value   """
-is a function template definition with typed parameters, serving as a
-blueprint for node instantiation.
+        is a function template definition with typed parameters, serving as a blueprint
+        for node instantiation.
     """
     @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Function& f)"
 }
@@ -214,8 +212,7 @@ Node struct {
     }
 
     @doc value   """
-is a concrete instantiation of a function with typed parameters and
-values.
+        is a concrete instantiation of a function with typed parameters and values.
     """
     @cpp methods "[[nodiscard]] std::pair<size_t, x::errors::Error> resolve_input(const std::string& name) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
 }
@@ -252,16 +249,15 @@ IR struct {
     }
     root        Scope       {
         @doc value """
-is the top-level execution context. The root is always a
-parallel, always-live Scope whose strata mix module-scope
-reactive flow with top-level gated scopes.
+            is the top-level execution context. The root is always a parallel,
+            always-live Scope whose strata mix module-scope reactive flow with top-level
+            gated scopes.
         """
     }
 
     @doc value           """
-is the intermediate representation of an Arc program as a dataflow
-graph with stratified execution, bridging semantic analysis and WebAssembly
-compilation.
+        is the intermediate representation of an Arc program as a dataflow graph with
+        stratified execution, bridging semantic analysis and WebAssembly compilation.
     """
     @go fields           "Symbols *symbol.Symbol `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]types.Type `json:\"-\"`"
     @go imports          "github.com/antlr4-go/antlr/v4" "github.com/synnaxlabs/arc/symbol" "github.com/synnaxlabs/arc/types"

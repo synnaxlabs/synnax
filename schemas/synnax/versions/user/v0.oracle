@@ -27,14 +27,14 @@ User struct {
     }
     root_user  bool = false {
         @doc value """
-is true if this is a root/admin user with full system access. Root
-users cannot be deleted.
+            is true if this is a root/admin user with full system access. Root users
+            cannot be deleted.
         """
     }
 
     @doc value  """
-is an account entity representing a person accessing the Synnax system.
-Users can have roles assigned for permission management.
+        is an account entity representing a person accessing the Synnax system. Users
+        can have roles assigned for permission management.
     """
     @go migrate
     @go marshal

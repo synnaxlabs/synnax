@@ -19,9 +19,9 @@ import "schemas/x/telem"
 
 Key uint32 {
     @doc value    """
-is a unique identifier for a channel in the Synnax database. Composed of a node
-key (first 12 bits) and a local key (last 20 bits), enabling distributed
-assignment while maintaining global uniqueness.
+        is a unique identifier for a channel in the Synnax database. Composed of a node
+        key (first 12 bits) and a local key (last 20 bits), enabling distributed
+        assignment while maintaining global uniqueness.
     """
     @go hand
     @go output    "core/pkg/service/channel"
@@ -30,9 +30,9 @@ assignment while maintaining global uniqueness.
 
 LocalKey uint20 {
     @doc value """
-is a 20-bit unsigned integer representing the locally-unique portion of a
-channel key within a node. Combined with a node.Key to form the global channel
-Key.
+        is a 20-bit unsigned integer representing the locally-unique portion of a
+        channel key within a node. Combined with a node.Key to form the global channel
+        Key.
     """
     @go hand
     @go output "core/pkg/service/channel"
@@ -42,9 +42,9 @@ Key.
 
 Name = string {
     @doc value         """
-is a human-readable name for a channel. Must start with a letter or
-underscore and contain only letters, digits, and underscores. Names are
-not guaranteed to be unique across channels.
+        is a human-readable name for a channel. Must start with a letter or underscore
+        and contain only letters, digits, and underscores. Names are not guaranteed to
+        be unique across channels.
     """
     @validate required
     @go output         "core/pkg/service/channel"
@@ -70,8 +70,8 @@ Operation struct {
     }
     reset_channel Key = 0 {
         @doc value """
-is the channel key that triggers reset of the aggregation. If 0,
-duration-based reset is used.
+            is the channel key that triggers reset of the aggregation. If 0,
+            duration-based reset is used.
         """
     }
     duration      telem.TimeSpan = 0 {
@@ -79,9 +79,9 @@ duration-based reset is used.
     }
 
     @doc value  """
-defines an aggregation operation applied to channel data. Operations
-calculate min, max, or average values over a time duration or triggered
-by a reset channel.
+        defines an aggregation operation applied to channel data. Operations calculate
+        min, max, or average values over a time duration or triggered by a reset
+        channel.
     """
     @go marshal
     @go output  "core/pkg/service/channel"
@@ -95,8 +95,8 @@ Channel struct {
     }
     leaseholder node.Key            {
         @doc value """
-is the node that holds the lease for this channel and is authorized to
-accept writes.
+            is the node that holds the lease for this channel and is authorized to
+            accept writes.
         """
         @filter
     }
@@ -106,9 +106,9 @@ accept writes.
     }
     is_index    bool                {
         @doc value """
-is true if this channel is an index channel. Index channels must
-have int64 values (TIMESTAMP data type) written in ascending order,
-and are most commonly unix nanosecond timestamps.
+            is true if this channel is an index channel. Index channels must have int64
+            values (TIMESTAMP data type) written in ascending order, and are most
+            commonly unix nanosecond timestamps.
         """
         @filter
     }
@@ -117,20 +117,20 @@ and are most commonly unix nanosecond timestamps.
     }
     local_index LocalKey            {
         @doc value """
-is the channel used to index this channel's values, associating
-each value with a timestamp.
+            is the channel used to index this channel's values, associating each value
+            with a timestamp.
         """
     }
     virtual     bool                {
         @doc value """
-is true if this channel does not persist data and is used only for
-streaming.
+            is true if this channel does not persist data and is used only for
+            streaming.
         """
     }
     concurrency control.Concurrency {
         @doc value """
-sets the policy for concurrent writes to the channel's data. Only
-virtual channels can have a policy of shared concurrency.
+            sets the policy for concurrent writes to the channel's data. Only virtual
+            channels can have a policy of shared concurrency.
         """
     }
     internal    bool                {
@@ -144,15 +144,15 @@ virtual channels can have a policy of shared concurrency.
     }
     expression  string              {
         @doc value """
-is an Arc expression for calculated channels. If set, the channel
-is automatically configured as virtual.
+            is an Arc expression for calculated channels. If set, the channel is
+            automatically configured as virtual.
         """
     }
 
     @doc value     """
-is an internal representation of a channel containing all storage and
-cluster-routing metadata. This type is used internally by the server;
-clients should use APIChannel instead.
+        is an internal representation of a channel containing all storage and
+        cluster-routing metadata. This type is used internally by the server; clients
+        should use APIChannel instead.
     """
     @go migrate
     @go marshal
@@ -175,8 +175,7 @@ Status = status.Status<nil> {
 APIChannel struct {
     key         Key = 0 {
         @doc value """
-            is the unique identifier for this channel, automatically assigned
-            by Synnax.
+            is the unique identifier for this channel, automatically assigned by Synnax.
         """
         @key
     }
@@ -190,21 +189,21 @@ APIChannel struct {
     }
     data_type   telem.DataType      {
         @doc value """
-            is the data type of samples stored in this channel (e.g., Float64,
-            Int32, TimeStamp).
+            is the data type of samples stored in this channel (e.g., Float64, Int32,
+            TimeStamp).
         """
     }
     is_index    bool = false {
         @doc value """
-            is true if this is an index channel. Index channels must have int64
-            values (TIMESTAMP data type) written in ascending order, and are
-            most commonly unix nanosecond timestamps.
+            is true if this is an index channel. Index channels must have int64 values
+            (TIMESTAMP data type) written in ascending order, and are most commonly unix
+            nanosecond timestamps.
         """
     }
     index       Key = 0 {
         @doc value """
-            is the channel used to index this channel's values, associating
-            each value with a timestamp.
+            is the channel used to index this channel's values, associating each value
+            with a timestamp.
         """
     }
     alias       string?             {
@@ -214,8 +213,8 @@ APIChannel struct {
     }
     virtual     bool = false {
         @doc value """
-            is true if this channel does not store data in the database but can
-            still be used for streaming purposes.
+            is true if this channel does not store data in the database but can still be
+            used for streaming purposes.
         """
         @cpp name  "is_virtual"
     }
@@ -226,20 +225,20 @@ APIChannel struct {
     }
     expression  string = "" {
         @doc value """
-            is an Arc expression for calculated channels. If set, the channel
-            is automatically configured as virtual.
+            is an Arc expression for calculated channels. If set, the channel is
+            automatically configured as virtual.
         """
     }
     operations  Operation[] = [] {
         @doc value """
-            contains optional aggregation operations (min, max, avg) applied to
-            channel data over time or triggered by a reset channel.
+            contains optional aggregation operations (min, max, avg) applied to channel
+            data over time or triggered by a reset channel.
         """
     }
     concurrency control.Concurrency = control.ConcurrencyExclusive {
         @doc value """
-            sets the policy for concurrent writes to the channel's data. Only
-            virtual channels can have a policy of shared concurrency.
+            sets the policy for concurrent writes to the channel's data. Only virtual
+            channels can have a policy of shared concurrency.
         """
     }
     status      Status?             {
@@ -247,9 +246,9 @@ APIChannel struct {
     }
 
     @doc value     """
-        is a logical collection of samples emitted by or representing values
-        from a single source. Channels are the fundamental unit of telemetry
-        storage and streaming in Synnax.
+        is a logical collection of samples emitted by or representing values from a
+        single source. Channels are the fundamental unit of telemetry storage and
+        streaming in Synnax.
     """
     @go output     "core/pkg/api/channel"
     @create

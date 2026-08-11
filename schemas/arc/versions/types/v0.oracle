@@ -32,8 +32,8 @@ Kind enum {
     stage                        = 21
 
     @doc value """
-is the type category for Arc's type system, including primitives, compound
-types, and meta-types.
+        is the type category for Arc's type system, including primitives, compound
+        types, and meta-types.
     """
 }
 
@@ -80,8 +80,8 @@ Type struct extends FunctionProperties {
     }
 
     @doc value """
-is a type in Arc's type system with optional element type for compounds,
-physical units, and constraints.
+        is a type in Arc's type system with optional element type for compounds,
+        physical units, and constraints.
     """
 }
 
@@ -101,8 +101,8 @@ Param struct {
 
 Params Param[] {
     @doc value """
-is a collection of named, typed parameters for function inputs, outputs, or
-configuration.
+        is a collection of named, typed parameters for function inputs, outputs, or
+        configuration.
     """
 }
 

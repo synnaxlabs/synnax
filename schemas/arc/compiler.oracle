@@ -18,13 +18,13 @@ Output struct {
     }
     OutputMemoryBases map<string, uint32> {
         @doc value """
-contains memory base addresses for multi-output functions, mapping
-function keys to their base addresses.
+            contains memory base addresses for multi-output functions, mapping function
+            keys to their base addresses.
         """
     }
 
     @doc value """
-is compiled output from the Arc compiler including WebAssembly bytecode
-and memory layout.
+        is compiled output from the Arc compiler including WebAssembly bytecode and
+        memory layout.
     """
 }

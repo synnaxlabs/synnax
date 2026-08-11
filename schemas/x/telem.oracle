@@ -15,9 +15,9 @@
 
 TimeStamp int64 {
     @doc value """
-is a 64-bit signed integer representing nanoseconds since the Unix epoch
-(1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency
-telemetry timestamps.
+        is a 64-bit signed integer representing nanoseconds since the Unix epoch
+        (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency
+        telemetry timestamps.
     """
     @ts hand
     @cpp hand
@@ -26,9 +26,9 @@ telemetry timestamps.
 
 TimeSpan int64 {
     @doc value """
-is a 64-bit signed integer representing a duration in nanoseconds. Used
-for expressing time intervals, sampling periods, and durations throughout
-the telemetry system.
+        is a 64-bit signed integer representing a duration in nanoseconds. Used for
+        expressing time intervals, sampling periods, and durations throughout the
+        telemetry system.
     """
     @ts hand
     @cpp hand
@@ -44,9 +44,9 @@ TimeRange struct {
     }
 
     @doc value  """
-is a time interval defined by a start and end timestamp. The range is
-start-inclusive and end-exclusive, following standard interval conventions
-for predictable boundary handling.
+        is a time interval defined by a start and end timestamp. The range is
+        start-inclusive and end-exclusive, following standard interval conventions for
+        predictable boundary handling.
     """
     @go marshal
     @ts hand
@@ -67,8 +67,8 @@ TimeRangeBounded = TimeRange {
 
 Rate float64 {
     @doc value """
-is a data sampling rate expressed in Hertz (Hz). Used to specify
-acquisition frequencies and calculate sample counts over time intervals.
+        is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
+        frequencies and calculate sample counts over time intervals.
     """
     @ts hand
     @cpp hand
@@ -77,9 +77,8 @@ acquisition frequencies and calculate sample counts over time intervals.
 
 Size int64 {
     @doc value """
-is a byte measurement used for storage capacity and data volume
-representation. Supports conversion to human-readable formats (B, kB,
-MB, GB, TB).
+        is a byte measurement used for storage capacity and data volume representation.
+        Supports conversion to human-readable formats (B, kB, MB, GB, TB).
     """
     @ts hand
     @cpp hand
@@ -88,9 +87,9 @@ MB, GB, TB).
 
 Alignment uint64 {
     @doc value """
-        is a 64-bit index for positioning samples within multi-array structures.
-        Packs a domain index (which array) and sample index (position within
-        array) into a single value for efficient multi-dimensional data access.
+        is a 64-bit index for positioning samples within multi-array structures. Packs a
+        domain index (which array) and sample index (position within array) into a
+        single value for efficient multi-dimensional data access.
     """
     @ts hand
     @cpp hand
@@ -99,10 +98,9 @@ Alignment uint64 {
 
 DataType string {
     @doc value """
-is a string identifier specifying the format of telemetry samples.
-Supports fixed-density types (Float64, Int32, TimeStamp, etc.) with
-known byte sizes and variable-density types (String, JSON, Bytes) for
-flexible data storage.
+        is a string identifier specifying the format of telemetry samples. Supports
+        fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
+        variable-density types (String, JSON, Bytes) for flexible data storage.
     """
     @ts hand
     @cpp hand

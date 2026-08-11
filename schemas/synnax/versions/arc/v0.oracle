@@ -21,8 +21,7 @@ Mode enum {
     graph = "graph"
 
     @doc value """
-specifies whether an Arc module uses text-based or graph-based
-representation.
+        specifies whether an Arc module uses text-based or graph-based representation.
     """
 }
 
@@ -48,8 +47,8 @@ Arc struct {
     }
     mode    Mode             {
         @doc value """
-specifies the representation mode for this module.
-Either "text" for text-based Arc code or "graph" for visual dataflow.
+            specifies the representation mode for this module. Either "text" for
+            text-based Arc code or "graph" for visual dataflow.
         """
     }
     graph   graph.Graph = {} {
@@ -68,9 +67,9 @@ Either "text" for text-based Arc code or "graph" for visual dataflow.
     }
 
     @doc value  """
-is an Arc module combining visual graph representation and text-based
-source code for reactive control systems. Compiles to WebAssembly for
-sandboxed execution.
+        is an Arc module combining visual graph representation and text-based source
+        code for reactive control systems. Compiles to WebAssembly for sandboxed
+        execution.
     """
     @go marshal
     @go migrate
