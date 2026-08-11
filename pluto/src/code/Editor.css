@@ -275,7 +275,7 @@
     font-family: var(--pluto-code-font-family) !important;
     font-size: var(--pluto-p-size) !important;
     background: var(--pluto-gray-l2) !important;
-    padding: 0.15rem 0.4rem !important;
+    padding: 0.25rem 0.5rem !important;
     border-radius: var(--pluto-border-radius) !important;
 }
 
