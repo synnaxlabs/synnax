@@ -65,9 +65,8 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
 
 const name = Component.renderProp(NameComponent);
 
-const Form: FC<Task.FormProps<DigitalWriteSchemas>> = (props) => (
+const Form: FC = () => (
   <DigitalChannelList
-    {...props}
     createChannel={createDOChannel}
     name={name}
     contextMenuItems={Task.writeChannelContextMenuItems}
