@@ -119,6 +119,7 @@
         fill 0.15s ease-in-out, opacity 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     --pluto-modal-animation: fade-in-zoom 0.15s ease-in-out;
     --pluto-dialog-animation: fade-in-zoom 0.1s ease-in-out;
+    --pluto-frost: blur(3.5rem) saturate(140%);
 }
 
 @media (resolution >= 2dppx) {

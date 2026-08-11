@@ -30,8 +30,8 @@
     border-radius: var(--pluto-border-radius-medium);
     background: color-mix(in srgb, var(--pluto-gray-l2) 75%, transparent);
     box-shadow: var(--pluto-shadow-lift);
-    -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
-    backdrop-filter: blur(3.5rem) saturate(140%);
+    -webkit-backdrop-filter: var(--pluto-frost);
+    backdrop-filter: var(--pluto-frost);
     overflow: hidden;
     animation: pop 0.2s ease-in-out;
 
