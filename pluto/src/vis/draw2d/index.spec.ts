@@ -53,28 +53,27 @@ interface FakeContext {
   lineWidth: number;
 }
 
-const createFakeContext = (): FakeContext =>
-  ({
-    measureText: vi.fn(() => METRICS),
-    beginPath: vi.fn(),
-    stroke: vi.fn(),
-    fill: vi.fn(),
-    arc: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    setLineDash: vi.fn(),
-    fillRect: vi.fn(),
-    strokeRect: vi.fn(),
-    fillText: vi.fn(),
-    roundRect: vi.fn(),
-    closePath: vi.fn(),
-    save: vi.fn(),
-    restore: vi.fn(),
-    font: "10px sans-serif",
-    fillStyle: "#000000",
-    strokeStyle: "#000000",
-    lineWidth: 1,
-  });
+const createFakeContext = (): FakeContext => ({
+  measureText: vi.fn(() => METRICS),
+  beginPath: vi.fn(),
+  stroke: vi.fn(),
+  fill: vi.fn(),
+  arc: vi.fn(),
+  moveTo: vi.fn(),
+  lineTo: vi.fn(),
+  setLineDash: vi.fn(),
+  fillRect: vi.fn(),
+  strokeRect: vi.fn(),
+  fillText: vi.fn(),
+  roundRect: vi.fn(),
+  closePath: vi.fn(),
+  save: vi.fn(),
+  restore: vi.fn(),
+  font: "10px sans-serif",
+  fillStyle: "#000000",
+  strokeStyle: "#000000",
+  lineWidth: 1,
+});
 
 const create = (): [Draw2D, FakeContext] => {
   const fake = createFakeContext();
