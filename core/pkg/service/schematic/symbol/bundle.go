@@ -33,7 +33,7 @@ const (
 // inferred from the files beside the manifest, so it names no members.
 type GroupManifest struct {
 	// Version governs the manifest schema and the bundle's layout rules.
-	Version uint64 `json:"version"`
+	Version uint8 `json:"version"`
 	// Type is the bundle kind, letting an endpoint reject a bundle of another kind.
 	Type string `json:"type"`
 	// Name is the group's name, which an import gives the group it creates.
