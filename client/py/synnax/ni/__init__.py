@@ -17,6 +17,7 @@ from synnax.ni.types import (
     DigitalWriteTask,
 )
 from synnax.ni.types_gen import (
+    CJC,
     AccelSensitivityUnits,
     AccelUnits,
     AIAccel4WireDCVoltageChannel,
@@ -83,7 +84,6 @@ from synnax.ni.types_gen import (
     CITwoEdgeSepChannel,
     CIVelocityAngularChannel,
     CIVelocityLinearChannel,
-    CJC,
     CJCBuiltIn,
     CJCChan,
     CJCConstVal,
