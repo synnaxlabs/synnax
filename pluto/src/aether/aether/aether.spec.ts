@@ -356,6 +356,21 @@ describe("Aether Worker", () => {
         expect(c.deletef).toHaveBeenCalled();
       });
     });
+
+    describe("clearChildren", () => {
+      it("should delete every child and keep the composite itself alive", () => {
+        update(composite, ["test", "dog"], 2, () => createLeaf("dog"));
+        update(composite, ["test", "cat"], 3, () => createLeaf("cat"));
+        const [dog, cat] = composite.children;
+        composite.clearChildren();
+        expect(composite.children).toHaveLength(0);
+        expect(dog.deletef).toHaveBeenCalledTimes(1);
+        expect(cat.deletef).toHaveBeenCalledTimes(1);
+        expect(composite.deletef).not.toHaveBeenCalled();
+        update(composite, ["test", "bird"], 4, () => createLeaf("bird"));
+        expect(composite.children).toHaveLength(1);
+      });
+    });
   });
 
   describe("context propagation", () => {
@@ -863,6 +878,41 @@ describe("message", () => {
       });
       expect(first).not.toHaveBeenCalled();
       expect(second).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("clear", () => {
+    it("should delete the whole tree with lifecycle and leave the root usable", () => {
+      const [workerSide, mainSide] = aether.createMockPair();
+      const root = aether.render({
+        worker: workerSide,
+        registry: { composite: ExampleComposite, leaf: ExampleLeaf },
+      });
+      mainSide.send({
+        variant: "update",
+        path: ["root", "a"],
+        type: "composite",
+        state: { x: 1 },
+      });
+      mainSide.send({
+        variant: "update",
+        path: ["root", "a", "b"],
+        type: "leaf",
+        state: { x: 2 },
+      });
+      const comp = root.children[0] as ExampleComposite;
+      const leaf = comp.children[0] as ExampleLeaf;
+      mainSide.send({ variant: "clear" });
+      expect(leaf.deletef).toHaveBeenCalledTimes(1);
+      expect(comp.deletef).toHaveBeenCalledTimes(1);
+      expect(root.children).toHaveLength(0);
+      mainSide.send({
+        variant: "update",
+        path: ["root", "c"],
+        type: "leaf",
+        state: { x: 3 },
+      });
+      expect(root.children).toHaveLength(1);
     });
   });
 });

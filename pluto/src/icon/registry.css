@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto--spin {
-    animation: spin 1s infinite linear;
-}
-
 /* Default transform-box for SVG elements is view-box, so center resolves to
    the icon's midpoint and both stars orbit it. */
 .pluto-icon--loading .pluto-loading__orbit {
