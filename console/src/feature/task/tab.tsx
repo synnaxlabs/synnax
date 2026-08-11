@@ -47,9 +47,8 @@ const Content: Panel.Content = () => {
   return <Form taskKey={key} />;
 };
 
-const Name: Panel.TabName = () => {
+const Name: Panel.TabName = ({ allowRename = true }) => {
   const tabKey = PPanel.useTabKey();
-  const isEditTarget = Panel.useIsNameEditTarget();
   const { key } = PPanel.useTabResource();
   Base.useEnsure({ key });
   const name = Base.useName({ key });
@@ -58,9 +57,10 @@ const Name: Panel.TabName = () => {
   return (
     <>
       {getIcon(data?.type ?? "")}
-      <Text.Editable
-        id={isEditTarget ? Panel.tabNameID(tabKey) : undefined}
+      <Text.MaybeEditable
+        id={Panel.tabNameID(tabKey)}
         value={name}
+        disabled={!allowRename}
         onChange={(name) => rename({ key, name })}
       />
     </>
