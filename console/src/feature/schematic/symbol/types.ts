@@ -32,6 +32,7 @@ const legacyGroupManifestZ = z.object({
 /**
  * The Core-written manifest. Membership is every JSON file beside it, so the manifest
  * declares no members.
+ * NOTE: This will be remove once group importing is moved server-side.
  */
 const coreGroupManifestZ = z.object({
   version: z.literal(2),
