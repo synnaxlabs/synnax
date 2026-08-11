@@ -359,8 +359,12 @@ protected:
 
     /// @brief asserts that no status for task is reported by a driver on this rack.
     /// The Core writes placeholder statuses on create with no rack stamped, so the
-    /// rack key is what separates them from driver reports.
-    void expect_no_driver_status(const synnax::task::Task &task) {
+    /// rack key is what separates them from driver reports. Pass any_rack = true for
+    /// a task never created, where every status is a defect.
+    void expect_no_driver_status(
+        const synnax::task::Task &task,
+        const bool any_rack = false
+    ) {
         std::atomic<bool> received = false;
         std::thread reader([&] {
             while (true) {
@@ -369,7 +373,8 @@ protected:
                 for (const auto &j: frame.series->at(0).json_values()) {
                     auto parser = x::json::Parser(j);
                     auto s = synnax::task::Status::parse(parser);
-                    if (s.details.task == task.key && s.details.rack == rack.key)
+                    if (s.details.task == task.key &&
+                        (any_rack || s.details.rack == rack.key))
                         received = true;
                 }
             }
@@ -420,7 +425,9 @@ TEST_F(TaskManagerTest, NoConfigureOnCreate) {
 }
 
 TEST_F(TaskManagerTest, Delete) {
-    start_manager(std::make_unique<EchoTaskFactory>());
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
@@ -432,10 +439,16 @@ TEST_F(TaskManagerTest, Delete) {
         return s.message == "configured";
     });
     ASSERT_NIL(rack.tasks.del(task.key));
-    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
-        return s.message == "stopped";
-    });
-    ASSERT_EQ(s.details.task, task.key);
+    std::shared_ptr<TrackingTaskState> state;
+    {
+        std::lock_guard lock(f->mu);
+        state = f->task_states[0];
+    }
+    EVENTUALLY([&] { return state->stopped.load(); }, [] { return "not stopped"; });
+    // The delete teardown is silent: a status written now would recreate the
+    // one the delete removed.
+    ASSERT_TRUE(state->stop_will_reconfigure.load());
+    expect_no_driver_status(task, true);
 }
 
 TEST_F(TaskManagerTest, RackMoveStopsLiveInstanceSilently) {
@@ -508,6 +521,20 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
     ASSERT_NIL(other.tasks.create(task));
     send_start(client, task);
     expect_no_driver_status(task);
+}
+
+TEST_F(TaskManagerTest, StartForNonexistentTaskStaysSilent) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    // Never created: the deploy fetch fails with NOT_FOUND, which must stay
+    // silent so the driver cannot recreate a status the delete removed.
+    const auto task = synnax::task::Task{
+        .key = x::uuid::create(),
+        .rack = rack.key,
+        .name = "t",
+        .type = "echo",
+    };
+    send_start(client, task);
+    expect_no_driver_status(task, true);
 }
 
 TEST_F(TaskManagerTest, StopOnShutdown) {
@@ -668,7 +695,7 @@ TEST_F(TaskManagerTest, StartWithUnchangedConfigDoesNotReconfigure) {
     ASSERT_EVENTUALLY_EQ(f->task_states[1]->exec_count.load(), 1);
 }
 
-TEST_F(TaskManagerTest, StartWithCommandHashRunsLiveInstance) {
+TEST_F(TaskManagerTest, StartWithStaleCommandHashRedeploys) {
     auto factory = std::make_unique<TrackingTaskFactory>();
     auto *f = factory.get();
     start_manager(std::move(factory));
@@ -692,12 +719,49 @@ TEST_F(TaskManagerTest, StartWithCommandHashRunsLiveInstance) {
     ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
     const auto deployed_hash = task.config_hash;
 
-    // A start naming the deployed hash runs the live instance, even though the
-    // stored config has moved on.
+    // A start naming the deployed hash cannot hold the fast path once the
+    // stored config has moved on: the new revision deploys.
     task.config = x::json::json{{"rate", 100}};
     ASSERT_NIL(rack.tasks.create(task));
     ASSERT_NE(task.config_hash, deployed_hash);
     send_start(client, task, "s2", deployed_hash);
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 2;
+        },
+        [] { return "task not redeployed"; }
+    );
+    ASSERT_EVENTUALLY_TRUE(state->stopped.load());
+    ASSERT_EVENTUALLY_EQ(f->task_states[1]->exec_count.load(), 1);
+}
+
+TEST_F(TaskManagerTest, StaleCommandHashOnCurrentDeployRunsLiveInstance) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    auto state = f->task_states[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+
+    // A disagreeing hash forces the retrieve, and the retrieve proves the
+    // deployed config is current: the live instance runs, no rebuild.
+    send_start(client, task, "s2", "hash-nobody-has");
     ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 2);
     {
         std::lock_guard lock(f->mu);

@@ -138,6 +138,7 @@ func (f *factory) ConfigureTask(
 		task:       t,
 		cfg:        cfg,
 		prog:       prog,
+		status:     driver.NewStatusHandler(f.cfg.Status, t),
 	}
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.

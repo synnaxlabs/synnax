@@ -466,10 +466,20 @@ describe("Triggers", () => {
       expect(stages()).not.toContain("start");
     });
 
-    it("should deliver the release while inactive so a held key cannot stick", () => {
+    it("should withhold the release when the press was withheld", () => {
       const { stages } = renderScoped({ active: false });
       pressA();
-      expect(stages()).toEqual(["end"]);
+      expect(stages()).toEqual([]);
+    });
+
+    it("should deliver the release after deactivation so a held key cannot stick", () => {
+      let active = true;
+      const { stages } = renderScoped({ active: () => active });
+      fireEvent.keyDown(document.body, { code: "KeyA" });
+      active = false;
+      fireEvent.keyUp(document.body, { code: "KeyA" });
+      vi.advanceTimersByTime(500);
+      expect(stages()).toEqual(["start", "end"]);
     });
 
     it("should read a getter at fire time rather than at render", () => {
@@ -1438,6 +1448,30 @@ describe("Triggers", () => {
         const low = vi.fn();
         const C = () => {
           Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
+          Triggers.use({ callback: low, triggers: [["B"]], priority: 0 });
+          return <div>Hello</div>;
+        };
+        render(
+          <Triggers.Provider>
+            <C />
+          </Triggers.Provider>,
+        );
+        fireEvent.keyDown(document.body, { code: "KeyA" });
+        expect(high).toHaveBeenCalledOnce();
+        expect(low).not.toHaveBeenCalled();
+        fireEvent.keyUp(document.body, { code: "KeyA" });
+        fireEvent.keyDown(document.body, { code: "KeyB" });
+        expect(low).toHaveBeenCalledOnce();
+        expect(low.mock.calls[0][0].stage).toBe("start");
+      });
+
+      it("should withhold the release from a subscriber whose press was stopped", () => {
+        const high = vi.fn((e: Triggers.UseEvent) => {
+          if (e.stage === "start") e.stopPropagation();
+        });
+        const low = vi.fn();
+        const C = () => {
+          Triggers.use({ callback: high, triggers: [["A"]], priority: 100 });
           Triggers.use({ callback: low, triggers: [["A"]], priority: 0 });
           return <div>Hello</div>;
         };
@@ -1447,10 +1481,8 @@ describe("Triggers", () => {
           </Triggers.Provider>,
         );
         fireEvent.keyDown(document.body, { code: "KeyA" });
-        expect(low).not.toHaveBeenCalled();
         fireEvent.keyUp(document.body, { code: "KeyA" });
-        expect(low).toHaveBeenCalledOnce();
-        expect(low.mock.calls[0][0].stage).toBe("end");
+        expect(low).not.toHaveBeenCalled();
       });
     });
   });

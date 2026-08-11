@@ -250,15 +250,20 @@ public:
         return {std::move(task), x::errors::NIL};
     }
 
+    /// @brief starts the task. A task whose runtime is already running is not
+    /// restarted: the command is answered with the current status.
     bool start(const std::string &cmd_key) {
         const auto start = x::telem::TimeStamp::now();
-        const auto runtime_started = this->runtime->start();
+        if (!this->runtime->start()) {
+            this->state.ack(cmd_key, true);
+            return false;
+        }
         auto acq_started = true;
         if (this->acquisition) acq_started = this->acquisition->start(start);
         auto control_started = true;
         if (this->control) control_started = this->control->start();
         this->state.send_start(cmd_key);
-        return acq_started && control_started && runtime_started;
+        return acq_started && control_started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {
