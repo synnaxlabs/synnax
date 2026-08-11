@@ -31,7 +31,7 @@ func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
 func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := gob.NewDecoder(r).Decode(value); err != nil {
 		data, ioErr := io.ReadAll(r)
-		return encoding.SugarDecodingErr(data, value, errors.Combine(err, ioErr))
+		return encoding.SugarDecodingError(data, value, errors.Combine(err, ioErr))
 	}
 	return nil
 }
@@ -47,7 +47,7 @@ func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
 func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	err := gob.NewEncoder(w).Encode(value)
 	if err != nil {
-		return encoding.SugarEncodingErr(value, err)
+		return encoding.SugarEncodingError(value, err)
 	}
 	return nil
 }

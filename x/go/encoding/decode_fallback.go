@@ -17,15 +17,13 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// decodeFallbackCodec wraps a set of Codecs. When the first Codec in the chain fails to
-// decode a value, it falls back to the next Codec in the chain.
 type decodeFallbackCodec struct{ codecs []Codec }
 
+// NewDecodeFallbackCodec creates a new Codec that wraps the given Codec and falls back
+// to the next Codec in the chain if the first Codec fails to decode a value.
 func NewDecodeFallbackCodec(base Codec, codecs ...Codec) Codec {
 	return &decodeFallbackCodec{codecs: append([]Codec{base}, codecs...)}
 }
-
-var _ Codec = (*decodeFallbackCodec)(nil)
 
 func (f *decodeFallbackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
 	return f.codecs[0].Encode(ctx, value)
@@ -60,9 +58,6 @@ func (f *decodeFallbackCodec) DecodeStream(
 	r io.Reader,
 	value any,
 ) error {
-	if len(f.codecs) == 0 {
-		panic("[encoding] - no codecs provided to decodeFallbackCodec")
-	}
 	// We need to read out all the data here, otherwise an initial codec that fails will
 	// leave the reader in a bad state. It's not ideal, but we need to do it.
 	data, err := io.ReadAll(r)

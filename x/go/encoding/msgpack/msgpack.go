@@ -32,7 +32,7 @@ func (*codec) ContentType() string { return "application/msgpack" }
 func (*codec) Decode(_ context.Context, data []byte, value any) error {
 	err := msgpack.Unmarshal(data, value)
 	if err != nil {
-		return encoding.SugarDecodingErr(data, value, err)
+		return encoding.SugarDecodingError(data, value, err)
 	}
 	return nil
 }
@@ -44,7 +44,7 @@ func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	msgpack.PutDecoder(dec)
 	if err != nil {
 		data, ioErr := io.ReadAll(r)
-		return encoding.SugarDecodingErr(data, value, errors.Combine(err, ioErr))
+		return encoding.SugarDecodingError(data, value, errors.Combine(err, ioErr))
 	}
 	return nil
 }
@@ -52,7 +52,7 @@ func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := msgpack.Marshal(value)
 	if err != nil {
-		return nil, encoding.SugarEncodingErr(value, err)
+		return nil, encoding.SugarEncodingError(value, err)
 	}
 	return b, nil
 }
@@ -63,7 +63,7 @@ func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	err := enc.Encode(value)
 	msgpack.PutEncoder(enc)
 	if err != nil {
-		return encoding.SugarEncodingErr(value, err)
+		return encoding.SugarEncodingError(value, err)
 	}
 	return nil
 }

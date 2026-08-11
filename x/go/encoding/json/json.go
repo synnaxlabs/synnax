@@ -29,7 +29,7 @@ func (*codec) ContentType() string { return "application/json" }
 
 func (*codec) Decode(_ context.Context, data []byte, value any) error {
 	if err := json.Unmarshal(data, value); err != nil {
-		return encoding.SugarDecodingErr(data, value, err)
+		return encoding.SugarDecodingError(data, value, err)
 	}
 	return nil
 }
@@ -37,7 +37,7 @@ func (*codec) Decode(_ context.Context, data []byte, value any) error {
 func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 	if err := json.NewDecoder(r).Decode(value); err != nil {
 		data, ioErr := io.ReadAll(r)
-		return encoding.SugarDecodingErr(data, value, errors.Combine(err, ioErr))
+		return encoding.SugarDecodingError(data, value, errors.Combine(err, ioErr))
 	}
 	return nil
 }
@@ -45,14 +45,14 @@ func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
 func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
 	b, err := json.Marshal(value)
 	if err != nil {
-		return nil, encoding.SugarEncodingErr(value, err)
+		return nil, encoding.SugarEncodingError(value, err)
 	}
 	return b, nil
 }
 
 func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	if err := json.NewEncoder(w).Encode(value); err != nil {
-		return encoding.SugarEncodingErr(value, err)
+		return encoding.SugarEncodingError(value, err)
 	}
 	return nil
 }
@@ -87,24 +87,6 @@ func UnmarshalStringInt64(b []byte) (int64, error) {
 	return v, nil
 }
 
-// UnmarshalStringUint64 attempts to unmarshal the uint64 directly. If that fails, it
-// attempts to convert a string to a uint64.
-func UnmarshalStringUint64(b []byte) (uint64, error) {
-	var n uint64
-	if err := json.Unmarshal(b, &n); err == nil {
-		return n, nil
-	}
-	var str string
-	if err := json.Unmarshal(b, &str); err != nil {
-		return 0, err
-	}
-	v, err := strconv.ParseUint(str, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return v, nil
-}
-
 // UnmarshalStringUint32 attempts to unmarshal the uint32 directly. If that fails, it
 // attempts to convert a string to a uint32.
 func UnmarshalStringUint32(b []byte) (uint32, error) {
@@ -121,4 +103,22 @@ func UnmarshalStringUint32(b []byte) (uint32, error) {
 		return 0, err
 	}
 	return uint32(v), nil
+}
+
+// UnmarshalStringUint64 attempts to unmarshal the uint64 directly. If that fails, it
+// attempts to convert a string to a uint64.
+func UnmarshalStringUint64(b []byte) (uint64, error) {
+	var n uint64
+	if err := json.Unmarshal(b, &n); err == nil {
+		return n, nil
+	}
+	var str string
+	if err := json.Unmarshal(b, &str); err != nil {
+		return 0, err
+	}
+	v, err := strconv.ParseUint(str, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return v, nil
 }
