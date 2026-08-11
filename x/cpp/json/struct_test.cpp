@@ -11,6 +11,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/struct.h"
+#include "x/cpp/json/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
 namespace x::json {
@@ -178,9 +179,13 @@ TEST(ToStruct, ArrayValues) {
 
 /// @brief it should return a validation error for non-object JSON input.
 TEST(ToStruct, NonObjectError) {
-    const json j = "not an object";
-    auto [pb, err] = to_struct(j);
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS_P(to_struct(json("not an object")), errors::VALIDATION);
+}
+
+/// @brief it should return a validation error for an object nested deeper than the
+/// protobuf JSON parser accepts.
+TEST(ToStruct, DeeplyNestedError) {
+    ASSERT_OCCURRED_AS_P(to_struct(deeply_nested_object()), errors::VALIDATION);
 }
 
 /// @brief it should populate a Struct pointer from a JSON object.
@@ -194,10 +199,8 @@ TEST(ToStructPointer, PopulatesStruct) {
 
 /// @brief it should return a validation error for non-object JSON via pointer overload.
 TEST(ToStructPointer, NonObjectError) {
-    const json j = json::array({1, 2, 3});
     google::protobuf::Struct pb;
-    const auto err = to_struct(j, &pb);
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS(to_struct(json::array({1, 2, 3}), &pb), errors::VALIDATION);
 }
 
 /// @brief it should round-trip a complex JSON object through to_struct and from_struct.
