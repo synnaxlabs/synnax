@@ -55,11 +55,8 @@ TEST(ToAny, ValueConversionErrorPropagates) {
     ASSERT_OCCURRED_AS_P(to_any(deeply_nested_object()), errors::VALIDATION);
 }
 
-TEST(FromAny, EmptyAnyReturnsEmptyObject) {
-    google::protobuf::Any any;
-    const auto result = ASSERT_NIL_P(from_any(any));
-    ASSERT_TRUE(result.is_object());
-    ASSERT_TRUE(result.empty());
+TEST(FromAny, EmptyAnyReturnsNull) {
+    ASSERT_TRUE(ASSERT_NIL_P(from_any(google::protobuf::Any())).is_null());
 }
 
 TEST(FromAny, PackedStructUnpacks) {

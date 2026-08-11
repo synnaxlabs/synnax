@@ -187,9 +187,7 @@ TEST(StatusTest, DetailsRoundTrip) {
     const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(s.key));
     EXPECT_EQ(retrieved.key, s.key);
     EXPECT_EQ(retrieved.message, s.message);
-    const auto details_json = retrieved.details;
-    EXPECT_TRUE(details_json.is_object());
-    EXPECT_TRUE(details_json.empty());
+    EXPECT_TRUE(retrieved.details.is_null());
 }
 
 /// @brief it should round-trip details that are not an object.

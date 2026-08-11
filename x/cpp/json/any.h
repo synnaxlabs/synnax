@@ -33,11 +33,11 @@ inline std::pair<google::protobuf::Any, errors::Error> to_any(const json &j) {
 }
 
 /// @brief Converts a google::protobuf::Any that holds a Value or a Struct to json.
-/// @param any The Any to convert. An unset Any converts to an empty object.
+/// @param any The Any to convert. An unset Any converts to null.
 /// @returns A pair containing the JSON and an error if one occurred.
 inline std::pair<nlohmann::json, errors::Error>
 from_any(const google::protobuf::Any &any) {
-    if (any.type_url().empty()) return {json::object(), errors::NIL};
+    if (any.type_url().empty()) return {json(), errors::NIL};
     if (google::protobuf::Value v; any.UnpackTo(&v)) return from_value(v);
     // Peers on releases before value packing send a Struct.
     if (google::protobuf::Struct s; any.UnpackTo(&s)) return from_struct(s);
