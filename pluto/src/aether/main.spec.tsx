@@ -1613,6 +1613,27 @@ describe("Aether Main", () => {
       expect(leaf.key).toBe("duplicate");
       expect(leaf.state.x).toBe(2);
     });
+    it("should run afterDelete on worker components orphaned at dispose", () => {
+      // A render React discards after useLifecycle registers leaves a worker-side
+      // component no delete message will ever name. dispose() must clear the tree so
+      // the orphan releases its resources.
+      const [workerSide, mainSide] = aether.createMockPair();
+      const root = aether.render({
+        worker: workerSide,
+        registry: { [ExampleLeaf.TYPE]: ExampleLeaf },
+      });
+      const store = new Aether.Store({ worker: mainSide });
+      store.register({
+        type: ExampleLeaf.TYPE,
+        schema: exampleProps,
+        path: ["root", "leaked"],
+        initialState: { x: 0 },
+      });
+      const leaf = root.children[0] as ExampleLeaf;
+      store.dispose();
+      expect(leaf.deletef).toHaveBeenCalledTimes(1);
+      expect(root.children).toHaveLength(0);
+    });
     it("should keep leaves that share a key under different parents independent", async () => {
       // Two plots charting the same channel produce lines with identical keys. Identity
       // is the full path, not the leaf key, so neither plot evicts the other's line.
