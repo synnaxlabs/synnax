@@ -94,7 +94,7 @@ export const Splash = (): ReactElement => {
   });
 
   return (
-    <Flex.Box y empty className={CSS.B("project-splash")}>
+    <Flex.Box y full empty className={CSS(CSS.B("screen"), CSS.B("project-splash"))}>
       <SplashNav />
       <Flex.Box
         y

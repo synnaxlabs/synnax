@@ -9,12 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-login {
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-}
-
 .console-login__content {
     cursor: default;
 }

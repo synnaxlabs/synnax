@@ -9,12 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-project-splash {
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-}
-
 .console-project-splash__content {
     cursor: default;
 }

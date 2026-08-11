@@ -102,7 +102,7 @@ export const Login = ({ nav = true }: LoginProps): ReactElement => {
   );
 
   return (
-    <Flex.Box y empty className={CSS.B("login")}>
+    <Flex.Box y full empty className={CSS(CSS.B("screen"), CSS.B("login"))}>
       {nav && <LoginNav />}
       <Flex.Box
         y
