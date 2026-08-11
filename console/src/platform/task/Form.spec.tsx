@@ -11,7 +11,7 @@ import { device, type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -23,7 +23,7 @@ import {
   renderTaskFormHook,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { getIconButton, uniqueName } from "@/testutil";
 
 const schemas = {
   type: z.literal("test_task"),
@@ -34,10 +34,10 @@ const schemas = {
   statusData: z.object({ running: z.boolean() }).nullish(),
 };
 
-const ChildForm: FC<Task.FormProps<typeof schemas>> = () => <div>child-form-body</div>;
+const ChildForm: FC = () => <div>child-form-body</div>;
 ChildForm.displayName = "TestChildForm";
 
-const RackProbe: FC<Task.FormProps<typeof schemas>> = () => (
+const RackProbe: FC = () => (
   <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>
 );
 RackProbe.displayName = "RackProbe";
@@ -45,7 +45,7 @@ RackProbe.displayName = "RackProbe";
 interface MakeRendererParams {
   showControls?: boolean;
   onConfigure?: Task.OnConfigure<(typeof schemas)["config"]>;
-  Form?: FC<Task.FormProps<typeof schemas>>;
+  Form?: FC;
   deployConfigZ?: z.ZodType;
 }
 
@@ -117,6 +117,25 @@ describe("wrapForm", () => {
     expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeNull();
   });
 
+  it("should keep the controls on the driver status through an autosave", async () => {
+    const client = createTestClient();
+    const tsk = await createTask(client);
+    const Renderer = createRenderer();
+    const { container } = await renderTaskFormTab(Renderer, {
+      client,
+      taskKey: tsk.key,
+    });
+    const input = findNameInput();
+    fireEvent.change(input, { target: { value: "Renamed Test Task" } });
+    fireEvent.blur(input);
+    await waitFor(async () => {
+      const updated = await client.tasks.retrieve({ key: tsk.key });
+      expect(updated.name).toBe("Renamed Test Task");
+    });
+    expect(screen.queryByText(/updating task|updated task/iu)).toBeNull();
+    expect(getIconButton(container, "play").disabled).toBe(false);
+  });
+
   describe("rack", () => {
     it("should load it from the retrieved task", async () => {
       const client = createTestClient();
@@ -141,7 +160,7 @@ describe("wrapForm", () => {
   });
 
   describe("deploy validation gate", () => {
-    const DeviceStatusProbe: FC<Task.FormProps<typeof schemas>> = () => {
+    const DeviceStatusProbe: FC = () => {
       const { status } = PForm.useField<string>("config.device");
       return <div>{`device-status:${status.message}`}</div>;
     };
@@ -220,7 +239,7 @@ describe("wrapForm", () => {
         config: { device: deviceKey, channels: [] },
       });
       let renders = 0;
-      const CountingForm: FC<Task.FormProps<typeof schemas>> = () => {
+      const CountingForm: FC = () => {
         renders++;
         return <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>;
       };
