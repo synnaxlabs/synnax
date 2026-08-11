@@ -331,8 +331,8 @@
 
 .pluto-tabs__tab .pluto-tabs__unsaved {
     flex-shrink: 0;
-    height: 0.9em;
-    width: 0.9em;
+    height: round(0.9em, 1px);
+    width: round(0.9em, 1px);
     fill: var(--pluto-gray-l9);
 }
 

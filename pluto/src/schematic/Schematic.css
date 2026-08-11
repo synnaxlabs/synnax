@@ -13,11 +13,6 @@
     position: absolute;
     inset: 0;
     z-index: 10;
-    pointer-events: none;
-
-    & > * {
-        pointer-events: auto;
-    }
 }
 
 .pluto-schematic {
@@ -80,10 +75,10 @@
         & .react-flow__handle {
             display: block !important;
             border-width: 2px !important;
-            min-width: 1.4rem !important;
-            min-height: 1.4rem !important;
-            width: 1.4rem !important;
-            height: 1.4rem !important;
+            min-width: 1.5rem !important;
+            min-height: 1.5rem !important;
+            width: 1.5rem !important;
+            height: 1.5rem !important;
             pointer-events: all !important;
             border-radius: 50%;
             z-index: 1;

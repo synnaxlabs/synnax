@@ -74,7 +74,10 @@ const Content = () => {
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Toolbar.Content className={CSS(CSS.B("arc-toolbar"), menuProps.className)}>
         <Toolbar.Header>
-          <Toolbar.Title icon={<Icon.Arc />}>Arcs</Toolbar.Title>
+          <Toolbar.Title>
+            <Icon.Arc />
+            Arcs
+          </Toolbar.Title>
           <Actions handleCreate={create} />
         </Toolbar.Header>
         <Toolbar.Body>

@@ -70,4 +70,38 @@ describe("Select.Button", () => {
       "pluto--selected",
     );
   });
+
+  describe("preview", () => {
+    const renderButtons = (preview?: boolean, onChange = vi.fn()) =>
+      render(
+        <Select.Buttons keys={[1, 2]} value={1} onChange={onChange} preview={preview}>
+          <Select.Button itemKey={1}>Option 1</Select.Button>
+          <Select.Button itemKey={2}>Option 2</Select.Button>
+        </Select.Buttons>,
+      );
+
+    it("should mark every button as a preview", () => {
+      const c = renderButtons(true);
+      expect(c.getByText("Option 1").closest("button")?.classList).toContain(
+        "pluto-btn--preview",
+      );
+      expect(c.getByText("Option 2").closest("button")?.classList).toContain(
+        "pluto-btn--preview",
+      );
+    });
+
+    it("should not mark any button when preview is unset", () => {
+      const c = renderButtons();
+      expect(c.getByText("Option 1").closest("button")?.classList).not.toContain(
+        "pluto-btn--preview",
+      );
+    });
+
+    it("should swallow clicks while previewing", () => {
+      const onChange = vi.fn();
+      const c = renderButtons(true, onChange);
+      fireEvent.click(c.getByText("Option 2"));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+  });
 });

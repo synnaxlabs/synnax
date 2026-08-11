@@ -12,6 +12,7 @@ import "@/feature/project/Splash.css";
 import { project, UnexpectedError } from "@synnaxlabs/client";
 import {
   Access,
+  Button as PButton,
   Flex,
   Header,
   Icon,
@@ -100,10 +101,10 @@ export const Splash = (): ReactElement => {
               Projects
             </Header.Title>
             <Header.Actions>
-              <Button.Quiet size="medium" onClick={logout}>
+              <PButton.Button variant="text" color={9} size="medium" onClick={logout}>
                 <Icon.Logout />
                 Log Out
-              </Button.Quiet>
+              </PButton.Button>
             </Header.Actions>
           </Header.Header>
           {hasRetrievePermission && (data.length > 0 || searchTerm !== "") && (
@@ -138,9 +139,9 @@ export const Splash = (): ReactElement => {
             <Flex.Box grow />
           )}
           {hasCreatePermission ? (
-            <Button.Create size="large" onClick={() => openCreate()}>
+            <Button.CreateListItem size="large" onClick={() => openCreate()}>
               New Project
-            </Button.Create>
+            </Button.CreateListItem>
           ) : (
             <Text.Text color={9} className={CSS.BE("project-splash", "denied")}>
               You do not have permission to create a project.
