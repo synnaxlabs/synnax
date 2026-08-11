@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,7 +29,7 @@ var db *gorp.DB
 
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
+	db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

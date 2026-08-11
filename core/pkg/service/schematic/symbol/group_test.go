@@ -16,23 +16,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
-
-// Group specs run on the per-spec tx so every row rolls back, but the fixtures they
-// read must be committed, so each one is created outside the tx.
 
 func createGroup(ctx SpecContext, parent ontology.ID) group.Group {
 	GinkgoHelper()
 	g := MustSucceed(groupSvc.NewWriter(nil).Create(ctx, "deletable", parent))
 	DeferCleanup(func(ctx SpecContext) {
-		// The spec may already have deleted it inside a committed tx.
-		Expect(errors.Skip(
-			groupSvc.NewWriter(nil).Delete(ctx, g.Key), query.ErrNotFound,
-		)).To(Succeed())
+		Expect(groupSvc.NewWriter(nil).Delete(ctx, g.Key)).To(Succeed())
 	})
 	return g
 }
@@ -45,9 +37,7 @@ func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 	}
 	Expect(svc.NewWriter(nil).Create(ctx, &sym, g.OntologyID())).To(Succeed())
 	DeferCleanup(func(ctx SpecContext) {
-		Expect(errors.Skip(
-			svc.NewWriter(nil).Delete(ctx, sym.Key), query.ErrNotFound,
-		)).To(Succeed())
+		Expect(svc.NewWriter(nil).Delete(ctx, sym.Key)).To(Succeed())
 	})
 	return sym
 }
@@ -74,6 +64,21 @@ var _ = Describe("DeleteGroup", func() {
 		g := createGroup(ctx, proj.OntologyID())
 		Expect(deleteGroup(ctx, g.Key)).To(Succeed())
 	})
+	It("Should move a child that is not a schematic symbol to the permanent group",
+		func(ctx SpecContext) {
+			g := createGroup(ctx, proj.OntologyID())
+			stray := createGroup(ctx, g.OntologyID())
+			Expect(deleteGroup(ctx, g.Key)).To(Succeed())
+			var parents []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(stray.OntologyID()).
+				TraverseTo(ontology.ParentsTraverser).
+				Entries(&parents).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(parents).To(HaveLen(1))
+			Expect(parents[0].ID).To(Equal(svc.Group().OntologyID()))
+		},
+	)
 	It("Should reject an id no symbol key can come from", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.OntologyID())
 		Expect(svc.DeleteGroup(ctx, tx, g.Key, []ontology.ID{
@@ -93,13 +98,12 @@ var _ = Describe("RetrieveGroupSymbols", func() {
 		g := createGroup(ctx, proj.OntologyID())
 		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).To(BeEmpty())
 	})
-	It("Should reject a group holding a non-symbol child", func(ctx SpecContext) {
+	It("Should skip a child that is not a schematic symbol", func(ctx SpecContext) {
 		g := createGroup(ctx, proj.OntologyID())
 		createGroup(ctx, g.OntologyID())
-		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("not a schematic symbol")),
-		))
+		sym := createSymbol(ctx, g)
+		Expect(svc.RetrieveGroupSymbols(ctx, tx, g.Key)).
+			To(ConsistOf(symbol.OntologyID(sym.Key)))
 	})
 	It("Should return not found for a missing group", func(ctx SpecContext) {
 		Expect(svc.RetrieveGroupSymbols(ctx, tx, uuid.New())).Error().

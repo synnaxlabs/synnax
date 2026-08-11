@@ -167,14 +167,13 @@ var _ = Describe("ExportGroup", func() {
 		Expect(svc.ExportGroup(ctx, uuid.New(), xjson.Codec)).Error().
 			To(MatchError(query.ErrNotFound))
 	})
-	It("Should reject a group holding a non-symbol child", func(ctx SpecContext) {
+	It("Should skip a child that is not a schematic symbol", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
 		createGroup(ctx, "Nested", g.OntologyID())
-		Expect(svc.ExportGroup(ctx, g.Key, xjson.Codec)).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`cannot export group "Valves"`)),
-			MatchError(ContainSubstring("not a schematic symbol")),
-		))
+		sym := createSymbol(ctx, g, "Ball Valve")
+		files, members := MustSucceed2(svc.ExportGroup(ctx, g.Key, xjson.Codec))
+		Expect(fileNames(files)).To(ConsistOf("manifest.json", "Ball Valve.json"))
+		Expect(members).To(ConsistOf(symbol.OntologyID(sym.Key)))
 	})
 	DescribeTable("Should reject two symbols that take one file name",
 		func(ctx SpecContext, first, second string) {

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 )
@@ -54,7 +55,7 @@ func (e benchLargeEntry) SetOptions() []any { return nil }
 
 func setupBenchDB(b *testing.B) *gorp.DB {
 	b.Helper()
-	db := gorp.Wrap(memkv.New())
+	db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 	b.Cleanup(func() {
 		if err := db.Close(); err != nil {
 			b.Fatal(err)

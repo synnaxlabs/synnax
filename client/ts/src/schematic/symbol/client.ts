@@ -221,10 +221,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
 
   /**
    * Deletes the group and every symbol in it. The Core removes both in a single
-   * transaction, so a failure leaves the group and its symbols untouched.
+   * transaction, so a failure leaves the group and its symbols untouched. A child that
+   * is not a symbol survives: the Core moves it to the permanent symbol group.
    *
    * @param key - the key of the group to delete.
-   * @throws {ValidationError} if the group holds a resource that is not a symbol.
    */
   async deleteGroup(key: group.Key): Promise<void> {
     const groupID = group.ontologyID(key);

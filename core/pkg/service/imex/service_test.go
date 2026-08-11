@@ -22,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -59,6 +60,36 @@ var _ gorp.Entry[string] = testEntry{}
 func (e testEntry) GorpKey() string { return e.Key }
 
 func (testEntry) SetOptions() []any { return nil }
+
+// EncodeOrc implements orc.SelfEncoder so the entry can persist through the
+// production gorp codec, which requires it.
+func (e testEntry) EncodeOrc(w *orc.Writer) error {
+	w.String(e.Key)
+	w.String(e.Name)
+	w.String(e.FieldOne)
+	w.Int64(int64(e.FieldTwo))
+	return nil
+}
+
+// DecodeOrc implements orc.SelfDecoder.
+func (e *testEntry) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if e.Key, err = r.String(); err != nil {
+		return err
+	}
+	if e.Name, err = r.String(); err != nil {
+		return err
+	}
+	if e.FieldOne, err = r.String(); err != nil {
+		return err
+	}
+	n, err := r.Int64()
+	if err != nil {
+		return err
+	}
+	e.FieldTwo = int(n)
+	return nil
+}
 
 // testService is a minimal in-memory ImportExporter used to exercise the ImEx registry
 // without depending on any concrete service. Imports decode the typed payload, allocate

@@ -302,16 +302,22 @@ describe("Symbol Client", () => {
       expect(archive).toContain("Inlet.json");
     });
 
-    it("should error when the group holds a resource that is not a symbol", async () => {
+    it("should skip a resource that is not a symbol", async () => {
       const exported = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: `symbol-export-${id.create()}`,
       });
-      await client.groups.create({
-        parent: group.ontologyID(exported.key),
-        name: "Nested",
+      const parent = group.ontologyID(exported.key);
+      await client.groups.create({ parent, name: "Nested" });
+      await client.schematics.symbols.create({
+        name: "Inlet",
+        data: SYMBOL_DATA,
+        parent,
       });
-      await expect(download(exported.key)).rejects.toThrow("not a schematic symbol");
+      const archive = await download(exported.key);
+      expect(archive).toContain("manifest.json");
+      expect(archive).toContain("Inlet.json");
+      expect(archive).not.toContain("Nested");
     });
   });
 
@@ -390,7 +396,7 @@ describe("Symbol Client", () => {
       }
     });
 
-    it("should error when the group holds a resource that is not a symbol", async () => {
+    it("should skip a resource that is not a symbol", async () => {
       const target = await createTarget();
       const parent = group.ontologyID(target.key);
       const created = await client.schematics.symbols.create({
@@ -398,13 +404,17 @@ describe("Symbol Client", () => {
         data: SYMBOL_DATA,
         parent,
       });
-      await client.groups.create({ parent, name: "Nested" });
-      await expect(client.schematics.symbols.deleteGroup(target.key)).rejects.toThrow(
-        "not a schematic symbol",
+      const stray = await client.groups.create({ parent, name: "Nested" });
+      await client.schematics.symbols.deleteGroup(target.key);
+      await expect(client.schematics.symbols.retrieve(created.key)).rejects.toThrow(
+        NotFoundError,
       );
-      // The delete never landed, so the members must survive in the cache too.
-      const remaining = await client.schematics.symbols.retrieve({ parent });
-      expect(remaining.map((s) => s.key)).toEqual([created.key]);
+      // The stray survives the delete under the permanent symbol group.
+      const root = await client.schematics.symbols.retrieveGroup();
+      const parents = await client.ontology.retrieveParents(
+        group.ontologyID(stray.key),
+      );
+      expect(parents.map((p) => p.id.key)).toEqual([root.key]);
     });
   });
 });

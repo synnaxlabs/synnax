@@ -13,7 +13,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { filename } from "@synnaxlabs/x";
 
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
@@ -43,7 +43,7 @@ export const export_ = (
     name = proj.name;
     await Runtime.downloadStream({
       stream: await client.projects.export(proj.key),
-      name: strings.sanitizeFileName(name, ARCHIVE_EXTENSION),
+      name: filename.sanitize(name, ARCHIVE_EXTENSION),
       addStatus,
     });
   }, `Failed to export ${name}`);

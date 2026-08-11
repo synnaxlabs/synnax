@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Files maps entry names to file contents. A name is a relative path from the archive
@@ -30,8 +31,9 @@ import (
 type Files = map[string][]byte
 
 // Encoder encodes a Files value into a zip archive with one entry per file. Entries are
-// written in sorted name order, so equal Files always encode to equal bytes. Encoding
-// any other value, and an invalid entry name, both return encoding.ErrEncode.
+// written in sorted name order, so equal Files always encode to equal bytes. Encoding a
+// value that is not a Files fails, and an invalid entry name returns an error wrapping
+// validate.ErrValidation.
 var Encoder http.Encoder = encoder{}
 
 type encoder struct{}
@@ -49,7 +51,7 @@ func (e encoder) Encode(ctx context.Context, value any) ([]byte, error) {
 func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	files, ok := value.(Files)
 	if !ok {
-		return encoding.SugarEncodingErr(
+		return encoding.SugarEncodingError(
 			value, errors.New("value is not zip.Files"),
 		)
 	}
@@ -65,36 +67,38 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	for _, name := range names {
 		f, err := zw.Create(name)
 		if err != nil {
-			return encoding.SugarEncodingErr(value, err)
+			return encoding.SugarEncodingError(value, err)
 		}
 		if _, err = f.Write(files[name]); err != nil {
-			return encoding.SugarEncodingErr(value, err)
+			return encoding.SugarEncodingError(value, err)
 		}
 	}
-	return encoding.SugarEncodingErr(value, zw.Close())
+	return encoding.SugarEncodingError(value, zw.Close())
 }
 
-// validateEntryName returns an error wrapping encoding.ErrEncode when name is not a
-// relative forward-slash path of non-empty segments: an empty name, a backslash, a
+// validateEntryName returns an error wrapping validate.ErrValidation when name is not
+// a relative forward-slash path of non-empty segments: an empty name, a backslash, a
 // leading, trailing, or doubled slash, or a "." or ".." segment. It names the offender
-// itself rather than going through encoding.SugarEncodingErr, which reports the whole
+// itself rather than going through encoding.SugarEncodingError, which reports the whole
 // file map and drops the reason.
 func validateEntryName(name string) error {
 	if name == "" {
-		return errors.Wrap(encoding.ErrEncode, "file name is empty")
+		return errors.Wrap(validate.ErrValidation, "file name is empty")
 	}
 	if strings.Contains(name, `\`) {
-		return errors.Wrapf(encoding.ErrEncode, "file name %q holds a backslash", name)
+		return errors.Wrapf(
+			validate.ErrValidation, "file name %q holds a backslash", name,
+		)
 	}
 	for segment := range strings.SplitSeq(name, "/") {
 		switch segment {
 		case "":
 			return errors.Wrapf(
-				encoding.ErrEncode, "file name %q holds an empty path segment", name,
+				validate.ErrValidation, "file name %q holds an empty path segment", name,
 			)
 		case ".", "..":
 			return errors.Wrapf(
-				encoding.ErrEncode, "file name %q addresses a directory", name,
+				validate.ErrValidation, "file name %q addresses a directory", name,
 			)
 		}
 	}

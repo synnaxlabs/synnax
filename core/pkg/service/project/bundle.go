@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/os"
+	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -76,8 +76,8 @@ func (s *Service) Export(
 	}
 	manifestFileName := manifestBaseName + w.ext
 	reserved := map[string]string{
-		os.FoldFileName(manifestFileName):     manifestFileName,
-		os.FoldFileName(legacyLayoutFileName): legacyLayoutFileName,
+		filename.Fold(manifestFileName):     manifestFileName,
+		filename.Fold(legacyLayoutFileName): legacyLayoutFileName,
 	}
 	if err := w.directory(OntologyID(key), "", reserved); err != nil {
 		return nil, nil, err
@@ -145,7 +145,7 @@ func (w *bundleWalk) directory(
 	// claimed maps each folded file name to the resource that took it.
 	claimed := make(map[string]string, len(children))
 	claim := func(resourceName, fileName string) error {
-		folded := os.FoldFileName(fileName)
+		folded := filename.Fold(fileName)
 		if display, ok := reserved[folded]; ok {
 			return errors.Wrapf(
 				validate.ErrValidation,
@@ -166,7 +166,7 @@ func (w *bundleWalk) directory(
 	for _, child := range children {
 		switch {
 		case child.ID.Type == ontology.ResourceTypeGroup:
-			dirName, err := os.SanitizeFileName(child.Name, "")
+			dirName, err := filename.Sanitize(child.Name, "")
 			if err != nil {
 				return err
 			}
@@ -183,7 +183,7 @@ func (w *bundleWalk) directory(
 			}
 			w.members = append(w.members, child.ID)
 		case child.ID.Type == ontology.ResourceTypePanel:
-			fileName, err := os.SanitizeFileName(child.Name, w.ext)
+			fileName, err := filename.Sanitize(child.Name, w.ext)
 			if err != nil {
 				return err
 			}
@@ -194,7 +194,7 @@ func (w *bundleWalk) directory(
 			w.panelPaths = append(w.panelPaths, prefix+fileName)
 			w.members = append(w.members, child.ID)
 		case w.svc.cfg.ImEx.ExporterRegistered(child.ID.Type):
-			fileName, err := os.SanitizeFileName(child.Name, w.ext)
+			fileName, err := filename.Sanitize(child.Name, w.ext)
 			if err != nil {
 				return err
 			}

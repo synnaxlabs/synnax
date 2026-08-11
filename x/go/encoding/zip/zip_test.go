@@ -16,9 +16,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/encoding"
 	xzip "github.com/synnaxlabs/x/encoding/zip"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // read unpacks b into the file map it was encoded from.
@@ -67,7 +67,7 @@ var _ = Describe("Encoder", func() {
 		DescribeTable("Should reject a value that is not a file map",
 			func(ctx SpecContext, value any) {
 				Expect(xzip.Encoder.Encode(ctx, value)).Error().
-					To(MatchError(encoding.ErrEncode))
+					To(MatchError(ContainSubstring("failed to encode")))
 			},
 			Entry("a struct", struct{ Name string }{Name: "valve"}),
 			Entry("a string map", map[string]string{"a.json": "1"}),
@@ -85,7 +85,7 @@ var _ = Describe("Encoder", func() {
 			func(ctx SpecContext, name, reason string) {
 				Expect(xzip.Encoder.Encode(ctx, xzip.Files{name: []byte("1")})).Error().
 					To(SatisfyAll(
-						MatchError(encoding.ErrEncode),
+						MatchError(validate.ErrValidation),
 						MatchError(ContainSubstring(reason)),
 					))
 			},
@@ -110,7 +110,7 @@ var _ = Describe("Encoder", func() {
 		It("Should reject a value that is not a file map", func(ctx SpecContext) {
 			var buf bytes.Buffer
 			Expect(xzip.Encoder.EncodeStream(ctx, &buf, "valve")).
-				To(MatchError(encoding.ErrEncode))
+				To(MatchError(ContainSubstring("failed to encode")))
 		})
 		It("Should write nothing when an entry name is invalid", func(
 			ctx SpecContext,
@@ -118,7 +118,7 @@ var _ = Describe("Encoder", func() {
 			files := xzip.Files{"a.json": []byte("1"), `nested\b.json`: []byte("2")}
 			var buf bytes.Buffer
 			Expect(xzip.Encoder.EncodeStream(ctx, &buf, files)).
-				To(MatchError(encoding.ErrEncode))
+				To(MatchError(validate.ErrValidation))
 			Expect(buf.Bytes()).To(BeEmpty())
 		})
 	})
