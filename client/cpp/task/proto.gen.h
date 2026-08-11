@@ -31,8 +31,11 @@ StatusDetails::to_proto() const {
     pb.set_task(static_cast<uint64_t>(this->task));
     pb.set_running(this->running);
     pb.set_cmd(this->cmd);
-    if (this->data.has_value())
-        *pb.mutable_data() = x::json::to_struct(*this->data).first;
+    if (this->data.has_value()) {
+        auto [v, err] = x::json::to_struct(*this->data);
+        if (err) return {{}, err};
+        *pb.mutable_data() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -55,7 +58,11 @@ inline std::pair<::service::task::pb::Task, x::errors::Error> Task::to_proto() c
     pb.set_key(static_cast<uint64_t>(this->key));
     pb.set_name(this->name);
     pb.set_type(this->type);
-    *pb.mutable_config() = x::json::to_struct(this->config).first;
+    {
+        auto [v, err] = x::json::to_struct(this->config);
+        if (err) return {{}, err};
+        *pb.mutable_config() = v;
+    }
     pb.set_internal(this->internal);
     pb.set_snapshot(this->snapshot);
     if (this->status.has_value()) {
@@ -93,7 +100,11 @@ Command::to_proto() const {
     pb.set_task(static_cast<uint64_t>(this->task));
     pb.set_type(this->type);
     pb.set_key(this->key);
-    *pb.mutable_args() = x::json::to_struct(this->args).first;
+    {
+        auto [v, err] = x::json::to_struct(this->args);
+        if (err) return {{}, err};
+        *pb.mutable_args() = v;
+    }
     return {pb, x::errors::NIL};
 }
 

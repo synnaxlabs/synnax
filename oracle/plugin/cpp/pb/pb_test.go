@@ -543,14 +543,20 @@ var _ = Describe("C++ PB Plugin", func() {
 					Config struct {
 						name string
 						metadata record
+						extra record?
 					}
 				`
 					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// Forward: use mutable_* and to_struct
-							"*pb.mutable_metadata() = x::json::to_struct(this->metadata).first",
+							// Forward: use mutable_* and to_struct, propagating the
+							// conversion error.
+							"auto [v, err] = x::json::to_struct(this->metadata)",
+							"*pb.mutable_metadata() = v;",
+							"if (this->extra.has_value())",
+							"auto [v, err] = x::json::to_struct(*this->extra)",
+							"*pb.mutable_extra() = v;",
 							// Backward: use inline error handling with from_struct
 							"x::json::from_struct(pb.metadata())",
 							"if (err) return {{}, err}",
@@ -558,6 +564,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						ToNotContain(
 							// Should NOT use set_metadata for json type
 							"pb.set_metadata(",
+							// The conversion error must never be dropped.
+							"x::json::to_struct(this->metadata).first",
+							"x::json::to_struct(*this->extra).first",
 						)
 				},
 			)
@@ -1620,13 +1629,25 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
-							// Forward: compile-time branch on Details via if constexpr,
-							// ultimately calling x::json::to_any.
-							"if constexpr (std::is_same_v<Details, std::monostate>)",
-							"*pb.mutable_details() = x::json::to_any",
+							// Forward, json branch: null leaves the field unset.
+							"if (!this->details.is_null())",
+							"auto [v, err] = x::json::to_any(this->details)",
+							// Forward, other branch: a monostate emits nothing, and a
+							// null to_json() leaves the field unset.
+							"if constexpr (!std::is_same_v<Details, std::monostate>)",
+							"if (const auto j = this->details.to_json(); !j.is_null())",
+							"auto [v, err] = x::json::to_any(j)",
+							"*pb.mutable_details() = v;",
 							// Backward: x::json::from_any with Parser::parse fallback.
-							"auto [val, err] = x::json::from_any(pb.details())",
-							"Details::parse(x::json::Parser(val))",
+							"auto [v, err] = x::json::from_any(pb.details())",
+							"cpp.details = v;",
+							"Details::parse(x::json::Parser(v))",
+						).
+						ToNotContain(
+							// A monostate never packs a null Value.
+							"x::json::json(nullptr)",
+							// The conversion error must never be dropped.
+							"*pb.mutable_details() = x::json::to_any(this->details)",
 						)
 				},
 			)
@@ -1647,10 +1668,21 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					ExpectContent(resp, "proto.gen.h").
 						ToContain(
+							// Forward, json branch: an absent or null value leaves the
+							// field unset.
+							"if (this->details.has_value() && !this->details->is_null())",
+							"auto [v, err] = x::json::to_any(*this->details)",
+							// Forward, other branch: same guards behind the constexpr.
 							"if (this->details.has_value())",
-							"*pb.mutable_details() = x::json::to_any",
+							"if (const auto j = this->details->to_json(); !j.is_null())",
+							"auto [v, err] = x::json::to_any(j)",
+							"*pb.mutable_details() = v;",
 							"if (pb.has_details())",
-							"auto [val, err] = x::json::from_any(pb.details())",
+							"auto [v, err] = x::json::from_any(pb.details())",
+						).
+						ToNotContain(
+							// The conversion error must never be dropped.
+							"*pb.mutable_details() = x::json::to_any(*this->details)",
 						)
 				},
 			)
