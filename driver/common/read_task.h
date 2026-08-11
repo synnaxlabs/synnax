@@ -225,11 +225,14 @@ public:
     }
 
     /// @brief starts the task, using the given command key as a reference for
-    /// communicating task state.
+    /// communicating task state. A task that is already running is not restarted:
+    /// the command is answered with the current status.
     bool start(const std::string &cmd_key) {
-        this->stop("", false);
+        if (this->pipe.running()) {
+            this->state.ack(cmd_key, true);
+            return false;
+        }
         this->state.reset();
-        if (this->pipe.running()) return false;
         const auto start_ok = !this->state.error(this->source->internal->start());
         if (start_ok) this->pipe.start();
         this->state.send_start(cmd_key);

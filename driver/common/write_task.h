@@ -260,9 +260,15 @@ public:
 
     /// @brief starts the task.
     /// @param cmd_key - A reference to the command key used to execute the start.
-    /// Will be used internally to communicate the task state.
+    /// Will be used internally to communicate the task state. A task that is
+    /// already running is not restarted: the command is answered with the current
+    /// status.
     bool start(const std::string &cmd_key) {
-        this->stop("", false);
+        if (this->cmd_write_pipe.running()) {
+            this->state.ack(cmd_key, true);
+            return false;
+        }
+        this->state.reset();
         const auto sink_started = !this->state.error(this->sink->internal->start());
         if (sink_started) {
             this->cmd_write_pipe.start();
