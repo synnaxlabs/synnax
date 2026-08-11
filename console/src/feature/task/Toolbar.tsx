@@ -153,7 +153,10 @@ const Content = () => {
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
         <Toolbar.Header>
-          <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
+          <Toolbar.Title>
+            <Icon.Task />
+            Tasks
+          </Toolbar.Title>
           {hasCreatePermission && (
             <Toolbar.Actions>
               <Toolbar.Action

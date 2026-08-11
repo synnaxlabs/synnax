@@ -25,7 +25,7 @@
     width: max-content;
     height: max-content;
     position: absolute;
-    --offset: 0.666rem;
+    --offset: calc(2rem / 3);
     justify-content: center;
     align-items: center;
     outline: none;
@@ -79,7 +79,7 @@
 }
 
 .pluto-symbol__label {
-    --offset: 0.666rem;
+    --offset: calc(2rem / 3);
     &:not(:focus) {
         -webkit-user-select: none;
         user-select: none;

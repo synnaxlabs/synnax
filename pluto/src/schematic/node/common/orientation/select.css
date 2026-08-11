@@ -13,18 +13,20 @@
     position: relative;
     aspect-ratio: 1;
 
-    .symbol {
+    .pluto-select-orientation__bar {
         height: 2px;
         width: calc(100% - 9px);
         background-color: var(--pluto-gray-l10);
         border-radius: var(--pluto-border-radius);
     }
 
-    &.pluto-value {
-        border: none;
+    &.pluto-select-orientation__inner {
+        background: var(--pluto-gray-l1);
+        border-radius: var(--pluto-border-radius);
     }
 
-    .pluto-value {
+    .pluto-select-orientation__inner {
+        background: var(--pluto-gray-l1);
         border: var(--pluto-border);
         border-radius: var(--pluto-border-radius);
         padding: 0.5rem;
@@ -33,7 +35,7 @@
         }
     }
 
-    & button.pluto--height-tiny.pluto--square {
+    & button.pluto-btn.pluto-select-orientation__btn {
         min-width: 3rem;
         max-width: 3rem;
         min-height: 2.5rem;
@@ -41,10 +43,10 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        &.pluto--selected .symbol {
+        &.pluto--selected .pluto-select-orientation__bar {
             background-color: var(--pluto-selected-color);
         }
-        & .symbol {
+        & .pluto-select-orientation__bar {
             top: unset;
             left: unset;
         }

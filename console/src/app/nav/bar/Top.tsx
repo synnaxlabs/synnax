@@ -63,7 +63,11 @@ export interface TopProps {
 export const Top = ({ secondary = false }: TopProps): ReactElement => {
   const os = OS.use();
   return (
-    <PlatformNav.Bar location="top" size="var(--top-bar-size)" data-tauri-drag-region>
+    <PlatformNav.Bar
+      location="top"
+      size="var(--console-top-bar-size)"
+      data-tauri-drag-region
+    >
       <Nav.Bar.Start data-tauri-drag-region gap="large">
         <Window.Controls visibleIfOS="macOS" forceOS={os} />
         {secondary && os === "Windows" && <BottomToggleButton />}

@@ -7,33 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/button/Create.css";
+import "@/platform/button/CreateListItem.css";
 
-import { Icon } from "@synnaxlabs/pluto";
+import { Button, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Quiet, type QuietProps } from "@/platform/button/Quiet";
 import { CSS } from "@/platform/css";
 
-export interface CreateProps extends Omit<QuietProps, "size"> {
-  /** Row scale matching the list the button sits under. */
+export interface CreateListItemProps extends Omit<Button.ButtonProps, "size"> {
+  /** Item scale matching the list the button sits under. */
   size?: "small" | "medium" | "large";
 }
 
-/** A pinned create row styled to read as a list's last row. */
-export const Create = ({
+/** A pinned create action styled to read as a list's last item. */
+export const CreateListItem = ({
   className,
   size = "medium",
   children,
   ...rest
-}: CreateProps): ReactElement => (
-  <Quiet
-    full="x"
+}: CreateListItemProps): ReactElement => (
+  <Button.Button
+    variant="text"
+    color={9}
     justify="start"
-    className={CSS(CSS.B("create-btn"), CSS.M(size), className)}
+    className={CSS(CSS.B("create-list-item"), CSS.M(size), className)}
     {...rest}
   >
     <Icon.Add />
     {children}
-  </Quiet>
+  </Button.Button>
 );

@@ -10,10 +10,8 @@
  */
 
 .console-main {
-    --top-bar-size: 7rem;
+    --console-top-bar-size: 7rem;
 
-    height: 100%;
-    width: 100%;
     overflow: hidden;
     background: var(--pluto-gray-l2);
 
