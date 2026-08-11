@@ -26,9 +26,9 @@ const useAdd = (): (() => void) => {
 const CreateButton = () => {
   const onClick = useAdd();
   return (
-    <Button.Create size="small" onClick={onClick}>
+    <Button.CreateListItem size="small" onClick={onClick}>
       New Label
-    </Button.Create>
+    </Button.CreateListItem>
   );
 };
 

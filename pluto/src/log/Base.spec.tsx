@@ -140,10 +140,39 @@ describe("log/Base", () => {
       expect(scrollingResults(setState, state)).toContain(true);
     });
 
-    it("should leave aether state alone when hold matches scrolling", () => {
+    it("should not pause when the hold prop is false", () => {
       const { setState, state } = setupAether({ empty: false, scrolling: false });
       renderLog({ hold: false });
       expect(scrollingResults(setState, state)).not.toContain(true);
+    });
+
+    it("should sync a false hold prop into a paused aether state", () => {
+      const { setState, state } = setupAether({ empty: false, scrolling: true });
+      renderLog({ hold: false });
+      expect(scrollingResults(setState, state)).toContain(false);
+    });
+
+    it("should leave aether scrolling alone when no hold prop is given", () => {
+      const { setState, state } = setupAether({ empty: false, scrolling: true });
+      renderLog();
+      const results = scrollingResults(setState, state);
+      expect(results).not.toContain(undefined);
+      expect(results).not.toContain(false);
+    });
+
+    it("should write the pause into aether state on the H trigger", () => {
+      const { setState, state } = setupAether({ empty: false, scrolling: false });
+      renderLog({ enableTriggers: true });
+      fireEvent.keyDown(document.body, { code: "KeyH" });
+      fireEvent.keyUp(document.body, { code: "KeyH" });
+      expect(scrollingResults(setState, state)).toContain(true);
+    });
+
+    it("should write the pause into aether state on scroll up", () => {
+      const { setState, state } = setupAether({ empty: false, scrolling: false });
+      const { container } = renderLog();
+      fireEvent.wheel(getLogDiv(container), { deltaY: -100 });
+      expect(scrollingResults(setState, state)).toContain(true);
     });
 
     it("should call onHold on scroll up", () => {

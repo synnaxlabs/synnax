@@ -51,10 +51,9 @@ export const ValueForm = ({ onVariantChange }: FormProps) => (
             padHelpText={false}
             path="color"
           >
-            {({ value, onChange, preview: _, ...rest }) => (
+            {({ value, ...rest }) => (
               <Color.Swatch
                 value={value ?? color.setAlpha(color.ZERO, 1)}
-                onChange={onChange}
                 {...rest}
                 bordered
               />
@@ -66,9 +65,7 @@ export const ValueForm = ({ onVariantChange }: FormProps) => (
             hideIfNull
             padHelpText={false}
           >
-            {({ value, onChange, preview: _, ...rest }) => (
-              <Select.Text.Level value={value} onChange={onChange} {...rest} />
-            )}
+            {(p) => <Select.Text.Level {...p} />}
           </Form.Field>
         </Flex.Box>
       </ValueFormWrapper>
@@ -93,19 +90,13 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
     </Input.Item>
     <Form.TextField path="value" label="Text" />
     <Form.Field<text.Level> path="level" label="Size" hideIfNull padHelpText={false}>
-      {({ value, onChange, preview: _, ...rest }) => (
-        <Select.Text.Level value={value} onChange={onChange} {...rest} />
-      )}
+      {(p) => <Select.Text.Level {...p} />}
     </Form.Field>
     <Form.Field<text.Weight> path="weight" label="Weight" padHelpText={false}>
-      {({ value, onChange, preview: _, ...rest }) => (
-        <Select.Text.Weight value={value} onChange={onChange} {...rest} />
-      )}
+      {(p) => <Select.Text.Weight {...p} />}
     </Form.Field>
     <Form.Field<Flex.Alignment> path="align" label="Alignment" hideIfNull>
-      {({ value, onChange, preview: _, ...rest }) => (
-        <Select.Flex.Alignment value={value} onChange={onChange} {...rest} />
-      )}
+      {(p) => <Select.Flex.Alignment {...p} />}
     </Form.Field>
     <Form.Field<color.Crude>
       path="backgroundColor"

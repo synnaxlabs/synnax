@@ -185,9 +185,9 @@ export const Selector = (): ReactElement | null => {
             onContextMenu={menuProps.open}
             footer={
               hasCreatePermission && (
-                <Button.Create size="small" onClick={handleCreate}>
+                <Button.CreateListItem size="small" onClick={handleCreate}>
                   New Project
-                </Button.Create>
+                </Button.CreateListItem>
               )
             }
           >

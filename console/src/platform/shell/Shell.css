@@ -11,10 +11,7 @@
 
 .console-shell {
     position: relative;
-    height: 100%;
-    width: 100%;
     overflow: hidden;
-    box-shadow: var(--pluto-shadow-v0);
 }
 
 .console-shell__content {
@@ -88,7 +85,7 @@
     -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
     backdrop-filter: blur(3.5rem) saturate(140%);
     border: var(--pluto-border-width) solid var(--pluto-gray-l6);
-    box-shadow: var(--pluto-shadow-v2);
+    box-shadow: var(--pluto-shadow-lift);
 }
 
 /* One fixed size, so guard handoffs read as content changes, not page swaps. */
@@ -119,7 +116,7 @@
 .console--card-surface .console-shell__card {
     background: var(--pluto-gray-l0);
     border: var(--pluto-border-width) solid var(--pluto-gray-l6);
-    box-shadow: var(--pluto-shadow-v2);
+    box-shadow: var(--pluto-shadow-lift);
 }
 
 .console--card-outline .console-shell__card {
