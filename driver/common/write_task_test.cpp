@@ -230,4 +230,58 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_EQ(state_fr.at<uint8_t>(3, 0), 1);
     ASSERT_GE(state_fr.at<x::telem::TimeStamp>(2, 0), start_ts);
 }
+
+/// @brief a start on a running task should ack the command without reopening
+/// the sink.
+TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
+    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        cmd_reads
+    );
+    synnax::channel::Channel state;
+    state.key = 3;
+    state.data_type = x::telem::UINT8_T;
+    state.index = 2;
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    auto errors = std::make_shared<std::vector<x::errors::Error>>();
+    auto sink = std::make_unique<MockSink>(
+        x::telem::HERTZ * 10,
+        std::set<synnax::channel::Key>{2},
+        std::vector{state},
+        std::vector<synnax::channel::Key>{1},
+        false,
+        writes,
+        errors
+    );
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(sink),
+        mock_writer_factory,
+        mock_streamer_factory
+    );
+    ASSERT_TRUE(write_task.start("cmd"));
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(
+        mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
+        1
+    );
+    ASSERT_FALSE(write_task.start("cmd_2"));
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
+    auto ack_state = ctx->statuses[1];
+    EXPECT_EQ(ack_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(ack_state.details.cmd, "cmd_2");
+    EXPECT_EQ(ack_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ack_state.message, "Task started successfully");
+    EXPECT_EQ(ack_state.details.running, true);
+    // The live sink was not closed and reopened.
+    EXPECT_EQ(mock_streamer_factory->streamer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_TRUE(write_task.stop("stop_cmd", true));
+}
 }

@@ -188,6 +188,47 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     EXPECT_EQ(second.message, "task validation error");
 }
 
+/// @brief ack should re-send the current status unchanged, stamping the command.
+TEST(TestTaskStateHandler, testAckReSendsCurrentStatus) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+    };
+    auto handler = StatusHandler(ctx, task);
+
+    handler.send_start("cmd_key");
+    handler.send_warning("Task degraded");
+    handler.ack("cmd_key_2", true);
+    ASSERT_GE(ctx->statuses.size(), 3);
+    const auto third = ctx->statuses[2];
+    EXPECT_EQ(third.key, synnax::task::status_key(task));
+    EXPECT_EQ(third.details.cmd, "cmd_key_2");
+    EXPECT_EQ(third.details.task, task.key);
+    EXPECT_EQ(third.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(third.message, "Task degraded");
+    EXPECT_EQ(third.details.running, true);
+}
+
+/// @brief ack before any send should answer with the seeded configured status.
+TEST(TestTaskStateHandler, testAckBeforeAnySend) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+    };
+    auto handler = StatusHandler(ctx, task);
+
+    handler.ack("cmd_key", false);
+    ASSERT_GE(ctx->statuses.size(), 1);
+    const auto first = ctx->statuses[0];
+    EXPECT_EQ(first.key, synnax::task::status_key(task));
+    EXPECT_EQ(first.details.cmd, "cmd_key");
+    EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(first.message, "Task configured");
+    EXPECT_EQ(first.details.running, false);
+}
+
 /// @brief identical repeated warnings should be suppressed within the rate
 /// limit window.
 TEST(TestStatusRateLimit, testSuppressesIdenticalWarnings) {
