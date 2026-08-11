@@ -60,7 +60,7 @@ const fit = (name: string, maxBytes: number): string => {
  * holding dots and spaces alone.
  * @throws {Error} if extension fills a file name by itself, which no name can rescue.
  */
-export const sanitizeFileName = (name: string, extension = ""): string => {
+export const sanitize = (name: string, extension = ""): string => {
   const budget = MAX_FILE_NAME_LENGTH - utf8Length(extension);
   if (budget <= 0)
     throw new Error(`extension "${extension}" leaves no room for a file name`);

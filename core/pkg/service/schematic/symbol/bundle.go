@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/os"
+	"github.com/synnaxlabs/x/filename"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -65,18 +65,18 @@ func (s *Service) ExportGroup(
 	}
 	ext := encoder.Extension()
 	manifestFileName := manifestBaseName + ext
-	foldedManifestFileName := os.FoldFileName(manifestFileName)
+	foldedManifestFileName := filename.Fold(manifestFileName)
 	var (
 		files = make(zip.Files, len(children)+1)
 		// claimed maps each folded file name to the symbol that took it.
 		claimed = make(map[string]string, len(children))
 	)
 	for _, child := range children {
-		fileName, err := os.SanitizeFileName(child.Name, ext)
+		fileName, err := filename.Sanitize(child.Name, ext)
 		if err != nil {
 			return nil, nil, err
 		}
-		folded := os.FoldFileName(fileName)
+		folded := filename.Fold(fileName)
 		if folded == foldedManifestFileName {
 			return nil, nil, errors.Wrapf(
 				validate.ErrValidation,

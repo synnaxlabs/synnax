@@ -7,28 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package os_test
+package filename_test
 
 import (
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	xos "github.com/synnaxlabs/x/os"
+	"github.com/synnaxlabs/x/filename"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// maxFileNameLength mirrors the limit the package keeps to itself.
-const maxFileNameLength = 255
+// maxLength mirrors the limit the package keeps to itself.
+const maxLength = 255
 
 // sanitize names a file that carries no extension, which the cases below do not vary.
 func sanitize(name string) string {
 	GinkgoHelper()
-	return MustSucceed(xos.SanitizeFileName(name, ""))
+	return MustSucceed(filename.Sanitize(name, ""))
 }
 
-var _ = Describe("SanitizeFileName", func() {
+var _ = Describe("Sanitize", func() {
 	DescribeTable("Should replace every character a file name cannot hold",
 		func(name, expected string) { Expect(sanitize(name)).To(Equal(expected)) },
 		Entry("path separators", `a/b\c`, "a_b_c"),
@@ -69,68 +69,68 @@ var _ = Describe("SanitizeFileName", func() {
 	)
 	Describe("Extension", func() {
 		It("Should carry the extension", func() {
-			Expect(xos.SanitizeFileName("in/let", ".json")).To(Equal("in_let.json"))
+			Expect(filename.Sanitize("in/let", ".json")).To(Equal("in_let.json"))
 		})
 		It("Should name the file with an underscore when only the extension survives",
 			func() {
-				Expect(xos.SanitizeFileName("...", ".json")).To(Equal("_.json"))
+				Expect(filename.Sanitize("...", ".json")).To(Equal("_.json"))
 			},
 		)
 	})
 	Describe("Length", func() {
 		It("Should shorten a name too long for a file name", func() {
 			Expect(sanitize(strings.Repeat("a", 400))).
-				To(Equal(strings.Repeat("a", maxFileNameLength)))
+				To(Equal(strings.Repeat("a", maxLength)))
 		})
 		It("Should hold the extension's bytes back", func() {
-			Expect(xos.SanitizeFileName(strings.Repeat("a", 400), ".json")).
-				To(Equal(strings.Repeat("a", maxFileNameLength-len(".json")) + ".json"))
+			Expect(filename.Sanitize(strings.Repeat("a", 400), ".json")).
+				To(Equal(strings.Repeat("a", maxLength-len(".json")) + ".json"))
 		})
 		It("Should cut on a rune boundary", func() {
 			// Each rune takes two bytes, so an odd limit cannot be filled exactly.
 			Expect(sanitize(strings.Repeat("é", 200))).
-				To(Equal(strings.Repeat("é", maxFileNameLength/2)))
+				To(Equal(strings.Repeat("é", maxLength/2)))
 		})
 		It("Should drop a trailing space the cut exposes", func() {
-			name := strings.Repeat("a", maxFileNameLength-1) + " b"
-			Expect(sanitize(name)).To(Equal(strings.Repeat("a", maxFileNameLength-1)))
+			name := strings.Repeat("a", maxLength-1) + " b"
+			Expect(sanitize(name)).To(Equal(strings.Repeat("a", maxLength-1)))
 		})
 		It("Should hold a byte back for a device name's prefix", func() {
 			Expect(sanitize("nul." + strings.Repeat("a", 400))).
-				To(SatisfyAll(HaveLen(maxFileNameLength), HavePrefix("_nul.")))
+				To(SatisfyAll(HaveLen(maxLength), HavePrefix("_nul.")))
 		})
 		DescribeTable("Should reject an extension that fills a file name by itself",
 			func(extension string) {
-				Expect(xos.SanitizeFileName("report", extension)).Error().To(SatisfyAll(
+				Expect(filename.Sanitize("report", extension)).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("leaves no room for a file name")),
 				))
 			},
 			Entry("an extension the length of the limit",
-				strings.Repeat("a", maxFileNameLength)),
+				strings.Repeat("a", maxLength)),
 			Entry("an extension past the limit",
-				strings.Repeat("a", maxFileNameLength+1)),
+				strings.Repeat("a", maxLength+1)),
 		)
 		It("Should name a file when the extension leaves one byte", func() {
-			extension := strings.Repeat("a", maxFileNameLength-1)
-			Expect(xos.SanitizeFileName("report", extension)).
+			extension := strings.Repeat("a", maxLength-1)
+			Expect(filename.Sanitize("report", extension)).
 				To(Equal("r" + extension))
 		})
 	})
 })
 
-var _ = Describe("FoldFileName", func() {
+var _ = Describe("Fold", func() {
 	It("Should fold names that differ only by case together", func() {
-		Expect(xos.FoldFileName("Inlet.json")).To(Equal(xos.FoldFileName("inlet.JSON")))
+		Expect(filename.Fold("Inlet.json")).To(Equal(filename.Fold("inlet.JSON")))
 	})
 	It("Should fold names that differ only by Unicode composition together", func() {
 		// The same name precomposed (\u00e9) and decomposed (e + combining acute).
 		precomposed, decomposed := "caf\u00e9.json", "cafe\u0301.json"
 		Expect(precomposed).ToNot(Equal(decomposed))
-		Expect(xos.FoldFileName(precomposed)).To(Equal(xos.FoldFileName(decomposed)))
+		Expect(filename.Fold(precomposed)).To(Equal(filename.Fold(decomposed)))
 	})
 	It("Should keep distinct names apart", func() {
-		Expect(xos.FoldFileName("inlet.json")).
-			ToNot(Equal(xos.FoldFileName("outlet.json")))
+		Expect(filename.Fold("inlet.json")).
+			ToNot(Equal(filename.Fold("outlet.json")))
 	})
 })

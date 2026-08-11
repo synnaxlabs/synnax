@@ -13,7 +13,7 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { filename } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
@@ -34,7 +34,7 @@ const exportGroup = async ({
   if (client == null) throw new DisconnectedError();
   await Runtime.downloadStream({
     stream: await client.schematics.symbols.exportGroup(key),
-    name: strings.sanitizeFileName(name, ARCHIVE_EXTENSION),
+    name: filename.sanitize(name, ARCHIVE_EXTENSION),
     addStatus,
   });
 };
