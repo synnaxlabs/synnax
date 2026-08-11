@@ -10,160 +10,71 @@
 package freeze_test
 
 import (
-	"os"
-	"path/filepath"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin/go/freeze"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/oracle/versions"
-	"github.com/synnaxlabs/x/set"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/oracle/testutil"
 )
 
-var _ = Describe("Canonical", func() {
-	var (
-		root     string
-		resolver *versions.Resolver
-		live     *resolution.Table
-		write    func(rel, content string)
-	)
-
-	BeforeEach(func() {
-		root = GinkgoT().TempDir()
-		write = func(rel, content string) {
-			full := filepath.Join(root, rel)
-			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
-			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
-		}
-		write("licenses/headers/template.txt", `Copyright {{YEAR}} Synnax Labs, Inc.
-
-Use of this software is governed by the Business Source License included in the file
-licenses/BSL.txt.
-`)
-		write("schemas/x/versions/telem/v0.oracle", "TimeStamp = int64\n")
-		write("schemas/x/telem.oracle", "TimeStamp = int64\n")
-		write("schemas/synnax/versions/channel/v0.oracle", `
-import "schemas/x/versions/telem/v0"
-
-Key = uuid
-
-Legacy struct {
-	key Key @key
-
-	@go marshal
-}
-
-Channel struct {
-	key Key @key
-	created telem.TimeStamp
-	cached string {
-		@go marshal omit
-	}
-
-	@go marshal
-}
-`)
-		// Live schema: Channel changed (new field), Key unchanged, Legacy
-		// removed, Operation brand new. Marshal tags live only in the version
-		// file; Annotate projects them onto the live table.
-		liveSource := `
-import "schemas/x/telem"
-
-@go output "core/pkg/service/channel"
-
-Key = uuid
-
-Operation struct {
-	kind string
-
-	@doc value "is a brand-new persisted type."
-}
-
-Channel struct {
-	key Key @key
-	created telem.TimeStamp
-	ops Operation[]
-	cached string
-
-	@doc value "is the live doc, not retroactively frozen."
-}
-`
-		chains := MustSucceed(versions.Discover(root))
-		resolver = versions.NewResolver(
-			chains, analyzer.NewStandardFileLoader(root),
-		)
-		live = resolution.NewTable()
+var _ = Describe("StructurallyEqual", func() {
+	analyze := func(source string) *resolution.Table {
+		table := resolution.NewTable()
 		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(), liveSource,
+			GinkgoT().Context(), source,
 			"schemas/synnax/channel.oracle", "channel",
-			analyzer.NewStandardFileLoader(root), live,
+			testutil.NewMockFileLoader(), table,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
-		Expect(resolver.Annotate(GinkgoT().Context(), live)).To(Succeed())
-	})
-
-	canonical := func(in freeze.Input) string {
-		GinkgoHelper()
-		in.Live = live
-		in.Resolver = resolver
-		in.Chain = resolver.Chains()["schemas/synnax/channel"]
-		return MustSucceed(freeze.Canonical(GinkgoT().Context(), in))
+		return table
+	}
+	typeOf := func(t *resolution.Table, name string) resolution.Type {
+		typ, ok := t.Get("channel." + name)
+		Expect(ok).To(BeTrue())
+		return typ
 	}
 
-	It("Should emit aliases, redeclarations, removals, and pins", func() {
-		out := canonical(freeze.Input{N: 1, Pinned: set.New[string]()})
-		Expect(out).To(ContainSubstring("Key = v0.Key"))
-		Expect(out).To(ContainSubstring("Channel struct {"))
-		Expect(out).To(MatchRegexp(`ops\s+Operation\[\]`))
-		Expect(out).ToNot(ContainSubstring("Legacy"))
-		// Omitted fields are per-version codec facts: the file records them.
-		Expect(out).To(MatchRegexp(`cached\s+string`))
-		Expect(out).To(ContainSubstring("@go marshal omit"))
-		Expect(out).ToNot(ContainSubstring("@go version"))
-		Expect(out).ToNot(ContainSubstring("@go output"))
-		Expect(out).To(ContainSubstring(
-			`import "schemas/x/versions/telem/v0"`,
-		))
-		// New names seed their doc; redeclared names inherit silently.
-		Expect(out).To(ContainSubstring("is a brand-new persisted type."))
-		Expect(out).ToNot(ContainSubstring("not retroactively frozen"))
+	It("Should equate identical declarations", func() {
+		a := analyze("Channel struct {\n\tkey uuid @key\n\tname string\n}\n")
+		b := analyze("Channel struct {\n\tkey uuid @key\n\tname string\n}\n")
+		Expect(freeze.StructurallyEqual(
+			typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
+		)).To(BeTrue())
 	})
 
-	It("Should be deterministic and resolve as a valid version file", func() {
-		out := canonical(freeze.Input{N: 1})
-		Expect(canonical(freeze.Input{N: 1})).To(Equal(out))
-		write("schemas/synnax/versions/channel/v1.oracle", out)
-		chains := MustSucceed(versions.Discover(root))
-		fresh := versions.NewResolver(
-			chains, analyzer.NewStandardFileLoader(root),
+	It("Should distinguish declarations by field list", func() {
+		a := analyze("Channel struct {\n\tkey uuid @key\n}\n")
+		b := analyze("Channel struct {\n\tkey uuid @key\n\tname string\n}\n")
+		Expect(freeze.StructurallyEqual(
+			typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
+		)).To(BeFalse())
+	})
+
+	It("Should distinguish declarations by field marshal value", func() {
+		a := analyze("Channel struct {\n\tkey uuid @key\n\tname string\n}\n")
+		b := analyze(
+			"Channel struct {\n\tkey uuid @key\n\tname string {\n" +
+				"\t\t@go marshal omit\n\t}\n}\n",
 		)
-		f := MustSucceed(fresh.File(
-			GinkgoT().Context(), "schemas/synnax/channel", 1,
-		))
-		Expect(f.Aliases).To(HaveKeyWithValue(
-			"Key", versions.Alias{Version: 0, Name: "Key"},
-		))
-		surf := MustSucceed(fresh.Surface(
-			GinkgoT().Context(), "schemas/synnax/channel", 1,
-		))
-		Expect(surf).To(HaveKey("Channel"))
-		Expect(surf).To(HaveKey("Operation"))
-		Expect(surf).ToNot(HaveKey("Legacy"))
+		Expect(freeze.StructurallyEqual(
+			typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
+		)).To(BeFalse())
 	})
 
-	It("Should preserve explicit doc overrides and pinned markers", func() {
-		out := canonical(freeze.Input{
-			N:      1,
-			Docs:   map[string]string{"Channel": "meaning changed at v1"},
-			Pinned: set.New("Key"),
-		})
-		Expect(out).To(ContainSubstring("meaning changed at v1"))
-		// Pinned members always declare fully so the marker rides the
-		// declaration.
-		Expect(out).To(ContainSubstring("@go pinned"))
-		Expect(out).ToNot(ContainSubstring("Key = v0.Key"))
+	It("Should distinguish enums by member list", func() {
+		a := analyze("State enum {\n\tidle = 0\n}\n")
+		b := analyze("State enum {\n\tidle = 0\n\trunning = 1\n}\n")
+		Expect(freeze.StructurallyEqual(
+			typeOf(a, "State"), typeOf(b, "State"), a, b,
+		)).To(BeFalse())
+	})
+
+	It("Should equate identical enums", func() {
+		a := analyze("State enum {\n\tidle = 0\n\trunning = 1\n}\n")
+		b := analyze("State enum {\n\tidle = 0\n\trunning = 1\n}\n")
+		Expect(freeze.StructurallyEqual(
+			typeOf(a, "State"), typeOf(b, "State"), a, b,
+		)).To(BeTrue())
 	})
 })

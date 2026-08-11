@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -182,15 +181,7 @@ func MergeLive(
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to format merged %s.oracle", livePath)
 	}
-	l, err := format.NewLicense(r.RepoRoot())
-	if err != nil {
-		return "", err
-	}
-	out, err := l.Format(ctx, []byte(formatted), "live.oracle")
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
+	return license(ctx, r.RepoRoot(), formatted)
 }
 
 // chainNamespacePaths maps each dependency resource namespace a chain's files

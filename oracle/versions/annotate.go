@@ -23,8 +23,9 @@ import (
 // every type a chain's current file enumerates receives its chain's current
 // version, and the pinned marker where the file declares it. The version
 // files are the authority; the injected expressions are how the generators
-// read it. A type that still hand-declares a version must agree with its
-// chain.
+// read it. Every other version-owned fact (marshal, migrate, imex) reaches
+// the table textually through the merged live file. A type that still
+// hand-declares a version must agree with its chain.
 func (r *Resolver) Annotate(
 	ctx context.Context, table *resolution.Table,
 ) error {
@@ -46,11 +47,9 @@ func (r *Resolver) Annotate(
 				t.FilePath != livePath+".oracle" {
 				continue
 			}
-			def, member := surf[t.Name]
-			if !member {
+			if _, member := surf[t.Name]; !member {
 				continue
 			}
-			injectPersistence(t, def.Type)
 			if declared, ok := declaredVersion(*t); ok {
 				if declared != current {
 					return errors.Newf(
@@ -64,39 +63,6 @@ func (r *Resolver) Annotate(
 		}
 	}
 	return nil
-}
-
-// injectPersistence carries the version file's @go marshal and migrate
-// declarations onto a live type that does not declare them itself: the file
-// owns the persistence facts, and the generators read them off the live
-// table. Field-level marshal tags travel too — an omitted field is a
-// per-version codec fact the version file records.
-func injectPersistence(t *resolution.Type, def resolution.Type) {
-	injectFieldMarshal(t, def)
-	src, ok := def.Domains["go"]
-	if !ok {
-		return
-	}
-	for _, name := range []string{"marshal", "migrate", "imex"} {
-		expr, has := src.Expressions.Find(name)
-		if !has {
-			continue
-		}
-		if dom, ok := t.Domains["go"]; ok {
-			if _, declared := dom.Expressions.Find(name); declared {
-				continue
-			}
-		}
-		domains := maps.Clone(t.Domains)
-		if domains == nil {
-			domains = make(map[string]resolution.Domain)
-		}
-		dom := domains["go"]
-		dom.Name = "go"
-		dom.Expressions = append(slices.Clone(dom.Expressions), expr)
-		domains["go"] = dom
-		t.Domains = domains
-	}
 }
 
 // filePinnedNames extracts a file's @go pinned type names.
@@ -150,50 +116,4 @@ func injectVersion(t *resolution.Type, version int, pinned bool) {
 	)
 	domains["go"] = dom
 	t.Domains = domains
-}
-
-// injectFieldMarshal copies each field's @go marshal expression from the
-// version file's declaration onto the matching live field.
-func injectFieldMarshal(t *resolution.Type, def resolution.Type) {
-	form, ok := t.Form.(resolution.StructForm)
-	if !ok {
-		return
-	}
-	defForm, ok := def.Form.(resolution.StructForm)
-	if !ok {
-		return
-	}
-	byName := make(map[string]resolution.Expression, len(defForm.Fields))
-	for _, f := range defForm.Fields {
-		dom, ok := f.Domains["go"]
-		if !ok {
-			continue
-		}
-		if expr, has := dom.Expressions.Find("marshal"); has {
-			byName[f.Name] = expr
-		}
-	}
-	if len(byName) == 0 {
-		return
-	}
-	fields := slices.Clone(form.Fields)
-	for i := range fields {
-		expr, has := byName[fields[i].Name]
-		if !has {
-			continue
-		}
-		domains := maps.Clone(fields[i].Domains)
-		if domains == nil {
-			domains = make(map[string]resolution.Domain)
-		}
-		dom := domains["go"]
-		dom.Name = "go"
-		if _, declared := dom.Expressions.Find("marshal"); !declared {
-			dom.Expressions = append(slices.Clone(dom.Expressions), expr)
-		}
-		domains["go"] = dom
-		fields[i].Domains = domains
-	}
-	form.Fields = fields
-	t.Form = form
 }

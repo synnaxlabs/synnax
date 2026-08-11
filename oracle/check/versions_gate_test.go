@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/pipeline"
-	"github.com/synnaxlabs/oracle/plugin/go/freeze"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	. "github.com/synnaxlabs/x/testutil"
@@ -73,22 +72,6 @@ Channel struct {
 		)
 	}
 
-	// canonicalV0 writes the v0 file exactly as freeze would emit it, so the
-	// drift check starts clean.
-	canonicalV0 := func(p *pipeline.Result) {
-		chains := MustSucceed(versions.Discover(root))
-		resolver := versions.NewResolver(
-			chains, analyzer.NewStandardFileLoader(root),
-		)
-		out := MustSucceed(freeze.Canonical(GinkgoT().Context(), freeze.Input{
-			Live:     p.Resolutions,
-			Resolver: resolver,
-			Chain:    chains["schemas/synnax/channel"],
-			N:        0,
-		}))
-		write("schemas/synnax/versions/channel/v0.oracle", out)
-	}
-
 	BeforeEach(func() {
 		root = GinkgoT().TempDir()
 		write = func(rel, content string) {
@@ -108,7 +91,6 @@ Channel struct {
 	It("Should pass a clean chain", func() {
 		write("schemas/synnax/versions/channel/v0.oracle", channelV0)
 		p := analyzeLive(liveV0)
-		canonicalV0(p)
 		report := run(p)
 		Expect(report.Findings).To(BeEmpty())
 		Expect(report.Status).To(Equal(check.StatusPass))

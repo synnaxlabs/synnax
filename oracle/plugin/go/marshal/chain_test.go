@@ -57,6 +57,8 @@ Channel struct {
 			chains, analyzer.NewStandardFileLoader(root),
 		)
 		table := resolution.NewTable()
+		// The live source carries the version-owned marshal tag textually,
+		// exactly as the merged live projection emits it.
 		diag := analyzer.AnalyzeSeeded(
 			GinkgoT().Context(), `
 @go output "core/pkg/service/channel"
@@ -69,6 +71,7 @@ Channel struct {
 	name string
 	virtual bool
 
+	@go marshal
 }
 `,
 			"schemas/synnax/channel.oracle", "channel",
