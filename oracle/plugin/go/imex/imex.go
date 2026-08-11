@@ -279,10 +279,10 @@ const Version imex.Version = {{.Version}}
 `),
 )
 
-// firstImexVersion returns the earliest version at which the type already carried the
-// @go imex marker, walking the resource's version chain newest-first. The walk ends at
-// the first version whose file drops the marker or omits the type; marker history is
-// contiguous. Versions below the floor predate Core export.
+// firstImexVersion returns the earliest version at which the type  carried the @go imex
+// marker, walking the resource's version chain newest-first. The walk ends at the first
+// version whose file drops the marker or omits the type; marker history is contiguous.
+// Versions below the floor predate Core export.
 func firstImexVersion(
 	ctx context.Context,
 	req *plugin.Request,

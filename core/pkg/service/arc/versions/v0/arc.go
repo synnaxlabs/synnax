@@ -11,7 +11,6 @@ package v0
 
 import "github.com/vmihailenco/msgpack/v5"
 
-
 // GorpKey implements gorp.Entry.
 func (a Arc) GorpKey() Key { return a.Key }
 

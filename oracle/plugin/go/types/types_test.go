@@ -2920,8 +2920,6 @@ var _ = Describe("Union codec round trip", func() {
 	})
 })
 
-
-
 var _ = Describe("Unversioned Consumers", func() {
 	It(
 		"Should reference versioned types through the root re-export",

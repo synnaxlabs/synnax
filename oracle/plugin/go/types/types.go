@@ -316,11 +316,11 @@ func latestTable(
 // marker (see versioning.Pinned).
 func VersionPinned(t resolution.Type) bool { return versioning.Pinned(t) }
 
-// DeclaredClosure returns the qualified names of every type reachable from a
-// @go marshal root through any reference, omitted fields included. These are
-// the types a versioned package declares: a type reached only through an
-// omitted field still needs its Go declaration in the package, so it rides the
-// version layout even though it never reaches the wire.
+// DeclaredClosure returns the qualified names of every type reachable from a @go
+// marshal root through any reference, omitted fields included. These are the types a
+// versioned package declares: a type reached only through an omitted field still needs
+// its Go declaration in the package, so it rides the version layout even though it
+// never reaches the wire.
 func DeclaredClosure(table *resolution.Table) set.Set[string] {
 	return closureFrom(table, func(t resolution.Type) []resolution.Field {
 		return resolution.UnifiedFields(t, table)
