@@ -491,3 +491,7 @@ export const commitFieldInput = (input: HTMLInputElement, value: string): void =
   fireEvent.change(input, { target: { value } });
   fireEvent.blur(input);
 };
+
+/** Whether the redeploy button is collapsed rather than revealed. */
+export const isRedeployHidden = (): boolean =>
+  screen.getByText("Redeploy").closest("[aria-hidden='true']") != null;
