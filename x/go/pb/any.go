@@ -18,15 +18,20 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// AnyFromPBAny converts *anypb.Any to any. It handles both JSON objects
-// (structpb.Struct) and typed protos. For typed protos, it uses protojson to
+// AnyFromPBAny converts *anypb.Any to any. It handles JSON values of every type
+// (structpb.Value), JSON objects sent by peers on releases before value packing
+// (structpb.Struct), and typed protos. For typed protos, it uses protojson to
 // convert to a JSON-compatible map.
 func AnyFromPBAny(a *anypb.Any) (any, error) {
 	if a == nil {
 		return nil, nil
 	}
 
-	// Try structpb.Struct first (JSON object case)
+	v := &structpb.Value{}
+	if err := a.UnmarshalTo(v); err == nil {
+		return v.AsInterface(), nil
+	}
+
 	s := &structpb.Struct{}
 	if err := a.UnmarshalTo(s); err == nil {
 		return s.AsMap(), nil
@@ -54,9 +59,9 @@ func AnyFromPBAny(a *anypb.Any) (any, error) {
 	return result, nil
 }
 
-// AnyToPBAny converts any to *anypb.Any. It wraps values in structpb.Struct
-// for JSON objects, passes through proto.Message and *anypb.Any directly, and
-// falls back to JSON marshaling for other types.
+// AnyToPBAny converts any to *anypb.Any. It wraps JSON values of every type in a
+// structpb.Value, passes through proto.Message and *anypb.Any directly, and falls
+// back to JSON marshaling for types structpb does not accept directly.
 func AnyToPBAny(v any) (*anypb.Any, error) {
 	if v == nil {
 		return nil, nil
@@ -72,23 +77,19 @@ func AnyToPBAny(v any) (*anypb.Any, error) {
 		return anypb.New(pm)
 	}
 
-	// Convert to map for structpb.NewStruct
-	m, ok := v.(map[string]any)
-	if !ok {
-		// Try to convert via JSON marshaling
-		jsonBytes, err := json.Marshal(v)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(jsonBytes, &m); err != nil {
-			return nil, err
-		}
-	}
-
-	// Wrap in structpb.Struct (for JSON objects)
-	s, err := structpb.NewStruct(m)
+	val, err := structpb.NewValue(v)
 	if err != nil {
-		return nil, err
+		jsonBytes, marshalErr := json.Marshal(v)
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+		var decoded any
+		if err := json.Unmarshal(jsonBytes, &decoded); err != nil {
+			return nil, err
+		}
+		if val, err = structpb.NewValue(decoded); err != nil {
+			return nil, err
+		}
 	}
-	return anypb.New(s)
+	return anypb.New(val)
 }

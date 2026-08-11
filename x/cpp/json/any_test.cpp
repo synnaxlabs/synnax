@@ -23,27 +23,35 @@ TEST(ToAny, ObjectRoundTrip) {
     ASSERT_EQ(result["port"], 8080);
 }
 
-TEST(ToAny, NullConvertsToEmptyObject) {
-    const json j = nullptr;
-    const auto any = ASSERT_NIL_P(to_any(j));
+TEST(ToAny, NullRoundTrip) {
+    const auto any = ASSERT_NIL_P(to_any(json(nullptr)));
+    ASSERT_TRUE(ASSERT_NIL_P(from_any(any)).is_null());
+}
+
+TEST(ToAny, NumberRoundTrip) {
+    const auto any = ASSERT_NIL_P(to_any(json(42)));
+    ASSERT_EQ(ASSERT_NIL_P(from_any(any)), 42);
+}
+
+TEST(ToAny, StringRoundTrip) {
+    const auto any = ASSERT_NIL_P(to_any(json("sensor")));
+    ASSERT_EQ(ASSERT_NIL_P(from_any(any)), "sensor");
+}
+
+TEST(ToAny, BoolRoundTrip) {
+    const auto any = ASSERT_NIL_P(to_any(json(true)));
+    ASSERT_EQ(ASSERT_NIL_P(from_any(any)), true);
+}
+
+TEST(ToAny, ArrayRoundTrip) {
+    const auto any = ASSERT_NIL_P(to_any(json::array({1, 2})));
     const auto result = ASSERT_NIL_P(from_any(any));
-    ASSERT_TRUE(result.is_object());
-    ASSERT_TRUE(result.empty());
+    ASSERT_TRUE(result.is_array());
+    ASSERT_EQ(result[0], 1);
+    ASSERT_EQ(result[1], 2);
 }
 
-TEST(ToAny, NonObjectReturnsError) {
-    ASSERT_OCCURRED_AS_P(to_any(json(42)), errors::VALIDATION);
-    ASSERT_OCCURRED_AS_P(to_any(json("sensor")), errors::VALIDATION);
-    ASSERT_OCCURRED_AS_P(to_any(json(true)), errors::VALIDATION);
-    ASSERT_OCCURRED_AS_P(to_any(json::array({1, 2})), errors::VALIDATION);
-}
-
-TEST(ToAny, NonObjectErrorNamesTheType) {
-    const auto err = to_any(json(42)).second;
-    ASSERT_EQ(err.data, "expected a JSON object, got number");
-}
-
-TEST(ToAny, StructConversionErrorPropagates) {
+TEST(ToAny, ValueConversionErrorPropagates) {
     ASSERT_OCCURRED_AS_P(to_any(deeply_nested_object()), errors::VALIDATION);
 }
 
@@ -52,6 +60,20 @@ TEST(FromAny, EmptyAnyReturnsEmptyObject) {
     const auto result = ASSERT_NIL_P(from_any(any));
     ASSERT_TRUE(result.is_object());
     ASSERT_TRUE(result.empty());
+}
+
+TEST(FromAny, PackedStructUnpacks) {
+    google::protobuf::Struct s;
+    ASSERT_NIL(to_struct(json{{"name", "sensor"}}, &s));
+    google::protobuf::Any any;
+    ASSERT_TRUE(any.PackFrom(s));
+    ASSERT_EQ(ASSERT_NIL_P(from_any(any))["name"], "sensor");
+}
+
+TEST(FromAny, UnknownTypeReturnsError) {
+    google::protobuf::Any any;
+    any.set_type_url("type.googleapis.com/unknown.Type");
+    ASSERT_OCCURRED_AS_P(from_any(any), errors::VALIDATION);
 }
 
 TEST(ToAny, NestedObjectRoundTrip) {

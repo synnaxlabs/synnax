@@ -1753,6 +1753,7 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
 	data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
 	data.imports.AddExternal("google.golang.org/protobuf/encoding/protojson")
+	data.imports.AddExternal("google.golang.org/protobuf/proto")
 	data.imports.AddExternal("encoding/json")
 
 	goName := naming.GetGoName(s)

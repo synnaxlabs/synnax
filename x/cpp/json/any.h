@@ -17,40 +17,36 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/struct.h"
+#include "x/cpp/json/value.h"
 
 namespace x::json {
-/// @brief Converts json to a google::protobuf::Any that holds a Struct.
-/// @param j The JSON to convert. It must be an object or null. A null value converts to
-/// an empty object. Any other value returns a VALIDATION error.
+/// @brief Converts json to a google::protobuf::Any that holds a Value.
+/// @param j The JSON to convert. Every JSON type is valid.
 /// @returns A pair containing the Any and an error if one occurred.
 inline std::pair<google::protobuf::Any, errors::Error> to_any(const json &j) {
-    if (!j.is_null() && !j.is_object())
-        return {
-            {},
-            errors::Error(
-                errors::VALIDATION,
-                std::string("expected a JSON object, got ") + j.type_name()
-            )
-        };
-    google::protobuf::Struct s;
-    if (j.is_object())
-        if (const auto err = to_struct(j, &s)) return {{}, err};
+    auto [v, err] = to_value(j);
+    if (err) return {{}, err};
     google::protobuf::Any any;
-    if (!any.PackFrom(s))
-        return {{}, errors::Error(errors::INTERNAL, "failed to pack Struct into Any")};
+    if (!any.PackFrom(v))
+        return {{}, errors::Error(errors::INTERNAL, "failed to pack Value into Any")};
     return {any, errors::NIL};
 }
 
+/// @brief Converts a google::protobuf::Any that holds a Value or a Struct to json.
+/// @param any The Any to convert. An unset Any converts to an empty object.
+/// @returns A pair containing the JSON and an error if one occurred.
 inline std::pair<nlohmann::json, errors::Error>
 from_any(const google::protobuf::Any &any) {
-    // Handle empty Any (no type_url set) - return empty JSON object
     if (any.type_url().empty()) return {json::object(), errors::NIL};
-    google::protobuf::Struct s;
-    if (!any.UnpackTo(&s))
-        return {
-            {},
-            errors::Error(errors::VALIDATION, "failed to unpack Any to Struct")
-        };
-    return from_struct(s);
+    if (google::protobuf::Value v; any.UnpackTo(&v)) return from_value(v);
+    // Peers on releases before value packing send a Struct.
+    if (google::protobuf::Struct s; any.UnpackTo(&s)) return from_struct(s);
+    return {
+        {},
+        errors::Error(
+            errors::VALIDATION,
+            "failed to unpack Any of type " + any.type_url()
+        )
+    };
 }
 }

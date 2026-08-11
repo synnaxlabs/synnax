@@ -11,6 +11,7 @@
 
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/json/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
 namespace synnax::status {
@@ -191,14 +192,15 @@ TEST(StatusTest, DetailsRoundTrip) {
     EXPECT_TRUE(details_json.empty());
 }
 
-/// @brief it should fail conversion when the details are not an object.
-TEST(StatusTest, NonObjectDetailsFailConversion) {
+/// @brief it should round-trip details that are not an object.
+TEST(StatusTest, ScalarDetailsRoundTrip) {
     Status<x::json::json> s;
     s.key = "test-status-scalar-details";
     s.variant = synnax::status::VARIANT_INFO;
     s.time = x::telem::TimeStamp::now();
     s.details = 42;
-    ASSERT_OCCURRED_AS_P(s.to_proto(), x::errors::VALIDATION);
+    const auto pb = ASSERT_NIL_P(s.to_proto());
+    ASSERT_EQ(ASSERT_NIL_P(Status<x::json::json>::from_proto(pb)).details, 42);
 }
 
 /// @brief it should name the status that does not convert when setting a batch.
@@ -209,8 +211,8 @@ TEST(StatusTest, BatchConversionErrorNamesTheStatus) {
     ok.variant = synnax::status::VARIANT_INFO;
     ok.time = x::telem::TimeStamp::now();
     Status<x::json::json> bad = ok;
-    bad.key = "test-batch-scalar-details";
-    bad.details = 42;
+    bad.key = "test-batch-unconvertible-details";
+    bad.details = x::json::deeply_nested_object();
     std::vector<Status<x::json::json>> statuses = {ok, bad};
     const auto err = client.statuses.set(statuses);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
