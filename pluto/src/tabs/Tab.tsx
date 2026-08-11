@@ -25,16 +25,15 @@ import { Triggers } from "@/triggers";
 const PILL_BUTTON_PROPS = {
   variant: "outlined",
   rounded: true,
-  contrast: 2,
   color: 1,
   textColor: 1,
-} as const;
+} as const satisfies Partial<Button.ButtonProps<"div">>;
 
 const DEFAULT_BUTTON_PROPS = {
   variant: "text",
   bordered: false,
   sharp: true,
-} as const;
+} as const satisfies Partial<Button.ButtonProps<"div">>;
 
 export interface TabProps extends Omit<Button.ButtonProps<"div">, "el" | "id"> {
   /** itemKey identifies the tab within its Frame's selection and content panels. */
