@@ -25,41 +25,41 @@ or generator logic and schemas disagree.
 - Confirm with the user before `oracle migrate` (version-affecting: mints or amends
   version files).
 
-## Versioning Rules (RFC 0047)
+## Versioning Rules (RFC 0053)
 
-- Version history lives in explicit version files: `schemas/<domain>/versions/
-  <resource>/vN.oracle`. Each file enumerates the resource's complete declared
-  namespace at that version — full declarations for shapes that changed at N, alias
-  lines (`Key = v0.Key`, pointing at the defining version) for the rest. Absence
-  means the type was removed at N. The versions directory is the sole version
-  authority: there is no `@go version` tag; the current version is the highest vN
-  file, and membership in it marks a type persisted.
+- Version history lives in explicit version files:
+  `schemas/<domain>/versions/<resource>/vN.oracle`. Each file enumerates the resource's
+  complete declared namespace at that version — full declarations for shapes that
+  changed at N, alias lines (`Key = v0.Key`, pointing at the defining version) for the
+  rest. Absence means the type was removed at N. The versions directory is the sole
+  version authority: there is no `@go version` tag; the current version is the highest
+  vN file, and membership in it marks a type persisted.
 - **A resource is versioned iff its data is gorp-persisted.** Never version derived
   artifacts: arc `Program` has no versions directory, so its Go types live at the
   package root and every version referencing it takes the one live shape.
-- Import rules: inside `versions/`, a file imports other version files (dep pins
-  like `import "schemas/x/versions/telem/v0"`, computed at mint) or the live schema
-  of an unversioned resource (`import "schemas/arc/program"`); a live schema may
-  import only its own resource's versions directory. All `@go marshal` and
-  `@go migrate` tags live in version files, never in live schemas — type-level
-  roots and field-level `omit` alike.
-- `oracle migrate <resource>` mints the next version file from the live persisted
-  shapes and syncs; `oracle migrate --amend <resource>` rewrites the current file in
-  place — only for versions that have never shipped in a release. Bare
-  `oracle migrate` mints every drifted resource.
+- Import rules: inside `versions/`, a file imports other version files (dep pins like
+  `import "schemas/x/versions/telem/v0"`, computed at mint) or the live schema of an
+  unversioned resource (`import "schemas/arc/program"`); a live schema may import only
+  its own resource's versions directory. All `@go marshal` and `@go migrate` tags live
+  in version files, never in live schemas — type-level roots and field-level `omit`
+  alike.
+- `oracle migrate <resource>` mints the next version file from the live persisted shapes
+  and syncs; `oracle migrate --amend <resource>` rewrites the current file in place —
+  only for versions that have never shipped in a release. Bare `oracle migrate` mints
+  every drifted resource.
 - `oracle check`'s blocking `versions` gate enforces: chain coverage, byte-identical
   drift (current file == canonical emission), and delta minimality (a redeclaration
-  structurally identical to its resolved predecessor must be an alias; enum member
-  sets compare exactly).
-- Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
-  files (persisted-only; omit fields exist only in current packages). Hand-written
-  frozen definer files are marked `@go hand` in their version file. `migrate.gen.go`
-  is a pure function of the two adjacent version files; hand-written transforms live
-  in `migrate.go` (renames and cross-resource moves have no generated counterpart).
+  structurally identical to its resolved predecessor must be an alias; enum member sets
+  compare exactly).
+- Frozen `versions/vN` Go packages are regenerated, checked outputs of the version files
+  (persisted-only; omit fields exist only in current packages). Hand-written frozen
+  definer files are marked `@go hand` in their version file. `migrate.gen.go` is a pure
+  function of the two adjacent version files; hand-written transforms live in
+  `migrate.go` (renames and cross-resource moves have no generated counterpart).
 - Types versioned despite being unpersisted (hand-method entanglement, e.g. telem's
   Size/Rate, or sibling-referenced transient types like task's StatusDetails) are
-  declared in the current version file with `@go pinned`: pinned members always
-  declare fully, track the live shape, and are exempt from the minimality gate.
+  declared in the current version file with `@go pinned`: pinned members always declare
+  fully, track the live shape, and are exempt from the minimality gate.
 - `@go imex` (bare marker) on a versioned resource's root struct emits `imex.gen.go`
   files across the versions tree: a `Version imex.Version` constant in every
   `versions/vK` package the Core has exported (from the earliest version file carrying
@@ -67,9 +67,9 @@ or generator logic and schemas disagree.
   ladder in the versions root that lifts server-era envelopes through the per-bump
   `Migrate<Type>` steps. Version files record the marker, so the chain dates the export
   history. Earlier version packages predate Core export and get no constant. The
-  envelope version and migration chain are never hand-maintained; hand `versions/imex.go`
-  files route `> legacy.LastVersion` envelopes to the ladder and keep only frozen
-  Console-era decoding.
+  envelope version and migration chain are never hand-maintained; hand
+  `versions/imex.go` files route `> legacy.LastVersion` envelopes to the ladder and keep
+  only frozen Console-era decoding.
 
 ## Field Optionality
 

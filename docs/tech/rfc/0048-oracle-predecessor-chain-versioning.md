@@ -90,10 +90,10 @@ cutover:
 
 ### 4.0 The emission rule
 
-_(Amended by [RFC 0053](0053-oracle-explicit-schema-versioning.md): both
-baseline tiers below are replaced by explicit per-resource version files — the file
-enumerates the define-vs-alias split directly, and the snapshot walk and frozen-source
-fallback are deleted.)_
+_(Amended by [RFC 0053](0053-oracle-explicit-schema-versioning.md): both baseline tiers
+below are replaced by explicit per-resource version files — the file enumerates the
+define-vs-alias split directly, and the snapshot walk and frozen-source fallback are
+deleted.)_
 
 When `go/types` generates a version-laid-out current package `vM`:
 
@@ -258,19 +258,18 @@ as they are; an alias-form current version chains into them exactly as it would 
 alias-form history. Rewriting history for uniformity was rejected as pure churn against
 immutable packages.
 
-**6.3 Frozen-source baseline over transcribed or annotated history.**
-_(Superseded by [RFC 0053](0053-oracle-explicit-schema-versioning.md) §6.7: history is
-backfilled into version files — the target is living, grammar-migrated schema files
-rather than the dead snapshot bytes rejected here.)_ Two retrofit
-alternatives were rejected: transcribing the pre-versioning snapshots into current
-grammar (hand-authoring ~30 schemas of history, and the frozen snapshots are frozen),
-and a per-type `@go changed` annotation (relies on humans reconstructing which types
-changed, and cannot see tag-level drift the schema does not express). Comparing against
-the frozen generated source is the only baseline that is both authoritative and already
-machine-readable. The trade is real: the generator reads its own prior output, and a
-future generator-style change makes affected types fall back to definitions rather than
-aliases — safe, but churny; the snapshot-declared baseline takes over from the first
-post-versioning snapshot onward.
+**6.3 Frozen-source baseline over transcribed or annotated history.** _(Superseded by
+[RFC 0053](0053-oracle-explicit-schema-versioning.md) §6.7: history is backfilled into
+version files — the target is living, grammar-migrated schema files rather than the dead
+snapshot bytes rejected here.)_ Two retrofit alternatives were rejected: transcribing
+the pre-versioning snapshots into current grammar (hand-authoring ~30 schemas of
+history, and the frozen snapshots are frozen), and a per-type `@go changed` annotation
+(relies on humans reconstructing which types changed, and cannot see tag-level drift the
+schema does not express). Comparing against the frozen generated source is the only
+baseline that is both authoritative and already machine-readable. The trade is real: the
+generator reads its own prior output, and a future generator-style change makes affected
+types fall back to definitions rather than aliases — safe, but churny; the
+snapshot-declared baseline takes over from the first post-versioning snapshot onward.
 
 **6.4 Migrations live in the incoming package for all paths.** The generator already
 scaffolds this way; the RFC ratifies it, and the retrofit moved the legacy

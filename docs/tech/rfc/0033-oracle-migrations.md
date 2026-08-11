@@ -560,10 +560,10 @@ the storage codec changes.
 
 #### 4.5.1 Schema snapshots
 
-_(Superseded by [RFC 0053](0053-oracle-explicit-schema-versioning.md):
-whole-tree snapshots are deleted; the authoritative history is per-resource version
-files in `schemas/<domain>/versions/<resource>/`, and the CI diff described here —
-never implemented — is replaced by blocking `oracle check` gates.)_
+_(Superseded by [RFC 0053](0053-oracle-explicit-schema-versioning.md): whole-tree
+snapshots are deleted; the authoritative history is per-resource version files in
+`schemas/<domain>/versions/<resource>/`, and the CI diff described here — never
+implemented — is replaced by blocking `oracle check` gates.)_
 
 When `oracle migrate` runs, Oracle copies the current `.oracle` source files into a
 versioned snapshot directory (e.g., `schemas/.snapshots/v3/schematic.oracle`). CI diffs
