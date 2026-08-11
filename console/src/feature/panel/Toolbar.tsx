@@ -26,7 +26,10 @@ const EmptyContent = ({
 }: EmptyContentProps): ReactElement => (
   <Toolbar.Content>
     <Toolbar.Header>
-      <Toolbar.Title icon={<Icon.Visualize />}>Tab</Toolbar.Title>
+      <Toolbar.Title>
+        <Icon.Visualize />
+        Tab
+      </Toolbar.Title>
     </Toolbar.Header>
     <Empty.Action x message={message} />
   </Toolbar.Content>

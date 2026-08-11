@@ -55,7 +55,10 @@ const Internal = (): ReactElement => {
     <Base.Content className={CSS.B("line-plot-toolbar")}>
       <Tabs.Frame value={activeTab} onChange={handleTabSelect} grow>
         <Base.Header>
-          <Base.Title icon={<Icon.LinePlot />}>{name}</Base.Title>
+          <Base.Title>
+            <Icon.LinePlot />
+            {name}
+          </Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("line-plot", "toolbar", "actions")}>
               <Button.Button

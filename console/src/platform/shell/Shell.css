@@ -11,8 +11,6 @@
 
 .console-shell {
     position: relative;
-    height: 100%;
-    width: 100%;
     overflow: hidden;
     box-shadow: var(--pluto-shadow-v0);
 }

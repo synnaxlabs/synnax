@@ -24,7 +24,10 @@ const Content = (): ReactElement => {
   return (
     <Toolbar.Content>
       <Toolbar.Header>
-        <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
+        <Toolbar.Title>
+          <Icon.User />
+          Users
+        </Toolbar.Title>
         {hasCreatePermission && (
           <Toolbar.Actions>
             <Toolbar.Action

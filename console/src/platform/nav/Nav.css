@@ -88,7 +88,7 @@
 
 .console-nav__drawer {
     overflow: hidden;
-    box-shadow: var(--pluto-shadow-v1);
+    box-shadow: var(--pluto-shadow-overlay);
     opacity: 1;
     flex-shrink: 0;
 

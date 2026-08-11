@@ -141,7 +141,7 @@ const MetaDataListItem = ({
         )}
         <Divider.Divider y />
         <Form.Field<string> path="value" showLabel={false} hideIfNull>
-          {({ preview: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
+          {(p) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (
           <Flex.Box pack>

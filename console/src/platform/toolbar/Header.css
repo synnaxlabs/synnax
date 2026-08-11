@@ -12,7 +12,7 @@
 .console-toolbar__header {
     padding: 1rem 1.5rem;
     & .console-toolbar__action {
-        box-shadow: var(--pluto-shadow-v1);
+        box-shadow: var(--pluto-shadow-lift);
     }
 }
 
