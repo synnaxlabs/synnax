@@ -39,7 +39,7 @@ var _ = Describe("Codec", func() {
 		Expect(d2).To(Equal(toEncode{1}))
 	})
 	It("Should add error info on encoding failure", func(ctx SpecContext) {
-		Expect(json.Codec.Encode(ctx, make(chan int))).To(MatchError(
+		Expect(json.Codec.Encode(ctx, make(chan int))).Error().To(MatchError(
 			SatisfyAll(
 				ContainSubstring("failed to encode value"),
 				ContainSubstring("kind=chan, type=chan int"),
