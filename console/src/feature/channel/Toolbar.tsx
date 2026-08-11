@@ -48,7 +48,10 @@ const Content = (): ReactElement => {
   return (
     <Toolbar.Content>
       <Toolbar.Header>
-        <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
+        <Toolbar.Title>
+          <Icon.Channel />
+          Channels
+        </Toolbar.Title>
         <Actions />
       </Toolbar.Header>
       <Tree.Tree root={root} emptyContent={<EmptyContent />} />

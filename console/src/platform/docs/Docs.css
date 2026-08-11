@@ -18,6 +18,7 @@
 .console-docs__loading {
     position: absolute;
     inset: 0;
+    background: var(--pluto-gray-l0);
 }
 
 .console--os-macos .console-docs__open-button {

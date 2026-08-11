@@ -20,7 +20,10 @@ const Content = (): ReactElement => {
   return (
     <Toolbar.Content>
       <Toolbar.Header>
-        <Toolbar.Title icon={<Icon.Device />}>Devices</Toolbar.Title>
+        <Toolbar.Title>
+          <Icon.Device />
+          Devices
+        </Toolbar.Title>
       </Toolbar.Header>
       <Tree.Tree root={groupID} />
     </Toolbar.Content>

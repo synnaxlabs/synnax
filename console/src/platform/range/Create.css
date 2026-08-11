@@ -10,10 +10,10 @@
  */
 
 .console-range-create-layout {
-    width: 800px;
+    width: 135rem;
 
     .console-range-create-layout__stage {
-        width: 150px;
+        width: 25rem;
     }
 
     .console-range-create-layout__parent {

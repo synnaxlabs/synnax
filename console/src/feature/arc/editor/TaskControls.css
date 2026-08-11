@@ -34,7 +34,7 @@
         bottom: 2rem;
         left: 2rem;
         right: 2rem;
-        box-shadow: var(--pluto-shadow-v2);
+        box-shadow: var(--pluto-shadow-overlay);
 
         & .console-rack-select {
             flex-grow: 1;

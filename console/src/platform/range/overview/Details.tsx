@@ -218,7 +218,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             )}
           </Form.Field>
           <Form.Field<string[]> required={false} path="labels">
-            {({ preview: _, ...p }) => (
+            {(p) => (
               <Label.SelectMultiple
                 zIndex={100}
                 variant="floating"
