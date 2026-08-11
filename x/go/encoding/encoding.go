@@ -50,10 +50,21 @@ type Codec interface {
 	Encoder
 }
 
-var (
-	errEncode = errors.New("failed to encode")
-	errDecode = errors.New("failed to decode")
-)
+// SugarDecodingError adds additional context to decoding errors.
+func SugarDecodingError(data []byte, value any, base error) error {
+	if base == nil {
+		return base
+	}
+	val := reflect.ValueOf(value)
+	main := errors.Wrapf(
+		errors.New("failed to decode"),
+		"kind=%s, type=%s, data=%x",
+		val.Kind(),
+		val.Type(),
+		data,
+	)
+	return errors.WithStack(errors.Combine(main, base))
+}
 
 // SugarEncodingError adds additional context to encoding errors.
 func SugarEncodingError(value any, base error) error {
@@ -62,27 +73,11 @@ func SugarEncodingError(value any, base error) error {
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(
-		errEncode,
+		errors.New("failed to encode"),
 		"failed to encode value: kind=%s, type=%s, value=%+v",
 		val.Kind(),
 		val.Type(),
 		value,
-	)
-	return errors.WithStack(errors.Combine(main, base))
-}
-
-// SugarDecodingError adds additional context to decoding errors.
-func SugarDecodingError(data []byte, value any, base error) error {
-	if base == nil {
-		return base
-	}
-	val := reflect.ValueOf(value)
-	main := errors.Wrapf(
-		errDecode,
-		"kind=%s, type=%s, data=%x",
-		val.Kind(),
-		val.Type(),
-		data,
 	)
 	return errors.WithStack(errors.Combine(main, base))
 }

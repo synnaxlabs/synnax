@@ -33,15 +33,15 @@ func validateMagic(data []byte) error {
 	return nil
 }
 
-// SelfEncoder is implemented by types that can encode themselves to ORC binary format.
-type SelfEncoder interface {
-	EncodeOrc(*Writer) error
-}
-
 // SelfDecoder is implemented by types that can decode themselves from ORC binary
 // format.
 type SelfDecoder interface {
 	DecodeOrc(*Reader) error
+}
+
+// SelfEncoder is implemented by types that can encode themselves to ORC binary format.
+type SelfEncoder interface {
+	EncodeOrc(*Writer) error
 }
 
 // SelfCodec is implemented by types that can both encode and decode themselves using
@@ -58,7 +58,7 @@ var (
 
 // Codec is an Orc implementation of encoding.Codec that requires all values to
 // implement SelfEncoder/SelfDecoder. Decode returns an error wrapping
-// validate.ErrValidation for data without the Orc magic header; compose with
+// validate.ErrValidation for data without the ORC magic header; compose with
 // encoding.NewDecodeFallbackCodec to read data written by another codec.
 var Codec encoding.Codec = &codec{}
 
@@ -70,7 +70,7 @@ func (*codec) Decode(_ context.Context, data []byte, value any) error {
 	}
 	m, ok := value.(SelfDecoder)
 	if !ok {
-		return errors.Newf("orc: %T does not implement SelfDecoder", value)
+		return errors.Newf("%T does not implement orc.SelfDecoder", value)
 	}
 	r := readerPool.Get().(*Reader)
 	r.ResetBytes(data[len(magic):])
@@ -90,32 +90,25 @@ func (c *codec) DecodeStream(ctx context.Context, rd io.Reader, value any) error
 func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
 	m, ok := value.(SelfEncoder)
 	if !ok {
-		return nil, errors.Newf("orc: %T does not implement SelfEncoder", value)
+		return nil, errors.Newf("%T does not implement orc.SelfEncoder", value)
 	}
 	w := writerPool.Get().(*Writer)
 	w.Reset()
 	w.Write(magic[:])
-	err := m.EncodeOrc(w)
-	out := w.Copy()
-	writerPool.Put(w)
-	if err != nil {
+	if err := m.EncodeOrc(w); err != nil {
+		writerPool.Put(w)
 		return nil, err
 	}
+	out := w.Copy()
+	writerPool.Put(w)
 	return out, nil
 }
 
-func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
-	m, ok := value.(SelfEncoder)
-	if !ok {
-		return errors.Newf("orc: %T does not implement SelfEncoder", value)
+func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+	data, err := c.Encode(ctx, value)
+	if err != nil {
+		return err
 	}
-	ow := writerPool.Get().(*Writer)
-	ow.Reset()
-	ow.Write(magic[:])
-	err := m.EncodeOrc(ow)
-	if err == nil {
-		_, err = w.Write(ow.Bytes())
-	}
-	writerPool.Put(ow)
+	_, err = w.Write(data)
 	return err
 }
