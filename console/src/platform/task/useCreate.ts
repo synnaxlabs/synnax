@@ -10,6 +10,7 @@
 import {
   type device,
   DisconnectedError,
+  type panel,
   type rack,
   type Synnax,
   task,
@@ -30,8 +31,12 @@ export interface CreateUseCreateParams<S extends task.Schemas = task.Schemas> {
   getInitialValues: GetInitialValues<S>;
 }
 
+export interface UseCreateProps {
+  tabKey?: panel.TabKey;
+}
+
 export interface UseCreate {
-  (): (params?: CreateParams) => void;
+  (props?: UseCreateProps): (params?: CreateParams) => void;
 }
 
 /**
@@ -63,7 +68,7 @@ export const createUseCreate =
   <S extends task.Schemas = task.Schemas>({
     getInitialValues,
   }: CreateUseCreateParams<S>): UseCreate =>
-  () => {
+  ({ tabKey }: UseCreateProps = {}) => {
     const client = PSynnax.use();
     const openTab = Panel.useOpenTab();
     const handleError = Status.useErrorHandler();
@@ -78,9 +83,13 @@ export const createUseCreate =
             rackKey,
             config,
           });
-          openTab({ variant: "resource", resource: task.ontologyID(created.key) });
+          openTab({
+            variant: "resource",
+            resource: task.ontologyID(created.key),
+            key: tabKey,
+          });
         }, "Failed to create task");
       },
-      [client, openTab, handleError],
+      [client, openTab, handleError, tabKey],
     );
   };
