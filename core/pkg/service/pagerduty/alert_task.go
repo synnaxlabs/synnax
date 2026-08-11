@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -94,6 +93,8 @@ type alertTask struct {
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        AlertTaskConfig
+	// status is the authority on this instance's current status.
+	status     *driver.StatusHandler
 	disconnect observe.Disconnect
 	// alertsByStatus maps status keys to their AlertConfig for O(1) lookup.
 	alertsByStatus map[string]AlertConfig
@@ -164,13 +165,7 @@ func (t *alertTask) stop(ctx context.Context, cmdKey string, sendStatus bool) er
 // ackCurrent answers cmdKey with the task's current status, for a command that
 // needs no work.
 func (t *alertTask) ackCurrent(ctx context.Context, cmdKey string, running bool) {
-	if err := driver.AckCurrentStatus(
-		ctx,
-		t.factoryCfg.Status,
-		t.task,
-		cmdKey,
-		running,
-	); err != nil {
+	if err := t.status.Ack(ctx, cmdKey, running); err != nil {
 		t.factoryCfg.L.Error("failed to acknowledge command",
 			zap.Stringer("task", t.task),
 			zap.String("cmd", cmdKey),
@@ -283,18 +278,7 @@ func (t *alertTask) updateStatus(
 	running bool,
 	message string,
 ) {
-	details := task.NewStatusDetails(t.task, running)
-	details.Cmd = cmdKey
-	stat := task.Status{
-		Key:     t.task.OntologyID().String(),
-		Name:    t.task.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
-		Details: details,
-	}
-	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).
-		Set(ctx, &stat); err != nil {
+	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
 		t.factoryCfg.L.Error("failed to set task status", zap.Error(err))
 	}
 }

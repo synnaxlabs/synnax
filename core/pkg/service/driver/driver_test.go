@@ -201,6 +201,51 @@ var _ = Describe("Driver", func() {
 		})
 
 		It(
+			"should not write a status when the started task does not exist",
+			func(ctx SpecContext) {
+				var configured atomic.Bool
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						configured.Store(true)
+						return &mockTask{key: t.Key}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				time.Sleep(50 * time.Millisecond)
+
+				// Never created: the deploy fetch fails with not-found, which
+				// must stay silent so the driver cannot recreate a status the
+				// delete removed.
+				ghost := uuid.New()
+				writeCommand(
+					ctx,
+					task.Command{Task: ghost, Type: "start", Key: "ghost-cmd"},
+				)
+				// Commands process in order: once this start configures, the
+				// ghost start was handled.
+				t := newTask(embeddedRackKey(ctx))
+				Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+				Eventually(func() bool { return configured.Load() }).Should(BeTrue())
+
+				var stat task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](
+						task.OntologyID(ghost).String(),
+					)).
+					Entry(&stat).
+					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
+		It(
 			"should rebuild the task when the stored config changes between starts",
 			func(ctx SpecContext) {
 				var (

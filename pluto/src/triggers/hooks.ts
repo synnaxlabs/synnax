@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
-import { type RefObject, useCallback, useEffect, useState } from "react";
+import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 
 import { useStateRef, useSyncedRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -74,6 +74,7 @@ export const use = ({
   const { listen } = useContext();
   const scope = useScope();
   const activeRef = useSyncedRef(() => scope() && resolveCondition(enabled));
+  const startedRef = useRef<Set<string>>(new Set());
   let baseTriggers: Trigger[];
   if (triggers != null && triggers?.length > 0 && typeof triggers[0] === "string")
     baseTriggers = [triggers as Trigger];
@@ -94,21 +95,31 @@ export const use = ({
       const prevMatches = filter(memoTriggers, e.prev, { loose, double });
       const nextMatches = filter(memoTriggers, e.next, { loose, double });
       const res = diff(nextMatches, prevMatches);
-      let added = res[0];
-      const removed = res[1];
+      const [added, removed] = res;
       if (added.length === 0 && removed.length === 0) return;
-      added = filterInRegion(e.target, e.cursor, added, region, regionMustBeElement);
+      const inRegion = filterInRegion(
+        e.target,
+        e.cursor,
+        added,
+        region,
+        regionMustBeElement,
+      );
       const base = {
         target: e.target,
         cursor: e.cursor,
         stopPropagation: e.stopPropagation,
       };
-      if (added.length > 0 && activeRef.current())
-        f?.({ ...base, stage: "start", triggers: added, prevTriggers: e.prev });
-      // A release lands even while inactive, so a key held when the subscriber went
-      // inactive can never stick.
-      if (removed.length > 0)
-        f?.({ ...base, stage: "end", triggers: removed, prevTriggers: e.prev });
+      if (activeRef.current()) {
+        added.forEach((t) => startedRef.current.add(t.join("+")));
+        if (inRegion.length > 0)
+          f?.({ ...base, stage: "start", triggers: inRegion, prevTriggers: e.prev });
+      }
+      // A release lands only for a press seen while active: a key held when the
+      // subscriber went inactive cannot stick, and a press a scope withheld stays
+      // withheld through its release.
+      const ended = removed.filter((t) => startedRef.current.delete(t.join("+")));
+      if (ended.length > 0)
+        f?.({ ...base, stage: "end", triggers: ended, prevTriggers: e.prev });
     }, priority);
   }, [f, memoTriggers, listen, loose, region, double, regionMustBeElement, priority]);
 };
