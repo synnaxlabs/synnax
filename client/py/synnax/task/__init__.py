@@ -20,6 +20,7 @@ from synnax.task.client import (
 from synnax.task.types_gen import (
     ONTOLOGY_TYPE,
     BasePersistConfig,
+    BaseStartConfig,
     Key,
     Payload,
     Status,
@@ -52,6 +53,7 @@ __all__ = [
     "BaseConfig",
     "BasePersistConfig",
     "BaseReadConfig",
+    "BaseStartConfig",
     "BaseWriteConfig",
     "JSONConfigMixin",
     "StarterStopperMixin",
