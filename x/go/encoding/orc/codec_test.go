@@ -169,14 +169,13 @@ var _ = Describe("Codec", func() {
 
 		Describe("Encode", func() {
 			It(
-				"Should fall back to JSON for non-SelfEncoder values",
+				"Should reject non-SelfEncoder values even with a fallback",
 				func(ctx SpecContext) {
-					in := &jsonOnlyRecord{ID: 1, Name: "fallback"}
-					data := MustSucceed(c.Encode(ctx, in))
-					Expect(data[0]).ToNot(Equal(magic[0]))
-					out := &jsonOnlyRecord{}
-					Expect(json.Codec.Decode(ctx, data, out)).To(Succeed())
-					Expect(out).To(Equal(in))
+					Expect(c.Encode(ctx, &jsonOnlyRecord{ID: 1, Name: "plain"})).
+						Error().
+						To(MatchError(ContainSubstring(
+							"orc: *orc_test.jsonOnlyRecord does not implement SelfEncoder",
+						)))
 				},
 			)
 
@@ -210,17 +209,6 @@ var _ = Describe("Codec", func() {
 		})
 
 		Describe("Round-trip", func() {
-			It(
-				"Should round-trip a non-SelfEncoder value through the fallback",
-				func(ctx SpecContext) {
-					in := &jsonOnlyRecord{ID: 99, Name: "round"}
-					data := MustSucceed(c.Encode(ctx, in))
-					out := &jsonOnlyRecord{}
-					Expect(c.Decode(ctx, data, out)).To(Succeed())
-					Expect(out).To(Equal(in))
-				},
-			)
-
 			It(
 				"Should round-trip a SelfEncoder value through ORC",
 				func(ctx SpecContext) {

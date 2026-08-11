@@ -42,13 +42,13 @@ func validateMagic(data []byte) error {
 
 // SelfEncoder is implemented by types that can encode themselves to ORC binary format.
 type SelfEncoder interface {
-	EncodeOrc(w *Writer) error
+	EncodeOrc(*Writer) error
 }
 
 // SelfDecoder is implemented by types that can decode themselves from ORC binary
 // format.
 type SelfDecoder interface {
-	DecodeOrc(r *Reader) error
+	DecodeOrc(*Reader) error
 }
 
 // SelfCodec is implemented by types that can both encode and decode themselves
@@ -68,30 +68,22 @@ var (
 var Codec = &codec{}
 
 type codec struct {
+	// fallback decodes data that lacks the Orc magic header. It is never used to
+	// encode: values must implement SelfEncoder.
 	fallback encoding.Codec
 }
 
-// NewCodec returns an Orc codec that falls back to the given codec when a value does
-// not implement SelfEncoder (on encode) or when the data lacks the Orc magic header (on
-// decode).
+// NewCodec returns an Orc codec that falls back to the given codec when decoded data
+// lacks the Orc magic header. Encoding always requires the value to implement
+// SelfEncoder.
 func NewCodec(fallback encoding.Codec) encoding.Codec {
 	return &codec{fallback: fallback}
 }
 
-func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
-	var m SelfEncoder
-	if c.fallback != nil {
-		var ok bool
-		m, ok = value.(SelfEncoder)
-		if !ok {
-			return c.fallback.Encode(ctx, value)
-		}
-	} else {
-		var ok bool
-		m, ok = value.(SelfEncoder)
-		if !ok {
-			return nil, errors.Newf("orc: %T does not implement SelfEncoder", value)
-		}
+func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
+	m, ok := value.(SelfEncoder)
+	if !ok {
+		return nil, errors.Newf("orc: %T does not implement SelfEncoder", value)
 	}
 	w := writerPool.Get().(*Writer)
 	w.Reset()
@@ -105,12 +97,9 @@ func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	return out, nil
 }
 
-func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (c *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	m, ok := value.(SelfEncoder)
 	if !ok {
-		if c.fallback != nil {
-			return c.fallback.EncodeStream(ctx, w, value)
-		}
 		return errors.Newf("orc: %T does not implement SelfEncoder", value)
 	}
 	ow := writerPool.Get().(*Writer)

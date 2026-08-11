@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 )
@@ -66,7 +67,7 @@ var indexSizes = []int{100, 1_000, 10_000, 100_000}
 func BenchmarkLookupSetup(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -102,7 +103,7 @@ func BenchmarkLookupSetup(b *testing.B) {
 func BenchmarkLookupQueryViaIndex(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -148,7 +149,7 @@ func BenchmarkLookupQueryViaIndex(b *testing.B) {
 func BenchmarkLookupQueryViaScan(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -191,7 +192,7 @@ func BenchmarkLookupQueryViaScan(b *testing.B) {
 func BenchmarkLookupObserverUpdate(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -238,7 +239,7 @@ func BenchmarkLookupObserverUpdate(b *testing.B) {
 func BenchmarkSortedSetup(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -276,7 +277,7 @@ func BenchmarkSortedSetup(b *testing.B) {
 func BenchmarkSortedObserverUpdate(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)
@@ -328,7 +329,7 @@ func compositionFixture(b *testing.B, size int) (
 	*gorp.LookupIndex[int32, indexBenchEntry, string],
 ) {
 	b.Helper()
-	db := gorp.Wrap(memkv.New())
+	db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 	ctx := context.Background()
 	entries := makeIndexBenchEntries(size)
 	if err := gorp.NewCreate[int32, indexBenchEntry]().
@@ -396,7 +397,7 @@ func BenchmarkComposeAndIndexed(b *testing.B) {
 func BenchmarkComposeAndScan(b *testing.B) {
 	for _, size := range indexSizes {
 		b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-			db := gorp.Wrap(memkv.New())
+			db := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			entries := makeIndexBenchEntries(size)

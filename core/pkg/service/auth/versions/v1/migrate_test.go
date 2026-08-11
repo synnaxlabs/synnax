@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -22,14 +23,15 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	// seedV0 writes a credential row in the untagged v0 shape, exactly as the
-	// pre-Oracle server persisted it.
+	// seedV0 writes a credential row in the untagged v0 shape through a plain
+	// MessagePack codec, exactly as the pre-Oracle server persisted it.
 	seedV0 := func(ctx SpecContext, db *gorp.DB, sc v0.SecureCredentials) {
 		GinkgoHelper()
+		legacyDB := gorp.Wrap(db.DB, gorp.WithCodec(msgpack.Codec))
 		t := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[string, v0.SecureCredentials]{DB: db},
+			ctx, gorp.TableConfig[string, v0.SecureCredentials]{DB: legacyDB},
 		))
-		Expect(t.NewCreate().Entry(&sc).Exec(ctx, db)).To(Succeed())
+		Expect(t.NewCreate().Entry(&sc).Exec(ctx, legacyDB)).To(Succeed())
 	}
 
 	// retrieveMigrated opens the current credentials table with the migration wired

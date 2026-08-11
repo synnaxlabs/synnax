@@ -33,7 +33,7 @@ var _ = Describe("Table", func() {
 	)
 	BeforeEach(func() {
 		kvs = memkv.New()
-		db = gorp.Wrap(kvs)
+		db = gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec))
 	})
 	AfterEach(func() {
 		Expect(db.Close()).To(Succeed())
@@ -134,7 +134,7 @@ var _ = Describe("Table", func() {
 		It(
 			"Should run key re-encoding only when no migrations are provided",
 			func(ctx SpecContext) {
-				testDB := gorp.Wrap(memkv.New())
+				testDB := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entry](testDB)
 				Expect(w.Set(ctx, entry{ID: 1, Data: "no_migration"})).To(Succeed())
@@ -151,7 +151,7 @@ var _ = Describe("Table", func() {
 		It(
 			"Should run key re-encoding even when versioned migrations are at latest",
 			func(ctx SpecContext) {
-				testDB := gorp.Wrap(memkv.New())
+				testDB := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				migration := gorp.NewMigration(
 					"noop",
@@ -174,7 +174,7 @@ var _ = Describe("Table", func() {
 	Describe("Migration ordering", func() {
 		It("Should run user migrations after normalize_keys", func(ctx SpecContext) {
 			testKV := memkv.New()
-			testDB := gorp.Wrap(testKV)
+			testDB := gorp.Wrap(testKV, gorp.WithCodec(msgpack.Codec))
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 
 			codec := msgpack.Codec
