@@ -42,7 +42,10 @@ const Internal = (): ReactElement => {
     <Base.Content className={CSS.B("log-toolbar")}>
       <Tabs.Frame value={selected} onChange={handleTabSelect} grow>
         <Base.Header>
-          <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
+          <Base.Title>
+            <Icon.Log />
+            {name}
+          </Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
               <Export.ToolbarButton getID={() => log.ontologyID(key)} />

@@ -213,9 +213,9 @@ describe("Orientation.Select", () => {
       const { container } = render(
         <Orientation.Select value={ZERO_VALUE} onChange={() => {}} showOuterCenter />,
       );
-      expect(container.querySelector(".pluto-value")?.className).toContain(
-        "pluto--show-outer-center",
-      );
+      expect(
+        container.querySelector(".pluto-select-orientation__inner")?.className,
+      ).toContain("pluto--show-outer-center");
     });
   });
 
