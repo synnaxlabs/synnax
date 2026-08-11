@@ -11,7 +11,7 @@
 
 .console-mosaic--empty {
     overflow: hidden;
-    box-shadow: var(--pluto-shadow-v2);
+    box-shadow: var(--pluto-shadow-lift);
 }
 
 .console-mosaic__empty-content {

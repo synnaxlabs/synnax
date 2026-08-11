@@ -7,6 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/button/Create";
+export * from "@/platform/button/CreateListItem";
 export * from "@/platform/button/Favorite";
-export * from "@/platform/button/Quiet";

@@ -82,7 +82,7 @@
     display: inline-flex;
     align-items: center;
     gap: 1rem;
-    padding: 0.9rem 1.75rem;
+    padding: 1rem 1.75rem;
     border: 1px solid var(--pluto-gray-l6);
     border-radius: 1rem;
     background: color-mix(in srgb, var(--pluto-gray-l1) 60%, transparent);
@@ -142,7 +142,7 @@
 }
 
 .schxv--capsule {
-    padding-right: 0.9rem;
+    padding-right: 1rem;
 
     .schxv__units {
         background: var(--pluto-gray-l3);
@@ -291,7 +291,7 @@
         display: inline-flex;
         align-items: center;
         gap: 1rem;
-        padding: 0.9rem 1.5rem;
+        padding: 1rem 1.5rem;
         font-family: var(--pluto-code-font-family, ui-monospace, monospace);
         font-variant-numeric: tabular-nums;
         color: var(--pluto-gray-l11);

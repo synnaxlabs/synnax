@@ -17,7 +17,7 @@ import {
   type ReactElement,
 } from "react";
 
-export type LogoVariant = "icon" | "title" | "loader";
+export type LogoVariant = "icon" | "title";
 
 export interface LogoProps extends HTMLAttributes<SVGElement> {
   variant?: LogoVariant;
@@ -25,56 +25,6 @@ export interface LogoProps extends HTMLAttributes<SVGElement> {
 }
 
 interface InternalLogoProps extends ComponentPropsWithoutRef<"svg"> {}
-
-const Loader = (props: InternalLogoProps): ReactElement => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 189.34" {...props}>
-    <defs>
-      <linearGradient
-        id="synnax-linear-gradient"
-        x1="-2.63"
-        y1="56.85"
-        x2="167.19"
-        y2="157.88"
-        gradientUnits="userSpaceOnUse"
-      >
-        <stop offset="0" stopColor="#10007f" />
-        <stop offset="1" stopColor="#0084e9" />
-      </linearGradient>
-      <filter
-        id="fillpartial"
-        primitiveUnits="objectBoundingBox"
-        x="0%"
-        y="0%"
-        width="100%"
-        height="100%"
-      >
-        <feFlood x="0%" y="0%" width="100%" height="100%" />
-        <feOffset dy="0.5">
-          <animate
-            attributeName="dy"
-            from="1"
-            to="0"
-            dur="1s"
-            repeatCount="indefinite"
-          />
-        </feOffset>
-        <feComposite operator="in" in2="SourceGraphic" />
-        <feComposite operator="over" in2="SourceGraphic" />
-      </filter>
-    </defs>
-    <g id="Layer_2" data-name="Layer 2">
-      <g id="Layer_1-2" data-name="Layer 1">
-        <path
-          filter="url(#fillpartial)"
-          stroke="black"
-          strokeWidth="1"
-          className="cls-1"
-          d="M52.61,168.82A14.81,14.81,0,0,1,39.78,146.6L94.22,52.33c5.7-9.88,20-9.88,25.9.42l51.77,89.67a6.88,6.88,0,0,0,2.48,2.49l15.42,8.9a6.78,6.78,0,0,0,9.26-9.27L119.87,7.41a14.8,14.8,0,0,0-25.65,0L2,167.12a14.81,14.81,0,0,0,12.83,22.22H170.39a6.79,6.79,0,0,0,3.39-12.66l-12.05-7a6.83,6.83,0,0,0-3.39-.91Z"
-        />
-      </g>
-    </g>
-  </svg>
-);
 
 const Icon = (props: InternalLogoProps): ReactElement => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 189.34" {...props}>
@@ -129,7 +79,6 @@ const Title = (props: InternalLogoProps): ReactElement => (
 const VARIANTS: Record<LogoVariant, ComponentType<InternalLogoProps>> = {
   icon: Icon,
   title: Title,
-  loader: Loader,
 };
 
 export const Logo = ({
