@@ -10,7 +10,6 @@
 package encoding
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"reflect"
@@ -86,72 +85,4 @@ type Decoder interface {
 	Decode(ctx context.Context, data []byte, value any) error
 	// DecodeStream decodes data from the given reader into a pointer value.
 	DecodeStream(ctx context.Context, r io.Reader, value any) error
-}
-
-// decodeFallbackCodec wraps a set of Codecs. When the first Codec in the chain fails to
-// decode a value, it falls back to the next Codec in the chain.
-type decodeFallbackCodec struct {
-	Codecs []Codec
-}
-
-func NewDecodeFallbackCodec(base Codec, codecs ...Codec) Codec {
-	return &decodeFallbackCodec{Codecs: append([]Codec{base}, codecs...)}
-}
-
-var _ Codec = (*decodeFallbackCodec)(nil)
-
-// Encode implements the Encoder interface.
-func (f *decodeFallbackCodec) Encode(ctx context.Context, value any) ([]byte, error) {
-	return f.Codecs[0].Encode(ctx, value)
-}
-
-func (f *decodeFallbackCodec) EncodeStream(
-	ctx context.Context,
-	w io.Writer,
-	value any,
-) error {
-	return f.Codecs[0].EncodeStream(ctx, w, value)
-}
-
-// Decode implements the Decoder interface.
-func (f *decodeFallbackCodec) Decode(
-	ctx context.Context,
-	data []byte,
-	value any,
-) error {
-	var errs []error
-	for _, c := range f.Codecs {
-		if err := c.Decode(ctx, data, value); err != nil {
-			errs = append(errs, err)
-		} else {
-			return nil
-		}
-	}
-	return errors.Wrap(errors.Join(errs...), "all codecs failed to decode")
-}
-
-// DecodeStream implements the Decoder interface.
-func (f *decodeFallbackCodec) DecodeStream(
-	ctx context.Context,
-	r io.Reader,
-	value any,
-) error {
-	if len(f.Codecs) == 0 {
-		panic("[encoding] - no codecs provided to decodeFallbackCodec")
-	}
-	// We need to read out all the data here, otherwise an initial codec that fails will
-	// leave the reader in a bad state. It's not ideal, but we need to do it.
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return err
-	}
-	var errs []error
-	for _, c := range f.Codecs {
-		if err = c.DecodeStream(ctx, bytes.NewReader(data), value); err != nil {
-			errs = append(errs, err)
-		} else {
-			return nil
-		}
-	}
-	return errors.Wrap(errors.Join(errs...), "all codecs failed to decode")
 }

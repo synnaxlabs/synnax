@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/orc"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type testRecord struct {
@@ -81,19 +82,28 @@ var _ = Describe("Codec", func() {
 	Describe("Decode", func() {
 		It("Should reject empty data", func(ctx SpecContext) {
 			Expect(orc.Codec.Decode(ctx, []byte{}, &testRecord{})).
-				To(MatchError(orc.ErrInvalidFormat))
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("data was not encoded using ORC")),
+				))
 		})
 
 		It("Should reject data shorter than 3 bytes", func(ctx SpecContext) {
 			Expect(orc.Codec.Decode(ctx, []byte{0x4F, 0x52}, &testRecord{})).
-				To(MatchError(orc.ErrInvalidFormat))
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("data was not encoded using ORC")),
+				))
 		})
 
 		It("Should reject wrong magic bytes", func(ctx SpecContext) {
 			Expect(
 				orc.Codec.Decode(ctx, []byte{0x00, 0x00, 0x00, 0x00}, &testRecord{}),
 			).
-				To(MatchError(orc.ErrInvalidFormat))
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("data was not encoded using ORC")),
+				))
 		})
 
 		It("Should return an error for non-SelfDecoder values", func(ctx SpecContext) {
