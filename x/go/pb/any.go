@@ -20,8 +20,8 @@ import (
 
 // AnyFromPBAny converts *anypb.Any to any. It handles JSON values of every type
 // (structpb.Value), JSON objects sent by peers on releases before value packing
-// (structpb.Struct), and typed protos. For typed protos, it uses protojson to
-// convert to a JSON-compatible map.
+// (structpb.Struct), and typed protos. For typed protos, it uses protojson to convert
+// to a JSON-compatible map.
 func AnyFromPBAny(a *anypb.Any) (any, error) {
 	if a == nil {
 		return nil, nil
@@ -60,8 +60,8 @@ func AnyFromPBAny(a *anypb.Any) (any, error) {
 }
 
 // AnyToPBAny converts any to *anypb.Any. It wraps JSON values of every type in a
-// structpb.Value, passes through proto.Message and *anypb.Any directly, and falls
-// back to JSON marshaling for types structpb does not accept directly.
+// structpb.Value, passes through proto.Message and *anypb.Any directly, and falls back
+// to JSON marshaling for types structpb does not accept directly.
 func AnyToPBAny(v any) (*anypb.Any, error) {
 	if v == nil {
 		return nil, nil
