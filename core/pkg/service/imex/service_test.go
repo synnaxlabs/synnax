@@ -377,6 +377,15 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("ExporterRegistered", func() {
+		It("Should report whether an exporter is registered for a type", func() {
+			s := imex.NewService()
+			s.RegisterExporter(noopExporter{typ: ontology.ResourceTypeLog})
+			Expect(s.ExporterRegistered(ontology.ResourceTypeLog)).To(BeTrue())
+			Expect(s.ExporterRegistered(ontology.ResourceTypeRange)).To(BeFalse())
+		})
+	})
+
 	Describe("Import", func() {
 		It(
 			"Should route to the correct service by type and return the new ID",

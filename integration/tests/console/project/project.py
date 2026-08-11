@@ -254,28 +254,38 @@ class Project(ConsoleCase):
         for p in EXPECTED_PAGES:
             self.console.layout.close_tab(p)
 
-        # PANELS.json holds the project's panel documents. Page names live on the
-        # resources themselves, so the panel trees are checked for the resource types
-        # and the per-page component files carry the names.
+        # The bundle holds a manifest naming the project, one envelope per member
+        # document, and one envelope per panel whose resource tabs reference the
+        # member files by path.
         with open(
-            os.path.join(self._export_dir, "PANELS.json"), "r", encoding="utf-8"
+            os.path.join(self._export_dir, "manifest.json"), "r", encoding="utf-8"
         ) as f:
-            panels = json.load(f)
+            manifest = json.load(f)
+        assert manifest["type"] == "project", f"Unexpected manifest: {manifest}"
+        assert manifest["version"] == 1, f"Unexpected manifest: {manifest}"
+        assert manifest["name"] == "ImportSpace", f"Unexpected manifest: {manifest}"
 
-        def collect_types(node: dict[str, Any], out: list[str]) -> None:
+        def collect_references(node: dict[str, Any], out: list[str]) -> None:
             if node["variant"] == "leaf":
                 out.extend(
-                    tab["resource"]["type"]
+                    tab["resource"]
                     for tab in node["tabs"]
                     if tab["variant"] == "resource"
                 )
                 return
-            collect_types(node["first"], out)
-            collect_types(node["last"], out)
+            collect_references(node["first"], out)
+            collect_references(node["last"], out)
 
-        exported_types: list[str] = []
-        for panel in panels:
-            collect_types(panel["root"], exported_types)
+        referenced: list[str] = []
+        for entry in os.listdir(self._export_dir):
+            if not entry.endswith(".json") or entry == "manifest.json":
+                continue
+            with open(
+                os.path.join(self._export_dir, entry), "r", encoding="utf-8"
+            ) as f:
+                envelope = json.load(f)
+            if envelope.get("type") == "panel":
+                collect_references(envelope["root"], referenced)
 
         expected = {
             "Metrics Plot": "lineplot",
@@ -284,24 +294,36 @@ class Project(ConsoleCase):
             "Metrics Table": "table",
         }
         for page_name, page_type in expected.items():
-            assert page_type in exported_types, (
-                f"Export should contain a {page_type} tab for '{page_name}', "
-                f"got {exported_types}"
+            member_path = os.path.join(self._export_dir, f"{page_name}.json")
+            assert os.path.exists(member_path), (
+                f"Export should contain {page_name}.json"
             )
-            assert os.path.exists(
-                os.path.join(self._export_dir, f"{page_name}.json")
-            ), f"Export should contain {page_name}.json"
+            with open(member_path, "r", encoding="utf-8") as f:
+                member = json.load(f)
+            assert member["type"] == page_type, (
+                f"{page_name}.json should have type {page_type}, "
+                f"got {member.get('type')}"
+            )
+            assert f"{page_name}.json" in referenced, (
+                f"A panel should reference {page_name}.json, got {referenced}"
+            )
 
     def test_import_project(self) -> None:
         """Test importing a project through the real "Import a project" command."""
         self.log("Testing import project via command palette")
 
-        # Rename the export directory so the imported project has a
+        # Rename the bundle (directory and manifest) so the imported project has a
         # distinct name from the original ImportSpace project.
         imported_dir = os.path.join(os.path.dirname(self._export_dir), "ImportedSpace")
         if os.path.isdir(imported_dir):
             shutil.rmtree(imported_dir)
         os.rename(self._export_dir, imported_dir)
+        manifest_path = os.path.join(imported_dir, "manifest.json")
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        manifest["name"] = "ImportedSpace"
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json.dump(manifest, f)
 
         self.console.project.import_project_from_directory(imported_dir)
 

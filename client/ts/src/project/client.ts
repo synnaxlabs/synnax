@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, caseconv, type destructor, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -41,6 +41,7 @@ const setLayoutReqZ = z.object({
   layout: caseconv.preserveCase(record.unknownZ()),
 });
 const deleteReqZ = z.object({ keys: keyZ.array() });
+const exportReqZ = z.object({ key: keyZ });
 
 const retrieveResZ = z.object({ projects: projectZ.array().default(() => []) });
 const createResZ = z.object({ projects: projectZ.array() });
@@ -59,6 +60,7 @@ const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
 
 export interface ClientConfig {
   unary: UnaryClient;
+  file: FileTransport;
   cache: query.Cache;
   ontology: ontology.Client;
 }
@@ -174,6 +176,22 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
         ),
     });
     drop();
+  }
+
+  /**
+   * Exports the project and its contents as a bundle: a zip archive holding one JSON
+   * file per document and panel, group children as directories, and a manifest.json
+   * naming the project. The caller pipes the stream wherever it likes without the
+   * client buffering the whole archive.
+   *
+   * @param key - the key of the project to export.
+   * @returns the bundle as a stream of zip bytes.
+   * @throws {ValidationError} if two members in one directory take the same file name.
+   */
+  async export(key: Key): Promise<ReadableStream<Uint8Array>> {
+    return await this.cfg.file.download("/project/export", { key }, exportReqZ, {
+      encoding: "ZIP",
+    });
   }
 
   /** Subscribes to every project delete delivered to the cache. */

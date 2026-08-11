@@ -15,7 +15,9 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -35,6 +37,15 @@ type ServiceConfig struct {
 	Ontology *ontology.Ontology
 	Group    *group.Service
 	Search   *search.Index
+	// ImEx is the leaf import/export registry Export serializes member documents
+	// through.
+	//
+	// [REQUIRED]
+	ImEx *imex.Service
+	// Panel is the panel service Export reads panel trees through.
+	//
+	// [REQUIRED]
+	Panel *panel.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -47,6 +58,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.ImEx = override.Nil(c.ImEx, other.ImEx)
+	c.Panel = override.Nil(c.Panel, other.Panel)
 	return c
 }
 
@@ -57,6 +70,8 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
+	validate.NotNil(v, "panel", c.Panel)
 	return v.Error()
 }
 

@@ -7,25 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  log,
-  type panel,
-  project,
-  ranger,
-  type status,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { log, project, type status, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
-import { act, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Project } from "@/feature/project";
 import { createExecutingHandleError } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
+  captureBrowserDownloads,
   createTestStore,
-  installPickedDirectory,
   removeFilePickers,
   type TestStore,
   uniqueName,
@@ -33,47 +26,44 @@ import {
 
 const client: Synnax = createTestClient();
 
-interface CreateExportContextParams {
-  store: TestStore;
-  confirmResult?: boolean;
-}
-
-const createExportContext = ({
-  store,
-  confirmResult = true,
-}: CreateExportContextParams): {
-  ctx: Project.ExportContext;
-  statuses: status.Crude[];
-  confirm: ReturnType<typeof vi.fn>;
-} => {
+const createExportContext = (
+  store: TestStore,
+): { ctx: Project.ExportContext; statuses: status.Crude[] } => {
   const statuses: status.Crude[] = [];
-  const confirm = vi.fn(async () => confirmResult);
   const ctx: Project.ExportContext = {
     client,
     store,
-    confirm,
     handleError: createExecutingHandleError((message, exc) => {
       console.error(message, exc);
     }),
     addStatus: (s) => void statuses.push(s),
   };
-  return { ctx, statuses, confirm };
+  return { ctx, statuses };
 };
 
-const createPanelWithLog = async (
-  projectKey: project.Key,
-  logKey: string,
-): Promise<panel.Panel> =>
+const createProjectWithPanel = async (): Promise<{
+  proj: project.Project;
+  logName: string;
+}> => {
+  const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+  const logName = uniqueName("log");
+  const createdLog = await client.logs.create(proj.key, { name: logName });
   await client.panels.create({
     name: "Main",
     root: {
       variant: "leaf",
       tabs: [
-        { variant: "resource", key: uuid.create(), resource: log.ontologyID(logKey) },
+        {
+          variant: "resource",
+          key: uuid.create(),
+          resource: log.ontologyID(createdLog.key),
+        },
       ],
     },
-    parent: project.ontologyID(projectKey),
+    parent: project.ontologyID(proj.key),
   });
+  return { proj, logName };
+};
 
 describe("project export", () => {
   afterEach(() => {
@@ -81,113 +71,40 @@ describe("project export", () => {
     vi.restoreAllMocks();
   });
 
-  it("should export the active project's panels and component files", async () => {
-    const p = await client.projects.create({ name: uniqueName("proj"), layout: {} });
-    const logName = uniqueName("log");
-    const createdLog = await client.logs.create(p.key, { name: logName });
-    const exported = await createPanelWithLog(p.key, createdLog.key);
+  it("downloads the active project as a zip named after it", async () => {
+    const downloads = captureBrowserDownloads();
+    const { proj, logName } = await createProjectWithPanel();
     const store = await createTestStore({
       preloadedState: {
-        [Session.Project.SLICE_NAME]: { version: 0, selected: p.key },
+        [Session.Project.SLICE_NAME]: { version: 0, selected: proj.key },
       },
     });
-    const writes = installPickedDirectory();
-    const { ctx, statuses } = createExportContext({ store });
+    const { ctx, statuses } = createExportContext(store);
     Project.export_(null, ctx);
-    await waitFor(() => expect(writes.has(Project.PANELS_FILE_NAME)).toBe(true));
-    await waitFor(() => expect(writes.has(`${logName}.json`)).toBe(true));
-    const panels = JSON.parse(
-      writes.get(Project.PANELS_FILE_NAME) ?? "[]",
-    ) as panel.Panel[];
-    expect(panels.map(({ key }) => key)).toContain(exported.key);
-    const exportedLog = JSON.parse(writes.get(`${logName}.json`) ?? "{}");
-    expect(exportedLog.name).toEqual(logName);
-    await waitFor(() =>
-      expect(
-        statuses.some((s) => s.variant === "success" && s.message?.includes(p.name)),
-      ).toBe(true),
-    );
-  });
-
-  it("should skip tabs referencing types the Core cannot export", async () => {
-    const p = await client.projects.create({ name: uniqueName("proj"), layout: {} });
-    const logName = uniqueName("log");
-    const createdLog = await client.logs.create(p.key, { name: logName });
-    await client.panels.create({
-      name: "Main",
-      root: {
-        variant: "leaf",
-        tabs: [
-          {
-            variant: "resource",
-            key: uuid.create(),
-            resource: log.ontologyID(createdLog.key),
-          },
-          {
-            variant: "resource",
-            key: uuid.create(),
-            resource: ranger.ontologyID(uuid.create()),
-          },
-        ],
-      },
-      parent: project.ontologyID(p.key),
-    });
-    const store = await createTestStore({
-      preloadedState: {
-        [Session.Project.SLICE_NAME]: { version: 0, selected: p.key },
-      },
-    });
-    const writes = installPickedDirectory();
-    const { ctx, statuses } = createExportContext({ store });
-    Project.export_(null, ctx);
-    await waitFor(() => expect(writes.has(`${logName}.json`)).toBe(true));
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    expect(downloads.anchors[0].download).toBe(`${proj.name}.zip`);
+    // Zip entry names are stored uncompressed, so the archive names its own files.
+    const archive = new TextDecoder().decode(await downloads.blobs[0].arrayBuffer());
+    expect(archive.startsWith("PK")).toBe(true);
+    expect(archive).toContain("manifest.json");
+    expect(archive).toContain(`${logName}.json`);
+    expect(archive).toContain("Main.json");
     await waitFor(() =>
       expect(statuses.some((s) => s.variant === "success")).toBe(true),
     );
-    expect(writes.size).toBe(2);
   });
 
-  it("should abort the export when the user declines to replace", async () => {
-    const p = await client.projects.create({ name: uniqueName("proj"), layout: {} });
-    const store = await createTestStore({
-      preloadedState: {
-        [Session.Project.SLICE_NAME]: { version: 0, selected: p.key },
-      },
-    });
-    const writes = installPickedDirectory();
-    const { ctx, statuses, confirm } = createExportContext({
-      store,
-      confirmResult: false,
-    });
-    Project.export_(null, ctx);
-    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
-    await act(async () => {});
-    expect(writes.size).toBe(0);
-    expect(statuses).toHaveLength(0);
-  });
-
-  it("should export a non-active project's panels from the server", async () => {
-    const target = await client.projects.create({
-      name: uniqueName("proj"),
-      layout: {},
-    });
-    const l = await client.logs.create(target.key, { name: uniqueName("log") });
-    await createPanelWithLog(target.key, l.key);
+  it("downloads a non-active project by key", async () => {
+    const downloads = captureBrowserDownloads();
+    const { proj } = await createProjectWithPanel();
     const store = await createTestStore({
       preloadedState: {
         [Session.Project.SLICE_NAME]: { version: 0, selected: "other" },
       },
     });
-    const writes = installPickedDirectory();
-    const { ctx, statuses } = createExportContext({ store });
-    Project.export_(target.key, ctx);
-    await waitFor(() => expect(writes.has(Project.PANELS_FILE_NAME)).toBe(true));
-    const panels = JSON.parse(
-      writes.get(Project.PANELS_FILE_NAME) ?? "[]",
-    ) as panel.Panel[];
-    expect(panels).toHaveLength(1);
-    await waitFor(() =>
-      expect(statuses.some((s) => s.variant === "success")).toBe(true),
-    );
+    const { ctx } = createExportContext(store);
+    Project.export_(proj.key, ctx);
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    expect(downloads.anchors[0].download).toBe(`${proj.name}.zip`);
   });
 });

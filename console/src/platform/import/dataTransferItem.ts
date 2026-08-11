@@ -16,9 +16,15 @@ import { trimFileName } from "@/platform/import/trimFileName";
 import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
+interface DirectoryFile {
+  file: File;
+  /** The file's path relative to the dropped directory, forward-slash form. */
+  path: string;
+}
+
 interface DirectoryContent {
   name: string;
-  files: File[];
+  files: DirectoryFile[];
 }
 
 const parseDataTransferItem = async (
@@ -32,33 +38,34 @@ const parseDataTransferItem = async (
   if (entry.isFile) return item.getAsFile();
   if (!entry.isDirectory) return null;
 
-  const directoryReader = (entry as FileSystemDirectoryEntry).createReader();
-  const files: File[] = [];
+  const files: DirectoryFile[] = [];
 
-  const processEntries = async (entries: FileSystemEntry[]): Promise<void> => {
-    await Promise.all(
-      entries.map(async (entry) => {
-        if (entry.isFile) {
-          const file = await new Promise<File | null>((resolve) => {
-            (entry as FileSystemFileEntry).file(resolve, () => resolve(null));
-          });
-          if (file) files.push(file);
-        }
-      }),
-    );
-  };
-
-  const readAllEntries = async (): Promise<void> => {
+  const readDirectory = async (
+    dir: FileSystemDirectoryEntry,
+    prefix: string,
+  ): Promise<void> => {
+    const reader = dir.createReader();
     while (true) {
       const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
-        directoryReader.readEntries(resolve, reject);
+        reader.readEntries(resolve, reject);
       });
       if (entries.length === 0) break;
-      await processEntries(entries);
+      await Promise.all(
+        entries.map(async (child) => {
+          const path = prefix === "" ? child.name : `${prefix}/${child.name}`;
+          if (child.isDirectory)
+            return await readDirectory(child as FileSystemDirectoryEntry, path);
+          if (!child.isFile) return;
+          const file = await new Promise<File | null>((resolve) => {
+            (child as FileSystemFileEntry).file(resolve, () => resolve(null));
+          });
+          if (file) files.push({ file, path });
+        }),
+      );
     }
   };
 
-  await readAllEntries();
+  await readDirectory(entry as FileSystemDirectoryEntry, "");
   return { name: entry.name, files };
 };
 
@@ -97,10 +104,10 @@ export const dataTransferItem = async (
 
   // Handling a directory transfer, importing a directory containing multiple files
   const parsedFiles = await Promise.all(
-    entry.files.map(async (file) => {
+    entry.files.map(async ({ file, path }) => {
       const buffer = await file.arrayBuffer();
       const data = new TextDecoder().decode(buffer);
-      return { name: file.name, data: JSON.parse(data) };
+      return { name: file.name, path, data: JSON.parse(data) };
     }),
   );
   await ingestDirectory(entry.name, parsedFiles, {

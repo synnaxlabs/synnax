@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package zip encodes a flat namespace of named files into a zip archive.
+// Package zip encodes a namespace of named files into a zip archive.
 package zip
 
 import (
@@ -24,13 +24,14 @@ import (
 	"github.com/synnaxlabs/x/http"
 )
 
-// Files is a flat namespace of file name to file contents. It carries no directories
-// and no nesting: every name is a leaf, which the Encoder enforces.
+// Files maps entry names to file contents. A name is a relative path from the archive
+// root in forward-slash form; directories exist only as prefixes of entry names, which
+// the Encoder enforces.
 type Files = map[string][]byte
 
 // Encoder encodes a Files value into a zip archive with one entry per file. Entries are
 // written in sorted name order, so equal Files always encode to equal bytes. Encoding
-// any other value, and a file name that is not a leaf, both return encoding.ErrEncode.
+// any other value, and an invalid entry name, both return encoding.ErrEncode.
 var Encoder http.Encoder = encoder{}
 
 type encoder struct{}
@@ -56,7 +57,7 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	// leaves no partial output on w.
 	names := slices.Sorted(maps.Keys(files))
 	for _, name := range names {
-		if err := validateLeaf(name); err != nil {
+		if err := validateEntryName(name); err != nil {
 			return err
 		}
 	}
@@ -73,22 +74,29 @@ func (encoder) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	return encoding.SugarEncodingErr(value, zw.Close())
 }
 
-// validateLeaf returns an error wrapping encoding.ErrEncode when name cannot be a flat
-// archive entry: an empty name, a name holding a path separator, or a name addressing a
-// directory. It names the offender itself rather than going through
-// encoding.SugarEncodingErr, which reports the whole file map and drops the reason.
-func validateLeaf(name string) error {
-	switch {
-	case name == "":
+// validateEntryName returns an error wrapping encoding.ErrEncode when name is not a
+// relative forward-slash path of non-empty segments: an empty name, a backslash, a
+// leading, trailing, or doubled slash, or a "." or ".." segment. It names the offender
+// itself rather than going through encoding.SugarEncodingErr, which reports the whole
+// file map and drops the reason.
+func validateEntryName(name string) error {
+	if name == "" {
 		return errors.Wrap(encoding.ErrEncode, "file name is empty")
-	case strings.ContainsAny(name, `/\`):
-		return errors.Wrapf(
-			encoding.ErrEncode, "file name %q holds a path separator", name,
-		)
-	case name == "." || name == "..":
-		return errors.Wrapf(
-			encoding.ErrEncode, "file name %q addresses a directory", name,
-		)
+	}
+	if strings.Contains(name, `\`) {
+		return errors.Wrapf(encoding.ErrEncode, "file name %q holds a backslash", name)
+	}
+	for segment := range strings.SplitSeq(name, "/") {
+		switch segment {
+		case "":
+			return errors.Wrapf(
+				encoding.ErrEncode, "file name %q holds an empty path segment", name,
+			)
+		case ".", "..":
+			return errors.Wrapf(
+				encoding.ErrEncode, "file name %q addresses a directory", name,
+			)
+		}
 	}
 	return nil
 }

@@ -169,6 +169,72 @@ describe("project import", () => {
     expect(importedTable.name).toBe("Thermocouples");
   });
 
+  describe("manifest bundles", () => {
+    const bundleFiles = (name: string): Import.File[] => [
+      {
+        name: Project.MANIFEST_FILE_NAME,
+        path: Project.MANIFEST_FILE_NAME,
+        data: { version: 1, type: "project", name },
+      },
+      { name: "Operator.json", path: "Propulsion/Operator.json", data: SCHEMATIC_DATA },
+      {
+        name: "Main.json",
+        path: "Main.json",
+        data: {
+          version: 0,
+          type: "panel",
+          name: "Main",
+          root: {
+            variant: "leaf",
+            tabs: [
+              {
+                key: uuid.create(),
+                variant: "resource",
+                resource: "Propulsion/Operator.json",
+              },
+            ],
+          },
+        },
+      },
+    ];
+
+    it("recreates groups and resolves path references", async () => {
+      const name = `bundle-${id.create()}`;
+      const store = await runImport(bundleFiles(name));
+      const projectKey = selectImportedProject(store);
+      const imported = await client.projects.retrieve(projectKey);
+      expect(imported.name).toBe(name);
+      const children = await retrieveProjectChildren(projectKey);
+      const grp = children.find(({ id }) => id.type === "group");
+      assertDefined(grp, "no group created for the bundle directory");
+      expect(grp.name).toBe("Propulsion");
+      const grouped = await client.ontology.children.retrieve({ ids: grp.id });
+      expect(grouped.map(({ id }) => id.type)).toEqual([SCHEMATIC_TYPE]);
+      const panelChild = children.find(({ id }) => id.type === "panel");
+      assertDefined(panelChild, "no panel created from the bundle");
+      const [imported2] = await client.panels.retrieve({ keys: [panelChild.id.key] });
+      assert(imported2.root.variant === "leaf", "expected a leaf root");
+      const [tab] = imported2.root.tabs;
+      assert(tab.variant === "resource", "expected a resource tab");
+      expect(tab.resource).toEqual(grouped[0].id);
+    });
+
+    it("rejects a bundle of another kind", async () => {
+      const files = bundleFiles(`bundle-${id.create()}`);
+      files[0] = { ...files[0], data: { version: 1, type: "symbol_group", name: "g" } };
+      await expect(runImport(files)).rejects.toThrow(
+        "Cannot import a symbol_group bundle",
+      );
+    });
+
+    it("errors when a panel references a file that is not in the bundle", async () => {
+      const files = bundleFiles(`bundle-${id.create()}`).filter(
+        ({ path }) => path !== "Propulsion/Operator.json",
+      );
+      await expect(runImport(files)).rejects.toThrow("Propulsion/Operator.json");
+    });
+  });
+
   it("recreates the visualization documents of a legacy export without panels", async () => {
     const store = await runImport([
       { name: Project.LAYOUT_FILE_NAME, data: legacyLayoutSlice() },

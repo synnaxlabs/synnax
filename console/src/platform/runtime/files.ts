@@ -190,17 +190,21 @@ const pickDirectoryTauri = async ({
   const dirPath = result;
   const separator = sep();
   const name = dirPath.split(separator).pop() ?? dirPath;
-  const entries = await readDir(dirPath);
   const files: PickedFile[] = [];
-  for (const entry of entries) {
-    if (!entry.isFile) continue;
-    const fullPath = await join(dirPath, entry.name);
-    files.push({
-      name: entry.name,
-      path: entry.name,
-      read: () => readTextFile(fullPath),
-    });
-  }
+  const walk = async (absolute: string, relative: string): Promise<void> => {
+    for (const entry of await readDir(absolute)) {
+      const fullPath = await join(absolute, entry.name);
+      const relPath = relative === "" ? entry.name : `${relative}/${entry.name}`;
+      if (entry.isDirectory) await walk(fullPath, relPath);
+      else if (entry.isFile)
+        files.push({
+          name: entry.name,
+          path: relPath,
+          read: () => readTextFile(fullPath),
+        });
+    }
+  };
+  await walk(dirPath, "");
   return { name, files };
 };
 
@@ -236,12 +240,11 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
   });
 
 /**
- * Opens a native directory picker and returns the directory's name plus the
- * files inside it. On Tauri this walks the directory's top-level entries via
- * the filesystem plugin; in the browser it uses
- * `<input type="file" webkitdirectory>` which recursively includes every file
- * under the picked folder (each file's `path` is relative to the root).
- * Returns null if the user cancels.
+ * Opens a native directory picker and returns the directory's name plus every
+ * file under it, recursively. On Tauri this walks the directory via the
+ * filesystem plugin; in the browser it uses
+ * `<input type="file" webkitdirectory>`. Each file's `path` is relative to the
+ * picked root in forward-slash form. Returns null if the user cancels.
  */
 export const pickDirectory = (
   params: PickDirectoryParams = {},

@@ -73,7 +73,15 @@ var _ = Describe("Encoder", func() {
 			Entry("a string map", map[string]string{"a.json": "1"}),
 			Entry("a byte slice", []byte("valve")),
 		)
-		DescribeTable("Should reject a file name that is not a leaf",
+		It("Should encode nested entry paths", func(ctx SpecContext) {
+			files := xzip.Files{
+				"manifest.json":                  []byte(`{"version":1}`),
+				"propulsion/pressurization.json": []byte(`{"name":"press"}`),
+				"propulsion/tanks/lox.json":      []byte(`{"name":"lox"}`),
+			}
+			Expect(read(MustSucceed(xzip.Encoder.Encode(ctx, files)))).To(Equal(files))
+		})
+		DescribeTable("Should reject an invalid entry name",
 			func(ctx SpecContext, name, reason string) {
 				Expect(xzip.Encoder.Encode(ctx, xzip.Files{name: []byte("1")})).Error().
 					To(SatisfyAll(
@@ -82,11 +90,14 @@ var _ = Describe("Encoder", func() {
 					))
 			},
 			Entry("an empty name", "", "file name is empty"),
-			Entry("a forward slash", "nested/valve.json", "holds a path separator"),
-			Entry("a backslash", `nested\valve.json`, "holds a path separator"),
-			Entry("a leading slash", "/valve.json", "holds a path separator"),
+			Entry("a backslash", `nested\valve.json`, "holds a backslash"),
+			Entry("a leading slash", "/valve.json", "empty path segment"),
+			Entry("a trailing slash", "nested/", "empty path segment"),
+			Entry("a doubled slash", "nested//valve.json", "empty path segment"),
 			Entry("the current directory", ".", "addresses a directory"),
 			Entry("the parent directory", "..", "addresses a directory"),
+			Entry("a parent segment", "nested/../valve.json", "addresses a directory"),
+			Entry("a current segment", "./valve.json", "addresses a directory"),
 		)
 	})
 	Describe("EncodeStream", func() {
@@ -101,10 +112,10 @@ var _ = Describe("Encoder", func() {
 			Expect(xzip.Encoder.EncodeStream(ctx, &buf, "valve")).
 				To(MatchError(encoding.ErrEncode))
 		})
-		It("Should write nothing when a file name is not a leaf", func(
+		It("Should write nothing when an entry name is invalid", func(
 			ctx SpecContext,
 		) {
-			files := xzip.Files{"a.json": []byte("1"), "nested/b.json": []byte("2")}
+			files := xzip.Files{"a.json": []byte("1"), `nested\b.json`: []byte("2")}
 			var buf bytes.Buffer
 			Expect(xzip.Encoder.EncodeStream(ctx, &buf, files)).
 				To(MatchError(encoding.ErrEncode))

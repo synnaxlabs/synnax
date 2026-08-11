@@ -88,6 +88,14 @@ func notFoundError[T ~string](typ T, kind string) error {
 	)
 }
 
+// ExporterRegistered reports whether an Exporter is registered for t.
+func (s *Service) ExporterRegistered(t ontology.ResourceType) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, ok := s.exporters[t]
+	return ok
+}
+
 // ResolveType returns the registration type string Import will route envelope to. A
 // non-empty envelope.Type passes through; a typeless envelope's body is offered to
 // every Importer's Match in sorted type order, first claim winning. It returns a

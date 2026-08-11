@@ -15,6 +15,11 @@ import { type Panel } from "@/platform/panel";
 export interface File {
   data: unknown;
   name: string;
+  /**
+   * The file's path relative to the imported directory in forward-slash form.
+   * Absent for flat sources; treat a missing path as the file's name.
+   */
+  path?: string;
 }
 
 export interface FileIngesterContext {

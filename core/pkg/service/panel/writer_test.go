@@ -81,6 +81,12 @@ var _ = Describe("Writer", func() {
 				return splitNode(spatial.DirectionX, 0.5,
 					leafNode(duplicated()), leafNode(duplicated()))
 			}, "duplicate resource in panel tree"),
+			Entry("resource tab type outside the registry", func() panel.Node {
+				return leafNode(panel.Tab{Variant: panel.TabResource{
+					TabBase:  panel.TabBase{Key: uuid.New()},
+					Resource: ontology.ID{Type: "user", Key: uuid.New().String()},
+				}})
+			}, "resource tab cannot display a user"),
 			Entry("split size out of bounds", func() panel.Node {
 				return splitNode(spatial.DirectionX, 1.5,
 					leafNode(tab(uuid.New())), leafNode(tab(uuid.New())))
