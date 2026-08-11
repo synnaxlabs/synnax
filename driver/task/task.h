@@ -399,9 +399,10 @@ private:
     void process_start(const synnax::task::Command &cmd);
     /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
     std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
-    /// @brief drops the entry for key unless it is still relevant. Callers must hold
+    /// @brief drops the entry for key unless it is still relevant or claimed by a
+    /// worker. even_if_processing is for a worker's own entry. Callers must hold
     /// mu.
-    void remove(const synnax::task::Key &key);
+    void remove(const synnax::task::Key &key, bool even_if_processing = false);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
     /// @brief stops workers and waits for them to finish.

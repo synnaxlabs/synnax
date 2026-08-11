@@ -81,9 +81,13 @@ std::shared_ptr<Manager::Entry> Manager::entry_for(const synnax::task::Key &key)
     return entry;
 }
 
-void Manager::remove(const synnax::task::Key &key) {
+void Manager::remove(const synnax::task::Key &key, const bool even_if_processing) {
     const auto it = this->entries.find(key);
     if (it == this->entries.end()) return;
+    // A claimed entry stays: its worker may act on a stale fetch and install a
+    // running instance, which the not-ours start path releases later. This also
+    // keeps relevant()'s instance read claim-free.
+    if (!even_if_processing && it->second->processing) return;
     if (it->second->relevant(this->rack.key)) return;
     this->entries.erase(it);
 }
@@ -465,7 +469,7 @@ void Manager::monitor_loop() {
                 }
             }
         }
-        for (const auto &status: timed_out)
+        for (auto &status: timed_out)
             this->ctx->set_status(status);
     }
 }
@@ -480,15 +484,32 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 auto [fetched, err] = this->rack.tasks.retrieve(op.task_key);
                 if (err) {
                     LOG(WARNING) << "failed to retrieve task for start: " << err;
+                    // A not-found task was deleted: a status written now would
+                    // recreate the one the delete removed. Other errors answer
+                    // the start so the sender does not wait forever.
+                    if (!err.matches(x::errors::NOT_FOUND)) {
+                        synnax::task::Status status;
+                        status.key = synnax::task::ontology_id(op.task_key).string();
+                        status.variant = synnax::status::VARIANT_ERROR;
+                        status.message = err.message();
+                        status.details.task = op.task_key;
+                        status.details.cmd = op.cmd.key;
+                        {
+                            std::lock_guard entry_lock{entry->mu};
+                            status.name = entry->row.name;
+                            status.details.config_hash = entry->op_config_hash;
+                        }
+                        this->ctx->set_status(status);
+                    }
                     std::lock_guard lock{this->mu};
-                    this->remove(op.task_key);
+                    this->remove(op.task_key, true);
                     break;
                 }
                 tsk = std::move(fetched);
                 if (tsk.snapshot) {
                     VLOG(1) << "ignoring start for snapshot task " << tsk;
                     std::lock_guard lock{this->mu};
-                    this->remove(op.task_key);
+                    this->remove(op.task_key, true);
                     break;
                 }
                 if (tsk.rack != this->rack.key) {
@@ -502,7 +523,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     }
                     this->clear_deploy(entry);
                     std::lock_guard lock{this->mu};
-                    this->remove(op.task_key);
+                    this->remove(op.task_key, true);
                     break;
                 }
                 std::string deployed;
@@ -518,8 +539,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 // The fetch is authoritative: a live instance already built
                 // from this revision only needs the command executed, not a
                 // rebuild.
-                if (!deployed.empty() && deployed == tsk.config_hash) {
-                    if (entry->instance == nullptr) break;
+                if (!deployed.empty() && deployed == tsk.config_hash &&
+                    entry->instance != nullptr) {
                     auto cmd = op.cmd;
                     LOG(INFO) << "executing command " << cmd << " on task "
                               << entry->instance->name();
@@ -590,7 +611,9 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
         case Op::Type::REMOVE: {
             if (entry->instance != nullptr) {
                 LOG(INFO) << "deleting task " << entry->instance->name();
-                entry->instance->stop(false);
+                // The teardown is silent: deleting a task deletes its status,
+                // and a terminal status written afterwards would resurrect it.
+                entry->instance->stop(true);
                 entry->instance = nullptr;
             }
             this->clear_deploy(entry);
@@ -610,7 +633,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             // so the entry can survive and must not keep a stale hash.
             this->clear_deploy(entry);
             std::lock_guard lock{this->mu};
-            this->remove(op.task_key);
+            this->remove(op.task_key, true);
             break;
         }
     }
