@@ -83,7 +83,7 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const Form: FC<Task.FormProps<CounterReadSchemas>> = () => {
+const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
   const listItem = useCallback(
     ({ key, itemKey, ...rest }: Task.ChannelListItemProps) => (

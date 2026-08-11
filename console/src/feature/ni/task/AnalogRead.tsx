@@ -83,7 +83,7 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
-const Form: FC<Task.FormProps<AnalogReadSchemas>> = () => {
+const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
   const listItem = useCallback(
     ({ key, ...rest }: Task.ChannelListItemProps) => (

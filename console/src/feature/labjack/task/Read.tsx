@@ -209,7 +209,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   );
 };
 
-const Form: FC<Task.FormProps<ReadSchemas>> = PlatformDevice.wrapTaskForm({
+const Form: FC = PlatformDevice.wrapTaskForm({
   use,
   useConfigure: useConfigureModal,
   Content: ChannelsForm,

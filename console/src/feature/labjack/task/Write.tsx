@@ -172,7 +172,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
   );
 };
 
-const Form: FC<Task.FormProps<WriteSchemas>> = PlatformDevice.wrapTaskForm({
+const Form: FC = PlatformDevice.wrapTaskForm({
   use,
   useConfigure: useConfigureModal,
   Content: ChannelList,

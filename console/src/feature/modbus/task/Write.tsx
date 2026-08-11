@@ -143,7 +143,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
-const Form: FC<Task.FormProps<WriteSchemas>> = () => (
+const Form: FC = () => (
   <Task.Views.List<OutputChannel>
     createChannel={getOpenChannel}
     listItem={listItem}

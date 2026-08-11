@@ -197,7 +197,7 @@ const AlertContextMenu = ({ keys, onRemove, onSetEnabled }: AlertContextMenuProp
   );
 };
 
-const Form: FC<Task.FormProps<AlertSchemas>> = () => {
+const Form: FC = () => {
   const { data, push, remove } = PForm.useFieldList<string, AlertConfig>(
     "config.alerts",
   );

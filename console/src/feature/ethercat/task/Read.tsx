@@ -65,7 +65,7 @@ const channelDetails = Component.renderProp(ReadChannelDetails);
 
 const listItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Task.FormProps<ReadSchemas>> = () => (
+const Form: FC = () => (
   <Task.Views.ListAndDetails<InputChannel>
     listItem={listItem}
     details={channelDetails}
