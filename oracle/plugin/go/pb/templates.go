@@ -653,7 +653,8 @@ func {{.TypeName}}ToPBAny(v {{.GoType}}) (*anypb.Any, error) {
 }
 
 // {{.TypeName}}FromPBAny converts *anypb.Any to {{.TypeName}} for use with generic
-// translators. It handles both typed protos and JSON (google.protobuf.Struct) for
+// translators. It handles typed protos and JSON (google.protobuf.Value, or
+// google.protobuf.Struct from peers on releases before value packing) for
 // cross-language compatibility.
 func {{.TypeName}}FromPBAny(a *anypb.Any) ({{.GoType}}, error) {
 	if a == nil {
@@ -664,13 +665,20 @@ func {{.TypeName}}FromPBAny(a *anypb.Any) ({{.GoType}}, error) {
 	if err := a.UnmarshalTo(&pb); err == nil {
 		return {{.TypeName}}FromPB(&pb)
 	}
-	// Fall back to JSON (structpb.Struct) for cross-language compatibility
-	var s structpb.Struct
-	if err := a.UnmarshalTo(&s); err != nil {
+	// Fall back to JSON for cross-language compatibility
+	var (
+		msg proto.Message
+		v   structpb.Value
+		s   structpb.Struct
+	)
+	if err := a.UnmarshalTo(&v); err == nil {
+		msg = &v
+	} else if err := a.UnmarshalTo(&s); err != nil {
 		return {{.GoType}}{}, err
+	} else {
+		msg = &s
 	}
-	// Convert map to JSON then unmarshal to Go struct
-	jsonBytes, err := json.Marshal(s.AsMap())
+	jsonBytes, err := protojson.Marshal(msg)
 	if err != nil {
 		return {{.GoType}}{}, err
 	}
