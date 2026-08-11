@@ -188,7 +188,10 @@ const Actions = (): ReactElement | null => {
 const Content = (): ReactElement => (
   <Toolbar.Content>
     <Toolbar.Header>
-      <Toolbar.Title icon={<Icon.Range />}>Ranges</Toolbar.Title>
+      <Toolbar.Title>
+        <Icon.Range />
+        Ranges
+      </Toolbar.Title>
       <Actions />
     </Toolbar.Header>
     <Toolbar.Body>

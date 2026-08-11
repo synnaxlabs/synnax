@@ -189,9 +189,9 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
             ))
           )}
         </Flex.Box>
-        <Button.Create size="large" onClick={() => openConnect()}>
+        <Button.CreateListItem size="large" onClick={() => openConnect()}>
           Add a Core
-        </Button.Create>
+        </Button.CreateListItem>
       </Flex.Box>
     </Select.Frame>
   );
