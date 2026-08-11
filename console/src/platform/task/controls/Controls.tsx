@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { type Flex, type Flux, Form } from "@synnaxlabs/pluto";
+import { type Flex, Form } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Bar } from "@/platform/task/controls/Bar";
@@ -17,7 +17,6 @@ import { useKey } from "@/platform/task/useKey";
 import { useStatus } from "@/platform/task/useStatus";
 
 export interface ControlsProps extends Flex.BoxProps {
-  formStatus: Flux.Result<undefined>["status"];
   /** Runs the deploy pipeline: configure, save the row, issue start. */
   onDeploy: () => void;
   /** Issues a stop command to the live instance. */
@@ -25,15 +24,11 @@ export interface ControlsProps extends Flex.BoxProps {
 }
 
 /** Task controls bar wired to the surrounding task Form context. */
-export const Controls = ({ onDeploy, onStop, formStatus, ...props }: ControlsProps) => {
+export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
   const taskStatus = useStatus();
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const key = useKey();
   const drifted = useDrifted();
-
-  // Form errors take precedence over the task status.
-  let effectiveStatus: status.Status = taskStatus;
-  if (formStatus.variant !== "success") effectiveStatus = formStatus;
 
   const handleDeploy = useCallback(() => {
     if (key == null) return;
@@ -46,11 +41,10 @@ export const Controls = ({ onDeploy, onStop, formStatus, ...props }: ControlsPro
 
   return (
     <Bar
-      status={effectiveStatus}
+      status={taskStatus}
       running={taskStatus.details.running}
       drifted={drifted}
       snapshot={isSnapshot}
-      disabled={formStatus.variant !== "success"}
       startStopVariant={status.keepVariants(taskStatus.variant, "loading")}
       onDeploy={handleDeploy}
       onStop={handleStop}

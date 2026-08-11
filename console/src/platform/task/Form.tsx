@@ -19,7 +19,6 @@ import {
 } from "@synnaxlabs/client";
 import {
   Flex,
-  type Flux,
   Form as PForm,
   Input,
   Status,
@@ -56,12 +55,6 @@ export interface GetInitialValues<S extends task.Schemas = task.Schemas> {
   (params: getInitialValuesParams): PTask.InitialValues<S>;
 }
 
-export interface FormProps<
-  S extends task.Schemas = task.Schemas,
-> extends PForm.UseReturn<PTask.FormSchema<S>> {
-  status: Flux.Result<undefined>["status"];
-}
-
 export interface FormTabProps {
   taskKey: task.Key;
 }
@@ -70,7 +63,7 @@ export interface Forms extends Record<string, FC<FormTabProps>> {}
 
 export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
-  Form: FC<FormProps<S>>;
+  Form: FC<{}>;
   type: z.infer<S["type"]>;
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
@@ -137,7 +130,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
-    const { form, status, saveAsync } = useForm({
+    const { form, saveAsync } = useForm({
       query: { key: taskKey },
       autoSave: true,
     });
@@ -201,15 +194,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               empty
             >
               <Errors.SuspenseBoundary>
-                <Form status={status} {...form} />
+                <Form />
               </Errors.SuspenseBoundary>
             </Flex.Box>
             {showControls && (
-              <Controls.Controls
-                formStatus={status}
-                onDeploy={handleDeploy}
-                onStop={handleStop}
-              />
+              <Controls.Controls onDeploy={handleDeploy} onStop={handleStop} />
             )}
           </PForm.Form>
         </Flex.Box>

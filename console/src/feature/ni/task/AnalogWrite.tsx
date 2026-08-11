@@ -81,7 +81,7 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
 const channelDetails = Component.renderProp(ChannelDetails);
 const channelListItem = Component.renderProp(ChannelListItem);
 
-const Form: FC<Task.FormProps<AnalogWriteSchemas>> = () => (
+const Form: FC = () => (
   <Task.Views.ListAndDetails
     listItem={channelListItem}
     details={channelDetails}
