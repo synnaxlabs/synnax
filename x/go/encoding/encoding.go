@@ -17,6 +17,39 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// Decoder decodes values from binary.
+type Decoder interface {
+	// Decode decodes data into a pointer value.
+	Decode(context.Context, []byte, any) error
+	// DecodeStream decodes data from the given reader into a pointer value.
+	DecodeStream(context.Context, io.Reader, any) error
+}
+
+// Encoder encodes values into binary.
+type Encoder interface {
+	// Encode encodes the value into binary. It returns the encoded value along with any
+	// errors encountered.
+	Encode(context.Context, any) ([]byte, error)
+	// EncodeStream encodes the value into binary and writes it to the given writer. It
+	// returns any errors encountered.
+	EncodeStream(context.Context, io.Writer, any) error
+}
+
+// FileEncoder is an Encoder that names the files its output belongs in, so a caller
+// writing a directory can name each file without knowing which codec it holds.
+type FileEncoder interface {
+	Encoder
+	// Extension returns the file extension the encoder's output is written under,
+	// leading dot included.
+	Extension() string
+}
+
+// Codec is an interface that encodes and decodes values.
+type Codec interface {
+	Decoder
+	Encoder
+}
+
 var (
 	ErrDecode = errors.New("failed to decode")
 	ErrEncode = errors.New("failed to encode")
@@ -52,37 +85,4 @@ func SugarDecodingErr(data []byte, value any, base error) error {
 		data,
 	)
 	return errors.WithStack(errors.Combine(main, base))
-}
-
-// Codec is an interface that encodes and decodes values.
-type Codec interface {
-	Encoder
-	Decoder
-}
-
-// Encoder encodes values into binary.
-type Encoder interface {
-	// Encode encodes the value into binary. It returns the encoded value along with any
-	// errors encountered.
-	Encode(ctx context.Context, value any) ([]byte, error)
-	// EncodeStream encodes the value into binary and writes it to the given writer. It
-	// returns any errors encountered.
-	EncodeStream(ctx context.Context, w io.Writer, value any) error
-}
-
-// FileEncoder is an Encoder that names the files its output belongs in, so a caller
-// writing a directory can name each file without knowing which codec it holds.
-type FileEncoder interface {
-	Encoder
-	// Extension returns the file extension the encoder's output is written under,
-	// leading dot included.
-	Extension() string
-}
-
-// Decoder decodes values from binary.
-type Decoder interface {
-	// Decode decodes data into a pointer value.
-	Decode(ctx context.Context, data []byte, value any) error
-	// DecodeStream decodes data from the given reader into a pointer value.
-	DecodeStream(ctx context.Context, r io.Reader, value any) error
 }
