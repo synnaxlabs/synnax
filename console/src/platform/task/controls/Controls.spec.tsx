@@ -7,35 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { type ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import { createTaskStatus, renderInTaskForm } from "@/platform/task/testutil";
 import { getIconButton } from "@/testutil";
-
-type FormStatus = ComponentProps<typeof Task.Controls.Controls>["formStatus"];
-
-const successStatus: FormStatus = {
-  key: id.create(),
-  name: "form",
-  variant: "success",
-  message: "",
-  description: "",
-  time: TimeStamp.now(),
-};
-
-const errorStatus: FormStatus = {
-  key: id.create(),
-  name: "form",
-  variant: "error",
-  message: "Config is invalid",
-  description: "",
-  time: TimeStamp.now(),
-  details: { stack: "", error: new Error("Config is invalid") },
-};
 
 const CONFIG = { channels: [] };
 // The server assigns config hashes; overrides.configHash is what the driver reports
@@ -61,7 +38,6 @@ describe("Controls.Controls", () => {
   it("should hide the actions when the task is a snapshot", async () => {
     const { container } = await renderInTaskForm(
       <Task.Controls.Controls
-        formStatus={successStatus}
         onDeploy={vi.fn()}
         onStop={vi.fn()}
       />,
@@ -77,7 +53,6 @@ describe("Controls.Controls", () => {
     const onDeploy = vi.fn();
     const { container } = await renderInTaskForm(
       <Task.Controls.Controls
-        formStatus={successStatus}
         onDeploy={onDeploy}
         onStop={vi.fn()}
       />,
@@ -92,7 +67,6 @@ describe("Controls.Controls", () => {
     const onStop = vi.fn();
     const { container } = await renderInTaskForm(
       <Task.Controls.Controls
-        formStatus={successStatus}
         onDeploy={onDeploy}
         onStop={onStop}
       />,
@@ -107,7 +81,6 @@ describe("Controls.Controls", () => {
     const onDeploy = vi.fn();
     const { container } = await renderInTaskForm(
       <Task.Controls.Controls
-        formStatus={successStatus}
         onDeploy={onDeploy}
         onStop={vi.fn()}
       />,
@@ -117,25 +90,9 @@ describe("Controls.Controls", () => {
     expect(onDeploy).not.toHaveBeenCalled();
   });
 
-  it("should surface the form status and disable start/stop when the form is invalid", async () => {
-    const onDeploy = vi.fn();
-    const { container } = await renderInTaskForm(
-      <Task.Controls.Controls
-        formStatus={errorStatus}
-        onDeploy={onDeploy}
-        onStop={vi.fn()}
-      />,
-      { values: { key: "1" } },
-    );
-    await waitFor(() => expect(screen.getByText("Config is invalid")).toBeTruthy());
-    fireEvent.click(getIconButton(container, "play"));
-    expect(onDeploy).not.toHaveBeenCalled();
-  });
-
   it("should not show the redeploy button when the running config matches", async () => {
     await renderInTaskForm(
       <Task.Controls.Controls
-        formStatus={successStatus}
         onDeploy={vi.fn()}
         onStop={vi.fn()}
       />,
@@ -148,7 +105,6 @@ describe("Controls.Controls", () => {
     const onDeploy = vi.fn();
     await renderInTaskForm(
       <Task.Controls.Controls
-        formStatus={successStatus}
         onDeploy={onDeploy}
         onStop={vi.fn()}
       />,
@@ -161,7 +117,6 @@ describe("Controls.Controls", () => {
   it("should hide the redeploy button when the task is not running", async () => {
     await renderInTaskForm(
       <Task.Controls.Controls
-        formStatus={successStatus}
         onDeploy={vi.fn()}
         onStop={vi.fn()}
       />,
@@ -173,7 +128,6 @@ describe("Controls.Controls", () => {
   it("should expand the status on click and contract it on a second click", async () => {
     await renderInTaskForm(
       <Task.Controls.Controls
-        formStatus={successStatus}
         onDeploy={vi.fn()}
         onStop={vi.fn()}
       />,

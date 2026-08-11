@@ -109,7 +109,7 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<InputChannel> = ({ channel, key 
   id: Task.getChannelNameID(key),
 });
 
-const TaskForm: FC<Task.FormProps<ReadSchemas>> = createForm<InputChannel>({
+const TaskForm: FC = createForm<InputChannel>({
   convertHaulItemToChannel,
   getChannelKeyAndID,
   contextMenuItems: Task.readChannelContextMenuItem,
