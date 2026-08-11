@@ -156,12 +156,12 @@ Every patch to the test environment falls into exactly one of three tiers. Class
   differently than it really does for our code to pass, our input is invalid — that is a
   production defect. Fix production and delete the shim. (Real case: a `querySelector`
   shim existed only because our markup emitted duplicate DOM ids.)
-- **Replace a real API with fake data — per-spec opt-in only.** Fake geometry
-  (`getBoundingClientRect`, size-firing ResizeObserver) is available solely through
-  `stubGeometry()` from `@/testutil`, called explicitly by the handful of specs that
-  render virtualized lists. It is never inherited globally, and an opted-in spec may
-  never assert measured pixels. Measure who needs it — when this was converted, 6 specs
-  needed it, not the assumed 15.
+- **Replace a real API with fake data — justify it, and never assert on it.** jsdom lays
+  every element out at zero size, collapsing virtualized lists and trees to no rows, so
+  `setuptests.ts` fakes geometry suite-wide: `getBoundingClientRect` returns 100x100 and
+  ResizeObserver reports a matching size. **No console spec may assert measured pixel
+  geometry.** Any further fake-data replacement needs the same bar: a real reason jsdom
+  cannot supply the value, and nothing asserting on the fake.
 
 And the always-wrong abuse: **substituting a child component with a placeholder** and
 asserting the placeholder appears (see `feedback_no_mock_substitution`). Mount the real
@@ -173,7 +173,7 @@ should render queryable real text, not a `data-testid`.)
 **Incorrect — never do this:**
 
 ```ts
-vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ ... }); // ❌ use stubGeometry()
+vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({ ... }); // ❌ already global
 vi.mock("@/feature/table/Table", () => ({ Table: () => <div data-testid="table" /> })); // ❌
 document.querySelector = (sel) => { /* be more forgiving */ };                 // ❌ fix production
 ```
@@ -339,7 +339,7 @@ Reach for these, in order of how close they are to production:
 | Pure reducer/selector                                 | minimal single-slice `configureStore` inline                                | `@reduxjs/toolkit`                                           |
 | Flux queries without console slices                   | `createSynnaxWrapper` / `createAsyncSynnaxWrapper`                          | `@/testutil`                                                 |
 | Modal opener/prompt hooks                             | `renderModalOpener` / `renderModalHook` / `closeOf` / `findButton`          | `@/platform/modals/testutil`                                 |
-| Virtualized list rendering (needs fake sizes)         | `stubGeometry()` — opt-in, no pixel asserts                                 | `@/testutil`                                                 |
+| Virtualized list rendering (needs fake sizes)         | automatic, no pixel asserts anywhere                                        | `@/testutil/setuptests`                                      |
 | Engine-dependent code (tauri vs web)                  | `mockRuntimeEngine`                                                         | `@/testutil/runtime`                                         |
 | OS / origin detection                                 | `pinOS` / `pinLocationOrigin`                                               | `@/testutil/pinOS` (dynamic, in `vi.hoisted`) / `@/testutil` |
 | File pickers, browser downloads, FS Access            | `interceptFilePicker` / `captureBrowserDownloads` / `installSaveFilePicker` | `@/testutil`                                                 |
