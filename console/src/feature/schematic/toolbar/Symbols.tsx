@@ -365,7 +365,7 @@ const Actions = ({
   if (symbolGroupID == null) return null;
 
   return (
-    <Flex.Box x>
+    <Flex.Box x shrink={0}>
       {hasCreateGroupPermission && (
         <>
           <Button.Button
