@@ -659,11 +659,17 @@ export abstract class Composite<
     this._children.set(childKey, newChild as ChildComponents);
   }
 
+  /** Deletes every child, running each full delete lifecycle. The component itself
+   * stays alive, so the tree can be rebuilt by later updates. */
+  clearChildren(): void {
+    for (const c of this.children) c._delete([c.key]);
+    this._children.clear();
+  }
+
   _delete(path: readonly string[]): void {
     const subPath = this.parsePath(path);
     if (subPath.length === 0) {
-      for (const c of this.children) c._delete([c.key]);
-      this._children.clear();
+      this.clearChildren();
       super._delete([this.key]);
     }
     const child = this.getChild(subPath[0]);
@@ -786,6 +792,11 @@ export class Root extends Composite<typeof aetherRootState> {
 
     if (variant === "delete") {
       this._delete(msg.path);
+      return;
+    }
+
+    if (variant === "clear") {
+      this.clearChildren();
       return;
     }
 
