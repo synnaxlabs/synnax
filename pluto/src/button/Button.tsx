@@ -127,7 +127,7 @@ const Base = <E extends ElementType = "button">({
   // gets it from the component. tabIndex -1 still counts: roving-tabindex tabs hold
   // focus programmatically. The target guard keeps keystrokes on nested interactives
   // (inputs, editables) from activating the chassis.
-  const resolvedEl = el ?? (href != null || textVariant === "link" ? "a" : defaultEl);
+  const resolvedEl = Text.parseElement(level, el, defaultEl, textVariant, href);
   const ownsActivation =
     (resolvedEl === "div" || resolvedEl === "label") && tabIndex != null;
   const handleKeyDown = (e: any) => {

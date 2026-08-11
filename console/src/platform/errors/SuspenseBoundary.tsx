@@ -7,19 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  type ReactNode,
-  Suspense,
-} from "react";
+import { Errors } from "@synnaxlabs/pluto";
+import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
-import { Boundary } from "@/platform/errors/Boundary";
+import { useFallback } from "@/platform/errors/ErrorDiagnostics";
 
 export interface SuspenseBoundaryProps extends PropsWithChildren {
   /** When provided, crash diagnostics include the crashed panel's name and key. */
   panelKey?: string;
-  /** Rendered while children are suspended. Defaults to blank space. */
+  /** Rendered while children are suspended. Defaults to a delayed loading indicator. */
   loading?: ReactNode;
 }
 
@@ -30,7 +26,7 @@ export const SuspenseBoundary = ({
   loading,
   children,
 }: SuspenseBoundaryProps): ReactElement => (
-  <Boundary panelKey={panelKey}>
-    <Suspense fallback={loading}>{children}</Suspense>
-  </Boundary>
+  <Errors.SuspenseBoundary FallbackComponent={useFallback(panelKey)} loading={loading}>
+    {children}
+  </Errors.SuspenseBoundary>
 );
