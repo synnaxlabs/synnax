@@ -28,7 +28,11 @@ inline std::pair<::service::view::pb::View, x::errors::Error> View::to_proto() c
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     pb.set_type(this->type);
-    *pb.mutable_query() = x::json::to_struct(this->query).first;
+    {
+        auto [v, err] = x::json::to_struct(this->query);
+        if (err) return {{}, err};
+        *pb.mutable_query() = v;
+    }
     return {pb, x::errors::NIL};
 }
 

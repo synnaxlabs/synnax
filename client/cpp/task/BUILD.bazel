@@ -42,6 +42,7 @@ cc_test(
         ":task",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
+        "//x/cpp/json/testutil",
         "//x/cpp/pb",
         "//x/cpp/test",
         "//x/cpp/uuid",
