@@ -333,6 +333,9 @@
             height: 2rem;
             flex-shrink: 0;
         }
+        .pluto--reveals:not(:hover) &:not(:focus-visible) svg {
+            transform: scale(0.9);
+        }
     }
 
     &.pluto-haul-drop-region {

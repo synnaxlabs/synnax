@@ -43,10 +43,6 @@
     pointer-events: auto;
 }
 
-.pluto--reveals:not(:hover) .pluto-btn--close:not(:focus-visible) svg {
-    transform: scale(0.9);
-}
-
 .pluto-input {
     z-index: 4;
 }
