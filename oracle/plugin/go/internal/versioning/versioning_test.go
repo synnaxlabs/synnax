@@ -156,37 +156,7 @@ var _ = Describe("Versioning", func() {
 		})
 	})
 
-	Describe("Predecessor", func() {
-		var root string
-
-		BeforeEach(func() {
-			root = GinkgoT().TempDir()
-			for _, dir := range []string{"v0", "v2", "v7"} {
-				Expect(os.MkdirAll(
-					filepath.Join(root, "core/out/versions", dir), 0o755,
-				)).To(Succeed())
-			}
-		})
-
-		DescribeTable(
-			"Should return the highest version directory below n",
-			func(n, expected int) {
-				v, ok := MustSucceed2(versioning.Predecessor(root, "core/out", n))
-				Expect(ok).To(BeTrue())
-				Expect(v).To(Equal(expected))
-			},
-			Entry("skipping the versions with no directory", 7, 2),
-			Entry("when the directory is exactly n-1", 3, 2),
-			Entry("down to the earliest directory", 1, 0),
-		)
-
-		It("Should report absence when no lower directory exists", func() {
-			_, ok := MustSucceed2(versioning.Predecessor(root, "core/out", 0))
-			Expect(ok).To(BeFalse())
-		})
-	})
-
-	Describe("PathVersions", func() {
+	Describe("EntryPaths", func() {
 		It(
 			"Should map each versioned output path to its version",
 			func(ctx SpecContext) {
@@ -207,7 +177,7 @@ var _ = Describe("Versioning", func() {
 				}
 			`
 				table := MustSucceed(analyze(ctx, source, "test", loader))
-				Expect(versioning.PathVersions(table)).To(Equal(
+				Expect(versioning.EntryPaths(table)).To(Equal(
 					map[string]int{"out": 3, "dep": 5}))
 			},
 		)
@@ -222,7 +192,7 @@ var _ = Describe("Versioning", func() {
 				}
 			`
 				table := MustSucceed(analyze(ctx, source, "test", loader))
-				Expect(versioning.PathVersions(table)).To(BeEmpty())
+				Expect(versioning.EntryPaths(table)).To(BeEmpty())
 			},
 		)
 
@@ -235,7 +205,7 @@ var _ = Describe("Versioning", func() {
 				}
 			`
 			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.PathVersions(table)).Error().To(MatchError(
+			Expect(versioning.EntryPaths(table)).Error().To(MatchError(
 				ContainSubstring("must be a non-negative integer")))
 		})
 
@@ -257,7 +227,7 @@ var _ = Describe("Versioning", func() {
 				}
 			`
 			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.PathVersions(table)).Error().To(MatchError(
+			Expect(versioning.EntryPaths(table)).Error().To(MatchError(
 				ContainSubstring("conflicting @go version declarations for out")))
 		})
 
@@ -270,7 +240,7 @@ var _ = Describe("Versioning", func() {
 				}
 			`
 			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.PathVersions(table)).Error().To(MatchError(
+			Expect(versioning.EntryPaths(table)).Error().To(MatchError(
 				ContainSubstring("@go migrate requires a @go version declaration")))
 		})
 	})

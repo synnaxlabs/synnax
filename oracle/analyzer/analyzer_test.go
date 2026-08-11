@@ -474,7 +474,6 @@ Entry struct {
 
 			form, ok := rangeType.Form.(resolution.StructForm)
 			Expect(ok).To(BeTrue())
-			Expect(form.HasKeyDomain).To(BeTrue())
 			Expect(form.Fields).To(HaveLen(2))
 
 			keyField, found := form.Field("key")

@@ -9,10 +9,9 @@
 
 // Package versions models the explicitly managed schema version files under
 // schemas/<domain>/versions/<resource>/vN.oracle. A version file enumerates a
-// resource's complete persisted namespace at version N: full declarations for
-// types whose shape changed at N, and alias lines (`Key = v0.Key`) pointing at
-// the defining version for the rest. A name absent from the file was removed
-// at N.
+// resource's complete persisted namespace at version N: full declarations for types
+// whose shape changed at N, and alias lines (`Key = v0.Key`) pointing at the defining
+// version for the rest. A name absent from the file was removed at N.
 package versions
 
 import (
@@ -30,9 +29,9 @@ type Chain struct {
 	Domain string
 	// Resource is the versioned live schema's base name ("channel").
 	Resource string
-	// Numbers holds the declared versions, ascending. A chain shares its numbering
-	// with the resource's imex envelope sequence, so it skips the versions that only
-	// ever existed Console-side and never got a stored shape.
+	// Numbers holds the declared versions, ascending. A chain shares its numbering with
+	// the resource's imex envelope sequence, so it skips the versions that only ever
+	// existed Console-side and never got a stored shape.
 	Numbers []int
 }
 

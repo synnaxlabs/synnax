@@ -1982,9 +1982,6 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("plugin interface methods", func() {
-			It("Should return nil from Check", func() {
-				Expect(goPlugin.Check(nil)).To(Succeed())
-			})
 		})
 
 		Context("enum starts-at-one optimization", func() {

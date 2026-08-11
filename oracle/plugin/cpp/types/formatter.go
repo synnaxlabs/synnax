@@ -10,22 +10,8 @@
 package types
 
 import (
-	"fmt"
-
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 )
 
 // CppFormatter is a TypeFormatter configured for C++ type formatting.
 var CppFormatter = resolver.NewFormatter(resolver.CppFormatterConfig)
-
-type CppImportResolver struct {
-	FilePattern string
-}
-
-func (r *CppImportResolver) ResolveImport(
-	outputPath string,
-	ctx *resolver.Context,
-) (importPath, qualifier string, shouldImport bool) {
-	includePath := fmt.Sprintf("%s/%s", outputPath, r.FilePattern)
-	return includePath, "", true
-}

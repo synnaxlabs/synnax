@@ -26,10 +26,10 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -77,23 +77,6 @@ func (*Plugin) Name() string       { return "go/imex" }
 func (*Plugin) Domains() []string  { return []string{"go"} }
 func (*Plugin) Requires() []string { return []string{"go/types"} }
 
-// Check reports a Plugin constructed without one of the import paths the templates
-// qualify against, which would emit files that do not compile.
-func (p *Plugin) Check(*plugin.Request) error {
-	if p.options.RuntimeImportPath == "" {
-		return errors.New("go/imex requires Options.RuntimeImportPath")
-	}
-	if p.options.OntologyImportPath == "" {
-		return errors.New("go/imex requires Options.OntologyImportPath")
-	}
-	return nil
-}
-
-var goPostWriter = &exec.PostWriter{Commands: [][]string{{"gofmt", "-w"}}}
-
-// PostWrite runs gofmt on the generated files.
-func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(files) }
-
 // Generate emits imex machinery for every output package whose type declares @go imex:
 // one Version constant per versions/vK package the Core has exported, Latest plus the
 // autoDecodeEnvelope ladder in the versions package root, and Service.Export in the
@@ -106,6 +89,14 @@ func (*Plugin) PostWrite(files []string) error { return goPostWriter.PostWrite(f
 // id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
 // to compile.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	// The templates qualify against these import paths; emitting without them
+	// would produce files that do not compile.
+	if p.options.RuntimeImportPath == "" {
+		return nil, errors.New("go/imex requires Options.RuntimeImportPath")
+	}
+	if p.options.OntologyImportPath == "" {
+		return nil, errors.New("go/imex requires Options.OntologyImportPath")
+	}
 	ctx := context.Background()
 	resp := &plugin.Response{}
 	declared := make(map[string]string)
@@ -297,8 +288,8 @@ func firstImexVersion(
 	if !ok {
 		return floor, nil
 	}
-	for i := len(chain.Numbers) - 1; i >= 0; i-- {
-		k := chain.Numbers[i]
+	for _, k := range slices.Backward(chain.Numbers) {
+
 		if k >= current {
 			continue
 		}

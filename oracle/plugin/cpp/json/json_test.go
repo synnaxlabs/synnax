@@ -1035,10 +1035,6 @@ var _ = Describe("C++ JSON Plugin", func() {
 				opts := json.DefaultOptions()
 				Expect(opts.FileNamePattern).To(Equal("json.gen.h"))
 			})
-
-			It("Should report nil for Check", func() {
-				Expect(jsonPlugin.Check(nil)).To(Succeed())
-			})
 		})
 	})
 })

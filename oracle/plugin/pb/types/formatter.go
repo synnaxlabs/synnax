@@ -10,22 +10,8 @@
 package types
 
 import (
-	"strings"
-
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 )
 
 // PbFormatter is a TypeFormatter configured for Protocol Buffers type formatting.
 var PbFormatter = resolver.NewFormatter(resolver.PbFormatterConfig)
-
-type PbImportResolver struct{}
-
-func (r *PbImportResolver) ResolveImport(
-	outputPath string,
-	ctx *resolver.Context,
-) (importPath, qualifier string, shouldImport bool) {
-	protoPath := outputPath + "/types.gen.proto"
-	parts := strings.Split(outputPath, "/")
-	qualifier = parts[len(parts)-1]
-	return protoPath, qualifier, true
-}

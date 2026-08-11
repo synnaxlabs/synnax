@@ -123,8 +123,6 @@ func chainFrozenFiles(
 type ChainPath struct {
 	// LivePath is the resource's live import path ("schemas/x/telem").
 	LivePath string
-	// First is the chain's oldest version.
-	First int
 	// Current is the chain's current version.
 	Current int
 	// Numbers holds the chain's declared versions, ascending.
@@ -153,7 +151,6 @@ func ChainPaths(req *plugin.Request) (map[string]ChainPath, error) {
 		}
 		out[origPath] = ChainPath{
 			LivePath: livePath,
-			First:    chain.First(),
 			Current:  version,
 			Numbers:  chain.Numbers,
 		}

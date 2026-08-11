@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/primitives"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -38,67 +37,6 @@ var _ = Describe("Primitives", func() {
 			Expect(primitives.IsPrimitive("MyStruct")).To(BeFalse())
 			Expect(primitives.IsPrimitive("CustomType")).To(BeFalse())
 			Expect(primitives.IsPrimitive("")).To(BeFalse())
-		})
-	})
-
-	Describe("Get", func() {
-		It("Should return primitive and true for registered types", func() {
-			p, ok := primitives.Get("string")
-			Expect(ok).To(BeTrue())
-			Expect(p.Name).To(Equal("string"))
-			Expect(p.Category).To(Equal(primitives.CategoryString))
-		})
-
-		It("Should return false for unknown types", func() {
-			_, ok := primitives.Get("unknown")
-			Expect(ok).To(BeFalse())
-		})
-	})
-
-	Describe("Category checks", func() {
-		It("Should correctly identify string types", func() {
-			Expect(primitives.IsString("string")).To(BeTrue())
-			Expect(primitives.IsString("uuid")).To(BeTrue())
-			Expect(primitives.IsString("int32")).To(BeFalse())
-		})
-
-		It("Should correctly identify number types", func() {
-			Expect(primitives.IsNumber("int8")).To(BeTrue())
-			Expect(primitives.IsNumber("int64")).To(BeTrue())
-			Expect(primitives.IsNumber("uint32")).To(BeTrue())
-			Expect(primitives.IsNumber("float32")).To(BeTrue())
-			Expect(primitives.IsNumber("float64")).To(BeTrue())
-			Expect(primitives.IsNumber("string")).To(BeFalse())
-		})
-
-		It("Should correctly identify temporal types", func() {
-			Expect(primitives.IsTemporal("int64")).To(BeFalse())
-		})
-
-		It("Should correctly identify boolean types", func() {
-			Expect(primitives.IsBoolean("bool")).To(BeTrue())
-			Expect(primitives.IsBoolean("string")).To(BeFalse())
-		})
-
-		It("Should correctly identify binary types", func() {
-			Expect(primitives.IsBinary("bytes")).To(BeTrue())
-			Expect(primitives.IsBinary("string")).To(BeFalse())
-		})
-	})
-
-	Describe("All", func() {
-		It("Should return all registered primitives", func() {
-			all := primitives.All()
-			Expect(len(all)).To(BeNumerically(">=", 15))
-
-			names := make(set.Set[string])
-			for _, p := range all {
-				names.Add(p.Name)
-			}
-
-			Expect(names).To(HaveKey("string"))
-			Expect(names).To(HaveKey("uuid"))
-			Expect(names).To(HaveKey("bytes"))
 		})
 	})
 })

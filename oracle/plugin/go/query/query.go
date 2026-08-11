@@ -18,7 +18,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/key"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
@@ -56,19 +55,6 @@ func (p *Plugin) Domains() []string { return []string{"go"} }
 
 // Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return []string{"go/types"} }
-
-// Check verifies generated files are up-to-date.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var goPostWriter = &exec.PostWriter{
-	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
-}
-
-// PostWrite runs gofmt on generated files.
-func (p *Plugin) PostWrite(files []string) error {
-	return goPostWriter.PostWrite(files)
-}
 
 // Generate produces retrieve.gen.go files for structs with @retrieve annotation.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {

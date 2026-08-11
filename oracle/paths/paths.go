@@ -22,10 +22,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// RepoRoot finds the git repository root from the current working directory.
-// It first tries `git rev-parse --show-toplevel`, then falls back to walking
-// up the directory tree looking for a .git directory.
-// Returns an error if not within a git repository.
+// RepoRoot finds the git repository root from the current working directory. It first
+// tries `git rev-parse --show-toplevel`, then falls back to walking up the directory
+// tree looking for a .git directory. Returns an error if not within a git repository.
 func RepoRoot() (string, error) {
 	// Try git rev-parse first (most reliable)
 	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
@@ -43,9 +42,9 @@ func RepoRoot() (string, error) {
 	return findGitRoot(cwd)
 }
 
-// findGitRoot walks up the directory tree looking for a .git entry. Accepts
-// both a directory (main checkout) and a file (linked worktree, where .git
-// is a file containing a gitdir: pointer).
+// findGitRoot walks up the directory tree looking for a .git entry. Accepts both a
+// directory (main checkout) and a file (linked worktree, where .git is a file
+// containing a gitdir: pointer).
 func findGitRoot(startPath string) (string, error) {
 	current := startPath
 
@@ -118,8 +117,8 @@ func Resolve(repoRelative, repoRoot string) string {
 	return filepath.Join(repoRoot, repoRelative)
 }
 
-// ValidateOutput ensures an output path is valid and within repo bounds.
-// It checks for path traversal attempts and invalid characters.
+// ValidateOutput ensures an output path is valid and within repo bounds. It checks for
+// path traversal attempts and invalid characters.
 func ValidateOutput(path, repoRoot string) error {
 	if path == "" {
 		return errors.New("output path cannot be empty")
@@ -227,8 +226,8 @@ func VersionFile(path string) (resource string, version int, ok bool) {
 	return filepath.Base(dir), version, true
 }
 
-// VersionsDir returns the directory holding a live schema's version chain. It
-// reports false for a path that does not name a live resource schema.
+// VersionsDir returns the directory holding a live schema's version chain. It reports
+// false for a path that does not name a live resource schema.
 func VersionsDir(livePath string) (string, bool) {
 	domain, resource, ok := LiveSchema(livePath)
 	if !ok {
@@ -241,8 +240,8 @@ func VersionsDir(livePath string) (string, bool) {
 
 // LiveSchema reports whether path names a live resource schema — the
 // "schemas/<domain>/<resource>.oracle" shape whose history lives at
-// "schemas/<domain>/versions/<resource>/vN.oracle" — and returns its domain
-// and resource.
+// "schemas/<domain>/versions/<resource>/vN.oracle" — and returns its domain and
+// resource.
 func LiveSchema(path string) (domain, resource string, ok bool) {
 	if _, _, isVersion := VersionFile(path); isVersion {
 		return "", "", false

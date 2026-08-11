@@ -26,10 +26,8 @@ import (
 	"runtime"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/synnaxlabs/oracle/analyzer"
-	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -51,12 +49,6 @@ type Options struct {
 	// Plugins is the registry of code generators to run. Pass nil to skip plugin
 	// generation entirely (analyze-only mode).
 	Plugins *plugin.Registry
-	// Loader is the analyzer file loader for resolving schema imports. Pass nil to use
-	// a StandardFileLoader rooted at RepoRoot.
-	Loader analyzer.FileLoader
-	// Workers caps fan-out across schema formatting and plugin generation. Zero (or
-	// negative) defaults to GOMAXPROCS.
-	Workers int
 }
 
 // Result is the artifact set produced by a single pipeline run, held entirely in
@@ -78,8 +70,6 @@ type Options struct {
 //   - Outputs is the per-plugin set of generated files, byte-identical to
 //     what plugins emitted (no formatter chain applied yet). Empty when
 //     Options.Plugins is nil or the analyzer failed.
-//   - Timings records elapsed wall time for each pipeline phase. Useful for
-//     verbose / profile output.
 type Result struct {
 	Schemas          []string
 	Sources          map[string][]byte
@@ -92,15 +82,6 @@ type Result struct {
 	// disk (e.g. when migrate retargets a transform). Keyed by plugin name to mirror
 	// Outputs.
 	Deletions map[string][]string
-	Timings   Timings
-}
-
-// Timings records the wall-clock duration of each pipeline phase.
-type Timings struct {
-	Read     time.Duration
-	Format   time.Duration
-	Analyze  time.Duration
-	Generate time.Duration
 }
 
 // Run executes the pipeline end to end. The returned Result is always non-nil and
@@ -115,14 +96,8 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 	if len(opts.Schemas) == 0 {
 		return nil, errors.New("pipeline: at least one schema is required")
 	}
-	loader := opts.Loader
-	if loader == nil {
-		loader = analyzer.NewStandardFileLoader(opts.RepoRoot)
-	}
-	workers := opts.Workers
-	if workers <= 0 {
-		workers = runtime.GOMAXPROCS(0)
-	}
+	loader := analyzer.NewStandardFileLoader(opts.RepoRoot)
+	workers := runtime.GOMAXPROCS(0)
 
 	r := &Result{
 		Schemas:          append([]string(nil), opts.Schemas...),
@@ -264,7 +239,6 @@ func DiscoverSchemas(repoRoot string) ([]string, error) {
 }
 
 func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) error {
-	readStart := time.Now()
 	type entry struct {
 		path string
 		raw  []byte
@@ -289,9 +263,7 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	r.Timings.Read = time.Since(readStart)
 
-	formatStart := time.Now()
 	formattedRaw := make([][]byte, len(entries))
 	eg2, gctx2 := errgroup.WithContext(ctx)
 	eg2.SetLimit(workers)
@@ -311,7 +283,6 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 	if err := eg2.Wait(); err != nil {
 		return err
 	}
-	r.Timings.Format = time.Since(formatStart)
 
 	for i, e := range entries {
 		r.Sources[e.path] = e.raw
@@ -321,11 +292,9 @@ func readAndFormat(ctx context.Context, r *Result, opts Options, workers int) er
 }
 
 func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
-	start := time.Now()
 	// The loader already overlays the canonical in-memory bytes (formatted sources plus
 	// merged live projections), so analysis sees exactly what sync would write to disk.
 	table, diag := analyzer.Analyze(ctx, r.Schemas, loader)
-	r.Timings.Analyze = time.Since(start)
 	if diag != nil {
 		r.Diagnostics.Combine(diag)
 	}
@@ -343,9 +312,6 @@ func generate(
 	chains map[string]versions.Chain,
 	loader analyzer.FileLoader,
 ) error {
-	start := time.Now()
-	defer func() { r.Timings.Generate = time.Since(start) }()
-
 	// Explicitly managed version chains are the versioning baseline. The resolver loads
 	// through the same overlay analysis used, so frozen surfaces resolve live imports
 	// against the merged projections.
@@ -373,19 +339,11 @@ func generate(
 					Versions:    resolver,
 				}
 				for _, depName := range p.Requires() {
-					dep := opts.Plugins.Get(depName)
-					if dep == nil {
+					if opts.Plugins.Get(depName) == nil {
 						return errors.Newf(
 							"plugin %q requires unknown plugin %q",
 							p.Name(), depName,
 						)
-					}
-					if err := dep.Check(req); err != nil {
-						return &plugin.DependencyStaleError{
-							Plugin:     p.Name(),
-							Dependency: depName,
-							Reason:     err,
-						}
 					}
 				}
 				resp, err := p.Generate(req)
@@ -404,47 +362,9 @@ func generate(
 			})
 		}
 		if err := eg.Wait(); err != nil {
-			if staleErr, ok := err.(*plugin.DependencyStaleError); ok {
-				r.Diagnostics.Add(diagnostics.Error(staleErr, nil))
-				return nil
-			}
 			r.Diagnostics.Add(diagnostics.Error(err, nil))
 			return nil
 		}
 	}
 	return nil
-}
-
-// FormatGenerated runs the on-disk formatter chain over a single plugin file and
-// returns its canonical bytes. This is the post-pipeline normalization step that turns
-// plugin output (raw template render) into what would actually land on disk after sync.
-// Sharing this between sync (writes the result) and check (compares the result against
-// disk) is what makes the generated-drift gate impossible to mismatch with what sync
-// would write.
-func FormatGenerated(
-	ctx context.Context,
-	formatters *format.Registry,
-	repoRoot string,
-	files []plugin.File,
-	workers int,
-) ([]plugin.File, error) {
-	if len(files) == 0 {
-		return nil, nil
-	}
-	batch := make([]format.File, len(files))
-	for i, f := range files {
-		batch[i] = format.File{
-			Path:    paths.Resolve(f.Path, repoRoot),
-			Content: f.Content,
-		}
-	}
-	formatted, err := formatters.FormatBatch(ctx, batch, workers)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]plugin.File, len(files))
-	for i, f := range files {
-		out[i] = plugin.File{Path: f.Path, Content: formatted[i].Content}
-	}
-	return out, nil
 }

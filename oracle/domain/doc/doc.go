@@ -176,67 +176,6 @@ func FormatTS(name, doc string, indent ...int) string {
 	return strings.Join(result, "\n")
 }
 
-// FormatPyDocstring formats documentation for Python class/function docstrings.
-//
-// Single-line: `"""Name doc text"""`
-//
-// Multi-line: `"""Name line1\nline2\nline3"""`
-//
-// Text is wrapped to 88 characters including the docstring markers.
-func FormatPyDocstring(name, doc string) string {
-	if doc == "" {
-		return ""
-	}
-	// Reserve room for the closing quotes, which land on the last wrapped line.
-	firstPrefix := `"""` + name + " "
-	closing := len(`"""`)
-	lines := wrapText(doc, maxLineWidth-len(firstPrefix)-closing, maxLineWidth-closing)
-	if len(lines) == 0 {
-		return ""
-	}
-	result := make([]string, len(lines))
-	for i, line := range lines {
-		if i == 0 {
-			result[i] = firstPrefix + line
-		} else {
-			result[i] = line
-		}
-	}
-	result[len(result)-1] = result[len(result)-1] + `"""`
-	return strings.Join(result, "\n")
-}
-
-// FormatPyComment formats documentation for Python line comments.
-//
-// Single-line: "# Name doc text"
-//
-// Multi-line: "# Name line1\n# line2\n# line3"
-//
-// Text is wrapped to 88 characters including the comment prefix.
-func FormatPyComment(name, doc string) string {
-	if doc == "" {
-		return ""
-	}
-	firstPrefix := "# " + name + " "
-	subsequentPrefix := "# "
-	lines := wrapText(
-		doc,
-		maxLineWidth-len(firstPrefix),
-		maxLineWidth-len(subsequentPrefix),
-	)
-	var result []string
-	for i, line := range lines {
-		if i == 0 {
-			result = append(result, firstPrefix+line)
-		} else if line == "" {
-			result = append(result, "#")
-		} else {
-			result = append(result, subsequentPrefix+line)
-		}
-	}
-	return strings.Join(result, "\n")
-}
-
 // FormatCpp formats documentation for C++ Doxygen-style comments.
 //
 // Single-line: "/// @brief Name doc text"

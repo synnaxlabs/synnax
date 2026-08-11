@@ -21,7 +21,6 @@ import (
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/doc"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
@@ -50,20 +49,9 @@ type Plugin struct{ Options Options }
 // New constructs a Plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (p *Plugin) Name() string                  { return "go/actions" }
-func (p *Plugin) Domains() []string             { return []string{"go"} }
-func (p *Plugin) Requires() []string            { return []string{"go/types"} }
-func (p *Plugin) Check(_ *plugin.Request) error { return nil }
-
-var goPostWriter = &exec.PostWriter{
-	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
-}
-
-// PostWrite runs gofmt on the generated files.
-func (p *Plugin) PostWrite(files []string) error {
-	return goPostWriter.PostWrite(files)
-}
+func (p *Plugin) Name() string       { return "go/actions" }
+func (p *Plugin) Domains() []string  { return []string{"go"} }
+func (p *Plugin) Requires() []string { return []string{"go/types"} }
 
 // Generate emits one actions.gen.go per output package containing structs that
 // declare actions. Structs without actions are skipped.

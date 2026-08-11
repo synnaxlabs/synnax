@@ -57,10 +57,9 @@ func DefaultOptions() Options {
 // New creates a new go/marshal plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (p *Plugin) Name() string                { return "go/marshal" }
-func (p *Plugin) Domains() []string           { return []string{"go"} }
-func (p *Plugin) Requires() []string          { return []string{"go/types"} }
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func (p *Plugin) Name() string       { return "go/marshal" }
+func (p *Plugin) Domains() []string  { return []string{"go"} }
+func (p *Plugin) Requires() []string { return []string{"go/types"} }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -285,28 +284,6 @@ func sortedImports(m map[string]string) []importEntry {
 		entries = append(entries, importEntry{Path: k, Alias: alias})
 	}
 	return entries
-}
-
-// GenerateCodecFile generates a complete codec file for the given entries using the
-// specified package name and output path context. This is used by the migrate plugin to
-// generate frozen codecs for old schema versions. Each entry gets EncodeOrc/DecodeOrc
-// methods that implement the orc.SelfEncoder and orc.SelfDecoder interfaces.
-func GenerateCodecFile(
-	packageName string,
-	parentPath string,
-	entries []CodecEntry,
-	flex []FlexCodec,
-	table *resolution.Table,
-	repoRoot string,
-) ([]byte, error) {
-	return generateEncoderCodecFile(
-		packageName,
-		parentPath,
-		entries,
-		flex,
-		table,
-		repoRoot,
-	)
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) (string, error) {

@@ -158,16 +158,6 @@ func (t *Table) MarkImported(path string) { t.Imports.Add(path) }
 
 func (t *Table) IsImported(path string) bool { return t.Imports.Contains(path) }
 
-func (t *Table) EnumsInNamespace(ns string) []Type {
-	return lo.Filter(t.Types, func(typ Type, _ int) bool {
-		if typ.Namespace != ns {
-			return false
-		}
-		_, ok := typ.Form.(EnumForm)
-		return ok
-	})
-}
-
 func (t *Table) TopologicalSort(types []Type) []Type {
 	if len(types) <= 1 {
 		return types

@@ -94,10 +94,6 @@ var _ = Describe("TS Types Plugin", func() {
 		It("Should have no dependencies", func() {
 			Expect(typesPlugin.Requires()).To(BeNil())
 		})
-
-		It("Should pass check", func() {
-			Expect(typesPlugin.Check(&plugin.Request{})).To(Succeed())
-		})
 	})
 
 	Describe("Generate", func() {

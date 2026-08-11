@@ -23,10 +23,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/codegen"
 	"github.com/synnaxlabs/oracle/format"
-	"github.com/synnaxlabs/oracle/output"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
-	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"golang.org/x/sync/errgroup"
@@ -89,7 +87,7 @@ func runSync(cmd *cobra.Command) error {
 	printFormattingDone(formattedSchemas)
 
 	for name, files := range result.Outputs {
-		output.PluginDone(name, len(files))
+		printPluginDone(name, len(files))
 	}
 
 	formatters, err := format.Default(repoRoot)
@@ -117,21 +115,6 @@ func runSync(cmd *cobra.Command) error {
 		sort.Strings(writtenSorted)
 		for _, f := range writtenSorted {
 			printFileWritten(pluginByPath[f], f)
-		}
-	}
-
-	for pluginName, files := range syncResult.ByPlugin {
-		p := registry.Get(pluginName)
-		if pw, ok := p.(plugin.PostWriter); ok {
-			absPaths := make([]string, len(files))
-			for i, f := range files {
-				absPaths[i] = filepath.Join(repoRoot, f)
-			}
-			if err := pw.PostWrite(absPaths); err != nil {
-				printDim(
-					fmt.Sprintf("post-write hook for %s failed: %v", pluginName, err),
-				)
-			}
 		}
 	}
 

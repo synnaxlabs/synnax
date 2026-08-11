@@ -49,10 +49,9 @@ type Plugin struct{ Options Options }
 // New constructs a Plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (p *Plugin) Name() string                  { return "ts/actions" }
-func (p *Plugin) Domains() []string             { return []string{"ts"} }
-func (p *Plugin) Requires() []string            { return []string{"ts/types"} }
-func (p *Plugin) Check(_ *plugin.Request) error { return nil }
+func (p *Plugin) Name() string       { return "ts/actions" }
+func (p *Plugin) Domains() []string  { return []string{"ts"} }
+func (p *Plugin) Requires() []string { return []string{"ts/types"} }
 
 // Generate emits one actions.gen.ts per output package containing structs that
 // declare actions. Structs without actions are skipped.

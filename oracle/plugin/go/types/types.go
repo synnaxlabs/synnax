@@ -74,9 +74,6 @@ func (p *Plugin) Domains() []string { return []string{"go"} }
 // Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return nil }
 
-// Check verifies generated files are up-to-date. Currently unimplemented.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
-
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
 // Version-laid-out packages (@go version + a keyed struct) emit their types into the
 // current versions/vN sub-package, with a root alias file re-exporting the surface.
@@ -91,7 +88,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	preds, err := computeSplit(req)
+	preds, err := chainPredecessors(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -226,21 +223,11 @@ type predecessor struct {
 	aliased set.Set[string]
 }
 
-// computeSplit resolves the alias split for every version-laid-out current
-// package: the chain's current file enumerates it.
-func computeSplit(req *plugin.Request) (map[string]predecessor, error) {
-	return chainPredecessors(context.Background(), req)
-}
-
 // AliasedTypes returns the qualified names of all types that alias their predecessor
 // version package instead of being defined at the current one. Sibling plugins
 // (go/marshal) use it to skip emission for aliased types.
 func AliasedTypes(req *plugin.Request) (set.Set[string], error) {
-	_, _, err := versioning.RewriteCurrent(req.Resolutions)
-	if err != nil {
-		return nil, err
-	}
-	preds, err := computeSplit(req)
+	preds, err := chainPredecessors(context.Background(), req)
 	if err != nil {
 		return nil, err
 	}
@@ -312,34 +299,11 @@ func latestTable(
 // versioning.Pinned).
 func VersionPinned(t resolution.Type) bool { return versioning.Pinned(t) }
 
-// DeclaredClosure returns the qualified names of every type reachable from a @go
-// marshal root through any reference, omitted fields included. These are the types a
-// versioned package declares: a type reached only through an omitted field still needs
-// its Go declaration in the package, so it rides the version layout even though it
-// never reaches the wire.
-func DeclaredClosure(table *resolution.Table) set.Set[string] {
-	return closureFrom(table, func(t resolution.Type) []resolution.Field {
-		return resolution.UnifiedFields(t, table)
-	})
-}
-
 // PersistedClosure returns the qualified names of every type reachable from a @go
-// marshal root through stored references: non-omitted struct fields, extends, type
-// arguments, alias targets, distinct bases, and union variants. Types outside the
-// closure never reach a table's wire format.
+// marshal or @go migrate root through stored references: non-omitted struct fields,
+// extends, type arguments, alias targets, distinct bases, and union variants. Types
+// outside the closure never reach a table's wire format.
 func PersistedClosure(table *resolution.Table) set.Set[string] {
-	return closureFrom(table, func(t resolution.Type) []resolution.Field {
-		return schemadiff.PersistedFields(resolution.UnifiedFields(t, table))
-	})
-}
-
-// closureFrom walks every @go marshal or @go migrate root, following the
-// struct fields fields reports plus extends, type arguments, alias targets,
-// distinct bases, and union variants.
-func closureFrom(
-	table *resolution.Table,
-	fields func(resolution.Type) []resolution.Field,
-) set.Set[string] {
 	closure := make(set.Set[string])
 	var walkType func(t resolution.Type)
 	var walkRef func(ref resolution.TypeRef)
@@ -369,7 +333,8 @@ func closureFrom(
 					walkRef(*tp.Default)
 				}
 			}
-			for _, f := range fields(t) {
+			persisted := schemadiff.PersistedFields(resolution.UnifiedFields(t, table))
+			for _, f := range persisted {
 				walkRef(f.Type)
 			}
 		case resolution.EnumForm:

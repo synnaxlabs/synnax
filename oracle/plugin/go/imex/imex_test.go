@@ -104,14 +104,10 @@ var _ = Describe("Go ImEx Plugin", func() {
 		})
 	})
 
-	Describe("Check", func() {
-		It("Should pass with the default runtime import path", func() {
-			Expect(p.Check(nil)).To(Succeed())
-		})
-
+	Describe("Options validation", func() {
 		It("Should error when no runtime import path is configured", func() {
 			bare := imex.New(imex.Options{FileNamePattern: "imex.gen.go"})
-			Expect(bare.Check(nil)).To(MatchError(
+			Expect(bare.Generate(nil)).Error().To(MatchError(
 				ContainSubstring("go/imex requires Options.RuntimeImportPath"),
 			))
 		})
@@ -119,7 +115,7 @@ var _ = Describe("Go ImEx Plugin", func() {
 		It("Should error when no ontology import path is configured", func() {
 			opts := imex.DefaultOptions()
 			opts.OntologyImportPath = ""
-			Expect(imex.New(opts).Check(nil)).To(MatchError(
+			Expect(imex.New(opts).Generate(nil)).Error().To(MatchError(
 				ContainSubstring("go/imex requires Options.OntologyImportPath"),
 			))
 		})
@@ -366,8 +362,9 @@ var _ = Describe("Go ImEx Plugin", func() {
 
 		It("Should import the configured runtime package", func(ctx SpecContext) {
 			custom := imex.New(imex.Options{
-				FileNamePattern:   "imex.gen.go",
-				RuntimeImportPath: "github.com/acme/portable/imex",
+				FileNamePattern:    "imex.gen.go",
+				RuntimeImportPath:  "github.com/acme/portable/imex",
+				OntologyImportPath: "github.com/acme/portable/ontology",
 			})
 			source := `
 				@go output "core/pkg/service/log"

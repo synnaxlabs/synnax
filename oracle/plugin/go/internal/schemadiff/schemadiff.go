@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package schemadiff compares type shapes between two resolution tables. The
-// comparison is transitive: a type whose own declaration is untouched but whose
-// referenced types changed shape counts as changed. It drives migration bump
-// detection and the define-vs-alias split in versioned type packages.
+// Package schemadiff compares type shapes between two resolution tables. The comparison
+// is transitive: a type whose own declaration is untouched but whose referenced types
+// changed shape counts as changed. It drives migration bump detection and the
+// define-vs-alias split in versioned type packages.
 package schemadiff
 
 import (
@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// SchemasEqual returns true if two types have the same data shape. It compares
-// field names, order, types, and optionality recursively through the type graph.
+// SchemasEqual returns true if two types have the same data shape. It compares field
+// names, order, types, and optionality recursively through the type graph.
 func SchemasEqual(
 	oldType, newType resolution.Type,
 	oldTable, newTable *resolution.Table,
@@ -46,9 +46,9 @@ func typesEqual(
 		if !ok {
 			return false
 		}
-		// Omitted fields are memory-only: their types never reach the stored
-		// shape, so only persisted fields compare. A field flipping between
-		// persisted and omitted surfaces as an add/remove here.
+		// Omitted fields are memory-only: their types never reach the stored shape, so
+		// only persisted fields compare. A field flipping between persisted and omitted
+		// surfaces as an add/remove here.
 		oldFields, newFields := PersistedFields(
 			oldForm.Fields,
 		), PersistedFields(
@@ -88,14 +88,14 @@ func typesEqual(
 		if !ok || oldForm.IsIntEnum != newForm.IsIntEnum {
 			return false
 		}
-		// Enum value adds, removes, and renames are wire-format-compatible:
-		// the underlying representation is the string (or int) itself, and old
-		// records still deserialize into the underlying type even when their
-		// stored value is no longer a named constant. The only enum delta that
-		// breaks wire format is renumbering an int enum — a name that exists in
-		// both versions assigned a different integer. Anything else is purely a
-		// source-level / application-semantic change and must not propagate
-		// through field references as a structural type change.
+		// Enum value adds, removes, and renames are wire-format-compatible: the
+		// underlying representation is the string (or int) itself, and old records
+		// still deserialize into the underlying type even when their stored value is no
+		// longer a named constant. The only enum delta that breaks wire format is
+		// renumbering an int enum — a name that exists in both versions assigned a
+		// different integer. Anything else is purely a source-level /
+		// application-semantic change and must not propagate through field references
+		// as a structural type change.
 		if oldForm.IsIntEnum {
 			newByName := make(map[string]int64, len(newForm.Values))
 			for _, v := range newForm.Values {
@@ -442,8 +442,8 @@ func diffStructFields(
 	return diffs, selfChanged
 }
 
-// refsIdentityEqual checks if two type references point to the same type by
-// qualified name (not deep structural comparison).
+// refsIdentityEqual checks if two type references point to the same type by qualified
+// name (not deep structural comparison).
 func refsIdentityEqual(
 	old, new resolution.TypeRef,
 	oldTable, newTable *resolution.Table,

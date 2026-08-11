@@ -21,7 +21,6 @@ type Plugin interface {
 	Name() string
 	Domains() []string
 	Requires() []string
-	Check(req *Request) error
 	Generate(req *Request) (*Response, error)
 }
 
@@ -36,16 +35,6 @@ type Request struct {
 	Versions *versions.Resolver
 }
 
-// ResolvePath resolves a repo-relative path to an absolute path.
-func (r *Request) ResolvePath(repoRelative string) string {
-	return paths.Resolve(repoRelative, r.RepoRoot)
-}
-
-// RelativeImport computes the relative import path from one path to another.
-func (r *Request) RelativeImport(from, to string) (string, error) {
-	return paths.RelativeImport(from, to)
-}
-
 // ValidateOutputPath validates that the output path is within the repository.
 func (r *Request) ValidateOutputPath(path string) error {
 	return paths.ValidateOutput(path, r.RepoRoot)
@@ -58,11 +47,6 @@ type Response struct {
 	// Deletions holds repo-relative paths of files to remove: previously generated
 	// files the plugin no longer produces for the current schema.
 	Deletions []string
-}
-
-// PostWriter is an optional interface for post-processing.
-type PostWriter interface {
-	PostWrite(files []string) error
 }
 
 // File represents a single generated file.
@@ -95,9 +79,7 @@ func (r *Registry) Register(p Plugin) error {
 }
 
 // Get retrieves a plugin by name, or nil if not found.
-func (r *Registry) Get(name string) Plugin {
-	return r.plugins[name]
-}
+func (r *Registry) Get(name string) Plugin { return r.plugins[name] }
 
 // All returns all registered plugins.
 func (r *Registry) All() []Plugin {
@@ -108,13 +90,11 @@ func (r *Registry) All() []Plugin {
 	return result
 }
 
-// DuplicatePluginError is returned when attempting to register a plugin
-// with a name that is already registered.
+// DuplicatePluginError is returned when attempting to register a plugin with a name
+// that is already registered.
 type DuplicatePluginError struct {
 	// Name is the duplicate plugin name.
 	Name string
 }
 
-func (e *DuplicatePluginError) Error() string {
-	return "duplicate plugin: " + e.Name
-}
+func (e *DuplicatePluginError) Error() string { return "duplicate plugin: " + e.Name }

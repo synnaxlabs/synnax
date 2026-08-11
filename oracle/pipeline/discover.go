@@ -30,9 +30,6 @@ func globOracleSchemas(repoRoot string) ([]string, error) {
 			return err
 		}
 		if d.IsDir() {
-			if d.Name() == "snapshots" && filepath.Dir(path) == root {
-				return filepath.SkipDir
-			}
 			// Version chains under schemas/<domain>/versions/ are analyzed
 			// per-chain by the versions package, never as live schemas.
 			if d.Name() == paths.VersionsDirName &&

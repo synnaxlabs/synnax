@@ -239,28 +239,26 @@ func (s *Server) publishDiagnostics(
 	})
 }
 
-// deriveNamespaceFromURI extracts a namespace from the document URI. A version
-// file's namespace is its resource ("crdt" for versions/crdt/v0.oracle), never
-// the vN base name.
+// deriveNamespaceFromURI extracts a namespace from the document URI. A version file's
+// namespace is its resource ("crdt" for versions/crdt/v0.oracle), never the vN base
+// name.
 func deriveNamespaceFromURI(docURI uri.URI) string {
 	return paths.DeriveNamespace(strings.TrimPrefix(string(docURI), "file://"))
 }
 
-// noopLoader is a FileLoader that doesn't load any files.
-// It's used by the LSP server for analyzing single files without import resolution.
+// noopLoader is a FileLoader that doesn't load any files. It's used by the LSP server
+// for analyzing single files without import resolution.
 type noopLoader struct{}
 
 func (noopLoader) Load(path string) (source, filePath string, err error) {
 	return "", path, nil
 }
 
-// Versioned reports every resource as versioned: with no files to consult, the
-// stricter answer keeps the editor from suggesting an import the pipeline rejects.
+// Versioned reports every resource as versioned: with no files to consult, the stricter
+// answer keeps the editor from suggesting an import the pipeline rejects.
 func (noopLoader) Versioned(string) bool { return true }
 
-func (noopLoader) RepoRoot() string {
-	return ""
-}
+func (noopLoader) RepoRoot() string { return "" }
 
 // Formatting handles document formatting requests.
 func (s *Server) Formatting(

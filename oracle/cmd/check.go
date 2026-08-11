@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Flag names for the check command. Constants so test code can set them
-// the same way the cobra binding does.
+// Flag names for the check command. Constants so test code can set them the same way
+// the cobra binding does.
 const (
 	checkGatesFlag            = "gates"
 	checkFormatFlag           = "format"
@@ -67,11 +67,11 @@ Examples:
 		"Include unified diffs in drift findings")
 	cmd.Flags().Bool(checkWarningsAsErrorsFlag, false,
 		"Treat analyzer warnings as errors")
-	// A failed gate is a normal exit - the user does not want cobra
-	// dumping the usage block underneath the gate findings, nor a
-	// duplicate "Error: ..." line repeating what the renderer already
-	// printed. The exit code (set by Execute via exitCodeError) is the
-	// machine-readable signal; the rendered report is the human one.
+	// A failed gate is a normal exit - the user does not want cobra dumping the usage
+	// block underneath the gate findings, nor a duplicate "Error: ..." line repeating
+	// what the renderer already printed. The exit code (set by Execute via
+	// exitCodeError) is the machine-readable signal; the rendered report is the human
+	// one.
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -79,10 +79,9 @@ Examples:
 		if err == nil {
 			return nil
 		}
-		// Gate failures already rendered via check.Render; suppress the
-		// duplicate. Any other error (no schemas, repo not git, render
-		// failure) is unexpected and gets printed once here so the user
-		// sees what went wrong.
+		// Gate failures already rendered via check.Render; suppress the duplicate. Any
+		// other error (no schemas, repo not git, render failure) is unexpected and gets
+		// printed once here so the user sees what went wrong.
 		if _, ok := err.(*exitCodeError); !ok {
 			printError(err.Error())
 		}
@@ -142,11 +141,10 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		return errors.Wrap(err, "pipeline")
 	}
 
-	// Resource initialization is lazy because each gate has different
-	// dependencies and a failure to build (e.g. missing license template
-	// in a minimal test repo) should not poison gates that do not need
-	// the resource. Whether a gate is in the enabled set determines
-	// whether we even try.
+	// Resource initialization is lazy because each gate has different dependencies and
+	// a failure to build (e.g. missing license template in a minimal test repo) should
+	// not poison gates that do not need the resource. Whether a gate is in the enabled
+	// set determines whether we even try.
 	wantedGates := wantedSet(gates)
 	var formatters *format.Registry
 	if wantedGates.has("generated") {
@@ -210,9 +208,9 @@ func loadCheckCache(repoRoot string) *format.Cache {
 	return format.LoadCache(repoRoot)
 }
 
-// exitCodeError carries a specific exit code back through cobra's error
-// path. The Execute helper in root.go checks for this type before
-// falling back to its generic os.Exit(1).
+// exitCodeError carries a specific exit code back through cobra's error path. The
+// Execute helper in root.go checks for this type before falling back to its generic
+// os.Exit(1).
 type exitCodeError struct {
 	code int
 	msg  string
@@ -221,8 +219,8 @@ type exitCodeError struct {
 func (e *exitCodeError) Error() string { return e.msg }
 func (e *exitCodeError) ExitCode() int { return e.code }
 
-// gateSet is a small helper for "is this gate name in the enabled
-// subset?". Empty set means "all gates" (no --gates filter passed).
+// gateSet is a small helper for "is this gate name in the enabled subset?". Empty set
+// means "all gates" (no --gates filter passed).
 type gateSet struct {
 	all bool
 	in  set.Set[string]

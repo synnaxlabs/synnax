@@ -73,26 +73,6 @@ var _ = Describe("CppFormatter", func() {
 	})
 })
 
-var _ = Describe("CppImportResolver", func() {
-	var r *types.CppImportResolver
-
-	BeforeEach(func() {
-		r = &types.CppImportResolver{FilePattern: "types.gen.h"}
-	})
-
-	Describe("ResolveImport", func() {
-		It("Should return include path with file pattern", func() {
-			importPath, qualifier, shouldImport := r.ResolveImport(
-				"client/cpp/user",
-				nil,
-			)
-			Expect(importPath).To(Equal("client/cpp/user/types.gen.h"))
-			Expect(qualifier).To(Equal(""))
-			Expect(shouldImport).To(BeTrue())
-		})
-	})
-})
-
 var _ = Describe("C++ Types Plugin", func() {
 	var (
 		loader    *MockFileLoader
@@ -105,9 +85,6 @@ var _ = Describe("C++ Types Plugin", func() {
 	})
 
 	Describe("Check", func() {
-		It("Should return nil (no validation required)", func() {
-			Expect(cppPlugin.Check(&plugin.Request{})).To(Succeed())
-		})
 	})
 
 	Describe("Namespace Derivation", func() {

@@ -149,9 +149,9 @@ func AnalyzeSeeded(
 	return diag
 }
 
-// usedQualifiers collects the package qualifiers the file references: every
-// identifier immediately followed by a dot, in any position (type references,
-// extends clauses, domain expressions).
+// usedQualifiers collects the package qualifiers the file references: every identifier
+// immediately followed by a dot, in any position (type references, extends clauses,
+// domain expressions).
 func usedQualifiers(ast parser.ISchemaContext) set.Set[string] {
 	used := make(set.Set[string])
 	stream, ok := ast.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
@@ -273,15 +273,14 @@ func analyze(c *analysisCtx) {
 	synthesizeCreateTypes(c)
 }
 
-// desugarPartialOverrides rewrites each struct's typeless override fields into
-// complete fields, resolving the inherited type, optionality, (when omitted)
-// default, and domains from the parent. The field's own domains win on a name
-// conflict, matching mergeOverrideField. After this pass a typeless override
-// (key?) is indistinguishable from a full restatement (key Key?), so the code
-// generators make the same embed-vs-flatten decision and emit identical output.
-// Domain removal (-@domain) is intentionally left for the generators to handle,
-// since it has no full-restatement equivalent and cannot be expressed through
-// embedding.
+// desugarPartialOverrides rewrites each struct's typeless override fields into complete
+// fields, resolving the inherited type, optionality, (when omitted) default, and
+// domains from the parent. The field's own domains win on a name conflict, matching
+// mergeOverrideField. After this pass a typeless override (key?) is indistinguishable
+// from a full restatement (key Key?), so the code generators make the same
+// embed-vs-flatten decision and emit identical output. Domain removal (-@domain) is
+// intentionally left for the generators to handle, since it has no full-restatement
+// equivalent and cannot be expressed through embedding.
 func desugarPartialOverrides(c *analysisCtx) {
 	for i := range c.table.Types {
 		typ := c.table.Types[i]
@@ -375,17 +374,17 @@ func resolvedParentFields(
 	return out
 }
 
-// validateFieldOverrides reports partial-override syntax that cannot resolve: a
-// field that omits its type, or removes a domain with `-@domain`, must name a
-// field inherited from a parent struct to inherit from. Outside an extends
-// chain, or naming no parent field, there is nothing to inherit.
+// validateFieldOverrides reports partial-override syntax that cannot resolve: a field
+// that omits its type, or removes a domain with `-@domain`, must name a field inherited
+// from a parent struct to inherit from. Outside an extends chain, or naming no parent
+// field, there is nothing to inherit.
 func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
 		return
 	}
-	// Resolving parent fields walks the extends chain; a cycle (already reported
-	// by validateExtends) would recur without bound, so skip it here.
+	// Resolving parent fields walks the extends chain; a cycle (already reported by
+	// validateExtends) would recur without bound, so skip it here.
 	if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
 		return
 	}
@@ -421,11 +420,11 @@ func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// finalizeEnumExtensions expands each extending enum's members to the union of
-// the enums it extends plus its own declared members, reporting unresolved
-// parents, non-enum parents, mismatched value kinds, and conflicting member
-// values. It mutates the table in place so downstream plugins read a fully
-// populated member list just like a plain enum's.
+// finalizeEnumExtensions expands each extending enum's members to the union of the
+// enums it extends plus its own declared members, reporting unresolved parents,
+// non-enum parents, mismatched value kinds, and conflicting member values. It mutates
+// the table in place so downstream plugins read a fully populated member list just like
+// a plain enum's.
 func finalizeEnumExtensions(c *analysisCtx) {
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		form, ok := typ.Form.(resolution.EnumForm)
@@ -521,9 +520,9 @@ func effectiveEnumValues(
 			)
 			return nil, false, false
 		}
-		// Each branch gets its own copy so visited tracks the ancestor path,
-		// not every node seen. A shared set would falsely flag a diamond
-		// (two parents extending a common ancestor) as a cyclic chain.
+		// Each branch gets its own copy so visited tracks the ancestor path, not every
+		// node seen. A shared set would falsely flag a diamond (two parents extending a
+		// common ancestor) as a cyclic chain.
 		pVals, pInt, ok := effectiveEnumValues(c, parent, visited.Copy())
 		if !ok {
 			return nil, false, false
@@ -561,12 +560,12 @@ func effectiveEnumValues(
 	return merged, isInt, true
 }
 
-// finalizeUnionExtensions resolves each union whose extends targets are other
-// unions into a flat variant list: the variants of every extended union
-// (recursively), followed by the union's own declared variants. Extends
-// targets that are structs keep the shared-base-field semantics and are left
-// untouched; mixing the two in one declaration is an error. The table is
-// mutated in place so downstream plugins read a plain, fully populated union.
+// finalizeUnionExtensions resolves each union whose extends targets are other unions
+// into a flat variant list: the variants of every extended union (recursively),
+// followed by the union's own declared variants. Extends targets that are structs keep
+// the shared-base-field semantics and are left untouched; mixing the two in one
+// declaration is an error. The table is mutated in place so downstream plugins read a
+// plain, fully populated union.
 func finalizeUnionExtensions(c *analysisCtx) {
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		form, ok := typ.Form.(resolution.UnionForm)
@@ -740,7 +739,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
-			field := collectField(f, form.TypeParams, &form.HasKeyDomain)
+			field := collectField(f, form.TypeParams)
 			form.Fields = append(form.Fields, field)
 		}
 		for _, fo := range body.AllFieldOmit() {
@@ -795,9 +794,8 @@ func collectAction(
 	if body == nil {
 		return action
 	}
-	hasKeyDomain := false
 	for _, f := range body.AllFieldDef() {
-		field := collectField(f, typeParams, &hasKeyDomain)
+		field := collectField(f, typeParams)
 		if !field.HasType() {
 			d := diagnostics.Errorf(
 				f,
@@ -952,7 +950,10 @@ func collectMapTypeRef(
 	return ref
 }
 
-func collectField(def parser.IFieldDefContext, typeParams []resolution.TypeParam, hasKeyDomain *bool) resolution.Field {
+func collectField(
+	def parser.IFieldDefContext,
+	typeParams []resolution.TypeParam,
+) resolution.Field {
 	field := resolution.Field{
 		Name:    def.IDENT().GetText(),
 		Domains: make(map[string]resolution.Domain),
@@ -1007,9 +1008,6 @@ func collectField(def parser.IFieldDefContext, typeParams []resolution.TypeParam
 		} else {
 			field.Domains[de.Name] = de
 		}
-		if de.Name == "key" {
-			*hasKeyDomain = true
-		}
 	}
 	for _, om := range def.AllDomainOmit() {
 		field.OmittedDomains = append(field.OmittedDomains, om.IDENT().GetText())
@@ -1022,9 +1020,6 @@ func collectField(def parser.IFieldDefContext, typeParams []resolution.TypeParam
 				field.Domains[de.Name] = de.Merge(existing)
 			} else {
 				field.Domains[de.Name] = de
-			}
-			if de.Name == "key" {
-				*hasKeyDomain = true
 			}
 		}
 		for _, om := range fb.AllDomainOmit() {
@@ -1293,7 +1288,7 @@ func collectInlineVariant(
 		for _, f := range body.AllFieldDef() {
 			form.Fields = append(
 				form.Fields,
-				collectField(f, nil, &form.HasKeyDomain),
+				collectField(f, nil),
 			)
 		}
 		for _, fo := range body.AllFieldOmit() {

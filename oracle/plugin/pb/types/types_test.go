@@ -87,23 +87,6 @@ var _ = Describe("PbFormatter", func() {
 	})
 })
 
-var _ = Describe("PbImportResolver", func() {
-	var r *types.PbImportResolver
-
-	BeforeEach(func() {
-		r = &types.PbImportResolver{}
-	})
-
-	Describe("ResolveImport", func() {
-		It("Should return proto path with qualifier", func() {
-			importPath, qualifier, shouldImport := r.ResolveImport("core/pkg/task", nil)
-			Expect(importPath).To(Equal("core/pkg/task/types.gen.proto"))
-			Expect(qualifier).To(Equal("task"))
-			Expect(shouldImport).To(BeTrue())
-		})
-	})
-})
-
 var _ = Describe("Plugin", func() {
 	var (
 		loader *MockFileLoader
@@ -122,9 +105,6 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Describe("Check", func() {
-		It("Should return nil (no validation required)", func() {
-			Expect(p.Check(&plugin.Request{})).To(Succeed())
-		})
 	})
 
 	Describe("Domains", func() {

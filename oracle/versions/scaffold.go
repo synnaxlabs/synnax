@@ -18,11 +18,11 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Scaffold renders the next version file for chain: every current-surface
-// member as an alias line to its definer, pinned declarations redeclared in
-// full, and the current file's imports carried forward. The developer
-// converts the changed types to full declarations and bumps stale pins; an
-// all-alias file fails the minimality gate by design.
+// Scaffold renders the next version file for chain: every current-surface member as an
+// alias line to its definer, pinned declarations redeclared in full, and the current
+// file's imports carried forward. The developer converts the changed types to full
+// declarations and bumps stale pins; an all-alias file fails the minimality gate by
+// design.
 func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 	current := chain.Current()
 	cur, err := r.File(ctx, chain.LivePath(), current)
@@ -70,8 +70,8 @@ func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 	return license(ctx, r.RepoRoot(), formatted)
 }
 
-// fileImports reconstructs a file's import paths: pins as version-file paths,
-// live imports verbatim.
+// fileImports reconstructs a file's import paths: pins as version-file paths, live
+// imports verbatim.
 func fileImports(f *File) []string {
 	imports := make([]string, 0, len(f.Pins)+len(f.LivePaths))
 	for depLive, pv := range f.Pins {
@@ -94,8 +94,8 @@ func pinnedDecl(t resolution.Type) bool {
 	return false
 }
 
-// license prepends the repository's license header, the same one every other
-// checked-in file carries.
+// license prepends the repository's license header, the same one every other checked-in
+// file carries.
 func license(ctx context.Context, repoRoot, content string) (string, error) {
 	l, err := format.NewLicense(repoRoot)
 	if err != nil {

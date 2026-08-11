@@ -33,9 +33,7 @@ import (
 // source of truth.
 //
 // The migrate plugin joins the registry for its chain-driven migrate.gen.go emission —
-// a pure function of adjacent version files, regenerated on every sync. Its bump
-// scaffolding still runs only under `oracle migrate`, which alone supplies
-// OldResolutions.
+// a pure function of adjacent version files, regenerated on every sync.
 func buildPluginRegistry() (*plugin.Registry, error) {
 	registry := plugin.NewRegistry()
 	for _, p := range []plugin.Plugin{

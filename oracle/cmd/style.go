@@ -74,6 +74,16 @@ func printDim(msg string) {
 	fmt.Println(dimStyle.Render(msg))
 }
 
+func printPluginDone(plugin string, fileCount int) {
+	p := pluginStyle.Render(plugin)
+	c := countStyle.Render(fmt.Sprintf("%d", fileCount))
+	word := "file"
+	if fileCount != 1 {
+		word = "files"
+	}
+	fmt.Printf("  %s %s %s %s\n", p, symbolArrow, c, word)
+}
+
 func printFileWritten(plugin, path string) {
 	p := pluginStyle.Render(plugin)
 	f := fileStyle.Render(path)

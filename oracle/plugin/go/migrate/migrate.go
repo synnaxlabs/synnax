@@ -29,11 +29,7 @@ func (p *Plugin) Name() string { return "go/migrate" }
 // Domains returns the domains this plugin handles.
 func (p *Plugin) Domains() []string { return []string{"go"} }
 
-// Requires returns plugin dependencies.
-func (p *Plugin) Requires() []string { return []string{"go/types", "go/marshal"} }
-
-// Check implements plugin.Plugin.
-func (p *Plugin) Check(*plugin.Request) error { return nil }
+func (p *Plugin) Requires() []string { return []string{"go/types"} }
 
 // Generate emits the chain-driven migration helpers.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {

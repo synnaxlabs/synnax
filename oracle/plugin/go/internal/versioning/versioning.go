@@ -68,18 +68,6 @@ func Pinned(t resolution.Type) bool {
 	return false
 }
 
-// PreVersioning reports whether no type in the table declares a @go version.
-// Snapshots taken before per-resource versioning existed satisfy this and
-// cannot serve as a version-diffing baseline.
-func PreVersioning(table *resolution.Table) bool {
-	for _, t := range table.TypesWithDomain("go") {
-		if _, ok := Version(t); ok {
-			return false
-		}
-	}
-	return true
-}
-
 // Dir returns the version sub-directory name for version n ("v3").
 func Dir(n int) string { return fmt.Sprintf("v%d", n) }
 
@@ -113,27 +101,12 @@ func VersionDirs(repoRoot, goPath string) ([]int, error) {
 	return versions, nil
 }
 
-// Predecessor returns the highest version directory below n present under goPath on
-// disk. A resource skips the versions it never had a Go shape at, so the predecessor is
-// not always n-1. ok is false when no lower directory exists.
-func Predecessor(repoRoot, goPath string, n int) (v int, ok bool, err error) {
-	dirs, err := VersionDirs(repoRoot, goPath)
-	if err != nil {
-		return 0, false, err
-	}
-	for _, k := range dirs {
-		if k < n {
-			v, ok = k, true
-		}
-	}
-	return v, ok, nil
-}
-
-// PathVersions maps every @go output path in the table to its declared
-// version. It errors when two types at the same path disagree on the version,
-// when a declared version is negative, or when a @go migrate entry lacks a
-// version.
-func PathVersions(table *resolution.Table) (map[string]int, error) {
+// EntryPaths maps every version-laid-out @go output path in the table to its
+// declared version. These packages emit their current version into
+// versions/vN. It errors when two types at the same path disagree on the
+// version, when a declared version is negative, or when a @go migrate entry
+// lacks a version.
+func EntryPaths(table *resolution.Table) (map[string]int, error) {
 	versions := make(map[string]int)
 	declared := make(map[string]string)
 	for _, t := range table.TypesWithDomain("go") {
@@ -173,20 +146,9 @@ func PathVersions(table *resolution.Table) (map[string]int, error) {
 	return versions, nil
 }
 
-// EntryPaths returns the version-laid-out output paths: every path declaring
-// a @go version. These packages emit their current version into versions/vN, so
-// dependents — current and frozen alike — pin an explicit version directory
-// for every persisted reference; only memory-only (marshal omit) references
-// track the root re-export. Declare @go version struct-level
-// when a file mixes storable and transient output paths (channel), so
-// transient paths stay out of the layout.
-func EntryPaths(table *resolution.Table) (map[string]int, error) {
-	return PathVersions(table)
-}
-
-// CurrentPathMap maps each version-laid-out path to its current versions/vN
+// currentPathMap maps each version-laid-out path to its current versions/vN
 // sub-path.
-func CurrentPathMap(table *resolution.Table) (map[string]string, error) {
+func currentPathMap(table *resolution.Table) (map[string]string, error) {
 	entries, err := EntryPaths(table)
 	if err != nil {
 		return nil, err
@@ -204,7 +166,7 @@ func CurrentPathMap(table *resolution.Table) (map[string]string, error) {
 func RewriteCurrent(
 	table *resolution.Table,
 ) (*resolution.Table, map[string]string, error) {
-	pathMap, err := CurrentPathMap(table)
+	pathMap, err := currentPathMap(table)
 	if err != nil {
 		return nil, nil, err
 	}

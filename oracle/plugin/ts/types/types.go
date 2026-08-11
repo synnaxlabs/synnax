@@ -56,13 +56,11 @@ func DefaultOptions() Options {
 
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
-func (p *Plugin) Name() string { return "ts/types" }
+func (*Plugin) Name() string { return "ts/types" }
 
-func (p *Plugin) Domains() []string { return nil }
+func (*Plugin) Domains() []string { return nil }
 
-func (p *Plugin) Requires() []string { return nil }
-
-func (p *Plugin) Check(req *plugin.Request) error { return nil }
+func (*Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
@@ -260,10 +258,10 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// hasNonPrimitiveDependency returns true if a type definition has dependencies
-// on non-primitive types (i.e., references other schema types that need to be
-// declared before this type). This is used to determine whether a distinct type
-// should be included in topological sorting.
+// hasNonPrimitiveDependency returns true if a type definition has dependencies on
+// non-primitive types (i.e., references other schema types that need to be declared
+// before this type). This is used to determine whether a distinct type should be
+// included in topological sorting.
 func hasNonPrimitiveDependency(typ resolution.Type) bool {
 	var checkRef func(ref resolution.TypeRef) bool
 	checkRef = func(ref resolution.TypeRef) bool {

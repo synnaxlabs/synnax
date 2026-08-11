@@ -50,8 +50,6 @@ func (p *Plugin) Domains() []string { return []string{"cpp"} }
 
 func (p *Plugin) Requires() []string { return []string{"cpp/types"} }
 
-func (p *Plugin) Check(*plugin.Request) error { return nil }
-
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
