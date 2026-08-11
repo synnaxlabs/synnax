@@ -32,6 +32,8 @@ export type WaveType = ni.WaveType;
 
 export type Scale = ni.Scale;
 export type ScaleType = ni.ScaleType;
+export type CJC = ni.CJC;
+export type CJCType = ni.CJCType;
 
 // Cross-field scale validation is not generated; re-attach it to the map and table
 // scale schemas the console exposes.
@@ -78,6 +80,7 @@ export const SCALE_SCHEMAS = {
 } as Record<ScaleType, z.ZodType<Scale>>;
 
 const NO_SCALE: Scale = { type: "none" };
+const BUILT_IN_CJC: CJC = { source: "built_in" };
 
 export const ZERO_SCALES = Object.fromEntries(
   ni.SCALE_TYPES.map((t) => [t, ni.SCALE_SCHEMAS[t].parse({ type: t })]),
@@ -93,7 +96,11 @@ export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
 export const ZERO_AI_CHANNELS = Object.fromEntries(
   ni.AI_CHANNEL_TYPES.map((t) => [
     t,
-    ni.AI_CHANNEL_SCHEMAS[t].parse({ type: t, customScale: NO_SCALE }),
+    ni.AI_CHANNEL_SCHEMAS[t].parse({
+      type: t,
+      customScale: NO_SCALE,
+      cjc: BUILT_IN_CJC,
+    }),
   ]),
 ) as Record<AIChannelType, AIChannel>;
 export const ZERO_AI_CHANNEL = ZERO_AI_CHANNELS.ai_voltage;
