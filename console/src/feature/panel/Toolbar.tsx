@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 import { isNotFound } from "@/feature/panel/Mosaic";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { NameEditTargetContext, ResourceGuard, useTab } from "@/platform/panel/tab";
+import { ResourceGuard, useTab } from "@/platform/panel/tab";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -26,7 +26,10 @@ const EmptyContent = ({
 }: EmptyContentProps): ReactElement => (
   <Toolbar.Content>
     <Toolbar.Header>
-      <Toolbar.Title icon={<Icon.Component />}>Component</Toolbar.Title>
+      <Toolbar.Title>
+        <Icon.Component />
+        Component
+      </Toolbar.Title>
     </Toolbar.Header>
     <Empty.Action x message={message} />
   </Toolbar.Content>
@@ -46,16 +49,14 @@ const NotFoundFallback = (props: Errors.FallbackProps): ReactElement => {
 };
 
 // Header for a focused component without its own toolbar: the tab's Name (icon +
-// name, renames included) with an explanatory empty body.
+// name) with an explanatory empty body. Renames stay with the tab itself.
 const NoToolbarContent = (): ReactElement => {
   const { Name } = useTab();
   return (
     <Toolbar.Content>
       <Toolbar.Header>
         <Toolbar.Title>
-          <NameEditTargetContext value={false}>
-            <Name />
-          </NameEditTargetContext>
+          <Name allowRename={false} />
         </Toolbar.Title>
       </Toolbar.Header>
       <Empty.Action x message="This component has no configurable properties." />

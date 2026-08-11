@@ -60,7 +60,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               inputProps={{ placeholder: "Message" }}
             />
             <Form.Field<string[]> path="labels" required={false}>
-              {({ preview: _, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
+              {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
           </Form.Form>
         </Modals.Body>

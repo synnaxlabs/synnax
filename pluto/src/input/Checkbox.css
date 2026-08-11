@@ -25,7 +25,7 @@
     &:has(:focus-visible) {
         .pluto-input__checkbox-indicator {
             outline: 1px solid var(--pluto-primary-z);
-            outline-offset: var(--pluto-focus-ring-offset, 2px);
+            outline-offset: var(--pluto-focus-ring-offset);
         }
     }
 
@@ -88,8 +88,8 @@
             border-radius: 0.25rem;
         }
         .pluto-input__checkbox-indicator::after {
-            left: 0.4rem;
-            top: 0.2rem;
+            left: round(0.4rem, 1px);
+            top: round(0.2rem, 1px);
             width: 0.25rem;
             height: 0.5rem;
             border-width: 0 1.5px 1.5px 0;
@@ -126,8 +126,8 @@
             border-radius: 0.5rem;
         }
         .pluto-input__checkbox-indicator::after {
-            left: 1.1rem;
-            top: 0.4rem;
+            left: round(1.1rem, 1px);
+            top: round(0.4rem, 1px);
             width: 0.75rem;
             height: 1.5rem;
             border-width: 0 2.5px 2.5px 0;
@@ -145,8 +145,8 @@
             border-radius: 0.5rem;
         }
         .pluto-input__checkbox-indicator::after {
-            left: 1.1rem;
-            top: 0.4rem;
+            left: round(1.1rem, 1px);
+            top: round(0.4rem, 1px);
             width: 1rem;
             height: 1.75rem;
             border-width: 0 3px 3px 0;

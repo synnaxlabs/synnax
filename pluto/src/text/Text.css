@@ -82,13 +82,13 @@ span.pluto-text {
 
     /* Overflowing text fades out at the right edge, Chrome-style, instead of
        ellipsizing. The self scroll timeline is inactive until the text actually
-       overflows, so fitted text never fades. animation-timeline must follow the
-       animation shorthand, which resets it. */
+       overflows, so fitted text never fades. */
     &.pluto-text--overflow-fade {
         white-space: nowrap;
         overflow: hidden;
         display: block;
-        animation: text-fade linear;
+        animation-name: text-fade;
+        animation-timing-function: linear;
         animation-timeline: scroll(self x);
     }
 

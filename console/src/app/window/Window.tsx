@@ -54,6 +54,7 @@ export const Window = memo((): ReactElement | null => {
 
   return (
     <Flex.Box
+      full
       empty
       className={CSS(
         CSS.B("main"),

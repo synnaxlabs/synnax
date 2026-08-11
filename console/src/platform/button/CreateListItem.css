@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-btn.console-create-btn {
+.pluto-btn.console-create-list-item {
     width: auto;
 
     &.console--large {
