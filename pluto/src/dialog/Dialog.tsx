@@ -27,7 +27,7 @@ export const Dialog = ({
   background = 0,
   className,
   bordered = true,
-  rounded,
+  rounded = "small",
   passthrough = false,
   children,
   ...rest
@@ -63,7 +63,7 @@ export const Dialog = ({
           CSS.BM("dialog", "modal", "position", modalPosition.toString()),
         className,
       )}
-      rounded={rounded ?? "small"}
+      rounded={rounded}
       role="dialog"
       empty
       bordered={bordered}

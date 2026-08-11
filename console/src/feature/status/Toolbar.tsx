@@ -115,7 +115,10 @@ const listItem = Component.renderProp(ListItem);
 const Content = (): ReactElement => (
   <Toolbar.Content>
     <Toolbar.Header>
-      <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
+      <Toolbar.Title>
+        <Icon.Status />
+        Statuses
+      </Toolbar.Title>
       <Actions />
     </Toolbar.Header>
     <Toolbar.Body>

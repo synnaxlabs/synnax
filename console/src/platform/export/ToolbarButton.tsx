@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
+import { Button, Icon } from "@synnaxlabs/pluto";
 
 import { use } from "@/platform/export/use";
-import { Toolbar } from "@/platform/toolbar";
 
 export interface ToolbarButtonProps extends Omit<
-  Toolbar.ButtonProps,
+  Button.ButtonProps,
   "onClick" | "children"
 > {
   /** Resolves the ontology ID to export, evaluated when the button is clicked. */
@@ -24,12 +23,14 @@ export interface ToolbarButtonProps extends Omit<
 export const ToolbarButton = ({ getID, ...rest }: ToolbarButtonProps) => {
   const handleExport = use();
   return (
-    <Toolbar.Button
+    <Button.Button
       tooltip="Export layout"
+      size="medium"
+      variant="text"
       onClick={() => handleExport(getID())}
       {...rest}
     >
       <Icon.Export />
-    </Toolbar.Button>
+    </Button.Button>
   );
 };
