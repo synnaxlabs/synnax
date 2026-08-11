@@ -29,7 +29,7 @@
     border: var(--pluto-border-l6);
     border-radius: var(--pluto-border-radius-medium);
     background: color-mix(in srgb, var(--pluto-gray-l2) 75%, transparent);
-    box-shadow: var(--pluto-shadow-tight);
+    box-shadow: var(--pluto-shadow-lift);
     -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
     backdrop-filter: blur(3.5rem) saturate(140%);
     overflow: hidden;

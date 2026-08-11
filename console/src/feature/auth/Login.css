@@ -13,7 +13,6 @@
     height: 100%;
     width: 100%;
     overflow: hidden;
-    box-shadow: var(--pluto-shadow-v0);
 }
 
 .console-login__content {

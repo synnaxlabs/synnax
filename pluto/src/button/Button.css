@@ -239,6 +239,12 @@
         --pluto-active-bg: var(--pluto-fill-press);
         --pluto-border-color: var(--pluto-gray-l0);
 
+        /* A shade reads as de-emphasis, so hover restores full text color. A crude
+           color is semantic and sets an inline style, which this cannot override. */
+        &:hover:not(.pluto--status-warning, .pluto--status-error, .pluto--disabled) {
+            color: var(--pluto-text-color);
+        }
+
         &.pluto--disabled {
             color: var(--pluto-text-disabled);
         }

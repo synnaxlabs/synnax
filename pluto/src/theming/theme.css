@@ -135,22 +135,20 @@
     --pluto-symbol-l-max: 0.8;
 
     --pluto-symbol-c-thresh: 0.05;
-    --pluto-shadow-v1:
-        0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
-        0px 16px 24px -8px rgba(0, 0, 0, 0.12);
 
-    --pluto-shadow-v2:
-        lch(0 0 0 / 0.022) 0px 6px 18px, lch(0 0 0 / 0.044) 0px 3px 9px,
-        lch(0 0 0 / 0.044) 0px 1px 1px;
+    /* The elevation ladder: lift sits in the layout, overlay floats above it, modal
+       covers it behind a scrim. Every rung is defined in both themes, since an
+       undefined one computes to no shadow. Rings, inset fills, and glows are not
+       elevation and stay off the ladder. */
+    --pluto-shadow-lift: lch(0 0 0 / 0.044) 0px 3px 9px, lch(0 0 0 / 0.044) 0px 1px 1px;
 
-    --pluto-shadow-v3:
+    --pluto-shadow-overlay:
+        lch(0 0 0 / 0.02) 0px 1px 1px, lch(0 0 0 / 0.1) 0px 4px 8px -4px,
+        lch(0 0 0 / 0.12) 0px 16px 24px -8px;
+
+    --pluto-shadow-modal:
         lch(0 0 0 / 0.088) 0px 9px 48px, lch(0 0 0 / 0.11) 0px 6px 24px,
         lch(0 0 0 / 0.044) 0px 1px 1px;
-
-    /* v2 without its widest layer, which reaches past a gap between stacked
-       surfaces and pools on the neighbor instead of the page. */
-    --pluto-shadow-tight:
-        lch(0 0 0 / 0.044) 0px 3px 9px, lch(0 0 0 / 0.044) 0px 1px 1px;
 }
 
 .pluto-theme-synnax-dark {
@@ -161,8 +159,17 @@
     --pluto-symbol-l-max: 1;
 
     --pluto-symbol-c-thresh: 0.09;
-    --pluto-shadow-v1:
+
+    /* Restated at higher density: a shadow needs more weight to read against a dark
+       surface. */
+    --pluto-shadow-lift: lch(0 0 0 / 0.188) 0px 2px 5px, lch(0 0 0 / 0.188) 0px 1px 1px;
+
+    --pluto-shadow-overlay:
         lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
+        lch(0 0 0 / 0.188) 0px 1px 1px;
+
+    --pluto-shadow-modal:
+        lch(0 0 0 / 0.32) 0px 9px 48px, lch(0 0 0 / 0.28) 0px 6px 24px,
         lch(0 0 0 / 0.188) 0px 1px 1px;
 }
 

@@ -82,7 +82,7 @@
     background: var(--pluto-gray-l2) !important;
     border: var(--pluto-border-width) solid var(--pluto-gray-l6) !important;
     border-radius: var(--pluto-border-radius-small) !important;
-    box-shadow: var(--pluto-shadow-v1) !important;
+    box-shadow: var(--pluto-shadow-overlay) !important;
     overflow: hidden !important;
     height: auto !important;
 }
@@ -372,7 +372,7 @@
     background: var(--pluto-gray-l2) !important;
     border: var(--pluto-border-width) solid var(--pluto-primary-z) !important;
     border-radius: var(--pluto-border-radius) !important;
-    box-shadow: var(--pluto-shadow-v1) !important;
+    box-shadow: var(--pluto-shadow-overlay) !important;
     padding: 0 !important;
     font-family: var(--pluto-font-family) !important;
 

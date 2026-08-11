@@ -35,7 +35,6 @@ export interface ExtensionProps
   level?: text.Level;
   /* The text to display */
   children?: ReactNode;
-  /* Shade sets the shade of the text */
   /* Weight sets the weight of the text */
   weight?: text.Weight;
   /* Variant sets the variant of the text */
