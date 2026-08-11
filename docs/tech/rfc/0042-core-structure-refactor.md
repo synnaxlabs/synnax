@@ -1100,7 +1100,7 @@ nil; the cost is every Gorp entry across the repo (Aspen, Cesium, …) must impl
 
 ### 5.6 Core-release snapshots for cross-package compatibility
 
-_(Superseded by [RFC 0053](0053-oracle-explicit-schema-versioning.md) §4.8: core-release
+_(Superseded by [RFC 0053](0053-oracle-explicit-schema-versioning.md) §2.7: Core-release
 snapshots are deleted, `@go version` with them; cross-resource compatibility is written
 into each version file as explicit dep pins recorded at mint time.)_
 

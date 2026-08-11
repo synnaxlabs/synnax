@@ -259,7 +259,7 @@ alias-form history. Rewriting history for uniformity was rejected as pure churn 
 immutable packages.
 
 **6.3 Frozen-source baseline over transcribed or annotated history.** _(Superseded by
-[RFC 0053](0053-oracle-explicit-schema-versioning.md) §6.7: history is backfilled into
+[RFC 0053](0053-oracle-explicit-schema-versioning.md) §2.6: history is backfilled into
 version files — the target is living, grammar-migrated schema files rather than the dead
 snapshot bytes rejected here.)_ Two retrofit alternatives were rejected: transcribing
 the pre-versioning snapshots into current grammar (hand-authoring ~30 schemas of
