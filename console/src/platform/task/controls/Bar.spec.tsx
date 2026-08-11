@@ -15,7 +15,7 @@ import { createTaskStatus } from "@/platform/task/testutil";
 import { getIconButton, renderWithConsole } from "@/testutil";
 
 describe("Controls.Bar", () => {
-  it("should deploy on play and stop on pause", async () => {
+  it("should deploy on play and stop on stop", async () => {
     const onDeploy = vi.fn();
     const onStop = vi.fn();
     const { container, rerender } = await renderWithConsole(
@@ -38,7 +38,7 @@ describe("Controls.Bar", () => {
         onStop={onStop}
       />,
     );
-    fireEvent.click(getIconButton(container, "pause"));
+    fireEvent.click(getIconButton(container, "stop"));
     expect(onStop).toHaveBeenCalledTimes(1);
     expect(onDeploy).toHaveBeenCalledTimes(1);
   });

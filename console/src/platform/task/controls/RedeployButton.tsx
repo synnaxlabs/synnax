@@ -7,30 +7,47 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/pluto";
+import { Button, Icon } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
+
 export interface RedeployButtonProps extends Omit<Button.ButtonProps, "onClick"> {
+  /** Reveals the button when true and collapses it when false. */
+  visible: boolean;
   /** Click handler */
   onClick: () => void;
-  /** Button status variant */
-  statusVariant?: status.Variant;
 }
 
+/**
+ * Deploys the saved configuration to the running task. Stays mounted so its
+ * reveal and collapse can animate; hidden it occupies no space and cannot be
+ * focused or clicked.
+ */
 export const RedeployButton = ({
+  visible,
   onClick,
-  statusVariant,
   ...props
 }: RedeployButtonProps): ReactElement => (
-  <Button.Button
-    onClick={onClick}
-    status={statusVariant}
-    size="medium"
-    tooltip="Deploy the latest configuration"
-    variant="outlined"
-    {...props}
+  <div
+    className={CSS(
+      CSS.B("task-redeploy"),
+      visible && CSS.BM("task-redeploy", "visible"),
+    )}
+    aria-hidden={!visible}
   >
-    Redeploy
-  </Button.Button>
+    <div className={CSS.BE("task-redeploy", "clip")}>
+      <Button.Button
+        onClick={onClick}
+        size="medium"
+        tabIndex={visible ? undefined : -1}
+        tooltip="Configuration changed since deploy. Redeploy to apply."
+        variant="filled"
+        {...props}
+      >
+        <Icon.Refresh />
+        Redeploy
+      </Button.Button>
+    </div>
+  </div>
 );
