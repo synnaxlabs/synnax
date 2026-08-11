@@ -94,6 +94,43 @@ TEST(TestCommonReadTask, testBasicOperation) {
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
 }
 
+/// @brief a start on a running task should ack the command without reopening
+/// the source.
+TEST(TestCommonReadTask, testStartWhileRunningAcks) {
+    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    auto s = x::telem::Series(x::telem::TimeStamp::now());
+    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    auto mock_source = std::make_unique<MockSource>(reads);
+    ReadTask read_task(
+        t,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(mock_source),
+        mock_writer_factory
+    );
+    ASSERT_TRUE(read_task.start("start_cmd"));
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_EQ(
+        mock_writer_factory->writer_opens.load(std::memory_order_acquire),
+        1
+    );
+    ASSERT_FALSE(read_task.start("start_cmd_2"));
+    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
+    auto ack_state = ctx->statuses[1];
+    EXPECT_EQ(ack_state.key, synnax::task::status_key(t));
+    EXPECT_EQ(ack_state.details.cmd, "start_cmd_2");
+    EXPECT_EQ(ack_state.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ack_state.message, "Task started successfully");
+    EXPECT_EQ(ack_state.details.running, true);
+    // The live source was not closed and reopened.
+    EXPECT_EQ(mock_writer_factory->writer_opens.load(std::memory_order_acquire), 1);
+    read_task.stop("stop_cmd", true);
+}
+
 /// @brief it should report error status when source fails to start.
 TEST(TestCommonReadTask, testErrorOnStart) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
