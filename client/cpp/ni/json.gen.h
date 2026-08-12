@@ -1326,6 +1326,7 @@ inline AIAccelChargeChannel AIAccelChargeChannel::parse(x::json::Parser parser) 
     AIAccelChargeChannel result;
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
+    static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     result.units = parser.field<std::string>("units", "g");
     result.sensitivity = parser.field<double>("sensitivity", 0);
@@ -1342,6 +1343,8 @@ inline x::json::json AIAccelChargeChannel::to_json() const {
     for (auto &[k, v]: BaseAIChannel::to_json().items())
         j[k] = v;
     for (auto &[k, v]: MinMaxVal::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: Terminal::to_json().items())
         j[k] = v;
     for (auto &[k, v]: CustomScale::to_json().items())
         j[k] = v;

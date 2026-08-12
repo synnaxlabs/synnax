@@ -65,7 +65,7 @@ export interface CreateRetrieveParams<
   /**
    * Holds the previous answer whenever the next one compares equal, so readers
    * re-render only on changes the answer expresses. Defaults to element-wise
-   * identity for list answers, which is what a `getCached` that composes rows
+   * identity for list answers, which is what a `getCached` that composes entries
    * out of the domain client's tables needs. Override only for an answer whose
    * equality the default reads as a change.
    */

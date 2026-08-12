@@ -12,7 +12,7 @@ import { bench, describe } from "vitest";
 import z from "zod";
 
 import { query } from "@/query";
-import { Queries } from "@/query/query";
+import { Space } from "@/query/query";
 
 interface Thing extends record.Keyed<string> {
   key: string;
@@ -55,7 +55,7 @@ describe("Retriever.getCached", () => {
 
 const N = 100;
 const listTable = new query.Table<string, Thing>({ onError: () => {} });
-const listAnswers = new Queries<{ minSize: number }, Thing[], string, Thing>({
+const listAnswers = new Space<{ minSize: number }, Thing[], string, Thing>({
   name: "things",
   table: listTable,
   fetch: async () =>
@@ -72,7 +72,7 @@ await listAnswers.retrieve({ minSize: 0 });
 
 describe("frame delivery to a mounted list", () => {
   let tick = 1;
-  bench(`one batched set of ${N} rows`, () => {
+  bench(`one batched set of ${N} entries`, () => {
     tick++;
     listTable.set(
       Array.from({ length: N }, (_, i) => {
