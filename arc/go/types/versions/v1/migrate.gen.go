@@ -84,10 +84,6 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 		}
 		constraint = &v
 	}
-	chanDirection, err := autoMigrateChanDirection(ctx, old.ChanDirection)
-	if err != nil {
-		return Type{}, err
-	}
 	return Type{
 		FunctionProperties: functionProperties,
 		Kind:               kind,
@@ -95,10 +91,6 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 		Elem:               elem,
 		Unit:               old.Unit,
 		Constraint:         constraint,
-		ChanDirection:      chanDirection,
+		ChanDirection:      old.ChanDirection,
 	}, nil
-}
-
-func autoMigrateChanDirection(_ context.Context, old v0.ChanDirection) (ChanDirection, error) {
-	return ChanDirection(old), nil
 }

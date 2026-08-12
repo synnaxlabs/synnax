@@ -11,7 +11,7 @@
 
 package v0
 
-// ChanDirection indicates read/write direction for channel-typed config parameters.
+// ChanDirection indicates read/write direction for channel-typed parameters.
 type ChanDirection uint8
 
 //go:generate stringer -type=ChanDirection
@@ -20,6 +20,7 @@ const (
 	ChanDirectionNone ChanDirection = iota
 	ChanDirectionRead
 	ChanDirectionWrite
+	ChanDirectionReadWrite
 )
 
 // Channels contains channel declarations for reading from and writing to Synnax
