@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, errors, state, TimeSpan, zod } from "@synnaxlabs/x";
+import {
+  type CrudeTimeSpan,
+  type destructor,
+  errors,
+  state,
+  TimeSpan,
+  zod,
+} from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -143,9 +150,12 @@ export interface StageParams<
 }
 
 /** Per-component operations returned by {@link Store.stage}: typed setState, the
- * attach/detach pair, state reads, and method callers. Scoped to the staging that
- * produced it: once a same-path attach displaces that entry, every operation no-ops
- * (async invokes reject). */
+ * attach/detach pair, state reads, subscriptions, and method callers. Scoped to the
+ * staging that produced it: once a same-path attach displaces that entry, every
+ * operation no-ops (async invokes reject).
+ *
+ * Every field is built once with the handle and never replaced, so a React caller can
+ * hand them straight to hooks without wrapping them in `useCallback`. */
 export interface Handle<
   StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
@@ -156,6 +166,10 @@ export interface Handle<
   /** Latest state, readable in every phase. Owned by the handle rather than the store
    * so it stays stable across a detach/attach cycle. */
   getState: () => z.infer<StateSchema>;
+  /** Subscribes to this component's state changes. Fires on both worker pushes and local
+   * {@link Handle.setState}, and persists across detach-attach cycles. Returns an
+   * unsubscribe function. */
+  subscribe: (listener: Listener) => destructor.Destructor;
   /** Publishes the component to the store and queues its create message. Call from a
    * layout effect: a component staged by a render React discards must never reach the
    * worker. Idempotent. */
@@ -544,6 +558,7 @@ export class Store {
       methods,
       setState,
       getState: () => entry.state,
+      subscribe: (listener) => this.subscribe(entry.path, listener),
       attach: () => this.attachEntry(entry),
       detach: () => this.detachEntry(entry),
     };

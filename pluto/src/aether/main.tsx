@@ -30,7 +30,6 @@ import { type Handle, type RawSetArg, Store } from "@/aether/store";
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useMemoArray } from "@/memo";
 
 /** Value supplied by the Aether context to descendants of {@link Provider}. */
 export interface ContextValue {
@@ -118,9 +117,8 @@ interface UseLifecycleProps<
   type: string;
   /** Zod schema validating both `initialState` and worker-pushed state. */
   schema: StateSchema;
-  /** Stable key for the component. Generated if omitted. Identity-stable for the
-   * component's lifetime — changing it mid-life unregisters and re-registers under the
-   * new key. */
+  /** Key for the component, generated if omitted. Read on the mounting render only;
+   * later changes are ignored. Remount under a React `key` to get a new identity. */
   aetherKey?: string;
   initialState: z.input<StateSchema>;
   /** Optional `Transferable`s included with the initial update message. */
@@ -151,14 +149,14 @@ export const useLifecycle = <
 > => {
   const key = useUniqueKey(aetherKey);
   const ctx = useContext();
-  const path = useMemoArray([...ctx.path, key]);
   const onReceiveRef = useSyncedRef(onAetherChange);
   const handleRef = useRef<Handle<StateSchema, Methods> | null>(null);
   // Staging is pure: the store keeps no reference and the worker hears nothing until
-  // the attach below. A render React discards is reclaimed with this ref.
+  // the attach below. A render React discards is reclaimed with this ref. `??=` short
+  // circuits, so the path array is built on the mounting render alone.
   handleRef.current ??= ctx.store.stage({
     type,
-    path,
+    path: [...ctx.path, key],
     schema,
     initialState,
     initialTransfer,
@@ -166,7 +164,6 @@ export const useLifecycle = <
     onReceiveRef,
   });
   const handle = handleRef.current;
-  const { methods } = handle;
 
   // The handle outlives the effect so StrictMode's cleanup-then-setup remount, which
   // does not re-render, re-attaches this same component.
@@ -175,22 +172,18 @@ export const useLifecycle = <
     return () => handle.detach();
   }, [handle]);
 
-  const setState = useCallback(
-    (next: RawSetArg<StateSchema>, transfer: Transferable[] = []) =>
-      handle.setState(next, transfer),
-    [handle],
-  );
-
-  const subscribe = useCallback(
-    (listener: () => void) => ctx.store.subscribe(path, listener),
-    [ctx.store, path],
-  );
-
-  const getSnapshot = useCallback(() => handle.getState(), [handle]);
-
+  // Every field is a closure the handle built once, so this runs on the mounting render
+  // and never again. Wrapping them in `useCallback` would allocate an arrow and a
+  // dependency array per render to reproduce identities that are already stable.
   return useMemo(
-    () => ({ setState, path, methods, subscribe, getSnapshot }),
-    [setState, path, methods, subscribe, getSnapshot],
+    () => ({
+      path: handle.path,
+      setState: handle.setState,
+      methods: handle.methods,
+      subscribe: handle.subscribe,
+      getSnapshot: handle.getState,
+    }),
+    [handle],
   );
 };
 
@@ -256,11 +249,16 @@ export const useUnidirectional = <
     ...rest,
     initialState: state,
   });
-  const ref = useRef<z.input<StateSchema> | z.infer<StateSchema> | null>(null);
-  if (!deep.equal(ref.current, state)) {
+  // Seeded with the state the component staged with, so the mounting render does not
+  // re-send what the create message already carries.
+  const ref = useRef<z.input<StateSchema>>(state);
+  // In an effect rather than in render: a render React discards must not push state to
+  // the worker. The store buffers to a microtask either way, so nothing lands later.
+  useLayoutEffect(() => {
+    if (deep.equal(ref.current, state)) return;
     ref.current = state;
     setState(state);
-  }
+  });
   return { path, methods };
 };
 
