@@ -36,7 +36,7 @@ using Key = std::uint64_t;
 /// state.
 struct StatusDetails {
     /// @brief task is the key of the task this status pertains to.
-    Key task = 0;
+    Key task = Key(0);
     /// @brief running is true if the task is currently executing.
     bool running = false;
     /// @brief cmd is the last command executed on this task.
@@ -82,7 +82,7 @@ using Status = ::synnax::status::Status<StatusDetails>;
 /// or scanning for devices.
 struct Task {
     /// @brief key is the composite identifier for this task.
-    Key key = 0;
+    Key key = Key(0);
     /// @brief name is a human-readable name for the task.
     std::string name;
     /// @brief type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
