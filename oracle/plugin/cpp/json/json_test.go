@@ -811,6 +811,34 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ToNotContain(`#include "client/cpp/node/json.gen.h"`)
 				},
 			)
+
+			It(
+				"Should include the header declared by @cpp include on a reference",
+				func(ctx SpecContext) {
+					loader.Add("schemas/node", `
+					@cpp output "client/cpp/node"
+
+					Key uint32 {
+						@cpp include "client/cpp/node/key.h"
+					}
+				`)
+
+					source := `
+					import "schemas/node"
+
+					@cpp output "client/cpp/channel"
+
+					Channel struct {
+						leaseholder node.Key
+					}
+				`
+					resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+
+					ExpectContent(resp, "channel/json.gen.h").
+						ToContain(`#include "client/cpp/node/key.h"`).
+						ToNotContain(`#include "client/cpp/node/types.gen.h"`)
+				},
+			)
 		})
 
 		Context("cross-namespace union references", func() {
