@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,8 +15,7 @@ import { describe, expect, it } from "vitest";
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
-  awaitCommand,
-  clickDeploy,
+  deployAndAwaitTask,
   renderTaskFormTab,
   reportTaskStopped,
 } from "@/platform/task/testutil";
@@ -31,21 +30,6 @@ const createDraft = async (
   client: Synnax,
   config: task.Payload<Modbus.Task.ReadSchemas>["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, Modbus.Task.READ_SCHEMAS);
-
-const deployAndAwaitTask = async (
-  client: Synnax,
-  container: ParentNode,
-  key: task.Key,
-) => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
-  return await client.tasks.retrieve({ key, schemas: Modbus.Task.READ_SCHEMAS });
-};
 
 describe("Modbus.Read", () => {
   it("should build channels in the form and create them on the cluster on deploy", async () => {
@@ -69,7 +53,12 @@ describe("Modbus.Read", () => {
     fireEvent.click(await screen.findByText("Register"));
     await screen.findByText("Register");
 
-    const created = await deployAndAwaitTask(client, container, draft.key);
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Modbus.Task.READ_SCHEMAS,
+    );
     expect(created.rack).toBe(dev.rack);
     const config = created.config;
     expect(config.device).toBe(dev.key);
@@ -113,7 +102,12 @@ describe("Modbus.Read", () => {
     await screen.findByText(dev.name);
     fireEvent.click(getIconButton(first.container, "add"));
     await screen.findByText("Coil");
-    const deployed = await deployAndAwaitTask(client, first.container, draft.key);
+    const deployed = await deployAndAwaitTask(
+      client,
+      first.container,
+      draft.key,
+      Modbus.Task.READ_SCHEMAS,
+    );
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
       schemas: Modbus.Device.SCHEMAS,
@@ -126,7 +120,12 @@ describe("Modbus.Read", () => {
       taskKey: draft.key,
     });
     await screen.findByText("Coil");
-    await deployAndAwaitTask(client, second.container, draft.key);
+    await deployAndAwaitTask(
+      client,
+      second.container,
+      draft.key,
+      Modbus.Task.READ_SCHEMAS,
+    );
     const afterSecond = await client.devices.retrieve({
       key: dev.key,
       schemas: Modbus.Device.SCHEMAS,
