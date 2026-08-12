@@ -724,7 +724,7 @@ AIChannel union on type extends BaseAIChannel {
 
         @doc value "reads RMS current."
     }
-    ai_force_bridge_polynomial extends MinMaxVal, Terminal, Bridge, VoltageExcitation, BridgePolynomial, CustomScale {
+    ai_force_bridge_polynomial extends MinMaxVal, Bridge, VoltageExcitation, BridgePolynomial, CustomScale {
         units          ForceUnits = newtons {
             @doc value "are the units of the force measurement."
         }
