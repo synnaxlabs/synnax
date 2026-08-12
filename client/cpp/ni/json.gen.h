@@ -1059,7 +1059,7 @@ inline AIRTDChannel AIRTDChannel::parse(x::json::Parser parser) {
     static_cast<CurrentExcitation &>(result) = CurrentExcitation::parse(parser);
     result.units = parser.field<std::string>("units", "DegC");
     result.rtd_type = parser.field<std::string>("rtd_type", "Pt3750");
-    result.r_0 = parser.field<double>("r_0", 0);
+    result.r0 = parser.field<double>("r0", 0);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1076,7 +1076,7 @@ inline x::json::json AIRTDChannel::to_json() const {
         j[k] = v;
     j["units"] = this->units;
     j["rtd_type"] = this->rtd_type;
-    j["r_0"] = this->r_0;
+    j["r0"] = this->r0;
     j["type"] = this->type;
     return j;
 }
@@ -1590,7 +1590,7 @@ inline AIThermistorVexChannel AIThermistorVexChannel::parse(x::json::Parser pars
     result.a = parser.field<double>("a", 0);
     result.b = parser.field<double>("b", 0);
     result.c = parser.field<double>("c", 0);
-    result.r_1 = parser.field<double>("r_1", 0);
+    result.r1 = parser.field<double>("r1", 0);
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1609,7 +1609,7 @@ inline x::json::json AIThermistorVexChannel::to_json() const {
     j["a"] = this->a;
     j["b"] = this->b;
     j["c"] = this->c;
-    j["r_1"] = this->r_1;
+    j["r1"] = this->r1;
     j["type"] = this->type;
     return j;
 }

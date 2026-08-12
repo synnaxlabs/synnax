@@ -21,6 +21,7 @@ import (
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -1234,8 +1235,12 @@ func defaultValueForPrimitive(primitive string) string {
 	}
 }
 
+// toSnakeCase routes through casing.FieldSnake rather than lo.SnakeCase, which
+// splits a trailing digit off a single-letter word: "r0" becomes "r_0". Schema
+// field names are already snake_case, and the JSON key is the wire name, so a
+// split here disagrees with every other language.
 func toSnakeCase(s string) string {
-	return lo.SnakeCase(s)
+	return casing.FieldSnake(s)
 }
 
 func deriveNamespace(outputPath string) string {
