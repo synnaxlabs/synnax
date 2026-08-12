@@ -284,4 +284,33 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     EXPECT_EQ(mock_streamer_factory->streamer_opens.load(std::memory_order_acquire), 1);
     ASSERT_TRUE(write_task.stop("stop_cmd", true));
 }
+
+/// @brief it should parse a device key from the config.
+TEST(BaseWriteTaskConfigTest, testParse) {
+    const x::json::json j{{"device", "abc123"}, {"auto_start", true}};
+
+    auto p = x::json::Parser(j);
+    const auto cfg = BaseWriteTaskConfig(p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(cfg.device, "abc123");
+    EXPECT_TRUE(cfg.auto_start);
+}
+
+/// @brief it should return a validation error when device is missing.
+TEST(BaseWriteTaskConfigTest, testMissingDevice) {
+    const x::json::json j = x::json::json::object();
+
+    auto p = x::json::Parser(j);
+    [[maybe_unused]] auto _ = BaseWriteTaskConfig(p);
+    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
+}
+
+/// @brief it should return a validation error when device is empty.
+TEST(BaseWriteTaskConfigTest, testEmptyDevice) {
+    const x::json::json j{{"device", ""}};
+
+    auto p = x::json::Parser(j);
+    [[maybe_unused]] auto _ = BaseWriteTaskConfig(p);
+    ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
+}
 }
