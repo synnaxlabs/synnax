@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -340,8 +340,8 @@ describe("actions.Controller", () => {
         [{ type: "set", key: "b", value: 0 }],
         ["b"],
       );
-      // Mark "b" as remote-touched at a future ts → top entry is stale.
-      controller.markRemoteTouched("k", ["b"], TimeStamp.now().add(TimeSpan.SECOND));
+      // Mark "b" as remote-touched after its entry → top entry is stale.
+      controller.markRemoteTouched("k", ["b"]);
       const r = controller.prepareUndo("k");
       // Walks past the stale "b" entry and returns "a"'s inverse.
       expect(r?.actions).toEqual([{ type: "set", key: "a", value: 0 }]);
@@ -356,7 +356,7 @@ describe("actions.Controller", () => {
         [{ type: "set", key: "a", value: 0 }],
         ["a"],
       );
-      controller.markRemoteTouched("k", ["a"], TimeStamp.now().add(TimeSpan.SECOND));
+      controller.markRemoteTouched("k", ["a"]);
       expect(controller.prepareUndo("k")).toBeNull();
       expect(controller.hasUndo("k")).toBe(false);
     });
@@ -364,15 +364,15 @@ describe("actions.Controller", () => {
     it("ignores a remote touch older than the entry", () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      // Stamp a touch in the past first.
-      controller.markRemoteTouched("k", ["a"], TimeStamp.now().sub(TimeSpan.MINUTE));
+      // Record the touch before the entry exists.
+      controller.markRemoteTouched("k", ["a"]);
       controller.recordEntry(
         "k",
         [{ type: "set", key: "a", value: 1 }],
         [{ type: "set", key: "a", value: 0 }],
         ["a"],
       );
-      // Entry's ts is after the touch — it is not stale.
+      // The entry was pushed after the touch — it is not stale.
       expect(controller.prepareUndo("k")?.actions).toEqual([
         { type: "set", key: "a", value: 0 },
       ]);
@@ -422,8 +422,8 @@ describe("actions.Controller", () => {
       );
       controller.prepareUndo("k")?.commit();
       controller.prepareUndo("k")?.commit();
-      // Mark "a" as remote-touched at a future ts → top of redo is stale.
-      controller.markRemoteTouched("k", ["a"], TimeStamp.now().add(TimeSpan.SECOND));
+      // Mark "a" as remote-touched after its entry → top of redo is stale.
+      controller.markRemoteTouched("k", ["a"]);
       const r = controller.prepareRedo("k");
       // Walks past the stale "a" entry and returns "b"'s forward.
       expect(r?.actions).toEqual([{ type: "set", key: "b", value: 1 }]);
@@ -439,7 +439,7 @@ describe("actions.Controller", () => {
         ["a"],
       );
       controller.prepareUndo("k")?.commit();
-      controller.markRemoteTouched("k", ["a"], TimeStamp.now().add(TimeSpan.SECOND));
+      controller.markRemoteTouched("k", ["a"]);
       expect(controller.prepareRedo("k")).toBeNull();
       expect(controller.hasRedo("k")).toBe(false);
     });
@@ -447,7 +447,7 @@ describe("actions.Controller", () => {
     it("ignores a remote touch older than the redo entry", () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      controller.markRemoteTouched("k", ["a"], TimeStamp.now().sub(TimeSpan.MINUTE));
+      controller.markRemoteTouched("k", ["a"]);
       controller.recordEntry(
         "k",
         [{ type: "set", key: "a", value: 1 }],
@@ -606,8 +606,6 @@ describe("actions.Controller", () => {
         [{ type: "set", key: "a", value: 0 }],
         ["a"],
       );
-      // Force a strictly-after timestamp on the remote stamp.
-      await sleep.sleep(TimeSpan.milliseconds(2));
       controller.applyRemote("k", 1, "foreign-1", [
         { type: "set", key: "a", value: 99 },
       ]);
@@ -709,7 +707,6 @@ describe("actions.Controller", () => {
         [{ type: "set", key: "a", value: 0 }],
         ["a"],
       );
-      await sleep.sleep(TimeSpan.milliseconds(2));
       controller.registerOutstandingDispatch("k", "own-1");
       controller.applyRemote("k", 1, "own-1", [{ type: "set", key: "a", value: 1 }]);
       // The local undo entry survives because the echo was own.
@@ -759,19 +756,21 @@ describe("actions.Controller", () => {
       expect(controller.hasUndo("k")).toBe(false);
     });
 
-    it("uses the supplied timestamp", () => {
+    it("orders touches against entries by call order, not the clock", () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      const ts = TimeStamp.now();
+      // Touch, then entry, with no delay between them: the entry is live.
+      controller.markRemoteTouched("k", ["a"]);
       controller.recordEntry(
         "k",
         [{ type: "set", key: "a", value: 1 }],
         [{ type: "set", key: "a", value: 0 }],
         ["a"],
       );
-      // Stamp at a ts before the entry → entry survives.
-      controller.markRemoteTouched("k", ["a"], ts.sub(TimeSpan.SECOND));
       expect(controller.prepareUndo("k")).not.toBeNull();
+      // Touch again immediately after: the entry is stale.
+      controller.markRemoteTouched("k", ["a"]);
+      expect(controller.prepareUndo("k")).toBeNull();
     });
   });
 
