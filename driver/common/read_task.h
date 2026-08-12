@@ -27,7 +27,7 @@ namespace driver::common {
 /// Wraps the schema-generated read config (auto_start, data_saving_disabled,
 /// sample_rate, stream_rate) with the driver-only timing options, so the field set
 /// has a single definition in the oracle schema.
-struct BaseReadTaskConfig : ::synnax::common::BaseReadConfig {
+struct BaseReadTaskConfig : ::synnax::task::common::BaseReadConfig {
     /// @brief timing configuration options for the task.
     TimingConfig timing;
 
@@ -36,7 +36,9 @@ struct BaseReadTaskConfig : ::synnax::common::BaseReadConfig {
         const common::TimingConfig timing_cfg = common::TimingConfig(),
         const bool stream_rate_required = true
     ):
-        ::synnax::common::BaseReadConfig(::synnax::common::BaseReadConfig::parse(cfg)),
+        ::synnax::task::common::BaseReadConfig(
+            ::synnax::task::common::BaseReadConfig::parse(cfg)
+        ),
         timing(timing_cfg) {
         if (this->sample_rate <= x::telem::Rate(0))
             cfg.field_err("sample_rate", "must be greater than 0");
