@@ -16,10 +16,10 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// validateImportPlacement enforces the version-file import rules: a version
-// file imports other version files (pinned, for stored references) or live
-// schemas (floating, for resolved references and unversioned resources); a
-// live schema never imports another resource's version files.
+// validateImportPlacement enforces the version-file import rules: a version file
+// imports other version files (pinned, for stored references) or live schemas
+// (floating, for resolved references and unversioned resources); a live schema never
+// imports another resource's version files.
 func validateImportPlacement(c *analysisCtx) {
 	_, _, inVersionFile := paths.VersionFile(c.filePath)
 	if inVersionFile {

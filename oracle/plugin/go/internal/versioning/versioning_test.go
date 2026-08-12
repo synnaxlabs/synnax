@@ -188,18 +188,6 @@ var _ = Describe("Versioning", func() {
 				ContainSubstring("conflicting @go version declarations for out")))
 		})
 
-		It("Should error on @go migrate without a version", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					key uuid @key
-					@go migrate
-				}
-			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.EntryPaths(table)).Error().To(MatchError(
-				ContainSubstring("@go migrate requires a @go version declaration")))
-		})
 	})
 
 	Describe("EntryPaths", func() {

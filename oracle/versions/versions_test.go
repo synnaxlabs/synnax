@@ -386,30 +386,6 @@ Transient struct {
 			Expect(has).To(BeFalse())
 		})
 
-		It("Should reject a hand-declared version disagreeing with the chain", func(
-			ctx SpecContext,
-		) {
-			root := writeRepo(map[string]string{
-				"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
-			})
-			chains := MustSucceed(versions.Discover(root))
-			r := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
-			table := resolution.NewTable()
-			diag := analyzer.AnalyzeSeeded(ctx, `
-@go output "core/pkg/service/channel"
-
-Key = uuid {
-	@go version 3
-}
-`,
-				"schemas/synnax/channel.oracle", "channel",
-				analyzer.NewStandardFileLoader(root), table,
-			)
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			Expect(r.Annotate(ctx, table)).
-				To(MatchError(ContainSubstring("chain's current file is v0")))
-		})
-
 		It("Should inherit docs from the predecessor and honor overrides", func(
 			ctx SpecContext,
 		) {

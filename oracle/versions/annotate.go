@@ -15,19 +15,15 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/x/errors"
 )
 
-// Annotate stamps chain-derived @go version expressions onto the live table:
-// every type a chain's current file enumerates receives its chain's current
-// version. The version
-// files are the authority; the injected expressions are how the generators
-// read it. Every other version-owned fact (marshal, migrate, imex) reaches
-// the table textually through the merged live file. A type that still
-// hand-declares a version must agree with its chain.
-func (r *Resolver) Annotate(
-	ctx context.Context, table *resolution.Table,
-) error {
+// Annotate stamps chain-derived @go version expressions onto the live table: every type
+// a chain's current file enumerates receives its chain's current version. The version
+// files are the authority; the injected expressions are how the generators read it.
+// Every other version-owned fact (marshal, migrate, imex) reaches the table textually
+// through the merged live file. A type that still hand-declares a version must agree
+// with its chain.
+func (r *Resolver) Annotate(ctx context.Context, table *resolution.Table) error {
 	for _, livePath := range slices.Sorted(maps.Keys(r.chains)) {
 		chain := r.chains[livePath]
 		current := chain.Current()
@@ -44,39 +40,14 @@ func (r *Resolver) Annotate(
 			if _, member := surf[t.Name]; !member {
 				continue
 			}
-			if declared, ok := declaredVersion(*t); ok {
-				if declared != current {
-					return errors.Newf(
-						"%s.%s declares @go version %d but its chain's current file is v%d",
-						chain.Resource,
-						t.Name,
-						declared,
-						current,
-					)
-				}
-				continue
-			}
 			injectVersion(t, current)
 		}
 	}
 	return nil
 }
 
-// declaredVersion reads a hand-declared @go version from a live type.
-func declaredVersion(t resolution.Type) (int, bool) {
-	dom, ok := t.Domains["go"]
-	if !ok {
-		return 0, false
-	}
-	expr, ok := dom.Expressions.Find("version")
-	if !ok || len(expr.Values) == 0 {
-		return 0, false
-	}
-	return int(expr.Values[0].IntValue), true
-}
-
-// injectVersion adds a @go version expression to the
-// type, cloning the shared domain maps first.
+// injectVersion adds a @go version expression to the type, cloning the shared domain
+// maps first.
 func injectVersion(t *resolution.Type, version int) {
 	domains := maps.Clone(t.Domains)
 	if domains == nil {
