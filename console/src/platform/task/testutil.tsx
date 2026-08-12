@@ -460,6 +460,27 @@ export const awaitCommand = async (
 };
 
 /**
+ * Clicks the form's deploy button, waits for the resulting start command, then returns
+ * the persisted task. The streamer opens before the click because deploy saves the task
+ * and issues the command in one pass.
+ */
+export const deployAndAwaitTask = async <S extends task.Schemas = task.Schemas>(
+  client: Client,
+  container: ParentNode,
+  key: task.Key,
+  schemas?: S,
+): Promise<task.Task<S>> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  try {
+    await clickDeploy(container);
+    await awaitCommand(streamer, key);
+  } finally {
+    streamer.close();
+  }
+  return await client.tasks.retrieve({ key, schemas });
+};
+
+/**
  * Writes the status a driver reports once a task has stopped. Specs run without a
  * driver, so a start command otherwise leaves the task mid-start forever and the
  * form offers no way to deploy again.
