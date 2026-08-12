@@ -100,8 +100,8 @@ const Content = () => {
                 <ArcListItem
                   key={key}
                   {...p}
-                  onRename={(name) => handleRename({ key, name })}
-                  onDoubleClick={() => handleEdit(key)}
+                  onRename={handleRename}
+                  onEdit={handleEdit}
                 />
               )}
             </List.Items>
@@ -149,13 +149,19 @@ export const TOOLBAR: Nav.Toolbar = {
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {
-  onRename: (name: string) => void;
+  onRename: (params: { key: arc.Key; name: string }) => void;
+  onEdit: (key: arc.Key) => void;
 }
 
-const ArcListItem = ({ onRename, ...rest }: ArcListItemProps) => {
+const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
+  const handleRename = useCallback(
+    (name: string) => onRename({ key: itemKey, name }),
+    [onRename, itemKey],
+  );
+  const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
   const {
     running,
     onStartStop,
@@ -165,7 +171,12 @@ const ArcListItem = ({ onRename, ...rest }: ArcListItemProps) => {
   if (status.variant === "success" && running) statusMessage = "Running";
   else if (status.variant === "error") statusMessage = "Error";
   return (
-    <Select.ListItem {...rest} justify="between" align="center">
+    <Select.ListItem
+      {...rest}
+      onDoubleClick={handleDoubleClick}
+      justify="between"
+      align="center"
+    >
       <Flex.Box y gap="small" grow className={CSS.BE("arc", "metadata")}>
         <Flex.Box x align="center" gap="small">
           <Status.Indicator
@@ -175,7 +186,7 @@ const ArcListItem = ({ onRename, ...rest }: ArcListItemProps) => {
           <Text.MaybeEditable
             id={`text-${itemKey}`}
             value={arcItem?.name ?? ""}
-            onChange={hasUpdatePermission ? onRename : undefined}
+            onChange={hasUpdatePermission ? handleRename : undefined}
             allowDoubleClick={false}
             overflow="ellipsis"
             weight={500}

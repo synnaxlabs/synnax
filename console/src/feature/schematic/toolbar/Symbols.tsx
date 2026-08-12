@@ -315,14 +315,11 @@ const ImportGroupIcon = Icon.createComposite(Icon.Group, {
 });
 
 export interface ActionsProps {
-  symbolGroupID?: ontology.ID;
+  symbolGroupID: ontology.ID;
   selectedGroup: string;
 }
 
-const Actions = ({
-  symbolGroupID,
-  selectedGroup,
-}: ActionsProps): ReactElement | null => {
+const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement => {
   const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
@@ -336,7 +333,6 @@ const Actions = ({
 
   const handleCreateGroup = useCallback(() => {
     handleError(async () => {
-      if (symbolGroupID == null) return;
       const result = await rename({
         initialValue: "",
         allowEmpty: false,
@@ -356,11 +352,9 @@ const Actions = ({
   const isRemoteGroup = group.keyZ.safeParse(selectedGroup).success;
 
   const handleCreateSymbol = useCallback(() => {
-    if (!isRemoteGroup || symbolGroupID == null) return;
+    if (!isRemoteGroup) return;
     openEdit({ parent: group.ontologyID(selectedGroup) });
-  }, [isRemoteGroup, openEdit, selectedGroup, symbolGroupID]);
-
-  if (symbolGroupID == null) return null;
+  }, [isRemoteGroup, openEdit, selectedGroup]);
 
   return (
     <Flex.Box x shrink={0}>
@@ -411,7 +405,7 @@ const Actions = ({
 };
 
 export interface GroupListProps extends Input.Control<group.Key> {
-  symbolGroupID?: ontology.ID;
+  symbolGroupID: ontology.ID;
 }
 
 const GroupListContextMenu = ({
@@ -574,14 +568,16 @@ export const Symbols = (): ReactElement => {
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
 
   const [searchTerm, setSearchTerm] = useState("");
-  const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});
+  const symbolGroup = Schematic.Symbol.useGroup({});
   const searchMode = searchTerm.length > 0;
   let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
   if (isRemoteGroup)
     symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
   else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
-  const symbolGroupID =
-    symbolGroup != null ? group.ontologyID(symbolGroup.key) : undefined;
+  const symbolGroupID = useMemo(
+    () => group.ontologyID(symbolGroup.key),
+    [symbolGroup.key],
+  );
   return (
     <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>
       <Flex.Box x sharp className={CSS.BE("schematic", "symbols", "group", "list")}>

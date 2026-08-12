@@ -11,12 +11,12 @@ import { bench, describe } from "vitest";
 
 import { query } from "@/query";
 
-interface Row {
+interface Entry {
   n: number;
 }
 
-const makeTable = (keyedSubscribers: number): query.Table<string, Row> => {
-  const table = new query.Table<string, Row>({ onError: () => {} });
+const makeTable = (keyedSubscribers: number): query.Table<string, Entry> => {
+  const table = new query.Table<string, Entry>({ onError: () => {} });
   for (let i = 0; i < keyedSubscribers; i++) table.subscribe(() => {}, `key-${i}`);
   return table;
 };

@@ -981,6 +981,7 @@ struct AIAccel4WireDCVoltageChannel : public BaseAIChannel,
 /// @brief AIAccelChargeChannel reads acceleration from a charge-mode accelerometer.
 struct AIAccelChargeChannel : public BaseAIChannel,
                               public MinMaxVal,
+                              public Terminal,
                               public CustomScale {
     std::string type = "ai_accel_charge";
     /// @brief units are the units of the acceleration measurement.

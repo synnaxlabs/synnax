@@ -279,10 +279,7 @@ export const { useUpdate: useDeleteAlias } = Flux.createUpdate<DeleteAliasParams
 
 type RetrieveGroupQuery = Record<string, never>;
 
-export const { useResult: useResultGroup } = Flux.createRetrieve<
-  RetrieveGroupQuery,
-  group.Group
->({
+export const { use: useGroup } = Flux.createRetrieve<RetrieveGroupQuery, group.Group>({
   name: "Channel Group",
   retrieve: async ({ client }) => await client.channels.retrieveGroup(),
 });

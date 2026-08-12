@@ -28,7 +28,7 @@ import { CSS } from "@/platform/css";
 export const MissingForm = (): ReactElement => {
   const form = Form.useContext();
   const openEditModal = Edit.useModal();
-  const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});
+  const symbolGroup = Schematic.Symbol.useGroup({});
   const [createGroupKey, setCreateGroupKey] = useState<group.Key | undefined>(
     undefined,
   );
@@ -66,15 +66,13 @@ export const MissingForm = (): ReactElement => {
           Or create a new symbol in:
         </Text.Text>
         <Flex.Box x>
-          {symbolGroup != null && (
-            <Group.SelectSingle
-              value={createGroupKey}
-              onChange={setCreateGroupKey}
-              initialQuery={{ parent: group.ontologyID(symbolGroup.key) }}
-              className={CSS.B("schematic-missing-symbol-select-group")}
-              grow
-            />
-          )}
+          <Group.SelectSingle
+            value={createGroupKey}
+            onChange={setCreateGroupKey}
+            initialQuery={{ parent: group.ontologyID(symbolGroup.key) }}
+            className={CSS.B("schematic-missing-symbol-select-group")}
+            grow
+          />
           <Button.Button
             variant="filled"
             onClick={handleCreate}
