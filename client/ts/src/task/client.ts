@@ -53,8 +53,10 @@ export const DELETE_CHANNEL_NAME = "sy_task_delete";
 export const setSignalZ = payloadZ().omit({ config: true, status: true });
 export interface SetSignal extends z.infer<typeof setSignalZ> {}
 
-export interface DriftedParams
-  extends Pick<Payload, "configHash" | "rack" | "status"> {}
+export interface DriftedParams extends Pick<
+  Payload,
+  "configHash" | "rack" | "status"
+> {}
 
 /**
  * Reports whether a task's live instance has drifted from its stored task: the task is
