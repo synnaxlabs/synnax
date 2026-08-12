@@ -174,20 +174,6 @@ constexpr const char *VELOCITY_SENSITIVITY_UNITS_M_VOLTS_PER_INCH_PER_SECOND =
 constexpr const char *CHARGE_UNITS_COULOMBS = "Coulombs";
 constexpr const char *CHARGE_UNITS_PICO_COULOMBS = "PicoCoulombs";
 
-constexpr const char *ROSETTE_TYPE_RECTANGULAR = "RectangularRosette";
-constexpr const char *ROSETTE_TYPE_DELTA = "DeltaRosette";
-constexpr const char *ROSETTE_TYPE_TEE = "TeeRosette";
-
-constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_1 = "PrincipalStrain1";
-constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_2 = "PrincipalStrain2";
-constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_ANGLE = "PrincipalStrainAngle";
-constexpr const char *ROSETTE_MEAS_TYPE_CARTESIAN_STRAIN_X = "CartesianStrainX";
-constexpr const char *ROSETTE_MEAS_TYPE_CARTESIAN_STRAIN_Y = "CartesianStrainY";
-constexpr const char
-    *ROSETTE_MEAS_TYPE_CARTESIAN_SHEAR_STRAIN_XY = "CartesianShearStrainXY";
-constexpr const char *ROSETTE_MEAS_TYPE_MAX_SHEAR_STRAIN = "MaxShearStrain";
-constexpr const char *ROSETTE_MEAS_TYPE_MAX_SHEAR_STRAIN_ANGLE = "MaxShearStrainAngle";
-
 constexpr const char *CI_EDGE_RISING = "Rising";
 constexpr const char *CI_EDGE_FALLING = "Falling";
 
@@ -1100,35 +1086,6 @@ struct AIPressureBridgePolynomialChannel : public BaseAIChannel,
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief AIRosetteStrainGageChannel reads strain from a strain-gauge rosette.
-struct AIRosetteStrainGageChannel : public BaseAIChannel,
-                                    public MinMaxVal,
-                                    public Terminal,
-                                    public VoltageExcitation {
-    std::string type = "ai_rosette_strain_gage";
-    /// @brief rosette_type selects the rosette geometry.
-    std::string rosette_type = ROSETTE_TYPE_RECTANGULAR;
-    /// @brief gage_orientation is the orientation of gauge element 0, in degrees.
-    double gage_orientation = 0;
-    /// @brief rosette_meas_types are the quantities to compute from the rosette.
-    std::vector<std::string> rosette_meas_types = {};
-    /// @brief strain_config selects the bridge configuration of each gauge element.
-    std::string strain_config = STRAIN_CONFIG_FULL_BRIDGE_I;
-    /// @brief units are the units of the strain measurement.
-    std::string units = UNITS_STRAIN;
-    /// @brief nominal_gage_resistance is the nominal gauge resistance, in ohms.
-    double nominal_gage_resistance = 0;
-    /// @brief poisson_ratio is the Poisson ratio of the test material.
-    double poisson_ratio = 0;
-    /// @brief lead_wire_resistance is the resistance of the lead wires, in ohms.
-    double lead_wire_resistance = 0;
-    /// @brief gage_factor is the gauge factor of the rosette.
-    double gage_factor = 0;
-
-    static AIRosetteStrainGageChannel parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief AIThermistorIexChannel reads temperature from a current-excited thermistor.
 struct AIThermistorIexChannel : public BaseAIChannel,
                                 public MinMaxVal,
@@ -1248,7 +1205,6 @@ using AIChannel = std::variant<
     AIForceBridgePolynomialChannel,
     AIFreqVoltageChannel,
     AIPressureBridgePolynomialChannel,
-    AIRosetteStrainGageChannel,
     AIThermistorIexChannel,
     AIThermistorVexChannel,
     AITorqueBridgePolynomialChannel,

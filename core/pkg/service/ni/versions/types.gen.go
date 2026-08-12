@@ -254,29 +254,6 @@ const (
 	ChargeUnitsPicoCoulombs ChargeUnits = v2.ChargeUnitsPicoCoulombs
 )
 
-// RosetteType selects the geometric arrangement of a strain-gauge rosette.
-type RosetteType = v2.RosetteType
-
-const (
-	RosetteTypeRectangular RosetteType = v2.RosetteTypeRectangular
-	RosetteTypeDelta       RosetteType = v2.RosetteTypeDelta
-	RosetteTypeTee         RosetteType = v2.RosetteTypeTee
-)
-
-// RosetteMeasType selects a quantity computed from a strain-gauge rosette.
-type RosetteMeasType = v2.RosetteMeasType
-
-const (
-	RosetteMeasTypePrincipalStrain1       RosetteMeasType = v2.RosetteMeasTypePrincipalStrain1
-	RosetteMeasTypePrincipalStrain2       RosetteMeasType = v2.RosetteMeasTypePrincipalStrain2
-	RosetteMeasTypePrincipalStrainAngle   RosetteMeasType = v2.RosetteMeasTypePrincipalStrainAngle
-	RosetteMeasTypeCartesianStrainX       RosetteMeasType = v2.RosetteMeasTypeCartesianStrainX
-	RosetteMeasTypeCartesianStrainY       RosetteMeasType = v2.RosetteMeasTypeCartesianStrainY
-	RosetteMeasTypeCartesianShearStrainXY RosetteMeasType = v2.RosetteMeasTypeCartesianShearStrainXY
-	RosetteMeasTypeMaxShearStrain         RosetteMeasType = v2.RosetteMeasTypeMaxShearStrain
-	RosetteMeasTypeMaxShearStrainAngle    RosetteMeasType = v2.RosetteMeasTypeMaxShearStrainAngle
-)
-
 // LinearScale maps raw values to engineering units with a slope and intercept.
 type LinearScale = v2.LinearScale
 
@@ -414,8 +391,6 @@ const (
 	// AIChannelTypeAIPressureBridgePolynomial reads pressure from a bridge with
 	// polynomial calibration.
 	AIChannelTypeAIPressureBridgePolynomial AIChannelType = v2.AIChannelTypeAIPressureBridgePolynomial
-	// AIChannelTypeAIRosetteStrainGage reads strain from a strain-gauge rosette.
-	AIChannelTypeAIRosetteStrainGage AIChannelType = v2.AIChannelTypeAIRosetteStrainGage
 	// AIChannelTypeAIThermistorIex reads temperature from a current-excited thermistor.
 	AIChannelTypeAIThermistorIex AIChannelType = v2.AIChannelTypeAIThermistorIex
 	// AIChannelTypeAIThermistorVex reads temperature from a voltage-excited thermistor.
@@ -508,9 +483,6 @@ type AIFreqVoltageChannel = v2.AIFreqVoltageChannel
 // AIPressureBridgePolynomialChannel reads pressure from a bridge with polynomial
 // calibration.
 type AIPressureBridgePolynomialChannel = v2.AIPressureBridgePolynomialChannel
-
-// AIRosetteStrainGageChannel reads strain from a strain-gauge rosette.
-type AIRosetteStrainGageChannel = v2.AIRosetteStrainGageChannel
 
 // AIThermistorIexChannel reads temperature from a current-excited thermistor.
 type AIThermistorIexChannel = v2.AIThermistorIexChannel
