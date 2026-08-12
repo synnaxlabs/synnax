@@ -987,6 +987,7 @@ export interface AIAccel4WireDCVoltageChannel extends z.infer<
 /** AIAccelChargeChannel reads acceleration from a charge-mode accelerometer. */
 export const aiAccelChargeChannelZ = baseAIChannelZ
   .extend(minMaxValZ.shape)
+  .extend(terminalZ.shape)
   .extend(customScaleZ.shape)
   .extend({
     type: z.literal("ai_accel_charge"),

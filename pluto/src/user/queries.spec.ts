@@ -113,16 +113,13 @@ describe("User queries", () => {
     });
   });
 
-  describe("useResultGroupID", () => {
+  describe("useGroupID", () => {
     it("should retrieve the Users group ID", async () => {
-      const { result } = await renderHookSuspended(
-        () => User.useResultGroupID({}).data,
-        {
-          wrapper,
-        },
-      );
+      const { result } = await renderHookSuspended(() => User.useGroupID({}), {
+        wrapper,
+      });
 
-      await waitFor(() => expect(result.current).toBeDefined());
+      await waitFor(() => expect(result.current).not.toBeNull());
       const res = await client.ontology.retrieve(result.current as ontology.ID);
       expect(res.name).toBe("Users");
     });
