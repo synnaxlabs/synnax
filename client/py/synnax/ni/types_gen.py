@@ -334,49 +334,6 @@ CHARGE_UNITS_PICO_COULOMBS: Literal["PicoCoulombs"] = "PicoCoulombs"
 
 ChargeUnits = Literal["Coulombs", "PicoCoulombs"]
 
-ROSETTE_TYPE_RECTANGULAR: Literal["RectangularRosette"] = "RectangularRosette"
-
-ROSETTE_TYPE_DELTA: Literal["DeltaRosette"] = "DeltaRosette"
-
-ROSETTE_TYPE_TEE: Literal["TeeRosette"] = "TeeRosette"
-
-
-RosetteType = Literal["RectangularRosette", "DeltaRosette", "TeeRosette"]
-
-ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_1: Literal["PrincipalStrain1"] = "PrincipalStrain1"
-
-ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_2: Literal["PrincipalStrain2"] = "PrincipalStrain2"
-
-ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_ANGLE: Literal["PrincipalStrainAngle"] = (
-    "PrincipalStrainAngle"
-)
-
-ROSETTE_MEAS_TYPE_CARTESIAN_STRAIN_X: Literal["CartesianStrainX"] = "CartesianStrainX"
-
-ROSETTE_MEAS_TYPE_CARTESIAN_STRAIN_Y: Literal["CartesianStrainY"] = "CartesianStrainY"
-
-ROSETTE_MEAS_TYPE_CARTESIAN_SHEAR_STRAIN_XY: Literal["CartesianShearStrainXY"] = (
-    "CartesianShearStrainXY"
-)
-
-ROSETTE_MEAS_TYPE_MAX_SHEAR_STRAIN: Literal["MaxShearStrain"] = "MaxShearStrain"
-
-ROSETTE_MEAS_TYPE_MAX_SHEAR_STRAIN_ANGLE: Literal["MaxShearStrainAngle"] = (
-    "MaxShearStrainAngle"
-)
-
-
-RosetteMeasType = Literal[
-    "PrincipalStrain1",
-    "PrincipalStrain2",
-    "PrincipalStrainAngle",
-    "CartesianStrainX",
-    "CartesianStrainY",
-    "CartesianShearStrainXY",
-    "MaxShearStrain",
-    "MaxShearStrainAngle",
-]
-
 CI_EDGE_RISING: Literal["Rising"] = "Rising"
 
 CI_EDGE_FALLING: Literal["Falling"] = "Falling"
@@ -1139,21 +1096,6 @@ class AIPressureBridgePolynomialChannel(
     physical_units: PressureUnits = "PoundsPerSquareInch"
 
 
-class AIRosetteStrainGageChannel(BaseAIChannel, MinMaxVal, Terminal, VoltageExcitation):
-    """Reads strain from a strain-gauge rosette."""
-
-    type: Literal["ai_rosette_strain_gage"]
-    rosette_type: RosetteType = "RectangularRosette"
-    gage_orientation: float = 0
-    rosette_meas_types: list[RosetteMeasType] = Field(default_factory=list)
-    strain_config: StrainConfig = "FullBridgeI"
-    units: Units = "Strain"
-    nominal_gage_resistance: float = 0
-    poisson_ratio: float = 0
-    lead_wire_resistance: float = 0
-    gage_factor: float = 0
-
-
 class AIThermistorIexChannel(BaseAIChannel, MinMaxVal, Resistance, CurrentExcitation):
     """Reads temperature from a current-excited thermistor."""
 
@@ -1232,7 +1174,6 @@ AIChannel = Annotated[
         AIForceBridgePolynomialChannel,
         AIFreqVoltageChannel,
         AIPressureBridgePolynomialChannel,
-        AIRosetteStrainGageChannel,
         AIThermistorIexChannel,
         AIThermistorVexChannel,
         AITorqueBridgePolynomialChannel,
