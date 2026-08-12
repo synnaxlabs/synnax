@@ -49,7 +49,8 @@ const fit = (name: string, maxBytes: number): string => {
  * platform, carrying extension. Replaces every character a file name cannot hold with
  * an underscore, drops trailing dots and spaces, prefixes an underscore to a Windows
  * device name, and shortens the name until it and extension together fit the longest
- * path element a filesystem takes. Omit extension for a name that carries none.
+ * path element a filesystem takes. Pass an empty extension for a name that carries
+ * none.
  *
  * The result is a single path element, but it is not unique: two names can sanitize to
  * one, and shortening makes that more likely.
@@ -60,7 +61,7 @@ const fit = (name: string, maxBytes: number): string => {
  * holding dots and spaces alone.
  * @throws {Error} if extension fills a file name by itself, which no name can rescue.
  */
-export const sanitize = (name: string, extension = ""): string => {
+export const sanitize = (name: string, extension: string): string => {
   const budget = MAX_FILE_NAME_LENGTH - utf8Length(extension);
   if (budget <= 0)
     throw new Error(`extension "${extension}" leaves no room for a file name`);

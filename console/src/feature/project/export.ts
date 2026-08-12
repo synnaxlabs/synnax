@@ -15,11 +15,9 @@ import { useCallback } from "react";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-const ARCHIVE_EXTENSION = ".zip";
-
 // The Core owns membership, document serialization, file naming, and the manifest, and
-// the bundle travels as an archive, so the Console streams the response straight to
-// the file the user picks without ever holding it in memory.
+// the bundle travels as an archive, so the Console streams the response straight to the
+// file the user picks without ever holding it in memory.
 export const useExport = (): ((key: project.Key | null) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
@@ -35,7 +33,7 @@ export const useExport = (): ((key: project.Key | null) => void) => {
         name = proj.name;
         await Runtime.downloadStream({
           stream: await client.projects.export(proj.key),
-          name: filename.sanitize(name, ARCHIVE_EXTENSION),
+          name: filename.sanitize(name, ".zip"),
           addStatus,
         });
       }, `Failed to export ${name}`);
