@@ -928,7 +928,7 @@ func (p *Plugin) cppDefaultLiteral(
 		); ok {
 			// std::variant default-constructs its first alternative, so a default
 			// naming any other variant must be written out explicitly.
-			return cppnaming.VariantTypeName(
+			return cppnaming.QualifiedVariantTypeName(
 				p.typeRefToCpp(typeRef, data),
 				uv.Variant.Name,
 			) + "{}"

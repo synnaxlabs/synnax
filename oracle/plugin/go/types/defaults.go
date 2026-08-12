@@ -148,7 +148,11 @@ func scalarFill(
 			return defaultFillData{
 				GoName:  goName + ".Variant",
 				ZeroLit: "nil",
-				Expr:    casing.VariantTypeName(unionType, uv.Variant.Name) + "{}",
+				Expr: casing.QualifiedVariantTypeName(
+					unionType,
+					uv.Variant.Name,
+					".",
+				) + "{}",
 			}, true
 		}
 		ev, ok := validation.ResolveEnumVariant(d.IdentValue, typeRef, data.table)

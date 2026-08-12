@@ -1134,7 +1134,7 @@ func collectValidation(
 				// passed explicitly.
 				constraints = append(constraints, fmt.Sprintf(
 					"default_factory=lambda: %s(%s=%q)",
-					casing.VariantTypeName(getPyName(uv.Type), uv.Variant.Name),
+					unionVariantToPython(uv, table, data),
 					keywords.Escape(uv.Union.Discriminator),
 					uv.Variant.Name,
 				))
@@ -1331,6 +1331,24 @@ func enumVariantToPython(
 		variantRef = fmt.Sprintf("%s.%s", qualifiedEnum, ev.Variant.Name)
 	}
 	return variantRef
+}
+
+// unionVariantToPython renders the variant class a union default names, qualified
+// with its module alias when the union is declared in another schema.
+func unionVariantToPython(
+	uv validation.UnionVariant,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	variantName := casing.VariantTypeName(getPyName(uv.Type), uv.Variant.Name)
+	if uv.Type.Namespace == data.Namespace {
+		return variantName
+	}
+	outputPath := enum.FindOutputPath(uv.Type, table, "py")
+	if outputPath == "" {
+		outputPath = uv.Type.Namespace
+	}
+	return addCrossNamespaceImport(toPythonModulePath(outputPath), variantName, data)
 }
 
 // isUUIDType checks if a type reference is or resolves to the uuid primitive type.

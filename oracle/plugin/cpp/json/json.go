@@ -774,7 +774,7 @@ func (p *Plugin) parseExprForField(
 					fallback = fmt.Sprintf(
 						"%s{%s{}}",
 						cppType,
-						cppnaming.VariantTypeName(cppType, uv.Variant.Name),
+						cppnaming.QualifiedVariantTypeName(cppType, uv.Variant.Name),
 					)
 				}
 				return fmt.Sprintf(

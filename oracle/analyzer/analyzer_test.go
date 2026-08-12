@@ -2612,14 +2612,21 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("Identifier Defaults", func() {
-		const unionSource = `CJC union on source {
+		const unionSource = `ChanPayload struct {
+    port int32
+}
+
+SafePayload struct {
+    port int32 = 0
+}
+
+CJC union on source {
     built_in {}
     const_val {
         val float64 = 0
     }
-    chan {
-        port int32
-    }
+    chan ChanPayload
+    safe SafePayload
 }
 
 Mode enum {
@@ -2659,7 +2666,7 @@ Mode enum {
 		)
 
 		It(
-			"Should reject a union default whose variant cannot be constructed",
+			"Should reject a union default whose named payload cannot be constructed",
 			func(ctx SpecContext) {
 				Expect(analyze(ctx, "cjc CJC = chan").Error()).To(SatisfyAll(
 					ContainSubstring("defaults to union variant \"chan\""),
@@ -2670,11 +2677,14 @@ Mode enum {
 			},
 		)
 
-		It(
+		DescribeTable(
 			"Should accept a union default whose variant fields are all defaulted",
-			func(ctx SpecContext) {
-				Expect(analyze(ctx, "cjc CJC = const_val").Ok()).To(BeTrue())
+			func(ctx SpecContext, fieldDecl string) {
+				Expect(analyze(ctx, fieldDecl).Ok()).To(BeTrue())
 			},
+			Entry("inline variant", "cjc CJC = const_val"),
+			Entry("named payload", "cjc CJC = safe"),
+			Entry("empty inline variant", "cjc CJC = built_in"),
 		)
 	})
 
