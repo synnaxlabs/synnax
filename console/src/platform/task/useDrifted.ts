@@ -7,29 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
+import { type rack, task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
 import { type z } from "zod";
 
 import { useStatus } from "@/platform/task/useStatus";
 
 /**
- * Whether the running instance was deployed with a different config or rack than the
- * saved task now holds. Tasks that are not running never drift. Both hashes are
+ * {@link task.drifted} against the values the form holds. Both hashes are
  * server-assigned, so an edit surfaces here once its autosave lands, not on keystroke.
- * A status with an empty deployed hash never drifts: the deployed config is unknown,
- * not different.
  */
 export const useDrifted = <Schema extends z.ZodType>(
   ctx?: Form.ContextValue<Schema>,
 ): boolean => {
   const configHash = Form.useFieldValue<string>("configHash", { ctx, optional: true });
-  const rackKey = Form.useFieldValue<rack.Key>("rack", { ctx, optional: true });
-  const {
-    running,
-    configHash: deployedHash,
-    rack: deployedRack,
-  } = useStatus(ctx).details;
-  if (!running || configHash == null || deployedHash === "") return false;
-  return configHash !== deployedHash || (rackKey ?? 0) !== deployedRack;
+  const rack = Form.useFieldValue<rack.Key>("rack", { ctx, optional: true }) ?? 0;
+  const status = useStatus(ctx);
+  // A form that has not loaded its task yet holds no hash to compare.
+  if (configHash == null) return false;
+  return task.drifted({ configHash, rack, status });
 };

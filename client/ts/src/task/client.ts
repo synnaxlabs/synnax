@@ -54,16 +54,21 @@ export const DELETE_CHANNEL_NAME = "sy_task_delete";
 export const setSignalZ = payloadZ().omit({ config: true, status: true });
 export interface SetSignal extends z.infer<typeof setSignalZ> {}
 
+export interface DriftedParams extends Pick<
+  Payload,
+  "configHash" | "rack" | "status"
+> {}
+
 /**
  * Reports whether a task's live instance has drifted from its stored task: the task is
  * running and the stored config or rack differs from what the instance was deployed
  * with. Tasks that are not running never drift. Both hashes are server-assigned, so
  * this compares two given values and never hashes a config. A status with an empty
  * deployed hash never drifts: the deployed config is unknown, not different.
- * @param task - The task payload, including its status.
+ * @param task - The stored task's hash, rack, and status.
  * @returns True when a redeploy (start) would change the running instance.
  */
-export const drifted = (task: Payload): boolean => {
+export const drifted = (task: DriftedParams): boolean => {
   const details = task.status?.details;
   if (details == null || !details.running || details.configHash === "") return false;
   return details.configHash !== task.configHash || details.rack !== task.rack;

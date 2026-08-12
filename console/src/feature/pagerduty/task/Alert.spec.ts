@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
 import {
-  awaitCommand,
-  clickDeploy,
+  deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
@@ -120,20 +118,13 @@ describe("PagerDuty Alert form", () => {
         { ...ZERO_DRAFT, config, rack: rack.key },
         PagerDuty.Task.ALERT_SCHEMAS,
       );
-      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      let created: task.Task<PagerDuty.Task.AlertSchemas>;
-      try {
-        const { container } = await renderAlert({ client, taskKey: draft.key });
-        await clickDeploy(container);
-        const cmd = await awaitCommand(streamer, draft.key);
-        expect(cmd.type).toBe("start");
-        created = await client.tasks.retrieve({
-          key: draft.key,
-          schemas: PagerDuty.Task.ALERT_SCHEMAS,
-        });
-      } finally {
-        streamer.close();
-      }
+      const { container } = await renderAlert({ client, taskKey: draft.key });
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        PagerDuty.Task.ALERT_SCHEMAS,
+      );
       expect(created.type).toBe(PagerDuty.Task.ALERT_TYPE);
       expect(created.rack).toBe(rack.key);
       expect(created.config.routingKey).toBe(config.routingKey);
