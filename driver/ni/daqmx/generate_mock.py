@@ -7,9 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Generates fake.h from api.h.
+"""Generates mock.h from api.h.
 
-Usage: python3 driver/ni/daqmx/generate_fake.py && clang-format -i driver/ni/daqmx/fake.h
+Parses every virtual method declared on the DAQmx API interface in api.h and emits
+MockAPI, a subclass whose methods all succeed (return 0) and record the call name and
+its arguments as JSON for assertion in tests. Scalars are recorded by value and char
+arrays as strings; other arrays and pointers are recorded as "<array>" and "<ptr>"
+placeholders, and TaskHandle arguments are skipped.
+
+Regenerate whenever api.h changes; never edit mock.h by hand.
+
+Usage: python3 driver/ni/daqmx/generate_mock.py && clang-format -i driver/ni/daqmx/mock.h
 """
 
 import re
@@ -28,7 +36,7 @@ HEADER = """\
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Code generated from api.h by generate_fake.py. Regenerate when api.h changes.
+// Code generated from api.h by generate_mock.py. Regenerate when api.h changes.
 
 #pragma once
 
@@ -40,9 +48,9 @@ HEADER = """\
 #include "driver/ni/daqmx/api.h"
 
 namespace driver::ni::daqmx {
-/// @brief a fake DAQmx API that records every call and its scalar/string
+/// @brief a mock DAQmx API that records every call and its scalar/string
 /// arguments as JSON for assertion in tests. All calls succeed.
-class FakeAPI final : public API {
+class MockAPI final : public API {
 public:
     /// @brief one entry per API call, in call order: {"fn": name, "args": {...}}.
     std::vector<nlohmann::json> calls;
@@ -117,5 +125,5 @@ def emit(name: str, params: str):
 
 methods = re.findall(r"virtual\s+int32\s+(\w+)\(([^)]*)\)\s*=\s*0;", API, re.DOTALL)
 body = "".join(emit(name, params) for name, params in methods)
-(DIR / "fake.h").write_text(HEADER + "\n" + body.rstrip("\n") + "\n" + FOOTER)
+(DIR / "mock.h").write_text(HEADER + "\n" + body.rstrip("\n") + "\n" + FOOTER)
 print(f"generated {len(methods)} methods")

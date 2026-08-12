@@ -92,9 +92,9 @@ inline x::json::json BaseOutputChannel::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::common::BaseReadConfig &>(
+    static_cast<::synnax::task::common::BaseReadConfig &>(
         result
-    ) = ::synnax::common::BaseReadConfig::parse(parser);
+    ) = ::synnax::task::common::BaseReadConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.channels = [&] {
         std::vector<InputChannel> result;
@@ -109,7 +109,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::BaseReadConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::common::BaseReadConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     {
@@ -123,9 +123,9 @@ inline x::json::json ReadConfig::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::common::BaseWriteConfig &>(
+    static_cast<::synnax::task::common::BaseWriteConfig &>(
         result
-    ) = ::synnax::common::BaseWriteConfig::parse(parser);
+    ) = ::synnax::task::common::BaseWriteConfig::parse(parser);
     result.channels = [&] {
         std::vector<OutputChannel> result;
         if (parser.has("channels"))
@@ -139,7 +139,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::BaseWriteConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::common::BaseWriteConfig::to_json().items())
         j[k] = v;
     {
         auto arr = x::json::json::array();
@@ -152,15 +152,15 @@ inline x::json::json WriteConfig::to_json() const {
 
 inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     ScanConfig result;
-    static_cast<::synnax::common::KeyedConfig &>(
+    static_cast<::synnax::task::common::KeyedConfig &>(
         result
-    ) = ::synnax::common::KeyedConfig::parse(parser);
+    ) = ::synnax::task::common::KeyedConfig::parse(parser);
     return result;
 }
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::KeyedConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::common::KeyedConfig::to_json().items())
         j[k] = v;
     return j;
 }

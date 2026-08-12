@@ -21,8 +21,8 @@ import (
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -1250,21 +1250,28 @@ func deriveNamespace(outputPath string) string {
 	}
 
 	var topLevel string
+	rest := parts[len(parts)-1:]
 	switch {
 	case len(parts) >= 2 && parts[0] == "x" && parts[1] == "cpp":
 		topLevel = "x"
+		rest = parts[2:]
 	case len(parts) >= 2 && parts[0] == "client" && parts[1] == "cpp":
 		topLevel = "synnax"
+		rest = parts[2:]
 	case len(parts) >= 2 && parts[0] == "arc" && parts[1] == "cpp":
 		topLevel = "arc"
-	case len(parts) >= 1 && parts[0] == "driver":
+		rest = parts[2:]
+	case parts[0] == "driver":
 		topLevel = "driver"
+		rest = parts[1:]
 	default:
 		topLevel = "synnax"
 	}
 
-	subNs := parts[len(parts)-1]
-	return fmt.Sprintf("%s::%s", topLevel, subNs)
+	if len(rest) == 0 {
+		return topLevel
+	}
+	return topLevel + "::" + strings.Join(rest, "::")
 }
 
 type includeManager struct {

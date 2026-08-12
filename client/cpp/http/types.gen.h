@@ -105,7 +105,7 @@ struct BaseWriteField {
 };
 
 /// @brief ScanConfig configures an HTTP scan task, which carries no settings.
-struct ScanConfig : public ::synnax::common::KeyedConfig {
+struct ScanConfig : public ::synnax::task::common::KeyedConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -246,7 +246,7 @@ struct WriteEndpoint {
 
 /// @brief ReadConfig configures an HTTP read task, which polls one or more endpoints on
 /// an HTTP server device and writes extracted JSON values to Synnax channels.
-struct ReadConfig : public ::synnax::common::BasePersistConfig {
+struct ReadConfig : public ::synnax::task::common::BasePersistConfig {
     /// @brief device is the key of the HTTP server device to poll.
     ::synnax::device::Key device = "";
     /// @brief rate is the polling rate applied to all endpoints, in hertz.
@@ -260,7 +260,7 @@ struct ReadConfig : public ::synnax::common::BasePersistConfig {
 
 /// @brief WriteConfig configures an HTTP write task, which sends an HTTP request
 /// whenever a value is written to an endpoint's command channel.
-struct WriteConfig : public ::synnax::common::BaseStartConfig {
+struct WriteConfig : public ::synnax::task::common::BaseStartConfig {
     /// @brief device is the key of the HTTP server device to write to.
     ::synnax::device::Key device = "";
     /// @brief endpoints contains the endpoints to write to.

@@ -37,7 +37,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ni/channel",
-        "//driver/ni/daqmx:fake",
+        "//driver/ni/daqmx:mock",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
