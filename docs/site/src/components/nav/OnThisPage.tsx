@@ -13,6 +13,7 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { Client } from "@/components/client";
 import { Platform } from "@/components/platform";
+import { type Segment, Segments } from "@/components/text/InlineCode";
 
 const ON_THIS_PAGE_ID = "on-this-page-heading";
 
@@ -21,14 +22,9 @@ interface IndicatorPosition {
   height: number;
 }
 
-interface HeadingPart {
-  text: string;
-  code: boolean;
-}
-
 // Splits a rendered heading into plain text and inline code segments. Reads the DOM
 // because Astro's heading metadata flattens inline code to plain text.
-const parseHeading = (el: HTMLElement): HeadingPart[] =>
+const parseHeading = (el: HTMLElement): Segment[] =>
   Array.from(el.childNodes)
     .filter(
       (n) => !(n instanceof HTMLElement && n.classList.contains("heading-anchor")),
@@ -55,7 +51,7 @@ export const OnThisPage = ({
   const [currentID, setCurrentID] = useState("");
   const [indicator, setIndicator] = useState<IndicatorPosition>({ top: 0, height: 0 });
   const [initialized, setInitialized] = useState(false);
-  const [visibleHeadings, setVisibleHeadings] = useState<Map<string, HeadingPart[]>>(
+  const [visibleHeadings, setVisibleHeadings] = useState<Map<string, Segment[]>>(
     () =>
       new Map(
         headings.map(({ slug, text }) => [
@@ -74,7 +70,7 @@ export const OnThisPage = ({
           .filter(
             (t) => t.offsetParent !== null || getComputedStyle(t).display !== "none",
           )
-          .map((t): [string, HeadingPart[]] => [t.id, parseHeading(t)]),
+          .map((t): [string, Segment[]] => [t.id, parseHeading(t)]),
       );
       setVisibleHeadings(visibleIds);
     };
@@ -170,9 +166,7 @@ export const OnThisPage = ({
             onClick={() => setCurrentID(heading.slug)}
             className={`on-this-page-item depth-${heading.depth} ${currentID === heading.slug ? "active" : ""}`}
           >
-            {(visibleHeadings.get(heading.slug) ?? []).map(({ text, code }, i) =>
-              code ? <code key={i}>{text}</code> : text,
-            )}
+            <Segments segments={visibleHeadings.get(heading.slug) ?? []} />
           </a>
         ))}
       </div>
