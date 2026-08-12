@@ -796,8 +796,8 @@ describe("message", () => {
           state: { x: 1 },
         };
         const transfer: Transferable[] = [];
-        comms.send(msg, transfer);
-        expect(postMessage).toHaveBeenCalledWith(msg, { transfer });
+        comms.send([msg], transfer);
+        expect(postMessage).toHaveBeenCalledWith([msg], { transfer });
       } finally {
         vi.unstubAllGlobals();
       }
@@ -815,8 +815,8 @@ describe("message", () => {
           type: "t",
           state: { x: 1 },
         };
-        (globalThis as any).onmessage({ data: msg });
-        expect(handler).toHaveBeenCalledWith(msg);
+        (globalThis as any).onmessage({ data: [msg] });
+        expect(handler).toHaveBeenCalledWith([msg]);
       } finally {
         vi.unstubAllGlobals();
       }
@@ -847,8 +847,8 @@ describe("message", () => {
         path: ["k"],
         state: { x: 1 },
       };
-      workerSide.send(msg);
-      expect(mainHandler).toHaveBeenCalledWith(msg);
+      workerSide.send([msg]);
+      expect(mainHandler).toHaveBeenCalledWith([msg]);
     });
 
     it("should drop sends made before a handler is registered", () => {

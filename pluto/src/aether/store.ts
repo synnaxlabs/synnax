@@ -193,10 +193,7 @@ export class Store {
   private listeners: Map<string, Set<Listener>> = new Map();
   /** Entries attached since the last flush, in attach order. */
   private queued: Entry[] = [];
-  /** Messages buffered for the next flush, in send order. */
-  private outbound: aether.MainMessage[] = [];
-  private outboundTransfer: Transferable[] = [];
-  private flushScheduled = false;
+  private readonly outbound: aether.Batcher<aether.MainMessage>;
   /** Active worker comms. {@link NOOP_WORKER} when `workerEnabled: false` or between
    * {@link dispose} and the next send (lazy re-attach). */
   private worker: aether.MainComms = aether.NOOP_MAIN_COMMS;
@@ -221,6 +218,15 @@ export class Store {
         "[aether.store] worker is enabled but neither `worker` nor `workerURL` was provided. Pass `workerEnabled: false` to opt out explicitly.",
       );
     this.config = config;
+    this.outbound = new aether.Batcher<aether.MainMessage>(
+      (messages, transfer) => {
+        this.connect();
+        this.worker.send(messages, transfer);
+        // A listener notified during the drain may have attached another component.
+        if (this.queued.length > 0) this.outbound.schedule();
+      },
+      () => this.drainCreates(),
+    );
   }
 
   /** Spawns the worker (when configured with a `workerURL`) and starts handling its
@@ -251,7 +257,16 @@ export class Store {
         this.setError(new Error("[aether] failed to deserialize message from worker"));
       this.worker = aether.wrapWorker(this.ownedWorker);
     }
-    this.worker.handle((msg) => this.handleWorkerMessage(msg));
+    // Each message is caught on its own so one bad push reports and the rest of the
+    // batch still applies.
+    this.worker.handle((messages) => {
+      for (const msg of messages)
+        try {
+          this.handleWorkerMessage(msg);
+        } catch (e) {
+          this.setError(errors.fromUnknown(e));
+        }
+    });
   }
 
   private setError(err: Error): void {
@@ -269,8 +284,7 @@ export class Store {
    * send lazily re-attaches via a fresh `Worker`. Idempotent. */
   dispose(): void {
     this.queued = [];
-    this.outbound = [];
-    this.outboundTransfer = [];
+    this.outbound.clear();
     if (this.worker === aether.NOOP_MAIN_COMMS) return;
     this.invokeTracker.abort(new Error("aether store disposed"));
     // In-process comms have no thread to die with, so tear the tree down explicitly
@@ -361,31 +375,11 @@ export class Store {
     return this.buildHandle(entry, methodsSchema);
   }
 
-  private scheduleFlush(): void {
-    if (this.flushScheduled) return;
-    this.flushScheduled = true;
-    queueMicrotask(() => this.flush());
-  }
-
-  /** Emits every buffered message as one `postMessage`. Queued creates go last and
-   * shallowest-path first: React runs layout effects children before parents, but the
-   * worker rejects a child whose parent it has never seen, and an ancestor's path is
-   * always shorter than its descendant's. Deletes buffered during the commit keep their
-   * place ahead of the creates, so a re-parent still tears down before it rebuilds. */
-  private flush(): void {
-    // Drain before clearing the flag: the sends below re-enter send(), which would
-    // otherwise schedule a second, empty flush.
-    this.drainCreates();
-    this.flushScheduled = false;
-    if (this.outbound.length === 0) return;
-    const messages = this.outbound;
-    const transfer = this.outboundTransfer;
-    this.outbound = [];
-    this.outboundTransfer = [];
-    this.connect();
-    this.worker.send(messages, transfer);
-  }
-
+  /** Appends the creates attached since the last flush, shallowest path first: React runs
+   * layout effects children before parents, but the worker rejects a child whose parent
+   * it has never seen, and an ancestor's path is always shorter than its descendant's.
+   * They land at the tail of the batch, so deletes buffered earlier in the commit still
+   * lead and a re-parent tears down before it rebuilds. */
   private drainCreates(): void {
     if (this.queued.length === 0) return;
     const queued = this.queued;
@@ -397,8 +391,8 @@ export class Store {
       const { path, state, type, transfer, pendingInvokes } = entry;
       entry.transfer = [];
       entry.pendingInvokes = [];
-      this.send({ variant: "update", path, state, type }, transfer);
-      for (const invoke of pendingInvokes) this.send(invoke);
+      this.outbound.send({ variant: "update", path, state, type }, transfer);
+      for (const invoke of pendingInvokes) this.outbound.send(invoke);
       this.listeners.get(pathID(path))?.forEach((l) => l());
     }
   }
@@ -411,7 +405,7 @@ export class Store {
     entry.phase = "queued";
     this.entries.set(id, entry);
     this.queued.push(entry);
-    this.scheduleFlush();
+    this.outbound.schedule();
   }
 
   /** Returns `entry` to the staged phase. Sends a delete only when its create message
@@ -421,7 +415,8 @@ export class Store {
   private detachEntry(entry: Entry, displaced = false): void {
     if (entry.phase === "staged") return;
     const id = pathID(entry.path);
-    if (entry.phase === "live") this.send({ variant: "delete", path: entry.path });
+    if (entry.phase === "live")
+      this.outbound.send({ variant: "delete", path: entry.path });
     else {
       const idx = this.queued.indexOf(entry);
       if (idx !== -1) this.queued.splice(idx, 1);
@@ -443,14 +438,6 @@ export class Store {
     }
     this.entries.delete(id);
     this.invokeTracker.clearCounter(id);
-  }
-
-  /** Buffers `msg` for the next {@link flush}. Nothing reaches the worker synchronously:
-   * a commit's messages travel together. */
-  private send(msg: aether.MainMessage, transfer: Transferable[] = []): void {
-    this.outbound.push(msg);
-    if (transfer.length > 0) this.outboundTransfer.push(...transfer);
-    this.scheduleFlush();
   }
 
   private handleWorkerMessage(msg: aether.WorkerMessage): void {
@@ -501,7 +488,7 @@ export class Store {
       // into it. Ownership of each Transferable still moves exactly once.
       if (entry.phase !== "live") entry.transfer.push(...transfer);
       else
-        this.send(
+        this.outbound.send(
           { variant: "update", path: entry.path, state: entry.state, type: entry.type },
           transfer,
         );
@@ -511,7 +498,7 @@ export class Store {
     // Invokes name a path the worker must already know. Before the create message
     // flushes there is nothing to call, so queue and let the flush send them in order.
     const sendInvoke = (msg: aether.MainInvokeRequest): void => {
-      if (entry.phase === "live") this.send(msg);
+      if (entry.phase === "live") this.outbound.send(msg);
       else entry.pendingInvokes.push(msg);
     };
 

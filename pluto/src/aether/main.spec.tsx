@@ -1779,6 +1779,67 @@ describe("Aether Main", () => {
       const depths = sends.flat().map((m) => ("path" in m ? m.path.length : 0));
       expect(depths).toEqual([...depths].sort((a, b) => a - b));
     });
+    it("should deliver one tick of worker pushes as a single main-thread message", async () => {
+      // Every delivery is one task on the main thread, so an unbatched push per
+      // component is one React render per component.
+      const [workerSide, mainSide] = aether.createMockPair();
+      aether.render({ worker: workerSide, registry: REGISTRY });
+      const deliveries: aether.WorkerMessage[][] = [];
+      const counted: aether.MainComms = {
+        send: (values, transfer) => mainSide.send(values, transfer),
+        handle: (handler) =>
+          mainSide.handle((values) => {
+            deliveries.push(values);
+            handler(values);
+          }),
+      };
+      const setters = new Map<number, (x: number) => void>();
+      const Leaf = ({ index }: { index: number }) => {
+        const [, , , methods] = Aether.use({
+          type: InvokeLeaf.TYPE,
+          schema: exampleProps,
+          initialState: { x: 0 },
+          methods: invokeMethodsSchema,
+        });
+        useEffect(() => {
+          setters.set(index, methods.updateState);
+        }, [index, methods]);
+        return null;
+      };
+      render(
+        <Aether.Provider worker={counted}>
+          {[0, 1, 2, 3, 4].map((index) => (
+            <Leaf key={index} index={index} />
+          ))}
+        </Aether.Provider>,
+      );
+      await waitFor(() => expect(setters.size).toBe(5));
+      deliveries.length = 0;
+      setters.forEach((set, index) => set(index + 1));
+      await waitFor(() => expect(deliveries).toHaveLength(1));
+      expect(deliveries[0]).toHaveLength(5);
+    });
+    it("should flush a component attached by a listener that a flush notified", async () => {
+      // The store notifies subscribers while it drains creates. A component attached
+      // from inside that notification arrives too late for the batch being sent, so the
+      // store has to schedule another flush rather than strand it until an unrelated
+      // send.
+      const [workerSide, mainSide] = aether.createMockPair();
+      const root = aether.render({ worker: workerSide, registry: REGISTRY });
+      const store = new Aether.Store({ worker: mainSide });
+      const stage = (key: string) =>
+        store.stage({
+          type: ExampleLeaf.TYPE,
+          schema: exampleProps,
+          path: ["root", key],
+          initialState: { x: 0 },
+        });
+      const first = stage("first");
+      const second = stage("second");
+      store.subscribe(["root", "first"], () => second.attach());
+      first.attach();
+      await expect.poll(() => root.children.length).toBe(2);
+    });
     it("should not spawn a worker until the provider commits", () => {
       // The Store is constructed during the Provider's render. Spawning the worker
       // there strands a live worker, and for synnax.Provider a live client, whenever

@@ -64,18 +64,7 @@ export const createDriver = (
       path: snapshot,
       type,
       state: stateValue,
-      create: (parent) => {
-        const Constructor = registry[type];
-        if (Constructor == null)
-          throw new UnexpectedError(`[aetherTest] type '${type}' not in registry`);
-        return new Constructor({
-          path: snapshot,
-          type,
-          sender: workerSide,
-          instrumentation,
-          parent,
-        });
-      },
+      create: (parent) => root.create({ path: snapshot, type, parent }),
     });
   };
 
