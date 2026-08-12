@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package versioning resolves per-resource schema versions (@go version N) and rewrites
-// @go output paths so that versioned packages emit into versions/vN/ sub-packages.
+//
+//	@go	output paths so that versioned packages emit into versions/vN/ sub-packages.
+//
 // Version-laid-out packages (those containing a gorp entry) emit their current version
 // into versions/vN and re-export it from the package root; value-type packages (no gorp
 // entry) keep their current code at the root and gain versions/vN packages only for

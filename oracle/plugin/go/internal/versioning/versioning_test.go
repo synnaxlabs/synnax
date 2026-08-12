@@ -187,7 +187,6 @@ var _ = Describe("Versioning", func() {
 			Expect(versioning.EntryPaths(table)).Error().To(MatchError(
 				ContainSubstring("conflicting @go version declarations for out")))
 		})
-
 	})
 
 	Describe("EntryPaths", func() {
