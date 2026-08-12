@@ -21,6 +21,24 @@ interface IndicatorPosition {
   height: number;
 }
 
+interface HeadingPart {
+  text: string;
+  code: boolean;
+}
+
+// Splits a rendered heading into plain text and inline code segments. Reads the DOM
+// because Astro's heading metadata flattens inline code to plain text.
+const parseHeading = (el: HTMLElement): HeadingPart[] =>
+  Array.from(el.childNodes)
+    .filter(
+      (n) => !(n instanceof HTMLElement && n.classList.contains("heading-anchor")),
+    )
+    .map((n) => ({
+      text: n.textContent ?? "",
+      code: n instanceof HTMLElement && n.tagName === "CODE",
+    }))
+    .filter(({ text }) => text.length > 0);
+
 export interface OnThisPageProps {
   headings?: MarkdownHeading[];
   clients?: Client.Client[];
@@ -37,20 +55,26 @@ export const OnThisPage = ({
   const [currentID, setCurrentID] = useState("");
   const [indicator, setIndicator] = useState<IndicatorPosition>({ top: 0, height: 0 });
   const [initialized, setInitialized] = useState(false);
-  const [visibleHeadings, setVisibleHeadings] = useState<Set<string>>(
-    () => new Set(headings.map(({ slug }) => slug)),
+  const [visibleHeadings, setVisibleHeadings] = useState<Map<string, HeadingPart[]>>(
+    () =>
+      new Map(
+        headings.map(({ slug, text }) => [
+          slug,
+          [{ text: unescape(text), code: false }],
+        ]),
+      ),
   );
 
   // Purge headings that aren't visible in the DOM (hidden by tabs, etc.)
   useEffect(() => {
     const purge = () => {
       const titles = document.querySelectorAll<HTMLElement>("article :is(h1, h2, h3)");
-      const visibleIds = new Set(
+      const visibleIds = new Map(
         Array.from(titles)
           .filter(
             (t) => t.offsetParent !== null || getComputedStyle(t).display !== "none",
           )
-          .map((t) => t.id),
+          .map((t): [string, HeadingPart[]] => [t.id, parseHeading(t)]),
       );
       setVisibleHeadings(visibleIds);
     };
@@ -146,7 +170,9 @@ export const OnThisPage = ({
             onClick={() => setCurrentID(heading.slug)}
             className={`on-this-page-item depth-${heading.depth} ${currentID === heading.slug ? "active" : ""}`}
           >
-            {unescape(heading.text)}
+            {(visibleHeadings.get(heading.slug) ?? []).map(({ text, code }, i) =>
+              code ? <code key={i}>{text}</code> : text,
+            )}
           </a>
         ))}
       </div>
