@@ -1681,6 +1681,28 @@ describe("Aether Main", () => {
       release();
       await waitFor(() => expect(root.children).toHaveLength(3));
     });
+    it("should drop invokes queued before a detach rather than replay them on re-attach", async () => {
+      // An invoke issued before the create message flushes waits on the entry. Detaching
+      // rejects its caller, so replaying it after a StrictMode re-attach would run the
+      // side effect for a call the caller was already told had failed.
+      const [workerSide, mainSide] = aether.createMockPair();
+      const root = aether.render({ worker: workerSide, registry: REGISTRY });
+      const store = new Aether.Store({ worker: mainSide });
+      const handle = store.stage({
+        type: InvokeLeaf.TYPE,
+        schema: exampleProps,
+        path: ["root", "invoker"],
+        initialState: { x: 0 },
+        methodsSchema: invokeMethodsSchema,
+      });
+      handle.attach();
+      handle.methods.fireAndForget();
+      handle.detach();
+      handle.attach();
+      await expect.poll(() => root.children.length).toBe(1);
+      const leaf = root.children[0] as InvokeLeaf;
+      expect(leaf.fireAndForgetSpy).not.toHaveBeenCalled();
+    });
     it("should not spawn a worker until the provider commits", () => {
       // The Store is constructed during the Provider's render. Spawning the worker
       // there strands a live worker, and for synnax.Provider a live client, whenever

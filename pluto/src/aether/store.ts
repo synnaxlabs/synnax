@@ -411,6 +411,11 @@ export class Store {
     entry.controller.abort(
       new Error(displaced ? "Component re-registered" : "Component deleted"),
     );
+    // Drop queued invokes: the abort above already rejected their callers, so letting
+    // them ride out on a later flush would run the side effect for a call the caller
+    // was told had failed. `transfer` is kept, because it belongs to the state the next
+    // flush still has to deliver.
+    entry.pendingInvokes = [];
     // A fresh controller so a StrictMode remount can re-attach this same handle.
     entry.controller = new AbortController();
     if (displaced) {
