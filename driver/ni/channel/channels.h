@@ -905,7 +905,7 @@ inline x::errors::Error apply(
     );
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
-    const auto r0 = ch.r_0;
+    const auto r0 = ch.r0;
     const auto resistance_config = parse_resistance_config(ch.resistance_config);
     const auto rtd_type = get_rtd_type(ch.rtd_type);
     const auto [units, units_err] = parse_units(ch.units);
@@ -1117,7 +1117,7 @@ inline x::errors::Error apply(
     );
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
-    const auto r1 = ch.r_1;
+    const auto r1 = ch.r1;
     const auto resistance_config = parse_resistance_config(ch.resistance_config);
     const auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
