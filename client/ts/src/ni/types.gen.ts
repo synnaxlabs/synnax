@@ -166,27 +166,6 @@ export const CHARGE_UNITS = ["Coulombs", "PicoCoulombs"] as const;
 export const chargeUnitsZ = z.enum(CHARGE_UNITS);
 export type ChargeUnits = z.infer<typeof chargeUnitsZ>;
 
-export const ROSETTE_TYPES = [
-  "RectangularRosette",
-  "DeltaRosette",
-  "TeeRosette",
-] as const;
-export const rosetteTypeZ = z.enum(ROSETTE_TYPES);
-export type RosetteType = z.infer<typeof rosetteTypeZ>;
-
-export const ROSETTE_MEAS_TYPES = [
-  "PrincipalStrain1",
-  "PrincipalStrain2",
-  "PrincipalStrainAngle",
-  "CartesianStrainX",
-  "CartesianStrainY",
-  "CartesianShearStrainXY",
-  "MaxShearStrain",
-  "MaxShearStrainAngle",
-] as const;
-export const rosetteMeasTypeZ = z.enum(ROSETTE_MEAS_TYPES);
-export type RosetteMeasType = z.infer<typeof rosetteMeasTypeZ>;
-
 export const CI_EDGES = ["Rising", "Falling"] as const;
 export const ciEdgeZ = z.enum(CI_EDGES);
 export type CIEdge = z.infer<typeof ciEdgeZ>;
@@ -1105,36 +1084,6 @@ export interface AIPressureBridgePolynomialChannel extends z.infer<
   typeof aiPressureBridgePolynomialChannelZ
 > {}
 
-/** AIRosetteStrainGageChannel reads strain from a strain-gauge rosette. */
-export const aiRosetteStrainGageChannelZ = baseAIChannelZ
-  .extend(minMaxValZ.shape)
-  .extend(terminalZ.shape)
-  .extend(voltageExcitationZ.shape)
-  .extend({
-    type: z.literal("ai_rosette_strain_gage"),
-    /** rosetteType selects the rosette geometry. */
-    rosetteType: rosetteTypeZ.default("RectangularRosette"),
-    /** gageOrientation is the orientation of gauge element 0, in degrees. */
-    gageOrientation: z.number().default(0),
-    /** rosetteMeasTypes are the quantities to compute from the rosette. */
-    rosetteMeasTypes: rosetteMeasTypeZ.array().default(() => []),
-    /** strainConfig selects the bridge configuration of each gauge element. */
-    strainConfig: strainConfigZ.default("FullBridgeI"),
-    /** units are the units of the strain measurement. */
-    units: unitsZ.default("Strain"),
-    /** nominalGageResistance is the nominal gauge resistance, in ohms. */
-    nominalGageResistance: z.number().default(0),
-    /** poissonRatio is the Poisson ratio of the test material. */
-    poissonRatio: z.number().default(0),
-    /** leadWireResistance is the resistance of the lead wires, in ohms. */
-    leadWireResistance: z.number().default(0),
-    /** gageFactor is the gauge factor of the rosette. */
-    gageFactor: z.number().default(0),
-  });
-export interface AIRosetteStrainGageChannel extends z.infer<
-  typeof aiRosetteStrainGageChannelZ
-> {}
-
 /** AIThermistorIexChannel reads temperature from a current-excited thermistor. */
 export const aiThermistorIexChannelZ = baseAIChannelZ
   .extend(minMaxValZ.shape)
@@ -1258,7 +1207,6 @@ export const AI_CHANNEL_TYPES = [
   "ai_force_bridge_polynomial",
   "ai_freq_voltage",
   "ai_pressure_bridge_polynomial",
-  "ai_rosette_strain_gage",
   "ai_thermistor_iex",
   "ai_thermistor_vex",
   "ai_torque_bridge_polynomial",
@@ -1298,7 +1246,6 @@ export const aiChannelZ = z.discriminatedUnion("type", [
   aiForceBridgePolynomialChannelZ,
   aiFreqVoltageChannelZ,
   aiPressureBridgePolynomialChannelZ,
-  aiRosetteStrainGageChannelZ,
   aiThermistorIexChannelZ,
   aiThermistorVexChannelZ,
   aiTorqueBridgePolynomialChannelZ,
@@ -1331,7 +1278,6 @@ export type AIChannel =
   | AIForceBridgePolynomialChannel
   | AIFreqVoltageChannel
   | AIPressureBridgePolynomialChannel
-  | AIRosetteStrainGageChannel
   | AIThermistorIexChannel
   | AIThermistorVexChannel
   | AITorqueBridgePolynomialChannel
@@ -1366,7 +1312,6 @@ export const AI_CHANNEL_SCHEMAS: {
   ai_force_bridge_polynomial: aiForceBridgePolynomialChannelZ,
   ai_freq_voltage: aiFreqVoltageChannelZ,
   ai_pressure_bridge_polynomial: aiPressureBridgePolynomialChannelZ,
-  ai_rosette_strain_gage: aiRosetteStrainGageChannelZ,
   ai_thermistor_iex: aiThermistorIexChannelZ,
   ai_thermistor_vex: aiThermistorVexChannelZ,
   ai_torque_bridge_polynomial: aiTorqueBridgePolynomialChannelZ,
