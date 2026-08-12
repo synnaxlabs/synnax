@@ -45,6 +45,31 @@ var _ = Describe("C++ JSON Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field names ending in a digit", func() {
+			It(
+				"Should keep the schema name as the JSON key",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+
+					RTD struct {
+						r0    float64 = 0
+						x1    float64 = 0
+						axis_1 float64 = 0
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`parser.field<double>("r0", 0)`,
+							`parser.field<double>("x1", 0)`,
+							`parser.field<double>("axis_1", 0)`,
+						).
+						ToNotContain(`"r_0"`, `"x_1"`)
+				},
+			)
+		})
+
 		Context("array alias fields (e.g., Params -> Param[])", func() {
 			It(
 				"Should generate correct parsing for array alias fields",
