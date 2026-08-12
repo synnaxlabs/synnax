@@ -50,6 +50,11 @@ export const createDriver = (
 ): Driver => {
   const [workerSide, mainSide] = aether.createMockPair();
   const root = aether.render({ worker: workerSide, registry, instrumentation });
+  // Unbatched, so a driver-driven update reaches `mainSide` before the caller's next
+  // statement. Production batches on a microtask instead.
+  const sender: aether.Sender = {
+    send: (value, transfer) => workerSide.send([value], transfer),
+  };
 
   const update = (
     path: readonly string[],
@@ -64,7 +69,18 @@ export const createDriver = (
       path: snapshot,
       type,
       state: stateValue,
-      create: (parent) => root.create({ path: snapshot, type, parent }),
+      create: (parent) => {
+        const Constructor = registry[type];
+        if (Constructor == null)
+          throw new UnexpectedError(`[aetherTest] type '${type}' not in registry`);
+        return new Constructor({
+          path: snapshot,
+          type,
+          sender,
+          instrumentation,
+          parent,
+        });
+      },
     });
   };
 

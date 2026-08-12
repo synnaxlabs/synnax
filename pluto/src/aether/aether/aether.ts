@@ -861,11 +861,7 @@ export class Root extends Composite<typeof aetherRootState> {
     component._invokeMethod(params);
   }
 
-  /** Instantiates the registered component `type` at `path` under `parent`, wired to this
-   * tree's sender and instrumentation. Throws {@link UnexpectedError} if `type` is not in
-   * the registry. Does not mount the result; pass it as the `create` callback of
-   * {@link Composite._updateState}, which does. */
-  create({
+  private create({
     path,
     type,
     parent,

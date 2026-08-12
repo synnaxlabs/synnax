@@ -1840,6 +1840,35 @@ describe("Aether Main", () => {
       first.attach();
       await expect.poll(() => root.children.length).toBe(2);
     });
+    it("should stop treating entries as live once the store disposes", async () => {
+      // dispose clears the worker tree but leaves the handles with their owners. An
+      // entry still marked live would send an update for a path whose parent the worker
+      // no longer has, which the tree rejects.
+      const [workerSide, mainSide] = aether.createMockPair();
+      const root = aether.render({ worker: workerSide, registry: REGISTRY });
+      const store = new Aether.Store({ worker: mainSide });
+      const parent = store.stage({
+        type: ExampleComposite.TYPE,
+        schema: exampleProps,
+        path: ["root", "parent"],
+        initialState: { x: 0 },
+      });
+      const child = store.stage({
+        type: ExampleLeaf.TYPE,
+        schema: exampleProps,
+        path: ["root", "parent", "child"],
+        initialState: { x: 0 },
+      });
+      parent.attach();
+      child.attach();
+      await expect.poll(() => root.children.length).toBe(1);
+      store.dispose();
+      expect(root.children).toHaveLength(0);
+      child.setState({ x: 1 });
+      await expect.poll(() => child.getState().x).toBe(1);
+      expect(store.getError()).toBeNull();
+      expect(root.children).toHaveLength(0);
+    });
     it("should not spawn a worker until the provider commits", () => {
       // The Store is constructed during the Provider's render. Spawning the worker
       // there strands a live worker, and for synnax.Provider a live client, whenever

@@ -301,9 +301,12 @@ export class Store {
     this.outbound.clear();
     if (this.worker === aether.NOOP_MAIN_COMMS) return;
     this.invokeTracker.abort(new Error("aether store disposed"));
-    // In-process comms have no thread to die with, so tear the tree down explicitly
-    // rather than relying on every component to have detached first.
+    // In-process comms have no thread to die with, so tear the tree down explicitly.
     this.worker.send([{ variant: "clear" }]);
+    // Staged, not deleted: mounted components still own these handles, and a re-attach
+    // must send a fresh create.
+    this.entries.forEach((entry) => (entry.phase = "staged"));
+    this.entries.clear();
     this.worker.handle(() => {});
     this.worker = aether.NOOP_MAIN_COMMS;
     this.ownedWorker?.terminate();

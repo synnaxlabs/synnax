@@ -23,9 +23,9 @@ export interface MainDeleteRequest {
   path: readonly string[];
 }
 
-/** Main → worker: delete every component in the tree, leaving the root usable.
- * Sent on store disposal so components leaked by discarded renders release their
- * resources. */
+/** Main → worker: delete every component in the tree, leaving the root usable. Sent on
+ * store disposal, which for in-process comms is the only thing that tears the tree
+ * down. */
 export interface MainClearRequest {
   variant: "clear";
 }

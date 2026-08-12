@@ -129,9 +129,11 @@ interface UseLifecycleProps<
 }
 
 /** Registers a component with the enclosing {@link Provider}'s {@link Store} and
- * returns the operations needed to drive it. Lower-level than {@link use} — does not
- * subscribe React to state changes. Most callers want {@link use} or
- * {@link useUnidirectional} instead. */
+ * returns the operations needed to drive it. Identity — store, enclosing path, and key —
+ * is fixed on the mounting render; moving a component under a different
+ * {@link Composite} needs a remount. Lower-level than {@link use} — does not subscribe
+ * React to state changes. Most callers want {@link use} or {@link useUnidirectional}
+ * instead. */
 export const useLifecycle = <
   StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
