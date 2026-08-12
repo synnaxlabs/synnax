@@ -37,13 +37,13 @@
 
 namespace driver::arc {
 /// @brief configuration for an arc runtime task.
-struct TaskConfig : ::synnax::common::BasePersistConfig {
+struct TaskConfig : ::synnax::task::common::BasePersistConfig {
     x::uuid::UUID arc_key;
     ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
 
     TaskConfig(TaskConfig &&other) noexcept:
-        ::synnax::common::BasePersistConfig(std::move(other)),
+        ::synnax::task::common::BasePersistConfig(std::move(other)),
         arc_key(std::move(other.arc_key)),
         program(std::move(other.program)),
         loop(std::move(other.loop)) {}
@@ -52,8 +52,8 @@ struct TaskConfig : ::synnax::common::BasePersistConfig {
     const TaskConfig &operator=(const TaskConfig &) = delete;
 
     explicit TaskConfig(x::json::Parser &parser):
-        ::synnax::common::BasePersistConfig(
-            ::synnax::common::BasePersistConfig::parse(parser)
+        ::synnax::task::common::BasePersistConfig(
+            ::synnax::task::common::BasePersistConfig::parse(parser)
         ),
         arc_key(parser.field<x::uuid::UUID>("arc_key")),
         loop(parser) {}

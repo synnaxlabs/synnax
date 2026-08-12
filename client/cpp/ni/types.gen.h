@@ -304,7 +304,7 @@ struct BaseAOChannel {
 };
 
 /// @brief WriteConfig carries the configuration fields shared by NI write tasks.
-struct WriteConfig : public ::synnax::common::BaseWriteConfig {
+struct WriteConfig : public ::synnax::task::common::BaseWriteConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
     /// hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(10);
@@ -314,7 +314,7 @@ struct WriteConfig : public ::synnax::common::BaseWriteConfig {
 };
 
 /// @brief ScanConfig configures the NI device scanner task, which carries no settings.
-struct ScanConfig : public ::synnax::common::BaseScanConfig {
+struct ScanConfig : public ::synnax::task::common::BaseScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -593,7 +593,7 @@ struct ZIndex {
 };
 
 /// @brief DigitalReadConfig configures an NI digital read task.
-struct DigitalReadConfig : public ::synnax::common::BaseReadConfig {
+struct DigitalReadConfig : public ::synnax::task::common::BaseReadConfig {
     /// @brief device is the key of the device the task acquires from.
     ::synnax::device::Key device = "";
     /// @brief channels are the digital input channels the task acquires.
@@ -1502,7 +1502,7 @@ AOChannel parse_ao_channel(x::json::Parser parser);
 
 /// @brief AnalogReadConfig configures an NI analog read task. Each channel carries its
 /// own device.
-struct AnalogReadConfig : public ::synnax::common::BaseReadConfig {
+struct AnalogReadConfig : public ::synnax::task::common::BaseReadConfig {
     /// @brief channels are the analog input channels the task acquires.
     std::vector<AIChannel> channels;
 
@@ -1512,7 +1512,7 @@ struct AnalogReadConfig : public ::synnax::common::BaseReadConfig {
 
 /// @brief CounterReadConfig configures an NI counter read task. Each channel carries
 /// its own device.
-struct CounterReadConfig : public ::synnax::common::BaseReadConfig {
+struct CounterReadConfig : public ::synnax::task::common::BaseReadConfig {
     /// @brief channels are the counter input channels the task acquires.
     std::vector<CIChannel> channels;
 

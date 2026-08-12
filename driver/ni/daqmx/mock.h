@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Code generated from api.h by generate_fake.py. Regenerate when api.h changes.
+// Code generated from api.h by generate_mock.py. Regenerate when api.h changes.
 
 #pragma once
 
@@ -19,9 +19,9 @@
 #include "driver/ni/daqmx/api.h"
 
 namespace driver::ni::daqmx {
-/// @brief a fake DAQmx API that records every call and its scalar/string
+/// @brief a mock DAQmx API that records every call and its scalar/string
 /// arguments as JSON for assertion in tests. All calls succeed.
-class FakeAPI final : public API {
+class MockAPI final : public API {
 public:
     /// @brief one entry per API call, in call order: {"fn": name, "args": {...}}.
     std::vector<nlohmann::json> calls;

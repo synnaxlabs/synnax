@@ -14,13 +14,13 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/ni/channel/channels.h"
-#include "driver/ni/daqmx/fake.h"
+#include "driver/ni/daqmx/mock.h"
 
 namespace driver::ni::channel {
 namespace {
-std::shared_ptr<daqmx::SugaredAPI> fake_dmx(std::shared_ptr<daqmx::FakeAPI> &fake) {
-    fake = std::make_shared<daqmx::FakeAPI>();
-    return std::make_shared<daqmx::SugaredAPI>(fake);
+std::shared_ptr<daqmx::SugaredAPI> mock_dmx(std::shared_ptr<daqmx::MockAPI> &mock) {
+    mock = std::make_shared<daqmx::MockAPI>();
+    return std::make_shared<daqmx::SugaredAPI>(mock);
 }
 }
 
@@ -49,10 +49,10 @@ TEST(ChannelsTest, ParseAIAccelChan) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIAccelChan");
+    const auto calls = mock->calls_to("CreateAIAccelChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -86,10 +86,10 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIBridgeChan");
+    const auto calls = mock->calls_to("CreateAIBridgeChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -119,10 +119,10 @@ TEST(ChannelsTest, ParseAICurrentChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAICurrentChan");
+    const auto calls = mock->calls_to("CreateAICurrentChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -160,10 +160,10 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIForceBridgeTableChan");
+    const auto calls = mock->calls_to("CreateAIForceBridgeTableChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -200,10 +200,10 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIForceBridgeTwoPointLinChan");
+    const auto calls = mock->calls_to("CreateAIForceBridgeTwoPointLinChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -235,10 +235,10 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIForceIEPEChan");
+    const auto calls = mock->calls_to("CreateAIForceIEPEChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -270,10 +270,10 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIMicrophoneChan");
+    const auto calls = mock->calls_to("CreateAIMicrophoneChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -309,10 +309,10 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIPressureBridgeTableChan");
+    const auto calls = mock->calls_to("CreateAIPressureBridgeTableChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -349,10 +349,10 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIPressureBridgeTwoPointLinChan");
+    const auto calls = mock->calls_to("CreateAIPressureBridgeTwoPointLinChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -383,10 +383,10 @@ TEST(ChannelsTest, ParseAIRTDChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIRTDChan");
+    const auto calls = mock->calls_to("CreateAIRTDChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -424,10 +424,10 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIStrainGageChan");
+    const auto calls = mock->calls_to("CreateAIStrainGageChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -456,10 +456,10 @@ TEST(ChannelsTest, ParseAITempBuiltInChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAITempBuiltInSensorChan");
+    const auto calls = mock->calls_to("CreateAITempBuiltInSensorChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/_boardTempSensor_vs_aignd");
@@ -488,10 +488,10 @@ TEST(ChannelsTest, ParseAIThermoChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIThrmcplChan");
+    const auto calls = mock->calls_to("CreateAIThrmcplChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["thermocoupleType"], DAQmx_Val_J_Type_TC);
@@ -522,10 +522,10 @@ TEST(ChannelsTest, ParseAIThermocoupleConstCJC) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIThrmcplChan");
+    const auto calls = mock->calls_to("CreateAIThrmcplChan");
     ASSERT_EQ(calls.size(), 1);
     EXPECT_EQ(calls[0]["args"]["cjcSource"], DAQmx_Val_ConstVal);
     EXPECT_EQ(calls[0]["args"]["cjcVal"], 25.5);
@@ -554,10 +554,10 @@ TEST(ChannelsTest, ParseAIThermocoupleBuiltInCJC) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIThrmcplChan");
+    const auto calls = mock->calls_to("CreateAIThrmcplChan");
     ASSERT_EQ(calls.size(), 1);
     EXPECT_EQ(calls[0]["args"]["cjcSource"], DAQmx_Val_BuiltIn);
     EXPECT_EQ(calls[0]["args"]["cjcVal"], 0);
@@ -590,10 +590,10 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAITorqueBridgeTableChan");
+    const auto calls = mock->calls_to("CreateAITorqueBridgeTableChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -630,10 +630,10 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAITorqueBridgeTwoPointLinChan");
+    const auto calls = mock->calls_to("CreateAITorqueBridgeTwoPointLinChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -665,10 +665,10 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIVelocityIEPEChan");
+    const auto calls = mock->calls_to("CreateAIVelocityIEPEChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -698,10 +698,10 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAIVoltageChan");
+    const auto calls = mock->calls_to("CreateAIVoltageChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ai0");
@@ -729,10 +729,10 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAOVoltageChan");
+    const auto calls = mock->calls_to("CreateAOVoltageChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ao0");
@@ -758,10 +758,10 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
     ASSERT_FALSE(p.error()) << p.error();
     ASSERT_NE(chan, nullptr);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateAOFuncGenChan");
+    const auto calls = mock->calls_to("CreateAOFuncGenChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["physicalChannel"], "cDAQ1Mod2/ao1");
@@ -787,10 +787,10 @@ TEST(ChannelsTest, ParseDIChan) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateDIChan");
+    const auto calls = mock->calls_to("CreateDIChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["lines"], "cDAQ1Mod2/port0/line1");
@@ -813,10 +813,10 @@ TEST(ChannelsTest, ParseDOChan) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateDOChan");
+    const auto calls = mock->calls_to("CreateDOChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["lines"], "cDAQ1Mod2/port0/line1");
@@ -847,10 +847,10 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIFreqChan");
+    const auto calls = mock->calls_to("CreateCIFreqChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
@@ -888,10 +888,10 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIFreqChan");
+    const auto calls = mock->calls_to("CreateCIFreqChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
@@ -902,7 +902,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
     EXPECT_EQ(call["args"]["measMethod"], DAQmx_Val_LowFreq1Ctr);
     EXPECT_EQ(call["args"]["measTime"], 0.01);
     EXPECT_EQ(call["args"]["divisor"], 1);
-    EXPECT_EQ(fake->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
@@ -925,10 +925,10 @@ TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCICountEdgesChan");
+    const auto calls = mock->calls_to("CreateCICountEdgesChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
@@ -957,17 +957,17 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCICountEdgesChan");
+    const auto calls = mock->calls_to("CreateCICountEdgesChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr2");
     EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Falling);
     EXPECT_EQ(call["args"]["countDirection"], DAQmx_Val_CountDown);
     EXPECT_EQ(call["args"]["initialCount"], 100);
-    EXPECT_EQ(fake->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
@@ -995,10 +995,10 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIPeriodChan");
+    const auto calls = mock->calls_to("CreateCIPeriodChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
@@ -1031,16 +1031,16 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIPeriodChan");
+    const auto calls = mock->calls_to("CreateCIPeriodChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
     EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Falling);
     EXPECT_EQ(call["args"]["measMethod"], DAQmx_Val_LowFreq1Ctr);
-    EXPECT_EQ(fake->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
@@ -1065,10 +1065,10 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIPulseWidthChan");
+    const auto calls = mock->calls_to("CreateCIPulseWidthChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
@@ -1096,14 +1096,14 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIPulseWidthChan");
+    const auto calls = mock->calls_to("CreateCIPulseWidthChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
-    EXPECT_EQ(fake->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
@@ -1126,10 +1126,10 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCISemiPeriodChan");
+    const auto calls = mock->calls_to("CreateCISemiPeriodChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
@@ -1155,10 +1155,10 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCISemiPeriodChan");
+    const auto calls = mock->calls_to("CreateCISemiPeriodChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
@@ -1186,10 +1186,10 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCITwoEdgeSepChan");
+    const auto calls = mock->calls_to("CreateCITwoEdgeSepChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
@@ -1219,10 +1219,10 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCITwoEdgeSepChan");
+    const auto calls = mock->calls_to("CreateCITwoEdgeSepChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
@@ -1254,10 +1254,10 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCILinVelocityChan");
+    const auto calls = mock->calls_to("CreateCILinVelocityChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
@@ -1266,7 +1266,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
     EXPECT_EQ(call["args"]["units"], DAQmx_Val_MetersPerSecond);
     EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X4);
     EXPECT_EQ(call["args"]["distPerPulse"], 0.001);
-    EXPECT_EQ(fake->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
@@ -1293,10 +1293,10 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCILinVelocityChan");
+    const auto calls = mock->calls_to("CreateCILinVelocityChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
@@ -1331,10 +1331,10 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIAngVelocityChan");
+    const auto calls = mock->calls_to("CreateCIAngVelocityChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
@@ -1343,7 +1343,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
     EXPECT_EQ(call["args"]["units"], DAQmx_Val_RPM);
     EXPECT_EQ(call["args"]["decodingType"], DAQmx_Val_X4);
     EXPECT_EQ(call["args"]["pulsesPerRev"], 24);
-    EXPECT_EQ(fake->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
@@ -1370,10 +1370,10 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIAngVelocityChan");
+    const auto calls = mock->calls_to("CreateCIAngVelocityChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr2");
@@ -1413,10 +1413,10 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCILinEncoderChan");
+    const auto calls = mock->calls_to("CreateCILinEncoderChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
@@ -1427,7 +1427,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
     EXPECT_EQ(call["args"]["zidxEnable"], 1);
     EXPECT_EQ(call["args"]["zidxVal"], 0.0);
     EXPECT_EQ(call["args"]["zidxPhase"], DAQmx_Val_AHighBHigh);
-    EXPECT_EQ(fake->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCILinearPositionChanInches) {
@@ -1459,10 +1459,10 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCILinEncoderChan");
+    const auto calls = mock->calls_to("CreateCILinEncoderChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
@@ -1504,10 +1504,10 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIAngEncoderChan");
+    const auto calls = mock->calls_to("CreateCIAngEncoderChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
@@ -1518,7 +1518,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
     EXPECT_EQ(call["args"]["zidxEnable"], 1);
     EXPECT_EQ(call["args"]["zidxVal"], 0.0);
     EXPECT_EQ(call["args"]["zidxPhase"], DAQmx_Val_AHighBHigh);
-    EXPECT_EQ(fake->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
@@ -1550,10 +1550,10 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIAngEncoderChan");
+    const auto calls = mock->calls_to("CreateCIAngEncoderChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr2");
@@ -1587,15 +1587,15 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIDutyCycleChan");
+    const auto calls = mock->calls_to("CreateCIDutyCycleChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr0");
     EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Rising);
-    EXPECT_EQ(fake->calls_to("SetChanAttributeString").size() >= 1, true);
+    EXPECT_EQ(mock->calls_to("SetChanAttributeString").size() >= 1, true);
 }
 
 TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
@@ -1619,10 +1619,10 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
     ASSERT_NE(chan, nullptr);
     EXPECT_EQ(chan->enabled, true);
     chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
-    std::shared_ptr<daqmx::FakeAPI> fake;
-    const auto dmx = fake_dmx(fake);
+    std::shared_ptr<daqmx::MockAPI> mock;
+    const auto dmx = mock_dmx(mock);
     ASSERT_NIL(chan->apply(dmx, nullptr));
-    const auto calls = fake->calls_to("CreateCIDutyCycleChan");
+    const auto calls = mock->calls_to("CreateCIDutyCycleChan");
     ASSERT_EQ(calls.size(), 1);
     const auto &call = calls[0];
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
