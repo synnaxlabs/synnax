@@ -330,7 +330,7 @@ var _ = Describe("Codec", func() {
 				MinMaxVal:     fullyPopulatedMinMaxVal,
 				Terminal:      fullyPopulatedTerminal,
 				CustomScale:   fullyPopulatedCustomScale,
-				Units:         v0.ChargeUnits("C"),
+				Units:         v0.ChargeUnits("Coulombs"),
 			}}),
 			Entry("ai_current_rms variant", v0.AIChannel{Variant: v0.AICurrentRMSChannel{
 				BaseAIChannel:       fullyPopulatedBaseAIChannel,
@@ -377,7 +377,7 @@ var _ = Describe("Codec", func() {
 				VoltageExcitation:     fullyPopulatedVoltageExcitation,
 				RosetteType:           v0.RosetteType("RectangularRosette"),
 				GageOrientation:       2.5,
-				RosetteMeasTypes:      []v0.RosetteMeasType{v0.RosetteMeasType("PrincipleStrain1")},
+				RosetteMeasTypes:      []v0.RosetteMeasType{v0.RosetteMeasType("PrincipalStrain1")},
 				StrainConfig:          v0.StrainConfig("FullBridgeI"),
 				Units:                 v0.Units("Volts"),
 				NominalGageResistance: 6.5,
@@ -2543,7 +2543,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			MinMaxVal:     fullyPopulatedMinMaxVal,
 			Terminal:      fullyPopulatedTerminal,
 			CustomScale:   fullyPopulatedCustomScale,
-			Units:         v0.ChargeUnits("C"),
+			Units:         v0.ChargeUnits("Coulombs"),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2625,7 +2625,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			VoltageExcitation:     fullyPopulatedVoltageExcitation,
 			RosetteType:           v0.RosetteType("RectangularRosette"),
 			GageOrientation:       2.5,
-			RosetteMeasTypes:      []v0.RosetteMeasType{v0.RosetteMeasType("PrincipleStrain1")},
+			RosetteMeasTypes:      []v0.RosetteMeasType{v0.RosetteMeasType("PrincipalStrain1")},
 			StrainConfig:          v0.StrainConfig("FullBridgeI"),
 			Units:                 v0.Units("Volts"),
 			NominalGageResistance: 6.5,

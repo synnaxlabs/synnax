@@ -554,15 +554,15 @@ func (v VelocitySensitivityUnits) IsValid() bool {
 type ChargeUnits string
 
 const (
-	ChargeUnitsCoulombs      ChargeUnits = "C"
-	ChargeUnitsMicroCoulombs ChargeUnits = "uC"
+	ChargeUnitsCoulombs     ChargeUnits = "Coulombs"
+	ChargeUnitsPicoCoulombs ChargeUnits = "PicoCoulombs"
 )
 
 // IsValid reports whether c is one of the defined ChargeUnits
 // values.
 func (c ChargeUnits) IsValid() bool {
 	switch c {
-	case ChargeUnitsCoulombs, ChargeUnitsMicroCoulombs:
+	case ChargeUnitsCoulombs, ChargeUnitsPicoCoulombs:
 		return true
 	default:
 		return false
@@ -593,9 +593,9 @@ func (r RosetteType) IsValid() bool {
 type RosetteMeasType string
 
 const (
-	RosetteMeasTypePrincipleStrain1       RosetteMeasType = "PrincipleStrain1"
-	RosetteMeasTypePrincipleStrain2       RosetteMeasType = "PrincipleStrain2"
-	RosetteMeasTypePrincipleStrainAngle   RosetteMeasType = "PrincipleStrainAngle"
+	RosetteMeasTypePrincipalStrain1       RosetteMeasType = "PrincipalStrain1"
+	RosetteMeasTypePrincipalStrain2       RosetteMeasType = "PrincipalStrain2"
+	RosetteMeasTypePrincipalStrainAngle   RosetteMeasType = "PrincipalStrainAngle"
 	RosetteMeasTypeCartesianStrainX       RosetteMeasType = "CartesianStrainX"
 	RosetteMeasTypeCartesianStrainY       RosetteMeasType = "CartesianStrainY"
 	RosetteMeasTypeCartesianShearStrainXY RosetteMeasType = "CartesianShearStrainXY"
@@ -607,7 +607,7 @@ const (
 // values.
 func (r RosetteMeasType) IsValid() bool {
 	switch r {
-	case RosetteMeasTypePrincipleStrain1, RosetteMeasTypePrincipleStrain2, RosetteMeasTypePrincipleStrainAngle, RosetteMeasTypeCartesianStrainX, RosetteMeasTypeCartesianStrainY, RosetteMeasTypeCartesianShearStrainXY, RosetteMeasTypeMaxShearStrain, RosetteMeasTypeMaxShearStrainAngle:
+	case RosetteMeasTypePrincipalStrain1, RosetteMeasTypePrincipalStrain2, RosetteMeasTypePrincipalStrainAngle, RosetteMeasTypeCartesianStrainX, RosetteMeasTypeCartesianStrainY, RosetteMeasTypeCartesianShearStrainXY, RosetteMeasTypeMaxShearStrain, RosetteMeasTypeMaxShearStrainAngle:
 		return true
 	default:
 		return false
@@ -1201,6 +1201,9 @@ type CustomScale struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomScale) ApplyDefaults() {
+	if c.CustomScale.Variant == nil {
+		c.CustomScale.Variant = ScaleNone{}
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -1845,6 +1848,9 @@ func (a *AIThermocoupleChannel) ApplyDefaults() {
 	}
 	if a.ThermocoupleType == "" {
 		a.ThermocoupleType = ThermocoupleTypeJ
+	}
+	if a.Cjc.Variant == nil {
+		a.Cjc.Variant = CJCBuiltIn{}
 	}
 	a.MinMaxVal.ApplyDefaults()
 }
