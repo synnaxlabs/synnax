@@ -846,9 +846,9 @@ describe("queries", () => {
     });
   });
 
-  describe("useResultGroupID", () => {
+  describe("useGroupID", () => {
     it("should retrieve the group ID", async () => {
-      const { result } = renderHook(() => Device.useResultGroupID({}).data, {
+      const { result } = await renderHookSuspended(() => Device.useGroupID({}), {
         wrapper,
       });
       await waitFor(() => expect(result.current?.type).toEqual("group"));

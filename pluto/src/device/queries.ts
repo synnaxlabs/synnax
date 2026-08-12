@@ -115,7 +115,7 @@ export const { useUpdate: useCreate } = createCreate();
 
 export type UseRetrieveGroupParams = Record<string, never>;
 
-export const { useResult: useResultGroupID } = Flux.createRetrieve<
+export const { use: useGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
   ontology.ID | undefined
 >({

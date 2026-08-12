@@ -172,15 +172,15 @@ export interface EditableTabNameService {
 }
 
 export const createEditableTabName = (
-  service: EditableTabNameService,
+  { useEnsure, useName, useRename }: EditableTabNameService,
   icon: Icon.ReactElement,
 ): TabName => {
   const Name: TabName = ({ allowRename = true }) => {
     const tabKey = Panel.useTabKey();
     const { key } = Panel.useTabResource();
-    service.useEnsure({ key });
-    const name = service.useName({ key });
-    const { update } = service.useRename();
+    useEnsure({ key });
+    const name = useName({ key });
+    const { update } = useRename();
     return (
       <>
         {icon}

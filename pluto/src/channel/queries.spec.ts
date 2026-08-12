@@ -1260,24 +1260,32 @@ describe("queries", () => {
     });
   });
 
-  describe("useResultGroup", () => {
+  describe("useGroup", () => {
     it("should retrieve the channel group", async () => {
-      const { result } = renderHook(() => Channel.useResultGroup({}).data, { wrapper });
-      await waitFor(() => expect(result.current).toBeDefined());
+      const { result } = await renderHookSuspended(() => Channel.useGroup({}), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current).not.toBeNull());
       expect(result.current?.key).toBeDefined();
       expect(result.current?.name).toEqual("Channels");
     });
 
     it("should serve the same group to a second caller", async () => {
-      const { result: result1 } = renderHook(() => Channel.useResultGroup({}).data, {
-        wrapper,
-      });
-      await waitFor(() => expect(result1.current).toBeDefined());
+      const { result: result1 } = await renderHookSuspended(
+        () => Channel.useGroup({}),
+        {
+          wrapper,
+        },
+      );
+      await waitFor(() => expect(result1.current).not.toBeNull());
       const firstGroup = result1.current;
 
-      const { result: result2 } = renderHook(() => Channel.useResultGroup({}).data, {
-        wrapper,
-      });
+      const { result: result2 } = await renderHookSuspended(
+        () => Channel.useGroup({}),
+        {
+          wrapper,
+        },
+      );
       await waitFor(() => expect(result2.current?.key).toEqual(firstGroup?.key));
     });
   });
