@@ -177,9 +177,9 @@ constexpr const char *ROSETTE_TYPE_RECTANGULAR = "RectangularRosette";
 constexpr const char *ROSETTE_TYPE_DELTA = "DeltaRosette";
 constexpr const char *ROSETTE_TYPE_TEE = "TeeRosette";
 
-constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_1 = "PrincipleStrain1";
-constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_2 = "PrincipleStrain2";
-constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_ANGLE = "PrincipleStrainAngle";
+constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_1 = "PrincipalStrain1";
+constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_2 = "PrincipalStrain2";
+constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_ANGLE = "PrincipalStrainAngle";
 constexpr const char *ROSETTE_MEAS_TYPE_CARTESIAN_STRAIN_X = "CartesianStrainX";
 constexpr const char *ROSETTE_MEAS_TYPE_CARTESIAN_STRAIN_Y = "CartesianStrainY";
 constexpr const char

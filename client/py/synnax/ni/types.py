@@ -1019,7 +1019,7 @@ class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
         ...     terminal_config="Diff",
         ...     rosette_type="RectangularRosette",
         ...     gage_orientation=0.0,  # degrees
-        ...     rosette_meas_types=["PrincipleStrain1", "PrincipleStrain2", "MaxShearStrain"],
+        ...     rosette_meas_types=["PrincipalStrain1", "PrincipalStrain2", "MaxShearStrain"],
         ...     strain_config="QuarterBridgeI",
         ...     units="Strain",
         ...     voltage_excit_source="Internal",
@@ -1054,9 +1054,9 @@ class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
     gage_orientation: float
     rosette_meas_types: list[
         Literal[
-            "PrincipleStrain1",
-            "PrincipleStrain2",
-            "PrincipleStrainAngle",
+            "PrincipalStrain1",
+            "PrincipalStrain2",
+            "PrincipalStrainAngle",
             "CartesianStrainX",
             "CartesianStrainY",
             "CartesianShearStrainXY",

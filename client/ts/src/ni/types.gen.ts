@@ -175,9 +175,9 @@ export const rosetteTypeZ = z.enum(ROSETTE_TYPES);
 export type RosetteType = z.infer<typeof rosetteTypeZ>;
 
 export const ROSETTE_MEAS_TYPES = [
-  "PrincipleStrain1",
-  "PrincipleStrain2",
-  "PrincipleStrainAngle",
+  "PrincipalStrain1",
+  "PrincipalStrain2",
+  "PrincipalStrainAngle",
   "CartesianStrainX",
   "CartesianStrainY",
   "CartesianShearStrainXY",

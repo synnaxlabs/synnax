@@ -343,12 +343,12 @@ ROSETTE_TYPE_TEE: Literal["TeeRosette"] = "TeeRosette"
 
 RosetteType = Literal["RectangularRosette", "DeltaRosette", "TeeRosette"]
 
-ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_1: Literal["PrincipleStrain1"] = "PrincipleStrain1"
+ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_1: Literal["PrincipalStrain1"] = "PrincipalStrain1"
 
-ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_2: Literal["PrincipleStrain2"] = "PrincipleStrain2"
+ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_2: Literal["PrincipalStrain2"] = "PrincipalStrain2"
 
-ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_ANGLE: Literal["PrincipleStrainAngle"] = (
-    "PrincipleStrainAngle"
+ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_ANGLE: Literal["PrincipalStrainAngle"] = (
+    "PrincipalStrainAngle"
 )
 
 ROSETTE_MEAS_TYPE_CARTESIAN_STRAIN_X: Literal["CartesianStrainX"] = "CartesianStrainX"
@@ -367,9 +367,9 @@ ROSETTE_MEAS_TYPE_MAX_SHEAR_STRAIN_ANGLE: Literal["MaxShearStrainAngle"] = (
 
 
 RosetteMeasType = Literal[
-    "PrincipleStrain1",
-    "PrincipleStrain2",
-    "PrincipleStrainAngle",
+    "PrincipalStrain1",
+    "PrincipalStrain2",
+    "PrincipalStrainAngle",
     "CartesianStrainX",
     "CartesianStrainY",
     "CartesianShearStrainXY",

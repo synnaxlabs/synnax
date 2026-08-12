@@ -248,9 +248,9 @@ RosetteType enum {
 }
 
 RosetteMeasType enum {
-    principle_strain_1        = "PrincipleStrain1"
-    principle_strain_2        = "PrincipleStrain2"
-    principle_strain_angle    = "PrincipleStrainAngle"
+    principal_strain_1        = "PrincipalStrain1"
+    principal_strain_2        = "PrincipalStrain2"
+    principal_strain_angle    = "PrincipalStrainAngle"
     cartesian_strain_x        = "CartesianStrainX"
     cartesian_strain_y        = "CartesianStrainY"
     cartesian_shear_strain_xy = "CartesianShearStrainXY"

@@ -593,9 +593,9 @@ func (r RosetteType) IsValid() bool {
 type RosetteMeasType string
 
 const (
-	RosetteMeasTypePrincipleStrain1       RosetteMeasType = "PrincipleStrain1"
-	RosetteMeasTypePrincipleStrain2       RosetteMeasType = "PrincipleStrain2"
-	RosetteMeasTypePrincipleStrainAngle   RosetteMeasType = "PrincipleStrainAngle"
+	RosetteMeasTypePrincipalStrain1       RosetteMeasType = "PrincipalStrain1"
+	RosetteMeasTypePrincipalStrain2       RosetteMeasType = "PrincipalStrain2"
+	RosetteMeasTypePrincipalStrainAngle   RosetteMeasType = "PrincipalStrainAngle"
 	RosetteMeasTypeCartesianStrainX       RosetteMeasType = "CartesianStrainX"
 	RosetteMeasTypeCartesianStrainY       RosetteMeasType = "CartesianStrainY"
 	RosetteMeasTypeCartesianShearStrainXY RosetteMeasType = "CartesianShearStrainXY"
@@ -607,7 +607,7 @@ const (
 // values.
 func (r RosetteMeasType) IsValid() bool {
 	switch r {
-	case RosetteMeasTypePrincipleStrain1, RosetteMeasTypePrincipleStrain2, RosetteMeasTypePrincipleStrainAngle, RosetteMeasTypeCartesianStrainX, RosetteMeasTypeCartesianStrainY, RosetteMeasTypeCartesianShearStrainXY, RosetteMeasTypeMaxShearStrain, RosetteMeasTypeMaxShearStrainAngle:
+	case RosetteMeasTypePrincipalStrain1, RosetteMeasTypePrincipalStrain2, RosetteMeasTypePrincipalStrainAngle, RosetteMeasTypeCartesianStrainX, RosetteMeasTypeCartesianStrainY, RosetteMeasTypeCartesianShearStrainXY, RosetteMeasTypeMaxShearStrain, RosetteMeasTypeMaxShearStrainAngle:
 		return true
 	default:
 		return false
