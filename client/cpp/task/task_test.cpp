@@ -323,7 +323,7 @@ TEST(TaskTests, testToProtoReportsBadConfig) {
 /// @brief it should report command arguments that do not convert.
 TEST(CommandTests, testToProtoReportsBadArgs) {
     const Command c{
-        .task = 1,
+        .task = x::uuid::create(),
         .type = "start",
         .args = x::json::deeply_nested_object()
     };
