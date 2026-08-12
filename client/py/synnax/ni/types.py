@@ -485,7 +485,6 @@ class AIForceBridgePolynomialChan(BaseAIChan, MinMaxVal):
         >>> force_poly_chan = AIForceBridgePolynomialChan(
         ...     port=0,
         ...     channel=0,
-        ...     terminal_config="Diff",
         ...     units="Newtons",
         ...     bridge_config="FullBridge",
         ...     voltage_excit_source="Internal",
@@ -499,7 +498,6 @@ class AIForceBridgePolynomialChan(BaseAIChan, MinMaxVal):
         ...     max_val=500.0
         ... )
 
-    :param terminal_config: Input terminal configuration
     :param units: Output force units (Newtons, Pounds, KilogramForce)
     :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
     :param voltage_excit_source: Excitation voltage source
@@ -515,7 +513,6 @@ class AIForceBridgePolynomialChan(BaseAIChan, MinMaxVal):
     """
 
     type: Literal["ai_force_bridge_polynomial"] = "ai_force_bridge_polynomial"
-    terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Newtons", "Pounds", "KilogramForce"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
     voltage_excit_source: ExcitationSource
