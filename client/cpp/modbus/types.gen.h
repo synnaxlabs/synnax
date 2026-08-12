@@ -157,7 +157,7 @@ OutputChannel parse_output_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const OutputChannel &value);
 
 /// @brief ReadConfig configures a Modbus read task.
-struct ReadConfig : public ::synnax::common::BaseReadConfig {
+struct ReadConfig : public ::synnax::task::common::BaseReadConfig {
     /// @brief device is the key of the device the task acquires from.
     ::synnax::device::Key device = "";
     /// @brief channels are the input channels the task acquires.
@@ -168,7 +168,7 @@ struct ReadConfig : public ::synnax::common::BaseReadConfig {
 };
 
 /// @brief WriteConfig configures a Modbus write task.
-struct WriteConfig : public ::synnax::common::BaseWriteConfig {
+struct WriteConfig : public ::synnax::task::common::BaseWriteConfig {
     /// @brief channels are the output channels the task drives.
     std::vector<OutputChannel> channels;
 

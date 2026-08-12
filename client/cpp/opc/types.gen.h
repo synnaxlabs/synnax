@@ -70,7 +70,7 @@ struct OutputChannel : public BaseChannel {
 };
 
 /// @brief ReadConfig configures an OPC UA read task.
-struct ReadConfig : public ::synnax::common::BaseReadConfig {
+struct ReadConfig : public ::synnax::task::common::BaseReadConfig {
     /// @brief device is the key of the device representing the OPC UA server.
     ::synnax::device::Key device = "";
     /// @brief array_mode is true when each read returns an array of samples per node.
@@ -86,7 +86,7 @@ struct ReadConfig : public ::synnax::common::BaseReadConfig {
 };
 
 /// @brief WriteConfig configures an OPC UA write task.
-struct WriteConfig : public ::synnax::common::BaseWriteConfig {
+struct WriteConfig : public ::synnax::task::common::BaseWriteConfig {
     /// @brief channels are the OPC UA nodes the task drives.
     std::vector<OutputChannel> channels;
 

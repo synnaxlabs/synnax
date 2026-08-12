@@ -15,7 +15,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
-namespace synnax::common {
+namespace synnax::task::common {
 
 struct BaseStartConfig;
 struct BasePersistConfig;

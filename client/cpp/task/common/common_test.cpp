@@ -12,7 +12,7 @@
 #include "client/cpp/task/common/json.gen.h"
 #include "x/cpp/json/json.h"
 
-namespace synnax::common {
+namespace synnax::task::common {
 /// @brief it should parse the generated BaseStartConfig with auto_start present.
 TEST(BaseStartConfig, testParseWithAutoStart) {
     const auto json = nlohmann::json{{"auto_start", true}};
