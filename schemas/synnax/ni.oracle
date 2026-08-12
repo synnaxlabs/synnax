@@ -730,7 +730,7 @@ AIChannel union on type extends BaseAIChannel {
 
         @doc value "reads acceleration from a 4-wire DC-voltage accelerometer."
     }
-    ai_accel_charge extends MinMaxVal, CustomScale {
+    ai_accel_charge extends MinMaxVal, Terminal, CustomScale {
         units             AccelUnits = g {
             @doc value "are the units of the acceleration measurement."
         }

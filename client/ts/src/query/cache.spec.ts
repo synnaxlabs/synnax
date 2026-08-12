@@ -192,7 +192,7 @@ describe("Cache", () => {
       await cache.close();
     });
 
-    it("silences sets whose value equals the cached row", () => {
+    it("silences sets whose value equals the cached entry", () => {
       const cache = makeEngine();
       const table = cache.createTable<string, Doc>({ name: "docs" });
       const listener = vi.fn();

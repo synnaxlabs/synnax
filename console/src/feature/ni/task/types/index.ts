@@ -17,7 +17,9 @@ import { Task } from "@/platform/task";
 export const PREFIX = "ni";
 
 export type Units = ni.Units;
+export type AccelUnits = ni.AccelUnits;
 export type AccelSensitivityUnits = ni.AccelSensitivityUnits;
+export type ChargeUnits = ni.ChargeUnits;
 export type ForceUnits = ni.ForceUnits;
 export type ElectricalUnits = ni.ElectricalUnits;
 export type ShuntResistorLoc = ni.ShuntResistorLocation;
@@ -79,9 +81,6 @@ export const SCALE_SCHEMAS = {
   table: tableScaleZ,
 } as Record<ScaleType, z.ZodType<Scale>>;
 
-const NO_SCALE: Scale = { type: "none" };
-const BUILT_IN_CJC: CJC = { source: "built_in" };
-
 export const ZERO_SCALES = Object.fromEntries(
   ni.SCALE_TYPES.map((t) => [t, ni.SCALE_SCHEMAS[t].parse({ type: t })]),
 ) as Record<ScaleType, Scale>;
@@ -91,44 +90,46 @@ export type AIChannelType = ni.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
 
 // A complete default channel for every generated type, derived from the schema
-// defaults. The console only offers the types in AI_CHANNEL_TYPE_NAMES; the rest exist
-// so configs created by the Python client or the Driver still round-trip.
+// defaults.
 export const ZERO_AI_CHANNELS = Object.fromEntries(
-  ni.AI_CHANNEL_TYPES.map((t) => [
-    t,
-    ni.AI_CHANNEL_SCHEMAS[t].parse({
-      type: t,
-      customScale: NO_SCALE,
-      cjc: BUILT_IN_CJC,
-    }),
-  ]),
+  ni.AI_CHANNEL_TYPES.map((t) => [t, ni.AI_CHANNEL_SCHEMAS[t].parse({ type: t })]),
 ) as Record<AIChannelType, AIChannel>;
 export const ZERO_AI_CHANNEL = ZERO_AI_CHANNELS.ai_voltage;
 
-export const AI_CHANNEL_TYPE_NAMES: Partial<Record<AIChannelType, string>> = {
+export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   ai_accel: "Accelerometer",
+  ai_accel_4_wire_dc_voltage: "Accelerometer 4-Wire DC Voltage",
+  ai_accel_charge: "Accelerometer Charge",
   ai_bridge: "Bridge",
+  ai_charge: "Charge",
   ai_current: "Current",
+  ai_current_rms: "Current RMS",
+  ai_force_bridge_polynomial: "Force Bridge Polynomial",
   ai_force_bridge_table: "Force Bridge Table",
   ai_force_bridge_two_point_lin: "Force Bridge Two-Point Linear",
   ai_force_iepe: "Force IEPE",
+  ai_freq_voltage: "Frequency Voltage",
   ai_microphone: "Microphone",
+  ai_pressure_bridge_polynomial: "Pressure Bridge Polynomial",
   ai_pressure_bridge_table: "Pressure Bridge Table",
   ai_pressure_bridge_two_point_lin: "Pressure Bridge Two-Point Linear",
   ai_resistance: "Resistance",
   ai_rtd: "RTD",
   ai_strain_gauge: "Strain Gauge",
   ai_temp_builtin: "Temperature Built-In Sensor",
+  ai_thermistor_iex: "Thermistor Current Excitation",
+  ai_thermistor_vex: "Thermistor Voltage Excitation",
   ai_thermocouple: "Thermocouple",
+  ai_torque_bridge_polynomial: "Torque Bridge Polynomial",
   ai_torque_bridge_table: "Torque Bridge Table",
   ai_torque_bridge_two_point_lin: "Torque Bridge Two-Point Linear",
   ai_velocity_iepe: "Velocity IEPE",
   ai_voltage: "Voltage",
+  ai_voltage_rms: "Voltage RMS",
+  ai_voltage_with_excit: "Voltage with Excitation",
 };
 
-// Total over every AIChannelType, including the Driver/Python-only types the console
-// does not offer in its select. Those reuse their measurement category's icon so a task
-// created elsewhere still renders.
+// Types without a dedicated icon reuse their measurement category's icon.
 export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   ai_accel: Icon.Units.Acceleration,
   ai_accel_4_wire_dc_voltage: Icon.Units.Acceleration,
@@ -181,10 +182,7 @@ export type CIDecodingType = ni.CIDecodingType;
 export const CI_CHANNEL_SCHEMAS = ni.CI_CHANNEL_SCHEMAS;
 
 export const ZERO_CI_CHANNELS = Object.fromEntries(
-  ni.CI_CHANNEL_TYPES.map((t) => [
-    t,
-    ni.CI_CHANNEL_SCHEMAS[t].parse({ type: t, customScale: NO_SCALE }),
-  ]),
+  ni.CI_CHANNEL_TYPES.map((t) => [t, ni.CI_CHANNEL_SCHEMAS[t].parse({ type: t })]),
 ) as Record<CIChannelType, CIChannel>;
 export const ZERO_CI_CHANNEL = ZERO_CI_CHANNELS.ci_frequency;
 
@@ -226,10 +224,7 @@ export const AO_CHANNEL_SCHEMAS = ni.AO_CHANNEL_SCHEMAS;
 export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
 
 export const ZERO_AO_CHANNELS = Object.fromEntries(
-  ni.AO_CHANNEL_TYPES.map((t) => [
-    t,
-    ni.AO_CHANNEL_SCHEMAS[t].parse({ type: t, customScale: NO_SCALE }),
-  ]),
+  ni.AO_CHANNEL_TYPES.map((t) => [t, ni.AO_CHANNEL_SCHEMAS[t].parse({ type: t })]),
 ) as Record<AOChannelType, AOChannel>;
 export const ZERO_AO_CHANNEL = ZERO_AO_CHANNELS.ao_voltage;
 
@@ -322,8 +317,7 @@ const ZERO_ANALOG_READ_CONFIG = ni.analogReadConfigZ.parse({});
 
 const analogReadStatusDataZ = z
   .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
-  .nullish()
-  .optional();
+  .nullish();
 
 export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
 

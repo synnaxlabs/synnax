@@ -326,9 +326,9 @@ describe("queries", () => {
     });
   });
 
-  describe("useResultGroupID", () => {
+  describe("useGroupID", () => {
     it("should correctly retrieve group ID", async () => {
-      const { result } = renderHook(() => Project.useResultGroupID({}).data, {
+      const { result } = await renderHookSuspended(() => Project.useGroupID({}), {
         wrapper,
       });
       await waitFor(() => {
