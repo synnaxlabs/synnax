@@ -553,7 +553,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			}
 			if toString {
 				zodType = fmt.Sprintf(
-					"%s.or(z.number().transform(String).or(z.bigint().transform(String)))",
+					"z.union([%s, z.number(), z.bigint()]).transform(String)",
 					zodType,
 				)
 			}
@@ -603,7 +603,10 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			)
 		}
 		if toString {
-			zodType = fmt.Sprintf("%s.or(z.number().transform(String))", zodType)
+			zodType = fmt.Sprintf(
+				"z.union([%s, z.number()]).transform(String)",
+				zodType,
+			)
 		}
 		return typeDefData{
 			Name:    td.Name,
