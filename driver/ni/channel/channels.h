@@ -167,13 +167,10 @@ struct PolynomialConfig {
         const ::synnax::ni::BridgePolynomial &b,
         const std::string &physical_units_str
     ):
-        forward_coeffs(b.forward_coeffs), reverse_coeffs(b.reverse_coeffs) {
-        const auto eu = channel::UNITS_MAP.find(b.electrical_units);
-        electrical_units = eu == channel::UNITS_MAP.end() ? DAQmx_Val_Volts
-                                                          : eu->second;
-        const auto pu = channel::UNITS_MAP.find(physical_units_str);
-        physical_units = pu == channel::UNITS_MAP.end() ? DAQmx_Val_Volts : pu->second;
-    }
+        forward_coeffs(b.forward_coeffs),
+        reverse_coeffs(b.reverse_coeffs),
+        electrical_units(units_or_volts(b.electrical_units)),
+        physical_units(units_or_volts(physical_units_str)) {}
 };
 
 struct TableConfig {
@@ -270,6 +267,14 @@ struct ApplyContext {
     /// propagation and as the DAQmx channel name.
     std::string cfg_path;
 };
+
+/// @brief prefixes an apply failure with the channel's config path, so the
+/// message names the channel the failure came from.
+inline x::errors::Error
+at_cfg_path(const x::errors::Error &err, const std::string &cfg_path) {
+    if (!err) return err;
+    return {err, cfg_path + ": " + err.data};
+}
 
 inline x::errors::Error apply(
     const ::synnax::ni::AIAccelChannel &ch,
@@ -2081,7 +2086,7 @@ struct Input {
     [[nodiscard]] x::errors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) const {
         const ApplyContext ctx{this->dev_loc, this->cfg_path};
-        return std::visit(
+        const auto err = std::visit(
             [&](const auto &u) {
                 return std::visit(
                     [&](const auto &v) {
@@ -2092,6 +2097,7 @@ struct Input {
             },
             this->channel
         );
+        return at_cfg_path(err, this->cfg_path);
     }
 };
 
@@ -2121,7 +2127,7 @@ struct Output {
     [[nodiscard]] x::errors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) const {
         const ApplyContext ctx{this->dev_loc, this->cfg_path};
-        return std::visit(
+        const auto err = std::visit(
             [&](const auto &u) {
                 return std::visit(
                     [&](const auto &v) {
@@ -2132,6 +2138,7 @@ struct Output {
             },
             this->channel
         );
+        return at_cfg_path(err, this->cfg_path);
     }
 };
 
