@@ -1100,8 +1100,8 @@ func (p *Plugin) toJSONExprForField(
 
 // hasRenderableDefault reports whether the field declares a default the parse
 // expression can honor. Struct and array defaults count (their branches render
-// them); identifier defaults count only when they resolve to an enum variant or
-// boolean literal, so sentinels like create do not relax a required field.
+// them); identifier defaults count only when they resolve to an enum variant, a
+// boolean literal, or the create sentinel on a UUID field.
 func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool {
 	if field.Default == nil {
 		return false
@@ -1161,7 +1161,13 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 		if v.IdentValue == "true" || v.IdentValue == "false" {
 			return v.IdentValue
 		}
-		// Unresolvable idents (magic defaults like create/now) have no C++
+		// The create sentinel mints a fresh UUID on parse, matching the TS
+		// (uuid.create) and Python (uuid4) generators.
+		if v.IdentValue == "create" &&
+			resolution.PrimitiveBase(field.Type, table) == "uuid" {
+			return "x::uuid::create()"
+		}
+		// Other unresolvable idents (magic defaults like now) have no C++
 		// rendering; the field stays required.
 		return ""
 	}
