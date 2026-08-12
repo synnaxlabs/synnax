@@ -320,6 +320,7 @@ var _ = Describe("Codec", func() {
 			Entry("ai_accel_charge variant", v2.AIChannel{Variant: v2.AIAccelChargeChannel{
 				BaseAIChannel:    fullyPopulatedBaseAIChannel,
 				MinMaxVal:        fullyPopulatedMinMaxVal,
+				Terminal:         fullyPopulatedTerminal,
 				CustomScale:      fullyPopulatedCustomScale,
 				Units:            v2.AccelUnits("g"),
 				Sensitivity:      2.5,
@@ -2524,6 +2525,7 @@ func FuzzDecodeAIChannel(f *testing.F) {
 		seed := v2.AIChannel{Variant: v2.AIAccelChargeChannel{
 			BaseAIChannel:    fullyPopulatedBaseAIChannel,
 			MinMaxVal:        fullyPopulatedMinMaxVal,
+			Terminal:         fullyPopulatedTerminal,
 			CustomScale:      fullyPopulatedCustomScale,
 			Units:            v2.AccelUnits("g"),
 			Sensitivity:      2.5,

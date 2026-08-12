@@ -53,7 +53,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>(
 
 export type UseRetrieveGroupParams = Record<string, never>;
 
-export const { useResult: useResultGroupID } = Flux.createRetrieve<
+export const { use: useGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
   ontology.ID | undefined
 >({

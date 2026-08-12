@@ -15,21 +15,23 @@ import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
-const Content = (): ReactElement => {
-  const { data: groupID } = Device.useResultGroupID({});
-  return (
-    <Toolbar.Content>
-      <Toolbar.Header>
-        <Toolbar.Title>
-          <Icon.Device />
-          Devices
-        </Toolbar.Title>
-      </Toolbar.Header>
-      <Toolbar.Body>
-        <Tree.Tree root={groupID} />
-      </Toolbar.Body>
-    </Toolbar.Content>
-  );
+const Content = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header>
+      <Toolbar.Title>
+        <Icon.Device />
+        Devices
+      </Toolbar.Title>
+    </Toolbar.Header>
+    <Toolbar.Body>
+      <Body />
+    </Toolbar.Body>
+  </Toolbar.Content>
+);
+
+const Body = (): ReactElement => {
+  const groupID = Device.useGroupID({});
+  return <Tree.Tree root={groupID} />;
 };
 
 export const TOOLBAR: Nav.Toolbar = {
