@@ -77,6 +77,33 @@ var _ = Describe("Type Definition Generation", func() {
 		)
 	})
 
+	Describe("Union field defaults", func() {
+		It(
+			"Should prefault a union-typed field with its variant discriminator",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				CJC union on source {
+					built_in {}
+					const_val {
+						val float64 = 0
+					}
+				}
+
+				Item struct {
+					cjc CJC = const_val
+				}
+			`
+				resp := MustGenerate(ctx, source, "cjc", loader, p)
+				content := MustContentOf(resp, "types.gen.ts")
+				Expect(content).To(ContainSubstring(
+					`prefault({ source: "const_val" })`,
+				))
+			},
+		)
+	})
+
 	Describe("Aliased array types", func() {
 		It(
 			"Should render an array alias as a defaulted z.array",

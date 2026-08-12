@@ -29,8 +29,8 @@ var AnalogRead = legacy.Rewrite{Post: analogRead}
 var Scanner = legacy.Scan
 
 // analogRead copies the v0 config-level device onto every channel missing one,
-// replaces the renamed AI type alias, and collapses the flat cold-junction fields
-// into their union.
+// replaces the renamed AI type alias, rewrites the charge units, and collapses the
+// flat cold-junction fields into their union.
 func analogRead(config msgpack.EncodedJSON) {
 	device, hasDevice := config["device"]
 	delete(config, "device")
@@ -43,8 +43,25 @@ func analogRead(config msgpack.EncodedJSON) {
 		if ch["type"] == "ai_frequency_voltage" {
 			ch["type"] = "ai_freq_voltage"
 		}
+		rewriteChargeUnits(ch)
 		collapseCJC(ch)
 	})
+}
+
+// rewriteChargeUnits replaces a charge channel's released unit strings with the DAQmx
+// names. "C" resolved to Celsius in the Driver's unit table, so a released charge
+// channel measured temperature; "uC" resolved to nothing and DAQmx has no
+// micro-coulomb unit, so PicoCoulombs is the nearest real one.
+func rewriteChargeUnits(ch msgpack.EncodedJSON) {
+	if ch["type"] != "ai_charge" {
+		return
+	}
+	switch ch["units"] {
+	case "C":
+		ch["units"] = "Coulombs"
+	case "uC":
+		ch["units"] = "PicoCoulombs"
+	}
 }
 
 // collapseCJC replaces a thermocouple channel's flat cjc_source, cjc_val, and

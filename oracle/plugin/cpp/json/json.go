@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
+	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/framework"
@@ -762,9 +763,23 @@ func (p *Plugin) parseExprForField(
 				)
 			}
 			if hasDefault {
+				// std::variant default-constructs its first alternative, so a
+				// default naming any other variant must be written out.
+				fallback := cppType + "{}"
+				if uv, ok := validation.ResolveUnionVariant(
+					defaultIdent(field),
+					field.Type,
+					data.table,
+				); ok {
+					fallback = fmt.Sprintf(
+						"%s{%s{}}",
+						cppType,
+						cppnaming.QualifiedVariantTypeName(cppType, uv.Variant.Name),
+					)
+				}
 				return fmt.Sprintf(
-					`parser.has("%s") ? %s(parser.child("%s")) : %s{}`,
-					jsonName, parseFn, jsonName, cppType,
+					`parser.has("%s") ? %s(parser.child("%s")) : %s`,
+					jsonName, parseFn, jsonName, fallback,
 				)
 			}
 			return fmt.Sprintf(`%s(parser.child("%s"))`, parseFn, jsonName)
@@ -1112,6 +1127,15 @@ func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool 
 	return jsonDefaultLiteral(field, table) != ""
 }
 
+// defaultIdent returns the field's identifier default, or "" when it has no
+// default or the default is not an identifier.
+func defaultIdent(field resolution.Field) string {
+	if field.Default == nil || field.Default.Kind != resolution.ValueKindIdent {
+		return ""
+	}
+	return field.Default.IdentValue
+}
+
 // isScalarDefault reports whether the default renders as a bare string, integer,
 // or float literal, the three kinds a distinct type's constructor must wrap.
 func isScalarDefault(val *resolution.ExpressionValue) bool {
@@ -1166,6 +1190,15 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 		if v.IdentValue == "create" &&
 			resolution.PrimitiveBase(field.Type, table) == "uuid" {
 			return "x::uuid::create()"
+		}
+		// A union default renders in the union parse branch, not as a
+		// parser.field fallback, so report it renderable without a literal here.
+		if _, ok := validation.ResolveUnionVariant(
+			v.IdentValue,
+			field.Type,
+			table,
+		); ok {
+			return "{}"
 		}
 		// Other unresolvable idents (magic defaults like now) have no C++
 		// rendering; the field stays required.

@@ -10,6 +10,7 @@
 package analyzer
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -81,6 +82,100 @@ func checkDefaultInvariant(c *analysisCtx) {
 					"the default to the type's zero value.",
 				f.Name, typ.Name, reason,
 			))
+		}
+	}
+}
+
+// identDefaultSentinels are the identifier defaults the generators compute at a
+// boundary rather than resolving against the field's type.
+var identDefaultSentinels = []string{"create", "now", "true", "false"}
+
+// checkIdentDefaultResolves enforces that an identifier default names something the
+// generators can emit: an enum member, a union variant, or a boundary sentinel. Each
+// plugin renders an identifier default from its own resolve-or-fall-through branch, so
+// an unresolvable identifier is not a hard error anywhere. It generates nothing, in
+// every language, with no diagnostic. Rejecting it here is what keeps a typo, or a
+// language a feature was never wired into, from shipping as a silently missing default.
+func checkIdentDefaultResolves(c *analysisCtx) {
+	forEachDefaultedField(c, func(typ resolution.Type, f resolution.Field) {
+		if f.Default.Kind != resolution.ValueKindIdent {
+			return
+		}
+		ident := f.Default.IdentValue
+		if lo.Contains(identDefaultSentinels, ident) {
+			return
+		}
+		if _, ok := validation.ResolveEnumVariant(ident, f.Type, c.table); ok {
+			return
+		}
+		if _, ok := validation.ResolveUnionVariant(ident, f.Type, c.table); ok {
+			return
+		}
+		c.diag.Add(diagnostics.Errorf(
+			nil,
+			"default %q on field %q in %q names neither a member of its enum type nor a "+
+				"variant of its union type. Check the spelling against the type's "+
+				"declaration.",
+			ident,
+			f.Name,
+			typ.Name,
+		))
+	})
+}
+
+// checkUnionDefaultConstructible enforces that every field of the variant a union
+// default names is itself defaulted or optional. TypeScript and Python build the
+// default value eagerly, so a variant carrying a required undefaulted field yields a
+// schema that throws the first time anything constructs it. Go and C++ would emit a
+// zero-valued struct instead, so the shapes disagree across languages as well.
+func checkUnionDefaultConstructible(c *analysisCtx) {
+	forEachDefaultedField(c, func(typ resolution.Type, f resolution.Field) {
+		if f.Default.Kind != resolution.ValueKindIdent {
+			return
+		}
+		uv, ok := validation.ResolveUnionVariant(f.Default.IdentValue, f.Type, c.table)
+		if !ok {
+			return
+		}
+		payload, ok := uv.Variant.Type.Resolve(c.table)
+		if !ok {
+			return
+		}
+		for _, vf := range resolution.UnifiedFields(payload, c.table) {
+			if vf.Default != nil || vf.Optional {
+				continue
+			}
+			c.diag.Add(diagnostics.Errorf(
+				nil,
+				"field %q in %q defaults to union variant %q, whose field %q is required "+
+					"and has no default, so the default value cannot be constructed. Give "+
+					"%q a default, make it optional, or default to another variant.",
+				f.Name,
+				typ.Name,
+				uv.Variant.Name,
+				vf.Name,
+				vf.Name,
+			))
+		}
+	})
+}
+
+// forEachDefaultedField calls fn for every field carrying a default on every struct
+// declared in the namespace under analysis.
+func forEachDefaultedField(c *analysisCtx, fn func(resolution.Type, resolution.Field)) {
+	for _, typ := range c.table.Types {
+		if typ.Namespace != c.namespace {
+			continue
+		}
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		for _, f := range form.Fields {
+			if f.Default == nil {
+				continue
+			}
+			fn(typ, f)
 		}
 	}
 }

@@ -825,6 +825,37 @@ var _ = Describe("Python Types Plugin", func() {
 		)
 
 		It(
+			"Should qualify a union default whose union lives in another module",
+			func(ctx SpecContext) {
+				loader.Add("schemas/common", `
+				@py output "client/py/synnax/common"
+
+				Scale union on type {
+					none {}
+					linear {
+						slope float64 = 1
+					}
+				}
+			`)
+				source := `
+				import "schemas/common"
+
+				@py output "client/py/synnax/ni"
+
+				Channel struct {
+					scale common.Scale = none
+				}
+			`
+				resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+				content := MustContentOf(resp, "types_gen.py")
+				Expect(content).To(ContainSubstring(`from synnax import common`))
+				Expect(content).To(ContainSubstring(
+					`default_factory=lambda: common.ScaleNone(type="none")`,
+				))
+			},
+		)
+
+		It(
 			"Should inline parent fields when child makes required fields optional",
 			func(ctx SpecContext) {
 				source := `
@@ -2132,6 +2163,19 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 				resp,
 				"types_gen.py",
 			).ToContain("scales: list[Scale] = Field(default_factory=list)")
+		},
+	)
+
+	It(
+		"Should default a union-typed field to a factory constructing the variant",
+		func(ctx SpecContext) {
+			withDefault := source + `
+			Item struct { scale Scale = none }
+		`
+			resp := MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`default_factory=lambda: ScaleNone(type="none")`,
+			)
 		},
 	)
 })
