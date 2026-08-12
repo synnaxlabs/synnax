@@ -260,29 +260,6 @@ ChargeUnits enum {
     @go version 0
 }
 
-RosetteType enum {
-    rectangular = "RectangularRosette"
-    delta       = "DeltaRosette"
-    tee         = "TeeRosette"
-
-    @doc value  "selects the geometric arrangement of a strain-gauge rosette."
-    @go version 0
-}
-
-RosetteMeasType enum {
-    principal_strain_1        = "PrincipalStrain1"
-    principal_strain_2        = "PrincipalStrain2"
-    principal_strain_angle    = "PrincipalStrainAngle"
-    cartesian_strain_x        = "CartesianStrainX"
-    cartesian_strain_y        = "CartesianStrainY"
-    cartesian_shear_strain_xy = "CartesianShearStrainXY"
-    max_shear_strain          = "MaxShearStrain"
-    max_shear_strain_angle    = "MaxShearStrainAngle"
-
-    @doc value  "selects a quantity computed from a strain-gauge rosette."
-    @go version 0
-}
-
 LinearScale struct {
     slope            float64 = 1 {
         @doc value "is the multiplier applied to the raw value."
@@ -818,37 +795,6 @@ AIChannel union on type extends BaseAIChannel {
         }
 
         @doc value "reads pressure from a bridge with polynomial calibration."
-    }
-    ai_rosette_strain_gage extends MinMaxVal, Terminal, VoltageExcitation {
-        rosette_type            RosetteType = rectangular {
-            @doc value "selects the rosette geometry."
-        }
-        gage_orientation        float64 = 0 {
-            @doc value "is the orientation of gauge element 0, in degrees."
-        }
-        rosette_meas_types      RosetteMeasType[] = [] {
-            @doc value "are the quantities to compute from the rosette."
-        }
-        strain_config           StrainConfig = full_bridge_i {
-            @doc value "selects the bridge configuration of each gauge element."
-        }
-        units                   Units = strain {
-            @doc value "are the units of the strain measurement."
-        }
-        nominal_gage_resistance float64 = 0 {
-            @doc value "is the nominal gauge resistance, in ohms."
-        }
-        poisson_ratio           float64 = 0 {
-            @doc value "is the Poisson ratio of the test material."
-        }
-        lead_wire_resistance    float64 = 0 {
-            @doc value "is the resistance of the lead wires, in ohms."
-        }
-        gage_factor             float64 = 0 {
-            @doc value "is the gauge factor of the rosette."
-        }
-
-        @doc value "reads strain from a strain-gauge rosette."
     }
     ai_thermistor_iex extends MinMaxVal, Resistance, CurrentExcitation {
         units TemperatureUnits = deg_c {
