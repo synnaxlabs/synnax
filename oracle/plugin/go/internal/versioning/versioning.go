@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package versioning resolves per-resource schema versions (@go version N) and rewrites
+// Package versioning resolves per-resource schema versions from the version chains and
+// rewrites
 //
 //	@go	output paths so that versioned packages emit into versions/vN/ sub-packages.
 //
@@ -18,6 +19,7 @@
 package versioning
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,22 +30,9 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/oracle/versions"
+	"github.com/synnaxlabs/x/set"
 )
-
-// Version returns the declared @go version for a type, or false when the type's file
-// declares none.
-func Version(t resolution.Type) (int, bool) {
-	dom, ok := t.Domains["go"]
-	if !ok {
-		return 0, false
-	}
-	expr, ok := dom.Expressions.Find("version")
-	if !ok || len(expr.Values) == 0 {
-		return 0, false
-	}
-	return int(expr.Values[0].IntValue), true
-}
 
 // Dir returns the version sub-directory name for version n ("v3").
 func Dir(n int) string { return fmt.Sprintf("v%d", n) }
@@ -78,81 +67,76 @@ func VersionDirs(repoRoot, goPath string) ([]int, error) {
 	return versions, nil
 }
 
-// EntryPaths maps every version-laid-out @go output path in the table to its declared
-// version. These packages emit their current version into versions/vN. It errors when
-// two types at the same path disagree on the version, when a declared version is
-// negative, or when a @go migrate entry lacks a version.
-func EntryPaths(table *resolution.Table) (map[string]int, error) {
-	versions := make(map[string]int)
-	declared := make(map[string]string)
-	for _, t := range table.TypesWithDomain("go") {
-		goPath := output.GetPath(t, "go")
-		if goPath == "" {
-			continue
-		}
-		v, ok := Version(t)
-		if !ok {
-			continue
-		}
-		if v < 0 {
-			return nil, errors.Newf(
-				"%s: @go version must be a non-negative integer, got %d",
-				t.QualifiedName, v,
-			)
-		}
-		if prev, ok := versions[goPath]; ok && prev != v {
-			return nil, errors.Newf(
-				"conflicting @go version declarations for %s: %s declares %d, %s declares %d",
-				goPath,
-				declared[goPath],
-				prev,
-				t.QualifiedName,
-				v,
-			)
-		}
-		versions[goPath] = v
-		declared[goPath] = t.QualifiedName
+// Survey reads the version chains: entries maps every chain-covered @go
+// output path to its chain's current version, and members holds the qualified
+// name of every current-surface member. Both are empty without a resolver.
+func Survey(
+	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+) (entries map[string]int, members set.Set[string], err error) {
+	entries, members = make(map[string]int), make(set.Set[string])
+	if res == nil {
+		return entries, members, nil
 	}
-	return versions, nil
+	for livePath, chain := range res.Chains() {
+		surf, err := res.Surface(ctx, livePath, chain.Current())
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, t := range table.Types {
+			if t.FilePath != livePath+".oracle" {
+				continue
+			}
+			if _, member := surf[t.Name]; !member {
+				continue
+			}
+			members.Add(t.QualifiedName)
+			if goPath := output.GetPath(t, "go"); goPath != "" {
+				entries[goPath] = chain.Current()
+			}
+		}
+	}
+	return entries, members, nil
 }
 
-// currentPathMap maps each version-laid-out path to its current versions/vN sub-path.
-func currentPathMap(table *resolution.Table) (map[string]string, error) {
-	entries, err := EntryPaths(table)
+// EntryPaths maps every chain-covered versioned @go output path to its
+// chain's current version. These packages emit their current version into
+// versions/vN.
+func EntryPaths(
+	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+) (map[string]int, error) {
+	entries, _, err := Survey(ctx, table, res)
+	return entries, err
+}
+
+// RewriteCurrent returns a table with every version-laid-out package's @go output
+// rewritten to its current versions/vN sub-path, plus the applied path map keyed
+// by original path and the current-surface member set.
+func RewriteCurrent(
+	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+) (*resolution.Table, map[string]string, set.Set[string], error) {
+	entries, members, err := Survey(ctx, table, res)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	pathMap := make(map[string]string, len(entries))
 	for goPath, v := range entries {
 		pathMap[goPath] = VersionedPath(goPath, v)
 	}
-	return pathMap, nil
-}
-
-// RewriteCurrent returns a table with every version-laid-out package's @go output
-// rewritten to its current versions/vN sub-path, plus the applied path map keyed by
-// original path.
-func RewriteCurrent(
-	table *resolution.Table,
-) (*resolution.Table, map[string]string, error) {
-	pathMap, err := currentPathMap(table)
-	if err != nil {
-		return nil, nil, err
-	}
 	if len(pathMap) == 0 {
-		return table, pathMap, nil
+		return table, pathMap, members, nil
 	}
-	return RewriteOutputPaths(table, pathMap), pathMap, nil
+	return RewriteOutputPaths(table, pathMap, members), pathMap, members, nil
 }
 
 // RewriteOutputPaths clones table, replacing the @go output value of every
 // version-declaring type whose path appears in pathMap. Types at unmapped paths are
-// unchanged. Types that do not declare @go version also stay put: they are transient
+// unchanged. Non-member types also stay put: they are transient
 // (never persisted), living at the package root rather than the version layout even
 // when siblings at their path are versioned.
 func RewriteOutputPaths(
 	table *resolution.Table,
 	pathMap map[string]string,
+	members set.Set[string],
 ) *resolution.Table {
 	clone := &resolution.Table{
 		Imports:    table.Imports,
@@ -165,7 +149,7 @@ func RewriteOutputPaths(
 		// Omitted types carry no generated declaration; their hand-written homes follow
 		// the version layout (per-version alias files), so their references keep
 		// tracking the version directory.
-		if _, versioned := Version(typ); !versioned && !omit.IsHand(typ, "go") {
+		if !members.Contains(typ.QualifiedName) && !omit.IsHand(typ, "go") {
 			needsRewrite = false
 		}
 		if !needsRewrite {
@@ -206,22 +190,4 @@ func RewriteOutputPaths(
 		clone.Types = append(clone.Types, rewritten)
 	}
 	return clone
-}
-
-// TypesAtPath returns the declarable types whose @go output is path, keyed by bare type
-// name so tables compare across namespace reorganizations (a snapshot may predate a
-// schema-directory move).
-func TypesAtPath(table *resolution.Table, path string) map[string]resolution.Type {
-	result := make(map[string]resolution.Type)
-	for _, t := range table.TypesWithDomain("go") {
-		if output.GetPath(t, "go") != path {
-			continue
-		}
-		switch t.Form.(type) {
-		case resolution.StructForm, resolution.AliasForm, resolution.DistinctForm,
-			resolution.EnumForm, resolution.UnionForm:
-			result[t.Name] = t
-		}
-	}
-	return result
 }

@@ -20,69 +20,11 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/oracle/testutil"
+	"github.com/synnaxlabs/oracle/versions"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func analyze(
-	ctx context.Context,
-	source, namespace string,
-	loader *testutil.MockFileLoader,
-) (*resolution.Table, error) {
-	table, diag := analyzer.AnalyzeSource(ctx, source, namespace, loader)
-	if diag != nil && !diag.Ok() {
-		return nil, diag
-	}
-	return table, nil
-}
-
 var _ = Describe("Versioning", func() {
-	var loader *testutil.MockFileLoader
-
-	BeforeEach(func() { loader = testutil.NewMockFileLoader() })
-
-	Describe("Version", func() {
-		It("Should return the declared @go version", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-				    @go version 3
-					key uuid @key
-					name string
-				}
-			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			v := MustBeOk(versioning.Version(table.MustGet("test.Entry")))
-			Expect(v).To(Equal(3))
-		})
-
-		It(
-			"Should return false when the file declares no version",
-			func(ctx SpecContext) {
-				source := `
-				@go output "out"
-				Entry struct {
-					key uuid @key
-				}
-			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
-				_, ok := versioning.Version(table.MustGet("test.Entry"))
-				Expect(ok).To(BeFalse())
-			},
-		)
-
-		It("Should return false when the type has no go domain", func(ctx SpecContext) {
-			source := `
-				Entry struct {
-					key uuid @key
-				}
-			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			_, ok := versioning.Version(table.MustGet("test.Entry"))
-			Expect(ok).To(BeFalse())
-		})
-	})
-
 	Describe("Dir", func() {
 		It("Should format the version sub-directory name", func() {
 			Expect(versioning.Dir(0)).To(Equal("v0"))
@@ -113,164 +55,91 @@ var _ = Describe("Versioning", func() {
 		})
 	})
 
-	Describe("EntryPaths", func() {
-		It(
-			"Should map each versioned output path to its version",
-			func(ctx SpecContext) {
-				loader.Add("schemas/dep.oracle", `
-				@go output "dep"
-				Item struct {
-				    @go version 5
-					key uuid @key
-				}
-			`)
-				source := `
-				import "schemas/dep"
-				@go output "out"
-				Entry struct {
-				    @go version 3
-					key uuid @key
-					item dep.Item
-				}
-			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
-				Expect(versioning.EntryPaths(table)).To(Equal(
-					map[string]int{"out": 3, "dep": 5}))
-			},
+	Describe("Survey", func() {
+		var (
+			root string
+			res  *versions.Resolver
 		)
 
-		It(
-			"Should return an empty map when no versions are declared",
+		analyzeLive := func(ctx context.Context, source string) *resolution.Table {
+			GinkgoHelper()
+			table := resolution.NewTable()
+			diag := analyzer.AnalyzeSeeded(
+				ctx, source, "schemas/synnax/channel.oracle", "channel",
+				analyzer.NewStandardFileLoader(root), table,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			return table
+		}
+
+		BeforeEach(func(ctx SpecContext) {
+			root = GinkgoT().TempDir()
+			full := filepath.Join(root, "schemas/synnax/versions/channel")
+			Expect(os.MkdirAll(full, 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(full, "v0.oracle"), []byte(`
+Channel struct {
+	key uuid @key
+
+	@go marshal
+}
+`), 0o644)).To(Succeed())
+			chains := MustSucceed(versions.Discover(root))
+			res = versions.NewResolver(
+				chains, analyzer.NewStandardFileLoader(root),
+			)
+		})
+
+		const live = `
+@go output "out"
+
+Channel struct {
+	key uuid @key
+
+	@go marshal
+}
+
+Wire struct {
+	name string
+}
+`
+
+		It("Should map member output paths to the chain's current version",
 			func(ctx SpecContext) {
-				source := `
-				@go output "out"
-				Entry struct {
-					key uuid @key
-				}
-			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
-				Expect(versioning.EntryPaths(table)).To(BeEmpty())
-			},
-		)
+				table := analyzeLive(ctx, live)
+				entries, members := MustSucceed2(
+					versioning.Survey(ctx, table, res),
+				)
+				Expect(entries).To(Equal(map[string]int{"out": 0}))
+				Expect(members.Contains("channel.Channel")).To(BeTrue())
+				Expect(members.Contains("channel.Wire")).To(BeFalse())
+			})
 
-		It("Should error on a negative version", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					@go version -1
-					key uuid @key
-				}
-			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.EntryPaths(table)).Error().To(MatchError(
-				ContainSubstring("must be a non-negative integer")))
+		It("Should return nothing without a resolver", func(ctx SpecContext) {
+			table := analyzeLive(ctx, live)
+			entries, members := MustSucceed2(versioning.Survey(ctx, table, nil))
+			Expect(entries).To(BeEmpty())
+			Expect(members).To(BeEmpty())
 		})
 
-		It("Should error on conflicting versions at one path", func(ctx SpecContext) {
-			loader.Add("schemas/dep.oracle", `
-				@go output "out"
-				Item struct {
-				    @go version 2
-					key uuid @key
-				}
-			`)
-			source := `
-				import "schemas/dep"
-				@go output "out"
-				Entry struct {
-				    @go version 1
-					key uuid @key
-					item dep.Item
-				}
-			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.EntryPaths(table)).Error().To(MatchError(
-				ContainSubstring("conflicting @go version declarations for out")))
-		})
-	})
-
-	Describe("EntryPaths", func() {
-		It(
-			"Should include versioned paths containing a keyed struct",
+		It("Should rewrite member outputs and leave transient types",
 			func(ctx SpecContext) {
-				source := `
-				@go output "out"
-				Entry struct {
-				    @go version 3
-					key uuid @key
-					name string
-					@go marshal
-				}
-			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
-				Expect(versioning.EntryPaths(table)).To(Equal(map[string]int{"out": 3}))
-			},
-		)
+				table := analyzeLive(ctx, live)
+				rewritten, pathMap, members, err := versioning.RewriteCurrent(
+					ctx, table, res,
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pathMap).To(Equal(map[string]string{"out": "out/versions/v0"}))
+				Expect(members.Contains("channel.Channel")).To(BeTrue())
+				entry := rewritten.MustGet("channel.Channel")
+				Expect(output.GetPath(entry, "go")).To(Equal("out/versions/v0"))
+				wire := rewritten.MustGet("channel.Wire")
+				Expect(output.GetPath(wire, "go")).To(Equal("out"))
+			})
 
-		It(
-			"Should include versioned paths with no keyed struct",
-			func(ctx SpecContext) {
-				source := `
-				@go output "out"
-				Value struct {
-				    @go version 3
-					name string
-				}
-			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
-				Expect(versioning.EntryPaths(table)).To(Equal(map[string]int{"out": 3}))
-			},
-		)
-
-		It("Should exclude keyed structs with no version", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					key uuid @key
-				}
-			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.EntryPaths(table)).To(BeEmpty())
-		})
-	})
-
-	Describe("RewriteCurrent", func() {
-		It("Should rewrite only version-laid-out paths", func(ctx SpecContext) {
-			loader.Add("schemas/dep.oracle", `
-				@go output "dep"
-				Item struct {
-					name string
-				}
-			`)
-			source := `
-				import "schemas/dep"
-				@go output "out"
-				Entry struct {
-				    @go version 3
-					key uuid @key
-					item dep.Item
-					@go marshal
-				}
-			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			rewritten, pathMap := MustSucceed2(versioning.RewriteCurrent(table))
-			Expect(pathMap).To(Equal(map[string]string{"out": "out/versions/v3"}))
-			entry := rewritten.MustGet("test.Entry")
-			Expect(output.GetPath(entry, "go")).To(Equal("out/versions/v3"))
-			item := rewritten.MustGet("dep.Item")
-			Expect(output.GetPath(item, "go")).To(Equal("dep"))
-			Expect(output.GetPath(table.MustGet("test.Entry"), "go")).To(Equal("out"))
-		})
-
-		It("Should return the table unchanged with no versions", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					key uuid @key
-				}
-			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			rewritten, pathMap := MustSucceed2(versioning.RewriteCurrent(table))
+		It("Should return the table unchanged with no chains", func(ctx SpecContext) {
+			table := analyzeLive(ctx, live)
+			rewritten, pathMap, _, err := versioning.RewriteCurrent(ctx, table, nil)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(rewritten).To(BeIdenticalTo(table))
 			Expect(pathMap).To(BeEmpty())
 		})

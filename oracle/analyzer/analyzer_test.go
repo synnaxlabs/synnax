@@ -47,24 +47,21 @@ var _ = Describe("Analyzer", func() {
 		loader = NewMockFileLoader()
 	})
 
-	Describe("File-level version", func() {
-		It(
-			"Should error when @go version is declared file-level",
-			func(ctx SpecContext) {
-				source := `
+	Describe("Retired version tag", func() {
+		It("Should reject a file-level @go version", func(ctx SpecContext) {
+			source := `
 				@go output "out"
 				@go version 0
 				Entry struct {
 					value int32
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-				Expect(diag.Ok()).To(BeFalse())
-				Expect(diag.String()).To(ContainSubstring("declare it per type"))
-			},
-		)
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("retired @go version tag"))
+		})
 
-		It("Should accept struct-level @go version", func(ctx SpecContext) {
+		It("Should reject a struct-level @go version", func(ctx SpecContext) {
 			source := `
 				@go output "out"
 				Entry struct {
@@ -73,7 +70,8 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("retired @go version tag"))
 		})
 	})
 
@@ -219,54 +217,12 @@ Entry struct {
 		})
 	})
 
-	Describe("Version arguments", func() {
-		It("Should reject the retired pinned marker", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					value int32
-					@go version 0 pinned
-				}
-			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
-		})
-
-		It("Should error on an unknown version argument", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					value int32
-					@go version 0 pined
-				}
-			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
-		})
-
-		It("Should error on extra version arguments", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					value int32
-					@go version 0 pinned pinned
-				}
-			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.String()).To(ContainSubstring("malformed @go version"))
-		})
-	})
-
 	Describe("ImEx marker", func() {
-		It("Should accept a bare @go imex on a versioned type", func(ctx SpecContext) {
+		It("Should accept a bare @go imex", func(ctx SpecContext) {
 			source := `
 				@go output "out"
 				Entry struct {
 					value int32
-					@go version 2
 					@go imex
 				}
 			`
@@ -279,7 +235,6 @@ Entry struct {
 				@go output "out"
 				Entry struct {
 					value int32
-					@go version 2
 					@go imex 2
 				}
 			`
@@ -288,25 +243,12 @@ Entry struct {
 			Expect(diag.String()).To(ContainSubstring("malformed @go imex"))
 		})
 
-		It("Should accept @go imex without a @go version", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-					value int32
-					@go imex
-				}
-			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
-		})
-
 		It("Should error when @go imex is declared file-level", func(ctx SpecContext) {
 			source := `
 				@go output "out"
 				@go imex
 				Entry struct {
 					value int32
-					@go version 2
 				}
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)

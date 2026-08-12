@@ -11,6 +11,8 @@ package check_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,30 +20,42 @@ import (
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/resolution"
-	"github.com/synnaxlabs/oracle/testutil"
-	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/oracle/versions"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-// analyzeVersionFile analyzes source as a version file, where marshal tags
-// are legal.
-func analyzeVersionFile(
-	ctx context.Context, source, namespace string, loader analyzer.FileLoader,
-) (*resolution.Table, *diagnostics.Files) {
-	table := resolution.NewTable()
-	diag := analyzer.AnalyzeSeeded(
-		ctx, source, "schemas/synnax/versions/"+namespace+"/v0.oracle",
-		namespace, loader, table,
-	)
-	return table, diag
-}
-
 var _ = Describe("PersistenceGate", func() {
-	run := func(ctx context.Context, source string) check.GateReport {
+	var root string
+
+	BeforeEach(func() {
+		root = GinkgoT().TempDir()
+		dir := filepath.Join(root, "schemas/synnax/versions/channel")
+		Expect(os.MkdirAll(dir, 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "v0.oracle"), []byte(`
+Entry struct {
+	key uuid @key
+
+	@go marshal
+}
+`), 0o644)).To(Succeed())
+	})
+
+	run := func(ctx context.Context, live string) check.GateReport {
 		GinkgoHelper()
-		table, diag := analyzeVersionFile(
-			ctx, source, "test", testutil.NewMockFileLoader())
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			ctx, live, "schemas/synnax/channel.oracle", "channel",
+			analyzer.NewStandardFileLoader(root), table,
+		)
 		Expect(diag == nil || diag.Ok()).To(BeTrue())
-		r := &pipeline.Result{Resolutions: table}
+		chains := MustSucceed(versions.Discover(root))
+		r := &pipeline.Result{
+			Resolutions: table,
+			Chains:      chains,
+			Versions: versions.NewResolver(
+				chains, analyzer.NewStandardFileLoader(root),
+			),
+		}
 		return check.NewPersistenceGate(false).Run(ctx, r, check.Env{})
 	}
 
@@ -53,12 +67,12 @@ var _ = Describe("PersistenceGate", func() {
 		return out
 	}
 
-	It("Should pass a versioned persisted type", func(ctx SpecContext) {
+	It("Should pass a current-surface member", func(ctx SpecContext) {
 		r := run(ctx, `
 			@go output "out"
 			Entry struct {
-			    @go version 0
 				key uuid @key
+
 				@go marshal
 			}
 		`)
@@ -66,14 +80,14 @@ var _ = Describe("PersistenceGate", func() {
 	})
 
 	It(
-		"Should warn on a persisted type without a version at a versioned path",
+		"Should warn on a persisted type absent from the current version file",
 		func(ctx SpecContext) {
 			r := run(ctx, `
 			@go output "out"
 			Entry struct {
-			    @go version 0
 				key uuid @key
 				sibling Sibling
+
 				@go marshal
 			}
 			Sibling struct {
@@ -81,7 +95,8 @@ var _ = Describe("PersistenceGate", func() {
 			}
 		`)
 			Expect(messages(r)).To(ContainElement(
-				"test.Sibling is persisted but lacks @go version at a versioned path"))
+				"channel.Sibling is persisted but absent from its resource's " +
+					"current version file"))
 		},
 	)
 })

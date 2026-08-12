@@ -12,6 +12,7 @@
 package marshal
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -80,7 +81,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// Version-laid-out packages emit their codecs alongside the current
 	// types in types/vN; the rewrite shifts every affected path at once so
 	// cross-package codec references stay version-pinned.
-	rewritten, _, err := versioning.RewriteCurrent(req.Resolutions)
+	rewritten, _, _, err := versioning.RewriteCurrent(
+		context.Background(), req.Resolutions, req.Versions,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +159,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	// A codec pins a persisted wire format to a type shape, so every marshalled type
 	// must live in a versions/vN package where that shape is immutable. A codec target
-	// outside versions/vN means the type (or one it persists) is missing @go version.
+	// outside versions/vN means the type (or one it persists) is not a member of
+	// its resource's current version file.
 	if p.Options.RequireVersioned {
 		for goPath := range allPkgs {
 			if isVersionedPath(goPath) {
@@ -171,7 +175,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 			sort.Strings(names)
 			return nil, errors.Newf(
-				"cannot generate a codec for %s in %s: @go marshal types must be versioned; add @go version to them",
+				"cannot generate a codec for %s in %s: @go marshal types must be versioned; declare them in the current version file",
 				strings.Join(names, ", "),
 				goPath,
 			)

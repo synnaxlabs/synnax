@@ -17,9 +17,9 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
-// Get extracts documentation from a domain map.
-// It looks for a "doc" domain and returns the first expression's value or name.
-// Returns an empty string if no documentation is defined.
+// Get extracts documentation from a domain map. It looks for a "doc" domain and returns
+// the first expression's value or name. Returns an empty string if no documentation is
+// defined.
 func Get(domains map[string]resolution.Domain) string {
 	if domain, ok := domains["doc"]; ok {
 		if len(domain.Expressions) > 0 {
@@ -35,9 +35,9 @@ func Get(domains map[string]resolution.Domain) string {
 
 const maxLineWidth = 88
 
-// wrapText takes documentation text and wraps it to fit within the given width.
-// It normalizes internal newlines (single \n) into spaces, but preserves paragraph
-// breaks (double \n\n). Returns a slice of wrapped lines.
+// wrapText takes documentation text and wraps it to fit within the given width. It
+// normalizes internal newlines (single \n) into spaces, but preserves paragraph breaks
+// (double \n\n). Returns a slice of wrapped lines.
 func wrapText(text string, firstLineWidth, subsequentLineWidth int) []string {
 	if text == "" {
 		return nil

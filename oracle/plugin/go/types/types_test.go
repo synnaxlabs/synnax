@@ -10,9 +10,12 @@
 package types_test
 
 import (
+	"context"
 	gojson "encoding/json"
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -21,7 +24,9 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	"github.com/synnaxlabs/oracle/versions"
 	gotesterrors "github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -29,6 +34,37 @@ import (
 func TestGoTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Plugin Go Types Suite")
+}
+
+// chainGenerate writes files into a temp repo, analyzes the schema at mainRel
+// seeded with its resource namespace, and runs the plugin with a chain-backed
+// request.
+func chainGenerate(
+	ctx context.Context,
+	goPlugin *types.Plugin,
+	files map[string]string,
+	mainRel, ns string,
+) *plugin.Response {
+	GinkgoHelper()
+	root := GinkgoT().TempDir()
+	for rel, content := range files {
+		full := filepath.Join(root, rel)
+		Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+		Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+	}
+	diskLoader := analyzer.NewStandardFileLoader(root)
+	table := resolution.NewTable()
+	diag := analyzer.AnalyzeSeeded(
+		ctx, files[mainRel], mainRel, ns, diskLoader, table,
+	)
+	Expect(diag.Ok()).To(BeTrue(), diag.String())
+	req := &plugin.Request{
+		Resolutions: table,
+		Versions: versions.NewResolver(
+			MustSucceed(versions.Discover(root)), diskLoader,
+		),
+	}
+	return MustSucceed(goPlugin.Generate(req))
 }
 
 var _ = Describe("Go Types Plugin", func() {
@@ -2147,16 +2183,24 @@ var _ = Describe("Go Types Plugin", func() {
 
 		Context("version-laid-out packages", func() {
 			It("Should emit a versions/ selector alias file", func(ctx SpecContext) {
-				source := `
-					@go output "out"
-					Entry struct {
-					    @go version 3
-						key uuid @key
-						@go marshal
-						name string
-					}
-				`
-				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+				resp := chainGenerate(ctx, goPlugin, map[string]string{
+					"schemas/synnax/entry.oracle": `
+@go output "out"
+
+Entry struct {
+	key uuid @key
+	@go marshal
+	name string
+}
+`,
+					"schemas/synnax/versions/entry/v3.oracle": `
+Entry struct {
+	key uuid @key
+	@go marshal
+	name string
+}
+`,
+				}, "schemas/synnax/entry.oracle", "entry")
 				ExpectContent(resp, "out/versions/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
@@ -2169,17 +2213,24 @@ var _ = Describe("Go Types Plugin", func() {
 			It(
 				"Should emit types into types/vN with a root alias file",
 				func(ctx SpecContext) {
-					source := `
-					@go output "out"
+					resp := chainGenerate(ctx, goPlugin, map[string]string{
+						"schemas/synnax/entry.oracle": `
+@go output "out"
 
-					Entry struct {
-					    @go version 3
-						key uuid @key
-						@go marshal
-						name string
-					}
-				`
-					resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+Entry struct {
+	key uuid @key
+	@go marshal
+	name string
+}
+`,
+						"schemas/synnax/versions/entry/v3.oracle": `
+Entry struct {
+	key uuid @key
+	@go marshal
+	name string
+}
+`,
+					}, "schemas/synnax/entry.oracle", "entry")
 					Expect(resp.Files).To(HaveLen(3))
 					ExpectContent(resp, "out/versions/v3/types.gen.go").
 						ToBeValidGoSource().
@@ -2198,23 +2249,22 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It("Should render and transpose enum value docs", func(ctx SpecContext) {
-				source := `
-					@go output "out"
+				schema := `
+Color enum {
+	red = "red" { @doc value "is the color of fire." }
+	blue = "blue"
+}
 
-					Color enum {
-					    @go version 1
-						red = "red" { @doc value "is the color of fire." }
-						blue = "blue"
-					}
-
-					Entry struct {
-					    @go version 1
-						key uuid @key
-						@go marshal
-						color Color
-					}
-				`
-				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+Entry struct {
+	key uuid @key
+	@go marshal
+	color Color
+}
+`
+				resp := chainGenerate(ctx, goPlugin, map[string]string{
+					"schemas/synnax/entry.oracle":             "@go output \"out\"\n" + schema,
+					"schemas/synnax/versions/entry/v1.oracle": schema,
+				}, "schemas/synnax/entry.oracle", "entry")
 				ExpectContent(resp, "out/versions/v1/types.gen.go").
 					ToBeValidGoSource().
 					ToContain("// ColorRed is the color of fire.")
@@ -2224,23 +2274,22 @@ var _ = Describe("Go Types Plugin", func() {
 			})
 
 			It("Should re-export enum members as consts", func(ctx SpecContext) {
-				source := `
-					@go output "out"
+				schema := `
+Color enum {
+	red = "red"
+	blue = "blue"
+}
 
-					Color enum {
-					    @go version 1
-						red = "red"
-						blue = "blue"
-					}
-
-					Entry struct {
-					    @go version 1
-						key uuid @key
-						@go marshal
-						color Color
-					}
-				`
-				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+Entry struct {
+	key uuid @key
+	@go marshal
+	color Color
+}
+`
+				resp := chainGenerate(ctx, goPlugin, map[string]string{
+					"schemas/synnax/entry.oracle":             "@go output \"out\"\n" + schema,
+					"schemas/synnax/versions/entry/v1.oracle": schema,
+				}, "schemas/synnax/entry.oracle", "entry")
 				ExpectContent(resp, "out/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
@@ -2253,29 +2302,44 @@ var _ = Describe("Go Types Plugin", func() {
 			It(
 				"Should pin persisted cross-package references to the dependency version directory",
 				func(ctx SpecContext) {
-					loader.Add("schemas/status.oracle", `
-					@go output "core/status"
+					resp := chainGenerate(ctx, goPlugin, map[string]string{
+						"schemas/synnax/status.oracle": `
+@go output "core/status"
 
-					Status struct {
-					    @go version 1
-						key uuid @key
-						@go marshal
-						message string
-					}
-				`)
-					source := `
-					import "schemas/status"
+Status struct {
+	key uuid @key
+	@go marshal
+	message string
+}
+`,
+						"schemas/synnax/versions/status/v1.oracle": `
+Status struct {
+	key uuid @key
+	@go marshal
+	message string
+}
+`,
+						"schemas/synnax/rack.oracle": `
+import "schemas/synnax/status"
 
-					@go output "core/rack"
+@go output "core/rack"
 
-					Rack struct {
-					    @go version 2
-						key uuid @key
-						@go marshal
-						embedded status.Status
-					}
-				`
-					resp := MustGenerate(ctx, source, "rack", loader, goPlugin)
+Rack struct {
+	key uuid @key
+	@go marshal
+	embedded status.Status
+}
+`,
+						"schemas/synnax/versions/rack/v2.oracle": `
+import "schemas/synnax/versions/status/v1"
+
+Rack struct {
+	key uuid @key
+	@go marshal
+	embedded status.Status
+}
+`,
+					}, "schemas/synnax/rack.oracle", "rack")
 					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(`status "github.com/synnaxlabs/synnax/core/status/versions/v1"`).
@@ -2286,35 +2350,52 @@ var _ = Describe("Go Types Plugin", func() {
 			It(
 				"Should resolve omitted fields and transient declarations against the latest version",
 				func(ctx SpecContext) {
-					loader.Add("schemas/status.oracle", `
-					@go output "core/status"
+					resp := chainGenerate(ctx, goPlugin, map[string]string{
+						"schemas/synnax/status.oracle": `
+@go output "core/status"
 
-					Status struct {
-					    @go version 1
-						key uuid @key
-						@go marshal
-						message string
-					}
-				`)
-					source := `
-					import "schemas/status"
+Status struct {
+	key uuid @key
+	@go marshal
+	message string
+}
+`,
+						"schemas/synnax/versions/status/v1.oracle": `
+Status struct {
+	key uuid @key
+	@go marshal
+	message string
+}
+`,
+						"schemas/synnax/rack.oracle": `
+import "schemas/synnax/status"
 
-					@go output "core/rack"
+@go output "core/rack"
 
-					Alias = status.Status {
-					    @go version 2
-					}
+Alias = status.Status
 
-					Rack struct {
-					    @go version 2
-						key uuid @key
-						@go marshal
-						status Alias? {
-							@go marshal omit
-						}
-					}
-				`
-					resp := MustGenerate(ctx, source, "rack", loader, goPlugin)
+Rack struct {
+	key uuid @key
+	@go marshal
+	status Alias? {
+		@go marshal omit
+	}
+}
+`,
+						"schemas/synnax/versions/rack/v2.oracle": `
+import "schemas/synnax/status"
+
+Alias = status.Status
+
+Rack struct {
+	key uuid @key
+	@go marshal
+	status Alias? {
+		@go marshal omit
+	}
+}
+`,
+					}, "schemas/synnax/rack.oracle", "rack")
 					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(
@@ -2331,22 +2412,21 @@ var _ = Describe("Go Types Plugin", func() {
 			It(
 				"Should re-declare type params on generic aliases",
 				func(ctx SpecContext) {
-					source := `
-					@go output "out"
+					schema := `
+Status struct<D extends record> {
+	details D
+}
 
-					Status struct<D extends record> {
-					    @go version 0
-						details D
-					}
-
-					Entry struct {
-					    @go version 0
-						key uuid @key
-						@go marshal
-						status Status<record>
-					}
-				`
-					resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+Entry struct {
+	key uuid @key
+	@go marshal
+	status Status<record>
+}
+`
+					resp := chainGenerate(ctx, goPlugin, map[string]string{
+						"schemas/synnax/entry.oracle":             "@go output \"out\"\n" + schema,
+						"schemas/synnax/versions/entry/v0.oracle": schema,
+					}, "schemas/synnax/entry.oracle", "entry")
 					ExpectContent(resp, "out/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(
@@ -2359,27 +2439,25 @@ var _ = Describe("Go Types Plugin", func() {
 			It(
 				"Should re-export union variants and discriminators",
 				func(ctx SpecContext) {
-					source := `
-					@go output "out"
+					schema := `
+LinearScale struct {
+	slope float64
+}
 
-					LinearScale struct {
-					    @go version 2
-						slope float64
-					}
+Scale union on type {
+	linear LinearScale
+}
 
-					Scale union on type {
-					    @go version 2
-						linear LinearScale
-					}
-
-					Entry struct {
-					    @go version 2
-						key uuid @key
-						@go marshal
-						scale Scale
-					}
-				`
-					resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+Entry struct {
+	key uuid @key
+	@go marshal
+	scale Scale
+}
+`
+					resp := chainGenerate(ctx, goPlugin, map[string]string{
+						"schemas/synnax/entry.oracle":             "@go output \"out\"\n" + schema,
+						"schemas/synnax/versions/entry/v2.oracle": schema,
+					}, "schemas/synnax/entry.oracle", "entry")
 					ExpectContent(resp, "out/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(
@@ -2395,29 +2473,44 @@ var _ = Describe("Go Types Plugin", func() {
 			It(
 				"Should pin cross-references between laid-out packages",
 				func(ctx SpecContext) {
-					loader.Add("schemas/b.oracle", `
-					@go output "b"
+					resp := chainGenerate(ctx, goPlugin, map[string]string{
+						"schemas/synnax/b.oracle": `
+@go output "b"
 
-					Item struct {
-					    @go version 5
-						key uuid @key
-						@go marshal
-						name string
-					}
-				`)
-					source := `
-					import "schemas/b"
+Item struct {
+	key uuid @key
+	@go marshal
+	name string
+}
+`,
+						"schemas/synnax/versions/b/v5.oracle": `
+Item struct {
+	key uuid @key
+	@go marshal
+	name string
+}
+`,
+						"schemas/synnax/a.oracle": `
+import "schemas/synnax/b"
 
-					@go output "a"
+@go output "a"
 
-					Entry struct {
-					    @go version 2
-						key uuid @key
-						@go marshal
-						item b.Item
-					}
-				`
-					resp := MustGenerate(ctx, source, "a", loader, goPlugin)
+Entry struct {
+	key uuid @key
+	@go marshal
+	item b.Item
+}
+`,
+						"schemas/synnax/versions/a/v2.oracle": `
+import "schemas/synnax/versions/b/v5"
+
+Entry struct {
+	key uuid @key
+	@go marshal
+	item b.Item
+}
+`,
+					}, "schemas/synnax/a.oracle", "a")
 					ExpectContent(resp, "a/versions/v2/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(`"github.com/synnaxlabs/synnax/b/versions/v5"`).
@@ -2430,26 +2523,35 @@ var _ = Describe("Go Types Plugin", func() {
 			It(
 				"Should import non-laid-out packages at their root",
 				func(ctx SpecContext) {
-					loader.Add("schemas/c.oracle", `
-					@go output "c"
+					resp := chainGenerate(ctx, goPlugin, map[string]string{
+						"schemas/synnax/c.oracle": `
+@go output "c"
 
-					Detail struct {
-						note string
-					}
-				`)
-					source := `
-					import "schemas/c"
+Detail struct {
+	note string
+}
+`,
+						"schemas/synnax/a.oracle": `
+import "schemas/synnax/c"
 
-					@go output "a"
+@go output "a"
 
-					Entry struct {
-					    @go version 2
-						key uuid @key
-						@go marshal
-						detail c.Detail
-					}
-				`
-					resp := MustGenerate(ctx, source, "a", loader, goPlugin)
+Entry struct {
+	key uuid @key
+	@go marshal
+	detail c.Detail
+}
+`,
+						"schemas/synnax/versions/a/v2.oracle": `
+import "schemas/synnax/c"
+
+Entry struct {
+	key uuid @key
+	@go marshal
+	detail c.Detail
+}
+`,
+					}, "schemas/synnax/a.oracle", "a")
 					ExpectContent(resp, "a/versions/v2/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(
@@ -2921,33 +3023,38 @@ var _ = Describe("Unversioned Consumers", func() {
 	It(
 		"Should reference versioned types through the root re-export",
 		func(ctx SpecContext) {
-			loader := NewMockFileLoader()
-			loader.Add("schemas/chan", `
-			@go output "core/pkg/service/channel"
-			Key = uint32 {
-			    @go version 0
-			}
-			Channel struct {
-			    @go version 0
-				key  Key {@key}
-				name string
-			}
-		`)
-			source := `
-			import "schemas/chan"
+			resp := chainGenerate(
+				ctx, types.New(types.DefaultOptions()),
+				map[string]string{
+					"schemas/synnax/chan.oracle": `
+@go output "core/pkg/service/channel"
+Key = uint32
+Channel struct {
+	key  Key {@key}
+	name string
 
-			@go output "core/pkg/api/channel"
-			Request struct {
-				channels chan.Channel[]
-				key      chan.Key
-			}
-		`
-			resp := MustGenerate(
-				ctx,
-				source,
-				"api",
-				loader,
-				types.New(types.DefaultOptions()),
+	@go marshal
+}
+`,
+					"schemas/synnax/versions/chan/v0.oracle": `
+Key = uint32
+Channel struct {
+	key  Key {@key}
+	name string
+
+	@go marshal
+}
+`,
+					"schemas/synnax/api.oracle": `
+import "schemas/synnax/chan"
+
+@go output "core/pkg/api/channel"
+Request struct {
+	channels chan.Channel[]
+	key      chan.Key
+}
+`,
+				}, "schemas/synnax/api.oracle", "api",
 			)
 			ExpectContent(resp, "core/pkg/api/channel/types.gen.go").
 				ToBeValidGoSource().

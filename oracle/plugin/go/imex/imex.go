@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
@@ -81,7 +82,7 @@ func (*Plugin) Requires() []string { return []string{"go/types"} }
 // one Version constant per versions/vK package the Core has exported, Latest plus the
 // autoDecodeEnvelope ladder in the versions package root, and Service.Export in the
 // service package. Versions below the floor predate Core export, so their constant is
-// deleted instead. It errors when a marked type lacks a @go version, when two types at
+// deleted instead. It errors when a marked type has no version chain, when two types at
 // the same path both carry the marker, or when a version package on disk does not
 // parse.
 //
@@ -108,12 +109,18 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		version, ok := versioning.Version(typ)
+		livePathForChain := strings.TrimSuffix(typ.FilePath, ".oracle")
+		var chains map[string]versions.Chain
+		if req.Versions != nil {
+			chains = req.Versions.Chains()
+		}
+		chain, ok := chains[livePathForChain]
 		if !ok {
 			return nil, errors.Newf(
-				"%s declares @go imex without @go version", typ.QualifiedName,
+				"%s declares @go imex without a version chain", typ.QualifiedName,
 			)
 		}
+		version := chain.Current()
 		if prev, dup := declared[outputPath]; dup {
 			return nil, errors.Newf(
 				"duplicate @go imex declarations for %s: %s and %s",

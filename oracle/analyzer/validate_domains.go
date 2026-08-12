@@ -101,43 +101,31 @@ func fieldEscapesLang(f resolution.Field, lang string) bool {
 	return false
 }
 
-// validateFileVersion errors when @go version is declared file-level. Versioned-ness is
-// a per-type property (it tracks persistence), so the declaration must sit on each type
-// it applies to.
-func validateFileVersion(c *analysisCtx) {
-	dom, ok := c.fileDomains["go"]
-	if !ok {
-		return
+// validateNoVersionTag errors on any @go version declaration: the tag is
+// retired. Membership in the resource's current version file marks a type
+// versioned; the versions directory is the sole authority.
+func validateNoVersionTag(c *analysisCtx, types []resolution.Type) {
+	if dom, ok := c.fileDomains["go"]; ok {
+		if _, has := dom.Expressions.Find("version"); has {
+			c.report(diagnostics.Errorf(nil,
+				"%s declares the retired @go version tag; membership in the "+
+					"current version file marks a type versioned",
+				c.namespace,
+			))
+		}
 	}
-	if _, has := dom.Expressions.Find("version"); has {
-		d := diagnostics.Errorf(nil,
-			"%s declares @go version file-level; declare it per type instead",
-			c.namespace,
-		)
-		c.report(d)
-	}
-}
-
-// validateVersionArgs errors on malformed @go version declarations: a single
-// integer value.
-func validateVersionArgs(c *analysisCtx, types []resolution.Type) {
 	for _, t := range types {
 		dom, ok := t.Domains["go"]
 		if !ok {
 			continue
 		}
-		expr, ok := dom.Expressions.Find("version")
-		if !ok {
-			continue
+		if _, has := dom.Expressions.Find("version"); has {
+			c.report(diagnostics.Errorf(nil,
+				"%s declares the retired @go version tag; membership in the "+
+					"current version file marks a type versioned",
+				t.QualifiedName,
+			))
 		}
-		if len(expr.Values) == 1 && expr.Values[0].Kind == resolution.ValueKindInt {
-			continue
-		}
-		c.report(diagnostics.Errorf(
-			nil,
-			"%s has a malformed @go version; expected `version <int>`",
-			t.QualifiedName,
-		))
 	}
 }
 

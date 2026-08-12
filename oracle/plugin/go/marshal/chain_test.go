@@ -78,7 +78,6 @@ Channel struct {
 			analyzer.NewStandardFileLoader(root), table,
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
-		Expect(resolver.Annotate(GinkgoT().Context(), table)).To(Succeed())
 		req := &plugin.Request{
 			Resolutions: table, RepoRoot: root, Versions: resolver,
 		}

@@ -15,45 +15,43 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
-	. "github.com/synnaxlabs/oracle/testutil"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Transient types", func() {
-	var (
-		loader   *MockFileLoader
-		goPlugin *types.Plugin
-	)
+	var goPlugin *types.Plugin
 
-	BeforeEach(func() {
-		loader = NewMockFileLoader()
-		goPlugin = types.New(types.DefaultOptions())
-	})
+	BeforeEach(func() { goPlugin = types.New(types.DefaultOptions()) })
 
 	It(
 		"Should generate unversioned typedefs at the package root",
 		func(ctx SpecContext) {
-			source := `
-			@go output "out"
-			Key uint32 {
-				@ts type string
-			}
-			LocalKey uint20 {
-			}
-			Entry struct {
-				@go version 0
-				key   string   {@key}
-				local LocalKey
-				@go marshal
-			}
-			APIEntry struct {
-				@go output "api/out"
-				key Key
-				local LocalKey
-			}
-		`
-			req := MustGenerateRequest(ctx, source, "test", loader)
-			resp := MustSucceed(goPlugin.Generate(req))
+			resp := chainGenerate(ctx, goPlugin, map[string]string{
+				"schemas/synnax/thing.oracle": `
+@go output "out"
+Key uint32 {
+	@ts type string
+}
+LocalKey uint20 {
+}
+Entry struct {
+	key   string   {@key}
+	local LocalKey
+	@go marshal
+}
+APIEntry struct {
+	@go output "api/out"
+	key Key
+	local LocalKey
+}
+`,
+				"schemas/synnax/versions/thing/v0.oracle": `
+Entry struct {
+	key   string   {@key}
+	local LocalKey
+	@go marshal
+}
+`,
+			}, "schemas/synnax/thing.oracle", "thing")
 			var root string
 			var count int
 			for _, f := range resp.Files {
@@ -74,29 +72,39 @@ var _ = Describe("Transient types", func() {
 	It(
 		"Should reference versioned types locally, never through versions/vN",
 		func(ctx SpecContext) {
-			loader.Add("schemas/dep.oracle", `
-			@go output "dep"
-			Item struct {
-				@go version 1
-				key string {@key}
-				@go marshal
-			}
-		`)
-			source := `
-			import "schemas/dep"
-			@go output "out"
-			Entry struct {
-				@go version 0
-				key string {@key}
-				@go marshal
-			}
-			View struct {
-				entry Entry
-				item  dep.Item
-			}
-		`
-			req := MustGenerateRequest(ctx, source, "test", loader)
-			resp := MustSucceed(goPlugin.Generate(req))
+			resp := chainGenerate(ctx, goPlugin, map[string]string{
+				"schemas/synnax/dep.oracle": `
+@go output "dep"
+Item struct {
+	key string {@key}
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/dep/v1.oracle": `
+Item struct {
+	key string {@key}
+	@go marshal
+}
+`,
+				"schemas/synnax/thing.oracle": `
+import "schemas/synnax/dep"
+@go output "out"
+Entry struct {
+	key string {@key}
+	@go marshal
+}
+View struct {
+	entry Entry
+	item  dep.Item
+}
+`,
+				"schemas/synnax/versions/thing/v0.oracle": `
+Entry struct {
+	key string {@key}
+	@go marshal
+}
+`,
+			}, "schemas/synnax/thing.oracle", "thing")
 			var root string
 			for _, f := range resp.Files {
 				if f.Path == "out/types.gen.go" {

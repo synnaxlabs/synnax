@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -75,7 +76,7 @@ func (p *Plugin) Domains() []string { return []string{"go"} }
 func (p *Plugin) Requires() []string { return nil }
 
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
-// Version-laid-out packages (@go version + a keyed struct) emit their types into the
+// Version-laid-out packages (chain-covered output paths) emit their types into the
 // current versions/vN sub-package, with a root alias file re-exporting the surface.
 // Types whose shape is unchanged from the predecessor version alias it instead of being
 // re-defined. Version-laid-out packages pin persisted references to their dependencies'
@@ -84,7 +85,9 @@ func (p *Plugin) Requires() []string { return nil }
 // track the latest version, since they never reach the stored wire format. Unversioned
 // packages reference the root re-export surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
-	rewritten, pathMap, err := versioning.RewriteCurrent(req.Resolutions)
+	rewritten, pathMap, members, err := versioning.RewriteCurrent(
+		context.Background(), req.Resolutions, req.Versions,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +108,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			original: req.Resolutions,
 			pathMap:  pathMap,
 			closure:  closure,
+			members:  members,
 		},
 		PathFilter:      currentPaths.Contains,
 		MergeByName:     false,
@@ -140,7 +144,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return resp, nil
 	}
 	pathFilter := func(outputPath string) bool { _, ok := pathMap[outputPath]; return ok }
-	// Transient types — those without their own @go version at a versioned
+	// Transient types — those outside the current version file at a versioned
 	// path — stay at the package root, generating real declarations merged
 	// into the root alias file. Referenced enums that live in the version
 	// layout must not be re-declared there.
@@ -151,6 +155,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			original: req.Resolutions,
 			pathMap:  pathMap,
 			closure:  closure,
+			members:  members,
 		},
 		PathFilter: pathFilter,
 		FilterEnums: func(enums []resolution.Type, outputPath string) []resolution.Type {
@@ -175,7 +180,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	aliasGen := &framework.Generator{
 		Domain:          "go",
 		FilePattern:     p.Options.FileNamePattern,
-		FileGenerator:   &aliasFileGenerator{pathMap: pathMap},
+		FileGenerator:   &aliasFileGenerator{pathMap: pathMap, members: members},
 		PathFilter:      pathFilter,
 		MergeByName:     false,
 		CollectTypeDefs: true,
@@ -189,9 +194,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	resp.Files = mergeByPath(resp.Files, aliasResp.Files)
 	selectorGen := &framework.Generator{
-		Domain:          "go",
-		FilePattern:     "versions/" + p.Options.FileNamePattern,
-		FileGenerator:   &aliasFileGenerator{pathMap: pathMap, pkg: "versions"},
+		Domain:      "go",
+		FilePattern: "versions/" + p.Options.FileNamePattern,
+		FileGenerator: &aliasFileGenerator{
+			pathMap: pathMap,
+			members: members,
+			pkg:     "versions",
+		},
 		PathFilter:      pathFilter,
 		MergeByName:     false,
 		CollectTypeDefs: true,
@@ -254,10 +263,12 @@ type goFileGenerator struct {
 	// closure is the persisted closure of the whole table; declarations outside it at
 	// marshal-rooted paths are transient.
 	closure set.Set[string]
+	// members holds the qualified names of every chain's current-surface members.
+	members set.Set[string]
 }
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	latest := latestTable(g.original, g.pathMap, ctx.OutputPath)
+	latest := latestTable(g.original, g.pathMap, g.members, ctx.OutputPath)
 	_, transient := g.pathMap[ctx.OutputPath]
 	content, err := generateGoFile(
 		ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
@@ -277,7 +288,10 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 // this way: versioned siblings stay local and dependencies hit their root re-exports.
 // Nil when original is nil or the path is not versioned.
 func latestTable(
-	original *resolution.Table, pathMap map[string]string, outputPath string,
+	original *resolution.Table,
+	pathMap map[string]string,
+	members set.Set[string],
+	outputPath string,
 ) *resolution.Table {
 	if original == nil {
 		return nil
@@ -288,11 +302,20 @@ func latestTable(
 	for orig, current := range pathMap {
 		if current == outputPath {
 			return versioning.RewriteOutputPaths(
-				original, map[string]string{orig: outputPath},
+				original, map[string]string{orig: outputPath}, members,
 			)
 		}
 	}
 	return nil
+}
+
+// Survey re-exports the chain survey for the persistence gate: entries maps
+// every chain-covered @go output path to its current version, and members
+// holds every current-surface member's qualified name.
+func Survey(
+	ctx context.Context, table *resolution.Table, res *versions.Resolver,
+) (map[string]int, set.Set[string], error) {
+	return versioning.Survey(ctx, table, res)
 }
 
 // StructurallyEqual reports whether two declarations share a persisted shape,

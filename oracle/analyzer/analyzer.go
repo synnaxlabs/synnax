@@ -241,8 +241,7 @@ func analyze(c *analysisCtx) {
 		resolveTypeRefs(c, typ)
 	}
 	validateDeadOutputs(c, types)
-	validateFileVersion(c)
-	validateVersionArgs(c, types)
+	validateNoVersionTag(c, types)
 	validateImex(c, types)
 	validateImportPlacement(c)
 	for _, typ := range types {

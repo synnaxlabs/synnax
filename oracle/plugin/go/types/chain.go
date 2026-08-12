@@ -13,7 +13,6 @@ import (
 	"context"
 	"maps"
 	"slices"
-	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -33,7 +32,7 @@ func chainPredecessors(
 	ctx context.Context, req *plugin.Request,
 ) (map[string]predecessor, error) {
 	preds := make(map[string]predecessor)
-	entries, err := chainEntries(req)
+	entries, err := chainEntries(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -67,31 +66,56 @@ type chainEntry struct {
 }
 
 // chainEntries maps every chain-covered versioned Go output path to its
-// resource, declared version, and chain.
-func chainEntries(req *plugin.Request) (map[string]chainEntry, error) {
+// resource, current version, and chain.
+func chainEntries(
+	ctx context.Context, req *plugin.Request,
+) (map[string]chainEntry, error) {
 	out := make(map[string]chainEntry)
 	if req.Versions == nil {
 		return out, nil
 	}
-	entries, err := versioning.EntryPaths(req.Resolutions)
-	if err != nil {
-		return nil, err
-	}
-	chains := req.Versions.Chains()
-	for origPath, version := range entries {
-		resource, livePath, ok := pathResource(req.Resolutions, origPath)
+	for livePath, chain := range req.Versions.Chains() {
+		goPath, ok, err := memberGoPath(ctx, req, livePath, chain)
+		if err != nil {
+			return nil, err
+		}
 		if !ok {
 			continue
 		}
-		chain, ok := chains[livePath]
-		if !ok {
-			continue
-		}
-		out[origPath] = chainEntry{
-			resource: resource, livePath: livePath, version: version, chain: chain,
+		out[goPath] = chainEntry{
+			resource: chain.Resource,
+			livePath: livePath,
+			version:  chain.Current(),
+			chain:    chain,
 		}
 	}
 	return out, nil
+}
+
+// memberGoPath returns the @go output path a chain's current-surface members
+// occupy in the live table.
+func memberGoPath(
+	ctx context.Context,
+	req *plugin.Request,
+	livePath string,
+	chain versions.Chain,
+) (string, bool, error) {
+	surf, err := req.Versions.Surface(ctx, livePath, chain.Current())
+	if err != nil {
+		return "", false, err
+	}
+	for _, t := range req.Resolutions.Types {
+		if t.FilePath != livePath+".oracle" {
+			continue
+		}
+		if _, member := surf[t.Name]; !member {
+			continue
+		}
+		if p := output.GetPath(t, "go"); p != "" {
+			return p, true, nil
+		}
+	}
+	return "", false, nil
 }
 
 // chainFrozenFiles regenerates every frozen version package of every chain: for each
@@ -102,7 +126,7 @@ func chainEntries(req *plugin.Request) (map[string]chainEntry, error) {
 func chainFrozenFiles(
 	ctx context.Context, req *plugin.Request, fileName string,
 ) ([]plugin.File, error) {
-	entries, err := chainEntries(req)
+	entries, err := chainEntries(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -136,8 +160,10 @@ type ChainPath struct {
 }
 
 // ChainPaths maps every chain-covered versioned Go output path to its chain.
-func ChainPaths(req *plugin.Request) (map[string]ChainPath, error) {
-	entries, err := chainEntries(req)
+func ChainPaths(
+	ctx context.Context, req *plugin.Request,
+) (map[string]ChainPath, error) {
+	entries, err := chainEntries(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +194,7 @@ func ChainFrozenTable(
 	if err := req.Versions.SurfaceInto(ctx, table, livePath, k, ns); err != nil {
 		return nil, "", err
 	}
-	if err := annotateOutputs(req, table, origPath, livePath); err != nil {
+	if err := annotateOutputs(ctx, req, table, origPath, livePath); err != nil {
 		return nil, "", err
 	}
 	return table, ns, nil
@@ -237,6 +263,7 @@ func frozenFile(
 // table: chain surfaces resolve to their versions/vN directory, and hand-written types
 // resolve to their resource's live root package.
 func annotateOutputs(
+	ctx context.Context,
 	req *plugin.Request,
 	table *resolution.Table,
 	origPath, ownLive string,
@@ -249,7 +276,10 @@ func annotateOutputs(
 		}
 		goRoot := origPath
 		if lp != ownLive {
-			if goRoot, ok = versionedGoRoot(req.Resolutions, lp); !ok {
+			var err error
+			if goRoot, ok, err = versionedGoRoot(ctx, req, lp); err != nil {
+				return err
+			} else if !ok {
 				return errors.Newf(
 					"%s pins %s, which has no versioned Go output in the live schemas",
 					ownLive, lp,
@@ -267,27 +297,24 @@ func annotateOutputs(
 	return nil
 }
 
-// versionedGoRoot finds the @go output path a live schema file's versions directories
-// append to: the path its version-declaring types name, or — for history-only chains
-// whose resource has since left versioning — the file's plain output.
-func versionedGoRoot(table *resolution.Table, livePath string) (string, bool) {
-	var fallback string
-	for _, t := range table.Types {
+// versionedGoRoot finds the @go output path a live schema file's versions
+// directories append to: the path the chain's current-surface members name,
+// or — for a chainless dependency — the file's plain output.
+func versionedGoRoot(
+	ctx context.Context, req *plugin.Request, livePath string,
+) (string, bool, error) {
+	if chain, ok := req.Versions.Chains()[livePath]; ok {
+		return memberGoPath(ctx, req, livePath, chain)
+	}
+	for _, t := range req.Resolutions.Types {
 		if t.FilePath != livePath+".oracle" {
 			continue
 		}
-		p := output.GetPath(t, "go")
-		if p == "" {
-			continue
-		}
-		if _, ok := versioning.Version(t); ok {
-			return p, true
-		}
-		if fallback == "" {
-			fallback = p
+		if p := output.GetPath(t, "go"); p != "" {
+			return p, true, nil
 		}
 	}
-	return fallback, fallback != ""
+	return "", false, nil
 }
 
 // withGoOutput replaces the type's @go output expression, cloning the shared domain
@@ -314,18 +341,4 @@ func withGoOutput(t *resolution.Type, path string) {
 	dom.Expressions = exprs
 	domains["go"] = dom
 	t.Domains = domains
-}
-
-// pathResource maps a versioned output path to its schema resource and live import path
-// via any version-declaring type's source file.
-func pathResource(
-	table *resolution.Table, origPath string,
-) (resource, livePath string, ok bool) {
-	for _, t := range versioning.TypesAtPath(table, origPath) {
-		if _, versioned := versioning.Version(t); !versioned {
-			continue
-		}
-		return t.Namespace, strings.TrimSuffix(t.FilePath, ".oracle"), true
-	}
-	return "", "", false
 }

@@ -29,10 +29,9 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// VersionsGate verifies the explicitly managed version chains: the live
-// file's version-owned content matches chain resolution (the merged
-// projection), and every redeclaration differs structurally from its
-// resolved predecessor.
+// VersionsGate verifies the explicitly managed version chains: the live file's
+// version-owned content matches chain resolution (the merged projection), and every
+// redeclaration differs structurally from its resolved predecessor.
 type VersionsGate struct{}
 
 // Name implements Checker.
@@ -70,11 +69,10 @@ func (g VersionsGate) checkChain(
 	livePath := chain.LivePath()
 	current := chain.Current()
 
-	// Consistency: the live file's version-owned content must match chain
-	// resolution — the merged projection is the canonical live file. The
-	// version files are the authority; a live edit to version-owned content
-	// is overwritten by sync, and a chain edit lands in the live file the
-	// same way.
+	// Consistency: the live file's version-owned content must match chain resolution —
+	// the merged projection is the canonical live file. The version files are the
+	// authority; a live edit to version-owned content is overwritten by sync, and a
+	// chain edit lands in the live file the same way.
 	if merged, ok := p.MergedSources[livePath+".oracle"]; ok {
 		filePath := livePath + ".oracle"
 		onDisk, err := os.ReadFile(filepath.Join(env.RepoRoot, filePath))
@@ -118,12 +116,12 @@ func (g VersionsGate) checkChain(
 		g.checkImportPlacement(r, resolver, chain, fk)
 	}
 
-	// Pin currency: every pin the current surface's stored reference graph
-	// crosses must target its dependency chain's current version.
+	// Pin currency: every pin the current surface's stored reference graph crosses must
+	// target its dependency chain's current version.
 	g.checkPinCurrency(ctx, r, resolver, chain)
 
-	// Minimality: every redeclaration must differ structurally from its
-	// resolved predecessor.
+	// Minimality: every redeclaration must differ structurally from its resolved
+	// predecessor.
 	for i, k := range chain.Numbers {
 		if i == 0 || k > current {
 			continue
@@ -151,8 +149,8 @@ func (g VersionsGate) checkChain(
 			if t.Synthetic {
 				continue
 			}
-			// Omit-transient declarations track the live schema and may
-			// legitimately match their predecessor.
+			// Omit-transient declarations track the live schema and may legitimately
+			// match their predecessor.
 			if fkTransient.Contains(t.Name) {
 				continue
 			}
@@ -193,10 +191,9 @@ func (r *GateReport) fail(f Finding) {
 	r.Status = StatusFail
 }
 
-// checkImportPlacement verifies one version file's imports against the
-// persistence boundary: a dependency reached by any stored reference must be
-// pinned; a dependency reached only by resolved references must float on its
-// live schema.
+// checkImportPlacement verifies one version file's imports against the persistence
+// boundary: a dependency reached by any stored reference must be pinned; a dependency
+// reached only by resolved references must float on its live schema.
 func (g VersionsGate) checkImportPlacement(
 	r *GateReport,
 	resolver *versions.Resolver,
@@ -218,9 +215,9 @@ func (g VersionsGate) checkImportPlacement(
 		if !isLive {
 			continue
 		}
-		// A chainless dependency has no version file to pin: its live schema
-		// is the one shape, and the stored reference rides it (arc v0's
-		// Program). The exposure is the dependency's, not this file's.
+		// A chainless dependency has no version file to pin: its live schema is the one
+		// shape, and the stored reference rides it (arc v0's Program). The exposure is
+		// the dependency's, not this file's.
 		if _, versioned := resolver.Chains()[depLive]; !versioned {
 			continue
 		}
@@ -261,10 +258,9 @@ func (g VersionsGate) checkImportPlacement(
 	}
 }
 
-// classifyDeps splits a version file's foreign dependency namespaces along
-// the persistence boundary: stored holds namespaces reachable from a marshal
-// root through persisted references; referenced holds every namespace the
-// file's declarations name.
+// classifyDeps splits a version file's foreign dependency namespaces along the
+// persistence boundary: stored holds namespaces reachable from a marshal root through
+// persisted references; referenced holds every namespace the file's declarations name.
 func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 	stored, referenced = make(set.Set[string]), make(set.Set[string])
 	local := make(map[string]resolution.Type, len(f.Defined))
@@ -308,9 +304,9 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 			walkValue(sf.Value, into)
 		}
 	}
-	// walkDecl visits one declaration's references. Omit fields are resolved
-	// contexts: their targets never enter the stored set, and local types
-	// reached only through them stay outside the stored closure.
+	// walkDecl visits one declaration's references. Omit fields are resolved contexts:
+	// their targets never enter the stored set, and local types reached only through
+	// them stay outside the stored closure.
 	walkDecl := func(t resolution.Type, into set.Set[string], skipOmit bool) []string {
 		var locals []string
 		visit := func(ref resolution.TypeRef) {
@@ -387,9 +383,9 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 			visitStored(l)
 		}
 	}
-	// Membership marks a type persisted, so every declaration is a stored
-	// root except the omit-transient ones — a transient type tracks the live
-	// schema and resolves its references there.
+	// Membership marks a type persisted, so every declaration is a stored root except
+	// the omit-transient ones — a transient type tracks the live schema and resolves
+	// its references there.
 	transient := f.Transient()
 	for _, t := range f.Defined {
 		if t.Synthetic || transient.Contains(t.Name) {
@@ -403,10 +399,9 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 // versionNSRe matches a chain-sibling namespace qualifier ("v0", "v12").
 var versionNSRe = regexp.MustCompile(`^v(0|[1-9][0-9]*)$`)
 
-// checkPinCurrency walks the stored reference graph of the chain's current
-// surface and fails on any pin that lags its dependency chain's current
-// version: the current package embeds the dependency's current type, so a
-// stale pin is a contradiction.
+// checkPinCurrency walks the stored reference graph of the chain's current surface and
+// fails on any pin that lags its dependency chain's current version: the current
+// package embeds the dependency's current type, so a stale pin is a contradiction.
 func (g VersionsGate) checkPinCurrency(
 	ctx context.Context,
 	r *GateReport,
@@ -488,8 +483,8 @@ func (g VersionsGate) checkPinCurrency(
 	}
 }
 
-// storedRefs collects one declaration's stored foreign namespaces into
-// stored and returns the local names its persisted references reach.
+// storedRefs collects one declaration's stored foreign namespaces into stored and
+// returns the local names its persisted references reach.
 func storedRefs(
 	f *versions.File, t resolution.Type, stored set.Set[string],
 ) []string {
@@ -498,9 +493,8 @@ func storedRefs(
 	for ns := range s {
 		stored.Add(ns)
 	}
-	// Local names come from a targeted walk: classifyDeps scopes its closure
-	// to the one declaration, so its visited locals are exactly the decl's
-	// same-chain references.
+	// Local names come from a targeted walk: classifyDeps scopes its closure to the one
+	// declaration, so its visited locals are exactly the decl's same-chain references.
 	var locals []string
 	switch form := t.Form.(type) {
 	case resolution.StructForm:
@@ -555,8 +549,8 @@ func localRefNames(f *versions.File, ref resolution.TypeRef) []string {
 	return names
 }
 
-// membersOf lists the member names a file's declarations reference in the
-// given foreign namespace.
+// membersOf lists the member names a file's declarations reference in the given foreign
+// namespace.
 func membersOf(f *versions.File, ns string) []string {
 	found := make(set.Set[string])
 	for _, t := range f.Defined {

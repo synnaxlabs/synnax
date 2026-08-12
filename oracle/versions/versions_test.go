@@ -354,38 +354,6 @@ Key = v0.Key
 				To(MatchError(ContainSubstring("does not define it")))
 		})
 
-		It("Should stamp chain versions onto tag-less live types", func(
-			ctx SpecContext,
-		) {
-			root := writeRepo(map[string]string{
-				"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
-				"schemas/synnax/versions/channel/v1.oracle": "Key = string\n",
-			})
-			chains := MustSucceed(versions.Discover(root))
-			r := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
-			table := resolution.NewTable()
-			diag := analyzer.AnalyzeSeeded(ctx, `
-@go output "core/pkg/service/channel"
-
-Key = string
-
-Transient struct {
-	key Key
-}
-`,
-				"schemas/synnax/channel.oracle", "channel",
-				analyzer.NewStandardFileLoader(root), table,
-			)
-			Expect(diag.Ok()).To(BeTrue(), diag.String())
-			Expect(r.Annotate(ctx, table)).To(Succeed())
-			key := MustBeOk(table.Get("channel.Key"))
-			expr := MustBeOk(key.Domains["go"].Expressions.Find("version"))
-			Expect(expr.Values[0].IntValue).To(Equal(int64(1)))
-			transient := MustBeOk(table.Get("channel.Transient"))
-			_, has := transient.Domains["go"].Expressions.Find("version")
-			Expect(has).To(BeFalse())
-		})
-
 		It("Should inherit docs from the predecessor and honor overrides", func(
 			ctx SpecContext,
 		) {

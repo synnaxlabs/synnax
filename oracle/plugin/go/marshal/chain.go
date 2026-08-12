@@ -28,11 +28,11 @@ import (
 // of every chain. Types aliased at a version carry the definer's codec through
 // the alias, so only that version's defined declarations get codecs.
 func (p *Plugin) chainFrozenCodecs(req *plugin.Request) ([]plugin.File, error) {
-	chainPaths, err := gotypes.ChainPaths(req)
+	ctx := context.Background()
+	chainPaths, err := gotypes.ChainPaths(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	ctx := context.Background()
 	var files []plugin.File
 	for _, origPath := range slices.Sorted(maps.Keys(chainPaths)) {
 		cp := chainPaths[origPath]

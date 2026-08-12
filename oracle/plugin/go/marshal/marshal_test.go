@@ -1253,11 +1253,10 @@ var _ = Describe("Version-Laid-Out Packages", func() {
 
 	It("Should emit the codec and its test into versions/vN", func() {
 		source := `
-			@go output "out"
+			@go output "out/versions/v3"
 			@pb
 
 			Entry struct {
-			    @go version 3
 				key uuid @key
 				name string
 				@go marshal
@@ -1565,9 +1564,8 @@ var _ = Describe("Versioned codec requirement", func() {
 		func(ctx SpecContext) {
 			loader := NewMockFileLoader()
 			source := `
-			@go output "core/pkg/service/thing"
+			@go output "core/pkg/service/thing/versions/v2"
 			Thing struct {
-				@go version 2
 				key  uuid @key
 				name string
 				@go marshal

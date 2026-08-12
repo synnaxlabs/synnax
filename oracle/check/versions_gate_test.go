@@ -62,7 +62,6 @@ Channel struct {
 			resolver = versions.NewResolver(
 				chains, analyzer.NewStandardFileLoader(root),
 			)
-			Expect(resolver.Annotate(GinkgoT().Context(), table)).To(Succeed())
 		}
 		return &pipeline.Result{
 			Resolutions: table,

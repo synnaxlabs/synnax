@@ -314,15 +314,6 @@ func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
 }
 
 func generate(ctx context.Context, r *Result, opts Options, workers int) error {
-	// Explicitly managed version chains are the versioning baseline. The resolver
-	// loads through the same overlay analysis used, so frozen surfaces resolve live
-	// imports against the merged projections.
-	if r.Versions != nil {
-		if err := r.Versions.Annotate(ctx, r.Resolutions); err != nil {
-			return err
-		}
-	}
-
 	levels := topoLevels(opts.Plugins)
 	var mu sync.Mutex
 	for _, level := range levels {
