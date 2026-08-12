@@ -676,7 +676,7 @@ export interface DigitalWriteConfig extends z.infer<typeof digitalWriteConfigZ> 
 /** CustomScale applies a user-defined scale to the raw measurement. */
 export const customScaleZ = z.object({
   /** customScale is the scale applied to the raw measurement. */
-  customScale: scaleZ,
+  customScale: scaleZ.prefault({ type: "none" }),
 });
 export interface CustomScale extends z.infer<typeof customScaleZ> {}
 
@@ -918,7 +918,7 @@ export const aiThermocoupleChannelZ = baseAIChannelZ.extend(minMaxValZ.shape).ex
   /** thermocoupleType selects the thermocouple alloy type. */
   thermocoupleType: thermocoupleTypeZ.default("J"),
   /** cjc is the cold-junction compensation applied to the reading. */
-  cjc: cjcZ,
+  cjc: cjcZ.prefault({ source: "built_in" }),
 });
 export interface AIThermocoupleChannel extends z.infer<typeof aiThermocoupleChannelZ> {}
 

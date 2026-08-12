@@ -296,7 +296,9 @@ inline x::json::json TwoPointLin::to_json() const {
 
 inline CustomScale CustomScale::parse(x::json::Parser parser) {
     return CustomScale{
-        .custom_scale = parse_scale(parser.child("custom_scale")),
+        .custom_scale = parser.has("custom_scale")
+                          ? parse_scale(parser.child("custom_scale"))
+                          : Scale{ScaleNone{}},
     };
 }
 
@@ -1140,7 +1142,7 @@ inline AIThermocoupleChannel AIThermocoupleChannel::parse(x::json::Parser parser
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     result.units = parser.field<std::string>("units", "DegC");
     result.thermocouple_type = parser.field<std::string>("thermocouple_type", "J");
-    result.cjc = parse_cjc(parser.child("cjc"));
+    result.cjc = parser.has("cjc") ? parse_cjc(parser.child("cjc")) : CJC{CJCBuiltIn{}};
     result.type = parser.field<std::string>("type");
     return result;
 }

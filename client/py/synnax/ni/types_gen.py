@@ -896,7 +896,7 @@ class CustomScale(BaseModel):
         custom_scale: Is the scale applied to the raw measurement.
     """
 
-    custom_scale: Scale
+    custom_scale: Scale = Field(default_factory=lambda: ScaleNone(type="none"))
 
 
 class AIVoltageChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
@@ -1035,7 +1035,7 @@ class AIThermocoupleChannel(BaseAIChannel, MinMaxVal):
     type: Literal["ai_thermocouple"]
     units: TemperatureUnits = "DegC"
     thermocouple_type: ThermocoupleType = "J"
-    cjc: CJC
+    cjc: CJC = Field(default_factory=lambda: CJCBuiltIn(source="built_in"))
 
 
 class AITorqueBridgeTableChannel(

@@ -1201,6 +1201,9 @@ type CustomScale struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomScale) ApplyDefaults() {
+	if c.CustomScale.Variant == nil {
+		c.CustomScale.Variant = ScaleNone{}
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -1845,6 +1848,9 @@ func (a *AIThermocoupleChannel) ApplyDefaults() {
 	}
 	if a.ThermocoupleType == "" {
 		a.ThermocoupleType = ThermocoupleTypeJ
+	}
+	if a.Cjc.Variant == nil {
+		a.Cjc.Variant = CJCBuiltIn{}
 	}
 	a.MinMaxVal.ApplyDefaults()
 }

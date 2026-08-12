@@ -470,7 +470,7 @@ TwoPointLin struct {
 }
 
 CustomScale struct {
-    custom_scale Scale {
+    custom_scale Scale = none {
         @doc value "is the scale applied to the raw measurement."
     }
 
@@ -661,7 +661,7 @@ AIChannel union on type extends BaseAIChannel {
         thermocouple_type ThermocoupleType = j {
             @doc value "selects the thermocouple alloy type."
         }
-        cjc               CJC              {
+        cjc               CJC = built_in {
             @doc value "is the cold-junction compensation applied to the reading."
         }
 
