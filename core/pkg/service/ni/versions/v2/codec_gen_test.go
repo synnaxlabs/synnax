@@ -370,21 +370,6 @@ var _ = Describe("Codec", func() {
 				Units:             v2.PressureUnits("PoundsPerSquareInch"),
 				PhysicalUnits:     v2.PressureUnits("PoundsPerSquareInch"),
 			}}),
-			Entry("ai_rosette_strain_gage variant", v2.AIChannel{Variant: v2.AIRosetteStrainGageChannel{
-				BaseAIChannel:         fullyPopulatedBaseAIChannel,
-				MinMaxVal:             fullyPopulatedMinMaxVal,
-				Terminal:              fullyPopulatedTerminal,
-				VoltageExcitation:     fullyPopulatedVoltageExcitation,
-				RosetteType:           v2.RosetteType("RectangularRosette"),
-				GageOrientation:       2.5,
-				RosetteMeasTypes:      []v2.RosetteMeasType{v2.RosetteMeasType("PrincipalStrain1")},
-				StrainConfig:          v2.StrainConfig("FullBridgeI"),
-				Units:                 v2.Units("Volts"),
-				NominalGageResistance: 6.5,
-				PoissonRatio:          7.5,
-				LeadWireResistance:    8.5,
-				GageFactor:            9.5,
-			}}),
 			Entry("ai_thermistor_iex variant", v2.AIChannel{Variant: v2.AIThermistorIexChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
 				MinMaxVal:         fullyPopulatedMinMaxVal,
@@ -2624,28 +2609,6 @@ func FuzzDecodeAIChannel(f *testing.F) {
 			CustomScale:       fullyPopulatedCustomScale,
 			Units:             v2.PressureUnits("PoundsPerSquareInch"),
 			PhysicalUnits:     v2.PressureUnits("PoundsPerSquareInch"),
-		}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.AIChannel{Variant: v2.AIRosetteStrainGageChannel{
-			BaseAIChannel:         fullyPopulatedBaseAIChannel,
-			MinMaxVal:             fullyPopulatedMinMaxVal,
-			Terminal:              fullyPopulatedTerminal,
-			VoltageExcitation:     fullyPopulatedVoltageExcitation,
-			RosetteType:           v2.RosetteType("RectangularRosette"),
-			GageOrientation:       2.5,
-			RosetteMeasTypes:      []v2.RosetteMeasType{v2.RosetteMeasType("PrincipalStrain1")},
-			StrainConfig:          v2.StrainConfig("FullBridgeI"),
-			Units:                 v2.Units("Volts"),
-			NominalGageResistance: 6.5,
-			PoissonRatio:          7.5,
-			LeadWireResistance:    8.5,
-			GageFactor:            9.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

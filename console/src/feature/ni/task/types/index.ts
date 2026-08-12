@@ -140,7 +140,6 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   ai_pressure_bridge_table: Icon.Units.Pressure,
   ai_pressure_bridge_two_point_lin: Icon.Units.Pressure,
   ai_resistance: Icon.Units.Resistance,
-  ai_rosette_strain_gage: Icon.Units.Strain,
   ai_rtd: Icon.Units.Temperature,
   ai_strain_gauge: Icon.Units.Strain,
   ai_temp_builtin: Icon.Units.Temperature,

@@ -491,35 +491,6 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		}
 		w.String(string(v.Units))
 		w.String(string(v.PhysicalUnits))
-	case AIRosetteStrainGageChannel:
-		w.String("ai_rosette_strain_gage")
-		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
-			return err
-		}
-		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
-			return err
-		}
-		if err := v.Terminal.EncodeOrc(w); err != nil {
-			return err
-		}
-		if err := v.VoltageExcitation.EncodeOrc(w); err != nil {
-			return err
-		}
-		w.String(string(v.RosetteType))
-		w.Float64(float64(v.GageOrientation))
-		w.Bool(v.RosetteMeasTypes != nil)
-		if v.RosetteMeasTypes != nil {
-			w.Uint32(uint32(len(v.RosetteMeasTypes)))
-			for i := range v.RosetteMeasTypes {
-				w.String(string(v.RosetteMeasTypes[i]))
-			}
-		}
-		w.String(string(v.StrainConfig))
-		w.String(string(v.Units))
-		w.Float64(float64(v.NominalGageResistance))
-		w.Float64(float64(v.PoissonRatio))
-		w.Float64(float64(v.LeadWireResistance))
-		w.Float64(float64(v.GageFactor))
 	case AIThermistorIexChannel:
 		w.String("ai_thermistor_iex")
 		if err := v.BaseAIChannel.EncodeOrc(w); err != nil {
@@ -1406,79 +1377,6 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			v.PhysicalUnits = PressureUnits(rawV)
-		}
-		aic.Variant = v
-	case "ai_rosette_strain_gage":
-		var v AIRosetteStrainGageChannel
-		if err := v.BaseAIChannel.DecodeOrc(r); err != nil {
-			return err
-		}
-		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
-			return err
-		}
-		if err := v.Terminal.DecodeOrc(r); err != nil {
-			return err
-		}
-		if err := v.VoltageExcitation.DecodeOrc(r); err != nil {
-			return err
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.RosetteType = RosetteType(rawV)
-		}
-		if v.GageOrientation, err = r.Float64(); err != nil {
-			return err
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				n, err := r.CollectionLen()
-				if err != nil {
-					return err
-				}
-				v.RosetteMeasTypes = make([]RosetteMeasType, n)
-				for i := range v.RosetteMeasTypes {
-					{
-						rawV, err := r.String()
-						if err != nil {
-							return err
-						}
-						v.RosetteMeasTypes[i] = RosetteMeasType(rawV)
-					}
-				}
-			}
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.StrainConfig = StrainConfig(rawV)
-		}
-		{
-			rawV, err := r.String()
-			if err != nil {
-				return err
-			}
-			v.Units = Units(rawV)
-		}
-		if v.NominalGageResistance, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.PoissonRatio, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.LeadWireResistance, err = r.Float64(); err != nil {
-			return err
-		}
-		if v.GageFactor, err = r.Float64(); err != nil {
-			return err
 		}
 		aic.Variant = v
 	case "ai_thermistor_iex":
