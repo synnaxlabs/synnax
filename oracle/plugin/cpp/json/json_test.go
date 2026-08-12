@@ -1176,6 +1176,30 @@ var _ = Describe("C++ JSON Union Generation", func() {
 	)
 
 	It(
+		"Should fall back to the defaulted variant when the field is absent",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 = 1 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Item struct { scale Scale = none }
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+			ExpectContent(resp, "json.gen.h").ToContain(
+				`parser.has("scale") ? parse_scale(parser.child("scale")) ` +
+					`: Scale{ScaleNone{}}`,
+			)
+		},
+	)
+
+	It(
 		"Should parse inline variant fields directly on the variant struct",
 		func(ctx SpecContext) {
 			source := `
@@ -1410,6 +1434,25 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			ToContain(
 				`.key = parser.field<std::string>("key"),`,
 				`.name = parser.field<std::string>("name", ""),`,
+			)
+	})
+
+	It("Should mint a UUID for create-defaulted uuid fields", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Key = uuid
+
+			Record struct {
+				key    uuid = create
+				parent Key = create
+			}
+		`
+		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`.key = parser.field<x::uuid::UUID>("key", x::uuid::create()),`,
+				`.parent = parser.field<Key>("parent", x::uuid::create()),`,
 			)
 	})
 })

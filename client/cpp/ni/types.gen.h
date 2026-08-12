@@ -170,16 +170,16 @@ constexpr const char *VELOCITY_SENSITIVITY_UNITS_M_VOLTS_PER_MM_PER_SECOND =
 constexpr const char *VELOCITY_SENSITIVITY_UNITS_M_VOLTS_PER_INCH_PER_SECOND =
     "MilliVoltsPerInchPerSecond";
 
-constexpr const char *CHARGE_UNITS_COULOMBS = "C";
-constexpr const char *CHARGE_UNITS_MICRO_COULOMBS = "uC";
+constexpr const char *CHARGE_UNITS_COULOMBS = "Coulombs";
+constexpr const char *CHARGE_UNITS_PICO_COULOMBS = "PicoCoulombs";
 
 constexpr const char *ROSETTE_TYPE_RECTANGULAR = "RectangularRosette";
 constexpr const char *ROSETTE_TYPE_DELTA = "DeltaRosette";
 constexpr const char *ROSETTE_TYPE_TEE = "TeeRosette";
 
-constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_1 = "PrincipleStrain1";
-constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_2 = "PrincipleStrain2";
-constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_ANGLE = "PrincipleStrainAngle";
+constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_1 = "PrincipalStrain1";
+constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_2 = "PrincipalStrain2";
+constexpr const char *ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_ANGLE = "PrincipalStrainAngle";
 constexpr const char *ROSETTE_MEAS_TYPE_CARTESIAN_STRAIN_X = "CartesianStrainX";
 constexpr const char *ROSETTE_MEAS_TYPE_CARTESIAN_STRAIN_Y = "CartesianStrainY";
 constexpr const char
@@ -663,7 +663,7 @@ Scale parse_scale(x::json::Parser parser);
 /// @brief CustomScale applies a user-defined scale to the raw measurement.
 struct CustomScale {
     /// @brief custom_scale is the scale applied to the raw measurement.
-    Scale custom_scale;
+    Scale custom_scale = ScaleNone{};
 
     static CustomScale parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -910,7 +910,7 @@ struct AIThermocoupleChannel : public BaseAIChannel, public MinMaxVal {
     /// @brief thermocouple_type selects the thermocouple alloy type.
     std::string thermocouple_type = THERMOCOUPLE_TYPE_J;
     /// @brief cjc is the cold-junction compensation applied to the reading.
-    CJC cjc;
+    CJC cjc = CJCBuiltIn{};
 
     static AIThermocoupleChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
