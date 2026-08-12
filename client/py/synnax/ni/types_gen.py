@@ -1036,7 +1036,7 @@ class AIAccel4WireDCVoltageChannel(
     use_excit_for_scaling: bool = False
 
 
-class AIAccelChargeChannel(BaseAIChannel, MinMaxVal, CustomScale):
+class AIAccelChargeChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads acceleration from a charge-mode accelerometer."""
 
     type: Literal["ai_accel_charge"]

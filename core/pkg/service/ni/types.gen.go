@@ -1999,6 +1999,7 @@ func (a AIAccel4WireDCVoltageChannel) Validate() error {
 type AIAccelChargeChannel struct {
 	BaseAIChannel
 	MinMaxVal
+	Terminal
 	CustomScale
 	// Units are the units of the acceleration measurement.
 	Units AccelUnits `json:"units" msgpack:"units"`
@@ -2019,6 +2020,7 @@ func (a *AIAccelChargeChannel) ApplyDefaults() {
 		a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
 	}
 	a.MinMaxVal.ApplyDefaults()
+	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
 
@@ -2028,6 +2030,7 @@ func (a AIAccelChargeChannel) Validate() error {
 	v := validate.New("AIAccelChargeChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
+	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
