@@ -89,9 +89,9 @@ inline x::json::json OutputChannel::to_json() const {
 
 inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
     ReadConfig result;
-    static_cast<::synnax::common::BaseReadConfig &>(
+    static_cast<::synnax::task::common::BaseReadConfig &>(
         result
-    ) = ::synnax::common::BaseReadConfig::parse(parser);
+    ) = ::synnax::task::common::BaseReadConfig::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     result.array_mode = parser.field<bool>("array_mode", false);
     result.array_size = parser.field<std::int32_t>("array_size", 1);
@@ -104,7 +104,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::BaseReadConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::common::BaseReadConfig::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     j["array_mode"] = this->array_mode;
@@ -115,9 +115,9 @@ inline x::json::json ReadConfig::to_json() const {
 
 inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
     WriteConfig result;
-    static_cast<::synnax::common::BaseWriteConfig &>(
+    static_cast<::synnax::task::common::BaseWriteConfig &>(
         result
-    ) = ::synnax::common::BaseWriteConfig::parse(parser);
+    ) = ::synnax::task::common::BaseWriteConfig::parse(parser);
     result.channels = parser.field<std::vector<OutputChannel>>(
         "channels",
         std::vector<OutputChannel>{}
@@ -127,7 +127,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::BaseWriteConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::common::BaseWriteConfig::to_json().items())
         j[k] = v;
     j["channels"] = x::json::to_array(this->channels);
     return j;

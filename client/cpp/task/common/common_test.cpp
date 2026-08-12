@@ -12,7 +12,7 @@
 #include "client/cpp/task/common/json.gen.h"
 #include "x/cpp/json/json.h"
 
-namespace synnax::common {
+namespace synnax::task::common {
 /// @brief it should parse the generated BaseStartConfig with both fields present.
 TEST(BaseStartConfig, testParseWithBothFields) {
     const auto json = nlohmann::json{
