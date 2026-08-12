@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
+	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
@@ -919,6 +920,18 @@ func (p *Plugin) cppDefaultLiteral(
 		if val.IdentValue == "now" &&
 			strings.Contains(p.typeRefToCpp(typeRef, data), "::telem::TimeStamp") {
 			return "x::telem::TimeStamp::now()"
+		}
+		if uv, ok := validation.ResolveUnionVariant(
+			val.IdentValue,
+			typeRef,
+			data.table,
+		); ok {
+			// std::variant default-constructs its first alternative, so a default
+			// naming any other variant must be written out explicitly.
+			return cppnaming.VariantTypeName(
+				p.typeRefToCpp(typeRef, data),
+				uv.Variant.Name,
+			) + "{}"
 		}
 		// Unresolvable idents (magic defaults like create) have no C++
 		// rendering; the caller falls back to the type's zero value.

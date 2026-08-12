@@ -137,6 +137,20 @@ func scalarFill(
 			Expr:    strconv.FormatFloat(d.FloatValue, 'g', -1, 64),
 		}, true
 	case resolution.ValueKindIdent:
+		if uv, ok := validation.ResolveUnionVariant(
+			d.IdentValue,
+			typeRef,
+			data.table,
+		); ok {
+			// The wrapper holds the active variant behind a nil-able interface, so
+			// the fill targets that field rather than the wrapper itself.
+			unionType := stripPointer(data.resolver.ResolveTypeRef(typeRef, data.ctx))
+			return defaultFillData{
+				GoName:  goName + ".Variant",
+				ZeroLit: "nil",
+				Expr:    casing.VariantTypeName(unionType, uv.Variant.Name) + "{}",
+			}, true
+		}
 		ev, ok := validation.ResolveEnumVariant(d.IdentValue, typeRef, data.table)
 		if !ok {
 			return defaultFillData{}, false

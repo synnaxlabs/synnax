@@ -2501,7 +2501,8 @@ var _ = Describe("Analyzer", func() {
 	Describe("Field Defaults", func() {
 		defaultOf := func(ctx SpecContext, fieldDecl string) *resolution.ExpressionValue {
 			GinkgoHelper()
-			source := "Item struct {\n\t" + fieldDecl + "\n}\n"
+			source := "Mode enum {\n\texclusive = \"Exclusive\"\n}\n\n" +
+				"Item struct {\n\t" + fieldDecl + "\n}\n"
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("test.Item").Form.(resolution.StructForm)
@@ -2552,10 +2553,10 @@ var _ = Describe("Analyzer", func() {
 			),
 			Entry(
 				"qualified ident",
-				"mode string = control.Exclusive",
+				"mode Mode = test.ModeExclusive",
 				resolution.ExpressionValue{
 					Kind:       resolution.ValueKindIdent,
-					IdentValue: "control.Exclusive",
+					IdentValue: "test.ModeExclusive",
 				},
 			),
 		)
@@ -2606,6 +2607,73 @@ var _ = Describe("Analyzer", func() {
 				Expect(
 					def.Elements[1],
 				).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 2.5}))
+			},
+		)
+	})
+
+	Describe("Identifier Defaults", func() {
+		const unionSource = `CJC union on source {
+    built_in {}
+    const_val {
+        val float64 = 0
+    }
+    chan {
+        port int32
+    }
+}
+
+Mode enum {
+    fast = "Fast"
+}
+
+`
+		analyze := func(ctx SpecContext, fieldDecl string) *diagnostics.Files {
+			GinkgoHelper()
+			source := unionSource + "Item struct {\n\t" + fieldDecl + "\n}\n"
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			return diag
+		}
+
+		DescribeTable(
+			"Should accept an identifier default the generators can emit",
+			func(ctx SpecContext, fieldDecl string) {
+				Expect(analyze(ctx, fieldDecl).Ok()).To(BeTrue())
+			},
+			Entry("enum member", "mode Mode = fast"),
+			Entry("union variant", "cjc CJC = built_in"),
+			Entry("union variant, prefixed", "cjc CJC = CJCBuiltIn"),
+			Entry("create sentinel", "key string = create"),
+			Entry("now sentinel", "at int64 = now"),
+		)
+
+		DescribeTable(
+			"Should reject an identifier default that names nothing",
+			func(ctx SpecContext, fieldDecl string) {
+				Expect(analyze(ctx, fieldDecl).Error()).To(ContainSubstring(
+					"names neither a member of its enum type nor a variant of its union type",
+				))
+			},
+			Entry("misspelled enum member", "mode Mode = fest"),
+			Entry("misspelled union variant", "cjc CJC = buit_in"),
+			Entry("variant of another union", "mode Mode = built_in"),
+		)
+
+		It(
+			"Should reject a union default whose variant cannot be constructed",
+			func(ctx SpecContext) {
+				Expect(analyze(ctx, "cjc CJC = chan").Error()).To(SatisfyAll(
+					ContainSubstring("defaults to union variant \"chan\""),
+					ContainSubstring(
+						"whose field \"port\" is required and has no default",
+					),
+				))
+			},
+		)
+
+		It(
+			"Should accept a union default whose variant fields are all defaulted",
+			func(ctx SpecContext) {
+				Expect(analyze(ctx, "cjc CJC = const_val").Ok()).To(BeTrue())
 			},
 		)
 	})

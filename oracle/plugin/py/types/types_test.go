@@ -2134,6 +2134,19 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 			).ToContain("scales: list[Scale] = Field(default_factory=list)")
 		},
 	)
+
+	It(
+		"Should default a union-typed field to a factory constructing the variant",
+		func(ctx SpecContext) {
+			withDefault := source + `
+			Item struct { scale Scale = none }
+		`
+			resp := MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`default_factory=lambda: ScaleNone(type="none")`,
+			)
+		},
+	)
 })
 
 var _ = Describe("Collection type aliases and maps", func() {

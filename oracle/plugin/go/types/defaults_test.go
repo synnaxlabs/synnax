@@ -715,4 +715,31 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			},
 		)
 	})
+
+	Describe("Union-typed field defaults", func() {
+		const source = `
+			@go output "core/pkg/service/x"
+
+			CJC union on source {
+				built_in {}
+				const_val {
+					val float64 = 0
+				}
+			}
+
+			Item struct { cjc CJC = const_val }
+		`
+
+		It(
+			"Should fill the nil variant with the defaulted one",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (i *Item) ApplyDefaults() {",
+					"if i.Cjc.Variant == nil {",
+					"i.Cjc.Variant = CJCConstVal{}",
+				)
+			},
+		)
+	})
 })

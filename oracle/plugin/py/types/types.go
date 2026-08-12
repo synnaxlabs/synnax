@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
@@ -1122,6 +1123,21 @@ func collectValidation(
 			); ok {
 				variantRef := enumVariantToPython(ev, table, data)
 				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
+			}
+			if uv, ok := validation.ResolveUnionVariant(
+				defaultVal.IdentValue,
+				typeRef,
+				table,
+			); ok {
+				// Models are mutable, so the variant needs default_factory. The
+				// discriminator Literal carries no default of its own and must be
+				// passed explicitly.
+				constraints = append(constraints, fmt.Sprintf(
+					"default_factory=lambda: %s(%s=%q)",
+					casing.VariantTypeName(getPyName(uv.Type), uv.Variant.Name),
+					keywords.Escape(uv.Union.Discriminator),
+					uv.Variant.Name,
+				))
 			}
 		case resolution.ValueKindArray:
 			// Lists are mutable, so they must use default_factory, never default=.
