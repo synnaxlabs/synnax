@@ -74,6 +74,19 @@ sequence prime {
 
 <Divider.Divider x />
 
+## Sequencing Rules
+
+1. When an item completes, the sequence advances; when the last item completes, the
+   sequence exits.
+2. `=> name` to a sibling item jumps there. Re-entry resets
+   [`:=` variables](/reference/control/arc/reference/variables#declaration) and keeps
+   [`$=` variables](/reference/control/arc/concepts/stateful-variables).
+3. `=> name` to a top-level scope hands control away: the target starts, and the
+   sequence you jumped out of never resumes, nor does any sequence containing it.
+4. Activations are independent: several top-level scopes can run at the same time.
+
+<Divider.Divider x />
+
 ## Entry Points
 
 Entry points trigger sequences from external events:
