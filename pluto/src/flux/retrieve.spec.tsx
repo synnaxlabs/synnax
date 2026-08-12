@@ -1603,6 +1603,23 @@ describe("useResult", () => {
     expect(harness.retrieve).toHaveBeenCalledTimes(1);
   });
 
+  // Regression: a render React discards must not fetch, so the cold path starts
+  // its fetch after commit rather than from the render body.
+  it("starts the cold fetch after the render that requests it", () => {
+    const harness = createHarness(undefined, () => new Promise<Data>(() => {}));
+    const duringRender: number[] = [];
+    renderHook(
+      () => {
+        const result = harness.useResult({ key: "a" });
+        duringRender.push(harness.retrieve.mock.calls.length);
+        return result;
+      },
+      { wrapper: Wrapper },
+    );
+    expect(duringRender[0]).toEqual(0);
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+  });
+
   it("surfaces a failed fetch as an error without refetching or logging", async () => {
     const harness = createHarness(undefined, async () => {
       throw new Error("boom");

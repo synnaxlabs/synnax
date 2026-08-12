@@ -15,7 +15,14 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { compare, type destructor, type state, TimeSpan } from "@synnaxlabs/x";
-import { useCallback, useMemo, useReducer, useRef, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
 import { type flux } from "@/flux/aether";
@@ -444,6 +451,20 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
 
   const hold = useHeldResult<Data>();
 
+  // A render React discards must not fetch, and nothing dedupes one once the
+  // in-flight entry clears, so the cold path starts its fetch after commit.
+  useEffect(() => {
+    if (client == null || memoQuery == null || cached !== undefined) return;
+    const local = localFor(locals, client);
+    const params = { client, query: memoQuery };
+    if (deriveCached?.(params) != null) return;
+    if (local.settled.get(query.hash(memoQuery)) != null) return;
+    ensureFetch(
+      params,
+      fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+    ).then(bump, bump);
+  }, [client, memoQuery, cached]);
+
   if (client == null)
     return hold(["disabled", client], () => nullClientResult<Data>(`retrieve ${name}`));
   if (memoQuery == null)
@@ -475,10 +496,6 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
         ? successResult(`retrieved ${name}`, settled.data)
         : errorResult(`retrieve ${name}`, settled.error),
     );
-  ensureFetch(
-    params,
-    fetchParamsFor({ name, retrieve, onChange, getCached, local }),
-  ).then(bump, bump);
   return hold(["loading", memoQuery], () => loadingResult<Data>(`retrieving ${name}`));
 };
 
@@ -701,6 +718,19 @@ const createResultSelector = <
       sliceEqual,
     );
     const hold = useHeldResult<Selected>();
+    // A render React discards must not fetch, and nothing dedupes one once the
+    // in-flight entry clears, so the cold path starts its fetch after commit.
+    useEffect(() => {
+      if (client == null || memoQuery == null || slice.kind !== "none") return;
+      const local = localFor(locals, client);
+      const params = { client, query: memoQuery };
+      if (deriveCached?.(params) != null) return;
+      if (local.settled.get(query.hash(memoQuery)) != null) return;
+      ensureFetch(
+        params,
+        fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+      ).then(bump, bump);
+    }, [client, memoQuery, slice]);
     if (client == null)
       return hold(["disabled", client], () =>
         nullClientResult<Selected>(`retrieve ${name}`),
@@ -734,10 +764,6 @@ const createResultSelector = <
           ? successResult(`retrieved ${name}`, select(settled.data, memoQuery))
           : errorResult(`retrieve ${name}`, settled.error),
       );
-    ensureFetch(
-      params,
-      fetchParamsFor({ name, retrieve, onChange, getCached, local }),
-    ).then(bump, bump);
     return hold(["loading", memoQuery], () =>
       loadingResult<Selected>(`retrieving ${name}`),
     );

@@ -530,8 +530,8 @@ export class Space<
   private touchMembers(query: Query<P, K, D, V>, keys: K[]): void {
     query.composed = undefined;
     if (query.state.variant !== "ready") return;
-    const { keys: members } = query.state;
-    if (keys.some((key) => members.includes(key))) this.touch(query);
+    const members = new Set(query.state.keys);
+    if (keys.some((key) => members.has(key))) this.touch(query);
   }
 
   /** Notifies every subscriber with the query's current answer. */

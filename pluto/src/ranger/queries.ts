@@ -186,7 +186,6 @@ export { type ListQuery } from "@/ranger/aether/queries";
 
 export const useList = Flux.createList<ListQuery, ranger.Key, ranger.Range>({
   ...listDefinition,
-  onChange: listDefinition.onChange,
   retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
 });
 
