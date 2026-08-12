@@ -85,6 +85,11 @@ export const Provider = ({ children, ...config }: ProviderProps): ReactElement =
   const error = useSyncExternalStore(subscribeError, getError);
   if (error != null) throw error;
 
+  // Spawn the worker on commit rather than in the Store constructor, which runs during
+  // render. A tree with no aether components still connects, so a worker that fails to
+  // load reports it without waiting for a first component.
+  useLayoutEffect(() => store.connect(), [store]);
+
   const value = useMemo<ContextValue>(() => ({ store, path: ROOT_PATH }), [store]);
 
   return <Context value={value}>{children}</Context>;
@@ -149,10 +154,9 @@ export const useLifecycle = <
   const path = useMemoArray([...ctx.path, key]);
   const onReceiveRef = useSyncedRef(onAetherChange);
   const handleRef = useRef<Handle<StateSchema, Methods> | null>(null);
-  // Render-phase register: preserves parent-before-child ordering on the worker.
-  // Concurrent Mode may discard a render before commit, leaking the entry — harmless:
-  // it reclaims with the Provider's Store on unmount.
-  handleRef.current ??= ctx.store.register({
+  // Staging is pure: the store keeps no reference and the worker hears nothing until
+  // the attach below. A render React discards is reclaimed with this ref.
+  handleRef.current ??= ctx.store.stage({
     type,
     path,
     schema,
@@ -161,23 +165,20 @@ export const useLifecycle = <
     methodsSchema,
     onReceiveRef,
   });
-  const { methods } = handleRef.current;
+  const handle = handleRef.current;
+  const { methods } = handle;
 
-  // Delete via the handle, not by path: on a single-commit re-parent the
-  // successor registers at this path during render, before this cleanup runs,
-  // and a path-based unregister would tear it down.
-  useLayoutEffect(
-    () => () => {
-      handleRef.current?.delete();
-      handleRef.current = null;
-    },
-    [ctx.store, path],
-  );
+  // The handle outlives the effect so StrictMode's cleanup-then-setup remount, which
+  // does not re-render, re-attaches this same component.
+  useLayoutEffect(() => {
+    handle.attach();
+    return () => handle.detach();
+  }, [handle]);
 
   const setState = useCallback(
     (next: RawSetArg<StateSchema>, transfer: Transferable[] = []) =>
-      handleRef.current?.setState(next, transfer),
-    [],
+      handle.setState(next, transfer),
+    [handle],
   );
 
   const subscribe = useCallback(
@@ -185,10 +186,7 @@ export const useLifecycle = <
     [ctx.store, path],
   );
 
-  const getSnapshot = useCallback(
-    () => ctx.store.getSnapshot<StateSchema>(path),
-    [ctx.store, path],
-  );
+  const getSnapshot = useCallback(() => handle.getState(), [handle]);
 
   return useMemo(
     () => ({ setState, path, methods, subscribe, getSnapshot }),

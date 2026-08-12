@@ -16,6 +16,7 @@ import {
   type PropsWithChildren,
   type ReactNode,
   StrictMode,
+  Suspense,
   useEffect,
   useRef,
 } from "react";
@@ -1552,6 +1553,7 @@ describe("Aether Main", () => {
     });
     it("should surface worker.onerror events with location info", () => {
       const store = new Aether.Store({ workerURL: "test://worker" });
+      store.connect();
       const listener = vi.fn();
       store.subscribeError(listener);
       expect(store.getError()).toBeNull();
@@ -1571,12 +1573,14 @@ describe("Aether Main", () => {
     });
     it("should fall back to 'unknown' when ErrorEvent carries no message", () => {
       const store = new Aether.Store({ workerURL: "test://worker" });
+      store.connect();
       instances[0].onerror?.(new ErrorEvent("error"));
       expect(store.getError()?.message).toBe("[aether] worker error: unknown");
       store.dispose();
     });
     it("should surface worker.onmessageerror as a deserialization failure", () => {
       const store = new Aether.Store({ workerURL: "test://worker" });
+      store.connect();
       const listener = vi.fn();
       store.subscribeError(listener);
       instances[0].onmessageerror?.(new MessageEvent("messageerror"));
@@ -1613,26 +1617,88 @@ describe("Aether Main", () => {
       expect(leaf.key).toBe("duplicate");
       expect(leaf.state.x).toBe(2);
     });
-    it("should run afterDelete on worker components orphaned at dispose", () => {
-      // A render React discards after useLifecycle registers leaves a worker-side
-      // component no delete message will ever name. dispose() must clear the tree so
-      // the orphan releases its resources.
+    it("should never reach the worker for a handle that is staged but never attached", async () => {
+      // A render React discards stages a handle and then drops it. Nothing may reach
+      // the worker, because no delete message would ever name it.
       const [workerSide, mainSide] = aether.createMockPair();
       const root = aether.render({
         worker: workerSide,
         registry: { [ExampleLeaf.TYPE]: ExampleLeaf },
       });
       const store = new Aether.Store({ worker: mainSide });
-      store.register({
+      const handle = store.stage({
         type: ExampleLeaf.TYPE,
         schema: exampleProps,
-        path: ["root", "leaked"],
+        path: ["root", "discarded"],
         initialState: { x: 0 },
       });
-      const leaf = root.children[0] as ExampleLeaf;
-      store.dispose();
-      expect(leaf.deletef).toHaveBeenCalledTimes(1);
+      // Local state is readable even though the worker knows nothing.
+      expect(handle.getState()).toEqual({ x: 0 });
+      await vi.waitFor(() => expect(root.children).toHaveLength(0));
+      handle.setState({ x: 1 });
+      await vi.waitFor(() => expect(root.children).toHaveLength(0));
+    });
+    it("should not create worker components for renders discarded by suspense", async () => {
+      // A suspending tree renders three times: the render that suspends, the retry,
+      // and the render after the promise resolves. Only the last one commits. When
+      // acquisition happened during render, all three reached the worker and the first
+      // two were orphaned under keys no delete message would ever name.
+      const [Provider, root] = await newProvider();
+      let resolved = false;
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = () => {
+          resolved = true;
+          resolve();
+        };
+      });
+      const Suspender = () => {
+        // Throwing the promise rather than use()-ing it: the retry must land
+        // synchronously for the assertion below to observe the discarded renders.
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
+        if (!resolved) throw gate;
+        return null;
+      };
+      const Leaf = () => {
+        Aether.use({
+          type: ExampleLeaf.TYPE,
+          schema: exampleProps,
+          initialState: { x: 0 },
+        });
+        return null;
+      };
+      render(
+        <Provider>
+          <Suspense fallback={null}>
+            <Leaf />
+            <Leaf />
+            <Leaf />
+            <Suspender />
+          </Suspense>
+        </Provider>,
+      );
       expect(root.children).toHaveLength(0);
+      release();
+      await waitFor(() => expect(root.children).toHaveLength(3));
+    });
+    it("should not spawn a worker until the provider commits", () => {
+      // The Store is constructed during the Provider's render. Spawning the worker
+      // there strands a live worker, and for synnax.Provider a live client, whenever
+      // React discards that render.
+      const instances: FakeWorker[] = [];
+      class TrackedWorker extends FakeWorker {
+        constructor(url: string | URL) {
+          super(url);
+          instances.push(this);
+        }
+      }
+      vi.stubGlobal("Worker", TrackedWorker);
+      const store = new Aether.Store({ workerURL: "test://worker" });
+      expect(instances).toHaveLength(0);
+      store.connect();
+      expect(instances).toHaveLength(1);
+      store.dispose();
+      vi.unstubAllGlobals();
     });
     it("should keep leaves that share a key under different parents independent", async () => {
       // Two plots charting the same channel produce lines with identical keys. Identity
@@ -1774,30 +1840,28 @@ describe("Aether Main", () => {
       expect(hasMountWarning).toBe(false);
       errorSpy.mockRestore();
     });
-    it("should return a cached snapshot while a subscriber outlives the entry", () => {
-      // Pin: useSyncExternalStore may call getSnapshot for tearing detection after the
-      // entry has been unregistered (e.g. StrictMode's pseudo- unmount/remount window).
-      // The store should fall back to the last known snapshot for that path rather than
-      // throw.
+    it("should keep handle state readable across a detach and re-attach", () => {
+      // Pin: useSyncExternalStore may call getSnapshot for tearing detection while the
+      // component is detached (StrictMode's cleanup-then-setup remount, which does not
+      // re-render in between). The handle owns its state, so the read never gaps.
       const [workerSide, mainSide] = aether.createMockPair();
-      aether.render({ worker: workerSide, registry: REGISTRY });
+      const root = aether.render({ worker: workerSide, registry: REGISTRY });
       const store = new Aether.Store({ worker: mainSide });
       const path = ["root", "pinned"];
-      const snapshot = () => store.getSnapshot<typeof exampleProps>(path);
-      const unsubscribe = store.subscribe(path, () => {});
-      store.register({
+      const handle = store.stage({
         type: ExampleLeaf.TYPE,
         path,
         schema: exampleProps,
         initialState: { x: 7 },
       });
-      expect(snapshot()).toEqual({ x: 7 });
-      store.unregister(path);
-      // Subscriber still attached: cached snapshot remains readable.
-      expect(snapshot()).toEqual({ x: 7 });
-      unsubscribe();
-      // No subscribers and no entry: cache is cleared.
-      expect(snapshot).toThrow(/missing entry/);
+      expect(handle.getState()).toEqual({ x: 7 });
+      handle.attach();
+      expect(handle.getState()).toEqual({ x: 7 });
+      handle.detach();
+      expect(handle.getState()).toEqual({ x: 7 });
+      handle.attach();
+      expect(handle.getState()).toEqual({ x: 7 });
+      expect(root.children).toHaveLength(0);
     });
     it("should survive re-parenting under the same aether path in a single commit", async () => {
       // Index-keyed rows re-parent surviving cells on row deletion: React mounts a
