@@ -83,8 +83,6 @@ const { useResult: useResultGranted } = Flux.createRetrieve<PermissionsQuery, bo
     if (sub == null) return () => {};
     return client.access.granted.onChange(sub, { objects, action }, handler);
   },
-  // The full query passes through: its stable identity is what keys the
-  // verdict memo, so render-hot reads skip the policy evaluation.
   getCached: ({ client, query }) => {
     const sub = resolveSubject(client, query.subject);
     if (sub == null) return undefined;

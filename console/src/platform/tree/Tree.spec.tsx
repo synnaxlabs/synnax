@@ -461,17 +461,13 @@ describe("Tree.Tree", () => {
       }),
     });
 
-    // Lets the tree's own synchronizers process everything the fence observed.
-    const settle = async () =>
-      await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
-
     it("should not re-render rows for a resource event outside the tree", async () => {
       const container = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: uniqueName("container"),
       });
       const childName = uniqueName("child");
-      await client.groups.create({
+      const child = await client.groups.create({
         parent: group.ontologyID(container.key),
         name: childName,
       });
@@ -482,17 +478,13 @@ describe("Tree.Tree", () => {
       const counts = new Map<string, number>();
       await renderTree(group.ontologyID(container.key), countingItems(counts));
       await screen.findByText(childName);
-      const seen = vi.fn<(resource: ontology.Resource) => void>();
-      const disconnect = client.ontology.onResourceSet(seen);
       const before = counts.get(childName) ?? 0;
-      const renamed = uniqueName("foreign-renamed");
-      await client.groups.rename(foreign.key, renamed);
-      await waitFor(() =>
-        expect(seen.mock.calls.some(([r]) => r.name === renamed)).toBe(true),
-      );
-      await settle();
+      await client.groups.rename(foreign.key, uniqueName("foreign-renamed"));
+      // Ordered events: the child rename rendering proves the foreign one processed.
+      const childRenamed = uniqueName("child-renamed");
+      await client.groups.rename(child.key, childRenamed);
+      await screen.findByText(childRenamed);
       expect(counts.get(childName)).toBe(before);
-      disconnect();
     });
 
     it("should not re-render rows for relationship events outside the tree", async () => {
@@ -501,7 +493,7 @@ describe("Tree.Tree", () => {
         name: uniqueName("container"),
       });
       const childName = uniqueName("child");
-      await client.groups.create({
+      const child = await client.groups.create({
         parent: group.ontologyID(container.key),
         name: childName,
       });
@@ -529,7 +521,10 @@ describe("Tree.Tree", () => {
           true,
         ),
       );
-      await settle();
+      // The child rename rendering flushes any re-render the fenced events queued.
+      const childRenamed = uniqueName("child-renamed");
+      await client.groups.rename(child.key, childRenamed);
+      await screen.findByText(childRenamed);
       expect(counts.get(childName)).toBe(before);
       disconnectSet();
       disconnectDelete();

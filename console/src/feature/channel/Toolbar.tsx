@@ -42,23 +42,25 @@ const Actions = (): ReactElement | null => {
   );
 };
 
-const Content = (): ReactElement => {
-  const { data: g } = Channel.useResultGroup({});
-  const root = useMemo(() => (g == null ? null : group.ontologyID(g.key)), [g?.key]);
-  return (
-    <Toolbar.Content>
-      <Toolbar.Header>
-        <Toolbar.Title>
-          <Icon.Channel />
-          Channels
-        </Toolbar.Title>
-        <Actions />
-      </Toolbar.Header>
-      <Toolbar.Body>
-        <Tree.Tree root={root} emptyContent={<EmptyContent />} />
-      </Toolbar.Body>
-    </Toolbar.Content>
-  );
+const Content = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header>
+      <Toolbar.Title>
+        <Icon.Channel />
+        Channels
+      </Toolbar.Title>
+      <Actions />
+    </Toolbar.Header>
+    <Toolbar.Body>
+      <Body />
+    </Toolbar.Body>
+  </Toolbar.Content>
+);
+
+const Body = (): ReactElement => {
+  const g = Channel.useGroup({});
+  const root = useMemo(() => group.ontologyID(g.key), [g.key]);
+  return <Tree.Tree root={root} emptyContent={<EmptyContent />} />;
 };
 
 const EmptyContent = (): ReactElement => {
