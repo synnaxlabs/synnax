@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,8 +15,7 @@ import { describe, expect, it } from "vitest";
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
 import {
-  awaitCommand,
-  clickDeploy,
+  deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskStopped,
@@ -62,21 +61,6 @@ const ZERO_DRAFT: task.New<OPC.Task.WriteSchemas> = {
 const createDraft = async (client: Synnax, config: OPC.Task.WritePayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, OPC.Task.WRITE_SCHEMAS);
 
-const deployAndAwaitTask = async (
-  client: Synnax,
-  container: ParentNode,
-  key: task.Key,
-) => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
-  return await client.tasks.retrieve({ key, schemas: OPC.Task.WRITE_SCHEMAS });
-};
-
 describe("OPC.Write", () => {
   it("should create command and index channels on deploy", async () => {
     const dev = await createOPCDevice(client);
@@ -87,7 +71,12 @@ describe("OPC.Write", () => {
     await screen.findByText(new RegExp(chA.nodeName));
     await screen.findByText(new RegExp(chB.nodeName));
 
-    const created = await deployAndAwaitTask(client, container, draft.key);
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      OPC.Task.WRITE_SCHEMAS,
+    );
     expect(created.rack).toBe(dev.rack);
     const { config } = created;
     expect(config.channels).toHaveLength(2);
@@ -115,7 +104,12 @@ describe("OPC.Write", () => {
     const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
     const first = await renderWrite({ client, taskKey: draft.key });
     await screen.findByText(new RegExp(ch.nodeName));
-    const deployed = await deployAndAwaitTask(client, first.container, draft.key);
+    const deployed = await deployAndAwaitTask(
+      client,
+      first.container,
+      draft.key,
+      OPC.Task.WRITE_SCHEMAS,
+    );
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
       schemas: OPC.Device.SCHEMAS,
@@ -127,7 +121,12 @@ describe("OPC.Write", () => {
     // The command channel exists by now, so the node id and the resolved channel name
     // both match.
     await screen.findAllByText(new RegExp(ch.nodeName));
-    await deployAndAwaitTask(client, second.container, draft.key);
+    await deployAndAwaitTask(
+      client,
+      second.container,
+      draft.key,
+      OPC.Task.WRITE_SCHEMAS,
+    );
     const afterSecond = await client.devices.retrieve({
       key: dev.key,
       schemas: OPC.Device.SCHEMAS,

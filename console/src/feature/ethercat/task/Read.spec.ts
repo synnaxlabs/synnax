@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, task } from "@synnaxlabs/client";
+import { type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -21,7 +21,11 @@ import {
   createPDOs,
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
-import { awaitCommand, clickDeploy, renderTaskFormTab } from "@/platform/task/testutil";
+import {
+  clickDeploy,
+  deployAndAwaitTask,
+  renderTaskFormTab,
+} from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -43,24 +47,6 @@ const createDraft = async (
   client: Synnax,
   config: EtherCAT.Task.ReadPayload["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.READ_SCHEMAS);
-
-const deployAndAwaitTask = async (
-  client: Synnax,
-  container: ParentNode,
-  key: task.Key,
-) => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
-  return await client.tasks.retrieve({
-    key,
-    schemas: EtherCAT.Task.READ_SCHEMAS,
-  });
-};
 
 const renderRead = async (config: EtherCAT.Task.ReadPayload["config"]) => {
   const draft = await createDraft(client, config);
@@ -177,7 +163,12 @@ describe("EtherCAT Read", () => {
           createManualInputChannel(slave.key, 0x6001, 2, { name: namedChannel }),
         ],
       });
-      const created = await deployAndAwaitTask(client, container, draft.key);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
       expect(created.type).toBe(EtherCAT.Task.READ_TYPE);
       expect(created.rack).toBe(testRack.key);
       const [auto, manual] = created.config.channels;
@@ -219,6 +210,7 @@ describe("EtherCAT Read", () => {
         client,
         first.container,
         first.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
       );
       first.unmount();
 
@@ -227,6 +219,7 @@ describe("EtherCAT Read", () => {
         client,
         second.container,
         second.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
       );
       expect(secondTask.config.channels[0].channel).toBe(
         firstTask.config.channels[0].channel,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { http, type Synnax, task } from "@synnaxlabs/client";
+import { http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,8 +15,7 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
-  awaitCommand,
-  clickDeploy,
+  deployAndAwaitTask,
   findDialogTriggerByText,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -41,21 +40,6 @@ const ZERO_DRAFT: task.New<HTTP.Task.WriteSchemas> = {
 
 const createDraft = async (client: Synnax, config: HTTP.Task.WritePayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
-
-const deployAndAwaitTask = async (
-  client: Synnax,
-  container: ParentNode,
-  key: task.Key,
-) => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
-  return await client.tasks.retrieve({ key, schemas: HTTP.Task.WRITE_SCHEMAS });
-};
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an endpoint"));
@@ -199,7 +183,12 @@ describe("HTTP Write form", () => {
       ]);
       const draft = await createDraft(client, config);
       const { container } = await renderWrite({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(client, container, draft.key);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.WRITE_SCHEMAS,
+      );
 
       const updated = await client.devices.retrieve({
         key: dev.key,
@@ -241,7 +230,12 @@ describe("HTTP Write form", () => {
       ]);
       const draft = await createDraft(client, config);
       const { container } = await renderWrite({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(client, container, draft.key);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.WRITE_SCHEMAS,
+      );
       expect(created.config.endpoints[0].channel.channel).toBe(configuredCh.key);
       expect(created.config.endpoints[1].channel.channel).toBe(storedCh.key);
       const updated = await client.devices.retrieve({

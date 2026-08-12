@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax, task } from "@synnaxlabs/client";
+import { type rack, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -21,7 +21,11 @@ import {
   createPDOs,
   createSlaveDevice,
 } from "@/feature/ethercat/testutil";
-import { awaitCommand, clickDeploy, renderTaskFormTab } from "@/platform/task/testutil";
+import {
+  clickDeploy,
+  deployAndAwaitTask,
+  renderTaskFormTab,
+} from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -43,24 +47,6 @@ const createDraft = async (
   client: Synnax,
   config: EtherCAT.Task.WritePayload["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.WRITE_SCHEMAS);
-
-const deployAndAwaitTask = async (
-  client: Synnax,
-  container: ParentNode,
-  key: task.Key,
-) => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
-  return await client.tasks.retrieve({
-    key,
-    schemas: EtherCAT.Task.WRITE_SCHEMAS,
-  });
-};
 
 const renderWrite = async (config: EtherCAT.Task.WritePayload["config"]) => {
   const draft = await createDraft(client, config);
@@ -135,7 +121,12 @@ describe("EtherCAT Write", () => {
         ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
         channels: [createAutoOutputChannel(slave.key, "Control")],
       });
-      const created = await deployAndAwaitTask(client, container, draft.key);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        EtherCAT.Task.WRITE_SCHEMAS,
+      );
       expect(created.type).toBe(EtherCAT.Task.WRITE_TYPE);
       expect(created.rack).toBe(testRack.key);
       const [ch] = created.config.channels;
@@ -186,7 +177,12 @@ describe("EtherCAT Write", () => {
           }),
         ],
       });
-      const created = await deployAndAwaitTask(client, container, draft.key);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        EtherCAT.Task.WRITE_SCHEMAS,
+      );
       const [ch] = created.config.channels;
       const cmd = await client.channels.retrieve(ch.cmdChannel);
       expect(cmd.name).toBe(cmdName);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -19,8 +19,7 @@ import {
   createLabJackDevice,
 } from "@/feature/labjack/testutil";
 import {
-  awaitCommand,
-  clickDeploy,
+  deployAndAwaitTask,
   findDialogTriggerByText,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -52,24 +51,6 @@ const createDraft = async (
   client: Synnax,
   config: LabJack.Task.WritePayload["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, LabJack.Task.WRITE_SCHEMAS);
-
-const deployAndAwaitTask = async (
-  client: Synnax,
-  container: ParentNode,
-  key: task.Key,
-) => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
-  return await client.tasks.retrieve({
-    key,
-    schemas: LabJack.Task.WRITE_SCHEMAS,
-  });
-};
 
 describe("LabJack Write", () => {
   it("should render output channels with port selectors and type buttons", async () => {
@@ -139,7 +120,12 @@ describe("LabJack Write", () => {
         createConfig(dev.key, [createDOChannel("DIO4"), createAOChannel("DAC0")]),
       );
       const { container } = await renderWrite({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(client, container, draft.key);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        LabJack.Task.WRITE_SCHEMAS,
+      );
       expect(created.type).toBe(LabJack.Task.WRITE_TYPE);
       expect(created.rack).toBe(dev.rack);
       const [doCh, aoCh] = created.config.channels;
@@ -193,7 +179,12 @@ describe("LabJack Write", () => {
         ]),
       );
       const { container } = await renderWrite({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(client, container, draft.key);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        LabJack.Task.WRITE_SCHEMAS,
+      );
       const [ch] = created.config.channels;
       const cmd = await client.channels.retrieve(ch.cmdChannel);
       expect(cmd.name).toBe(cmdName);
@@ -212,6 +203,7 @@ describe("LabJack Write", () => {
         client,
         first.container,
         firstDraft.key,
+        LabJack.Task.WRITE_SCHEMAS,
       );
       first.unmount();
 
@@ -221,6 +213,7 @@ describe("LabJack Write", () => {
         client,
         second.container,
         secondDraft.key,
+        LabJack.Task.WRITE_SCHEMAS,
       );
       expect(secondTask.config.channels[0].cmdChannel).toBe(
         firstTask.config.channels[0].cmdChannel,

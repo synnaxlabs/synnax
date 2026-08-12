@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -20,8 +20,7 @@ import {
   createTCChannel,
 } from "@/feature/labjack/testutil";
 import {
-  awaitCommand,
-  clickDeploy,
+  deployAndAwaitTask,
   findChannelListItem,
   findDialogTriggerByText,
   renderTaskFormTab,
@@ -54,24 +53,6 @@ const createDraft = async (
   client: Synnax,
   config: LabJack.Task.ReadPayload["config"],
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, LabJack.Task.READ_SCHEMAS);
-
-const deployAndAwaitTask = async (
-  client: Synnax,
-  container: ParentNode,
-  key: task.Key,
-) => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
-  return await client.tasks.retrieve({
-    key,
-    schemas: LabJack.Task.READ_SCHEMAS,
-  });
-};
 
 describe("LabJack Read", () => {
   it("should prompt for a selection when the form carries no device", async () => {
@@ -199,7 +180,12 @@ describe("LabJack Read", () => {
         ]),
       );
       const { container } = await renderRead({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(client, container, draft.key);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        LabJack.Task.READ_SCHEMAS,
+      );
       expect(created.type).toBe(LabJack.Task.READ_TYPE);
       expect(created.rack).toBe(dev.rack);
       const [ai, di] = created.config.channels;
@@ -235,6 +221,7 @@ describe("LabJack Read", () => {
         client,
         first.container,
         firstDraft.key,
+        LabJack.Task.READ_SCHEMAS,
       );
       first.unmount();
 
@@ -244,6 +231,7 @@ describe("LabJack Read", () => {
         client,
         second.container,
         secondDraft.key,
+        LabJack.Task.READ_SCHEMAS,
       );
       expect(secondTask.config.channels[0].channel).toBe(
         firstTask.config.channels[0].channel,
@@ -259,7 +247,7 @@ describe("LabJack Read", () => {
         createConfig(dev.key, [createAIChannel("AIN0")]),
       );
       const { container } = await renderRead({ client, taskKey: draft.key });
-      await deployAndAwaitTask(client, container, draft.key);
+      await deployAndAwaitTask(client, container, draft.key, LabJack.Task.READ_SCHEMAS);
       const updated = await client.devices.retrieve({
         key: dev.key,
         schemas: LabJack.Device.SCHEMAS,

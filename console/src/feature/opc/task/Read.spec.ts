@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,8 +15,7 @@ import { describe, expect, it } from "vitest";
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
 import {
-  awaitCommand,
-  clickDeploy,
+  deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskStopped,
@@ -68,21 +67,6 @@ const ZERO_DRAFT: task.New<OPC.Task.ReadSchemas> = {
 const createDraft = async (client: Synnax, config: OPC.Task.ReadPayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, OPC.Task.READ_SCHEMAS);
 
-const deployAndAwaitTask = async (
-  client: Synnax,
-  container: ParentNode,
-  key: task.Key,
-) => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
-  return await client.tasks.retrieve({ key, schemas: OPC.Task.READ_SCHEMAS });
-};
-
 describe("OPC.Read", () => {
   it("should create channels under a new index on deploy", async () => {
     const dev = await createOPCDevice(client);
@@ -93,7 +77,12 @@ describe("OPC.Read", () => {
     await screen.findByText(new RegExp(chA.nodeName));
     await screen.findByText(new RegExp(chB.nodeName));
 
-    const created = await deployAndAwaitTask(client, container, draft.key);
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      OPC.Task.READ_SCHEMAS,
+    );
     expect(created.rack).toBe(dev.rack);
     const { config } = created;
     expect(config.channels).toHaveLength(2);
@@ -133,7 +122,12 @@ describe("OPC.Read", () => {
     await screen.findByText(new RegExp(tsChannel.nodeName));
     expect(screen.getAllByText("Use as Index")).toHaveLength(1);
 
-    const deployed = await deployAndAwaitTask(client, first.container, draft.key);
+    const deployed = await deployAndAwaitTask(
+      client,
+      first.container,
+      draft.key,
+      OPC.Task.READ_SCHEMAS,
+    );
 
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
@@ -153,7 +147,12 @@ describe("OPC.Read", () => {
     // The index channel exists by now, so the node id and the resolved channel name
     // both match.
     await screen.findAllByText(new RegExp(tsChannel.nodeName));
-    await deployAndAwaitTask(client, second.container, draft.key);
+    await deployAndAwaitTask(
+      client,
+      second.container,
+      draft.key,
+      OPC.Task.READ_SCHEMAS,
+    );
     const afterSecond = await client.devices.retrieve({
       key: dev.key,
       schemas: OPC.Device.SCHEMAS,

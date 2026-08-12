@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import { awaitCommand, clickDeploy, commitFieldInput } from "@/platform/task/testutil";
+import { commitFieldInput, deployAndAwaitTask } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -57,19 +57,6 @@ const renderDigitalWrite = async (
   return { ...rendered, draft };
 };
 
-const deployAndAwaitStart = async (
-  container: ParentNode,
-  key: task.Key,
-): Promise<void> => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
-};
-
 const createConfig = (
   channels: NI.Task.DOChannel[],
   device = "placeholder_device",
@@ -95,7 +82,7 @@ describe("DigitalWrite", () => {
       const rendered = await renderDigitalWrite(
         createConfig([createChannel(0, 0), createChannel(0, 1)], dev.key),
       );
-      await deployAndAwaitStart(rendered.container, rendered.draft.key);
+      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
         key: rendered.draft.key,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
@@ -146,7 +133,7 @@ describe("DigitalWrite", () => {
           dev.key,
         ),
       );
-      await deployAndAwaitStart(rendered.container, rendered.draft.key);
+      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
         key: rendered.draft.key,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
@@ -164,14 +151,14 @@ describe("DigitalWrite", () => {
       const dev = await createNIDevice(client);
       const config = createConfig([createChannel(0, 0)], dev.key);
       const first = await renderDigitalWrite(config);
-      await deployAndAwaitStart(first.container, first.draft.key);
+      await deployAndAwaitTask(client, first.container, first.draft.key);
       const firstTask = await client.tasks.retrieve({
         key: first.draft.key,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
       });
       first.unmount();
       const second = await renderDigitalWrite(config);
-      await deployAndAwaitStart(second.container, second.draft.key);
+      await deployAndAwaitTask(client, second.container, second.draft.key);
       await waitFor(async () => {
         const again = await client.tasks.retrieve({
           key: second.draft.key,

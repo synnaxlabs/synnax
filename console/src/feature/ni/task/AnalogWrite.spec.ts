@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -15,11 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import {
-  awaitCommand,
-  clickDeploy,
-  selectFromDropdown,
-} from "@/platform/task/testutil";
+import { deployAndAwaitTask, selectFromDropdown } from "@/platform/task/testutil";
 import { isSelectButtonSelected, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -59,19 +55,6 @@ const renderAnalogWrite = async (
     taskKey: draft.key,
   });
   return { ...rendered, draft };
-};
-
-const deployAndAwaitStart = async (
-  container: ParentNode,
-  key: task.Key,
-): Promise<void> => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
 };
 
 const createConfig = (
@@ -136,7 +119,7 @@ describe("AnalogWrite", () => {
           dev.key,
         ),
       );
-      await deployAndAwaitStart(rendered.container, rendered.draft.key);
+      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
         key: rendered.draft.key,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
@@ -186,7 +169,7 @@ describe("AnalogWrite", () => {
           dev.key,
         ),
       );
-      await deployAndAwaitStart(rendered.container, rendered.draft.key);
+      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
         key: rendered.draft.key,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
@@ -212,14 +195,14 @@ describe("AnalogWrite", () => {
         dev.key,
       );
       const first = await renderAnalogWrite(config);
-      await deployAndAwaitStart(first.container, first.draft.key);
+      await deployAndAwaitTask(client, first.container, first.draft.key);
       const firstTask = await client.tasks.retrieve({
         key: first.draft.key,
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
       });
       first.unmount();
       const second = await renderAnalogWrite(config);
-      await deployAndAwaitStart(second.container, second.draft.key);
+      await deployAndAwaitTask(client, second.container, second.draft.key);
       await waitFor(async () => {
         const again = await client.tasks.retrieve({
           key: second.draft.key,
