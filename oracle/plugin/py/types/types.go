@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
@@ -1123,6 +1124,21 @@ func collectValidation(
 				variantRef := enumVariantToPython(ev, table, data)
 				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
 			}
+			if uv, ok := validation.ResolveUnionVariant(
+				defaultVal.IdentValue,
+				typeRef,
+				table,
+			); ok {
+				// Models are mutable, so the variant needs default_factory. The
+				// discriminator Literal carries no default of its own and must be
+				// passed explicitly.
+				constraints = append(constraints, fmt.Sprintf(
+					"default_factory=lambda: %s(%s=%q)",
+					unionVariantToPython(uv, table, data),
+					keywords.Escape(uv.Union.Discriminator),
+					uv.Variant.Name,
+				))
+			}
 		case resolution.ValueKindArray:
 			// Lists are mutable, so they must use default_factory, never default=.
 			if len(defaultVal.Elements) == 0 {
@@ -1315,6 +1331,24 @@ func enumVariantToPython(
 		variantRef = fmt.Sprintf("%s.%s", qualifiedEnum, ev.Variant.Name)
 	}
 	return variantRef
+}
+
+// unionVariantToPython renders the variant class a union default names, qualified
+// with its module alias when the union is declared in another schema.
+func unionVariantToPython(
+	uv validation.UnionVariant,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	variantName := casing.VariantTypeName(getPyName(uv.Type), uv.Variant.Name)
+	if uv.Type.Namespace == data.Namespace {
+		return variantName
+	}
+	outputPath := enum.FindOutputPath(uv.Type, table, "py")
+	if outputPath == "" {
+		outputPath = uv.Type.Namespace
+	}
+	return addCrossNamespaceImport(toPythonModulePath(outputPath), variantName, data)
 }
 
 // isUUIDType checks if a type reference is or resolves to the uuid primitive type.

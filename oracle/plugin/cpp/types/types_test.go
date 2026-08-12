@@ -2164,6 +2164,30 @@ var _ = Describe("C++ Union Generation", func() {
 				ToContain(`Scale custom_scale;`)
 		},
 	)
+
+	It(
+		"Should initialize a union-typed field with its defaulted variant",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 = 1 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale = none
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(`Scale custom_scale = ScaleNone{};`)
+		},
+	)
 })
 
 var _ = Describe("C++ Union Variant Doc Coverage", func() {

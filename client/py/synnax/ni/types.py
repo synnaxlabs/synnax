@@ -370,13 +370,13 @@ class AIChargeChan(BaseAIChan, MinMaxVal):
         ...     port=0,
         ...     channel=0,
         ...     terminal_config="Diff",
-        ...     units="C",  # Coulombs
-        ...     min_val=-0.000001,  # -1 µC
-        ...     max_val=0.000001    # +1 µC
+        ...     units="Coulombs",
+        ...     min_val=-0.000001,
+        ...     max_val=0.000001
         ... )
 
     :param terminal_config: Input terminal configuration
-    :param units: Charge units (C for Coulombs, uC for microCoulombs)
+    :param units: Charge units (Coulombs or PicoCoulombs)
     :param custom_scale: Optional custom scaling
     :param min_val: Minimum expected charge
     :param max_val: Maximum expected charge
@@ -384,7 +384,7 @@ class AIChargeChan(BaseAIChan, MinMaxVal):
 
     type: Literal["ai_charge"] = "ai_charge"
     terminal_config: TerminalConfig = "Cfg_Default"
-    units: Literal["C", "uC"]
+    units: Literal["Coulombs", "PicoCoulombs"]
     custom_scale: Scale = NoScale()
 
 
@@ -1020,7 +1020,7 @@ class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
         ...     terminal_config="Diff",
         ...     rosette_type="RectangularRosette",
         ...     gage_orientation=0.0,  # degrees
-        ...     rosette_meas_types=["PrincipleStrain1", "PrincipleStrain2", "MaxShearStrain"],
+        ...     rosette_meas_types=["PrincipalStrain1", "PrincipalStrain2", "MaxShearStrain"],
         ...     strain_config="QuarterBridgeI",
         ...     units="Strain",
         ...     voltage_excit_source="Internal",
@@ -1055,9 +1055,9 @@ class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
     gage_orientation: float
     rosette_meas_types: list[
         Literal[
-            "PrincipleStrain1",
-            "PrincipleStrain2",
-            "PrincipleStrainAngle",
+            "PrincipalStrain1",
+            "PrincipalStrain2",
+            "PrincipalStrainAngle",
             "CartesianStrainX",
             "CartesianStrainY",
             "CartesianShearStrainXY",

@@ -42,12 +42,14 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"Radians", DAQmx_Val_Radians},
     {"g", DAQmx_Val_g},
     {"MetersPerSecondSquared", DAQmx_Val_MetersPerSecondSquared},
+    {"InchesPerSecondSquared", DAQmx_Val_InchesPerSecondSquared},
     {"MetersPerSecond", DAQmx_Val_MetersPerSecond},
     {"m/s", DAQmx_Val_MetersPerSecond},
     {"InchesPerSecond", DAQmx_Val_InchesPerSecond},
     {"in/s", DAQmx_Val_InchesPerSecond},
     {"RPM", DAQmx_Val_RPM},
     {"Radians/s", DAQmx_Val_RadiansPerSecond},
+    {"Degrees/s", DAQmx_Val_DegreesPerSecond},
     {"mV/m/s", DAQmx_Val_MillivoltsPerMillimeterPerSecond},
     {"MillivoltsPerMillimeterPerSecond", DAQmx_Val_MillivoltsPerMillimeterPerSecond},
     {"MilliVoltsPerInchPerSecond", DAQmx_Val_MilliVoltsPerInchPerSecond},
@@ -69,6 +71,8 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"FromTEDS", DAQmx_Val_FromTEDS},
     {"VoltsPerG", DAQmx_Val_VoltsPerG},
     {"mVoltsPerG", DAQmx_Val_mVoltsPerG},
+    {"Coulombs", DAQmx_Val_Coulombs},
+    {"PicoCoulombs", DAQmx_Val_PicoCoulombs},
     {"AccelUnit_g", DAQmx_Val_AccelUnit_g}
 };
 
