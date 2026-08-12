@@ -10,7 +10,10 @@
 package types_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	. "github.com/synnaxlabs/oracle/testutil"
 )
@@ -712,6 +715,62 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 					"func (c *Container) ApplyDefaults() {",
 					"c.Fields[i].ApplyDefaults()",
 				)
+			},
+		)
+	})
+
+	Describe("Union-typed field defaults", func() {
+		const source = `
+			@go output "core/pkg/service/x"
+
+			CJC union on source {
+				built_in {}
+				const_val {
+					val float64 = 0
+				}
+			}
+
+			Item struct { cjc CJC = const_val }
+		`
+
+		It(
+			"Should fill the nil variant with the defaulted one",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (i *Item) ApplyDefaults() {",
+					"if i.Cjc.Variant == nil {",
+					"i.Cjc.Variant = CJCConstVal{}",
+				)
+			},
+		)
+
+		It(
+			"Should recurse into the filled variant so its own defaults land",
+			func(ctx SpecContext) {
+				withVariantDefault := `
+					@go output "core/pkg/service/x"
+
+					CJC union on source {
+						built_in {}
+						const_val {
+							val float64 = 25
+						}
+					}
+
+					Item struct { cjc CJC = const_val }
+				`
+				resp := MustGenerate(ctx, withVariantDefault, "x", loader, goPlugin)
+				content := MustContentOf(resp, "types.gen.go")
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *CJCConstVal) ApplyDefaults() {",
+					"c.Val = 25",
+					"i.Cjc.ApplyDefaults()",
+				)
+				// The fill must precede the recursion: a nil variant has no
+				// ApplyDefaults to dispatch to.
+				Expect(strings.Index(content, "i.Cjc.Variant = CJCConstVal{}")).
+					To(BeNumerically("<", strings.Index(content, "i.Cjc.ApplyDefaults()")))
 			},
 		)
 	})

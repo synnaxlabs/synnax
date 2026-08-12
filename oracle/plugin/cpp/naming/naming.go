@@ -22,3 +22,9 @@ import "github.com/synnaxlabs/oracle/plugin/internal/casing"
 func VariantTypeName(unionCppName, variantValue string) string {
 	return casing.VariantTypeName(unionCppName, variantValue)
 }
+
+// QualifiedVariantTypeName is VariantTypeName for a union name that may carry a
+// C++ namespace qualifier (e.g. "::ni::AIChannel").
+func QualifiedVariantTypeName(unionCppName, variantValue string) string {
+	return casing.QualifiedVariantTypeName(unionCppName, variantValue, "::")
+}

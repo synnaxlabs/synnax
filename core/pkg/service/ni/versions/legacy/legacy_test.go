@@ -44,6 +44,48 @@ var _ = Describe("AnalogRead", func() {
 				"channels": []any{map[string]any{"type": "ai_freq_voltage"}},
 			},
 		),
+		Entry("rewrites the coulomb charge units",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ai_charge",
+					"units": "C",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ai_charge",
+					"units": "Coulombs",
+				}},
+			},
+		),
+		Entry("rewrites the micro-coulomb charge units to pico-coulombs",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ai_charge",
+					"units": "uC",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ai_charge",
+					"units": "PicoCoulombs",
+				}},
+			},
+		),
+		Entry("leaves a non-charge channel's celsius units alone",
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ai_rtd",
+					"units": "C",
+				}},
+			},
+			msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":  "ai_rtd",
+					"units": "C",
+				}},
+			},
+		),
 		Entry("collapses the constant cold-junction source",
 			msgpack.EncodedJSON{
 				"channels": []any{map[string]any{

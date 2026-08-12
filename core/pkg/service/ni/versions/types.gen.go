@@ -250,8 +250,8 @@ const (
 type ChargeUnits = v2.ChargeUnits
 
 const (
-	ChargeUnitsCoulombs      ChargeUnits = v2.ChargeUnitsCoulombs
-	ChargeUnitsMicroCoulombs ChargeUnits = v2.ChargeUnitsMicroCoulombs
+	ChargeUnitsCoulombs     ChargeUnits = v2.ChargeUnitsCoulombs
+	ChargeUnitsPicoCoulombs ChargeUnits = v2.ChargeUnitsPicoCoulombs
 )
 
 // RosetteType selects the geometric arrangement of a strain-gauge rosette.
@@ -267,9 +267,9 @@ const (
 type RosetteMeasType = v2.RosetteMeasType
 
 const (
-	RosetteMeasTypePrincipleStrain1       RosetteMeasType = v2.RosetteMeasTypePrincipleStrain1
-	RosetteMeasTypePrincipleStrain2       RosetteMeasType = v2.RosetteMeasTypePrincipleStrain2
-	RosetteMeasTypePrincipleStrainAngle   RosetteMeasType = v2.RosetteMeasTypePrincipleStrainAngle
+	RosetteMeasTypePrincipalStrain1       RosetteMeasType = v2.RosetteMeasTypePrincipalStrain1
+	RosetteMeasTypePrincipalStrain2       RosetteMeasType = v2.RosetteMeasTypePrincipalStrain2
+	RosetteMeasTypePrincipalStrainAngle   RosetteMeasType = v2.RosetteMeasTypePrincipalStrainAngle
 	RosetteMeasTypeCartesianStrainX       RosetteMeasType = v2.RosetteMeasTypeCartesianStrainX
 	RosetteMeasTypeCartesianStrainY       RosetteMeasType = v2.RosetteMeasTypeCartesianStrainY
 	RosetteMeasTypeCartesianShearStrainXY RosetteMeasType = v2.RosetteMeasTypeCartesianShearStrainXY
