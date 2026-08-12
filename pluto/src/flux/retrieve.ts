@@ -453,12 +453,15 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
 
   // A render React discards must not fetch, and nothing dedupes one once the
   // in-flight entry clears, so the cold path starts its fetch after commit.
+  // A settled failure does not block the fetch: each new mount gets one fresh
+  // attempt (deps hold within a mount, so a failure cannot loop).
   useEffect(() => {
     if (client == null || memoQuery == null || cached !== undefined) return;
     const local = localFor(locals, client);
     const params = { client, query: memoQuery };
     if (deriveCached?.(params) != null) return;
-    if (local.settled.get(query.hash(memoQuery)) != null) return;
+    const settled = local.settled.get(query.hash(memoQuery));
+    if (settled != null && "data" in settled) return;
     ensureFetch(
       params,
       fetchParamsFor({ name, retrieve, onChange, getCached, local }),
@@ -720,12 +723,15 @@ const createResultSelector = <
     const hold = useHeldResult<Selected>();
     // A render React discards must not fetch, and nothing dedupes one once the
     // in-flight entry clears, so the cold path starts its fetch after commit.
+    // A settled failure does not block the fetch: each new mount gets one fresh
+    // attempt (deps hold within a mount, so a failure cannot loop).
     useEffect(() => {
       if (client == null || memoQuery == null || slice.kind !== "none") return;
       const local = localFor(locals, client);
       const params = { client, query: memoQuery };
       if (deriveCached?.(params) != null) return;
-      if (local.settled.get(query.hash(memoQuery)) != null) return;
+      const settled = local.settled.get(query.hash(memoQuery));
+      if (settled != null && "data" in settled) return;
       ensureFetch(
         params,
         fetchParamsFor({ name, retrieve, onChange, getCached, local }),

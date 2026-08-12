@@ -1434,6 +1434,33 @@ describe("createResultSelector", () => {
     };
   };
 
+  // Regression: mirrors the useResult contract — a settled failure must not
+  // answer later mounts.
+  it("retries a settled failure when a new mount reads the query", async () => {
+    let fail = true;
+    const harness = createHarness(undefined, async () => {
+      if (fail) throw new Error("boom");
+      return { name: "recovered", value: 4 };
+    });
+    const useName = harness.createResultSelector((data) => data.name);
+    const first = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    first.rerender();
+    expect(first.result.current.variant).toEqual("error");
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+    first.unmount();
+    fail = false;
+    const second = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(harness.retrieve).toHaveBeenCalledTimes(2);
+    expect(second.result.current.variant).toEqual("success");
+    expect(second.result.current.data).toEqual("recovered");
+  });
+
   it("serves the selected slice from the cache without fetching", () => {
     const harness = createHarness({ name: "cached", value: 1 });
     const useName = harness.createResultSelector((data) => data.name);
@@ -1641,6 +1668,36 @@ describe("useResult", () => {
     } finally {
       consoleError.mockRestore();
     }
+  });
+
+  // Regression: a settled failure must not answer later mounts. Permission
+  // checks read false forever after one startup blip when it does.
+  it("retries a settled failure when a new mount reads the query", async () => {
+    let fail = true;
+    const harness = createHarness(undefined, async () => {
+      if (fail) throw new Error("boom");
+      return { name: "recovered", value: 4 };
+    });
+    const first = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    first.rerender();
+    expect(first.result.current.variant).toEqual("error");
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+    first.unmount();
+    fail = false;
+    const second = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(harness.retrieve).toHaveBeenCalledTimes(2);
+    expect(second.result.current.variant).toEqual("success");
+    expect(second.result.current.data).toEqual({ name: "recovered", value: 4 });
   });
 
   it("serves a record created after a not-found fetch without logging", async () => {
