@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, task } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,8 +15,7 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
 import {
-  awaitCommand,
-  clickDeploy,
+  deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
@@ -55,21 +54,6 @@ const { key: _key, ...ZERO_DRAFT } = HTTP.Task.ZERO_READ_PAYLOAD;
 
 const createDraft = async (client: Synnax, config: HTTP.Task.ReadPayload["config"]) =>
   await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.READ_SCHEMAS);
-
-const deployAndAwaitTask = async (
-  client: Synnax,
-  container: ParentNode,
-  key: task.Key,
-) => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
-  return await client.tasks.retrieve({ key, schemas: HTTP.Task.READ_SCHEMAS });
-};
 
 describe("HTTP Read form", () => {
   it("should show the empty state and add + select an endpoint", async () => {
@@ -178,7 +162,12 @@ describe("HTTP Read form", () => {
       ]);
       const draft = await createDraft(client, config);
       const { container } = await renderRead({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(client, container, draft.key);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.READ_SCHEMAS,
+      );
 
       const updated = await client.devices.retrieve({
         key: dev.key,
@@ -230,7 +219,12 @@ describe("HTTP Read form", () => {
       ]);
       const draft = await createDraft(client, config);
       const { container } = await renderRead({ client, taskKey: draft.key });
-      const created = await deployAndAwaitTask(client, container, draft.key);
+      const created = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        HTTP.Task.READ_SCHEMAS,
+      );
       expect(created.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
     });
 
@@ -261,7 +255,7 @@ describe("HTTP Read form", () => {
       ]);
       const draft = await createDraft(client, config);
       const { container } = await renderRead({ client, taskKey: draft.key });
-      await deployAndAwaitTask(client, container, draft.key);
+      await deployAndAwaitTask(client, container, draft.key, HTTP.Task.READ_SCHEMAS);
       const updated = await client.devices.retrieve({
         key: dev.key,
         schemas: HTTP.Device.SCHEMAS,
