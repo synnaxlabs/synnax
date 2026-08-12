@@ -62,25 +62,6 @@ static int32_t get_strain_config(const std::string &s) {
     return DAQmx_Val_FullBridgeI;
 }
 
-static int32_t get_rosette_type(const std::string &s) {
-    if (s == "RectangularRosette") return DAQmx_Val_RectangularRosette;
-    if (s == "DeltaRosette") return DAQmx_Val_DeltaRosette;
-    if (s == "TeeRosette") return DAQmx_Val_TeeRosette;
-    return DAQmx_Val_RectangularRosette;
-}
-
-static int32_t get_rosette_meas_type(const std::string &s) {
-    if (s == "PrincipalStrain1") return DAQmx_Val_PrincipalStrain1;
-    if (s == "PrincipalStrain2") return DAQmx_Val_PrincipalStrain2;
-    if (s == "PrincipalStrainAngle") return DAQmx_Val_PrincipalStrainAngle;
-    if (s == "CartesianStrainX") return DAQmx_Val_CartesianStrainX;
-    if (s == "CartesianStrainY") return DAQmx_Val_CartesianStrainY;
-    if (s == "CartesianShearStrainXY") return DAQmx_Val_CartesianShearStrainXY;
-    if (s == "MaxShearStrain") return DAQmx_Val_MaxShearStrain;
-    if (s == "MaxShearStrainAngle") return DAQmx_Val_MaxShearStrainAngle;
-    return DAQmx_Val_PrincipalStrain1;
-}
-
 static int32_t get_ci_edge(const std::string &s) {
     if (s == "Rising") return DAQmx_Val_Rising;
     if (s == "Falling") return DAQmx_Val_Falling;
@@ -957,52 +938,6 @@ inline x::errors::Error apply(
         excitation_config.source,
         excitation_config.val,
         scale_key
-    );
-}
-
-inline x::errors::Error apply(
-    const ::synnax::ni::AIRosetteStrainGageChannel &ch,
-    const ApplyContext &ctx,
-    const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const TaskHandle task_handle
-) {
-    const auto loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
-    const ExcitationConfig excitation_config(
-        static_cast<const ::synnax::ni::VoltageExcitation &>(ch)
-    );
-    const auto gage_factor = ch.gage_factor;
-    const auto gage_orientation = ch.gage_orientation;
-    const auto lead_wire_resistance = ch.lead_wire_resistance;
-    const auto max_val = ch.max_val;
-    const auto min_val = ch.min_val;
-    const auto nominal_gage_resistance = ch.nominal_gage_resistance;
-    const auto poisson_ratio = ch.poisson_ratio;
-    const auto rosette_meas_types = [&ch] {
-        std::vector<int32> types;
-        types.reserve(ch.rosette_meas_types.size());
-        for (const auto &t: ch.rosette_meas_types)
-            types.push_back(get_rosette_meas_type(t));
-        return types;
-    }();
-    const auto rosette_type = get_rosette_type(ch.rosette_type);
-    const auto strain_config = get_strain_config(ch.strain_config);
-    return dmx->CreateAIRosetteStrainGageChan(
-        task_handle,
-        loc.c_str(),
-        ctx.cfg_path.c_str(),
-        min_val,
-        max_val,
-        rosette_type,
-        gage_orientation,
-        rosette_meas_types.data(),
-        static_cast<uint32_t>(rosette_meas_types.size()),
-        strain_config,
-        excitation_config.source,
-        excitation_config.val,
-        gage_factor,
-        nominal_gage_resistance,
-        poisson_ratio,
-        lead_wire_resistance
     );
 }
 
