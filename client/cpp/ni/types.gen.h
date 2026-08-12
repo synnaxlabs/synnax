@@ -1029,7 +1029,6 @@ struct AICurrentRMSChannel : public BaseAIChannel,
 /// calibration.
 struct AIForceBridgePolynomialChannel : public BaseAIChannel,
                                         public MinMaxVal,
-                                        public Terminal,
                                         public Bridge,
                                         public VoltageExcitation,
                                         public BridgePolynomial,
