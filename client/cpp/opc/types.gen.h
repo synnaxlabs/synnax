@@ -50,7 +50,7 @@ struct BaseChannel {
 };
 
 /// @brief ScanConfig configures an OPC UA scan task, which carries no settings.
-struct ScanConfig : public ::synnax::common::BaseScanConfig {
+struct ScanConfig : public ::synnax::task::common::BaseScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -78,7 +78,7 @@ struct OutputChannel : public BaseChannel {
 };
 
 /// @brief ReadConfig configures an OPC UA read task.
-struct ReadConfig : public ::synnax::common::BaseReadConfig {
+struct ReadConfig : public ::synnax::task::common::BaseReadConfig {
     /// @brief sample_rate is the per-channel hardware sample rate, in hertz.
     ::x::telem::Rate sample_rate = ::x::telem::Rate(50);
     /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
@@ -99,7 +99,7 @@ struct ReadConfig : public ::synnax::common::BaseReadConfig {
 };
 
 /// @brief WriteConfig configures an OPC UA write task.
-struct WriteConfig : public ::synnax::common::BaseWriteConfig {
+struct WriteConfig : public ::synnax::task::common::BaseWriteConfig {
     /// @brief channels are the OPC UA nodes the task drives.
     std::vector<OutputChannel> channels;
 

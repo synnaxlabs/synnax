@@ -16,7 +16,7 @@
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
-namespace synnax::common {
+namespace synnax::task::common {
 
 struct KeyedConfig;
 struct BaseStartConfig;

@@ -65,9 +65,9 @@ inline x::json::json Arc::to_json() const {
 
 inline TaskConfig TaskConfig::parse(x::json::Parser parser) {
     TaskConfig result;
-    static_cast<::synnax::common::BasePersistConfig &>(
+    static_cast<::synnax::task::common::BasePersistConfig &>(
         result
-    ) = ::synnax::common::BasePersistConfig::parse(parser);
+    ) = ::synnax::task::common::BasePersistConfig::parse(parser);
     result.arc_key = parser.field<Key>("arc_key");
     result.hash = parser.field<std::string>("hash", "");
     result.execution_mode = parser.field<std::string>("execution_mode", "AUTO");
@@ -79,7 +79,7 @@ inline TaskConfig TaskConfig::parse(x::json::Parser parser) {
 
 inline x::json::json TaskConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::common::BasePersistConfig::to_json().items())
+    for (auto &[k, v]: ::synnax::task::common::BasePersistConfig::to_json().items())
         j[k] = v;
     j["arc_key"] = this->arc_key.to_json();
     j["hash"] = this->hash;

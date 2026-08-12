@@ -87,7 +87,7 @@ struct BaseOutputChannel {
 };
 
 /// @brief ScanConfig configures an EtherCAT scan task, which carries no settings.
-struct ScanConfig : public ::synnax::common::BaseScanConfig {
+struct ScanConfig : public ::synnax::task::common::BaseScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -147,7 +147,7 @@ OutputChannel parse_output_channel(x::json::Parser parser);
 
 /// @brief ReadConfig configures an EtherCAT read task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
-struct ReadConfig : public ::synnax::common::BaseReadConfig {
+struct ReadConfig : public ::synnax::task::common::BaseReadConfig {
     /// @brief channels are the input channels the task acquires.
     std::vector<InputChannel> channels;
 
@@ -157,7 +157,7 @@ struct ReadConfig : public ::synnax::common::BaseReadConfig {
 
 /// @brief WriteConfig configures an EtherCAT write task. Each channel addresses a PDO
 /// entry on its own slave; all slaves must share one network interface.
-struct WriteConfig : public ::synnax::common::BasePersistConfig {
+struct WriteConfig : public ::synnax::task::common::BasePersistConfig {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
     /// hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(25);

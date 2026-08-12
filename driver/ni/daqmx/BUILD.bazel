@@ -32,9 +32,9 @@ cc_library(
 )
 
 cc_library(
-    name = "fake",
+    name = "mock",
     testonly = True,
-    hdrs = ["fake.h"],
+    hdrs = ["mock.h"],
     visibility = ["//visibility:public"],
     deps = [
         ":daqmx",
@@ -51,10 +51,10 @@ cc_library(
 )
 
 cc_test(
-    name = "fake_test",
-    srcs = ["fake_test.cpp"],
+    name = "mock_test",
+    srcs = ["mock_test.cpp"],
     deps = [
-        ":fake",
+        ":mock",
         "@googletest//:gtest_main",
     ],
 )
