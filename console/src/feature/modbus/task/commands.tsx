@@ -7,29 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/pluto";
 
 import { useCreateRead } from "@/feature/modbus/task/Read";
 import { useCreateWrite } from "@/feature/modbus/task/Write";
-import { Command } from "@/platform/command";
+import { Task } from "@/platform/task";
 
-const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-
-const CreateReadCommand = Command.create({
+const CreateReadCommand = Task.createCommand({
   key: "modbus_create_read_task",
   name: "Create a Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useCreateRead,
-  useVisible,
 });
 
-const CreateWriteCommand = Command.create({
+const CreateWriteCommand = Task.createCommand({
   key: "modbus_create_write_task",
   name: "Create a Modbus Write Task",
   icon: <Icon.Logo.Modbus />,
   useOnSelect: useCreateWrite,
-  useVisible,
 });
 
 export const COMMANDS = [CreateReadCommand, CreateWriteCommand];
