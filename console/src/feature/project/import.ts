@@ -45,19 +45,19 @@ const legacyLayoutZ = z.object({
   name: z.string(),
 });
 
-// Legacy console-state exports carried the full layout slice; only the layout
-// records are needed to locate and type each component file.
+// Legacy console-state exports carried the full layout slice; only the layout records
+// are needed to locate and type each component file.
 const legacySliceZ = z.object({
   layouts: z.record(z.string(), legacyLayoutZ),
 });
 
-// Imported panels carry the project's tab placement, so component ingesters must
-// not also open tabs in the current window.
+// Imported panels carry the project's tab placement, so component ingesters must not
+// also open tabs in the current window.
 const noopOpenTab: Panel.OpenTab = () => {};
 
-// Rewrites every panel-tab reference to an imported component's original key with
-// the ontology ID of the resource actually created for it. Without it the imported
-// panels' tabs resolve to resources that only exist in the source cluster.
+// Rewrites every panel-tab reference to an imported component's original key with the
+// ontology ID of the resource actually created for it. Without it the imported panels'
+// tabs resolve to resources that only exist in the source cluster.
 const remapNode = (node: panel.Node, remap: Map<string, ontology.ID>): panel.Node => {
   if (node.variant === "leaf")
     return {

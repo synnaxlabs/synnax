@@ -49,8 +49,7 @@ const fit = (name: string, maxBytes: number): string => {
  * platform, carrying extension. Replaces every character a file name cannot hold with
  * an underscore, drops trailing dots and spaces, prefixes an underscore to a Windows
  * device name, and shortens the name until it and extension together fit the longest
- * path element a filesystem takes. Pass an empty extension for a name that carries
- * none.
+ * path element a filesystem takes.
  *
  * The result is a single path element, but it is not unique: two names can sanitize to
  * one, and shortening makes that more likely.
