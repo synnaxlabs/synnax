@@ -327,12 +327,12 @@ VelocitySensitivityUnits = Literal[
     "MillivoltsPerMillimeterPerSecond", "MilliVoltsPerInchPerSecond"
 ]
 
-CHARGE_UNITS_COULOMBS: Literal["C"] = "C"
+CHARGE_UNITS_COULOMBS: Literal["Coulombs"] = "Coulombs"
 
-CHARGE_UNITS_MICRO_COULOMBS: Literal["uC"] = "uC"
+CHARGE_UNITS_PICO_COULOMBS: Literal["PicoCoulombs"] = "PicoCoulombs"
 
 
-ChargeUnits = Literal["C", "uC"]
+ChargeUnits = Literal["Coulombs", "PicoCoulombs"]
 
 ROSETTE_TYPE_RECTANGULAR: Literal["RectangularRosette"] = "RectangularRosette"
 
@@ -343,12 +343,12 @@ ROSETTE_TYPE_TEE: Literal["TeeRosette"] = "TeeRosette"
 
 RosetteType = Literal["RectangularRosette", "DeltaRosette", "TeeRosette"]
 
-ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_1: Literal["PrincipleStrain1"] = "PrincipleStrain1"
+ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_1: Literal["PrincipalStrain1"] = "PrincipalStrain1"
 
-ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_2: Literal["PrincipleStrain2"] = "PrincipleStrain2"
+ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_2: Literal["PrincipalStrain2"] = "PrincipalStrain2"
 
-ROSETTE_MEAS_TYPE_PRINCIPLE_STRAIN_ANGLE: Literal["PrincipleStrainAngle"] = (
-    "PrincipleStrainAngle"
+ROSETTE_MEAS_TYPE_PRINCIPAL_STRAIN_ANGLE: Literal["PrincipalStrainAngle"] = (
+    "PrincipalStrainAngle"
 )
 
 ROSETTE_MEAS_TYPE_CARTESIAN_STRAIN_X: Literal["CartesianStrainX"] = "CartesianStrainX"
@@ -367,9 +367,9 @@ ROSETTE_MEAS_TYPE_MAX_SHEAR_STRAIN_ANGLE: Literal["MaxShearStrainAngle"] = (
 
 
 RosetteMeasType = Literal[
-    "PrincipleStrain1",
-    "PrincipleStrain2",
-    "PrincipleStrainAngle",
+    "PrincipalStrain1",
+    "PrincipalStrain2",
+    "PrincipalStrainAngle",
     "CartesianStrainX",
     "CartesianStrainY",
     "CartesianShearStrainXY",
@@ -912,7 +912,7 @@ class CustomScale(BaseModel):
         custom_scale: Is the scale applied to the raw measurement.
     """
 
-    custom_scale: Scale
+    custom_scale: Scale = Field(default_factory=lambda: ScaleNone(type="none"))
 
 
 class AIVoltageChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
@@ -1051,7 +1051,7 @@ class AIThermocoupleChannel(BaseAIChannel, MinMaxVal):
     type: Literal["ai_thermocouple"]
     units: TemperatureUnits = "DegC"
     thermocouple_type: ThermocoupleType = "J"
-    cjc: CJC
+    cjc: CJC = Field(default_factory=lambda: CJCBuiltIn(source="built_in"))
 
 
 class AITorqueBridgeTableChannel(
@@ -1108,7 +1108,7 @@ class AIChargeChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads a raw charge."""
 
     type: Literal["ai_charge"]
-    units: ChargeUnits = "C"
+    units: ChargeUnits = "Coulombs"
 
 
 class AICurrentRMSChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
