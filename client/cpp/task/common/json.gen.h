@@ -16,7 +16,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
-namespace synnax::common {
+namespace synnax::task::common {
 
 inline BaseStartConfig BaseStartConfig::parse(x::json::Parser parser) {
     return BaseStartConfig{
