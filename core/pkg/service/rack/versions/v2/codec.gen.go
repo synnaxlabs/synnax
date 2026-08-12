@@ -32,11 +32,11 @@ func (rv Rack) EncodeOrc(w *orc.Writer) error {
 func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		rv.Key = Key(v)
+		rv.Key = Key(rawV)
 	}
 	if rv.Name, err = r.String(); err != nil {
 		return err

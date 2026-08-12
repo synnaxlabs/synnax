@@ -585,7 +585,7 @@ func (b *testValueBuilder) isGoPointerField(ref resolution.TypeRef) bool {
 	case resolution.BuiltinGenericForm:
 		return form.Name != "Array" && form.Name != "Map"
 	case resolution.PrimitiveForm:
-		return form.Name != "record" && form.Name != "any"
+		return form.Name != "record"
 	}
 	return true
 }
@@ -902,7 +902,9 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 		}
 		base = fmt.Sprintf(`%s.EncodedJSON{"key_%d": "value_%d"}`, qualifier, idx, idx)
 	case "any":
-		base = fmt.Sprintf(`map[string]interface{}{"key_%d": "value_%d"}`, idx, idx)
+		// Wrap in any(...) so an optional field pointerizes to *any instead of
+		// *map[string]any.
+		base = fmt.Sprintf(`any(map[string]any{"key_%d": "value_%d"})`, idx, idx)
 	default:
 		return "", errors.Newf("unsupported primitive for test value: %s", primName)
 	}

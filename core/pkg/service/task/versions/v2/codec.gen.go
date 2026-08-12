@@ -44,11 +44,11 @@ func (t *Task) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		t.Rack = rack.Key(v)
+		t.Rack = rack.Key(rawV)
 	}
 	if t.Name, err = r.String(); err != nil {
 		return err
