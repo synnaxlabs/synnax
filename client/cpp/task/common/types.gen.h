@@ -39,10 +39,10 @@ struct BaseStartConfig {
 /// acquisition tasks.
 struct BaseReadConfig : public BaseStartConfig {
     /// @brief sample_rate is the per-channel hardware sample rate, in hertz.
-    ::x::telem::Rate sample_rate = x::telem::Rate(10);
+    ::x::telem::Rate sample_rate = ::x::telem::Rate(10);
     /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
     /// hertz.
-    ::x::telem::Rate stream_rate = x::telem::Rate(5);
+    ::x::telem::Rate stream_rate = ::x::telem::Rate(5);
 
     static BaseReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -162,7 +162,7 @@ export const VELOCITY_SENSITIVITY_UNITS = [
 export const velocitySensitivityUnitsZ = z.enum(VELOCITY_SENSITIVITY_UNITS);
 export type VelocitySensitivityUnits = z.infer<typeof velocitySensitivityUnitsZ>;
 
-export const CHARGE_UNITS = ["C", "uC"] as const;
+export const CHARGE_UNITS = ["Coulombs", "PicoCoulombs"] as const;
 export const chargeUnitsZ = z.enum(CHARGE_UNITS);
 export type ChargeUnits = z.infer<typeof chargeUnitsZ>;
 
@@ -175,9 +175,9 @@ export const rosetteTypeZ = z.enum(ROSETTE_TYPES);
 export type RosetteType = z.infer<typeof rosetteTypeZ>;
 
 export const ROSETTE_MEAS_TYPES = [
-  "PrincipleStrain1",
-  "PrincipleStrain2",
-  "PrincipleStrainAngle",
+  "PrincipalStrain1",
+  "PrincipalStrain2",
+  "PrincipalStrainAngle",
   "CartesianStrainX",
   "CartesianStrainY",
   "CartesianShearStrainXY",
@@ -676,7 +676,7 @@ export interface DigitalWriteConfig extends z.infer<typeof digitalWriteConfigZ> 
 /** CustomScale applies a user-defined scale to the raw measurement. */
 export const customScaleZ = z.object({
   /** customScale is the scale applied to the raw measurement. */
-  customScale: scaleZ,
+  customScale: scaleZ.prefault({ type: "none" }),
 });
 export interface CustomScale extends z.infer<typeof customScaleZ> {}
 
@@ -918,7 +918,7 @@ export const aiThermocoupleChannelZ = baseAIChannelZ.extend(minMaxValZ.shape).ex
   /** thermocoupleType selects the thermocouple alloy type. */
   thermocoupleType: thermocoupleTypeZ.default("J"),
   /** cjc is the cold-junction compensation applied to the reading. */
-  cjc: cjcZ,
+  cjc: cjcZ.prefault({ source: "built_in" }),
 });
 export interface AIThermocoupleChannel extends z.infer<typeof aiThermocoupleChannelZ> {}
 
@@ -1028,7 +1028,7 @@ export const aiChargeChannelZ = baseAIChannelZ
   .extend({
     type: z.literal("ai_charge"),
     /** units are the units of the charge measurement. */
-    units: chargeUnitsZ.default("C"),
+    units: chargeUnitsZ.default("Coulombs"),
   });
 export interface AIChargeChannel extends z.infer<typeof aiChargeChannelZ> {}
 

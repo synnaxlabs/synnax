@@ -50,12 +50,13 @@
         align-self: stretch;
         margin: -1rem 0;
         border-right: var(--pluto-border);
-        width: 32rem;
+        width: 30rem;
         flex-grow: 0;
+        flex-shrink: 0;
     }
 
     .console-schematic__symbols-group-list {
-        padding: 1rem;
+        padding: 1rem 1rem 1rem 0;
         border-bottom: var(--pluto-border);
 
         /* A group tab is inset like the chip it replaced, tighter than the strip's

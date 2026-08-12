@@ -81,11 +81,11 @@ func (p *Policy) DecodeOrc(r *orc.Reader) error {
 			p.Actions = make([]access.Action, n)
 			for i := range p.Actions {
 				{
-					v, err := r.String()
+					rawV, err := r.String()
 					if err != nil {
 						return err
 					}
-					p.Actions[i] = access.Action(v)
+					p.Actions[i] = access.Action(rawV)
 				}
 			}
 		}
