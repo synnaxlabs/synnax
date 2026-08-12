@@ -590,8 +590,72 @@ var _ = Describe("C++ JSON Plugin", func() {
 					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
 					ExpectContent(resp, "out/json.gen.h").
 						ToContain(
-							`parser.field<::x::telem::Rate>("stream_rate", x::telem::Rate(5))`,
-							`parser.field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0))`,
+							`parser.field<::x::telem::Rate>("stream_rate", ::x::telem::Rate(5))`,
+							`parser.field<::x::telem::TimeSpan>("duration", ::x::telem::TimeSpan(0))`,
+						)
+				},
+			)
+
+			It(
+				"Should wrap distinct string defaults in their constructors",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					DataType string {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						data_type telem.DataType = "float32"
+						label     string = "dflt"
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					ExpectContent(resp, "out/json.gen.h").
+						ToContain(
+							`parser.field<::x::telem::DataType>("data_type", ::x::telem::DataType("float32"))`,
+							`parser.field<std::string>("label", "dflt")`,
+						)
+				},
+			)
+
+			It(
+				"Should wrap distinct numeric defaults in their constructors",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					Size int64 {
+						@cpp hand
+					}
+
+					Alignment uint64 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						threshold telem.Size = 1024
+						start     telem.Alignment = 0
+						count     int32 = 7
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+					ExpectContent(resp, "out/json.gen.h").
+						ToContain(
+							`parser.field<::x::telem::Size>("threshold", ::x::telem::Size(1024))`,
+							`parser.field<::x::telem::Alignment>("start", ::x::telem::Alignment(0))`,
+							`parser.field<std::int32_t>("count", 7)`,
 						)
 				},
 			)
@@ -1303,7 +1367,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "json.gen.h").
-				ToContain(`.device = parser.field<Key>("device", ""),`)
+				ToContain(`.device = parser.field<Key>("device", Key("")),`)
 		},
 	)
 
@@ -1328,7 +1392,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		`
 			resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
 			ExpectContent(resp, "out/json.gen.h").
-				ToContain(`.duration = parser.field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0)),`)
+				ToContain(`.duration = parser.field<::x::telem::TimeSpan>("duration", ::x::telem::TimeSpan(0)),`)
 		},
 	)
 

@@ -835,18 +835,12 @@ func (p *Plugin) parseExprForField(
 	}
 	if hasDefault {
 		if defaultVal := jsonDefaultLiteral(field, data.table); defaultVal != "" {
-			// Telem time types have explicit integer constructors, so bare
-			// numeric defaults must be wrapped to bind as the fallback value.
-			if field.Default != nil &&
-				(field.Default.Kind == resolution.ValueKindInt ||
-					field.Default.Kind == resolution.ValueKindFloat) {
-				if strings.Contains(cppType, "::telem::TimeStamp") {
-					defaultVal = fmt.Sprintf("x::telem::TimeStamp(%s)", defaultVal)
-				} else if strings.Contains(cppType, "::telem::TimeSpan") {
-					defaultVal = fmt.Sprintf("x::telem::TimeSpan(%s)", defaultVal)
-				} else if strings.Contains(cppType, "::telem::Rate") {
-					defaultVal = fmt.Sprintf("x::telem::Rate(%s)", defaultVal)
-				}
+			// Hand-written distinct types such as x::telem::Rate and
+			// x::telem::DataType expose only explicit constructors, so a bare
+			// literal fails to bind as the fallback value.
+			if isScalarDefault(field.Default) &&
+				resolution.IsDistinct(field.Type, data.table) {
+				defaultVal = fmt.Sprintf("%s(%s)", cppType, defaultVal)
 			}
 			return fmt.Sprintf(
 				`parser.field<%s>("%s", %s)`,
@@ -1116,6 +1110,21 @@ func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool 
 		return true
 	}
 	return jsonDefaultLiteral(field, table) != ""
+}
+
+// isScalarDefault reports whether the default renders as a bare string, integer,
+// or float literal, the three kinds a distinct type's constructor must wrap.
+func isScalarDefault(val *resolution.ExpressionValue) bool {
+	if val == nil {
+		return false
+	}
+	switch val.Kind {
+	case resolution.ValueKindString,
+		resolution.ValueKindInt,
+		resolution.ValueKindFloat:
+		return true
+	}
+	return false
 }
 
 // jsonDefaultLiteral renders a field's schema default as a C++ literal usable as

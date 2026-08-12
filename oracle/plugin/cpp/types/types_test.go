@@ -1829,10 +1829,72 @@ var _ = Describe("C++ Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
 					ExpectContent(resp, "out/types.gen.h").
 						ToContain(
-							`duration = x::telem::TimeSpan(0);`,
-							`start = x::telem::TimeStamp(5);`,
-							`sample_rate = x::telem::Rate(10);`,
-							`stream_rate = x::telem::Rate(2.500000);`,
+							`duration = ::x::telem::TimeSpan(0);`,
+							`start = ::x::telem::TimeStamp(5);`,
+							`sample_rate = ::x::telem::Rate(10);`,
+							`stream_rate = ::x::telem::Rate(2.500000);`,
+						)
+				},
+			)
+
+			It(
+				"Should wrap string defaults in the distinct type's constructor",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					DataType string {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						data_type telem.DataType = "float32"
+						label     string = "dflt"
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain(
+							`data_type = ::x::telem::DataType("float32");`,
+							`std::string label = "dflt";`,
+						)
+				},
+			)
+
+			It(
+				"Should wrap numeric defaults on distinct types outside x::telem",
+				func(ctx SpecContext) {
+					loader.Add("schemas/units", `
+					@cpp output "x/cpp/units"
+
+					Voltage float64 {
+						@cpp hand
+					}
+
+					Count uint32 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/units"
+
+					@cpp output "out"
+
+					Config struct {
+						limit   units.Voltage = 5.5
+						retries units.Count = 3
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain(
+							`limit = ::x::units::Voltage(5.500000);`,
+							`retries = ::x::units::Count(3);`,
 						)
 				},
 			)

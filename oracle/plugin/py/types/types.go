@@ -1070,15 +1070,29 @@ func collectValidation(
 				)
 			}
 		case resolution.ValueKindFloat:
-			constraints = append(
-				constraints,
-				fmt.Sprintf("default=%f", defaultVal.FloatValue),
-			)
+			if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
+				constraints = append(
+					constraints,
+					fmt.Sprintf("default=%s(%f)", wrapper, defaultVal.FloatValue),
+				)
+			} else {
+				constraints = append(
+					constraints,
+					fmt.Sprintf("default=%f", defaultVal.FloatValue),
+				)
+			}
 		case resolution.ValueKindString:
-			constraints = append(
-				constraints,
-				fmt.Sprintf("default=%q", defaultVal.StringValue),
-			)
+			if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
+				constraints = append(
+					constraints,
+					fmt.Sprintf("default=%s(%q)", wrapper, defaultVal.StringValue),
+				)
+			} else {
+				constraints = append(
+					constraints,
+					fmt.Sprintf("default=%q", defaultVal.StringValue),
+				)
+			}
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
 			if defaultVal.IdentValue == "now" && isTimeStampType(typeRef, table) {

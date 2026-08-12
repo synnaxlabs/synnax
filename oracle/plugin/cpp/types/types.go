@@ -809,18 +809,21 @@ func cppDefaultValue(cppType, underlyingPrimitive string) string {
 	return ""
 }
 
-// wrapCppTelemNumeric wraps a bare numeric default literal in its telem scalar
-// class constructor when cppType is one of those classes. They expose only
-// explicit numeric constructors, so a bare literal fails copy-initialization
-// both as a struct member initializer and as the fallback argument to
-// parser.field.
-func wrapCppTelemNumeric(cppType, literal string) string {
-	for _, t := range []string{"TimeStamp", "TimeSpan", "Rate", "Size", "Alignment"} {
-		if strings.Contains(cppType, "::telem::"+t) {
-			return fmt.Sprintf("x::telem::%s(%s)", t, literal)
-		}
+// wrapCppDistinct direct-initializes a scalar default literal with its C++ type
+// when the field's type resolves to a distinct type. Hand-written distinct types
+// such as x::telem::Rate and x::telem::DataType expose only explicit
+// constructors, so a bare literal fails copy-initialization both as a struct
+// member initializer and as the fallback argument to parser.field. Generated
+// distinct types are scalar typedefs, where the direct-init is a no-op cast.
+func (p *Plugin) wrapCppDistinct(
+	typeRef resolution.TypeRef,
+	literal string,
+	data *templateData,
+) string {
+	if !resolution.IsDistinct(typeRef, data.table) {
+		return literal
 	}
-	return literal
+	return fmt.Sprintf("%s(%s)", p.typeRefToCpp(typeRef, data), literal)
 }
 
 func getUnderlyingPrimitive(
@@ -895,15 +898,11 @@ func (p *Plugin) cppDefaultLiteral(
 ) string {
 	switch val.Kind {
 	case resolution.ValueKindString:
-		return fmt.Sprintf("%q", val.StringValue)
+		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%q", val.StringValue), data)
 	case resolution.ValueKindInt:
-		return wrapCppTelemNumeric(
-			p.typeRefToCpp(typeRef, data), fmt.Sprintf("%d", val.IntValue),
-		)
+		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%d", val.IntValue), data)
 	case resolution.ValueKindFloat:
-		return wrapCppTelemNumeric(
-			p.typeRefToCpp(typeRef, data), fmt.Sprintf("%f", val.FloatValue),
-		)
+		return p.wrapCppDistinct(typeRef, fmt.Sprintf("%f", val.FloatValue), data)
 	case resolution.ValueKindBool:
 		return fmt.Sprintf("%t", val.BoolValue)
 	case resolution.ValueKindIdent:
