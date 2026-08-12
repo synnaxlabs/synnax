@@ -21,9 +21,9 @@ export interface DeriveWatch<K extends record.Key> {
 }
 
 /**
- * Declares that events on the given table change composed rows. `affects`
+ * Declares that events on the given table change composed entries. `affects`
  * maps an event to the source keys whose composition it touches, "all" to
- * recompose every row, or null when unaffected.
+ * recompose every entry, or null when unaffected.
  */
 export const deriveWatch = <
   K extends record.Key,
@@ -56,17 +56,17 @@ export interface DeriveParams<
 > {
   /** The table owning the raw records the derivation reads. */
   source: Table<K, V>;
-  /** Builds the composed row for one source record. Pure; no network. */
+  /** Builds the composed entry for one source record. Pure; no network. */
   compose: (record: V) => CV;
   /** Foreign tables whose events change composition. */
   watch?: Array<DeriveWatch<K>>;
 }
 
 /**
- * Keeps a derived table materialized from its source: composed rows are
- * replaced (never mutated) on source and watch events, so a row's identity
+ * Keeps a derived table materialized from its source: composed entries are
+ * replaced (never mutated) on source and watch events, so an entry's identity
  * changes exactly when its composition changes, with equal recompositions
- * silenced by the table's equality check. Existing source rows are composed
+ * silenced by the table's equality check. Existing source entries are composed
  * immediately. Returns a destructor that detaches every subscription.
  */
 export const bindDerived = <

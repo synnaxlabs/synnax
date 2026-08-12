@@ -20,11 +20,11 @@ export {
   type ChangeHandler,
   hash,
   isLive,
-  type QueriesParams,
   requireCorpse,
   type Retrieves,
+  type SpaceConfig,
+  type Watch,
   watch,
-  type WatchEntry,
 } from "@/query/query";
 export { keyListZ, Retriever, type RetrieverParams } from "@/query/retriever";
 export { type Listener } from "@/query/streamer";
@@ -32,11 +32,11 @@ export {
   createDeleteListener,
   createFetchListener,
   createSetListener,
+  type EntryStatus,
   type HydrateMode,
   type Keyed,
   type ListenerSpec,
   partialUpdate,
-  type RowStatus,
   Table,
   type TableEvent,
   type TableParams,

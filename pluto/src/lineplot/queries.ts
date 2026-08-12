@@ -348,7 +348,7 @@ export const useAxisRuleKeys = Scope.bindHook(
   createSelector<string[], AxisRulesParams>(
     ({ rules }, { axisKey }) =>
       rules.filter((r) => r.axis === axisKey).map((r) => r.key),
-    (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
+    compare.arraysEqual,
   ),
 );
 
