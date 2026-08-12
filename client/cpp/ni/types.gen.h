@@ -867,8 +867,8 @@ struct AIRTDChannel : public BaseAIChannel,
     std::string units = TEMPERATURE_UNITS_DEG_C;
     /// @brief rtd_type selects the RTD resistance-temperature curve.
     std::string rtd_type = RTD_TYPE_PT_3750;
-    /// @brief r_0 is the sensor resistance at 0 degrees Celsius, in ohms.
-    double r_0 = 0;
+    /// @brief r0 is the sensor resistance at 0 degrees Celsius, in ohms.
+    double r0 = 0;
 
     static AIRTDChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1162,8 +1162,8 @@ struct AIThermistorVexChannel : public BaseAIChannel,
     double b = 0;
     /// @brief c is the third Steinhart-Hart coefficient.
     double c = 0;
-    /// @brief r_1 is the reference resistor value, in ohms.
-    double r_1 = 0;
+    /// @brief r1 is the reference resistor value, in ohms.
+    double r1 = 0;
 
     static AIThermistorVexChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
