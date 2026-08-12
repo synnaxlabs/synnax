@@ -554,15 +554,15 @@ func (v VelocitySensitivityUnits) IsValid() bool {
 type ChargeUnits string
 
 const (
-	ChargeUnitsCoulombs      ChargeUnits = "C"
-	ChargeUnitsMicroCoulombs ChargeUnits = "uC"
+	ChargeUnitsCoulombs     ChargeUnits = "Coulombs"
+	ChargeUnitsPicoCoulombs ChargeUnits = "PicoCoulombs"
 )
 
 // IsValid reports whether c is one of the defined ChargeUnits
 // values.
 func (c ChargeUnits) IsValid() bool {
 	switch c {
-	case ChargeUnitsCoulombs, ChargeUnitsMicroCoulombs:
+	case ChargeUnitsCoulombs, ChargeUnitsPicoCoulombs:
 		return true
 	default:
 		return false
@@ -593,9 +593,9 @@ func (r RosetteType) IsValid() bool {
 type RosetteMeasType string
 
 const (
-	RosetteMeasTypePrincipleStrain1       RosetteMeasType = "PrincipleStrain1"
-	RosetteMeasTypePrincipleStrain2       RosetteMeasType = "PrincipleStrain2"
-	RosetteMeasTypePrincipleStrainAngle   RosetteMeasType = "PrincipleStrainAngle"
+	RosetteMeasTypePrincipalStrain1       RosetteMeasType = "PrincipalStrain1"
+	RosetteMeasTypePrincipalStrain2       RosetteMeasType = "PrincipalStrain2"
+	RosetteMeasTypePrincipalStrainAngle   RosetteMeasType = "PrincipalStrainAngle"
 	RosetteMeasTypeCartesianStrainX       RosetteMeasType = "CartesianStrainX"
 	RosetteMeasTypeCartesianStrainY       RosetteMeasType = "CartesianStrainY"
 	RosetteMeasTypeCartesianShearStrainXY RosetteMeasType = "CartesianShearStrainXY"
@@ -607,7 +607,7 @@ const (
 // values.
 func (r RosetteMeasType) IsValid() bool {
 	switch r {
-	case RosetteMeasTypePrincipleStrain1, RosetteMeasTypePrincipleStrain2, RosetteMeasTypePrincipleStrainAngle, RosetteMeasTypeCartesianStrainX, RosetteMeasTypeCartesianStrainY, RosetteMeasTypeCartesianShearStrainXY, RosetteMeasTypeMaxShearStrain, RosetteMeasTypeMaxShearStrainAngle:
+	case RosetteMeasTypePrincipalStrain1, RosetteMeasTypePrincipalStrain2, RosetteMeasTypePrincipalStrainAngle, RosetteMeasTypeCartesianStrainX, RosetteMeasTypeCartesianStrainY, RosetteMeasTypeCartesianShearStrainXY, RosetteMeasTypeMaxShearStrain, RosetteMeasTypeMaxShearStrainAngle:
 		return true
 	default:
 		return false
@@ -1201,6 +1201,9 @@ type CustomScale struct {
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CustomScale) ApplyDefaults() {
+	if c.CustomScale.Variant == nil {
+		c.CustomScale.Variant = ScaleNone{}
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -1282,6 +1285,9 @@ func (AIVoltageChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsVolts
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -1291,6 +1297,7 @@ func (a *AIVoltageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIVoltageChannel) Validate() error {
 	v := validate.New("AIVoltageChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -1314,6 +1321,12 @@ func (AIAccelChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIAccelChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = AccelUnitsG
+	}
+	if a.SensitivityUnits == "" {
+		a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
@@ -1324,6 +1337,8 @@ func (a *AIAccelChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIAccelChannel) Validate() error {
 	v := validate.New("AIAccelChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1345,6 +1360,9 @@ func (AIBridgeChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIBridgeChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ElectricalUnitsMVoltsPerVolt
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -1355,6 +1373,7 @@ func (a *AIBridgeChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIBridgeChannel) Validate() error {
 	v := validate.New("AIBridgeChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1379,6 +1398,15 @@ func (AICurrentChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AICurrentChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsAmps
+	}
+	if a.ShuntResistorLoc == "" {
+		a.ShuntResistorLoc = ShuntResistorLocationDefault
+	}
+	if a.ExtShuntResistorVal == 0 {
+		a.ExtShuntResistorVal = 1
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -1388,6 +1416,8 @@ func (a *AICurrentChannel) ApplyDefaults() {
 // schema constraints.
 func (a AICurrentChannel) Validate() error {
 	v := validate.New("AICurrentChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("shunt_resistor_loc", !a.ShuntResistorLoc.IsValid(), "invalid shunt_resistor_loc: %v", a.ShuntResistorLoc)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -1411,6 +1441,12 @@ func (AIForceBridgeTableChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIForceBridgeTableChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ForceUnitsNewtons
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = ForceUnitsNewtons
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -1422,6 +1458,8 @@ func (a *AIForceBridgeTableChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIForceBridgeTableChannel) Validate() error {
 	v := validate.New("AIForceBridgeTableChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.Table.Validate)
@@ -1448,6 +1486,12 @@ func (AIForceBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIForceBridgeTwoPointLinChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ForceUnitsNewtons
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = ForceUnitsNewtons
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -1459,6 +1503,8 @@ func (a *AIForceBridgeTwoPointLinChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIForceBridgeTwoPointLinChannel) Validate() error {
 	v := validate.New("AIForceBridgeTwoPointLinChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.TwoPointLin.Validate)
@@ -1484,6 +1530,12 @@ func (AIForceIEPEChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIForceIEPEChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ForceUnitsNewtons
+	}
+	if a.SensitivityUnits == "" {
+		a.SensitivityUnits = ForceSensitivityUnitsMVoltsPerNewton
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
@@ -1494,6 +1546,8 @@ func (a *AIForceIEPEChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIForceIEPEChannel) Validate() error {
 	v := validate.New("AIForceIEPEChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1518,6 +1572,9 @@ func (AIMicrophoneChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIMicrophoneChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsPascals
+	}
 	a.Terminal.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -1527,6 +1584,7 @@ func (a *AIMicrophoneChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIMicrophoneChannel) Validate() error {
 	v := validate.New("AIMicrophoneChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1551,6 +1609,12 @@ func (AIPressureBridgeTableChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIPressureBridgeTableChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = PressureUnitsPoundsPerSquareInch
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -1562,6 +1626,8 @@ func (a *AIPressureBridgeTableChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIPressureBridgeTableChannel) Validate() error {
 	v := validate.New("AIPressureBridgeTableChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.Table.Validate)
@@ -1588,6 +1654,12 @@ func (AIPressureBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIPressureBridgeTwoPointLinChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = PressureUnitsPoundsPerSquareInch
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -1599,6 +1671,8 @@ func (a *AIPressureBridgeTwoPointLinChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIPressureBridgeTwoPointLinChannel) Validate() error {
 	v := validate.New("AIPressureBridgeTwoPointLinChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.TwoPointLin.Validate)
@@ -1621,6 +1695,9 @@ func (AIResistanceChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIResistanceChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsOhms
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Resistance.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
@@ -1631,6 +1708,7 @@ func (a *AIResistanceChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIResistanceChannel) Validate() error {
 	v := validate.New("AIResistanceChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1655,6 +1733,12 @@ func (AIRTDChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIRTDChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TemperatureUnitsDegC
+	}
+	if a.RtdType == "" {
+		a.RtdType = RTDTypePt3750
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Resistance.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
@@ -1664,6 +1748,8 @@ func (a *AIRTDChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIRTDChannel) Validate() error {
 	v := validate.New("AIRTDChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("rtd_type", !a.RtdType.IsValid(), "invalid rtd_type: %v", a.RtdType)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	return v.Error()
@@ -1695,6 +1781,12 @@ func (AIStrainGaugeChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIStrainGaugeChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsStrain
+	}
+	if a.StrainConfig == "" {
+		a.StrainConfig = StrainConfigFullBridgeI
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -1704,6 +1796,8 @@ func (a *AIStrainGaugeChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIStrainGaugeChannel) Validate() error {
 	v := validate.New("AIStrainGaugeChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("strain_config", !a.StrainConfig.IsValid(), "invalid strain_config: %v", a.StrainConfig)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -1717,6 +1811,21 @@ type AITempBuiltinChannel struct {
 }
 
 func (AITempBuiltinChannel) isAIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AITempBuiltinChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TemperatureUnitsDegC
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AITempBuiltinChannel) Validate() error {
+	v := validate.New("AITempBuiltinChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	return v.Error()
+}
 
 // AIThermocoupleChannel reads temperature from a thermocouple.
 type AIThermocoupleChannel struct {
@@ -1734,7 +1843,25 @@ func (AIThermocoupleChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIThermocoupleChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TemperatureUnitsDegC
+	}
+	if a.ThermocoupleType == "" {
+		a.ThermocoupleType = ThermocoupleTypeJ
+	}
+	if a.Cjc.Variant == nil {
+		a.Cjc.Variant = CJCBuiltIn{}
+	}
 	a.MinMaxVal.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AIThermocoupleChannel) Validate() error {
+	v := validate.New("AIThermocoupleChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("thermocouple_type", !a.ThermocoupleType.IsValid(), "invalid thermocouple_type: %v", a.ThermocoupleType)
+	return v.Error()
 }
 
 // AITorqueBridgeTableChannel reads torque from a bridge with a calibration table.
@@ -1755,6 +1882,12 @@ func (AITorqueBridgeTableChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AITorqueBridgeTableChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TorqueUnitsNewtonMeters
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = TorqueUnitsNewtonMeters
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -1766,6 +1899,8 @@ func (a *AITorqueBridgeTableChannel) ApplyDefaults() {
 // schema constraints.
 func (a AITorqueBridgeTableChannel) Validate() error {
 	v := validate.New("AITorqueBridgeTableChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.Table.Validate)
@@ -1792,6 +1927,12 @@ func (AITorqueBridgeTwoPointLinChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AITorqueBridgeTwoPointLinChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TorqueUnitsNewtonMeters
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = TorqueUnitsNewtonMeters
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -1803,6 +1944,8 @@ func (a *AITorqueBridgeTwoPointLinChannel) ApplyDefaults() {
 // schema constraints.
 func (a AITorqueBridgeTwoPointLinChannel) Validate() error {
 	v := validate.New("AITorqueBridgeTwoPointLinChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.TwoPointLin.Validate)
@@ -1828,6 +1971,12 @@ func (AIVelocityIEPEChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVelocityIEPEChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = VelocityUnitsMetersPerSecond
+	}
+	if a.SensitivityUnits == "" {
+		a.SensitivityUnits = VelocitySensitivityUnitsMVoltsPerMmPerSecond
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
@@ -1838,6 +1987,8 @@ func (a *AIVelocityIEPEChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIVelocityIEPEChannel) Validate() error {
 	v := validate.New("AIVelocityIEPEChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1866,6 +2017,12 @@ func (AIAccel4WireDCVoltageChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIAccel4WireDCVoltageChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = AccelUnitsG
+	}
+	if a.SensitivityUnits == "" {
+		a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -1876,6 +2033,8 @@ func (a *AIAccel4WireDCVoltageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIAccel4WireDCVoltageChannel) Validate() error {
 	v := validate.New("AIAccel4WireDCVoltageChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -1899,6 +2058,12 @@ func (AIAccelChargeChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIAccelChargeChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = AccelUnitsG
+	}
+	if a.SensitivityUnits == "" {
+		a.SensitivityUnits = AccelSensitivityUnitsMVoltsPerG
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -1907,6 +2072,8 @@ func (a *AIAccelChargeChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIAccelChargeChannel) Validate() error {
 	v := validate.New("AIAccelChargeChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("sensitivity_units", !a.SensitivityUnits.IsValid(), "invalid sensitivity_units: %v", a.SensitivityUnits)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -1925,6 +2092,9 @@ func (AIChargeChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIChargeChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ChargeUnitsCoulombs
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -1934,6 +2104,7 @@ func (a *AIChargeChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIChargeChannel) Validate() error {
 	v := validate.New("AIChargeChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -1957,6 +2128,15 @@ func (AICurrentRMSChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AICurrentRMSChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsAmps
+	}
+	if a.ShuntResistorLoc == "" {
+		a.ShuntResistorLoc = ShuntResistorLocationDefault
+	}
+	if a.ExtShuntResistorVal == 0 {
+		a.ExtShuntResistorVal = 1
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -1966,6 +2146,8 @@ func (a *AICurrentRMSChannel) ApplyDefaults() {
 // schema constraints.
 func (a AICurrentRMSChannel) Validate() error {
 	v := validate.New("AICurrentRMSChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("shunt_resistor_loc", !a.ShuntResistorLoc.IsValid(), "invalid shunt_resistor_loc: %v", a.ShuntResistorLoc)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -1990,6 +2172,12 @@ func (AIForceBridgePolynomialChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIForceBridgePolynomialChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = ForceUnitsNewtons
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = ForceUnitsNewtons
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
@@ -2002,6 +2190,8 @@ func (a *AIForceBridgePolynomialChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIForceBridgePolynomialChannel) Validate() error {
 	v := validate.New("AIForceBridgePolynomialChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
@@ -2027,6 +2217,9 @@ func (AIFreqVoltageChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIFreqVoltageChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsHz
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -2035,6 +2228,7 @@ func (a *AIFreqVoltageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIFreqVoltageChannel) Validate() error {
 	v := validate.New("AIFreqVoltageChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -2058,6 +2252,12 @@ func (AIPressureBridgePolynomialChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIPressureBridgePolynomialChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = PressureUnitsPoundsPerSquareInch
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = PressureUnitsPoundsPerSquareInch
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -2069,6 +2269,8 @@ func (a *AIPressureBridgePolynomialChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIPressureBridgePolynomialChannel) Validate() error {
 	v := validate.New("AIPressureBridgePolynomialChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.BridgePolynomial.Validate)
@@ -2106,6 +2308,15 @@ func (AIRosetteStrainGageChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIRosetteStrainGageChannel) ApplyDefaults() {
+	if a.RosetteType == "" {
+		a.RosetteType = RosetteTypeRectangular
+	}
+	if a.StrainConfig == "" {
+		a.StrainConfig = StrainConfigFullBridgeI
+	}
+	if a.Units == "" {
+		a.Units = UnitsStrain
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -2115,6 +2326,9 @@ func (a *AIRosetteStrainGageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIRosetteStrainGageChannel) Validate() error {
 	v := validate.New("AIRosetteStrainGageChannel")
+	v.Ternaryf("rosette_type", !a.RosetteType.IsValid(), "invalid rosette_type: %v", a.RosetteType)
+	v.Ternaryf("strain_config", !a.StrainConfig.IsValid(), "invalid strain_config: %v", a.StrainConfig)
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	return v.Error()
@@ -2140,6 +2354,9 @@ func (AIThermistorIexChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIThermistorIexChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TemperatureUnitsDegC
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Resistance.ApplyDefaults()
 	a.CurrentExcitation.ApplyDefaults()
@@ -2149,6 +2366,7 @@ func (a *AIThermistorIexChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIThermistorIexChannel) Validate() error {
 	v := validate.New("AIThermistorIexChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.CurrentExcitation.Validate)
 	return v.Error()
@@ -2176,6 +2394,9 @@ func (AIThermistorVexChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIThermistorVexChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TemperatureUnitsDegC
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Resistance.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -2185,6 +2406,7 @@ func (a *AIThermistorVexChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIThermistorVexChannel) Validate() error {
 	v := validate.New("AIThermistorVexChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Resistance.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	return v.Error()
@@ -2209,6 +2431,12 @@ func (AITorqueBridgePolynomialChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AITorqueBridgePolynomialChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = TorqueUnitsNewtonMeters
+	}
+	if a.PhysicalUnits == "" {
+		a.PhysicalUnits = TorqueUnitsNewtonMeters
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -2220,6 +2448,8 @@ func (a *AITorqueBridgePolynomialChannel) ApplyDefaults() {
 // schema constraints.
 func (a AITorqueBridgePolynomialChannel) Validate() error {
 	v := validate.New("AITorqueBridgePolynomialChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.BridgePolynomial.Validate)
@@ -2241,6 +2471,9 @@ func (AIVoltageRMSChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageRMSChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsVolts
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
@@ -2250,6 +2483,7 @@ func (a *AIVoltageRMSChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIVoltageRMSChannel) Validate() error {
 	v := validate.New("AIVoltageRMSChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
@@ -2275,6 +2509,12 @@ func (AIVoltageWithExcitChannel) isAIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AIVoltageWithExcitChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsVolts
+	}
+	if a.BridgeConfig == "" {
+		a.BridgeConfig = BridgeConfigFullBridge
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.Terminal.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
@@ -2285,6 +2525,8 @@ func (a *AIVoltageWithExcitChannel) ApplyDefaults() {
 // schema constraints.
 func (a AIVoltageWithExcitChannel) Validate() error {
 	v := validate.New("AIVoltageWithExcitChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
+	v.Ternaryf("bridge_config", !a.BridgeConfig.IsValid(), "invalid bridge_config: %v", a.BridgeConfig)
 	v.Exec(a.Terminal.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.CustomScale.Validate)
@@ -2633,6 +2875,9 @@ func (u *AIChannel) ApplyDefaults() {
 	case AIStrainGaugeChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	case AITempBuiltinChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
 	case AIThermocoupleChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
@@ -2716,6 +2961,10 @@ func (u AIChannel) Validate() error {
 	case AIRTDChannel:
 		return variant.Validate()
 	case AIStrainGaugeChannel:
+		return variant.Validate()
+	case AITempBuiltinChannel:
+		return variant.Validate()
+	case AIThermocoupleChannel:
 		return variant.Validate()
 	case AITorqueBridgeTableChannel:
 		return variant.Validate()
@@ -3061,6 +3310,27 @@ func (CIFrequencyChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIFrequencyChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 2
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 100
+	}
+	if c.Units == "" {
+		c.Units = CIFreqUnitsHz
+	}
+	if c.Edge == "" {
+		c.Edge = CIEdgeRising
+	}
+	if c.MeasMethod == "" {
+		c.MeasMethod = CIMeasMethodDynamicAvg
+	}
+	if c.MeasTime == 0 {
+		c.MeasTime = 6e-06
+	}
+	if c.Divisor == 0 {
+		c.Divisor = 4
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -3068,6 +3338,9 @@ func (c *CIFrequencyChannel) ApplyDefaults() {
 // schema constraints.
 func (c CIFrequencyChannel) Validate() error {
 	v := validate.New("CIFrequencyChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("edge", !c.Edge.IsValid(), "invalid edge: %v", c.Edge)
+	v.Ternaryf("meas_method", !c.MeasMethod.IsValid(), "invalid meas_method: %v", c.MeasMethod)
 	v.Exec(c.CustomScale.Validate)
 	return v.Error()
 }
@@ -3086,6 +3359,25 @@ type CIEdgeCountChannel struct {
 }
 
 func (CIEdgeCountChannel) isCIChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CIEdgeCountChannel) ApplyDefaults() {
+	if c.ActiveEdge == "" {
+		c.ActiveEdge = CIEdgeRising
+	}
+	if c.CountDirection == "" {
+		c.CountDirection = CICountDirectionCountUp
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CIEdgeCountChannel) Validate() error {
+	v := validate.New("CIEdgeCountChannel")
+	v.Ternaryf("active_edge", !c.ActiveEdge.IsValid(), "invalid active_edge: %v", c.ActiveEdge)
+	v.Ternaryf("count_direction", !c.CountDirection.IsValid(), "invalid count_direction: %v", c.CountDirection)
+	return v.Error()
+}
 
 // CIPeriodChannel measures signal period.
 type CIPeriodChannel struct {
@@ -3113,6 +3405,27 @@ func (CIPeriodChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPeriodChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 1e-06
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 0.1
+	}
+	if c.Units == "" {
+		c.Units = CITimeUnitsSeconds
+	}
+	if c.StartingEdge == "" {
+		c.StartingEdge = CIEdgeRising
+	}
+	if c.MeasMethod == "" {
+		c.MeasMethod = CIMeasMethodDynamicAvg
+	}
+	if c.MeasTime == 0 {
+		c.MeasTime = 0.001
+	}
+	if c.Divisor == 0 {
+		c.Divisor = 4
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -3120,6 +3433,9 @@ func (c *CIPeriodChannel) ApplyDefaults() {
 // schema constraints.
 func (c CIPeriodChannel) Validate() error {
 	v := validate.New("CIPeriodChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("starting_edge", !c.StartingEdge.IsValid(), "invalid starting_edge: %v", c.StartingEdge)
+	v.Ternaryf("meas_method", !c.MeasMethod.IsValid(), "invalid meas_method: %v", c.MeasMethod)
 	v.Exec(c.CustomScale.Validate)
 	return v.Error()
 }
@@ -3144,6 +3460,18 @@ func (CIPulseWidthChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPulseWidthChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 1e-06
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 0.1
+	}
+	if c.Units == "" {
+		c.Units = CITimeUnitsSeconds
+	}
+	if c.StartingEdge == "" {
+		c.StartingEdge = CIEdgeRising
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -3151,6 +3479,8 @@ func (c *CIPulseWidthChannel) ApplyDefaults() {
 // schema constraints.
 func (c CIPulseWidthChannel) Validate() error {
 	v := validate.New("CIPulseWidthChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("starting_edge", !c.StartingEdge.IsValid(), "invalid starting_edge: %v", c.StartingEdge)
 	v.Exec(c.CustomScale.Validate)
 	return v.Error()
 }
@@ -3173,6 +3503,15 @@ func (CISemiPeriodChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CISemiPeriodChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 1e-06
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 0.1
+	}
+	if c.Units == "" {
+		c.Units = CITimeUnitsSeconds
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -3180,6 +3519,7 @@ func (c *CISemiPeriodChannel) ApplyDefaults() {
 // schema constraints.
 func (c CISemiPeriodChannel) Validate() error {
 	v := validate.New("CISemiPeriodChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
 	v.Exec(c.CustomScale.Validate)
 	return v.Error()
 }
@@ -3208,6 +3548,21 @@ func (CITwoEdgeSepChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CITwoEdgeSepChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 1e-06
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
+	if c.Units == "" {
+		c.Units = CITimeUnitsSeconds
+	}
+	if c.FirstEdge == "" {
+		c.FirstEdge = CIEdgeRising
+	}
+	if c.SecondEdge == "" {
+		c.SecondEdge = CIEdgeFalling
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -3215,6 +3570,9 @@ func (c *CITwoEdgeSepChannel) ApplyDefaults() {
 // schema constraints.
 func (c CITwoEdgeSepChannel) Validate() error {
 	v := validate.New("CITwoEdgeSepChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("first_edge", !c.FirstEdge.IsValid(), "invalid first_edge: %v", c.FirstEdge)
+	v.Ternaryf("second_edge", !c.SecondEdge.IsValid(), "invalid second_edge: %v", c.SecondEdge)
 	v.Exec(c.CustomScale.Validate)
 	return v.Error()
 }
@@ -3243,6 +3601,18 @@ func (CIVelocityLinearChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIVelocityLinearChannel) ApplyDefaults() {
+	if c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
+	if c.Units == "" {
+		c.Units = CILinearVelocityUnitsMPerS
+	}
+	if c.DecodingType == "" {
+		c.DecodingType = CIDecodingTypeX4
+	}
+	if c.DistPerPulse == 0 {
+		c.DistPerPulse = 0.001
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -3250,6 +3620,8 @@ func (c *CIVelocityLinearChannel) ApplyDefaults() {
 // schema constraints.
 func (c CIVelocityLinearChannel) Validate() error {
 	v := validate.New("CIVelocityLinearChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("decoding_type", !c.DecodingType.IsValid(), "invalid decoding_type: %v", c.DecodingType)
 	v.Exec(c.CustomScale.Validate)
 	return v.Error()
 }
@@ -3278,6 +3650,18 @@ func (CIVelocityAngularChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIVelocityAngularChannel) ApplyDefaults() {
+	if c.MaxVal == 0 {
+		c.MaxVal = 1
+	}
+	if c.Units == "" {
+		c.Units = CIAngularVelocityUnitsRpm
+	}
+	if c.DecodingType == "" {
+		c.DecodingType = CIDecodingTypeX4
+	}
+	if c.PulsesPerRev == 0 {
+		c.PulsesPerRev = 24
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -3285,6 +3669,8 @@ func (c *CIVelocityAngularChannel) ApplyDefaults() {
 // schema constraints.
 func (c CIVelocityAngularChannel) Validate() error {
 	v := validate.New("CIVelocityAngularChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("decoding_type", !c.DecodingType.IsValid(), "invalid decoding_type: %v", c.DecodingType)
 	v.Exec(c.CustomScale.Validate)
 	return v.Error()
 }
@@ -3312,6 +3698,15 @@ func (CIPositionLinearChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPositionLinearChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CILinearPositionUnitsMeters
+	}
+	if c.DecodingType == "" {
+		c.DecodingType = CIDecodingTypeX4
+	}
+	if c.DistPerPulse == 0 {
+		c.DistPerPulse = 1e-06
+	}
 	c.CustomScale.ApplyDefaults()
 	c.ZIndex.ApplyDefaults()
 }
@@ -3320,6 +3715,8 @@ func (c *CIPositionLinearChannel) ApplyDefaults() {
 // schema constraints.
 func (c CIPositionLinearChannel) Validate() error {
 	v := validate.New("CIPositionLinearChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("decoding_type", !c.DecodingType.IsValid(), "invalid decoding_type: %v", c.DecodingType)
 	v.Exec(c.CustomScale.Validate)
 	v.Exec(c.ZIndex.Validate)
 	return v.Error()
@@ -3348,6 +3745,15 @@ func (CIPositionAngularChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIPositionAngularChannel) ApplyDefaults() {
+	if c.Units == "" {
+		c.Units = CIAngularPositionUnitsDegrees
+	}
+	if c.DecodingType == "" {
+		c.DecodingType = CIDecodingTypeX4
+	}
+	if c.PulsesPerRev == 0 {
+		c.PulsesPerRev = 24
+	}
 	c.CustomScale.ApplyDefaults()
 	c.ZIndex.ApplyDefaults()
 }
@@ -3356,6 +3762,8 @@ func (c *CIPositionAngularChannel) ApplyDefaults() {
 // schema constraints.
 func (c CIPositionAngularChannel) Validate() error {
 	v := validate.New("CIPositionAngularChannel")
+	v.Ternaryf("units", !c.Units.IsValid(), "invalid units: %v", c.Units)
+	v.Ternaryf("decoding_type", !c.DecodingType.IsValid(), "invalid decoding_type: %v", c.DecodingType)
 	v.Exec(c.CustomScale.Validate)
 	v.Exec(c.ZIndex.Validate)
 	return v.Error()
@@ -3379,6 +3787,15 @@ func (CIDutyCycleChannel) isCIChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *CIDutyCycleChannel) ApplyDefaults() {
+	if c.MinVal == 0 {
+		c.MinVal = 2
+	}
+	if c.MaxVal == 0 {
+		c.MaxVal = 10000
+	}
+	if c.ActiveEdge == "" {
+		c.ActiveEdge = CIEdgeRising
+	}
 	c.CustomScale.ApplyDefaults()
 }
 
@@ -3386,6 +3803,7 @@ func (c *CIDutyCycleChannel) ApplyDefaults() {
 // schema constraints.
 func (c CIDutyCycleChannel) Validate() error {
 	v := validate.New("CIDutyCycleChannel")
+	v.Ternaryf("active_edge", !c.ActiveEdge.IsValid(), "invalid active_edge: %v", c.ActiveEdge)
 	v.Exec(c.CustomScale.Validate)
 	return v.Error()
 }
@@ -3536,6 +3954,9 @@ func (u *CIChannel) ApplyDefaults() {
 	case CIFrequencyChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	case CIEdgeCountChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
 	case CIPeriodChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
@@ -3571,6 +3992,8 @@ func (u *CIChannel) ApplyDefaults() {
 func (u CIChannel) Validate() error {
 	switch variant := u.Variant.(type) {
 	case CIFrequencyChannel:
+		return variant.Validate()
+	case CIEdgeCountChannel:
 		return variant.Validate()
 	case CIPeriodChannel:
 		return variant.Validate()
@@ -3658,6 +4081,9 @@ func (AOCurrentChannel) isAOChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AOCurrentChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsAmps
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -3666,6 +4092,7 @@ func (a *AOCurrentChannel) ApplyDefaults() {
 // schema constraints.
 func (a AOCurrentChannel) Validate() error {
 	v := validate.New("AOCurrentChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -3685,6 +4112,21 @@ type AOFuncGenChannel struct {
 
 func (AOFuncGenChannel) isAOChannelVariant() {}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AOFuncGenChannel) ApplyDefaults() {
+	if a.WaveType == "" {
+		a.WaveType = WaveTypeSine
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AOFuncGenChannel) Validate() error {
+	v := validate.New("AOFuncGenChannel")
+	v.Ternaryf("wave_type", !a.WaveType.IsValid(), "invalid wave_type: %v", a.WaveType)
+	return v.Error()
+}
+
 // AOVoltageChannel drives a voltage output.
 type AOVoltageChannel struct {
 	BaseAOChannel
@@ -3698,6 +4140,9 @@ func (AOVoltageChannel) isAOChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *AOVoltageChannel) ApplyDefaults() {
+	if a.Units == "" {
+		a.Units = UnitsVolts
+	}
 	a.MinMaxVal.ApplyDefaults()
 	a.CustomScale.ApplyDefaults()
 }
@@ -3706,6 +4151,7 @@ func (a *AOVoltageChannel) ApplyDefaults() {
 // schema constraints.
 func (a AOVoltageChannel) Validate() error {
 	v := validate.New("AOVoltageChannel")
+	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Exec(a.CustomScale.Validate)
 	return v.Error()
 }
@@ -3792,6 +4238,9 @@ func (u *AOChannel) ApplyDefaults() {
 	case AOCurrentChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	case AOFuncGenChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
 	case AOVoltageChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
@@ -3803,6 +4252,8 @@ func (u *AOChannel) ApplyDefaults() {
 func (u AOChannel) Validate() error {
 	switch variant := u.Variant.(type) {
 	case AOCurrentChannel:
+		return variant.Validate()
+	case AOFuncGenChannel:
 		return variant.Validate()
 	case AOVoltageChannel:
 		return variant.Validate()
