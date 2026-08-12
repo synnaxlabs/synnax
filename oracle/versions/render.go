@@ -430,7 +430,7 @@ func (r *renderer) ref(ref resolution.TypeRef) string {
 		return ref.TypeParam.Name
 	}
 	if ref.Name == "Array" && len(ref.TypeArgs) == 1 {
-		size := ""
+		var size string
 		if ref.ArraySize != nil {
 			size = strconv.FormatInt(*ref.ArraySize, 10)
 		}

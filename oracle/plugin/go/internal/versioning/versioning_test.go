@@ -83,49 +83,6 @@ var _ = Describe("Versioning", func() {
 		})
 	})
 
-	Describe("Pinned", func() {
-		It(
-			"Should report the pinned marker on a version declaration",
-			func(ctx SpecContext) {
-				source := `
-				@go output "out"
-				Entry struct {
-				    @go version 2 pinned
-					key uuid @key
-				}
-			`
-				table := MustSucceed(analyze(ctx, source, "test", loader))
-				Expect(versioning.Pinned(table.MustGet("test.Entry"))).To(BeTrue())
-				v := MustBeOk(versioning.Version(table.MustGet("test.Entry")))
-				Expect(v).To(Equal(2))
-			},
-		)
-
-		It("Should report false without the marker", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-				    @go version 2
-					key uuid @key
-				}
-			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.Pinned(table.MustGet("test.Entry"))).To(BeFalse())
-		})
-
-		It("Should report the standalone pinned marker", func(ctx SpecContext) {
-			source := `
-				@go output "out"
-				Entry struct {
-				    @go pinned
-					key uuid @key
-				}
-			`
-			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.Pinned(table.MustGet("test.Entry"))).To(BeTrue())
-		})
-	})
-
 	Describe("Dir", func() {
 		It("Should format the version sub-directory name", func() {
 			Expect(versioning.Dir(0)).To(Equal("v0"))

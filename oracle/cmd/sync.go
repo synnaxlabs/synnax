@@ -34,7 +34,7 @@ func newSyncCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
 		Short: "Sync generated code, only writing changed files",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := runSync(cmd); err != nil {
 				printError(err.Error())
 				return err
@@ -139,11 +139,10 @@ func runSync(cmd *cobra.Command) error {
 		printDim(fmt.Sprintf("save cache: %v", err))
 	}
 
-	// buf generate emits .pb.go and _grpc.pb.go files alongside their
-	// .proto sources without a license header. Run them through the
-	// same formatter chain the oracle plugin outputs use so the header
-	// is added and gofmt is applied. Idempotent on cached / unchanged
-	// files because the license formatter no-ops when a header is
+	// buf generate emits .pb.go and _grpc.pb.go files alongside their .proto sources
+	// without a license header. Run them through the same formatter chain the oracle
+	// plugin outputs use so the header is added and gofmt is applied. Idempotent on
+	// cached / unchanged files because the license formatter no-ops when a header is
 	// already present and gofmt is stable.
 	if !bufResult.Cached {
 		if _, err := codegen.FormatBufOutputs(
@@ -163,10 +162,9 @@ func runSync(cmd *cobra.Command) error {
 	return nil
 }
 
-// writeSchemaSources rewrites each schema file whose canonical bytes differ
-// from the on-disk source: the formatter's output, or the merged live
-// projection for a versioned resource. Returns the count of files actually
-// rewritten.
+// writeSchemaSources rewrites each schema file whose canonical bytes differ from the
+// on-disk source: the formatter's output, or the merged live projection for a versioned
+// resource. Returns the count of files actually rewritten.
 func writeSchemaSources(result *pipeline.Result, repoRoot string) (int, error) {
 	written := 0
 	for _, rel := range result.Schemas {
@@ -184,12 +182,11 @@ func writeSchemaSources(result *pipeline.Result, repoRoot string) (int, error) {
 	return written, nil
 }
 
-// syncOutputs is the on-disk projection of the pipeline's plugin outputs.
-// For each generated file it consults the cache, formats only on cache
-// miss, byte-compares against the existing on-disk file, and writes only
-// when the canonical bytes differ. The cache stores the SHA-256 of the
-// raw (pre-format) plugin bytes for each path so repeat runs can skip the
-// formatter chain entirely when nothing has changed.
+// syncOutputs is the on-disk projection of the pipeline's plugin outputs. For each
+// generated file it consults the cache, formats only on cache miss, byte-compares
+// against the existing on-disk file, and writes only when the canonical bytes differ.
+// The cache stores the SHA-256 of the raw (pre-format) plugin bytes for each path so
+// repeat runs can skip the formatter chain entirely when nothing has changed.
 func syncOutputs(
 	ctx context.Context,
 	result *pipeline.Result,
@@ -227,12 +224,11 @@ func syncOutputs(
 				return nil, errors.Wrapf(err, "read existing %s", absPath)
 			}
 
-			// Skip the format + write only when the cache says BOTH the
-			// raw plugin output is unchanged AND the on-disk file still
-			// matches the canonical bytes the previous run wrote. The
-			// second check is what makes the cache safe across formatter
-			// upgrades and hand edits: if anything drifts, fall through
-			// and re-format.
+			// Skip the format + write only when the cache says BOTH the raw plugin
+			// output is unchanged AND the on-disk file still matches the canonical
+			// bytes the previous run wrote. The second check is what makes the cache
+			// safe across formatter upgrades and hand edits: if anything drifts, fall
+			// through and re-format.
 			if existing != nil {
 				if entry, hit := cache.Lookup(f.Path); hit &&
 					entry.Raw == rawHash &&
@@ -323,9 +319,9 @@ type syncResult struct {
 	Skipped   []string
 }
 
-// expandGlobs is preserved for `oracle fmt` which still accepts arbitrary
-// user-provided patterns (e.g. `oracle fmt schemas/rack.oracle`). The
-// canonical schema-discovery path is pipeline.DiscoverSchemas.
+// expandGlobs is preserved for `oracle fmt` which still accepts arbitrary user-provided
+// patterns (e.g. `oracle fmt schemas/rack.oracle`). The canonical schema-discovery path
+// is pipeline.DiscoverSchemas.
 func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 	var files []string
 	for _, pattern := range patterns {

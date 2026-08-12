@@ -82,6 +82,11 @@ type Result struct {
 	// disk (e.g. when migrate retargets a transform). Keyed by plugin name to mirror
 	// Outputs.
 	Deletions map[string][]string
+	// Chains holds the discovered version chains, keyed by live import path.
+	Chains map[string]versions.Chain
+	// Versions resolves the version chains through the same overlay loader
+	// analysis used; nil when the repository declares no chains.
+	Versions *versions.Resolver
 }
 
 // Run executes the pipeline end to end. The returned Result is always non-nil and
@@ -117,19 +122,23 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 	if err != nil {
 		return r, err
 	}
+	r.Chains = chains
 	if len(chains) > 0 {
 		if err := mergeLiveSources(ctx, r, loader, chains); err != nil {
 			return r, err
 		}
 	}
 	effective := newOverlayLoader(loader, r.effectiveSources())
+	if len(chains) > 0 {
+		r.Versions = versions.NewResolver(chains, effective)
+	}
 
 	if err := analyze(ctx, r, effective); err != nil {
 		return r, err
 	}
 
 	if opts.Plugins != nil && r.Resolutions != nil {
-		if err := generate(ctx, r, opts, workers, chains, effective); err != nil {
+		if err := generate(ctx, r, opts, workers); err != nil {
 			return r, err
 		}
 	}
@@ -304,21 +313,12 @@ func analyze(ctx context.Context, r *Result, loader analyzer.FileLoader) error {
 	return nil
 }
 
-func generate(
-	ctx context.Context,
-	r *Result,
-	opts Options,
-	workers int,
-	chains map[string]versions.Chain,
-	loader analyzer.FileLoader,
-) error {
-	// Explicitly managed version chains are the versioning baseline. The resolver loads
-	// through the same overlay analysis used, so frozen surfaces resolve live imports
-	// against the merged projections.
-	var resolver *versions.Resolver
-	if len(chains) > 0 {
-		resolver = versions.NewResolver(chains, loader)
-		if err := resolver.Annotate(ctx, r.Resolutions); err != nil {
+func generate(ctx context.Context, r *Result, opts Options, workers int) error {
+	// Explicitly managed version chains are the versioning baseline. The resolver
+	// loads through the same overlay analysis used, so frozen surfaces resolve live
+	// imports against the merged projections.
+	if r.Versions != nil {
+		if err := r.Versions.Annotate(ctx, r.Resolutions); err != nil {
 			return err
 		}
 	}
@@ -336,7 +336,7 @@ func generate(
 				req := &plugin.Request{
 					Resolutions: r.Resolutions,
 					RepoRoot:    opts.RepoRoot,
-					Versions:    resolver,
+					Versions:    r.Versions,
 				}
 				for _, depName := range p.Requires() {
 					if opts.Plugins.Get(depName) == nil {

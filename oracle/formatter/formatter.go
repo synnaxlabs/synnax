@@ -30,8 +30,8 @@ const (
 	commentBlk  = parser.OracleLexerBLOCK_COMMENT
 )
 
-// Format formats Oracle source code according to the canonical style.
-// Returns the formatted source code or an error if parsing fails.
+// Format formats Oracle source code according to the canonical style. Returns the
+// formatted source code or an error if parsing fails.
 func Format(source string) (string, error) {
 	input := antlr.NewInputStream(source)
 	lexer := parser.NewOracleLexer(input)
@@ -82,14 +82,12 @@ type formatter struct {
 	sb            *strings.Builder
 	lastTokenIdx  int
 	currentIndent int
-	// currentDomain is the name of the domain whose content is being
-	// emitted ("doc", "go", ...); doc strings get prose layout rules.
+	// currentDomain is the name of the domain whose content is being emitted ("doc",
+	// "go", ...); doc strings get prose layout rules.
 	currentDomain string
 }
 
-func (f *formatter) write(s string) {
-	f.sb.WriteString(s)
-}
+func (f *formatter) write(s string) { f.sb.WriteString(s) }
 
 func (f *formatter) writeLine(s string) {
 	f.sb.WriteString(s)
@@ -102,17 +100,15 @@ func (f *formatter) writeIndent() {
 	}
 }
 
-func (f *formatter) newline() {
-	f.sb.WriteString("\n")
-}
+func (f *formatter) newline() { f.sb.WriteString("\n") }
 
-// emitLeadingComments emits any comments at the very start of the file.
-// Returns true if any comments were emitted.
+// emitLeadingComments emits any comments at the very start of the file. Returns true if
+// any comments were emitted.
 func (f *formatter) emitLeadingComments() bool {
 	// Get all tokens and look for leading comments
 	f.tokens.Fill()
 	allTokens := f.tokens.GetAllTokens()
-	emitted := false
+	var emitted bool
 	for _, tok := range allTokens {
 		if tok.GetChannel() == hiddenChan {
 			if tok.GetTokenType() == commentLine || tok.GetTokenType() == commentBlk {
@@ -160,8 +156,8 @@ func (f *formatter) formatSchema(ctx parser.ISchemaContext) {
 		f.newline()
 	}
 
-	// Format imports in alphabetical order. Comments in the import region are
-	// emitted up front so reordering cannot drop or duplicate them.
+	// Format imports in alphabetical order. Comments in the import region are emitted
+	// up front so reordering cannot drop or duplicate them.
 	imports := ctx.AllImportStmt()
 	if len(imports) > 0 {
 		f.emitCommentsBefore(imports[len(imports)-1].GetStart().GetTokenIndex())
@@ -244,7 +240,6 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 			f.write(" ")
 			f.formatDomainContentAligned(
 				dom.DomainContent(),
-				false,
 				maxPrefixLen,
 				1+len(dom.IDENT().GetText()),
 			)
@@ -258,7 +253,6 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 // currentPrefixLen is the length of "@domain" so far, maxPrefixLen is the target.
 func (f *formatter) formatDomainContentAligned(
 	ctx parser.IDomainContentContext,
-	allowBlock bool,
 	maxPrefixLen, currentPrefixLen int,
 ) {
 	if ctx.Expression() != nil {
@@ -617,8 +611,8 @@ func (f *formatter) formatFieldDefAligned(
 ) {
 	f.writeIndent()
 
-	// The name column carries a standalone optionality marker (key?) when
-	// the field omits its type to inherit it from the parent.
+	// The name column carries a standalone optionality marker (key?) when the field
+	// omits its type to inherit it from the parent.
 	nameCol := fieldNameColumn(ctx)
 	typeStr := f.formatTypeRefToString(ctx.TypeRef())
 	hasDefault := ctx.EQUALS() != nil && ctx.FieldDefault() != nil
@@ -629,8 +623,8 @@ func (f *formatter) formatFieldDefAligned(
 
 	f.write(nameCol)
 
-	// Only pad the name column when content follows, so a bare typeless override
-	// (key?) does not trail whitespace.
+	// Only pad the name column when content follows, so a bare typeless override (key?)
+	// does not trail whitespace.
 	if typeStr != "" || hasDefault || hasDomains {
 		f.writePadding(nameWidth - len(nameCol))
 	}
@@ -740,8 +734,8 @@ func hasTripleString(domains []parser.IInlineDomainContext) bool {
 	return false
 }
 
-// standaloneFieldModifier returns the optionality marker of a typeless override
-// (key?), or "" when the field declares a type or no marker.
+// standaloneFieldModifier returns the optionality marker of a typeless override (key?),
+// or "" when the field declares a type or no marker.
 func standaloneFieldModifier(ctx parser.IFieldDefContext) string {
 	if ctx.TypeRef() != nil || ctx.TypeModifiers() == nil {
 		return ""
@@ -1023,7 +1017,6 @@ func (f *formatter) formatFieldWithBraces(
 			f.write(" ")
 			f.formatDomainContentAligned(
 				dom.DomainContent(),
-				true,
 				maxPrefixLen,
 				1+len(dom.IDENT().GetText()),
 			)
@@ -1043,7 +1036,6 @@ func (f *formatter) formatFieldWithBraces(
 				f.write(" ")
 				f.formatDomainContentAligned(
 					dom.DomainContent(),
-					true,
 					maxPrefixLen,
 					1+len(dom.IDENT().GetText()),
 				)
@@ -1104,7 +1096,6 @@ func (f *formatter) formatDomains(domains []parser.IDomainContext) {
 			f.write(" ")
 			f.formatDomainContentAligned(
 				dom.DomainContent(),
-				true,
 				maxPrefixLen,
 				1+len(dom.IDENT().GetText()),
 			)
@@ -1150,12 +1141,11 @@ func (f *formatter) formatExpression(ctx parser.IExpressionContext) {
 	}
 }
 
-// formatSoleExpressionValue emits an expression's only value, applying the
-// prose layout rules: triple-quoted strings keep their content off the quote
-// lines, and a doc string too long for its line converts to triple-quoted
-// wrapped form. Both re-layouts preserve the value the analyzer reads, so
-// they never apply to a value sharing its expression with others, where a
-// line break would detach the neighbors.
+// formatSoleExpressionValue emits an expression's only value, applying the prose layout
+// rules: triple-quoted strings keep their content off the quote lines, and a doc string
+// too long for its line converts to triple-quoted wrapped form. Both re-layouts
+// preserve the value the analyzer reads, so they never apply to a value sharing its
+// expression with others, where a line break would detach the neighbors.
 func (f *formatter) formatSoleExpressionValue(ctx parser.IExpressionValueContext) {
 	if ts := ctx.TRIPLE_STRING_LIT(); ts != nil {
 		f.writeTripleString(ts.GetText())
@@ -1174,12 +1164,11 @@ func (f *formatter) formatSoleExpressionValue(ctx parser.IExpressionValueContext
 	f.formatExpressionValue(ctx)
 }
 
-// writeTripleString lays a triple-quoted string out canonically: nothing
-// follows the opening quotes on their line, content lines sit one indent
-// level past the domain line, and the closing quotes sit alone at the
-// current indent. Doc content re-fills to the line limit; every consumer
-// treats a single line break as a space, so neither the re-indent nor the
-// re-fill changes the dedented value's meaning.
+// writeTripleString lays a triple-quoted string out canonically: nothing follows the
+// opening quotes on their line, content lines sit one indent level past the domain
+// line, and the closing quotes sit alone at the current indent. Doc content re-fills to
+// the line limit; every consumer treats a single line break as a space, so neither the
+// re-indent nor the re-fill changes the dedented value's meaning.
 func (f *formatter) writeTripleString(text string) {
 	content := text[len(tripleQuote) : len(text)-len(tripleQuote)]
 	lines := strings.Split(content, "\n")
@@ -1227,10 +1216,10 @@ func (f *formatter) writeTripleString(text string) {
 	f.write(tripleQuote)
 }
 
-// writeDocLines emits dedented doc content lines at the given indent,
-// re-filling each paragraph to the line limit. A paragraph containing an
-// indented line is structured content (an example block) and stays
-// verbatim — re-wrapping it would destroy its layout.
+// writeDocLines emits dedented doc content lines at the given indent, re-filling each
+// paragraph to the line limit. A paragraph containing an indented line is structured
+// content (an example block) and stays verbatim — re-wrapping it would destroy its
+// layout.
 func (f *formatter) writeDocLines(lines []string, contentIndent string) {
 	width := maxLineLen - len(contentIndent)
 	var para []string
@@ -1238,7 +1227,7 @@ func (f *formatter) writeDocLines(lines []string, contentIndent string) {
 		if len(para) == 0 {
 			return
 		}
-		structured := false
+		var structured bool
 		for _, l := range para {
 			if l[0] == ' ' || l[0] == '\t' {
 				structured = true
@@ -1459,7 +1448,7 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 	if body := ctx.EnumValueBody(); body != nil {
 		f.writeLine(" {")
 		f.currentIndent++
-		maxPrefixLen := 0
+		var maxPrefixLen int
 		for _, dom := range body.AllDomain() {
 			prefixLen := 1 + len(dom.IDENT().GetText())
 			if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
@@ -1480,7 +1469,6 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 				f.write(" ")
 				f.formatDomainContentAligned(
 					dom.DomainContent(),
-					true,
 					maxPrefixLen,
 					1+len(dom.IDENT().GetText()),
 				)

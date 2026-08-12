@@ -2444,7 +2444,7 @@ func (p *Plugin) typeRefToZodSchemaType(
 		return "z.ZodType"
 	}
 
-	prefix := ""
+	var prefix string
 	if resolved.Namespace != data.Namespace {
 		prefix = resolved.Namespace + "."
 	}
@@ -2453,7 +2453,7 @@ func (p *Plugin) typeRefToZodSchemaType(
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
-			hasConcreteTypes := false
+			var hasConcreteTypes bool
 			if dom, ok := resolved.Domains["ts"]; ok {
 				for _, expr := range dom.Expressions {
 					if expr.Name == "concrete_types" {

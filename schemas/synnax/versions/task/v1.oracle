@@ -24,13 +24,9 @@ StatusDetails struct<Data? = record> {
     data    Data?  {
         @doc value "contains task-specific status data."
     }
-
-    @go pinned
 }
 
-Status<Data? = record> = status.Status<StatusDetails<Data>> {
-    @go pinned
-}
+Status<Data? = record> = status.Status<StatusDetails<Data>>
 
 Task struct<
     Type extends string = string,

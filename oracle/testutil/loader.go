@@ -16,16 +16,16 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 )
 
-// MockFileLoader is a file loader that serves files from an in-memory map.
-// It implements analyzer.FileLoader for use in tests.
+// MockFileLoader is a file loader that serves files from an in-memory map. It
+// implements analyzer.FileLoader for use in tests.
 type MockFileLoader struct {
 	// Files maps import paths to file contents.
 	Files map[string]string
 	root  string
 }
 
-// NewMockFileLoader creates a new MockFileLoader with an empty file map
-// and default repo root of "/mock/repo".
+// NewMockFileLoader creates a new MockFileLoader with an empty file map and default
+// repo root of "/mock/repo".
 func NewMockFileLoader() *MockFileLoader {
 	return &MockFileLoader{Files: make(map[string]string), root: "/mock/repo"}
 }
@@ -41,8 +41,8 @@ func (m *MockFileLoader) Add(path, content string) *MockFileLoader {
 	return m
 }
 
-// Load implements analyzer.FileLoader. The returned filePath always ends in
-// ".oracle"; importPath may be passed with or without the suffix.
+// Load implements analyzer.FileLoader. The returned filePath always ends in ".oracle";
+// importPath may be passed with or without the suffix.
 func (m *MockFileLoader) Load(importPath string) (string, string, error) {
 	stem := strings.TrimSuffix(importPath, ".oracle")
 	if content, ok := m.Files[stem]; ok {
@@ -77,6 +77,4 @@ type FileNotFoundError struct {
 	Path string
 }
 
-func (e *FileNotFoundError) Error() string {
-	return "file not found: " + e.Path
-}
+func (e *FileNotFoundError) Error() string { return "file not found: " + e.Path }

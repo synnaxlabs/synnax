@@ -21,10 +21,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/go/freeze"
+	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 	"github.com/synnaxlabs/x/set"
@@ -49,18 +48,10 @@ func (g VersionsGate) Run(
 	if p.Resolutions == nil {
 		return r
 	}
-	chains, err := versions.Discover(env.RepoRoot)
-	if err != nil {
-		r.fail(Finding{Severity: SeverityError, Message: err.Error()})
+	chains, resolver := p.Chains, p.Versions
+	if len(chains) == 0 || resolver == nil {
 		return r
 	}
-	if len(chains) == 0 {
-		return r
-	}
-	resolver := versions.NewResolver(
-		chains, analyzer.NewStandardFileLoader(env.RepoRoot),
-	)
-
 	for _, livePath := range slices.Sorted(maps.Keys(chains)) {
 		g.checkChain(ctx, &r, p, env, resolver, chains[livePath])
 	}
@@ -155,16 +146,15 @@ func (g VersionsGate) checkChain(
 			})
 			return
 		}
+		fkTransient := fk.Transient()
 		for _, t := range fk.Defined {
 			if t.Synthetic {
 				continue
 			}
-			// Pinned declarations track the live schema and may legitimately
-			// match their predecessor.
-			if dom, ok := t.Domains["go"]; ok {
-				if _, pinned := dom.Expressions.Find("pinned"); pinned {
-					continue
-				}
+			// Omit-transient declarations track the live schema and may
+			// legitimately match their predecessor.
+			if fkTransient.Contains(t.Name) {
+				continue
 			}
 			def, ok := surf[t.Name]
 			if !ok {
@@ -179,7 +169,7 @@ func (g VersionsGate) checkChain(
 				})
 				return
 			}
-			if freeze.StructurallyEqual(def.Type, t, definer.Table, fk.Table) {
+			if gotypes.StructurallyEqual(def.Type, t, definer.Table, fk.Table) {
 				r.fail(Finding{
 					Path:     chain.FilePath(k) + ".oracle",
 					Severity: SeverityError,
@@ -398,16 +388,12 @@ func classifyDeps(f *versions.File) (stored, referenced set.Set[string]) {
 		}
 	}
 	// Membership marks a type persisted, so every declaration is a stored
-	// root except the pinned ones — a pinned type tracks the live schema and
-	// resolves its references there.
+	// root except the omit-transient ones — a transient type tracks the live
+	// schema and resolves its references there.
+	transient := f.Transient()
 	for _, t := range f.Defined {
-		if t.Synthetic {
+		if t.Synthetic || transient.Contains(t.Name) {
 			continue
-		}
-		if dom, ok := t.Domains["go"]; ok {
-			if _, pinned := dom.Expressions.Find("pinned"); pinned {
-				continue
-			}
 		}
 		visitStored(t.Name)
 	}

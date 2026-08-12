@@ -114,10 +114,10 @@ func AnalyzeSource(
 	return table, diag
 }
 
-// AnalyzeSeeded analyzes source into an existing table under an explicit
-// namespace. Callers pre-register the namespaces the source resolves against
-// (sibling schema versions, pinned dependency surfaces) and mark their import
-// paths on the table so the import walk does not re-load them.
+// AnalyzeSeeded analyzes source into an existing table under an explicit namespace.
+// Callers pre-register the namespaces the source resolves against (sibling schema
+// versions, pinned dependency surfaces) and mark their import paths on the table so the
+// import walk does not re-load them.
 func AnalyzeSeeded(
 	ctx context.Context,
 	source, filePath, namespace string,
@@ -243,7 +243,6 @@ func analyze(c *analysisCtx) {
 	validateDeadOutputs(c, types)
 	validateFileVersion(c)
 	validateVersionArgs(c, types)
-	validatePinnedArgs(c, types)
 	validateImex(c, types)
 	validateImportPlacement(c)
 	for _, typ := range types {
@@ -297,7 +296,7 @@ func desugarPartialOverrides(c *analysisCtx) {
 		parents := resolvedParentFields(c, form)
 		fields := make([]resolution.Field, len(form.Fields))
 		copy(fields, form.Fields)
-		changed := false
+		var changed bool
 		for j := range fields {
 			f := &fields[j]
 			if f.HasType() {
@@ -447,18 +446,17 @@ func finalizeEnumExtensions(c *analysisCtx) {
 	}
 }
 
-// addTypeDiag records an error diagnostic attributed to the file that
-// declares typ.
+// addTypeDiag records an error diagnostic attributed to the file that declares typ.
 func addTypeDiag(c *analysisCtx, typ resolution.Type, format string, args ...any) {
 	d := diagnostics.Errorf(nil, format, args...)
 	c.diag.Report(typ.FilePath, d)
 }
 
 // effectiveEnumValues returns an enum's fully-resolved members: the union of the
-// members of every enum it extends (recursively), followed by its own declared
-// members. visited guards against cycles. The returned bool is the int/string
-// kind; the final bool is false when the enum or a parent is malformed (a
-// diagnostic is added in that case).
+// members of every enum it extends (recursively), followed by its own declared members.
+// visited guards against cycles. The returned bool is the int/string kind; the final
+// bool is false when the enum or a parent is malformed (a diagnostic is added in that
+// case).
 func effectiveEnumValues(
 	c *analysisCtx, typ resolution.Type, visited set.Set[string],
 ) ([]resolution.EnumValue, bool, bool) {
@@ -591,8 +589,8 @@ func finalizeUnionExtensions(c *analysisCtx) {
 	}
 }
 
-// hasUnionBases reports whether any of a union's extends targets resolves to
-// another union.
+// hasUnionBases reports whether any of a union's extends targets resolves to another
+// union.
 func hasUnionBases(form resolution.UnionForm, table *resolution.Table) bool {
 	for _, ref := range form.Extends {
 		if base, ok := ref.Resolve(table); ok {
@@ -604,10 +602,10 @@ func hasUnionBases(form resolution.UnionForm, table *resolution.Table) bool {
 	return false
 }
 
-// effectiveUnionVariants returns a union's fully-resolved variant list: the
-// variants of every union it extends (recursively), followed by its own
-// declared variants. visited guards against cycles. The bool is false when the
-// union or a parent is malformed (a diagnostic is added in that case).
+// effectiveUnionVariants returns a union's fully-resolved variant list: the variants of
+// every union it extends (recursively), followed by its own declared variants. visited
+// guards against cycles. The bool is false when the union or a parent is malformed (a
+// diagnostic is added in that case).
 func effectiveUnionVariants(
 	c *analysisCtx, typ resolution.Type, visited set.Set[string],
 ) ([]resolution.UnionVariant, bool) {
@@ -683,8 +681,8 @@ func effectiveUnionVariants(
 					typ.QualifiedName, parent.QualifiedName)
 				return nil, false
 			}
-			// Each branch gets its own copy so visited tracks the ancestor
-			// path, not every node seen, matching effectiveEnumValues.
+			// Each branch gets its own copy so visited tracks the ancestor path, not
+			// every node seen, matching effectiveEnumValues.
 			if pVars, ok = effectiveUnionVariants(c, parent, visited.Copy()); !ok {
 				return nil, false
 			}
@@ -770,9 +768,9 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	}))
 }
 
-// collectAction translates a parsed action block into a resolution.Action,
-// reusing collectField for payload fields so action-field semantics match
-// struct-field semantics (optionality, validation, type refs).
+// collectAction translates a parsed action block into a resolution.Action, reusing
+// collectField for payload fields so action-field semantics match struct-field
+// semantics (optionality, validation, type refs).
 func collectAction(
 	c *analysisCtx,
 	def parser.IActionDefContext,
@@ -960,12 +958,12 @@ func collectField(
 		AST:     def,
 	}
 
-	// A field may omit its type to partially override an inherited field, in
-	// which case the type and optionality are resolved from the parent later.
+	// A field may omit its type to partially override an inherited field, in which case
+	// the type and optionality are resolved from the parent later.
 	if tr := def.TypeRef(); tr != nil {
 		normalCtx, isNormal := tr.(*parser.TypeRefNormalContext)
 		mapCtx, isMap := tr.(*parser.TypeRefMapContext)
-		isArray := false
+		var isArray bool
 		var arraySize *int64
 
 		if isNormal {
@@ -1089,8 +1087,8 @@ func collectFieldDefault(fd parser.IFieldDefaultContext) resolution.ExpressionVa
 	return resolution.ExpressionValue{}
 }
 
-// collectDefaultValue collects a default value in a nested position (an array
-// element or a struct field), recursing into arrays and structs.
+// collectDefaultValue collects a default value in a nested position (an array element
+// or a struct field), recursing into arrays and structs.
 func collectDefaultValue(dv parser.IDefaultValueContext) resolution.ExpressionValue {
 	if ev := dv.ExpressionValue(); ev != nil {
 		return collectValue(ev)
@@ -1261,10 +1259,10 @@ func collectUnionVariant(
 	}
 }
 
-// collectInlineVariant desugars an inline variant body into a Synthetic
-// struct type registered in the table, so the variant resolves and validates
-// like a named payload while generators flatten its fields into the variant
-// member instead of emitting a standalone type.
+// collectInlineVariant desugars an inline variant body into a Synthetic struct type
+// registered in the table, so the variant resolves and validates like a named payload
+// while generators flatten its fields into the variant member instead of emitting a
+// standalone type.
 func collectInlineVariant(
 	c *analysisCtx, unionName string, def *parser.InlineVariantContext,
 ) resolution.UnionVariant {
@@ -1344,8 +1342,8 @@ func collectInlineVariant(
 	return variant
 }
 
-// pascalIdent converts a snake_case variant name to PascalCase for the
-// synthesized payload type name.
+// pascalIdent converts a snake_case variant name to PascalCase for the synthesized
+// payload type name.
 func pascalIdent(s string) string {
 	parts := strings.Split(s, "_")
 	var b strings.Builder
@@ -1611,8 +1609,8 @@ func extractTypeNormal(tr *parser.TypeRefNormalContext) string {
 }
 
 // modifiersFrom reports whether an optionality modifier context marks the field
-// optional. A trailing `?` makes the field optional; `??` is a grammar error
-// and is rejected by the parser before this function is reached.
+// optional. A trailing `?` makes the field optional; `??` is a grammar error and is
+// rejected by the parser before this function is reached.
 func modifiersFrom(mods parser.ITypeModifiersContext) (optional bool) {
 	if mods == nil {
 		return false
@@ -1731,9 +1729,9 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// validateActionExtends checks that every action's extends clause names a
-// struct type, mirroring validateExtends. A generic parent must be supplied
-// with enough type arguments to bind its required parameters.
+// validateActionExtends checks that every action's extends clause names a struct type,
+// mirroring validateExtends. A generic parent must be supplied with enough type
+// arguments to bind its required parameters.
 func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.StructForm)
 	if !ok {
@@ -1778,9 +1776,9 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 	}
 }
 
-// finalizeActionExtends flattens each action's extends clause, prepending the
-// inherited struct fields to the action's own fields. After this pass
-// Action.Fields holds the unified list, so code generators consume it unchanged.
+// finalizeActionExtends flattens each action's extends clause, prepending the inherited
+// struct fields to the action's own fields. After this pass Action.Fields holds the
+// unified list, so code generators consume it unchanged.
 func finalizeActionExtends(c *analysisCtx) {
 	for i := range c.table.Types {
 		typ := c.table.Types[i]
@@ -1791,7 +1789,7 @@ func finalizeActionExtends(c *analysisCtx) {
 		if !ok {
 			continue
 		}
-		changed := false
+		var changed bool
 		for ai := range form.Actions {
 			if len(form.Actions[ai].Extends) == 0 {
 				continue
@@ -1806,10 +1804,10 @@ func finalizeActionExtends(c *analysisCtx) {
 	}
 }
 
-// unifyActionFields returns the action's payload fields with inherited struct
-// fields prepended. Parents are walked left-to-right (first wins on a name
-// conflict between parents) and an action's own field overrides any inherited
-// field of the same name, keeping its declared position.
+// unifyActionFields returns the action's payload fields with inherited struct fields
+// prepended. Parents are walked left-to-right (first wins on a name conflict between
+// parents) and an action's own field overrides any inherited field of the same name,
+// keeping its declared position.
 func unifyActionFields(c *analysisCtx, action resolution.Action) []resolution.Field {
 	own := make(set.Set[string])
 	for _, f := range action.Fields {
@@ -1900,9 +1898,9 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 //   - Neither the base structs nor the variant structs redeclare the
 //     discriminator field; the union declaration owns it exclusively.
 //
-// Generic variant/base types are permitted but not yet type-checked: an open
-// question for a follow-up that introduces unions parameterized by a type
-// argument applied to every variant.
+// Generic variant/base types are permitted but not yet type-checked: an open question
+// for a follow-up that introduces unions parameterized by a type argument applied to
+// every variant.
 func validateUnion(c *analysisCtx, typ resolution.Type) {
 	form, ok := typ.Form.(resolution.UnionForm)
 	if !ok {

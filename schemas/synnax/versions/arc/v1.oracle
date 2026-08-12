@@ -10,7 +10,7 @@
 import "schemas/arc/program"
 import "schemas/arc/versions/graph/v0"
 import "schemas/arc/versions/text/v0"
-import "schemas/synnax/versions/status/v1"
+import "schemas/synnax/status"
 
 Key = v0.Key
 

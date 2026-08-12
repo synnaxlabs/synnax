@@ -244,7 +244,7 @@ func (p *Plugin) generateFile(
 	table *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
-	namespace := ""
+	var namespace string
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
 	} else if len(unions) > 0 {

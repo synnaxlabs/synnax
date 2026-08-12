@@ -110,30 +110,4 @@ Channel struct {
 		Expect(frozen).ToNot(ContainSubstring("Virtual"))
 		Expect(frozen).ToNot(ContainSubstring("= v"))
 	})
-
-	It("Should error when the chain and @go version disagree", func() {
-		disagreeing := resolution.NewTable()
-		diag := analyzer.AnalyzeSeeded(
-			GinkgoT().Context(),
-			`
-@go output "core/pkg/service/channel"
-
-Channel struct {
-	key uuid @key
-
-	@go version 2
-}
-`,
-			"schemas/synnax/channel.oracle", "channel",
-			analyzer.NewStandardFileLoader(req.RepoRoot), disagreeing,
-		)
-		Expect(diag.Ok()).To(BeTrue(), diag.String())
-		badReq := &plugin.Request{
-			Resolutions: disagreeing,
-			RepoRoot:    req.RepoRoot,
-			Versions:    req.Versions,
-		}
-		Expect(gotypes.New(gotypes.DefaultOptions()).Generate(badReq)).Error().
-			To(MatchError(ContainSubstring("chain's current file is v1")))
-	})
 })

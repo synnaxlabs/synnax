@@ -96,7 +96,7 @@ func LowerFirst(s string) string {
 		return s
 	}
 	runes := []rune(s)
-	i := 0
+	var i int
 	for i < len(runes) && unicode.IsUpper(runes[i]) {
 		i++
 	}

@@ -44,7 +44,6 @@ Rate float64 {
         is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
         frequencies and calculate sample counts over time intervals.
     """
-    @go pinned
 }
 
 Size int64 {
@@ -52,7 +51,6 @@ Size int64 {
         is a byte measurement used for storage capacity and data volume representation.
         Supports conversion to human-readable formats (B, kB, MB, GB, TB).
     """
-    @go pinned
 }
 
 DataType string {

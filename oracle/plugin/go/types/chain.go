@@ -33,8 +33,45 @@ func chainPredecessors(
 	ctx context.Context, req *plugin.Request,
 ) (map[string]predecessor, error) {
 	preds := make(map[string]predecessor)
+	entries, err := chainEntries(req)
+	if err != nil {
+		return nil, err
+	}
+	for origPath, e := range entries {
+		if e.version == e.chain.First() {
+			continue
+		}
+		f, err := req.Versions.File(ctx, e.livePath, e.version)
+		if err != nil {
+			return nil, err
+		}
+		aliased := make(set.Set[string], len(f.Aliases))
+		for name := range f.Aliases {
+			aliased.Add(e.resource + "." + name)
+		}
+		prev, _ := e.chain.Predecessor(e.version)
+		preds[versioning.VersionedPath(origPath, e.version)] = predecessor{
+			path:    versioning.VersionedPath(origPath, prev),
+			aliased: aliased,
+		}
+	}
+	return preds, nil
+}
+
+// chainEntry pairs a versioned Go output path with its resource and chain.
+type chainEntry struct {
+	resource string
+	livePath string
+	version  int
+	chain    versions.Chain
+}
+
+// chainEntries maps every chain-covered versioned Go output path to its
+// resource, declared version, and chain.
+func chainEntries(req *plugin.Request) (map[string]chainEntry, error) {
+	out := make(map[string]chainEntry)
 	if req.Versions == nil {
-		return preds, nil
+		return out, nil
 	}
 	entries, err := versioning.EntryPaths(req.Resolutions)
 	if err != nil {
@@ -50,30 +87,11 @@ func chainPredecessors(
 		if !ok {
 			continue
 		}
-		if version == chain.First() {
-			continue
-		}
-		if chain.Current() != version {
-			return nil, errors.Newf(
-				"%s declares @go version %d but its chain's current file is v%d",
-				livePath, version, chain.Current(),
-			)
-		}
-		f, err := req.Versions.File(ctx, livePath, version)
-		if err != nil {
-			return nil, err
-		}
-		aliased := make(set.Set[string], len(f.Aliases))
-		for name := range f.Aliases {
-			aliased.Add(resource + "." + name)
-		}
-		prev, _ := chain.Predecessor(version)
-		preds[versioning.VersionedPath(origPath, version)] = predecessor{
-			path:    versioning.VersionedPath(origPath, prev),
-			aliased: aliased,
+		out[origPath] = chainEntry{
+			resource: resource, livePath: livePath, version: version, chain: chain,
 		}
 	}
-	return preds, nil
+	return out, nil
 }
 
 // chainFrozenFiles regenerates every frozen version package of every chain: for each
@@ -84,30 +102,18 @@ func chainPredecessors(
 func chainFrozenFiles(
 	ctx context.Context, req *plugin.Request, fileName string,
 ) ([]plugin.File, error) {
-	if req.Versions == nil {
-		return nil, nil
-	}
-	entries, err := versioning.EntryPaths(req.Resolutions)
+	entries, err := chainEntries(req)
 	if err != nil {
 		return nil, err
 	}
-	chains := req.Versions.Chains()
 	var files []plugin.File
 	for _, origPath := range slices.Sorted(maps.Keys(entries)) {
-		version := entries[origPath]
-		_, livePath, ok := pathResource(req.Resolutions, origPath)
-		if !ok {
-			continue
-		}
-		chain, ok := chains[livePath]
-		if !ok {
-			continue
-		}
-		for _, k := range chain.Numbers {
-			if k >= version {
+		e := entries[origPath]
+		for _, k := range e.chain.Numbers {
+			if k >= e.version {
 				break
 			}
-			file, err := frozenFile(ctx, req, origPath, livePath, k, fileName)
+			file, err := frozenFile(ctx, req, origPath, e.livePath, k, fileName)
 			if err != nil {
 				return nil, err
 			}
@@ -131,28 +137,16 @@ type ChainPath struct {
 
 // ChainPaths maps every chain-covered versioned Go output path to its chain.
 func ChainPaths(req *plugin.Request) (map[string]ChainPath, error) {
-	out := make(map[string]ChainPath)
-	if req.Versions == nil {
-		return out, nil
-	}
-	entries, err := versioning.EntryPaths(req.Resolutions)
+	entries, err := chainEntries(req)
 	if err != nil {
 		return nil, err
 	}
-	chains := req.Versions.Chains()
-	for origPath, version := range entries {
-		_, livePath, ok := pathResource(req.Resolutions, origPath)
-		if !ok {
-			continue
-		}
-		chain, ok := chains[livePath]
-		if !ok {
-			continue
-		}
+	out := make(map[string]ChainPath, len(entries))
+	for origPath, e := range entries {
 		out[origPath] = ChainPath{
-			LivePath: livePath,
-			Current:  version,
-			Numbers:  chain.Numbers,
+			LivePath: e.livePath,
+			Current:  e.version,
+			Numbers:  e.chain.Numbers,
 		}
 	}
 	return out, nil
@@ -277,7 +271,7 @@ func annotateOutputs(
 // append to: the path its version-declaring types name, or — for history-only chains
 // whose resource has since left versioning — the file's plain output.
 func versionedGoRoot(table *resolution.Table, livePath string) (string, bool) {
-	fallback := ""
+	var fallback string
 	for _, t := range table.Types {
 		if t.FilePath != livePath+".oracle" {
 			continue

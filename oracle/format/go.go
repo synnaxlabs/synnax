@@ -41,7 +41,7 @@ func unwrapSingleImport(content []byte) []byte {
 	if err != nil {
 		return content
 	}
-	changed := false
+	var changed bool
 	for _, decl := range f.Decls {
 		gd, ok := decl.(*ast.GenDecl)
 		if !ok || gd.Tok != token.IMPORT {

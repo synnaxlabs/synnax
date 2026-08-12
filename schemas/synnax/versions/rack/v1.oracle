@@ -17,12 +17,9 @@ StatusDetails struct {
     }
 
     @doc value "contains rack-specific status details."
-    @go pinned
 }
 
-Status = status.Status<StatusDetails> {
-    @go pinned
-}
+Status = status.Status<StatusDetails>
 
 Rack struct {
     key          Key      {

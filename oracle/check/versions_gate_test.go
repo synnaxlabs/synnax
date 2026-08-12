@@ -57,13 +57,18 @@ Channel struct {
 		)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
 		chains := MustSucceed(versions.Discover(root))
+		var resolver *versions.Resolver
 		if len(chains) > 0 {
-			resolver := versions.NewResolver(
+			resolver = versions.NewResolver(
 				chains, analyzer.NewStandardFileLoader(root),
 			)
 			Expect(resolver.Annotate(GinkgoT().Context(), table)).To(Succeed())
 		}
-		return &pipeline.Result{Resolutions: table}
+		return &pipeline.Result{
+			Resolutions: table,
+			Chains:      chains,
+			Versions:    resolver,
+		}
 	}
 
 	run := func(p *pipeline.Result) check.GateReport {

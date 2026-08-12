@@ -23,13 +23,9 @@ StatusDetails struct {
     running bool {
         @doc value "indicates whether the Arc module is currently executing."
     }
-
-    @go pinned
 }
 
-Status = status.Status<StatusDetails> {
-    @go pinned
-}
+Status = status.Status<StatusDetails>
 
 Arc struct {
     key     Key = create {

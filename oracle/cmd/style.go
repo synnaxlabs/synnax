@@ -238,7 +238,7 @@ func printPlan(verb string, n int, noun string, aux int, auxLabel string) {
 		)
 		return
 	}
-	suffix := ""
+	var suffix string
 	if aux > 0 {
 		suffix = dimStyle.Render(fmt.Sprintf(" (%d %s)", aux, auxLabel))
 	}

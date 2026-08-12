@@ -16,12 +16,11 @@ import (
 
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 )
 
 // Annotate stamps chain-derived @go version expressions onto the live table:
 // every type a chain's current file enumerates receives its chain's current
-// version, and the pinned marker where the file declares it. The version
+// version. The version
 // files are the authority; the injected expressions are how the generators
 // read it. Every other version-owned fact (marshal, migrate, imex) reaches
 // the table textually through the merged live file. A type that still
@@ -32,15 +31,10 @@ func (r *Resolver) Annotate(
 	for _, livePath := range slices.Sorted(maps.Keys(r.chains)) {
 		chain := r.chains[livePath]
 		current := chain.Current()
-		f, err := r.File(ctx, livePath, current)
-		if err != nil {
-			return err
-		}
 		surf, err := r.Surface(ctx, livePath, current)
 		if err != nil {
 			return err
 		}
-		pinned := filePinnedNames(f)
 		for i := range table.Types {
 			t := &table.Types[i]
 			if t.Namespace != chain.Resource ||
@@ -62,23 +56,10 @@ func (r *Resolver) Annotate(
 				}
 				continue
 			}
-			injectVersion(t, current, pinned.Contains(t.Name))
+			injectVersion(t, current)
 		}
 	}
 	return nil
-}
-
-// filePinnedNames extracts a file's @go pinned type names.
-func filePinnedNames(f *File) set.Set[string] {
-	pinned := make(set.Set[string])
-	for _, t := range f.Defined {
-		if dom, ok := t.Domains["go"]; ok {
-			if _, has := dom.Expressions.Find("pinned"); has {
-				pinned.Add(t.Name)
-			}
-		}
-	}
-	return pinned
 }
 
 // declaredVersion reads a hand-declared @go version from a live type.
@@ -94,9 +75,9 @@ func declaredVersion(t resolution.Type) (int, bool) {
 	return int(expr.Values[0].IntValue), true
 }
 
-// injectVersion adds a @go version expression (and optionally pinned) to the
+// injectVersion adds a @go version expression to the
 // type, cloning the shared domain maps first.
-func injectVersion(t *resolution.Type, version int, pinned bool) {
+func injectVersion(t *resolution.Type, version int) {
 	domains := maps.Clone(t.Domains)
 	if domains == nil {
 		domains = make(map[string]resolution.Domain)
@@ -107,12 +88,6 @@ func injectVersion(t *resolution.Type, version int, pinned bool) {
 		Kind:     resolution.ValueKindInt,
 		IntValue: int64(version),
 	}}
-	if pinned {
-		values = append(values, resolution.ExpressionValue{
-			Kind:       resolution.ValueKindIdent,
-			IdentValue: "pinned",
-		})
-	}
 	dom.Expressions = append(
 		slices.Clone(dom.Expressions),
 		resolution.Expression{Name: "version", Values: values},

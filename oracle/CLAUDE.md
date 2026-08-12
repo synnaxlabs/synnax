@@ -35,7 +35,7 @@ or generator logic and schemas disagree.
   no `@go version` tag; the current version is the highest vN file, and membership in it
   marks a type persisted. Version-owned content: fields, optionality, docs, `@key`, and
   the `@go` persistence set (`marshal` incl. field-level `omit`, `hand`, `migrate`,
-  `pinned`, `imex`). Codecs are explicit: a struct or union gets one iff its declaration
+  `imex`). Codecs are explicit: a struct or union gets one iff its declaration
   carries `@go marshal`; references never pull a codec in.
 - **The live file is a generated projection, then an annotation surface.** Sync writes
   each versioned resource's live schema by merging chain resolution (version-owned
@@ -50,14 +50,14 @@ or generator logic and schemas disagree.
 - **Imports split on the persistence boundary.** A stored reference (part of the
   record's persisted bytes, e.g. a range's color) imports a pinned version file
   (`import "schemas/x/versions/color/v0"`). A resolved reference (read-time materialized
-  `@go marshal omit` fields and `@go pinned` declarations, e.g. a task's status) imports
+  `@go marshal omit` fields, e.g. a task's status) imports
   the dependency's live schema and always resolves its current surface. A live schema
   may import only its own resource's versions directory. The `versions` gate enforces
   placement, and fails the current surface on any stored pin lagging its dependency
   chain's current version.
 - **Change workflow**: for a version that has never shipped in a release, edit the
   current vN file in place; for a shipped one, `oracle migrate <resource>` scaffolds
-  v(N+1).oracle (alias lines to definers, pinned declarations redeclared, imports
+  v(N+1).oracle (alias lines to definers, omit-transient declarations redeclared, imports
   carried), then convert the changed types to full declarations and run `oracle sync`.
   Shipped-ness is developer knowledge; Oracle never tracks it.
 - `oracle check`'s blocking `versions` gate enforces: live-file consistency (on-disk
@@ -70,10 +70,11 @@ or generator logic and schemas disagree.
   generates in the current package as a backward alias. `migrate.gen.go` is a pure
   function of the two adjacent version files; hand-written transforms live in
   `migrate.go` (renames and cross-resource moves have no generated counterpart).
-- Types versioned despite being unpersisted (hand-method entanglement, e.g. telem's
-  Size/Rate, or sibling-referenced transient types like task's StatusDetails) are
-  declared in the current version file with `@go pinned`: pinned members always declare
-  fully, track the live shape, and are exempt from the minimality gate.
+- Omit-transient members — types reachable from a file's `@go marshal` declarations
+  only through omitted fields, e.g. task's StatusDetails — track the live shape: they
+  always declare fully, may match their predecessor (exempt from the minimality gate),
+  and resolve their references at read time. A transient shape change to a shipped
+  version requires a mint.
 - `@go imex` (bare marker) on a versioned resource's root struct emits `imex.gen.go`
   files across the versions tree: a `Version imex.Version` constant in every
   `versions/vK` package the Core has exported (from the earliest version file carrying

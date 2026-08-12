@@ -162,7 +162,7 @@ func (s *Server) DidChange(
 	}
 	s.mu.Unlock()
 	s.mu.RLock()
-	content := ""
+	var content string
 	if doc, ok := s.documents[docURI]; ok {
 		content = doc.Content
 	}

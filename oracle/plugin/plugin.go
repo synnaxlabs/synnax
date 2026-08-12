@@ -11,6 +11,7 @@
 package plugin
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
@@ -21,7 +22,7 @@ type Plugin interface {
 	Name() string
 	Domains() []string
 	Requires() []string
-	Generate(req *Request) (*Response, error)
+	Generate(*Request) (*Response, error)
 }
 
 // Request contains all data needed for code generation.
@@ -58,17 +59,15 @@ type File struct {
 }
 
 // Registry holds registered plugins.
-type Registry struct {
-	plugins map[string]Plugin
-}
+type Registry struct{ plugins map[string]Plugin }
 
 // NewRegistry creates a new empty plugin registry.
 func NewRegistry() *Registry {
 	return &Registry{plugins: make(map[string]Plugin)}
 }
 
-// Register adds a plugin to the registry. Returns an error if a plugin
-// with the same name is already registered.
+// Register adds a plugin to the registry. Returns an error if a plugin with the same
+// name is already registered.
 func (r *Registry) Register(p Plugin) error {
 	name := p.Name()
 	if _, exists := r.plugins[name]; exists {
@@ -83,11 +82,7 @@ func (r *Registry) Get(name string) Plugin { return r.plugins[name] }
 
 // All returns all registered plugins.
 func (r *Registry) All() []Plugin {
-	result := make([]Plugin, 0, len(r.plugins))
-	for _, p := range r.plugins {
-		result = append(result, p)
-	}
-	return result
+	return lo.MapToSlice(r.plugins, func(_ string, p Plugin) Plugin { return p })
 }
 
 // DuplicatePluginError is returned when attempting to register a plugin with a name

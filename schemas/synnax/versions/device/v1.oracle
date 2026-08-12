@@ -20,13 +20,9 @@ StatusDetails struct {
     device Key      {
         @doc value "is the device identifier."
     }
-
-    @go pinned
 }
 
-Status = status.Status<StatusDetails> {
-    @go pinned
-}
+Status = status.Status<StatusDetails>
 
 Device struct<
     Properties extends record = record,

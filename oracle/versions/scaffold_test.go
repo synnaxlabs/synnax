@@ -78,16 +78,19 @@ Channel struct {
 		Expect(out).To(ContainSubstring("Channel = v1.Channel"))
 	})
 
-	It("Should redeclare pinned declarations in full", func(ctx SpecContext) {
+	It("Should redeclare omit-transient declarations in full", func(ctx SpecContext) {
 		write("schemas/synnax/versions/channel/v0.oracle", `
 Channel struct {
-    key uuid @key
+    key    uuid @key
+    status Details {
+        @go marshal omit
+    }
 
     @go marshal
 }
 
-Size int64 {
-    @go pinned
+Details struct {
+    running bool
 }
 `)
 		chains := MustSucceed(versions.Discover(root))
@@ -96,7 +99,7 @@ Size int64 {
 			ctx, r, chains["schemas/synnax/channel"],
 		))
 		Expect(out).To(ContainSubstring("Channel = v0.Channel"))
-		Expect(out).To(ContainSubstring("Size int64"))
-		Expect(out).To(ContainSubstring("@go pinned"))
+		Expect(out).To(ContainSubstring("Details struct"))
+		Expect(out).To(ContainSubstring("running bool"))
 	})
 })

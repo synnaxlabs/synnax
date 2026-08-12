@@ -14,12 +14,11 @@ import (
 
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/formatter"
-	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
 
 // Scaffold renders the next version file for chain: every current-surface member as an
-// alias line to its definer, pinned declarations redeclared in full, and the current
+// alias line to its definer, omit-transient declarations redeclared in full, and the
 // file's imports carried forward. The developer converts the changed types to full
 // declarations and bumps stale pins; an all-alias file fails the minimality gate by
 // design.
@@ -46,13 +45,14 @@ func Scaffold(ctx context.Context, r *Resolver, chain Chain) (string, error) {
 		},
 		Resolve: cur.Table.Get,
 	}
+	transient := cur.Transient()
 	var decls []Decl
 	for _, name := range cur.Order {
 		def, member := surf[name]
 		if !member {
 			continue
 		}
-		if pinnedDecl(def.Type) {
+		if transient.Contains(name) {
 			decls = append(decls, Decl{Type: def.Type})
 			continue
 		}
@@ -82,16 +82,6 @@ func fileImports(f *File) []string {
 	}
 	imports = append(imports, f.LivePaths...)
 	return imports
-}
-
-// pinnedDecl reports whether a declaration carries the @go pinned marker.
-func pinnedDecl(t resolution.Type) bool {
-	if dom, ok := t.Domains["go"]; ok {
-		if _, has := dom.Expressions.Find("pinned"); has {
-			return true
-		}
-	}
-	return false
 }
 
 // license prepends the repository's license header, the same one every other checked-in

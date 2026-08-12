@@ -295,9 +295,14 @@ func latestTable(
 	return nil
 }
 
-// VersionPinned reports whether the type's @go version carries the `pinned` marker (see
-// versioning.Pinned).
-func VersionPinned(t resolution.Type) bool { return versioning.Pinned(t) }
+// StructurallyEqual reports whether two declarations share a persisted shape,
+// resolving each side's references through its own table. It re-exports the
+// internal schemadiff judgment for the versions gate.
+func StructurallyEqual(
+	old, new resolution.Type, oldTable, newTable *resolution.Table,
+) bool {
+	return schemadiff.StructurallyEqual(old, new, oldTable, newTable)
+}
 
 // PersistedClosure returns the qualified names of every type reachable from a @go
 // marshal or @go migrate root through stored references: non-omitted struct fields,

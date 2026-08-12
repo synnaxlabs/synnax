@@ -17,24 +17,22 @@ import (
 
 // FileLoader loads schema files for import resolution.
 type FileLoader interface {
-	// Load loads a schema file by its import path.
-	// The importPath should be repo-relative (e.g., "schema/core/label").
-	// Returns the file source content, the repo-relative file path, and any error.
+	// Load loads a schema file by its import path. The importPath should be
+	// repo-relative (e.g., "schema/core/label"). Returns the file source content, the
+	// repo-relative file path, and any error.
 	Load(importPath string) (source, filePath string, err error)
 
 	// RepoRoot returns the absolute path to the git repository root.
 	RepoRoot() string
 
-	// Versioned reports whether the live schema at importPath keeps a version
-	// chain. A resource without one has a single shape, so a version file may
-	// reference it directly.
+	// Versioned reports whether the live schema at importPath keeps a version chain. A
+	// resource without one has a single shape, so a version file may reference it
+	// directly.
 	Versioned(importPath string) bool
 }
 
 // StandardFileLoader loads files from the filesystem relative to the git repo root.
-type StandardFileLoader struct {
-	repoRoot string
-}
+type StandardFileLoader struct{ repoRoot string }
 
 // NewStandardFileLoader creates a FileLoader that resolves paths from the repo root.
 func NewStandardFileLoader(repoRoot string) *StandardFileLoader {
@@ -53,9 +51,7 @@ func (l *StandardFileLoader) Load(importPath string) (string, string, error) {
 }
 
 // RepoRoot returns the absolute path to the git repository root.
-func (l *StandardFileLoader) RepoRoot() string {
-	return l.repoRoot
-}
+func (l *StandardFileLoader) RepoRoot() string { return l.repoRoot }
 
 // Versioned implements FileLoader.
 func (l *StandardFileLoader) Versioned(importPath string) bool {
@@ -67,8 +63,6 @@ func (l *StandardFileLoader) Versioned(importPath string) bool {
 	return err == nil && info.IsDir()
 }
 
-// DeriveNamespace extracts namespace from path: "schema/label.oracle" -> "label"
-// This is a convenience wrapper around paths.DeriveNamespace.
-func DeriveNamespace(path string) string {
-	return paths.DeriveNamespace(path)
-}
+// DeriveNamespace extracts namespace from path: "schema/label.oracle" -> "label" This
+// is a convenience wrapper around paths.DeriveNamespace.
+func DeriveNamespace(path string) string { return paths.DeriveNamespace(path) }

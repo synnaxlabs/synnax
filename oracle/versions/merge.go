@@ -25,12 +25,11 @@ import (
 )
 
 // MergeLive derives the canonical live-file source for a versioned resource:
-// version-owned content (type membership, fields, docs, persistence tags)
-// projected from the chain's current surface, live-owned content (outputs,
-// language bindings, validation tags, wire-only declarations) carried from the
-// existing live source. The result is formatter-canonical and carries the
-// repository license header. It returns "" for a history-only chain with no
-// live source.
+// version-owned content (type membership, fields, docs, persistence tags) projected
+// from the chain's current surface, live-owned content (outputs, language bindings,
+// validation tags, wire-only declarations) carried from the existing live source. The
+// result is formatter-canonical and carries the repository license header. It returns
+// "" for a history-only chain with no live source.
 func MergeLive(
 	ctx context.Context, r *Resolver, chain Chain, source string,
 ) (string, error) {
@@ -57,7 +56,7 @@ func MergeLive(
 	}
 	opts := RenderOptions{
 		KeepExpression: func(domain string, expr resolution.Expression) bool {
-			return VersionOwned(domain, expr.Name) && expr.Name != "pinned"
+			return VersionOwned(domain, expr.Name)
 		},
 		Qualifier: func(ns string) string {
 			if versionNS.MatchString(ns) || ns == chain.Resource {
@@ -115,10 +114,9 @@ func MergeLive(
 		} else {
 			delete(domains, "doc")
 		}
-		// The hand marker is version-local: a type hand-written in its
-		// definer's frozen package still generates in the current package as
-		// a backward alias, so hand projects onto the live surface only from
-		// a current-version definer.
+		// The hand marker is version-local: a type hand-written in its definer's frozen
+		// package still generates in the current package as a backward alias, so hand
+		// projects onto the live surface only from a current-version definer.
 		if def.Version != chain.Current() {
 			if dom, ok := domains["go"]; ok {
 				kept := make(resolution.Expressions, 0, len(dom.Expressions))
@@ -184,8 +182,8 @@ func MergeLive(
 	return license(ctx, r.RepoRoot(), formatted)
 }
 
-// chainNamespacePaths maps each dependency resource namespace a chain's files
-// can reference to its live import path, unioned across every version file.
+// chainNamespacePaths maps each dependency resource namespace a chain's files can
+// reference to its live import path, unioned across every version file.
 func chainNamespacePaths(
 	ctx context.Context, r *Resolver, chain Chain,
 ) (map[string]string, error) {
@@ -219,9 +217,9 @@ func chainNamespacePaths(
 	return m, nil
 }
 
-// referencedNamespaces collects the namespace qualifiers a declaration's
-// references name: field types, defaults, extends, union variants (inline
-// payloads included), distinct bases, and alias targets.
+// referencedNamespaces collects the namespace qualifiers a declaration's references
+// name: field types, defaults, extends, union variants (inline payloads included),
+// distinct bases, and alias targets.
 func referencedNamespaces(
 	t resolution.Type, resolve func(string) (resolution.Type, bool),
 ) set.Set[string] {
@@ -344,9 +342,9 @@ type domainNode interface {
 	DomainContent() parser.IDomainContentContext
 }
 
-// extractLive parses live source and splits its content along the ownership
-// boundary: imports, file-level domains, declaration order, verbatim
-// declaration text, and per-declaration live-owned expression lines.
+// extractLive parses live source and splits its content along the ownership boundary:
+// imports, file-level domains, declaration order, verbatim declaration text, and
+// per-declaration live-owned expression lines.
 func extractLive(source string) (*liveContent, error) {
 	lc := &liveContent{
 		raw:    make(map[string]string),

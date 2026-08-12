@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
-	"github.com/synnaxlabs/oracle/versions"
 )
 
 // FormatGate fails when any schema's on-disk source bytes differ from its
@@ -39,7 +38,7 @@ func (g FormatGate) Run(_ context.Context, p *pipeline.Result, env Env) GateRepo
 	for _, rel := range p.Schemas {
 		g.compare(&r, env, rel, string(p.Sources[rel]), string(p.FormattedSources[rel]))
 	}
-	for _, rel := range versionFilePaths(env.RepoRoot, &r) {
+	for _, rel := range versionFilePaths(p) {
 		raw, err := os.ReadFile(paths.Resolve(rel, env.RepoRoot))
 		if err != nil {
 			r.Findings = append(r.Findings, Finding{
@@ -84,18 +83,10 @@ func (FormatGate) compare(r *GateReport, env Env, rel, raw, canonical string) {
 }
 
 // versionFilePaths lists every version file in the repository, repo-relative
-// and sorted. A discovery failure lands as a finding on the report.
-func versionFilePaths(repoRoot string, r *GateReport) []string {
-	chains, err := versions.Discover(repoRoot)
-	if err != nil {
-		r.Findings = append(r.Findings, Finding{
-			Severity: SeverityError,
-			Message:  "failed to discover version chains: " + err.Error(),
-		})
-		return nil
-	}
+// and sorted.
+func versionFilePaths(p *pipeline.Result) []string {
 	var rels []string
-	for _, chain := range chains {
+	for _, chain := range p.Chains {
 		for _, n := range chain.Numbers {
 			rels = append(rels, paths.EnsureOracleExtension(chain.FilePath(n)))
 		}

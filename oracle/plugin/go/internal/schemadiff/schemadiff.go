@@ -155,8 +155,8 @@ func typesEqual(
 	}
 }
 
-// PersistedFields returns the fields that contribute to a type's stored
-// shape: those without a @go marshal omit directive.
+// PersistedFields returns the fields that contribute to a type's stored shape: those
+// without a @go marshal omit directive.
 func PersistedFields(fields []resolution.Field) []resolution.Field {
 	out := make([]resolution.Field, 0, len(fields))
 	for _, f := range fields {

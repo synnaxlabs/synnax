@@ -7,24 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package freeze decides structural equality between version-file
-// declarations: the alias-vs-redeclare judgment behind the minimality gate.
-package freeze
+package schemadiff
 
 import (
 	"strings"
 
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
-// StructurallyEqual reports whether two declarations share a persisted shape,
-// resolving each side's references through its own table. It is schemadiff's
-// persisted-shape equality with two tightenings: enums must match
-// member-for-member, and the declared field list — omitted fields and their
-// marshal values included — must agree. Wire-compatible enum additions need
-// no migration, but they are still a shape change the history must record.
+// StructurallyEqual reports whether two declarations share a persisted shape, resolving
+// each side's references through its own table. It is schemadiff's persisted-shape
+// equality with two tightenings: enums must match member-for-member, and the declared
+// field list — omitted fields and their marshal values included — must agree.
+// Wire-compatible enum additions need no migration, but they are still a shape change
+// the history must record.
 func StructurallyEqual(
 	old, new resolution.Type, oldTable, newTable *resolution.Table,
 ) bool {
@@ -47,15 +44,14 @@ func StructurallyEqual(
 	if !marshalEqual(old, new) {
 		return false
 	}
-	return schemadiff.SchemasEqual(old, new, oldTable, newTable)
+	return SchemasEqual(old, new, oldTable, newTable)
 }
 
-// marshalEqual compares the codec surface schemadiff cannot see: the declared
-// field list including omitted fields, and each field's @go marshal value. Two
-// versions with the same persisted shape still declare different Go structs
-// when one omits a field the other stores. Field types are schemadiff's
-// concern — the two sides resolve against different tables, so their qualified
-// names never compare directly.
+// marshalEqual compares the codec surface schemadiff cannot see: the declared field
+// list including omitted fields, and each field's @go marshal value. Two versions with
+// the same persisted shape still declare different Go structs when one omits a field
+// the other stores. Field types are schemadiff's concern — the two sides resolve
+// against different tables, so their qualified names never compare directly.
 func marshalEqual(old, new resolution.Type) bool {
 	oldForm, oldOK := old.Form.(resolution.StructForm)
 	newForm, newOK := new.Form.(resolution.StructForm)
@@ -78,8 +74,8 @@ func marshalEqual(old, new resolution.Type) bool {
 	return true
 }
 
-// bareTypeName strips a resolved reference's namespace so declarations from
-// different tables compare on the type they name.
+// bareTypeName strips a resolved reference's namespace so declarations from different
+// tables compare on the type they name.
 func bareTypeName(ref resolution.TypeRef) string {
 	if _, rest, found := strings.Cut(ref.Name, "."); found {
 		return rest

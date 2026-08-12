@@ -44,30 +44,6 @@ func Version(t resolution.Type) (int, bool) {
 	return int(expr.Values[0].IntValue), true
 }
 
-// Pinned reports whether the type carries the `pinned` marker: intentionally
-// versioned despite being unpersisted, because hand-written Go methods entangle
-// it with versioned siblings. Both forms count: the standalone `@go pinned`
-// used in version files and the legacy `@go version N pinned` trailing marker.
-func Pinned(t resolution.Type) bool {
-	dom, ok := t.Domains["go"]
-	if !ok {
-		return false
-	}
-	if _, ok := dom.Expressions.Find("pinned"); ok {
-		return true
-	}
-	expr, ok := dom.Expressions.Find("version")
-	if !ok {
-		return false
-	}
-	for _, v := range expr.Values[1:] {
-		if v.IdentValue == "pinned" || v.StringValue == "pinned" {
-			return true
-		}
-	}
-	return false
-}
-
 // Dir returns the version sub-directory name for version n ("v3").
 func Dir(n int) string { return fmt.Sprintf("v%d", n) }
 

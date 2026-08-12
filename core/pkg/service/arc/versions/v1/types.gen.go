@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/validate"
 )
 

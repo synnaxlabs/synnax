@@ -53,14 +53,16 @@ Each versioned resource owns `schemas/<domain>/versions/<resource>/`, one hand-o
 
 - **Full declarations** for types whose shape changed at N, carrying the version-owned
   tags: `@key`, `@doc`, and the `@go` persistence set — `marshal` (type- and
-  field-level, including `omit`, `json_only`, and `flex`), `hand`, `migrate`, `pinned`,
-  and `imex`.
+  field-level, including `omit`, `json_only`, and `flex`), `hand`, `migrate`, and
+  `imex`.
 - **Alias lines** for unchanged types: `Key = v0.Key`, pointing at the definer.
   Same-resource chain references resolve implicitly.
 - **Absence means removed at N.**
-- **`@go pinned`** marks a type versioned despite being unpersisted (hand-method
-  entanglement, e.g. telem's `Size`). Pinned declarations always declare fully and are
-  exempt from the minimality gate.
+- **Omit-transient members** — types reachable from the file's `@go marshal`
+  declarations only through omitted fields — track the live shape: they always declare
+  fully, are exempt from the minimality gate, and resolve their references at read time.
+  Membership keeps their Go declarations inside the versions package, which hand-written
+  methods and same-package references require.
 - **Docs** live on the definer's declaration; alias lines never carry docs. A doc is not
   shape: editing a definer's doc in an old file is how an unchanged type's documentation
   improves.
@@ -107,8 +109,8 @@ contradiction. When a dependency mints, each resource storing it bumps its pin i
 - **Amend**: edit the current version file in place, for versions that have not shipped
   in a release.
 - **Mint**: `oracle migrate <resource>` scaffolds `v(N+1).oracle` — alias lines to
-  definers, pinned declarations redeclared, imports carried — and the developer converts
-  the changed types to full declarations. Sync regenerates the rest.
+  definers, omit-transient declarations redeclared, imports carried — and the developer
+  converts the changed types to full declarations. Sync regenerates the rest.
 
 Whether a version shipped is developer knowledge; Oracle never tracks it. There is no
 drift detection: an in-place edit is an amendment, a new file is a bump.

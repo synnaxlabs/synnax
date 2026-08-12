@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package freeze_test
+package schemadiff_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
-	"github.com/synnaxlabs/oracle/plugin/go/freeze"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/testutil"
 )
@@ -38,7 +38,7 @@ var _ = Describe("StructurallyEqual", func() {
 	It("Should equate identical declarations", func() {
 		a := analyze("Channel struct {\n\tkey uuid @key\n\tname string\n}\n")
 		b := analyze("Channel struct {\n\tkey uuid @key\n\tname string\n}\n")
-		Expect(freeze.StructurallyEqual(
+		Expect(schemadiff.StructurallyEqual(
 			typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
 		)).To(BeTrue())
 	})
@@ -46,7 +46,7 @@ var _ = Describe("StructurallyEqual", func() {
 	It("Should distinguish declarations by field list", func() {
 		a := analyze("Channel struct {\n\tkey uuid @key\n}\n")
 		b := analyze("Channel struct {\n\tkey uuid @key\n\tname string\n}\n")
-		Expect(freeze.StructurallyEqual(
+		Expect(schemadiff.StructurallyEqual(
 			typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
 		)).To(BeFalse())
 	})
@@ -57,7 +57,7 @@ var _ = Describe("StructurallyEqual", func() {
 			"Channel struct {\n\tkey uuid @key\n\tname string {\n" +
 				"\t\t@go marshal omit\n\t}\n}\n",
 		)
-		Expect(freeze.StructurallyEqual(
+		Expect(schemadiff.StructurallyEqual(
 			typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
 		)).To(BeFalse())
 	})
@@ -65,7 +65,7 @@ var _ = Describe("StructurallyEqual", func() {
 	It("Should distinguish enums by member list", func() {
 		a := analyze("State enum {\n\tidle = 0\n}\n")
 		b := analyze("State enum {\n\tidle = 0\n\trunning = 1\n}\n")
-		Expect(freeze.StructurallyEqual(
+		Expect(schemadiff.StructurallyEqual(
 			typeOf(a, "State"), typeOf(b, "State"), a, b,
 		)).To(BeFalse())
 	})
@@ -73,7 +73,7 @@ var _ = Describe("StructurallyEqual", func() {
 	It("Should equate identical enums", func() {
 		a := analyze("State enum {\n\tidle = 0\n\trunning = 1\n}\n")
 		b := analyze("State enum {\n\tidle = 0\n\trunning = 1\n}\n")
-		Expect(freeze.StructurallyEqual(
+		Expect(schemadiff.StructurallyEqual(
 			typeOf(a, "State"), typeOf(b, "State"), a, b,
 		)).To(BeTrue())
 	})

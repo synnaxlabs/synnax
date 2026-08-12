@@ -55,7 +55,7 @@ var _ = Describe("Transient types", func() {
 			req := MustGenerateRequest(ctx, source, "test", loader)
 			resp := MustSucceed(goPlugin.Generate(req))
 			var root string
-			count := 0
+			var count int
 			for _, f := range resp.Files {
 				if f.Path == "out/types.gen.go" {
 					root = string(f.Content)

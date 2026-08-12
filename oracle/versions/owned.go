@@ -11,15 +11,14 @@ package versions
 
 import "github.com/synnaxlabs/x/set"
 
-// versionOwnedGo are the @go expressions a version file records: the
-// persistence declarations, plus the imex marker that dates a resource's
-// export history.
-var versionOwnedGo = set.New("marshal", "hand", "migrate", "pinned", "imex")
+// versionOwnedGo are the @go expressions a version file records: the persistence
+// declarations, plus the imex marker that dates a resource's export history.
+var versionOwnedGo = set.New("marshal", "hand", "migrate", "imex")
 
-// VersionOwned reports whether a domain expression belongs to the version
-// files: the live file must match chain resolution on it exactly. Everything
-// else (outputs, language bindings, validation, indexing) is live-owned and
-// authored directly in the live file.
+// VersionOwned reports whether a domain expression belongs to the version files: the
+// live file must match chain resolution on it exactly. Everything else (outputs,
+// language bindings, validation, indexing) is live-owned and authored directly in the
+// live file.
 func VersionOwned(domain, exprName string) bool {
 	switch domain {
 	case "key", "doc":

@@ -389,7 +389,7 @@ func (p *Plugin) processField(
 
 	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil &&
 		!field.Type.TypeParam.HasDefault()
-	typeParamName := ""
+	var typeParamName string
 	if isGenericField {
 		typeParamName = field.Type.TypeParam.Name
 	}

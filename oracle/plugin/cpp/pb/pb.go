@@ -451,7 +451,7 @@ func (p *Plugin) processFieldForTranslation(
 	}
 
 	forwardExpr, backwardExpr := p.generateFieldConversion(field, cppFieldName, data)
-	forwardJSONExpr, backwardJSONExpr := "", ""
+	var forwardJSONExpr, backwardJSONExpr string
 	if isGenericField {
 		pbAccessorName := keywords.Escape(pbFieldName)
 		forwardJSONExpr, backwardJSONExpr = p.generateJSONFieldConversion(
