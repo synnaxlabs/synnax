@@ -152,15 +152,15 @@ describe("openStreamer", () => {
     });
 
     it("coalesces a fetch listener's refetches into one call per frame", async () => {
-      interface Row {
+      interface Entry {
         key: string;
         value: number;
       }
       const fetch = vi.fn(async (keys: string[]) =>
         keys.map((key) => ({ key, value: 1 })),
       );
-      const table = new Table<string, Row>({ onError: vi.fn(), fetch });
-      const listener = createFetchListener<z.ZodString, string, Row>(
+      const table = new Table<string, Entry>({ onError: vi.fn(), fetch });
+      const listener = createFetchListener<z.ZodString, string, Entry>(
         "fetch_ch",
         z.string(),
       ).bind(table);

@@ -26,6 +26,7 @@ import { Symbols } from "@/feature/schematic/toolbar/Symbols";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { Errors } from "@/platform/errors";
 import { Export } from "@/platform/export";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
@@ -116,13 +117,19 @@ const Internal = (): ReactElement => {
         {isCurrentlyEditable ? (
           <>
             <Tabs.Content itemKey="symbols">
-              <Symbols />
+              <Errors.SuspenseBoundary>
+                <Symbols />
+              </Errors.SuspenseBoundary>
             </Tabs.Content>
             <Tabs.Content itemKey="properties">
-              <Properties />
+              <Errors.SuspenseBoundary>
+                <Properties />
+              </Errors.SuspenseBoundary>
             </Tabs.Content>
             <Tabs.Content itemKey="control">
-              <Control />
+              <Errors.SuspenseBoundary>
+                <Control />
+              </Errors.SuspenseBoundary>
             </Tabs.Content>
           </>
         ) : (

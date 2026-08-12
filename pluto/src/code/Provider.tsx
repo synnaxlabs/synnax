@@ -110,6 +110,8 @@ interface ContextValue {
 const NOT_MOUNTED: Promise<Monaco> = Promise.reject(
   new Error("Code.Provider is not mounted"),
 );
+// Standard sentinel-rejection pattern: the no-op catch marks the rejection handled so
+// importing this module does not fire unhandledrejection. use() still throws it.
 NOT_MOUNTED.catch(() => {});
 
 const ZERO_CONTEXT_VALUE: ContextValue = {
