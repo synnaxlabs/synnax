@@ -44,7 +44,7 @@ struct StatusDetails {
     /// from. Empty when no instance exists.
     std::string config_hash = "";
     /// @brief rack is the key of the rack running the task instance.
-    ::synnax::rack::Key rack = 0;
+    ::synnax::rack::Key rack = ::synnax::rack::Key(0);
     /// @brief data contains task-specific status data.
     std::optional<x::json::json::object_t> data;
 
@@ -90,7 +90,7 @@ struct Task {
     /// @brief rack is the key of the rack this task deploys to. Zero for a draft that
     /// has
     /// not been assigned a rack; required to start.
-    ::synnax::rack::Key rack = 0;
+    ::synnax::rack::Key rack = ::synnax::rack::Key(0);
     /// @brief name is a human-readable name for the task.
     std::string name;
     /// @brief type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
