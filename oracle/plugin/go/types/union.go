@@ -75,6 +75,11 @@ type unionVariantData struct {
 	// so they take no Validate path segment.
 	DefaultRecurse  []recurseStepData
 	ValidateRecurse []recurseStepData
+	// DefaultFills, EnumChecks, and ConstraintChecks are the variant's own inline
+	// fields' fills and assertions, mirroring the struct-level equivalents.
+	DefaultFills     []defaultFillData
+	EnumChecks       []enumCheckData
+	ConstraintChecks []constraintCheckData
 	// NeedsApplyDefaults and NeedsValidate report whether the variant emits the
 	// respective method.
 	NeedsApplyDefaults bool
@@ -140,6 +145,18 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 				inlineFields = pform.Fields
 				for _, f := range pform.Fields {
 					vd.Fields = append(vd.Fields, processField(f, data))
+					vd.DefaultFills = append(
+						vd.DefaultFills,
+						goDefaultFills(f, data)...)
+					if validateSkip(f, data) {
+						continue
+					}
+					if chk, ok := goEnumCheck(f, data); ok {
+						vd.EnumChecks = append(vd.EnumChecks, chk)
+					}
+					vd.ConstraintChecks = append(
+						vd.ConstraintChecks,
+						goConstraintChecks(f, data)...)
 				}
 			}
 		} else {
@@ -168,8 +185,10 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			validateHasOwn,
 			validateSkip,
 		)
-		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0
-		vd.NeedsValidate = len(vd.ValidateRecurse) > 0
+		vd.NeedsApplyDefaults = len(vd.DefaultRecurse) > 0 ||
+			len(vd.DefaultFills) > 0
+		vd.NeedsValidate = len(vd.ValidateRecurse) > 0 ||
+			len(vd.EnumChecks) > 0 || len(vd.ConstraintChecks) > 0
 		if vd.NeedsApplyDefaults {
 			ud.NeedsApplyDefaults = true
 		}
