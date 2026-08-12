@@ -1035,7 +1035,6 @@ export interface AICurrentRMSChannel extends z.infer<typeof aiCurrentRMSChannelZ
  */
 export const aiForceBridgePolynomialChannelZ = baseAIChannelZ
   .extend(minMaxValZ.shape)
-  .extend(terminalZ.shape)
   .extend(bridgeZ.shape)
   .extend(voltageExcitationZ.shape)
   .extend(bridgePolynomialZ.shape)

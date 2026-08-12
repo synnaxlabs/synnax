@@ -438,9 +438,6 @@ func (aic AIChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.MinMaxVal.EncodeOrc(w); err != nil {
 			return err
 		}
-		if err := v.Terminal.EncodeOrc(w); err != nil {
-			return err
-		}
 		if err := v.Bridge.EncodeOrc(w); err != nil {
 			return err
 		}
@@ -1287,9 +1284,6 @@ func (aic *AIChannel) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if err := v.MinMaxVal.DecodeOrc(r); err != nil {
-			return err
-		}
-		if err := v.Terminal.DecodeOrc(r); err != nil {
 			return err
 		}
 		if err := v.Bridge.DecodeOrc(r); err != nil {
