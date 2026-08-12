@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -1334,8 +1335,11 @@ func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
 }
 
+// toSnakeCase routes through casing.FieldSnake rather than lo.SnakeCase, which
+// splits a trailing digit off a single-letter word: "r0" becomes "r_0". The
+// header must agree with the name cpp/json emits for the same field.
 func toSnakeCase(s string) string {
-	return lo.SnakeCase(s)
+	return casing.FieldSnake(s)
 }
 
 type includeManager struct {
