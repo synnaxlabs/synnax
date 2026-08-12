@@ -450,6 +450,8 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ),
   ai_accel_charge: ({ prefix }) => (
     <>
+      <TerminalConfigField path={prefix} />
+      <Divider.Divider x padded="bottom" />
       <MinMaxValueFields path={prefix} />
       <AccelUnitsField path={prefix} />
       <Divider.Divider x padded="bottom" />

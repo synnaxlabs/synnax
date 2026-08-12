@@ -22,8 +22,7 @@
 
 namespace driver::ni::channel {
 static int32_t parse_terminal_config(x::json::Parser &p) {
-    // Not every channel type carries a terminal configuration; those default it.
-    const auto s = p.field<std::string>("terminal_config", "Cfg_Default");
+    const auto s = p.field<std::string>("terminal_config");
     if (s == "PseudoDiff") return DAQmx_Val_PseudoDiff;
     if (s == "Diff") return DAQmx_Val_Diff;
     if (s == "NRSE") return DAQmx_Val_NRSE;
