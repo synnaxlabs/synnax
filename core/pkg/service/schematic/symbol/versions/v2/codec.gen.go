@@ -37,11 +37,11 @@ func (h *Handle) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		h.Orientation = spatial.OuterLocation(v)
+		h.Orientation = spatial.OuterLocation(rawV)
 	}
 	return nil
 }
