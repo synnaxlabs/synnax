@@ -1000,88 +1000,6 @@ class AIResistanceChan(BaseAIChan, MinMaxVal):
     custom_scale: Scale = NoScale()
 
 
-class AIRosetteStrainGageChan(BaseAIChan, MinMaxVal):
-    """
-    Analog Input Rosette Strain Gage Channel
-
-    Measures strain using a rosette strain gage configuration with multiple elements
-    arranged at specific angles. Calculates principal strains, shear strains, and
-    strain directions. Used for complex stress analysis where strain direction is unknown.
-
-    For detailed information, see the NI-DAQmx documentation:
-    <https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairosettestraingagechan.html>
-
-    Example:
-        >>> # Rectangular rosette for principal strain analysis
-        >>> rosette_chan = AIRosetteStrainGageChan(
-        ...     port=0,
-        ...     channel=0,
-        ...     terminal_config="Diff",
-        ...     rosette_type="RectangularRosette",
-        ...     gage_orientation=0.0,  # degrees
-        ...     rosette_meas_types=["PrincipalStrain1", "PrincipalStrain2", "MaxShearStrain"],
-        ...     strain_config="QuarterBridgeI",
-        ...     units="Strain",
-        ...     voltage_excit_source="Internal",
-        ...     voltage_excit_val=2.5,
-        ...     nominal_gage_resistance=350.0,
-        ...     poisson_ratio=0.3,
-        ...     lead_wire_resistance=0.0,
-        ...     gage_factor=2.1,
-        ...     min_val=-0.01,
-        ...     max_val=0.01
-        ... )
-
-    :param terminal_config: Input terminal configuration
-    :param rosette_type: Rosette configuration (RectangularRosette, DeltaRosette, TeeRosette)
-    :param gage_orientation: Orientation of gage element 0 in degrees
-    :param rosette_meas_types: List of measurement types to calculate
-    :param strain_config: Bridge configuration for each gage element
-    :param units: Output units (strain)
-    :param voltage_excit_source: Excitation voltage source
-    :param voltage_excit_val: Excitation voltage in volts
-    :param nominal_gage_resistance: Gage resistance in ohms
-    :param poisson_ratio: Poisson's ratio of test material
-    :param lead_wire_resistance: Lead wire resistance in ohms
-    :param gage_factor: Gage factor (typically 2.0-2.1)
-    :param min_val: Minimum expected strain
-    :param max_val: Maximum expected strain
-    """
-
-    type: Literal["ai_rosette_strain_gage"] = "ai_rosette_strain_gage"
-    terminal_config: TerminalConfig = "Cfg_Default"
-    rosette_type: Literal["RectangularRosette", "DeltaRosette", "TeeRosette"]
-    gage_orientation: float
-    rosette_meas_types: list[
-        Literal[
-            "PrincipalStrain1",
-            "PrincipalStrain2",
-            "PrincipalStrainAngle",
-            "CartesianStrainX",
-            "CartesianStrainY",
-            "CartesianShearStrainXY",
-            "MaxShearStrain",
-            "MaxShearStrainAngle",
-        ]
-    ]
-    strain_config: Literal[
-        "FullBridgeI",
-        "FullBridgeII",
-        "FullBridgeIII",
-        "HalfBridgeI",
-        "HalfBridgeII",
-        "QuarterBridgeI",
-        "QuarterBridgeII",
-    ]
-    units: Literal["Strain"] = "Strain"
-    voltage_excit_source: ExcitationSource
-    voltage_excit_val: float
-    nominal_gage_resistance: float
-    poisson_ratio: float
-    lead_wire_resistance: float
-    gage_factor: float
-
-
 class AIRTDChan(BaseAIChan, MinMaxVal):
     """
     Analog Input RTD (Resistance Temperature Detector) Channel
@@ -1721,7 +1639,6 @@ AIChan = (
     | AIPressureBridgeTableChan
     | AIPressureBridgeTwoPointLinChan
     | AIResistanceChan
-    | AIRosetteStrainGageChan
     | AIRTDChan
     | AIStrainGageChan
     | AITempBuiltInChan

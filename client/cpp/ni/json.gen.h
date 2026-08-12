@@ -1499,55 +1499,6 @@ inline x::json::json AIPressureBridgePolynomialChannel::to_json() const {
     return j;
 }
 
-inline AIRosetteStrainGageChannel
-AIRosetteStrainGageChannel::parse(x::json::Parser parser) {
-    AIRosetteStrainGageChannel result;
-    static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
-    static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
-    static_cast<Terminal &>(result) = Terminal::parse(parser);
-    static_cast<VoltageExcitation &>(result) = VoltageExcitation::parse(parser);
-    result.rosette_type = parser.field<std::string>(
-        "rosette_type",
-        "RectangularRosette"
-    );
-    result.gage_orientation = parser.field<double>("gage_orientation", 0);
-    result.rosette_meas_types = parser.field<std::vector<std::string>>(
-        "rosette_meas_types",
-        std::vector<std::string>{}
-    );
-    result.strain_config = parser.field<std::string>("strain_config", "FullBridgeI");
-    result.units = parser.field<std::string>("units", "Strain");
-    result.nominal_gage_resistance = parser.field<double>("nominal_gage_resistance", 0);
-    result.poisson_ratio = parser.field<double>("poisson_ratio", 0);
-    result.lead_wire_resistance = parser.field<double>("lead_wire_resistance", 0);
-    result.gage_factor = parser.field<double>("gage_factor", 0);
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json AIRosetteStrainGageChannel::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: BaseAIChannel::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: MinMaxVal::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: Terminal::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: VoltageExcitation::to_json().items())
-        j[k] = v;
-    j["rosette_type"] = this->rosette_type;
-    j["gage_orientation"] = this->gage_orientation;
-    j["rosette_meas_types"] = this->rosette_meas_types;
-    j["strain_config"] = this->strain_config;
-    j["units"] = this->units;
-    j["nominal_gage_resistance"] = this->nominal_gage_resistance;
-    j["poisson_ratio"] = this->poisson_ratio;
-    j["lead_wire_resistance"] = this->lead_wire_resistance;
-    j["gage_factor"] = this->gage_factor;
-    j["type"] = this->type;
-    return j;
-}
-
 inline AIThermistorIexChannel AIThermistorIexChannel::parse(x::json::Parser parser) {
     AIThermistorIexChannel result;
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
@@ -2239,8 +2190,6 @@ inline AIChannel parse_ai_channel(x::json::Parser parser) {
     if (discriminator == "ai_freq_voltage") return AIFreqVoltageChannel::parse(parser);
     if (discriminator == "ai_pressure_bridge_polynomial")
         return AIPressureBridgePolynomialChannel::parse(parser);
-    if (discriminator == "ai_rosette_strain_gage")
-        return AIRosetteStrainGageChannel::parse(parser);
     if (discriminator == "ai_thermistor_iex")
         return AIThermistorIexChannel::parse(parser);
     if (discriminator == "ai_thermistor_vex")

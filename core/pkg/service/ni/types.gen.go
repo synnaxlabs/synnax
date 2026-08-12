@@ -569,51 +569,6 @@ func (c ChargeUnits) IsValid() bool {
 	}
 }
 
-// RosetteType selects the geometric arrangement of a strain-gauge rosette.
-type RosetteType string
-
-const (
-	RosetteTypeRectangular RosetteType = "RectangularRosette"
-	RosetteTypeDelta       RosetteType = "DeltaRosette"
-	RosetteTypeTee         RosetteType = "TeeRosette"
-)
-
-// IsValid reports whether r is one of the defined RosetteType
-// values.
-func (r RosetteType) IsValid() bool {
-	switch r {
-	case RosetteTypeRectangular, RosetteTypeDelta, RosetteTypeTee:
-		return true
-	default:
-		return false
-	}
-}
-
-// RosetteMeasType selects a quantity computed from a strain-gauge rosette.
-type RosetteMeasType string
-
-const (
-	RosetteMeasTypePrincipalStrain1       RosetteMeasType = "PrincipalStrain1"
-	RosetteMeasTypePrincipalStrain2       RosetteMeasType = "PrincipalStrain2"
-	RosetteMeasTypePrincipalStrainAngle   RosetteMeasType = "PrincipalStrainAngle"
-	RosetteMeasTypeCartesianStrainX       RosetteMeasType = "CartesianStrainX"
-	RosetteMeasTypeCartesianStrainY       RosetteMeasType = "CartesianStrainY"
-	RosetteMeasTypeCartesianShearStrainXY RosetteMeasType = "CartesianShearStrainXY"
-	RosetteMeasTypeMaxShearStrain         RosetteMeasType = "MaxShearStrain"
-	RosetteMeasTypeMaxShearStrainAngle    RosetteMeasType = "MaxShearStrainAngle"
-)
-
-// IsValid reports whether r is one of the defined RosetteMeasType
-// values.
-func (r RosetteMeasType) IsValid() bool {
-	switch r {
-	case RosetteMeasTypePrincipalStrain1, RosetteMeasTypePrincipalStrain2, RosetteMeasTypePrincipalStrainAngle, RosetteMeasTypeCartesianStrainX, RosetteMeasTypeCartesianStrainY, RosetteMeasTypeCartesianShearStrainXY, RosetteMeasTypeMaxShearStrain, RosetteMeasTypeMaxShearStrainAngle:
-		return true
-	default:
-		return false
-	}
-}
-
 // LinearScale maps raw values to engineering units with a slope and intercept.
 type LinearScale struct {
 	// Slope is the multiplier applied to the raw value.
@@ -1259,7 +1214,6 @@ const (
 	AIChannelTypeAIForceBridgePolynomial     AIChannelType = "ai_force_bridge_polynomial"
 	AIChannelTypeAIFreqVoltage               AIChannelType = "ai_freq_voltage"
 	AIChannelTypeAIPressureBridgePolynomial  AIChannelType = "ai_pressure_bridge_polynomial"
-	AIChannelTypeAIRosetteStrainGage         AIChannelType = "ai_rosette_strain_gage"
 	AIChannelTypeAIThermistorIex             AIChannelType = "ai_thermistor_iex"
 	AIChannelTypeAIThermistorVex             AIChannelType = "ai_thermistor_vex"
 	AIChannelTypeAITorqueBridgePolynomial    AIChannelType = "ai_torque_bridge_polynomial"
@@ -2278,62 +2232,6 @@ func (a AIPressureBridgePolynomialChannel) Validate() error {
 	return v.Error()
 }
 
-// AIRosetteStrainGageChannel reads strain from a strain-gauge rosette.
-type AIRosetteStrainGageChannel struct {
-	BaseAIChannel
-	MinMaxVal
-	Terminal
-	VoltageExcitation
-	// RosetteType selects the rosette geometry.
-	RosetteType RosetteType `json:"rosette_type" msgpack:"rosette_type"`
-	// GageOrientation is the orientation of gauge element 0, in degrees.
-	GageOrientation float64 `json:"gage_orientation" msgpack:"gage_orientation"`
-	// RosetteMeasTypes are the quantities to compute from the rosette.
-	RosetteMeasTypes []RosetteMeasType `json:"rosette_meas_types,omitzero" msgpack:"rosette_meas_types,omitzero"`
-	// StrainConfig selects the bridge configuration of each gauge element.
-	StrainConfig StrainConfig `json:"strain_config" msgpack:"strain_config"`
-	// Units are the units of the strain measurement.
-	Units Units `json:"units" msgpack:"units"`
-	// NominalGageResistance is the nominal gauge resistance, in ohms.
-	NominalGageResistance float64 `json:"nominal_gage_resistance" msgpack:"nominal_gage_resistance"`
-	// PoissonRatio is the Poisson ratio of the test material.
-	PoissonRatio float64 `json:"poisson_ratio" msgpack:"poisson_ratio"`
-	// LeadWireResistance is the resistance of the lead wires, in ohms.
-	LeadWireResistance float64 `json:"lead_wire_resistance" msgpack:"lead_wire_resistance"`
-	// GageFactor is the gauge factor of the rosette.
-	GageFactor float64 `json:"gage_factor" msgpack:"gage_factor"`
-}
-
-func (AIRosetteStrainGageChannel) isAIChannelVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (a *AIRosetteStrainGageChannel) ApplyDefaults() {
-	if a.RosetteType == "" {
-		a.RosetteType = RosetteTypeRectangular
-	}
-	if a.StrainConfig == "" {
-		a.StrainConfig = StrainConfigFullBridgeI
-	}
-	if a.Units == "" {
-		a.Units = UnitsStrain
-	}
-	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
-	a.VoltageExcitation.ApplyDefaults()
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (a AIRosetteStrainGageChannel) Validate() error {
-	v := validate.New("AIRosetteStrainGageChannel")
-	v.Ternaryf("rosette_type", !a.RosetteType.IsValid(), "invalid rosette_type: %v", a.RosetteType)
-	v.Ternaryf("strain_config", !a.StrainConfig.IsValid(), "invalid strain_config: %v", a.StrainConfig)
-	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
-	v.Exec(a.Terminal.Validate)
-	v.Exec(a.VoltageExcitation.Validate)
-	return v.Error()
-}
-
 // AIThermistorIexChannel reads temperature from a current-excited thermistor.
 type AIThermistorIexChannel struct {
 	BaseAIChannel
@@ -2596,8 +2494,6 @@ func (u AIChannel) MarshalJSON() ([]byte, error) {
 		t = AIChannelTypeAIFreqVoltage
 	case AIPressureBridgePolynomialChannel:
 		t = AIChannelTypeAIPressureBridgePolynomial
-	case AIRosetteStrainGageChannel:
-		t = AIChannelTypeAIRosetteStrainGage
 	case AIThermistorIexChannel:
 		t = AIChannelTypeAIThermistorIex
 	case AIThermistorVexChannel:
@@ -2790,12 +2686,6 @@ func (u *AIChannel) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		u.Variant = v
-	case AIChannelTypeAIRosetteStrainGage:
-		var v AIRosetteStrainGageChannel
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
 	case AIChannelTypeAIThermistorIex:
 		var v AIThermistorIexChannel
 		if err := json.Unmarshal(data, &v); err != nil {
@@ -2911,9 +2801,6 @@ func (u *AIChannel) ApplyDefaults() {
 	case AIPressureBridgePolynomialChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
-	case AIRosetteStrainGageChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
 	case AIThermistorIexChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
@@ -2985,8 +2872,6 @@ func (u AIChannel) Validate() error {
 	case AIFreqVoltageChannel:
 		return variant.Validate()
 	case AIPressureBridgePolynomialChannel:
-		return variant.Validate()
-	case AIRosetteStrainGageChannel:
 		return variant.Validate()
 	case AIThermistorIexChannel:
 		return variant.Validate()
