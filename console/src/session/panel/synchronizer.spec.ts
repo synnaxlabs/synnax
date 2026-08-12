@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project, query } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type ontology, panel, project, query } from "@synnaxlabs/client";
+import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
@@ -25,8 +25,13 @@ import {
 
 const client = createTestClient();
 
+// Panel creation requires a parent; panels whose project is irrelevant to the
+// test at hand share this one.
+let defaultParent: ontology.ID;
+
 beforeAll(async () => {
   await client.connect();
+  defaultParent = await createPanelParent(client);
 });
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
@@ -35,9 +40,10 @@ const leaf = (...tabKeys: string[]): panel.Node => ({
 });
 
 const createPanel = async (key: panel.Key, root: panel.Node): Promise<panel.Panel> =>
-  await client.panels.create(
-    panel.panelZ.parse({ key, name: uniqueName("panel"), root }),
-  );
+  await client.panels.create({
+    ...panel.panelZ.parse({ key, name: uniqueName("panel"), root }),
+    parent: defaultParent,
+  });
 
 const selectTab = (store: TestStore, key: panel.Key, tabKey: panel.TabKey): void =>
   void store.dispatch(
@@ -117,10 +123,18 @@ describe("Panel.WINDOW_SYNCHRONIZERS", () => {
 const createProject = async (): Promise<project.Project> =>
   await client.projects.create({ name: uniqueName("project"), layout: {} });
 
-const createProjectPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
+interface ProjectPanelOverrides {
+  key?: panel.Key;
+  name?: string;
+}
+
+const createProjectPanel = async (
+  projectKey: project.Key,
+  { key = uuid.create(), name = uniqueName("panel") }: ProjectPanelOverrides = {},
+): Promise<panel.Panel> =>
   await client.panels.create({
-    key: uuid.create(),
-    name: uniqueName("panel"),
+    key,
+    name,
     parent: project.ontologyID(projectKey),
     root: leaf(uuid.create()),
   });
@@ -128,18 +142,21 @@ const createProjectPanel = async (projectKey: project.Key): Promise<panel.Panel>
 const selectedPanel = (store: TestStore): panel.Key | undefined =>
   store.getState().panels.windows[Drift.MAIN_WINDOW]?.selected;
 
-describe("useReconcileSelection", () => {
-  const mountSelection = async (store: TestStore) =>
+describe("reconcile panel order and selection", () => {
+  const mountMembership = async (store: TestStore) =>
     await renderHookWithConsole(
       () =>
         Session.Synchronizer.use(
           pickSynchronizer(
             Session.Panel.WINDOW_SYNCHRONIZERS,
-            "reconcile panel selection",
+            "reconcile panel order and selection",
           ),
         ),
       { client, store },
     );
+
+  const stripOrder = (store: TestStore): panel.Key[] =>
+    Session.Panel.selectOrder(store.getState());
 
   const createStoreWithProject = async (
     projectKey: project.Key,
@@ -158,7 +175,7 @@ describe("useReconcileSelection", () => {
     const proj = await createProject();
     const pan = await createProjectPanel(proj.key);
     const store = await createStoreWithProject(proj.key);
-    await mountSelection(store);
+    await mountMembership(store);
     await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
   });
 
@@ -166,21 +183,21 @@ describe("useReconcileSelection", () => {
     const proj = await createProject();
     const pan = await createProjectPanel(proj.key);
     const store = await createStoreWithProject(proj.key, uuid.create());
-    await mountSelection(store);
+    await mountMembership(store);
     await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
   });
 
   it("clears the selection when the project has no panels", async () => {
     const proj = await createProject();
     const store = await createStoreWithProject(proj.key, uuid.create());
-    await mountSelection(store);
+    await mountMembership(store);
     await waitFor(() => expect(selectedPanel(store)).toBeUndefined());
   });
 
   it("adopts the project's first panel when one is created while none is selected", async () => {
     const proj = await createProject();
     const store = await createStoreWithProject(proj.key);
-    await mountSelection(store);
+    await mountMembership(store);
     const pan = await createProjectPanel(proj.key);
     await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
   });
@@ -192,7 +209,7 @@ describe("useReconcileSelection", () => {
     const proj = await createProject();
     const pan = await createProjectPanel(proj.key);
     const store = await createStoreWithProject(proj.key);
-    await mountSelection(store);
+    await mountMembership(store);
     await waitFor(() => expect(selectedPanel(store)).toEqual(pan.key));
     const violations: panel.Key[] = [];
     const unsubscribe = store.subscribe(() => {
@@ -221,11 +238,73 @@ describe("useReconcileSelection", () => {
     const panA = await createProjectPanel(projA.key);
     const panB = await createProjectPanel(projB.key);
     const store = await createStoreWithProject(projA.key, panA.key);
-    await mountSelection(store);
+    await mountMembership(store);
     act(() => {
       store.dispatch(Session.Project.select(projB.key));
     });
     await waitFor(() => expect(selectedPanel(store)).toEqual(panB.key));
+  });
+
+  // The membership answer arrives in UUID order, so the keys are minted sorted
+  // and named in the opposite order: a name-sorted result cannot pass by luck.
+  const opposedPanels = async (
+    projectKey: project.Key,
+  ): Promise<[panel.Panel, panel.Panel]> => {
+    const [lowKey, highKey] = [uuid.create(), uuid.create()].sort();
+    const zulu = await createProjectPanel(projectKey, { key: lowKey, name: "zulu" });
+    const alpha = await createProjectPanel(projectKey, { key: highKey, name: "alpha" });
+    return [zulu, alpha];
+  };
+
+  it("materializes the strip order name-sorted on first sight", async () => {
+    const proj = await createProject();
+    const [zulu, alpha] = await opposedPanels(proj.key);
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toEqual([alpha.key, zulu.key]));
+  });
+
+  it("selects the strip's leftmost panel rather than the answer's first", async () => {
+    const proj = await createProject();
+    const [, alpha] = await opposedPanels(proj.key);
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() => expect(selectedPanel(store)).toEqual(alpha.key));
+  });
+
+  it("appends a later-created panel to the end without re-sorting", async () => {
+    const proj = await createProject();
+    const bravo = await createProjectPanel(proj.key, { name: "bravo" });
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toEqual([bravo.key]));
+    const alpha = await createProjectPanel(proj.key, { name: "alpha" });
+    await waitFor(() => expect(stripOrder(store)).toEqual([bravo.key, alpha.key]));
+  });
+
+  it("prunes a deleted panel from the strip order", async () => {
+    const proj = await createProject();
+    const [zulu, alpha] = await opposedPanels(proj.key);
+    const store = await createStoreWithProject(proj.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toEqual([alpha.key, zulu.key]));
+    await act(async () => {
+      await client.panels.delete(alpha.key);
+    });
+    await waitFor(() => expect(stripOrder(store)).toEqual([zulu.key]));
+  });
+
+  it("swaps in the new project's order when the active project changes", async () => {
+    const [projA, projB] = [await createProject(), await createProject()];
+    await createProjectPanel(projA.key);
+    const panB = await createProjectPanel(projB.key);
+    const store = await createStoreWithProject(projA.key);
+    await mountMembership(store);
+    await waitFor(() => expect(stripOrder(store)).toHaveLength(1));
+    act(() => {
+      store.dispatch(Session.Project.select(projB.key));
+    });
+    await waitFor(() => expect(stripOrder(store)).toEqual([panB.key]));
   });
 });
 

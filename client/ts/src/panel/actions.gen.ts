@@ -26,10 +26,7 @@ export const createPayloadZ = z.object({
 
 export type CreatePayload = z.infer<typeof createPayloadZ>;
 
-/**
- * Rename renames the panel. When the panel is owned by a user (draft), the writer
- * promotes it to project ownership in the same transaction.
- */
+/** Rename renames the panel. */
 export const renamePayloadZ = z.object({
   name: z.string(),
 });

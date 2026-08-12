@@ -26,10 +26,14 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { createPillHaulItem } from "@/feature/panel/haul";
+import {
+  createPillHaulItem,
+  isPillHaulItem,
+  PILL_HAUL_TYPE,
+} from "@/feature/panel/haul";
 import { useCreate } from "@/feature/panel/useCreate";
 import { useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
@@ -134,9 +138,29 @@ const Internal = (): ReactElement => {
   const selected = Session.Panel.useSelectSelected();
   const projectKey = Session.Project.useSelectSelected();
   const keys = Panel.useKeysByProject({ project: projectKey });
+  const order = Session.Panel.useSelectOrder();
+  // The query answers membership, the session answers order. A key the session
+  // has not reconciled yet renders at the end in answer order: the sort is
+  // stable and every unknown compares equal.
+  const ordered = useMemo(() => {
+    const slots = new Map(order.map((key, index) => [key, index]));
+    return [...keys].sort(
+      (a, b) => (slots.get(a) ?? order.length) - (slots.get(b) ?? order.length),
+    );
+  }, [keys, order]);
 
   const handleSelect = useCallback(
     (key: string) => dispatch(Session.Panel.select({ key })),
+    [dispatch],
+  );
+
+  const handleDrop = useCallback(
+    ({ items, index }: Tabs.SelectorOnDropParams): Haul.Item[] => {
+      const pills = items.filter(isPillHaulItem);
+      if (pills.length > 0)
+        dispatch(Session.Panel.reorder({ key: pills[0].key, index }));
+      return pills;
+    },
     [dispatch],
   );
 
@@ -154,8 +178,14 @@ const Internal = (): ReactElement => {
         empty={false}
         gap="small"
       >
-        <Tabs.Selector size="medium" variant="pill" onContextMenu={menuProps.open}>
-          {keys.map((key) => (
+        <Tabs.Selector
+          size="medium"
+          variant="pill"
+          haulType={PILL_HAUL_TYPE}
+          onDrop={handleDrop}
+          onContextMenu={menuProps.open}
+        >
+          {ordered.map((key) => (
             <Tab key={key} tabKey={key} />
           ))}
         </Tabs.Selector>
