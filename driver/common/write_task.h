@@ -23,10 +23,10 @@ namespace driver::common {
 /// @brief common write task configuration shared across hardware control tasks.
 /// Wraps the schema-generated write config (auto_start, data_saving_disabled,
 /// device) so the field set has a single definition in the oracle schema.
-struct BaseWriteTaskConfig : ::synnax::common::BaseWriteConfig {
+struct BaseWriteTaskConfig : ::synnax::task::common::BaseWriteConfig {
     explicit BaseWriteTaskConfig(x::json::Parser &cfg):
-        ::synnax::common::BaseWriteConfig(
-            ::synnax::common::BaseWriteConfig::parse(cfg)
+        ::synnax::task::common::BaseWriteConfig(
+            ::synnax::task::common::BaseWriteConfig::parse(cfg)
         ) {}
 };
 
