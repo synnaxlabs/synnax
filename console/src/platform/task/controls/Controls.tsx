@@ -46,11 +46,6 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
     else onDeploy();
   }, [key, running, onStop, onDeploy]);
 
-  const handleRedeploy = useCallback(() => {
-    if (key == null) return;
-    onDeploy();
-  }, [key, onDeploy]);
-
   const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
   const handleContract = useCallback(() => setExpanded(false), []);
 
@@ -61,7 +56,7 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
         <Actions>
           <RedeployButton
             visible={drifted}
-            onClick={handleRedeploy}
+            onClick={onDeploy}
             disabled={taskStatus.variant === "loading"}
           />
           <StartStopButton

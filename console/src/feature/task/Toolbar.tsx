@@ -271,11 +271,7 @@ const TaskListItem = ({
             {isDrifted && (
               <Tooltip.Dialog>
                 <Text.Text level="small">Configuration changed since deploy</Text.Text>
-                <Text.Text
-                  className={CSS.BE("task", "drift-indicator")}
-                  level="small"
-                  status="warning"
-                >
+                <Text.Text level="small" status="warning">
                   <Icon.Refresh />
                 </Text.Text>
               </Tooltip.Dialog>
