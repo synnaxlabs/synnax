@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -20,8 +20,8 @@ import {
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
-  awaitCommand,
   clickDeploy,
+  deployAndAwaitTask,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
@@ -59,19 +59,6 @@ const renderCounterRead = async (
     taskKey: draft.key,
   });
   return { ...rendered, draft };
-};
-
-const deployAndAwaitStart = async (
-  container: ParentNode,
-  key: task.Key,
-): Promise<void> => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
 };
 
 const createConfig = (channels: NI.Task.CIChannel[]) => ({
@@ -146,7 +133,7 @@ describe("CounterRead", () => {
           createChannel("ci_edge_count", 1, { device: dev.key, name: namedChannel }),
         ]),
       );
-      await deployAndAwaitStart(rendered.container, rendered.draft.key);
+      await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
         key: rendered.draft.key,
         schemas: NI.Task.COUNTER_READ_SCHEMAS,
