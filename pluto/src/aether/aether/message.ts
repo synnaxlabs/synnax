@@ -77,15 +77,19 @@ export interface Sender {
 }
 
 /** Bidirectional comms on the worker side. Sends {@link WorkerMessage}, handles
- * {@link MainMessage}. Consumed by {@link aether.render}. */
+ * batches of {@link MainMessage}. Consumed by {@link aether.render}. */
 export interface WorkerComms extends Sender {
-  handle: (handler: (value: MainMessage) => void) => void;
+  handle: (handler: (values: MainMessage[]) => void) => void;
 }
 
 /** Bidirectional comms on the main side. Sends {@link MainMessage}, handles
- * {@link WorkerMessage}. Consumed by {@link Aether.Provider} and {@link Store}. */
+ * {@link WorkerMessage}. Consumed by {@link Aether.Provider} and {@link Store}.
+ *
+ * Main → worker always travels as an array, even for a single message. One commit
+ * produces many messages and `postMessage`'s fixed cost dominates the payload at those
+ * sizes, so the store sends a commit's worth at once. */
 export interface MainComms {
-  send: (value: MainMessage, transfer?: Transferable[]) => void;
+  send: (values: MainMessage[], transfer?: Transferable[]) => void;
   handle: (handler: (value: WorkerMessage) => void) => void;
 }
 
@@ -96,7 +100,7 @@ export const NOOP_MAIN_COMMS: MainComms = { send: () => {}, handle: () => {} };
 
 /** Adapts a `Worker` to {@link MainComms} for main-thread use. */
 export const wrapWorker = (worker: Worker): MainComms => ({
-  send: (value, transfer = []) => worker.postMessage(value, transfer),
+  send: (values, transfer = []) => worker.postMessage(values, transfer),
   handle: (handler) => {
     worker.onmessage = (e: MessageEvent<WorkerMessage>) => handler(e.data);
   },
@@ -108,7 +112,7 @@ export const wrapWorker = (worker: Worker): MainComms => ({
 export const wrapWorkerScope = (): WorkerComms => ({
   send: (value, transfer = []) => postMessage(value, { transfer }),
   handle: (handler) => {
-    onmessage = (e: MessageEvent<MainMessage>) => handler(e.data);
+    onmessage = (e: MessageEvent<MainMessage[]>) => handler(e.data);
   },
 });
 
@@ -116,7 +120,7 @@ export const wrapWorkerScope = (): WorkerComms => ({
  * tests in place of a real {@link Worker}; the tuple order matches the direction
  * expected by {@link aether.render} and {@link Aether.Provider}. */
 export const createMockPair = (): [WorkerComms, MainComms] => {
-  let workerHandler: ((value: MainMessage) => void) | null = null;
+  let workerHandler: ((values: MainMessage[]) => void) | null = null;
   let mainHandler: ((value: WorkerMessage) => void) | null = null;
   return [
     {
@@ -126,7 +130,7 @@ export const createMockPair = (): [WorkerComms, MainComms] => {
       },
     },
     {
-      send: (value) => workerHandler?.(value),
+      send: (values) => workerHandler?.(values),
       handle: (handler) => {
         mainHandler = handler;
       },

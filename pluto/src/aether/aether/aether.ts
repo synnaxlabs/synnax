@@ -771,13 +771,15 @@ export class Root extends Composite<typeof aetherRootState> {
       create: shouldNotCallCreate,
     });
     // Messages are handled sequentially: concurrent component updates lead to races, so
-    // the tree is implicitly serialized via the message queue.
-    root.comms.handle((msg) => {
-      try {
-        root.handle(msg);
-      } catch (e) {
-        root.comms.send({ variant: "error", error: errors.encode(e) });
-      }
+    // the tree is implicitly serialized via the message queue. Each message is caught
+    // on its own so one failure reports and the rest of the batch still applies.
+    root.comms.handle((messages) => {
+      for (const msg of messages)
+        try {
+          root.handle(msg);
+        } catch (e) {
+          root.comms.send({ variant: "error", error: errors.encode(e) });
+        }
     });
     return root;
   }

@@ -1703,6 +1703,82 @@ describe("Aether Main", () => {
       const leaf = root.children[0] as InvokeLeaf;
       expect(leaf.fireAndForgetSpy).not.toHaveBeenCalled();
     });
+    it("should send one commit's worth of components as a single message", async () => {
+      // postMessage's fixed cost dominates the payload at these sizes, so a mount must
+      // cost one send rather than one per component.
+      const [workerSide, mainSide] = aether.createMockPair();
+      const root = aether.render({ worker: workerSide, registry: REGISTRY });
+      const sends: aether.MainMessage[][] = [];
+      const counted: aether.MainComms = {
+        send: (values, transfer) => {
+          sends.push(values);
+          mainSide.send(values, transfer);
+        },
+        handle: (handler) => mainSide.handle(handler),
+      };
+      const Leaf = () => {
+        Aether.use({
+          type: ExampleLeaf.TYPE,
+          schema: exampleProps,
+          initialState: { x: 0 },
+        });
+        return null;
+      };
+      render(
+        <Aether.Provider worker={counted}>
+          <Leaf />
+          <Leaf />
+          <Leaf />
+          <Leaf />
+          <Leaf />
+        </Aether.Provider>,
+      );
+      await expect.poll(() => root.children.length).toBe(5);
+      expect(sends).toHaveLength(1);
+      expect(sends[0]).toHaveLength(5);
+    });
+    it("should order a batch so every parent precedes its children", async () => {
+      // Layout effects run children first, so the store sorts the batch by path depth.
+      // The worker throws on a child whose parent it has never seen.
+      const [workerSide, mainSide] = aether.createMockPair();
+      const root = aether.render({ worker: workerSide, registry: REGISTRY });
+      const sends: aether.MainMessage[][] = [];
+      const counted: aether.MainComms = {
+        send: (values, transfer) => {
+          sends.push(values);
+          mainSide.send(values, transfer);
+        },
+        handle: (handler) => mainSide.handle(handler),
+      };
+      const Leaf = () => {
+        Aether.use({
+          type: ExampleLeaf.TYPE,
+          schema: exampleProps,
+          initialState: { x: 0 },
+        });
+        return null;
+      };
+      const Nested = () => {
+        const [{ path }] = Aether.use({
+          type: ExampleComposite.TYPE,
+          schema: exampleProps,
+          initialState: { x: 0 },
+        });
+        return (
+          <Aether.Composite path={path}>
+            <Leaf />
+          </Aether.Composite>
+        );
+      };
+      render(
+        <Aether.Provider worker={counted}>
+          <Nested />
+        </Aether.Provider>,
+      );
+      await expect.poll(() => root.children.length).toBe(1);
+      const depths = sends.flat().map((m) => ("path" in m ? m.path.length : 0));
+      expect(depths).toEqual([...depths].sort((a, b) => a - b));
+    });
     it("should not spawn a worker until the provider commits", () => {
       // The Store is constructed during the Provider's render. Spawning the worker
       // there strands a live worker, and for synnax.Provider a live client, whenever

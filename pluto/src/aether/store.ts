@@ -193,6 +193,9 @@ export class Store {
   private listeners: Map<string, Set<Listener>> = new Map();
   /** Entries attached since the last flush, in attach order. */
   private queued: Entry[] = [];
+  /** Messages buffered for the next flush, in send order. */
+  private outbound: aether.MainMessage[] = [];
+  private outboundTransfer: Transferable[] = [];
   private flushScheduled = false;
   /** Active worker comms. {@link NOOP_WORKER} when `workerEnabled: false` or between
    * {@link dispose} and the next send (lazy re-attach). */
@@ -266,11 +269,13 @@ export class Store {
    * send lazily re-attaches via a fresh `Worker`. Idempotent. */
   dispose(): void {
     this.queued = [];
+    this.outbound = [];
+    this.outboundTransfer = [];
     if (this.worker === aether.NOOP_MAIN_COMMS) return;
     this.invokeTracker.abort(new Error("aether store disposed"));
     // In-process comms have no thread to die with, so tear the tree down explicitly
     // rather than relying on every component to have detached first.
-    this.worker.send({ variant: "clear" });
+    this.worker.send([{ variant: "clear" }]);
     this.worker.handle(() => {});
     this.worker = aether.NOOP_MAIN_COMMS;
     this.ownedWorker?.terminate();
@@ -362,12 +367,26 @@ export class Store {
     queueMicrotask(() => this.flush());
   }
 
-  /** Sends every queued create message, shallowest path first. React runs layout
-   * effects children before parents, but the worker rejects a child whose parent it has
-   * never seen; an ancestor's path is always shorter than its descendant's, so ordering
-   * by depth restores the invariant without tracking render order. */
+  /** Emits every buffered message as one `postMessage`. Queued creates go last and
+   * shallowest-path first: React runs layout effects children before parents, but the
+   * worker rejects a child whose parent it has never seen, and an ancestor's path is
+   * always shorter than its descendant's. Deletes buffered during the commit keep their
+   * place ahead of the creates, so a re-parent still tears down before it rebuilds. */
   private flush(): void {
+    // Drain before clearing the flag: the sends below re-enter send(), which would
+    // otherwise schedule a second, empty flush.
+    this.drainCreates();
     this.flushScheduled = false;
+    if (this.outbound.length === 0) return;
+    const messages = this.outbound;
+    const transfer = this.outboundTransfer;
+    this.outbound = [];
+    this.outboundTransfer = [];
+    this.connect();
+    this.worker.send(messages, transfer);
+  }
+
+  private drainCreates(): void {
     if (this.queued.length === 0) return;
     const queued = this.queued;
     this.queued = [];
@@ -426,9 +445,12 @@ export class Store {
     this.invokeTracker.clearCounter(id);
   }
 
+  /** Buffers `msg` for the next {@link flush}. Nothing reaches the worker synchronously:
+   * a commit's messages travel together. */
   private send(msg: aether.MainMessage, transfer: Transferable[] = []): void {
-    this.connect();
-    this.worker.send(msg, transfer);
+    this.outbound.push(msg);
+    if (transfer.length > 0) this.outboundTransfer.push(...transfer);
+    this.scheduleFlush();
   }
 
   private handleWorkerMessage(msg: aether.WorkerMessage): void {
