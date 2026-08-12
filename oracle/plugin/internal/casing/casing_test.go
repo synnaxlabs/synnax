@@ -176,3 +176,49 @@ var _ = Describe("VariantTypeName", func() {
 		),
 	)
 })
+
+var _ = Describe("QualifiedVariantTypeName", func() {
+	DescribeTable(
+		"should apply the acronym rules to the bare name and keep the qualifier",
+		func(union, variant, sep, expected string) {
+			Expect(
+				casing.QualifiedVariantTypeName(union, variant, sep),
+			).To(Equal(expected))
+		},
+		Entry(
+			"unqualified go name",
+			"AIChannel",
+			"ai_voltage",
+			".",
+			"AIVoltageChannel",
+		),
+		Entry(
+			"qualified go name still factors the acronym",
+			"ni.AIChannel",
+			"ai_voltage",
+			".",
+			"ni.AIVoltageChannel",
+		),
+		Entry(
+			"qualified cpp name still factors the acronym",
+			"::ni::AIChannel",
+			"ai_voltage",
+			"::",
+			"::ni::AIVoltageChannel",
+		),
+		Entry(
+			"qualified plain union keeps the union prefix",
+			"ni.Scale",
+			"linear",
+			".",
+			"ni.ScaleLinear",
+		),
+		Entry(
+			"cpp name with a leading separator only",
+			"::Scale",
+			"linear",
+			"::",
+			"::ScaleLinear",
+		),
+	)
+})

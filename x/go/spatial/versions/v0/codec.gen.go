@@ -42,18 +42,18 @@ func (cl CornerLocation) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (cl *CornerLocation) DecodeOrc(r *orc.Reader) error {
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		cl.X = XLocation(v)
+		cl.X = XLocation(rawV)
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		cl.Y = YLocation(v)
+		cl.Y = YLocation(rawV)
 	}
 	return nil
 }
@@ -68,18 +68,18 @@ func (su StickyUnits) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (su *StickyUnits) DecodeOrc(r *orc.Reader) error {
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		su.X = StickyUnit(v)
+		su.X = StickyUnit(rawV)
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		su.Y = StickyUnit(v)
+		su.Y = StickyUnit(rawV)
 	}
 	return nil
 }

@@ -46,11 +46,11 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		s.Variant = Variant(v)
+		s.Variant = Variant(rawV)
 	}
 	if s.Message, err = r.String(); err != nil {
 		return err
@@ -59,11 +59,11 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.Int64()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		s.Time = telem.TimeStamp(v)
+		s.Time = telem.TimeStamp(rawV)
 	}
 	{
 		b, err := r.ReadWithLen()

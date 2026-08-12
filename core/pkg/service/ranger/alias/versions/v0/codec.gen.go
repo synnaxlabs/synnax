@@ -31,11 +31,11 @@ func (a *Alias) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		a.Channel = channel.Key(v)
+		a.Channel = channel.Key(rawV)
 	}
 	if a.Alias, err = r.String(); err != nil {
 		return err
