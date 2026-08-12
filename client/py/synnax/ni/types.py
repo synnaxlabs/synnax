@@ -294,6 +294,7 @@ class AIAccelChargeChan(BaseAIChan, MinMaxVal):
         ...     max_val=100.0
         ... )
 
+    :param terminal_config: Input terminal configuration
     :param units: Output units (g, MetersPerSecondSquared, InchesPerSecondSquared)
     :param custom_scale: Optional custom scaling
     :param min_val: Minimum expected acceleration
@@ -301,6 +302,7 @@ class AIAccelChargeChan(BaseAIChan, MinMaxVal):
     """
 
     type: Literal["ai_accel_charge"] = "ai_accel_charge"
+    terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["g", "MetersPerSecondSquared", "InchesPerSecondSquared"]
     custom_scale: Scale = NoScale()
 
