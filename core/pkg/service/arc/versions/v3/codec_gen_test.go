@@ -55,14 +55,14 @@ var _ = Describe("Codec", func() {
 								{
 									Name:  "test_10",
 									Type:  types.Type{},
-									Value: map[string]interface{}{"key_12": "value_12"},
+									Value: any(map[string]any{"key_12": "value_12"}),
 								},
 							},
 							Outputs: []types.Param{
 								{
 									Name:  "test_14",
 									Type:  types.Type{},
-									Value: map[string]interface{}{"key_16": "value_16"},
+									Value: any(map[string]any{"key_16": "value_16"}),
 								},
 							},
 							Channels: types.Channels{
@@ -128,14 +128,14 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 						{
 							Name:  "test_10",
 							Type:  types.Type{},
-							Value: map[string]interface{}{"key_12": "value_12"},
+							Value: any(map[string]any{"key_12": "value_12"}),
 						},
 					},
 					Outputs: []types.Param{
 						{
 							Name:  "test_14",
 							Type:  types.Type{},
-							Value: map[string]interface{}{"key_16": "value_16"},
+							Value: any(map[string]any{"key_16": "value_16"}),
 						},
 					},
 					Channels: types.Channels{
@@ -201,14 +201,14 @@ func FuzzDecodeArc(f *testing.F) {
 							{
 								Name:  "test_10",
 								Type:  types.Type{},
-								Value: map[string]interface{}{"key_12": "value_12"},
+								Value: any(map[string]any{"key_12": "value_12"}),
 							},
 						},
 						Outputs: []types.Param{
 							{
 								Name:  "test_14",
 								Type:  types.Type{},
-								Value: map[string]interface{}{"key_16": "value_16"},
+								Value: any(map[string]any{"key_16": "value_16"}),
 							},
 						},
 						Channels: types.Channels{
