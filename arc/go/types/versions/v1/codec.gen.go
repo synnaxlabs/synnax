@@ -220,11 +220,11 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	{
-		v, err := r.Int64()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		t.Kind = Kind(v)
+		t.Kind = Kind(rawV)
 	}
 	if t.Name, err = r.String(); err != nil {
 		return err
@@ -269,11 +269,11 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	{
-		v, err := r.Int64()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		t.ChanDirection = ChanDirection(v)
+		t.ChanDirection = ChanDirection(rawV)
 	}
 	return nil
 }
