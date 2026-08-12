@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sleep, TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -48,6 +48,17 @@ const frameZ = z.object({
   actions: z.array(z.any()),
 }) as unknown as z.ZodType<Frame<string, Action>>;
 
+/** A manually advanced clock, so coalesce-window tests need no real sleeps. */
+const createFakeClock = () => {
+  let current = TimeStamp.now();
+  return {
+    now: () => current,
+    advance: (span: TimeSpan) => {
+      current = current.add(span);
+    },
+  };
+};
+
 const setupStore = (
   opts: Partial<{
     isUndoable: (a: Action) => boolean;
@@ -55,6 +66,7 @@ const setupStore = (
     coalesceWindow: TimeSpan;
     stackCap: number;
     preprocess: (s: Doc, acts: Action[]) => Action[];
+    now: () => TimeStamp;
   }> = {},
 ) => {
   const errors: Error[] = [];
@@ -70,6 +82,7 @@ const setupStore = (
     coalesceWindow: opts.coalesceWindow,
     stackCap: opts.stackCap,
     preprocess: opts.preprocess,
+    now: opts.now,
   });
   return { errors, docs, controller };
 };
@@ -254,14 +267,16 @@ describe("actions.Controller", () => {
       expect(controller.hasUndo("k")).toBe(false);
     });
 
-    it("does not merge when the prior entry is older than the window", async () => {
+    it("does not merge when the prior entry is older than the window", () => {
+      const clock = createFakeClock();
       const { docs, controller } = setupStore({
         coalesceWindow: TimeSpan.NANOSECOND,
+        now: clock.now,
       });
       prime(docs, "k", { a: 0 });
       push(controller, "k", "a", 1, "move");
-      // Force the next entry's TimeStamp.now() to be after the 1ns window.
-      await sleep.sleep(TimeSpan.milliseconds(2));
+      // Move the next entry's stamp past the 1ns window.
+      clock.advance(TimeSpan.milliseconds(2));
       push(controller, "k", "a", 2, "move");
       controller.prepareUndo("k")?.commit();
       expect(controller.hasUndo("k")).toBe(true);
@@ -284,16 +299,18 @@ describe("actions.Controller", () => {
       });
     });
 
-    it("trims to stackCap by dropping the oldest", async () => {
+    it("trims to stackCap by dropping the oldest", () => {
+      const clock = createFakeClock();
       const { docs, controller } = setupStore({
         coalesceWindow: TimeSpan.NANOSECOND,
         stackCap: 2,
+        now: clock.now,
       });
       prime(docs, "k", { a: 0 });
       push(controller, "k", "a", 1, "k1");
-      await sleep.sleep(TimeSpan.milliseconds(2));
+      clock.advance(TimeSpan.milliseconds(2));
       push(controller, "k", "a", 2, "k2");
-      await sleep.sleep(TimeSpan.milliseconds(2));
+      clock.advance(TimeSpan.milliseconds(2));
       push(controller, "k", "a", 3, "k3");
       controller.prepareUndo("k")?.commit();
       controller.prepareUndo("k")?.commit();

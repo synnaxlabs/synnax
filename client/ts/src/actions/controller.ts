@@ -185,6 +185,8 @@ export interface ControllerParams<
   createOf?: (action: Action) => State | undefined;
   coalesceWindow?: TimeSpan;
   stackCap?: number;
+  /** Clock stamping entries for the coalesce window. Defaults to TimeStamp.now. */
+  now?: () => TimeStamp;
 }
 
 /**
@@ -231,6 +233,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       createOf: opts.createOf ?? (() => undefined),
       coalesceWindow: opts.coalesceWindow ?? DEFAULT_COALESCE_WINDOW,
       stackCap: opts.stackCap ?? DEFAULT_STACK_CAP,
+      now: opts.now ?? (() => TimeStamp.now()),
     };
     this.docs = opts.store;
     // Undo states are rebuilt objects on every update; comparing them would
@@ -303,7 +306,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       forward: undoableForward,
       inverse,
       kind: kindOverride ?? this.params.kindOf(forward),
-      ts: TimeStamp.now(),
+      ts: this.params.now(),
       tick: ++this.tick,
       targets,
     };
