@@ -170,8 +170,8 @@ constexpr const char *VELOCITY_SENSITIVITY_UNITS_M_VOLTS_PER_MM_PER_SECOND =
 constexpr const char *VELOCITY_SENSITIVITY_UNITS_M_VOLTS_PER_INCH_PER_SECOND =
     "MilliVoltsPerInchPerSecond";
 
-constexpr const char *CHARGE_UNITS_COULOMBS = "C";
-constexpr const char *CHARGE_UNITS_MICRO_COULOMBS = "uC";
+constexpr const char *CHARGE_UNITS_COULOMBS = "Coulombs";
+constexpr const char *CHARGE_UNITS_PICO_COULOMBS = "PicoCoulombs";
 
 constexpr const char *ROSETTE_TYPE_RECTANGULAR = "RectangularRosette";
 constexpr const char *ROSETTE_TYPE_DELTA = "DeltaRosette";

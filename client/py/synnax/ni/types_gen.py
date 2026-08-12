@@ -327,12 +327,12 @@ VelocitySensitivityUnits = Literal[
     "MillivoltsPerMillimeterPerSecond", "MilliVoltsPerInchPerSecond"
 ]
 
-CHARGE_UNITS_COULOMBS: Literal["C"] = "C"
+CHARGE_UNITS_COULOMBS: Literal["Coulombs"] = "Coulombs"
 
-CHARGE_UNITS_MICRO_COULOMBS: Literal["uC"] = "uC"
+CHARGE_UNITS_PICO_COULOMBS: Literal["PicoCoulombs"] = "PicoCoulombs"
 
 
-ChargeUnits = Literal["C", "uC"]
+ChargeUnits = Literal["Coulombs", "PicoCoulombs"]
 
 ROSETTE_TYPE_RECTANGULAR: Literal["RectangularRosette"] = "RectangularRosette"
 
@@ -1092,7 +1092,7 @@ class AIChargeChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
     """Reads a raw charge."""
 
     type: Literal["ai_charge"]
-    units: ChargeUnits = "C"
+    units: ChargeUnits = "Coulombs"
 
 
 class AICurrentRMSChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):

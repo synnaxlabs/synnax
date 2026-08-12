@@ -233,8 +233,8 @@ VelocitySensitivityUnits enum {
 }
 
 ChargeUnits enum {
-    coulombs       = "C"
-    micro_coulombs = "uC"
+    coulombs      = "Coulombs"
+    pico_coulombs = "PicoCoulombs"
 
     @doc value "are the units of a charge measurement."
 }

@@ -1343,7 +1343,7 @@ inline AIChargeChannel AIChargeChannel::parse(x::json::Parser parser) {
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<Terminal &>(result) = Terminal::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
-    result.units = parser.field<std::string>("units", "C");
+    result.units = parser.field<std::string>("units", "Coulombs");
     result.type = parser.field<std::string>("type");
     return result;
 }

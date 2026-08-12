@@ -162,7 +162,7 @@ export const VELOCITY_SENSITIVITY_UNITS = [
 export const velocitySensitivityUnitsZ = z.enum(VELOCITY_SENSITIVITY_UNITS);
 export type VelocitySensitivityUnits = z.infer<typeof velocitySensitivityUnitsZ>;
 
-export const CHARGE_UNITS = ["C", "uC"] as const;
+export const CHARGE_UNITS = ["Coulombs", "PicoCoulombs"] as const;
 export const chargeUnitsZ = z.enum(CHARGE_UNITS);
 export type ChargeUnits = z.infer<typeof chargeUnitsZ>;
 
@@ -1028,7 +1028,7 @@ export const aiChargeChannelZ = baseAIChannelZ
   .extend({
     type: z.literal("ai_charge"),
     /** units are the units of the charge measurement. */
-    units: chargeUnitsZ.default("C"),
+    units: chargeUnitsZ.default("Coulombs"),
   });
 export interface AIChargeChannel extends z.infer<typeof aiChargeChannelZ> {}
 

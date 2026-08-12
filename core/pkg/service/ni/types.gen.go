@@ -554,15 +554,15 @@ func (v VelocitySensitivityUnits) IsValid() bool {
 type ChargeUnits string
 
 const (
-	ChargeUnitsCoulombs      ChargeUnits = "C"
-	ChargeUnitsMicroCoulombs ChargeUnits = "uC"
+	ChargeUnitsCoulombs     ChargeUnits = "Coulombs"
+	ChargeUnitsPicoCoulombs ChargeUnits = "PicoCoulombs"
 )
 
 // IsValid reports whether c is one of the defined ChargeUnits
 // values.
 func (c ChargeUnits) IsValid() bool {
 	switch c {
-	case ChargeUnitsCoulombs, ChargeUnitsMicroCoulombs:
+	case ChargeUnitsCoulombs, ChargeUnitsPicoCoulombs:
 		return true
 	default:
 		return false
