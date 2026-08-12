@@ -11,6 +11,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "client/cpp/ni/json.gen.h"
 #include "client/cpp/ni/types.gen.h"
@@ -167,13 +168,10 @@ struct PolynomialConfig {
         const ::synnax::ni::BridgePolynomial &b,
         const std::string &physical_units_str
     ):
-        forward_coeffs(b.forward_coeffs), reverse_coeffs(b.reverse_coeffs) {
-        const auto eu = channel::UNITS_MAP.find(b.electrical_units);
-        electrical_units = eu == channel::UNITS_MAP.end() ? DAQmx_Val_Volts
-                                                          : eu->second;
-        const auto pu = channel::UNITS_MAP.find(physical_units_str);
-        physical_units = pu == channel::UNITS_MAP.end() ? DAQmx_Val_Volts : pu->second;
-    }
+        forward_coeffs(b.forward_coeffs),
+        reverse_coeffs(b.reverse_coeffs),
+        electrical_units(units_or_volts(b.electrical_units)),
+        physical_units(units_or_volts(physical_units_str)) {}
 };
 
 struct TableConfig {
@@ -270,6 +268,14 @@ struct ApplyContext {
     /// propagation and as the DAQmx channel name.
     std::string cfg_path;
 };
+
+/// @brief prefixes an apply failure with the channel's config path, so the
+/// message names the channel the failure came from.
+inline x::errors::Error
+at_cfg_path(const x::errors::Error &err, const std::string &cfg_path) {
+    if (!err) return err;
+    return {err, cfg_path + ": " + err.data};
+}
 
 inline x::errors::Error apply(
     const ::synnax::ni::AIAccelChannel &ch,
@@ -373,7 +379,7 @@ inline x::errors::Error apply(
         ch.sensitivity_units
     );
     if (sensitivity_units_err) return sensitivity_units_err;
-    const auto terminal_config = DAQmx_Val_Cfg_Default;
+    const auto terminal_config = parse_terminal_config(ch.terminal_config);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
@@ -705,7 +711,7 @@ inline x::errors::Error apply(
     auto [key, key_err] = scale->apply(dmx);
     if (key_err) return key_err;
     const char *scale_key = key.empty() ? nullptr : key.c_str();
-    const auto freq_loc = ctx.dev_loc + "ctr" + std::to_string(ch.port);
+    const auto freq_loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     return dmx->CreateAIFreqVoltageChan(
         task_handle,
         freq_loc.c_str(),
@@ -1326,7 +1332,7 @@ inline x::errors::Error apply(
         bridge_config,
         excitation_config.source,
         excitation_config.val,
-        static_cast<bool32>(excitation_config.min_val_for_excitation),
+        excitation_config.use_excit_for_scaling,
         scale_key
     );
 }
@@ -2081,7 +2087,7 @@ struct Input {
     [[nodiscard]] x::errors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) const {
         const ApplyContext ctx{this->dev_loc, this->cfg_path};
-        return std::visit(
+        const auto err = std::visit(
             [&](const auto &u) {
                 return std::visit(
                     [&](const auto &v) {
@@ -2092,6 +2098,7 @@ struct Input {
             },
             this->channel
         );
+        return at_cfg_path(err, this->cfg_path);
     }
 };
 
@@ -2121,7 +2128,7 @@ struct Output {
     [[nodiscard]] x::errors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) const {
         const ApplyContext ctx{this->dev_loc, this->cfg_path};
-        return std::visit(
+        const auto err = std::visit(
             [&](const auto &u) {
                 return std::visit(
                     [&](const auto &v) {
@@ -2132,6 +2139,7 @@ struct Output {
             },
             this->channel
         );
+        return at_cfg_path(err, this->cfg_path);
     }
 };
 

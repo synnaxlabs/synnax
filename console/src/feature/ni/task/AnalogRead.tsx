@@ -65,7 +65,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
-      icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] ?? type }}
+      icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />
   );

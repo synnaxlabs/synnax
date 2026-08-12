@@ -17,7 +17,9 @@ import { Task } from "@/platform/task";
 export const PREFIX = "ni";
 
 export type Units = ni.Units;
+export type AccelUnits = ni.AccelUnits;
 export type AccelSensitivityUnits = ni.AccelSensitivityUnits;
+export type ChargeUnits = ni.ChargeUnits;
 export type ForceUnits = ni.ForceUnits;
 export type ElectricalUnits = ni.ElectricalUnits;
 export type ShuntResistorLoc = ni.ShuntResistorLocation;
@@ -98,30 +100,40 @@ export const createAIChannel = (type: AIChannelType = "ai_voltage"): AIChannel =
     cjc: BUILT_IN_CJC,
   });
 
-export const AI_CHANNEL_TYPE_NAMES: Partial<Record<AIChannelType, string>> = {
+export const AI_CHANNEL_TYPE_NAMES: Record<AIChannelType, string> = {
   ai_accel: "Accelerometer",
+  ai_accel_4_wire_dc_voltage: "Accelerometer 4-Wire DC Voltage",
+  ai_accel_charge: "Accelerometer Charge",
   ai_bridge: "Bridge",
+  ai_charge: "Charge",
   ai_current: "Current",
+  ai_current_rms: "Current RMS",
+  ai_force_bridge_polynomial: "Force Bridge Polynomial",
   ai_force_bridge_table: "Force Bridge Table",
   ai_force_bridge_two_point_lin: "Force Bridge Two-Point Linear",
   ai_force_iepe: "Force IEPE",
+  ai_freq_voltage: "Frequency Voltage",
   ai_microphone: "Microphone",
+  ai_pressure_bridge_polynomial: "Pressure Bridge Polynomial",
   ai_pressure_bridge_table: "Pressure Bridge Table",
   ai_pressure_bridge_two_point_lin: "Pressure Bridge Two-Point Linear",
   ai_resistance: "Resistance",
   ai_rtd: "RTD",
   ai_strain_gauge: "Strain Gauge",
   ai_temp_builtin: "Temperature Built-In Sensor",
+  ai_thermistor_iex: "Thermistor Current Excitation",
+  ai_thermistor_vex: "Thermistor Voltage Excitation",
   ai_thermocouple: "Thermocouple",
+  ai_torque_bridge_polynomial: "Torque Bridge Polynomial",
   ai_torque_bridge_table: "Torque Bridge Table",
   ai_torque_bridge_two_point_lin: "Torque Bridge Two-Point Linear",
   ai_velocity_iepe: "Velocity IEPE",
   ai_voltage: "Voltage",
+  ai_voltage_rms: "Voltage RMS",
+  ai_voltage_with_excit: "Voltage with Excitation",
 };
 
-// Total over every AIChannelType, including the Driver/Python-only types the console
-// does not offer in its select. Those reuse their measurement category's icon so a task
-// created elsewhere still renders.
+// Types without a dedicated icon reuse their measurement category's icon.
 export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
   ai_accel: Icon.Units.Acceleration,
   ai_accel_4_wire_dc_voltage: Icon.Units.Acceleration,
@@ -301,8 +313,7 @@ export const deployAnalogReadConfigZ = ni.analogReadConfigZ
 
 const analogReadStatusDataZ = z
   .object({ errors: z.array(z.object({ message: z.string(), path: z.string() })) })
-  .nullish()
-  .optional();
+  .nullish();
 
 export const ANALOG_READ_TYPE = `${PREFIX}_analog_read`;
 
