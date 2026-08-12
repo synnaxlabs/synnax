@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -20,8 +20,8 @@ import {
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
-  awaitCommand,
   clickDeploy,
+  deployAndAwaitTask,
   findDialogTriggerByText,
   getLabeledInput,
   selectFromDropdown,
@@ -60,19 +60,6 @@ const renderAnalogRead = async (
     taskKey: draft.key,
   });
   return { ...rendered, draft };
-};
-
-const deployAndAwaitStart = async (
-  container: ParentNode,
-  key: task.Key,
-): Promise<void> => {
-  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-  try {
-    await clickDeploy(container);
-    await awaitCommand(streamer, key);
-  } finally {
-    streamer.close();
-  }
 };
 
 describe("AnalogRead", () => {
@@ -200,7 +187,7 @@ describe("AnalogRead", () => {
           createChannel("ai_current", 1, { device: dev.key, name: namedChannel }),
         ],
       });
-      await deployAndAwaitStart(container, draft.key);
+      await deployAndAwaitTask(client, container, draft.key);
       const created = await client.tasks.retrieve({
         key: draft.key,
         schemas: NI.Task.ANALOG_READ_SCHEMAS,
@@ -238,14 +225,14 @@ describe("AnalogRead", () => {
         channels: [createChannel("ai_voltage", 0, { device: dev.key })],
       };
       const first = await renderAnalogRead(config);
-      await deployAndAwaitStart(first.container, first.draft.key);
+      await deployAndAwaitTask(client, first.container, first.draft.key);
       const firstTask = await client.tasks.retrieve({
         key: first.draft.key,
         schemas: NI.Task.ANALOG_READ_SCHEMAS,
       });
       first.unmount();
       const second = await renderAnalogRead(config);
-      await deployAndAwaitStart(second.container, second.draft.key);
+      await deployAndAwaitTask(client, second.container, second.draft.key);
       await waitFor(async () => {
         const again = await client.tasks.retrieve({
           key: second.draft.key,

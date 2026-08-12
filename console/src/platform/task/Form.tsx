@@ -104,7 +104,8 @@ const Header = ({ isSnapshot }: HeaderProps) => (
   </>
 );
 
-const SET_OPTIONS: PForm.SetOptions = { notifyOnChange: false };
+// The deploy pipeline saves once at the end; notifying would fire autosave first.
+const SKIP_AUTOSAVE: PForm.SetOptions = { notifyOnChange: false };
 
 const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
   issue.code === "custom" && issue.params != null && "variant" in issue.params
@@ -149,8 +150,8 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           if (blocked) return;
         }
         const [newConfig, newRack] = await onConfigure(client, config, name);
-        form.set("config", newConfig, SET_OPTIONS);
-        if (primitive.isNonZero(newRack)) form.set("rack", newRack, SET_OPTIONS);
+        form.set("config", newConfig, SKIP_AUTOSAVE);
+        if (primitive.isNonZero(newRack)) form.set("rack", newRack, SKIP_AUTOSAVE);
         if (!(await saveAsync())) return;
         await client.tasks.executeCommand({ task: taskKey, type: "start" });
       }, "Failed to start task");

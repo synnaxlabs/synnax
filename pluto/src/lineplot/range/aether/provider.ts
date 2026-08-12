@@ -8,16 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ranger, type Synnax } from "@synnaxlabs/client";
-import {
-  bounds,
-  box,
-  color,
-  type scale,
-  TimeRange,
-  TimeSpan,
-  type TimeStamp,
-  xy,
-} from "@synnaxlabs/x";
+import { bounds, box, color, type scale, TimeRange, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -59,14 +50,18 @@ interface ProviderProps {
   timeRange: TimeRange;
 }
 
-// Widens fetch boundaries to whole minutes so panning does not requery on every
-// viewport nudge.
-const QUANTUM = TimeSpan.minutes(1);
-
+// Snaps fetch boundaries outward to a grid roughly an eighth of the viewport wide,
+// so a requery takes a meaningful pan or zoom at any zoom level. Power-of-two grid
+// sizes nest, keeping boundaries stable as the viewport zooms.
 const quantize = (timeRange: TimeRange): TimeRange => {
-  const ceil = (ts: TimeStamp): TimeStamp =>
-    ts.remainder(QUANTUM).isZero ? ts : ts.truncate(QUANTUM).add(QUANTUM);
-  return new TimeRange(timeRange.start.truncate(QUANTUM), ceil(timeRange.end));
+  const span = timeRange.span.valueOf();
+  if (span < 8n) return timeRange;
+  const quantum = 1n << BigInt(Math.floor(Math.log2(Number(span) / 8)));
+  const mod = (v: bigint): bigint => ((v % quantum) + quantum) % quantum;
+  const start = timeRange.start.valueOf();
+  const end = timeRange.end.valueOf();
+  const rem = mod(end);
+  return new TimeRange(start - mod(start), rem === 0n ? end : end + quantum - rem);
 };
 
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
