@@ -2270,10 +2270,13 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 		`
 			resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
 			taskContent := ExpectContent(resp, "client/cpp/task/types.gen.h")
-			taskContent.ToContain("struct Task {")
+			taskContent.ToContain("namespace synnax::task {", "struct Task {")
 			taskContent.ToNotContain("struct BaseConfig {")
 			commonContent := ExpectContent(resp, "client/cpp/task/common/types.gen.h")
-			commonContent.ToContain("struct BaseConfig {")
+			commonContent.ToContain(
+				"namespace synnax::task::common {",
+				"struct BaseConfig {",
+			)
 			commonContent.ToNotContain("struct Task {")
 		},
 	)
