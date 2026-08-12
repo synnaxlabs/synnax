@@ -233,8 +233,8 @@ VelocitySensitivityUnits enum {
 }
 
 ChargeUnits enum {
-    coulombs       = "C"
-    micro_coulombs = "uC"
+    coulombs      = "Coulombs"
+    pico_coulombs = "PicoCoulombs"
 
     @doc value "are the units of a charge measurement."
 }
@@ -248,9 +248,9 @@ RosetteType enum {
 }
 
 RosetteMeasType enum {
-    principle_strain_1        = "PrincipleStrain1"
-    principle_strain_2        = "PrincipleStrain2"
-    principle_strain_angle    = "PrincipleStrainAngle"
+    principal_strain_1        = "PrincipalStrain1"
+    principal_strain_2        = "PrincipalStrain2"
+    principal_strain_angle    = "PrincipalStrainAngle"
     cartesian_strain_x        = "CartesianStrainX"
     cartesian_strain_y        = "CartesianStrainY"
     cartesian_shear_strain_xy = "CartesianShearStrainXY"
@@ -470,7 +470,7 @@ TwoPointLin struct {
 }
 
 CustomScale struct {
-    custom_scale Scale {
+    custom_scale Scale = none {
         @doc value "is the scale applied to the raw measurement."
     }
 
@@ -661,7 +661,7 @@ AIChannel union on type extends BaseAIChannel {
         thermocouple_type ThermocoupleType = j {
             @doc value "selects the thermocouple alloy type."
         }
-        cjc               CJC              {
+        cjc               CJC = built_in {
             @doc value "is the cold-junction compensation applied to the reading."
         }
 

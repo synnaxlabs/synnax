@@ -2735,6 +2735,21 @@ func (p *Plugin) applyValidation(
 					p.enumVariantToTS(ev, data),
 				)
 			}
+			if uv, ok := validation.ResolveUnionVariant(
+				defaultVal.IdentValue,
+				typeRef,
+				table,
+			); ok {
+				// .prefault re-parses the discriminator literal, so the variant's own
+				// field defaults fill in rather than being demanded of the caller.
+				zodType = fmt.Sprintf(
+					"%s.prefault({ %s: %q })",
+					zodType,
+					fieldCamel(uv.Union.Discriminator),
+					uv.Variant.Name,
+				)
+				isPrefault = true
+			}
 		case resolution.ValueKindArray:
 			zodType = fmt.Sprintf(
 				"%s.default(%s)",

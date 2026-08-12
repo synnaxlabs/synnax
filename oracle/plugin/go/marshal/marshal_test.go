@@ -165,7 +165,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain("var hv TickType")
-					content.ToContain("hv = TickType(v)")
+					content.ToContain("hv = TickType(rawV)")
 					content.ToContain("a.Type = &hv")
 					content.ToNotContain("var v TickType")
 				},
@@ -198,7 +198,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain("var hv Level")
 					content.ToContain("iv.Level = &hv")
-					content.ToContain("hv = Level(v)")
+					content.ToContain("hv = Level(rawV)")
 					content.ToNotContain("var v Level")
 				},
 			)
@@ -361,7 +361,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 					resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 					content := ExpectContent(resp, "codec.gen.go")
 					content.ToContain("w.String(string(p.AxisKey))")
-					content.ToContain("p.AxisKey = AxisKey(v)")
+					content.ToContain("p.AxisKey = AxisKey(rawV)")
 				},
 			)
 		})
