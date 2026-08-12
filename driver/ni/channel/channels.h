@@ -11,6 +11,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
@@ -21,7 +22,8 @@
 
 namespace driver::ni::channel {
 static int32_t parse_terminal_config(x::json::Parser &p) {
-    const auto s = p.field<std::string>("terminal_config");
+    // Not every channel type carries a terminal configuration; those default it.
+    const auto s = p.field<std::string>("terminal_config", "Cfg_Default");
     if (s == "PseudoDiff") return DAQmx_Val_PseudoDiff;
     if (s == "Diff") return DAQmx_Val_Diff;
     if (s == "NRSE") return DAQmx_Val_NRSE;
@@ -153,40 +155,23 @@ struct BridgeConfig {
 };
 
 struct PolynomialConfig {
-    float64 *forward_coeffs;
-    const uint32_t num_forward_coeffs;
-    float64 *reverse_coeffs;
-    const uint32_t num_reverse_coeffs;
+    const std::vector<double> forward_coeffs;
+    const std::vector<double> reverse_coeffs;
     int32_t electrical_units;
     int32_t physical_units;
 
     explicit PolynomialConfig(x::json::Parser &cfg):
-        num_forward_coeffs(cfg.field<uint32_t>("num_forward_coeffs")),
-        num_reverse_coeffs(cfg.field<uint32_t>("num_reverse_coeffs")) {
-        const auto eu = cfg.field<std::string>("electrical_units");
-        const auto pu = cfg.field<std::string>("physical_units");
-
-        const auto ni_eu = channel::UNITS_MAP.find(eu);
-        if (ni_eu == channel::UNITS_MAP.end())
-            electrical_units = DAQmx_Val_Volts;
-        else
-            electrical_units = ni_eu->second;
-
-        const auto ni_pu = channel::UNITS_MAP.find(pu);
-        if (ni_pu == channel::UNITS_MAP.end())
-            physical_units = DAQmx_Val_Volts;
-        else
-            physical_units = channel::UNITS_MAP.at(pu);
-        forward_coeffs = new double[num_forward_coeffs];
-        reverse_coeffs = new double[num_reverse_coeffs];
-        const auto f = cfg.field<std::vector<double>>("forward_coeffs");
-        for (uint32_t i = 0; i < num_forward_coeffs; i++)
-            forward_coeffs[i] = f[i];
-    }
-
-    ~PolynomialConfig() {
-        delete[] forward_coeffs;
-        delete[] reverse_coeffs;
+        forward_coeffs(cfg.field<std::vector<double>>("forward_coeffs")),
+        reverse_coeffs(cfg.field<std::vector<double>>("reverse_coeffs")) {
+        const auto eu = channel::UNITS_MAP.find(
+            cfg.field<std::string>("electrical_units")
+        );
+        const auto pu = channel::UNITS_MAP.find(
+            cfg.field<std::string>("physical_units")
+        );
+        electrical_units = eu == channel::UNITS_MAP.end() ? DAQmx_Val_Volts
+                                                          : eu->second;
+        physical_units = pu == channel::UNITS_MAP.end() ? DAQmx_Val_Volts : pu->second;
     }
 };
 
@@ -591,7 +576,7 @@ struct AIVoltageWithExcit final : AIVoltage {
             this->bridge_config,
             this->excitation_config.source,
             this->excitation_config.val,
-            static_cast<bool32>(this->excitation_config.min_val_for_excitation),
+            this->excitation_config.use_excit_for_scaling,
             scale_key
         );
     }
@@ -909,9 +894,24 @@ struct AIAccel : AICustomScale {
     }
 };
 
-struct AIAccel4WireDCVoltage final : AIAccel {
+struct AIAccel4WireDCVoltage final : AICustomScale {
+    const double sensitivity;
+    const int32_t sensitivity_units;
+    const ExcitationConfig excitation_config;
+    const int32 terminal_config;
+
     explicit AIAccel4WireDCVoltage(x::json::Parser &cfg):
-        Base(cfg), Analog(cfg), AIAccel(cfg) {}
+        Base(cfg),
+        Analog(cfg),
+        AICustomScale(cfg),
+        sensitivity(cfg.field<double>("sensitivity")),
+        sensitivity_units(
+            UNITS_MAP.at(cfg.field<std::string>("sensitivity_units", "mVoltsPerG"))
+        ),
+        excitation_config(cfg, VOLT_EXCIT_PREFIX),
+        terminal_config(parse_terminal_config(cfg)) {}
+
+    using Base::apply;
 
     x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -1188,10 +1188,9 @@ struct AIFrequencyVoltage final : AICustomScale {
         TaskHandle task_handle,
         const char *scale_key
     ) const override {
-        const auto port = this->dev_loc + "ctr" + std::to_string(this->port);
         return dmx->CreateAIFreqVoltageChan(
             task_handle,
-            port.c_str(),
+            this->loc().c_str(),
             this->cfg_path.c_str(),
             this->min_val,
             this->max_val,
@@ -1970,10 +1969,10 @@ struct AIPressureBridgePolynomial final : AICustomScale {
             this->bridge_config.voltage_excit_source,
             this->bridge_config.voltage_excit_val,
             this->bridge_config.nominal_bridge_resistance,
-            this->polynomial_config.forward_coeffs,
-            this->polynomial_config.num_forward_coeffs,
-            this->polynomial_config.reverse_coeffs,
-            this->polynomial_config.num_reverse_coeffs,
+            this->polynomial_config.forward_coeffs.data(),
+            static_cast<uInt32>(this->polynomial_config.forward_coeffs.size()),
+            this->polynomial_config.reverse_coeffs.data(),
+            static_cast<uInt32>(this->polynomial_config.reverse_coeffs.size()),
             this->polynomial_config.electrical_units,
             this->polynomial_config.physical_units,
             scale_key
@@ -2010,10 +2009,10 @@ struct AIForceBridgePolynomial final : AICustomScale {
             this->bridge_config.voltage_excit_source,
             this->bridge_config.voltage_excit_val,
             this->bridge_config.nominal_bridge_resistance,
-            this->polynomial_config.forward_coeffs,
-            this->polynomial_config.num_forward_coeffs,
-            this->polynomial_config.reverse_coeffs,
-            this->polynomial_config.num_reverse_coeffs,
+            this->polynomial_config.forward_coeffs.data(),
+            static_cast<uInt32>(this->polynomial_config.forward_coeffs.size()),
+            this->polynomial_config.reverse_coeffs.data(),
+            static_cast<uInt32>(this->polynomial_config.reverse_coeffs.size()),
             this->polynomial_config.electrical_units,
             this->polynomial_config.physical_units,
             scale_key
@@ -2210,10 +2209,10 @@ struct AITorqueBridgePolynomial final : AICustomScale {
             this->bridge_config.voltage_excit_source,
             this->bridge_config.voltage_excit_val,
             this->bridge_config.nominal_bridge_resistance,
-            this->polynomial_config.forward_coeffs,
-            this->polynomial_config.num_forward_coeffs,
-            this->polynomial_config.reverse_coeffs,
-            this->polynomial_config.num_reverse_coeffs,
+            this->polynomial_config.forward_coeffs.data(),
+            static_cast<uInt32>(this->polynomial_config.forward_coeffs.size()),
+            this->polynomial_config.reverse_coeffs.data(),
+            static_cast<uInt32>(this->polynomial_config.reverse_coeffs.size()),
             this->polynomial_config.electrical_units,
             this->polynomial_config.physical_units,
             scale_key
@@ -2431,13 +2430,16 @@ static const std::map<std::string, Factory<Output>> OUTPUTS = {
 static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ai_accel", AIAccel),
     INPUT_CHAN_FACTORY("ai_accel_4_wire_dc_voltage", AIAccel4WireDCVoltage),
+    INPUT_CHAN_FACTORY("ai_accel_charge", AIAccelCharge),
     INPUT_CHAN_FACTORY("ai_bridge", AIBridge),
     INPUT_CHAN_FACTORY("ai_charge", AICharge),
     INPUT_CHAN_FACTORY("ai_current", AICurrent),
+    INPUT_CHAN_FACTORY("ai_current_rms", AICurrentRMS),
     INPUT_CHAN_FACTORY("ai_force_bridge_polynomial", AIForceBridgePolynomial),
     INPUT_CHAN_FACTORY("ai_force_bridge_table", AIForceBridgeTable),
     INPUT_CHAN_FACTORY("ai_force_bridge_two_point_lin", AIForceBridgeTwoPointLin),
     INPUT_CHAN_FACTORY("ai_force_iepe", AIForceIEPE),
+    INPUT_CHAN_FACTORY("ai_freq_voltage", AIFrequencyVoltage),
     INPUT_CHAN_FACTORY("ai_microphone", AIMicrophone),
     INPUT_CHAN_FACTORY("ai_pressure_bridge_polynomial", AIPressureBridgePolynomial),
     INPUT_CHAN_FACTORY("ai_pressure_bridge_table", AIPressureBridgeTable),
@@ -2446,13 +2448,16 @@ static const std::map<std::string, Factory<Input>> INPUTS = {
     INPUT_CHAN_FACTORY("ai_rtd", AIRTD),
     INPUT_CHAN_FACTORY("ai_strain_gauge", AIStrainGauge),
     INPUT_CHAN_FACTORY("ai_temp_builtin", AITempBuiltIn),
+    INPUT_CHAN_FACTORY("ai_thermistor_iex", AIThermistorIEX),
+    INPUT_CHAN_FACTORY("ai_thermistor_vex", AIThermistorVex),
     INPUT_CHAN_FACTORY("ai_thermocouple", AIThermocouple),
     INPUT_CHAN_FACTORY("ai_torque_bridge_polynomial", AITorqueBridgePolynomial),
     INPUT_CHAN_FACTORY("ai_torque_bridge_table", AITorqueBridgeTable),
     INPUT_CHAN_FACTORY("ai_torque_bridge_two_point_lin", AITorqueBridgeTwoPointLin),
     INPUT_CHAN_FACTORY("ai_velocity_iepe", AIVelocityIEPE),
     INPUT_CHAN_FACTORY("ai_voltage", AIVoltage),
-    INPUT_CHAN_FACTORY("ai_frequency_voltage", AIFrequencyVoltage),
+    INPUT_CHAN_FACTORY("ai_voltage_rms", AIVoltageRMS),
+    INPUT_CHAN_FACTORY("ai_voltage_with_excit", AIVoltageWithExcit),
     INPUT_CHAN_FACTORY("ci_edge_count", CIEdgeCount),
     INPUT_CHAN_FACTORY("ci_frequency", CIFrequency),
     INPUT_CHAN_FACTORY("ci_period", CIPeriod),
