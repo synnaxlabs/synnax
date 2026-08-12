@@ -1062,13 +1062,7 @@ class AICurrentRMSChannel(BaseAIChannel, MinMaxVal, Terminal, CustomScale):
 
 
 class AIForceBridgePolynomialChannel(
-    BaseAIChannel,
-    MinMaxVal,
-    Terminal,
-    Bridge,
-    VoltageExcitation,
-    BridgePolynomial,
-    CustomScale,
+    BaseAIChannel, MinMaxVal, Bridge, VoltageExcitation, BridgePolynomial, CustomScale
 ):
     """Reads force from a bridge with polynomial calibration."""
 
