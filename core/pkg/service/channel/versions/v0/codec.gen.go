@@ -49,45 +49,45 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.Uint16()
+		rawV, err := r.Uint16()
 		if err != nil {
 			return err
 		}
-		c.Leaseholder = node.Key(v)
+		c.Leaseholder = node.Key(rawV)
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		c.DataType = telem.DataType(v)
+		c.DataType = telem.DataType(rawV)
 	}
 	if c.IsIndex, err = r.Bool(); err != nil {
 		return err
 	}
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		c.LocalKey = LocalKey(v)
+		c.LocalKey = LocalKey(rawV)
 	}
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		c.LocalIndex = LocalKey(v)
+		c.LocalIndex = LocalKey(rawV)
 	}
 	if c.Virtual, err = r.Bool(); err != nil {
 		return err
 	}
 	{
-		v, err := r.Int64()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		c.Concurrency = control.Concurrency(v)
+		c.Concurrency = control.Concurrency(rawV)
 	}
 	if c.Internal, err = r.Bool(); err != nil {
 		return err
@@ -127,25 +127,25 @@ func (o Operation) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (o *Operation) DecodeOrc(r *orc.Reader) error {
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		o.Type = OperationType(v)
+		o.Type = OperationType(rawV)
 	}
 	{
-		v, err := r.Uint32()
+		rawV, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		o.ResetChannel = Key(v)
+		o.ResetChannel = Key(rawV)
 	}
 	{
-		v, err := r.Int64()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		o.Duration = telem.TimeSpan(v)
+		o.Duration = telem.TimeSpan(rawV)
 	}
 	return nil
 }

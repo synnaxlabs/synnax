@@ -75,11 +75,11 @@ func (iv *Insert) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		v, err := r.String()
+		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		iv.Side = spatial.XLocation(v)
+		iv.Side = spatial.XLocation(rawV)
 	}
 	if iv.Char, err = r.Int32(); err != nil {
 		return err

@@ -23,18 +23,18 @@ func (tr TimeRange) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (tr *TimeRange) DecodeOrc(r *orc.Reader) error {
 	{
-		v, err := r.Int64()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		tr.Start = TimeStamp(v)
+		tr.Start = TimeStamp(rawV)
 	}
 	{
-		v, err := r.Int64()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		tr.End = TimeStamp(v)
+		tr.End = TimeStamp(rawV)
 	}
 	return nil
 }
