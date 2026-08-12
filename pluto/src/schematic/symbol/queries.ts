@@ -176,7 +176,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
-export const { useResult: useResultGroup } = Flux.createRetrieve<{}, group.Group>({
+export const { use: useGroup } = Flux.createRetrieve<{}, group.Group>({
   name: RESOURCE_NAME,
   retrieve: async ({ client }) => await client.schematics.symbols.retrieveGroup(),
 });

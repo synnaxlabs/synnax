@@ -294,6 +294,7 @@ class AIAccelChargeChan(BaseAIChan, MinMaxVal):
         ...     max_val=100.0
         ... )
 
+    :param terminal_config: Input terminal configuration
     :param units: Output units (g, MetersPerSecondSquared, InchesPerSecondSquared)
     :param custom_scale: Optional custom scaling
     :param min_val: Minimum expected acceleration
@@ -301,6 +302,7 @@ class AIAccelChargeChan(BaseAIChan, MinMaxVal):
     """
 
     type: Literal["ai_accel_charge"] = "ai_accel_charge"
+    terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["g", "MetersPerSecondSquared", "InchesPerSecondSquared"]
     custom_scale: Scale = NoScale()
 
@@ -321,7 +323,6 @@ class AIBridgeChan(BaseAIChan, MinMaxVal):
         >>> bridge_chan = AIBridgeChan(
         ...     port=0,
         ...     channel=0,
-        ...     terminal_config="Diff",
         ...     units="VoltsPerVolt",
         ...     bridge_config="FullBridge",
         ...     voltage_excit_source="Internal",
@@ -331,7 +332,6 @@ class AIBridgeChan(BaseAIChan, MinMaxVal):
         ...     max_val=0.01
         ... )
 
-    :param terminal_config: Input terminal configuration
     :param units: Output units (mVoltsPerVolt or VoltsPerVolt)
     :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
     :param voltage_excit_source: Excitation voltage source
@@ -343,7 +343,6 @@ class AIBridgeChan(BaseAIChan, MinMaxVal):
     """
 
     type: Literal["ai_bridge"] = "ai_bridge"
-    terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["mVoltsPerVolt", "VoltsPerVolt"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
     voltage_excit_source: ExcitationSource
@@ -597,7 +596,6 @@ class AIForceBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
         >>> force_2pt_chan = AIForceBridgeTwoPointLinChan(
         ...     port=0,
         ...     channel=0,
-        ...     terminal_config="Diff",
         ...     units="Newtons",
         ...     bridge_config="FullBridge",
         ...     voltage_excit_source="Internal",
@@ -613,7 +611,6 @@ class AIForceBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
         ...     max_val=1100.0
         ... )
 
-    :param terminal_config: Input terminal configuration
     :param units: Output force units (Newtons, Pounds, KilogramForce)
     :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
     :param voltage_excit_source: Excitation voltage source
@@ -631,7 +628,6 @@ class AIForceBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
     """
 
     type: Literal["ai_force_bridge_two_point_lin"] = "ai_force_bridge_two_point_lin"
-    terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Newtons", "Pounds", "KilogramForce"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
     voltage_excit_source: ExcitationSource
@@ -902,7 +898,6 @@ class AIPressureBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
         >>> pressure_2pt_chan = AIPressureBridgeTwoPointLinChan(
         ...     port=0,
         ...     channel=0,
-        ...     terminal_config="Diff",
         ...     units="Pascals",
         ...     bridge_config="FullBridge",
         ...     voltage_excit_source="Internal",
@@ -918,7 +913,6 @@ class AIPressureBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
         ...     max_val=110000.0
         ... )
 
-    :param terminal_config: Input terminal configuration
     :param units: Output pressure units (PoundsPerSquareInch, Pascals, Bar)
     :param bridge_config: Bridge type (FullBridge, HalfBridge, QuarterBridge)
     :param voltage_excit_source: Excitation voltage source
@@ -938,7 +932,6 @@ class AIPressureBridgeTwoPointLinChan(BaseAIChan, MinMaxVal):
     type: Literal["ai_pressure_bridge_two_point_lin"] = (
         "ai_pressure_bridge_two_point_lin"
     )
-    terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["PoundsPerSquareInch", "Pascals", "Bar"]
     bridge_config: Literal["FullBridge", "HalfBridge", "QuarterBridge"]
     voltage_excit_source: ExcitationSource
@@ -969,7 +962,6 @@ class AIResistanceChan(BaseAIChan, MinMaxVal):
         >>> resistance_chan = AIResistanceChan(
         ...     port=0,
         ...     channel=0,
-        ...     terminal_config="Diff",
         ...     units="Ohms",
         ...     resistance_config="4Wire",  # Most accurate
         ...     current_excit_source="Internal",
@@ -978,7 +970,6 @@ class AIResistanceChan(BaseAIChan, MinMaxVal):
         ...     max_val=1000.0
         ... )
 
-    :param terminal_config: Input terminal configuration
     :param units: Output units (Ohms)
     :param resistance_config: Wire configuration (2Wire, 3Wire, or 4Wire)
     :param current_excit_source: Excitation current source (Internal, External, or None)
@@ -989,7 +980,6 @@ class AIResistanceChan(BaseAIChan, MinMaxVal):
     """
 
     type: Literal["ai_resistance"] = "ai_resistance"
-    terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Ohms"] = "Ohms"
     resistance_config: Literal["2Wire", "3Wire", "4Wire"]
     current_excit_source: ExcitationSource
@@ -1060,7 +1050,6 @@ class AIStrainGageChan(BaseAIChan, MinMaxVal):
         >>> strain_chan = AIStrainGageChan(
         ...     port=0,
         ...     channel=0,
-        ...     terminal_config="Diff",
         ...     units="Strain",
         ...     strain_config="QuarterBridgeI",
         ...     voltage_excit_source="Internal",
@@ -1074,7 +1063,6 @@ class AIStrainGageChan(BaseAIChan, MinMaxVal):
         ...     max_val=0.005    # +5000 microstrain
         ... )
 
-    :param terminal_config: Input terminal configuration
     :param units: Output units (strain - dimensionless)
     :param strain_config: Bridge configuration type
     :param voltage_excit_source: Excitation voltage source
@@ -1090,7 +1078,6 @@ class AIStrainGageChan(BaseAIChan, MinMaxVal):
     """
 
     type: Literal["ai_strain_gauge"] = "ai_strain_gauge"
-    terminal_config: TerminalConfig = "Cfg_Default"
     units: Literal["Strain"] = "Strain"
     strain_config: Literal[
         "FullBridgeI",

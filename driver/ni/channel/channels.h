@@ -11,6 +11,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "client/cpp/ni/json.gen.h"
 #include "client/cpp/ni/types.gen.h"
@@ -378,7 +379,7 @@ inline x::errors::Error apply(
         ch.sensitivity_units
     );
     if (sensitivity_units_err) return sensitivity_units_err;
-    const auto terminal_config = DAQmx_Val_Cfg_Default;
+    const auto terminal_config = parse_terminal_config(ch.terminal_config);
     auto [units, units_err] = parse_units(ch.units);
     if (units_err) return units_err;
     if (!scale->is_none()) units = DAQmx_Val_FromCustomScale;
@@ -710,7 +711,7 @@ inline x::errors::Error apply(
     auto [key, key_err] = scale->apply(dmx);
     if (key_err) return key_err;
     const char *scale_key = key.empty() ? nullptr : key.c_str();
-    const auto freq_loc = ctx.dev_loc + "ctr" + std::to_string(ch.port);
+    const auto freq_loc = ctx.dev_loc + "/ai" + std::to_string(ch.port);
     return dmx->CreateAIFreqVoltageChan(
         task_handle,
         freq_loc.c_str(),
@@ -1331,7 +1332,7 @@ inline x::errors::Error apply(
         bridge_config,
         excitation_config.source,
         excitation_config.val,
-        static_cast<bool32>(excitation_config.min_val_for_excitation),
+        excitation_config.use_excit_for_scaling,
         scale_key
     );
 }

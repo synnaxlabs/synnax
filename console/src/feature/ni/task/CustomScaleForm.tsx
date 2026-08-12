@@ -13,6 +13,7 @@ import { type DialogFilter } from "@tauri-apps/plugin-dialog";
 import { type FC, useRef } from "react";
 import { z } from "zod";
 
+import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import {
   type Scale,
   SCALE_SCHEMAS,
@@ -46,6 +47,7 @@ const SelectCustomScaleTypeField = Form.buildSelectField<
     data: [
       { key: "linear", name: "Linear", icon: <Icon.Linear /> },
       { key: "map", name: "Map", icon: <Icon.Map /> },
+      { key: "polynomial", name: "Polynomial", icon: <Icon.Function /> },
       { key: "table", name: "Table", icon: <Icon.Table /> },
       { key: "none", name: "None", icon: <Icon.None /> },
     ],
@@ -110,8 +112,7 @@ const CustomScaleUnitsFields = ({ prefix }: { prefix: string }) => (
   </Flex.Box>
 );
 
-// Partial: the console does not offer polynomial scales.
-const SCALE_FORMS: Partial<Record<ScaleType, FC<CustomScaleFormProps>>> = {
+const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
   linear: ({ prefix }) => (
     <>
       <CustomScaleUnitsFields prefix={prefix} />
@@ -146,6 +147,19 @@ const SCALE_FORMS: Partial<Record<ScaleType, FC<CustomScaleFormProps>>> = {
         <Form.NumericField fieldKey="scaledMin" label="Scaled Min" path={prefix} grow />
         <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
       </Flex.Box>
+    </>
+  ),
+  polynomial: ({ prefix }) => (
+    <>
+      <CustomScaleUnitsFields prefix={prefix} />
+      <CoefficientsField
+        path={`${prefix}.forwardCoeffs`}
+        label="Forward Coefficients"
+      />
+      <CoefficientsField
+        path={`${prefix}.reverseCoeffs`}
+        label="Reverse Coefficients"
+      />
     </>
   ),
   table: ({ prefix }) => {
@@ -246,7 +260,6 @@ export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
   const path = `${prefix}.customScale`;
   const type = Form.useFieldValue<ScaleType>(`${path}.type`);
   const FormComponent = SCALE_FORMS[type];
-  if (FormComponent == null) throw new Error(`No form for scale type ${type}`);
   return (
     <>
       <SelectCustomScaleTypeField path={path} />
