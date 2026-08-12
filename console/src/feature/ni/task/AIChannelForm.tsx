@@ -374,6 +374,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
       <TerminalConfigField path={prefix} />
       <Divider.Divider x padded="bottom" />
       <MinMaxValueFields path={prefix} />
+      <AccelUnitsField path={prefix} />
       <Divider.Divider x padded="bottom" />
       <SensitivityField
         path={prefix}
