@@ -2111,7 +2111,6 @@ func (a AICurrentRMSChannel) Validate() error {
 type AIForceBridgePolynomialChannel struct {
 	BaseAIChannel
 	MinMaxVal
-	Terminal
 	Bridge
 	VoltageExcitation
 	BridgePolynomial
@@ -2133,7 +2132,6 @@ func (a *AIForceBridgePolynomialChannel) ApplyDefaults() {
 		a.PhysicalUnits = ForceUnitsNewtons
 	}
 	a.MinMaxVal.ApplyDefaults()
-	a.Terminal.ApplyDefaults()
 	a.Bridge.ApplyDefaults()
 	a.VoltageExcitation.ApplyDefaults()
 	a.BridgePolynomial.ApplyDefaults()
@@ -2146,7 +2144,6 @@ func (a AIForceBridgePolynomialChannel) Validate() error {
 	v := validate.New("AIForceBridgePolynomialChannel")
 	v.Ternaryf("units", !a.Units.IsValid(), "invalid units: %v", a.Units)
 	v.Ternaryf("physical_units", !a.PhysicalUnits.IsValid(), "invalid physical_units: %v", a.PhysicalUnits)
-	v.Exec(a.Terminal.Validate)
 	v.Exec(a.Bridge.Validate)
 	v.Exec(a.VoltageExcitation.Validate)
 	v.Exec(a.BridgePolynomial.Validate)

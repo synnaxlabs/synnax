@@ -344,7 +344,6 @@ var _ = Describe("Codec", func() {
 			Entry("ai_force_bridge_polynomial variant", v0.AIChannel{Variant: v0.AIForceBridgePolynomialChannel{
 				BaseAIChannel:     fullyPopulatedBaseAIChannel,
 				MinMaxVal:         fullyPopulatedMinMaxVal,
-				Terminal:          fullyPopulatedTerminal,
 				Bridge:            fullyPopulatedBridge,
 				VoltageExcitation: fullyPopulatedVoltageExcitation,
 				BridgePolynomial:  fullyPopulatedBridgePolynomial,
@@ -2556,7 +2555,6 @@ func FuzzDecodeAIChannel(f *testing.F) {
 		seed := v0.AIChannel{Variant: v0.AIForceBridgePolynomialChannel{
 			BaseAIChannel:     fullyPopulatedBaseAIChannel,
 			MinMaxVal:         fullyPopulatedMinMaxVal,
-			Terminal:          fullyPopulatedTerminal,
 			Bridge:            fullyPopulatedBridge,
 			VoltageExcitation: fullyPopulatedVoltageExcitation,
 			BridgePolynomial:  fullyPopulatedBridgePolynomial,
