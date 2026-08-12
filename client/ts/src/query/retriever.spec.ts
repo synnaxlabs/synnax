@@ -105,7 +105,7 @@ describe("Retriever", () => {
       expect(fetchKeys).toHaveBeenCalledWith(["a"]);
     });
 
-    it("resolves a bare key as { key } shorthand through the same entry", async () => {
+    it("resolves a bare key as { key } shorthand through the same query", async () => {
       const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
       const client = new Client(newCache(), fetchKeys, async () => []);
       const result = await client.retrieve("a");
@@ -173,7 +173,7 @@ describe("Retriever", () => {
       await expect(client.retrieve(["a"])).rejects.toThrow(z.ZodError);
     });
 
-    it("serves a cached row without a network fetch", async () => {
+    it("serves a cached entry without a network fetch", async () => {
       const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
       const client = new Client(newCache(), fetchKeys, async () => []);
       client.store.set([thing("a")]);

@@ -34,22 +34,24 @@ const Actions = (): ReactElement | null => {
   );
 };
 
-const Content = (): ReactElement => {
-  const { data: groupID } = Project.useResultGroupID({});
-  return (
-    <Toolbar.Content>
-      <Toolbar.Header>
-        <Toolbar.Title>
-          <Icon.Project />
-          Projects
-        </Toolbar.Title>
-        <Actions />
-      </Toolbar.Header>
-      <Toolbar.Body>
-        <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
-      </Toolbar.Body>
-    </Toolbar.Content>
-  );
+const Content = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header>
+      <Toolbar.Title>
+        <Icon.Project />
+        Projects
+      </Toolbar.Title>
+      <Actions />
+    </Toolbar.Header>
+    <Toolbar.Body>
+      <Body />
+    </Toolbar.Body>
+  </Toolbar.Content>
+);
+
+const Body = (): ReactElement => {
+  const groupID = Project.useGroupID({});
+  return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
 };
 
 const EmptyContent = () => {
