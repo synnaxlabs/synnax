@@ -265,7 +265,7 @@ describe("AnalogRead", () => {
       const [reverseRow] = getCoefficientsField("Reverse Coefficients").rows;
       commitFieldInput(getCoefficientInput(reverseRow), "7.5");
 
-      await deployAndAwaitStart(container, draft.key);
+      await deployAndAwaitTask(client, container, draft.key);
       const created = await client.tasks.retrieve({
         key: draft.key,
         schemas: NI.Task.ANALOG_READ_SCHEMAS,
