@@ -27,7 +27,9 @@ struct BaseWriteTaskConfig : ::synnax::task::common::BaseWriteConfig {
     explicit BaseWriteTaskConfig(x::json::Parser &cfg):
         ::synnax::task::common::BaseWriteConfig(
             ::synnax::task::common::BaseWriteConfig::parse(cfg)
-        ) {}
+        ) {
+        if (this->device.empty()) cfg.field_err("device", "this field is required");
+    }
 };
 
 class Sink : public pipeline::Sink, public pipeline::Source {
