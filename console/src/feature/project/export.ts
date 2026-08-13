@@ -12,7 +12,6 @@ import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
-import { Session } from "@/session";
 
 // The Core owns membership, document serialization, file naming, and the manifest, and
 // the bundle travels as an archive, so the Console streams the response straight to the
@@ -36,14 +35,5 @@ export const useExport = (): ((key: project.Key) => void) => {
       }, `Failed to export ${name}`);
     },
     [client, handleError, download],
-  );
-};
-
-export const useExportSelectedProject = (): (() => void) => {
-  const handleExport = useExport();
-  const store = Session.useStore();
-  return useCallback(
-    () => handleExport(Session.Project.selectSelected(store.getState())),
-    [handleExport, store],
   );
 };

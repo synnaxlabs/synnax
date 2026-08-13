@@ -17,7 +17,6 @@ export const ImportCommand = Command.create({
   name: "Import component(s)",
   icon: <Icon.Import />,
   useOnSelect: Import.useImport,
-  sortOrder: -1,
 });
 
 export const COMMANDS = [ImportCommand];
