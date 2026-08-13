@@ -170,6 +170,13 @@ export interface SpaceConfig<
   compose: (records: V[], params: P) => D;
   /** Rule 1: the single key a query addresses, or null when it doesn't. */
   keyOf?: (params: P) => K | null;
+  /**
+   * The exact key set a keys-only query addresses, or null when it doesn't.
+   * Lets getCached compose the answer straight from the table (params order,
+   * deduped, tombstoned members omitted) and lets maintenance seed a ready
+   * answer on subscribe, so a fully cached key set never fetches.
+   */
+  keysOf?: (params: P) => K[] | null;
   /** Rule 2: whether a record satisfies the query. Pure; no network. */
   matches?: (record: V, params: P) => boolean;
   /**
@@ -330,13 +337,41 @@ export class Space<
     // Rule-1 queries read straight through to the table: an entry (or tombstone)
     // answers the query even before any fetch or subscription exists.
     const key = this.config.keyOf?.(params);
-    if (key == null) return undefined;
+    if (key != null) {
+      const { table } = this.config;
+      const entry = table.get(key);
+      if (entry != null) return this.entryAnswerOf(entry, params);
+      const tombstone = table.getTombstone(key);
+      if (tombstone == null) return undefined;
+      return this.deletedOf(tombstone, params);
+    }
+    // Keys-only queries compose from the table the same way, when every key
+    // resolves. The answer matches what the fetch would return.
+    const keys = this.config.keysOf?.(params);
+    if (keys == null) return undefined;
+    const members = this.composableMembersOf(keys);
+    if (members == null) return undefined;
+    return this.composedOf(this.ensure(params), members);
+  }
+
+  /**
+   * Resolves a keys-only query's key list against the table: deduped, in
+   * params order, tombstoned keys omitted to match the fetch answer. Returns
+   * null when any key is unknown, since only a fetch can tell an uncached
+   * record from a nonexistent one.
+   */
+  private composableMembersOf(keys: K[]): K[] | null {
     const { table } = this.config;
-    const entry = table.get(key);
-    if (entry != null) return this.entryAnswerOf(entry, params);
-    const tombstone = table.getTombstone(key);
-    if (tombstone == null) return undefined;
-    return this.deletedOf(tombstone, params);
+    const members: K[] = [];
+    const seen = new Set<K>();
+    for (const key of keys) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const status = table.status(key);
+      if (status === "unknown") return null;
+      if (status === "present") members.push(key);
+    }
+    return members;
   }
 
   /**
@@ -663,6 +698,23 @@ export class Space<
     )
       this.scheduleRefetch(query);
     query.unmaintained = false;
+
+    // A keys-only query whose members the table already holds seeds a ready
+    // answer: rules 2 and 3 gate notifications on a ready state, so without
+    // the seed an answer getCached composes would look live while never
+    // updating.
+    const composableKeys = this.config.keysOf?.(params);
+    if (
+      composableKeys != null &&
+      query.state.variant !== "loading" &&
+      query.state.variant !== "ready"
+    ) {
+      const members = this.composableMembersOf(composableKeys);
+      if (members != null) {
+        query.state = { variant: "ready", keys: members };
+        this.touch(query);
+      }
+    }
 
     if (this.isServerComputed(params) || (keyOf?.(params) == null && matches == null)) {
       // Rule 3: server-computed — any relevant event triggers a debounced

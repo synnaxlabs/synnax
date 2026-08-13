@@ -64,12 +64,6 @@ export interface CreateRetrieveParams<
   Data extends query.Data,
 > extends flux.Definition<Query, Data> {
   /**
-   * Builds the answer synchronously from records already cached under other
-   * queries. Consulted only when `getCached` misses, so suspending reads
-   * resolve without a fetch. Returns undefined to fall through to `retrieve`.
-   */
-  deriveCached?: (params: RetrieveParams<Query>) => Data | undefined;
-  /**
    * Holds the previous answer whenever the next one compares equal, so readers
    * re-render only on changes the answer expresses. Defaults to element-wise
    * identity for list answers, which is what a `getCached` that composes entries
@@ -356,7 +350,6 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
     retrieve,
     onChange,
     getCached,
-    deriveCached,
     equal,
     normalizeQuery,
   }: Context<Query, Data>,
@@ -384,14 +377,10 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   // A replay resumes through the promise the suspended attempt holds. Serving it the
   // answer the fetch just put in the cache would skip the `use` call React needs to
   // find the end of the recorded hook list.
-  if (pending.promise == null) {
-    if (cached !== undefined) {
-      if (Deleted.matches<Data>(cached))
-        throw new DeletedError(`${name} was deleted`, cached.corpse);
-      return cached;
-    }
-    const derived = deriveCached?.(params);
-    if (derived != null) return derived;
+  if (pending.promise == null && cached !== undefined) {
+    if (Deleted.matches<Data>(cached))
+      throw new DeletedError(`${name} was deleted`, cached.corpse);
+    return cached;
   }
   return suspendOnFetch(
     params,
@@ -431,7 +420,6 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     retrieve,
     onChange,
     getCached,
-    deriveCached,
     equal,
     normalizeQuery,
   }: Context<Query, Data>,
@@ -459,7 +447,6 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     if (client == null || memoQuery == null || cached !== undefined) return;
     const local = localFor(locals, client);
     const params = { client, query: memoQuery };
-    if (deriveCached?.(params) != null) return;
     const settled = local.settled.get(query.hash(memoQuery));
     if (settled != null && "data" in settled) return;
     ensureFetch(
@@ -486,12 +473,6 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
   }
 
   const local = localFor(locals, client);
-  const params = { client, query: memoQuery };
-  const derived = deriveCached?.(params);
-  if (derived != null)
-    return hold(["derived", derived], () =>
-      successResult(`retrieved ${name}`, derived),
-    );
   const settled = local.settled.get(query.hash(memoQuery));
   if (settled != null)
     return hold(["settled", settled], () =>
@@ -509,7 +490,6 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
     retrieve,
     onChange,
     getCached,
-    deriveCached,
     normalizeQuery,
   }: Context<Query, Data>,
   query: Query,
@@ -531,7 +511,6 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
         throw new DeletedError(`${name} was deleted`, cached.corpse);
       return;
     }
-    if (deriveCached?.(params) != null) return;
   }
   suspendOnFetch(
     params,
@@ -671,7 +650,6 @@ const createResultSelector = <
     retrieve,
     onChange,
     getCached,
-    deriveCached,
     equal = answersEqual,
     normalizeQuery,
   } = context;
@@ -729,7 +707,6 @@ const createResultSelector = <
       if (client == null || memoQuery == null || slice.kind !== "none") return;
       const local = localFor(locals, client);
       const params = { client, query: memoQuery };
-      if (deriveCached?.(params) != null) return;
       const settled = local.settled.get(query.hash(memoQuery));
       if (settled != null && "data" in settled) return;
       ensureFetch(
@@ -757,12 +734,6 @@ const createResultSelector = <
         ),
       );
     const local = localFor(locals, client);
-    const params = { client, query: memoQuery };
-    const derived = deriveCached?.(params);
-    if (derived != null)
-      return hold(["derived", derived], () =>
-        successResult(`retrieved ${name}`, select(derived, memoQuery)),
-      );
     const settled = local.settled.get(query.hash(memoQuery));
     if (settled != null)
       return hold(["settled", settled], () =>

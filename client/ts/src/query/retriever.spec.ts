@@ -77,6 +77,8 @@ class Client extends query.Retriever<typeof paramsZ, string, Thing> {
         schema: paramsZ,
         fetch: async (req) => await fetchRequest(req),
         matches: (r, req) => {
+          const keys = "keys" in req ? req.keys : undefined;
+          if (keys != null && !keys.includes(r.key)) return false;
           const minSize = "minSize" in req ? req.minSize : undefined;
           return minSize == null || r.size >= minSize;
         },
@@ -258,6 +260,45 @@ describe("Retriever", () => {
       client.store.set([thing("b", 4)]);
       expect(handler).toHaveBeenLastCalledWith([thing("a", 5), thing("b", 4)]);
       stop();
+    });
+
+    it("answers a keys-only getCached from records cached by other queries", async () => {
+      const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+      const client = new Client(newCache(), fetchKeys, async () => []);
+      await client.retrieve("a");
+      await client.retrieve("b");
+      expect(client.getCached({ keys: ["a", "b"] })).toEqual([thing("a"), thing("b")]);
+      expect(fetchKeys).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not compose a getCached answer for keys plus another set field", async () => {
+      const fetchKeys = async (keys: string[]) => keys.map((k) => thing(k));
+      const client = new Client(newCache(), fetchKeys, async () => []);
+      await client.retrieve(["a"]);
+      expect(client.getCached({ keys: ["a"], minSize: 0 })).toBeUndefined();
+    });
+
+    it("does not compose a getCached answer for an empty key list", () => {
+      const client = new Client(
+        newCache(),
+        async () => [],
+        async () => [],
+      );
+      expect(client.getCached({ keys: [] })).toBeUndefined();
+    });
+
+    it("matches the fetch answer for duplicated and deleted keys", async () => {
+      const existing = new Set(["a", "b"]);
+      const fetchKeys = vi.fn(async (keys: string[]) =>
+        keys.filter((k) => existing.has(k)).map((k) => thing(k)),
+      );
+      const client = new Client(newCache(), fetchKeys, async () => []);
+      await client.retrieve(["a", "b"]);
+      existing.delete("b");
+      client.store.delete("b");
+      const cached = client.getCached({ keys: ["a", "a", "b"] });
+      expect(cached).toEqual([thing("a")]);
+      expect(await client.retrieve({ keys: ["a", "a", "b"] })).toEqual(cached);
     });
 
     it("hashes equivalent requests identically after schema normalization", async () => {

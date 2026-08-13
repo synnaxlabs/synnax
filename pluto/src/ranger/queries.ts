@@ -105,15 +105,6 @@ export const { use: useMultiple } = Flux.createRetrieve<
   onChange: ({ client, query: { keys } }, handler) =>
     client.ranges.onChange(keys, handler),
   getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
-  deriveCached: ({ client, query: { keys } }) => {
-    const ranges: ranger.Range[] = [];
-    for (const key of keys) {
-      const cached = client.ranges.getCached(key);
-      if (!query.isLive(cached)) return undefined;
-      ranges.push(cached);
-    }
-    return ranges;
-  },
 });
 
 export const formSchema = z.object({

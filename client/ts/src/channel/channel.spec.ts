@@ -473,9 +473,15 @@ describe("cached reads", () => {
       expect(cached.name).toEqual(ch.name);
     });
 
-    it("returns undefined for an unfetched filter query", async () => {
+    it("composes a keys query from records written by create", async () => {
       const ch = await createVirtual();
-      expect(client.channels.getCached({ keys: [ch.key] })).toBeUndefined();
+      const cached = expectLive(client.channels.getCached({ keys: [ch.key] }));
+      expect(cached.map(({ key }) => key)).toEqual([ch.key]);
+    });
+
+    it("returns undefined for a keys query with an uncached key", async () => {
+      const ch = await createVirtual();
+      expect(client.channels.getCached({ keys: [ch.key, 999999999] })).toBeUndefined();
     });
   });
 
