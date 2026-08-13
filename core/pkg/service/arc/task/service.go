@@ -69,7 +69,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ctx, config.ServiceConfig[Config]{
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
-			Type:               "arc_task",
+			Type:               Type,
 			Version:            legacy.LastVersion + 1,
 			SetEntryKey:        (*Config).SetKey,
 			ApplyEntryDefaults: (*Config).ApplyDefaults,

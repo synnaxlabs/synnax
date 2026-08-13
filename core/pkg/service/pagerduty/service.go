@@ -69,7 +69,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ctx, config.ServiceConfig[TaskConfig]{
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
-			Type:            "pagerduty_alert",
+			Type:            AlertTaskType,
 			Version:         legacy.LastVersion + 1,
 			Legacy:          &legacy.Alert,
 			SetEntryKey:     (*TaskConfig).SetKey,
