@@ -17,27 +17,27 @@ export const STANDARD_LIBRARY_NAV: PageNavNode = {
     {
       key: "/reference/control/arc/reference/standard-library/control",
       href: "/reference/control/arc/reference/standard-library/control",
-      name: "Control",
+      name: "`control`",
     },
     {
       key: "/reference/control/arc/reference/standard-library/math",
       href: "/reference/control/arc/reference/standard-library/math",
-      name: "Math",
+      name: "`math`",
     },
     {
       key: "/reference/control/arc/reference/standard-library/ranges",
       href: "/reference/control/arc/reference/standard-library/ranges",
-      name: "Ranges",
+      name: "`ranges`",
     },
     {
       key: "/reference/control/arc/reference/standard-library/status",
       href: "/reference/control/arc/reference/standard-library/status",
-      name: "Status",
+      name: "`status`",
     },
     {
       key: "/reference/control/arc/reference/standard-library/time",
       href: "/reference/control/arc/reference/standard-library/time",
-      name: "Time",
+      name: "`time`",
     },
   ],
 };
