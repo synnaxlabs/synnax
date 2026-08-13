@@ -331,6 +331,57 @@ describe("Panel Slice", () => {
       expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([OTHER_TAB, THIRD_TAB]);
     });
 
+    // Closing a tab with the X or the context menu removes it from the panel document
+    // and nothing else, so the overlay has to end here rather than at the close site.
+    it("should exit the overlay when the focused tab leaves the tree", () => {
+      const state = run(
+        Panel.select({ key: PANEL }),
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.startOverlaying({}),
+        Panel.reconcileSelection({ key: PANEL, leaves: [[OTHER_TAB]] }),
+      );
+      expect(overlaid(state)).toBe(false);
+      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([OTHER_TAB]);
+    });
+
+    // A window left flagged overlaid with no tabs opens the next tab it creates
+    // straight into focus mode.
+    it("should exit the overlay when the panel's last tab leaves the tree", () => {
+      const state = run(
+        Panel.select({ key: PANEL }),
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.startOverlaying({}),
+        Panel.reconcileSelection({ key: PANEL, leaves: [[]] }),
+      );
+      expect(overlaid(state)).toBe(false);
+      expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([]);
+    });
+
+    it("should keep the overlay when the focused tab survives", () => {
+      const state = run(
+        Panel.select({ key: PANEL }),
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.startOverlaying({}),
+        Panel.reconcileSelection({ key: PANEL, leaves: [[TAB, OTHER_TAB]] }),
+      );
+      expect(overlaid(state)).toBe(true);
+    });
+
+    it("should keep the overlay when an unselected panel loses its focused tab", () => {
+      const state = run(
+        Panel.select({ key: PANEL }),
+        Panel.internalSelectTab({
+          key: OTHER_PANEL,
+          tabKey: OTHER_TAB,
+          otherTabKeys: [OTHER_TAB],
+        }),
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.startOverlaying({}),
+        Panel.reconcileSelection({ key: OTHER_PANEL, leaves: [[]] }),
+      );
+      expect(overlaid(state)).toBe(true);
+    });
+
     it("should target the window named in the payload", () => {
       const state = run(
         Panel.internalSelectTab({
@@ -389,6 +440,16 @@ describe("Panel Slice", () => {
         Panel.remove(PANEL),
       );
       expect(Panel.selectSelected(state)).toBeUndefined();
+    });
+
+    it("should exit the overlay when the selected panel is removed", () => {
+      const state = run(
+        Panel.select({ key: PANEL }),
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.startOverlaying({}),
+        Panel.remove(PANEL),
+      );
+      expect(overlaid(state)).toBe(false);
     });
 
     it("should fall back to another panel when the selected one is removed", () => {
