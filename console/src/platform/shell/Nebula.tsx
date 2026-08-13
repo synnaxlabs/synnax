@@ -11,21 +11,17 @@ import "@/platform/shell/Nebula.css";
 
 import { Theming } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactElement, useEffect, useMemo, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 
-// Curated seeds; one is drawn per launch. Audition new candidates through the
-// tuner's seed input.
+// Module scope, so one seed lasts the launch and the nebula holds still as the
+// pre-workspace surfaces swap.
 const SEEDS = [
   7, 25, 61, 99, 122, 147, 225, 315, 483, 777, 1024, 2718, 3141, 4222, 5077, 6502, 7919,
   8674, 9253,
 ];
 const SEED = SEEDS[Math.floor(Math.random() * SEEDS.length)];
-
-// TEMPORARY: renders a live slider panel over the shell for tuning SETTINGS.
-// Flip off (and eventually delete the Tuner) once values are finalized.
-const TUNER = false as boolean;
 
 type Lattice = "square" | "diamond" | "hex";
 type FadeDirection = "top" | "topLeft" | "left" | "none";
@@ -69,8 +65,7 @@ const SETTINGS: Settings = {
   color: "#e6e6ea",
 };
 
-// SETTINGS is the dark-mode tuning; light backgrounds carry darker ink at a
-// softer intensity, like halftone print on paper.
+// SETTINGS is the dark-mode tuning; light backgrounds want darker ink.
 const LIGHT_OVERRIDES: Partial<Settings> = { color: "#63666c", intensity: 0.6 };
 
 const hash = (x: number, y: number, seed: number): number => {
@@ -178,153 +173,43 @@ const draw = (canvas: HTMLCanvasElement, s: Settings, seed: number): void => {
   ctx.globalAlpha = 1;
 };
 
-type NumericKey =
-  | "pitch"
-  | "dotScale"
-  | "cloudScale"
-  | "gamma"
-  | "floor"
-  | "intensity"
-  | "fade"
-  | "clearing"
-  | "minRadius";
-
-const SLIDERS: Array<{ key: NumericKey; min: number; max: number; step: number }> = [
-  { key: "pitch", min: 2, max: 14, step: 0.5 },
-  { key: "dotScale", min: 0.4, max: 1.6, step: 0.05 },
-  { key: "cloudScale", min: 0.5, max: 8, step: 0.1 },
-  { key: "gamma", min: 0.5, max: 4, step: 0.05 },
-  { key: "floor", min: 0, max: 0.4, step: 0.01 },
-  { key: "intensity", min: 0.1, max: 1, step: 0.05 },
-  { key: "fade", min: 0, max: 1, step: 0.05 },
-  { key: "clearing", min: 0, max: 1, step: 0.05 },
-  { key: "minRadius", min: 0, max: 1, step: 0.05 },
-];
-
-interface TunerProps {
-  settings: Settings;
-  seed: number;
-  onChange: (settings: Settings) => void;
-  onSeedChange: (seed: number) => void;
-}
-
-const Tuner = ({
-  settings,
-  seed,
-  onChange,
-  onSeedChange,
-}: TunerProps): ReactElement => (
-  <div className={CSS.B("nebula-tuner")}>
-    <label>
-      seed {seed}
-      <input
-        type="number"
-        value={seed}
-        onChange={(e) => onSeedChange(Number(e.target.value))}
-      />
-    </label>
-    {SLIDERS.map(({ key, min, max, step }) => (
-      <label key={key}>
-        {key} {settings[key]}
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={settings[key]}
-          onChange={(e) => onChange({ ...settings, [key]: Number(e.target.value) })}
-        />
-      </label>
-    ))}
-    <label>
-      lattice
-      <select
-        value={settings.lattice}
-        onChange={(e) => onChange({ ...settings, lattice: e.target.value as Lattice })}
-      >
-        <option value="square">square</option>
-        <option value="diamond">diamond</option>
-        <option value="hex">hex</option>
-      </select>
-    </label>
-    <label>
-      fade dir
-      <select
-        value={settings.fadeDir}
-        onChange={(e) =>
-          onChange({ ...settings, fadeDir: e.target.value as FadeDirection })
-        }
-      >
-        <option value="top">top</option>
-        <option value="topLeft">topLeft</option>
-        <option value="left">left</option>
-        <option value="none">none</option>
-      </select>
-    </label>
-    <label>
-      color
-      <input
-        type="color"
-        value={settings.color}
-        onChange={(e) => onChange({ ...settings, color: e.target.value })}
-      />
-    </label>
-    <button
-      onClick={() =>
-        void navigator.clipboard.writeText(
-          JSON.stringify({ seed, ...settings }, null, 2),
-        )
-      }
-    >
-      Copy settings
-    </button>
-  </div>
-);
-
 /**
  * Static halftone nebula: a noise cloud rendered through a dot screen, where dot
- * size follows cloud brightness. Draws once per resize; costs nothing at rest.
+ * size follows cloud brightness. Redraws on resize; costs nothing at rest.
  */
 export const Nebula = (): ReactElement => {
   const ref = useRef<HTMLCanvasElement>(null);
   const theme = Theming.use();
-  const themed = useMemo(
+  const settings = useMemo(
     () =>
       color.isLight(theme.colors.gray.l0)
         ? { ...SETTINGS, ...LIGHT_OVERRIDES }
         : SETTINGS,
     [theme],
   );
-  const [tuned, setTuned] = useState<Settings | null>(null);
-  const settings = tuned ?? themed;
-  const [seed, setSeed] = useState(SEED);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
-  const seedRef = useRef(seed);
-  seedRef.current = seed;
   useEffect(() => {
     const canvas = ref.current;
     if (canvas == null) return;
-    const observer = new ResizeObserver(() =>
-      draw(canvas, settingsRef.current, seedRef.current),
-    );
+    // A single draw walks tens of thousands of dots, and a window drag notifies
+    // the observer every frame, so at most one draw is ever pending.
+    let frame: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (frame != null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        draw(canvas, settingsRef.current, SEED);
+      });
+    });
     observer.observe(canvas);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (frame != null) cancelAnimationFrame(frame);
+    };
   }, []);
   useEffect(() => {
-    if (ref.current != null) draw(ref.current, settings, seed);
-  }, [settings, seed]);
-  return (
-    <>
-      <canvas ref={ref} className={CSS.B("nebula")} />
-      {TUNER && (
-        <Tuner
-          settings={settings}
-          seed={seed}
-          onChange={setTuned}
-          onSeedChange={setSeed}
-        />
-      )}
-    </>
-  );
+    if (ref.current != null) draw(ref.current, settings, SEED);
+  }, [settings]);
+  return <canvas ref={ref} className={CSS.B("nebula")} />;
 };
