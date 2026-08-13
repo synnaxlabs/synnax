@@ -27,7 +27,7 @@ var _ = Describe("Raw", func() {
 				Expect(orc.NewRaw([]byte{1, 2, 3})).Error().To(
 					SatisfyAll(
 						MatchError(validate.ErrValidation),
-						MatchError(ContainSubstring("data was not encoded using orc")),
+						MatchError(ContainSubstring("data was not encoded using ORC")),
 					))
 			},
 		)

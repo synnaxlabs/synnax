@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, type rack, type task } from "@synnaxlabs/client";
+import { arc, type rack, status, task } from "@synnaxlabs/client";
 import { compare, type record, verbs, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
@@ -16,6 +16,7 @@ import { Node } from "@/arc/graph/node";
 import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
+import { Task } from "@/task";
 import { Theming } from "@/theming";
 import { type Diagram } from "@/vis/diagram";
 
@@ -222,32 +223,93 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export interface DeployParams {
+export interface SetRackParams {
   key: arc.Key;
-  /** Target rack. Zero undeploys the arc. */
+  /** Target rack. Zero clears the binding, deleting the arc's task. */
   rack: rack.Key;
 }
 
-export const { useUpdate: useDeploy } = Flux.createUpdate<
-  DeployParams,
+export const { useUpdate: useSetRack } = Flux.createUpdate<
+  SetRackParams,
   task.Task | null
 >({
-  name: RESOURCE_NAME,
-  verbs: verbs.DEPLOY,
-  update: async ({ client, data }) => await client.arcs.deploy(data.key, data.rack),
+  name: `${RESOURCE_NAME} rack`,
+  verbs: verbs.SET,
+  update: async ({ client, data }) => await client.arcs.setRack(data.key, data.rack),
 });
 
 export type RetrieveTaskParams = {
   arcKey: arc.Key;
 };
 
-export const { use: useTask, useResult: useResultTask } = Flux.createRetrieve<
-  RetrieveTaskParams,
-  task.Task | null
->({
+export const {
+  use: useTask,
+  useResult: useResultTask,
+  createResultSelector: createTaskResultSelector,
+} = Flux.createRetrieve<RetrieveTaskParams, task.Task | null>({
   name: "Task",
   retrieve: async ({ client, query }) => await client.arcs.task.retrieve(query.arcKey),
   onChange: ({ client, query }, handler) =>
     client.arcs.task.onChange(query.arcKey, handler),
   getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
 });
+
+const useDriftedResult = createTaskResultSelector(
+  (tsk) => tsk != null && task.drifted(tsk),
+);
+
+/**
+ * Whether the arc's running instance was deployed from different content, config, or
+ * rack than its task now holds. The Core rewrites the task config whenever the arc's
+ * semantic content changes, so content drift surfaces as ordinary task config drift.
+ * Arcs that are not running never drift. Re-renders only when the boolean changes.
+ */
+export const useDrifted = (query: RetrieveTaskParams): boolean =>
+  useDriftedResult(query).data === true;
+
+export interface UseTaskControlsReturn {
+  running: boolean;
+  taskKey: task.Key;
+  taskRack: rack.Key;
+  /** Starts the task. The driver rebuilds from the current config when it drifted. */
+  onStart: () => void;
+  /** Stops the running instance. */
+  onStop: () => void;
+  onStartStop: () => void;
+  taskStatus: status.Status;
+}
+
+const notDeployedYet = (name: string) =>
+  status.create({ name, variant: "disabled", message: "Not deployed yet" });
+
+/** Running state and start/stop controls for the arc's task. */
+export const useTaskControls = (key: arc.Key, name: string): UseTaskControlsReturn => {
+  const { data: tsk, variant, status: readStatus } = useResultTask({ arcKey: key });
+  const cmd = Task.useCommand();
+  const isRunning = tsk?.status?.details.running ?? false;
+  const taskKey = tsk?.key ?? "";
+  const taskRack = tsk?.rack ?? 0;
+  const exec = useCallback(
+    (type: "start" | "stop") => {
+      if (taskKey === "") return;
+      cmd.update([{ task: taskKey, type }]);
+    },
+    [cmd, taskKey],
+  );
+  const onStart = useCallback(() => exec("start"), [exec]);
+  const onStop = useCallback(() => exec("stop"), [exec]);
+  const onStartStop = useCallback(
+    () => (isRunning ? onStop() : onStart()),
+    [isRunning, onStop, onStart],
+  );
+  return {
+    running: isRunning,
+    taskKey,
+    taskRack,
+    onStart,
+    onStop,
+    onStartStop,
+    taskStatus:
+      variant !== "success" ? readStatus : (tsk?.status ?? notDeployedYet(name)),
+  };
+};

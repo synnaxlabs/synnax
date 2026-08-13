@@ -31,23 +31,35 @@
         background: linear-gradient(to right, transparent, var(--surface));
         pointer-events: none;
         opacity: 0;
+        transition: opacity 0.1s ease-out;
     }
 }
 
-/* Riding the strip's scroll timeline leaves the fade inactive while the tabs fit.
-   Both stops hold the same value, leaving scroll position out of it. */
-@supports (animation-timeline: scroll(nearest x)) {
-    .pluto-panel-mosaic__cap::before {
-        animation: panel-mosaic-cap-fade linear;
-        animation-timeline: scroll(nearest x);
-    }
+/* The fade is inactive while the tabs fit. */
+.pluto-tabs__selector--scrollable .pluto-panel-mosaic__cap::before {
+    opacity: 1;
+}
 
-    @keyframes panel-mosaic-cap-fade {
-        0%,
-        100% {
-            opacity: 1;
-        }
-    }
+/* Anchored on the frame, outside the scrollport, so it hugs the strip's true left
+   edge instead of pinning inside its padding. Height matches the strip's min-height
+   set below. */
+.pluto-mosaic__leaf > .pluto-tabs::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 5rem;
+    width: 3rem;
+    background: linear-gradient(to right, var(--pluto-gray-l0), transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s ease-out;
+    z-index: 2;
+}
+
+/* Shows only while tabs are hidden past the start. */
+.pluto-mosaic__leaf > .pluto-tabs:has(> .pluto-tabs__selector--clipped-start)::before {
+    opacity: 1;
 }
 
 .pluto-panel-mosaic__create {
@@ -91,6 +103,9 @@
    reads a step quieter than the focused tab, which re-points its own color. */
 .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector--default.pluto--direction-x,
 .pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__selector--default.pluto--direction-x {
+    /* The strip's fade mask would also fade the sticky cap at the masked edge; the
+       cap and start-fade gradients carry the overflow fades here instead. */
+    mask-image: none;
     min-height: 5rem;
     --pluto-tabs-tab-height: round(4.3333rem, 1px);
     --pluto-tabs-tab-align: flex-end;
