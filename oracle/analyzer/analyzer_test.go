@@ -394,6 +394,57 @@ Entry struct {
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 		})
+
+		It("Should flag a stale import hiding behind a used same-name namespace", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/text", `
+				Level enum {
+					h1 = "h1"
+				}
+			`)
+			loader.Add("schemas/arc/text", `
+				Document struct { raw string }
+			`)
+			source := `
+				import "schemas/arc/text"
+				import "schemas/x/text"
+				Entry struct {
+					level text.Level
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				`unused import "schemas/arc/text"`,
+			))
+			Expect(diag.String()).ToNot(ContainSubstring(
+				`unused import "schemas/x/text"`,
+			))
+		})
+
+		It("Should accept two same-namespace imports when both are used", func(
+			ctx SpecContext,
+		) {
+			loader.Add("schemas/x/text", `
+				Level enum {
+					h1 = "h1"
+				}
+			`)
+			loader.Add("schemas/arc/text", `
+				Document struct { raw string }
+			`)
+			source := `
+				import "schemas/arc/text"
+				import "schemas/x/text"
+				Entry struct {
+					level text.Level
+					doc   text.Document
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
 	})
 
 	Describe("AnalyzeSource", func() {

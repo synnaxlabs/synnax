@@ -18,6 +18,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/parser"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
@@ -173,6 +174,90 @@ func usedQualifiers(ast parser.ISchemaContext) set.Set[string] {
 	return used
 }
 
+// usedQualifiedNames collects every qualified reference in the file as a
+// "qualifier.member" string: an identifier, a dot, and an identifier, in any position.
+func usedQualifiedNames(ast parser.ISchemaContext) set.Set[string] {
+	used := make(set.Set[string])
+	stream, ok := ast.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
+	if !ok {
+		return used
+	}
+	var defaultChan []antlr.Token
+	for _, tok := range stream.GetAllTokens() {
+		if tok.GetChannel() == antlr.TokenDefaultChannel {
+			defaultChan = append(defaultChan, tok)
+		}
+	}
+	for i := 0; i+2 < len(defaultChan); i++ {
+		if defaultChan[i].GetTokenType() == parser.OracleLexerIDENT &&
+			defaultChan[i+1].GetTokenType() == parser.OracleLexerDOT &&
+			defaultChan[i+2].GetTokenType() == parser.OracleLexerIDENT {
+			used.Add(defaultChan[i].GetText() + "." + defaultChan[i+2].GetText())
+		}
+	}
+	return used
+}
+
+// importUse records one import statement for the post-analysis usage check.
+type importUse struct {
+	stmt   parser.IImportStmtContext
+	path   string
+	failed bool
+}
+
+// reportUnusedImports flags imports whose content the file never references. The check
+// is namespace-keyed, except when several imports bind the same namespace: there each
+// import must itself declare a referenced name, which catches a stale import hiding
+// behind a used sibling. Runs after imports load, so provenance comes from the table's
+// declared file paths.
+func reportUnusedImports(c *analysisCtx, imports []importUse) {
+	qualifiers := usedQualifiers(c.ast)
+	names := usedQualifiedNames(c.ast)
+	byNS := make(map[string][]importUse)
+	for _, iu := range imports {
+		ns := DeriveNamespace(iu.path)
+		byNS[ns] = append(byNS[ns], iu)
+	}
+	for ns, group := range byNS {
+		if !qualifiers.Contains(ns) {
+			for _, iu := range group {
+				c.report(diagnostics.Errorf(iu.stmt, "unused import %q", iu.path))
+			}
+			continue
+		}
+		if len(group) == 1 {
+			continue
+		}
+		matched := make([]bool, len(group))
+		var anyMatch bool
+		for name := range names {
+			if !strings.HasPrefix(name, ns+".") {
+				continue
+			}
+			t, ok := c.table.Get(name)
+			if !ok {
+				continue
+			}
+			for i, iu := range group {
+				if t.FilePath == paths.EnsureOracleExtension(iu.path) {
+					matched[i] = true
+					anyMatch = true
+				}
+			}
+		}
+		// No referenced name traces to any import in the group: provenance is
+		// unavailable (e.g. seeded tables), so stay silent rather than guess.
+		if !anyMatch {
+			continue
+		}
+		for i, iu := range group {
+			if !matched[i] && !iu.failed {
+				c.report(diagnostics.Errorf(iu.stmt, "unused import %q", iu.path))
+			}
+		}
+	}
+}
+
 func analyze(c *analysisCtx) {
 	if c.ast == nil {
 		return
@@ -202,24 +287,27 @@ func analyze(c *analysisCtx) {
 		}
 	}
 
-	used := usedQualifiers(c.ast)
+	var imports []importUse
 	for _, imp := range c.ast.AllImportStmt() {
 		path := strings.Trim(imp.STRING_LIT().GetText(), `"`)
-		if !used.Contains(DeriveNamespace(path)) {
-			c.report(diagnostics.Errorf(imp, "unused import %q", path))
-		}
+		iu := importUse{stmt: imp, path: path}
 		if c.table.IsImported(path) {
+			imports = append(imports, iu)
 			continue
 		}
 		c.table.MarkImported(path)
 		source, filePath, err := c.loader.Load(path)
 		if err != nil {
 			c.report(diagnostics.Errorf(imp, "failed to import %s: %v", path, err))
+			iu.failed = true
+			imports = append(imports, iu)
 			continue
 		}
 		ast, parseDiag := parser.Parse(source)
 		if parseDiag != nil && !parseDiag.Ok() {
 			c.diag.MergeFile(filePath, *parseDiag)
+			iu.failed = true
+			imports = append(imports, iu)
 			continue
 		}
 		ic := &analysisCtx{
@@ -233,7 +321,9 @@ func analyze(c *analysisCtx) {
 			fileDomains: make(map[string]resolution.Domain),
 		}
 		analyze(ic)
+		imports = append(imports, iu)
 	}
+	reportUnusedImports(c, imports)
 
 	types := c.table.TypesInNamespace(c.namespace)
 	for i := range types {
