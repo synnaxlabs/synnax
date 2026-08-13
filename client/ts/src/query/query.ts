@@ -171,10 +171,10 @@ export interface SpaceConfig<
   /** Rule 1: the single key a query addresses, or null when it doesn't. */
   keyOf?: (params: P) => K | null;
   /**
-   * The exact key set a keys-only query addresses, or null when it doesn't.
-   * Lets getCached compose the answer straight from the table (params order,
-   * deduped, tombstoned members omitted) and lets maintenance seed a ready
-   * answer on subscribe, so a fully cached key set never fetches.
+   * The exact key set a keys-only query addresses, or null when it doesn't. Lets
+   * getCached compose the answer straight from the table (params order, deduped,
+   * tombstoned members omitted) and lets maintenance seed a ready answer on
+   * subscribe, so a fully cached key set never fetches.
    */
   keysOf?: (params: P) => K[] | null;
   /** Rule 2: whether a record satisfies the query. Pure; no network. */
@@ -345,8 +345,8 @@ export class Space<
       if (tombstone == null) return undefined;
       return this.deletedOf(tombstone, params);
     }
-    // Keys-only queries compose from the table the same way, when every key
-    // resolves. The answer matches what the fetch would return.
+    // Keys-only queries compose from the table the same way, when every key resolves.
+    // The answer matches what the fetch would return.
     const keys = this.config.keysOf?.(params);
     if (keys == null) return undefined;
     const members = this.composableMembersOf(keys);
@@ -355,10 +355,10 @@ export class Space<
   }
 
   /**
-   * Resolves a keys-only query's key list against the table: deduped, in
-   * params order, tombstoned keys omitted to match the fetch answer. Returns
-   * null when any key is unknown, since only a fetch can tell an uncached
-   * record from a nonexistent one.
+   * Resolves a keys-only query's key list against the table: deduped, in params
+   * order, tombstoned keys omitted to match the fetch answer. Returns null when any
+   * key is unknown, since only a fetch can tell an uncached record from a
+   * nonexistent one.
    */
   private composableMembersOf(keys: K[]): K[] | null {
     const { table } = this.config;
@@ -699,10 +699,9 @@ export class Space<
       this.scheduleRefetch(query);
     query.unmaintained = false;
 
-    // A keys-only query whose members the table already holds seeds a ready
-    // answer: rules 2 and 3 gate notifications on a ready state, so without
-    // the seed an answer getCached composes would look live while never
-    // updating.
+    // A keys-only query whose members the table already holds seeds a ready answer:
+    // rules 2 and 3 gate notifications on a ready state, so without the seed an
+    // answer getCached composes would look live while never updating.
     const composableKeys = this.config.keysOf?.(params);
     if (
       composableKeys != null &&
