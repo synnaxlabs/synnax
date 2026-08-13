@@ -79,6 +79,14 @@ export interface CreateRetrieveParams<
    * preserve fields it does not set, so selector-only extensions survive.
    */
   normalizeQuery?: <Q extends Query>(query: Q) => Q;
+  /**
+   * Holds a not-found pending for a short wait instead of settling it, for
+   * documents a reference can reach a reader ahead of: a panel tab minted in
+   * another window names its view before that view's create broadcast lands.
+   * Every other reader shows absence at once. Requires `onChange` and
+   * `getCached`.
+   */
+  awaitCreation?: boolean;
 }
 
 // The domain query cache interns its answers, so identity holds for anything
@@ -255,12 +263,11 @@ const NOOP_SUBSCRIBE = () => () => {};
 
 /**
  * How long a not-found suspending read stays pending before the not-found
- * becomes final. Covers a reference arriving ahead of its document's create
- * broadcast (e.g. a panel tab minted in another window).
+ * becomes final. Only queries that set `awaitCreation` wait.
  */
 const NOT_FOUND_WAIT = TimeSpan.seconds(5);
 
-const awaitCreation = <Query extends query.Params, Data extends query.Data>(
+const waitForCreation = <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
   {
     name,
@@ -318,7 +325,7 @@ interface FetchParamsSource<
   Data extends query.Data,
 > extends Pick<
   CreateRetrieveParams<Query, Data>,
-  "name" | "retrieve" | "onChange" | "getCached"
+  "name" | "retrieve" | "onChange" | "getCached" | "awaitCreation"
 > {
   local: LocalCache<Data>;
 }
@@ -328,18 +335,22 @@ const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
   retrieve,
   onChange,
   getCached,
+  awaitCreation = false,
   local,
 }: FetchParamsSource<Query, Data>): EnsureFetchParams<Query, Data> => ({
   name,
   retrieve,
   getCached,
   local,
-  // A domain-cached not-found stays pending: the reference may have outrun its
-  // document's create broadcast, which the subscription will deliver.
-  // Everything else settles.
+  // A not-found on a query that awaits creation stays pending: the reference may
+  // have outrun its document's create broadcast, which the subscription will
+  // deliver. Everything else settles.
   onFetchError: (params, { cause, error, hash }) =>
-    onChange != null && getCached != null && NotFoundError.matches(cause)
-      ? awaitCreation(params, { name, error, hash, onChange, getCached, local })
+    awaitCreation &&
+    onChange != null &&
+    getCached != null &&
+    NotFoundError.matches(cause)
+      ? waitForCreation(params, { name, error, hash, onChange, getCached, local })
       : null,
 });
 
@@ -352,6 +363,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
     getCached,
     equal,
     normalizeQuery,
+    awaitCreation,
   }: Context<Query, Data>,
   query: Query,
 ): Data => {
@@ -384,7 +396,7 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>(
   }
   return suspendOnFetch(
     params,
-    fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+    fetchParamsFor({ name, retrieve, onChange, getCached, awaitCreation, local }),
     pending,
   );
 };
@@ -422,6 +434,7 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     getCached,
     equal,
     normalizeQuery,
+    awaitCreation,
   }: Context<Query, Data>,
   q: Query | null,
 ): Result<Data> => {
@@ -451,7 +464,7 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
     if (settled != null && "data" in settled) return;
     ensureFetch(
       params,
-      fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+      fetchParamsFor({ name, retrieve, onChange, getCached, awaitCreation, local }),
     ).then(bump, bump);
   }, [client, memoQuery, cached]);
 
@@ -484,7 +497,15 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
 };
 
 const useEnsure = <Query extends query.Params, Data extends query.Data>(
-  { locals, name, retrieve, onChange, getCached, normalizeQuery }: Context<Query, Data>,
+  {
+    locals,
+    name,
+    retrieve,
+    onChange,
+    getCached,
+    normalizeQuery,
+    awaitCreation,
+  }: Context<Query, Data>,
   query: Query,
 ): void => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
@@ -507,7 +528,7 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>(
   }
   suspendOnFetch(
     params,
-    fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+    fetchParamsFor({ name, retrieve, onChange, getCached, awaitCreation, local }),
     pending,
   );
 };
@@ -645,6 +666,7 @@ const createResultSelector = <
     getCached,
     equal = answersEqual,
     normalizeQuery,
+    awaitCreation,
   } = context;
   const sliceEqual = (a: Slice<Data, Selected>, b: Slice<Data, Selected>): boolean => {
     if (a.kind !== b.kind) return false;
@@ -704,7 +726,7 @@ const createResultSelector = <
       if (settled != null && "data" in settled) return;
       ensureFetch(
         params,
-        fetchParamsFor({ name, retrieve, onChange, getCached, local }),
+        fetchParamsFor({ name, retrieve, onChange, getCached, awaitCreation, local }),
       ).then(bump, bump);
     }, [client, memoQuery, slice]);
     if (client == null)

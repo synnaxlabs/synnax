@@ -33,6 +33,7 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
   onChange: ({ client, query }, handler) => client.schematics.onChange(query, handler),
   getCached: ({ client, query }) => client.schematics.getCached(query),
+  awaitCreation: true,
 });
 
 export interface KeyParams {
