@@ -13,7 +13,14 @@ import {
   type project,
   type Synnax,
 } from "@synnaxlabs/client";
-import { context, type Flux, type Icon, Panel, Text } from "@synnaxlabs/pluto";
+import {
+  context,
+  type Flux,
+  type Icon,
+  Panel,
+  Text,
+  type Triggers,
+} from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -164,6 +171,9 @@ export const editTabName = (tabKey: string): void => {
   if (document.getElementById(id) == null) return;
   Text.edit(id);
 };
+
+/** Starts an in-place name edit on the focused tab. Bound by the app shell. */
+export const RENAME_TRIGGER: Triggers.Trigger = ["Control", "E"];
 
 export interface EditableTabNameService {
   useEnsureRetrieved: (args: { key: string }) => void;
