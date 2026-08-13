@@ -76,6 +76,9 @@ export interface ReconcileSelectionPayload extends PanelKeyPayload {
 
 const withWindowKey = Window.createWithKeyHandler(windowStateZ);
 
+const panelState = (win: WindowState, key: panel.Key): State =>
+  (win.panels[key] ??= stateZ.parse({}));
+
 const withSelectedState = <Payload extends PanelKeyPayload>(
   handler: (
     state: State,
@@ -83,13 +86,7 @@ const withSelectedState = <Payload extends PanelKeyPayload>(
   ) => void,
 ) =>
   withWindowKey<Payload, SliceState>((win, action) => {
-    const { key } = action.payload;
-    let pan = win.panels[key];
-    if (pan == null) {
-      pan = stateZ.parse({});
-      win.panels[key] = pan;
-    }
-    handler(pan, action);
+    handler(panelState(win, action.payload.key), action);
   });
 
 // A hidden panel stops rendering but keeps streaming its channels, so the set is
@@ -130,8 +127,9 @@ const { actions, reducer } = createSlice({
     // reconcileSelection converges a panel's selection to its live tree: one tab
     // per leaf, most recent first; a leaf with no selected tab contributes its
     // last tab.
-    reconcileSelection: withSelectedState<ReconcileSelectionPayload>(
-      (pan, { payload: { leaves } }) => {
+    reconcileSelection: withWindowKey<ReconcileSelectionPayload, SliceState>(
+      (win, { payload: { key, leaves } }) => {
+        const pan = panelState(win, key);
         const leafOf = new Map<panel.TabKey, number>();
         leaves.forEach((tabs, i) => tabs.forEach((tab) => leafOf.set(tab, i)));
         const claimed = new Set<number>();
@@ -145,6 +143,12 @@ const { actions, reducer } = createSlice({
         leaves.forEach((tabs, i) => {
           if (!claimed.has(i) && tabs.length > 0) next.push(tabs[tabs.length - 1]);
         });
+        // Overlaying shows the selected panel's focused tab. Losing that tab ends the
+        // overlay; the flag would otherwise pull in whichever tab is focused next, or
+        // the next tab created in an emptied panel.
+        const focused = pan.selectedTabs[0];
+        if (win.selected === key && focused != null && !leafOf.has(focused))
+          win.isOverlaid = false;
         if (!compare.arraysEqual(pan.selectedTabs, next)) pan.selectedTabs = next;
       },
     ),
@@ -157,6 +161,9 @@ const { actions, reducer } = createSlice({
         removed.forEach((key) => delete win.panels[key]);
         win.mounted = win.mounted.filter((key) => !removed.includes(key));
         if (win.selected == null || !removed.includes(win.selected)) return;
+        // The overlaid tab belongs to the selected panel, so losing it ends the
+        // overlay.
+        win.isOverlaid = false;
         // Prefers the most recently used survivor, falling back to any panel the
         // window has state for: mounted is empty until the window selects again.
         const next = win.mounted[0] ?? Object.keys(win.panels).at(-1);
