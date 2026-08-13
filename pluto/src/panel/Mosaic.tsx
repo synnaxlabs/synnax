@@ -226,7 +226,7 @@ const OverlaidLeaf = ({
         }
       >
         <Icon.Collapse />
-        Exit Focus
+        Exit focus
       </Button.Button>
     </Tabs.Selector>
     <Tabs.Content grow>

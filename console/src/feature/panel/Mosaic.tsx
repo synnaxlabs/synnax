@@ -256,17 +256,9 @@ const EmptyTabContent = ({ onCreateTab }: MosaicProps): ReactElement => {
 const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
   const selected = Session.Panel.useSelectSelectedTabs();
   const handleSelect = Session.Panel.useSelectTab();
-  const panelKey = Panel.useOptionalKey();
-  const selectedPanel = Session.Panel.useSelectSelected();
-  const isOverlaid = Session.Panel.useSelectOverlaid();
   const focusedTab = Session.Panel.useSelectFocusedTab();
+  const isOverlaid = Session.Panel.useSelectIsTabOverlaid(undefined, focusedTab);
   const dispatch = useDispatch();
-  // Overlaying only applies to the window's selected panel: kept-alive
-  // background panels see the same window-level flag but must not claim tabs.
-  const overlaid =
-    isOverlaid && panelKey != null && panelKey === selectedPanel
-      ? focusedTab
-      : undefined;
   const handleStopOverlay = useCallback(
     () => dispatch(Session.Panel.stopOverlaying({})),
     [dispatch],
@@ -276,7 +268,7 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
       className={CSS.B("mosaic")}
       selected={selected}
       onSelect={handleSelect}
-      overlaid={overlaid}
+      overlaid={isOverlaid ? focusedTab : undefined}
       onStopOverlay={handleStopOverlay}
       onCreateTab={onCreateTab}
       resolveDroppedTab={resolveDroppedTab}

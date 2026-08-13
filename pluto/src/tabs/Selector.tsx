@@ -193,17 +193,14 @@ const resetTabs = (selector: HTMLElement, snap: boolean): void => {
 };
 
 /**
- * scrollSelectedIntoView brings the strip's selected tab into the scrollport. Keys
- * naming tabs in other strips are skipped, so frames sharing one selection each scroll
- * only their own.
+ * findSelected returns the strip's own selected tab, or null when the selection names
+ * none of its tabs. Frames sharing one selection each see the others' keys here.
  */
-const scrollSelectedIntoView = (selector: HTMLElement, keys: Set<string>): void => {
-  if (keys.size === 0) return;
+const findSelected = (selector: HTMLElement, keys: Set<string>): HTMLElement | null => {
+  if (keys.size === 0) return null;
   for (const tab of selector.querySelectorAll<HTMLElement>(KEY_SELECTOR))
-    if (keys.has(tab.getAttribute(KEY_ATTRIBUTE) ?? "")) {
-      tab.scrollIntoView({ block: "nearest", inline: "nearest" });
-      return;
-    }
+    if (keys.has(tab.getAttribute(KEY_ATTRIBUTE) ?? "")) return tab;
+  return null;
 };
 
 /** The dragging state a strip drop reports, plus the resolved insertion index. */
@@ -337,11 +334,18 @@ export const Selector = ({
   );
 
   // Kept on the strip rather than on each tab so one selection change schedules one
-  // effect instead of one per tab.
+  // effect instead of one per tab. The selection spans every strip sharing it, so the
+  // last key scrolled gates the scroll: else a sibling's change yanks this strip back.
   const selected = Select.useSelected<string>();
+  const scrolledRef = useRef<string | null>(null);
   useLayoutEffect(() => {
     const el = internalRef.current;
-    if (el != null) scrollSelectedIntoView(el, new Set(selected));
+    if (el == null) return;
+    const tab = findSelected(el, new Set(selected));
+    const key = tab?.getAttribute(KEY_ATTRIBUTE);
+    if (tab == null || key == null || key === scrolledRef.current) return;
+    scrolledRef.current = key;
+    tab.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [selected]);
 
   const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
