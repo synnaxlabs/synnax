@@ -12,6 +12,7 @@ import { context } from "@synnaxlabs/pluto";
 
 export interface FormContextValue {
   search: (term: string) => void;
+  answered: boolean;
 }
 
 export const [FormContext, useFormContext] = context.create<FormContextValue>({
