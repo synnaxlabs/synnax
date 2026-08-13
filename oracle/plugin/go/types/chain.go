@@ -227,6 +227,12 @@ func frozenFile(
 		}
 	}
 	var structs, enums, typedefs, unions []resolution.Type
+	// The frozen surface table registers sorted, so the version file's declaration
+	// order passes to the generator explicitly.
+	order := make(map[string]int, len(f.Order))
+	for i, name := range f.Order {
+		order[ns+"."+name] = i
+	}
 	for _, name := range f.Order {
 		t, ok := table.Get(ns + "." + name)
 		if !ok || t.Synthetic || omit.IsSkipped(t, "go") {
@@ -251,7 +257,7 @@ func frozenFile(
 	}
 	content, err := generateGoFile(
 		vkPath, structs, enums, typedefs, unions,
-		table, req.RepoRoot, pred, nil, PersistedClosure(table), false,
+		table, req.RepoRoot, pred, nil, PersistedClosure(table), false, order,
 	)
 	if err != nil {
 		return plugin.File{}, errors.Wrapf(err, "frozen package %s", vkPath)

@@ -20,6 +20,23 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Key is a unique identifier for an Arc module.
+type Key = v0.Key
+
+// Mode specifies whether an Arc module uses text-based or graph-based representation.
+type Mode = v0.Mode
+
+const (
+	ModeText  Mode = v0.ModeText
+	ModeGraph Mode = v0.ModeGraph
+)
+
+// StatusDetails contains Arc-specific status details for execution state.
+type StatusDetails = v0.StatusDetails
+
+// Status is the status of an Arc module including execution state.
+type Status = status.Status[StatusDetails]
+
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc struct {
@@ -47,20 +64,3 @@ func (a Arc) Validate() error {
 	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
 	return v.Error()
 }
-
-// Key is a unique identifier for an Arc module.
-type Key = v0.Key
-
-// Mode specifies whether an Arc module uses text-based or graph-based representation.
-type Mode = v0.Mode
-
-const (
-	ModeText  Mode = v0.ModeText
-	ModeGraph Mode = v0.ModeGraph
-)
-
-// Status is the status of an Arc module including execution state.
-type Status = status.Status[StatusDetails]
-
-// StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails = v0.StatusDetails

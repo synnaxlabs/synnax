@@ -17,19 +17,6 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
-// Graph is a visual dataflow graph representation combining IR elements with canvas
-// layout for the Arc graph editor.
-type Graph struct {
-	// Viewport is the current camera state for the graph view.
-	Viewport Viewport `json:"viewport" msgpack:"viewport"`
-	// Functions contains function definitions available in this graph.
-	Functions ir.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
-	// Edges contains dataflow connections between node parameters.
-	Edges ir.Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
-	// Nodes contains visual nodes with canvas positions.
-	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
-}
-
 // Node is a visual node in the Arc graph editor representing a function instantiation
 // with position data.
 type Node struct {
@@ -52,4 +39,17 @@ type Viewport struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 	// Zoom is the zoom level where 1.0 equals 100%.
 	Zoom float64 `json:"zoom" msgpack:"zoom"`
+}
+
+// Graph is a visual dataflow graph representation combining IR elements with canvas
+// layout for the Arc graph editor.
+type Graph struct {
+	// Viewport is the current camera state for the graph view.
+	Viewport Viewport `json:"viewport" msgpack:"viewport"`
+	// Functions contains function definitions available in this graph.
+	Functions ir.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
+	// Edges contains dataflow connections between node parameters.
+	Edges ir.Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
+	// Nodes contains visual nodes with canvas positions.
+	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 }

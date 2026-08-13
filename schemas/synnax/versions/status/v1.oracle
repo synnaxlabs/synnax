@@ -10,9 +10,9 @@
 import "schemas/synnax/label"
 import "schemas/x/versions/telem/v0"
 
-Key = v0.Key
-
 Variant = v0.Variant
+
+Key = v0.Key
 
 Status struct<Details?, V extends Variant = Variant> {
     key         Key = create {

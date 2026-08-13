@@ -20,6 +20,15 @@ import status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 // configuration latency.
 type Key uint32
 
+// StatusDetails is the rack-specific detail payload carried in a rack Status.
+type StatusDetails struct {
+	// Rack is the key of the rack the status describes.
+	Rack Key `json:"rack" msgpack:"rack"`
+}
+
+// Status is rack-specific status information including operational state.
+type Status = status.Status[StatusDetails]
+
 // Rack is a manager for a collection of tasks deployed on a node.
 type Rack struct {
 	// Key uniquely identifies the rack in the cluster.
@@ -35,13 +44,4 @@ type Rack struct {
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 	// Integrations are the driver integrations the rack supports.
 	Integrations []string `json:"integrations,omitzero" msgpack:"integrations,omitzero"`
-}
-
-// Status is rack-specific status information including operational state.
-type Status = status.Status[StatusDetails]
-
-// StatusDetails is the rack-specific detail payload carried in a rack Status.
-type StatusDetails struct {
-	// Rack is the key of the rack the status describes.
-	Rack Key `json:"rack" msgpack:"rack"`
 }

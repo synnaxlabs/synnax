@@ -19,6 +19,22 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Key is a unique identifier for the device
+type Key = string
+
+// StatusDetails contains device-specific status details identifying the device and its
+// associated rack.
+type StatusDetails struct {
+	// Rack is the key of the rack this device belongs to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Device is the device identifier.
+	Device Key `json:"device" msgpack:"device"`
+}
+
+// Status is device-specific status information including operational state and device
+// identification.
+type Status = status.Status[StatusDetails]
+
 // Device is a physical piece of hardware connected to Synnax through the Driver system.
 // Devices represent external equipment like LabJack, National Instruments, OPC UA
 // servers, or Modbus devices.
@@ -56,20 +72,4 @@ func (d Device) Validate() error {
 		v.Exec(func() error { return validate.PathedError(d.Parent.Validate(), "parent") })
 	}
 	return v.Error()
-}
-
-// Key is a unique identifier for the device
-type Key = string
-
-// Status is device-specific status information including operational state and device
-// identification.
-type Status = status.Status[StatusDetails]
-
-// StatusDetails contains device-specific status details identifying the device and its
-// associated rack.
-type StatusDetails struct {
-	// Rack is the key of the rack this device belongs to.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Device is the device identifier.
-	Device Key `json:"device" msgpack:"device"`
 }

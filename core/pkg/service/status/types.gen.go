@@ -25,11 +25,11 @@ const (
 	VariantDisabled Variant = versions.VariantDisabled
 )
 
+// Key is a unique identifier for a status.
+type Key = versions.Key
+
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry
 // component-specific details. A status is uniquely identified by a key and may carry a
 // human-readable name and labels for categorization and filtering.
 type Status[Details any] = versions.Status[Details]
-
-// Key is a unique identifier for a status.
-type Key = versions.Key

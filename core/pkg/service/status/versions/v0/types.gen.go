@@ -16,6 +16,29 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
+// Variant is the severity or type of a status message.
+type Variant string
+
+const (
+	VariantSuccess  Variant = "success"
+	VariantInfo     Variant = "info"
+	VariantWarning  Variant = "warning"
+	VariantError    Variant = "error"
+	VariantLoading  Variant = "loading"
+	VariantDisabled Variant = "disabled"
+)
+
+// IsValid reports whether v is one of the defined Variant
+// values.
+func (v Variant) IsValid() bool {
+	switch v {
+	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Key is a unique identifier for a status.
 type Key = string
 
@@ -40,27 +63,4 @@ type Status[Details any] struct {
 	Details Details `json:"details" msgpack:"details"`
 	// Labels contains optional labels for categorization and filtering.
 	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
-}
-
-// Variant is the severity or type of a status message.
-type Variant string
-
-const (
-	VariantSuccess  Variant = "success"
-	VariantInfo     Variant = "info"
-	VariantWarning  Variant = "warning"
-	VariantError    Variant = "error"
-	VariantLoading  Variant = "loading"
-	VariantDisabled Variant = "disabled"
-)
-
-// IsValid reports whether v is one of the defined Variant
-// values.
-func (v Variant) IsValid() bool {
-	switch v {
-	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:
-		return true
-	default:
-		return false
-	}
 }

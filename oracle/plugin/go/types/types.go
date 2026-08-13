@@ -273,7 +273,7 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 	content, err := generateGoFile(
 		ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions,
 		ctx.Table, ctx.RepoRoot, g.preds[ctx.OutputPath], latest, g.closure,
-		transient,
+		transient, nil,
 	)
 	if err != nil {
 		return "", err
@@ -407,6 +407,7 @@ func generateGoFile(
 	latest *resolution.Table,
 	closure set.Set[string],
 	transientPass bool,
+	order map[string]int,
 ) ([]byte, error) {
 	namespace := ""
 	if len(structs) > 0 {
@@ -465,7 +466,7 @@ func generateGoFile(
 	}
 
 	var predAlias string
-	for _, d := range orderDecls(table, typeDefs, enums, structs, unions) {
+	for _, d := range orderDecls(table, order, typeDefs, enums, structs, unions) {
 		if omit.IsSkipped(d.typ, "go") {
 			continue
 		}
@@ -527,15 +528,21 @@ type orderedDecl struct {
 	typ  resolution.Type
 }
 
-// orderDecls merges the kind-grouped type lists into schema declaration
-// order, using the table's registration order as the source position.
+// orderDecls merges the kind-grouped type lists into schema declaration order. An
+// explicit order wins when present; otherwise the table's registration order is the
+// source position. Frozen surface tables register sorted, so the frozen path must
+// pass the version file's declaration order explicitly.
 func orderDecls(
 	table *resolution.Table,
+	order map[string]int,
 	typeDefs, enums, structs, unions []resolution.Type,
 ) []orderedDecl {
-	index := make(map[string]int, len(table.Types))
-	for i, t := range table.Types {
-		index[t.QualifiedName] = i
+	index := order
+	if index == nil {
+		index = make(map[string]int, len(table.Types))
+		for i, t := range table.Types {
+			index[t.QualifiedName] = i
+		}
 	}
 	pos := func(t resolution.Type) int {
 		if i, ok := index[t.QualifiedName]; ok {

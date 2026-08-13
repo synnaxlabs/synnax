@@ -111,7 +111,9 @@ func (g *aliasFileGenerator) GenerateFile(
 		Import:  resolveGoImportPath(importPath, ctx.RepoRoot),
 	}
 
-	for _, d := range orderDecls(ctx.Table, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions) {
+	for _, d := range orderDecls(
+		ctx.Table, nil, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions,
+	) {
 		if omit.IsType(d.typ, "go") {
 			continue
 		}
