@@ -154,12 +154,7 @@ const Internal = (): ReactElement => {
         empty={false}
         gap="small"
       >
-        <Tabs.Selector
-          size="medium"
-          variant="pill"
-          overflow="scroll"
-          onContextMenu={menuProps.open}
-        >
+        <Tabs.Selector size="medium" variant="pill" onContextMenu={menuProps.open}>
           {keys.map((key) => (
             <Tab key={key} tabKey={key} />
           ))}

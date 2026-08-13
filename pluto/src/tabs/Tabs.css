@@ -9,9 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-/* Lets a frame shrink past its tabs instead of shoving its siblings out. */
+/* Lets a frame shrink past its tabs instead of shoving its siblings out. The frame
+   is also the scroll thumb's anchor, so the thumb can hang below the scrollport. */
 .pluto-tabs {
     min-width: 0;
+    position: relative;
 }
 
 .pluto-tabs__content {
@@ -32,61 +34,93 @@
     max-width: 100%;
     overflow-x: auto;
     overflow-y: hidden;
+    scrollbar-width: none;
     /* The scrollport clips an outset halo, so rings in the strip draw inset. */
     --pluto-focus-ring-offset: -2px;
 
     --pluto-tabs-tab-width: 25rem;
     --pluto-tabs-tab-min-width: 11rem;
     --pluto-tabs-selected-min-width: var(--pluto-tabs-tab-min-width);
-}
-
-.pluto-tabs__selector--overflow-scroll {
-    &::-webkit-scrollbar {
-        height: 3px;
-    }
-
-    &::-webkit-scrollbar-thumb:hover {
-        background: var(--pluto-gray-l7);
-    }
-}
-
-.pluto-tabs__selector--overflow-fade {
-    scrollbar-width: none;
 
     &::-webkit-scrollbar {
         display: none;
     }
 }
 
-/* The mask rides the strip's scroll progress, so an edge fades only while tabs are
-   hidden past it. Without timeline support it would run on time instead and mask a
-   strip that fits, hence the guard. */
-@supports (animation-timeline: scroll(self x)) {
-    .pluto-tabs__selector--overflow-fade {
-        animation: tabs-selector-fade linear;
-        animation-timeline: scroll(self x);
+/* Overlays the strip's bottom edge, so revealing it never shifts the tabs. The
+   Selector owns its geometry: width, left, and top are set from the scroll state. */
+.pluto-tabs__thumb {
+    position: absolute;
+    left: 0;
+    height: round(0.5rem, 1px);
+    border-radius: var(--pluto-border-radius-small);
+    background: var(--pluto-gray-l6);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        opacity 0.15s ease-in-out,
+        background 0.15s ease-in-out;
+    z-index: 1;
+
+    /* Extends the grab target above the sliver of visible thumb. */
+    &::before {
+        content: "";
+        position: absolute;
+        inset: round(-0.75rem, 1px) 0 0 0;
     }
 
-    @keyframes tabs-selector-fade {
-        0% {
-            mask-image: linear-gradient(
-                to right,
-                transparent 0,
-                black 0,
-                black calc(100% - var(--pluto-tabs-fade-width, 6rem)),
-                transparent 100%
-            );
-        }
+    &:hover,
+    &.pluto-tabs__thumb--dragging {
+        background: var(--pluto-gray-l8);
+    }
+}
 
-        100% {
-            mask-image: linear-gradient(
-                to right,
-                transparent 0,
-                black var(--pluto-tabs-fade-width, 6rem),
-                black 100%,
-                transparent 100%
-            );
-        }
+/* The thumb's own hover keeps it alive once the pointer crosses off the strip. */
+.pluto-tabs__selector--scrollable:hover + .pluto-tabs__thumb,
+.pluto-tabs__thumb:hover,
+.pluto-tabs__thumb--dragging {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Registered so the mask's edge widths transition; unregistered custom properties
+   snap discretely. rem is not computationally independent, so the initial values
+   are px. */
+@property --pluto-tabs-fade-start {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0px;
+}
+
+@property --pluto-tabs-fade-end {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0px;
+}
+
+/* The Selector toggles the clipped classes from its scroll measurements, so an edge
+   fades only while tabs are hidden past it. */
+.pluto-tabs__selector.pluto--direction-x {
+    --pluto-tabs-fade-start: 0px;
+    --pluto-tabs-fade-end: 0px;
+    transition:
+        --pluto-tabs-fade-start 0.1s ease-out,
+        --pluto-tabs-fade-end 0.1s ease-out;
+    mask-image: linear-gradient(
+        to right,
+        transparent 0,
+        black var(--pluto-tabs-fade-start),
+        black calc(100% - var(--pluto-tabs-fade-end)),
+        transparent 100%
+    );
+
+    /* Nested so the clipped states outrank the two-class base rule above. */
+    &.pluto-tabs__selector--clipped-start {
+        --pluto-tabs-fade-start: var(--pluto-tabs-fade-width, 6rem);
+    }
+
+    &.pluto-tabs__selector--clipped-end {
+        --pluto-tabs-fade-end: var(--pluto-tabs-fade-width, 6rem);
     }
 }
 
@@ -283,6 +317,14 @@
             height: var(--pluto-tabs-tab-height, var(--pluto-height-small));
             align-self: var(--pluto-tabs-tab-align, auto);
             font-weight: 450;
+        }
+
+        /* A small strip's tabs are otherwise flush with the scrollport, and
+           WebKit snaps the masked strip's layer to whole pixels, eating a flush
+           tab's bottom border. The shorter tab leaves the clip half a pixel of
+           slack per edge. */
+        &.pluto--height-small {
+            --pluto-tabs-tab-height: calc(var(--pluto-height-small) - 1px);
         }
     }
 
