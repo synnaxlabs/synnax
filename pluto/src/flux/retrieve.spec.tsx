@@ -20,15 +20,16 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
 import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import {
   type FC,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
+  useMemo,
   useState,
 } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { Errors } from "@/errors";
@@ -252,6 +253,100 @@ describe("retrieve", () => {
           expect(result.current.status.description).toEqual("Resource was deleted");
         });
       });
+    });
+  });
+
+  describe("useObservable", () => {
+    type OnChange = (result: Flux.Result<string>, query: { key: string }) => void;
+
+    it("should drop the subscription of a query superseded mid-fetch", async () => {
+      const handlers = new Map<string, query.ChangeHandler<string>>();
+      let resolveSlow: ((value: string) => void) | null = null;
+      const { useRetrieveObservable } = Flux.createRetrieve<{ key: string }, string>({
+        name: "Resource",
+        retrieve: async ({ query: { key } }) =>
+          key === "slow"
+            ? await new Promise<string>((resolve) => (resolveSlow = resolve))
+            : key,
+        subscribe: ({ query: { key } }, h) => {
+          handlers.set(key, h);
+          return () => handlers.delete(key);
+        },
+      });
+      const onChange = vi.fn<OnChange>();
+      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
+        wrapper: Wrapper,
+      });
+      let slow: Promise<void> | null = null;
+      await act(async () => {
+        slow = result.current.retrieveAsync({ key: "slow" });
+        await result.current.retrieveAsync({ key: "fast" });
+      });
+      await act(async () => {
+        resolveSlow?.("slow");
+        await slow;
+      });
+      expect(handlers.has("slow")).toBe(false);
+      act(() => handlers.get("fast")?.("updated"));
+      const lastCall = onChange.mock.calls.at(-1);
+      assert(lastCall != null);
+      const [lastResult, lastQuery] = lastCall;
+      expect(lastResult.data).toEqual("updated");
+      expect(lastQuery.key).toEqual("fast");
+    });
+
+    it("should drop the value of a query superseded mid-fetch", async () => {
+      let resolveSlow: ((value: string) => void) | null = null;
+      const { useRetrieveObservable } = Flux.createRetrieve<{ key: string }, string>({
+        name: "Resource",
+        retrieve: async ({ query: { key } }) =>
+          key === "slow"
+            ? await new Promise<string>((resolve) => (resolveSlow = resolve))
+            : key,
+      });
+      const onChange = vi.fn<OnChange>();
+      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
+        wrapper: Wrapper,
+      });
+      let slow: Promise<void> | null = null;
+      await act(async () => {
+        slow = result.current.retrieveAsync({ key: "slow" });
+        await result.current.retrieveAsync({ key: "fast" });
+      });
+      await act(async () => {
+        resolveSlow?.("slow");
+        await slow;
+      });
+      const results = onChange.mock.calls.map(([res]) => res);
+      expect(results.some(({ data }) => data === "slow")).toBe(false);
+      expect(results.at(-1)?.data).toEqual("fast");
+    });
+
+    it("should drop the failure of a query superseded mid-fetch", async () => {
+      let rejectSlow: ((error: Error) => void) | null = null;
+      const { useRetrieveObservable } = Flux.createRetrieve<{ key: string }, string>({
+        name: "Resource",
+        retrieve: async ({ query: { key } }) =>
+          key === "slow"
+            ? await new Promise<string>((_, reject) => (rejectSlow = reject))
+            : key,
+      });
+      const onChange = vi.fn<OnChange>();
+      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
+        wrapper: Wrapper,
+      });
+      let slow: Promise<void> | null = null;
+      await act(async () => {
+        slow = result.current.retrieveAsync({ key: "slow" });
+        await result.current.retrieveAsync({ key: "fast" });
+      });
+      await act(async () => {
+        rejectSlow?.(new Error("slow failed"));
+        await slow;
+      });
+      const results = onChange.mock.calls.map(([res]) => res);
+      expect(results.some(({ variant }) => variant === "error")).toBe(false);
+      expect(results.at(-1)?.data).toEqual("fast");
     });
   });
 
@@ -830,8 +925,13 @@ describe("useRetrieveSuspended", () => {
           <Wrapper>
             <Errors.SuspenseBoundary
               loading={<div>waiting</div>}
-              FallbackComponent={({ error }) => (
-                <div data-testid="error">{error.message}</div>
+              FallbackComponent={({ error, resetErrorBoundary }) => (
+                <>
+                  <div data-testid="error">{error.message}</div>
+                  <button data-testid="reset" onClick={resetErrorBoundary}>
+                    reset
+                  </button>
+                </>
               )}
             >
               <Display />
@@ -879,6 +979,96 @@ describe("useRetrieveSuspended", () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it("refetches after the settled not-found is invalidated", async () => {
+      let cached: query.Cached<number> | undefined;
+      let found = false;
+      const retrieve = vi.fn(async (): Promise<number> => {
+        if (!found) throw new NotFoundError("no such number");
+        cached = 42;
+        return 42;
+      });
+      const { useRetrieveSuspended, useInvalidate } = Flux.createRetrieve<
+        { key: string },
+        number
+      >({
+        name: "Number",
+        retrieve,
+        subscribe: () => () => {},
+        getCached: () => cached,
+      });
+      const Display = (): ReactElement => (
+        <div data-testid="value">{useRetrieveSuspended({ key: "invalidate" })}</div>
+      );
+      const Retry = ({ onRetry }: { onRetry: () => void }): ReactElement => {
+        const invalidate = useInvalidate();
+        return (
+          <button
+            data-testid="retry"
+            onClick={() => {
+              invalidate({ key: "invalidate" });
+              onRetry();
+            }}
+          >
+            retry
+          </button>
+        );
+      };
+      let utils!: ReturnType<typeof render>;
+      vi.useFakeTimers();
+      try {
+        await act(async () => {
+          utils = render(
+            <Wrapper>
+              <Errors.SuspenseBoundary
+                loading={<div>waiting</div>}
+                FallbackComponent={({ resetErrorBoundary }) => (
+                  <Retry onRetry={resetErrorBoundary} />
+                )}
+              >
+                <Display />
+              </Errors.SuspenseBoundary>
+            </Wrapper>,
+          );
+        });
+        await act(async () => {
+          vi.advanceTimersByTime(TimeSpan.seconds(6).milliseconds);
+          await Promise.resolve();
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(utils.queryByTestId("retry")).toBeTruthy();
+      expect(retrieve).toHaveBeenCalledTimes(1);
+      found = true;
+      await act(async () => {
+        fireEvent.click(utils.getByTestId("retry"));
+      });
+      await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("42"));
+      expect(retrieve).toHaveBeenCalledTimes(2);
+    });
+
+    it("stays on the settled not-found when the boundary resets without invalidating", async () => {
+      vi.useFakeTimers();
+      let utils!: ReturnType<typeof render>;
+      let retrieve!: ReturnType<typeof vi.fn>;
+      try {
+        const harness = await renderNotFound("nf-reset-only");
+        utils = harness.utils;
+        retrieve = harness.retrieve;
+        await act(async () => {
+          vi.advanceTimersByTime(TimeSpan.seconds(6).milliseconds);
+          await Promise.resolve();
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+      await act(async () => {
+        fireEvent.click(utils.getByTestId("reset"));
+      });
+      expect(utils.queryByTestId("reset")).toBeTruthy();
+      expect(retrieve).toHaveBeenCalledTimes(1);
     });
 
     it("rejects with a deleted error when a tombstone arrives during the wait", async () => {
@@ -1098,6 +1288,49 @@ describe("useEnsureRetrieved", () => {
 
     expect(utils.queryByTestId("error")?.textContent).toBe("Failed to retrieve Number");
     expect(retrieve).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useRetrieveSuspended connection changes", () => {
+  it("surfaces a disconnect that lands after the read resolved", async () => {
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve: async () => 42,
+    });
+
+    const Display = (): ReactElement => {
+      const value = useRetrieveSuspended({ key: "disconnect-test" });
+      const label = useMemo(() => `value-${value}`, [value]);
+      return <div data-testid="value">{label}</div>;
+    };
+
+    const Harness = ({ connected }: { connected: boolean }): ReactElement => (
+      <Wrapper>
+        <Synnax.TestProvider client={connected ? client : null}>
+          <Errors.SuspenseBoundary
+            loading={<div>loading</div>}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">{error.message}</div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Synnax.TestProvider>
+      </Wrapper>
+    );
+
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(<Harness connected />);
+    });
+    await waitFor(() =>
+      expect(utils.queryByTestId("value")?.textContent).toBe("value-42"),
+    );
+
+    await act(async () => {
+      utils.rerender(<Harness connected={false} />);
+    });
+    expect(utils.queryByTestId("error")?.textContent).toContain("no Core connected");
   });
 });
 

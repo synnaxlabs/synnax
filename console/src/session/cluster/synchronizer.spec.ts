@@ -21,7 +21,7 @@ import { createConnectedConsoleWrapper, renderHookWithConsole } from "@/testutil
 const retrieveServerClusterKey = async (): Promise<string> => {
   const client = createTestClient();
   const { details } = await client.connect();
-  client.close();
+  await client.close();
   return details.clusterKey;
 };
 

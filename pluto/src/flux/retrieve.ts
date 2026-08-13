@@ -200,6 +200,15 @@ export interface UseEnsureRetrieved<Query extends query.Params> {
   (query: Query): void;
 }
 
+/**
+ * Returns a callback discarding a query's settled answer so the next suspending
+ * read fetches again. A settled failure re-throws on every render, so resetting
+ * an error boundary alone lands straight back on it.
+ */
+export interface UseInvalidate<Query extends query.Params> {
+  (): (query: Query) => void;
+}
+
 /// A hook reading a deletion as a value instead of throwing it: the corpse
 /// while the record is deleted, null while it is present, re-rendering when
 /// that flips. Reach for it only where rendering absence is the caller's job,
@@ -219,6 +228,7 @@ export interface CreateRetrieveReturn<
   useRetrieveObservable: UseRetrieveObservable<Query, Data>;
   useRetrieveSuspended: UseSuspendedRetrieve<Query, Data>;
   useEnsureRetrieved: UseEnsureRetrieved<Query>;
+  useInvalidate: UseInvalidate<Query>;
   useTombstone: UseTombstone<Query>;
 }
 
@@ -255,18 +265,17 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
   const listeners = useDestructors();
   const addStatus = useAdder();
   const handleCacheChange = useCallback(
-    (result: query.Cached<Data> | undefined) => {
-      const current = queryRef.current;
-      if (current == null || result === undefined) return;
+    (result: query.Cached<Data> | undefined, query: Query) => {
+      if (result === undefined) return;
       if (Deleted.matches<Data>(result))
         onChange(
           errorResult(
             `retrieve ${name}`,
             new DeletedError(`${name} was deleted`, result.corpse),
           ),
-          current,
+          query,
         );
-      else onChange(successResult(`retrieved ${name}`, result), current);
+      else onChange(successResult(`retrieved ${name}`, result), query);
     },
     [onChange, name],
   );
@@ -298,14 +307,19 @@ const useObservableBase = <Query extends query.Params, Data extends query.Data>(
         listeners.cleanup();
         const value = await retrieve(params);
         if (signal?.aborted) return;
-        // Subscribing after the fetch keeps mount-time reads fresh: an
-        // unsubscribed retrieve always refetches, a subscribed one is served
-        // from the cache.
-        if (subscribe != null && client != null)
-          listeners.set(subscribe(params, handleCacheChange));
+        // A newer retrieve started while this one was in flight owns the result:
+        // publishing here would revert the caller to the superseded answer.
+        if (queryRef.current !== query) return;
+        // Subscribing after the fetch keeps mount-time reads fresh: an unsubscribed
+        // retrieve always refetches, a subscribed one is served from the cache.
+        if (subscribe != null)
+          listeners.set(
+            subscribe(params, (result) => handleCacheChange(result, query)),
+          );
         onChange(successResult<Data>(`retrieved ${name}`, value), query);
       } catch (error) {
         if (signal?.aborted) return;
+        if (queryRef.current !== query) return;
         const res = errorResult(`retrieve ${name}`, error);
         // Nobody asked for this read, and the connection status already reports
         // an unreachable Core. The result still carries the failure.
@@ -563,22 +577,20 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
   const client = Synnax.use();
   const held = useRef<{ query: Query; value: Data } | null>(null);
 
-  if (client == null)
-    throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
-
-  const local = localFor(locals, client);
-  const params = { client, query: memoQuery };
-
+  // Every hook runs before the disconnected throw. Gating them on the client
+  // would change this hook's count as the connection comes and goes, which
+  // corrupts the caller's hook order.
   const cached = useSyncExternalStore(
     useCallback(
       (notify) => {
         if (subscribe == null || client == null) return NOOP_SUBSCRIBE();
-        return subscribe(params, () => notify());
+        return subscribe({ client, query: memoQuery }, () => notify());
       },
       [client, memoQuery],
     ),
     useCallback(() => {
-      const next = getCached?.(params);
+      if (client == null) return undefined;
+      const next = getCached?.({ client, query: memoQuery });
       if (equal == null || !isLive<Data>(next)) return next;
       const prev = held.current;
       if (prev != null && prev.query === memoQuery && equal(prev.value, next))
@@ -587,6 +599,12 @@ const useSuspended = <Query extends query.Params, Data extends query.Data>({
       return next;
     }, [client, memoQuery]),
   );
+
+  if (client == null)
+    throw new DisconnectedError(`Cannot retrieve ${name}: no Core connected.`);
+
+  const local = localFor(locals, client);
+  const params = { client, query: memoQuery };
 
   if (cached !== undefined) {
     if (Deleted.matches<Data>(cached))
@@ -624,6 +642,19 @@ const useEnsure = <Query extends query.Params, Data extends query.Data>({
   }
   if (deriveCached?.(params) != null) return;
   suspendOnFetch(params, { name, retrieve, subscribe, getCached, local });
+};
+
+const useInvalidate = <Query extends query.Params, Data extends query.Data>(
+  locals: WeakMap<Client, LocalCache<Data>>,
+): ((q: Query) => void) => {
+  const client = Synnax.use();
+  return useCallback(
+    (q: Query) => {
+      if (client == null) return;
+      localFor(locals, client).settled.delete(query.hash(q));
+    },
+    [client, locals],
+  );
 };
 
 interface UseTombstoneParams<Query extends query.Params> {
@@ -673,6 +704,7 @@ export const createRetrieve = <Query extends query.Params, Data extends query.Da
     useRetrieveSuspended: (query: Query) =>
       useSuspended({ ...createParams, query, locals }),
     useEnsureRetrieved: (query: Query) => useEnsure({ ...createParams, query, locals }),
+    useInvalidate: () => useInvalidate<Query, Data>(locals),
     useTombstone: (query: Query) => useTombstone({ ...createParams, query }),
   };
 };
