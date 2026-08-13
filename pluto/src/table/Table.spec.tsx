@@ -87,8 +87,11 @@ describe("Table centering", () => {
       </Table.Suspended>
     );
     const { container } = render(<Wrapped />, { wrapper });
-    const frame = (): HTMLElement =>
-      container.querySelector<HTMLElement>(".pluto-table-frame")!;
+    const frame = (): HTMLElement => {
+      const el = container.querySelector<HTMLElement>(".pluto-table-frame");
+      if (el == null) throw new Error("the table frame did not render");
+      return el;
+    };
     return { frame };
   };
 
@@ -114,8 +117,7 @@ describe("Table centering", () => {
 
   it("leaves an uncentered table untranslated", async () => {
     const { frame } = renderTable(false);
-    await waitFor(() => expect(frame()).not.toBeNull());
-    expect(frame().style.transform).toEqual("");
+    await waitFor(() => expect(frame().style.transform).toEqual(""));
   });
 
   it("centers on both axes when the table fits", async () => {
