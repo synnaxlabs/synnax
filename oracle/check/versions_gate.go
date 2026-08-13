@@ -401,7 +401,10 @@ var versionNSRe = regexp.MustCompile(`^v(0|[1-9][0-9]*)$`)
 
 // checkPinCurrency walks the stored reference graph of the chain's current surface and
 // fails on any pin that lags its dependency chain's current version: the current
-// package embeds the dependency's current type, so a stale pin is a contradiction.
+// package embeds the dependency's current type, so a stale pin is a contradiction. A
+// lagging pin survives when every member referenced through it resolves to the same
+// defining version at both the pin and the dependency's current version — the two
+// shapes are one declaration, so the lag is nominal.
 func (g VersionsGate) checkPinCurrency(
 	ctx context.Context,
 	r *GateReport,
@@ -455,7 +458,11 @@ func (g VersionsGate) checkPinCurrency(
 				if !ok {
 					continue
 				}
-				if pv != depChain.Current() {
+				if pv != depChain.Current() &&
+					!pinAliasCurrent(
+						ctx, resolver, depLive, pv, depChain.Current(),
+						membersOf(f, ns),
+					) {
 					r.fail(Finding{
 						Path:     chain.FilePath(chain.Current()) + ".oracle",
 						Severity: SeverityError,
@@ -551,6 +558,33 @@ func localRefNames(f *versions.File, ref resolution.TypeRef) []string {
 
 // membersOf lists the member names a file's declarations reference in the given foreign
 // namespace.
+// pinAliasCurrent reports whether every referenced member of a lagging pin resolves to
+// the same defining version at both the pinned and current versions of the dependency
+// chain. When it does, the pinned and current shapes are one declaration and the lag
+// is nominal.
+func pinAliasCurrent(
+	ctx context.Context,
+	resolver *versions.Resolver,
+	depLive string,
+	pinned, current int,
+	members []string,
+) bool {
+	for _, member := range members {
+		curNS, _, ok := resolver.Definer(ctx, depLive, current, member)
+		if !ok {
+			return false
+		}
+		pinNS, _, ok := resolver.Definer(ctx, depLive, pinned, member)
+		if !ok {
+			return false
+		}
+		if curNS != pinNS {
+			return false
+		}
+	}
+	return true
+}
+
 func membersOf(f *versions.File, ns string) []string {
 	found := make(set.Set[string])
 	for _, t := range f.Defined {
