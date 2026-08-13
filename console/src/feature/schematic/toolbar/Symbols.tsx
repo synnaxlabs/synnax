@@ -272,7 +272,9 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
           x
           className={CSS.BE("schematic", "symbols", "group")}
           onContextMenu={menuProps.open}
-          emptyContent={<RemoteListEmptyContent groupKey={groupKey} />}
+          emptyContent={
+            listData.answered && <RemoteListEmptyContent groupKey={groupKey} />
+          }
           wrap
         >
           {remoteListItem}
