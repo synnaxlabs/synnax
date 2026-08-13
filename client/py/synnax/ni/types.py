@@ -14,6 +14,10 @@ from pydantic import BaseModel, Field, field_validator
 
 from synnax import device, task
 from synnax.exceptions import ValidationError
+
+# Transitional: the config cutover deletes this alias and the hand-written task
+# config models below, leaving the generated types_gen models as the only config
+# surface.
 from synnax.task import client as task_client
 from synnax.telem import CrudeRate
 

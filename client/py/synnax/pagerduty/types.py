@@ -10,6 +10,10 @@
 from pydantic import BaseModel, Field, model_validator
 
 from synnax import task
+
+# Transitional: the config cutover deletes this alias and the hand-written task
+# config models below, leaving the generated types_gen models as the only config
+# surface.
 from synnax.task import client as task_client
 
 
