@@ -151,6 +151,20 @@ const keepLoadedChildren = (
     return existing == null ? node : { ...node, children: existing.children };
   });
 
+const toNodes = (
+  resources: ontology.Resource[],
+  resolveItem: (type: ontology.ResourceType) => Item,
+): Base.Node<string>[] =>
+  resources
+    .filter((r) => {
+      const svc = resolveItem(r.id.type);
+      return svc.visible == null || svc.visible(r);
+    })
+    .map((r) => ({
+      key: ontology.idToString(r.id),
+      children: resolveItem(r.id.type).hasChildren ? [] : undefined,
+    }));
+
 const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = useCallback(
@@ -159,10 +173,21 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
-  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>([]);
-  const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
+  // The retained answer seeds the first render, not an effect: an effect runs
+  // after the commit paints, so the tree would still show one empty frame.
+  const [seed] = useState<Base.Node<string>[] | null>(() => {
+    const cached = client?.ontology.children.getCached({ ids: root });
+    return query.isLive(cached) ? toNodes(cached, resolveItem) : null;
+  });
+  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>(
+    seed ?? [],
+  );
+  // An unanswered root has no children yet and no empty content: they are the
+  // same node list, and only the answer tells them apart.
+  const [answered, setAnswered] = useState(seed != null);
+  const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
 
   // Placeholder resources back tree items (e.g. a just-created group awaiting its
   // inline rename) before the cluster delivers the real resource.
@@ -226,35 +251,28 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
 
   const applyRoot = useCallback(
-    (resources: ontology.Resource[]) => {
-      const filtered = resources.filter((r) => {
-        const svc = resolveItem(r.id.type);
-        return svc.visible == null || svc.visible(r);
-      });
-      const nodes = filtered.map((c) => ({
-        key: ontology.idToString(c.id),
-        children: resolveItem(c.id.type).hasChildren ? [] : undefined,
-      }));
-      setNodes((prevNodes) => keepLoadedChildren(prevNodes, nodes));
-    },
+    (resources: ontology.Resource[]) =>
+      setNodes((prevNodes) =>
+        keepLoadedChildren(prevNodes, toNodes(resources, resolveItem)),
+      ),
     [resolveItem, setNodes],
   );
 
-  // Plain useEffect, not useAsyncEffect: the latter defers its callback by a
-  // task, so the cache seed would miss the mount commit and the tree would
-  // still paint one empty frame.
   useEffect(() => {
     if (client == null) return;
-    // The retained answer from the last mount paints in the mount commit,
-    // before the fetch that reconfirms it, so reopening the tree does not
-    // flash empty.
+    // A root the seed missed still has its answer retained from a previous
+    // mount, and it paints before the fetch that reconfirms it.
     const cached = client.ontology.children.getCached({ ids: root });
-    if (query.isLive(cached)) applyRoot(cached);
+    if (query.isLive(cached)) {
+      applyRoot(cached);
+      setAnswered(true);
+    }
     const controller = new AbortController();
     handleError(async () => {
       const resources = await client.ontology.children.retrieve({ ids: root });
       if (controller.signal.aborted) return;
       applyRoot(resources);
+      setAnswered(true);
     }, "Failed to retrieve resources");
     return () => controller.abort();
   }, [client, ontology.idToString(root)]);
@@ -631,7 +649,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         // Not getResource: it throws, and a resource may not be cached before
         // the tree attempts to render it.
         getItem={getItem}
-        emptyContent={emptyContent}
+        emptyContent={answered ? emptyContent : null}
         onContextMenu={menuProps.open}
       >
         {itemRenderProp}
