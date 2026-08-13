@@ -257,12 +257,3 @@ func (r Registry) Store(t string) (Store, bool) {
 	s, ok := r.stores[t]
 	return s, ok
 }
-
-// Types returns the task types the registry routes, in no particular order.
-func (r Registry) Types() []string {
-	types := make([]string, 0, len(r.stores))
-	for t := range r.stores {
-		types = append(types, t)
-	}
-	return types
-}
