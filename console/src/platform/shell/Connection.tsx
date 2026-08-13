@@ -23,6 +23,14 @@ export const STATUS_LABELS: Record<connection.Status["variant"], string> = {
   disabled: "Disconnected",
 };
 
+/* Rejected credentials mean the Core answered, so the island stays nominal and
+   the login form carries the auth error. */
+const variantOf = (status?: connection.Status | null): connection.Status["variant"] => {
+  if (status == null) return "loading";
+  if (status.variant === "error" && status.details.reason === "auth") return "success";
+  return status.variant;
+};
+
 export interface ConnectionCluster {
   name: string;
   host: string;
@@ -60,8 +68,7 @@ export const Connection = ({ cluster }: ConnectionProps): ReactElement | null =>
         },
   );
   if (cluster == null) return null;
-  const status = isActive ? live : checked;
-  const variant = status?.variant ?? "loading";
+  const variant = variantOf(isActive ? live : checked);
   return (
     <Island
       gap="medium"
