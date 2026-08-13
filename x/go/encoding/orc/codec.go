@@ -25,10 +25,17 @@ import (
 // leading bytes.
 var magic = [3]byte{0x4F, 0x52, 0x43}
 
+// errInvalidFormat is a package-level var so the magic check does not allocate per
+// miss — the decode-fallback path hits it for every row written by another codec.
+var errInvalidFormat = errors.Wrap(
+	validate.ErrValidation,
+	"data was not encoded using ORC",
+)
+
 func validateMagic(data []byte) error {
 	if len(data) < len(magic) || data[0] != magic[0] || data[1] != magic[1] ||
 		data[2] != magic[2] {
-		return errors.Wrap(validate.ErrValidation, "data was not encoded using ORC")
+		return errInvalidFormat
 	}
 	return nil
 }
