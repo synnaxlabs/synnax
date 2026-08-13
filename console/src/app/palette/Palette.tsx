@@ -26,8 +26,8 @@ import { Search } from "@/app/search";
 import { Command as FeatureCommand } from "@/feature/command";
 import { CSS } from "@/platform/css";
 
-const SEARCH_TRIGGER: Triggers.Trigger = ["Control", "P"];
-const COMMAND_TRIGGER: Triggers.Trigger = ["Control", "Shift", "P"];
+export const SEARCH_TRIGGER: Triggers.Trigger = ["Control", "P"];
+export const COMMAND_TRIGGER: Triggers.Trigger = ["Control", "Shift", "P"];
 
 const TRIGGER_CONFIG: Triggers.ModeConfig<"search" | "command"> = {
   command: [COMMAND_TRIGGER],

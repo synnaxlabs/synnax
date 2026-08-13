@@ -16,7 +16,7 @@ import { Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
 import { TaskControls } from "@/feature/arc/editor/TaskControls";
-import { awaitCommand } from "@/platform/task/testutil";
+import { awaitCommand, clickRedeploy } from "@/platform/task/testutil";
 import {
   createConsoleWrapper,
   findDialogTrigger,
@@ -124,7 +124,7 @@ describe("TaskControls", () => {
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     try {
       await renderControls(a.key);
-      fireEvent.click(await screen.findByText("Redeploy"));
+      await clickRedeploy();
       const cmd = await awaitCommand(streamer, tsk.key);
       expect(cmd.type).toBe("start");
     } finally {

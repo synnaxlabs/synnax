@@ -89,10 +89,7 @@ export const ZERO_FORM_VALUES: z.infer<
 };
 
 export const { use, useResult, useEnsure, createSelector, createResultSelector } =
-  Flux.createRetrieve<RetrieveQuery, channel.Channel>({
-    ...retrieveDefinition,
-    onChange: retrieveDefinition.onChange,
-  });
+  Flux.createRetrieve<RetrieveQuery, channel.Channel>(retrieveDefinition);
 
 /** The channel's range-scoped alias when one is set, its name otherwise. */
 export const useAlias = createSelector(({ alias, name }) =>
@@ -129,10 +126,7 @@ export const useResultAliasAndName = createResultSelector(
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   RetrieveMultipleQuery,
   channel.Channel[]
->({
-  ...retrieveMultipleDefinition,
-  onChange: retrieveMultipleDefinition.onChange,
-});
+>(retrieveMultipleDefinition);
 
 const retrieveInitialFormValues = async ({
   query: { key, rangeKey },
