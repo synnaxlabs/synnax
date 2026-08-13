@@ -10,7 +10,6 @@
 package msgpack
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -23,42 +22,50 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Codec is a MessagePack implementation of encoding.Codec and http.Codec.
+// Codec is a MessagePack implementation of http.Codec.
 var Codec http.Codec = &codec{}
 
 type codec struct{}
 
-func (c *codec) ContentType() string { return "application/msgpack" }
+func (*codec) ContentType() string { return "application/msgpack" }
 
-// Encode implements the encoding.Encoder interface.
-func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {
-	b, err := msgpack.Marshal(value)
-	return b, encoding.SugarEncodingErr(value, err)
-}
-
-// Decode implements the encoding.Decoder interface.
-func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
-	err := c.DecodeStream(ctx, bytes.NewReader(data), value)
-	return encoding.SugarDecodingErr(data, value, err)
-}
-
-// DecodeStream implements the encoding.Decoder interface.
-func (c *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
-	if err := msgpack.NewDecoder(r).Decode(value); err != nil {
-		data, _ := io.ReadAll(r)
-		return encoding.SugarDecodingErr(data, value, err)
+func (*codec) Decode(_ context.Context, data []byte, value any) error {
+	err := msgpack.Unmarshal(data, value)
+	if err != nil {
+		return encoding.SugarDecodingError(data, value, err)
 	}
 	return nil
 }
 
-// EncodeStream implements the encoding.Encoder interface.
-func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
-	b, err := c.Encode(ctx, value)
+func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+	dec := msgpack.GetDecoder()
+	dec.Reset(r)
+	err := dec.Decode(value)
+	msgpack.PutDecoder(dec)
 	if err != nil {
-		return encoding.SugarEncodingErr(value, err)
+		data, ioErr := io.ReadAll(r)
+		return encoding.SugarDecodingError(data, value, errors.Combine(err, ioErr))
 	}
-	_, err = w.Write(b)
-	return encoding.SugarEncodingErr(value, err)
+	return nil
+}
+
+func (*codec) Encode(_ context.Context, value any) ([]byte, error) {
+	b, err := msgpack.Marshal(value)
+	if err != nil {
+		return nil, encoding.SugarEncodingError(value, err)
+	}
+	return b, nil
+}
+
+func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+	enc := msgpack.GetEncoder()
+	enc.Reset(w)
+	err := enc.Encode(value)
+	msgpack.PutEncoder(enc)
+	if err != nil {
+		return encoding.SugarEncodingError(value, err)
+	}
+	return nil
 }
 
 // EncodedJSON is a map[string]any that handles backwards-compatible MessagePack
@@ -113,6 +120,77 @@ func (e EncodedJSON) Unmarshal(into any) error {
 		return err
 	}
 	return json.Unmarshal(b, into)
+}
+
+// UnmarshalUint32 decodes a MessagePack value into a uint32, handling type coercion
+// from various numeric types, floats, and strings.
+func UnmarshalUint32(dec *msgpack.Decoder) (uint32, error) {
+	v, err := dec.DecodeInterface()
+	if err != nil {
+		return 0, err
+	}
+	switch val := v.(type) {
+	case uint64:
+		if val > math.MaxUint32 {
+			return 0, errors.Newf("value %d exceeds uint32 max", val)
+		}
+		return uint32(val), nil
+	case uint32:
+		return val, nil
+	case uint16:
+		return uint32(val), nil
+	case uint8:
+		return uint32(val), nil
+	case int64:
+		if val < 0 || val > math.MaxUint32 {
+			return 0, errors.Newf("value %d out of uint32 range", val)
+		}
+		return uint32(val), nil
+	case int32:
+		if val < 0 {
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint32",
+				val,
+			)
+		}
+		return uint32(val), nil
+	case int16:
+		if val < 0 {
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint32",
+				val,
+			)
+		}
+		return uint32(val), nil
+	case int8:
+		if val < 0 {
+			return 0, errors.Newf(
+				"negative value %d cannot be converted to uint32",
+				val,
+			)
+		}
+		return uint32(val), nil
+	case int:
+		if val < 0 || val > math.MaxUint32 {
+			return 0, errors.Newf("value %d out of uint32 range", val)
+		}
+		return uint32(val), nil
+	case float64:
+		if val < 0 || val > math.MaxUint32 {
+			return 0, errors.Newf("value %f out of uint32 range", val)
+		}
+		return uint32(val), nil
+	case float32:
+		if val < 0 || val > math.MaxUint32 {
+			return 0, errors.Newf("value %f out of uint32 range", val)
+		}
+		return uint32(val), nil
+	case string:
+		n, err := strconv.ParseUint(val, 10, 32)
+		return uint32(n), err
+	default:
+		return 0, errors.Newf("cannot unmarshal %T into uint32", v)
+	}
 }
 
 // UnmarshalUint64 decodes a MessagePack value into a uint64, handling type coercion
@@ -191,76 +269,5 @@ func UnmarshalUint64(dec *msgpack.Decoder) (uint64, error) {
 		return strconv.ParseUint(val, 10, 64)
 	default:
 		return 0, errors.Newf("cannot unmarshal %T into uint64", v)
-	}
-}
-
-// UnmarshalUint32 decodes a MessagePack value into a uint32, handling type coercion
-// from various numeric types, floats, and strings.
-func UnmarshalUint32(dec *msgpack.Decoder) (uint32, error) {
-	v, err := dec.DecodeInterface()
-	if err != nil {
-		return 0, err
-	}
-	switch val := v.(type) {
-	case uint64:
-		if val > math.MaxUint32 {
-			return 0, errors.Newf("value %d exceeds uint32 max", val)
-		}
-		return uint32(val), nil
-	case uint32:
-		return val, nil
-	case uint16:
-		return uint32(val), nil
-	case uint8:
-		return uint32(val), nil
-	case int64:
-		if val < 0 || val > math.MaxUint32 {
-			return 0, errors.Newf("value %d out of uint32 range", val)
-		}
-		return uint32(val), nil
-	case int32:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint32",
-				val,
-			)
-		}
-		return uint32(val), nil
-	case int16:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint32",
-				val,
-			)
-		}
-		return uint32(val), nil
-	case int8:
-		if val < 0 {
-			return 0, errors.Newf(
-				"negative value %d cannot be converted to uint32",
-				val,
-			)
-		}
-		return uint32(val), nil
-	case int:
-		if val < 0 || val > math.MaxUint32 {
-			return 0, errors.Newf("value %d out of uint32 range", val)
-		}
-		return uint32(val), nil
-	case float64:
-		if val < 0 || val > math.MaxUint32 {
-			return 0, errors.Newf("value %f out of uint32 range", val)
-		}
-		return uint32(val), nil
-	case float32:
-		if val < 0 || val > math.MaxUint32 {
-			return 0, errors.Newf("value %f out of uint32 range", val)
-		}
-		return uint32(val), nil
-	case string:
-		n, err := strconv.ParseUint(val, 10, 32)
-		return uint32(n), err
-	default:
-		return 0, errors.Newf("cannot unmarshal %T into uint32", v)
 	}
 }

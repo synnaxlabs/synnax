@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -447,7 +446,7 @@ var _ = Describe("Filter Combinators", func() {
 				countingTx gorp.Tx
 			)
 			BeforeEach(func(ctx SpecContext) {
-				codec = &decodeCountingCodec{Codec: orc.NewCodec(msgpack.Codec)}
+				codec = &decodeCountingCodec{Codec: msgpack.Codec}
 				countingDB = gorp.Wrap(memkv.New(), gorp.WithCodec(codec))
 				countingTx = countingDB.OpenTx()
 				es := make([]entry, 10)
