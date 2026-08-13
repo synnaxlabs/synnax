@@ -344,6 +344,20 @@ describe("Panel queries", () => {
       await waitFor(() => expect(result.current).toContain(added.key));
     });
 
+    it("should see a panel created while the list was unmounted", async () => {
+      const projectKey = await newProject();
+      const first = await retrieveKeys(projectKey);
+      expect(first.result.current).toEqual([]);
+      first.unmount();
+
+      const added = await client.panels.create({
+        name: "added-while-unmounted",
+        parent: project.ontologyID(projectKey),
+      });
+      const second = await retrieveKeys(projectKey);
+      await waitFor(() => expect(second.result.current).toContain(added.key));
+    });
+
     it("should ignore a panel created outside the project", async () => {
       const projectKey = await newProject();
       const { result } = await retrieveKeys(projectKey);

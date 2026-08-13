@@ -451,6 +451,51 @@ describe("Panel.Mosaic", () => {
       expect(onSelect).toHaveBeenCalledWith(b.key);
     });
 
+    it("should call onSelect when a selected but unfocused tab is clicked", async () => {
+      const a1 = resourceTab();
+      const a2 = resourceTab();
+      const b1 = resourceTab();
+      const b2 = resourceTab();
+      const p = await splitPanel(a1, a2, b1, b2);
+      const onSelect = vi.fn();
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [a1.key, b1.key],
+        onSelect,
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a1))).toBeTruthy());
+      expect(isTabSelected(utils, b1.key)).toBe(true);
+      expect(isTabFocused(utils, b1.key)).toBe(false);
+
+      await act(async () => {
+        fireEvent.click(tabEl(utils, b1.key));
+      });
+
+      expect(onSelect).toHaveBeenCalledWith(b1.key);
+    });
+
+    it("should not call onSelect when the focused tab is clicked", async () => {
+      const a1 = resourceTab();
+      const a2 = resourceTab();
+      const b1 = resourceTab();
+      const b2 = resourceTab();
+      const p = await splitPanel(a1, a2, b1, b2);
+      const onSelect = vi.fn();
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [a1.key, b1.key],
+        onSelect,
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a1))).toBeTruthy());
+      expect(isTabFocused(utils, a1.key)).toBe(true);
+
+      await act(async () => {
+        fireEvent.click(tabEl(utils, a1.key));
+      });
+
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
     it("should remove a tab from the document when its close button is clicked", async () => {
       const a = resourceTab();
       const b = resourceTab();
@@ -511,7 +556,16 @@ describe("Panel.Mosaic", () => {
       return <span>{`extra:${tabKey ?? "none"}`}</span>;
     };
 
-    const extraMenuItems = (): ReactElement => <ExtraMenuProbe />;
+    const contextMenu: Panel.MosaicProps["contextMenu"] = ({ keys }) =>
+      keys.length === 0 ? (
+        <ExtraMenuProbe />
+      ) : (
+        <>
+          <Panel.CloseTabMenuItem />
+          <Panel.SplitTabMenuItems />
+          <ExtraMenuProbe />
+        </>
+      );
 
     const openMenuOn = async (utils: RenderResult, target: HTMLElement) => {
       await act(async () => {
@@ -529,7 +583,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a.key],
         tabName,
-        extraMenuItems,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
@@ -547,6 +601,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a.key],
         tabName,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
@@ -571,6 +626,7 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a.key],
         tabName,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
@@ -589,7 +645,7 @@ describe("Panel.Mosaic", () => {
       const a = resourceTab();
       const p = await createPanel(a);
       const tabName = vi.fn(() => <TabKeyNameProbe />);
-      const utils = await renderMosaic({ panelKey: p.key, tabName });
+      const utils = await renderMosaic({ panelKey: p.key, tabName, contextMenu });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
       await openMenuOn(utils, utils.getByText(`name:${a.key}`));
@@ -603,7 +659,7 @@ describe("Panel.Mosaic", () => {
       const p = await createPanel(a);
       const utils = await renderMosaic({
         panelKey: p.key,
-        extraMenuItems,
+        contextMenu,
       });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 

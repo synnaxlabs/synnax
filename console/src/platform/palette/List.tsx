@@ -43,6 +43,8 @@ export interface List<E extends record.Keyed<string>> extends FC<ListProps<E>> {
 
 export const SYNTHETIC_CLICK_DETAIL = 0;
 
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
+
 export interface ListItemProps extends Select.ListItemProps<string> {}
 
 export const ListItem = ({
@@ -116,7 +118,7 @@ export const BaseList = <E extends record.Keyed<string>>({
         borderColor={8}
         value={value}
         autoComplete="off"
-        onKeyDown={Triggers.matchCallback([["Escape"]], close)}
+        onKeyDown={Triggers.matchCallback(ESCAPE_TRIGGERS, close)}
         full="x"
       />
       <Base.Items

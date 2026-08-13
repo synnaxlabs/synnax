@@ -38,6 +38,8 @@ const DEFAULT_BUTTON_PROPS = {
 export interface TabProps extends Omit<Button.ButtonProps<"div">, "el" | "id"> {
   /** itemKey identifies the tab within its Frame's selection and content panels. */
   itemKey: string;
+  /** Called when Delete or Backspace is pressed while the tab is focused. */
+  onClose?: () => void;
 }
 
 /**
@@ -54,11 +56,12 @@ export const Tab = ({
   children,
   onClick,
   onKeyDown,
+  onClose,
   ...rest
 }: TabProps): ReactElement => {
   const frameID = useFrameID("Tabs.Tab");
   const { size, variant } = useSelectorContext("Tabs.Tab");
-  const { selected, focused, onSelect } = Select.useItemState(itemKey);
+  const { selected, focused, head, onSelect } = Select.useItemState(itemKey);
   const handleClick = useCallback<MouseEventHandler<HTMLDivElement>>(
     (e) => {
       onClick?.(e);
@@ -71,11 +74,12 @@ export const Tab = ({
       onKeyDown?.(e);
       if (e.target !== e.currentTarget || e.defaultPrevented) return;
       const key = Triggers.eventKey(e);
-      if (key !== "Enter" && key !== "Space") return;
-      e.preventDefault();
-      onSelect();
+      if (onClose != null && (key === "Delete" || key === "Backspace")) {
+        e.preventDefault();
+        onClose();
+      }
     },
-    [onKeyDown, onSelect],
+    [onKeyDown, onClose],
   );
   const isPill = variant === "pill";
   const variantProps = isPill ? PILL_BUTTON_PROPS : DEFAULT_BUTTON_PROPS;
@@ -92,16 +96,17 @@ export const Tab = ({
       size={size}
       className={CSS(
         CSS.BE("tabs", "tab"),
+        CSS.M("reveals"),
         Menu.CONTEXT_TARGET,
         selected && Menu.CONTEXT_SELECTED,
         CSS.selected(selected),
         CSS.altColor(focused),
         className,
       )}
-      justify="center"
       align="center"
       empty
-      preventClick={selected}
+      square={false}
+      preventClick={head}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       {...variantProps}

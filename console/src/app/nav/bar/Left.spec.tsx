@@ -41,7 +41,7 @@ describe("app/nav/bar/Left", () => {
         await findItem(container, icon);
     });
 
-    it.skip("should render the focused tab's toolbar in the bottom section", async () => {
+    it("should render the focused tab's toolbar in the bottom section", async () => {
       const { container } = await renderBar(<Bar.Left />, withActiveProject());
       await findItem(container, "component");
     });
@@ -83,13 +83,13 @@ describe("app/nav/bar/Left", () => {
   });
 
   describe("bottom selection", () => {
-    it.skip("should dispatch selectBottom and show the bottom drawer when clicked", async () => {
+    it("should dispatch selectBottom and show the bottom drawer when clicked", async () => {
       const { container, store } = await renderBar(<Bar.Left />, withActiveProject());
       fireEvent.click(await findItem(container, "component"));
       await waitFor(() => expect(bottom(store).visible).toBe(true));
     });
 
-    it.skip("should mark the bottom item selected when the drawer is visible", async () => {
+    it("should mark the bottom item selected when the drawer is visible", async () => {
       const { container } = await renderBar(
         <Bar.Left />,
         withActiveProject(
