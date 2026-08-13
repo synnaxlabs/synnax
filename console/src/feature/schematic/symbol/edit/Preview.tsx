@@ -254,16 +254,16 @@ export const Preview = ({
                 {isDarkMode ? <Icon.DarkMode /> : <Icon.LightMode />}
               </Button.Button>
               <Flex.Box pack x>
-                <Button.Button onClick={handleZoomOut} size="small" tooltip="Zoom Out">
+                <Button.Button onClick={handleZoomOut} size="small" tooltip="Zoom out">
                   <Icon.Subtract />
                 </Button.Button>
-                <Button.Button onClick={handleZoomIn} size="small" tooltip="Zoom In">
+                <Button.Button onClick={handleZoomIn} size="small" tooltip="Zoom in">
                   <Icon.Add />
                 </Button.Button>
                 <Button.Button
                   onClick={handleResetZoom}
                   size="small"
-                  tooltip="Reset Zoom"
+                  tooltip="Reset zoom"
                 >
                   <Icon.Expand />
                 </Button.Button>
