@@ -32,7 +32,7 @@ export const StableFor = ({ config: { duration } }: SymbolProps) => (
     sinks={SINKS}
     sources={SOURCES}
   >
-    <Text.Text level="h4" weight={500} variant="code">
+    <Text.Text level="h4" variant="code">
       {new TimeSpan(duration).toString()}
     </Text.Text>
   </Base>

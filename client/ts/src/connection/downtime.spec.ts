@@ -91,7 +91,7 @@ describe("downtime", () => {
       expect(recovered.name).toBe("recovered");
       expect(internal.map(chainOf)).toEqual([]);
     } finally {
-      client.close();
+      await client.close();
       await proxy.close();
     }
   });
@@ -116,7 +116,7 @@ describe("downtime", () => {
       ).rejects.toSatisfy(isConnectionError);
       expect(internal.map(chainOf)).toEqual([]);
     } finally {
-      client.close();
+      await client.close();
       await proxy.close();
     }
   });
@@ -144,7 +144,7 @@ describe("downtime", () => {
       );
       expect(internal.map(chainOf)).toEqual([]);
     } finally {
-      client.close();
+      await client.close();
       await proxy.close();
     }
   });

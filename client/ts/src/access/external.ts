@@ -10,5 +10,6 @@
 export { type Action, ACTIONS, actionZ } from "@/access/action/types.gen";
 export * from "@/access/client";
 export * from "@/access/enforce";
+export * from "@/access/granted";
 export * from "@/access/policy";
 export * from "@/access/role";

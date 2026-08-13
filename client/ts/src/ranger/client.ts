@@ -327,7 +327,7 @@ const affectedRangeKeys = (rel: ontology.Relationship): Key[] | null => {
 /** Projects relationship events onto the range keys they affect. */
 const watchRelationships = <Q extends query.Params>(
   relationships: query.Table<string, ontology.Relationship>,
-): query.WatchEntry<Q, Key> =>
+): query.Watch<Q, Key> =>
   query.watch<Q, Key, string, ontology.Relationship>(relationships, (event) =>
     affectedRangeKeys(relOfEvent(event)),
   );
@@ -351,7 +351,7 @@ const rangesWithLabel = (
 const watchLabels = <Q extends query.Params>(
   labels: query.Table<label.Key, label.Label>,
   relationships: query.Table<string, ontology.Relationship>,
-): query.WatchEntry<Q, Key> =>
+): query.Watch<Q, Key> =>
   query.watch<Q, Key, label.Key, label.Label>(labels, (event) =>
     rangesWithLabel(relationships, event.key),
   );

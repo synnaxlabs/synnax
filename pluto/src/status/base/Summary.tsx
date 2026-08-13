@@ -49,7 +49,7 @@ export const Summary = ({
       className={CSS(className, !hasDescription && CSS.BE("status", "text"))}
       level={level}
       status={variant}
-      {...(description == null ? rest : {})}
+      {...(hasDescription ? {} : rest)}
     >
       {icon}
       {children}
@@ -57,7 +57,7 @@ export const Summary = ({
   );
   if (!hasDescription) return baseText;
   const descriptionText = (
-    <BaseText.Text level="small" color={8}>
+    <BaseText.Text level="small" color={9}>
       {description}
     </BaseText.Text>
   );
@@ -68,13 +68,3 @@ export const Summary = ({
     </Flex.Box>
   );
 };
-
-export interface RemoteSummaryProps {
-  statusKey: string;
-}
-
-// export const RemoteSummary = ({ statusKey }: RemoteSummaryProps): ReactElement => {
-//   const res = useRetrieve({ key: statusKey });
-//   const { key, ...rest } = res.data ?? res.status;
-//   return <Summary key={key} {...rest} />;
-// };

@@ -94,6 +94,7 @@ export type NotificationSpec<Details extends z.ZodType = z.ZodNever> =
 export interface UseNotificationsReturn<Details extends z.ZodType = z.ZodNever> {
   statuses: NotificationSpec<Details>[];
   silence: (key: string) => void;
+  silenceAll: () => void;
 }
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
@@ -161,5 +162,13 @@ export const useNotifications = ({
     });
   }, []);
 
-  return { statuses: filtered, silence };
+  const silenceAll = useCallback(() => {
+    setSilencedKeys((prev) => {
+      const next = new Set(prev);
+      statusesRef.current.forEach(({ key }) => next.add(key));
+      return next;
+    });
+  }, []);
+
+  return { statuses: filtered, silence, silenceAll };
 };

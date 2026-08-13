@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
+  act,
   render as rtlRender,
+  renderHook as rtlRenderHook,
+  type RenderHookOptions,
+  type RenderHookResult,
   type RenderOptions as RTLRenderOptions,
   type RenderResult as RTLRenderResult,
 } from "@testing-library/react";
@@ -39,6 +43,22 @@ export interface RenderResult extends RTLRenderResult {
   /** The render recorder, if `render` was enabled; otherwise `null`. */
   recorder: canvasTest.Recorder | null;
 }
+
+/**
+ * Renders a hook that suspends on a cold cache, resolving once its render commits.
+ * RTL's own `renderHook` never commits a tree that suspends during the initial render,
+ * leaving `result.current` null forever.
+ */
+export const renderHookSuspended = async <Result, Props>(
+  hook: (props: Props) => Result,
+  options?: RenderHookOptions<Props>,
+): Promise<RenderHookResult<Result, Props>> => {
+  let rendered!: RenderHookResult<Result, Props>;
+  await act(async () => {
+    rendered = rtlRenderHook(hook, options);
+  });
+  return rendered;
+};
 
 /**
  * Render a React component with a Synnax provider stack already mounted on the worker

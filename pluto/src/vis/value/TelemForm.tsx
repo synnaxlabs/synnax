@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { type color, type notation, primitive } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { telem } from "@/ether";
@@ -17,6 +17,8 @@ import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
+import { Status } from "@/status";
+import { Synnax } from "@/synnax";
 import { Staleness } from "@/vis/staleness";
 
 interface ValueTelemFormT {
@@ -68,14 +70,14 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
     onChange({ ...value, telem: t });
   };
 
-  const { retrieve } = Channel.useRetrieveObservable({
-    onChange: useCallback(
-      ({ data }) => data != null && set(`${path}.tooltip`, [data.name]),
-      [set, path],
-    ),
-  });
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   const handleSourceChange = (key: channel.Key | null): void => {
-    if (primitive.isNonZero(key)) retrieve({ key });
+    if (primitive.isNonZero(key) && client != null)
+      handleError(async () => {
+        const { name } = await client.channels.retrieve({ key });
+        set(`${path}.tooltip`, [name]);
+      }, "Failed to retrieve channel");
     handleChange({ valueStream: telem.streamChannelValue({ channel: key ?? 0 }) });
   };
 

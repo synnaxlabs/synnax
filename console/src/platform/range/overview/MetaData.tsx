@@ -84,7 +84,7 @@ const MetaDataListItem = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const { update: handleDelete } = Ranger.useDeleteKV();
   const { form, save } = Ranger.useKVPairForm({
-    query: { rangeKey },
+    query: null,
     autoSave: !isCreate,
     initialValues: initialValues ?? {
       key: "",
@@ -141,7 +141,7 @@ const MetaDataListItem = ({
         )}
         <Divider.Divider y />
         <Form.Field<string> path="value" showLabel={false} hideIfNull>
-          {({ variant: _, ...p }) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
+          {(p) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (
           <Flex.Box pack>
@@ -161,7 +161,7 @@ const MetaDataListItem = ({
           <Button.Button
             className={CSS.BE("metadata", "delete")}
             size="small"
-            variant="shadow"
+            variant="text"
             onClick={() => handleDelete({ key: itemKey, rangeKey })}
           >
             <Icon.Delete color={10} />
@@ -188,7 +188,7 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
   if (status.variant === "error") return null;
   return (
     <Flex.Box y empty className={CSS.BE("range", "metadata")}>
-      <Header.Header level="h4" borderColor={5}>
+      <Header.Header level="h4" borderColor={6}>
         <Header.Title>Metadata</Header.Title>
         <Header.Actions>
           <Button.Button variant="text" onClick={() => setNewFormVisible(true)}>

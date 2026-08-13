@@ -11,8 +11,8 @@
 
 .console-opc-connect {
     position: relative;
-    width: 915px;
-    height: 720px;
+    width: 155rem;
+    height: 125rem;
 
     & .console-description {
         width: 100%;
@@ -20,7 +20,7 @@
         padding: 4rem;
 
         & *:not(button) > p {
-            font-size: 2.4rem;
+            font-size: var(--pluto-h5-size);
             line-height: 150%;
         }
     }

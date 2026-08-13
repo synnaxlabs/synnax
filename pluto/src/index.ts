@@ -52,6 +52,7 @@ export { OS } from "@/os";
 export { Panel } from "@/panel";
 export { Pluto } from "@/pluto";
 export { Portal } from "@/portal";
+export { position } from "@/position";
 export { Progress } from "@/progress";
 export { Project } from "@/project";
 export { Rack } from "@/rack";

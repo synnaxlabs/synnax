@@ -65,7 +65,7 @@ const setup = ({
 };
 
 const drawCalls = (recorder: canvasTest.Recorder, op: string) =>
-  recorder.lower2d.calls.filter((c) => c.op === op);
+  recorder.upper2d.calls.filter((c) => c.op === op);
 
 const fillTexts = (recorder: canvasTest.Recorder): string[] =>
   drawCalls(recorder, "fillText").map((c) => c.args[0] as string);
@@ -164,7 +164,7 @@ describe("value/aether/Value", () => {
       expect(texts).not.toContain("-5");
     });
 
-    it("should scale the lower canvas before drawing", () => {
+    it("should scale the upper canvas before drawing", () => {
       const { component, recorder } = setup({ value: "7" });
       recorder.clear();
       component.render({});

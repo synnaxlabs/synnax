@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type label } from "@synnaxlabs/client";
-import { type Dialog, Form, type Select } from "@synnaxlabs/pluto";
+import { Form, type position, type Select } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -19,7 +19,7 @@ const TRIGGER_PROPS: Select.MultipleTriggerProps<string> = {
   variant: "text",
 };
 
-const LABEL_LOCATION: Dialog.LocationPreference = {
+const LABEL_LOCATION: position.LocationPreference = {
   targetCorner: location.TOP_RIGHT,
   dialogCorner: location.TOP_LEFT,
 };

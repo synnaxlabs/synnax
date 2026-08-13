@@ -14,5 +14,6 @@ export * from "@/platform/modals/Frame";
 export * from "@/platform/modals/Header";
 export * from "@/platform/modals/Stack";
 export * from "@/platform/modals/useConfirm";
+export * from "@/platform/modals/useConfirmDelete";
 export * from "@/platform/modals/useRename";
 export { type Content, type ContentProps, type Entry } from "@/session/modals/Context";

@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createTestDevice, renderWithDeviceForm } from "@/platform/device/testutil";
-import { findDialogTrigger, stubGeometry, uniqueName } from "@/testutil";
+import { findDialogTrigger, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -41,8 +41,6 @@ const openAndClick = async (name: string): Promise<void> => {
   fireEvent.click(await findDialogTrigger());
   fireEvent.click(await screen.findByText(name));
 };
-
-stubGeometry();
 
 describe("Device.Select", () => {
   it("should write the selected device's rack into the form and skip onConfigure for a configured device", async () => {

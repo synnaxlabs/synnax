@@ -20,7 +20,7 @@ import type z from "zod";
 import { AccessDeniedError, isConnectionError } from "@/errors";
 import { type framer } from "@/framer";
 import { bindDerived, type DeriveParams } from "@/query/derived";
-import { Queries, type QueriesParams, type Retrieves } from "@/query/query";
+import { type Retrieves, Space, type SpaceConfig } from "@/query/query";
 import { createStreamer, type Listener, type Streamer } from "@/query/streamer";
 import { type Keyed, type ListenerSpec, Table, type TableParams } from "@/query/table";
 import { type Data, type Params } from "@/query/types";
@@ -75,7 +75,7 @@ export interface TableConfig<
   listen?: Array<ListenerSpec<Key, Value>>;
 }
 
-interface TableEntry {
+interface RegisteredTable {
   name: string;
   listeners: Listener[];
   reconcile?: () => Promise<void>;
@@ -83,7 +83,7 @@ interface TableEntry {
 }
 
 /** The cache-facing lifecycle of an answer space, generics erased. */
-interface Space {
+interface SpaceLifecycle {
   close: () => void;
   reset: () => void;
 }
@@ -100,9 +100,9 @@ interface Space {
  * declared before streaming starts.
  */
 export class Cache {
-  private readonly entries: TableEntry[] = [];
+  private readonly tables: RegisteredTable[] = [];
   private readonly reactions: Listener[] = [];
-  private readonly spaces: Space[] = [];
+  private readonly spaces: SpaceLifecycle[] = [];
   private readonly detachers: destructor.Destructor[] = [];
   private readonly epochObserver = new observe.Observer<number>();
   private readonly params: CacheParams;
@@ -134,7 +134,7 @@ export class Cache {
       throw new Error(`cannot create table ${config.name} after streaming has started`);
     const { name, listen, ...params } = config;
     const table = new Table<Key, Value>({ ...params, onError: this.onError });
-    this.entries.push({
+    this.tables.push({
       name,
       listeners: (listen ?? []).map((spec) => spec.bind(table)),
       reconcile: config.fetch == null ? undefined : async () => await table.reconcile(),
@@ -145,10 +145,10 @@ export class Cache {
 
   /**
    * Creates a table materialized from another table owned by this cache.
-   * Composed rows are replaced on source and watch events, so row identity
-   * changes exactly when composition changes; misses on read fetch through
-   * the source. Resets with the cache. No stream listeners of its own, so
-   * it may be created at any time.
+   * Composed entries are replaced on source and watch events, so entry
+   * identity changes exactly when composition changes; misses on read fetch
+   * through the source. Resets with the cache. No stream listeners of its own,
+   * so it may be created at any time.
    */
   derive<Key extends record.Key, Value extends Keyed<Key>, Composed extends Keyed<Key>>(
     config: DerivedConfig<Key, Value, Composed>,
@@ -160,7 +160,7 @@ export class Cache {
       fetch: async (keys) => (await source.retrieve(keys)).map(compose),
     });
     this.detachers.push(bindDerived(table, { source, compose, watch }));
-    this.entries.push({ name, listeners: [], reset: () => table.reset() });
+    this.tables.push({ name, listeners: [], reset: () => table.reset() });
     return table;
   }
 
@@ -187,8 +187,8 @@ export class Cache {
     D extends Data,
     K extends record.Key = record.Key,
     V extends state.State = state.State,
-  >(params: QueriesParams<Q, D, K, V>): Retrieves<Q, D> {
-    const space = new Queries(params, {
+  >(config: SpaceConfig<Q, D, K, V>): Retrieves<Q, D> {
+    const space = new Space(config, {
       ensureStreaming: async () => await this.ensureStreaming(),
       onEpoch: (callback) => this.onEpoch(callback),
       maintained: () => !this.unmaintained && this.params.openStreamer != null,
@@ -216,7 +216,7 @@ export class Cache {
         openStreamer,
         breaker,
         listeners: [
-          ...this.entries.flatMap(({ listeners }) => listeners),
+          ...this.tables.flatMap(({ listeners }) => listeners),
           ...this.reactions,
         ],
         onError: this.onError,
@@ -266,13 +266,13 @@ export class Cache {
   }
 
   /**
-   * Re-checks every cached row against the cluster: refreshes rows that
-   * still exist and tombstones rows that vanished. Runs after every
+   * Re-checks every cached entry against the cluster: refreshes entries that
+   * still exist and tombstones entries that vanished. Runs after every
    * reconnect for tables that declare a fetch.
    */
   private async reconcile(): Promise<void> {
     await Promise.all(
-      this.entries.map(async ({ name, reconcile }) => {
+      this.tables.map(async ({ name, reconcile }) => {
         if (reconcile == null) return;
         try {
           await reconcile();
@@ -286,7 +286,7 @@ export class Cache {
   }
 
   /**
-   * Discards every cached row, tombstone, and answer, closes the change
+   * Discards every cached entry, tombstone, and answer, closes the change
    * stream so it reopens fresh, and returns the epoch to 0. Called when the
    * cluster behind the connection is replaced: no cached record, corpse, or
    * answer remains meaningful, so nothing is tombstoned or diffed.
@@ -302,7 +302,7 @@ export class Cache {
     } catch (exc) {
       console.error("failed to close retired stream", exc);
     }
-    this.entries.forEach(({ reset }) => reset());
+    this.tables.forEach(({ reset }) => reset());
     this.spaces.forEach((space) => space.reset());
     this.unmaintained = false;
     this.epochCount = 0;

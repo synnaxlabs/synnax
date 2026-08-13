@@ -63,7 +63,7 @@ export const useTearOffTab = (): TearOffTab => {
         if (!created) return;
         dispatch({ key: sourceKey, actions: panel.removeTab({ key: tab.key }) });
         openWindow(key, { position });
-      }, "Failed to open the tab in a new window"),
+      }, "Failed to open the component in a new window"),
     [openWindow, create, dispatch, client, projectKey, handleError],
   );
 };

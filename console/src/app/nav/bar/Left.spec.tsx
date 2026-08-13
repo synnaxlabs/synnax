@@ -12,7 +12,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Bar } from "@/app/nav/bar";
-import { renderBar } from "@/app/nav/bar/testutil";
+import { renderBar, withActiveProject } from "@/app/nav/bar/testutil";
 import { Session } from "@/session";
 import { getIconButton, type TestStore } from "@/testutil";
 
@@ -36,20 +36,20 @@ const bottom = (store: TestStore) =>
 describe("app/nav/bar/Left", () => {
   describe("rendering", () => {
     it("should render a nav button for each access-granted toolbar", async () => {
-      const { container } = await renderBar(<Bar.Left />);
+      const { container } = await renderBar(<Bar.Left />, withActiveProject());
       for (const icon of ["device", "task", "arc", "range", "channel", "project"])
         await findItem(container, icon);
     });
 
-    it("should render the visualization toolbar in the bottom section", async () => {
-      const { container } = await renderBar(<Bar.Left />);
-      await findItem(container, "visualize");
+    it("should render the focused tab's toolbar in the bottom section", async () => {
+      const { container } = await renderBar(<Bar.Left />, withActiveProject());
+      await findItem(container, "component");
     });
   });
 
   describe("left selection", () => {
     it("should dispatch selectLeft and pin the item when clicked", async () => {
-      const { container, store } = await renderBar(<Bar.Left />);
+      const { container, store } = await renderBar(<Bar.Left />, withActiveProject());
       fireEvent.click(await findItem(container, "range"));
       await waitFor(() => expect(left(store).selected).toBe("range"));
       expect(left(store).hover).toBe(false);
@@ -58,9 +58,11 @@ describe("app/nav/bar/Left", () => {
     it("should deselect when the pinned item is clicked again", async () => {
       const { container, store } = await renderBar(
         <Bar.Left />,
-        navState({
-          left: { ...Session.Nav.ZERO_WINDOW_STATE.left, selected: "range" },
-        }),
+        withActiveProject(
+          navState({
+            left: { ...Session.Nav.ZERO_WINDOW_STATE.left, selected: "range" },
+          }),
+        ),
       );
       fireEvent.click(await findItem(container, "range"));
       await waitFor(() => expect(left(store).selected).toBeUndefined());
@@ -69,9 +71,11 @@ describe("app/nav/bar/Left", () => {
     it("should mark the selected item with the selected class", async () => {
       const { container } = await renderBar(
         <Bar.Left />,
-        navState({
-          left: { ...Session.Nav.ZERO_WINDOW_STATE.left, selected: "range" },
-        }),
+        withActiveProject(
+          navState({
+            left: { ...Session.Nav.ZERO_WINDOW_STATE.left, selected: "range" },
+          }),
+        ),
       );
       const button = await findItem(container, "range");
       expect(button.classList.contains("pluto--selected")).toBe(true);
@@ -80,19 +84,21 @@ describe("app/nav/bar/Left", () => {
 
   describe("bottom selection", () => {
     it("should dispatch selectBottom and show the bottom drawer when clicked", async () => {
-      const { container, store } = await renderBar(<Bar.Left />);
-      fireEvent.click(await findItem(container, "visualize"));
+      const { container, store } = await renderBar(<Bar.Left />, withActiveProject());
+      fireEvent.click(await findItem(container, "component"));
       await waitFor(() => expect(bottom(store).visible).toBe(true));
     });
 
     it("should mark the bottom item selected when the drawer is visible", async () => {
       const { container } = await renderBar(
         <Bar.Left />,
-        navState({
-          bottom: { ...Session.Nav.ZERO_WINDOW_STATE.bottom, visible: true },
-        }),
+        withActiveProject(
+          navState({
+            bottom: { ...Session.Nav.ZERO_WINDOW_STATE.bottom, visible: true },
+          }),
+        ),
       );
-      const button = await findItem(container, "visualize");
+      const button = await findItem(container, "component");
       expect(button.classList.contains("pluto--selected")).toBe(true);
     });
   });

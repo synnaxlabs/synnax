@@ -94,7 +94,7 @@ describe("store", () => {
       const cached = remote.lineplots.getCached(plot.key);
       if (query.isLive(cached)) expect(cached.name).toEqual(plot.name);
     } finally {
-      remote.close();
+      await remote.close();
     }
   });
 

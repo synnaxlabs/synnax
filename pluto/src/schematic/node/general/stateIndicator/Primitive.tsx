@@ -18,7 +18,6 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
-import { Theming } from "@/theming";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
@@ -37,27 +36,25 @@ export const StateIndicator = ({
   staleColor,
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
-  const stateColor = matched?.color;
-  const backgroundColor = color.cssString(stateColor);
-  const theme = Theming.use();
-  const legible =
-    stateColor != null
-      ? color.pickByContrast(stateColor, theme.colors.gray.l0, theme.colors.gray.l11)
-      : undefined;
-  const textColor = color.cssString(staleColor ?? legible);
+  // The matched state's color drives the chassis; the symbol color is the
+  // fallback so an unmatched indicator still reads as its symbol.
+  const symbolColor = symbolColorVar(matched?.color) ?? symbolColorVar(colorVal);
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
-  const symbolColor = symbolColorVar(colorVal);
   const style = useMemo<CSSProperties>(
     () => ({
       [CSS.var("symbol-color")]: symbolColor,
-      backgroundColor,
       minWidth: inlineSize,
     }),
-    [symbolColor, backgroundColor, inlineSize],
+    [symbolColor, inlineSize],
   );
   return (
     <Primitive.Div
-      className={CSS(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}
+      className={CSS(
+        CSS.B("state-indicator"),
+        CSS.B("symbol-colored"),
+        symbolColor != null && CSS.M("colored"),
+        className,
+      )}
       style={style}
     >
       <Handle.Rectangle
@@ -68,7 +65,7 @@ export const StateIndicator = ({
         bottom={102}
       />
       <div className={CSS.BE("state-indicator", "content")}>
-        <Text.Text level="p" color={textColor} variant="code">
+        <Text.Text level="p" color={color.cssString(staleColor)} variant="code">
           {label}
         </Text.Text>
       </div>

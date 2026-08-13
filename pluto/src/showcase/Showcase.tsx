@@ -21,6 +21,7 @@ import { HeaderShowcase } from "./HeaderShowcase";
 import { InputShowcase } from "./InputShowcase";
 import { MenuShowcase } from "./MenuShowcase";
 import { NoteShowcase } from "./NoteShowcase";
+import { SchematicStyleShowcase } from "./SchematicStyleShowcase";
 import { SelectShowcase } from "./SelectShowcase";
 import { TabsShowcase } from "./TabsShowcase";
 import { TagShowcase } from "./TagShowcase";
@@ -110,6 +111,13 @@ export const Showcase = () => {
       description:
         "Composed tabbed interface with drag-to-reorder: tabs slide out of the way to preview where a dragged tab will land.",
       component: <TabsShowcase />,
+    },
+    {
+      key: "schematic",
+      title: "Schematic Styles",
+      description:
+        "Competing schematic style philosophies rendered over one shared symbol set. Judge each on its specimens and on the composed fragment.",
+      component: <SchematicStyleShowcase />,
     },
     {
       key: "flex",

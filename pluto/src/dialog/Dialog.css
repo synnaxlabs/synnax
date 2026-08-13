@@ -13,9 +13,11 @@
     position: fixed;
     overflow: hidden;
 
-    & > .pluto-pack.pluto--rounded {
-        --pluto-pack-br: 6px;
-    }
+    /* Dialogs are elevated chrome: fills lighten even when the dialog is anchored
+       inside a recessed-chrome region. */
+    --pluto-fill-rest: var(--pluto-gray-l3);
+    --pluto-fill-hover: var(--pluto-gray-l4);
+    --pluto-fill-press: var(--pluto-gray-l5);
 
     &.pluto--modal {
         position: relative;
@@ -26,11 +28,16 @@
         &.pluto--visible {
             top: 15%;
             border-color: var(--pluto-gray-l6);
-            min-width: min(110rem, 100%);
-            max-width: 100%;
-            overflow: hidden;
-            box-shadow: var(--pluto-shadow-v1);
-            border-radius: 1rem;
+            min-width: var(--pluto-dialog-min-width, min(110rem, 100%));
+            max-width: var(--pluto-dialog-max-width, 100%);
+            overflow: var(--pluto-dialog-overflow, hidden);
+            box-shadow:
+                0 0 0 var(--pluto-border-width) var(--pluto-gray-l7),
+                var(--pluto-shadow-modal);
+            border-radius: var(--pluto-border-radius-large);
+            background: color-mix(in srgb, var(--pluto-gray-l0) 75%, transparent);
+            -webkit-backdrop-filter: var(--pluto-frost);
+            backdrop-filter: var(--pluto-frost);
             &.pluto-dialog--modal-position-shifted {
                 top: 8%;
             }
@@ -46,7 +53,7 @@
 
     &:not(.pluto--modal) {
         animation: var(--pluto-dialog-animation);
-        box-shadow: var(--pluto-shadow-v1);
+        box-shadow: var(--pluto-shadow-overlay);
         max-height: 360px;
         z-index: 6;
         &.pluto-height-small {

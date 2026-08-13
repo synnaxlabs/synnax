@@ -27,7 +27,7 @@ export const Dialog = ({
   background = 0,
   className,
   bordered = true,
-  rounded = 1,
+  rounded = "small",
   passthrough = false,
   children,
   ...rest

@@ -17,9 +17,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Channel } from "@/feature/channel";
 import { Search } from "@/feature/search";
 import { Search as PlatformSearch } from "@/platform/search";
-import { createConsoleWrapper, stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -55,10 +53,11 @@ const searchInput = (): HTMLInputElement => {
 };
 
 describe("Search.List", () => {
-  it("shows the empty state when no resource matches the query", async () => {
-    await renderSearch();
+  it("shows the empty state once the search answers with nothing", async () => {
+    await renderSearch({});
     fireEvent.change(searchInput(), { target: { value: uniqueName("no_such") } });
-    await waitFor(() => expect(screen.getByText("No resources found")).toBeTruthy());
+    expect(screen.queryByText("No resources found")).toBeNull();
+    await screen.findByText("No resources found");
   });
 
   it("finds a live resource by name and renders its search item", async () => {

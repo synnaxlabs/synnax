@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/panel/Selector.css";
+
 import { panel, query } from "@synnaxlabs/client";
 import {
   Access,
@@ -32,14 +34,14 @@ import { useCreate } from "@/feature/panel/useCreate";
 import { useOpenWindow } from "@/feature/panel/useOpenWindow";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Tree } from "@/platform/tree";
+import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
   const ids = panel.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const confirm = Tree.useConfirmDelete({ type: "Panel" });
+  const confirm = Modals.useConfirmDelete({ type: "Panel" });
   const dispatch = useDispatch();
   const client = Synnax.use();
   const openWindow = useOpenWindow();
@@ -48,10 +50,11 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
         const panelKeys = array.toArray(data);
         if (panelKeys.length === 0) return false;
-        // The confirmation names the panels, which the strip does not hold: a
-        // snapshot read is enough for a prompt fired from a menu click.
-        const cached = client?.panels.getCached(panelKeys);
-        if (!(await confirm(query.isLive(cached) ? cached : []))) return false;
+        const items = panelKeys.map((key) => {
+          const cached = client?.panels.getCached(key);
+          return { name: query.isLive(cached) ? cached.name : "this panel" };
+        });
+        if (!(await confirm(items))) return false;
         dispatch(Session.Panel.remove(panelKeys));
         return data;
       },
@@ -62,27 +65,19 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   const [key] = keys;
   return (
     <CMenu.Menu>
-      {keys.length === 1 && (
-        <>
-          <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
-            <Icon.OpenInNewWindow />
-            Open in new window
-          </Menu.Item>
-          <Menu.Divider />
-        </>
-      )}
       {hasUpdatePermission && keys.length === 1 && (
-        <>
-          <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
-          <Menu.Divider />
-        </>
+        <CMenu.RenameItem onClick={() => Text.edit(PCSS.B(`tab-${key}`))} />
       )}
-      {hasDeletePermission && (
-        <>
-          <CMenu.DeleteItem onClick={() => del(keys)} />
-          <Menu.Divider />
-        </>
+      <Menu.Divider />
+      {keys.length === 1 && (
+        <Menu.Item itemKey="open-in-new-window" onClick={() => openWindow(key)}>
+          <Icon.OpenInNewWindow />
+          Open in new window
+        </Menu.Item>
       )}
+      <Menu.Divider />
+      {hasDeletePermission && <CMenu.DeleteItem onClick={() => del(keys)} />}
+      <Menu.Divider />
       <CMenu.ReloadConsoleItem />
     </CMenu.Menu>
   );
@@ -97,14 +92,14 @@ interface TabProps {
 const TabFallback = (): null => null;
 
 const Tab = ({ tabKey }: TabProps): ReactElement => (
-  <Errors.SuspenseBoundary FallbackComponent={TabFallback}>
+  <Errors.SuspenseBoundary loading={null} FallbackComponent={TabFallback}>
     <TabContent tabKey={tabKey} />
   </Errors.SuspenseBoundary>
 );
 
 const TabContent = ({ tabKey }: TabProps): ReactElement => {
-  Panel.useEnsureRetrieved({ key: tabKey });
-  const name = Panel.useSelectName({ key: tabKey });
+  Panel.useEnsure({ key: tabKey });
+  const name = Panel.useName({ key: tabKey });
   const { update: rename } = Panel.useRename();
   const handleChange = useCallback(
     (name: string) => rename({ key: tabKey, name }),
@@ -122,6 +117,7 @@ const TabContent = ({ tabKey }: TabProps): ReactElement => {
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
     >
+      <Icon.Panel />
       <Text.Editable
         id={PCSS.B(`tab-${tabKey}`)}
         value={name}
@@ -137,7 +133,7 @@ const Internal = (): ReactElement => {
   const dispatch = useDispatch();
   const selected = Session.Panel.useSelectSelected();
   const projectKey = Session.Project.useSelectSelected();
-  const keys = Panel.useRetrieveKeysByProject({ project: projectKey });
+  const keys = Panel.useKeysByProject({ project: projectKey });
 
   const handleSelect = useCallback(
     (key: string) => dispatch(Session.Panel.select({ key })),
@@ -149,20 +145,29 @@ const Internal = (): ReactElement => {
 
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
-      <Tabs.Frame value={selected ?? ""} onChange={handleSelect}>
+      <Tabs.Frame
+        className={CSS.B("panel-selector")}
+        value={selected ?? ""}
+        onChange={handleSelect}
+        x
+        align="center"
+        empty={false}
+        gap="small"
+      >
         <Tabs.Selector
-          className={CSS.B("panel-selector")}
           size="medium"
           variant="pill"
+          overflow="scroll"
           onContextMenu={menuProps.open}
         >
           {keys.map((key) => (
             <Tab key={key} tabKey={key} />
           ))}
-          <Button.Button variant="text" sharp onClick={handleCreate}>
-            <Icon.Add />
-          </Button.Button>
         </Tabs.Selector>
+        <Button.Button variant="text" onClick={handleCreate}>
+          <Icon.Add />
+          {selected == null && "New Panel"}
+        </Button.Button>
       </Tabs.Frame>
     </Menu.ContextMenu>
   );

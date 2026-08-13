@@ -15,7 +15,7 @@ import { type project } from "@/project";
 import { createTestClient } from "@/testutil/client";
 
 // Every document table declares a fetch that resolves keys against the
-// cluster and omits rows the cluster no longer has. Reconciliation and watch
+// cluster and omits entries the cluster no longer has. Reconciliation and watch
 // backfill ride that contract (the reconcile pass itself is covered in
 // cache.spec.ts); these tests pin it per domain through the keys-only
 // retrieve path, which resolves through the same table fetch. Each test uses
@@ -90,7 +90,7 @@ describe("table fetch", () => {
           const res = await retrieveKeys(reader, [key]);
           expect(res.map((r) => r.key)).toEqual([key]);
         } finally {
-          reader.close();
+          await reader.close();
         }
       });
 
@@ -102,7 +102,7 @@ describe("table fetch", () => {
           const res = await retrieveKeys(reader, [key]);
           expect(res).toHaveLength(0);
         } finally {
-          reader.close();
+          await reader.close();
         }
       });
     });

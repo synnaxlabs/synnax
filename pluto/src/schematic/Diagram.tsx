@@ -25,9 +25,9 @@ import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
 import {
-  useSelectAllEdges,
-  useSelectConfigs,
-  useSelectElementConfig,
+  useAllEdges,
+  useConfigs,
+  useElementConfig,
   useSingleDispatch,
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
@@ -37,7 +37,7 @@ import { internalNodeBox, resolveEndpoint } from "@/vis/diagram/util";
 const useConfig = <T extends ElementConfig>(
   key: string,
 ): [T | undefined, (config: Partial<T>) => void] => {
-  const config = useSelectElementConfig({ elKey: key });
+  const config = useElementConfig({ elKey: key });
   const dispatch = useSingleDispatch();
   const handleChange = useCallback(
     (config: Partial<T>) => dispatch(schematic.setConfig({ key, config })),
@@ -73,9 +73,9 @@ const EdgeRenderer = (props: Base.EdgeProps): ReactElement | null => {
 
 const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
   const key = useKey();
-  const edges = useSelectAllEdges({ key });
+  const edges = useAllEdges({ key });
   const edgeKeys = useMemo(() => edges.map((e) => e.key), [edges]);
-  const configs = useSelectConfigs({ key, keys: edgeKeys });
+  const configs = useConfigs({ key, keys: edgeKeys });
   const rfStore = useStoreApi();
   const jumpStoreRef = useInitializerRef<Edge.Jumps.Store>(Edge.Jumps.createStore);
   const jumpStore = jumpStoreRef.current;

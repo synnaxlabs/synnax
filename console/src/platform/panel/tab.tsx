@@ -13,11 +13,22 @@ import {
   type project,
   type Synnax,
 } from "@synnaxlabs/client";
-import { context, type Flux, type Icon, Panel, Text } from "@synnaxlabs/pluto";
+import {
+  context,
+  type Flux,
+  type Icon,
+  Panel,
+  Text,
+  type Triggers,
+} from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-export interface TabName extends FC<record.Empty> {}
+export interface TabNameProps {
+  /** Whether the render site permits renaming the tab in place. Defaults to true. */
+  allowRename?: boolean;
+}
+export interface TabName extends FC<TabNameProps> {}
 export interface TabIcon extends Icon.FC {}
 export interface Toolbar extends FC<record.Empty> {}
 export interface Content extends FC<record.Empty> {}
@@ -36,8 +47,8 @@ export interface UseTombstone {
 export interface Tab {
   Content: Content;
   Name: TabName;
-  /** Represents the tab as a glyph alone. Rendered inside the tab's panel and
-   * tab scope. */
+  /** Represents the tab as a glyph alone, e.g. on the bottom toolbar button.
+   * Rendered inside the tab's panel and tab scope. */
   Icon: TabIcon;
   Toolbar?: Toolbar;
   /**
@@ -70,7 +81,7 @@ export interface UseTabReturn extends Tab {
 // useTab resolves the registered Tab for the active tab's type, sourced from the
 // surrounding panel scope. Throws when no renderer is registered for the type.
 export const useTab = (): Tab => {
-  const type = Panel.useSelectTabType({});
+  const type = Panel.useTabType({});
   const renderer = useRendererContext()[type];
   if (renderer == null) throw new NotFoundError(`no renderer for tab type ${type}`);
   return renderer;
@@ -83,7 +94,7 @@ export interface TombstoneService {
 /** Binds a domain's tombstone read to the surrounding tab's resource. */
 export const createTombstoneReader = (service: TombstoneService): UseTombstone => {
   const useRead: UseTombstone = () => {
-    const { key } = Panel.useSelectTabResource();
+    const { key } = Panel.useTabResource();
     return service.useTombstone({ key });
   };
   return useRead;
@@ -161,28 +172,32 @@ export const editTabName = (tabKey: string): void => {
   Text.edit(id);
 };
 
+/** Starts an in-place name edit on the focused tab. Bound by the app shell. */
+export const RENAME_TRIGGER: Triggers.Trigger = ["Control", "E"];
+
 export interface EditableTabNameService {
-  useEnsureRetrieved: (args: { key: string }) => void;
-  useSelectName: (args: { key: string }) => string;
+  useEnsure: (args: { key: string }) => void;
+  useName: (args: { key: string }) => string;
   useRename: () => { update: (args: { key: string; name: string }) => void };
 }
 
 export const createEditableTabName = (
-  service: EditableTabNameService,
+  { useEnsure, useName, useRename }: EditableTabNameService,
   icon: Icon.ReactElement,
 ): TabName => {
-  const Name: TabName = () => {
+  const Name: TabName = ({ allowRename = true }) => {
     const tabKey = Panel.useTabKey();
-    const { key } = Panel.useSelectTabResource();
-    service.useEnsureRetrieved({ key });
-    const name = service.useSelectName({ key });
-    const { update } = service.useRename();
+    const { key } = Panel.useTabResource();
+    useEnsure({ key });
+    const name = useName({ key });
+    const { update } = useRename();
     return (
       <>
         {icon}
-        <Text.Editable
+        <Text.MaybeEditable
           id={tabNameID(tabKey)}
           value={name}
+          disabled={!allowRename}
           onChange={(name) => update({ key, name })}
         />
       </>

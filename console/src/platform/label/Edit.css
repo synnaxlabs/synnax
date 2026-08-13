@@ -9,16 +9,23 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-modal.console-label__edit {
+    height: 80rem;
+    max-height: 80vh;
+}
+
 .console-label__edit {
     overflow: hidden;
 }
 
-.console-label__edit-header {
-    padding: 2rem;
-}
-
-.console-label__add-btn {
-    width: fit-content;
+/* Chromeless search line: the modal frames it, so the input sheds its own box.
+   Padding lands the search icon on the list rows' 4rem gutter. */
+.pluto-input.console-label__search {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0 2.5rem;
+    flex-shrink: 0;
 }
 
 .console-label__items-container {
@@ -32,16 +39,8 @@
     min-height: 7.5rem;
     padding: 0rem 4rem;
 
-    .console-label__delete {
-        opacity: 0;
-    }
-    &:hover {
-        .console-label__delete {
-            opacity: 1;
-        }
-    }
     &.console--create {
-        background: var(--pluto-gray-l2);
+        background: var(--pluto-gray-l3);
         transition:
             height 0.2s ease,
             min-height 0.2s ease;

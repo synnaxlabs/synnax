@@ -10,12 +10,13 @@
  */
 
 .console-palette__content {
-    width: 100%;
-    max-width: 1200px;
+    --pluto-dialog-min-width: 0;
+    --pluto-dialog-max-width: 1200px;
+    --pluto-dialog-overflow: visible;
+
     max-height: 500px;
     width: 95vw;
-    max-width: 1200px;
-    overflow: visible !important;
+
     & .pluto-list__items--empty {
         min-height: 20rem;
     }
