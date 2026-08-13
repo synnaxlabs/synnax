@@ -199,32 +199,36 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [client, placeholders],
   );
 
-  const applyChildren = useCallback(
-    (id: ontology.ID, resources: ontology.Resource[]) => {
-      const filtered = resources.filter((r) => {
-        const svc = resolveItem(r.id.type);
-        return svc.visible == null || svc.visible(r);
-      });
-      const converted = filtered.map((r) => ({
-        key: ontology.idToString(r.id),
-        children: resolveItem(r.id.type).hasChildren ? [] : undefined,
-      }));
-      const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
+  const applyAnswer = useCallback(
+    (parent: ontology.ID, resources: ontology.Resource[]) => {
+      const next = toNodes(resources, resolveItem);
+      const nextKeys = new Set(next.map(({ key }) => key));
+      // The answer is the authority on its parent's membership. A node it omits
+      // survives only while a placeholder backs it, since an optimistic row the
+      // cluster has not heard about yet cannot be in any answer.
+      const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => [
+        ...prevChildren.filter(
+          ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),
+        ),
+        ...keepLoadedChildren(prevChildren, next),
+      ];
+      if (ontology.idsEqual(parent, root)) {
+        setNodes(merge);
+        setAnswered(true);
+        return;
+      }
       setNodes((prevNodes) => [
         // The children subscription can outlive the parent's presence in the
         // tree; a missing parent means the update is stale.
         ...Base.updateNodeChildren({
           tree: prevNodes,
-          parent: ontology.idToString(id),
+          parent: ontology.idToString(parent),
           throwOnMissing: false,
-          updater: (prevChildren) => [
-            ...prevChildren.filter(({ key }) => !ids.has(key)),
-            ...keepLoadedChildren(prevChildren, converted),
-          ],
+          updater: merge,
         }),
       ]);
     },
-    [resolveItem],
+    [resolveItem, setNodes, root, placeholders],
   );
 
   const useLoading = useCallback(
@@ -247,31 +251,48 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [loadingListenersRef],
   );
 
-  const applyRoot = useCallback(
-    (resources: ontology.Resource[]) =>
-      setNodes((prevNodes) =>
-        keepLoadedChildren(prevNodes, toNodes(resources, resolveItem)),
-      ),
-    [resolveItem, setNodes],
+  /** Live children subscriptions, keyed by the parent they answer for. */
+  const watchedRef = useInitializerRef(() => new Map<string, destructor.Destructor>());
+
+  const watchChildren = useCallback(
+    (parent: ontology.ID) => {
+      if (client == null) return;
+      const key = ontology.idToString(parent);
+      if (watchedRef.current.has(key)) return;
+      // Subscribe before fetching. A change landing between the two would
+      // otherwise reach neither the answer nor the tree.
+      watchedRef.current.set(
+        key,
+        client.ontology.children.onChange({ ids: parent }, (answer) => {
+          if (query.isLive(answer)) applyAnswer(parent, answer);
+        }),
+      );
+      // A retained answer paints before the fetch that reconfirms it.
+      const cached = client.ontology.children.getCached({ ids: parent });
+      if (query.isLive(cached)) applyAnswer(parent, cached);
+      handleError(async () => {
+        try {
+          const resources = await client.ontology.children.retrieve({ ids: parent });
+          // A release during the fetch means the answer is no longer wanted.
+          if (watchedRef.current.has(key)) applyAnswer(parent, resources);
+        } finally {
+          if (loadingRef.current === key) setLoading(false);
+        }
+      }, "Failed to retrieve resources");
+    },
+    [client, applyAnswer, handleError, setLoading],
   );
 
+  const releaseChildren = useCallback((keys: string[]) => {
+    keys.forEach((key) => {
+      watchedRef.current.get(key)?.();
+      watchedRef.current.delete(key);
+    });
+  }, []);
+
   useEffect(() => {
-    if (client == null) return;
-    // A root the seed missed still has its answer retained from a previous
-    // mount, and it paints before the fetch that reconfirms it.
-    const cached = client.ontology.children.getCached({ ids: root });
-    if (query.isLive(cached)) {
-      applyRoot(cached);
-      setAnswered(true);
-    }
-    const controller = new AbortController();
-    handleError(async () => {
-      const resources = await client.ontology.children.retrieve({ ids: root });
-      if (controller.signal.aborted) return;
-      applyRoot(resources);
-      setAnswered(true);
-    }, "Failed to retrieve resources");
-    return () => controller.abort();
+    watchChildren(root);
+    return () => releaseChildren([...watchedRef.current.keys()]);
   }, [client, ontology.idToString(root)]);
 
   const handleSyncResourceSet = useCallback(
@@ -362,43 +383,20 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
   Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
-  // One live children subscription follows the most recently expanded node; a
-  // new expand swaps it, matching the fetch that just answered.
-  const childListenerRef = useRef<destructor.Destructor | null>(null);
-  useEffect(() => () => childListenerRef.current?.(), []);
-  const retrieveChildrenOf = useCallback(
-    (id: ontology.ID) => {
-      if (client == null) return;
-      // A re-expanded node paints its retained children before the fetch that
-      // reconfirms them.
-      const cached = client.ontology.children.getCached({ ids: id });
-      if (query.isLive(cached)) applyChildren(id, cached);
-      handleError(async () => {
-        try {
-          const resources = await client.ontology.children.retrieve({ ids: id });
-          childListenerRef.current?.();
-          childListenerRef.current = client.ontology.children.onChange(
-            { ids: id },
-            (res) => {
-              if (query.isLive(res)) applyChildren(id, res);
-            },
-          );
-          applyChildren(id, resources);
-        } finally {
-          setLoading(false);
-        }
-      }, "Failed to retrieve resources");
-    },
-    [client, applyChildren, handleError, setLoading],
-  );
   const handleExpand = useCallback(
     ({ action, clicked }: Base.HandleExpandProps) => {
-      if (action !== "expand") return;
-      const clickedID = ontology.idZ.parse(clicked);
+      if (action === "contract") {
+        // A hidden subtree needs no maintenance. Its answers stay cached, so a
+        // re-expand paints from them.
+        const node = Base.findNode({ tree: nodesRef.current, key: clicked });
+        if (node != null)
+          releaseChildren(Base.getDescendants(node).map(({ key }) => key));
+        return;
+      }
       setLoading(clicked);
-      retrieveChildrenOf(clickedID);
+      watchChildren(ontology.idZ.parse(clicked));
     },
-    [retrieveChildrenOf, setLoading],
+    [watchChildren, releaseChildren, setLoading, nodesRef],
   );
 
   const getResource = useCallback(
