@@ -18,23 +18,23 @@ import (
 )
 
 type entry struct {
-	ID   int32  `msgpack:"id"`
-	Data string `msgpack:"data"`
+	ID   int32
+	Data string
 }
 
-func (e entry) GorpKey() int32    { return e.ID }
-func (e entry) SetOptions() []any { return nil }
+func (e entry) GorpKey() int32 { return e.ID }
+
+func (entry) SetOptions() []any { return nil }
 
 var _ = Describe("OpenGorpMsgpackDB", func() {
 	It(
 		"Should store entries that do not implement orc.SelfCodec",
 		func(ctx SpecContext) {
-			db := OpenGorpMsgpackDB()
-			defer func() { Expect(db.Close()).To(Succeed()) }()
+			db := DeferClose(OpenGorpMsgpackDB())
 			w := gorp.WrapWriter[int32, entry](db)
 			Expect(w.Set(ctx, entry{ID: 1, Data: "one"})).To(Succeed())
 			r := gorp.WrapReader[int32, entry](db)
-			Expect(MustSucceed(r.Get(ctx, 1))).To(Equal(entry{ID: 1, Data: "one"}))
+			Expect(r.Get(ctx, 1)).To(Equal(entry{ID: 1, Data: "one"}))
 		},
 	)
 })
