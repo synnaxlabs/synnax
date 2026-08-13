@@ -210,7 +210,7 @@ describe("arc", () => {
       const created = await client.arcs.create(newTextArc(`clear-rack-${id.create()}`));
       const tsk = await client.arcs.setRack(created.key, rack.key);
       if (tsk == null) throw new Error("expected a deployment task");
-      await client.arcs.clearRack(created.key);
+      await client.arcs.setRack(created.key, 0);
       await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
       expect((await client.arcs.retrieve(created.key)).key).toEqual(created.key);
     });
@@ -223,7 +223,7 @@ describe("arc", () => {
       // Caching both the task and its status arms the cached fast-path, so a
       // retrieve after the rack is cleared answers locally instead of asking the Core.
       await client.tasks.retrieve(tsk.key);
-      await client.arcs.clearRack(created.key);
+      await client.arcs.setRack(created.key, 0);
       await expect(client.tasks.retrieve(tsk.key)).rejects.toThrow();
     });
 

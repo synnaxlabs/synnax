@@ -259,11 +259,15 @@ export class Client extends query.Retriever<
 
   /**
    * Binds the arc to the given rack, creating its task there or moving the
-   * existing one. A zero rack unbinds the arc. Returns the task, or null
-   * after an unbind.
+   * existing one. A zero rack unbinds the arc, deleting its task. Returns the
+   * task, or null after an unbind.
    * @throws {ValidationError} when unbinding while the task is running.
    */
   async setRack(key: Key, rackKey: rack.Key): Promise<task.Task | null> {
+    if (rackKey === 0) {
+      await this.clearRack(key);
+      return null;
+    }
     const res = await this.cfg.unary.send(
       "/arc/set-rack",
       { key, rack: rackKey },
@@ -276,13 +280,16 @@ export class Client extends query.Retriever<
     return tsk;
   }
 
-  /**
-   * Clears the arc's rack, deleting its task and stopping it on its rack.
-   * @throws {ValidationError} when the task is running.
-   */
-  async clearRack(key: Key): Promise<void> {
+  // clearRack drops the deleted task from the cache so it is not served until
+  // the delete signal lands.
+  private async clearRack(key: Key): Promise<void> {
     const tsk = await this.retrieveTask(key);
-    await this.setRack(key, 0);
+    await this.cfg.unary.send(
+      "/arc/set-rack",
+      { key, rack: 0 },
+      setRackReqZ,
+      setRackResZ,
+    );
     if (tsk != null) this.cfg.tasks.dropCached(tsk.key);
   }
 
