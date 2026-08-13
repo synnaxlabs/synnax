@@ -66,9 +66,9 @@ BOOL_LIT    : 'true' | 'false' ;
 // Identifiers
 // =============================================================================
 
-// Identifiers include type names, field names, domain names, etc. Primitive types //
-(uuid, string, int32, etc.) are NOT reserved keywords - they are just identifiers //
-that plugins interpret specially.
+// Identifiers include type names, field names, domain names, etc. Primitive types
+// (uuid, string, int32, etc.) are NOT reserved keywords - they are just identifiers
+// that plugins interpret specially.
 IDENT       : [a-zA-Z_][a-zA-Z0-9_]* ;
 
 // =============================================================================
