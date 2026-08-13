@@ -25,7 +25,7 @@ import {
   Tooltip,
   Tree as PTree,
 } from "@synnaxlabs/pluto";
-import { id, primitive } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { useOpen } from "@/feature/channel/useOpen";
@@ -145,11 +145,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleSetAlias = useSetAlias(props);
   const resources = getResource(ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
-  const channels = PChannel.useRetrieveMultiple({
+  const channels = PChannel.useMultiple({
     rangeKey: activeRange?.key,
     keys: channelKeys,
   });
-  const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
+  const showDeleteAlias = channels.some((c) => c.alias != null);
   const first = resources[0];
   const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
@@ -233,15 +233,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const activeRange = Session.Range.useSelectState();
-  const res = PChannel.useRetrieve({
-    key: Number(resource.id.key),
-    rangeKey: activeRange?.key,
-  }).data;
-  let name = resource.name;
-  if (primitive.isNonZero(res?.alias)) name = res?.alias;
+  const query = { key: Number(resource.id.key), rangeKey: activeRange?.key };
+  const { data: alias } = PChannel.useResultAlias(query);
+  const { data: chStatus } = PChannel.useResultStatus(query);
+  const name = alias ?? resource.name;
   const data = resource.data as channel.Payload;
   const DataTypeIcon = PChannel.resolveIcon(data);
-  const statusVariant = status.keepVariants(res?.status?.variant, ["error", "warning"]);
+  const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
   return (
     <PTree.Item {...rest}>
       <DataTypeIcon color={10} />
@@ -258,7 +256,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
       {statusVariant != null && (
         <Tooltip.Dialog location="right">
           <Status.Summary variant={statusVariant} hideIcon level="small" weight={450}>
-            {res?.status?.message ?? ""}
+            {chStatus?.message ?? ""}
           </Status.Summary>
           <Status.Indicator variant={statusVariant} />
         </Tooltip.Dialog>

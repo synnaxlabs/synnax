@@ -21,9 +21,9 @@ export interface DeriveWatch<K extends record.Key> {
 }
 
 /**
- * Declares that events on the given table change composed rows. `affects`
+ * Declares that events on the given table change composed entries. `affects`
  * maps an event to the source keys whose composition it touches, "all" to
- * recompose every row, or null when unaffected.
+ * recompose every entry, or null when unaffected.
  */
 export const deriveWatch = <
   K extends record.Key,
@@ -34,10 +34,17 @@ export const deriveWatch = <
   affects: (event: TableEvent<ForeignKey, ForeignValue>) => K[] | "all" | null,
 ): DeriveWatch<K> => ({
   attach: (recompose) =>
-    table.subscribe((event) => {
-      const result = affects(event);
-      if (result == null) return;
-      if (result === "all" || result.length > 0) recompose(result);
+    // Batched so one foreign write recomposes once: an "all" verdict for any event
+    // supersedes the batch's keys, which otherwise union.
+    table.subscribeBatch((events) => {
+      let keys: K[] = [];
+      for (const event of events) {
+        const result = affects(event);
+        if (result == null) continue;
+        if (result === "all") return recompose("all");
+        keys = keys.concat(result);
+      }
+      if (keys.length > 0) recompose(keys);
     }),
 });
 
@@ -49,17 +56,17 @@ export interface DeriveParams<
 > {
   /** The table owning the raw records the derivation reads. */
   source: Table<K, V>;
-  /** Builds the composed row for one source record. Pure; no network. */
+  /** Builds the composed entry for one source record. Pure; no network. */
   compose: (record: V) => CV;
   /** Foreign tables whose events change composition. */
   watch?: Array<DeriveWatch<K>>;
 }
 
 /**
- * Keeps a derived table materialized from its source: composed rows are
- * replaced (never mutated) on source and watch events, so a row's identity
+ * Keeps a derived table materialized from its source: composed entries are
+ * replaced (never mutated) on source and watch events, so an entry's identity
  * changes exactly when its composition changes, with equal recompositions
- * silenced by the table's equality check. Existing source rows are composed
+ * silenced by the table's equality check. Existing source entries are composed
  * immediately. Returns a destructor that detaches every subscription.
  */
 export const bindDerived = <
@@ -75,10 +82,16 @@ export const bindDerived = <
     if (targets.length > 0) into.set(targets.map(compose));
   };
   const detach = [
-    source.subscribe((event) => {
-      if (event.variant === "set") into.set(compose(event.value));
-      else into.delete(event.key);
-    }),
+    // Batched so a source batch flushes the derived table once, preserving per-key
+    // set/delete order within the batch.
+    source.subscribeBatch((events) =>
+      into.batch(() =>
+        events.forEach((event) => {
+          if (event.variant === "set") into.set(compose(event.value));
+          else into.delete(event.key);
+        }),
+      ),
+    ),
     ...(watch ?? []).map((w) => w.attach(recompose)),
   ];
   recompose("all");

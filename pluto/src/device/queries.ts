@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, ontology, type query } from "@synnaxlabs/client";
+import { device, ontology, query as clientQuery, type query } from "@synnaxlabs/client";
 import { primitive, type record, uuid, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -38,40 +38,42 @@ export const createRetrieve = <
 ) =>
   Flux.createRetrieve<RetrieveQuery, device.Device<Properties, Make, Model>>({
     name: RESOURCE_NAME,
+    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
     retrieve: async ({ client, query }) => {
-      if (schemas != null)
-        return await client.devices.retrieve({ ...BASE_QUERY, ...query, schemas });
-      const dev = await client.devices.retrieve({ ...BASE_QUERY, ...query });
+      if (schemas != null) return await client.devices.retrieve({ ...query, schemas });
+      const dev = await client.devices.retrieve(query);
       return dev as unknown as device.Device<Properties, Make, Model>;
     },
-    subscribe: ({ client, query }, handler) =>
+    onChange: ({ client, query }, handler) =>
       client.devices.onChange(
-        { ...BASE_QUERY, ...query },
+        query,
         handler as unknown as query.ChangeHandler<device.Device>,
       ),
     getCached: ({ client, query }) =>
-      client.devices.getCached({ ...BASE_QUERY, ...query }) as
+      client.devices.getCached(query) as
         query.Cached<device.Device<Properties, Make, Model>> | undefined,
   });
 
-export const {
-  useRetrieve,
-  useRetrieveStateful: useStatefulRetrieve,
-  useRetrieveEffect,
-} = createRetrieve();
+export const { use, useResult, createResultSelector } = createRetrieve();
+
+/** Compared by variant and message: a heartbeat that changes neither is silenced. */
+export const useResultStatus = createResultSelector(
+  ({ status }) => status,
+  (a, b) => a?.variant === b?.variant && a?.message === b?.message,
+);
+
+export const useResultRack = createResultSelector(({ rack }) => rack);
 
 export type ListParams = device.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListParams, device.Key, device.Device>({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) =>
-    await client.devices.retrieve({ ...BASE_QUERY, ...query }),
+  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query }) => await client.devices.retrieve(query),
   retrieveByKey: async ({ client, key }) =>
     await client.devices.retrieve({ ...BASE_QUERY, key }),
-  subscribe: ({ client, query }, handler) =>
-    client.devices.onChange({ ...BASE_QUERY, ...query }, handler),
-  getCached: ({ client, query }) =>
-    client.devices.getCached({ ...BASE_QUERY, ...query }),
+  onChange: ({ client, query }, handler) => client.devices.onChange(query, handler),
+  getCached: ({ client, query }) => client.devices.getCached(query),
 });
 
 export type UseDeleteParams = device.Key | device.Key[];
@@ -113,7 +115,7 @@ export const { useUpdate: useCreate } = createCreate();
 
 export type UseRetrieveGroupParams = Record<string, never>;
 
-export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
+export const { use: useGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
   ontology.ID | undefined
 >({
@@ -162,19 +164,21 @@ export const createForm = <
       configured: true,
       properties: {},
     },
-    retrieve: async ({ query, client, reset, set }) => {
-      if (primitive.isZero(query.key)) {
-        set("key", uuid.create());
-        return;
-      }
-      reset(
-        schemas != null
-          ? await client.devices.retrieve({ ...BASE_QUERY, ...query, schemas })
-          : await client.devices.retrieve({ ...BASE_QUERY, ...query }),
-      );
+    normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+    retrieve: async ({ query, client }) =>
+      schemas != null
+        ? await client.devices.retrieve({ ...query, schemas })
+        : await client.devices.retrieve(query),
+    getCached: ({ client, query }) => {
+      const cached = client.devices.getCached(query);
+      return clientQuery.isLive(cached) ? cached : undefined;
     },
-    update: async ({ value, client }) => {
+    update: async ({ value, client, set }) => {
       const data = value();
+      if (primitive.isZero(data.key)) {
+        data.key = uuid.create();
+        set("key", data.key);
+      }
       if (schemas != null)
         await client.devices.create(
           data as device.New<Properties, Make, Model>,

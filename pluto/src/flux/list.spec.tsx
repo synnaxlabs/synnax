@@ -10,8 +10,8 @@
 import { type query, type ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, testutil, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
-import { renderHook, waitFor } from "@testing-library/react";
-import { act, type PropsWithChildren, type ReactElement } from "react";
+import { render, renderHook, waitFor } from "@testing-library/react";
+import { act, memo, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
@@ -541,6 +541,261 @@ describe("list", () => {
 
   const changed = <E,>(data: E[]): query.Cached<E[]> => data;
 
+  describe("notification routing", () => {
+    interface Item extends record.Keyed<number> {
+      value: string;
+    }
+
+    interface RowSpec {
+      id: string;
+      itemKey: number;
+    }
+
+    interface Harness {
+      counts: Map<string, number>;
+      reads: Map<number, number>;
+      push: (items: Item[]) => void;
+      setRows: (rows: RowSpec[]) => void;
+      mount: (rows: RowSpec[]) => Promise<void>;
+    }
+
+    /**
+     * Mounts each row as its own memoized component so a notification's blast
+     * radius is observable: `counts` tracks renders per row, and `reads` tracks
+     * snapshot reads per key. A spurious notification never re-renders (the
+     * unchanged snapshot short-circuits it) but always re-reads, so `reads` is
+     * what catches over-notification.
+     */
+    const createHarness = (initial: Item[]): Harness => {
+      let handler: query.ChangeHandler<Item[]> | undefined;
+      const useList = Flux.createList<{}, number, Item>({
+        name: "Resource",
+        retrieve: async () => initial,
+        retrieveByKey: async ({ key }) => initial.find((i) => i.key === key),
+        onChange: (_, h) => {
+          handler = h;
+          return () => {};
+        },
+      });
+      const counts = new Map<string, number>();
+      const reads = new Map<number, number>();
+      type GetItem = Flux.UseListReturn<{}, number, Item>["getItem"];
+      let realGetItem: GetItem | undefined;
+      const countingGetItem = ((key: number) => {
+        reads.set(key, (reads.get(key) ?? 0) + 1);
+        return realGetItem?.(key);
+      }) as GetItem;
+      interface RowProps extends RowSpec {
+        subscribe: Flux.UseListReturn<{}, number, Item>["subscribe"];
+        getItem: GetItem;
+      }
+      const Row = memo(
+        ({ id, itemKey, subscribe, getItem }: RowProps): ReactElement => {
+          const item = Flux.useListItem<number, Item>({
+            key: itemKey,
+            subscribe,
+            getItem,
+          });
+          counts.set(id, (counts.get(id) ?? 0) + 1);
+          return <span>{item?.value}</span>;
+        },
+      );
+      Row.displayName = "Row";
+      let api: Flux.UseListReturn<{}, number, Item> | undefined;
+      const List = ({ rows }: { rows: RowSpec[] }): ReactElement => {
+        api = useList();
+        const { subscribe, data } = api;
+        realGetItem = api.getItem;
+        if (data.length === 0) return <span>empty</span>;
+        return (
+          <>
+            {rows.map((row) => (
+              <Row
+                key={row.id}
+                {...row}
+                subscribe={subscribe}
+                getItem={countingGetItem}
+              />
+            ))}
+          </>
+        );
+      };
+      let rerender: ((ui: ReactElement) => void) | undefined;
+      return {
+        counts,
+        reads,
+        push: (items) => act(() => handler?.(changed(items))),
+        setRows: (rows) => rerender?.(<List rows={rows} />),
+        mount: async (rows) => {
+          ({ rerender } = render(<List rows={rows} />, { wrapper }));
+          act(() => api?.retrieve({}));
+          await waitFor(() =>
+            rows.forEach(({ id }) => expect(counts.get(id) ?? 0).toBeGreaterThan(0)),
+          );
+          // The rows mount from a render the debounced retrieve triggers outside
+          // act, so the subscription effects (and their one initial snapshot
+          // read) can flush after waitFor resolves. Settle them before callers
+          // capture baselines.
+          await act(async () => {});
+        },
+      };
+    };
+
+    it("re-renders only the row whose item changed", async () => {
+      const [one, two, three]: Item[] = [
+        { key: 1, value: "one" },
+        { key: 2, value: "two" },
+        { key: 3, value: "three" },
+      ];
+      const harness = createHarness([one, two, three]);
+      await harness.mount([
+        { id: "a", itemKey: 1 },
+        { id: "b", itemKey: 2 },
+        { id: "c", itemKey: 3 },
+      ]);
+      const before = new Map(harness.counts);
+      const readsBefore = new Map(harness.reads);
+      harness.push([one, { key: 2, value: "two!" }, three]);
+      expect(harness.counts.get("b")).toBe((before.get("b") ?? 0) + 1);
+      expect(harness.counts.get("a")).toBe(before.get("a"));
+      expect(harness.counts.get("c")).toBe(before.get("c"));
+      expect(harness.reads.get(2)).toBeGreaterThan(readsBefore.get(2) ?? 0);
+      expect(harness.reads.get(1)).toBe(readsBefore.get(1));
+      expect(harness.reads.get(3)).toBe(readsBefore.get(3));
+    });
+
+    it("re-renders every subscriber of the changed key", async () => {
+      const [one, two]: Item[] = [
+        { key: 1, value: "one" },
+        { key: 2, value: "two" },
+      ];
+      const harness = createHarness([one, two]);
+      await harness.mount([
+        { id: "a", itemKey: 2 },
+        { id: "b", itemKey: 2 },
+        { id: "c", itemKey: 1 },
+      ]);
+      const before = new Map(harness.counts);
+      const readsBefore = new Map(harness.reads);
+      harness.push([one, { key: 2, value: "two!" }]);
+      expect(harness.counts.get("a")).toBe((before.get("a") ?? 0) + 1);
+      expect(harness.counts.get("b")).toBe((before.get("b") ?? 0) + 1);
+      expect(harness.counts.get("c")).toBe(before.get("c"));
+      expect(harness.reads.get(1)).toBe(readsBefore.get(1));
+    });
+
+    it("stops notifying a row once it unmounts", async () => {
+      const [one, two]: Item[] = [
+        { key: 1, value: "one" },
+        { key: 2, value: "two" },
+      ];
+      const harness = createHarness([one, two]);
+      await harness.mount([
+        { id: "a", itemKey: 1 },
+        { id: "b", itemKey: 2 },
+      ]);
+      harness.setRows([{ id: "a", itemKey: 1 }]);
+      const before = new Map(harness.counts);
+      const readsBefore = new Map(harness.reads);
+      harness.push([one, { key: 2, value: "two!" }]);
+      expect(harness.counts.get("b")).toBe(before.get("b"));
+      expect(harness.counts.get("a")).toBe(before.get("a"));
+      expect(harness.reads.get(2)).toBe(readsBefore.get(2));
+      expect(harness.reads.get(1)).toBe(readsBefore.get(1));
+    });
+
+    it("routes to the new key after a row's key changes", async () => {
+      const [one, two, three]: Item[] = [
+        { key: 1, value: "one" },
+        { key: 2, value: "two" },
+        { key: 3, value: "three" },
+      ];
+      const harness = createHarness([one, two, three]);
+      await harness.mount([{ id: "a", itemKey: 2 }]);
+      harness.setRows([{ id: "a", itemKey: 3 }]);
+      const before = new Map(harness.counts);
+      const readsBefore = new Map(harness.reads);
+      harness.push([one, { key: 2, value: "two!" }, three]);
+      expect(harness.counts.get("a")).toBe(before.get("a"));
+      expect(harness.reads.get(2)).toBe(readsBefore.get(2));
+      expect(harness.reads.get(3)).toBe(readsBefore.get(3));
+      harness.push([one, two, { key: 3, value: "three!" }]);
+      expect(harness.counts.get("a")).toBe((before.get("a") ?? 0) + 1);
+      expect(harness.reads.get(3)).toBeGreaterThan(readsBefore.get(3) ?? 0);
+    });
+  });
+
+  describe("superseded retrieves", () => {
+    interface Item extends record.Keyed<number> {
+      value: string;
+    }
+
+    interface Fixture {
+      useList: Flux.UseList<{ term: string }, number, Item>;
+      handlers: Map<string, query.ChangeHandler<Item[]>>;
+      resolveSlow: (items: Item[]) => void;
+    }
+
+    /**
+     * A list whose `slow` query hangs until `resolveSlow` runs, so a `fast`
+     * query can overtake it. `handlers` holds the live page subscription per
+     * term, tracking which pages are still open.
+     */
+    const createFixture = (): Fixture => {
+      let resolveSlow!: (items: Item[]) => void;
+      const slow = new Promise<Item[]>((resolve) => (resolveSlow = resolve));
+      const handlers = new Map<string, query.ChangeHandler<Item[]>>();
+      const useList = Flux.createList<{ term: string }, number, Item>({
+        name: "Resource",
+        retrieve: async ({ query: { term } }) =>
+          term === "slow" ? await slow : [{ key: 2, value: "fast" }],
+        retrieveByKey: async () => undefined,
+        onChange: ({ query: { term } }, handler) => {
+          handlers.set(term, handler);
+          return () => handlers.delete(term);
+        },
+      });
+      return { useList, handlers, resolveSlow };
+    };
+
+    const overtake = async (fixture: Fixture) => {
+      const { result } = renderHook(() => fixture.useList(), { wrapper });
+      let slow!: Promise<void>;
+      await act(async () => {
+        slow = result.current.retrieveAsync({ term: "slow" });
+        await result.current.retrieveAsync({ term: "fast" });
+      });
+      await act(async () => {
+        fixture.resolveSlow([{ key: 1, value: "slow" }]);
+        await slow;
+      });
+      return result;
+    };
+
+    it("should keep the newer query's items when an older retrieve lands late", async () => {
+      const fixture = createFixture();
+      const result = await overtake(fixture);
+      expect(result.current.data).toEqual([2]);
+      expect(result.current.getItem(2)?.value).toEqual("fast");
+    });
+
+    it("should keep the newer query's page subscribed when an older retrieve lands late", async () => {
+      const fixture = createFixture();
+      await overtake(fixture);
+      expect(fixture.handlers.has("fast")).toBe(true);
+      expect(fixture.handlers.has("slow")).toBe(false);
+    });
+
+    it("should let the newer query keep updating after an older retrieve lands late", async () => {
+      const fixture = createFixture();
+      const result = await overtake(fixture);
+      await act(async () => {
+        fixture.handlers.get("fast")?.([{ key: 2, value: "updated" }]);
+      });
+      await waitFor(() => expect(result.current.getItem(2)?.value).toEqual("updated"));
+    });
+  });
+
   describe("getCached", () => {
     it("should use cached data as initial state when available", () => {
       const cachedItems = [
@@ -566,10 +821,11 @@ describe("list", () => {
 
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([1, 2]);
+      expect(result.current.answered).toBe(true);
       expect(getCached).toHaveBeenCalledTimes(1);
     });
 
-    it("should not use cached data when the cached answer is empty", () => {
+    it("should answer from a cached answer that is empty", () => {
       const getCached = vi.fn().mockReturnValue(changed([]));
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
 
@@ -586,9 +842,12 @@ describe("list", () => {
 
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([]);
+      // A cached empty answer is still an answer. Callers speak for the absence of
+      // items only once one arrives.
+      expect(result.current.answered).toBe(true);
     });
 
-    it("should not use cached data when nothing is cached", () => {
+    it("should not answer when nothing is cached", () => {
       const getCached = vi.fn().mockReturnValue(undefined);
 
       const { result } = renderHook(
@@ -604,6 +863,7 @@ describe("list", () => {
 
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([]);
+      expect(result.current.answered).toBe(false);
     });
 
     it("should apply filter to cached data", () => {
@@ -805,6 +1065,84 @@ describe("list", () => {
       // Should filter for active items and sort by value
       expect(result.current.data).toEqual([4, 3, 1]); // 25, 75, 100
     });
+
+    // The mount-time lookup misses for paged lists: the pager adds limit and
+    // offset to the query, and the cache is keyed by the full query. The seed
+    // in retrieve covers that case with the exact query about to be fetched.
+    it("should paint the cached answer for the fetched query before the retrieve resolves", async () => {
+      type PagedQuery = { limit?: number; offset?: number };
+      const cachedItems = [{ key: 1 }, { key: 2 }];
+      const getCached = vi.fn(({ query }: { query: PagedQuery }) =>
+        query.limit != null ? changed(cachedItems) : undefined,
+      );
+      let resolveRetrieve!: (items: record.Keyed<number>[]) => void;
+      const retrieve = vi.fn(
+        async () =>
+          await new Promise<record.Keyed<number>[]>((resolve) => {
+            resolveRetrieve = resolve;
+          }),
+      );
+      const { result } = renderHook(
+        () =>
+          Flux.createList<PagedQuery, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            getCached,
+          })({ retrieveDebounce: 0 }),
+        { wrapper },
+      );
+      expect(result.current.data).toEqual([]);
+      act(() => result.current.retrieve((p) => ({ ...p, limit: 10, offset: 0 })));
+      expect(result.current.data).toEqual([1, 2]);
+      expect(result.current.variant).toEqual("loading");
+      await act(async () => resolveRetrieve([{ key: 1 }, { key: 2 }, { key: 3 }]));
+      await waitFor(() => expect(result.current.data).toEqual([1, 2, 3]));
+      expect(result.current.variant).toEqual("success");
+    });
+
+    it("should paint the cached answer before the debounced retrieve fires", async () => {
+      const cachedItems = [{ key: 1 }, { key: 2 }];
+      const getCached = vi.fn(({ query }: { query: { limit?: number } }) =>
+        query.limit != null ? changed(cachedItems) : undefined,
+      );
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{ limit?: number }, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            getCached,
+          })(),
+        { wrapper },
+      );
+      act(() => result.current.retrieve((p) => ({ ...p, limit: 10 })));
+      expect(result.current.data).toEqual([1, 2]);
+      expect(retrieve).not.toHaveBeenCalled();
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+    });
+
+    it("should not seed from cache when the list already has data", async () => {
+      const getCached = vi.fn().mockReturnValue(changed([{ key: 1 }]));
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{ limit?: number }, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            getCached,
+          })({ retrieveDebounce: 0 }),
+        { wrapper },
+      );
+      // The mount-time lookup hit, so the list is warm.
+      expect(result.current.data).toEqual([1]);
+      getCached.mockClear();
+      act(() => result.current.retrieve((p) => ({ ...p, limit: 10 })));
+      expect(getCached).not.toHaveBeenCalled();
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+    });
   });
 
   describe("subscription lifecycle", () => {
@@ -818,7 +1156,7 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            subscribe,
+            onChange: subscribe,
           })(),
         { wrapper },
       );
@@ -835,7 +1173,7 @@ describe("list", () => {
     });
 
     it("should subscribe to an item when retrieving it before any list", async () => {
-      const subscribeByKey = vi.fn().mockReturnValue(() => {});
+      const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
 
       const { result } = renderHook(
@@ -844,25 +1182,25 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
-            subscribeByKey,
+            onChangeByKey,
           })(),
         { wrapper },
       );
 
-      expect(subscribeByKey).not.toHaveBeenCalled();
+      expect(onChangeByKey).not.toHaveBeenCalled();
 
       act(() => {
         result.current.getItem(1);
       });
 
       await waitFor(() => {
-        expect(subscribeByKey).toHaveBeenCalledTimes(1);
+        expect(onChangeByKey).toHaveBeenCalledTimes(1);
         expect(retrieveByKey).toHaveBeenCalled();
       });
     });
 
     it("should not re-subscribe on subsequent calls to getItem", async () => {
-      const subscribeByKey = vi.fn().mockReturnValue(() => {});
+      const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
 
       const { result } = renderHook(
@@ -871,7 +1209,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
-            subscribeByKey,
+            onChangeByKey,
           })(),
         { wrapper },
       );
@@ -879,19 +1217,19 @@ describe("list", () => {
         result.current.getItem(1);
       });
       await waitFor(() => {
-        expect(subscribeByKey).toHaveBeenCalledTimes(1);
+        expect(onChangeByKey).toHaveBeenCalledTimes(1);
       });
       act(() => {
         result.current.getItem(1);
       });
       await testutil.expectAlways(() => {
-        expect(subscribeByKey).toHaveBeenCalledTimes(1);
+        expect(onChangeByKey).toHaveBeenCalledTimes(1);
       });
     });
 
     it("should not open an item subscription for a page member served by getItem", async () => {
       const subscribe = vi.fn().mockReturnValue(() => {});
-      const subscribeByKey = vi.fn().mockReturnValue(() => {});
+      const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
       const { result } = renderHook(
         () =>
@@ -899,8 +1237,8 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            subscribe,
-            subscribeByKey,
+            onChange: subscribe,
+            onChangeByKey,
           })(),
         { wrapper },
       );
@@ -915,7 +1253,7 @@ describe("list", () => {
       });
       await testutil.expectAlways(() => {
         expect(subscribe).toHaveBeenCalledTimes(1);
-        expect(subscribeByKey).not.toHaveBeenCalled();
+        expect(onChangeByKey).not.toHaveBeenCalled();
       });
     });
 
@@ -929,7 +1267,7 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            subscribe,
+            onChange: subscribe,
           })(),
         { wrapper },
       );
@@ -951,11 +1289,11 @@ describe("list", () => {
       });
     });
 
-    it("should pass the current query to subscribeByKey", async () => {
+    it("should pass the current query to onChangeByKey", async () => {
       type TestParams = {
         filter?: string;
       };
-      const subscribeByKey = vi.fn().mockReturnValue(() => {});
+      const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
 
       const { result } = renderHook(
@@ -964,7 +1302,7 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            subscribeByKey,
+            onChangeByKey,
           })({ initialQuery: { filter: "active" } }),
         { wrapper },
       );
@@ -974,7 +1312,7 @@ describe("list", () => {
       });
 
       await waitFor(() => {
-        const firstCall = subscribeByKey.mock.calls[0];
+        const firstCall = onChangeByKey.mock.calls[0];
         expect(firstCall[0].query).toEqual({ filter: "active" });
       });
     });
@@ -990,7 +1328,7 @@ describe("list", () => {
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
             getCached,
-            subscribe,
+            onChange: subscribe,
           })(),
         { wrapper },
       );
@@ -1040,7 +1378,7 @@ describe("list", () => {
             retrieve: async ({ client }) =>
               await client.ranges.retrieve({ keys: [rng.key] }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            subscribe: ({ client }, handler) =>
+            onChange: ({ client }, handler) =>
               client.ranges.onChange({ keys: [rng.key] }, handler),
           })();
           const value = Flux.useListItem<ranger.Key, ranger.Range>({
@@ -1083,7 +1421,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            subscribeByKey: ({ client, key }, handler) =>
+            onChangeByKey: ({ client, key }, handler) =>
               client.ranges.onChange(key, handler),
           })();
           const value = Flux.useListItem<ranger.Key, ranger.Range>({
@@ -1126,7 +1464,7 @@ describe("list", () => {
             retrieve: async ({ client }) =>
               await client.ranges.retrieve({ keys: [rng.key] }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            subscribe: ({ client }, handler) =>
+            onChange: ({ client }, handler) =>
               client.ranges.onChange({ keys: [rng.key] }, handler),
           })();
           return { retrieveAsync, value: getItem(rng.key) };
@@ -1169,7 +1507,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async ({ client }) => await client.ranges.retrieve({ keys }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            subscribe: ({ client }, handler) =>
+            onChange: ({ client }, handler) =>
               client.ranges.onChange({ keys }, handler),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
         { wrapper },
@@ -1227,7 +1565,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async ({ client }) => await client.ranges.retrieve(query),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            subscribe: ({ client }, handler) => client.ranges.onChange(query, handler),
+            onChange: ({ client }, handler) => client.ranges.onChange(query, handler),
           })({
             sort: (a, b) => a.name.localeCompare(b.name),
             filter: (r) => keySet.has(r.key),
@@ -1276,7 +1614,7 @@ describe("list", () => {
       answers: Record<string, Doc[]>;
       push: (clientKey: string, docs: Doc[]) => void;
       pushItem: (clientKey: string, doc: Doc) => void;
-      subscribe: (clientKey: string, handler: query.ChangeHandler<Doc[]>) => () => void;
+      onChange: (clientKey: string, handler: query.ChangeHandler<Doc[]>) => () => void;
       subscribeItem: (
         clientKey: string,
         key: string,
@@ -1297,7 +1635,7 @@ describe("list", () => {
         pushItem: (clientKey, doc) => {
           itemSubs.get(`${clientKey}:${doc.key}`)?.forEach((h) => h(doc));
         },
-        subscribe: (clientKey, handler) => {
+        onChange: (clientKey, handler) => {
           const set = subs.get(clientKey) ?? new Set();
           set.add(handler);
           subs.set(clientKey, set);
@@ -1341,7 +1679,7 @@ describe("list", () => {
         name: "Doc",
         retrieve: async ({ client }) => domain.answers[client.key],
         retrieveByKey: async ({ key }) => ({ key, name: key }),
-        subscribe: ({ client }, handler) => domain.subscribe(client.key, handler),
+        onChange: ({ client }, handler) => domain.onChange(client.key, handler),
       });
 
       const { result, rerender } = renderHook(() => useList(), { wrapper });
@@ -1371,7 +1709,7 @@ describe("list", () => {
         name: "Doc",
         retrieve,
         retrieveByKey: async ({ key }) => ({ key, name: key }),
-        subscribeByKey: ({ client, key }, handler) =>
+        onChangeByKey: ({ client, key }, handler) =>
           domain.subscribeItem(client.key, key, handler),
       });
 

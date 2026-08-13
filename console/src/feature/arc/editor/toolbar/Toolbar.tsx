@@ -14,12 +14,12 @@ import { Text } from "@/feature/arc/editor/toolbar/text";
 import { type Panel } from "@/platform/panel";
 
 const Internal = () => {
-  const mode = Arc.useSelectMode();
+  const mode = Arc.useMode();
   return mode === "text" ? <Text.Toolbar /> : <Graph.Toolbar />;
 };
 
 export const Toolbar: Panel.Toolbar = () => {
-  const { key } = PPanel.useSelectTabResource();
+  const { key } = PPanel.useTabResource();
   return (
     <Arc.Suspended arcKey={key}>
       <Internal />

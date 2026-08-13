@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { device } from "@/device";
 import { query } from "@/query";
-import { createTestClient, expectLive } from "@/testutil";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 
@@ -536,7 +536,7 @@ describe("Device", async () => {
   });
 
   describe("getCached", () => {
-    it("approximates an unfetched filter query from the record store", async () => {
+    it("returns undefined for an unfetched filter query", async () => {
       const make = id.create();
       const d1 = await client.devices.create({
         key: id.create(),
@@ -557,12 +557,12 @@ describe("Device", async () => {
         properties: {},
       });
       await client.devices.retrieve({ keys: [d1.key, d2.key] });
-      const cached = expectLive(client.devices.getCached({ makes: [make] }));
-      expect(cached.map((d) => d.key)).toContain(d1.key);
-      expect(cached.map((d) => d.key)).not.toContain(d2.key);
+      // Fetched records in the store do not answer a filter query that was
+      // never fetched itself.
+      expect(client.devices.getCached({ makes: [make] })).toBeUndefined();
     });
 
-    it("does not approximate server-computed query shapes", async () => {
+    it("returns undefined for unfetched server-computed query shapes", async () => {
       const make = id.create();
       const dev = await client.devices.create({
         key: id.create(),

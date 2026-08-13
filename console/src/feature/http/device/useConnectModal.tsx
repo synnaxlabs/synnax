@@ -110,7 +110,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
       status: stat,
       variant,
     } = useForm({
-      query: { key: deviceKey ?? "" },
+      query: deviceKey == null ? null : { key: deviceKey },
       initialValues: INITIAL_VALUES,
       beforeSave,
       afterSave: useCallback(() => close(), [close]),

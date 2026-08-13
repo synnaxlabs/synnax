@@ -31,11 +31,11 @@ const project = async (): Promise<string> =>
     .key);
 
 // loadLog primes key's flux cache through the production retrieve path. The single-hook
-// bootstrap keeps the suspending useEnsureRetrieved from being followed by other hooks,
+// bootstrap keeps the suspending useEnsure from being followed by other hooks,
 // a shape that trips a React 19 concurrent-replay error.
 const loadLog = async (Wrapper: FC<PropsWithChildren>, key: string): Promise<void> => {
   const Bootstrap = (): ReactElement => {
-    Log.useEnsureRetrieved({ key });
+    Log.useEnsure({ key });
     return <div data-testid="loaded" />;
   };
   let utils!: ReturnType<typeof render>;
@@ -76,15 +76,20 @@ export const renderLog = async (
     client,
     clientLog.ontologyID(created.key),
   );
-  const result = render(
-    <PlutoPanel.Scope.Provider value={panelKey}>
-      <PlutoPanel.TabScope.Provider value={tabKey}>
-        <Log.Scope.Provider value={created.key}>
-          <Component />
-        </Log.Scope.Provider>
-      </PlutoPanel.TabScope.Provider>
-    </PlutoPanel.Scope.Provider>,
-    { wrapper: Wrapper },
-  );
+  // The toolbar suspends on channel fetches; a tree that suspends inside a sync
+  // act never commits, so the mount needs an async act (see renderHookSuspended).
+  let result!: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(
+      <PlutoPanel.Scope.Provider value={panelKey}>
+        <PlutoPanel.TabScope.Provider value={tabKey}>
+          <Log.Scope.Provider value={created.key}>
+            <Component />
+          </Log.Scope.Provider>
+        </PlutoPanel.TabScope.Provider>
+      </PlutoPanel.Scope.Provider>,
+      { wrapper: Wrapper },
+    );
+  });
   return { key: created.key, result, store };
 };

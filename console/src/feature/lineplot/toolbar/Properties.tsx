@@ -15,9 +15,9 @@ import { CSS } from "@/platform/css";
 
 export const Properties = (): ReactElement => {
   const key = LinePlot.useKey();
-  const title = LinePlot.useSelectTitle();
-  const legend = LinePlot.useSelectLegend();
-  const name = LinePlot.useSelectName();
+  const title = LinePlot.useTitle();
+  const legend = LinePlot.useLegend();
+  const name = LinePlot.useName();
   const dispatch = LinePlot.useSingleDispatch();
   const { update: rename } = LinePlot.useRename({});
 

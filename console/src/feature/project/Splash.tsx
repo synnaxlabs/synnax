@@ -43,7 +43,7 @@ export const Splash = (): ReactElement => {
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const openCreate = PlatformProject.useCreateModal();
-  const { data, retrieve, getItem, subscribe, variant, status } = PProject.useList();
+  const { data, retrieve, getItem, subscribe, answered, status } = PProject.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -126,7 +126,7 @@ export const Splash = (): ReactElement => {
             >
               {listItem}
             </List.Items>
-          ) : variant === "success" ? (
+          ) : answered ? (
             <Empty.Action
               grow
               message={

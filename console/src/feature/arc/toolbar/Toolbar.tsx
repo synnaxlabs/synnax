@@ -53,7 +53,7 @@ const Content = () => {
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
 
-  const { data, getItem, subscribe, retrieve } = Arc.useList({});
+  const { data, getItem, subscribe, retrieve, answered } = Arc.useList({});
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
   const { update: handleRename } = PlatformArc.useRename(getItem);
@@ -80,31 +80,33 @@ const Content = () => {
           </Toolbar.Title>
           <Actions handleCreate={create} />
         </Toolbar.Header>
-        <Select.Frame
-          multiple
-          data={data}
-          getItem={getItem}
-          subscribe={subscribe}
-          value={selected}
-          onChange={setSelected}
-          onFetchMore={fetchMore}
-          replaceOnSingle
-        >
-          <List.Items<arc.Key, arc.Arc>
-            full="y"
-            emptyContent={<EmptyContent onCreate={create} />}
-            onContextMenu={menuProps.open}
+        <Toolbar.Body>
+          <Select.Frame
+            multiple
+            data={data}
+            getItem={getItem}
+            subscribe={subscribe}
+            value={selected}
+            onChange={setSelected}
+            onFetchMore={fetchMore}
+            replaceOnSingle
           >
-            {({ key, ...p }) => (
-              <ArcListItem
-                key={key}
-                {...p}
-                onRename={(name) => handleRename({ key, name })}
-                onDoubleClick={() => handleEdit(key)}
-              />
-            )}
-          </List.Items>
-        </Select.Frame>
+            <List.Items<arc.Key, arc.Arc>
+              full="y"
+              emptyContent={answered && <EmptyContent onCreate={create} />}
+              onContextMenu={menuProps.open}
+            >
+              {({ key, ...p }) => (
+                <ArcListItem
+                  key={key}
+                  {...p}
+                  onRename={handleRename}
+                  onEdit={handleEdit}
+                />
+              )}
+            </List.Items>
+          </Select.Frame>
+        </Toolbar.Body>
       </Toolbar.Content>
     </Menu.ContextMenu>
   );
@@ -147,13 +149,19 @@ export const TOOLBAR: Nav.Toolbar = {
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {
-  onRename: (name: string) => void;
+  onRename: (params: { key: arc.Key; name: string }) => void;
+  onEdit: (key: arc.Key) => void;
 }
 
-const ArcListItem = ({ onRename, ...rest }: ArcListItemProps) => {
+const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
+  const handleRename = useCallback(
+    (name: string) => onRename({ key: itemKey, name }),
+    [onRename, itemKey],
+  );
+  const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
   const {
     running,
     onStartStop,
@@ -163,7 +171,12 @@ const ArcListItem = ({ onRename, ...rest }: ArcListItemProps) => {
   if (status.variant === "success" && running) statusMessage = "Running";
   else if (status.variant === "error") statusMessage = "Error";
   return (
-    <Select.ListItem {...rest} justify="between" align="center">
+    <Select.ListItem
+      {...rest}
+      onDoubleClick={handleDoubleClick}
+      justify="between"
+      align="center"
+    >
       <Flex.Box y gap="small" grow className={CSS.BE("arc", "metadata")}>
         <Flex.Box x align="center" gap="small">
           <Status.Indicator
@@ -173,7 +186,7 @@ const ArcListItem = ({ onRename, ...rest }: ArcListItemProps) => {
           <Text.MaybeEditable
             id={`text-${itemKey}`}
             value={arcItem?.name ?? ""}
-            onChange={hasUpdatePermission ? onRename : undefined}
+            onChange={hasUpdatePermission ? handleRename : undefined}
             allowDoubleClick={false}
             overflow="ellipsis"
             weight={500}

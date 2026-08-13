@@ -40,21 +40,21 @@ import { Line as BaseLine } from "@/lineplot/Line";
 import { Measure } from "@/lineplot/measure";
 import { type measure } from "@/lineplot/measure/aether";
 import {
+  useAxisRuleKeys,
   useDispatch,
+  useLegend,
+  useLine,
+  useLineCount,
+  useName,
   useRedo,
   useRename,
-  useSelectAxisRuleKeys,
-  useSelectLegend,
-  useSelectLine,
-  useSelectLineCount,
-  useSelectName,
-  useSelectRule,
-  useSelectTitle,
-  useSelectXAxis,
-  useSelectXAxisKeys,
-  useSelectYAxis,
-  useSelectYAxisKeys,
+  useRule,
+  useTitle,
   useUndo,
+  useXAxis,
+  useXAxisKeys,
+  useYAxis,
+  useYAxisKeys,
 } from "@/lineplot/queries";
 import { Range } from "@/lineplot/range";
 import { Rule as BaseRule } from "@/lineplot/rule";
@@ -126,7 +126,7 @@ const Line = ({
   resolved,
   visible = true,
 }: LineProps): ReactElement | null => {
-  const { key, ...line } = useSelectLine({ key: pKey, lineKey });
+  const { key, ...line } = useLine({ key: pKey, lineKey });
   const telemetry = useMemo(() => {
     if (resolved == null) return null;
     const { xChannel, yChannel } = line;
@@ -177,8 +177,8 @@ interface TitleProps {
 }
 
 const Title = ({ pKey: key, editable }: TitleProps): ReactElement | null => {
-  const { visible, level } = useSelectTitle({ key });
-  const name = useSelectName({ key });
+  const { visible, level } = useTitle({ key });
+  const name = useName({ key });
   const { update: rn } = useRename({});
   const handleChange = useCallback((name: string) => rn({ key, name }), [rn, key]);
   if (!visible) return null;
@@ -206,7 +206,7 @@ const Legend = ({
   onLineVisibleChange,
 }: LegendProps): ReactElement | null => {
   const { dispatch } = useDispatch();
-  const legend = useSelectLegend({ key });
+  const legend = useLegend({ key });
   const handlePositionChange = useCallback(
     (position: typeof legend.position) =>
       editable &&
@@ -254,7 +254,7 @@ interface RuleProps {
 
 const Rule = ({ pKey, ruleKey, onSelectRule }: RuleProps): ReactElement | null => {
   const { dispatch } = useDispatch();
-  const { key, ...rule } = useSelectRule({ key: pKey, ruleKey });
+  const { key, ...rule } = useRule({ key: pKey, ruleKey });
   const apply = useCallback(
     (action: lineplot.Action): void => {
       dispatch({ key: pKey, actions: [action] });
@@ -297,7 +297,7 @@ interface RulesProps {
 }
 
 const Rules = ({ pKey, axisKey, onSelectRule }: RulesProps): ReactElement => {
-  const ruleKeys = useSelectAxisRuleKeys({ key: pKey, axisKey });
+  const ruleKeys = useAxisRuleKeys({ key: pKey, axisKey });
   return (
     <>
       {ruleKeys.map((ruleKey) => (
@@ -320,7 +320,7 @@ const YAxis = ({
   onSelectRule,
 }: YAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
-  const { axis, lineKeys, channels } = useSelectYAxis({ key, axisKey });
+  const { axis, lineKeys, channels } = useYAxis({ key, axisKey });
   const handleDrop = useCallback(
     (axisKey: lineplot.YAxisKey, dropped: channel.Key[]): void => {
       if (!editable) return;
@@ -399,8 +399,8 @@ const XAxis = ({
   );
   const dropProps = useAxisDrop(axisKey, "x", handleDrop);
   const dragging = Haul.useDraggingState();
-  const { key: _, ...axisConfig } = useSelectXAxis({ key, axisKey });
-  const yAxes = useSelectYAxisKeys({ key });
+  const { key: _, ...axisConfig } = useXAxis({ key, axisKey });
+  const yAxes = useYAxisKeys({ key });
   const handleLabelChange = useCallback(
     (label: string) =>
       dispatch({
@@ -445,7 +445,7 @@ const useViewportReset = ({
   key,
   hold,
 }: UseViewportResetParams): RefObject<Viewport.UseRefValue | null> => {
-  const lineCount = useSelectLineCount({ key });
+  const lineCount = useLineCount({ key });
   const prevLineCount = usePrevious(lineCount);
   const prevHold = usePrevious(hold);
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
@@ -499,7 +499,7 @@ export const LinePlot = ({
 }: LinePlotProps): ReactElement => {
   const key = useKey();
   useUndoRedoTriggers({ key, enabled: enableTriggers });
-  const xAxisKeys = useSelectXAxisKeys({ key });
+  const xAxisKeys = useXAxisKeys({ key });
   const viewportRef = useViewportReset({ key, hold: rest.hold });
   return (
     <Frame ref={ref} {...rest}>

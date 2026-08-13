@@ -41,7 +41,6 @@ export const createState = (
     setSelection: () => {},
     expand: () => {},
     contract: () => {},
-    setLoading: () => {},
     ...overrides,
   };
 };

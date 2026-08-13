@@ -24,7 +24,7 @@ import { Session } from "@/session";
 
 const NotEditableContent = (): ReactElement => {
   const key = Arc.useKey();
-  const name = Arc.useSelectName();
+  const name = Arc.useName();
   const dispatch = Session.useDispatch();
   const { canEdit } = Session.Arc.useSelectEditable();
   return (
@@ -47,8 +47,8 @@ export const Toolbar = (): ReactElement | null => {
   const { canEdit, isCurrentlyEditable } = Session.Arc.useSelectEditable();
   const selected = Session.Arc.useSelectSelected();
   const singleNodeKey = selected.length === 1 ? selected[0] : "";
-  const singleConfig = Arc.useSelectNodeConfig({ nodeKey: singleNodeKey });
-  const name = Arc.useSelectName();
+  const singleConfig = Arc.useNodeConfig({ nodeKey: singleNodeKey });
+  const name = Arc.useName();
   const selectedName =
     singleConfig != null
       ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)

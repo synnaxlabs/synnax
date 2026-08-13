@@ -9,27 +9,39 @@
 
 import { task } from "@synnaxlabs/client";
 import { Icon, Rack as PRack, Text, Tooltip } from "@synnaxlabs/pluto";
-import { useEffect } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 import { useKey } from "@/platform/task/useKey";
 
-export const Rack = () => {
-  const { data: rack, retrieve } = PRack.useRetrieveStateful();
-  const taskKey = useKey();
-  useEffect(() => {
-    if (taskKey != null) retrieve({ key: task.rackKey(taskKey) });
-  }, [taskKey]);
-  if (rack == null) return;
+interface ContentProps {
+  taskKey: task.Key;
+}
+
+const Content = ({ taskKey }: ContentProps): ReactElement => {
+  const query = { key: task.rackKey(taskKey) };
+  PRack.useEnsure(query);
+  const name = PRack.useName(query);
   return (
     <Tooltip.Dialog>
       <Text.Text level="small" color={10} weight={450}>
-        Task is deployed to {rack.name}
+        Task is deployed to {name}
       </Text.Text>
       <Text.Text className={CSS.B("rack-name")} level="small" color={9} weight={350}>
         <Icon.Rack />
-        {rack?.name}
+        {name}
       </Text.Text>
     </Tooltip.Dialog>
+  );
+};
+
+export const Rack = (): ReactElement | null => {
+  const taskKey = useKey();
+  if (taskKey == null) return null;
+  return (
+    <Errors.SuspenseBoundary>
+      <Content taskKey={taskKey} />
+    </Errors.SuspenseBoundary>
   );
 };

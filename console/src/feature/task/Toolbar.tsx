@@ -75,7 +75,7 @@ const Content = () => {
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  const { data, getItem, subscribe, retrieve } = Task.useList({
+  const { data, getItem, subscribe, retrieve, answered } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
   });
@@ -197,32 +197,34 @@ const Content = () => {
             </Toolbar.Actions>
           )}
         </Toolbar.Header>
-        <Select.Frame
-          multiple
-          data={data}
-          getItem={getItem}
-          subscribe={subscribe}
-          value={selected}
-          onChange={setSelected}
-          onFetchMore={fetchMore}
-          replaceOnSingle
-        >
-          <List.Items<task.Key, task.Task>
-            full="y"
-            emptyContent={<EmptyContent />}
-            onContextMenu={menuProps.open}
+        <Toolbar.Body>
+          <Select.Frame
+            multiple
+            data={data}
+            getItem={getItem}
+            subscribe={subscribe}
+            value={selected}
+            onChange={setSelected}
+            onFetchMore={fetchMore}
+            replaceOnSingle
           >
-            {({ key, ...p }) => (
-              <TaskListItem
-                key={key}
-                {...p}
-                onStopStart={(command) => handleListItemStopStart(command, key)}
-                onRename={(name) => rename({ name, key })}
-                onDoubleClick={() => handleEdit(key)}
-              />
-            )}
-          </List.Items>
-        </Select.Frame>
+            <List.Items<task.Key, task.Task>
+              full="y"
+              emptyContent={answered && <EmptyContent />}
+              onContextMenu={menuProps.open}
+            >
+              {({ key, ...p }) => (
+                <TaskListItem
+                  key={key}
+                  {...p}
+                  onStopStart={handleListItemStopStart}
+                  onRename={rename}
+                  onEdit={handleEdit}
+                />
+              )}
+            </List.Items>
+          </Select.Frame>
+        </Toolbar.Body>
       </Toolbar.Content>
     </Menu.ContextMenu>
   );
@@ -240,11 +242,17 @@ export const TOOLBAR: Nav.Toolbar = {
 };
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
-  onStopStart: (command: PlatformTask.Command) => void;
-  onRename: (name: string) => void;
+  onStopStart: (command: PlatformTask.Command, key: task.Key) => void;
+  onRename: (params: { key: task.Key; name: string }) => void;
+  onEdit: (key: task.Key) => void;
 }
 
-const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
+const TaskListItem = ({
+  onStopStart,
+  onRename,
+  onEdit,
+  ...rest
+}: TaskListItemProps) => {
   const { itemKey } = rest;
   const { getIcon, parseType } = PlatformTask.useRegistry();
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
@@ -256,11 +264,21 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   const isRunning = details?.running === true;
   if (!isRunning && variant === "success") variant = "info";
   const handleStartStopClick = useCallback(
-    () => onStopStart(isRunning ? "stop" : "start"),
-    [isRunning, onStopStart],
+    () => onStopStart(isRunning ? "stop" : "start", itemKey),
+    [isRunning, onStopStart, itemKey],
   );
+  const handleRename = useCallback(
+    (name: string) => onRename({ key: itemKey, name }),
+    [onRename, itemKey],
+  );
+  const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
   return (
-    <Select.ListItem {...rest} justify="between" align="center">
+    <Select.ListItem
+      {...rest}
+      onDoubleClick={handleDoubleClick}
+      justify="between"
+      align="center"
+    >
       <Flex.Box y gap="small" grow className={CSS.BE("task", "metadata")}>
         <Flex.Box x align="center" gap="small">
           <Status.Indicator
@@ -272,7 +290,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             <Text.MaybeEditable
               id={`text-${itemKey}`}
               value={task_?.name ?? ""}
-              onChange={hasUpdatePermission ? onRename : undefined}
+              onChange={hasUpdatePermission ? handleRename : undefined}
               allowDoubleClick={false}
               overflow="ellipsis"
               weight={500}

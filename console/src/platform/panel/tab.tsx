@@ -81,7 +81,7 @@ export interface UseTabReturn extends Tab {
 // useTab resolves the registered Tab for the active tab's type, sourced from the
 // surrounding panel scope. Throws when no renderer is registered for the type.
 export const useTab = (): Tab => {
-  const type = Panel.useSelectTabType({});
+  const type = Panel.useTabType({});
   const renderer = useRendererContext()[type];
   if (renderer == null) throw new NotFoundError(`no renderer for tab type ${type}`);
   return renderer;
@@ -94,7 +94,7 @@ export interface TombstoneService {
 /** Binds a domain's tombstone read to the surrounding tab's resource. */
 export const createTombstoneReader = (service: TombstoneService): UseTombstone => {
   const useRead: UseTombstone = () => {
-    const { key } = Panel.useSelectTabResource();
+    const { key } = Panel.useTabResource();
     return service.useTombstone({ key });
   };
   return useRead;
@@ -176,21 +176,21 @@ export const editTabName = (tabKey: string): void => {
 export const RENAME_TRIGGER: Triggers.Trigger = ["Control", "E"];
 
 export interface EditableTabNameService {
-  useEnsureRetrieved: (args: { key: string }) => void;
-  useSelectName: (args: { key: string }) => string;
+  useEnsure: (args: { key: string }) => void;
+  useName: (args: { key: string }) => string;
   useRename: () => { update: (args: { key: string; name: string }) => void };
 }
 
 export const createEditableTabName = (
-  service: EditableTabNameService,
+  { useEnsure, useName, useRename }: EditableTabNameService,
   icon: Icon.ReactElement,
 ): TabName => {
   const Name: TabName = ({ allowRename = true }) => {
     const tabKey = Panel.useTabKey();
-    const { key } = Panel.useSelectTabResource();
-    service.useEnsureRetrieved({ key });
-    const name = service.useSelectName({ key });
-    const { update } = service.useRename();
+    const { key } = Panel.useTabResource();
+    useEnsure({ key });
+    const name = useName({ key });
+    const { update } = useRename();
     return (
       <>
         {icon}

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { panel } from "@synnaxlabs/client";
+import { NotFoundError, panel, query } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
-import { Panel } from "@synnaxlabs/pluto";
+import { Panel, Synnax } from "@synnaxlabs/pluto";
 import { array, compare, type require } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -228,13 +228,20 @@ export const PERSIST_EXCLUDE = [purgeSliceState];
 
 export const useSelectTab = (panelKey?: panel.Key) => {
   const scopedPanelKey = Panel.useOptionalKey(panelKey);
-  const getTabLeaf = Panel.useGetTabLeaf();
+  const client = Synnax.use();
   const dispatch = useDispatch<Dispatch<Action>>();
   return useCallback(
     (key: panel.TabKey, overridePanelKey?: panel.Key) => {
       const resolvedPanelKey = overridePanelKey ?? scopedPanelKey;
       if (resolvedPanelKey == null) return;
-      const leaf = getTabLeaf({ key: resolvedPanelKey, tabKey: key });
+      const cached = client?.panels.getCached(resolvedPanelKey);
+      if (!query.isLive(cached))
+        throw new NotFoundError(`Panel with key ${resolvedPanelKey} not found`);
+      const leaf = panel.findTabLeaf(cached.root, key);
+      if (leaf == null)
+        throw new NotFoundError(
+          `Leaf holding tab ${key} not found in panel ${resolvedPanelKey}`,
+        );
       dispatch(
         internalSelectTab({
           tabKey: key,
@@ -243,7 +250,7 @@ export const useSelectTab = (panelKey?: panel.Key) => {
         }),
       );
     },
-    [scopedPanelKey, getTabLeaf, dispatch],
+    [scopedPanelKey, client, dispatch],
   );
 };
 

@@ -100,7 +100,7 @@ const ContextMenuContent = ({
   csvLines,
   linePlotRef,
 }: ContextMenuContentProps): ReactElement => {
-  const name = Base.useSelectName({});
+  const name = Base.useName({});
   const { box: selection } = Session.LinePlot.useSelectSelection();
   const openCreateRange = Range.useCreateModal();
   const handleError = Status.useErrorHandler();
@@ -176,7 +176,7 @@ const Internal = (): ReactElement => {
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
-  const ranges = Base.useSelectRanges();
+  const ranges = Base.useRanges();
   const rangeKeys = useMemo(
     () => unique.unique([...ranges.x1, ...ranges.x2]),
     [ranges.x1, ranges.x2],
@@ -202,7 +202,7 @@ const Internal = (): ReactElement => {
     [dispatch, key],
   );
 
-  const derived = Base.useSelectLines();
+  const derived = Base.useLines();
   const csvLines = useMemo<DownloadLine[]>(
     () =>
       derived.map((d) => ({
@@ -315,7 +315,7 @@ const Internal = (): ReactElement => {
 };
 
 export const LinePlot: Panel.Content = () => {
-  const { key } = PlutoPanel.useSelectTabResource();
+  const { key } = PlutoPanel.useTabResource();
   return (
     <Base.Suspended linePlotKey={key}>
       <Internal />

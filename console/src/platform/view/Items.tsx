@@ -12,7 +12,7 @@ import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
-import { useContext } from "@/platform/view/context";
+import { useContext, useFormContext } from "@/platform/view/context";
 
 export interface ItemsProps<K extends record.Key = record.Key> extends Omit<
   List.ItemsProps<K>,
@@ -26,10 +26,11 @@ export const Items = <K extends record.Key>({
   ...props
 }: ItemsProps<K>): ReactElement => {
   const menuProps = Menu.useContextMenu();
+  const { answered } = useFormContext("View.Items");
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <List.Items<K>
-        emptyContent={defaultEmptyContent}
+        emptyContent={answered && defaultEmptyContent}
         grow
         onContextMenu={menuProps.open}
         {...props}

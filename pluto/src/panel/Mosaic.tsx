@@ -9,7 +9,7 @@
 
 import "@/panel/Mosaic.css";
 
-import { panel } from "@synnaxlabs/client";
+import { panel, query } from "@synnaxlabs/client";
 import { type direction } from "@synnaxlabs/x";
 import {
   type DragEventHandler,
@@ -30,17 +30,17 @@ import { Mosaic as Base } from "@/mosaic";
 import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
 import {
   useDispatch,
-  useGetTab,
-  useSelectLeafNode,
-  useSelectNodeVariant,
-  useSelectRoot,
-  useSelectSplitNode,
-  useSelectTabKeys,
+  useLeafNode,
+  useNodeVariant,
+  useRoot,
   useSingleDispatch,
+  useSplitNode,
+  useTabKeys,
 } from "@/panel/queries";
 import { Scope, TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
 import { Select } from "@/select";
+import { Synnax } from "@/synnax";
 import { Tabs } from "@/tabs";
 import { Triggers } from "@/triggers";
 
@@ -82,10 +82,16 @@ interface TabProps extends Pick<MosaicProps, "tabName"> {
 const Tab = ({ tabKey, tabName, onClose }: TabProps): ReactElement => {
   const { startDrag, onDragEnd } = Base.useDragTab();
   const key = Scope.use();
-  const getTab = useGetTab();
+  const client = Synnax.use();
   const handleDragStart = useCallback<DragEventHandler<HTMLDivElement>>(
-    (e) => startDrag(e, tabKey, createTabDragPayload(key, getTab({ tabKey }))),
-    [tabKey, startDrag, key, getTab],
+    (e) => {
+      const cached = client?.panels.getCached(key);
+      if (!query.isLive(cached)) return;
+      const tab = panel.findTab(cached.root, tabKey);
+      if (tab == null) return;
+      startDrag(e, tabKey, createTabDragPayload(key, tab));
+    },
+    [tabKey, startDrag, key, client],
   );
   const handleClose = useCallback(() => onClose(tabKey), [tabKey, onClose]);
   return (
@@ -118,7 +124,7 @@ const Leaf = memo(
     emptyContent,
     ...rest
   }: NodeProps): ReactElement => {
-    const { tabs } = useSelectLeafNode({ nodeKey });
+    const { tabs } = useLeafNode({ nodeKey });
     const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
     const { onSelect } = Select.useContext();
     const handleAdd = useCallback(() => onAdd(nodeKey), [nodeKey, onAdd]);
@@ -174,7 +180,7 @@ const Leaf = memo(
 Leaf.displayName = "Panel.Mosaic.Leaf";
 
 const Split = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
-  const { direction, size } = useSelectSplitNode({ nodeKey });
+  const { direction, size } = useSplitNode({ nodeKey });
   return (
     <Base.Split nodeKey={nodeKey} direction={direction} size={size}>
       <Node nodeKey={panel.childNodeKey(nodeKey, "first")} {...rest} />
@@ -185,7 +191,7 @@ const Split = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
 Split.displayName = "Panel.Mosaic.Split";
 
 const Node = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
-  const C = useSelectNodeVariant({ nodeKey }) == "split" ? Split : Leaf;
+  const C = useNodeVariant({ nodeKey }) == "split" ? Split : Leaf;
   return <C nodeKey={nodeKey} {...rest} />;
 });
 Node.displayName = "Panel.Mosaic.Node";
@@ -257,7 +263,7 @@ export const CloseTabMenuItem = (): ReactElement => {
 export const SplitTabMenuItems = (): ReactElement | null => {
   const tabKey = TabScope.use();
   const dispatch = useSingleDispatch();
-  const root = useSelectRoot({});
+  const root = useRoot({});
   const handleSplit = useCallback(
     (direction: direction.Direction) =>
       dispatch(panel.splitTab({ key: tabKey, direction })),
@@ -300,7 +306,7 @@ PortalIn.displayName = "Panel.Mosaic.PortalIn";
 // contexts.
 const PortaledContents = memo(
   ({ children }: Pick<MosaicProps, "children">): ReactElement => {
-    const keys = useSelectTabKeys();
+    const keys = useTabKeys();
     return (
       <>
         {keys.map((key) => (

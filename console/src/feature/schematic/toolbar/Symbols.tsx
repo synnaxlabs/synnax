@@ -272,7 +272,9 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
           x
           className={CSS.BE("schematic", "symbols", "group")}
           onContextMenu={menuProps.open}
-          emptyContent={<RemoteListEmptyContent groupKey={groupKey} />}
+          emptyContent={
+            listData.answered && <RemoteListEmptyContent groupKey={groupKey} />
+          }
           wrap
         >
           {remoteListItem}
@@ -315,14 +317,11 @@ const ImportGroupIcon = Icon.createComposite(Icon.Group, {
 });
 
 export interface ActionsProps {
-  symbolGroupID?: ontology.ID;
+  symbolGroupID: ontology.ID;
   selectedGroup: string;
 }
 
-const Actions = ({
-  symbolGroupID,
-  selectedGroup,
-}: ActionsProps): ReactElement | null => {
+const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement => {
   const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
@@ -336,7 +335,6 @@ const Actions = ({
 
   const handleCreateGroup = useCallback(() => {
     handleError(async () => {
-      if (symbolGroupID == null) return;
       const result = await rename({
         initialValue: "",
         allowEmpty: false,
@@ -356,11 +354,9 @@ const Actions = ({
   const isRemoteGroup = group.keyZ.safeParse(selectedGroup).success;
 
   const handleCreateSymbol = useCallback(() => {
-    if (!isRemoteGroup || symbolGroupID == null) return;
+    if (!isRemoteGroup) return;
     openEdit({ parent: group.ontologyID(selectedGroup) });
-  }, [isRemoteGroup, openEdit, selectedGroup, symbolGroupID]);
-
-  if (symbolGroupID == null) return null;
+  }, [isRemoteGroup, openEdit, selectedGroup]);
 
   return (
     <Flex.Box x shrink={0}>
@@ -574,14 +570,16 @@ export const Symbols = (): ReactElement => {
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
 
   const [searchTerm, setSearchTerm] = useState("");
-  const symbolGroup = Schematic.Symbol.useRetrieveGroup({ query: {} });
+  const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});
   const searchMode = searchTerm.length > 0;
   let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
   if (isRemoteGroup)
     symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
   else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
-  const symbolGroupID =
-    symbolGroup.data?.key != null ? group.ontologyID(symbolGroup.data.key) : undefined;
+  const symbolGroupID = useMemo(
+    () => (symbolGroup == null ? undefined : group.ontologyID(symbolGroup.key)),
+    [symbolGroup?.key],
+  );
   return (
     <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>
       <Flex.Box x sharp className={CSS.BE("schematic", "symbols", "group", "list")}>
@@ -598,7 +596,9 @@ export const Symbols = (): ReactElement => {
           onChange={setGroupKey}
           symbolGroupID={symbolGroupID}
         />
-        <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
+        {symbolGroupID != null && (
+          <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
+        )}
       </Flex.Box>
       {symbolList}
     </Flex.Box>

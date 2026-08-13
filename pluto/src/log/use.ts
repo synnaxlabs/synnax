@@ -70,7 +70,7 @@ export const use = ({
         .filter((ch): ch is number => typeof ch === "number" && ch > 0),
     [channels],
   );
-  const { data: retrievedChannels } = Channel.useRetrieveMultiple({
+  const { data: retrievedChannels } = Channel.useResultMultiple({
     keys: numericChannels,
   });
   const channelNames = useMemo(() => {

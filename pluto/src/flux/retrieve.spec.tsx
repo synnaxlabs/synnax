@@ -12,19 +12,20 @@ import {
   type label,
   NotFoundError,
   query,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import {
   createSeverableProxy,
   createTestClient,
   TEST_CLIENT_PARAMS,
 } from "@synnaxlabs/client/testutil";
-import { Unreachable } from "@synnaxlabs/freighter";
 import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import {
   type FC,
   type PropsWithChildren,
   type ReactElement,
+  startTransition,
   useCallback,
   useMemo,
   useState,
@@ -70,325 +71,30 @@ const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
   return Live;
 };
 
-describe("retrieve", () => {
-  describe("useDirect", () => {
-    describe("basic retrieval", () => {
-      it("should return a loading result as its initial state", () => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number>({
-          name: "Resource",
-          retrieve: async () => 0,
-        });
+/**
+ * Collects the errors React reports globally while `run` executes. React recovers
+ * from a corrupt hook order by re-rendering the root synchronously, so the render
+ * still produces the right DOM and only the report proves the defect.
+ */
+const captureUncaught = async (run: () => Promise<void>): Promise<Error[]> => {
+  const caught: Error[] = [];
+  const onError = (event: ErrorEvent) => {
+    caught.push(event.error);
+    event.preventDefault();
+  };
+  window.addEventListener("error", onError);
+  try {
+    await run();
+  } finally {
+    window.removeEventListener("error", onError);
+  }
+  return caught;
+};
 
-        const { result } = renderHook(() => useRetrieve({ params: {} }), {
-          wrapper: Wrapper,
-        });
-        expect(result.current.variant).toEqual("loading");
-        expect(result.current.data).toEqual(undefined);
-        expect(result.current.status.message).toEqual("Retrieving Resource");
-      });
-
-      it("should return a success result when the data is fetched", async () => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number>({
-          name: "Resource",
-          retrieve: async () => 12,
-        });
-
-        const { result } = renderHook(() => useRetrieve({ params: {} }), {
-          wrapper: Wrapper,
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("success");
-          expect(result.current.data).toEqual(12);
-          expect(result.current.status.message).toEqual(
-            "Successfully retrieved Resource",
-          );
-        });
-      });
-
-      it("should return an error result when the retrieve function throws an error", async () => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number>({
-          name: "Resource",
-          retrieve: async () => {
-            throw new Error("test");
-          },
-        });
-
-        const { result } = renderHook(() => useRetrieve({ params: {} }), {
-          wrapper: Wrapper,
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("error");
-          expect(result.current.data).toEqual(undefined);
-          expect(result.current.status.message).toEqual("Failed to retrieve Resource");
-          expect(result.current.status.description).toEqual("test");
-        });
-      });
-
-      it("should return an error result when no client is connected", async () => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number>({
-          name: "Resource",
-          retrieve: async () => 0,
-        });
-
-        const { result } = renderHook(() => useRetrieve({ params: {} }), {
-          wrapper: createSynnaxWrapper({ client: null }),
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("disabled");
-          expect(result.current.data).toEqual(undefined);
-          expect(result.current.status.message).toEqual("Failed to retrieve Resource");
-          expect(result.current.status.description).toEqual(
-            "Cannot retrieve Resource because no Core is connected.",
-          );
-        });
-      });
-    });
-
-    describe("failure notifications", () => {
-      const renderFailing = (error: Error) => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number>({
-          name: "Resource",
-          retrieve: async () => {
-            throw error;
-          },
-        });
-        return renderHook(
-          () => ({
-            retrieve: useRetrieve({ params: {} }),
-            notifications: Status.useNotifications(),
-          }),
-          { wrapper: Wrapper },
-        );
-      };
-
-      it("should add a status when the retrieve fails for an ordinary reason", async () => {
-        const { result } = renderFailing(new Error("test"));
-        await waitFor(() => {
-          expect(result.current.retrieve.variant).toEqual("error");
-          expect(result.current.notifications.statuses).toHaveLength(1);
-          expect(result.current.notifications.statuses[0].message).toEqual(
-            "Failed to retrieve Resource",
-          );
-        });
-      });
-
-      it("should not add a status when the Core is unreachable", async () => {
-        const { result } = renderFailing(new Unreachable());
-        await waitFor(() => expect(result.current.retrieve.variant).toEqual("error"));
-        expect(result.current.notifications.statuses).toHaveLength(0);
-      });
-
-      it("should not add a status when the retrieve short circuits as disconnected", async () => {
-        const { result } = renderFailing(new DisconnectedError());
-        await waitFor(() => expect(result.current.retrieve.variant).toEqual("error"));
-        expect(result.current.notifications.statuses).toHaveLength(0);
-      });
-    });
-
-    describe("subscriptions", () => {
-      it("should update the result when the subscription pushes a change", async () => {
-        const ch = await client.labels.create({
-          name: "Test Label",
-          color: color.construct("#000000"),
-        });
-        let handler: query.ChangeHandler<label.Label> | null = null;
-        const { useRetrieve } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
-          name: "Resource",
-          retrieve: async ({ client, query: { key } }) =>
-            await client.labels.retrieve(key),
-          subscribe: (_, h) => {
-            handler = h;
-            return () => {};
-          },
-        });
-
-        const { result } = renderHook(() => useRetrieve({ key: ch.key }), {
-          wrapper: Wrapper,
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("success");
-          expect(result.current.data).toEqual(ch);
-          expect(handler).not.toBeNull();
-        });
-        act(() => {
-          handler?.({ ...ch, name: "Test Label 2" });
-        });
-        await waitFor(
-          () => {
-            expect(result.current.data?.name).toEqual("Test Label 2");
-            expect(
-              result.current.variant,
-              `${result.current.status.message}:${result.current.status.description}`,
-            ).toEqual("success");
-          },
-          { timeout: 1000 },
-        );
-      });
-
-      it("should move to an error result when the subscription reports a deletion", async () => {
-        const ch = await client.labels.create({
-          name: "Corpse Label",
-          color: color.construct("#000000"),
-        });
-        let handler: query.ChangeHandler<label.Label> | null = null;
-        const { useRetrieve } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
-          name: "Resource",
-          retrieve: async ({ client, query: { key } }) =>
-            await client.labels.retrieve(key),
-          subscribe: (_, h) => {
-            handler = h;
-            return () => {};
-          },
-        });
-
-        const { result } = renderHook(() => useRetrieve({ key: ch.key }), {
-          wrapper: Wrapper,
-        });
-        await waitFor(() => expect(result.current.variant).toEqual("success"));
-        act(() => {
-          handler?.(new query.Deleted(ch, TimeStamp.now()));
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("error");
-          expect(result.current.status.description).toEqual("Resource was deleted");
-        });
-      });
-    });
-  });
-
-  describe("useObservable", () => {
-    type OnChange = (result: Flux.Result<string>, query: { key: string }) => void;
-
-    it("should drop the subscription of a query superseded mid-fetch", async () => {
-      const handlers = new Map<string, query.ChangeHandler<string>>();
-      let resolveSlow: ((value: string) => void) | null = null;
-      const { useRetrieveObservable } = Flux.createRetrieve<{ key: string }, string>({
-        name: "Resource",
-        retrieve: async ({ query: { key } }) =>
-          key === "slow"
-            ? await new Promise<string>((resolve) => (resolveSlow = resolve))
-            : key,
-        subscribe: ({ query: { key } }, h) => {
-          handlers.set(key, h);
-          return () => handlers.delete(key);
-        },
-      });
-      const onChange = vi.fn<OnChange>();
-      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
-        wrapper: Wrapper,
-      });
-      let slow: Promise<void> | null = null;
-      await act(async () => {
-        slow = result.current.retrieveAsync({ key: "slow" });
-        await result.current.retrieveAsync({ key: "fast" });
-      });
-      await act(async () => {
-        resolveSlow?.("slow");
-        await slow;
-      });
-      expect(handlers.has("slow")).toBe(false);
-      act(() => handlers.get("fast")?.("updated"));
-      const lastCall = onChange.mock.calls.at(-1);
-      assert(lastCall != null);
-      const [lastResult, lastQuery] = lastCall;
-      expect(lastResult.data).toEqual("updated");
-      expect(lastQuery.key).toEqual("fast");
-    });
-
-    it("should drop the value of a query superseded mid-fetch", async () => {
-      let resolveSlow: ((value: string) => void) | null = null;
-      const { useRetrieveObservable } = Flux.createRetrieve<{ key: string }, string>({
-        name: "Resource",
-        retrieve: async ({ query: { key } }) =>
-          key === "slow"
-            ? await new Promise<string>((resolve) => (resolveSlow = resolve))
-            : key,
-      });
-      const onChange = vi.fn<OnChange>();
-      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
-        wrapper: Wrapper,
-      });
-      let slow: Promise<void> | null = null;
-      await act(async () => {
-        slow = result.current.retrieveAsync({ key: "slow" });
-        await result.current.retrieveAsync({ key: "fast" });
-      });
-      await act(async () => {
-        resolveSlow?.("slow");
-        await slow;
-      });
-      const results = onChange.mock.calls.map(([res]) => res);
-      expect(results.some(({ data }) => data === "slow")).toBe(false);
-      expect(results.at(-1)?.data).toEqual("fast");
-    });
-
-    it("should drop the failure of a query superseded mid-fetch", async () => {
-      let rejectSlow: ((error: Error) => void) | null = null;
-      const { useRetrieveObservable } = Flux.createRetrieve<{ key: string }, string>({
-        name: "Resource",
-        retrieve: async ({ query: { key } }) =>
-          key === "slow"
-            ? await new Promise<string>((_, reject) => (rejectSlow = reject))
-            : key,
-      });
-      const onChange = vi.fn<OnChange>();
-      const { result } = renderHook(() => useRetrieveObservable({ onChange }), {
-        wrapper: Wrapper,
-      });
-      let slow: Promise<void> | null = null;
-      await act(async () => {
-        slow = result.current.retrieveAsync({ key: "slow" });
-        await result.current.retrieveAsync({ key: "fast" });
-      });
-      await act(async () => {
-        rejectSlow?.(new Error("slow failed"));
-        await slow;
-      });
-      const results = onChange.mock.calls.map(([res]) => res);
-      expect(results.some(({ variant }) => variant === "error")).toBe(false);
-      expect(results.at(-1)?.data).toEqual("fast");
-    });
-  });
-
-  describe("useEffect", () => {
-    it("should call the onChange handler when the data is fetched", async () => {
-      const onChangeMock = vi.fn();
-      const { result } = renderHook(
-        () => {
-          const [result, setResult] = useState<Flux.Result<number>>(
-            Flux.loadingResult<number>("retrieving Resource", undefined),
-          );
-          const handleChange = useCallback(
-            (value: Flux.Result<number>) => {
-              setResult(value);
-              onChangeMock(value);
-            },
-            [onChangeMock],
-          );
-          const { useRetrieveEffect } = Flux.createRetrieve<{ key: string }, number>({
-            name: "Resource",
-            retrieve: async () => 12,
-          });
-          useRetrieveEffect({
-            query: { key: "test" },
-            onChange: handleChange,
-          });
-          return result;
-        },
-        { wrapper: Wrapper },
-      );
-      await waitFor(() => {
-        expect(onChangeMock).toHaveBeenCalledTimes(2);
-        expect(result.current.data).toEqual(12);
-      });
-    });
-  });
-});
-
-describe("useRetrieveSuspended", () => {
+describe("use", () => {
   it("suspends until the retrieve resolves, then returns the value", async () => {
     let resolveRetrieve: (value: number) => void = () => {};
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: () =>
         new Promise<number>((resolve) => {
@@ -397,7 +103,7 @@ describe("useRetrieveSuspended", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "first-test" });
+      const value = use({ key: "first-test" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -430,13 +136,13 @@ describe("useRetrieveSuspended", () => {
           resolveRetrieve = resolve;
         }),
     );
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "dedupe-test" });
+      const value = use({ key: "dedupe-test" });
       return <div>{value}</div>;
     };
 
@@ -460,7 +166,7 @@ describe("useRetrieveSuspended", () => {
   });
 
   it("routes a thrown error to the error fallback", async () => {
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: async () => {
         throw new Error("boom");
@@ -468,7 +174,7 @@ describe("useRetrieveSuspended", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "error-test" });
+      const value = use({ key: "error-test" });
       return <div>{value}</div>;
     };
 
@@ -500,14 +206,14 @@ describe("useRetrieveSuspended", () => {
     const retrieve = vi.fn(async (): Promise<number> => {
       throw new Error("boom");
     });
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => undefined,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "cached-error-test" });
+      const value = use({ key: "cached-error-test" });
       return <div>{value}</div>;
     };
 
@@ -538,14 +244,14 @@ describe("useRetrieveSuspended", () => {
   it("resolves synchronously without suspending when the cache hits", async () => {
     const retrieve = vi.fn(async () => 99);
     const cached: query.Cached<number> = 42;
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => cached,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "cached-hit" });
+      const value = use({ key: "cached-hit" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -565,36 +271,6 @@ describe("useRetrieveSuspended", () => {
     expect(retrieve).not.toHaveBeenCalled();
   });
 
-  it("resolves from deriveCached when the query's own cache misses", async () => {
-    const retrieve = vi.fn(async () => 99);
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
-      name: "Number",
-      retrieve,
-      getCached: () => undefined,
-      deriveCached: () => 13,
-    });
-
-    const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "derived" });
-      return <div data-testid="value">{value}</div>;
-    };
-
-    let utils!: ReturnType<typeof render>;
-    await act(async () => {
-      utils = render(
-        <Wrapper>
-          <Errors.SuspenseBoundary loading={<div>loading-derived</div>}>
-            <Display />
-          </Errors.SuspenseBoundary>
-        </Wrapper>,
-      );
-    });
-
-    expect(utils.queryByText("loading-derived")).toBeNull();
-    expect(utils.queryByTestId("value")?.textContent).toBe("13");
-    expect(retrieve).not.toHaveBeenCalled();
-  });
-
   it("falls through to the async retrieve when the cache misses", async () => {
     let resolveRetrieve: (value: number) => void = () => {};
     let cached: query.Cached<number> | undefined;
@@ -607,15 +283,15 @@ describe("useRetrieveSuspended", () => {
           };
         }),
     );
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
-      subscribe: () => () => {},
+      onChange: () => () => {},
       getCached: () => cached,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "cached-miss" });
+      const value = use({ key: "cached-miss" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -648,10 +324,10 @@ describe("useRetrieveSuspended", () => {
       cached = value;
       return value;
     });
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
-      subscribe: (_, handler) => {
+      onChange: (_, handler) => {
         capturedHandler = handler;
         return () => {};
       },
@@ -659,7 +335,7 @@ describe("useRetrieveSuspended", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "invalidate-test" });
+      const value = use({ key: "invalidate-test" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -685,6 +361,74 @@ describe("useRetrieveSuspended", () => {
     expect(retrieve).toHaveBeenCalledTimes(2);
   });
 
+  describe("suspended mount replay", () => {
+    // The reader renders a hook after the read, whose slot only exists if the
+    // replayed attempt resumes through the same `use` call it suspended on. The
+    // mount goes through a transition: a concurrent render is what lets React
+    // replay the suspended attempt instead of re-mounting it from scratch.
+    const mountThroughTransition = async (
+      use: (query: { key: string }) => number,
+      key: string,
+    ): Promise<Error[]> => {
+      const Display = (): ReactElement => {
+        const value = use({ key });
+        const format = useCallback(() => `n=${value}`, [value]);
+        return <div data-testid="value">{format()}</div>;
+      };
+      const Harness = (): ReactElement => {
+        const [mounted, setMounted] = useState(false);
+        return (
+          <>
+            <button
+              data-testid="mount"
+              onClick={() => startTransition(() => setMounted(true))}
+            />
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
+              {mounted && <Display />}
+            </Errors.SuspenseBoundary>
+          </>
+        );
+      };
+      return await captureUncaught(async () => {
+        let utils!: ReturnType<typeof render>;
+        await act(async () => {
+          utils = render(
+            <Wrapper>
+              <Harness />
+            </Wrapper>,
+          );
+        });
+        await act(async () => {
+          fireEvent.click(utils.getByTestId("mount"));
+        });
+        await waitFor(() =>
+          expect(utils.queryByTestId("value")?.textContent).toBe("n=7"),
+        );
+      });
+    };
+
+    it("keeps the caller's hook order when the answer lands in the domain cache", async () => {
+      let cached: number | undefined;
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => {
+          cached = 7;
+          return cached;
+        },
+        getCached: () => cached,
+      });
+      expect(await mountThroughTransition(use, "replay-domain-cached")).toEqual([]);
+    });
+
+    it("keeps the caller's hook order when the answer settles locally", async () => {
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve: async () => 7,
+      });
+      expect(await mountThroughTransition(use, "replay-settled")).toEqual([]);
+    });
+  });
+
   describe("equal", () => {
     const sameNumbers = (a: number[], b: number[]): boolean =>
       a.length === b.length && a.every((v, i) => v === b[i]);
@@ -701,10 +445,10 @@ describe("useRetrieveSuspended", () => {
     const renderProjection = async (key: string): Promise<Harness> => {
       let source: number[] = [1, 2];
       let handler: query.ChangeHandler<number[]> | null = null;
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { use } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve: async () => [...source],
-        subscribe: (_, h) => {
+        onChange: (_, h) => {
           handler = h;
           return () => {};
         },
@@ -714,7 +458,7 @@ describe("useRetrieveSuspended", () => {
 
       const seen: number[][] = [];
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key });
+        const value = use({ key });
         seen.push(value);
         return <div data-testid="value">{value.join(",")}</div>;
       };
@@ -779,16 +523,16 @@ describe("useRetrieveSuspended", () => {
 
     it("still throws a deleted error for a tombstoned answer", async () => {
       const tombstone = new query.Deleted<number[]>([1, 2], TimeStamp.now());
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { use } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve: async () => [1, 2],
-        subscribe: () => () => {},
+        onChange: () => () => {},
         getCached: () => tombstone,
         equal: sameNumbers,
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key: "equal-deleted" });
+        const value = use({ key: "equal-deleted" });
         return <div data-testid="value">{value.join(",")}</div>;
       };
 
@@ -818,10 +562,10 @@ describe("useRetrieveSuspended", () => {
         cached = [retrieve.mock.calls.length];
         return cached;
       });
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { use } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve,
-        subscribe: (_, h) => {
+        onChange: (_, h) => {
           handler = h;
           return () => {};
         },
@@ -830,7 +574,7 @@ describe("useRetrieveSuspended", () => {
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key: "equal-invalidate" });
+        const value = use({ key: "equal-invalidate" });
         return <div data-testid="value">{value.join(",")}</div>;
       };
 
@@ -861,7 +605,7 @@ describe("useRetrieveSuspended", () => {
 
     it("passes the cached answer straight through when no comparator is given", async () => {
       const cached = [4, 5];
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number[]>({
+      const { use } = Flux.createRetrieve<{ key: string }, number[]>({
         name: "Numbers",
         retrieve: async () => [],
         getCached: () => cached,
@@ -869,7 +613,7 @@ describe("useRetrieveSuspended", () => {
 
       const seen: number[][] = [];
       const Display = (): ReactElement => {
-        seen.push(useRetrieveSuspended({ key: "no-equal" }));
+        seen.push(use({ key: "no-equal" }));
         return <div data-testid="value">{seen[seen.length - 1].join(",")}</div>;
       };
 
@@ -886,6 +630,38 @@ describe("useRetrieveSuspended", () => {
 
       expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
       expect(seen[seen.length - 1]).toBe(cached);
+    });
+
+    it("settles a composed answer when no comparator is given", async () => {
+      const source = [4, 5];
+      const { use } = Flux.createRetrieve<{ key: string }, number[]>({
+        name: "Numbers",
+        retrieve: async () => [...source],
+        onChange: () => () => {},
+        getCached: () => [...source],
+      });
+
+      const seen: number[][] = [];
+      const Display = (): ReactElement => {
+        const value = use({ key: "no-equal-composed" });
+        seen.push(value);
+        return <div data-testid="value">{value.join(",")}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={null}>
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      expect(utils.queryByTestId("value")?.textContent).toEqual("4,5");
+      expect(seen.length).toBeLessThan(10);
+      expect(seen[seen.length - 1]).toBe(seen[0]);
     });
   });
 
@@ -904,18 +680,19 @@ describe("useRetrieveSuspended", () => {
       const retrieve = vi.fn(async (): Promise<number> => {
         throw new NotFoundError("no such number");
       });
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
-        subscribe: (_, h) => {
+        onChange: (_, h) => {
           handler = h;
           return () => {};
         },
         getCached: () => cached,
+        awaitCreation: true,
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key });
+        const value = use({ key });
         return <div data-testid="value">{value}</div>;
       };
 
@@ -989,17 +766,15 @@ describe("useRetrieveSuspended", () => {
         cached = 42;
         return 42;
       });
-      const { useRetrieveSuspended, useInvalidate } = Flux.createRetrieve<
-        { key: string },
-        number
-      >({
+      const { use, useInvalidate } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
-        subscribe: () => () => {},
+        onChange: () => () => {},
         getCached: () => cached,
+        awaitCreation: true,
       });
       const Display = (): ReactElement => (
-        <div data-testid="value">{useRetrieveSuspended({ key: "invalidate" })}</div>
+        <div data-testid="value">{use({ key: "invalidate" })}</div>
       );
       const Retry = ({ onRetry }: { onRetry: () => void }): ReactElement => {
         const invalidate = useInvalidate();
@@ -1091,22 +866,23 @@ describe("useRetrieveSuspended", () => {
       const retrieve = vi.fn(async (): Promise<number> => {
         throw new NotFoundError("no such number");
       });
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
         // A row tombstoned between the failed fetch and the subscription
         // mounting answers during onChange itself, so the handler fires
         // before the destructor is returned.
-        subscribe: (_, h) => {
+        onChange: (_, h) => {
           cached = tombstone;
           h(tombstone);
           return disconnect;
         },
         getCached: () => cached,
+        awaitCreation: true,
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key: "nf-sync-tombstone" });
+        const value = use({ key: "nf-sync-tombstone" });
         return <div data-testid="value">{value}</div>;
       };
 
@@ -1136,14 +912,57 @@ describe("useRetrieveSuspended", () => {
       const retrieve = vi.fn(async (): Promise<number> => {
         throw new NotFoundError("no such number");
       });
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
         name: "Number",
         retrieve,
+        getCached: () => undefined,
+        awaitCreation: true,
+      });
+
+      const Display = (): ReactElement => {
+        const value = use({ key: "nf-unsubscribed" });
+        return <div>{value}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div>waiting</div>}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(utils.queryByTestId("error")?.textContent).toBe(
+        "Failed to retrieve Number",
+      );
+      expect(retrieve).toHaveBeenCalledTimes(1);
+    });
+
+    it("settles a not-found immediately when the query does not await creation", async () => {
+      const retrieve = vi.fn(async (): Promise<number> => {
+        throw new NotFoundError("no such number");
+      });
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve,
+        onChange: () => () => {},
         getCached: () => undefined,
       });
 
       const Display = (): ReactElement => {
-        const value = useRetrieveSuspended({ key: "nf-unsubscribed" });
+        const value = use({ key: "nf-no-await" });
         return <div>{value}</div>;
       };
 
@@ -1176,18 +995,19 @@ describe("useRetrieveSuspended", () => {
 
   it("refetches a read that failed during an outage once the connection returns", async () => {
     const proxy = await createSeverableProxy();
+    let mounted: ReturnType<typeof render> | undefined;
     try {
       const [first, second] = await client.labels.create([
         { name: `first-${id.create()}`, color: "#000000" },
         { name: `second-${id.create()}`, color: "#000000" },
       ]);
-      const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, string>({
+      const { use } = Flux.createRetrieve<{ key: string }, string>({
         name: "Label",
         retrieve: async ({ client, query }) =>
           (await client.labels.retrieve(query.key)).name,
       });
       const Display = ({ labelKey }: { labelKey: string }): ReactElement => (
-        <div>{useRetrieveSuspended({ key: labelKey })}</div>
+        <div>{use({ key: labelKey })}</div>
       );
       const Live = createLiveWrapper(proxy.port);
       const tree = (labelKey: string): ReactElement => (
@@ -1204,6 +1024,7 @@ describe("useRetrieveSuspended", () => {
       // The first read opens the change stream, which is what advances the epoch
       // once the connection returns.
       const utils = render(tree(first.key));
+      mounted = utils;
       await waitFor(() => expect(utils.getByText(first.name)).toBeTruthy());
 
       // The second label was never read, so it cannot be served from the cache.
@@ -1216,22 +1037,25 @@ describe("useRetrieveSuspended", () => {
         timeout: 20000,
       });
     } finally {
+      // Close the client before the port dies, or its unbounded reconnect loop
+      // churns against a dead proxy and logs into whatever test runs next.
+      mounted?.unmount();
       await proxy.close();
     }
   }, 30000);
 });
 
-describe("useEnsureRetrieved", () => {
+describe("useEnsure", () => {
   it("does not suspend when the cache hits", async () => {
     const retrieve = vi.fn(async () => 5);
-    const { useEnsureRetrieved } = Flux.createRetrieve<{ key: string }, number>({
+    const { useEnsure } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => 5,
     });
 
     const Display = (): ReactElement => {
-      useEnsureRetrieved({ key: "ensure-cached" });
+      useEnsure({ key: "ensure-cached" });
       return <div data-testid="ready">ready</div>;
     };
 
@@ -1255,14 +1079,14 @@ describe("useEnsureRetrieved", () => {
     const retrieve = vi.fn(async (): Promise<number> => {
       throw new Error("boom");
     });
-    const { useEnsureRetrieved } = Flux.createRetrieve<{ key: string }, number>({
+    const { useEnsure } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
       getCached: () => undefined,
     });
 
     const Display = (): ReactElement => {
-      useEnsureRetrieved({ key: "ensure-error" });
+      useEnsure({ key: "ensure-error" });
       return <div data-testid="ready">ready</div>;
     };
 
@@ -1291,15 +1115,15 @@ describe("useEnsureRetrieved", () => {
   });
 });
 
-describe("useRetrieveSuspended connection changes", () => {
+describe("use connection changes", () => {
   it("surfaces a disconnect that lands after the read resolved", async () => {
-    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+    const { use } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: async () => 42,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieveSuspended({ key: "disconnect-test" });
+      const value = use({ key: "disconnect-test" });
       const label = useMemo(() => `value-${value}`, [value]);
       return <div data-testid="value">{label}</div>;
     };
@@ -1345,7 +1169,7 @@ describe("useTombstone", () => {
     const { useTombstone } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
       name: "Resource",
       retrieve: async ({ client, query: { key } }) => await client.labels.retrieve(key),
-      subscribe: (_, h) => {
+      onChange: (_, h) => {
         handler = h;
         return () => {};
       },
@@ -1369,5 +1193,787 @@ describe("useTombstone", () => {
       handler?.(cached);
     });
     expect(result.current).toBeNull();
+  });
+});
+
+describe("createSelector", () => {
+  interface Data {
+    name: string;
+    value: number;
+  }
+
+  interface Harness {
+    retrieve: ReturnType<typeof vi.fn<() => Promise<Data>>>;
+    set: (next: query.Cached<Data> | undefined) => void;
+    createSelector: Flux.CreateSelector<{ key: string }, Data>;
+  }
+
+  const createHarness = (initial?: query.Cached<Data>): Harness => {
+    let cached = initial;
+    let handler: query.ChangeHandler<Data> | undefined;
+    const retrieve = vi.fn(async (): Promise<Data> => ({ name: "fetched", value: 0 }));
+    const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve,
+      onChange: (_, h) => {
+        handler = h;
+        return () => {};
+      },
+      getCached: () => cached,
+    });
+    return {
+      retrieve,
+      createSelector,
+      set: (next) => {
+        cached = next;
+        handler?.(next);
+      },
+    };
+  };
+
+  it("returns the selected slice of the cached answer without fetching", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("cached");
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("throws NotFoundError on a cold miss instead of suspending", async () => {
+    const harness = createHarness();
+    const useName = harness.createSelector((data) => data.name);
+    const Display = (): ReactElement => <div>{useName({ key: "a" })}</div>;
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary
+            loading={<div>loading-select</div>}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">
+                {NotFoundError.matches(error) ? "not-found" : "other"}
+              </div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+    expect(utils.queryByText("loading-select")).toBeNull();
+    expect(utils.queryByTestId("error")?.textContent).toEqual("not-found");
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("throws DeletedError when the cached answer is a tombstone", async () => {
+    const harness = createHarness(
+      new query.Deleted<Data>({ name: "corpse", value: 1 }, TimeStamp.now()),
+    );
+    const useName = harness.createSelector((data) => data.name);
+    const Display = (): ReactElement => <div>{useName({ key: "a" })}</div>;
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary
+            loading={null}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">
+                {Flux.DeletedError.matches(error) ? "deleted" : "other"}
+              </div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+    expect(utils.queryByTestId("error")?.textContent).toEqual("deleted");
+  });
+
+  it("throws DisconnectedError when no client is connected", async () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createSelector((data) => data.name);
+    const Display = (): ReactElement => <div>{useName({ key: "a" })}</div>;
+    const NullWrapper = createSynnaxWrapper({ client: null });
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <NullWrapper>
+          <Errors.SuspenseBoundary
+            loading={null}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">
+                {DisconnectedError.matches(error) ? "disconnected" : "other"}
+              </div>
+            )}
+          >
+            <Display />
+          </Errors.SuspenseBoundary>
+        </NullWrapper>,
+      );
+    });
+    expect(utils.queryByTestId("error")?.textContent).toEqual("disconnected");
+  });
+
+  it("re-renders when a push changes the selected slice", () => {
+    const harness = createHarness({ name: "before", value: 1 });
+    const useName = harness.createSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("before");
+    act(() => harness.set({ name: "after", value: 1 }));
+    expect(result.current).toEqual("after");
+  });
+
+  it("keeps the previous identity when the selected slice is equal", () => {
+    const harness = createHarness({ name: "same", value: 1 });
+    const useNames = harness.createSelector(
+      (data) => [data.name],
+      (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
+    );
+    const { result } = renderHook(() => useNames({ key: "a" }), { wrapper: Wrapper });
+    const first = result.current;
+    act(() => harness.set({ name: "same", value: 2 }));
+    expect(result.current).toBe(first);
+  });
+
+  it("holds the last live value across an invalidation push", () => {
+    const harness = createHarness({ name: "live", value: 1 });
+    const useName = harness.createSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("live");
+    act(() => harness.set(undefined));
+    expect(result.current).toEqual("live");
+  });
+
+  it("memoizes the selection on the raw answer's reference", () => {
+    const raw: Data = { name: "stable", value: 1 };
+    const harness = createHarness(raw);
+    const select = vi.fn((data: Data) => data.name);
+    const useName = harness.createSelector(select);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current).toEqual("stable");
+    const calls = select.mock.calls.length;
+    act(() => harness.set(raw));
+    expect(select.mock.calls.length).toEqual(calls);
+  });
+
+  it("re-selects when the query changes", () => {
+    const byKey: Record<string, Data> = {
+      a: { name: "alpha", value: 1 },
+      b: { name: "beta", value: 2 },
+    };
+    let handler: query.ChangeHandler<Data> | undefined;
+    const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => byKey.a,
+      onChange: (_, h) => {
+        handler = h;
+        return () => {};
+      },
+      getCached: ({ query: { key } }) => byKey[key],
+    });
+    const useName = createSelector((data) => data.name);
+    const { result, rerender } = renderHook(({ key }) => useName({ key }), {
+      wrapper: Wrapper,
+      initialProps: { key: "a" },
+    });
+    expect(result.current).toEqual("alpha");
+    rerender({ key: "b" });
+    expect(result.current).toEqual("beta");
+    expect(handler).toBeDefined();
+  });
+
+  it("passes selector-only query fields through to the projection", () => {
+    const harness = createHarness({ name: "alpha,beta", value: 1 });
+    const usePart = harness.createSelector<string, { key: string; index: number }>(
+      (data, { index }) => data.name.split(",")[index],
+    );
+    const { result, rerender } = renderHook(
+      ({ index }) => usePart({ key: "a", index }),
+      {
+        wrapper: Wrapper,
+        initialProps: { index: 0 },
+      },
+    );
+    expect(result.current).toEqual("alpha");
+    rerender({ index: 1 });
+    expect(result.current).toEqual("beta");
+  });
+
+  it("refuses to mint when the definition has no cache read", () => {
+    const { createSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => ({ name: "fetched", value: 0 }),
+    });
+    expect(() => createSelector((data) => data.name)).toThrow(UnexpectedError);
+  });
+});
+
+describe("createResultSelector", () => {
+  interface Data {
+    name: string;
+    value: number;
+  }
+
+  interface Harness {
+    retrieve: ReturnType<typeof vi.fn<() => Promise<Data>>>;
+    set: (next: query.Cached<Data> | undefined) => void;
+    createResultSelector: Flux.CreateResultSelector<{ key: string }, Data>;
+  }
+
+  const createHarness = (
+    initial?: query.Cached<Data>,
+    retrieveImpl?: () => Promise<Data>,
+  ): Harness => {
+    let cached = initial;
+    const handlers = new Set<query.ChangeHandler<Data>>();
+    const retrieve = vi.fn(
+      retrieveImpl ?? (async (): Promise<Data> => ({ name: "fetched", value: 0 })),
+    );
+    const { createResultSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve,
+      onChange: (_, h) => {
+        handlers.add(h);
+        return () => handlers.delete(h);
+      },
+      getCached: () => cached,
+    });
+    return {
+      retrieve,
+      createResultSelector,
+      set: (next) => {
+        cached = next;
+        handlers.forEach((h) => h(next));
+      },
+    };
+  };
+
+  // Regression: mirrors the useResult contract — a settled failure must not
+  // answer later mounts.
+  it("retries a settled failure when a new mount reads the query", async () => {
+    let fail = true;
+    const harness = createHarness(undefined, async () => {
+      if (fail) throw new Error("boom");
+      return { name: "recovered", value: 4 };
+    });
+    const useName = harness.createResultSelector((data) => data.name);
+    const first = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    first.rerender();
+    expect(first.result.current.variant).toEqual("error");
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+    first.unmount();
+    fail = false;
+    const second = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(harness.retrieve).toHaveBeenCalledTimes(2);
+    expect(second.result.current.variant).toEqual("success");
+    expect(second.result.current.data).toEqual("recovered");
+  });
+
+  it("serves the selected slice from the cache without fetching", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("success");
+    expect(result.current.data).toEqual("cached");
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("fetches on a cold miss and settles to the selected slice", async () => {
+    const harness = createHarness();
+    const useName = harness.createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("loading");
+    await waitFor(() => expect(result.current.variant).toEqual("success"));
+    expect(result.current.data).toEqual("fetched");
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-renders when a push changes the selected slice", () => {
+    const harness = createHarness({ name: "before", value: 1 });
+    const useName = harness.createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.data).toEqual("before");
+    act(() => harness.set({ name: "after", value: 1 }));
+    expect(result.current.data).toEqual("after");
+  });
+
+  it("does not re-render when a push changes only unselected fields", () => {
+    const harness = createHarness({ name: "same", value: 1 });
+    const useName = harness.createResultSelector((data) => data.name);
+    const renders = vi.fn();
+    const { result } = renderHook(
+      () => {
+        renders();
+        return useName({ key: "a" });
+      },
+      { wrapper: Wrapper },
+    );
+    const first = result.current;
+    const before = renders.mock.calls.length;
+    act(() => harness.set({ name: "same", value: 2 }));
+    expect(renders.mock.calls.length).toEqual(before);
+    expect(result.current).toBe(first);
+  });
+
+  it("compares slices with the provided equality", () => {
+    const harness = createHarness({ name: "a,b", value: 1 });
+    const useParts = harness.createResultSelector(
+      (data) => data.name.split(","),
+      (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
+    );
+    const { result } = renderHook(() => useParts({ key: "a" }), { wrapper: Wrapper });
+    const first = result.current;
+    act(() => harness.set({ name: "a,b", value: 2 }));
+    expect(result.current).toBe(first);
+  });
+
+  it("reports a deleted answer as an error result", () => {
+    const harness = createHarness(
+      new query.Deleted<Data>({ name: "corpse", value: 1 }, TimeStamp.now()),
+    );
+    const useName = harness.createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("error");
+    assert(result.current.variant === "error");
+    expect(Flux.DeletedError.matches(result.current.status.details.error)).toBe(true);
+  });
+
+  it("reads as disabled with a null query", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const useName = harness.createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName(null), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("disabled");
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("refuses to mint when the definition has no cache read", () => {
+    const { createResultSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => ({ name: "fetched", value: 0 }),
+    });
+    expect(() => createResultSelector((data) => data.name)).toThrow(UnexpectedError);
+  });
+});
+
+describe("useResult", () => {
+  interface Data {
+    name: string;
+    value: number;
+  }
+
+  interface Harness {
+    retrieve: ReturnType<typeof vi.fn<() => Promise<Data>>>;
+    set: (next: query.Cached<Data> | undefined) => void;
+    useResult: Flux.UseResult<{ key: string }, Data>;
+  }
+
+  const createHarness = (
+    initial?: query.Cached<Data>,
+    retrieveImpl?: () => Promise<Data>,
+    awaitCreation?: boolean,
+  ): Harness => {
+    let cached = initial;
+    const handlers = new Set<query.ChangeHandler<Data>>();
+    const retrieve = vi.fn(
+      retrieveImpl ?? (async (): Promise<Data> => ({ name: "fetched", value: 0 })),
+    );
+    const { useResult } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve,
+      onChange: (_, h) => {
+        handlers.add(h);
+        return () => handlers.delete(h);
+      },
+      getCached: () => cached,
+      awaitCreation,
+    });
+    return {
+      retrieve,
+      useResult,
+      set: (next) => {
+        cached = next;
+        handlers.forEach((h) => h(next));
+      },
+    };
+  };
+
+  it("serves the cached answer without fetching", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.variant).toEqual("success");
+    expect(result.current.data).toEqual({ name: "cached", value: 1 });
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("serves an all-cached keys query on the first render without a fetch", async () => {
+    const [first, second] = await client.labels.create([
+      { name: `keys-a-${id.create()}`, color: "#000000" },
+      { name: `keys-b-${id.create()}`, color: "#000000" },
+    ]);
+    await client.labels.retrieve(first.key);
+    await client.labels.retrieve(second.key);
+    const retrieve = vi.fn(
+      async ({ client, query }: Flux.RetrieveParams<{ keys: label.Key[] }>) =>
+        await client.labels.retrieve(query),
+    );
+    const { useResult } = Flux.createRetrieve<{ keys: label.Key[] }, label.Label[]>({
+      name: "Labels",
+      retrieve,
+      onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
+      getCached: ({ client, query }) => client.labels.getCached(query),
+    });
+    const { result } = renderHook(() => useResult({ keys: [first.key, second.key] }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.variant).toEqual("success");
+    expect(result.current.data?.map(({ name }) => name)).toEqual([
+      first.name,
+      second.name,
+    ]);
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  it("re-renders a composed keys answer when a member changes", async () => {
+    const [first, second] = await client.labels.create([
+      { name: `live-a-${id.create()}`, color: "#000000" },
+      { name: `live-b-${id.create()}`, color: "#000000" },
+    ]);
+    await client.labels.retrieve(first.key);
+    await client.labels.retrieve(second.key);
+    const { useResult } = Flux.createRetrieve<{ keys: label.Key[] }, label.Label[]>({
+      name: "Labels",
+      retrieve: async ({ client, query }) => await client.labels.retrieve(query),
+      onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
+      getCached: ({ client, query }) => client.labels.getCached(query),
+    });
+    const { result } = renderHook(() => useResult({ keys: [first.key, second.key] }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.variant).toEqual("success");
+    const renamed = `live-a-renamed-${id.create()}`;
+    await client.labels.create({ ...first, name: renamed });
+    await waitFor(
+      () =>
+        expect(result.current.data?.map(({ name }) => name)).toEqual([
+          renamed,
+          second.name,
+        ]),
+      { timeout: 5000 },
+    );
+  });
+
+  it("reports loading on a cold miss and serves the fetch once it lands", async () => {
+    let resolveRetrieve: (value: Data) => void = () => {};
+    const harness = createHarness(
+      undefined,
+      () =>
+        new Promise<Data>((resolve) => {
+          resolveRetrieve = resolve;
+        }),
+    );
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.variant).toEqual("loading");
+    expect(result.current.data).toBeUndefined();
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      const data = { name: "fetched", value: 2 };
+      resolveRetrieve(data);
+      harness.set(data);
+    });
+    expect(result.current.variant).toEqual("success");
+    expect(result.current.data).toEqual({ name: "fetched", value: 2 });
+  });
+
+  it("dedupes concurrent cold reads into one fetch", () => {
+    const harness = createHarness(undefined, () => new Promise<Data>(() => {}));
+    renderHook(
+      () => [harness.useResult({ key: "a" }), harness.useResult({ key: "a" })],
+      { wrapper: Wrapper },
+    );
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+  });
+
+  // Regression: a render React discards must not fetch, so the cold path starts
+  // its fetch after commit rather than from the render body.
+  it("starts the cold fetch after the render that requests it", () => {
+    const harness = createHarness(undefined, () => new Promise<Data>(() => {}));
+    const duringRender: number[] = [];
+    renderHook(
+      () => {
+        const result = harness.useResult({ key: "a" });
+        duringRender.push(harness.retrieve.mock.calls.length);
+        return result;
+      },
+      { wrapper: Wrapper },
+    );
+    expect(duringRender[0]).toEqual(0);
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces a failed fetch as an error without refetching or logging", async () => {
+    const harness = createHarness(undefined, async () => {
+      throw new Error("boom");
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { result, rerender } = renderHook(() => harness.useResult({ key: "a" }), {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      rerender();
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.data).toBeUndefined();
+      expect(result.current.status.description).toContain("boom");
+      expect(harness.retrieve).toHaveBeenCalledTimes(1);
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  // Regression: a settled failure must not answer later mounts. Permission
+  // checks read false forever after one startup blip when it does.
+  it("retries a settled failure when a new mount reads the query", async () => {
+    let fail = true;
+    const harness = createHarness(undefined, async () => {
+      if (fail) throw new Error("boom");
+      return { name: "recovered", value: 4 };
+    });
+    const first = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    first.rerender();
+    expect(first.result.current.variant).toEqual("error");
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+    first.unmount();
+    fail = false;
+    const second = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(harness.retrieve).toHaveBeenCalledTimes(2);
+    expect(second.result.current.variant).toEqual("success");
+    expect(second.result.current.data).toEqual({ name: "recovered", value: 4 });
+  });
+
+  it("serves a record created after a not-found fetch without logging", async () => {
+    const harness = createHarness(
+      undefined,
+      async () => {
+        throw new NotFoundError("nope");
+      },
+      true,
+    );
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { result } = renderHook(() => harness.useResult({ key: "a" }), {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(result.current.variant).toEqual("loading");
+      await act(async () => {
+        harness.set({ name: "created", value: 3 });
+      });
+      expect(result.current.variant).toEqual("success");
+      expect(result.current.data).toEqual({ name: "created", value: 3 });
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("reports a deleted record as an error without fetching", () => {
+    const harness = createHarness(
+      new query.Deleted<Data>({ name: "corpse", value: 1 }, TimeStamp.now()),
+    );
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    assert(result.current.variant === "error");
+    expect(result.current.data).toBeUndefined();
+    expect(Flux.DeletedError.matches(result.current.status.details.error)).toBe(true);
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("reports disabled when no client is connected", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const NullWrapper = createSynnaxWrapper({ client: null });
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: NullWrapper,
+    });
+    expect(result.current.variant).toEqual("disabled");
+    expect(result.current.data).toBeUndefined();
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("re-renders when the cached answer changes", async () => {
+    const harness = createHarness({ name: "one", value: 1 });
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      harness.set({ name: "two", value: 2 });
+    });
+    expect(result.current.variant).toEqual("success");
+    expect(result.current.data).toEqual({ name: "two", value: 2 });
+  });
+
+  it("skips the read entirely for a null query", () => {
+    const harness = createHarness({ name: "cached", value: 1 });
+    const { result } = renderHook(() => harness.useResult(null), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("disabled");
+    expect(result.current.data).toBeUndefined();
+    expect(harness.retrieve).not.toHaveBeenCalled();
+  });
+
+  it("serves a settled answer once for a definition without getCached", async () => {
+    const retrieve = vi.fn(async (): Promise<Data> => ({ name: "one-shot", value: 4 }));
+    const { useResult } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve,
+    });
+    const { result } = renderHook(() => useResult({ key: "a" }), { wrapper: Wrapper });
+    expect(result.current.variant).toEqual("loading");
+    await waitFor(() =>
+      expect(result.current.data).toEqual({ name: "one-shot", value: 4 }),
+    );
+    expect(result.current.variant).toEqual("success");
+    expect(retrieve).toHaveBeenCalledTimes(1);
+  });
+
+  it("serves a settled answer when the retrieve never reaches the cache", async () => {
+    const harness = createHarness(undefined, async () => ({
+      name: "off-cache",
+      value: 5,
+    }));
+    const { result } = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.variant).toEqual("loading");
+    await waitFor(() =>
+      expect(result.current.data).toEqual({ name: "off-cache", value: 5 }),
+    );
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+  });
+
+  describe("identity stability", () => {
+    it("returns the identical result across re-renders while the answer holds", () => {
+      const harness = createHarness({ name: "cached", value: 1 });
+      const { result, rerender } = renderHook(() => harness.useResult({ key: "a" }), {
+        wrapper: Wrapper,
+      });
+      const first = result.current;
+      rerender();
+      expect(result.current).toBe(first);
+    });
+
+    it("returns a new result when the answer changes", async () => {
+      const harness = createHarness({ name: "one", value: 1 });
+      const { result } = renderHook(() => harness.useResult({ key: "a" }), {
+        wrapper: Wrapper,
+      });
+      const first = result.current;
+      await act(async () => {
+        harness.set({ name: "two", value: 2 });
+      });
+      expect(result.current).not.toBe(first);
+      expect(result.current.data).toEqual({ name: "two", value: 2 });
+    });
+
+    it("returns the identical loading result across re-renders", () => {
+      const harness = createHarness(undefined, () => new Promise<Data>(() => {}));
+      const { result, rerender } = renderHook(() => harness.useResult({ key: "a" }), {
+        wrapper: Wrapper,
+      });
+      const first = result.current;
+      expect(first.variant).toEqual("loading");
+      rerender();
+      expect(result.current).toBe(first);
+    });
+
+    it("returns the identical disabled result across re-renders", () => {
+      const harness = createHarness({ name: "cached", value: 1 });
+      const { result, rerender } = renderHook(() => harness.useResult(null), {
+        wrapper: Wrapper,
+      });
+      const first = result.current;
+      expect(first.variant).toEqual("disabled");
+      rerender();
+      expect(result.current).toBe(first);
+    });
+  });
+});
+
+describe("normalizeQuery", () => {
+  type Query = { key: string; includeStatus?: boolean };
+
+  it("hands every callback the one normalized, identity-stable query", async () => {
+    const seen: Query[] = [];
+    const { useResult } = Flux.createRetrieve<Query, number>({
+      name: "Resource",
+      normalizeQuery: (query) => ({ includeStatus: true, ...query }),
+      retrieve: async ({ query }) => {
+        seen.push(query);
+        return 1;
+      },
+      onChange: ({ query }) => {
+        seen.push(query);
+        return () => {};
+      },
+      getCached: ({ query }) => {
+        seen.push(query);
+        return undefined;
+      },
+    });
+    const { rerender } = renderHook(() => useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    rerender();
+    rerender();
+    expect(seen.length).toBeGreaterThan(2);
+    const identities = new Set(seen);
+    expect(identities.size).toBe(1);
+    expect(seen[0]).toEqual({ key: "a", includeStatus: true });
+  });
+
+  it("keeps the caller's value over the merged default", () => {
+    const seen: Query[] = [];
+    const { useResult } = Flux.createRetrieve<Query, number>({
+      name: "Resource",
+      normalizeQuery: (query) => ({ includeStatus: true, ...query }),
+      retrieve: async () => 1,
+      getCached: ({ query }) => {
+        seen.push(query);
+        return 1;
+      },
+    });
+    renderHook(() => useResult({ key: "a", includeStatus: false }), {
+      wrapper: Wrapper,
+    });
+    expect(seen[0]).toEqual({ key: "a", includeStatus: false });
   });
 });

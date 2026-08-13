@@ -20,6 +20,7 @@ import { Access, Status, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id } from "@synnaxlabs/x";
 import {
+  act,
   render,
   renderHook,
   type RenderHookOptions,
@@ -196,6 +197,22 @@ const composeConsole = (
   return Wrapper;
 };
 
+/**
+ * Renders a tree that suspends on a cold cache, resolving once its render commits.
+ * RTL's own `render` never commits a tree that suspends during the initial render,
+ * leaving the container empty.
+ */
+export const renderSuspended = async (
+  ui: ReactElement,
+  options?: RenderOptions,
+): Promise<RenderResult> => {
+  let rendered!: RenderResult;
+  await act(async () => {
+    rendered = render(ui, options);
+  });
+  return rendered;
+};
+
 export interface RenderWithConsoleOptions extends RenderOptions {
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
@@ -211,7 +228,10 @@ export const renderWithConsole = async (
     createSynnaxWrapper({ client: null, additionalRegistry: ADDITIONAL_REGISTRY }),
     resolvedStore,
   );
-  return { ...render(ui, { wrapper: Wrapper, ...rest }), store: resolvedStore };
+  return {
+    ...(await renderSuspended(ui, { wrapper: Wrapper, ...rest })),
+    store: resolvedStore,
+  };
 };
 
 export interface RenderLinkHookOptions {

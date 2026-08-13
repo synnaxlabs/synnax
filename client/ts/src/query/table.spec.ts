@@ -105,7 +105,7 @@ describe("Table", () => {
         expect(table.get("key1")).toBe("value1");
       });
 
-      it("should distinguish between the row key and the value's key field", () => {
+      it("should distinguish between the entry key and the value's key field", () => {
         interface ComplexValue extends record.Keyed<string> {
           key: string;
           data: number;
@@ -113,11 +113,11 @@ describe("Table", () => {
 
         const table = new query.Table<string, ComplexValue>({ onError: noopError });
 
-        // set keys the row by its first argument, not the value's key field.
+        // set keys the entry by its first argument, not the value's key field.
         table.set("explicitKey", { key: "valueKey", data: 100 });
         expect(table.get("explicitKey")).toEqual({ key: "valueKey", data: 100 });
 
-        // Keyed-object set keys each row by the object's key property.
+        // Keyed-object set keys each entry by the object's key property.
         table.set([{ key: "derivedKey", data: 200 }]);
         expect(table.get("derivedKey")).toEqual({ key: "derivedKey", data: 200 });
 
@@ -162,7 +162,7 @@ describe("Table", () => {
           hydrate: "if-absent",
         });
 
-      it("should overwrite rows under the default set mode", () => {
+      it("should overwrite entries under the default set mode", () => {
         const table = new query.Table<string, KeyedValue>({ onError: noopError });
         table.set([{ key: "key1", value: "original" }]);
         table.ingest({ key: "key1", value: "replacement" });
@@ -732,6 +732,56 @@ describe("Table", () => {
   });
 
   describe("Subscriptions", () => {
+    describe("per-event equivalence", () => {
+      // The differential oracle for batched delivery: a multi-record write
+      // must hand per-event subscribers the same event sequence, and leave the
+      // same entries and tombstones, as the equivalent sequence of single writes.
+      it("delivers the same event sequence for a bulk set as for sequential sets", () => {
+        interface Entry {
+          key: string;
+          value: number;
+        }
+        const bulk = new query.Table<string, Entry>({ onError: noopError });
+        const sequential = new query.Table<string, Entry>({ onError: noopError });
+        const bulkEvents: unknown[] = [];
+        const seqEvents: unknown[] = [];
+        bulk.subscribe((event) => bulkEvents.push(event));
+        sequential.subscribe((event) => seqEvents.push(event));
+        const entries: Entry[] = [
+          { key: "a", value: 1 },
+          { key: "b", value: 2 },
+          { key: "a", value: 3 },
+        ];
+        bulk.set(entries);
+        entries.forEach((entry) => sequential.set(entry.key, entry));
+        expect(bulkEvents).toEqual(seqEvents);
+        expect(bulk.get()).toEqual(sequential.get());
+      });
+
+      it("delivers the same event sequence when a bulk set rolls back", () => {
+        interface Entry {
+          key: string;
+          value: number;
+        }
+        const table = new query.Table<string, Entry>({ onError: noopError });
+        table.set("a", { key: "a", value: 0 });
+        const events: unknown[] = [];
+        table.subscribe((event) => events.push(event));
+        const rollback = table.set([
+          { key: "a", value: 1 },
+          { key: "b", value: 2 },
+        ]);
+        events.length = 0;
+        rollback();
+        expect(events).toEqual([
+          { variant: "delete", key: "b" },
+          { variant: "set", key: "a", value: { key: "a", value: 0 } },
+        ]);
+        expect(table.get("a")).toEqual({ key: "a", value: 0 });
+        expect(table.get("b")).toBeUndefined();
+      });
+    });
+
     describe("Set Events", () => {
       it("should notify subscribers when a value is set", () => {
         const table = new query.Table<string, string>({ onError: noopError });
@@ -1055,7 +1105,7 @@ describe("Table", () => {
     });
 
     describe("Equality Silencing", () => {
-      it("should not notify subscribers when the set value deep-equals the row", () => {
+      it("should not notify subscribers when the set value deep-equals the entry", () => {
         const table = new query.Table<string, { name: string }>({ onError: noopError });
         const listener = vi.fn();
 
@@ -1159,14 +1209,14 @@ describe("Table", () => {
         age: number;
       }
 
-      it("should merge the partial into the existing row", () => {
+      it("should merge the partial into the existing entry", () => {
         const table = new query.Table<string, User>({ onError: noopError });
         table.set("user1", { id: "1", name: "John", age: 30 });
         query.partialUpdate(table, "user1", { age: 31 });
         expect(table.get("user1")).toEqual({ id: "1", name: "John", age: 31 });
       });
 
-      it("should be a no-op when the row is absent", () => {
+      it("should be a no-op when the entry is absent", () => {
         const table = new query.Table<string, User>({ onError: noopError });
         query.partialUpdate(table, "missing", { age: 31 });
         expect(table.get("missing")).toBeUndefined();
@@ -1182,7 +1232,7 @@ describe("Table", () => {
     });
 
     describe("Table Independence", () => {
-      it("keeps rows isolated between separate tables", () => {
+      it("keeps entries isolated between separate tables", () => {
         const table1 = new query.Table<string, record.Keyed<string>>({
           onError: noopError,
         });
@@ -1211,7 +1261,7 @@ describe("Table", () => {
       hydrate?: query.HydrateMode,
     ) => new query.Table<string, Item>({ onError: noopError, fetch, hydrate });
 
-    it("should serve cached rows without touching the fetch", async () => {
+    it("should serve cached entries without touching the fetch", async () => {
       const fetch = vi.fn(async () => []);
       const table = fetchTable(fetch);
       table.set([item("a", "one"), item("b", "two")]);
@@ -1232,7 +1282,7 @@ describe("Table", () => {
       expect(table.get("b")).toEqual(item("b", "b-fetched"));
     });
 
-    it("should return rows in input key order", async () => {
+    it("should return entries in input key order", async () => {
       const fetch = vi.fn(async (keys: string[]) =>
         [...keys].reverse().map((k) => item(k, k)),
       );
@@ -1256,7 +1306,7 @@ describe("Table", () => {
       expect(results.map((i) => i.key)).toEqual(["a", "b"]);
     });
 
-    it("should refetch every key with refresh, overwriting cached rows", async () => {
+    it("should refetch every key with refresh, overwriting cached entries", async () => {
       const fetch = vi.fn(async (keys: string[]) =>
         keys.map((k) => item(k, `${k}-fresh`)),
       );
@@ -1267,25 +1317,25 @@ describe("Table", () => {
       expect(results).toEqual([item("a", "a-fresh")]);
     });
 
-    it("should not clobber existing rows under if-absent hydration", async () => {
+    it("should not clobber existing entries under if-absent hydration", async () => {
       const fetch = async (keys: string[]) => keys.map((k) => item(k, `${k}-fetched`));
       const table = fetchTable(fetch, "if-absent");
       table.set([item("a", "local-edit")]);
       // "a" is cached so only "b" is fetched; a second call that force-misses
-      // shows if-absent leaving the local row alone.
+      // shows if-absent leaving the local entry alone.
       await table.retrieve(["a", "b"]);
       expect(table.get("a")).toEqual(item("a", "local-edit"));
       expect(table.get("b")).toEqual(item("b", "b-fetched"));
     });
 
-    it("should serve cached rows only when the table has no fetch", async () => {
+    it("should serve cached entries only when the table has no fetch", async () => {
       const table = new query.Table<string, Item>({ onError: noopError });
       table.set([item("a", "one")]);
       const results = await table.retrieve(["a", "missing"]);
       expect(results.map((i) => i.key)).toEqual(["a"]);
     });
 
-    it("should discard fetched rows when the table resets mid-fetch", async () => {
+    it("should discard fetched entries when the table resets mid-fetch", async () => {
       let release: (items: Item[]) => void = () => {};
       const fetch = vi.fn(
         async () => await new Promise<Item[]>((resolve) => (release = resolve)),
@@ -1351,7 +1401,7 @@ describe("Table", () => {
     });
 
     it("should hydrate only the caller's own keys from a shared window", async () => {
-      let release: (rows: Item[]) => void = () => {};
+      let release: (entries: Item[]) => void = () => {};
       let windowKeys: string[] = [];
       const fetch = vi.fn(async (keys: string[]) => {
         windowKeys = keys;
@@ -1362,7 +1412,7 @@ describe("Table", () => {
       const b = table.retrieve(["y"]);
       await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
       // A local edit lands mid-fetch: the refresh caller must not clobber it
-      // by setting the whole window's rows.
+      // by setting the whole window's entries.
       table.set([item("y", "local-edit")]);
       release(windowKeys.map((k) => item(k, `${k}-fetched`)));
       await Promise.all([a, b]);
@@ -1471,7 +1521,7 @@ describe("reset", () => {
   }
   const newTable = () => new query.Table<string, Doc>({ onError: noopError });
 
-  it("should drop every row and tombstone without notifying", () => {
+  it("should drop every entry and tombstone without notifying", () => {
     const table = newTable();
     const subscriber = vi.fn();
     table.subscribe(subscriber);
@@ -1487,7 +1537,7 @@ describe("reset", () => {
     expect(table.getTombstone("k2")).toBeUndefined();
   });
 
-  it("should accept new rows after a reset", () => {
+  it("should accept new entries after a reset", () => {
     const table = newTable();
     table.set("k1", { key: "k1", name: "a" });
     table.reset();

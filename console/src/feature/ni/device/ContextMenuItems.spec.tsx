@@ -9,12 +9,12 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { createDeviceResource } from "@/platform/device/testutil";
+import { createDeviceResource, createTestDevice } from "@/platform/device/testutil";
+import { Errors } from "@/platform/errors";
 import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
@@ -22,7 +22,12 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  renderSuspended,
+  resolveFocusedTab,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -41,23 +46,22 @@ const renderContextMenu = async () => {
     layout: {},
   });
   store.dispatch(Session.Project.select(proj.key));
-  const resource = createDeviceResource({
-    key: id.create(),
-    name: "ni_dev",
-    configured: true,
-  });
+  const dev = await createTestDevice(client, { name: uniqueName("ni_dev") });
+  const resource = createDeviceResource({ ...dev, configured: true });
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
     state: createState([resource]),
   };
-  render(
+  await renderSuspended(
     <PMenu.Menu>
-      <NI.Device.ContextMenuItems {...props} />
+      <Errors.SuspenseBoundary loading={null}>
+        <NI.Device.ContextMenuItems {...props} />
+      </Errors.SuspenseBoundary>
     </PMenu.Menu>,
     { wrapper },
   );
-  return { store, deviceKey: resource.id.key };
+  return { store, deviceKey: dev.key };
 };
 
 describe("device ontology context menu", () => {
