@@ -43,8 +43,8 @@ or generator logic and schemas disagree.
   `@validate`, `@index`, `@pb`, wire-only types like `APIChannel`, and `action`
   declarations — actions are wire mutations, not persisted content, so the analyzer
   rejects them in version files). Edit shapes in version files; edit live-only concerns
-  in the live file. A hand edit to version-owned live content is overwritten by the
-  next sync, and the `versions` gate errors on the drift naming the version files as
+  in the live file. A hand edit to version-owned live content is overwritten by the next
+  sync, and the `versions` gate errors on the drift naming the version files as
   authority.
 - **A resource is versioned iff its data is gorp-persisted.** Never version derived
   artifacts: arc `Program` has no versions directory, so its Go types live at the

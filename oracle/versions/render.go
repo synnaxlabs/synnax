@@ -150,7 +150,7 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 		for _, block := range r.opts.ExtraBodyBlocks(t.Name) {
 			r.line("")
 			// Blocks splice verbatim; the caller's formatter pass re-indents.
-			for _, line := range strings.Split(block, "\n") {
+			for line := range strings.SplitSeq(block, "\n") {
 				r.line(strings.TrimRight(line, " \t"))
 			}
 		}

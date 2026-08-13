@@ -21,15 +21,7 @@ import (
 // label relationship.
 var Migration = gorp.NewEntryMigration(
 	"v54_drop_labels",
-	func(_ context.Context, old v0.Status[any]) (Status[any], error) {
-		return Status[any]{
-			Key:         old.Key,
-			Name:        old.Name,
-			Variant:     old.Variant,
-			Message:     old.Message,
-			Description: old.Description,
-			Time:        old.Time,
-			Details:     old.Details,
-		}, nil
+	func(ctx context.Context, old v0.Status[any]) (Status[any], error) {
+		return autoMigrateStatus(ctx, old)
 	},
 )
