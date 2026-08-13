@@ -17,7 +17,6 @@
     padding: 2.5rem 3rem;
 }
 
-/* The scroll region; keeps the add row pinned below it. */
 .console-cluster-list__items.console-cluster-list__items {
     overflow-y: auto;
     min-height: 0;
