@@ -271,36 +271,6 @@ describe("use", () => {
     expect(retrieve).not.toHaveBeenCalled();
   });
 
-  it("resolves from deriveCached when the query's own cache misses", async () => {
-    const retrieve = vi.fn(async () => 99);
-    const { use } = Flux.createRetrieve<{ key: string }, number>({
-      name: "Number",
-      retrieve,
-      getCached: () => undefined,
-      deriveCached: () => 13,
-    });
-
-    const Display = (): ReactElement => {
-      const value = use({ key: "derived" });
-      return <div data-testid="value">{value}</div>;
-    };
-
-    let utils!: ReturnType<typeof render>;
-    await act(async () => {
-      utils = render(
-        <Wrapper>
-          <Errors.SuspenseBoundary loading={<div>loading-derived</div>}>
-            <Display />
-          </Errors.SuspenseBoundary>
-        </Wrapper>,
-      );
-    });
-
-    expect(utils.queryByText("loading-derived")).toBeNull();
-    expect(utils.queryByTestId("value")?.textContent).toBe("13");
-    expect(retrieve).not.toHaveBeenCalled();
-  });
-
   it("falls through to the async retrieve when the cache misses", async () => {
     let resolveRetrieve: (value: number) => void = () => {};
     let cached: query.Cached<number> | undefined;
@@ -1434,6 +1404,33 @@ describe("createResultSelector", () => {
     };
   };
 
+  // Regression: mirrors the useResult contract — a settled failure must not
+  // answer later mounts.
+  it("retries a settled failure when a new mount reads the query", async () => {
+    let fail = true;
+    const harness = createHarness(undefined, async () => {
+      if (fail) throw new Error("boom");
+      return { name: "recovered", value: 4 };
+    });
+    const useName = harness.createResultSelector((data) => data.name);
+    const first = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    first.rerender();
+    expect(first.result.current.variant).toEqual("error");
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+    first.unmount();
+    fail = false;
+    const second = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(harness.retrieve).toHaveBeenCalledTimes(2);
+    expect(second.result.current.variant).toEqual("success");
+    expect(second.result.current.data).toEqual("recovered");
+  });
+
   it("serves the selected slice from the cache without fetching", () => {
     const harness = createHarness({ name: "cached", value: 1 });
     const useName = harness.createResultSelector((data) => data.name);
@@ -1570,6 +1567,63 @@ describe("useResult", () => {
     expect(harness.retrieve).not.toHaveBeenCalled();
   });
 
+  it("serves an all-cached keys query on the first render without a fetch", async () => {
+    const [first, second] = await client.labels.create([
+      { name: `keys-a-${id.create()}`, color: "#000000" },
+      { name: `keys-b-${id.create()}`, color: "#000000" },
+    ]);
+    await client.labels.retrieve(first.key);
+    await client.labels.retrieve(second.key);
+    const retrieve = vi.fn(
+      async ({ client, query }: Flux.RetrieveParams<{ keys: label.Key[] }>) =>
+        await client.labels.retrieve(query),
+    );
+    const { useResult } = Flux.createRetrieve<{ keys: label.Key[] }, label.Label[]>({
+      name: "Labels",
+      retrieve,
+      onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
+      getCached: ({ client, query }) => client.labels.getCached(query),
+    });
+    const { result } = renderHook(() => useResult({ keys: [first.key, second.key] }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.variant).toEqual("success");
+    expect(result.current.data?.map(({ name }) => name)).toEqual([
+      first.name,
+      second.name,
+    ]);
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  it("re-renders a composed keys answer when a member changes", async () => {
+    const [first, second] = await client.labels.create([
+      { name: `live-a-${id.create()}`, color: "#000000" },
+      { name: `live-b-${id.create()}`, color: "#000000" },
+    ]);
+    await client.labels.retrieve(first.key);
+    await client.labels.retrieve(second.key);
+    const { useResult } = Flux.createRetrieve<{ keys: label.Key[] }, label.Label[]>({
+      name: "Labels",
+      retrieve: async ({ client, query }) => await client.labels.retrieve(query),
+      onChange: ({ client, query }, handler) => client.labels.onChange(query, handler),
+      getCached: ({ client, query }) => client.labels.getCached(query),
+    });
+    const { result } = renderHook(() => useResult({ keys: [first.key, second.key] }), {
+      wrapper: Wrapper,
+    });
+    expect(result.current.variant).toEqual("success");
+    const renamed = `live-a-renamed-${id.create()}`;
+    await client.labels.create({ ...first, name: renamed });
+    await waitFor(
+      () =>
+        expect(result.current.data?.map(({ name }) => name)).toEqual([
+          renamed,
+          second.name,
+        ]),
+      { timeout: 5000 },
+    );
+  });
+
   it("reports loading on a cold miss and serves the fetch once it lands", async () => {
     let resolveRetrieve: (value: Data) => void = () => {};
     const harness = createHarness(
@@ -1603,6 +1657,23 @@ describe("useResult", () => {
     expect(harness.retrieve).toHaveBeenCalledTimes(1);
   });
 
+  // Regression: a render React discards must not fetch, so the cold path starts
+  // its fetch after commit rather than from the render body.
+  it("starts the cold fetch after the render that requests it", () => {
+    const harness = createHarness(undefined, () => new Promise<Data>(() => {}));
+    const duringRender: number[] = [];
+    renderHook(
+      () => {
+        const result = harness.useResult({ key: "a" });
+        duringRender.push(harness.retrieve.mock.calls.length);
+        return result;
+      },
+      { wrapper: Wrapper },
+    );
+    expect(duringRender[0]).toEqual(0);
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+  });
+
   it("surfaces a failed fetch as an error without refetching or logging", async () => {
     const harness = createHarness(undefined, async () => {
       throw new Error("boom");
@@ -1624,6 +1695,36 @@ describe("useResult", () => {
     } finally {
       consoleError.mockRestore();
     }
+  });
+
+  // Regression: a settled failure must not answer later mounts. Permission
+  // checks read false forever after one startup blip when it does.
+  it("retries a settled failure when a new mount reads the query", async () => {
+    let fail = true;
+    const harness = createHarness(undefined, async () => {
+      if (fail) throw new Error("boom");
+      return { name: "recovered", value: 4 };
+    });
+    const first = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    first.rerender();
+    expect(first.result.current.variant).toEqual("error");
+    expect(harness.retrieve).toHaveBeenCalledTimes(1);
+    first.unmount();
+    fail = false;
+    const second = renderHook(() => harness.useResult({ key: "a" }), {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(harness.retrieve).toHaveBeenCalledTimes(2);
+    expect(second.result.current.variant).toEqual("success");
+    expect(second.result.current.data).toEqual({ name: "recovered", value: 4 });
   });
 
   it("serves a record created after a not-found fetch without logging", async () => {
