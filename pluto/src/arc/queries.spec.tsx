@@ -9,7 +9,7 @@
 
 import { arc, query, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, uuid } from "@synnaxlabs/x";
+import { crdt, id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -783,6 +783,144 @@ describe("Arc queries", () => {
       await waitFor(() => {
         expect(result.current?.name).toEqual("renamed-task-name");
       });
+    });
+  });
+
+  describe("useTaskControls", () => {
+    it("should report a not-deployed status for an arc with no task", async () => {
+      const testArc = await client.arcs.create({
+        name: `arc-untasked-${id.create()}`,
+        mode: "graph",
+        graph: { nodes: [], edges: [] },
+      });
+      const { result } = renderHook(
+        () => Arc.useTaskControls(testArc.key, testArc.name),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.taskStatus.message).toBe("Not deployed yet"),
+      );
+      expect(result.current.running).toBe(false);
+      expect(result.current.taskKey).toBe("");
+    });
+  });
+
+  describe("useDrifted", () => {
+    const createDeployed = async (): Promise<{ a: arc.Arc; tsk: task.Task }> => {
+      const rck = await client.racks.create({ name: `rack-${id.create()}` });
+      const a = await client.arcs.create({
+        name: `arc-drift-${id.create()}`,
+        mode: "text",
+      });
+      const tsk = await client.arcs.setRack(a.key, rck.key);
+      if (tsk == null) throw new Error("expected a deployment task");
+      return { a, tsk };
+    };
+
+    const setRunning = async (
+      tsk: task.Task,
+      overrides: { configHash?: string; rack?: number } = {},
+    ): Promise<void> => {
+      await client.statuses.set(
+        status.create<ReturnType<typeof task.statusDetailsZ>>({
+          key: task.statusKey(tsk.key),
+          variant: "success",
+          message: "Running",
+          details: {
+            task: tsk.key,
+            running: true,
+            cmd: "",
+            configHash: overrides.configHash ?? tsk.configHash,
+            rack: overrides.rack ?? tsk.rack,
+            data: {},
+          },
+        }),
+      );
+    };
+
+    const editProgram = async (key: arc.Key): Promise<void> => {
+      const gen = new crdt.Text(2);
+      const ops = gen.insert(0, "a -> b").map((op) => arc.insertChar(op));
+      await client.arcs.dispatch(key, ops);
+    };
+
+    const renderDrifted = (a: arc.Arc) =>
+      renderHook(
+        () => ({
+          drifted: Arc.useDrifted({ arcKey: a.key }),
+          controls: Arc.useTaskControls(a.key, a.name),
+        }),
+        { wrapper },
+      );
+
+    it("should not drift while the task is not running", async () => {
+      const { a } = await createDeployed();
+      await editProgram(a.key);
+      const { result } = renderDrifted(a);
+      await waitFor(() => expect(result.current.controls.taskKey).not.toBe(""));
+      expect(result.current.drifted).toBe(false);
+    });
+
+    it("should not drift while the deployed instance matches", async () => {
+      const { a, tsk } = await createDeployed();
+      await setRunning(tsk);
+      const { result } = renderDrifted(a);
+      await waitFor(() => expect(result.current.controls.running).toBe(true));
+      expect(result.current.drifted).toBe(false);
+    });
+
+    it("should drift when the program changes after deploy", async () => {
+      const { a, tsk } = await createDeployed();
+      await setRunning(tsk);
+      const { result } = renderDrifted(a);
+      await waitFor(() => expect(result.current.controls.running).toBe(true));
+      await editProgram(a.key);
+      await waitFor(() => expect(result.current.drifted).toBe(true));
+    });
+
+    it("should drift when the task moves to a different rack while running", async () => {
+      const { a, tsk } = await createDeployed();
+      await setRunning(tsk);
+      const other = await client.racks.create({ name: `rack-${id.create()}` });
+      await client.arcs.setRack(a.key, other.key);
+      const { result } = renderDrifted(a);
+      await waitFor(() => expect(result.current.controls.running).toBe(true));
+      await waitFor(() => expect(result.current.drifted).toBe(true));
+    });
+
+    it("should not re-render when the task changes without changing drift", async () => {
+      const { a, tsk } = await createDeployed();
+      let renders = 0;
+      const { result } = renderHook(
+        () => {
+          renders++;
+          return Arc.useDrifted({ arcKey: a.key });
+        },
+        { wrapper },
+      );
+      // Settle the cold fetch, then edit: the task config rewrite reaches the
+      // cache through the hook's subscription, but the arc is not running, so
+      // the drift boolean holds false and the change must not re-render.
+      await waitFor(() =>
+        expect(query.isLive(client.arcs.task.getCached(a.key))).toBe(true),
+      );
+      let settled = renders;
+      await expect
+        .poll(() => {
+          if (renders === settled) return true;
+          settled = renders;
+          return false;
+        })
+        .toBe(true);
+      await editProgram(a.key);
+      await expect
+        .poll(() => {
+          const cached = client.arcs.task.getCached(a.key);
+          return query.isLive(cached) && cached?.configHash !== tsk.configHash;
+        })
+        .toBe(true);
+      expect(result.current).toBe(false);
+      expect(renders).toBe(settled);
     });
   });
 
