@@ -21,7 +21,7 @@ import (
 type Status = status.Status[types.Nil]
 
 // StatusKey returns the status key for the given channel key.
-func StatusKey(key channel.Key) string {
+func StatusKey(key channel.Key) status.Key {
 	return channel.OntologyID(key).String()
 }
 

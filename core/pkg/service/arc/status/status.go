@@ -189,7 +189,7 @@ func dispatchSet(
 	stat *status.Service,
 	report taskreporter.Reporter,
 	keyOrName, message, variantStr string,
-) string {
+) status.Key {
 	key, multi, err := stat.SetByKeyOrName(ctx, keyOrName, message, variantStr)
 	if err != nil {
 		report(ctx, status.VariantWarning, fmt.Sprintf("status.set: %v", err))

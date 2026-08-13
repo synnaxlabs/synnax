@@ -35,7 +35,7 @@ const AlertTaskType = "pagerduty_alert"
 // PagerDuty alert.
 type AlertConfig struct {
 	// Status is the Synnax status key to alert on.
-	Status string `json:"status" msgpack:"status"`
+	Status status.Key `json:"status" msgpack:"status"`
 	// TreatErrorAsCritical controls whether error status variant maps to "critical"
 	// (true) or "error" (false) severity in PagerDuty.
 	TreatErrorAsCritical bool `json:"treat_error_as_critical" msgpack:"treat_error_as_critical"`
@@ -96,7 +96,7 @@ type alertTask struct {
 	cfg        AlertTaskConfig
 	disconnect observe.Disconnect
 	// alertsByStatus maps status keys to their AlertConfig for O(1) lookup.
-	alertsByStatus map[string]AlertConfig
+	alertsByStatus map[status.Key]AlertConfig
 }
 
 var _ driver.Task = (*alertTask)(nil)
@@ -116,7 +116,7 @@ func (t *alertTask) start(ctx context.Context) error {
 	if t.disconnect != nil {
 		return nil
 	}
-	t.alertsByStatus = make(map[string]AlertConfig, len(t.cfg.Alerts))
+	t.alertsByStatus = make(map[status.Key]AlertConfig, len(t.cfg.Alerts))
 	for _, a := range t.cfg.Alerts {
 		if a.Enabled {
 			t.alertsByStatus[a.Status] = a
@@ -140,7 +140,7 @@ func (t *alertTask) stop(ctx context.Context) error {
 
 func (t *alertTask) handleStatusChange(
 	ctx context.Context,
-	reader gorp.TxReader[string, status.Status[any]],
+	reader gorp.TxReader[status.Key, status.Status[any]],
 ) {
 	for ch := range reader {
 		if ch.Variant == change.VariantDelete {
@@ -190,7 +190,7 @@ func (t *alertTask) buildTriggerEvent(
 	}
 }
 
-func (t *alertTask) buildResolveEvent(statusKey string) pagerduty.V2Event {
+func (t *alertTask) buildResolveEvent(statusKey status.Key) pagerduty.V2Event {
 	return pagerduty.V2Event{
 		RoutingKey: t.cfg.RoutingKey,
 		Action:     "resolve",

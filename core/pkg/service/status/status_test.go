@@ -515,7 +515,7 @@ var _ = Describe("Status", Ordered, func() {
 						Where(status.MatchLabels[any](l.Key)).
 						Entries(&statuses).
 						Exec(ctx, tx)).To(Succeed())
-					keys := make([]string, len(statuses))
+					keys := make([]status.Key, len(statuses))
 					for i, st := range statuses {
 						keys[i] = st.Key
 					}
@@ -754,7 +754,7 @@ var _ = Describe("Status", Ordered, func() {
 			Expect(w.Set(ctx, s)).To(Succeed())
 			called := false
 			svc.Observe().
-				OnChange(func(ctx context.Context, _ gorp.TxReader[string, status.Status[any]]) {
+				OnChange(func(ctx context.Context, _ gorp.TxReader[status.Key, status.Status[any]]) {
 					called = true
 				})
 			Expect(tx.Commit(ctx)).To(Succeed())

@@ -103,7 +103,7 @@ type SetByKeyOrNameRequest struct {
 // SetByKeyOrNameResponse is a response to a SetByKeyOrNameRequest.
 type SetByKeyOrNameResponse struct {
 	// Key is the key of the upserted status.
-	Key string `json:"key" msgpack:"key"`
+	Key status.Key `json:"key" msgpack:"key"`
 	// MultipleMatches reports whether multiple statuses matched by name.
 	MultipleMatches bool `json:"multiple_matches" msgpack:"multiple_matches"`
 }
@@ -149,7 +149,7 @@ type RetrieveRequest struct {
 	// SearchTerm is used for fuzzy searching statuses.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
 	// Keys are the keys of the statuses to retrieve.
-	Keys []string `json:"keys" msgpack:"keys"`
+	Keys []status.Key `json:"keys" msgpack:"keys"`
 	// HasLabels retrieves statuses that are labeled by one or more labels with the
 	// given keys.
 	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
@@ -219,7 +219,7 @@ func (s *Service) Retrieve(
 
 type DeleteRequest struct {
 	// Keys are the keys of the statuses to delete.
-	Keys []string `json:"keys" msgpack:"keys"`
+	Keys []status.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(
