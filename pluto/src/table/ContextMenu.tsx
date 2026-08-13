@@ -219,7 +219,7 @@ export const DefaultContextMenu = ({
       )}
       {onCenteredChange != null && (
         <Menu.Item size="small" itemKey="toggleCentered" onClick={handleToggleCentered}>
-          {centered ? <Icon.Align.Left /> : <Icon.Align.XCenter />}
+          {centered ? <Icon.Align.BoxTopLeft /> : <Icon.Align.BoxCenter />}
           {centered ? "Align table to top left" : "Center table"}
         </Menu.Item>
       )}

@@ -130,7 +130,7 @@ const TableControls = (): ReactElement => {
         tooltipLocation={location.BOTTOM_LEFT}
         tooltip={centered ? "Align table to top left" : "Center table"}
       >
-        {centered ? <Icon.Align.Left /> : <Icon.Align.XCenter />}
+        {centered ? <Icon.Align.BoxCenter /> : <Icon.Align.BoxTopLeft />}
       </Button.Toggle>
       {showHideToggle && (
         <Button.Toggle
