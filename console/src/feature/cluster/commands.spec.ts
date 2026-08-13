@@ -13,26 +13,14 @@ import { describe, expect, it } from "vitest";
 import { Cluster } from "@/feature/cluster";
 import { renderPalette } from "@/feature/command/testutil";
 import { Session } from "@/session";
-import { stubGeometry } from "@/testutil";
-
-stubGeometry();
+import { createCluster } from "@/session/cluster/testutil";
 
 describe("Cluster Commands", () => {
   it("should deselect the active cluster when logging out", async () => {
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: Cluster.COMMANDS,
     });
-    store.dispatch(
-      Session.Cluster.set({
-        key: "local",
-        name: "Local",
-        host: "localhost",
-        port: 9090,
-        username: "synnax",
-        password: "seldon",
-        secure: false,
-      }),
-    );
+    store.dispatch(Session.Cluster.set(createCluster("local", { name: "Local" })));
     store.dispatch(Session.Cluster.select("local"));
     expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("local");
     await openCommandPalette();

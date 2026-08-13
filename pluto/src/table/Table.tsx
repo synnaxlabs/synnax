@@ -37,10 +37,10 @@ import {
   cellsInRegion,
   findCellPosition,
   nextCellPosition,
+  useColumns,
   useDispatch,
   useRedo,
-  useSelectColumns,
-  useSelectRows,
+  useRows,
   useUndo,
 } from "@/table/queries";
 import { Row } from "@/table/Row";
@@ -114,12 +114,11 @@ export interface TableProps
   /** When defined, surfaces a Center / Align item in the context menu. */
   onCenteredChange?: (next: boolean) => void;
   // extraMenuItems is appended to the default context menu items so
-  // consumers can add app-specific entries (e.g. "Reload console").
+  // consumers can add app-specific entries (e.g. "Reload Console").
   extraMenuItems?: ReactNode;
   // enableTriggers gates the in-table keyboard shortcuts (Delete/Backspace
-  // to clear, Cmd+Z to undo, Cmd+Shift+Z to redo). Defaults to true; pass a
-  // function to gate dynamically (e.g. only the focused mosaic tab).
-  enableTriggers?: boolean | (() => boolean);
+  // to clear, Cmd+Z to undo, Cmd+Shift+Z to redo). Defaults to true.
+  enableTriggers?: Triggers.Condition;
 }
 
 export const Table = ({
@@ -138,8 +137,8 @@ export const Table = ({
   ...rest
 }: TableProps): ReactElement => {
   const key = useKey();
-  const rows = useSelectRows({ key });
-  const columns = useSelectColumns({ key });
+  const rows = useRows({ key });
+  const columns = useColumns({ key });
   const { dispatch } = useDispatch();
   const theme = Theming.use();
 
@@ -294,11 +293,10 @@ export const Table = ({
   Triggers.use({
     triggers: FLATTENED_TRIGGERS_CONFIG,
     region: tableElRef,
+    enabled: enableTriggers,
     callback: useCallback(
       ({ triggers, stage }: Triggers.UseEvent) => {
         if (stage !== "start" || !editable) return;
-        if (enableTriggers === false) return;
-        if (typeof enableTriggers === "function" && !enableTriggers()) return;
         const mode = Triggers.determineMode(TRIGGERS_CONFIG, triggers);
         if (mode === "clear") {
           if (selected.length === 0) return;
@@ -306,7 +304,7 @@ export const Table = ({
         } else if (mode === "undo") undo();
         else if (mode === "redo") redo();
       },
-      [editable, enableTriggers, selected, eraseSelected, undo, redo],
+      [editable, selected, eraseSelected, undo, redo],
     ),
   });
 

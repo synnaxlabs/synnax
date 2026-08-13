@@ -20,6 +20,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Ranger } from "@/ranger";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -652,7 +653,7 @@ describe("queries", () => {
     it("should create a new range", async () => {
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(5));
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -683,7 +684,7 @@ describe("queries", () => {
         color: "#0000FF",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -708,7 +709,7 @@ describe("queries", () => {
       });
       const childTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(30));
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -940,7 +941,7 @@ describe("queries", () => {
     });
 
     it("should handle form with default values", async () => {
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -962,7 +963,7 @@ describe("queries", () => {
         color: "#123456",
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -989,7 +990,7 @@ describe("queries", () => {
 
     it("should handle time range modifications", async () => {
       const initialTimeRange = TimeStamp.now().spanRange(TimeSpan.minutes(10));
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -1026,7 +1027,7 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
       });
 
-      const { result } = renderHook(() => Ranger.useForm({ query: {} }), {
+      const { result } = renderHook(() => Ranger.useForm({ query: null }), {
         wrapper,
       });
 
@@ -1054,7 +1055,7 @@ describe("queries", () => {
     });
   });
 
-  describe("useRetrieveSuspended cached fast-path", () => {
+  describe("use cached fast-path", () => {
     it("resolves synchronously from the warm store without suspending", async () => {
       const rng = await client.ranges.create({
         name: "cached_fastpath",
@@ -1063,11 +1064,13 @@ describe("queries", () => {
 
       // Warm the flux store (range + labels + parent relationship) through the
       // async retrieve path so the composed cache fast-path can resolve.
-      const warm = renderHook(() => Ranger.useRetrieve({ key: rng.key }), { wrapper });
-      await waitFor(() => expect(warm.result.current.variant).toEqual("success"));
+      const warm = await renderHookSuspended(() => Ranger.use({ key: rng.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(warm.result.current).toBeDefined());
 
       const Display = (): ReactElement => {
-        const range = Ranger.useRetrieveSuspense({ key: rng.key });
+        const range = Ranger.use({ key: rng.key });
         return createElement("span", { "data-testid": "name" }, range.name);
       };
 

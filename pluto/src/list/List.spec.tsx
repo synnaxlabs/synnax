@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { observe, type record } from "@synnaxlabs/x";
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { act, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -55,6 +55,26 @@ describe("List", () => {
           expect(result.getByText("1")).toBeTruthy();
           expect(result.getByText("2")).toBeTruthy();
           expect(result.getByText("3")).toBeTruthy();
+        });
+
+        it("should hand onSelect the click event alongside the key", () => {
+          const onSelect = vi.fn();
+          const result = render(
+            <List.Frame data={["1"]} virtual={context.virtual}>
+              <List.Items>
+                {({ key, ...rest }: List.ItemProps<string>) => (
+                  <List.Item key={key} onSelect={onSelect} {...rest}>
+                    {key}
+                  </List.Item>
+                )}
+              </List.Items>
+            </List.Frame>,
+          );
+          fireEvent.click(result.getByText("1"), { shiftKey: true });
+          expect(onSelect).toHaveBeenCalledWith(
+            "1",
+            expect.objectContaining({ shiftKey: true }),
+          );
         });
 
         it("should allow the caller to provide a custom item getter", () => {

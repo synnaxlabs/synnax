@@ -15,26 +15,21 @@ export interface ContextMenuItemProps extends Omit<Menu.ItemProps, "itemKey"> {
   ids: ontology.ID[];
   rootID: ontology.ID;
   shape: Tree.Shape;
-  showBottomDivider?: boolean;
 }
 
 export const ContextMenuItem = ({
   ids,
   shape,
-  showBottomDivider = false,
   rootID,
   ...rest
 }: ContextMenuItemProps): ReactElement | null => {
   const hasCreatePermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission || !canGroupSelection(ids, shape, rootID)) return null;
   return (
-    <>
-      <Menu.Item itemKey="group" {...rest}>
-        <Icon.Group />
-        Group selection
-      </Menu.Item>
-      {showBottomDivider && <Menu.Divider />}
-    </>
+    <Menu.Item itemKey="group" {...rest}>
+      <Icon.Group />
+      Group selection
+    </Menu.Item>
   );
 };
 

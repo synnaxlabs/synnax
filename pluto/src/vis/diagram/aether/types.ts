@@ -51,7 +51,7 @@ const EMPTY_DATA = {};
 const MARKER_END = {
   type: MarkerType.ArrowClosed,
   strokeWidth: 2,
-  color: "var(--pluto-gray-l8)",
+  color: "var(--pluto-gray-l9)",
 };
 
 export const translateNodesForward = (

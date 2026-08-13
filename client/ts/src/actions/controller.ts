@@ -623,8 +623,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return {
       channel,
       schema,
-      onChange: ({ key, seq, dispatchKey, actions }) => {
-        this.applyRemote(key, seq, dispatchKey, actions);
+      onChange: (frames) => {
+        frames.forEach(({ key, seq, dispatchKey, actions }) =>
+          this.applyRemote(key, seq, dispatchKey, actions),
+        );
       },
     };
   }

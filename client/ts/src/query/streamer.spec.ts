@@ -17,6 +17,7 @@ import { DisconnectedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
 import { type query } from "@/query";
 import { createStreamer, type Streamer, type StreamerParams } from "@/query/streamer";
+import { createFetchListener, Table } from "@/query/table";
 
 class MockHardenedStreamer implements framer.Streamer {
   private keysI: channel.Params[];
@@ -122,7 +123,59 @@ describe("openStreamer", () => {
     await expect.poll(() => onChange.mock.calls.length).toBeGreaterThan(0);
     await closeStreamer();
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0].name).toBe("test");
+    expect(onChange.mock.calls[0][0]).toEqual([{ name: "test" }]);
+  });
+
+  describe("batched frame delivery", () => {
+    it("delivers a channel's records from one frame as a single batch", async () => {
+      const onChange = vi.fn();
+      const schema = z.object({ name: z.string() });
+      const frames = [
+        new framer.Frame({
+          test: new Series([{ name: "a" }, { name: "b" }, { name: "c" }]),
+        }),
+      ];
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          listeners: createListeners("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => onChange.mock.calls.length).toBeGreaterThan(0);
+      await closeStreamer();
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange.mock.calls[0][0]).toEqual([
+        { name: "a" },
+        { name: "b" },
+        { name: "c" },
+      ]);
+    });
+
+    it("coalesces a fetch listener's refetches into one call per frame", async () => {
+      interface Entry {
+        key: string;
+        value: number;
+      }
+      const fetch = vi.fn(async (keys: string[]) =>
+        keys.map((key) => ({ key, value: 1 })),
+      );
+      const table = new Table<string, Entry>({ onError: vi.fn(), fetch });
+      const listener = createFetchListener<z.ZodString, string, Entry>(
+        "fetch_ch",
+        z.string(),
+      ).bind(table);
+      const frames = [new framer.Frame({ fetch_ch: new Series(["k1", "k2", "k3"]) })];
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          listeners: [listener],
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+      await expect.poll(() => fetch.mock.calls.length).toBeGreaterThan(0);
+      await closeStreamer();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fetch).toHaveBeenCalledWith(["k1", "k2", "k3"]);
+    });
   });
 
   describe("Error Handling & Recovery", () => {
@@ -208,7 +261,7 @@ describe("openStreamer", () => {
       );
 
       await expect.poll(() => onChange.mock.calls.length).toBe(1);
-      expect(onChange.mock.calls[0][0].value).toBe(1);
+      expect(onChange.mock.calls[0][0]).toEqual([{ value: 1 }]);
       // Wait a bit to ensure the streamer handles the EOF
       await new Promise((resolve) => setTimeout(resolve, 100));
       await closeStreamer();
@@ -265,8 +318,8 @@ describe("openStreamer", () => {
       await expect.poll(() => onChange.mock.calls.length).toBe(3);
       expect(onError.mock.calls.length).toBeGreaterThan(0);
       // First call should have errored, but subsequent calls should succeed
-      expect(onChange.mock.calls[1][0].value).toBe(2);
-      expect(onChange.mock.calls[2][0].value).toBe(3);
+      expect(onChange.mock.calls[1][0]).toEqual([{ value: 2 }]);
+      expect(onChange.mock.calls[2][0]).toEqual([{ value: 3 }]);
       await closeStreamer();
     });
 
@@ -302,7 +355,8 @@ describe("openStreamer", () => {
       const onError = vi.fn();
       const schema = z.object({ value: z.number() });
       const frames = [
-        new framer.Frame({ test: new Series([{ value: 1 }, { value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 1 }]) }),
+        new framer.Frame({ test: new Series([{ value: 2 }]) }),
       ];
 
       const closeStreamer = await openStreamer(
@@ -351,8 +405,8 @@ describe("openStreamer", () => {
 
       // Verify all listeners received the same data
       for (const listener of [listener1, listener2, listener3]) {
-        expect(listener.mock.calls[0][0].value).toBe(1);
-        expect(listener.mock.calls[1][0].value).toBe(2);
+        expect(listener.mock.calls[0][0]).toEqual([{ value: 1 }]);
+        expect(listener.mock.calls[1][0]).toEqual([{ value: 2 }]);
       }
 
       await closeStreamer();
@@ -396,10 +450,10 @@ describe("openStreamer", () => {
       expect(onError.mock.calls.length).toBeGreaterThanOrEqual(2);
 
       // Verify other listeners still received correct data
-      expect(listener1.mock.calls[0][0].value).toBe(1);
-      expect(listener1.mock.calls[1][0].value).toBe(2);
-      expect(listener3.mock.calls[0][0].value).toBe(1);
-      expect(listener3.mock.calls[1][0].value).toBe(2);
+      expect(listener1.mock.calls[0][0]).toEqual([{ value: 1 }]);
+      expect(listener1.mock.calls[1][0]).toEqual([{ value: 2 }]);
+      expect(listener3.mock.calls[0][0]).toEqual([{ value: 1 }]);
+      expect(listener3.mock.calls[1][0]).toEqual([{ value: 2 }]);
 
       await closeStreamer();
     });
@@ -495,8 +549,8 @@ describe("openStreamer", () => {
 
       // Verify all listeners received correct data
       for (let i = 0; i < 4; i++) {
-        expect(listener1.mock.calls[i][0].value).toBe(i + 1);
-        expect(listener3.mock.calls[i][0].value).toBe(i + 1);
+        expect(listener1.mock.calls[i][0]).toEqual([{ value: i + 1 }]);
+        expect(listener3.mock.calls[i][0]).toEqual([{ value: i + 1 }]);
       }
 
       await closeStreamer();
@@ -530,7 +584,7 @@ describe("openStreamer", () => {
       await expect.poll(() => listener1.mock.calls.length).toBe(1);
 
       // Listener1 should succeed with number schema
-      expect(listener1.mock.calls[0][0].value).toBe(123);
+      expect(listener1.mock.calls[0][0]).toEqual([{ value: 123 }]);
 
       // Listener2 should fail validation (expecting string, got number)
       expect(listener2).not.toHaveBeenCalled();
@@ -692,19 +746,15 @@ describe("openStreamer", () => {
 
       // Delete should happen first
       expect(operations[0].channel).toBe("relationship_delete");
-      expect(operations[0].data).toEqual({
-        parentId: 1,
-        childId: 2,
-        type: "original",
-      });
+      expect(operations[0].data).toEqual([
+        { parentId: 1, childId: 2, type: "original" },
+      ]);
 
       // Then create
       expect(operations[1].channel).toBe("relationship_create");
-      expect(operations[1].data).toEqual({
-        parentId: 1,
-        childId: 2,
-        type: "updated",
-      });
+      expect(operations[1].data).toEqual([
+        { parentId: 1, childId: 2, type: "updated" },
+      ]);
 
       await closeStreamer();
     });
@@ -861,18 +911,12 @@ describe("openStreamer", () => {
         }),
       );
 
-      await expect.poll(() => onChange.mock.calls.length).toBe(2);
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
 
-      expect(onChange.mock.calls[0][0]).toEqual({
-        name: "Alice",
-        age: 30,
-        active: true,
-      });
-      expect(onChange.mock.calls[1][0]).toEqual({
-        name: "Bob",
-        age: 25,
-        active: false,
-      });
+      expect(onChange.mock.calls[0][0]).toEqual([
+        { name: "Alice", age: 30, active: true },
+        { name: "Bob", age: 25, active: false },
+      ]);
 
       await closeStreamer();
     });
@@ -894,10 +938,9 @@ describe("openStreamer", () => {
         }),
       );
 
-      await expect.poll(() => onChange.mock.calls.length).toBe(2);
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
 
-      expect(onChange.mock.calls[0][0]).toBe(42);
-      expect(onChange.mock.calls[1][0]).toBe(84);
+      expect(onChange.mock.calls[0][0]).toEqual([42, 84]);
 
       await closeStreamer();
     });
@@ -922,10 +965,9 @@ describe("openStreamer", () => {
         }),
       );
 
-      await expect.poll(() => onChange.mock.calls.length).toBe(2);
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
 
-      expect(onChange.mock.calls[0][0]).toBe("hello");
-      expect(onChange.mock.calls[1][0]).toBe("world");
+      expect(onChange.mock.calls[0][0]).toEqual(["hello", "world"]);
 
       await closeStreamer();
     });
@@ -1003,8 +1045,8 @@ describe("openStreamer", () => {
       await expect.poll(() => numericListener.mock.calls.length).toBe(1);
       await expect.poll(() => jsonListener.mock.calls.length).toBe(1);
 
-      expect(jsonListener.mock.calls[0][0]).toEqual({ id: 1, name: "test" });
-      expect(numericListener.mock.calls[0][0]).toBe(42);
+      expect(jsonListener.mock.calls[0][0]).toEqual([{ id: 1, name: "test" }]);
+      expect(numericListener.mock.calls[0][0]).toEqual([42]);
 
       await closeStreamer();
     });
@@ -1112,7 +1154,7 @@ describe("openStreamer", () => {
       );
 
       await expect.poll(() => onChange1.mock.calls.length).toBe(1);
-      expect(onChange1.mock.calls[0][0].value).toBe(1);
+      expect(onChange1.mock.calls[0][0]).toEqual([{ value: 1 }]);
 
       // Close first streamer
       await closeStreamer1();
@@ -1127,7 +1169,7 @@ describe("openStreamer", () => {
       );
 
       await expect.poll(() => onChange2.mock.calls.length).toBe(1);
-      expect(onChange2.mock.calls[0][0].value).toBe(2);
+      expect(onChange2.mock.calls[0][0]).toEqual([{ value: 2 }]);
 
       // Verify first listener wasn't called again
       expect(onChange1.mock.calls.length).toBe(1);
@@ -1269,6 +1311,25 @@ describe("openStreamer", () => {
       const demanded = streamer.demand();
       await sleep.sleep(5);
       await streamer.close();
+      await expect(demanded).resolves.toBeUndefined();
+    });
+
+    it("resolves a close that outraces a failing open", async () => {
+      let rejectOpen!: (e: Error) => void;
+      const streamer = createStreamer(
+        createStreamerArgs({
+          openStreamer: async () =>
+            await new Promise((_, reject) => {
+              rejectOpen = reject;
+            }),
+        }),
+      );
+      const demanded = streamer.demand();
+      const closing = streamer.close();
+      rejectOpen(new Error("cluster unreachable"));
+      // The close retires the stream, so neither the demand nor the close
+      // re-reports the open's failure.
+      await expect(closing).resolves.toBeUndefined();
       await expect(demanded).resolves.toBeUndefined();
     });
   });

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
@@ -70,6 +70,8 @@ export interface CreateSynnaxWrapperParams {
    * telemTest source and sink specs.
    */
   telemFactories?: telem.Factory[];
+  /** Connection status the Synnax context reports; defaults to disconnected. */
+  connectionStatus?: connection.Status;
 }
 
 export const createSynnaxWrapper = ({
@@ -77,6 +79,7 @@ export const createSynnaxWrapper = ({
   additionalRegistry,
   renderContext,
   telemFactories,
+  connectionStatus,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
   const AetherProvider = aetherTest.createProvider({
     ...synnax.REGISTRY,
@@ -107,8 +110,10 @@ export const createSynnaxWrapper = ({
       <AetherProvider>
         <Status.Aggregator>
           <Alamos.Provider>
-            <Synnax.TestProvider client={client}>
-              <ThemingSeed>{inner}</ThemingSeed>
+            <Synnax.TestProvider client={client} status={connectionStatus}>
+              <Suspense fallback={null}>
+                <ThemingSeed>{inner}</ThemingSeed>
+              </Suspense>
             </Synnax.TestProvider>
           </Alamos.Provider>
         </Status.Aggregator>

@@ -12,7 +12,7 @@ import { errors } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "@/button";
-import { useRetrieve, useUpdateAlias } from "@/channel/queries";
+import { useResultAliasAndName, useUpdateAlias } from "@/channel/queries";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { Status } from "@/status/base";
@@ -21,7 +21,6 @@ import { Text } from "@/text";
 export interface AliasInputProps extends Input.TextProps {
   channel: channel.Key;
   range?: string;
-  shadow?: boolean;
   // isDefault reports whether value is the derived default rather than a stored
   // override. The reset button is shown only when an override is present.
   isDefault?: boolean;
@@ -32,8 +31,6 @@ export interface AliasInputProps extends Input.TextProps {
 export const AliasInput = ({
   channel,
   range,
-  shadow,
-  className,
   isDefault,
   onReset,
   ...rest
@@ -41,7 +38,9 @@ export const AliasInput = ({
   const { value } = rest;
   const [loading, setLoading] = useState(false);
   const { update } = useUpdateAlias();
-  const { data } = useRetrieve({ key: channel, rangeKey: range });
+  const { data } = useResultAliasAndName(
+    channel > 0 ? { key: channel, rangeKey: range } : null,
+  );
   const setAlias = async (value: string) => {
     update({ alias: value, range, channel });
   };

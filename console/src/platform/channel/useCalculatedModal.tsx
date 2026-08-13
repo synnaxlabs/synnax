@@ -25,7 +25,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -51,7 +51,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
       save,
       status: stat,
     } = Channel.useCalculatedForm({
-      query: { key: channelKey },
+      query: primitive.isZero(channelKey) ? null : { key: channelKey },
       afterSave: ({ reset }) => {
         if (createMore) reset();
         else close();
@@ -66,8 +66,6 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
       optional: true,
       ctx: form,
     });
-    const initialLoaded = useRef(false);
-    if (!initialLoaded.current && variant !== "loading") initialLoaded.current = true;
     const name = Form.useFieldValue<
       string,
       string,
@@ -81,22 +79,20 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
         <Modals.Body justify="start" gap="large">
           <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
             <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
-            {initialLoaded.current && (
-              <Form.Field<string> path="expression" grow>
-                {({ value, onChange }) => (
-                  <Flex.Box grow className={CSS.B("calculated", "editor")}>
-                    <Code.Editor
-                      initialValue={value}
-                      language={Arc.NAME}
-                      onValueChange={onChange}
-                      isBlock
-                      bordered
-                      rounded
-                    />
-                  </Flex.Box>
-                )}
-              </Form.Field>
-            )}
+            <Form.Field<string> path="expression" grow>
+              {({ value, onChange }) => (
+                <Flex.Box grow className={CSS.B("calculated", "editor")}>
+                  <Code.Editor
+                    initialValue={value}
+                    language={Arc.NAME}
+                    onValueChange={onChange}
+                    isBlock
+                    bordered
+                    rounded
+                  />
+                </Flex.Box>
+              )}
+            </Form.Field>
             <Flex.Box x className={CSS.B("operations")} align="start">
               <Form.Field<channel.OperationType>
                 path="operations.0.type"
@@ -112,13 +108,13 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                   </Select.Buttons>
                 )}
               </Form.Field>
-              {operationType !== "derivative" && (
+              {operationType !== "derivative" && operationType !== "none" && (
                 <>
                   <Form.Field<TimeSpan>
                     path="operations.0.duration"
                     label="Window"
                     helpText="The value will be reset after this duration. If zero, the value will never be reset."
-                    grow
+                    className={CSS.BE("operations", "window")}
                   >
                     {({ value, onChange }) => (
                       <Input.Numeric
@@ -132,6 +128,7 @@ export const useCalculatedModal = Modals.create<CalculatedModalParams>(
                     path="operations.0.resetChannel"
                     label="Reset Channel"
                     helpText="When this channel is triggered, the calculation will be reset."
+                    grow
                   >
                     {({ value, onChange }) => (
                       <Channel.SelectSingle

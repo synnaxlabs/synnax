@@ -276,34 +276,6 @@ export class Client extends query.Retriever<
     return await super.retrieve(rest);
   }
 
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached. Unfetched filter queries
-   * are approximated from the record table when possible.
-   */
-  getCached(params: Key | RetrieveSingleParams): query.Cached<Device> | undefined;
-  getCached(params: RetrieveMultipleParams): query.Cached<Device[]> | undefined;
-  getCached(
-    params: Key | RetrieveSingleParams | RetrieveMultipleParams,
-  ): query.Cached<Device> | query.Cached<Device[]> | undefined {
-    if (typeof params === "string" || "key" in params) return super.getCached(params);
-    return (
-      super.getCached(params) ?? this.approximateCached(retrieveRequestZ.parse(params))
-    );
-  }
-
-  /**
-   * Approximates an unfetched filter query's answer from the record table.
-   * Server-computed shapes (search, pagination) cannot be approximated.
-   */
-  private approximateCached(req: RetrieveRequest): query.Cached<Device[]> | undefined {
-    if (req.searchTerm != null || req.limit != null || req.offset != null)
-      return undefined;
-    const matches = this.store.get(requestFilter(req));
-    if (matches.length === 0) return undefined;
-    return matches;
-  }
-
   async create(device: New): Promise<Device>;
 
   async create(devices: New[]): Promise<Device[]>;

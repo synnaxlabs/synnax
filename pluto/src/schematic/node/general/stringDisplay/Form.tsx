@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { color, primitive, type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
@@ -20,6 +20,8 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Select } from "@/select";
+import { Status } from "@/status";
+import { Synnax } from "@/synnax";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 
@@ -27,14 +29,14 @@ const TelemForm = (): ReactElement => {
   const { set } = Base.useContext();
   const { value, onChange } = Base.useField<telem.StringSourceSpec>("telem");
   const source = telem.streamChannelValuePropsZ.parse(value?.props);
-  const { retrieve } = Channel.useRetrieveObservable({
-    onChange: useCallback(
-      ({ data }) => data != null && set("tooltip", [data.name]),
-      [set],
-    ),
-  });
+  const client = Synnax.use();
+  const handleError = Status.useErrorHandler();
   const handleSourceChange = (key: channel.Key | null): void => {
-    if (primitive.isNonZero(key)) retrieve({ key });
+    if (primitive.isNonZero(key) && client != null)
+      handleError(async () => {
+        const { name } = await client.channels.retrieve({ key });
+        set("tooltip", [name]);
+      }, "Failed to retrieve channel");
     onChange(telem.streamChannelStringValue({ channel: key ?? 0 }));
   };
   if (typeof source.channel != "number")

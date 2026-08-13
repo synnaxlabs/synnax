@@ -14,7 +14,7 @@ import { memo, type ReactElement, useCallback, useMemo } from "react";
 import { CSS } from "@/css";
 import { Cell } from "@/table/cells";
 import { Indicator } from "@/table/Indicator";
-import { useDispatch, useSelectCell } from "@/table/queries";
+import { useCell, useDispatch } from "@/table/queries";
 import { Selection } from "@/table/selection";
 
 export interface RowProps {
@@ -115,7 +115,7 @@ const VariantCell = memo(
     editable,
     onSelect,
   }: VariantCellProps): ReactElement | null => {
-    const cell = useSelectCell({ key: resourceKey, cellKey });
+    const cell = useCell({ key: resourceKey, cellKey });
     const selected = Selection.useIsMember(cellKey);
     const { dispatch } = useDispatch();
     const b = useMemo(

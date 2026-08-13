@@ -15,9 +15,7 @@ import { describe, expect, it } from "vitest";
 import { Arc } from "@/feature/arc";
 import { renderPalette } from "@/feature/command/testutil";
 import { Session } from "@/session";
-import { resolveFocusedTab, stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

@@ -41,6 +41,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
   getItem,
   retrieve,
   subscribe,
+  answered,
 }: FormProps<K, E, Q>): ReactElement | null => {
   const { staticViews, getInitialView } = useContext("View.Form");
   const { fetchMore, search } = List.usePager({
@@ -56,7 +57,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
     [retrieve],
   );
   const { form } = PView.useForm({
-    query: {},
+    query: null,
     initialValues: getInitialView(),
     autoSave: true,
     beforeSave: useCallback(
@@ -82,7 +83,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
   );
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);
-  const contextValue = useMemo(() => ({ search }), [search]);
+  const contextValue = useMemo(() => ({ search, answered }), [search, answered]);
   return (
     <PForm.Form<typeof PView.formSchema> {...form}>
       <Select.Frame

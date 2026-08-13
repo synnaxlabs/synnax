@@ -22,10 +22,19 @@ import { Text } from "@/text";
 export interface SymbolProps extends types.SymbolProps<Config> {}
 
 export const Symbol = ({ config: { channel } }: SymbolProps) => {
-  const name = Channel.useRetrieve({ key: channel }).data?.name ?? "Channel";
+  const name =
+    Channel.useResultName(channel > 0 ? { key: channel } : null).data ?? "Channel";
 
   return (
-    <Flex.Box pack x align="center" background={1} bordered borderColor={6} rounded={1}>
+    <Flex.Box
+      pack
+      x
+      align="center"
+      background={1}
+      bordered
+      borderColor={6}
+      rounded="small"
+    >
       <Flex.Box
         className={CSS.BE("arc", "read-icon-frame")}
         align="center"

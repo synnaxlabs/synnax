@@ -41,13 +41,20 @@ const RENAMED_EVENT_NAME = "renamed";
 const ESCAPED_EVENT_NAME = "escaped";
 const START_EDITING_EVENT_NAME = "start-editing";
 
+// Read-only copies of the same value render with the same id, so the id alone does not
+// identify the edit target. Selecting on the class first and matching the id by hand
+// keeps every candidate in play: a `#id.class` selector resolves the id to one element
+// before testing the class, and gives up when that element is a read-only copy.
+const findEditable = (id: string): Element | undefined =>
+  Array.from(document.getElementsByClassName(BASE_CLASS)).find((el) => el.id === id);
+
 export const asyncEdit = (id: string): Promise<[string, boolean]> =>
   new Promise((resolve, reject) => {
     let currRetry = 0;
     const tryEdit = (): void => {
       currRetry++;
-      const el = document.querySelector(`#${CSS.escape(id)}.${BASE_CLASS}`);
-      if (el == null || !el.classList.contains(BASE_CLASS)) {
+      const el = findEditable(id);
+      if (el == null) {
         if (currRetry < MAX_EDIT_RETRIES) setTimeout(tryEdit, 100);
         else reject(new Error(`Could not find element with id ${id}`));
         return;

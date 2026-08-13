@@ -9,15 +9,39 @@
 
 import { type table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Errors } from "@/errors";
 import { Table } from "@/table";
 import { DefaultContextMenu, type DefaultContextMenuProps } from "@/table/ContextMenu";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
+
+// Single-hook bootstrap so the suspending useEnsure is not followed by other
+// hooks, which trips a React 19 concurrent replay warning (same pattern as
+// table queries.spec.tsx).
+const loadTable = async (
+  wrapper: React.FC<PropsWithChildren>,
+  key: table.Key,
+): Promise<void> => {
+  const Bootstrap = (): ReactElement => {
+    Table.useEnsure({ key });
+    return <div data-testid="loaded" />;
+  };
+  let utils!: ReturnType<typeof render>;
+  await act(async () => {
+    utils = render(
+      <Errors.SuspenseBoundary loading={null}>
+        <Bootstrap />
+      </Errors.SuspenseBoundary>,
+      { wrapper },
+    );
+  });
+  await utils.findByTestId("loaded");
+};
 
 describe("table DefaultContextMenu", () => {
   let wrapper: React.FC<PropsWithChildren>;
@@ -33,8 +57,7 @@ describe("table DefaultContextMenu", () => {
       cells: { a: { key: "a", variant: "text", props: { value: "A" } } },
     });
     key = created.key;
-    const retrieve = renderHook(() => Table.useRetrieve({ key }), { wrapper });
-    await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+    await loadTable(wrapper, key);
   });
 
   const renderMenu = (props: Partial<DefaultContextMenuProps> = {}) =>

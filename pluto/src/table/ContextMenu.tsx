@@ -13,7 +13,7 @@ import { type ReactElement, type ReactNode, useCallback, useMemo } from "react";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
 import { getCellColumn } from "@/table/Indicator";
-import { useCellPosition, useSelectRows } from "@/table/queries";
+import { useCellPosition, useRows } from "@/table/queries";
 
 export interface DefaultContextMenuProps {
   resourceKey: table.Key;
@@ -70,7 +70,7 @@ export const DefaultContextMenu = ({
   const cellPos = useCellPosition({ key: resourceKey, cellKey: cellKey ?? "" });
   const rowIdx = resizer?.dir === "y" ? resizer.index : (cellPos?.y ?? null);
   const colIdx = resizer?.dir === "x" ? resizer.index : (cellPos?.x ?? null);
-  const rows = useSelectRows({ key: resourceKey });
+  const rows = useRows({ key: resourceKey });
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   // fullySelectedRows / fullySelectedCols: indices where every cell along
   // that axis is in the selection. When the right-clicked row/col is part

@@ -177,7 +177,7 @@ export const Fallback = ({
 const DefaultChild = ({
   resetErrorBoundary,
 }: Pick<FallbackProps, "resetErrorBoundary">): ReactElement => (
-  <Button.Button variant="filled" size="small" onClick={resetErrorBoundary}>
+  <Button.Button variant="filled" onClick={resetErrorBoundary}>
     Reload
   </Button.Button>
 );

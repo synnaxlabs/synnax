@@ -65,14 +65,6 @@ const Internal: Panel.Content = () => {
     if (canEdit) dispatch(Session.Nav.showBottom({}));
   }, [canEdit, dispatch]);
 
-  const modals = Session.Modals.useStore("Table");
-  const getTabIsFocused = Session.Panel.useGetTabIsFocused();
-
-  const enableTriggers = useCallback(
-    () => !modals.isAnyOpen() && getTabIsFocused(),
-    [getTabIsFocused, modals],
-  );
-
   // When editing, indicators always show; the hideIndicators setting only
   // takes effect outside edit mode.
   const showIndicators = canEdit || !hideIndicators;
@@ -82,7 +74,6 @@ const Internal: Panel.Content = () => {
       <Base.Table
         selected={selected}
         onSelectionChange={handleSelectionChange}
-        enableTriggers={enableTriggers}
         editable={canEdit}
         visible={visible}
         onEditableChange={hasUpdatePermission ? handleEditableChange : undefined}
@@ -159,7 +150,7 @@ const TableControls = (): ReactElement => {
 };
 
 export const Table: Panel.Content = () => {
-  const { key } = PPanel.useSelectTabResource();
+  const { key } = PPanel.useTabResource();
   return (
     <Base.Suspended tableKey={key}>
       <Internal />

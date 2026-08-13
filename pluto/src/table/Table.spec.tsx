@@ -14,6 +14,7 @@ import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/re
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Errors } from "@/errors";
 import { Table } from "@/table";
 import { table as aetherTable } from "@/table/aether";
 import { INDICATOR_SIZE } from "@/table/Indicator";
@@ -37,6 +38,29 @@ const expectedOffset = (contentWidth: number, contentHeight: number) => ({
 });
 
 const RECT = mockBoundingClientRect(0, 0, SURFACE_WIDTH, SURFACE_HEIGHT)();
+
+// Single-hook bootstrap so the suspending useEnsure is not followed by other
+// hooks, which trips a React 19 concurrent replay warning (same pattern as
+// table queries.spec.tsx).
+const loadTable = async (
+  wrapper: React.FC<PropsWithChildren>,
+  key: table.Key,
+): Promise<void> => {
+  const Bootstrap = (): ReactElement => {
+    Table.useEnsure({ key });
+    return <div data-testid="loaded" />;
+  };
+  let utils!: ReturnType<typeof render>;
+  await act(async () => {
+    utils = render(
+      <Errors.SuspenseBoundary loading={null}>
+        <Bootstrap />
+      </Errors.SuspenseBoundary>,
+      { wrapper },
+    );
+  });
+  await utils.findByTestId("loaded");
+};
 
 // The @juggle polyfill reads computed styles, which jsdom leaves empty, so it
 // never reports a size. useResize measures with getBoundingClientRect and
@@ -93,8 +117,7 @@ describe("Table centering", () => {
       },
     });
     key = created.key;
-    const retrieve = renderHook(() => Table.useRetrieve({ key }), { wrapper });
-    await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+    await loadTable(wrapper, key);
   });
 
   afterEach(() => {

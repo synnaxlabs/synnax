@@ -47,8 +47,8 @@ export interface ModalParams {
   createKey?: string;
 }
 
-const CREATE_NAME = "Schematic.Create Symbol";
-const EDIT_SYMBOL_NAME = "Schematic.Edit Symbol";
+const CREATE_NAME = "Schematic.Symbols.Create";
+const EDIT_NAME = "Schematic.Symbols.Edit";
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
@@ -59,7 +59,7 @@ export const useModal = Modals.create<ModalParams>(
     const isCreate = symbolKey == null;
     const theme = Theming.use();
     const { form, save } = Schematic.Symbol.useForm({
-      query: { key: symbolKey },
+      query: symbolKey == null ? null : { key: symbolKey },
       initialValues: {
         key: createKey,
         name: "",
@@ -164,7 +164,7 @@ export const useModal = Modals.create<ModalParams>(
           background={1}
         >
           <Modals.Header icon={<Icon.Schematic />}>
-            {isCreate ? CREATE_NAME : EDIT_SYMBOL_NAME}
+            {isCreate ? CREATE_NAME : EDIT_NAME}
           </Modals.Header>
           <Modals.Body full>
             <Flex.Box x grow>
@@ -172,16 +172,16 @@ export const useModal = Modals.create<ModalParams>(
                 <Flex.Box
                   className={CSS.BE("schematic", "sidebar")}
                   y
-                  rounded={1}
+                  rounded="small"
                   background={0}
                   bordered
-                  borderColor={5}
+                  borderColor={6}
                 >
                   <Flex.Box className={CSS.BE("schematic", "name")}>
                     <Form.TextField
                       path="name"
                       inputProps={{
-                        placeholder: "Symbol Name",
+                        placeholder: "Symbol name",
                         variant: "text",
                         level: "h4",
                       }}
@@ -189,7 +189,7 @@ export const useModal = Modals.create<ModalParams>(
                   </Flex.Box>
                   <Divider.Divider x />
                   <Flex.Box y>
-                    <Header.Header level="p" bordered={false} padded>
+                    <Header.Header level="p" bordered={false}>
                       <Header.Title level="p" weight={500}>
                         States
                       </Header.Title>
@@ -217,7 +217,7 @@ export const useModal = Modals.create<ModalParams>(
                   />
                   <Divider.Divider x />
                   <Flex.Box y>
-                    <Header.Header level="p" bordered={false} padded>
+                    <Header.Header level="p" bordered={false}>
                       <Header.Title level="p" weight={500}>
                         Properties
                       </Header.Title>

@@ -11,7 +11,7 @@ import "@/status/base/Notification.css";
 
 import { status } from "@synnaxlabs/client";
 import { array, primitive } from "@synnaxlabs/x";
-import { isValidElement, type ReactElement, useRef } from "react";
+import { type ComponentPropsWithRef, isValidElement, type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -33,125 +33,100 @@ const Action = ({ action }: ActionProps): ReactElement =>
     <Button.Button {...action} key={action.key} size="tiny" />
   );
 
-export interface NotificationProps extends Flex.BoxProps {
+export interface NotificationProps extends ComponentPropsWithRef<"div"> {
   status: NotificationSpec;
   silence: (key: string) => void;
   actions?: ReactElement | Button.ButtonProps[];
+  /** Custom indicator glyph, tinted with the status variant color. */
+  icon?: ReactElement<Icon.IconProps>;
 }
 
 export const Notification = ({
   status: stat,
   silence,
   actions,
+  icon,
   className,
   children,
   ...rest
 }: NotificationProps): ReactElement => {
-  const ref = useRef<HTMLDivElement>(null);
   const { key, time, count, message, description, variant, name } = stat;
   const getCopyText = () => status.toString(stat);
 
   return (
-    <Flex.Box
+    // The key remounts the card when a repeat arrives, replaying the entrance animation.
+    <div
       className={CSS(CSS.B("notification"), className)}
-      y
       key={time.toString()}
-      empty
-      ref={ref}
       {...rest}
     >
-      <Flex.Box
-        x
-        justify="between"
-        grow
-        className={CSS(CSS.BE("notification", "header"))}
-      >
-        <Flex.Box x align="center" gap="small">
+      <Indicator variant={variant} className={CSS.BE("notification", "indicator")}>
+        {icon}
+      </Indicator>
+      <div className={CSS.BE("notification", "text")}>
+        <div className={CSS.BE("notification", "chrome")}>
+          <Flex.Box
+            x
+            align="center"
+            gap="small"
+            className={CSS.BE("notification", "stamp")}
+          >
+            {count > 1 && <Text.Text level="small" color={9}>{`x${count}`}</Text.Text>}
+            <TelemText.TimeStamp level="small" color={9} format="time">
+              {time}
+            </TelemText.TimeStamp>
+          </Flex.Box>
+          <Flex.Box x gap="tiny" className={CSS.BE("notification", "controls")}>
+            <Button.Copy
+              text={getCopyText}
+              variant="text"
+              size="small"
+              tooltip="Copy diagnostics"
+              square
+              textColor={10}
+            />
+            <Button.Button variant="outlined" size="small" onClick={() => silence(key)}>
+              <Icon.Close />
+            </Button.Button>
+          </Flex.Box>
+        </div>
+        {primitive.isNonZero(name) && (
           <Text.Text
             level="small"
             status={variant}
-            gap="tiny"
-            className={CSS(CSS.BE("notification", "name"))}
+            weight={500}
+            overflow="ellipsis"
+            className={CSS.BE("notification", "name")}
           >
-            <Indicator variant={variant} />
-            <Text.Text el="span" overflow="ellipsis" status={variant}>
-              {primitive.isNonZero(name) && name}
-            </Text.Text>
-          </Text.Text>
-          <Text.Text level="small">{`x${count}`}</Text.Text>
-          <TelemText.TimeStamp
-            className={CSS(CSS.BE("notification", "time"))}
-            level="small"
-            format="time"
-          >
-            {time}
-          </TelemText.TimeStamp>
-        </Flex.Box>
-        <Flex.Box
-          x
-          className={CSS(CSS.BE("notification", "header-actions"))}
-          gap="tiny"
-        >
-          <Button.Copy
-            className={CSS(CSS.BE("notification", "copy"))}
-            text={getCopyText}
-            variant="text"
-            size="small"
-            tooltip="Copy diagnostics"
-            square
-            contrast={2}
-            textColor={10}
-          />
-          <Button.Button
-            className={CSS(CSS.BE("notification", "silence"))}
-            variant="outlined"
-            size="small"
-            onClick={() => silence(key)}
-          >
-            <Icon.Close />
-          </Button.Button>
-        </Flex.Box>
-      </Flex.Box>
-      <Flex.Box
-        y
-        align="start"
-        className={CSS(CSS.BE("notification", "content"))}
-        gap="small"
-      >
-        {children != null ? (
-          children
-        ) : (
-          <Text.Text
-            className={CSS(CSS.BE("notification", "message"))}
-            lineClamp={3}
-            grow
-          >
-            {message}
+            {name}
           </Text.Text>
         )}
-        {description != null && (
+        {children ?? (
+          <Text.Text className={CSS.BE("notification", "message")}>{message}</Text.Text>
+        )}
+        {primitive.isNonZero(description) && (
           <Text.Text
-            className={CSS(CSS.BE("notification", "description"))}
             level="small"
+            color={9}
             lineClamp={8}
-            grow
+            className={CSS.BE("notification", "description")}
           >
             {description}
           </Text.Text>
         )}
-      </Flex.Box>
+      </div>
       {actions != null && (
         <Flex.Box
           x
           align="center"
           justify="end"
-          className={CSS(CSS.BE("notification", "actions"))}
+          className={CSS.BE("notification", "actions")}
         >
           {array.toArray<ReactElement | Button.ButtonProps>(actions).map((a) => (
             <Action key={a.key} action={a} />
           ))}
         </Flex.Box>
       )}
-    </Flex.Box>
+    </div>
   );
 };

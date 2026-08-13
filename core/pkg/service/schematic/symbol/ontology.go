@@ -60,7 +60,10 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeSchematicSymbol }
+// Type implements ontology.Service.
+func (s *Service) Type() ontology.ResourceType {
+	return ontology.ResourceTypeSchematicSymbol
+}
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(

@@ -36,7 +36,7 @@ export interface ListProps
   extends
     Pick<
       Flux.UseListReturn<PList.PagerParams, ranger.Key, ranger.Range>,
-      "data" | "getItem" | "subscribe" | "retrieve"
+      "data" | "getItem" | "subscribe" | "retrieve" | "answered"
     >,
     Pick<ItemProps, "showParent" | "showLabels" | "showTimeRange" | "showFavorite"> {
   enableSearch?: boolean;
@@ -63,6 +63,7 @@ export const List = ({
   getItem,
   subscribe,
   retrieve,
+  answered,
   enableSearch = false,
   enableFilters = false,
   enableAddButton = false,
@@ -103,7 +104,7 @@ export const List = ({
         onChange={setSelected}
         value={selected}
         onFetchMore={handleFetchMore}
-        itemHeight={45}
+        itemHeight={40}
       >
         {enableSearch && (
           <Flex.Box
@@ -150,7 +151,7 @@ export const List = ({
         )}
         <Menu.ContextMenu menu={contextMenu} {...menuProps} />
         <PList.Items<string>
-          emptyContent={emptyContent}
+          emptyContent={answered && emptyContent}
           grow
           onContextMenu={menuProps.open}
         >
@@ -179,7 +180,7 @@ const AddButton = (): ReactElement | null => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
-    <Button.Button tooltip="Create Range" onClick={() => openCreate()}>
+    <Button.Button tooltip="Create Range" onClick={() => openCreate()} variant="filled">
       <Icon.Add />
     </Button.Button>
   );

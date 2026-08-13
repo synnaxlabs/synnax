@@ -12,9 +12,6 @@ import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { Theme } from "@/feature/theme";
-import { stubGeometry } from "@/testutil";
-
-stubGeometry();
 
 describe("Theme Commands", () => {
   it("exposes a single command to change the color theme", async () => {

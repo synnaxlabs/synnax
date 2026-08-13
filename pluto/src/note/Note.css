@@ -12,7 +12,7 @@
 .pluto-note {
     padding: 2rem 3rem;
     border: var(--pluto-border);
-    border-radius: 1rem;
+    border-radius: var(--pluto-border-radius-small);
 
     &.pluto--info {
         background: var(--pluto-primary-z-10);

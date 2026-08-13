@@ -9,7 +9,7 @@
 
 import { channel, group } from "@synnaxlabs/client";
 import { Access, Channel, Icon } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Empty } from "@/platform/empty";
@@ -27,30 +27,40 @@ const Actions = (): ReactElement | null => {
       <Toolbar.Action
         onClick={() => openCalculated()}
         tooltip="Create calculated channel"
+        variant="filled"
       >
         <Channel.CreateCalculatedIcon />
       </Toolbar.Action>
-      <Toolbar.Action onClick={() => openCreate()} tooltip="Create channel">
+      <Toolbar.Action
+        onClick={() => openCreate()}
+        tooltip="Create channel"
+        variant="filled"
+      >
         <Icon.Add />
       </Toolbar.Action>
     </Toolbar.Actions>
   );
 };
 
-const Content = (): ReactElement => {
-  const { data: g } = Channel.useRetrieveGroup({});
-  return (
-    <Toolbar.Content>
-      <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
-        <Actions />
-      </Toolbar.Header>
-      <Tree.Tree
-        root={g == null ? undefined : group.ontologyID(g.key)}
-        emptyContent={<EmptyContent />}
-      />
-    </Toolbar.Content>
-  );
+const Content = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header>
+      <Toolbar.Title>
+        <Icon.Channel />
+        Channels
+      </Toolbar.Title>
+      <Actions />
+    </Toolbar.Header>
+    <Toolbar.Body>
+      <Body />
+    </Toolbar.Body>
+  </Toolbar.Content>
+);
+
+const Body = (): ReactElement => {
+  const g = Channel.useGroup({});
+  const root = useMemo(() => group.ontologyID(g.key), [g.key]);
+  return <Tree.Tree root={root} emptyContent={<EmptyContent />} />;
 };
 
 const EmptyContent = (): ReactElement => {

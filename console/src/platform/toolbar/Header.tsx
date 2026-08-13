@@ -13,6 +13,7 @@ import { Button, Flex, Header as PHeader } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 
 export interface ContentProps extends Flex.BoxProps {}
 
@@ -20,20 +21,23 @@ export const Content = (props: ContentProps): ReactElement => (
   <Flex.Box empty y pack full {...props} />
 );
 
-export interface HeaderProps extends PHeader.HeaderProps {
-  padded?: boolean;
-}
+export interface BodyProps extends Errors.SuspenseBoundaryProps {}
 
-export const Header = ({ padded, ...rest }: HeaderProps): ReactElement => (
+/** Suspension and error scope for everything below a toolbar's header, so a slow or
+ * failing read leaves the header painted. */
+export const Body = (props: BodyProps): ReactElement => (
+  <Errors.SuspenseBoundary {...props} />
+);
+
+export interface HeaderProps extends PHeader.HeaderProps {}
+
+export const Header = (props: HeaderProps): ReactElement => (
   <PHeader.Header
-    className={CSS(
-      CSS.BE("toolbar", "header"),
-      padded && CSS.BEM("toolbar", "header", "padded"),
-    )}
+    className={CSS.BE("toolbar", "header")}
     level="h5"
     shrink={false}
     background={1}
-    {...rest}
+    {...props}
   />
 );
 
@@ -45,9 +49,9 @@ export interface ActionProps extends Button.ButtonProps {}
 
 export const Action = ({ className, ...rest }: ActionProps): ReactElement => (
   <Button.Button
-    contrast={2}
     size="small"
-    rounded={1}
+    rounded="small"
+    variant="outlined"
     className={CSS(CSS.BE("toolbar", "action"), className)}
     {...rest}
   />
