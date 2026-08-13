@@ -12,6 +12,7 @@ import { Component, Icon, List, Text } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type CSSProperties, type ReactElement, useEffect, useState } from "react";
 
+import { InlineCode } from "@/components/text/InlineCode";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 
 interface InternalTreeProps {
@@ -84,7 +85,7 @@ const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
       >
         {SECTION_ICONS[itemKey]}
         <Text.Text level="p" weight={500}>
-          {item.name}
+          <InlineCode text={item.name} />
         </Text.Text>
       </Tree.Item>
     );
@@ -107,7 +108,9 @@ const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
       useMargin
       propagateClick
     >
-      <Text.Text weight={450}>{item.name}</Text.Text>
+      <Text.Text weight={450}>
+        <InlineCode text={item.name} />
+      </Text.Text>
     </Tree.Item>
   );
 };
