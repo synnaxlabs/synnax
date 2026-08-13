@@ -29,13 +29,13 @@ values take priority, and setting the authority to `0` releases control.
       type: "u8",
       required: true,
       description:
-        "The authority level, `0`-`255`. Higher values take priority; `0` releases control.",
+        "Authority level `0`-`255`. Higher values take priority; `0` releases control.",
     },
     {
       name: "channel",
       type: "chan",
       description:
-        "The write channel to target. If omitted, the change applies to all of the program's write channels.",
+        "The write channel to target. If omitted, applies to all write channels.",
     },
   ]}
   output={{

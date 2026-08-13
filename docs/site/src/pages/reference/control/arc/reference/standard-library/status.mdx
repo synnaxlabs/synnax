@@ -31,7 +31,7 @@ addressing it by name or by key, and outputs the resolved status key.
       type: "str",
       required: true,
       description:
-        "An existing status key or name. A match is updated in place; if none matches, a new status is created with this name; if several statuses share the name, the first is updated and a warning is surfaced.",
+        "An existing status key or name. If no status matches, a new one is created.",
     },
     {
       name: "message",
@@ -51,8 +51,9 @@ addressing it by name or by key, and outputs the resolved status key.
 />
 
 <Note.Note variant="info" className="compact">
-  If a `status.set` fails (for example, an empty `key_or_name` or a database error), it
-  reports a `warning` and the automation keeps running.
+  If several statuses share a name, the first match is updated. If a `status.set` fails
+  (for example, an empty `key_or_name` or a database error), it reports a `warning` and
+  the automation keeps running.
 </Note.Note>
 
 <Arc.Tabs client:load>

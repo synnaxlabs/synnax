@@ -31,7 +31,7 @@ control loops, periodic sampling, and generating test data.
       type: "i64 ns",
       required: true,
       description:
-        "Time between fires, written as a duration literal (such as `200ms`, `1s`).",
+        "Time between fires, written as a duration literal (e.g. `200ms`, `1s`).",
     },
   ]}
   output={{ type: "u8", description: "Emits `1` on each fire." }}
@@ -92,7 +92,7 @@ Fires once after a fixed duration, then stops.
       type: "i64 ns",
       required: true,
       description:
-        "How long to wait before firing, written as a duration literal (such as `30s`).",
+        "How long to wait before firing, as a duration literal (e.g. `30s`).",
     },
   ]}
   output={{ type: "u8", description: "Emits `1` once the duration elapses." }}
