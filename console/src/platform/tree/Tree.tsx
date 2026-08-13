@@ -191,15 +191,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   // Placeholder resources back tree items (e.g. a just-created group awaiting its
   // inline rename) before the cluster delivers the real resource.
-  const placeholdersRef = useInitializerRef(() => new Map<string, ontology.Resource>());
-  const placeholderListenersRef = useInitializerRef(
-    () => new Map<string, Set<() => void>>(),
-  );
+  const placeholders = List.useMapData<string, ontology.Resource>();
 
   const getResourceByKey = useCallback(
     (key: string): ontology.Resource | undefined =>
-      client?.ontology.cache.resources.get(key) ?? placeholdersRef.current.get(key),
-    [client],
+      client?.ontology.cache.resources.get(key) ?? placeholders.getItem(key),
+    [client, placeholders],
   );
 
   const applyChildren = useCallback(
@@ -279,8 +276,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleSyncResourceSet = useCallback(
     (resource: ontology.Resource) => {
-      const hadPlaceholder = placeholdersRef.current.delete(resource.key);
-      placeholderListenersRef.current.get(resource.key)?.forEach((notify) => notify());
+      const hadPlaceholder = placeholders.hasItem(resource.key);
+      placeholders.deleteItem(resource.key);
       // Nodes sort by resource name, so an in-tree resource change must rebuild
       // node identity to re-sort. A foreign resource cannot affect this tree.
       if (
@@ -290,7 +287,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         return;
       setNodes((prevNodes) => [...prevNodes]);
     },
-    [setNodes, nodesRef],
+    [setNodes, nodesRef, placeholders],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
   const handleRelationshipDelete = useCallback(
@@ -423,33 +420,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [getResourceByKey],
   );
 
-  const subscribe = useCallback((callback: () => void, key: string) => {
-    let listeners = placeholderListenersRef.current.get(key);
-    if (listeners == null) {
-      listeners = new Set();
-      placeholderListenersRef.current.set(key, listeners);
-    }
-    listeners.add(callback);
-    return () => {
-      listeners.delete(callback);
-    };
-  }, []);
-
   const getItem = useMemo(
     () =>
       List.createGetItem<string, ontology.Resource>(getResourceByKey, (keys) =>
         keys.map(getResourceByKey).filter((r) => r != null),
       ),
     [getResourceByKey],
-  );
-
-  const setResource = useCallback(
-    (resource: ontology.Resource | ontology.Resource[]) =>
-      array.toArray(resource).forEach((r) => {
-        placeholdersRef.current.set(r.key, r);
-        placeholderListenersRef.current.get(r.key)?.forEach((callback) => callback());
-      }),
-    [],
   );
 
   const sort = useCallback(
@@ -484,11 +460,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       expand,
       contract,
       setLoading,
-      setResource,
+      setResource: placeholders.setItem,
       getResource,
       setSelection: setSelected,
     }),
-    [expand, contract, setLoading, handleError, setResource, nodesRef, setNodes],
+    [expand, contract, setLoading, handleError, placeholders, nodesRef, setNodes],
   );
 
   const openTab = Panel.useOpenTab();
@@ -645,7 +621,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         {...treeProps}
         showRules
         shape={shape}
-        subscribe={subscribe}
+        subscribe={placeholders.subscribe}
         // Not getResource: it throws, and a resource may not be cached before
         // the tree attempts to render it.
         getItem={getItem}
