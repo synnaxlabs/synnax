@@ -197,7 +197,7 @@ func BenchmarkCodecDecode(b *testing.B) {
 }
 
 // BenchmarkCodecDecodeMiss measures the magic-header rejection path, which the decode
-// fallback in gorp hits for every row written by another codec.
+// fallback in Gorp hits for every row written by another codec.
 func BenchmarkCodecDecodeMiss(b *testing.B) {
 	ctx := context.Background()
 	data := []byte{0x00, 0x01, 0x02, 0x03}
@@ -210,8 +210,8 @@ func BenchmarkCodecDecodeMiss(b *testing.B) {
 	}
 }
 
-// BenchmarkWriter measures raw Writer throughput with a warm reused buffer, outside
-// the codec's pool and output-copy overhead.
+// BenchmarkWriter measures raw Writer throughput with a warm reused buffer, outside the
+// codec's pool and output-copy overhead.
 func BenchmarkWriter(b *testing.B) {
 	in := benchInput()
 	w := orc.NewWriter(256)
