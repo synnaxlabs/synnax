@@ -74,7 +74,7 @@ const loadSVG = async (
 };
 
 const findNameInput = (): HTMLInputElement =>
-  screen.getByPlaceholderText<HTMLInputElement>("Symbol Name");
+  screen.getByPlaceholderText<HTMLInputElement>("Symbol name");
 
 describe("Schematic.Symbol.Edit.useModal", () => {
   describe("create mode", () => {
@@ -120,7 +120,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Colors"));
       expect(await screen.findByText("Region 1")).toBeDefined();
-      expect(screen.getByText("0 Elements")).toBeDefined();
+      expect(screen.getByText("0 elements")).toBeDefined();
     });
 
     it("adds a placeable handle at the symbol center", async () => {

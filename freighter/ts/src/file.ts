@@ -20,9 +20,10 @@ export type UploadBody =
   ReadableStream<Uint8Array> | Blob | ArrayBufferView<ArrayBuffer> | string;
 
 /**
- * The wire encodings a FileTransport can transfer.
+ * The wire encodings a FileTransport can transfer. ZIP carries a flat archive of named
+ * files; JSON carries a single value.
  */
-export type FileEncoding = "JSON";
+export type FileEncoding = "JSON" | "ZIP";
 
 /**
  * Options shared by FileTransport.upload and FileTransport.download. Carries the wire

@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { type group } from "@/group";
 import { type ontology } from "@/ontology";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -82,8 +83,10 @@ const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
 
 export interface ClientConfig {
   unary: UnaryClient;
+  file: FileTransport;
   ontology: ontology.Client;
   cache: query.Cache;
+  groupStore: query.Table<group.Key, group.Group>;
 }
 
 export class Client extends query.Retriever<
