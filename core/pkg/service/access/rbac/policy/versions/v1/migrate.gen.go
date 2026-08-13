@@ -21,5 +21,6 @@ func autoMigratePolicy(_ context.Context, old v0.Policy) (Policy, error) {
 	return Policy{
 		Objects: old.Objects,
 		Actions: old.Actions,
+		Key:     old.Key,
 	}, nil
 }

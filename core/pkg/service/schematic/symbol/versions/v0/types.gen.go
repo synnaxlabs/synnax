@@ -16,6 +16,9 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
+// Key is a unique identifier for a schematic symbol.
+type Key = uuid.UUID
+
 // Symbol is the untyped storage shape of a schematic symbol, in which the specification
 // is persisted as raw JSON.
 type Symbol struct {
@@ -24,5 +27,5 @@ type Symbol struct {
 	// Name is the human-readable symbol name.
 	Name string `json:"name" msgpack:"name"`
 	// Key is the symbol's unique identifier.
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 }

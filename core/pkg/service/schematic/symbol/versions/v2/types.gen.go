@@ -14,14 +14,14 @@ package v2
 import (
 	"strconv"
 
-	"github.com/google/uuid"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a schematic symbol.
-type Key = uuid.UUID
+type Key = v0.Key
 
 // Region is a visual styling area within a symbol state, targeting specific SVG
 // elements for dynamic coloring.

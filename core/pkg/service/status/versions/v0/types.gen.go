@@ -16,12 +16,15 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
+// Key is a unique identifier for a status.
+type Key = string
+
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry
 // component-specific details.
 type Status[Details any] struct {
 	// Key is a unique identifier for this status, auto-generated if not provided.
-	Key string `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 	// Name is an optional human-readable name for the status.
 	Name string `json:"name" msgpack:"name"`
 	// Variant indicates the severity of the status. One of success, info, warning,

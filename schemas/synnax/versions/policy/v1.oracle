@@ -10,9 +10,7 @@
 import "schemas/synnax/versions/access/v0"
 import "schemas/synnax/versions/ontology/v0"
 
-Key = uuid {
-    @doc value "is a unique identifier for a policy, represented as a UUID."
-}
+Key = v0.Key
 
 Policy struct {
     key      Key = create {

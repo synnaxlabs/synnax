@@ -21,8 +21,12 @@ Variant enum {
     @doc value "is the severity or type of a status message."
 }
 
+Key = string {
+    @doc value "is a unique identifier for a status."
+}
+
 Status struct<Details> {
-    key         string = create {
+    key         Key = create {
         @doc value """
             is a unique identifier for this status, auto-generated if not provided.
         """

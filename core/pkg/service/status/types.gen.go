@@ -30,3 +30,6 @@ const (
 // component-specific details. A status is uniquely identified by a key and may carry a
 // human-readable name and labels for categorization and filtering.
 type Status[Details any] = versions.Status[Details]
+
+// Key is a unique identifier for a status.
+type Key = versions.Key

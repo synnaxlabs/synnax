@@ -20,13 +20,16 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Key is a unique identifier for a policy, represented as a UUID.
+type Key = uuid.UUID
+
 // Policy represents the old policy format with a subjects field that associated
 // policies directly with users. Used only for reading legacy data during migration.
 type Policy struct {
 	Subjects []ontology.ID   `json:"subjects,omitzero" msgpack:"subjects,omitzero"`
 	Objects  []ontology.ID   `json:"objects,omitzero" msgpack:"objects,omitzero"`
 	Actions  []access.Action `json:"actions,omitzero" msgpack:"actions,omitzero"`
-	Key      uuid.UUID       `json:"key" msgpack:"key"`
+	Key      Key             `json:"key" msgpack:"key"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

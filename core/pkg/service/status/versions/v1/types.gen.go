@@ -35,7 +35,7 @@ const (
 // human-readable name and labels for categorization and filtering.
 type Status[Details any] struct {
 	// Key is a unique identifier for this status, auto-generated if not provided.
-	Key string `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 	// Name is an optional human-readable name for the status.
 	Name string `json:"name" msgpack:"name"`
 	// Variant indicates the severity of the status. One of success, info, warning,
@@ -52,3 +52,6 @@ type Status[Details any] struct {
 	// Labels contains optional labels for categorization and filtering.
 	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
 }
+
+// Key is a unique identifier for a status.
+type Key = v0.Key
