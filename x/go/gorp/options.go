@@ -45,7 +45,9 @@ type options struct {
 	IndexObservable observe.Observable[kv.TxReader]
 }
 
-var defaultOptions = options{Codec: orc.NewCodec(msgpack.Codec)}
+var defaultOptions = options{
+	Codec: encoding.NewDecodeFallbackCodec(orc.Codec, msgpack.Codec),
+}
 
 func newOptions(opts []Option) options {
 	o := defaultOptions

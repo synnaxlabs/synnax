@@ -17,82 +17,80 @@ import (
 	"github.com/synnaxlabs/x/encoding/leb128"
 )
 
-var _ = Describe("LEB128", func() {
-	Describe("WriteUnsigned", func() {
-		It("Should encode small values in a single byte", func() {
-			var buf bytes.Buffer
-			Expect(leb128.WriteUnsigned(&buf, 0)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x00}))
+var _ = Describe("WriteUnsigned", func() {
+	It("Should encode small values in a single byte", func() {
+		var buf bytes.Buffer
+		Expect(leb128.WriteUnsigned(&buf, 0)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x00}))
 
-			buf.Reset()
-			Expect(leb128.WriteUnsigned(&buf, 1)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x01}))
+		buf.Reset()
+		Expect(leb128.WriteUnsigned(&buf, 1)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x01}))
 
-			buf.Reset()
-			Expect(leb128.WriteUnsigned(&buf, 127)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x7f}))
-		})
-
-		It("Should encode values >= 128 in multiple bytes", func() {
-			var buf bytes.Buffer
-			Expect(leb128.WriteUnsigned(&buf, 128)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x80, 0x01}))
-
-			buf.Reset()
-			Expect(leb128.WriteUnsigned(&buf, 255)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0xff, 0x01}))
-
-			buf.Reset()
-			Expect(leb128.WriteUnsigned(&buf, 16384)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x80, 0x80, 0x01}))
-		})
+		buf.Reset()
+		Expect(leb128.WriteUnsigned(&buf, 127)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x7f}))
 	})
 
-	Describe("WriteSigned", func() {
-		It("Should encode small positive values", func() {
-			var buf bytes.Buffer
-			Expect(leb128.WriteSigned(&buf, 0)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x00}))
+	It("Should encode values >= 128 in multiple bytes", func() {
+		var buf bytes.Buffer
+		Expect(leb128.WriteUnsigned(&buf, 128)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x80, 0x01}))
 
-			buf.Reset()
-			Expect(leb128.WriteSigned(&buf, 1)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x01}))
+		buf.Reset()
+		Expect(leb128.WriteUnsigned(&buf, 255)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0xff, 0x01}))
 
-			buf.Reset()
-			Expect(leb128.WriteSigned(&buf, 42)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x2a}))
+		buf.Reset()
+		Expect(leb128.WriteUnsigned(&buf, 16384)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x80, 0x80, 0x01}))
+	})
+})
 
-			buf.Reset()
-			Expect(leb128.WriteSigned(&buf, 63)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x3f}))
-		})
+var _ = Describe("WriteSigned", func() {
+	It("Should encode small positive values", func() {
+		var buf bytes.Buffer
+		Expect(leb128.WriteSigned(&buf, 0)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x00}))
 
-		It("Should encode negative values", func() {
-			var buf bytes.Buffer
-			Expect(leb128.WriteSigned(&buf, -1)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x7f}))
+		buf.Reset()
+		Expect(leb128.WriteSigned(&buf, 1)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x01}))
 
-			buf.Reset()
-			Expect(leb128.WriteSigned(&buf, -64)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x40}))
+		buf.Reset()
+		Expect(leb128.WriteSigned(&buf, 42)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x2a}))
 
-			buf.Reset()
-			Expect(leb128.WriteSigned(&buf, -65)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0xbf, 0x7f}))
-		})
+		buf.Reset()
+		Expect(leb128.WriteSigned(&buf, 63)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x3f}))
+	})
 
-		It("Should NOT use zigzag encoding (unlike Go's binary.PutVarint)", func() {
-			var buf bytes.Buffer
-			// For value 1: zigzag would produce 0x02, but signed LEB128 produces 0x01
-			Expect(leb128.WriteSigned(&buf, 1)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x01}))
-			Expect(buf.Bytes()).ToNot(Equal([]byte{0x02})) // Would be zigzag
+	It("Should encode negative values", func() {
+		var buf bytes.Buffer
+		Expect(leb128.WriteSigned(&buf, -1)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x7f}))
 
-			// For value -1: zigzag would produce 0x01, but signed LEB128 produces 0x7f
-			buf.Reset()
-			Expect(leb128.WriteSigned(&buf, -1)).To(Succeed())
-			Expect(buf.Bytes()).To(Equal([]byte{0x7f}))
-			Expect(buf.Bytes()).ToNot(Equal([]byte{0x01})) // Would be zigzag
-		})
+		buf.Reset()
+		Expect(leb128.WriteSigned(&buf, -64)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x40}))
+
+		buf.Reset()
+		Expect(leb128.WriteSigned(&buf, -65)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0xbf, 0x7f}))
+	})
+
+	It("Should NOT use zigzag encoding (unlike Go's binary.PutVarint)", func() {
+		var buf bytes.Buffer
+		// For value 1: zigzag would produce 0x02, but signed LEB128 produces 0x01
+		Expect(leb128.WriteSigned(&buf, 1)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x01}))
+		Expect(buf.Bytes()).ToNot(Equal([]byte{0x02})) // Would be zigzag
+
+		// For value -1: zigzag would produce 0x01, but signed LEB128 produces 0x7f
+		buf.Reset()
+		Expect(leb128.WriteSigned(&buf, -1)).To(Succeed())
+		Expect(buf.Bytes()).To(Equal([]byte{0x7f}))
+		Expect(buf.Bytes()).ToNot(Equal([]byte{0x01})) // Would be zigzag
 	})
 })

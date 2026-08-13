@@ -31,12 +31,13 @@ func TestSymbol(t *testing.T) {
 }
 
 var (
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	proj    project.Project
-	svc     *symbol.Service
-	imexSvc *imex.Service
-	tx      gorp.Tx
+	db       *gorp.DB
+	otg      *ontology.Ontology
+	proj     project.Project
+	svc      *symbol.Service
+	imexSvc  *imex.Service
+	groupSvc *group.Service
+	tx       gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -44,7 +45,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx := MustOpen(search.OpenIndex())
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
@@ -67,8 +68,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 
-var _ = BeforeEach(func() {
-	tx = DeferClose(db.OpenTx())
-})
+var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

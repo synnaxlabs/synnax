@@ -10,7 +10,7 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { box, id, math, type xy } from "@synnaxlabs/x";
+import { box, id, math, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithRef,
   type ReactElement,
@@ -19,6 +19,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { type z } from "zod";
 
@@ -31,7 +32,7 @@ import { table as aetherTable } from "@/table/aether";
 import { Cell } from "@/table/cells";
 import { useClipboard } from "@/table/clipboard";
 import { DefaultContextMenu } from "@/table/ContextMenu";
-import { ColumnIndicators } from "@/table/Indicator";
+import { ColumnIndicators, INDICATOR_SIZE } from "@/table/Indicator";
 import {
   cellsInRegion,
   findCellPosition,
@@ -108,8 +109,12 @@ export interface TableProps
   // item in the context menu while editable is false. The callback receives
   // the next visibility value.
   onShowIndicatorsChange?: (next: boolean) => void;
+  /** Centers the table in its container. No effect on an axis it overflows. */
+  centered?: boolean;
+  /** When defined, surfaces a Center / Align item in the context menu. */
+  onCenteredChange?: (next: boolean) => void;
   // extraMenuItems is appended to the default context menu items so
-  // consumers can add app-specific entries (e.g. "Reload console").
+  // consumers can add app-specific entries (e.g. "Reload Console").
   extraMenuItems?: ReactNode;
   // enableTriggers gates the in-table keyboard shortcuts (Delete/Backspace
   // to clear, Cmd+Z to undo, Cmd+Shift+Z to redo). Defaults to true.
@@ -123,6 +128,8 @@ export const Table = ({
   onEditableChange,
   showIndicators = true,
   onShowIndicatorsChange,
+  centered = false,
+  onCenteredChange,
   extraMenuItems,
   enableTriggers = true,
   visible,
@@ -236,6 +243,8 @@ export const Table = ({
         onEditableChange={onEditableChange}
         showIndicators={showIndicators}
         onShowIndicatorsChange={onShowIndicatorsChange}
+        centered={centered}
+        onCenteredChange={onCenteredChange}
         onAddRow={addRow}
         onAddCol={addCol}
         onRemoveRow={removeRow}
@@ -251,6 +260,8 @@ export const Table = ({
       onEditableChange,
       showIndicators,
       onShowIndicatorsChange,
+      centered,
+      onCenteredChange,
       addRow,
       addCol,
       removeRow,
@@ -268,7 +279,11 @@ export const Table = ({
 
   useEffect(() => setState((s) => ({ ...s, visible })), [visible]);
 
-  const canvasRef = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
+  const [region, setRegion] = useState<box.Box>(box.ZERO);
+  const canvasRef = Canvas.useRegion((b) => {
+    setRegion(b);
+    setState((s) => ({ ...s, region: b }));
+  });
 
   const selectedRef = useSyncedRef(selected);
   const lastSelectedRef = useRef<string | null>(null);
@@ -460,7 +475,41 @@ export const Table = ({
     [totalCol, totalRow],
   );
 
-  let rowYCursor = showIndicators ? 4.5 * 6 : 0;
+  const indicatorSize = showIndicators ? INDICATOR_SIZE : 0;
+  // One offset feeds the frame's translate and the canvas cell boxes.
+  const liveOffset = useMemo(() => {
+    if (!centered) return xy.ZERO;
+    const half = (available: number, used: number) =>
+      Math.max(0, Math.floor((available - used) / 2));
+    return {
+      x: half(box.width(region), totalCol + indicatorSize),
+      y: half(box.height(region), totalRow + indicatorSize),
+    };
+  }, [centered, region, totalCol, totalRow, indicatorSize]);
+  // A live offset would slide a dragged edge out from under the cursor.
+  const [held, setHeld] = useState<xy.XY | null>(null);
+  const handlePointerDown = useCallback(() => {
+    if (!centered) return;
+    setHeld(liveOffset);
+    const release = (): void => {
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+      setHeld(null);
+    };
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+  }, [centered, liveOffset]);
+  const offset = centered ? (held ?? liveOffset) : xy.ZERO;
+  const frameStyle = useMemo(
+    () =>
+      offset.x === 0 && offset.y === 0
+        ? undefined
+        : { transform: `translate(${offset.x}px, ${offset.y}px)` },
+    [offset],
+  );
+
+  let rowYCursor = offset.y + indicatorSize;
+  const cellXOrigin = offset.x + indicatorSize;
   return (
     <div
       className={CSS(CSS.B("table-surface"), className)}
@@ -468,7 +517,11 @@ export const Table = ({
       {...rest}
     >
       <div ref={canvasRef} className={CSS.BE("table-surface", "canvas")} />
-      <div className={CSS(CSS.B("table-frame"), CSS.editable(editable))}>
+      <div
+        className={CSS(CSS.B("table-frame"), CSS.editable(editable))}
+        style={frameStyle}
+        onPointerDown={handlePointerDown}
+      >
         <Menu.ContextMenu menu={renderMenu} {...menuProps}>
           <table
             ref={tableElRef}
@@ -503,7 +556,8 @@ export const Table = ({
                         resourceKey={key}
                         cells={row.cells}
                         columns={colSizes}
-                        position={yPos}
+                        x={cellXOrigin}
+                        y={yPos}
                         size={row.size}
                         editable={editable}
                         showIndicator={showIndicators}

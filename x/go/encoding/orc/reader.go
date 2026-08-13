@@ -26,27 +26,26 @@ var ErrExceedStringLen = errors.New("[orc] string length exceeded")
 // MaxCollectionLen.
 var ErrExceedCollectionLen = errors.New("[orc] collection length exceeded")
 
-// MaxStringLen is the maximum byte length of a string that can be decoded. In
-// direct mode (ResetBytes), the backing slice provides a natural bound. In
-// io.Reader mode, this limit prevents a corrupt length prefix from causing a
-// massive allocation. Defaults to 128 MB.
+// MaxStringLen is the maximum byte length of a string that can be decoded. In direct
+// mode (ResetBytes), the backing slice provides a natural bound. In io.Reader mode,
+// this limit prevents a corrupt length prefix from causing a massive allocation.
+// Defaults to 128 MB.
 var MaxStringLen uint32 = 128 << 20
 
-// MaxCollectionLen is the maximum number of elements that can be decoded for a
-// slice, map, or byte array. This prevents a corrupt length prefix from causing
-// a massive allocation or an effectively infinite loop. Defaults to 10 million.
+// MaxCollectionLen is the maximum number of elements that can be decoded for a slice,
+// map, or byte array. This prevents a corrupt length prefix from causing a massive
+// allocation or an effectively infinite loop. Defaults to 10 million.
 var MaxCollectionLen uint32 = 10_000_000
 
-// MaxDecodeDepth is the maximum nesting depth when decoding recursive types.
-// Generated codecs for recursive schemas guard DecodeOrc with
-// PushDepth(MaxDecodeDepth), so a crafted input cannot drive unbounded stack
-// growth. Defaults to 10,000.
+// MaxDecodeDepth is the maximum nesting depth when decoding recursive types. Generated
+// codecs for recursive schemas guard DecodeOrc with PushDepth(MaxDecodeDepth), so a
+// crafted input cannot drive unbounded stack growth. Defaults to 10,000.
 var MaxDecodeDepth = 10_000
 
-// Reader reads primitive data types using big-endian byte order. It supports two
-// modes: direct byte-slice mode (via ResetBytes) for zero-copy decoding from
-// in-memory data, and io.Reader mode (via Reset) for streaming. Direct mode
-// avoids intermediate buffer allocations and io.ReadFull overhead.
+// Reader reads primitive data types using big-endian byte order. It supports two modes:
+// direct byte-slice mode (via ResetBytes) for zero-copy decoding from in-memory data,
+// and io.Reader mode (via Reset) for streaming. Direct mode avoids intermediate buffer
+// allocations and io.ReadFull overhead.
 type Reader struct {
 	r     io.Reader
 	buf   [8]byte
@@ -56,9 +55,7 @@ type Reader struct {
 }
 
 // NewReader creates a new Reader in io.Reader mode.
-func NewReader(r io.Reader) *Reader {
-	return &Reader{r: r}
-}
+func NewReader(r io.Reader) *Reader { return &Reader{r: r} }
 
 // Reset resets the reader to use an io.Reader and clears the recursion depth.
 func (r *Reader) Reset(reader io.Reader) {
@@ -68,8 +65,8 @@ func (r *Reader) Reset(reader io.Reader) {
 	r.depth = 0
 }
 
-// ResetBytes resets the reader to decode directly from a byte slice. This avoids
-// the bytes.NewReader allocation and enables zero-copy reads for fixed-size types.
+// ResetBytes resets the reader to decode directly from a byte slice. This avoids the
+// bytes.NewReader allocation and enables zero-copy reads for fixed-size types.
 func (r *Reader) ResetBytes(data []byte) {
 	r.data = data
 	r.pos = 0
@@ -144,50 +141,70 @@ func (r *Reader) Uint64() (uint64, error) {
 // Int8 reads a signed 8-bit integer.
 func (r *Reader) Int8() (int8, error) {
 	v, err := r.Uint8()
-	return int8(v), err
+	if err != nil {
+		return 0, err
+	}
+	return int8(v), nil
 }
 
 // Int16 reads a signed 16-bit integer.
 func (r *Reader) Int16() (int16, error) {
 	v, err := r.Uint16()
-	return int16(v), err
+	if err != nil {
+		return 0, err
+	}
+	return int16(v), nil
 }
 
 // Int32 reads a signed 32-bit integer.
 func (r *Reader) Int32() (int32, error) {
 	v, err := r.Uint32()
-	return int32(v), err
+	if err != nil {
+		return 0, err
+	}
+	return int32(v), nil
 }
 
 // Int64 reads a signed 64-bit integer.
 func (r *Reader) Int64() (int64, error) {
 	v, err := r.Uint64()
-	return int64(v), err
+	if err != nil {
+		return 0, err
+	}
+	return int64(v), nil
 }
 
 // Float32 reads a 32-bit float.
 func (r *Reader) Float32() (float32, error) {
 	v, err := r.Uint32()
-	return math.Float32frombits(v), err
+	if err != nil {
+		return 0, err
+	}
+	return math.Float32frombits(v), nil
 }
 
 // Float64 reads a 64-bit float.
 func (r *Reader) Float64() (float64, error) {
 	v, err := r.Uint64()
-	return math.Float64frombits(v), err
+	if err != nil {
+		return 0, err
+	}
+	return math.Float64frombits(v), nil
 }
 
 // Bool reads a single byte and returns true if non-zero.
 func (r *Reader) Bool() (bool, error) {
 	v, err := r.Uint8()
-	return v != 0, err
+	if err != nil {
+		return false, err
+	}
+	return v != 0, nil
 }
 
-// String reads a length-prefixed string (4-byte length + raw bytes).
-// In direct mode, slices into the backing data to avoid an intermediate
-// buffer allocation. In io.Reader mode, the declared length is validated
-// against MaxStringLen to prevent a corrupt prefix from causing a massive
-// allocation.
+// String reads a length-prefixed string (4-byte length + raw bytes). In direct mode,
+// slices into the backing data to avoid an intermediate buffer allocation. In io.Reader
+// mode, the declared length is validated against MaxStringLen to prevent a corrupt
+// prefix from causing a massive allocation.
 func (r *Reader) String() (string, error) {
 	n, err := r.Uint32()
 	if err != nil {
@@ -217,9 +234,9 @@ func (r *Reader) String() (string, error) {
 	return string(buf), nil
 }
 
-// CollectionLen reads a uint32 element count and validates it against
-// MaxCollectionLen. Use this instead of Uint32 when the value controls a
-// slice, map, or byte array allocation.
+// CollectionLen reads a uint32 element count and validates it against MaxCollectionLen.
+// Use this instead of Uint32 when the value controls a slice, map, or byte array
+// allocation.
 func (r *Reader) CollectionLen() (uint32, error) {
 	n, err := r.Uint32()
 	if err != nil {
@@ -236,9 +253,9 @@ func (r *Reader) CollectionLen() (uint32, error) {
 	return n, nil
 }
 
-// ReadWithLen reads a length-prefixed byte slice (4-byte length + raw bytes).
-// The declared length is validated against MaxCollectionLen to prevent a corrupt
-// prefix from causing a massive allocation.
+// ReadWithLen reads a length-prefixed byte slice (4-byte length + raw bytes). The
+// declared length is validated against MaxCollectionLen to prevent a corrupt prefix
+// from causing a massive allocation.
 func (r *Reader) ReadWithLen() ([]byte, error) {
 	n, err := r.CollectionLen()
 	if err != nil {
@@ -270,8 +287,8 @@ func (r *Reader) Read(data []byte) (int, error) {
 	return io.ReadFull(r.r, data)
 }
 
-// PushDepth increments the recursion depth counter and returns an error if
-// the limit is exceeded. Use this when decoding recursive types.
+// PushDepth increments the recursion depth counter and returns an error if the limit is
+// exceeded. Use this when decoding recursive types.
 func (r *Reader) PushDepth(limit int) error {
 	r.depth++
 	if r.depth > limit {
