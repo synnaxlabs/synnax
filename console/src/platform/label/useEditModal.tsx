@@ -147,7 +147,7 @@ const LabelListItem = ({
 const listItem = Component.renderProp(LabelListItem);
 
 export const useEditModal = Modals.create(() => {
-  const { data, getItem, retrieve, subscribe } = Label.useList();
+  const { data, getItem, retrieve, subscribe, answered } = Label.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -187,6 +187,7 @@ export const useEditModal = Modals.create(() => {
           <List.Items
             grow
             emptyContent={
+              answered &&
               !newFormVisible && (
                 <Flex.Box center>
                   <Text.Text level="h4" color={9}>
