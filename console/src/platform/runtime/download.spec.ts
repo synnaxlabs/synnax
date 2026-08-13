@@ -65,22 +65,6 @@ describe("Runtime download", () => {
     vi.restoreAllMocks();
   });
 
-  describe("downloadFromBrowser", () => {
-    it("should create an object URL, click a download link, and revoke the URL", () => {
-      const blob = new Blob(["hello"], { type: "text/plain" });
-      Runtime.downloadFromBrowser(blob, "greeting.txt");
-      expect(downloads.blobs).toEqual([blob]);
-      expect(downloads.anchors).toHaveLength(1);
-      expect(downloads.revoked).toEqual([MOCK_OBJECT_URL]);
-    });
-
-    it("should set the download filename on the anchor", () => {
-      Runtime.downloadFromBrowser(new Blob(["x"]), "report.csv");
-      expect(downloads.anchors).toHaveLength(1);
-      expect(downloads.anchors[0].download).toBe("report.csv");
-    });
-  });
-
   describe("downloadStream", () => {
     describe("showSaveFilePicker (case 1)", () => {
       it("should pipe the stream into the chosen file and report status", async () => {
@@ -149,15 +133,18 @@ describe("Runtime download", () => {
         saveMock.mockResolvedValue("/home/user/data.csv");
         const addStatus = vi.fn();
         const stream = createStream();
+        const filters = [{ name: "CSV", extensions: ["csv"] }];
         await Runtime.downloadStream({
           stream,
           name: "data",
           extension: "csv",
+          filters,
           addStatus,
         });
         expect(saveMock).toHaveBeenCalledWith({
           title: "Download data",
           defaultPath: "data.csv",
+          filters,
         });
         expect(writeFileMock).toHaveBeenCalledWith("/home/user/data.csv", stream);
         expect(addStatus).toHaveBeenNthCalledWith(1, {
@@ -212,6 +199,8 @@ describe("Runtime download", () => {
         });
         expect(downloads.blobs).toHaveLength(1);
         expect(downloads.anchors).toHaveLength(1);
+        expect(downloads.anchors[0].download).toBe("data.csv");
+        expect(downloads.revoked).toEqual([MOCK_OBJECT_URL]);
         expect(addStatus).toHaveBeenNthCalledWith(1, {
           variant: "info",
           message: "Downloading data to Downloads",

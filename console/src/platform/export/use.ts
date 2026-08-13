@@ -58,16 +58,15 @@ export const use = (): ((id: ontology.ID) => void) => {
           if (client == null) throw new DisconnectedError();
           const file = await fetchFileData(client, id);
           name = file.name;
-          const location = await Runtime.saveFile({
-            title: `Export ${name}`,
-            defaultName: `${name}.json`,
+          // Response, not Blob.stream(): jsdom implements only the former.
+          const stream = new Response(file.data).body;
+          if (stream == null) throw new Error("failed to open envelope stream");
+          await Runtime.downloadStream({
+            stream,
+            name,
+            extension: "json",
             filters: FILTERS,
-            contents: file.data,
-          });
-          if (location == null) return;
-          addStatus({
-            variant: "success",
-            message: `Exported ${name} to ${location}`,
+            addStatus,
           });
         },
         `Failed to export ${name ?? id.type}`,

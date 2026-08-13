@@ -12,9 +12,10 @@ import { errors, filename } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
+import { type FileFilter } from "@/platform/runtime/files";
 import { Session } from "@/session";
 
-export const downloadFromBrowser = (data: Blob, fileName: string) => {
+const downloadFromBrowser = (data: Blob, fileName: string) => {
   const link = document.createElement("a");
   link.href = URL.createObjectURL(data);
   link.download = fileName;
@@ -33,6 +34,7 @@ export interface DownloadStreamParams {
   stream: ReadableStream<Uint8Array>;
   name: string;
   extension?: string;
+  filters?: FileFilter[];
   addStatus: Status.Adder;
   onDownloadStart?: () => void;
 }
@@ -45,12 +47,14 @@ export interface DownloadStreamParams {
  * sanitized form names the file.
  * @param extension - The extension of the file to download. Omit when name already
  * carries one.
+ * @param filters - File-type filters for the Tauri save dialog.
  * @param addStatus - The function to add a status message.
  */
 export const downloadStream = async ({
   stream,
   name,
   extension,
+  filters,
   onDownloadStart,
   addStatus,
 }: DownloadStreamParams): Promise<void> => {
@@ -98,6 +102,7 @@ export const downloadStream = async ({
     const savePath = await save({
       title: `Download ${name}`,
       defaultPath: nameWithExtension,
+      filters,
     });
     if (savePath == null) {
       await stream.cancel();
