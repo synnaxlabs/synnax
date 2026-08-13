@@ -67,7 +67,7 @@ export interface UseContextMenuReturn extends ContextMenuState {
   className: string;
 }
 
-const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
 const INITIAL_STATE: ContextMenuState = {
   visible: false,

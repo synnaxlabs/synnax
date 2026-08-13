@@ -10,9 +10,8 @@
 import "@/feature/auth/ConnectionGuard.css";
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
-import { Logo } from "@synnaxlabs/media";
 import { Button, Flex, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -28,12 +27,8 @@ import { Shell } from "@/platform/shell";
 import { Session } from "@/session";
 
 /**
- * Blacks out the workspace while the active cluster is unusable or the
- * session is in structural doubt. Rejected credentials return to the login
- * surface at any warmth. Until the session settles a single splash renders
- * instead of the workspace: connecting before first contact, connection
- * trouble with error detail and actions once a check fails, preparing once
- * the cluster is reached. Warm degradation renders children intact.
+ * Renders a splash instead of the workspace until the session settles. Rejected
+ * credentials return to the login surface; a degraded live connection does not.
  */
 export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   const client = Synnax.use();
@@ -45,28 +40,7 @@ export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   return children;
 };
 
-// Rotation switch: what occupies the orbital's core during connection
-// trouble. "countdown" swaps the logo for the retry cycle.
-type CoreContent = "countdown" | "logo";
-const CORE_CONTENT = "countdown" as CoreContent;
-
-// The mark ring is the orbital's planet: opaque, so ring arcs passing behind it
-// are occluded rather than shining through the countdown.
-const SplashCore = ({ children }: PropsWithChildren): ReactElement => (
-  <Flex.Box
-    y
-    empty
-    align="center"
-    justify="center"
-    grow={false}
-    className={CSS.BE("shell", "mark-ring")}
-  >
-    {children ?? <Logo variant="icon" className={CSS.BE("shell", "mark")} />}
-  </Flex.Box>
-);
-
-// A check against a dead local port fails in milliseconds; the beat is held
-// on screen long enough for the user to actually see the attempt happen.
+// A check against a dead local port fails in milliseconds, too fast to see.
 const CHECK_HOLD = TimeSpan.milliseconds(1250);
 
 const useHeldChecking = (checking: boolean): boolean => {
@@ -88,15 +62,7 @@ interface CountdownCoreProps {
 }
 
 const CountdownCore = ({ retry, checking }: CountdownCoreProps): ReactElement => {
-  const [now, setNow] = useState(() => TimeStamp.now());
-  useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), 500);
-    return () => clearInterval(interval);
-  }, []);
-  const remaining = Math.max(
-    0,
-    Math.ceil(new TimeSpan(retry.nextAt.valueOf() - now.valueOf()).seconds),
-  );
+  const remaining = Shell.useCountdown(retry.nextAt);
   return (
     <>
       <Text.Text level="h3" color={11} className={CSS.BE("connection", "countdown")}>
@@ -123,8 +89,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
   const troubled =
     connecting &&
     (variant === "error" || details.error != null || details.retry != null);
-  // Fast connections settle before the reveal timer fires, so the splash stays
-  // an empty card instead of flashing a spinner for a few frames.
+  // Fast connections settle before this fires, so the card never flashes a spinner.
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
     const timeout = setTimeout(() => setRevealed(true), 300);
@@ -132,12 +97,11 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
   }, []);
   const checking = useHeldChecking(details.checking);
   const core =
-    CORE_CONTENT === "countdown" && troubled && details.retry != null ? (
+    troubled && details.retry != null ? (
       <CountdownCore retry={details.retry} checking={checking} />
     ) : undefined;
   return (
-    // The trouble state consolidates connection info into the card, so the
-    // connection island hides to avoid stating it twice.
+    // Trouble puts the connection detail in the card, so the island would repeat it.
     <Shell.Frame className={CSS.B("connection")} connection={troubled ? null : cluster}>
       <Flex.Box
         y
@@ -146,7 +110,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
         gap={8}
         className={CSS(CSS.BE("connection", "body"), revealed && CSS.M("revealed"))}
       >
-        <Status.Orbital core={<SplashCore>{core}</SplashCore>} />
+        <Status.Orbital core={<Shell.Mark>{core}</Shell.Mark>} />
         {troubled ? (
           <Trouble client={client} status={status} checking={checking} />
         ) : (
@@ -190,8 +154,6 @@ const Trouble = ({ client, status, checking }: TroubleProps): ReactElement => {
             {cluster.host}:{cluster.port}
           </Text.Text>
         )}
-        {/* Ghost copies reserve the widest label's width so the centered row
-            doesn't shift when the live label swaps. */}
         <Text.Text status={variant} className={CSS.BE("connection", "status")}>
           <span>{checking ? "Retrying" : Shell.STATUS_LABELS[variant]}</span>
           <span className={CSS.M("ghost")} aria-hidden>

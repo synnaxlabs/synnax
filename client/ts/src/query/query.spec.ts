@@ -935,6 +935,141 @@ describe("Answers", () => {
     });
   });
 
+  describe("exact-keys read-through (keysOf)", () => {
+    type KeysQ = { keys: string[]; minSize?: number };
+    const keysSpace = (
+      table: query.Table<string, Rec>,
+      fetch: (query: KeysQ) => Promise<string[]>,
+      hooks?: SpaceHooks,
+    ) =>
+      new Space<KeysQ, Rec[], string, Rec>(
+        {
+          name: "things",
+          table,
+          fetch,
+          compose: (records) => records,
+          keysOf: (q) => (q.minSize == null ? q.keys : null),
+          matches: (r, q) =>
+            q.keys.includes(r.key) && (q.minSize == null || r.value >= q.minSize),
+        },
+        hooks,
+      );
+
+    it("composes getCached from cached entries in params order without a fetch", () => {
+      const table = newTable();
+      table.set([rec("b", 2), rec("a", 1)]);
+      const fetch = vi.fn(async () => ["a", "b"]);
+      const answers = keysSpace(table, fetch);
+      expect(answers.getCached({ keys: ["a", "b"] })).toEqual([
+        rec("a", 1),
+        rec("b", 2),
+      ]);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("returns undefined when any key is unknown", () => {
+      const table = newTable();
+      table.set("a", rec("a", 1));
+      const answers = keysSpace(table, async () => []);
+      expect(answers.getCached({ keys: ["a", "x"] })).toBeUndefined();
+    });
+
+    it("omits tombstoned members to match the fetch answer", () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2)]);
+      table.delete("b");
+      const answers = keysSpace(table, async () => []);
+      expect(answers.getCached({ keys: ["a", "b"] })).toEqual([rec("a", 1)]);
+      table.delete("a");
+      expect(answers.getCached({ keys: ["a", "b"] })).toEqual([]);
+    });
+
+    it("dedupes repeated keys", () => {
+      const table = newTable();
+      table.set("a", rec("a", 1));
+      const answers = keysSpace(table, async () => []);
+      expect(answers.getCached({ keys: ["a", "a"] })).toEqual([rec("a", 1)]);
+    });
+
+    it("does not compose when the query carries a non-keys field", () => {
+      const table = newTable();
+      table.set("a", rec("a", 5));
+      const answers = keysSpace(table, async () => []);
+      expect(answers.getCached({ keys: ["a"], minSize: 1 })).toBeUndefined();
+    });
+
+    it("returns a referentially stable answer across reads", () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2)]);
+      const answers = keysSpace(table, async () => []);
+      const first = answers.getCached({ keys: ["a", "b"] });
+      expect(answers.getCached({ keys: ["a", "b"] })).toBe(first);
+    });
+
+    it("seeds a subscribed query from entries already in the table", async () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2)]);
+      const fetch = vi.fn(async () => ["a", "b"]);
+      const answers = keysSpace(table, fetch);
+      const handler = vi.fn();
+      answers.onChange({ keys: ["a", "b"] }, handler);
+      expect(handler).toHaveBeenCalledWith([rec("a", 1), rec("b", 2)]);
+      expect(await answers.retrieve({ keys: ["a", "b"] })).toEqual([
+        rec("a", 1),
+        rec("b", 2),
+      ]);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("maintains a seeded answer through member changes", () => {
+      const table = newTable();
+      table.set([rec("a", 1), rec("b", 2)]);
+      const answers = keysSpace(table, async () => []);
+      const handler = vi.fn();
+      answers.onChange({ keys: ["a", "b"] }, handler);
+      table.set("a", rec("a", 9));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 9), rec("b", 2)]);
+      table.delete("b");
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 9)]);
+      table.set("b", rec("b", 3));
+      expect(handler).toHaveBeenLastCalledWith([rec("a", 9), rec("b", 3)]);
+    });
+
+    it("does not seed while any key is unknown", () => {
+      const table = newTable();
+      table.set("a", rec("a", 1));
+      const answers = keysSpace(table, async () => []);
+      const handler = vi.fn();
+      answers.onChange({ keys: ["a", "x"] }, handler);
+      expect(handler).not.toHaveBeenCalled();
+      // The query stays unfetched, so member events do not notify.
+      table.set("a", rec("a", 2));
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it("reset flips a seeded answer to unfetched and notifies undefined", () => {
+      const table = newTable();
+      table.set("a", rec("a", 1));
+      const answers = keysSpace(table, async () => []);
+      const handler = vi.fn();
+      answers.onChange({ keys: ["a"] }, handler);
+      expect(handler).toHaveBeenCalledWith([rec("a", 1)]);
+      answers.reset();
+      expect(handler).toHaveBeenLastCalledWith(undefined);
+    });
+
+    it("reconfirms a seeded answer after an unmaintained gap", async () => {
+      const table = newTable();
+      table.set("a", rec("a", 1));
+      const fetch = vi.fn(async () => ["a"]);
+      const answers = keysSpace(table, fetch, { teardownGrace: TimeSpan.ZERO });
+      const off = answers.onChange({ keys: ["a"] }, vi.fn());
+      off();
+      answers.onChange({ keys: ["a"] }, vi.fn());
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+    });
+  });
+
   describe("batched delivery", () => {
     type ListQ = { min: number };
     const countingSpace = (
