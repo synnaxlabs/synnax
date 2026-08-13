@@ -13,23 +13,8 @@ import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 
-type Variant = "dusty" | "tint" | "solid" | "vivid";
-
-const VARIANT: Variant = "dusty";
-
-/* Hue strategies, all in OKLCH degrees:
-   - full-wheel: even coverage, maximum distinguishability, includes muddy slots.
-   - curated: full range but hand-picked, skips the 80-130 yellow-olive dead zone.
-   - cool: clustered on the teal-violet half, harmonized with the chrome's 258 tint.
-   - analogous: tight band around the brand hue; color as texture, not identity. */
-const HUE_STRATEGIES = {
-  "full-wheel": [15, 60, 105, 150, 195, 240, 285, 330],
-  curated: [25, 55, 145, 195, 230, 262, 295, 330],
-  cool: [160, 185, 210, 235, 258, 285, 310, 335],
-  analogous: [218, 233, 248, 263, 278, 293],
-} as const;
-
-const HUES: readonly number[] = HUE_STRATEGIES["full-wheel"];
+/* Even coverage of the OKLCH wheel, for maximum distinguishability. */
+const HUES: readonly number[] = [15, 60, 105, 150, 195, 240, 285, 330];
 
 /* Hashes the full name, not the initial, so same-letter projects get different
    hues. */
@@ -62,10 +47,7 @@ export const Avatar = ({ name }: AvatarProps): ReactElement => {
     [hue],
   );
   return (
-    <div
-      className={CSS(CSS.B("project-avatar"), CSS.BM("project-avatar", VARIANT))}
-      style={style}
-    >
+    <div className={CSS.B("project-avatar")} style={style}>
       {initialsOf(name)}
     </div>
   );

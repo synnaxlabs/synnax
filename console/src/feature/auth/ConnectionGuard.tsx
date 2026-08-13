@@ -10,9 +10,8 @@
 import "@/feature/auth/ConnectionGuard.css";
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
-import { Logo } from "@synnaxlabs/media";
 import { Button, Flex, Icon, Status, Synnax, Text } from "@synnaxlabs/pluto";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -45,26 +44,6 @@ export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   return children;
 };
 
-// Rotation switch: what occupies the orbital's core during connection
-// trouble. "countdown" swaps the logo for the retry cycle.
-type CoreContent = "countdown" | "logo";
-const CORE_CONTENT = "countdown" as CoreContent;
-
-// The mark ring is the orbital's planet: opaque, so ring arcs passing behind it
-// are occluded rather than shining through the countdown.
-const SplashCore = ({ children }: PropsWithChildren): ReactElement => (
-  <Flex.Box
-    y
-    empty
-    align="center"
-    justify="center"
-    grow={false}
-    className={CSS.BE("shell", "mark-ring")}
-  >
-    {children ?? <Logo variant="icon" className={CSS.BE("shell", "mark")} />}
-  </Flex.Box>
-);
-
 // A check against a dead local port fails in milliseconds; the beat is held
 // on screen long enough for the user to actually see the attempt happen.
 const CHECK_HOLD = TimeSpan.milliseconds(1250);
@@ -88,15 +67,7 @@ interface CountdownCoreProps {
 }
 
 const CountdownCore = ({ retry, checking }: CountdownCoreProps): ReactElement => {
-  const [now, setNow] = useState(() => TimeStamp.now());
-  useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), 500);
-    return () => clearInterval(interval);
-  }, []);
-  const remaining = Math.max(
-    0,
-    Math.ceil(new TimeSpan(retry.nextAt.valueOf() - now.valueOf()).seconds),
-  );
+  const remaining = Shell.useCountdown(retry.nextAt);
   return (
     <>
       <Text.Text level="h3" color={11} className={CSS.BE("connection", "countdown")}>
@@ -132,7 +103,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
   }, []);
   const checking = useHeldChecking(details.checking);
   const core =
-    CORE_CONTENT === "countdown" && troubled && details.retry != null ? (
+    troubled && details.retry != null ? (
       <CountdownCore retry={details.retry} checking={checking} />
     ) : undefined;
   return (
@@ -146,7 +117,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
         gap={8}
         className={CSS(CSS.BE("connection", "body"), revealed && CSS.M("revealed"))}
       >
-        <Status.Orbital core={<SplashCore>{core}</SplashCore>} />
+        <Status.Orbital core={<Shell.Mark>{core}</Shell.Mark>} />
         {troubled ? (
           <Trouble client={client} status={status} checking={checking} />
         ) : (

@@ -9,7 +9,6 @@
 
 import "@/feature/auth/Login.css";
 
-import { Logo } from "@synnaxlabs/media";
 import {
   Button,
   Flex,
@@ -128,9 +127,7 @@ export const Login = (): ReactElement => {
           )}
           <Form.Form<typeof credentialsZ> {...methods}>
             <Flex.Box y align="center" justify="center" grow gap="huge" shrink={false}>
-              <Flex.Box center grow={false} className={CSS.BE("shell", "mark-ring")}>
-                <Logo variant="icon" className={CSS.BE("shell", "mark")} />
-              </Flex.Box>
+              <Shell.Mark />
               <Flex.Box y full="x" empty>
                 <Form.TextField
                   path="username"

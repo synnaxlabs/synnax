@@ -20,8 +20,8 @@ import {
   Text,
   Tooltip,
 } from "@synnaxlabs/pluto";
-import { location, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
+import { location } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Clipboard } from "@/platform/clipboard";
 import { Cluster } from "@/platform/cluster";
@@ -48,14 +48,23 @@ interface RetryLineProps {
   details: connection.StatusDetails;
 }
 
+interface RetryCountdownProps {
+  retry: NonNullable<connection.StatusDetails["retry"]>;
+}
+
+const RetryCountdown = ({ retry }: RetryCountdownProps): ReactElement => {
+  const remaining = Shell.useCountdown(retry.nextAt);
+  return (
+    <Text.Text level="small" color={9}>
+      <Icon.Sync />
+      {`Retrying in ${remaining}s (attempt ${retry.attempt})`}
+    </Text.Text>
+  );
+};
+
 const RetryLine = ({
   details: { retry, checking },
 }: RetryLineProps): ReactElement | null => {
-  const [now, setNow] = useState(() => TimeStamp.now());
-  useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), 500);
-    return () => clearInterval(interval);
-  }, []);
   if (checking)
     return (
       <Text.Text level="small" color={9}>
@@ -64,16 +73,7 @@ const RetryLine = ({
       </Text.Text>
     );
   if (retry == null) return null;
-  const remaining = Math.max(
-    0,
-    Math.ceil(new TimeSpan(retry.nextAt.valueOf() - now.valueOf()).seconds),
-  );
-  return (
-    <Text.Text level="small" color={9}>
-      <Icon.Sync />
-      {`Retrying in ${remaining}s (attempt ${retry.attempt})`}
-    </Text.Text>
-  );
+  return <RetryCountdown retry={retry} />;
 };
 
 const Diagnostics = (): ReactElement => {
