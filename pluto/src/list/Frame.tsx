@@ -272,7 +272,7 @@ const VirtualFrame = <
   children,
   onFetchMore,
   overscan = 10,
-  itemHeight = 36,
+  itemHeight = 33,
 }: FrameProps<K, E>): ReactElement => {
   const ref = useRef<HTMLDivElement>(null);
   const hasData = data.length > 0;

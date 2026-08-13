@@ -22,23 +22,19 @@ export interface ChangeIdentifierMenuItemProps extends Pick<
   icon: string;
 }
 
-export const ChangeIdentifierMenuItem = ({
-  icon,
-  selection: { ids },
-  state: { getResource },
-  handleError,
-}: ChangeIdentifierMenuItemProps) => {
+interface InternalProps extends Pick<
+  ChangeIdentifierMenuItemProps,
+  "icon" | "handleError"
+> {
+  deviceKey: device.Key;
+}
+
+const Internal = ({ icon, deviceKey, handleError }: InternalProps) => {
   const rename = Modals.useRename();
   const { updateAsync } = useChangeIdentifier();
-  const first = getResource(ids[0]);
-  const { data: deviceData } = Device.useRetrieve({ key: first.id.key });
-  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
-  if (ids.length !== 1 || first.data?.configured !== true || !hasUpdatePermission)
-    return null;
+  const { properties } = Device.use({ key: deviceKey });
   const identifier =
-    typeof deviceData?.properties?.identifier === "string"
-      ? deviceData.properties.identifier
-      : "";
+    typeof properties?.identifier === "string" ? properties.identifier : "";
   const handleClick = () =>
     handleError(async () => {
       try {
@@ -50,7 +46,7 @@ export const ChangeIdentifierMenuItem = ({
           icon: Icon.resolve(icon),
         });
         if (newIdentifier == null) return;
-        await updateAsync({ key: first.id.key, identifier: newIdentifier });
+        await updateAsync({ key: deviceKey, identifier: newIdentifier });
       } catch (e) {
         if (e instanceof Error && errors.Canceled.matches(e)) return;
         throw errors.fromUnknown(e);
@@ -62,4 +58,17 @@ export const ChangeIdentifierMenuItem = ({
       Change identifier
     </Menu.Item>
   );
+};
+
+export const ChangeIdentifierMenuItem = ({
+  icon,
+  selection: { ids },
+  state: { getResource },
+  handleError,
+}: ChangeIdentifierMenuItemProps) => {
+  const first = getResource(ids[0]);
+  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
+  if (ids.length !== 1 || first.data?.configured !== true || !hasUpdatePermission)
+    return null;
+  return <Internal icon={icon} deviceKey={first.id.key} handleError={handleError} />;
 };

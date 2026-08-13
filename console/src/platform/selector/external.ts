@@ -9,3 +9,4 @@
 
 export * from "@/platform/selector/Item";
 export * from "@/platform/selector/Selector";
+export * from "@/platform/selector/tab";

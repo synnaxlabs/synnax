@@ -60,6 +60,24 @@ describe("SuspenseBoundary", () => {
     resolve("done");
   });
 
+  it("should render the delayed loading indicator by default while suspended", () => {
+    const c = render(
+      <SuspenseBoundary>
+        <Suspender promise={new Promise<string>(() => {})} />
+      </SuspenseBoundary>,
+    );
+    expect(c.container.querySelector(".pluto-status__loading")).not.toBeNull();
+  });
+
+  it("should render nothing while suspended when loading is null", () => {
+    const c = render(
+      <SuspenseBoundary loading={null}>
+        <Suspender promise={new Promise<string>(() => {})} />
+      </SuspenseBoundary>,
+    );
+    expect(c.container.innerHTML).toBe("");
+  });
+
   it("should render the default Fallback when a child throws an Error", () => {
     const c = render(
       <SuspenseBoundary>

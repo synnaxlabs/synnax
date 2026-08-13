@@ -13,9 +13,7 @@ import { describe, expect, it } from "vitest";
 import { renderPalette } from "@/feature/command/testutil";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Session } from "@/session";
-import { resolveFocusedTab, stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 

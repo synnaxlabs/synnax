@@ -85,7 +85,7 @@ const ReadEndpointListItem = (props: List.ItemProps<string>) => {
     <EndpointListItem
       {...props}
       extra={
-        <Text.Text level="small" color={7}>
+        <Text.Text level="small" color={9}>
           {fields.length}
         </Text.Text>
       }
@@ -140,7 +140,7 @@ const FieldListItem = ({ epKey, ...props }: FieldListItemProps) => {
         </PForm.Field>
       )}
       {enumCountText !== "" && (
-        <Text.Text level="small" color={7}>
+        <Text.Text level="small" color={9}>
           {enumCountText}
         </Text.Text>
       )}
@@ -269,11 +269,9 @@ const FieldList = ({ epKey }: FieldListProps) => {
               <Header.Actions empty align="end">
                 <Button.Button
                   onClick={handleAdd}
-                  variant="text"
-                  contrast={2}
+                  variant="filled"
                   tooltip="Add field"
                   size="small"
-                  sharp
                 >
                   <Icon.Add />
                 </Button.Button>
@@ -514,10 +512,9 @@ const Form: FC<Task.FormProps<ReadSchemas>> = () => {
             <Header.Actions>
               <Button.Button
                 onClick={handleAddEndpoint}
-                variant="text"
-                contrast={2}
+                variant="filled"
                 tooltip="Add endpoint"
-                sharp
+                size="small"
               >
                 <Icon.Add />
               </Button.Button>
@@ -696,6 +693,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 export const Read = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.HTTP,
   schemas: READ_SCHEMAS,
   type: "http_read",
   getInitialValues,

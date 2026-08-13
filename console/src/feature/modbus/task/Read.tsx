@@ -235,6 +235,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 export const Read = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.Modbus,
   schemas: READ_SCHEMAS,
   type: "modbus_read",
   getInitialValues,

@@ -31,7 +31,7 @@ import {
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -45,19 +45,24 @@ const isTimestamp = (dt: DataType | undefined): boolean =>
 
 interface ChannelRowProps {
   index: number;
-  ch: channel.Channel | undefined;
-  config: log.ChannelEntry;
+  channel: channel.Key;
   disabled: boolean;
 }
 
-const ChannelRow = ({ index, ch, config, disabled }: ChannelRowProps): ReactElement => {
+const ChannelRow = ({
+  index,
+  channel,
+  disabled,
+}: ChannelRowProps): ReactElement | null => {
   const dispatch = Log.useSingleDispatch();
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
-  const hasCustomColor = !color.isZero(config.color);
-  const showNumeric = showsNumericFields(ch?.dataType);
-  const showTimestamp = isTimestamp(ch?.dataType);
-  const { channel, alias, timestamp, precision, notation } = config;
+  const config = Log.useChannelEntry({ channel });
+  const query = channel > 0 ? { key: channel } : null;
+  const { data: dataType } = Channel.useResultDataType(query);
+  const { data: chName } = Channel.useResultName(query);
+  const showNumeric = showsNumericFields(dataType);
+  const showTimestamp = isTimestamp(dataType);
 
   const handleAliasChange = useCallback(
     (alias: string) => dispatch(log.setChannelAlias({ channel, alias })),
@@ -94,6 +99,9 @@ const ChannelRow = ({ index, ch, config, disabled }: ChannelRowProps): ReactElem
     () => dispatch(log.removeChannel({ channel })),
     [dispatch],
   );
+  if (config == null) return null;
+  const { alias, timestamp, precision, notation } = config;
+  const hasCustomColor = !color.isZero(config.color);
   return (
     <List.Item
       itemKey={channel}
@@ -117,7 +125,7 @@ const ChannelRow = ({ index, ch, config, disabled }: ChannelRowProps): ReactElem
           value={alias}
           onChange={handleAliasChange}
           disabled={disabled}
-          placeholder={ch?.name ?? "Alias"}
+          placeholder={chName ?? "Alias"}
           variant="shadow"
           shrink={false}
           startContent={<Icon.Rename />}
@@ -182,9 +190,8 @@ const ChannelRow = ({ index, ch, config, disabled }: ChannelRowProps): ReactElem
           onClick={handleRemove}
           size="small"
           variant="text"
-          ghost
+          reveal
           tooltip="Remove channel"
-          contrast={0}
         >
           <Icon.Close />
         </Button.Button>
@@ -226,25 +233,14 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
 };
 
 export const Channels = (): ReactElement => {
-  const entries = Log.useSelectChannels();
+  const channelKeys = Log.useChannelKeys();
   const key = Log.useKey();
   const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
-  const keys = useMemo(
-    () => entries.map((c) => c.channel).filter((k) => !primitive.isZero(k)),
-    [entries],
-  );
-  const { data: channels } = Channel.useRetrieveMultiple({ keys });
   return (
     <Flex.Box y full="y" className={CSS.BE("log", "toolbar", "channels")}>
-      {entries.map((entry, i) =>
-        primitive.isZero(entry.channel) ? null : (
-          <ChannelRow
-            key={entry.channel}
-            index={i}
-            ch={channels?.find((c) => c.key === entry.channel)}
-            config={entry}
-            disabled={!hasUpdatePermission}
-          />
+      {channelKeys.map((ch, i) =>
+        primitive.isZero(ch) ? null : (
+          <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
         ),
       )}
       <AddChannelRow disabled={!hasUpdatePermission} />

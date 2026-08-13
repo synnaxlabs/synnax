@@ -43,7 +43,7 @@ export const List = ({ items, ...rest }: ListProps): ReactElement => {
   const listProps = Ontology.useResourceList({ filter });
   return (
     <Palette.BaseList
-      emptyContent={emptyContent}
+      emptyContent={listProps.answered && emptyContent}
       listItem={listItem}
       {...listProps}
       {...rest}

@@ -98,8 +98,8 @@ describe("Panel.TabMenuItems", () => {
       const tab = resourceTab();
       const { wrapper } = await setup([tab], tab.key);
       const service: Panel.EditableTabNameService = {
-        useEnsureRetrieved: vi.fn(),
-        useSelectName: () => "Resolved Name",
+        useEnsure: vi.fn(),
+        useName: () => "Resolved Name",
         useRename: () => ({ update: vi.fn() }),
       };
       const Name = Panel.createEditableTabName(service, <Icon.Schematic />);

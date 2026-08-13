@@ -23,8 +23,11 @@ export type HTMLInputProps = Omit<
   "size" | "onChange" | "value" | "children" | "placeholder" | "color"
 >;
 
-export type Variant = Exclude<Button.Variant, "filled" | "suggestion">;
+/* The input chassis ladder: the button ladder without "filled", plus "shadow", an
+   edit-in-place cell whose invisible chassis materializes on hover. */
+export type Variant = Extract<Button.Variant, "outlined" | "text"> | "shadow";
 
-export interface InputProps<I = unknown, O = I> extends HTMLInputProps, Control<I, O> {
+export interface InputProps<I = unknown, O = I>
+  extends HTMLInputProps, Control<I, O>, Pick<Button.ExtensionProps, "preview"> {
   variant?: Variant;
 }

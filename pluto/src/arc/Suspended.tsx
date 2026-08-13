@@ -10,7 +10,7 @@
 import { type arc } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { useEnsureRetrieved } from "@/arc/queries";
+import { useEnsure } from "@/arc/queries";
 import { Scope } from "@/arc/scope";
 
 export const useKey = Scope.use;
@@ -20,6 +20,6 @@ export interface SuspendedProps extends PropsWithChildren {
 }
 
 export const Suspended = ({ arcKey, children }: SuspendedProps): ReactElement => {
-  useEnsureRetrieved({ key: arcKey });
+  useEnsure({ key: arcKey });
   return <Scope.Provider value={arcKey}>{children}</Scope.Provider>;
 };

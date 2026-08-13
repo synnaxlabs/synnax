@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { type Haul } from "@synnaxlabs/pluto";
+import { type Haul, type Status } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
-import { createConsoleWrapper, getIconButton } from "@/testutil";
+import { CaptureStatuses, createConsoleWrapper, getIconButton } from "@/testutil";
 
 const NODE: OPC.Task.ScannedNode = {
   key: "ns=2;s=Demo.Static.Scalar.Float",
@@ -66,12 +66,21 @@ describe("Browser", () => {
     const client = createTestClient();
     const dev = await createOPCDevice(client);
     const { wrapper } = await createConsoleWrapper({ client });
-    const { container } = render(<OPC.Device.Browser device={dev} />, { wrapper });
+    let statuses: Status.NotificationSpec[] = [];
+    const { container } = render(
+      <>
+        <OPC.Device.Browser device={dev} />
+        <CaptureStatuses onStatuses={(s) => (statuses = s)} />
+      </>,
+      { wrapper },
+    );
     await screen.findByText("Browser");
     await screen.findByText(/not found/i);
+    expect(statuses).toHaveLength(0);
     const refresh = getIconButton(container, "refresh");
     expect(refresh.disabled).toBe(false);
     fireEvent.click(refresh);
     await screen.findByText(/not found/i);
+    expect(statuses).toHaveLength(0);
   });
 });

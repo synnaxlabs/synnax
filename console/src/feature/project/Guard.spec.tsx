@@ -18,18 +18,23 @@ import { renderWithConsole } from "@/testutil";
 describe("project/Guard", () => {
   const selected = "00000000-0000-0000-0000-000000000001";
 
+  // The splash's own contents are permission-dependent, so identify it by its root
+  // rather than by any action it offers.
+  const querySplash = (container: HTMLElement): Element | null =>
+    container.querySelector(".console-project-splash");
+
   it("should render the splash instead of children when no project is active", async () => {
-    await renderWithConsole(
+    const { container } = await renderWithConsole(
       <Project.Guard>
         <div>protected content</div>
       </Project.Guard>,
     );
     expect(screen.queryByText("protected content")).toBeNull();
-    expect(screen.getByText("New Project")).toBeDefined();
+    expect(querySplash(container)).not.toBeNull();
   });
 
   it("should render children when a project is active", async () => {
-    await renderWithConsole(
+    const { container } = await renderWithConsole(
       <Project.Guard>
         <div>protected content</div>
       </Project.Guard>,
@@ -43,11 +48,11 @@ describe("project/Guard", () => {
       },
     );
     expect(screen.getByText("protected content")).toBeDefined();
-    expect(screen.queryByText("New Project")).toBeNull();
+    expect(querySplash(container)).toBeNull();
   });
 
   it("should swap the splash for children when a project becomes active", async () => {
-    const { store } = await renderWithConsole(
+    const { container, store } = await renderWithConsole(
       <Project.Guard>
         <div>protected content</div>
       </Project.Guard>,
@@ -57,11 +62,11 @@ describe("project/Guard", () => {
       store.dispatch(Session.Project.select(selected));
     });
     expect(screen.getByText("protected content")).toBeDefined();
-    expect(screen.queryByText("New Project")).toBeNull();
+    expect(querySplash(container)).toBeNull();
   });
 
   it("should fall back to the splash when the active project is cleared", async () => {
-    const { store } = await renderWithConsole(
+    const { container, store } = await renderWithConsole(
       <Project.Guard>
         <div>protected content</div>
       </Project.Guard>,
@@ -79,6 +84,6 @@ describe("project/Guard", () => {
       store.dispatch(Session.Project.clearSelected());
     });
     expect(screen.queryByText("protected content")).toBeNull();
-    expect(screen.getByText("New Project")).toBeDefined();
+    expect(querySplash(container)).not.toBeNull();
   });
 });

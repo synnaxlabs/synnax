@@ -87,7 +87,7 @@ input[type="date"]::-moz-calendar-picker-indicator {
         width: 37rem;
 
         & div:nth-child(3) {
-            border: var(--pluto-border-l5);
+            border: var(--pluto-border-l6);
         }
 
         .pluto-calendar-header {
@@ -95,12 +95,12 @@ input[type="date"]::-moz-calendar-picker-indicator {
         }
 
         .pluto-calendar-header__month {
-            border-top: var(--pluto-border-l5);
-            border-bottom: var(--pluto-border-l5);
+            border-top: var(--pluto-border-l6);
+            border-bottom: var(--pluto-border-l6);
         }
 
         & > * > .pluto-text-icon {
-            border-top: var(--pluto-border-l5);
+            border-top: var(--pluto-border-l6);
         }
     }
 
@@ -116,16 +116,16 @@ input[type="date"]::-moz-calendar-picker-indicator {
         width: 100%;
         max-height: 100%;
         border-top-left-radius: 0 !important;
-        border-right: var(--pluto-border-l5);
+        border-right: var(--pluto-border-l6);
         border-right-color: var(--pluto-gray-l6);
-        border-top: var(--pluto-border-l5);
+        border-top: var(--pluto-border-l6);
 
         .pluto-list__item {
             border-left: var(--pluto-border);
             border-color: transparent;
 
             &:hover {
-                border-color: var(--pluto-gray-l5);
+                border-color: var(--pluto-gray-l7);
             }
         }
     }
@@ -138,7 +138,7 @@ input[type="date"]::-moz-calendar-picker-indicator {
 
     .pluto-datetime-picker {
         border-top-left-radius: 0 !important;
-        background: var(--pluto-gray-l1);
+        background: var(--pluto-gray-l2);
         min-width: 70rem;
         height: 38rem;
 
@@ -151,7 +151,7 @@ input[type="date"]::-moz-calendar-picker-indicator {
         }
 
         ::-webkit-scrollbar-thumb {
-            background: var(--pluto-gray-l3);
+            background: var(--pluto-gray-l6);
             border-radius: var(--pluto-border-radius);
         }
 

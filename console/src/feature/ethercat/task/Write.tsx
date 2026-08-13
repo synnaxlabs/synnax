@@ -183,6 +183,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.EtherCAT,
   schemas: WRITE_SCHEMAS,
   type: "ethercat_write",
   getInitialValues,

@@ -17,8 +17,9 @@
         width: 86px;
     }
 
-    .console-line-plot__toolbar-selector {
-        border-bottom: none;
+    /* Insets the axis tab strip off the pane edge. */
+    .console-line-plot__toolbar-axes-tabs {
+        padding: 1rem 0.75rem;
     }
 
     .console-line-plot__toolbar-lines {

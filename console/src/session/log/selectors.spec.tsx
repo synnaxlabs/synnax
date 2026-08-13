@@ -18,7 +18,10 @@ import { Log } from "@/session/log";
 
 const KEY = "log-1";
 
-const customState = Log.stateZ.parse({ toolbar: { selectedTab: "properties" } });
+const customState = Log.stateZ.parse({
+  hold: true,
+  toolbar: { selectedTab: "properties" },
+});
 
 const storeWith = (slice: Log.SliceState) =>
   configureStore({
@@ -62,9 +65,47 @@ describe("log selector hooks", () => {
     });
     expect(result.current).toBe("properties");
   });
+
+  it("should read the hold state", () => {
+    const { result } = renderHook(() => Log.useSelectHold(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toBe(true);
+  });
+
+  it("should default hold to false for a log with no stored state", () => {
+    const { result } = renderHook(() => Log.useSelectHold({ key: "absent" }), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toBe(false);
+  });
+
+  it("should track hold across dispatches", () => {
+    const store = storeWith(Log.ZERO_SLICE_STATE);
+    const { result } = renderHook(() => Log.useSelectHold(), {
+      wrapper: wrapperFor(store, KEY),
+    });
+    expect(result.current).toBe(false);
+    act(() => {
+      store.dispatch(Log.create({ key: KEY }));
+      store.dispatch(Log.setHold({ key: KEY, hold: true }));
+    });
+    expect(result.current).toBe(true);
+    act(() => {
+      store.dispatch(Log.setHold({ key: KEY, hold: false }));
+    });
+    expect(result.current).toBe(false);
+  });
 });
 
 describe("log getters", () => {
+  it("should let an explicit key override the scope", () => {
+    const { result } = renderHook(() => Log.useGetState(), {
+      wrapper: wrapperFor(createCustomStore(), "absent"),
+    });
+    expect(result.current({ key: KEY })).toEqual(customState);
+  });
+
   it("should read a log's state on demand across dispatches", () => {
     const store = storeWith(Log.ZERO_SLICE_STATE);
     const { result } = renderHook(() => Log.useGetState(), {

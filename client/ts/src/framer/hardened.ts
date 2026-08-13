@@ -156,6 +156,9 @@ export class HardenedStreamer implements Streamer {
         )
           throw err;
         if (!(await this.breaker.wait())) throw err;
+        // close() interrupts the backoff above, so re-check: a retired
+        // streamer's failed reconnect is expected, not a fault to report.
+        if (this.closed) break;
         console.error("failed to open streamer", e);
       }
     throw new EOF();

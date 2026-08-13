@@ -7,25 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu, Panel, type Triggers } from "@synnaxlabs/pluto";
+import { panel, query } from "@synnaxlabs/client";
+import { Icon, Menu, Panel, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useTearOffTab } from "@/feature/panel/useTearOff";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
-import { editTabName } from "@/platform/panel/tab";
+import { Panel as PlatformPanel } from "@/platform/panel";
 import { Session } from "@/session";
-
-const FOCUS_TRIGGER: Triggers.Trigger = ["Control", "L"];
-const RENAME_TRIGGER: Triggers.Trigger = ["Control", "E"];
 
 const RenameItem = (): ReactElement | null => {
   const tabKey = Panel.useTabKey();
-  const isResource = Panel.useSelectTabVariant({}) === "resource";
+  const isResource = Panel.useTabVariant({}) === "resource";
   if (!isResource) return null;
   return (
     <CMenu.RenameItem
-      onClick={() => editTabName(tabKey)}
-      trigger={RENAME_TRIGGER}
+      onClick={() => PlatformPanel.editTabName(tabKey)}
+      trigger={PlatformPanel.RENAME_TRIGGER}
       triggerIndicator
     />
   );
@@ -33,15 +31,21 @@ const RenameItem = (): ReactElement | null => {
 
 const FocusItem = (): ReactElement => {
   const tabKey = Panel.useTabKey();
+  const isOverlaid = Session.Panel.useSelectIsTabOverlaid();
   const startOverlaying = Session.Panel.useStartOverlaying();
-  const handleFocus = useCallback(
-    () => startOverlaying(tabKey),
-    [startOverlaying, tabKey],
-  );
+  const dispatch = Session.useDispatch();
+  const handleFocus = useCallback(() => {
+    if (isOverlaid) dispatch(Session.Panel.stopOverlaying({}));
+    else startOverlaying(tabKey);
+  }, [isOverlaid, dispatch, startOverlaying, tabKey]);
   return (
-    <Menu.Item itemKey="focus" onClick={handleFocus} trigger={FOCUS_TRIGGER}>
-      <Icon.Focus />
-      Focus
+    <Menu.Item
+      itemKey="focus"
+      onClick={handleFocus}
+      triggerIndicator={Panel.OVERLAY_TRIGGER}
+    >
+      {isOverlaid ? <Icon.Collapse /> : <Icon.Focus />}
+      {isOverlaid ? "Exit focus" : "Focus"}
     </Menu.Item>
   );
 };
@@ -49,12 +53,15 @@ const FocusItem = (): ReactElement => {
 const MoveToNewWindowItem = (): ReactElement => {
   const key = Panel.useKey();
   const tabKey = Panel.useTabKey();
-  const getTab = Panel.useGetTab();
+  const client = Synnax.use();
   const tearOff = useTearOffTab();
-  const handleMove = useCallback(
-    () => tearOff({ panel: key, tab: getTab({ key, tabKey }) }),
-    [tearOff, key, tabKey, getTab],
-  );
+  const handleMove = useCallback(() => {
+    const cached = client?.panels.getCached(key);
+    if (!query.isLive(cached)) return;
+    const tab = panel.findTab(cached.root, tabKey);
+    if (tab == null) return;
+    tearOff({ panel: key, tab });
+  }, [tearOff, key, tabKey, client]);
   return (
     <Menu.Item itemKey="move-to-new-window" onClick={handleMove}>
       <Icon.OpenInNewWindow />
@@ -67,8 +74,12 @@ export const TabMenuItems = ({ keys }: Menu.ContextMenuMenuProps): ReactElement 
   if (keys.length === 0) return <CMenu.ReloadConsoleItem />;
   return (
     <>
+      <Panel.CloseTabMenuItem />
+      <Menu.Divider />
       <RenameItem />
       <FocusItem />
+      <Menu.Divider />
+      <Panel.SplitTabMenuItems />
       <MoveToNewWindowItem />
       <Menu.Divider />
       <CMenu.ReloadConsoleItem />

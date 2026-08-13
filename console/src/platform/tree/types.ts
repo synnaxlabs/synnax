@@ -28,7 +28,6 @@ export interface TreeState {
   setSelection: (keys: string[]) => void;
   expand: (key: string) => void;
   contract: (key: string) => void;
-  setLoading: (key: string | false) => void;
 }
 
 export interface BaseProps {

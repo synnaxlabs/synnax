@@ -17,7 +17,7 @@ import { z } from "zod";
 
 import { Label } from "@/platform/label";
 import { searchAndClickLabel } from "@/platform/label/testutil";
-import { createConsoleWrapper, stubGeometry, uniqueName } from "@/testutil";
+import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const schema = z.object({
   query: z.object({ hasLabels: z.array(z.string()) }),
@@ -38,8 +38,6 @@ const Fixture = ({ onValue }: { onValue?: (v: label.Key[]) => void }): ReactElem
   );
 };
 Fixture.displayName = "Fixture";
-
-stubGeometry();
 
 describe("Label.Filter.MenuItem", () => {
   it("should add a selected label's key to the query field", async () => {

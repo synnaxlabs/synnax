@@ -175,6 +175,25 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     rename();
   }
 
+  /**
+   * Retrieves every policy governing the subject, warming the role links of
+   * the subject and its policies so role reads resolve from the cache.
+   */
+  async retrieveForSubject(subject: ontology.ID): Promise<Policy[]> {
+    const policies = await this.retrieve({ for: subject });
+    const { parents } = this.cfg.ontology;
+    const warms = [parents.retrieve({ ids: subject, types: ["role"] })];
+    if (policies.length > 0)
+      warms.push(
+        parents.retrieve({
+          ids: policies.map((p) => ontologyID(p.key)),
+          types: ["role"],
+        }),
+      );
+    await Promise.all(warms);
+    return policies;
+  }
+
   private async execRetrieve(params: RetrieveRequest): Promise<Policy[]> {
     const res = await this.cfg.unary.send(
       "/access/policy/retrieve",

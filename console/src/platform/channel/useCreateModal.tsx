@@ -29,7 +29,7 @@ const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
 export const useCreateModal = Modals.create(({ close }) => {
   const [createMore, setCreateMore] = useState(false);
   const { form, variant, save } = Channel.useForm({
-    query: {},
+    query: null,
     afterSave: ({ reset }) => {
       if (createMore) reset(Channel.ZERO_FORM_VALUES);
       else close();
@@ -81,7 +81,7 @@ export const useCreateModal = Modals.create(({ close }) => {
               }}
             />
             <Form.Field<string> path="dataType" label="Data type" grow>
-              {({ variant: _, ...p }) => (
+              {(p) => (
                 <Telem.SelectDataType {...p} disabled={isIndex} zIndex={100} full="x" />
               )}
             </Form.Field>

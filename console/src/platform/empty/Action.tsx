@@ -10,7 +10,9 @@
 import { Flex, Text } from "@synnaxlabs/pluto";
 
 export interface ActionProps
-  extends Omit<Flex.BoxProps<"div">, "onClick">, Pick<Text.TextProps, "onClick"> {
+  extends
+    Omit<Flex.BoxProps<"div">, "onClick">,
+    Pick<Text.TextProps, "onClick" | "level"> {
   message: string;
   action?: string;
 }
@@ -20,15 +22,24 @@ export const Action = ({
   action,
   onClick,
   direction,
+  level,
   x,
   y = true,
   ...rest
 }: ActionProps) => (
   <Flex.Box center {...rest}>
-    <Text.Text y={y} x={x} center status="disabled" direction={direction} gap="tiny">
+    <Text.Text
+      y={y}
+      x={x}
+      center
+      status="disabled"
+      direction={direction}
+      gap="tiny"
+      level={level}
+    >
       {message}
       {action && (
-        <Text.Text onClick={onClick} variant="link">
+        <Text.Text onClick={onClick} variant="link" level={level}>
           {action}
         </Text.Text>
       )}
