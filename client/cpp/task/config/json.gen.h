@@ -12,58 +12,58 @@
 #pragma once
 
 #include "client/cpp/device/json.gen.h"
-#include "client/cpp/task/common/types.gen.h"
+#include "client/cpp/task/config/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
-namespace synnax::task::common {
+namespace synnax::task::config {
 
-inline KeyedConfig KeyedConfig::parse(x::json::Parser parser) {
-    return KeyedConfig{
+inline Keyed Keyed::parse(x::json::Parser parser) {
+    return Keyed{
         .key = parser.field<x::uuid::UUID>("key", x::uuid::create()),
     };
 }
 
-inline x::json::json KeyedConfig::to_json() const {
+inline x::json::json Keyed::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
     return j;
 }
 
-inline BaseStartConfig BaseStartConfig::parse(x::json::Parser parser) {
-    BaseStartConfig result;
-    static_cast<KeyedConfig &>(result) = KeyedConfig::parse(parser);
+inline BaseStart BaseStart::parse(x::json::Parser parser) {
+    BaseStart result;
+    static_cast<Keyed &>(result) = Keyed::parse(parser);
     result.auto_start = parser.field<bool>("auto_start", false);
     return result;
 }
 
-inline x::json::json BaseStartConfig::to_json() const {
+inline x::json::json BaseStart::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: KeyedConfig::to_json().items())
+    for (auto &[k, v]: Keyed::to_json().items())
         j[k] = v;
     j["auto_start"] = this->auto_start;
     return j;
 }
 
-inline BasePersistConfig BasePersistConfig::parse(x::json::Parser parser) {
-    BasePersistConfig result;
-    static_cast<BaseStartConfig &>(result) = BaseStartConfig::parse(parser);
+inline BasePersist BasePersist::parse(x::json::Parser parser) {
+    BasePersist result;
+    static_cast<BaseStart &>(result) = BaseStart::parse(parser);
     result.data_saving_disabled = parser.field<bool>("data_saving_disabled", false);
     return result;
 }
 
-inline x::json::json BasePersistConfig::to_json() const {
+inline x::json::json BasePersist::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseStartConfig::to_json().items())
+    for (auto &[k, v]: BaseStart::to_json().items())
         j[k] = v;
     j["data_saving_disabled"] = this->data_saving_disabled;
     return j;
 }
 
-inline BaseReadConfig BaseReadConfig::parse(x::json::Parser parser) {
-    BaseReadConfig result;
-    static_cast<BasePersistConfig &>(result) = BasePersistConfig::parse(parser);
+inline BaseRead BaseRead::parse(x::json::Parser parser) {
+    BaseRead result;
+    static_cast<BasePersist &>(result) = BasePersist::parse(parser);
     result.sample_rate = parser.field<::x::telem::Rate>(
         "sample_rate",
         ::x::telem::Rate(10)
@@ -75,41 +75,41 @@ inline BaseReadConfig BaseReadConfig::parse(x::json::Parser parser) {
     return result;
 }
 
-inline x::json::json BaseReadConfig::to_json() const {
+inline x::json::json BaseRead::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BasePersistConfig::to_json().items())
+    for (auto &[k, v]: BasePersist::to_json().items())
         j[k] = v;
     j["sample_rate"] = this->sample_rate;
     j["stream_rate"] = this->stream_rate;
     return j;
 }
 
-inline BaseWriteConfig BaseWriteConfig::parse(x::json::Parser parser) {
-    BaseWriteConfig result;
-    static_cast<BasePersistConfig &>(result) = BasePersistConfig::parse(parser);
+inline BaseWrite BaseWrite::parse(x::json::Parser parser) {
+    BaseWrite result;
+    static_cast<BasePersist &>(result) = BasePersist::parse(parser);
     result.device = parser.field<::synnax::device::Key>("device", "");
     return result;
 }
 
-inline x::json::json BaseWriteConfig::to_json() const {
+inline x::json::json BaseWrite::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BasePersistConfig::to_json().items())
+    for (auto &[k, v]: BasePersist::to_json().items())
         j[k] = v;
     j["device"] = this->device;
     return j;
 }
 
-inline BaseScanConfig BaseScanConfig::parse(x::json::Parser parser) {
-    BaseScanConfig result;
-    static_cast<KeyedConfig &>(result) = KeyedConfig::parse(parser);
+inline BaseScan BaseScan::parse(x::json::Parser parser) {
+    BaseScan result;
+    static_cast<Keyed &>(result) = Keyed::parse(parser);
     result.rate = parser.field<::x::telem::Rate>("rate", ::x::telem::Rate(0.200000));
     result.disabled = parser.field<bool>("disabled", false);
     return result;
 }
 
-inline x::json::json BaseScanConfig::to_json() const {
+inline x::json::json BaseScan::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: KeyedConfig::to_json().items())
+    for (auto &[k, v]: Keyed::to_json().items())
         j[k] = v;
     j["rate"] = this->rate;
     j["disabled"] = this->disabled;

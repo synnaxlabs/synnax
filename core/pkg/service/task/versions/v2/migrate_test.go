@@ -29,7 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
@@ -114,11 +114,8 @@ var _ = Describe("Migrations", func() {
 				status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus),
 			).To(Succeed())
 
-			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			configs := MustSucceed(common.NewConfigRegistry(pd.Stores()...))
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+			configs := MustSucceed(config.NewRegistry(pd.Stores()...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -320,23 +317,11 @@ var _ = Describe("Migrations", func() {
 				Entries(&retiredTasks).
 				Exec(ctx, seedDB)).To(Succeed())
 
-			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			niSvc := MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			}))
-			configs := MustSucceed(common.NewConfigRegistry(slices.Concat(
+			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
+			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
+			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
+			niSvc := MustOpen(ni.OpenService(ctx, ni.ServiceConfig{DB: db}))
+			configs := MustSucceed(config.NewRegistry(slices.Concat(
 				pd.Stores(), at.Stores(), lj.Stores(), niSvc.Stores(),
 			)...))
 			svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
@@ -361,14 +346,6 @@ var _ = Describe("Migrations", func() {
 			Expect(migratedPD.Config).ToNot(HaveKey("data_saving"))
 			Expect(migratedPD.Config).To(HaveKey("key"))
 			Expect(migratedPD.ConfigHash).ToNot(BeEmpty())
-			parents := MustSucceed(otg.RetrieveParents(
-				nil, task.OntologyID(migratedPD.Key),
-			))
-			ids := parents[task.OntologyID(migratedPD.Key)]
-			Expect(ids).To(HaveLen(1))
-			Expect(ids[0].Type).To(
-				Equal(ontology.ResourceType(pagerduty.AlertTaskType)),
-			)
 
 			var migratedArc task.Task
 			Expect(svc.NewRetrieve().

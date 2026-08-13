@@ -125,9 +125,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 				Group:    groupSvc,
 				Search:   searchIdx,
 			}))
-			builtinRoles := MustSucceed(
-				builtin.Provision(ctx, db, policySvc, roleSvc, nil),
-			)
+			builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:        db,
 				Namespace: "RBAC",
@@ -252,7 +250,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Search:   searchIdx,
 		}))
 		run := func() error {
-			builtinRoles, err := builtin.Provision(ctx, db, policySvc, roleSvc, nil)
+			builtinRoles, err := builtin.Provision(ctx, db, policySvc, roleSvc)
 			if err != nil {
 				return err
 			}

@@ -18,7 +18,7 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/task/common/types.gen.h"
+#include "client/cpp/task/config/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -119,7 +119,7 @@ struct BaseOutputChannel {
 };
 
 /// @brief ScanConfig configures a LabJack scan task.
-struct ScanConfig : public ::synnax::task::common::BaseScanConfig {
+struct ScanConfig : public ::synnax::task::config::BaseScan {
     /// @brief tcp_scan_multiplier is the number of scan cycles between TCP device
     /// scans.
     /// USB devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
@@ -240,7 +240,7 @@ InputChannel parse_input_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const InputChannel &value);
 
 /// @brief WriteConfig configures a LabJack write task.
-struct WriteConfig : public ::synnax::task::common::BaseWriteConfig {
+struct WriteConfig : public ::synnax::task::config::BaseWrite {
     /// @brief state_rate is the rate at which output state is reported to Synnax, in
     /// hertz.
     ::x::telem::Rate state_rate = ::x::telem::Rate(10);
@@ -252,7 +252,7 @@ struct WriteConfig : public ::synnax::task::common::BaseWriteConfig {
 };
 
 /// @brief ReadConfig configures a LabJack read task.
-struct ReadConfig : public ::synnax::task::common::BaseReadConfig {
+struct ReadConfig : public ::synnax::task::config::BaseRead {
     /// @brief device is the key of the device the task acquires from.
     ::synnax::device::Key device = "";
     /// @brief channels are the input channels the task acquires.

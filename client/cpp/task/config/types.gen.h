@@ -16,76 +16,75 @@
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
-namespace synnax::task::common {
+namespace synnax::task::config {
 
-struct KeyedConfig;
-struct BaseStartConfig;
-struct BaseScanConfig;
-struct BasePersistConfig;
-struct BaseReadConfig;
-struct BaseWriteConfig;
+struct Keyed;
+struct BaseStart;
+struct BaseScan;
+struct BasePersist;
+struct BaseRead;
+struct BaseWrite;
 
-/// @brief KeyedConfig is the base for every stored task configuration record.
-struct KeyedConfig {
+/// @brief Keyed is the base for every stored task configuration record.
+struct Keyed {
     /// @brief key is the unique identifier for the stored configuration record.
     x::uuid::UUID key;
 
-    static KeyedConfig parse(x::json::Parser parser);
+    static Keyed parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseStartConfig carries the configuration fields shared by every task.
-struct BaseStartConfig : public KeyedConfig {
+/// @brief BaseStart carries the configuration fields shared by every task.
+struct BaseStart : public Keyed {
     /// @brief auto_start is true when the task should start as soon as it is
     /// configured.
     bool auto_start = false;
 
-    static BaseStartConfig parse(x::json::Parser parser);
+    static BaseStart parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseScanConfig carries the fields shared by every scan task configuration.
-struct BaseScanConfig : public KeyedConfig {
+/// @brief BaseScan carries the fields shared by every scan task configuration.
+struct BaseScan : public Keyed {
     /// @brief rate is the rate at which the scan runs, in hertz.
     ::x::telem::Rate rate = ::x::telem::Rate(0.200000);
     /// @brief disabled is true when scanning is paused.
     bool disabled = false;
 
-    static BaseScanConfig parse(x::json::Parser parser);
+    static BaseScan parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BasePersistConfig carries the configuration fields shared by tasks that write
+/// @brief BasePersist carries the configuration fields shared by tasks that write
 /// telemetry.
-struct BasePersistConfig : public BaseStartConfig {
+struct BasePersist : public BaseStart {
     /// @brief data_saving_disabled is true when task telemetry is not persisted to
     /// disk.
     bool data_saving_disabled = false;
 
-    static BasePersistConfig parse(x::json::Parser parser);
+    static BasePersist parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseReadConfig carries the configuration fields shared by hardware
-/// acquisition tasks.
-struct BaseReadConfig : public BasePersistConfig {
+/// @brief BaseRead carries the configuration fields shared by hardware acquisition
+/// tasks.
+struct BaseRead : public BasePersist {
     /// @brief sample_rate is the per-channel hardware sample rate, in hertz.
     ::x::telem::Rate sample_rate = ::x::telem::Rate(10);
     /// @brief stream_rate is the rate at which samples are streamed to Synnax, in
     /// hertz.
     ::x::telem::Rate stream_rate = ::x::telem::Rate(5);
 
-    static BaseReadConfig parse(x::json::Parser parser);
+    static BaseRead parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief BaseWriteConfig carries the configuration fields shared by hardware control
-/// tasks.
-struct BaseWriteConfig : public BasePersistConfig {
+/// @brief BaseWrite carries the configuration fields shared by hardware control tasks.
+struct BaseWrite : public BasePersist {
     /// @brief device is the key of the device the task writes to.
     ::synnax::device::Key device = "";
 
-    static BaseWriteConfig parse(x::json::Parser parser);
+    static BaseWrite parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

@@ -31,7 +31,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/ethercat",
-        "//client/cpp/task/common",
+        "//client/cpp/task/config",
         "//driver/common",
         "//driver/errors",
         "//driver/ethercat/channel",

@@ -35,13 +35,6 @@ var (
 	authSvc   *auth.Service
 )
 
-// taskConfigObjects stands in for the registry-derived task config types the
-// production wiring passes.
-var taskConfigObjects = []ontology.ID{
-	{Type: "ni_analog_read"},
-	{Type: "opc_scan"},
-}
-
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
@@ -62,12 +55,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
 	}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:                db,
-		Ontology:          otg,
-		Group:             groupSvc,
-		Search:            searchIdx,
-		User:              userSvc,
-		TaskConfigObjects: taskConfigObjects,
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+		User:     userSvc,
 	}))
 })
 

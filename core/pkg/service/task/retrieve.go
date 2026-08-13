@@ -12,12 +12,11 @@ package task
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -31,7 +30,7 @@ type Retrieve struct {
 	search     *search.Index
 	searchTerm string
 	otg        *ontology.Ontology
-	configs    common.ConfigRegistry
+	configs    config.Registry
 	entry      *Task
 	entries    *[]Task
 }
@@ -189,42 +188,20 @@ func (r Retrieve) results() []*Task {
 	return nil
 }
 
-// composeConfigs fills the Config of each retrieved task from the config record
-// stored by the task type's config store. The record is the task's parent in the
-// ontology whose resource type equals the task type. Tasks whose type has no
+// composeConfigs fills the Config of each retrieved task from the record stored
+// under the task's key in the task type's config store. Tasks whose type has no
 // registered store or no stored record keep a nil Config.
 func (r Retrieve) composeConfigs(
 	ctx context.Context,
 	tx gorp.Tx,
 	tasks []*Task,
 ) error {
-	if len(tasks) == 0 {
-		return nil
-	}
-	ids := make([]ontology.ID, len(tasks))
-	for i, t := range tasks {
-		ids[i] = t.OntologyID()
-	}
-	parents, err := r.otg.RetrieveParents(tx, ids...)
-	if err != nil {
-		return err
-	}
-	for i, t := range tasks {
-		store, ok := r.configs.Store(ontology.ResourceType(t.Type))
+	for _, t := range tasks {
+		store, ok := r.configs.Store(t.Type)
 		if !ok {
 			continue
 		}
-		recordID, ok := lo.Find(parents[ids[i]], func(p ontology.ID) bool {
-			return p.Type == ontology.ResourceType(t.Type)
-		})
-		if !ok {
-			continue
-		}
-		recordKey, err := uuid.Parse(recordID.Key)
-		if err != nil {
-			return err
-		}
-		data, err := store.Read(ctx, tx, recordKey)
+		data, err := store.Read(ctx, tx, t.Key)
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
 				continue

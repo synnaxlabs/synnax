@@ -20,7 +20,7 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -59,9 +59,9 @@ var _ = Describe("NewMigration", func() {
 		})).To(Succeed())
 	}
 
-	run := func(ctx SpecContext, stores ...common.ConfigStore) {
+	run := func(ctx SpecContext, stores ...config.Store) {
 		GinkgoHelper()
-		configs := MustSucceed(common.NewConfigRegistry(stores...))
+		configs := MustSucceed(config.NewRegistry(stores...))
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Task",
@@ -74,21 +74,23 @@ var _ = Describe("NewMigration", func() {
 		})).To(Succeed())
 	}
 
-	openArcStore := func(ctx SpecContext) common.ConfigStore {
+	openArcStore := func(ctx SpecContext) config.Store {
 		GinkgoHelper()
-		return MustOpen(common.OpenConfigService[arctask.Config](
+		return MustOpen(config.OpenService(
 			ctx,
-			common.ConfigServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Type:     "arc_task",
-				Version:  1,
+			config.ServiceConfig[arctask.Config]{
+				DB:                 db,
+				Type:               "arc_task",
+				Version:            1,
+				SetEntryKey:        (*arctask.Config).SetKey,
+				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+				ValidateEntry:      (*arctask.Config).Validate,
 			},
 		))
 	}
 
 	It(
-		"Should normalize the config into its record store and parent the record",
+		"Should normalize the config into its record store under the task's key",
 		func(ctx SpecContext) {
 			store := openArcStore(ctx)
 			key, arcKey := uuid.New(), uuid.New()
@@ -110,17 +112,7 @@ var _ = Describe("NewMigration", func() {
 			Expect(migrated.Type).To(Equal("arc_task"))
 			Expect(migrated.Config).To(BeEmpty())
 
-			taskID := ontology.ID{
-				Type: ontology.ResourceTypeTask,
-				Key:  key.String(),
-			}
-			parents := MustSucceed(otg.RetrieveParents(nil, taskID))
-			ids := parents[taskID]
-			Expect(ids).To(HaveLen(1))
-			Expect(ids[0].Type).To(Equal(ontology.ResourceType("arc_task")))
-			record := MustSucceed(store.Read(
-				ctx, nil, MustSucceed(uuid.Parse(ids[0].Key)),
-			))
+			record := MustSucceed(store.Read(ctx, nil, key))
 			Expect(record).To(HaveKeyWithValue("arc_key", arcKey.String()))
 			Expect(record).To(HaveKeyWithValue("hash", "abc123"))
 
@@ -150,9 +142,7 @@ var _ = Describe("NewMigration", func() {
 				Type:     "Rack Status",
 				Internal: true,
 			})
-			rt := MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{
-				DB: db, Ontology: otg,
-			}))
+			rt := MustOpen(racktask.OpenService(ctx, racktask.ServiceConfig{DB: db}))
 			run(ctx, rt.Stores()...)
 
 			var migrated v2.Task
@@ -161,14 +151,8 @@ var _ = Describe("NewMigration", func() {
 				Entry(&migrated).Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Type).To(Equal("rack_status"))
 			Expect(migrated.ConfigHash).To(HaveLen(16))
-			taskID := ontology.ID{
-				Type: ontology.ResourceTypeTask,
-				Key:  key.String(),
-			}
-			parents := MustSucceed(otg.RetrieveParents(nil, taskID))
-			ids := parents[taskID]
-			Expect(ids).To(HaveLen(1))
-			Expect(ids[0].Type).To(Equal(ontology.ResourceTypeRackStatus))
+			record := MustSucceed(rt.Status.Read(ctx, nil, key))
+			Expect(record).To(HaveKeyWithValue("key", key.String()))
 		},
 	)
 

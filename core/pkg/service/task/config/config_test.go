@@ -7,68 +7,76 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package common_test
+package config_test
 
 import (
-	"context"
-	"iter"
-	"sync"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common/legacy"
-	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// testType is the resource type the suite registers its store under. The record
-// type is the Arc task config, picked because it exercises both the ApplyDefaults
-// and Validate hooks.
-const testType ontology.ResourceType = "arc_task"
+// testType is the task type the suite registers its store under. The record type
+// is the Arc task config, picked because it exercises both the ApplyDefaults and
+// Validate hooks.
+const testType = "arc_task"
 
-var _ = Describe("ConfigService", func() {
-	var (
-		otg *ontology.Ontology
-		svc *common.ConfigService[arctask.Config, *arctask.Config]
-	)
+var _ = Describe("Service", func() {
+	var svc *config.Service[arctask.Config]
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		svc = MustOpen(common.OpenConfigService[arctask.Config](
+		svc = MustOpen(config.OpenService(
 			ctx,
-			common.ConfigServiceConfig{DB: db, Ontology: otg, Type: testType},
+			config.ServiceConfig[arctask.Config]{
+				DB:                 db,
+				Type:               testType,
+				SetEntryKey:        (*arctask.Config).SetKey,
+				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+				ValidateEntry:      (*arctask.Config).Validate,
+			},
 		))
 	})
 
-	Describe("OpenConfigService", func() {
+	Describe("OpenService", func() {
 		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(common.OpenConfigService[arctask.Config](
-				ctx, common.ConfigServiceConfig{Ontology: otg, Type: testType},
+			Expect(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					Type:        testType,
+					SetEntryKey: (*arctask.Config).SetKey,
+				},
 			)).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 
-		It("Should reject a config missing the ontology", func(ctx SpecContext) {
-			Expect(common.OpenConfigService[arctask.Config](
-				ctx, common.ConfigServiceConfig{DB: db, Type: testType},
-			)).Error().To(MatchError(ContainSubstring("ontology: must be non-nil")))
-		})
-
 		It("Should reject a config missing the type", func(ctx SpecContext) {
-			Expect(common.OpenConfigService[arctask.Config](
-				ctx, common.ConfigServiceConfig{DB: db, Ontology: otg},
+			Expect(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					SetEntryKey: (*arctask.Config).SetKey,
+				},
 			)).Error().To(MatchError(ContainSubstring("type: required")))
 		})
+
+		It(
+			"Should reject a config missing the set entry key hook",
+			func(ctx SpecContext) {
+				Expect(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{DB: db, Type: testType},
+				)).Error().To(MatchError(ContainSubstring("set_entry_key: must be non-nil")))
+			},
+		)
 	})
 
 	Describe("Type", func() {
-		It("Should report the configured resource type", func() {
+		It("Should report the configured task type", func() {
 			Expect(svc.Type()).To(Equal(testType))
 		})
 	})
@@ -190,52 +198,16 @@ var _ = Describe("ConfigService", func() {
 		})
 	})
 
-	Describe("RetrieveResource", func() {
-		It("Should serve a stored record as a resource", func(ctx SpecContext) {
-			key := uuid.New()
-			Expect(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"arc_key": uuid.New().String(),
-			})).To(Succeed())
-			res := MustSucceed(svc.RetrieveResource(ctx, key.String(), nil))
-			Expect(res.ID).To(Equal(ontology.ID{Type: testType, Key: key.String()}))
-		})
-
-		It("Should return an error for a non-UUID key", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, "not-a-uuid", nil)).Error().
-				To(MatchError(ContainSubstring("invalid UUID")))
-		})
-
-		It("Should return not found for a missing record", func(ctx SpecContext) {
-			Expect(svc.RetrieveResource(ctx, uuid.New().String(), nil)).Error().
-				To(MatchError(query.ErrNotFound))
-		})
-
-		It("Should resolve resources through the registered ontology", func(
-			ctx SpecContext,
-		) {
-			key := uuid.New()
-			Expect(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"arc_key": uuid.New().String(),
-			})).To(Succeed())
-			var res ontology.Resource
-			Expect(otg.NewRetrieve().WhereIDs(ontology.ID{
-				Type: testType,
-				Key:  key.String(),
-			}).Entry(&res).Exec(ctx, nil)).To(Succeed())
-			Expect(res.Name).To(Equal(string(testType)))
-		})
-	})
-
 	Describe("Normalize", func() {
-		var versioned *common.ConfigService[arctask.Config, *arctask.Config]
+		var versioned *config.Service[arctask.Config]
 		BeforeEach(func(ctx SpecContext) {
-			versioned = MustOpen(common.OpenConfigService[arctask.Config](
+			versioned = MustOpen(config.OpenService(
 				ctx,
-				common.ConfigServiceConfig{
-					DB:       db,
-					Ontology: otg,
-					Type:     "versioned_test",
-					Version:  2,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "versioned_test",
+					Version:     2,
+					SetEntryKey: (*arctask.Config).SetKey,
 					Legacy: &legacy.Rewrite{
 						Post: func(cfg msgpack.EncodedJSON) {
 							legacy.RenameKey(cfg, "old_name", "new_name")
@@ -272,13 +244,13 @@ var _ = Describe("ConfigService", func() {
 		It("Should apply era normalization alone when no legacy rewrite is set", func(
 			ctx SpecContext,
 		) {
-			eraOnly := MustOpen(common.OpenConfigService[arctask.Config](
+			eraOnly := MustOpen(config.OpenService(
 				ctx,
-				common.ConfigServiceConfig{
-					DB:       db,
-					Ontology: otg,
-					Type:     "era_only_test",
-					Version:  1,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "era_only_test",
+					Version:     1,
+					SetEntryKey: (*arctask.Config).SetKey,
 				},
 			))
 			out := MustSucceed(eraOnly.Normalize(0, msgpack.EncodedJSON{
@@ -294,89 +266,51 @@ var _ = Describe("ConfigService", func() {
 
 	Describe("Version", func() {
 		It("Should report the configured version", func(ctx SpecContext) {
-			versioned := MustOpen(common.OpenConfigService[arctask.Config](
+			versioned := MustOpen(config.OpenService(
 				ctx,
-				common.ConfigServiceConfig{
-					DB:       db,
-					Ontology: otg,
-					Type:     "version_report_test",
-					Version:  3,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        "version_report_test",
+					Version:     3,
+					SetEntryKey: (*arctask.Config).SetKey,
 				},
 			))
 			Expect(versioned.Version()).To(Equal(imex.Version(3)))
 			Expect(svc.Version()).To(Equal(imex.Version(0)))
 		})
 	})
-
-	Describe("OnChange", func() {
-		It("Should notify on writes and deletes", func(ctx SpecContext) {
-			var (
-				mu      sync.Mutex
-				changes []ontology.Change
-			)
-			disconnect := svc.OnChange(
-				func(_ context.Context, seq iter.Seq[ontology.Change]) {
-					mu.Lock()
-					defer mu.Unlock()
-					for c := range seq {
-						changes = append(changes, c)
-					}
-				})
-			defer disconnect()
-			key := uuid.New()
-			id := ontology.ID{Type: testType, Key: key.String()}
-			Expect(svc.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"arc_key": uuid.New().String(),
-			})).To(Succeed())
-			last := func() (c ontology.Change) {
-				mu.Lock()
-				defer mu.Unlock()
-				if len(changes) > 0 {
-					c = changes[len(changes)-1]
-				}
-				return c
-			}
-			Eventually(last).Should(SatisfyAll(
-				HaveField("Variant", change.VariantSet),
-				HaveField("Key", id.String()),
-				HaveField("Value.ID", id),
-			))
-			Expect(svc.Delete(ctx, nil, key)).To(Succeed())
-			Eventually(last).Should(SatisfyAll(
-				HaveField("Variant", change.VariantDelete),
-				HaveField("Key", id.String()),
-			))
-		})
-	})
 })
 
-var _ = Describe("ConfigRegistry", func() {
-	var store common.ConfigStore
+var _ = Describe("Registry", func() {
+	var store config.Store
 	BeforeEach(func(ctx SpecContext) {
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		store = MustOpen(common.OpenConfigService[arctask.Config](
+		store = MustOpen(config.OpenService(
 			ctx,
-			common.ConfigServiceConfig{DB: db, Ontology: otg, Type: testType},
+			config.ServiceConfig[arctask.Config]{
+				DB:          db,
+				Type:        testType,
+				SetEntryKey: (*arctask.Config).SetKey,
+			},
 		))
 	})
 
-	Describe("NewConfigRegistry", func() {
+	Describe("NewRegistry", func() {
 		It("Should route each store by its type", func() {
-			reg := MustSucceed(common.NewConfigRegistry(store))
+			reg := MustSucceed(config.NewRegistry(store))
 			Expect(reg.IsZero()).To(BeFalse())
 			Expect(MustBeOk(reg.Store(testType))).To(BeIdenticalTo(store))
 			Expect(reg.Types()).To(ConsistOf(testType))
 		})
 
 		It("Should reject two stores declaring the same type", func() {
-			Expect(common.NewConfigRegistry(store, store)).Error().
+			Expect(config.NewRegistry(store, store)).Error().
 				To(MatchError(ContainSubstring("registered twice")))
 		})
 	})
 
 	Describe("Store", func() {
 		It("Should return false for an unclaimed type", func() {
-			reg := MustSucceed(common.NewConfigRegistry(store))
+			reg := MustSucceed(config.NewRegistry(store))
 			_, ok := reg.Store("unclaimed")
 			Expect(ok).To(BeFalse())
 		})
@@ -384,34 +318,7 @@ var _ = Describe("ConfigRegistry", func() {
 
 	Describe("IsZero", func() {
 		It("Should report true for a never-constructed registry", func() {
-			Expect(common.ConfigRegistry{}.IsZero()).To(BeTrue())
-		})
-	})
-
-	Describe("IDs", func() {
-		It("Should return one type-scoped ID per store, sorted by type", func(
-			ctx SpecContext,
-		) {
-			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			open := func(t ontology.ResourceType) common.ConfigStore {
-				GinkgoHelper()
-				return MustOpen(common.OpenConfigService[arctask.Config](
-					ctx,
-					common.ConfigServiceConfig{DB: db, Ontology: otg, Type: t},
-				))
-			}
-			reg := MustSucceed(common.NewConfigRegistry(
-				open("zz_last"), open("aa_first"),
-			))
-			Expect(reg.IDs()).To(Equal([]ontology.ID{
-				{Type: "aa_first"},
-				{Type: "zz_last"},
-			}))
-		})
-
-		It("Should return an empty slice for an empty registry", func() {
-			reg := MustSucceed(common.NewConfigRegistry())
-			Expect(reg.IDs()).To(BeEmpty())
+			Expect(config.Registry{}.IsZero()).To(BeTrue())
 		})
 	})
 })

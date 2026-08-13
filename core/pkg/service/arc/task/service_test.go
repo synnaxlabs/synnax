@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -22,26 +21,21 @@ import (
 )
 
 var _ = Describe("Service", func() {
-	var (
-		otg *ontology.Ontology
-		svc *arctask.Service
-	)
+	var svc *arctask.Service
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		svc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 	})
 
 	Describe("Stores", func() {
 		It("Should expose the Arc task store", func() {
-			types := []ontology.ResourceType{}
+			types := []string{}
 			for _, s := range svc.Stores() {
 				types = append(types, s.Type())
 			}
-			Expect(types).To(ConsistOf(ontology.ResourceTypeArcTask))
+			Expect(types).To(ConsistOf("arc_task"))
 		})
 	})
 

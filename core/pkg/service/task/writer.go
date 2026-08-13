@@ -14,11 +14,10 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -33,7 +32,7 @@ type Writer struct {
 	group     group.Group
 	status    status.Writer[StatusDetails]
 	table     *gorp.Table[Key, Task]
-	configs   common.ConfigRegistry
+	configs   config.Registry
 }
 
 // resolveStatus returns the status to persist for t. Without a provided status, a
@@ -84,40 +83,16 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 	return stat, nil
 }
 
-// configRecord returns the key of the config record parented to the task with the
-// given ontology ID whose resource type matches taskType, and false when the task
-// has no such record.
-func (w Writer) configRecord(
-	id ontology.ID,
-	taskType string,
-) (uuid.UUID, bool, error) {
-	parents, err := w.otg.RetrieveParents(w.tx, id)
-	if err != nil {
-		return uuid.Nil, false, err
-	}
-	recordID, ok := lo.Find(parents[id], func(p ontology.ID) bool {
-		return p.Type == ontology.ResourceType(taskType)
-	})
-	if !ok {
-		return uuid.Nil, false, nil
-	}
-	key, err := uuid.Parse(recordID.Key)
-	if err != nil {
-		return uuid.Nil, false, err
-	}
-	return key, true, nil
-}
-
-// Create creates or updates a task. The task's config is stored as a record in its
-// type's config store; the task row itself carries only the config hash. A provided
-// status is persisted as given. Without one, a new task gets a "has not been
-// deployed" placeholder, and an existing task keeps its reported status (healed to
-// "status unknown" if the row is missing).
+// Create creates or updates a task. The task's config is stored as a record keyed by
+// the task's key in its type's config store; the task row itself carries only the
+// config hash. A provided status is persisted as given. Without one, a new task gets
+// a "has not been deployed" placeholder, and an existing task keeps its reported
+// status (healed to "status unknown" if the row is missing).
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil {
 		t.Key = uuid.New()
 	}
-	store, ok := w.configs.Store(ontology.ResourceType(t.Type))
+	store, ok := w.configs.Store(t.Type)
 	if !ok {
 		return errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
 	}
@@ -133,44 +108,29 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		existed = false
 	}
 	otgID := t.OntologyID()
-	recordKey, recordExists := uuid.Nil, false
-	if existed {
-		var err error
-		if recordKey, recordExists, err = w.configRecord(
-			otgID, existing.Type,
-		); err != nil {
-			return err
-		}
-	}
 	if existed && existing.Snapshot {
 		t.ConfigHash = existing.ConfigHash
-		if recordExists {
-			existingStore, ok := w.configs.Store(
-				ontology.ResourceType(existing.Type),
+		existingStore, ok := w.configs.Store(existing.Type)
+		if !ok {
+			return errors.Wrapf(
+				validate.ErrValidation, "unknown task type %q", existing.Type,
 			)
-			if !ok {
-				return errors.Wrapf(
-					validate.ErrValidation, "unknown task type %q", existing.Type,
-				)
-			}
-			data, err := existingStore.Read(ctx, w.tx, recordKey)
-			if err != nil {
+		}
+		data, err := existingStore.Read(ctx, w.tx, t.Key)
+		if err != nil {
+			if !errors.Is(err, query.ErrNotFound) {
 				return err
 			}
+		} else {
 			t.Config = data
 		}
 	} else {
-		typeChanged := recordExists && existing.Type != t.Type
-		oldRecordKey := recordKey
-		if !recordExists || typeChanged {
-			recordKey = uuid.New()
-		}
-		if err := store.Write(ctx, w.tx, recordKey, t.Config); err != nil {
+		if err := store.Write(ctx, w.tx, t.Key, t.Config); err != nil {
 			return err
 		}
 		// Read the record back so the returned config and its hash reflect the
 		// canonical stored shape, defaults included.
-		canonical, err := store.Read(ctx, w.tx, recordKey)
+		canonical, err := store.Read(ctx, w.tx, t.Key)
 		if err != nil {
 			return err
 		}
@@ -179,22 +139,21 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 			return err
 		}
 		// Delete the old type's record only after the new config is stored, so a
-		// rejected config cannot destroy the prior one.
-		if typeChanged {
-			oldStore, ok := w.configs.Store(ontology.ResourceType(existing.Type))
-			if ok {
-				if err := oldStore.Delete(ctx, w.tx, oldRecordKey); err != nil {
+		// rejected config cannot destroy the prior one. Records of different types
+		// live in different tables, so the same key never collides.
+		if existed && existing.Type != t.Type {
+			if oldStore, ok := w.configs.Store(existing.Type); ok {
+				if err := oldStore.Delete(ctx, w.tx, t.Key); err != nil {
 					return err
 				}
 			}
 		}
-		recordExists = true
 	}
-	config := t.Config // Restored after the row write; rows do not store config.
+	cfg := t.Config // Restored after the row write; rows do not store config.
 	providedStatus := t.Status
 	t.Config, t.Status = nil, nil
 	err := w.table.NewCreate().Entry(t).Exec(ctx, w.tx)
-	t.Config = config
+	t.Config = cfg
 	if err != nil {
 		return err
 	}
@@ -213,19 +172,6 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	}
 	if !exists {
 		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
-			return err
-		}
-	}
-	if recordExists {
-		if err = w.otgWriter.DefineRelationships(
-			ctx,
-			ontology.ID{
-				Type: ontology.ResourceType(t.Type),
-				Key:  recordKey.String(),
-			},
-			ontology.RelationshipTypeParentOf,
-			otgID,
-		); err != nil {
 			return err
 		}
 	}
@@ -267,17 +213,9 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		found = false
 	}
 	if found {
-		recordKey, recordExists, err := w.configRecord(OntologyID(key), t.Type)
-		if err != nil {
-			return err
-		}
-		if recordExists {
-			if store, ok := w.configs.Store(
-				ontology.ResourceType(t.Type),
-			); ok {
-				if err := store.Delete(ctx, w.tx, recordKey); err != nil {
-					return err
-				}
+		if store, ok := w.configs.Store(t.Type); ok {
+			if err := store.Delete(ctx, w.tx, key); err != nil {
+				return err
 			}
 		}
 	}
@@ -318,30 +256,17 @@ func (w Writer) Copy(
 	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
-	recordKey, recordExists, err := w.configRecord(OntologyID(key), res.Type)
-	if err != nil {
-		return Task{}, err
-	}
-	store, ok := w.configs.Store(ontology.ResourceType(res.Type))
-	if !recordExists || !ok {
+	store, ok := w.configs.Store(res.Type)
+	if !ok {
 		return res, nil
 	}
-	newRecordKey := uuid.New()
-	if err := store.Copy(ctx, w.tx, recordKey, newRecordKey); err != nil {
+	if err := store.Copy(ctx, w.tx, key, newKey); err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return res, nil
+		}
 		return Task{}, err
 	}
-	if err := w.otgWriter.DefineRelationships(
-		ctx,
-		ontology.ID{
-			Type: ontology.ResourceType(res.Type),
-			Key:  newRecordKey.String(),
-		},
-		ontology.RelationshipTypeParentOf,
-		OntologyID(newKey),
-	); err != nil {
-		return Task{}, err
-	}
-	data, err := store.Read(ctx, w.tx, newRecordKey)
+	data, err := store.Read(ctx, w.tx, newKey)
 	if err != nil {
 		return Task{}, err
 	}

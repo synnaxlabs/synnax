@@ -14,34 +14,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var (
-		otg *ontology.Ontology
-		svc *labjack.Service
-	)
+	var svc *labjack.Service
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		svc = MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 	})
 
 	Describe("Stores", func() {
 		It("Should expose one store per LabJack task type", func() {
-			types := []ontology.ResourceType{}
+			types := []string{}
 			for _, s := range svc.Stores() {
 				types = append(types, s.Type())
 			}
 			Expect(types).To(ConsistOf(
-				ontology.ResourceTypeLabjackRead,
-				ontology.ResourceTypeLabjackWrite,
-				ontology.ResourceTypeLabjackScan,
+				"labjack_read",
+				"labjack_write",
+				"labjack_scan",
 			))
 		})
 	})
