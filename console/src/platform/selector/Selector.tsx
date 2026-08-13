@@ -47,7 +47,7 @@ export const create = ({
   text,
   icon,
 }: CreateParams): Panel.Tab => {
-  const Icon: Panel.TabIcon = () => icon;
+  const TabIcon: Panel.TabIcon = () => icon;
   const Content: Panel.Content = (): ReactElement => {
     const tabKey = PPanel.useOptionalTabKey();
     return (
@@ -60,7 +60,7 @@ export const create = ({
           full
         >
           <Text.Text level="h4" color={10} weight={400}>
-            <Icon />
+            <TabIcon />
             {text}
           </Text.Text>
           <Flex.Box
@@ -81,5 +81,5 @@ export const create = ({
   };
   Content.displayName = `${tabTitle}.Selector`;
   const Name = Panel.createStaticTabName({ name: tabTitle, icon });
-  return { Content, Name, Icon };
+  return { Content, Name, Icon: TabIcon };
 };

@@ -21,62 +21,30 @@
     z-index: 0;
 }
 
-.console-shell__logo {
-    height: 10rem;
-    cursor: default;
-}
-
-.console--logo-corner .console-shell__logo {
-    position: absolute;
-    top: 4rem;
-    left: 4rem;
-    height: 5rem;
-}
-
 .console-shell__stage {
     position: relative;
     z-index: 0;
 }
 
-.console--ornament-echo .console-shell__stage::before,
-.console--ornament-echo .console-shell__stage::after {
+.console-shell__stage::before,
+.console-shell__stage::after {
     content: "";
     position: absolute;
     pointer-events: none;
 }
 
-.console--ornament-echo .console-shell__stage::before {
+.console-shell__stage::before {
     inset: -2.5rem;
     border: var(--pluto-border-width) solid
         color-mix(in srgb, var(--pluto-gray-l7) 45%, transparent);
     border-radius: calc(var(--pluto-border-radius-huge) + 2.5rem);
 }
 
-.console--ornament-echo .console-shell__stage::after {
+.console-shell__stage::after {
     inset: -5.5rem;
     border: var(--pluto-border-width) solid
         color-mix(in srgb, var(--pluto-gray-l7) 20%, transparent);
     border-radius: calc(var(--pluto-border-radius-huge) + 5.5rem);
-}
-
-.console--ornament-dashed .console-shell__stage::before {
-    content: "";
-    position: absolute;
-    inset: -3rem;
-    border: var(--pluto-border-width) dashed var(--pluto-gray-l7);
-    border-radius: calc(var(--pluto-border-radius-huge) + 3rem);
-    pointer-events: none;
-}
-
-.console-shell__orbits {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 175%;
-    transform: translate(-50%, -50%);
-    color: var(--pluto-gray-l7);
-    pointer-events: none;
-    z-index: -1;
 }
 
 /* The one frosted-glass recipe; shape stays with each surface that wears it. */
@@ -94,12 +62,13 @@
     width: 420px;
     height: 480px;
     overflow: hidden;
+    border-radius: var(--pluto-border-radius-huge);
     transition:
         width 0.25s ease,
         height 0.25s ease;
 }
 
-/* Turns a surface swap into a crossfade, keeping sub-250ms transients faint. */
+/* Keeps sub-250ms transients faint by fading them in. */
 .console-shell__card > * {
     animation: console-shell-reveal 0.25s ease;
 }
@@ -111,35 +80,6 @@
     to {
         opacity: 1;
     }
-}
-
-.console--card-surface .console-shell__card {
-    background: var(--pluto-gray-l0);
-    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
-    box-shadow: var(--pluto-shadow-lift);
-}
-
-.console--card-outline .console-shell__card {
-    background: transparent;
-    border: var(--pluto-border-width) solid var(--pluto-gray-l7);
-}
-
-.console--card-none .console-shell__card {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-}
-
-.console--shape-sharp .console-shell__card {
-    border-radius: var(--pluto-border-radius-small);
-}
-
-.console--shape-soft .console-shell__card {
-    border-radius: var(--pluto-border-radius-huge);
-}
-
-.console--shape-round .console-shell__card {
-    border-radius: 4rem;
 }
 
 /* One fixed height, so cluster and project surfaces match. The doubled class beats
@@ -191,6 +131,8 @@
     font-size: 2.25rem;
 }
 
+/* Opaque, so orbital ring arcs passing behind the mark are occluded rather than
+   shining through it. */
 .console-shell__mark-ring {
     width: 12rem;
     height: 12rem;
@@ -199,9 +141,15 @@
     max-width: 12rem;
     max-height: 12rem;
     flex-shrink: 0;
+    background: var(--pluto-gray-l0);
     border: var(--pluto-border-width) solid var(--pluto-gray-l7);
     border-radius: 50%;
     margin: 2rem 0 1rem;
+}
+
+/* The orbital centers the mark itself, so the standalone spacing comes off. */
+.pluto-orbital__stage .console-shell__mark-ring {
+    margin: 0;
 }
 
 /* The media Logo's white/gradient color props are dead; only "auto" is implemented,
