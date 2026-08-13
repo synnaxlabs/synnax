@@ -11,7 +11,12 @@ import { group, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul, Tree as PTree } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
@@ -35,6 +40,19 @@ const createWrapper = async (items: Tree.Items = {}) => {
 
 const renderTree = async (root: ontology.ID | null, items: Tree.Items = {}) =>
   render(<Tree.Tree root={root} />, { wrapper: await createWrapper(items) });
+
+const NO_CHILDREN = "no children here";
+
+interface CommitProbeProps {
+  onCommit: () => void;
+}
+
+const CommitProbe = ({ onCommit }: CommitProbeProps): null => {
+  useLayoutEffect(() => {
+    onCommit();
+  }, [onCommit]);
+  return null;
+};
 
 describe("Tree.Tree", () => {
   it("should render nothing when the root is null", async () => {
@@ -95,6 +113,83 @@ describe("Tree.Tree", () => {
     expect(screen.getByText(grandchild.name)).toBeTruthy();
   });
 
+  it("should keep every expanded parent live", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const containerID = group.ontologyID(container.key);
+    const first = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("first"),
+    });
+    const firstID = group.ontologyID(first.key);
+    const second = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("second"),
+    });
+    const secondID = group.ontologyID(second.key);
+    await client.groups.create({ parent: firstID, name: uniqueName("seed") });
+    await client.groups.create({ parent: secondID, name: uniqueName("seed") });
+    await renderTree(containerID);
+    await screen.findByText(first.name);
+    expandTreeRow(first.name);
+    expandTreeRow(second.name);
+    // Expanding the second parent must not cost the first one its subscription.
+    const lateUnderFirst = await client.groups.create({
+      parent: firstID,
+      name: uniqueName("late-first"),
+    });
+    const lateUnderSecond = await client.groups.create({
+      parent: secondID,
+      name: uniqueName("late-second"),
+    });
+    await screen.findByText(lateUnderFirst.name);
+    await screen.findByText(lateUnderSecond.name);
+  });
+
+  it("should stop a row loading when it is expanded again", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const parent = await client.groups.create({
+      parent: group.ontologyID(container.key),
+      name: uniqueName("parent"),
+    });
+    await client.groups.create({
+      parent: group.ontologyID(parent.key),
+      name: uniqueName("child"),
+    });
+    const SPINNING = "spinning";
+    const items: Tree.Items = {
+      group: Tree.createItem({
+        type: "group",
+        ContextMenu: ({ selection: { ids }, state }: Tree.ContextMenuProps) => (
+          <button onClick={() => state.expand(ontology.idToString(ids[0]))}>
+            expand again
+          </button>
+        ),
+        Content: ({ resource, loading, onDoubleClick, icon: _, ...rest }) => (
+          <PTree.Item {...rest} onDoubleClick={onDoubleClick}>
+            {resource.name}
+            {loading && <span>{SPINNING}</span>}
+          </PTree.Item>
+        ),
+      }),
+    };
+    await renderTree(group.ontologyID(container.key), items);
+    await screen.findByText(parent.name);
+    expandTreeRow(parent.name);
+    await waitFor(() => expect(screen.queryByText(SPINNING)).toBeNull());
+    fireEvent.contextMenu(getTreeRow(parent.name));
+    fireEvent.click(await screen.findByText("expand again"));
+    // Expanding an expanded row starts no fetch, so nothing else will ever end
+    // the wait it just started.
+    await act(async () => {});
+    expect(screen.queryByText(SPINNING)).toBeNull();
+  });
+
   it("should keep loaded children when the root id is rebuilt on every render", async () => {
     const container = await client.groups.create({
       parent: ontology.ROOT_ID,
@@ -131,7 +226,7 @@ describe("Tree.Tree", () => {
     expect(screen.getByText(child.name)).toBeTruthy();
   });
 
-  it("should paint retained root children synchronously on remount", async () => {
+  it("should paint retained root children in the commit that mounts the tree", async () => {
     const parent = await client.groups.create({
       parent: ontology.ROOT_ID,
       name: uniqueName("parent"),
@@ -145,13 +240,70 @@ describe("Tree.Tree", () => {
       wrapper: await createWrapper(),
     });
     await screen.findByText(child.name);
-    // The changed key remounts the tree with fresh state. No awaits before the
-    // assertion, so the paint can only come from the cache.
-    rerender(<Tree.Tree key="second" root={parentID} />);
-    expect(screen.getByText(child.name)).toBeTruthy();
+    let rowsInMountCommit: number | null = null;
+    // The changed key remounts the tree with fresh state. The probe reads the DOM
+    // from a layout effect, so it sees the mount commit itself: the frame a browser
+    // paints before any passive effect runs.
+    rerender(
+      <>
+        <Tree.Tree key="second" root={parentID} />
+        <CommitProbe
+          onCommit={() => {
+            rowsInMountCommit = screen.queryAllByText(child.name).length;
+          }}
+        />
+      </>,
+    );
+    expect(rowsInMountCommit).toBe(1);
     await act(async () => {
       await client.ontology.children.retrieve({ ids: parentID });
     });
+  });
+
+  it("should paint retained empty content in the commit that mounts the tree", async () => {
+    const empty = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("empty"),
+    });
+    const emptyID = group.ontologyID(empty.key);
+    const content = <p>{NO_CHILDREN}</p>;
+    const { rerender } = render(
+      <Tree.Tree key="first" root={emptyID} emptyContent={content} />,
+      { wrapper: await createWrapper() },
+    );
+    await screen.findByText(NO_CHILDREN);
+    let messagesInMountCommit: number | null = null;
+    // A retained answer that is empty is still an answer, so the remount owes the
+    // message immediately rather than a blank frame.
+    rerender(
+      <>
+        <Tree.Tree key="second" root={emptyID} emptyContent={content} />
+        <CommitProbe
+          onCommit={() => {
+            messagesInMountCommit = screen.queryAllByText(NO_CHILDREN).length;
+          }}
+        />
+      </>,
+    );
+    expect(messagesInMountCommit).toBe(1);
+    await act(async () => {
+      await client.ontology.children.retrieve({ ids: emptyID });
+    });
+  });
+
+  it("should withhold empty content until the root children answer arrives", async () => {
+    const empty = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("empty"),
+    });
+    const emptyID = group.ontologyID(empty.key);
+    render(<Tree.Tree root={emptyID} emptyContent={<p>{NO_CHILDREN}</p>} />, {
+      wrapper: await createWrapper(),
+    });
+    // An unanswered root has the same empty node list as a childless one, so the
+    // message here would be a guess the fetch has not confirmed.
+    expect(screen.queryByText(NO_CHILDREN)).toBeNull();
+    await screen.findByText(NO_CHILDREN);
   });
 
   it("should paint a re-expanded node's retained children synchronously after a remount", async () => {
