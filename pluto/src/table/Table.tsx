@@ -493,7 +493,13 @@ export const Table = ({
   const handlePointerDown = useCallback(() => {
     if (!centered) return;
     setHeld(liveOffset);
-    window.addEventListener("pointerup", () => setHeld(null), { once: true });
+    const release = (): void => {
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+      setHeld(null);
+    };
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
   }, [centered, liveOffset]);
   const offset = centered ? (held ?? liveOffset) : xy.ZERO;
   const frameStyle = useMemo(
