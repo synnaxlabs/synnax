@@ -94,8 +94,11 @@ func wrapText(text string, firstLineWidth, subsequentLineWidth int) []string {
 }
 
 // FormatGo formats documentation for Go comments.
+//
 // Single-line: "// Name doc text"
+//
 // Multi-line: "// Name line1\n// line2\n// line3"
+//
 // Text is wrapped to 88 columns including the comment prefix and the display width
 // of the indentation the comment is emitted at (gofmt indents every comment line).
 func FormatGo(name, doc string, indent ...int) string {

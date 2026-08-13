@@ -90,10 +90,7 @@ type formatter struct {
 
 func (f *formatter) write(s string) { f.sb.WriteString(s) }
 
-func (f *formatter) writeLine(s string) {
-	f.sb.WriteString(s)
-	f.sb.WriteString("\n")
-}
+func (f *formatter) writeLine(s string) { f.sb.WriteString(s); f.sb.WriteString("\n") }
 
 func (f *formatter) writeIndent() {
 	for i := 0; i < f.currentIndent; i++ {
@@ -649,9 +646,9 @@ func (f *formatter) formatFieldDefAligned(
 	}
 
 	if hasDomains {
-		// A typed field aligns domains in the type column; a default (= X) breaks
-		// that alignment. A typeless override has no type column, so its content
-		// follows the padded name column directly.
+		// A typed field aligns domains in the type column; a default (= X) breaks that
+		// alignment. A typeless override has no type column, so its content follows the
+		// padded name column directly.
 		if !hasDefault && typeStr != "" {
 			f.writePadding(typeWidth - len(typeStr))
 		}
@@ -719,8 +716,8 @@ func (f *formatter) formatTypeRefToString(ctx parser.ITypeRefContext) string {
 	return sb.String()
 }
 
-// hasTripleString reports whether any inline domain carries a triple-quoted
-// string value, which can never render on a single line.
+// hasTripleString reports whether any inline domain carries a triple-quoted string
+// value, which can never render on a single line.
 func hasTripleString(domains []parser.IInlineDomainContext) bool {
 	for _, dom := range domains {
 		content := dom.DomainContent()
@@ -849,10 +846,10 @@ func (f *formatter) formatStructDefaultToString(
 }
 
 // formatFieldDefaultPretty renders a field default starting at column col, where
-// indentLevel is the indent of the field declaration. Struct and array literals
-// whose single-line form would overflow maxLineLen are broken across lines, with
-// contents indented one level deeper and the closing bracket aligned to
-// indentLevel. Scalars and literals that fit stay on one line.
+// indentLevel is the indent of the field declaration. Struct and array literals whose
+// single-line form would overflow maxLineLen are broken across lines, with contents
+// indented one level deeper and the closing bracket aligned to indentLevel. Scalars and
+// literals that fit stay on one line.
 func (f *formatter) formatFieldDefaultPretty(
 	ctx parser.IFieldDefaultContext,
 	col, indentLevel int,
@@ -985,8 +982,8 @@ func (f *formatter) formatFieldWithBraces(
 	f.currentIndent++
 
 	// Inline domains convert to body lines here, so both kinds sort as one group.
-	// Body-sourced lines keep their comment and watermark handling; the max keeps
-	// the watermark monotone when sorting emits them out of source order.
+	// Body-sourced lines keep their comment and watermark handling; the max keeps the
+	// watermark monotone when sorting emits them out of source order.
 	type fieldDomain struct {
 		domainLine
 		body bool
@@ -1317,11 +1314,10 @@ func (f *formatter) writeDocLines(lines []string, contentIndent string) {
 	flush()
 }
 
-// writeWrappedDoc converts an over-long single-quoted doc string to the
-// triple-quoted layout, filling content lines to the line limit one indent
-// level in. Blank lines survive as paragraph breaks; every doc consumer
-// treats a single line break as a space, so re-wrapping cannot change
-// generated output.
+// writeWrappedDoc converts an over-long single-quoted doc string to the triple-quoted
+// layout, filling content lines to the line limit one indent level in. Blank lines
+// survive as paragraph breaks; every doc consumer treats a single line break as a
+// space, so re-wrapping cannot change generated output.
 func (f *formatter) writeWrappedDoc(value string) {
 	contentIndent := strings.Repeat(indent, f.currentIndent+1)
 	width := maxLineLen - len(contentIndent)
@@ -1632,8 +1628,8 @@ func (f *formatter) formatNamedVariant(ctx *parser.NamedVariantContext, nameWidt
 	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 
-// formatInlineVariant renders an inline variant body with struct-body
-// formatting: name, optional extends clause, then fields and domains.
+// formatInlineVariant renders an inline variant body with struct-body formatting: name,
+// optional extends clause, then fields and domains.
 func (f *formatter) formatInlineVariant(ctx *parser.InlineVariantContext) {
 	f.writeIndent()
 	f.write(ctx.VariantName().GetText())

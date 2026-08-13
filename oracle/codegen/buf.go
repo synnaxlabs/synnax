@@ -17,7 +17,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
-	osexec "os/exec"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -29,13 +29,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// BufGenerateStampKey is the cache key under which the proto-input stamp is stored.
-const BufGenerateStampKey = "buf-generate"
+// bufGenerateStampKey is the cache key under which the proto-input stamp is stored.
+const bufGenerateStampKey = "buf-generate"
 
-// BufOutputStampKey is the cache key under which the rolled-up hash of every .pb.go /
+// bufOutputStampKey is the cache key under which the rolled-up hash of every .pb.go /
 // _grpc.pb.go file on disk is stored. Required to detect on-disk drift across
 // buf-version bumps and hand edits when the input proto contents have not changed.
-const BufOutputStampKey = "buf-output"
+const bufOutputStampKey = "buf-output"
 
 // RunBufGenerate runs `buf generate` if and only if BOTH of the following match the
 // previous successful run:
@@ -71,8 +71,8 @@ func RunBufGenerate(
 	if err != nil {
 		return RunBufGenerateResult{}, errors.Wrap(err, "compute buf output stamp")
 	}
-	cachedIn, hitIn := cache.LookupStamp(BufGenerateStampKey)
-	cachedOut, hitOut := cache.LookupStamp(BufOutputStampKey)
+	cachedIn, hitIn := cache.LookupStamp(bufGenerateStampKey)
+	cachedOut, hitOut := cache.LookupStamp(bufOutputStampKey)
 	if hitIn && hitOut &&
 		cachedIn == inStamp && cachedOut == outStamp &&
 		len(changedProtos) == 0 {
@@ -82,7 +82,7 @@ func RunBufGenerate(
 	for _, p := range changedProtos {
 		args = append(args, "--path", p)
 	}
-	c := osexec.CommandContext(ctx, "buf", args...)
+	c := exec.CommandContext(ctx, "buf", args...)
 	c.Dir = repoRoot
 	if out, err := c.CombinedOutput(); err != nil {
 		return RunBufGenerateResult{}, errors.Wrapf(
@@ -91,7 +91,7 @@ func RunBufGenerate(
 			string(out),
 		)
 	}
-	cache.PutStamp(BufGenerateStampKey, inStamp)
+	cache.PutStamp(bufGenerateStampKey, inStamp)
 	// Recompute the output stamp post-run; the values we read above
 	// reflect the pre-run on-disk state.
 	postOut, err := bufOutputStamp(ctx, repoRoot)
@@ -101,7 +101,7 @@ func RunBufGenerate(
 			"compute post-run buf output stamp",
 		)
 	}
-	cache.PutStamp(BufOutputStampKey, postOut)
+	cache.PutStamp(bufOutputStampKey, postOut)
 	return RunBufGenerateResult{Cached: false}, nil
 }
 
