@@ -20,7 +20,7 @@ import "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 // configuration latency.
 type Key = v1.Key
 
-// StatusDetails contains rack-specific status details.
+// StatusDetails is the rack-specific detail payload carried in a rack Status.
 type StatusDetails = v1.StatusDetails
 
 // Status is rack-specific status information including operational state.

@@ -53,6 +53,17 @@ func StructurallyEqual(
 // the other stores. Field types are schemadiff's concern — the two sides resolve
 // against different tables, so their qualified names never compare directly.
 func marshalEqual(old, new resolution.Type) bool {
+	// The type-level persistence set is part of the declared shape: a version that
+	// flips a type between hand and generated, or changes its codec marker, is a
+	// real delta even when the field list is unchanged (auth v0 legacy → v1 Orc).
+	for _, expr := range []string{"hand", "marshal"} {
+		if domain.HasExprFromType(old, "go", expr) !=
+			domain.HasExprFromType(new, "go", expr) ||
+			domain.GetStringFromType(old, "go", expr) !=
+				domain.GetStringFromType(new, "go", expr) {
+			return false
+		}
+	}
 	oldForm, oldOK := old.Form.(resolution.StructForm)
 	newForm, newOK := new.Form.(resolution.StructForm)
 	if oldOK != newOK || !oldOK {

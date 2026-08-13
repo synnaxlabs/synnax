@@ -33,10 +33,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// StatusDetails contains rack-specific status details.
+// StatusDetails is the rack-specific detail payload carried in a rack Status.
 type StatusDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// rack is the key of the rack this status pertains to.
+	// rack is the key of the rack the status describes.
 	Rack          uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

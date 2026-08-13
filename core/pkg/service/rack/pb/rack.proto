@@ -17,9 +17,9 @@ import "core/pkg/service/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/rack/pb";
 
-// StatusDetails contains rack-specific status details.
+// StatusDetails is the rack-specific detail payload carried in a rack Status.
 message StatusDetails {
-  // rack is the key of the rack this status pertains to.
+  // rack is the key of the rack the status describes.
   uint32 rack = 1;
 }
 

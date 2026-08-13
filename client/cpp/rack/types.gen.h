@@ -37,9 +37,9 @@ struct Rack;
 /// minimizes hops and configuration latency.
 using Key = std::uint32_t;
 
-/// @brief StatusDetails contains rack-specific status details.
+/// @brief StatusDetails is the rack-specific detail payload carried in a rack Status.
 struct StatusDetails {
-    /// @brief rack is the key of the rack this status pertains to.
+    /// @brief rack is the key of the rack the status describes.
     Key rack = 0;
 
     static StatusDetails parse(x::json::Parser parser);

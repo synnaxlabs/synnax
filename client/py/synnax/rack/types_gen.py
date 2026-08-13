@@ -22,10 +22,10 @@ Key: TypeAlias = int
 
 
 class StatusDetails(BaseModel):
-    """Contains rack-specific status details.
+    """Is the rack-specific detail payload carried in a rack Status.
 
     Attributes:
-        rack: Is the key of the rack this status pertains to.
+        rack: Is the key of the rack the status describes.
     """
 
     rack: Key = Field(ge=0, le=4294967295)
