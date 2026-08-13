@@ -342,7 +342,7 @@ Key = v0.Key
 			Expect(surf).ToNot(HaveKey("Legacy"))
 		})
 
-		It("Should reject an alias to a non-defining version", func(
+		It("Should follow an alias to a non-defining version transitively", func(
 			ctx SpecContext,
 		) {
 			r := resolverFor(map[string]string{
@@ -350,8 +350,20 @@ Key = v0.Key
 				"schemas/synnax/versions/channel/v1.oracle": "Key = v0.Key\n",
 				"schemas/synnax/versions/channel/v2.oracle": "Key = v1.Key\n",
 			})
-			Expect(r.Surface(ctx, "schemas/synnax/channel", 2)).Error().
-				To(MatchError(ContainSubstring("does not define it")))
+			surf := MustSucceed(r.Surface(ctx, "schemas/synnax/channel", 2))
+			Expect(surf).To(HaveKey("Key"))
+			Expect(surf["Key"].Version).To(Equal(0))
+		})
+
+		It("Should reject an alias to a version that never carried the name", func(
+			ctx SpecContext,
+		) {
+			r := resolverFor(map[string]string{
+				"schemas/synnax/versions/channel/v0.oracle": "Key = uuid\n",
+				"schemas/synnax/versions/channel/v1.oracle": "Key = v0.Key\nName = v0.Name\n",
+			})
+			Expect(r.Surface(ctx, "schemas/synnax/channel", 1)).Error().
+				To(MatchError(ContainSubstring("does not carry it")))
 		})
 
 		It("Should inherit docs from the predecessor and honor overrides", func(

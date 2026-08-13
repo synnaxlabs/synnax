@@ -161,26 +161,7 @@ Arc struct {
         """
     }
 
-    action InsertChar {
-        id     crdt.ID           {
-            @doc value "is the identity of the inserted character."
-        }
-        origin crdt.ID           {
-            @doc value """
-                is the existing character this one anchors to. The root sentinel anchors
-                to the start of the document.
-            """
-        }
-        side   spatial.XLocation {
-            @doc value """
-                is the side of origin the character anchors to: left places it
-                immediately before the origin, right immediately after.
-            """
-        }
-        char   int32             {
-            @doc value "is the inserted Unicode code point."
-        }
-
+    action InsertChar extends crdt.Insert {
         @doc value """
             carries a single collaborative-edit character insertion against the module's
             text. The payload is a sequence CRDT operation; the server relays it to the
@@ -188,11 +169,7 @@ Arc struct {
         """
     }
 
-    action DeleteChar {
-        id crdt.ID {
-            @doc value "is the identity of the character to tombstone."
-        }
-
+    action DeleteChar extends crdt.Delete {
         @doc value """
             carries a single collaborative-edit character deletion against the module's
             text. The payload is a sequence CRDT operation; the server relays it to the

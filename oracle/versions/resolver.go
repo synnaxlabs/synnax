@@ -136,7 +136,11 @@ func (r *Resolver) Definer(
 		return "", "", false
 	}
 	if alias, isAlias := f.Aliases[name]; isAlias {
-		return DepNS(livePath, alias.Version), alias.Name, true
+		v, def, err := r.followAlias(ctx, livePath, n, name, alias)
+		if err != nil {
+			return "", "", false
+		}
+		return DepNS(livePath, v), def.Name, true
 	}
 	for _, t := range f.Defined {
 		if t.Name == name {
@@ -336,18 +340,13 @@ func (r *Resolver) surface(
 		surf[t.Name] = d
 	}
 	for name, a := range f.Aliases {
-		target, err := r.file(ctx, livePath, a.Version)
+		// An alias may target any version that carries the name; intermediate
+		// alias lines follow transitively to the defining version.
+		definer, def, err := r.followAlias(ctx, livePath, n, name, a)
 		if err != nil {
 			return nil, err
 		}
-		def, ok := findDefined(target, a.Name)
-		if !ok {
-			return nil, errors.Newf(
-				"%s v%d aliases %s to v%d, which does not define it",
-				livePath, n, name, a.Version,
-			)
-		}
-		d := Definition{Version: a.Version, Type: def}
+		d := Definition{Version: definer, Type: def}
 		if p, ok := prev[name]; ok {
 			d.Doc = p.Doc
 		} else {
@@ -357,6 +356,41 @@ func (r *Resolver) surface(
 	}
 	r.surfaces[key] = surf
 	return surf, nil
+}
+
+// followAlias resolves an alias line to its defining version and declaration,
+// following intermediate alias lines transitively. Callers hold r.mu.
+func (r *Resolver) followAlias(
+	ctx context.Context,
+	livePath string,
+	n int,
+	name string,
+	a Alias,
+) (int, resolution.Type, error) {
+	cur := a
+	for {
+		target, err := r.file(ctx, livePath, cur.Version)
+		if err != nil {
+			return 0, resolution.Type{}, err
+		}
+		if def, ok := findDefined(target, cur.Name); ok {
+			return cur.Version, def, nil
+		}
+		next, ok := target.Aliases[cur.Name]
+		if !ok {
+			return 0, resolution.Type{}, errors.Newf(
+				"%s v%d aliases %s to v%d, which does not carry it",
+				livePath, n, name, cur.Version,
+			)
+		}
+		if next.Version >= cur.Version {
+			return 0, resolution.Type{}, errors.Newf(
+				"%s v%d alias %s does not descend the chain at v%d",
+				livePath, n, name, cur.Version,
+			)
+		}
+		cur = next
+	}
 }
 
 func findDefined(f *File, name string) (resolution.Type, bool) {

@@ -12,7 +12,6 @@ package v3
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ gorp.Entry[Key] = Arc{}
@@ -26,26 +25,4 @@ func (Arc) SetOptions() []any { return nil }
 // OntologyID returns the unique ontology identifier for the Arc.
 func (a Arc) OntologyID() ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeArc, Key: a.Key.String()}
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field name "Running" and new lowercase msgpack tag "running" for backward
-// compatibility.
-func (s *StatusDetails) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias StatusDetails
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	if err = msgpack.Unmarshal(raw, (*alias)(s)); err != nil {
-		return err
-	}
-	if !s.Running {
-		var legacy struct{ Running bool }
-		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
-		}
-		s.Running = legacy.Running
-	}
-	return nil
 }

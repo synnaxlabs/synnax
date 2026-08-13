@@ -10,19 +10,14 @@
 import "schemas/arc/program"
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/text/v1"
-import "schemas/synnax/status"
 
-Key = v0.Key
+Key = v1.Key
 
-Mode = v0.Mode
+Mode = v1.Mode
 
-StatusDetails struct {
-    running bool {
-        @doc value "indicates whether the Arc module is currently executing."
-    }
-}
+StatusDetails = v1.StatusDetails
 
-Status = status.Status<StatusDetails>
+Status = v1.Status
 
 Arc struct {
     key     Key = create {
