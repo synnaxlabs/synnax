@@ -484,14 +484,7 @@ const useResultValue = <Query extends query.Params, Data extends query.Data>(
 };
 
 const useEnsure = <Query extends query.Params, Data extends query.Data>(
-  {
-    locals,
-    name,
-    retrieve,
-    onChange,
-    getCached,
-    normalizeQuery,
-  }: Context<Query, Data>,
+  { locals, name, retrieve, onChange, getCached, normalizeQuery }: Context<Query, Data>,
   query: Query,
 ): void => {
   const memoQuery = useMemoQuery(query, normalizeQuery);
