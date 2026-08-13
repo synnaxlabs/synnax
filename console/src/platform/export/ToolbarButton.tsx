@@ -7,27 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
 import { Button, Icon } from "@synnaxlabs/pluto";
 
-import { use } from "@/platform/export/use";
+import { use, type UseParams } from "@/platform/export/use";
 
 export interface ToolbarButtonProps extends Omit<
   Button.ButtonProps,
   "onClick" | "children"
 > {
-  /** Resolves the ontology ID to export, evaluated when the button is clicked. */
-  getID: () => ontology.ID;
+  /** Resolves the resource to export, evaluated when the button is clicked. */
+  getParams: () => UseParams;
 }
 
-export const ToolbarButton = ({ getID, ...rest }: ToolbarButtonProps) => {
+export const ToolbarButton = ({ getParams, ...rest }: ToolbarButtonProps) => {
   const handleExport = use();
   return (
     <Button.Button
       tooltip="Export layout"
       size="medium"
       variant="text"
-      onClick={() => handleExport(getID())}
+      onClick={() => handleExport(getParams())}
       {...rest}
     >
       <Icon.Export />

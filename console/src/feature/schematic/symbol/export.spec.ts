@@ -55,7 +55,7 @@ describe("exporting a symbol", () => {
       parent: group.ontologyID(root.key),
     });
     const { result } = await renderHookWithConsole(() => Export.use(), { client });
-    act(() => result.current(schematic.symbol.ontologyID(symbol.key)));
+    act(() => result.current({ id: schematic.symbol.ontologyID(symbol.key), name }));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
     expect(downloads.anchors[0].download).toBe(`${name}.json`);
     const contents = JSON.parse(

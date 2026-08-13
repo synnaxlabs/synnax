@@ -35,11 +35,13 @@ describe("Export.use", () => {
       run: Export.use(),
       notifications: Status.useNotifications(),
     }));
-    act(() => result.current.run(lineplot.ontologyID("plot-1")));
+    act(() =>
+      result.current.run({ id: lineplot.ontologyID("plot-1"), name: "My Plot" }),
+    );
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
-          (s) => s.variant === "error" && s.message === "Failed to export lineplot",
+          (s) => s.variant === "error" && s.message === "Failed to export My Plot",
         ),
       ).toBe(true),
     );

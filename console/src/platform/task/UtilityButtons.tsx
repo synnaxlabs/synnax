@@ -21,7 +21,8 @@ export const UtilityButtons = () => {
   const taskKey = useKey();
   const getName = () => ctx.get<string>("name").value;
   const export_ = Export.use();
-  const handleExport = () => taskKey != null && export_(task.ontologyID(taskKey));
+  const handleExport = () =>
+    taskKey != null && export_({ id: task.ontologyID(taskKey), name: getName() });
   const getTypeScriptCode = useCallback(
     () =>
       `

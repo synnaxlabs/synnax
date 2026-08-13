@@ -211,7 +211,13 @@ const RemoteSymbolListContextMenu = ({
       <ContextMenu.RenameItem onClick={() => Text.edit(List.itemNameID(firstKey))} />
       <Menu.Divider />
       <Export.ContextMenuItem
-        onClick={() => exportSymbol(schematic.symbol.ontologyID(firstKey))}
+        onClick={() => {
+          if (item != null)
+            exportSymbol({
+              id: schematic.symbol.ontologyID(firstKey),
+              name: item.name,
+            });
+        }}
       />
       <Menu.Divider />
       <ContextMenu.DeleteItem onClick={() => del.update(firstKey)} />

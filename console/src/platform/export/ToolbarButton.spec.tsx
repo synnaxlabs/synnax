@@ -7,26 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { log } from "@synnaxlabs/client";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Export } from "@/platform/export";
 import { renderWithConsole } from "@/testutil";
 
-const getID = (): ontology.ID => ({ type: "log", key: "k" });
+const getParams = (): Export.UseParams => ({
+  id: log.ontologyID("k"),
+  name: "My Log",
+});
 
 describe("Export.ToolbarButton", () => {
-  it("resolves the id to export when clicked", async () => {
-    const resolve = vi.fn(getID);
-    await renderWithConsole(<Export.ToolbarButton getID={resolve} />);
+  it("resolves the resource to export when clicked", async () => {
+    const resolve = vi.fn(getParams);
+    await renderWithConsole(<Export.ToolbarButton getParams={resolve} />);
     fireEvent.click(screen.getByRole("button"));
     expect(resolve).toHaveBeenCalledTimes(1);
   });
 
   it("forwards the disabled prop, suppressing the click", async () => {
-    const resolve = vi.fn(getID);
-    await renderWithConsole(<Export.ToolbarButton getID={resolve} disabled />);
+    const resolve = vi.fn(getParams);
+    await renderWithConsole(<Export.ToolbarButton getParams={resolve} disabled />);
     fireEvent.click(screen.getByRole("button"));
     expect(resolve).not.toHaveBeenCalled();
   });

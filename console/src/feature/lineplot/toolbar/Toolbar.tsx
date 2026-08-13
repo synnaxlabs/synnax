@@ -69,7 +69,9 @@ const Internal = (): ReactElement => {
               >
                 <Icon.CSV />
               </Button.Button>
-              <Export.ToolbarButton getID={() => lineplot.ontologyID(key)} />
+              <Export.ToolbarButton
+                getParams={() => ({ id: lineplot.ontologyID(key), name })}
+              />
               <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={lineplot.ontologyID(key)}

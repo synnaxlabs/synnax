@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +24,30 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+const createProjectWithPanel = async (): Promise<{
+  proj: project.Project;
+  logName: string;
+}> => {
+  const proj = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+  const logName = uniqueName("log");
+  const createdLog = await client.logs.create(proj.key, { name: logName });
+  await client.panels.create({
+    name: "Main",
+    root: {
+      variant: "leaf",
+      tabs: [
+        {
+          variant: "resource",
+          key: uuid.create(),
+          resource: log.ontologyID(createdLog.key),
+        },
+      ],
+    },
+    parent: project.ontologyID(proj.key),
+  });
+  return { proj, logName };
+};
 
 describe("Project Commands", () => {
   afterEach(() => {
@@ -58,18 +84,24 @@ describe("Project Commands", () => {
   });
 
   it("should export the current project as a zip download", async () => {
-    const p = await client.projects.create({ name: uniqueName("proj"), layout: {} });
+    const { proj, logName } = await createProjectWithPanel();
     const downloads = captureBrowserDownloads();
     const { openCommandPalette, selectCommand } = await renderPalette({
       commands: Project.COMMANDS,
       client,
       preloadedState: {
-        [Session.Project.SLICE_NAME]: { version: 0, selected: p.key },
+        [Session.Project.SLICE_NAME]: { version: 0, selected: proj.key },
       },
     });
     await openCommandPalette();
     await selectCommand("Export current project");
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
-    expect(downloads.anchors[0].download).toBe(`${p.name}.zip`);
+    expect(downloads.anchors[0].download).toBe(`${proj.name}.zip`);
+    // Zip entry names are stored uncompressed, so the archive names its own files.
+    const archive = new TextDecoder().decode(await downloads.blobs[0].arrayBuffer());
+    expect(archive.startsWith("PK")).toBe(true);
+    expect(archive).toContain("manifest.json");
+    expect(archive).toContain(`${logName}.json`);
+    expect(archive).toContain("Main.json");
   });
 });

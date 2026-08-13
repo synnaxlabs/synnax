@@ -13,31 +13,30 @@ import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
+export interface UseParams {
+  id: ontology.ID;
+  /** The resource name. It names the exported file. */
+  name: string;
+}
+
 /**
  * Returns a callback that exports the resource identified by the given ontology ID,
  * streaming its Core-serialized envelope to a file the user picks.
  */
-export const use = (): ((id: ontology.ID) => void) => {
+export const use = (): (({ id, name }: UseParams) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const download = Runtime.useDownload();
   return useCallback(
-    (id: ontology.ID) => {
-      let name: string | undefined;
-      handleError(
-        async () => {
-          if (client == null) throw new DisconnectedError();
-          // The file is named after the resource, which the ontology resolves without
-          // reading the envelope, so the export body streams straight to disk.
-          ({ name } = await client.ontology.retrieve(id));
-          await download({
-            stream: await client.imex.export(id, { encoding: "JSON" }),
-            name,
-            extension: "json",
-          });
-        },
-        `Failed to export ${name ?? id.type}`,
-      );
+    ({ id, name }: UseParams) => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        await download({
+          stream: await client.imex.export(id, { encoding: "JSON" }),
+          name,
+          extension: "json",
+        });
+      }, `Failed to export ${name}`);
     },
     [client, handleError, download],
   );
