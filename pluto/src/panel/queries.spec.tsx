@@ -358,10 +358,6 @@ describe("Panel queries", () => {
       await waitFor(() => expect(result.current).toContain(added.key));
     });
 
-    // Regression: creating a project unmounts the panel list while the session
-    // partition swaps, and the seed panel is created inside that window. Nothing
-    // announces it to a list that was not listening, so a remount that trusts the
-    // pre-gap answer leaves the project looking empty until a reload.
     it("should see a panel created while the list was unmounted", async () => {
       const projectKey = await newProject();
       const first = await retrieveKeys(projectKey);
