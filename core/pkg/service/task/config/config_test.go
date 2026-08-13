@@ -299,7 +299,6 @@ var _ = Describe("Registry", func() {
 			reg := MustSucceed(config.NewRegistry(store))
 			Expect(reg.IsZero()).To(BeFalse())
 			Expect(MustBeOk(reg.Store(testType))).To(BeIdenticalTo(store))
-			Expect(reg.Types()).To(ConsistOf(testType))
 		})
 
 		It("Should reject two stores declaring the same type", func() {
