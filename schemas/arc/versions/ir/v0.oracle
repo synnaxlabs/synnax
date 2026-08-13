@@ -215,7 +215,7 @@ IR struct {
         is the intermediate representation of an Arc program as a dataflow graph with
         stratified execution, bridging semantic analysis and WebAssembly compilation.
     """
-    @go fields  "Symbols *symbol.Symbol `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]typesv0.Type `json:\"-\"`"
+    @go fields  "Symbols *symbol.Symbol `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]types.Type `json:\"-\"`"
     @go imports "github.com/antlr4-go/antlr/v4" "github.com/synnaxlabs/arc/symbol"
     @go marshal
 }

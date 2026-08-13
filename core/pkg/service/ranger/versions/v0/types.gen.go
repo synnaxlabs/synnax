@@ -13,8 +13,8 @@ package v0
 
 import (
 	"github.com/google/uuid"
-	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
-	telemv0 "github.com/synnaxlabs/x/telem/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // Key is a unique identifier for a range, represented as a UUID.
@@ -29,8 +29,8 @@ type Range struct {
 	Name string `json:"name" msgpack:"name"`
 	// TimeRange is the temporal extent of the range, defining its start and end
 	// timestamps.
-	TimeRange telemv0.TimeRange `json:"time_range" msgpack:"time_range"`
+	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is the display color for visual identification of the range in user
 	// interfaces.
-	Color colorv0.Color `json:"color" msgpack:"color"`
+	Color color.Color `json:"color" msgpack:"color"`
 }

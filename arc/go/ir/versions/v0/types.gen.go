@@ -14,7 +14,7 @@ package v0
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/symbol"
-	typesv0 "github.com/synnaxlabs/arc/types/versions/v0"
+	types "github.com/synnaxlabs/arc/types/versions/v0"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -65,13 +65,13 @@ type Function struct {
 	// Body is raw source code for user-defined functions.
 	Body Body `json:"body" msgpack:"body"`
 	// Config contains configuration parameter definitions.
-	Config typesv0.Params `json:"config,omitzero" msgpack:"config,omitzero"`
+	Config types.Params `json:"config,omitzero" msgpack:"config,omitzero"`
 	// Inputs contains input parameter definitions.
-	Inputs typesv0.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 	// Outputs contains output parameter definitions.
-	Outputs typesv0.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write declarations.
-	Channels typesv0.Channels `json:"channels" msgpack:"channels"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 // Functions is a collection of function definitions in an Arc module.
@@ -93,13 +93,13 @@ type Node struct {
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
 	// Config contains configuration parameter values.
-	Config typesv0.Params `json:"config,omitzero" msgpack:"config,omitzero"`
+	Config types.Params `json:"config,omitzero" msgpack:"config,omitzero"`
 	// Inputs contains input parameter type signatures.
-	Inputs typesv0.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 	// Outputs contains output parameter type signatures.
-	Outputs typesv0.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write mappings.
-	Channels typesv0.Channels `json:"channels" msgpack:"channels"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 // Nodes is a collection of node instantiations in an Arc module.
@@ -153,7 +153,7 @@ type IR struct {
 	// Sequences contains state machine definitions.
 	Sequences Sequences `json:"sequences,omitzero" msgpack:"sequences,omitzero"`
 	// Authorities contains the static authority declarations for this program.
-	Authorities Authorities                              `json:"authorities" msgpack:"authorities"`
-	Symbols     *symbol.Symbol                           `json:"-"`
-	TypeMap     map[antlr.ParserRuleContext]typesv0.Type `json:"-"`
+	Authorities Authorities                            `json:"authorities" msgpack:"authorities"`
+	Symbols     *symbol.Symbol                         `json:"-"`
+	TypeMap     map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

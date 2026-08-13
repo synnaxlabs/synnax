@@ -15,6 +15,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"path/filepath"
 	"slices"
 	"strings"
 	"text/template"
@@ -35,6 +36,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -409,6 +411,57 @@ func generateGoFile(
 	transientPass bool,
 	order map[string]int,
 ) ([]byte, error) {
+	content, conflicts, err := renderGoFile(
+		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
+		pred, latest, closure, transientPass, order, nil,
+	)
+	if err != nil || len(conflicts) == 0 {
+		return content, err
+	}
+	// Pinned and live imports of one dependency derive the same alias. Rebind
+	// the versioned paths to version-suffixed aliases and render again.
+	pkg := naming.DerivePackageName(outputPath)
+	overrides := make(map[string]string)
+	for _, paths := range conflicts {
+		for _, p := range paths {
+			if filepath.Base(filepath.Dir(p)) == "versions" {
+				overrides[p] = naming.DeriveVersionedAlias(p, pkg)
+			}
+		}
+	}
+	content, conflicts, err = renderGoFile(
+		outputPath, structs, enums, typeDefs, unions, table, repoRoot,
+		pred, latest, closure, transientPass, order, overrides,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if len(conflicts) > 0 {
+		return nil, errors.Newf(
+			"unresolvable import alias conflicts in %s: %v", outputPath, conflicts,
+		)
+	}
+	return content, nil
+}
+
+// renderGoFile renders one generated types file. Rendered references bake
+// their import alias in, so alias collisions cannot be repaired in place: the
+// caller inspects the returned conflicts and re-renders with aliasOverrides.
+func renderGoFile(
+	outputPath string,
+	structs []resolution.Type,
+	enums []resolution.Type,
+	typeDefs []resolution.Type,
+	unions []resolution.Type,
+	table *resolution.Table,
+	repoRoot string,
+	pred predecessor,
+	latest *resolution.Table,
+	closure set.Set[string],
+	transientPass bool,
+	order map[string]int,
+	aliasOverrides map[string]string,
+) ([]byte, map[string][]string, error) {
 	namespace := ""
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
@@ -433,21 +486,26 @@ func generateGoFile(
 	}
 
 	r := &resolver.Resolver{
-		Formatter:       GoFormatter(),
-		ImportResolver:  &GoImportResolver{RepoRoot: repoRoot, CurrentPackage: pkg},
+		Formatter: GoFormatter(),
+		ImportResolver: &GoImportResolver{
+			RepoRoot:       repoRoot,
+			CurrentPackage: pkg,
+			AliasOverrides: aliasOverrides,
+		},
 		ImportAdder:     imports,
 		PrimitiveMapper: primitiveMapper,
 	}
 
 	data := &templateData{
-		Package:    pkg,
-		OutputPath: outputPath,
-		Namespace:  namespace,
-		imports:    imports,
-		table:      table,
-		repoRoot:   repoRoot,
-		resolver:   r,
-		ctx:        ctx,
+		Package:        pkg,
+		OutputPath:     outputPath,
+		Namespace:      namespace,
+		imports:        imports,
+		table:          table,
+		repoRoot:       repoRoot,
+		resolver:       r,
+		ctx:            ctx,
+		aliasOverrides: aliasOverrides,
 	}
 
 	// Transient declarations — outside the persisted closure of a marshal-rooted
@@ -505,9 +563,9 @@ func generateGoFile(
 
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return buf.Bytes(), nil
+	return buf.Bytes(), imports.Conflicts(), nil
 }
 
 func resolveGoImportPath(outputPath, repoRoot string) string {
@@ -880,7 +938,7 @@ func resolveExtendsType(
 	if targetOutputPath == "" {
 		return name
 	}
-	alias := naming.DeriveImportAlias(targetOutputPath, data.Package)
+	alias := data.importAlias(targetOutputPath)
 	data.imports.AddInternal(
 		alias,
 		resolveGoImportPath(targetOutputPath, data.repoRoot),
@@ -911,12 +969,24 @@ type templateData struct {
 	ctx      *resolver.Context
 	// latest, when set, resolves omitted (memory-only) fields against the latest table
 	// so they track dependencies' current versions.
-	latest     *templateData
-	Package    string
-	OutputPath string
-	Namespace  string
-	repoRoot   string
-	Decls      []declData
+	latest *templateData
+	// aliasOverrides remaps specific output paths to explicit import aliases
+	// during the conflict re-render pass.
+	aliasOverrides map[string]string
+	Package        string
+	OutputPath     string
+	Namespace      string
+	repoRoot       string
+	Decls          []declData
+}
+
+// importAlias returns the import alias for a cross-package reference,
+// honoring the conflict re-render pass's overrides (keyed by import path).
+func (d *templateData) importAlias(outputPath string) string {
+	if a, ok := d.aliasOverrides[resolveGoImportPath(outputPath, d.repoRoot)]; ok {
+		return a
+	}
+	return naming.DerivePackageAlias(outputPath, d.Package)
 }
 
 // declData wraps one processed declaration in schema order; exactly one field is

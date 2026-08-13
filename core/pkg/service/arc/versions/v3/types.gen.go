@@ -12,9 +12,9 @@
 package v3
 
 import (
-	graphv1 "github.com/synnaxlabs/arc/graph/versions/v1"
+	graph "github.com/synnaxlabs/arc/graph/versions/v1"
 	"github.com/synnaxlabs/arc/program"
-	textv1 "github.com/synnaxlabs/arc/text/versions/v1"
+	text "github.com/synnaxlabs/arc/text/versions/v1"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -47,9 +47,9 @@ type Arc struct {
 	// text-based Arc code or "graph" for visual dataflow.
 	Mode Mode `json:"mode" msgpack:"mode"`
 	// Graph is the visual dataflow graph representation of the module.
-	Graph graphv1.Graph `json:"graph" msgpack:"graph"`
+	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Text is the text-based Arc source code.
-	Text textv1.Text `json:"text" msgpack:"text"`
+	Text text.Text `json:"text" msgpack:"text"`
 	// Program is the compiled module output including IR and WebAssembly bytecode.
 	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
 	// Status is the current execution status of the module.

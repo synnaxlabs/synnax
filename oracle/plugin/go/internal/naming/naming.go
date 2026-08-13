@@ -139,17 +139,6 @@ func DerivePackageAlias(outputPath, currentPackage string) string {
 	return base
 }
 
-// DeriveImportAlias returns the import alias for a cross-package reference.
-// Version packages ("<resource>/versions/vN") take the version-suffixed alias
-// ("typesv1") so a pinned import never collides with the same dependency's live
-// import when one file mixes persisted and transient declarations.
-func DeriveImportAlias(outputPath, currentPackage string) string {
-	if filepath.Base(filepath.Dir(outputPath)) == "versions" {
-		return DeriveVersionedAlias(outputPath, currentPackage)
-	}
-	return DerivePackageAlias(outputPath, currentPackage)
-}
-
 // DeriveVersionedAlias is DerivePackageAlias, except version packages keep the
 // version suffix ("spatialv0"). Migration files import two versions of the same
 // resource and need the suffix to disambiguate.

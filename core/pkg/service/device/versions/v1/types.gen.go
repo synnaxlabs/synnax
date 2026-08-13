@@ -14,7 +14,7 @@ package v1
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	rackv1 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
@@ -38,7 +38,7 @@ type Device struct {
 	// Key is the unique identifier for this device.
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack that owns this device.
-	Rack rackv1.Key `json:"rack" msgpack:"rack"`
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Location is the physical location or address of the device.
 	Location string `json:"location" msgpack:"location"`
 	// Make is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').

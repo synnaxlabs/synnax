@@ -13,10 +13,10 @@ package v0
 
 import (
 	"github.com/google/uuid"
-	graphv0 "github.com/synnaxlabs/arc/graph/versions/v0"
-	programv0 "github.com/synnaxlabs/arc/program/versions/v0"
-	textv0 "github.com/synnaxlabs/arc/text/versions/v0"
-	statusv0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
+	graph "github.com/synnaxlabs/arc/graph/versions/v0"
+	program "github.com/synnaxlabs/arc/program/versions/v0"
+	text "github.com/synnaxlabs/arc/text/versions/v0"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -49,7 +49,7 @@ type StatusDetails struct {
 }
 
 // Status is the status of an Arc module including execution state.
-type Status = statusv0.Status[StatusDetails]
+type Status = status.Status[StatusDetails]
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
@@ -62,11 +62,11 @@ type Arc struct {
 	// text-based Arc code or "graph" for visual dataflow.
 	Mode Mode `json:"mode" msgpack:"mode"`
 	// Graph is the visual dataflow graph representation of the module.
-	Graph graphv0.Graph `json:"graph" msgpack:"graph"`
+	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Text is the text-based Arc source code.
-	Text textv0.Text `json:"text" msgpack:"text"`
+	Text text.Text `json:"text" msgpack:"text"`
 	// Program is the compiled module output including IR and WebAssembly bytecode.
-	Program *programv0.Program `json:"program,omitempty" msgpack:"program,omitempty"`
+	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
 	// Status is the current execution status of the module.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }

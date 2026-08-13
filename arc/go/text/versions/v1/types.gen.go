@@ -15,7 +15,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/arc/parser"
-	crdtv0 "github.com/synnaxlabs/x/crdt/versions/v0"
+	crdt "github.com/synnaxlabs/x/crdt/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -24,9 +24,9 @@ import (
 // truth from which raw is materialized.
 type Document struct {
 	// Inserts are the operations that reconstruct the document's characters.
-	Inserts []crdtv0.Insert `json:"inserts,omitzero" msgpack:"inserts,omitzero"`
+	Inserts []crdt.Insert `json:"inserts,omitzero" msgpack:"inserts,omitzero"`
 	// Deletes are the operations that tombstone deleted characters.
-	Deletes []crdtv0.Delete `json:"deletes,omitzero" msgpack:"deletes,omitzero"`
+	Deletes []crdt.Delete `json:"deletes,omitzero" msgpack:"deletes,omitzero"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

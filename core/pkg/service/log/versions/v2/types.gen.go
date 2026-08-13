@@ -14,11 +14,11 @@ package v2
 import (
 	"strconv"
 
-	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
-	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
-	notationv0 "github.com/synnaxlabs/x/notation/versions/v0"
-	telemv0 "github.com/synnaxlabs/x/telem/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	notation "github.com/synnaxlabs/x/notation/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -28,9 +28,9 @@ type Key = v0.Key
 // TimestampConfig is per-channel timestamp display configuration.
 type TimestampConfig struct {
 	// Format controls how channel timestamps are rendered.
-	Format telemv0.TimestampFormat `json:"format" msgpack:"format"`
+	Format telem.TimestampFormat `json:"format" msgpack:"format"`
 	// Tz is the time zone used when rendering timestamps.
-	Tz telemv0.TimeZone `json:"tz" msgpack:"tz"`
+	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -45,11 +45,11 @@ func (t TimestampConfig) Validate() error {
 // ChannelEntry is a per-channel display configuration entry within a log.
 type ChannelEntry struct {
 	// Channel is the channel this entry references.
-	Channel channelv0.Key `json:"channel" msgpack:"channel"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Color is the display color for the channel.
-	Color colorv0.Color `json:"color" msgpack:"color"`
+	Color color.Color `json:"color" msgpack:"color"`
 	// Notation is the numeric notation used to render samples.
-	Notation notationv0.Notation `json:"notation" msgpack:"notation"`
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Precision is the number of decimal digits to display. -1 means "use the log-level
 	// precision"; 17 is the maximum significant digits for a float64.
 	Precision int32 `json:"precision" msgpack:"precision"`

@@ -2342,7 +2342,7 @@ Rack struct {
 					}, "schemas/synnax/rack.oracle", "rack")
 					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 						ToBeValidGoSource().
-						ToContain(`statusv1 "github.com/synnaxlabs/synnax/core/status/versions/v1"`).
+						ToContain(`status "github.com/synnaxlabs/synnax/core/status/versions/v1"`).
 						ToNotContain(`"github.com/synnaxlabs/synnax/core/status"` + "\n")
 				},
 			)

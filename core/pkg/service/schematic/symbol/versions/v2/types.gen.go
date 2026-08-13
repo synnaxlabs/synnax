@@ -15,8 +15,8 @@ import (
 	"strconv"
 
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
-	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
-	spatialv0 "github.com/synnaxlabs/x/spatial/versions/v0"
+	color "github.com/synnaxlabs/x/color/versions/v0"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -33,9 +33,9 @@ type Region struct {
 	// Selectors contains CSS selectors targeting SVG elements within the symbol.
 	Selectors []string `json:"selectors,omitzero" msgpack:"selectors,omitzero"`
 	// StrokeColor is an optional stroke color override for the region.
-	StrokeColor *colorv0.Color `json:"stroke_color,omitempty" msgpack:"stroke_color,omitempty"`
+	StrokeColor *color.Color `json:"stroke_color,omitempty" msgpack:"stroke_color,omitempty"`
 	// FillColor is an optional fill color override for the region.
-	FillColor *colorv0.Color `json:"fill_color,omitempty" msgpack:"fill_color,omitempty"`
+	FillColor *color.Color `json:"fill_color,omitempty" msgpack:"fill_color,omitempty"`
 }
 
 // State is a named visual state of a symbol with regional styling configurations.
@@ -53,9 +53,9 @@ type Handle struct {
 	// Key is the handle identifier.
 	Key string `json:"key" msgpack:"key"`
 	// Position is the (x, y) coordinate within the symbol's local space.
-	Position spatialv0.XY `json:"position" msgpack:"position"`
+	Position spatial.XY `json:"position" msgpack:"position"`
 	// Orientation is the direction the handle faces (top, right, bottom, left).
-	Orientation spatialv0.OuterLocation `json:"orientation" msgpack:"orientation"`
+	Orientation spatial.OuterLocation `json:"orientation" msgpack:"orientation"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -83,7 +83,7 @@ type Spec struct {
 	ScaleStroke bool `json:"scale_stroke" msgpack:"scale_stroke"`
 	// PreviewViewport is an optional viewport configuration for symbol preview
 	// rendering.
-	PreviewViewport *spatialv0.Viewport `json:"preview_viewport,omitempty" msgpack:"preview_viewport,omitempty"`
+	PreviewViewport *spatial.Viewport `json:"preview_viewport,omitempty" msgpack:"preview_viewport,omitempty"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
