@@ -200,10 +200,6 @@ interface OverlaidLeafProps extends Pick<TabProps, "tabName" | "onClose"> {
   onContextMenu: Menu.ContextMenuOpen;
 }
 
-// The mosaic collapsed to a single leaf: a one-tab strip and the overlaid tab's
-// content claimed from the shared portal registry. The tree is unmounted while
-// this renders, so background tabs detach and their canvas draws stop. The
-// exit chip in the add button's slot is the mode indicator.
 const OverlaidLeaf = ({
   overlaid,
   onStopOverlay,

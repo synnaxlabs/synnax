@@ -91,8 +91,6 @@ interface TabProps {
 // renders nothing; the by-project subscription evicts the key right after.
 const TabFallback = (): null => null;
 
-// The whole pill, chrome included, comes from the retrieve, so there is nothing
-// to put an indicator inside of until it lands.
 const Tab = ({ tabKey }: TabProps): ReactElement => (
   <Errors.SuspenseBoundary loading={null} FallbackComponent={TabFallback}>
     <TabContent tabKey={tabKey} />
