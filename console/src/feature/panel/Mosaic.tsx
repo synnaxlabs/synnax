@@ -40,9 +40,6 @@ import { Session } from "@/session";
 const corpseName = (error: Error): string | undefined =>
   Flux.DeletedError.matches(error) ? error.corpseName : undefined;
 
-// Tab names render in the selector strip, outside the content's suspense
-// boundary. A name service throws when its resource has been deleted, so an
-// unguarded name would crash the entire app on a single stale tab.
 const TabNameContent = ({ name }: Flux.Tombstone): ReactElement => (
   <>
     <Icon.Warning />
@@ -341,8 +338,6 @@ const PanelFallback = (props: Errors.FallbackProps): ReactElement => {
       {panelKey != null && isNotFound(error) && (
         <Button.Button
           variant="filled"
-          // The settled not-found re-throws on every render, so it is discarded
-          // before the boundary remounts the panel.
           onClick={() => {
             invalidate({ key: panelKey });
             resetErrorBoundary();
