@@ -13,19 +13,17 @@ import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
 
-/* Even coverage of the OKLCH wheel, for maximum distinguishability. */
+/* Even coverage of the OKLCH wheel. */
 const HUES: readonly number[] = [15, 60, 105, 150, 195, 240, 285, 330];
 
-/* Hashes the full name, not the initial, so same-letter projects get different
-   hues. */
+/* Hashes the full name, not the initials, so same-letter projects differ. */
 const hueOf = (name: string): number => {
   let hash = 0;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   return HUES[hash % HUES.length];
 };
 
-/* Multi-word names take each word's initial ("Hot Fire" -> "HF"); single words
-   take their first two characters ("Primary" -> "PR"). */
+/* "Hot Fire" -> "HF"; "Primary" -> "PR". */
 const initialsOf = (name: string): string => {
   const words = name
     .trim()

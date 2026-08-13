@@ -9,7 +9,7 @@
 
 import "@/feature/cluster/ConnectionBadge.css";
 
-import { type connection } from "@synnaxlabs/client";
+import { type connection, status as clientStatus } from "@synnaxlabs/client";
 import {
   Button,
   Dialog,
@@ -194,14 +194,14 @@ export const ConnectionBadge = (): ReactElement => {
     <Dialog.Frame>
       <Tooltip.Dialog location={location.BOTTOM_LEFT}>
         <Summary status={status} />
-        {/* Button disables itself for the "loading" and "disabled" statuses, and the
-            badge must stay clickable while disconnected, so those pass no status. */}
+        {/* Button disables itself on "loading" and "disabled", and the badge must
+            stay clickable while disconnected. */}
         <Dialog.Trigger
           hideCaret
           variant="outlined"
           size="medium"
           rounded="small"
-          status={variant === "loading" || variant === "disabled" ? undefined : variant}
+          status={clientStatus.removeVariants(variant, ["loading", "disabled"])}
         >
           <Status.Indicator variant={variant} />
         </Dialog.Trigger>

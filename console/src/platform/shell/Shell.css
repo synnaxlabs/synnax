@@ -26,7 +26,6 @@
     z-index: 0;
 }
 
-/* Concentric fading outlines around the card. */
 .console-shell__stage::before,
 .console-shell__stage::after {
     content: "";
@@ -69,7 +68,7 @@
         height 0.25s ease;
 }
 
-/* Turns a surface swap into a crossfade, keeping sub-250ms transients faint. */
+/* Keeps sub-250ms transients faint by fading them in. */
 .console-shell__card > * {
     animation: console-shell-reveal 0.25s ease;
 }

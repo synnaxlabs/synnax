@@ -30,8 +30,6 @@ import { Session } from "@/session";
 
 const LOG_IN_TRIGGER: Triggers.Trigger = ["Enter"];
 
-// The surface is a stepped wizard: pick a cluster, then authenticate against
-// it. Serving-cluster (browser) mode has no cluster step.
 type Step = "clusters" | "login";
 
 const credentialsZ = z.object({
@@ -52,10 +50,8 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
 };
 
 /**
- * Full-screen login surface: cluster selection plus credential entry. Serves
- * both initial login (no session selected) and credential re-entry when the
- * active cluster rejects auth, in which case the live connection status is
- * shown and submitting for the active cluster resumes its connection.
+ * Full-screen login surface. Serves both initial login and credential re-entry
+ * after the active cluster rejects auth, where submitting resumes its connection.
  */
 export const Login = (): ReactElement => {
   const client = Synnax.use();

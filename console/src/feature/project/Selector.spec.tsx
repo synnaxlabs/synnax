@@ -22,9 +22,6 @@ const client: Synnax = createTestClient();
 
 const TRIGGER = ".console-project-selector__trigger";
 
-// The selector's dialog list is virtualized and renders no rows under jsdom's
-// zero-size layout.
-
 describe("Project.Selector", () => {
   it("renders nothing when the user lacks retrieve permission", async () => {
     const { container } = await renderWithConsole(<Project.Selector />, {

@@ -9,9 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-/* Narrow-arc gradient with a lightness tilt (lit from the top-left): restrained
-   chroma keeps it dusty while the tilt gives it depth at tile size. The frost
-   gradient is the fill's milky translucent twin, used by the ringed trigger. */
 .console-project-avatar {
     width: 4rem;
     height: 4rem;

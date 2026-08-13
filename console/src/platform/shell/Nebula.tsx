@@ -15,8 +15,8 @@ import { type ReactElement, useEffect, useMemo, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 
-// Curated seeds; one is drawn per launch, so the nebula holds still across the
-// login, connection, and project surfaces.
+// Module scope, so one seed lasts the launch and the nebula holds still as the
+// pre-workspace surfaces swap.
 const SEEDS = [
   7, 25, 61, 99, 122, 147, 225, 315, 483, 777, 1024, 2718, 3141, 4222, 5077, 6502, 7919,
   8674, 9253,
@@ -65,8 +65,7 @@ const SETTINGS: Settings = {
   color: "#e6e6ea",
 };
 
-// SETTINGS is the dark-mode tuning; light backgrounds carry darker ink at a
-// softer intensity, like halftone print on paper.
+// SETTINGS is the dark-mode tuning; light backgrounds want darker ink.
 const LIGHT_OVERRIDES: Partial<Settings> = { color: "#63666c", intensity: 0.6 };
 
 const hash = (x: number, y: number, seed: number): number => {

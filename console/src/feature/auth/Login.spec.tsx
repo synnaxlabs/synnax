@@ -10,9 +10,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
-// A Core serving the Console is its own login target, so the step is skipped
-// entirely. Detection has no seam other than the module itself, and it reports a
-// serving Core for every browser build, this suite included.
+// A serving Core skips the cluster step, and detection reports one for every
+// browser build. The module is the only seam.
 vi.mock("@/platform/cluster/detectConnection", () => ({
   detectConnection: () => null,
 }));
@@ -22,8 +21,7 @@ import { Session } from "@/session";
 import { createCluster } from "@/session/cluster/testutil";
 import { createSessionConsoleWrapper, getBySelector } from "@/testutil";
 
-// Both Cores are unreachable. The list checks each one, but this suite is about
-// moving between the steps, not about what the checks report.
+// Dead ports: the list checks each Core, and no assertion here reads the result.
 const ALPHA = createCluster("alpha", { name: "Alpha", port: 9098, username: "ada" });
 const BETA = createCluster("beta", { name: "Beta", port: 9099, username: "grace" });
 

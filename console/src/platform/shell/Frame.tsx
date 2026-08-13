@@ -18,17 +18,15 @@ import { Nav } from "@/platform/shell/Nav";
 import { Nebula } from "@/platform/shell/Nebula";
 
 export interface FrameProps {
-  /** Modifier classes for the surface; card sizing rules key off these. */
   className?: string;
   /** Target Core shown in the connection island; omit to hide it. */
   connection?: ConnectionCluster | null;
-  /** The card's contents. */
   children: ReactNode;
 }
 
 /**
  * Full-window shell for pre-workspace surfaces: window chrome, halftone nebula,
- * ornamented stage, and the centered card that hosts the surface's content.
+ * and the centered card that hosts the surface's content.
  */
 export const Frame = ({
   className,

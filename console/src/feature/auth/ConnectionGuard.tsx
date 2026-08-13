@@ -27,12 +27,8 @@ import { Shell } from "@/platform/shell";
 import { Session } from "@/session";
 
 /**
- * Blacks out the workspace while the active cluster is unusable or the
- * session is in structural doubt. Rejected credentials return to the login
- * surface at any warmth. Until the session settles a single splash renders
- * instead of the workspace: connecting before first contact, connection
- * trouble with error detail and actions once a check fails, preparing once
- * the cluster is reached. Warm degradation renders children intact.
+ * Renders a splash instead of the workspace until the session settles. Rejected
+ * credentials return to the login surface; a degraded live connection does not.
  */
 export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   const client = Synnax.use();
@@ -44,8 +40,7 @@ export const ConnectionGuard = ({ children }: PropsWithChildren): ReactNode => {
   return children;
 };
 
-// A check against a dead local port fails in milliseconds; the beat is held
-// on screen long enough for the user to actually see the attempt happen.
+// A check against a dead local port fails in milliseconds, too fast to see.
 const CHECK_HOLD = TimeSpan.milliseconds(1250);
 
 const useHeldChecking = (checking: boolean): boolean => {
@@ -94,8 +89,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
   const troubled =
     connecting &&
     (variant === "error" || details.error != null || details.retry != null);
-  // Fast connections settle before the reveal timer fires, so the splash stays
-  // an empty card instead of flashing a spinner for a few frames.
+  // Fast connections settle before this fires, so the card never flashes a spinner.
   const [revealed, setRevealed] = useState(false);
   useEffect(() => {
     const timeout = setTimeout(() => setRevealed(true), 300);
@@ -107,8 +101,7 @@ const Splash = ({ client, status }: SplashProps): ReactElement => {
       <CountdownCore retry={details.retry} checking={checking} />
     ) : undefined;
   return (
-    // The trouble state consolidates connection info into the card, so the
-    // connection island hides to avoid stating it twice.
+    // Trouble puts the connection detail in the card, so the island would repeat it.
     <Shell.Frame className={CSS.B("connection")} connection={troubled ? null : cluster}>
       <Flex.Box
         y
@@ -161,8 +154,6 @@ const Trouble = ({ client, status, checking }: TroubleProps): ReactElement => {
             {cluster.host}:{cluster.port}
           </Text.Text>
         )}
-        {/* Ghost copies reserve the widest label's width so the centered row
-            doesn't shift when the live label swaps. */}
         <Text.Text status={variant} className={CSS.BE("connection", "status")}>
           <span>{checking ? "Retrying" : Shell.STATUS_LABELS[variant]}</span>
           <span className={CSS.M("ghost")} aria-hidden>
