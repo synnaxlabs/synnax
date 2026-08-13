@@ -13,7 +13,7 @@ import { id, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CSV } from "@/platform/csv";
+import { Framer } from "@/platform/framer";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import {
   captureBrowserDownloads,
@@ -24,9 +24,9 @@ import {
 const TIME_RANGE = new TimeRange(TimeStamp.seconds(0), TimeStamp.seconds(10));
 
 const openDownloadModal = async (
-  params: CSV.DownloadModalParams,
+  params: Framer.DownloadCSVModalParams,
   options: Parameters<typeof renderModalOpener>[2] = {},
-) => await renderModalOpener(() => CSV.useDownloadModal(), [params], options);
+) => await renderModalOpener(() => Framer.useDownloadCSVModal(), [params], options);
 
 // jsdom's Blob has no text(); FileReader is the portable way to read it back.
 const readBlob = (blob: Blob): Promise<string> =>
@@ -37,7 +37,7 @@ const readBlob = (blob: Blob): Promise<string> =>
     reader.readAsText(blob);
   });
 
-describe("useDownloadModal", () => {
+describe("useDownloadCSVModal", () => {
   describe("form step (no client)", () => {
     it("disables the Download button when no channels are selected", async () => {
       await openDownloadModal({ timeRange: TIME_RANGE, channels: [], name: "My Plot" });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/csv/DownloadModal.css";
+import "@/platform/framer/DownloadCSVModal.css";
 
 import { channel } from "@synnaxlabs/client";
 import {
@@ -30,11 +30,11 @@ import {
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
-import { Framer } from "@/platform/framer";
+import { useDownloadCSV } from "@/platform/framer/useDownloadCSV";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-export interface DownloadModalParams {
+export interface DownloadCSVModalParams {
   channelNames?: Record<channel.Key, string>;
   timeRange: CrudeTimeRange;
   channels: channel.Key[];
@@ -49,9 +49,12 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to download",
 };
 
-export interface PromptDownload extends Modals.Prompt<void, DownloadModalParams> {}
+export interface PromptDownloadCSV extends Modals.Prompt<
+  void,
+  DownloadCSVModalParams
+> {}
 
-export const useDownloadModal = Modals.createPrompt<void, DownloadModalParams>(
+export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalParams>(
   ({ timeRange, channels, name, channelNames, icon, close }) => {
     const form = Form.use<typeof formSchema>({
       schema: formSchema,
@@ -140,7 +143,7 @@ interface DownloadButtonProps {
 }
 
 const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
-  const downloadCSV = Framer.useDownloadCSV();
+  const downloadCSV = useDownloadCSV();
   const { get } = Form.useContext();
   const handleClick = () => {
     const timeRange = get<TimeRange>("timeRange").value;

@@ -30,8 +30,8 @@ export interface DownloadParams {
    * form names the file.
    */
   name: string;
-  /** The extension of the file to download. Omit when name already carries one. */
-  extension?: string;
+  /** The extension of the file to download, without the leading dot. */
+  extension: string;
   /** File-type filters for the Tauri save dialog. */
   filters?: FileFilter[];
   onDownloadStart?: () => void;
@@ -51,10 +51,7 @@ export const useDownload = (): ((params: DownloadParams) => Promise<void>) => {
       filters,
       onDownloadStart,
     }: DownloadParams): Promise<void> => {
-      const nameWithExtension = filename.sanitize(
-        name,
-        extension == null ? "" : `.${extension}`,
-      );
+      const nameWithExtension = filename.sanitize(name, `.${extension}`);
       const addStartStatus = (location: string) => {
         onDownloadStart?.();
         addStatus({
