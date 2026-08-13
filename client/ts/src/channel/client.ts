@@ -285,6 +285,22 @@ const isKeysOnly = (
   req.internal == null &&
   req.legacyCalculated == null;
 
+const isNamesOnly = (
+  req: NormalizedRequest,
+): req is NormalizedRequest & { names: string[] } =>
+  primitive.isNonZero(req.names) &&
+  req.keys == null &&
+  req.searchTerm == null &&
+  req.nodeKey == null &&
+  req.limit == null &&
+  req.offset == null &&
+  req.dataTypes == null &&
+  req.notDataTypes == null &&
+  req.virtual == null &&
+  req.isIndex == null &&
+  req.internal == null &&
+  req.legacyCalculated == null;
+
 const NAME_LITERAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 /**
@@ -374,7 +390,7 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   readonly writer: Writer;
-  private readonly store: query.Table<Key, Channel>;
+  readonly store: query.Table<Key, Channel>;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, ranges, cache } = cfg;
@@ -776,14 +792,38 @@ export class Client extends query.Retriever<
     return ch;
   }
 
+  /**
+   * Resolves literal names against the record store, fetching only the names it
+   * cannot resolve. A name matching two stored channels is ambiguous, which only
+   * a cluster running without name validation can produce, so the whole request
+   * falls through to the cluster. Returns null when the store cannot be trusted
+   * to answer any part of the request.
+   */
+  private async resolveNames(names: string[]): Promise<Channel[] | null> {
+    if (!names.every((name) => NAME_LITERAL_PATTERN.test(name))) return null;
+    const resolved: Channel[] = [];
+    const missing: string[] = [];
+    for (const name of new Set(names)) {
+      const matches = this.store.get((ch) => ch.name === name);
+      if (matches.length > 1) return null;
+      if (matches.length === 0) missing.push(name);
+      else resolved.push(matches[0]);
+    }
+    if (missing.length === 0) return resolved;
+    const fetched = (await this.execRetrieve({ names: missing })).map((p) =>
+      this.sugar(stripComposed(p)),
+    );
+    return [...resolved, ...fetched];
+  }
+
   private async fetchRequest(query: NormalizedRequest): Promise<Channel[]> {
     const { rangeKey } = query;
-    let channels: Channel[];
+    let channels: Channel[] | null = null;
     if (isKeysOnly(query)) channels = await this.store.retrieve(query.keys);
-    else
-      channels = (await this.execRetrieve(query)).map((p) =>
-        this.sugar(stripComposed(p)),
-      );
+    else if (isNamesOnly(query)) channels = await this.resolveNames(query.names);
+    channels ??= (await this.execRetrieve(query)).map((p) =>
+      this.sugar(stripComposed(p)),
+    );
     if (rangeKey != null)
       await this.ensureAliases(
         rangeKey,

@@ -9,22 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The avatar as the trigger's whole face: the button clips it to its own radius. */
-.console-trigger.console--avatar-fill {
-    padding: 0;
-    overflow: hidden;
-
-    .console-project-avatar {
-        width: 100%;
-        height: 100%;
-        border-radius: 0;
-        font-size: 2.5rem;
-    }
-}
-
 /* Frosted rim: the sharp fill paints the content box while a milky translucent
    twin of the same gradient paints the rim under it. */
-.console-trigger.console--avatar-ringed {
+.console-project-selector__trigger {
     padding: 0;
 
     .console-project-avatar {

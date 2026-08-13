@@ -529,6 +529,50 @@ describe("useForm", () => {
         expect(update).not.toHaveBeenCalled();
       });
     });
+
+    it("should collapse a burst of changes into a single update", async () => {
+      const update = vi.fn();
+      const retrieve = vi.fn().mockReturnValue(null);
+      const { result } = renderHook(
+        () =>
+          Flux.createForm<Params, typeof formSchema>({
+            initialValues: { key: "", name: "John Doe", age: 25 },
+            schema: formSchema,
+            name: "test",
+            retrieve,
+            update: ({ get }) => update(get("name").value),
+          })({ query: null, autoSave: true }),
+        { wrapper: Wrapper },
+      );
+      act(() => {
+        result.current.form.set("name", "J");
+        result.current.form.set("name", "Ja");
+        result.current.form.set("name", "Jane");
+      });
+      await waitFor(() => expect(update).toHaveBeenCalledTimes(1), { timeout: 2000 });
+      expect(update).toHaveBeenCalledWith("Jane");
+    });
+
+    it("should flush a pending update when the form unmounts", async () => {
+      const update = vi.fn();
+      const retrieve = vi.fn().mockReturnValue(null);
+      const { result, unmount } = renderHook(
+        () =>
+          Flux.createForm<Params, typeof formSchema>({
+            initialValues: { key: "", name: "John Doe", age: 25 },
+            schema: formSchema,
+            name: "test",
+            retrieve,
+            update: ({ get }) => update(get("name").value),
+          })({ query: null, autoSave: true }),
+        { wrapper: Wrapper },
+      );
+      act(() => {
+        result.current.form.set("name", "Jane Doe");
+      });
+      unmount();
+      await waitFor(() => expect(update).toHaveBeenCalledWith("Jane Doe"));
+    });
   });
 
   describe("listeners", () => {

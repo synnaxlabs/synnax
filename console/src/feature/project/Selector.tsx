@@ -116,12 +116,6 @@ export const ContextMenu = ({
   );
 };
 
-// Rotation switch: "inset" pads the tile inside the button, "fill" makes the
-// avatar the button's whole face, "ringed" shrinks it inside a same-hue ring
-// with a transparent gap that lets the rail background through.
-type TriggerPlacement = "inset" | "fill" | "ringed";
-const TRIGGER_PLACEMENT: TriggerPlacement = "ringed";
-
 // getItem is a snapshot read, so the trigger would keep a stale name after a rename.
 // useItem subscribes to the list instead.
 const TriggerAvatar = ({ itemKey }: { itemKey: project.Key }): ReactElement | null => {
@@ -173,7 +167,7 @@ export const Selector = (): ReactElement | null => {
           <Dialog.Trigger
             size="large"
             variant="text"
-            className={CSS(CSS.B("trigger"), CSS.M(`avatar-${TRIGGER_PLACEMENT}`))}
+            className={CSS.BE("project-selector", "trigger")}
             hideCaret
           >
             <TriggerAvatar itemKey={activeKey} />

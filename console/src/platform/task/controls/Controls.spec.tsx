@@ -12,6 +12,7 @@ import { assert, describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import {
+  clickRedeploy,
   createTaskStatus,
   isRedeployHidden,
   renderInTaskForm,
@@ -96,8 +97,7 @@ describe("Controls.Controls", () => {
       <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
       { values: runningValues({ configHash: "stale" }) },
     );
-    await waitFor(() => expect(isRedeployHidden()).toBe(false));
-    fireEvent.click(screen.getByText("Redeploy"));
+    await clickRedeploy();
     expect(onDeploy).toHaveBeenCalledTimes(1);
   });
 
