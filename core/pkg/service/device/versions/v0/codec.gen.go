@@ -15,7 +15,7 @@ import (
 	"encoding/json"
 
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 

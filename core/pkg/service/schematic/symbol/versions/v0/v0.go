@@ -17,17 +17,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Symbol is the untyped storage shape of a schematic symbol. The type name must stay
-// "Symbol" so it shares the Gorp key prefix with the current symbol.Symbol.
-type Symbol struct {
-	// Data holds the symbol specification as raw decoded JSON.
-	Data map[string]any `json:"data" msgpack:"data"`
-	// Name is the human-readable symbol name.
-	Name string `json:"name" msgpack:"name"`
-	// Key is the symbol's unique identifier.
-	Key uuid.UUID `json:"key" msgpack:"key"`
-}
-
 var _ gorp.Entry[uuid.UUID] = Symbol{}
 
 // GorpKey implements gorp.Entry.

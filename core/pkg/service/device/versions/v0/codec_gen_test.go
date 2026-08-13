@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"

@@ -13,7 +13,6 @@ import "schemas/synnax/versions/status/v0"
 
 Key = string {
     @doc value "is a unique identifier for the device"
-    @go hand
 }
 
 StatusDetails struct {
@@ -28,7 +27,6 @@ StatusDetails struct {
         contains device-specific status details identifying the device and its
         associated rack.
     """
-    @go hand
 }
 
 Status = status.Status<StatusDetails> {
@@ -36,7 +34,6 @@ Status = status.Status<StatusDetails> {
         is device-specific status information including operational state and device
         identification.
     """
-    @go hand
 }
 
 Device struct {
@@ -88,7 +85,6 @@ Device struct {
         Devices represent external equipment like LabJack, National Instruments, OPC UA
         servers, or Modbus devices.
     """
-    @go hand
     @go marshal
     @go migrate
 }
