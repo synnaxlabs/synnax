@@ -821,10 +821,11 @@ describe("list", () => {
 
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([1, 2]);
+      expect(result.current.answered).toBe(true);
       expect(getCached).toHaveBeenCalledTimes(1);
     });
 
-    it("should not use cached data when the cached answer is empty", () => {
+    it("should answer from a cached answer that is empty", () => {
       const getCached = vi.fn().mockReturnValue(changed([]));
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
 
@@ -841,9 +842,12 @@ describe("list", () => {
 
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([]);
+      // A cached empty answer is still an answer. Callers speak for the absence of
+      // items only once one arrives.
+      expect(result.current.answered).toBe(true);
     });
 
-    it("should not use cached data when nothing is cached", () => {
+    it("should not answer when nothing is cached", () => {
       const getCached = vi.fn().mockReturnValue(undefined);
 
       const { result } = renderHook(
@@ -859,6 +863,7 @@ describe("list", () => {
 
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([]);
+      expect(result.current.answered).toBe(false);
     });
 
     it("should apply filter to cached data", () => {
