@@ -553,7 +553,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			}
 			if toString {
 				zodType = fmt.Sprintf(
-					"%s.or(z.number().transform(String).or(z.bigint().transform(String)))",
+					"z.union([%s, z.number(), z.bigint()]).transform(String)",
 					zodType,
 				)
 			}
@@ -603,7 +603,10 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			)
 		}
 		if toString {
-			zodType = fmt.Sprintf("%s.or(z.number().transform(String))", zodType)
+			zodType = fmt.Sprintf(
+				"z.union([%s, z.number()]).transform(String)",
+				zodType,
+			)
 		}
 		return typeDefData{
 			Name:    td.Name,
@@ -2501,6 +2504,9 @@ func (p *Plugin) typeRefToZodSchemaType(
 	case resolution.DistinctForm:
 		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
 
+	case resolution.AliasForm:
+		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
+
 	case resolution.UnionForm:
 		// A union schema's inferred type depends on every variant schema, so a
 		// `typeof xZ` annotation in a getter would re-enter the inference cycle the
@@ -2731,6 +2737,21 @@ func (p *Plugin) applyValidation(
 					zodType,
 					p.enumVariantToTS(ev, data),
 				)
+			}
+			if uv, ok := validation.ResolveUnionVariant(
+				defaultVal.IdentValue,
+				typeRef,
+				table,
+			); ok {
+				// .prefault re-parses the discriminator literal, so the variant's own
+				// field defaults fill in rather than being demanded of the caller.
+				zodType = fmt.Sprintf(
+					"%s.prefault({ %s: %q })",
+					zodType,
+					fieldCamel(uv.Union.Discriminator),
+					uv.Variant.Name,
+				)
+				isPrefault = true
 			}
 		case resolution.ValueKindArray:
 			zodType = fmt.Sprintf(
