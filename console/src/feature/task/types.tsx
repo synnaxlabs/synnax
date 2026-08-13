@@ -30,7 +30,7 @@ const PREFIXES = [
 type Prefix = (typeof PREFIXES)[number];
 
 const ICONS: Record<Prefix, Icon.ReactElement> = {
-  [EtherCAT.Task.PREFIX]: <Icon.Device />,
+  [EtherCAT.Task.PREFIX]: <Icon.Logo.EtherCAT />,
   [HTTP.Task.PREFIX]: <Icon.Logo.HTTP />,
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
   [Modbus.Task.PREFIX]: <Icon.Logo.Modbus />,

@@ -91,7 +91,7 @@ export const ZOOM_DEFAULT_TRIGGERS: UseTriggers = {
   zoomReset: [["MouseLeft", "Control"]],
   pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
   select: [["MouseLeft", "Alt"], ["MouseRight"]],
-  cancel: [["Escape"]],
+  cancel: [Triggers.ESCAPE],
 };
 
 export const PAN_DEFAULT_TRIGGERS: UseTriggers = {
@@ -100,7 +100,7 @@ export const PAN_DEFAULT_TRIGGERS: UseTriggers = {
   zoom: [["MouseLeft", "Shift"]],
   zoomReset: [["MouseLeft", "Control"]],
   select: [["MouseLeft", "Alt"]],
-  cancel: [["Escape"]],
+  cancel: [Triggers.ESCAPE],
 };
 
 export const SELECT_DEFAULT_TRIGGERS: UseTriggers = {
@@ -109,7 +109,7 @@ export const SELECT_DEFAULT_TRIGGERS: UseTriggers = {
   pan: [["MouseLeft", "Shift"], ["MouseMiddle"]],
   zoom: [["MouseLeft", "Alt"]],
   zoomReset: [["MouseLeft", "Control"]],
-  cancel: [["Escape"]],
+  cancel: [Triggers.ESCAPE],
 };
 
 export const DEFAULT_TRIGGERS: Record<Mode, UseTriggers> = {

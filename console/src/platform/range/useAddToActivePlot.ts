@@ -8,40 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Session } from "@/session";
 
 export const useAddToActivePlot = (): ((keys: string[]) => void) => {
-  const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const dispatch = Session.useDispatch();
   const client = Synnax.use();
   const getFocusedKey = Session.LinePlot.useGetFocusedKey();
-  const { retrieve } = Ranger.useRetrieveObservableMultiple({
-    onChange: useCallback(
-      ({ data, variant, status }) => {
-        if (variant !== "success") {
-          if (variant === "error") addStatus(status);
-          return;
-        }
-        const active = getFocusedKey();
-        if (active == null || client == null) return;
-        dispatch(Session.Range.add(Session.Range.fromClient(data)));
-        handleError(
-          () =>
-            client.lineplots.dispatch(
-              active,
-              data.map((range) =>
-                lineplot.addRange({ axisKey: "x1", range: range.key }),
-              ),
-            ),
-          "Failed to add ranges to plot",
+  return useCallback(
+    (keys: string[]) => {
+      const active = getFocusedKey();
+      if (active == null || client == null) return;
+      handleError(async () => {
+        const ranges = await client.ranges.retrieve({ keys });
+        dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
+        await client.lineplots.dispatch(
+          active,
+          ranges.map((range) => lineplot.addRange({ axisKey: "x1", range: range.key })),
         );
-      },
-      [dispatch, client, addStatus, handleError],
-    ),
-  });
-  return useCallback((keys: string[]) => retrieve({ keys }), []);
+      }, "Failed to add ranges to plot");
+    },
+    [client, dispatch, getFocusedKey, handleError],
+  );
 };

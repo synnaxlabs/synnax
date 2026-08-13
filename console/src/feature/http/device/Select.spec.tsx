@@ -15,9 +15,7 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 import { createTestDevice, renderWithDeviceForm } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
-import { findDialogTrigger, stubGeometry, uniqueName } from "@/testutil";
-
-stubGeometry();
+import { findDialogTrigger, uniqueName } from "@/testutil";
 
 const renderSelect = async (client: Synnax | null) =>
   await renderWithDeviceForm(

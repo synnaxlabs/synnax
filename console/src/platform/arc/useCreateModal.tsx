@@ -37,9 +37,7 @@ export interface CreateModalParams {
   initialValues?: Partial<z.infer<typeof Arc.formSchema>>;
 }
 
-const MODE_KEYS: arc.Mode[] = ["graph", "text"];
-
-const QUERY: Arc.FormQuery = {};
+const MODE_KEYS: arc.Mode[] = ["text", "graph"];
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
@@ -70,7 +68,6 @@ const ArcModeSelectButton = ({
         CSS.BE("arc-create-modal", "mode-select-button"),
         PCSS.selected(selected),
       )}
-      contrast={2}
       onClick={onSelect}
       grow
       justify="start"
@@ -89,7 +86,7 @@ const ArcModeSelectButton = ({
 export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModalParams>(
   ({ initialValues, close }) => {
     const { form, save, variant } = Arc.useForm({
-      query: QUERY,
+      query: null,
       initialValues: useMemo(
         () => ({ ...Arc.ZERO_FORM_VALUES, ...initialValues }),
         [initialValues],
@@ -121,16 +118,16 @@ export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModal
                   full="x"
                 >
                   <ArcModeSelectButton
-                    itemKey="graph"
-                    icon={<Icon.Schematic />}
-                    title="Graph"
-                    description="Visual, block-based editor that is best for simple automations such as alarms"
-                  />
-                  <ArcModeSelectButton
                     itemKey="text"
                     icon={<Icon.Text />}
                     title="Text"
                     description="Text-based editor that is best for complex automations such as control sequences"
+                  />
+                  <ArcModeSelectButton
+                    itemKey="graph"
+                    icon={<Icon.Schematic />}
+                    title="Graph"
+                    description="Visual, block-based editor that is best for simple automations such as alarms"
                   />
                 </Select.Buttons>
               )}

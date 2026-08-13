@@ -737,6 +737,40 @@ describe("Streamer", () => {
       expect(opens).toBe(settled);
     });
 
+    it("should not report a failed reconnect when closed during the backoff", async () => {
+      const streamer1 = new MockStreamer();
+      const fr1 = new Frame({ 1: new Series([1]) });
+      streamer1.responses = [
+        [fr1, null],
+        [fr1, new Unreachable({ message: "down" })],
+      ];
+      let opens = 0;
+      const hardened = await HardenedStreamer.open(
+        async () => {
+          opens++;
+          if (opens === 1) return streamer1;
+          throw new Unreachable({ message: "still down" });
+        },
+        { channels: [1] },
+        { baseInterval: TimeSpan.seconds(60), maxInterval: TimeSpan.milliseconds(5) },
+      );
+      expect(await hardened.read()).toEqual(fr1);
+      // maxInterval also sets stableAfter, so a stream older than it counts as
+      // healthy: the drop skips the pre-loop backoff and reaches the retry
+      // loop's own, which still sleeps the full baseInterval on its first wait.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const pending = hardened.read().catch((e: unknown) => e);
+        await expect.poll(() => opens).toBe(2);
+        hardened.close();
+        expect(EOF.matches(await pending)).toBe(true);
+        expect(consoleError).not.toHaveBeenCalled();
+      } finally {
+        consoleError.mockRestore();
+      }
+    });
+
     it("should not throw when closed while reconnecting", async () => {
       const streamer1 = new MockStreamer();
       const fr1 = new Frame({ 1: new Series([1]) });

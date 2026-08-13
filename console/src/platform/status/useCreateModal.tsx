@@ -23,7 +23,7 @@ export interface CreateModalParams {
 export const useCreateModal = Modals.create<CreateModalParams>(
   ({ close, statusKey }) => {
     const { form, save, variant } = Status.useForm({
-      query: { key: statusKey },
+      query: statusKey == null ? null : { key: statusKey },
       autoSave: false,
       initialValues: {
         key: "",
@@ -60,7 +60,7 @@ export const useCreateModal = Modals.create<CreateModalParams>(
               inputProps={{ placeholder: "Message" }}
             />
             <Form.Field<string[]> path="labels" required={false}>
-              {({ variant, ...p }) => <Label.SelectMultiple zIndex={100} {...p} />}
+              {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
             </Form.Field>
           </Form.Form>
         </Modals.Body>

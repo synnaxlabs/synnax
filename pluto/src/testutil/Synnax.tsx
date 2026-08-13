@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
+import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 
 import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
@@ -39,6 +39,7 @@ const newWrapper = (
   client: Client | null,
   additionalRegistry?: aether.ComponentRegistry,
   renderContext?: canvasTest.Recorder,
+  connectionStatus?: connection.Status,
 ) => {
   const AetherProvider = aetherTest.createProvider({
     ...synnax.REGISTRY,
@@ -51,12 +52,14 @@ const newWrapper = (
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
-        <Synnax.TestProvider client={client}>
-          {renderContext == null ? (
-            children
-          ) : (
-            <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
-          )}
+        <Synnax.TestProvider client={client} status={connectionStatus}>
+          <Suspense fallback={null}>
+            {renderContext == null ? (
+              children
+            ) : (
+              <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
+            )}
+          </Suspense>
         </Synnax.TestProvider>
       </Status.Aggregator>
     </AetherProvider>
@@ -74,14 +77,17 @@ export interface CreateSynnaxWrapperParams {
    * with {@link canvasTest.record} and keep the reference for assertions.
    */
   renderContext?: canvasTest.Recorder;
+  /** Connection status the Synnax context reports; defaults to disconnected. */
+  connectionStatus?: connection.Status;
 }
 
 export const createSynnaxWrapper = ({
   client,
   additionalRegistry,
   renderContext,
+  connectionStatus,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> =>
-  newWrapper(client, additionalRegistry, renderContext);
+  newWrapper(client, additionalRegistry, renderContext, connectionStatus);
 
 export const createAsyncSynnaxWrapper = async (
   params: CreateSynnaxWrapperParams,

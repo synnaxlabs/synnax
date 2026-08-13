@@ -23,9 +23,9 @@ import {
 import { type FC } from "react";
 
 import { CSS } from "@/platform/css";
+import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Tree } from "@/platform/tree";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
@@ -34,7 +34,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const openTab = Panel.useOpenTab();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const promptConfirm = Tree.useConfirmDelete({ type: "Snapshot" });
+  const promptConfirm = Modals.useConfirmDelete({ type: "Snapshot" });
   if (entry == null) return null;
   const { id, name } = entry;
   const svc = services[id.type];
@@ -66,7 +66,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
       <Button.Button
         onClick={handleDelete}
         className={CSS.BE("snapshots", "delete")}
-        variant="shadow"
+        variant="text"
       >
         <Icon.Delete color={10} />
       </Button.Button>
@@ -89,7 +89,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   if (status.variant === "error") return null;
   return (
     <Flex.Box y>
-      <Header.Header level="h4" borderColor={5}>
+      <Header.Header level="h4" borderColor={6}>
         <Header.Title>Snapshots</Header.Title>
       </Header.Header>
       <List.Frame

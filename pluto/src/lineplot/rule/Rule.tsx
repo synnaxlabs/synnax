@@ -132,7 +132,7 @@ export const Rule = ({
     return {
       tag: {
         borderColor,
-        backgroundColor: color.hex(color.setAlpha(colorVal, 0.7)),
+        backgroundColor: color.hex(color.setAlpha(colorVal, 0.75)),
         ...style,
       },
       divider: { borderColor },

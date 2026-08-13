@@ -23,24 +23,35 @@ const Actions = (): ReactElement | null => {
   if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
-      <Toolbar.Action onClick={() => openCreate()} tooltip="Create project">
+      <Toolbar.Action
+        onClick={() => openCreate()}
+        tooltip="Create project"
+        variant="filled"
+      >
         <Icon.Add />
       </Toolbar.Action>
     </Toolbar.Actions>
   );
 };
 
-const Content = (): ReactElement => {
-  const { data: groupID } = Project.useRetrieveGroupID({});
-  return (
-    <Toolbar.Content>
-      <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.Project />}>Projects</Toolbar.Title>
-        <Actions />
-      </Toolbar.Header>
-      <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
-    </Toolbar.Content>
-  );
+const Content = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header>
+      <Toolbar.Title>
+        <Icon.Project />
+        Projects
+      </Toolbar.Title>
+      <Actions />
+    </Toolbar.Header>
+    <Toolbar.Body>
+      <Body />
+    </Toolbar.Body>
+  </Toolbar.Content>
+);
+
+const Body = (): ReactElement => {
+  const groupID = Project.useGroupID({});
+  return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
 };
 
 const EmptyContent = () => {

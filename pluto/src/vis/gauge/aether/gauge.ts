@@ -90,7 +90,7 @@ export class Gauge
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.theme = theming.use(ctx);
-    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l8;
+    if (color.isZero(this.state.color)) i.textColor = i.theme.colors.gray.l9;
     else i.textColor = this.state.color;
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
     i.stopListening?.();

@@ -11,17 +11,21 @@ import { query } from "@synnaxlabs/client";
 import { useCallback, useMemo } from "react";
 
 import { NAME } from "@/arc/language";
-import { useSelectName, useSingleDispatch } from "@/arc/queries";
+import { useName, useSingleDispatch } from "@/arc/queries";
 import { useKey } from "@/arc/Suspended";
 import { changesToDiffs, CollabText, type TextChange } from "@/arc/text/collab";
 import { Code } from "@/code";
 import { Synnax } from "@/synnax";
 
-export const Editor = () => {
+const PLACEHOLDER = "Start typing to write your automation";
+
+export interface EditorProps extends Pick<Code.EditorProps, "autoFocus"> {}
+
+export const Editor = ({ autoFocus = false }: EditorProps) => {
   const resourceKey = useKey();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
-  const hasText = useSelectName();
+  const hasText = useName();
 
   // text is the working CRDT replica. It is bootstrapped once the document loads and lives
   // for the editor's lifetime, materializing the value and translating edits to operations.
@@ -57,12 +61,16 @@ export const Editor = () => {
   );
 
   if (text == null) return null;
+  const value = text.value();
   return (
     <Code.Editor
       ref={connect}
-      initialValue={text.value()}
+      initialValue={value}
       onEdit={handleEdit}
       language={NAME}
+      background={0}
+      placeholder={PLACEHOLDER}
+      autoFocus={autoFocus && value.length === 0}
       scrollBeyondLastLine
     />
   );

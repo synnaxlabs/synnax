@@ -11,8 +11,8 @@ import { type Flux } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { Modals } from "@/platform/modals";
 import { type ContextMenuProps } from "@/platform/tree/types";
-import { useConfirmDelete } from "@/platform/tree/useConfirmDelete";
 
 export interface CreateUseDeleteParams<K extends record.Key> {
   type: string;
@@ -41,7 +41,7 @@ export const createUseDelete =
       selection: { ids },
       state: { getResource },
     } = props;
-    const confirm = useConfirmDelete({ type, description, icon });
+    const confirm = Modals.useConfirmDelete({ type, description, icon });
     const { update } = query({
       beforeUpdate: useCallback(
         async (query: Flux.BeforeUpdateParams<K | K[]>) => {

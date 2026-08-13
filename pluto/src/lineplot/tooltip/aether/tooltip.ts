@@ -60,7 +60,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     const theme = theming.use(ctx);
     if (color.isZero(this.state.textColor)) this.state.textColor = theme.colors.text;
     if (color.isZero(this.state.backgroundColor))
-      this.state.backgroundColor = theme.colors.gray.l1;
+      this.state.backgroundColor = theme.colors.gray.l2;
     if (color.isZero(this.state.borderColor))
       this.state.borderColor = theme.colors.border;
     if (color.isZero(this.state.ruleColor)) this.state.ruleColor = theme.colors.gray.l7;

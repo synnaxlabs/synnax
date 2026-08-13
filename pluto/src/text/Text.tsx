@@ -27,7 +27,7 @@ import { isValidElement } from "@/util/children";
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 
 export type Variant = "prose" | "code" | "keyboard" | "link";
-export type Overflow = "ellipsis" | "clip" | "nowrap" | "wrap";
+export type Overflow = "ellipsis" | "fade" | "clip" | "nowrap" | "wrap";
 
 export interface ExtensionProps
   extends Flex.BoxExtensionProps, Pick<AnchorProps, "href" | "target" | "rel"> {
@@ -35,7 +35,6 @@ export interface ExtensionProps
   level?: text.Level;
   /* The text to display */
   children?: ReactNode;
-  /* Shade sets the shade of the text */
   /* Weight sets the weight of the text */
   weight?: text.Weight;
   /* Variant sets the variant of the text */
@@ -92,8 +91,9 @@ export const isSquare = (children: ReactNode): boolean => {
   return false;
 };
 
-const parseElement = <E extends Generic.ElementType = "p">(
-  level: text.Level,
+/** Resolves which element a text-based component renders as. */
+export const parseElement = <E extends Generic.ElementType = "p">(
+  level?: text.Level,
   el?: E,
   defaultEl?: Generic.ElementType,
   variant?: Variant,

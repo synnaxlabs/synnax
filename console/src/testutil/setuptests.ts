@@ -20,13 +20,46 @@ configure({ asyncUtilTimeout: 5000 });
 // crash-proof WebSocket must be in place before spec imports, not in beforeAll.
 installTestWebSocket();
 
-// jsdom does not implement ResizeObserver, and pluto's useResize constructs one
-// unconditionally. Provide an inert polyfill so construction succeeds; it never
-// fires, so observed elements keep jsdom's real (zero) geometry. Specs that render
-// virtualized lists opt into fake geometry via stubGeometry() from @/testutil.
-class ResizeObserverStub implements ResizeObserver {
-  observe(): void {}
+// jsdom lays everything out at zero size, which collapses virtualized lists and trees
+// to no rows. Every element measures 100x100 instead, and ResizeObserver (absent in
+// jsdom, constructed unconditionally by pluto's useResize) reports a matching size.
+// Consequently no console spec can assert measured pixel geometry: it is all fake.
+const RECT: DOMRect = {
+  top: 0,
+  left: 0,
+  width: 100,
+  height: 100,
+  bottom: 100,
+  right: 100,
+  x: 0,
+  y: 0,
+  toJSON: () => "",
+};
+
+class SizeFiringResizeObserver implements ResizeObserver {
+  private readonly callback: ResizeObserverCallback;
+
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+
+  observe(target: Element): void {
+    this.callback(
+      [
+        {
+          target,
+          contentRect: target.getBoundingClientRect(),
+          borderBoxSize: [{ blockSize: 100, inlineSize: 100 }],
+          contentBoxSize: [{ blockSize: 100, inlineSize: 100 }],
+          devicePixelContentBoxSize: [{ blockSize: 100, inlineSize: 100 }],
+        },
+      ],
+      this,
+    );
+  }
+
   unobserve(): void {}
+
   disconnect(): void {}
 }
 
@@ -83,8 +116,13 @@ const cssEscape = (value: string): string => {
 };
 
 beforeAll(() => {
-  vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+  vi.stubGlobal("ResizeObserver", SizeFiringResizeObserver);
   vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+  Object.defineProperty(Element.prototype, "getBoundingClientRect", {
+    configurable: true,
+    writable: true,
+    value: () => RECT,
+  });
   if (typeof globalThis.CSS === "undefined")
     vi.stubGlobal("CSS", { escape: cssEscape });
   else if (typeof globalThis.CSS.escape !== "function")
@@ -105,6 +143,10 @@ beforeAll(() => {
         });
       },
     });
+  // jsdom does not implement scrollIntoView; pluto's Tabs.Selector calls it to reveal
+  // the selected tab.
+  if (typeof Element.prototype.scrollIntoView !== "function")
+    Element.prototype.scrollIntoView = () => {};
   // jsdom does not implement innerText; components that read/commit editable text
   // (pluto's Text.Editable) rely on it. Delegate to textContent.
   if (!Object.hasOwn(HTMLElement.prototype, "innerText"))

@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
-import { panel } from "@synnaxlabs/client";
+import { NotFoundError, panel, query } from "@synnaxlabs/client";
 import { type Drift } from "@synnaxlabs/drift";
-import { Panel } from "@synnaxlabs/pluto";
+import { Panel, Synnax } from "@synnaxlabs/pluto";
 import { array, compare, type require } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -76,6 +76,9 @@ export interface ReconcileSelectionPayload extends PanelKeyPayload {
 
 const withWindowKey = Window.createWithKeyHandler(windowStateZ);
 
+const panelState = (win: WindowState, key: panel.Key): State =>
+  (win.panels[key] ??= stateZ.parse({}));
+
 const withSelectedState = <Payload extends PanelKeyPayload>(
   handler: (
     state: State,
@@ -83,13 +86,7 @@ const withSelectedState = <Payload extends PanelKeyPayload>(
   ) => void,
 ) =>
   withWindowKey<Payload, SliceState>((win, action) => {
-    const { key } = action.payload;
-    let pan = win.panels[key];
-    if (pan == null) {
-      pan = stateZ.parse({});
-      win.panels[key] = pan;
-    }
-    handler(pan, action);
+    handler(panelState(win, action.payload.key), action);
   });
 
 // A hidden panel stops rendering but keeps streaming its channels, so the set is
@@ -121,12 +118,7 @@ const { actions, reducer } = createSlice({
         ];
         // Skip the no-op reselect fired on every click inside a focused tab's content;
         // a state change here re-renders mid-click and eats checkbox toggles.
-        if (
-          next.length === pan.selectedTabs.length &&
-          next.every((k, i) => k === pan.selectedTabs[i])
-        )
-          return;
-        pan.selectedTabs = next;
+        if (!compare.arraysEqual(pan.selectedTabs, next)) pan.selectedTabs = next;
       },
     ),
     startOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
@@ -135,8 +127,9 @@ const { actions, reducer } = createSlice({
     // reconcileSelection converges a panel's selection to its live tree: one tab
     // per leaf, most recent first; a leaf with no selected tab contributes its
     // last tab.
-    reconcileSelection: withSelectedState<ReconcileSelectionPayload>(
-      (pan, { payload: { leaves } }) => {
+    reconcileSelection: withWindowKey<ReconcileSelectionPayload, SliceState>(
+      (win, { payload: { key, leaves } }) => {
+        const pan = panelState(win, key);
         const leafOf = new Map<panel.TabKey, number>();
         leaves.forEach((tabs, i) => tabs.forEach((tab) => leafOf.set(tab, i)));
         const claimed = new Set<number>();
@@ -150,6 +143,12 @@ const { actions, reducer } = createSlice({
         leaves.forEach((tabs, i) => {
           if (!claimed.has(i) && tabs.length > 0) next.push(tabs[tabs.length - 1]);
         });
+        // Overlaying shows the selected panel's focused tab. Losing that tab ends the
+        // overlay; the flag would otherwise pull in whichever tab is focused next, or
+        // the next tab created in an emptied panel.
+        const focused = pan.selectedTabs[0];
+        if (win.selected === key && focused != null && !leafOf.has(focused))
+          win.isOverlaid = false;
         if (!compare.arraysEqual(pan.selectedTabs, next)) pan.selectedTabs = next;
       },
     ),
@@ -162,6 +161,9 @@ const { actions, reducer } = createSlice({
         removed.forEach((key) => delete win.panels[key]);
         win.mounted = win.mounted.filter((key) => !removed.includes(key));
         if (win.selected == null || !removed.includes(win.selected)) return;
+        // The overlaid tab belongs to the selected panel, so losing it ends the
+        // overlay.
+        win.isOverlaid = false;
         // Prefers the most recently used survivor, falling back to any panel the
         // window has state for: mounted is empty until the window selects again.
         const next = win.mounted[0] ?? Object.keys(win.panels).at(-1);
@@ -226,13 +228,20 @@ export const PERSIST_EXCLUDE = [purgeSliceState];
 
 export const useSelectTab = (panelKey?: panel.Key) => {
   const scopedPanelKey = Panel.useOptionalKey(panelKey);
-  const getTabLeaf = Panel.useGetTabLeaf();
+  const client = Synnax.use();
   const dispatch = useDispatch<Dispatch<Action>>();
   return useCallback(
     (key: panel.TabKey, overridePanelKey?: panel.Key) => {
       const resolvedPanelKey = overridePanelKey ?? scopedPanelKey;
       if (resolvedPanelKey == null) return;
-      const leaf = getTabLeaf({ key: resolvedPanelKey, tabKey: key });
+      const cached = client?.panels.getCached(resolvedPanelKey);
+      if (!query.isLive(cached))
+        throw new NotFoundError(`Panel with key ${resolvedPanelKey} not found`);
+      const leaf = panel.findTabLeaf(cached.root, key);
+      if (leaf == null)
+        throw new NotFoundError(
+          `Leaf holding tab ${key} not found in panel ${resolvedPanelKey}`,
+        );
       dispatch(
         internalSelectTab({
           tabKey: key,
@@ -241,7 +250,7 @@ export const useSelectTab = (panelKey?: panel.Key) => {
         }),
       );
     },
-    [scopedPanelKey, getTabLeaf, dispatch],
+    [scopedPanelKey, client, dispatch],
   );
 };
 
