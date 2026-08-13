@@ -161,6 +161,21 @@ article table code {
     white-space: nowrap;
 }
 
+/* Let nav code chips follow the state colors of the item that holds them. */
+.pluto-tree code,
+.on-this-page-item code {
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+}
+
+/* The page nav already sits on gray-l2, so the default chip vanishes into it. */
+.pluto-tree code {
+    background: var(--pluto-gray-l3);
+    border-color: var(--pluto-gray-l4);
+}
+
 /* Note component - override base layer text colors */
 .pluto-note {
     &.pluto--info {
