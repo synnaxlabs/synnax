@@ -39,7 +39,7 @@ describe("role ontology service", () => {
       resources: [roleResource(role.key, role.name, false)],
     });
     expect(await screen.findByText("Rename")).toBeTruthy();
-    expect(screen.getByText("Delete")).toBeTruthy();
+    expect(await screen.findByText("Delete")).toBeTruthy();
     expect(screen.getByText("Copy properties")).toBeTruthy();
   });
 
