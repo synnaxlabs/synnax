@@ -9,11 +9,11 @@
 
 import "schemas/synnax/status"
 
-@ts output  "client/ts/src/rack"
-@py output  "client/py/synnax/rack"
 @cpp output "client/cpp/rack"
 @go output  "core/pkg/service/rack"
 @pb
+@py output  "client/py/synnax/rack"
+@ts output  "client/ts/src/rack"
 
 Key uint32 {
     @doc value  """
@@ -46,8 +46,8 @@ Rack struct {
     }
     name         string   {
         @doc value         "is a human-readable name for the rack."
-        @validate required
         @filter
+        @validate required
     }
     task_counter uint32 = 0 {
         @doc value "is an internal counter used for generating unique local task keys."
@@ -68,20 +68,20 @@ Rack struct {
         @filter
     }
 
+    @cpp includes    "client/cpp/task/task.h"
+    @cpp methods     "task::Client tasks"
     @doc value       """
         is a collection container for hardware devices and tasks running on a specific
         cluster node. Racks serve as the integration point between the Synnax server and
         physical hardware via the Driver system.
     """
-    @go migrate
     @go marshal
-    @ts name         "Payload"
+    @go migrate
     @ontology type   "rack"
+    @py name         "Base"
     @retrieve custom
     @search
-    @py name         "Base"
-    @cpp methods     "task::Client tasks"
-    @cpp includes    "client/cpp/task/task.h"
+    @ts name         "Payload"
 }
 
 New struct extends Rack {
@@ -89,10 +89,10 @@ New struct extends Rack {
     -embedded
     key = 0
 
+    @cpp omit
     @doc value    "contains parameters for creating a new rack."
-    @ts use_input
     @go omit
     @pb omit
-    @cpp omit
     @py name      "Rack"
+    @ts use_input
 }

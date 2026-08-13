@@ -11,11 +11,11 @@ import "schemas/synnax/label"
 import "schemas/x/color"
 import "schemas/x/telem"
 
-@ts output  "client/ts/src/ranger"
-@py output  "client/py/synnax/ranger"
 @cpp output "client/cpp/ranger"
 @go output  "core/pkg/service/ranger"
 @pb
+@py output  "client/py/synnax/ranger"
+@ts output  "client/ts/src/ranger"
 
 Key = uuid {
     @doc value "is a unique identifier for a range, represented as a UUID."
@@ -28,8 +28,8 @@ Range struct {
     }
     name       string          {
         @doc value           "is a human-readable name for the range."
-        @validate min_length 1
         @filter
+        @validate min_length 1
     }
     time_range telem.TimeRange {
         @doc value """
@@ -60,21 +60,21 @@ Range struct {
         @validate skip
     }
 
+    @cpp includes    "client/cpp/ranger/kv/kv.h"
+    @cpp methods     "ranger::kv::Client kv"
+    @cpp name        "Range"
     @doc value       """
         is a user-defined region of time in the Synnax cluster. Ranges act as a method
         for labeling and categorizing telemetry data within specific time periods.
     """
-    @go migrate
     @go marshal
-    @retrieve custom
-    @search
+    @go migrate
     @ontology type   "range"
     @pb
-    @cpp name        "Range"
-    @ts name         "Payload"
     @py name         "Payload"
-    @cpp methods     "ranger::kv::Client kv"
-    @cpp includes    "client/cpp/ranger/kv/kv.h"
+    @retrieve custom
+    @search
+    @ts name         "Payload"
 }
 
 New struct extends Range {
@@ -85,13 +85,13 @@ New struct extends Range {
     }
     key?
 
+    @cpp omit
     @doc value "contains parameters for creating a new range."
+    @go omit
+    @pb omit
+    @py omit
     @ts {
         name "New"
         use_input
     }
-    @py omit
-    @cpp omit
-    @go omit
-    @pb omit
 }

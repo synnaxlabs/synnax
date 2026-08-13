@@ -9,11 +9,11 @@
 
 import "schemas/synnax/status"
 
-@ts output  "client/ts/src/task"
-@py output  "client/py/synnax/task"
-@go output  "core/pkg/service/task"
 @cpp output "client/cpp/task"
+@go output  "core/pkg/service/task"
 @pb
+@py output  "client/py/synnax/task"
+@ts output  "client/ts/src/task"
 
 Key uint64 {
     @doc value    """
@@ -21,8 +21,8 @@ Key uint64 {
         the low 32 bits contain the local task key within that rack.
     """
     @go marshal   flex
-    @ts type      string
     @ts to_string
+    @ts type      string
 }
 
 StatusDetails struct<Data? = record> {
@@ -91,21 +91,21 @@ Task struct<
         @go marshal omit
     }
 
+    @create
     @doc value               """
         is an executable unit of work in the Driver system. Tasks represent specific
         hardware operations such as reading sensor data, writing control signals, or
         scanning for devices.
     """
-    @go migrate
     @go marshal
-    @ts name                 "Payload"
-    @ts concrete_types
-    @ts coalesce_type_params
+    @go migrate
     @ontology type           "task"
+    @py name                 "Payload"
     @retrieve
     @search
-    @py name                 "Payload"
-    @create
+    @ts coalesce_type_params
+    @ts concrete_types
+    @ts name                 "Payload"
 }
 
 Command struct {

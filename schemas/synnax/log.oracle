@@ -12,8 +12,8 @@ import "schemas/x/color"
 import "schemas/x/notation"
 import "schemas/x/telem"
 
-@ts output "client/ts/src/log"
 @go output "core/pkg/service/log"
+@ts output "client/ts/src/log"
 
 Key = uuid {
     @doc value "is a unique identifier for a log, represented as a UUID."
@@ -46,8 +46,8 @@ ChannelEntry struct {
             is the number of decimal digits to display. -1 means "use the log-level
             precision"; 17 is the maximum significant digits for a float64.
         """
-        @validate min -1
         @validate max 17
+        @validate min -1
     }
     alias     string = "" {
         @doc value "is a human-readable alias displayed in place of the channel name."
@@ -74,8 +74,8 @@ Log struct {
     }
     timestamp_precision    int32 = 0 {
         @doc value    "is the precision of displayed timestamps (0-3)."
-        @validate min 0
         @validate max 3
+        @validate min 0
     }
     hide_channel_names     bool = false {
         @doc value """
@@ -235,15 +235,15 @@ Log struct {
         @doc value "controls whether the receipt timestamp column is hidden."
     }
 
+    @create
     @doc value     """
         is a timestamped event and message logging component. Logs display chronological
         records of events, system messages, and audit trails with filtering and
         formatting capabilities.
     """
-    @go migrate
     @go imex
     @go marshal
+    @go migrate
     @ontology type "log"
-    @create
     @retrieve
 }

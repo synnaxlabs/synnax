@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output  "x/ts/src/spatial"
-@py output  "x/py/x/spatial"
 @cpp output "x/cpp/spatial"
 @go output  "x/go/spatial"
+@py output  "x/py/x/spatial"
+@ts output  "x/ts/src/spatial"
 
 OuterLocation enum {
     top    = "top"
@@ -121,8 +121,8 @@ Dimensions struct {
         @doc value "is the height in pixels."
     }
 
-    @go omit
     @doc value "is a 2D size with width and height values."
+    @go omit
 }
 
 Viewport struct {
@@ -140,15 +140,15 @@ AngularDirection enum {
     clockwise        = "clockwise"
     counterclockwise = "counterclockwise"
 
-    @go omit
     @doc value "is a rotational direction in 2D space."
+    @go omit
 }
 
 CenterLocation enum {
     center = "center"
 
-    @go omit
     @doc value "is a location at the center of a container."
+    @go omit
 }
 
 Location enum {
@@ -169,11 +169,11 @@ Alignment enum {
     center = "center"
     end    = "end"
 
-    @go omit
     @doc value """
         is a positioning indicator for aligning content along an axis within a
         container.
     """
+    @go omit
 }
 
 Order enum {
@@ -187,16 +187,16 @@ Dimension enum {
     width  = "width"
     height = "height"
 
-    @go omit
     @doc value "is the name of a 2D size axis."
+    @go omit
 }
 
 SignedDimension enum {
     signedWidth  = "signedWidth"
     signedHeight = "signedHeight"
 
-    @go omit
     @doc value "is the name of a 2D signed size axis."
+    @go omit
 }
 
 SignedDimensions struct {
@@ -207,11 +207,11 @@ SignedDimensions struct {
         @doc value "is the signed height."
     }
 
-    @go omit
     @doc value """
         is a 2D size whose width and height components carry sign, allowing negative
         values to express direction.
     """
+    @go omit
 }
 
 ClientXY struct {
@@ -222,11 +222,11 @@ ClientXY struct {
         @doc value "is the vertical coordinate in client (viewport) space."
     }
 
-    @go omit
     @doc value """
         is a 2D coordinate point expressed in client (viewport) space, matching the
         shape of DOM mouse events.
     """
+    @go omit
 }
 
 Decimal = float64 {
@@ -234,8 +234,8 @@ Decimal = float64 {
         is a normalized value in [0, 1] expressed as a decimal fraction of a whole, such
         as a container's extent.
     """
-    @validate min 0
     @validate max 1
+    @validate min 0
 }
 
 Bounds struct<T extends numeric = float64> {

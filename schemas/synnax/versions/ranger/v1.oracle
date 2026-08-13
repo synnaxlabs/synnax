@@ -47,6 +47,6 @@ Range struct {
         @go marshal omit
     }
 
-    @go migrate
     @go marshal
+    @go migrate
 }

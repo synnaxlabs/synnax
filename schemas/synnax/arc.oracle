@@ -15,11 +15,11 @@ import "schemas/synnax/status"
 import "schemas/x/crdt"
 import "schemas/x/spatial"
 
-@ts output  "client/ts/src/arc"
-@py output  "client/py/synnax/arc"
-@go output  "core/pkg/service/arc"
 @cpp output "client/cpp/arc"
+@go output  "core/pkg/service/arc"
 @pb
+@py output  "client/py/synnax/arc"
+@ts output  "client/ts/src/arc"
 
 Key = uuid {
     @doc value "is a unique identifier for an Arc module."
@@ -213,17 +213,17 @@ Arc struct {
         """
     }
 
+    @create
     @doc value     """
         is an Arc module combining visual graph representation and text-based source
         code for reactive control systems. Compiles to WebAssembly for sandboxed
         execution.
     """
-    @go migrate
     @go imex
     @go marshal
+    @go migrate
     @ontology type "arc"
     @py name       "Payload"
     @retrieve
     @search
-    @create
 }

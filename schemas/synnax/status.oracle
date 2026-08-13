@@ -10,11 +10,11 @@
 import "schemas/synnax/label"
 import "schemas/x/telem"
 
-@ts output  "client/ts/src/status"
-@py output  "client/py/synnax/status"
-@go output  "core/pkg/service/status"
 @cpp output "client/cpp/status"
+@go output  "core/pkg/service/status"
 @pb
+@py output  "client/py/synnax/status"
+@ts output  "client/ts/src/status"
 
 Variant enum {
     success  = "success"
@@ -64,6 +64,7 @@ Status struct<Details?, V extends Variant = Variant> {
         @go marshal omit
     }
 
+    @create
     @doc value         """
         is a standardized message used to communicate state across the Synnax platform.
         Statuses support different severity variants and can carry component-specific
@@ -72,5 +73,4 @@ Status struct<Details?, V extends Variant = Variant> {
     """
     @go marshal
     @ts concrete_types
-    @create
 }

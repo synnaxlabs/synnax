@@ -88,7 +88,7 @@ Device struct {
         Devices represent external equipment like LabJack, National Instruments, OPC UA
         servers, or Modbus devices.
     """
+    @go hand
     @go marshal
     @go migrate
-    @go hand
 }

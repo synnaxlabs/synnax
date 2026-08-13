@@ -9,11 +9,11 @@
 
 import "schemas/arc/types"
 
-@ts output  "client/ts/src/arc/ir"
-@py output  "client/py/synnax/arc/ir"
-@go output  "arc/go/ir"
 @cpp output "arc/cpp/ir"
+@go output  "arc/go/ir"
 @pb
+@py output  "client/py/synnax/arc/ir"
+@ts output  "client/ts/src/arc/ir"
 
 Handle struct {
     node  string {
@@ -23,10 +23,10 @@ Handle struct {
         @doc value "is the parameter name (input or output)."
     }
 
+    @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Handle& h)"
     @doc value   """
         is a reference to a specific parameter on a specific node in the dataflow graph.
     """
-    @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Handle& h)"
 }
 
 EdgeKind enum {
@@ -48,8 +48,8 @@ Edge struct {
         @doc value "defines execution semantics for this connection."
     }
 
-    @doc value   "is a dataflow connection between node parameters in the Arc graph."
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Edge& e)"
+    @doc value   "is a dataflow connection between node parameters in the Arc graph."
 }
 
 Edges Edge[] {
@@ -83,8 +83,8 @@ Transition struct {
         """
     }
 
-    @doc value   "is a declarative state-transition rule on a sequential Scope."
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Transition& t)"
+    @doc value   "is a declarative state-transition rule on a sequential Scope."
 }
 
 Member struct {
@@ -98,12 +98,12 @@ Member struct {
         @doc value "is set when this member is a nested scope."
     }
 
+    @cpp methods "[[nodiscard]] const std::string& key() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Member& m)"
     @doc value   """
         is a tagged union representing a single child of a Scope. Exactly one of nodeKey
         or scope is set. The member's lookup key (used as the target of `=> name`
         transitions) is derived from the set variant via Member.key().
     """
-    @cpp methods "[[nodiscard]] const std::string& key() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Member& m)"
 }
 
 Members = Member[] {
@@ -147,13 +147,13 @@ Scope struct {
         """
     }
 
+    @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Scope& s)"
     @doc value   """
         is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
         sequential) and liveness (always-live or gated). Parallel scopes organize
         members into strata; sequential scopes run one step at a time and advance via
         transitions.
     """
-    @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Scope& s)"
 }
 
 Body struct {
@@ -183,11 +183,11 @@ Function struct {
         @doc value "contains channel read/write declarations."
     }
 
+    @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Function& f)"
     @doc value   """
         is a function template definition with typed parameters, serving as a blueprint
         for node instantiation.
     """
-    @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Function& f)"
 }
 
 Functions Function[] {
@@ -211,10 +211,10 @@ Node struct {
         @doc value "contains channel read/write mappings."
     }
 
+    @cpp methods "[[nodiscard]] std::pair<size_t, x::errors::Error> resolve_input(const std::string& name) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
     @doc value   """
         is a concrete instantiation of a function with typed parameters and values.
     """
-    @cpp methods "[[nodiscard]] std::pair<size_t, x::errors::Error> resolve_input(const std::string& name) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
 }
 
 Nodes Node[] {
@@ -255,12 +255,12 @@ IR struct {
         """
     }
 
+    @cpp methods         "[[nodiscard]] const Node& node(const std::string& key) const" "[[nodiscard]] const Function& function(const std::string& key) const" "[[nodiscard]] std::optional<Edge> edge_to(const Handle& target) const" "[[nodiscard]] std::unordered_map<std::string, std::vector<Edge>> edges_from(const std::string& node_key) const" "[[nodiscard]] std::vector<Edge> edges_to(const std::string& node_key) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const IR& ir)"
+    @cpp system_includes "optional" "unordered_map" "ostream"
     @doc value           """
         is the intermediate representation of an Arc program as a dataflow graph with
         stratified execution, bridging semantic analysis and WebAssembly compilation.
     """
     @go fields           "Symbols *symbol.Symbol `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]types.Type `json:\"-\"`"
     @go imports          "github.com/antlr4-go/antlr/v4" "github.com/synnaxlabs/arc/symbol" "github.com/synnaxlabs/arc/types"
-    @cpp methods         "[[nodiscard]] const Node& node(const std::string& key) const" "[[nodiscard]] const Function& function(const std::string& key) const" "[[nodiscard]] std::optional<Edge> edge_to(const Handle& target) const" "[[nodiscard]] std::unordered_map<std::string, std::vector<Edge>> edges_from(const std::string& node_key) const" "[[nodiscard]] std::vector<Edge> edges_to(const std::string& node_key) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const IR& ir)"
-    @cpp system_includes "optional" "unordered_map" "ostream"
 }

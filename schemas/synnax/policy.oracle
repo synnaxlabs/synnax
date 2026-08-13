@@ -10,9 +10,9 @@
 import "schemas/synnax/access"
 import "schemas/synnax/ontology"
 
-@ts output "client/ts/src/access/policy"
-@py output "client/py/synnax/access/policy"
 @go output "core/pkg/service/access/rbac/policy"
+@py output "client/py/synnax/access/policy"
+@ts output "client/ts/src/access/policy"
 
 Key = uuid {
     @doc value "is a unique identifier for a policy, represented as a UUID."
@@ -38,14 +38,14 @@ Policy struct {
         @filter
     }
 
+    @create
     @doc value       """
         is an access control policy that defines which actions are permitted on which
         resources. Policies are attached to roles, and roles are assigned to users via
         ontology relationships.
     """
-    @go migrate
     @go marshal
-    @create
+    @go migrate
     @ontology type   "policy"
     @retrieve custom
 }

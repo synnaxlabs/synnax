@@ -190,7 +190,7 @@ Arc struct {
         """
     }
 
-    @go migrate
     @go imex
     @go marshal
+    @go migrate
 }

@@ -10,8 +10,8 @@
 import "schemas/synnax/ontology"
 import "schemas/x/spatial"
 
-@ts output "client/ts/src/panel"
 @go output "core/pkg/service/panel"
+@ts output "client/ts/src/panel"
 
 TabKey = uuid
 
@@ -71,6 +71,7 @@ Tab union on variant extends TabBase {
         """
     }
 
+    @create
     @doc value  """
         is a single tab in a leaf. Tab content is a discriminated union: a resource (a
         backing core document, e.g. a line plot) or a view (an inline, self-describing
@@ -80,7 +81,6 @@ Tab union on variant extends TabBase {
         resource may back at most one tab per panel; views may repeat.
     """
     @go marshal
-    @create
 }
 
 Leaf struct {
@@ -261,15 +261,15 @@ Panel struct {
         """
     }
 
+    @create
     @doc value     """
         is a tab in a project owning a tree of visualization tabs. A panel is owned by a
         project (project panel) or by a user (draft); renaming a draft promotes it to
         project ownership.
     """
-    @go migrate
     @go marshal
+    @go migrate
     @ontology type "panel"
     @retrieve
-    @create
     @search
 }

@@ -23,10 +23,10 @@ Variant enum {
 
 Status struct<Details> {
     key         string = create {
-        @key
         @doc value """
             is a unique identifier for this status, auto-generated if not provided.
         """
+        @key
     }
     name        string = "" {
         @doc value "is an optional human-readable name for the status."

@@ -260,6 +260,6 @@ Panel struct {
         project (project panel) or by a user (draft); renaming a draft promotes it to
         project ownership.
     """
-    @go migrate
     @go marshal
+    @go migrate
 }

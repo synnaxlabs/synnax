@@ -28,6 +28,6 @@ Alias struct {
         specific range. Enables semantic naming of channels that varies by range
         context.
     """
-    @go migrate
     @go marshal
+    @go migrate
 }

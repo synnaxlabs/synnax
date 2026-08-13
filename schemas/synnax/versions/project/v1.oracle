@@ -29,6 +29,6 @@ Project struct {
         Console application. Projects allow users to save and restore custom
         arrangements of visualizations, tabs, and window configurations.
     """
-    @go migrate
     @go marshal
+    @go migrate
 }

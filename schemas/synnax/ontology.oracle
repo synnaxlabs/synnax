@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output  "client/ts/src/ontology"
-@py output  "client/py/synnax/ontology"
-@go output  "core/pkg/service/ontology"
 @cpp output "client/cpp/ontology"
+@go output  "core/pkg/service/ontology"
+@py output  "client/py/synnax/ontology"
+@ts output  "client/ts/src/ontology"
 
 ResourceType enum {
     arc              = "arc"
@@ -42,10 +42,10 @@ ResourceType enum {
 }
 
 RelationshipType string {
-    @go hand
-    @ts hand
     @cpp omit
+    @go hand
     @py hand
+    @ts hand
 }
 
 ID struct {
@@ -59,6 +59,7 @@ ID struct {
         @doc value "is the unique key identifying the resource within its type."
     }
 
+    @cpp hand
     @doc value  """
         ID is a unique identifier for a Resource. An example:
 
@@ -74,10 +75,9 @@ ID struct {
         Synnax Core.
     """
     @go marshal
-    @ts hand
-    @cpp hand
-    @py hand
     @pb
+    @py hand
+    @ts hand
 }
 
 Resource struct {
@@ -93,15 +93,15 @@ Resource struct {
         @go marshal omit
     }
 
+    @cpp omit
     @doc value  """
         is a resource in the ontology system with its identifier, name, and optional
         metadata.
     """
     @go hand
     @go marshal
-    @ts hand
-    @cpp omit
     @py hand
+    @ts hand
 }
 
 Relationship struct {
@@ -115,12 +115,12 @@ Relationship struct {
         @doc value "is the target resource of the relationship."
     }
 
+    @cpp omit
     @doc value  """
         is a directional relationship between two resources in the ontology system.
     """
     @go hand
     @go marshal
-    @ts hand
-    @cpp omit
     @py hand
+    @ts hand
 }

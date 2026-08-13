@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output "client/ts/src/table"
 @go output "core/pkg/service/table"
+@ts output "client/ts/src/table"
 
 Key = uuid {
     @doc value "is a unique identifier for a table, represented as a UUID."
@@ -220,15 +220,15 @@ Table struct {
         """
     }
 
+    @create
     @doc value     """
         is a tabular data display component for viewing structured telemetry data.
         Tables support multiple columns, channel data sources, and customizable
         formatting options.
     """
-    @go migrate
     @go imex
     @go marshal
+    @go migrate
     @ontology type "table"
     @retrieve
-    @create
 }

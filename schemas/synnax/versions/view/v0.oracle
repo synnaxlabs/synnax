@@ -35,6 +35,6 @@ View struct {
         is a persisted view configuration storing visualization settings and query
         parameters for line plots, tables, schematics, and other view types.
     """
-    @go migrate
     @go marshal
+    @go migrate
 }

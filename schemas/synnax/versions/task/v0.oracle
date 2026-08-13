@@ -14,8 +14,8 @@ Key uint64 {
         is a composite identifier for a task. The high 32 bits contain the rack key, and
         the low 32 bits contain the local task key within that rack.
     """
-    @go marshal flex
     @go hand
+    @go marshal flex
 }
 
 StatusDetails struct {
@@ -79,7 +79,7 @@ Task struct {
         hardware operations such as reading sensor data, writing control signals, or
         scanning for devices.
     """
+    @go hand
     @go marshal
     @go migrate
-    @go hand
 }

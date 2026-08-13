@@ -9,11 +9,11 @@
 
 import "schemas/x/crdt"
 
-@ts output  "client/ts/src/arc/text"
-@py output  "client/py/synnax/arc/text"
-@go output  "arc/go/text"
 @cpp output "arc/cpp/text"
+@go output  "arc/go/text"
 @pb
+@py output  "client/py/synnax/arc/text"
+@ts output  "client/ts/src/arc/text"
 
 Document struct {
     inserts crdt.Insert[] {

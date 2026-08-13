@@ -24,6 +24,6 @@ Group struct {
         is a named collection container for organizing related resources. Groups provide
         hierarchical organization through the ontology system.
     """
-    @go migrate
     @go marshal
+    @go migrate
 }

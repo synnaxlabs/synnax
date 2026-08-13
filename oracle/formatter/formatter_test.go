@@ -10,6 +10,8 @@
 package formatter_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/formatter"
@@ -289,6 +291,54 @@ var _ = Describe("Format", func() {
 			source := "User struct {\n  name string @validate\n}\n"
 			result := format(source)
 			Expect(result).To(ContainSubstring("@validate"))
+		})
+	})
+
+	Describe("Domain Sorting", func() {
+		It("should sort file-level domains by domain name", func() {
+			source := "@ts output \"client/ts\"\n@go output \"core/pkg\"\n@py output \"client/py\"\n\nUser struct {}\n"
+			Expect(format(source)).To(Equal(
+				"@go output \"core/pkg\"\n@py output \"client/py\"\n@ts output \"client/ts\"\n\nUser struct {}\n",
+			))
+		})
+
+		It("should sort struct-level domains by name then command", func() {
+			source := "User struct {\n    name string\n\n    @go migrate\n    @go marshal\n    @doc value \"is a user.\"\n}\n"
+			Expect(format(source)).To(Equal(
+				"User struct {\n    name string\n\n    @doc value  \"is a user.\"\n    @go marshal\n    @go migrate\n}\n",
+			))
+		})
+
+		It("should sort field body domains", func() {
+			source := "User struct {\n    key string {\n        @key\n        @doc value \"is the key.\"\n    }\n}\n"
+			Expect(format(source)).To(Equal(
+				"User struct {\n    key string {\n        @doc value \"is the key.\"\n        @key\n    }\n}\n",
+			))
+		})
+
+		It("should sort inline field domains", func() {
+			source := "User struct {\n    name string @validate required @index\n}\n"
+			Expect(format(source)).To(Equal(
+				"User struct {\n    name string @index @validate required\n}\n",
+			))
+		})
+
+		It("should sort inline and body domains as one group", func() {
+			source := "User struct {\n    key string @key {\n        @doc value \"is the key.\"\n    }\n}\n"
+			first := format(source)
+			Expect(first).To(Equal(
+				"User struct {\n    key string {\n        @doc value \"is the key.\"\n        @key\n    }\n}\n",
+			))
+			Expect(format(first)).To(Equal(first))
+		})
+
+		It("should keep source order when a comment is attached", func() {
+			source := "User struct {\n    name string\n\n    /* migrate first */ @go migrate\n    @go marshal\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("/* migrate first */"))
+			migrateIdx := strings.Index(result, "@go migrate")
+			marshalIdx := strings.Index(result, "@go marshal")
+			Expect(migrateIdx).To(BeNumerically("<", marshalIdx))
 		})
 	})
 

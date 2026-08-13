@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output "x/ts/src/notation"
 @go output "x/go/notation"
+@ts output "x/ts/src/notation"
 
 Notation enum {
     standard    = "standard"

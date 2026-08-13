@@ -11,11 +11,11 @@ import "schemas/synnax/ontology"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
 
-@ts output  "client/ts/src/device"
-@py output  "client/py/synnax/device"
-@go output  "core/pkg/service/device"
 @cpp output "client/cpp/device"
+@go output  "core/pkg/service/device"
 @pb
+@py output  "client/py/synnax/device"
+@ts output  "client/ts/src/device"
 
 Key = string {
     @doc value "is a unique identifier for the device"
@@ -53,30 +53,30 @@ Device struct<
     }
     rack       rack.Key     {
         @doc value         "is the key of the rack that owns this device."
-        @validate required
         @filter
+        @validate required
     }
     location   string       {
         @doc value         "is the physical location or address of the device."
-        @validate required
         @filter
+        @validate required
     }
     make       Make         {
         @doc value         """
             is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
         """
-        @validate required
         @filter
+        @validate required
     }
     model      Model        {
         @doc value         "is the device model identifier."
-        @validate required
         @filter
+        @validate required
     }
     name       string       {
         @doc value         "is a human-readable name for the device."
-        @validate required
         @filter
+        @validate required
     }
     configured bool = false {
         @doc value """
@@ -102,15 +102,15 @@ Device struct<
         @go marshal omit
     }
 
+    @create
     @doc value         """
         is a physical piece of hardware connected to Synnax through the Driver system.
         Devices represent external equipment like LabJack, National Instruments, OPC UA
         servers, or Modbus devices.
     """
-    @go migrate
     @go marshal
+    @go migrate
     @ontology type     "device"
-    @create
     @retrieve
     @search
     @ts concrete_types

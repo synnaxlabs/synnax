@@ -12,10 +12,10 @@ import "schemas/synnax/status"
 import "schemas/x/control"
 import "schemas/x/telem"
 
-@ts output  "client/ts/src/channel"
-@py output  "client/py/synnax/channel"
 @cpp output "client/cpp/channel"
 @pb
+@py output  "client/py/synnax/channel"
+@ts output  "client/ts/src/channel"
 
 Key uint32 {
     @doc value    """
@@ -29,6 +29,7 @@ Key uint32 {
 }
 
 LocalKey uint20 {
+    @cpp omit
     @doc value """
         is a 20-bit unsigned integer representing the locally-unique portion of a
         channel key within a node. Combined with a node.Key to form the global channel
@@ -37,7 +38,6 @@ LocalKey uint20 {
     @go hand
     @go output "core/pkg/service/channel"
     @py omit
-    @cpp omit
 }
 
 Name = string {
@@ -46,8 +46,8 @@ Name = string {
         and contain only letters, digits, and underscores. Names are not guaranteed to
         be unique across channels.
     """
-    @validate required
     @go output         "core/pkg/service/channel"
+    @validate required
 }
 
 OperationType enum {
@@ -149,22 +149,22 @@ Channel struct {
         """
     }
 
+    @cpp hand
     @doc value     """
         is an internal representation of a channel containing all storage and
         cluster-routing metadata. This type is used internally by the server; clients
         should use APIChannel instead.
     """
-    @go migrate
     @go marshal
+    @go migrate
     @go output     "core/pkg/service/channel"
+    @ontology type "channel"
+    @pb
+    @py hand
     @retrieve
     @retrieve key  "Key"
     @search
-    @ontology type "channel"
-    @py hand
     @ts hand
-    @cpp hand
-    @pb
 }
 
 Status = status.Status<nil> {
@@ -212,11 +212,11 @@ APIChannel struct {
         """
     }
     virtual     bool = false {
+        @cpp name  "is_virtual"
         @doc value """
             is true if this channel does not store data in the database but can still be
             used for streaming purposes.
         """
-        @cpp name  "is_virtual"
     }
     internal    bool = false {
         @doc value """
@@ -245,17 +245,17 @@ APIChannel struct {
         @doc value "is the current operational status of the channel."
     }
 
+    @cpp name      "Channel"
+    @create
     @doc value     """
         is a logical collection of samples emitted by or representing values from a
         single source. Channels are the fundamental unit of telemetry storage and
         streaming in Synnax.
     """
+    @go name       "Channel"
     @go output     "core/pkg/api/channel"
-    @create
     @ontology type "channel"
+    @pb name       "Channel"
     @py name       "Payload"
     @ts name       "Payload"
-    @pb name       "Channel"
-    @go name       "Channel"
-    @cpp name      "Channel"
 }

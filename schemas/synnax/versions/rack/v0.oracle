@@ -17,8 +17,8 @@ Key uint32 {
         which can take 15s+ to propagate through a large cluster. This structure
         minimizes hops and configuration latency.
     """
-    @go marshal flex
     @go hand
+    @go marshal flex
 }
 
 StatusDetails struct {
@@ -60,7 +60,7 @@ Rack struct {
     }
 
     @doc value  "is a manager for a collection of tasks deployed on a node."
+    @go hand
     @go marshal
     @go migrate
-    @go hand
 }

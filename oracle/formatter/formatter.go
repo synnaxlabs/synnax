@@ -12,6 +12,7 @@
 package formatter
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -217,6 +218,7 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 	if len(domains) == 0 {
 		return
 	}
+	domains = sortDomainLines(f, domains)
 
 	// Calculate alignment: max length of "@domain command"
 	maxPrefixLen := 0
@@ -772,6 +774,7 @@ func (f *formatter) currentLineLen() int {
 func (f *formatter) formatInlineDomainsToString(
 	domains []parser.IInlineDomainContext,
 ) string {
+	domains = sortDomainLines(f, domains)
 	var sb strings.Builder
 	for _, dom := range domains {
 		sb.WriteString(" @")
@@ -981,10 +984,31 @@ func (f *formatter) formatFieldWithBraces(
 	f.writeLine(" {")
 	f.currentIndent++
 
-	// Calculate alignment: max length of "@domain command" across both inline and body
-	// domains
-	maxPrefixLen := 0
+	// Inline domains convert to body lines here, so both kinds sort as one group.
+	// Body-sourced lines keep their comment and watermark handling; the max keeps
+	// the watermark monotone when sorting emits them out of source order.
+	type fieldDomain struct {
+		domainLine
+		body bool
+		stop antlr.Token
+	}
+	var domains []fieldDomain
 	for _, dom := range inlineDomains {
+		domains = append(domains, fieldDomain{domainLine: dom})
+	}
+	if fieldBody != nil {
+		for _, dom := range fieldBody.AllDomain() {
+			domains = append(
+				domains,
+				fieldDomain{domainLine: dom, body: true, stop: dom.GetStop()},
+			)
+		}
+	}
+	domains = sortDomainLines(f, domains)
+
+	// Calculate alignment: max length of "@domain command"
+	maxPrefixLen := 0
+	for _, dom := range domains {
 		prefixLen := 1 + len(dom.IDENT().GetText()) // "@" + domain name
 		if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
 			expr := dom.DomainContent().Expression()
@@ -994,21 +1018,11 @@ func (f *formatter) formatFieldWithBraces(
 			maxPrefixLen = prefixLen
 		}
 	}
-	if fieldBody != nil {
-		for _, dom := range fieldBody.AllDomain() {
-			prefixLen := 1 + len(dom.IDENT().GetText()) // "@" + domain name
-			if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
-				expr := dom.DomainContent().Expression()
-				prefixLen += 1 + len(expr.IDENT().GetText()) // " " + command
-			}
-			if prefixLen > maxPrefixLen {
-				maxPrefixLen = prefixLen
-			}
-		}
-	}
 
-	// Convert inline domains to regular domains with alignment
-	for _, dom := range inlineDomains {
+	for _, dom := range domains {
+		if dom.body {
+			f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
+		}
 		f.writeIndent()
 		f.write("@")
 		f.write(dom.IDENT().GetText())
@@ -1022,26 +1036,8 @@ func (f *formatter) formatFieldWithBraces(
 			)
 		}
 		f.newline()
-	}
-
-	// Format field body domains with alignment
-	if fieldBody != nil {
-		for _, dom := range fieldBody.AllDomain() {
-			f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
-			f.writeIndent()
-			f.write("@")
-			f.write(dom.IDENT().GetText())
-			f.currentDomain = dom.IDENT().GetText()
-			if dom.DomainContent() != nil {
-				f.write(" ")
-				f.formatDomainContentAligned(
-					dom.DomainContent(),
-					maxPrefixLen,
-					1+len(dom.IDENT().GetText()),
-				)
-			}
-			f.newline()
-			f.lastTokenIdx = dom.GetStop().GetTokenIndex()
+		if dom.body {
+			f.lastTokenIdx = max(f.lastTokenIdx, dom.stop.GetTokenIndex())
 		}
 	}
 
@@ -1068,10 +1064,66 @@ func (f *formatter) formatFieldWithBraces(
 	f.writeLine("}")
 }
 
+// domainLine is the surface shared by the domain context kinds the formatter sorts:
+// file-level, block, and inline field domains.
+type domainLine interface {
+	IDENT() antlr.TerminalNode
+	DomainContent() parser.IDomainContentContext
+	GetStart() antlr.Token
+}
+
+// domainCommand returns the leading command of a domain's content: an expression's
+// IDENT, a block's first expression IDENT, or "" for a bare domain like @key.
+func domainCommand(content parser.IDomainContentContext) string {
+	if content == nil {
+		return ""
+	}
+	if expr := content.Expression(); expr != nil {
+		return expr.IDENT().GetText()
+	}
+	if blk := content.DomainBlock(); blk != nil {
+		if exprs := blk.AllExpression(); len(exprs) > 0 {
+			return exprs[0].IDENT().GetText()
+		}
+	}
+	return ""
+}
+
+// sortDomainLines returns the lines ordered by domain name, then leading command
+// ("@go marshal" before "@go migrate"), with a stable sort. A group with an attached
+// comment keeps source order: emission tracks a comment watermark, and reordering
+// across a comment would drop it.
+func sortDomainLines[T domainLine](f *formatter, domains []T) []T {
+	if len(domains) < 2 {
+		return domains
+	}
+	for _, dom := range domains {
+		hidden := f.tokens.GetHiddenTokensToLeft(
+			dom.GetStart().GetTokenIndex(), hiddenChan,
+		)
+		for _, tok := range hidden {
+			if tok.GetTokenIndex() > f.lastTokenIdx {
+				return domains
+			}
+		}
+	}
+	sorted := slices.Clone(domains)
+	slices.SortStableFunc(sorted, func(a, b T) int {
+		if c := strings.Compare(a.IDENT().GetText(), b.IDENT().GetText()); c != 0 {
+			return c
+		}
+		return strings.Compare(
+			domainCommand(a.DomainContent()), domainCommand(b.DomainContent()),
+		)
+	})
+	return sorted
+}
+
 func (f *formatter) formatDomains(domains []parser.IDomainContext) {
 	if len(domains) == 0 {
 		return
 	}
+	domains = sortDomainLines(f, domains)
 
 	// Calculate alignment: max length of "@domain command"
 	maxPrefixLen := 0
@@ -1448,8 +1500,9 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 	if body := ctx.EnumValueBody(); body != nil {
 		f.writeLine(" {")
 		f.currentIndent++
+		domains := sortDomainLines(f, body.AllDomain())
 		var maxPrefixLen int
-		for _, dom := range body.AllDomain() {
+		for _, dom := range domains {
 			prefixLen := 1 + len(dom.IDENT().GetText())
 			if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
 				expr := dom.DomainContent().Expression()
@@ -1459,7 +1512,7 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 				maxPrefixLen = prefixLen
 			}
 		}
-		for _, dom := range body.AllDomain() {
+		for _, dom := range domains {
 			f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
 			f.writeIndent()
 			f.write("@")

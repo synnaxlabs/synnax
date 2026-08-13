@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output  "client/ts/src/arc/compiler"
-@py output  "client/py/synnax/arc/compiler"
-@go output  "arc/go/compiler"
 @cpp output "arc/cpp/compiler"
+@go output  "arc/go/compiler"
+@py output  "client/py/synnax/arc/compiler"
+@ts output  "client/ts/src/arc/compiler"
 
 Output struct {
     WASM              bytes               {

@@ -51,6 +51,6 @@ Rack struct {
         cluster node. Racks serve as the integration point between the Synnax server and
         physical hardware via the Driver system.
     """
-    @go migrate
     @go marshal
+    @go migrate
 }

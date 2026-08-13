@@ -24,8 +24,8 @@ Status = status.Status<StatusDetails> {
 
 Arc struct {
     key     Key = create {
-        @key
         @doc value "is the unique identifier for this module."
+        @key
     }
     name    string           {
         @doc value "is a human-readable name for the module."

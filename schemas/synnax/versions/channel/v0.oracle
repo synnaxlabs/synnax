@@ -132,6 +132,6 @@ Channel struct {
         cluster-routing metadata. This type is used internally by the server; clients
         should use APIChannel instead.
     """
-    @go migrate
     @go marshal
+    @go migrate
 }

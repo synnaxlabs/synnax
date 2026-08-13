@@ -10,11 +10,11 @@
 import "schemas/arc/ir"
 import "schemas/x/spatial"
 
-@ts output  "client/ts/src/arc/graph"
-@py output  "client/py/synnax/arc/graph"
-@go output  "arc/go/graph"
 @cpp output "arc/cpp/graph"
+@go output  "arc/go/graph"
 @pb
+@py output  "client/py/synnax/arc/graph"
+@ts output  "client/ts/src/arc/graph"
 
 Node struct {
     key      string     {

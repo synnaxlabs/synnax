@@ -602,7 +602,7 @@ LinePlot struct {
         @doc value "removes the rule with the given key, if present."
     }
 
-    @go migrate
     @go imex
     @go marshal
+    @go migrate
 }
