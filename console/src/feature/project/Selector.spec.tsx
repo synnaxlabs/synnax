@@ -16,7 +16,12 @@ import { describe, expect, it } from "vitest";
 import { Project } from "@/feature/project";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, getBySelector, renderWithConsole } from "@/testutil";
+import {
+  createConsoleWrapper,
+  getBySelector,
+  renderWithConsole,
+  uniqueName,
+} from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -59,5 +64,29 @@ describe("Project.Selector", () => {
     await waitFor(() =>
       expect(Session.Project.selectSelected(store.getState())).toBe(target.key),
     );
+  });
+
+  it("gives numbered siblings different avatar initials", async () => {
+    const active: project.Project = await client.projects.create({
+      name: `proj-active-${id.create()}`,
+      layout: {},
+    });
+    const prefix = uniqueName("stand");
+    await client.projects.create({ name: `${prefix}_1`, layout: {} });
+    await client.projects.create({ name: `${prefix}_2`, layout: {} });
+    const { wrapper } = await createConsoleWrapper({
+      client,
+      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(active) },
+    });
+    const { container } = render(<Project.Selector />, { wrapper });
+
+    const trigger = await waitFor(() => getBySelector(container, TRIGGER));
+    fireEvent.click(trigger);
+    const search = await screen.findByPlaceholderText("Search projects...");
+    fireEvent.change(search, { target: { value: prefix } });
+    await screen.findByText(`${prefix}_1`);
+
+    expect(await screen.findByText("S1")).toBeTruthy();
+    expect(await screen.findByText("S2")).toBeTruthy();
   });
 });
