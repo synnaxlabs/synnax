@@ -13,12 +13,12 @@ package v1
 
 import (
 	"github.com/synnaxlabs/arc/compiler"
-	ir "github.com/synnaxlabs/arc/ir/versions/v1"
+	irv1 "github.com/synnaxlabs/arc/ir/versions/v1"
 )
 
 // Program is a compiled Arc program combining the intermediate representation with
 // WebAssembly bytecode, ready for execution.
 type Program struct {
-	ir.IR
+	irv1.IR
 	compiler.Output
 }

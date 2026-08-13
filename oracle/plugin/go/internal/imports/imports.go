@@ -11,6 +11,7 @@
 package imports
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -41,8 +42,16 @@ func NewManager() *Manager {
 // AddExternal adds an external package import.
 func (m *Manager) AddExternal(path string) { m.external.Add(path) }
 
-// AddInternal adds an internal package import with an alias.
+// AddInternal adds an internal package import with an alias. Registering one
+// alias for two different paths would silently redirect every rendered
+// reference, so it panics: the caller must derive a distinct alias first.
 func (m *Manager) AddInternal(alias, path string) {
+	if existing, ok := m.internal[alias]; ok && existing.Path != path {
+		panic(fmt.Sprintf(
+			"import alias %q already bound to %q, cannot rebind to %q",
+			alias, existing.Path, path,
+		))
+	}
 	m.internal[alias] = &internalImport{Path: path, Alias: alias}
 }
 

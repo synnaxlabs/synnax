@@ -74,7 +74,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("explicit tagging", func() {
-			It("Should not generate a codec for an untagged referenced type", func() {
+			It("Should reject a field referencing an untagged struct", func() {
 				source := `
 					@go output "core/pkg/test"
 					@pb
@@ -89,13 +89,106 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
+				req := MustGenerateRequest(ctx, source, "test", loader)
+				Expect(marshalPlugin.Generate(req)).Error().To(MatchError(
+					ContainSubstring("references Inner, which has no @go marshal"),
+				))
+			})
+
+			It("Should reject an untagged struct reached through an array", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Item struct {
+						value int32
+					}
+
+					List struct {
+						items Item[]
+
+						@go marshal
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "test", loader)
+				Expect(marshalPlugin.Generate(req)).Error().To(MatchError(
+					ContainSubstring("references Item, which has no @go marshal"),
+				))
+			})
+
+			It("Should accept a referenced type tagged @go marshal hand", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Inner struct {
+						value int32
+
+						@go marshal hand
+					}
+
+					Outer struct {
+						inner Inner
+
+						@go marshal
+					}
+				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain("func (o Outer) EncodeOrc").
+					ToContain("o.Inner.EncodeOrc(w)").
 					ToNotContain("func (i Inner) EncodeOrc")
 			})
 
+			It("Should not walk the type arguments of a generic reference", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Details struct {
+						reason string
+					}
+
+					Wrapper struct<D = record> {
+						details D
+
+						@go marshal
+					}
+
+					Holder struct {
+						wrapped Wrapper<Details>
+
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain("func (h Holder) EncodeOrc")
+			})
+
 			It("Should generate a codec for a tagged union", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Circle struct {
+						radius float64
+
+						@go marshal
+					}
+
+					Shape union on variant {
+						circle Circle
+
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain("func (s Shape) EncodeOrc")
+			})
+
+			It("Should reject a union variant referencing an untagged struct", func() {
 				source := `
 					@go output "core/pkg/test"
 					@pb
@@ -110,9 +203,10 @@ var _ = Describe("Go Marshal Plugin", func() {
 						@go marshal
 					}
 				`
-				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-				ExpectContent(resp, "codec.gen.go").
-					ToContain("func (s Shape) EncodeOrc")
+				req := MustGenerateRequest(ctx, source, "test", loader)
+				Expect(marshalPlugin.Generate(req)).Error().To(MatchError(
+					ContainSubstring("references Circle, which has no @go marshal"),
+				))
 			})
 		})
 

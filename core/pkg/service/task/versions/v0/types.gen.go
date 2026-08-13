@@ -12,7 +12,7 @@
 package v0
 
 import (
-	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
+	statusv0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -34,7 +34,7 @@ type StatusDetails struct {
 
 // Status is task-specific status information including execution state and
 // task-specific data.
-type Status = status.Status[StatusDetails]
+type Status = statusv0.Status[StatusDetails]
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
 // hardware operations such as reading sensor data, writing control signals, or scanning

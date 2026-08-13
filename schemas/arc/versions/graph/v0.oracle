@@ -24,10 +24,11 @@ Node struct {
         @doc value "is the canvas position (x, y) for visual layout."
     }
 
-    @doc value """
+    @doc value  """
         is a visual node in the Arc graph editor representing a function instantiation
         with position data.
     """
+    @go marshal
 }
 
 Nodes Node[] {
@@ -42,7 +43,8 @@ Viewport struct {
         @doc value "is the zoom level where 1.0 equals 100%."
     }
 
-    @doc value "is the camera state for viewing the Arc graph editor canvas."
+    @doc value  "is the camera state for viewing the Arc graph editor canvas."
+    @go marshal
 }
 
 Graph struct {
@@ -59,8 +61,9 @@ Graph struct {
         @doc value "contains visual nodes with canvas positions."
     }
 
-    @doc value """
+    @doc value  """
         is a visual dataflow graph representation combining IR elements with canvas
         layout for the Arc graph editor.
     """
+    @go marshal
 }

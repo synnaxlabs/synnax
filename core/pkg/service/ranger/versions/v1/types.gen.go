@@ -14,8 +14,8 @@ package v1
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
-	color "github.com/synnaxlabs/x/color/versions/v0"
-	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	colorv0 "github.com/synnaxlabs/x/color/versions/v0"
+	telemv0 "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -31,10 +31,10 @@ type Range struct {
 	Name string `json:"name" msgpack:"name"`
 	// TimeRange is the temporal extent of the range, defining its start and end
 	// timestamps.
-	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
+	TimeRange telemv0.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is an optional display color for visual identification of the range in user
 	// interfaces.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *colorv0.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Labels contains optional labels attached to this range for categorization and
 	// filtering.
 	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitzero"`

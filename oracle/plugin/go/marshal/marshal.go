@@ -97,7 +97,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, entry := range append(
 		req.Resolutions.StructTypes(), req.Resolutions.UnionTypes()...,
 	) {
-		if entry.Synthetic || !domain.HasExprFromType(entry, "go", "marshal") {
+		if entry.Synthetic || !domain.HasExprFromType(entry, "go", "marshal") ||
+			handCodec(entry) {
 			continue
 		}
 		goPath := output.GetPath(entry, "go")
@@ -191,6 +192,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		flex := flexByPkg[goPath]
 		if len(entries) == 0 && len(flex) == 0 {
 			continue
+		}
+		for _, e := range entries {
+			if err := validateEntryRefs(e.Type, req.Resolutions); err != nil {
+				return nil, err
+			}
 		}
 		content, err := generateEncoderCodecFile(
 			packageName, goPath, entries, flex, req.Resolutions, req.RepoRoot,

@@ -2342,8 +2342,68 @@ Rack struct {
 					}, "schemas/synnax/rack.oracle", "rack")
 					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 						ToBeValidGoSource().
-						ToContain(`status "github.com/synnaxlabs/synnax/core/status/versions/v1"`).
+						ToContain(`statusv1 "github.com/synnaxlabs/synnax/core/status/versions/v1"`).
 						ToNotContain(`"github.com/synnaxlabs/synnax/core/status"` + "\n")
+				},
+			)
+
+			It(
+				"Should keep pinned and live imports of one dependency apart when persisted and transient declarations mix",
+				func(ctx SpecContext) {
+					resp := chainGenerate(ctx, goPlugin, map[string]string{
+						"schemas/synnax/status.oracle": `
+@go output "core/status"
+
+Status struct {
+	key uuid @key
+	@go marshal
+	message string
+}
+`,
+						"schemas/synnax/versions/status/v1.oracle": `
+Status struct {
+	key uuid @key
+	@go marshal
+	message string
+}
+`,
+						"schemas/synnax/rack.oracle": `
+import "schemas/synnax/status"
+
+@go output "core/rack"
+
+Rack struct {
+	key uuid @key
+	@go marshal
+	embedded status.Status
+}
+
+Snapshot struct {
+	latest status.Status
+}
+`,
+						"schemas/synnax/versions/rack/v2.oracle": `
+import "schemas/synnax/versions/status/v1"
+
+Rack struct {
+	key uuid @key
+	@go marshal
+	embedded status.Status
+}
+
+Snapshot struct {
+	latest status.Status
+}
+`,
+					}, "schemas/synnax/rack.oracle", "rack")
+					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
+						ToBeValidGoSource().
+						ToContain(
+							`statusv1 "github.com/synnaxlabs/synnax/core/status/versions/v1"`,
+							`"github.com/synnaxlabs/synnax/core/status"`,
+							"Embedded statusv1.Status",
+							"Latest status.Status",
+						)
 				},
 			)
 

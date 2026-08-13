@@ -12,5 +12,8 @@ Text struct {
         @doc value "is the raw Arc source code in text form."
     }
 
-    @doc value "is text-based Arc source code with optional parsed AST for compilation."
+    @doc value  """
+        is text-based Arc source code with optional parsed AST for compilation.
+    """
+    @go marshal
 }

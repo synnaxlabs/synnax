@@ -880,7 +880,7 @@ func resolveExtendsType(
 	if targetOutputPath == "" {
 		return name
 	}
-	alias := naming.DerivePackageAlias(targetOutputPath, data.Package)
+	alias := naming.DeriveImportAlias(targetOutputPath, data.Package)
 	data.imports.AddInternal(
 		alias,
 		resolveGoImportPath(targetOutputPath, data.repoRoot),

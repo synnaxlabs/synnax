@@ -18,11 +18,12 @@ Node struct {
         @doc value "is the canvas position (x, y) for visual layout."
     }
 
-    @doc value """
+    @doc value  """
         is a visual node in the Arc graph editor representing a function instantiation
         with position data. The function type and input parameter values are stored in
         the graph's inputs map, keyed by the node key.
     """
+    @go marshal
 }
 
 Nodes Node[]
@@ -32,11 +33,12 @@ Edge struct extends ir.Edge {
         @doc value "is the stable identifier for this edge within the graph."
     }
 
-    @doc value """
+    @doc value  """
         is a dataflow connection between node parameters carrying a stable identifier.
         The key persists across endpoint edits, distinguishing the editable graph edge
         from the keyless ir.Edge consumed by the compiler.
     """
+    @go marshal
 }
 
 Edges Edge[] {
@@ -61,4 +63,6 @@ Graph struct {
             per function.
         """
     }
+
+    @go marshal
 }

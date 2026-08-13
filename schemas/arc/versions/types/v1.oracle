@@ -42,6 +42,8 @@ FunctionProperties struct {
     outputs Params = [] {
         @doc value "contains output parameter definitions."
     }
+
+    @go marshal
 }
 
 Type struct extends FunctionProperties {
@@ -63,6 +65,8 @@ Type struct extends FunctionProperties {
     chan_direction ChanDirection {
         @doc value "indicates read/write direction for channel-typed parameters."
     }
+
+    @go marshal
 }
 
 Param struct {
@@ -75,6 +79,8 @@ Param struct {
     value any    {
         @doc value "is an optional default value."
     }
+
+    @go marshal
 }
 
 Params Param[] {

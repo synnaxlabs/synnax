@@ -70,7 +70,8 @@ func (p *Plugin) frozenCodecFiles(
 	merged := make(map[string]resolution.Type)
 	for _, entry := range append(table.StructTypes(), table.UnionTypes()...) {
 		if entry.Namespace != ns ||
-			!domain.HasExprFromType(entry, "go", "marshal") {
+			!domain.HasExprFromType(entry, "go", "marshal") ||
+			handCodec(entry) {
 			continue
 		}
 		if _, isAlias := f.Aliases[entry.Name]; isAlias {
@@ -103,6 +104,11 @@ func (p *Plugin) frozenCodecFiles(
 	entries := buildCodecEntries(merged)
 	if len(entries) == 0 && len(flex) == 0 {
 		return nil, nil
+	}
+	for _, entry := range entries {
+		if err := validateEntryRefs(entry.Type, table); err != nil {
+			return nil, errors.Wrapf(err, "frozen codec for %s", vkPath)
+		}
 	}
 	packageName := naming.DerivePackageName(vkPath)
 	content, err := generateEncoderCodecFile(

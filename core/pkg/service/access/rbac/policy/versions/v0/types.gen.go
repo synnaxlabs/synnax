@@ -15,8 +15,8 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
-	access "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
+	accessv0 "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -26,10 +26,10 @@ type Key = uuid.UUID
 // Policy represents the old policy format with a subjects field that associated
 // policies directly with users. Used only for reading legacy data during migration.
 type Policy struct {
-	Subjects []ontology.ID   `json:"subjects,omitzero" msgpack:"subjects,omitzero"`
-	Objects  []ontology.ID   `json:"objects,omitzero" msgpack:"objects,omitzero"`
-	Actions  []access.Action `json:"actions,omitzero" msgpack:"actions,omitzero"`
-	Key      Key             `json:"key" msgpack:"key"`
+	Subjects []ontologyv0.ID   `json:"subjects,omitzero" msgpack:"subjects,omitzero"`
+	Objects  []ontologyv0.ID   `json:"objects,omitzero" msgpack:"objects,omitzero"`
+	Actions  []accessv0.Action `json:"actions,omitzero" msgpack:"actions,omitzero"`
+	Key      Key               `json:"key" msgpack:"key"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

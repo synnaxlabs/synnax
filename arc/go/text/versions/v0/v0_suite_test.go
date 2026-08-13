@@ -7,13 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/arc/compiler"
+package v0_test
 
-Program struct extends compiler.Output {
-    @doc value  """
-        is the persisted shape of a compiled Arc program: the compiled output only.
-        Stored arc v0 records embed a hand-written Orc envelope over these fields; the
-        intermediate representation never reached the stored bytes.
-    """
-    @go marshal hand
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestTextV0(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Text v0 Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

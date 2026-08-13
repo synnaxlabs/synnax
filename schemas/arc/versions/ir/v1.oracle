@@ -132,6 +132,8 @@ Function struct {
     channels types.Channels {
         @doc value "contains channel read/write declarations."
     }
+
+    @go marshal
 }
 
 Functions Function[]

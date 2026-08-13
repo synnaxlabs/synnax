@@ -36,7 +36,9 @@ or generator logic and schemas disagree.
   marks a type persisted. Version-owned content: fields, optionality, docs, `@key`, and
   the `@go` persistence set (`marshal` incl. field-level `omit`, `hand`, `migrate`,
   `imex`). Codecs are explicit: a struct or union gets one iff its declaration carries
-  `@go marshal`; references never pull a codec in.
+  `@go marshal`; references never pull a codec in. `@go marshal hand` marks hand-written
+  codec methods: nothing generates, references stay valid. Generation fails when a
+  codec's persisted graph reaches a struct or union carrying neither form.
 - **The live file is a generated projection, then an annotation surface.** Sync writes
   each versioned resource's live schema by merging chain resolution (version-owned
   content) with the live file's own annotations (outputs, `@ts`/`@py`/`@cpp` bindings,

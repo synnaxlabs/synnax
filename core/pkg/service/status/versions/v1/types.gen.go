@@ -14,7 +14,7 @@ package v1
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
-	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	telemv0 "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // Variant is the severity or type of a status message.
@@ -49,7 +49,7 @@ type Status[Details any] struct {
 	// Description is an optional detailed description providing additional context.
 	Description string `json:"description" msgpack:"description"`
 	// Time is the timestamp when the status was created.
-	Time telem.TimeStamp `json:"time" msgpack:"time"`
+	Time telemv0.TimeStamp `json:"time" msgpack:"time"`
 	// Details contains optional component-specific custom details for the status.
 	Details Details `json:"details" msgpack:"details"`
 	// Labels contains optional labels for categorization and filtering.

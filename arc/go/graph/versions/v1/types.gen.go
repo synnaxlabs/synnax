@@ -12,9 +12,9 @@
 package v1
 
 import (
-	ir "github.com/synnaxlabs/arc/ir/versions/v1"
+	irv1 "github.com/synnaxlabs/arc/ir/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
+	spatialv0 "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
 // Node is a visual node in the Arc graph editor representing a function instantiation
@@ -24,7 +24,7 @@ type Node struct {
 	// Key is the unique identifier for this node instance.
 	Key string `json:"key" msgpack:"key"`
 	// Position is the canvas position (x, y) for visual layout.
-	Position spatial.XY `json:"position" msgpack:"position"`
+	Position spatialv0.XY `json:"position" msgpack:"position"`
 }
 
 // Nodes is a collection of visual nodes in an Arc graph.
@@ -34,7 +34,7 @@ type Nodes []Node
 // The key persists across endpoint edits, distinguishing the editable graph edge from
 // the keyless ir.Edge consumed by the compiler.
 type Edge struct {
-	ir.Edge
+	irv1.Edge
 	// Key is the stable identifier for this edge within the graph.
 	Key string `json:"key" msgpack:"key"`
 }
@@ -46,7 +46,7 @@ type Edges []Edge
 // layout for the Arc graph editor.
 type Graph struct {
 	// Functions contains function definitions available in this graph.
-	Functions ir.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
+	Functions irv1.Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
 	// Edges contains dataflow connections between node parameters.
 	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Nodes contains visual nodes with canvas positions.

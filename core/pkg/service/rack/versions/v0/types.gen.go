@@ -11,7 +11,7 @@
 
 package v0
 
-import status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
+import statusv0 "github.com/synnaxlabs/synnax/pkg/service/status/versions/v0"
 
 // Key is a composite identifier for a rack. The high 16 bits contain the node key, and
 // the low 16 bits contain the local sequential key. Racks are leased to specific nodes
@@ -27,7 +27,7 @@ type StatusDetails struct {
 }
 
 // Status is rack-specific status information including operational state.
-type Status = status.Status[StatusDetails]
+type Status = statusv0.Status[StatusDetails]
 
 // Rack is a manager for a collection of tasks deployed on a node.
 type Rack struct {

@@ -27,10 +27,11 @@ XY struct {
         @doc value "is the vertical coordinate."
     }
 
-    @doc value """
+    @doc value  """
         is a 2D coordinate point with x and y values. Used for positioning elements in
         two-dimensional space.
     """
+    @go marshal
 }
 
 Direction enum {
@@ -72,7 +73,8 @@ CornerLocation struct {
         @doc value "is the vertical anchor."
     }
 
-    @doc value "is an anchor corner for positioning."
+    @doc value  "is an anchor corner for positioning."
+    @go marshal
 }
 
 StickyUnits struct {
@@ -83,7 +85,8 @@ StickyUnits struct {
         @doc value "is the vertical unit."
     }
 
-    @doc value "specifies the measurement units for sticky positioning."
+    @doc value  "specifies the measurement units for sticky positioning."
+    @go marshal
 }
 
 StickyXY struct {
@@ -100,10 +103,11 @@ StickyXY struct {
         @doc value "is the unit specification for the coordinates."
     }
 
-    @doc value """
+    @doc value  """
         is a position that can be anchored to different corners of a container with
         configurable units (pixels or decimal fractions).
     """
+    @go marshal
 }
 
 Viewport struct {
@@ -114,7 +118,8 @@ Viewport struct {
         @doc value "is the (x, y) pan offset of the viewport."
     }
 
-    @doc value "is the camera state of a viewport."
+    @doc value  "is the camera state of a viewport."
+    @go marshal
 }
 
 Decimal = float64 {
@@ -132,10 +137,11 @@ Bounds struct<T extends numeric = float64> {
         @doc value "is the exclusive upper bound."
     }
 
-    @doc value """
+    @doc value  """
         is a closed-open interval [lower, upper) over an ordered numeric value space.
         The TypeScript binding is generic over T so callers can express bounds over
         either number or bigint values; other languages emit a concrete float64-based
         type.
     """
+    @go marshal
 }

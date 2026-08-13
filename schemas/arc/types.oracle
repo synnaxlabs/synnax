@@ -61,7 +61,8 @@ FunctionProperties struct {
         @doc value "contains output parameter definitions."
     }
 
-    @doc value "contains common parameter definitions for function-like types."
+    @doc value  "contains common parameter definitions for function-like types."
+    @go marshal
 }
 
 Type struct extends FunctionProperties {
@@ -91,6 +92,7 @@ Type struct extends FunctionProperties {
         is a type in Arc's type system with optional element type for compounds,
         physical units, and constraints.
     """
+    @go marshal
 }
 
 Param struct {
@@ -106,6 +108,7 @@ Param struct {
 
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Param& p)"
     @doc value   "is a named, typed parameter with optional default value."
+    @go marshal
 }
 
 Params Param[] {
@@ -127,6 +130,7 @@ Channels struct {
     @doc value   """
         contains channel declarations for reading from and writing to Synnax channels.
     """
+    @go marshal
 }
 
 Dimensions struct {
@@ -160,6 +164,7 @@ Dimensions struct {
         contains physical dimension exponents for dimensional analysis (SI base
         quantities).
     """
+    @go marshal
 }
 
 Unit struct {
@@ -177,4 +182,5 @@ Unit struct {
     @doc value   """
         is a physical unit with dimensions and scale factor for unit-aware computation.
     """
+    @go marshal
 }

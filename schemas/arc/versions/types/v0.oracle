@@ -57,7 +57,8 @@ FunctionProperties struct {
         @doc value "contains configuration parameter definitions."
     }
 
-    @doc value "contains common parameter definitions for function-like types."
+    @doc value  "contains common parameter definitions for function-like types."
+    @go marshal
 }
 
 Type struct extends FunctionProperties {
@@ -80,10 +81,11 @@ Type struct extends FunctionProperties {
         @doc value "indicates read/write direction for channel-typed config parameters."
     }
 
-    @doc value """
+    @doc value  """
         is a type in Arc's type system with optional element type for compounds,
         physical units, and constraints.
     """
+    @go marshal
 }
 
 Param struct {
@@ -97,7 +99,8 @@ Param struct {
         @doc value "is an optional default value."
     }
 
-    @doc value "is a named, typed parameter with optional default value."
+    @doc value  "is a named, typed parameter with optional default value."
+    @go marshal
 }
 
 Params Param[] {
@@ -115,9 +118,10 @@ Channels struct {
         @doc value "contains writable channel indices mapped to parameter names."
     }
 
-    @doc value """
+    @doc value  """
         contains channel declarations for reading from and writing to Synnax channels.
     """
+    @go marshal
 }
 
 Dimensions struct {
@@ -146,10 +150,11 @@ Dimensions struct {
         @doc value "is the data size dimension exponent (bytes)."
     }
 
-    @doc value """
+    @doc value  """
         contains physical dimension exponents for dimensional analysis (SI base
         quantities).
     """
+    @go marshal
 }
 
 Unit struct {
@@ -163,7 +168,8 @@ Unit struct {
         @doc value "is the unit name (e.g., 'psi', 'ns', 'm/s')."
     }
 
-    @doc value """
+    @doc value  """
         is a physical unit with dimensions and scale factor for unit-aware computation.
     """
+    @go marshal
 }

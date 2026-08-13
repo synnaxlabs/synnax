@@ -29,7 +29,7 @@ func (r *GoImportResolver) ResolveImport(
 	outputPath string,
 	ctx *resolver.Context,
 ) (importPath, qualifier string, shouldImport bool) {
-	alias := naming.DerivePackageAlias(outputPath, r.CurrentPackage)
+	alias := naming.DeriveImportAlias(outputPath, r.CurrentPackage)
 	importPath = gomod.ResolveImportPath(
 		outputPath,
 		r.RepoRoot,

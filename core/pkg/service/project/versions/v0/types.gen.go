@@ -13,7 +13,7 @@ package v0
 
 import (
 	"github.com/google/uuid"
-	user "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
+	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -28,7 +28,7 @@ type Workspace struct {
 	// Name is a human-readable name for the workspace.
 	Name string `json:"name" msgpack:"name"`
 	// Author is the key of the user who created the workspace.
-	Author user.Key `json:"author" msgpack:"author"`
+	Author userv0.Key `json:"author" msgpack:"author"`
 	// Layout is the mosaic tree structure that defines how visualizations are arranged.
 	// Contains tab layout, split configurations, and window positions.
 	Layout msgpack.EncodedJSON `json:"layout,omitzero" msgpack:"layout,omitzero"`

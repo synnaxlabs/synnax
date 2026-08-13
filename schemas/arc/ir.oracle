@@ -27,6 +27,7 @@ Handle struct {
     @doc value   """
         is a reference to a specific parameter on a specific node in the dataflow graph.
     """
+    @go marshal
 }
 
 EdgeKind enum {
@@ -50,6 +51,7 @@ Edge struct {
 
     @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Edge& e)"
     @doc value   "is a dataflow connection between node parameters in the Arc graph."
+    @go marshal
 }
 
 Edges Edge[] {
@@ -164,6 +166,7 @@ Body struct {
     @doc value  "is raw function body source code with optional parsed AST."
     @go fields  "AST antlr.ParserRuleContext `json:\"-\"`"
     @go imports "github.com/antlr4-go/antlr/v4"
+    @go marshal
 }
 
 Function struct {
@@ -188,6 +191,7 @@ Function struct {
         is a function template definition with typed parameters, serving as a blueprint
         for node instantiation.
     """
+    @go marshal
 }
 
 Functions Function[] {
@@ -231,7 +235,8 @@ Authorities struct {
         @doc value "maps channel keys to their specific authority values."
     }
 
-    @doc value "holds the static authority declarations from an Arc program."
+    @doc value  "holds the static authority declarations from an Arc program."
+    @go marshal
 }
 
 IR struct {
