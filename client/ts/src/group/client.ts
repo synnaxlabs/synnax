@@ -64,8 +64,10 @@ export class Client extends query.Retriever<
   Key,
   Group
 > {
+  /** Public so a client that deletes a group through an endpoint of its own can drop
+   * the group from the cache. */
+  readonly store: query.Table<Key, Group>;
   private readonly cfg: ClientConfig;
-  private readonly store: query.Table<Key, Group>;
 
   constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient } = cfg;

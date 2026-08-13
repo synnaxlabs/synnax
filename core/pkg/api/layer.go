@@ -42,6 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
+	"github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
@@ -117,11 +118,13 @@ type Transport struct {
 	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]
 	// SCHEMATIC SYMBOL
-	SchematicCreateSymbol        freighter.UnaryServer[schematic.CreateSymbolRequest, schematic.CreateSymbolResponse]
-	SchematicRetrieveSymbol      freighter.UnaryServer[schematic.RetrieveSymbolRequest, schematic.RetrieveSymbolResponse]
-	SchematicDeleteSymbol        freighter.UnaryServer[schematic.DeleteSymbolRequest, types.Nil]
-	SchematicRenameSymbol        freighter.UnaryServer[schematic.RenameSymbolRequest, types.Nil]
-	SchematicRetrieveSymbolGroup freighter.UnaryServer[schematic.RetrieveSymbolGroupRequest, schematic.RetrieveSymbolGroupResponse]
+	SchematicSymbolCreate        freighter.UnaryServer[symbol.CreateRequest, symbol.CreateResponse]
+	SchematicSymbolRetrieve      freighter.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]
+	SchematicSymbolDelete        freighter.UnaryServer[symbol.DeleteRequest, types.Nil]
+	SchematicSymbolRename        freighter.UnaryServer[symbol.RenameRequest, types.Nil]
+	SchematicSymbolRetrieveGroup freighter.UnaryServer[symbol.RetrieveGroupRequest, symbol.RetrieveGroupResponse]
+	SchematicSymbolExportGroup   freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
+	SchematicSymbolDeleteGroup   freighter.UnaryServer[symbol.DeleteGroupRequest, types.Nil]
 	// LOG
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
@@ -208,6 +211,7 @@ type Layer struct {
 	Log          *log.Service
 	Auth         *auth.Service
 	Schematic    *schematic.Service
+	Symbol       *symbol.Service
 	View         *view.Service
 	Table        *table.Service
 	Panel        *panel.Service
@@ -316,11 +320,13 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicCopy,
 
 		// SCHEMATIC SYMBOL
-		t.SchematicCreateSymbol,
-		t.SchematicRetrieveSymbol,
-		t.SchematicDeleteSymbol,
-		t.SchematicRenameSymbol,
-		t.SchematicRetrieveSymbolGroup,
+		t.SchematicSymbolCreate,
+		t.SchematicSymbolRetrieve,
+		t.SchematicSymbolDelete,
+		t.SchematicSymbolRename,
+		t.SchematicSymbolRetrieveGroup,
+		t.SchematicSymbolExportGroup,
+		t.SchematicSymbolDeleteGroup,
 
 		// LINE PLOT
 		t.LinePlotCreate,
@@ -489,16 +495,21 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicCopy.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Schematic.Copy))
 
 	// SCHEMATIC SYMBOL
-	t.SchematicCreateSymbol.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Schematic.CreateSymbol))
-	t.SchematicRetrieveSymbol.BindHandler(l.Schematic.RetrieveSymbol)
-	t.SchematicDeleteSymbol.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Schematic.DeleteSymbol),
+	t.SchematicSymbolCreate.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Create),
 	)
-	t.SchematicRenameSymbol.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Schematic.RenameSymbol),
+	t.SchematicSymbolRetrieve.BindHandler(l.Symbol.Retrieve)
+	t.SchematicSymbolDelete.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Delete),
 	)
-	t.SchematicRetrieveSymbolGroup.BindHandler(l.Schematic.RetrieveSymbolGroup)
+	t.SchematicSymbolRename.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.Rename),
+	)
+	t.SchematicSymbolRetrieveGroup.BindHandler(l.Symbol.RetrieveGroup)
+	t.SchematicSymbolExportGroup.BindHandler(l.Symbol.ExportGroup)
+	t.SchematicSymbolDeleteGroup.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Symbol.DeleteGroup),
+	)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Create))
@@ -642,6 +653,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Symbol, err = symbol.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.NewService(cfg); err != nil {

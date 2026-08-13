@@ -18,6 +18,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	access "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
@@ -25,8 +26,14 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	var db *gorp.DB
-	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
+	// db carries the production codec; legacyDB writes plain MessagePack over the same
+	// store, seeding bytes exactly as pre-Orc servers persisted them.
+	var db, legacyDB *gorp.DB
+	BeforeEach(func() {
+		kvDB := DeferClose(memkv.New())
+		db = gorp.Wrap(kvDB)
+		legacyDB = gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
+	})
 
 	run := func(ctx SpecContext) {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -59,7 +66,7 @@ var _ = Describe("Migration", func() {
 			}
 			Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
 				Entries(&[]v0.Policy{shared, single, modern}).
-				Exec(ctx, db)).To(Succeed())
+				Exec(ctx, legacyDB)).To(Succeed())
 
 			run(ctx)
 
@@ -82,7 +89,7 @@ var _ = Describe("Migration", func() {
 	It("Should write no mapping when no legacy policies exist", func(ctx SpecContext) {
 		modern := v0.Policy{Key: uuid.New(), Actions: []access.Action{"all"}}
 		Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
-			Entry(&modern).Exec(ctx, db)).To(Succeed())
+			Entry(&modern).Exec(ctx, legacyDB)).To(Succeed())
 		run(ctx)
 		Expect(v0.ReadLegacyMappings(ctx, db)).To(BeNil())
 	})
@@ -95,7 +102,7 @@ var _ = Describe("Migration", func() {
 			)).To(Succeed())
 			legacy := newLegacy(ontology.ID{Type: ontology.ResourceTypeUser, Key: "u1"})
 			Expect(gorp.NewCreate[uuid.UUID, v0.Policy]().
-				Entry(&legacy).Exec(ctx, db)).To(Succeed())
+				Entry(&legacy).Exec(ctx, legacyDB)).To(Succeed())
 			run(ctx)
 			Expect(v0.ReadLegacyMappings(ctx, db)).To(BeNil())
 			var remaining []v0.Policy

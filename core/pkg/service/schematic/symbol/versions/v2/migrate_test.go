@@ -17,6 +17,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
@@ -25,14 +26,15 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	// seedV0 writes a symbol in the untyped v0 storage shape, exactly as the
-	// pre-SY-4504 server persisted it.
+	// seedV0 writes a symbol in the untyped v0 storage shape through a plain
+	// MessagePack codec, exactly as the pre-SY-4504 server persisted it.
 	seedV0 := func(ctx SpecContext, db *gorp.DB, s v0.Symbol) v0.Symbol {
 		GinkgoHelper()
+		legacyDB := gorp.Wrap(db.DB, gorp.WithCodec(msgpack.Codec))
 		t := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[uuid.UUID, v0.Symbol]{DB: db},
+			ctx, gorp.TableConfig[uuid.UUID, v0.Symbol]{DB: legacyDB},
 		))
-		Expect(t.NewCreate().Entry(&s).Exec(ctx, db)).To(Succeed())
+		Expect(t.NewCreate().Entry(&s).Exec(ctx, legacyDB)).To(Succeed())
 		return s
 	}
 

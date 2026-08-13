@@ -64,7 +64,7 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
       </Flex.Box>
       <Flex.Box x align="center" gap={1}>
         <Text.Text level="small" color={9}>
-          {region?.selectors?.length || 0} Elements
+          {region?.selectors?.length || 0} elements
         </Text.Text>
         <Form.Field<color.Color> path={`${path}.strokeColor`} showLabel={false}>
           {({ onChange, value }) => (
