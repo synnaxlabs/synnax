@@ -80,7 +80,7 @@ var _ = Describe("NewMigration", func() {
 			ctx,
 			config.ServiceConfig[arctask.Config]{
 				DB:                 db,
-				Type:               "arc_task",
+				Type:               "arc",
 				Version:            1,
 				SetEntryKey:        (*arctask.Config).SetKey,
 				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
@@ -109,7 +109,7 @@ var _ = Describe("NewMigration", func() {
 			Expect(gorp.NewRetrieve[v2.Key, v2.Task]().
 				Where(gorp.MatchKeys[v2.Key, v2.Task](key)).
 				Entry(&migrated).Exec(ctx, db)).To(Succeed())
-			Expect(migrated.Type).To(Equal("arc_task"))
+			Expect(migrated.Type).To(Equal("arc"))
 			Expect(migrated.Config).To(BeEmpty())
 
 			record := MustSucceed(store.Read(ctx, nil, key))
@@ -185,7 +185,7 @@ var _ = Describe("NewMigration", func() {
 			seed(ctx, v2.Task{
 				Key:    key,
 				Name:   "Broken Arc Task",
-				Type:   "arc_task",
+				Type:   "arc",
 				Config: msgpack.EncodedJSON{"arc_key": 123},
 			})
 			run(ctx, openArcStore(ctx))

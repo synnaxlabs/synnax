@@ -84,7 +84,7 @@ describe("arc", () => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });
       const tsk = await rack.createTask({
         name: `arc-task-${id.create()}`,
-        type: "arc_task",
+        type: "arc",
         config: {},
       });
       await client.ontology.addChildren(
@@ -177,7 +177,7 @@ describe("arc", () => {
       const tsk = await client.arcs.deploy(created.key, rack.key);
       expect(tsk).not.toBeNull();
       expect(tsk?.rack).toEqual(rack.key);
-      expect(tsk?.type).toEqual("arc_task");
+      expect(tsk?.type).toEqual("arc");
       expect(tsk?.config.arcKey).toEqual(created.key);
       expect(tsk?.config.hash).not.toEqual("");
       expect(await client.arcs.task.retrieve(created.key)).not.toBeNull();

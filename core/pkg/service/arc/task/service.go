@@ -49,7 +49,7 @@ func (c ServiceConfig) Validate() error {
 
 // Service owns the stored configuration records of the Arc task type.
 type Service struct {
-	// Config stores arc_task task configuration records.
+	// Config stores arc task configuration records.
 	Config *config.Service[Config]
 	closer xio.MultiCloser
 }

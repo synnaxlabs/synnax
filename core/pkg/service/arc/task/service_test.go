@@ -42,7 +42,7 @@ var _ = Describe("Service", func() {
 			for _, s := range svc.Stores() {
 				types = append(types, s.Type())
 			}
-			Expect(types).To(ConsistOf("arc_task"))
+			Expect(types).To(ConsistOf("arc"))
 		})
 	})
 

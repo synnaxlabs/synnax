@@ -351,7 +351,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				Expect(w.Create(ctx, t)).To(Succeed())
 				changed := *t
-				changed.Type = "arc_task"
+				changed.Type = arc.TaskType
 				changed.Config = msgpack.EncodedJSON{"text": math.NaN()}
 				Expect(w.Create(ctx, &changed)).To(MatchError(validate.ErrValidation))
 				store := MustBeOk(configs.Store(testType))

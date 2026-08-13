@@ -423,7 +423,7 @@ describe("Arc queries", () => {
 
       const tsk = await client.arcs.task.retrieve(created.key);
       assert(tsk != null);
-      expect(tsk.type).toBe("arc_task");
+      expect(tsk.type).toBe("arc");
       expect(tsk.rack).toBe(testRack.key);
       expect(tsk.config.arcKey).toBe(created.key);
       expect(tsk.config.hash).not.toEqual("");

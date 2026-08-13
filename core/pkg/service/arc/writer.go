@@ -28,7 +28,7 @@ import (
 )
 
 // TaskType is the task type for tasks that execute an Arc module.
-const TaskType = "arc_task"
+const TaskType = "arc"
 
 // Writer is used to create, update, and delete arcs within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter

@@ -47,11 +47,8 @@ func QuarantineKVKey(key v2.Key) []byte {
 	return []byte(QuarantineKVPrefix + key.String())
 }
 
-// typeRenames maps legacy task type strings to their ontology-safe replacements.
-var typeRenames = map[string]string{
-	"arc":         "arc_task",
-	"Rack Status": "rack_status",
-}
+// typeRenames maps legacy task type strings to their replacements.
+var typeRenames = map[string]string{"Rack Status": "rack_status"}
 
 // retiredTypes are task types released builds created that have no successor: the Lua
 // sequence task and the pre-cutover heartbeat and OPC scanner tasks. Their rows are

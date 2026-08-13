@@ -352,7 +352,7 @@ var _ = Describe("Migrations", func() {
 				Where(task.MatchNames("Stored Arc Task")).
 				Entry(&migratedArc).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(migratedArc.Type).To(Equal("arc_task"))
+			Expect(migratedArc.Type).To(Equal("arc"))
 			Expect(migratedArc.Config).To(
 				HaveKeyWithValue("arc_key", arcModuleKey),
 			)
