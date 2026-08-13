@@ -33,8 +33,8 @@ vi.mock("@tauri-apps/plugin-updater", () => ({
 }));
 vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: mocks.relaunch }));
 
-import { Version } from "@/feature/version";
 import { renderWithModals } from "@/platform/modals/testutil";
+import { Version } from "@/platform/version";
 
 const Harness = (): ReactElement => {
   const open = Version.useInfoModal();
@@ -81,5 +81,24 @@ describe("version useInfoModal", () => {
     });
     await waitFor(() => expect(downloadAndInstall).toHaveBeenCalledTimes(1));
     expect(mocks.relaunch).toHaveBeenCalledTimes(1);
+  });
+
+  it("should report up to date in tauri when the check finds no update", async () => {
+    mocks.engine = "tauri";
+    openModal();
+    await waitFor(() => expect(screen.getByText("Up to date")).toBeTruthy());
+    expect(mocks.relaunch).not.toHaveBeenCalled();
+  });
+
+  it("should never install an update without a click", async () => {
+    mocks.engine = "tauri";
+    const downloadAndInstall = vi.fn(async () => {});
+    mocks.update = { version: "9.9.9", downloadAndInstall };
+    openModal();
+    await waitFor(() =>
+      expect(screen.getByText("Version 9.9.9 available")).toBeTruthy(),
+    );
+    expect(downloadAndInstall).not.toHaveBeenCalled();
+    expect(mocks.relaunch).not.toHaveBeenCalled();
   });
 });

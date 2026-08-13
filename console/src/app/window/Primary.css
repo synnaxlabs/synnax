@@ -9,23 +9,81 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-main__content {
-    padding-right: 1rem;
-    padding-bottom: 1rem;
-    /* Hover drawers overshoot the docked footprint: tucked under the top bar, fused
-       into the left bar's border, bled past the content padding. */
-    --console-left-drawer-inset-left: 8.5rem;
-    --console-left-drawer-inset-top: 6rem;
-    --console-left-drawer-inset-bottom: 0.5rem;
-    --console-bottom-drawer-inset-left: calc(8rem - 2px);
-    --console-bottom-drawer-inset-right: 0.5rem;
-    --console-bottom-drawer-inset-bottom: 1rem;
+.console-main__workspace {
+    --console-left-bar-size: 7.5rem;
+    --console-inset-left: 0.5rem;
+    --console-inset-right: 1rem;
+    --console-inset-bottom: 1rem;
+    --console-gutter: 0.5rem;
+
+    /* Hover drawers float at viewport coordinates, so they overshoot the docked
+       footprint: tucked under the top bar, fused into the left bar's border, bled
+       past the content inset. */
+    --console-bleed: 0.5rem;
+    --console-left-drawer-inset-left: calc(
+        var(--console-inset-left) + var(--console-left-bar-size) + var(--console-gutter)
+    );
+    --console-left-drawer-inset-top: calc(
+        var(--console-top-bar-size) - var(--console-bleed)
+    );
+    --console-left-drawer-inset-bottom: calc(
+        var(--console-inset-bottom) - var(--console-bleed)
+    );
+    --console-bottom-drawer-inset-left: calc(
+        var(--console-inset-left) + var(--console-left-bar-size) - 2px
+    );
+    --console-bottom-drawer-inset-right: calc(
+        var(--console-inset-right) - var(--console-bleed)
+    );
+    --console-bottom-drawer-inset-bottom: var(--console-inset-bottom);
+
+    flex-grow: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns:
+        var(--console-inset-left)
+        var(--console-left-bar-size)
+        var(--console-gutter)
+        minmax(0, 1fr)
+        var(--console-inset-right);
+    grid-template-rows:
+        var(--console-top-bar-size)
+        minmax(0, 1fr)
+        var(--console-inset-bottom);
+    grid-template-areas:
+        ". rail top top     top"
+        ". rail .   content ."
+        ". .    .   .       .";
+
+    /* macOS desktop overlays the traffic lights on the window's corner, so the top
+       bar takes the full width and the rail starts below it. */
+    &.console--full-width-top {
+        grid-template-areas:
+            "top top  top top     top"
+            ".   rail .   content ."
+            ".   .    .   .       .";
+    }
+
+    > .console-nav__bar.pluto--location-top {
+        grid-area: top;
+    }
+
+    > .console-nav__bar.pluto--location-left {
+        grid-area: rail;
+    }
 }
 
-.console-main__column {
-    width: 0;
+.console-main__content {
+    grid-area: content;
+    min-width: 0;
+    min-height: 0;
 }
 
 .console-main__row {
     height: 0;
+    &:has(
+        .console-nav__drawer.pluto--location-left:is(.pluto--hidden, .console--hover)
+    ) {
+        gap: 0;
+    }
 }

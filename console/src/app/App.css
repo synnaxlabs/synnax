@@ -44,16 +44,12 @@ body {
     width: 100%;
 }
 
-.console-screen {
-    overflow: hidden;
-}
-
 *:not(:is(input, label)) {
     user-select: none !important;
     -webkit-user-select: none !important;
 }
 
-.console-editor * {
+.pluto-editor * {
     user-select: text !important;
     -webkit-user-select: text !important;
 }
