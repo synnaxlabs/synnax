@@ -135,9 +135,7 @@ describe("Editable", () => {
       vi.useFakeTimers();
       try {
         const promise = asyncEdit("does-not-exist");
-        const expectation = expect(promise).rejects.toThrow(
-          "Could not find element",
-        );
+        const expectation = expect(promise).rejects.toThrow("Could not find element");
         await vi.advanceTimersByTimeAsync(1100);
         await expectation;
       } finally {
