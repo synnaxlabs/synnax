@@ -131,6 +131,7 @@ export const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   name: "Test Task",
   rack: 0,
   snapshot: false,
+  configHash: "",
   status: createTaskStatus({
     variant: "disabled",
     message: "Test Task has not been deployed",

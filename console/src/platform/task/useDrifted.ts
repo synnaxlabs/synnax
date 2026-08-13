@@ -20,10 +20,8 @@ import { useStatus } from "@/platform/task/useStatus";
 export const useDrifted = <Schema extends z.ZodType>(
   ctx?: Form.ContextValue<Schema>,
 ): boolean => {
-  const configHash = Form.useFieldValue<string>("configHash", { ctx, optional: true });
-  const rack = Form.useFieldValue<rack.Key>("rack", { ctx, optional: true }) ?? 0;
+  const configHash = Form.useFieldValue<string>("configHash", { ctx });
+  const rack = Form.useFieldValue<rack.Key>("rack", { ctx });
   const status = useStatus(ctx);
-  // A form that has not loaded its task yet holds no hash to compare.
-  if (configHash == null) return false;
   return task.drifted({ configHash, rack, status });
 };
