@@ -23,15 +23,17 @@ const hueOf = (name: string): number => {
   return HUES[hash % HUES.length];
 };
 
-/* "Hot Fire" -> "HF"; "Primary" -> "PR". */
+/* "Hot Fire" -> "HF"; "Primary" -> "PR"; "Test Stand 2" -> "T2", so numbered
+   siblings do not collapse onto the same two letters. */
 const initialsOf = (name: string): string => {
-  const words = name
-    .trim()
-    .split(/[\s\-_]+/)
-    .filter(Boolean);
+  const trimmed = name.trim();
+  const words = trimmed.split(/[\s\-_]+/).filter(Boolean);
   if (words.length === 0) return "?";
+  const first = words[0].charAt(0);
+  const digit = trimmed.match(/(\d)$/)?.[1];
+  if (digit != null && digit !== first) return (first + digit).toUpperCase();
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+  return (first + words[1].charAt(0)).toUpperCase();
 };
 
 export interface AvatarProps {
