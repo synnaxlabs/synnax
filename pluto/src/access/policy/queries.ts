@@ -28,15 +28,13 @@ export type RetrieveQuery = {
   key: access.policy.Key;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<RetrieveQuery, access.policy.Policy>(
-  {
-    name: RESOURCE_NAME,
-    retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
-    subscribe: ({ client, query }, handler) =>
-      client.access.policies.onChange(query, handler),
-    getCached: ({ client, query }) => client.access.policies.getCached(query),
-  },
-);
+export const { use } = Flux.createRetrieve<RetrieveQuery, access.policy.Policy>({
+  name: RESOURCE_NAME,
+  retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
+  onChange: ({ client, query }, handler) =>
+    client.access.policies.onChange(query, handler),
+  getCached: ({ client, query }) => client.access.policies.getCached(query),
+});
 
 export type ListParams = List.PagerParams;
 
@@ -48,9 +46,9 @@ export const useList = Flux.createList<
   name: PLURAL_RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.access.policies.retrieve(query),
   retrieveByKey: async ({ client, key }) => await client.access.policies.retrieve(key),
-  subscribe: ({ client, query }, handler) =>
+  onChange: ({ client, query }, handler) =>
     client.access.policies.onChange(query, handler),
-  subscribeByKey: ({ client, key }, handler) =>
+  onChangeByKey: ({ client, key }, handler) =>
     client.access.policies.onChange(key, handler),
   getCached: ({ client, query }) => client.access.policies.getCached(query),
 });
@@ -86,7 +84,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema>({
+export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: {
@@ -95,10 +93,8 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
     objects: [],
     actions: [],
   },
-  retrieve: async ({ client, query, reset }) => {
-    if (query.key == null) return;
-    reset(await client.access.policies.retrieve(query.key));
-  },
+  retrieve: async ({ client, query: { key } }) =>
+    await client.access.policies.retrieve(key),
   update: async ({ client, value, set }) => {
     const p = await client.access.policies.create(value());
     set("key", p.key);

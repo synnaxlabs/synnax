@@ -15,7 +15,9 @@ import { type aether } from "@/aether/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 
-const { mockClose } = vi.hoisted(() => ({ mockClose: vi.fn() }));
+const { mockClose } = vi.hoisted(() => ({
+  mockClose: vi.fn(async () => undefined),
+}));
 
 vi.mock("@synnaxlabs/client", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -85,6 +87,21 @@ describe("synnax.aether.Provider", () => {
 
     provider._delete([key]);
     expect(mockClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs a close failure instead of throwing through the lifecycle", async () => {
+    const key = "synnax-provider-fail";
+    const provider = makeProvider(key);
+    update(provider, key, PARAMS);
+    mockClose.mockRejectedValueOnce(new Error("close boom"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      provider._delete([key]);
+      await vi.waitFor(() => expect(consoleError).toHaveBeenCalled());
+      expect(consoleError.mock.calls[0][0]).toBe("failed to close client");
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("closes the previous client when the connection params swap", () => {

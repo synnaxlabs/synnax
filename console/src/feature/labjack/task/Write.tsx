@@ -14,6 +14,7 @@ import { Component, Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
 
+import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
 import * as Device from "@/feature/labjack/device/types";
@@ -87,7 +88,6 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
               model={device.model}
               portType={type}
               allowNone={false}
-              onClick={(e) => e.stopPropagation()}
               className={CSS.BE("labjack-write", "port-select")}
             >
               <PForm.Field<OutputChannelType>
@@ -180,19 +180,11 @@ const ChannelList = ({ device }: ChannelListProps) => {
   );
 };
 
-const Form: FC<Task.FormProps<WriteSchemas>> = () => {
-  const isSnapshot = Task.useIsSnapshot();
-  const configure = useConfigureModal();
-  return (
-    <PlatformDevice.Provider
-      canConfigure={!isSnapshot}
-      onConfigure={(deviceKey) => configure({ deviceKey })}
-      schemas={Device.SCHEMAS}
-    >
-      {({ device }) => <ChannelList device={device} />}
-    </PlatformDevice.Provider>
-  );
-};
+const Form: FC<Task.FormProps<WriteSchemas>> = PlatformDevice.wrapTaskForm({
+  use,
+  useConfigure: useConfigureModal,
+  Content: ChannelList,
+});
 
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
@@ -324,6 +316,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.LabJack,
   schemas: WRITE_SCHEMAS,
   type: "labjack_write",
   getInitialValues,

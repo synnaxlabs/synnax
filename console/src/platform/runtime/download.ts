@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Status } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, filename } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
@@ -41,7 +41,8 @@ export interface DownloadStreamParams {
  * Downloads a stream to the file system. The function will try to use the most
  * performant method to download the stream.
  * @param stream - The stream to download.
- * @param name - The name of the file to download.
+ * @param name - The resource name. It titles the save dialog and status messages; its
+ * sanitized form names the file.
  * @param extension - The extension of the file to download. Omit when name already
  * carries one.
  * @param addStatus - The function to add a status message.
@@ -53,7 +54,10 @@ export const downloadStream = async ({
   onDownloadStart,
   addStatus,
 }: DownloadStreamParams): Promise<void> => {
-  const nameWithExtension = extension == null ? name : `${name}.${extension}`;
+  const nameWithExtension = filename.sanitize(
+    name,
+    extension == null ? "" : `.${extension}`,
+  );
   const addStartStatus = (location: string) => {
     onDownloadStart?.();
     addStatus({

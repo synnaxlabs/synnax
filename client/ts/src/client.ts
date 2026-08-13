@@ -312,18 +312,18 @@ export default class Synnax extends framer.Client {
     this.conn.notify({ type: "credentials.replaced" });
   }
 
-  close(): void {
-    this.conn
-      .close()
-      .catch((err: unknown) =>
-        this.cache.onError(new Error("failed to close the connection", { cause: err })),
-      );
-    this.cache
-      .close()
-      .catch((err: unknown) =>
-        this.cache.onError(
-          new Error("failed to close the query cache", { cause: err }),
-        ),
+  /**
+   * Closes the client, stopping the connection check loop and tearing down the
+   * query cache and its change stream. Resolves once both are closed.
+   * @throws {AggregateError} carrying every underlying close failure.
+   */
+  async close(): Promise<void> {
+    const results = await Promise.allSettled([this.conn.close(), this.cache.close()]);
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length > 0)
+      throw new AggregateError(
+        failures.map((f) => f.reason),
+        "failed to close the client",
       );
   }
 }

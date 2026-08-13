@@ -25,7 +25,7 @@ import {
   Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { array, strings } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
 import { useOpenSelector } from "@/feature/task/Selector";
@@ -70,11 +70,12 @@ const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
+  const confirmDelete = Modals.useConfirmDelete({ type: "Task" });
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  const { data, getItem, subscribe, retrieve } = Task.useList({
+  const { data, getItem, subscribe, retrieve, answered } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
   });
@@ -106,20 +107,10 @@ const Content = () => {
       async ({ data: keys }: Flux.BeforeUpdateParams<Task.DeleteParams>) => {
         setSelected([]);
         if (keys.length === 0) return false;
-        const names = strings.naturalLanguageJoin(
-          getItem(array.toArray(keys)).map(({ name }) => name),
-          "tasks",
-        );
-        const confirmed = await confirm({
-          message: `Are you sure you want to delete ${names}?`,
-          description: "This action cannot be undone.",
-          cancel: { label: "Cancel" },
-          confirm: { label: "Delete", variant: "error" },
-        });
-        if (!confirmed) return false;
+        if (!(await confirmDelete(getItem(array.toArray(keys))))) return false;
         return keys;
       },
-      [client, getItem],
+      [client, getItem, confirmDelete],
     ),
     afterFailure: ({ status }) => addStatus(status),
   });
@@ -189,42 +180,51 @@ const Content = () => {
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
-        <Toolbar.Header padded>
-          <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
+        <Toolbar.Header>
+          <Toolbar.Title>
+            <Icon.Task />
+            Tasks
+          </Toolbar.Title>
           {hasCreatePermission && (
             <Toolbar.Actions>
-              <Toolbar.Action tooltip="Create task" onClick={() => openSelector()}>
+              <Toolbar.Action
+                tooltip="Create task"
+                onClick={() => openSelector()}
+                variant="filled"
+              >
                 <Icon.Add />
               </Toolbar.Action>
             </Toolbar.Actions>
           )}
         </Toolbar.Header>
-        <Select.Frame
-          multiple
-          data={data}
-          getItem={getItem}
-          subscribe={subscribe}
-          value={selected}
-          onChange={setSelected}
-          onFetchMore={fetchMore}
-          replaceOnSingle
-        >
-          <List.Items<task.Key, task.Task>
-            full="y"
-            emptyContent={<EmptyContent />}
-            onContextMenu={menuProps.open}
+        <Toolbar.Body>
+          <Select.Frame
+            multiple
+            data={data}
+            getItem={getItem}
+            subscribe={subscribe}
+            value={selected}
+            onChange={setSelected}
+            onFetchMore={fetchMore}
+            replaceOnSingle
           >
-            {({ key, ...p }) => (
-              <TaskListItem
-                key={key}
-                {...p}
-                onStopStart={(command) => handleListItemStopStart(command, key)}
-                onRename={(name) => rename({ name, key })}
-                onDoubleClick={() => handleEdit(key)}
-              />
-            )}
-          </List.Items>
-        </Select.Frame>
+            <List.Items<task.Key, task.Task>
+              full="y"
+              emptyContent={answered && <EmptyContent />}
+              onContextMenu={menuProps.open}
+            >
+              {({ key, ...p }) => (
+                <TaskListItem
+                  key={key}
+                  {...p}
+                  onStopStart={handleListItemStopStart}
+                  onRename={rename}
+                  onEdit={handleEdit}
+                />
+              )}
+            </List.Items>
+          </Select.Frame>
+        </Toolbar.Body>
       </Toolbar.Content>
     </Menu.ContextMenu>
   );
@@ -242,11 +242,17 @@ export const TOOLBAR: Nav.Toolbar = {
 };
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
-  onStopStart: (command: PlatformTask.Command) => void;
-  onRename: (name: string) => void;
+  onStopStart: (command: PlatformTask.Command, key: task.Key) => void;
+  onRename: (params: { key: task.Key; name: string }) => void;
+  onEdit: (key: task.Key) => void;
 }
 
-const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
+const TaskListItem = ({
+  onStopStart,
+  onRename,
+  onEdit,
+  ...rest
+}: TaskListItemProps) => {
   const { itemKey } = rest;
   const { getIcon, parseType } = PlatformTask.useRegistry();
   const task_ = List.useItem<task.Key, task.Task>(itemKey);
@@ -258,11 +264,21 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
   const isRunning = details?.running === true;
   if (!isRunning && variant === "success") variant = "info";
   const handleStartStopClick = useCallback(
-    () => onStopStart(isRunning ? "stop" : "start"),
-    [isRunning, onStopStart],
+    () => onStopStart(isRunning ? "stop" : "start", itemKey),
+    [isRunning, onStopStart, itemKey],
   );
+  const handleRename = useCallback(
+    (name: string) => onRename({ key: itemKey, name }),
+    [onRename, itemKey],
+  );
+  const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
   return (
-    <Select.ListItem {...rest} justify="between" align="center">
+    <Select.ListItem
+      {...rest}
+      onDoubleClick={handleDoubleClick}
+      justify="between"
+      align="center"
+    >
       <Flex.Box y gap="small" grow className={CSS.BE("task", "metadata")}>
         <Flex.Box x align="center" gap="small">
           <Status.Indicator
@@ -274,7 +290,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             <Text.MaybeEditable
               id={`text-${itemKey}`}
               value={task_?.name ?? ""}
-              onChange={hasUpdatePermission ? onRename : undefined}
+              onChange={hasUpdatePermission ? handleRename : undefined}
               allowDoubleClick={false}
               overflow="ellipsis"
               weight={500}
@@ -391,7 +407,21 @@ const ContextMenu = ({
               Stop
             </Menu.Item>
           )}
-          {(canStart || canStop) && <Menu.Divider />}
+        </>
+      )}
+      <Menu.Divider />
+      {isSingle && (
+        <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
+          <Icon.Edit />
+          Edit configuration
+        </Menu.Item>
+      )}
+      {hasUpdatePermission && isSingle && (
+        <PlatformContextMenu.RenameItem onClick={() => Text.edit(`text-${keys[0]}`)} />
+      )}
+      <Menu.Divider />
+      {hasUpdatePermission && (
+        <>
           {canEnableDataSaving && (
             <Menu.Item
               itemKey="enableDataSaving"
@@ -410,58 +440,36 @@ const ContextMenu = ({
               Disable data saving
             </Menu.Item>
           )}
-          {(canEnableDataSaving || canDisableDataSaving) && <Menu.Divider />}
-          {isSingle && (
-            <>
-              <PlatformContextMenu.RenameItem
-                onClick={() => Text.edit(`text-${keys[0]}`)}
-              />
-              <Menu.Divider />
-            </>
-          )}
-        </>
-      )}
-      {isSingle && (
-        <>
-          <Menu.Item itemKey="edit" onClick={() => onEdit(keys[0])}>
-            <Icon.Edit />
-            Edit configuration
-          </Menu.Item>
-          <Menu.Divider />
         </>
       )}
       {hasCreatePermission && showSnapshotToActiveRange && (
-        <>
-          <Range.SnapshotMenuItem
-            range={activeRange}
-            key="snapshot"
-            onClick={() =>
-              snapshotToActiveRange({
-                tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
-                  key,
-                  name,
-                })),
-              })
-            }
-          />
-          <Menu.Divider />
-        </>
+        <Range.SnapshotMenuItem
+          range={activeRange}
+          key="snapshot"
+          onClick={() =>
+            snapshotToActiveRange({
+              tasks: selectedTasks.map(({ name, ontologyID: { key } }) => ({
+                key,
+                name,
+              })),
+            })
+          }
+        />
       )}
+      <Menu.Divider />
       {isSingle && (
         <>
           <Export.ContextMenuItem
             onClick={() => handleExport(task.ontologyID(keys[0]))}
           />
           <Link.CopyContextMenuItem onClick={() => handleLink(keys[0])} />
-          <Menu.Divider />
         </>
       )}
+      <Menu.Divider />
       {hasDeletePermission && someSelected && (
-        <>
-          <PlatformContextMenu.DeleteItem onClick={() => onDelete(keys)} />
-          <Menu.Divider />
-        </>
+        <PlatformContextMenu.DeleteItem onClick={() => onDelete(keys)} />
       )}
+      <Menu.Divider />
       <PlatformContextMenu.ReloadConsoleItem />
     </PlatformContextMenu.Menu>
   );

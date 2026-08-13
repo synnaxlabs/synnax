@@ -7,12 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/export/ToolbarButton.css";
-
 import { type ontology } from "@synnaxlabs/client";
 import { Button, Icon } from "@synnaxlabs/pluto";
 
-import { CSS } from "@/platform/css";
 import { use } from "@/platform/export/use";
 
 export interface ToolbarButtonProps extends Omit<
@@ -28,10 +25,8 @@ export const ToolbarButton = ({ getID, ...rest }: ToolbarButtonProps) => {
   return (
     <Button.Button
       tooltip="Export layout"
-      sharp
       size="medium"
       variant="text"
-      className={CSS.B("toolbar-button")}
       onClick={() => handleExport(getID())}
       {...rest}
     >

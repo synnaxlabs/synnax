@@ -12,7 +12,7 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Cluster } from "@/platform/cluster";
-import { createClusterState } from "@/platform/cluster/testutil";
+import { createClusterState } from "@/session/cluster/testutil";
 import { renderHookWithConsole, stubClipboardWriteText } from "@/testutil";
 
 describe("useCopyLinkToClipboard", () => {

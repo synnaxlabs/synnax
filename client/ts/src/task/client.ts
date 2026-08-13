@@ -364,18 +364,21 @@ export class Client extends query.Retriever<
     cache.listen({
       channel: COMMAND_CHANNEL_NAME,
       schema: commandZ,
-      onChange: (changed) => {
-        statusStore.set(statusKey(changed.task), (prev) => {
-          if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-          return status.create<StatusDetailsZodObject>({
-            key: statusKey(changed.task),
-            name: "Task Status",
-            variant: "loading",
-            message: `Running ${changed.type} command...`,
-            details: { task: changed.task, running: true, cmd: "", data: {} },
-          });
-        });
-      },
+      onChange: (commands) =>
+        statusStore.batch(() =>
+          commands.forEach((changed) =>
+            statusStore.set(statusKey(changed.task), (prev) => {
+              if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
+              return status.create<StatusDetailsZodObject>({
+                key: statusKey(changed.task),
+                name: "Task Status",
+                variant: "loading",
+                message: `Running ${changed.type} command...`,
+                details: { task: changed.task, running: true, cmd: "", data: {} },
+              });
+            }),
+          ),
+        ),
     });
     const composed = cache.derive<Key, Omit<Task, "status">, Task>({
       name: "task.composed",

@@ -219,6 +219,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 export const CounterRead = Task.wrapForm({
   Properties,
   Form,
+  Icon: Icon.Logo.NI,
   schemas: COUNTER_READ_SCHEMAS,
   type: "ni_counter_read",
   getInitialValues,

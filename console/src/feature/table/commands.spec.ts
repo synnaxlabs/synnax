@@ -15,9 +15,7 @@ import { Table } from "@/feature/table";
 import { client, project } from "@/feature/table/testutil";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { resolveFocusedTab, stubGeometry } from "@/testutil";
-
-stubGeometry();
+import { resolveFocusedTab } from "@/testutil";
 
 describe("Table Commands", () => {
   it("creates a table on the server and opens it as a tab", async () => {

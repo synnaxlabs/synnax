@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
@@ -111,7 +112,7 @@ func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) 
 var _ = Describe("Index", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
-		idxDB = gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
+		idxDB = OpenGorpMsgpackDB()
 	})
 	AfterEach(func() {
 		Expect(idxDB.Close()).To(Succeed())
@@ -1014,7 +1015,7 @@ var _ = Describe("Index", func() {
 var _ = Describe("Composite-string-keyed Lookup", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
-		idxDB = gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
+		idxDB = OpenGorpMsgpackDB()
 	})
 	AfterEach(func() {
 		Expect(idxDB.Close()).To(Succeed())

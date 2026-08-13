@@ -10,6 +10,7 @@
 
 import { Breadcrumb } from "@/components/article/Breadcrumb";
 import NextPrev from "@/components/article/NextPrev.astro";
+import { InlineCode } from "@/components/text/InlineCode";
 import { Text } from "@synnaxlabs/pluto";
 const {
     title,
@@ -26,9 +27,7 @@ const {
     authorLink,
 } = Astro.props;
 
-const titleStr = String(title ?? "");
-const titleParts = titleStr.split(/(`[^`]+`)/g).filter((s) => s.length > 0);
-const visibleTitleLength = titleStr.replace(/`/g, "").length;
+const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
 ---
 
 <article transition:animate="none">
@@ -41,17 +40,7 @@ const visibleTitleLength = titleStr.replace(/`/g, "").length;
         )
     }
     <Text.Text className="article-title" level={visibleTitleLength > 30 ? "h2" : "h1"}>
-        <span>
-            {
-                titleParts.map((part) =>
-                    part.startsWith("`") && part.endsWith("`") ? (
-                        <code>{part.slice(1, -1)}</code>
-                    ) : (
-                        part
-                    ),
-                )
-            }
-        </span>
+        <span><InlineCode text={title} /></span>
     </Text.Text>
     <h4 class="article-description">{description}</h4>
     {

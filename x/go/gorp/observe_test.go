@@ -15,9 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/gorp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -28,7 +27,7 @@ var _ = Describe("Observe", func() {
 		grapeTable *gorp.Table[int32, grape]
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+		db = DeferClose(OpenGorpMsgpackDB())
 		entryTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
 		)

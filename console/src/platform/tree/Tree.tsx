@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  NotFoundError,
+  ontology,
+  query,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import {
   Component,
   context,
@@ -18,17 +23,17 @@ import {
   Status,
   Synnax,
   Tree as Base,
-  useAsyncEffect,
   useCombinedStateAndRef,
   useInitializerRef,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { array, type observe } from "@synnaxlabs/x";
+import { array, type destructor, type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type ReactElement,
   type ReactNode,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -37,6 +42,7 @@ import {
 import { useStore } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
+import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
 import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
 import { DefaultItem, type Item } from "@/platform/tree/item";
@@ -119,6 +125,46 @@ const itemRenderProp = Component.renderProp(
   },
 );
 
+// Returns the keys that sit inside another key in the same set. Depth cannot answer
+// this: two nodes at different depths are often unrelated.
+const findContainedKeys = (tree: Base.Node<string>[], keys: string[]): Set<string> => {
+  const all = new Set(keys);
+  const contained = new Set<string>();
+  keys.forEach((key) => {
+    const node = Base.findNode({ tree, key });
+    if (node?.children == null) return;
+    Base.getDescendants(...node.children).forEach(({ key: descendant }) => {
+      if (all.has(descendant)) contained.add(descendant);
+    });
+  });
+  return contained;
+};
+
+// A parent's child list says nothing about each child's own subtree, so a node
+// that is already in the tree keeps the children it has already loaded.
+const keepLoadedChildren = (
+  prev: Base.Node<string>[],
+  next: Base.Node<string>[],
+): Base.Node<string>[] =>
+  next.map((node) => {
+    const existing = prev.find(({ key }) => key === node.key);
+    return existing == null ? node : { ...node, children: existing.children };
+  });
+
+const toNodes = (
+  resources: ontology.Resource[],
+  resolveItem: (type: ontology.ResourceType) => Item,
+): Base.Node<string>[] =>
+  resources
+    .filter((r) => {
+      const svc = resolveItem(r.id.type);
+      return svc.visible == null || svc.visible(r);
+    })
+    .map((r) => ({
+      key: ontology.idToString(r.id),
+      children: resolveItem(r.id.type).hasChildren ? [] : undefined,
+    }));
+
 const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = useCallback(
@@ -127,56 +173,69 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
-  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>([]);
-  const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
+  // The retained answer seeds the first render, not an effect: an effect runs
+  // after the commit paints, so the tree would still show one empty frame.
+  const [seed] = useState<Base.Node<string>[] | null>(() => {
+    const cached = client?.ontology.children.getCached({ ids: root });
+    return query.isLive(cached) ? toNodes(cached, resolveItem) : null;
+  });
+  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>(
+    seed ?? [],
+  );
+  // An unanswered root has no children yet and no empty content: they are the
+  // same node list, and only the answer tells them apart.
+  const [answered, setAnswered] = useState(seed != null);
+  const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
 
   // Placeholder resources back tree items (e.g. a just-created group awaiting its
   // inline rename) before the cluster delivers the real resource.
-  const placeholdersRef = useInitializerRef(() => new Map<string, ontology.Resource>());
-  const placeholderListenersRef = useInitializerRef(
-    () => new Map<string, Set<() => void>>(),
-  );
+  const placeholders = List.useMapData<string, ontology.Resource>();
 
   const getResourceByKey = useCallback(
     (key: string): ontology.Resource | undefined =>
-      client?.ontology.cache.resources.get(key) ?? placeholdersRef.current.get(key),
-    [client],
+      client?.ontology.cache.resources.get(key) ?? placeholders.getItem(key),
+    [client, placeholders],
   );
 
-  const retrieveChildren = Ontology.useRetrieveObservableChildren({
-    onChange: useCallback(
-      ({ data: resources, variant }, { id }) => {
-        if (variant == "success") {
-          const filtered = resources.filter((r) => {
-            const svc = resolveItem(r.id.type);
-            return svc.visible == null || svc.visible(r);
-          });
-          const converted = filtered.map((r) => ({
-            key: ontology.idToString(r.id),
-            children: resolveItem(r.id.type).hasChildren ? [] : undefined,
-          }));
-          const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
-          setNodes((prevNodes) => [
-            // Children subscriptions can outlive the parent's presence in the
-            // tree; a missing parent means the update is stale.
-            ...Base.updateNodeChildren({
-              tree: prevNodes,
-              parent: ontology.idToString(id),
-              throwOnMissing: false,
-              updater: (prevNodes) => [
-                ...prevNodes.filter(({ key }) => !ids.has(key)),
-                ...converted,
-              ],
-            }),
-          ]);
-        }
-        setLoading(false);
-      },
-      [resolveItem],
-    ),
-  });
+  const applyAnswer = useCallback(
+    (parent: ontology.ID, resources: ontology.Resource[]) => {
+      const next = toNodes(resources, resolveItem);
+      const nextKeys = new Set(next.map(({ key }) => key));
+      // A placeholder stands in only until the cluster delivers the real resource,
+      // which the answer carries.
+      const settled = ontology
+        .idToString(resources.map(({ id }) => id))
+        .filter(placeholders.hasItem);
+      if (settled.length > 0) placeholders.deleteItem(settled);
+      // The answer is the authority on its parent's membership. A node it omits
+      // survives only while a placeholder backs it, since an optimistic row the
+      // cluster has not heard about yet cannot be in any answer.
+      const merge = (prevChildren: Base.Node<string>[]): Base.Node<string>[] => [
+        ...prevChildren.filter(
+          ({ key }) => !nextKeys.has(key) && placeholders.hasItem(key),
+        ),
+        ...keepLoadedChildren(prevChildren, next),
+      ];
+      if (ontology.idsEqual(parent, root)) {
+        setNodes(merge);
+        setAnswered(true);
+        return;
+      }
+      setNodes((prevNodes) => [
+        // The children subscription can outlive the parent's presence in the
+        // tree; a missing parent means the update is stale.
+        ...Base.updateNodeChildren({
+          tree: prevNodes,
+          parent: ontology.idToString(parent),
+          throwOnMissing: false,
+          updater: merge,
+        }),
+      ]);
+    },
+    [resolveItem, setNodes, root, placeholders],
+  );
 
   const useLoading = useCallback(
     (key: string) =>
@@ -198,83 +257,79 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [loadingListenersRef],
   );
 
-  useAsyncEffect(
-    async (signal) => {
+  /** Live children subscriptions, keyed by the parent they answer for. */
+  const watchedRef = useInitializerRef(() => new Map<string, destructor.Destructor>());
+
+  const watchChildren = useCallback(
+    (parent: ontology.ID) => {
       if (client == null) return;
-      const resources = await client.ontology.children.retrieve({ ids: root });
-      if (signal.aborted) return;
-      const filtered = resources.filter((r) => {
-        const svc = resolveItem(r.id.type);
-        return svc.visible == null || svc.visible(r);
-      });
-      const nodes = filtered.map((c) => ({
-        key: ontology.idToString(c.id),
-        children: resolveItem(c.id.type).hasChildren ? [] : undefined,
-      }));
-      setNodes(nodes);
+      const key = ontology.idToString(parent);
+      // An already-watched parent has nothing to wait for, and no fetch will come
+      // along to end the wait.
+      if (watchedRef.current.has(key)) {
+        if (loadingRef.current === key) setLoading(false);
+        return;
+      }
+      // Subscribe before fetching. A change landing between the two would
+      // otherwise reach neither the answer nor the tree.
+      watchedRef.current.set(
+        key,
+        client.ontology.children.onChange({ ids: parent }, (answer) => {
+          if (query.isLive(answer)) applyAnswer(parent, answer);
+        }),
+      );
+      // A retained answer paints before the fetch that reconfirms it.
+      const cached = client.ontology.children.getCached({ ids: parent });
+      if (query.isLive(cached)) applyAnswer(parent, cached);
+      handleError(async () => {
+        try {
+          const resources = await client.ontology.children.retrieve({ ids: parent });
+          // A release during the fetch means the answer is no longer wanted.
+          if (watchedRef.current.has(key)) applyAnswer(parent, resources);
+        } finally {
+          if (loadingRef.current === key) setLoading(false);
+        }
+      }, "Failed to retrieve resources");
     },
-    [client, root],
+    [client, applyAnswer, handleError, setLoading],
   );
 
-  const handleSyncResourceSet = useCallback(
-    (resource: ontology.Resource) => {
-      placeholdersRef.current.delete(resource.key);
-      placeholderListenersRef.current.get(resource.key)?.forEach((notify) => notify());
-      setNodes((prevNodes) => [...prevNodes]);
-    },
-    [setNodes],
-  );
-  Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
-  const handleRelationshipDelete = useCallback(
-    (rel: ontology.Relationship) => {
-      if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
-      setNodes((prevNodes) => {
-        const parent = ontology.idsEqual(rel.from, root)
-          ? null
-          : ontology.idToString(rel.from);
-        const nextNodes = [
-          ...Base.removeNode({
-            parent,
-            keys: ontology.idToString(rel.to),
-            tree: Base.deepCopy(prevNodes),
-          }),
-        ];
-        return nextNodes;
-      });
-    },
-    [setNodes, parent],
-  );
-  Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
-  const handleRelationshipSet = useCallback((rel: ontology.Relationship) => {
-    if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
-    const { from, to } = rel;
-    setNodes((prevNodes) => {
-      let destination: string | null = ontology.idToString(from);
-      if (ontology.idsEqual(from, root)) destination = null;
-      const nextNodes = [
-        ...Base.setNode({
-          tree: Base.deepCopy(prevNodes),
-          destination,
-          additions: [
-            {
-              key: ontology.idToString(to),
-              children: resolveItem(to.type).hasChildren ? [] : undefined,
-            },
-          ],
-          throwOnMissing: false,
-        }),
-      ];
-      return nextNodes;
+  const releaseChildren = useCallback((keys: string[]) => {
+    keys.forEach((key) => {
+      watchedRef.current.get(key)?.();
+      watchedRef.current.delete(key);
     });
   }, []);
-  Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
-  const handleExpand = useCallback(({ action, clicked }: Base.HandleExpandProps) => {
-    if (action !== "expand") return;
-    const clickedID = ontology.idZ.parse(clicked);
-    setLoading(clicked);
-    retrieveChildren.retrieve({ id: clickedID });
-  }, []);
+  useEffect(() => {
+    watchChildren(root);
+    return () => releaseChildren([...watchedRef.current.keys()]);
+  }, [client, ontology.idToString(root)]);
+
+  // Selection drives the context menu, and a key with no node poisons every later
+  // right-click, so a node that leaves the tree leaves the selection with it.
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = prev.filter((key) => Base.findNode({ tree: nodes, key }) != null);
+      return next.length === prev.length ? prev : next;
+    });
+  }, [nodes, setSelected]);
+
+  const handleExpand = useCallback(
+    ({ action, clicked }: Base.HandleExpandProps) => {
+      if (action === "contract") {
+        // A hidden subtree needs no maintenance. Its answers stay cached, so a
+        // re-expand paints from them.
+        const node = Base.findNode({ tree: nodesRef.current, key: clicked });
+        if (node != null)
+          releaseChildren(Base.getDescendants(node).map(({ key }) => key));
+        return;
+      }
+      setLoading(clicked);
+      watchChildren(ontology.idZ.parse(clicked));
+    },
+    [watchChildren, releaseChildren, setLoading, nodesRef],
+  );
 
   const getResource = useCallback(
     ((id: ontology.ID | ontology.ID[] | string | string[]) => {
@@ -295,33 +350,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [getResourceByKey],
   );
 
-  const subscribe = useCallback((callback: () => void, key: string) => {
-    let listeners = placeholderListenersRef.current.get(key);
-    if (listeners == null) {
-      listeners = new Set();
-      placeholderListenersRef.current.set(key, listeners);
-    }
-    listeners.add(callback);
-    return () => {
-      listeners.delete(callback);
-    };
-  }, []);
-
   const getItem = useMemo(
     () =>
       List.createGetItem<string, ontology.Resource>(getResourceByKey, (keys) =>
         keys.map(getResourceByKey).filter((r) => r != null),
       ),
     [getResourceByKey],
-  );
-
-  const setResource = useCallback(
-    (resource: ontology.Resource | ontology.Resource[]) =>
-      array.toArray(resource).forEach((r) => {
-        placeholdersRef.current.set(r.key, r);
-        placeholderListenersRef.current.get(r.key)?.forEach((callback) => callback());
-      }),
-    [],
   );
 
   const sort = useCallback(
@@ -355,12 +389,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       setNodes,
       expand,
       contract,
-      setLoading,
-      setResource,
+      setResource: placeholders.setItem,
       getResource,
       setSelection: setSelected,
     }),
-    [expand, contract, setLoading, handleError, setResource, nodesRef, setNodes],
+    [expand, contract, handleError, placeholders, nodesRef, setNodes],
   );
 
   const openTab = Panel.useOpenTab();
@@ -390,19 +423,30 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const svc = resolveItem(destination.type);
       if (!svc.canDrop({ source, items })) return [];
 
-      const minDepth = Math.min(...dropped.map(({ data }) => data.depth));
-      const firstNodeOfMinDepth = dropped.find(({ data }) => data.depth === minDepth);
-      if (firstNodeOfMinDepth == null) return [];
-      const moved = dropped.filter(({ data }) => data.depth === minDepth);
-      const keys = moved.map(({ key }) => key);
-      const parent = Base.findNodeParent({
-        tree: nodesSnapshot,
-        key: firstNodeOfMinDepth.key,
+      // An item inside another dragged item travels with it. Moving it explicitly
+      // would re-parent it onto the destination as a sibling of its own parent.
+      const droppedKeys = dropped.map(({ key }) => key);
+      const contained = findContainedKeys(nodesSnapshot, droppedKeys);
+      const moved = dropped.filter(({ key }) => !contained.has(key));
+      if (moved.length === 0) return [];
+
+      // Each item leaves its own parent: a selection can span several.
+      const bySource = new Map<string, ontology.ID[]>();
+      moved.forEach(({ key }) => {
+        const parent = Base.findNodeParent({ tree: nodesSnapshot, key });
+        const sourceKey = parent?.key ?? ontology.idToString(root);
+        const ids = bySource.get(sourceKey) ?? [];
+        ids.push(ontology.idZ.parse(key));
+        bySource.set(sourceKey, ids);
       });
-      const sourceID = ontology.idZ.parse(parent?.key ?? ontology.idToString(root));
-      contract(...keys);
-      const ids = keys.map((key) => ontology.idZ.parse(key));
-      moveChildren.update({ source: sourceID, destination, ids });
+      contract(...moved.map(({ key }) => key));
+      bySource.forEach((ids, sourceKey) =>
+        moveChildren.update({
+          source: ontology.idZ.parse(sourceKey),
+          destination,
+          ids,
+        }),
+      );
       return moved;
     },
     [client, contract, root],
@@ -412,29 +456,24 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleDragStart = useCallback(
     (itemKey: string) => {
-      const selectedResources = getResource(selectedRef.current);
       if (selectedRef.current.includes(itemKey)) {
-        const selectedHaulItems = selectedResources.flatMap((res) => {
-          const depth = Base.getDepth(itemKey, shapeRef.current);
-          const items: Haul.Item[] = [
-            Base.createHaulItem(ontology.idToString(res.id), depth),
-          ];
+        const selectedHaulItems = getResource(selectedRef.current).flatMap((res) => {
+          const items: Haul.Item[] = [Base.createHaulItem(ontology.idToString(res.id))];
           const svcItems = resolveItem(res.id.type).haulItems(res);
           if (svcItems != null) items.push(...svcItems);
           return items;
         });
         return startDrag(selectedHaulItems);
       }
-      const depth = Base.getDepth(itemKey, shapeRef.current);
       const haulItems = resolveItem(ontology.idZ.parse(itemKey).type).haulItems(
         getResource(itemKey),
       );
-      startDrag([Base.createHaulItem(itemKey, depth), ...haulItems]);
+      startDrag([Base.createHaulItem(itemKey), ...haulItems]);
     },
     [getResource, selectedRef],
   );
 
-  const handleContextMenu = useCallback(
+  const renderContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => {
       if (client == null) return <FallbackContextMenu />;
       if (keys.length === 0)
@@ -460,10 +499,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we
         // might be selecting nodes AND their children.
-        key: keys.sort(
-          (a, b) =>
-            Base.getDepth(a, shapeRef.current) - Base.getDepth(b, shapeRef.current),
-        )[0],
+        key: keys.sort(Base.compareDepth(shapeRef.current))[0],
       });
 
       const parentID = parent == null ? root : ontology.idZ.parse(parent.key);
@@ -488,6 +524,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     },
     [client, setNodes, resolveItem, openTab, nodesRef, setSelected],
   );
+  const handleContextMenu = useCallback(
+    (props: Menu.ContextMenuMenuProps) => (
+      <Errors.SuspenseBoundary loading={null}>
+        {renderContextMenu(props)}
+      </Errors.SuspenseBoundary>
+    ),
+    [renderContextMenu],
+  );
   const menuProps = Menu.useContextMenu();
   const contextValue = useMemo(
     () => ({
@@ -506,11 +550,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         {...treeProps}
         showRules
         shape={shape}
-        subscribe={subscribe}
+        subscribe={placeholders.subscribe}
         // Not getResource: it throws, and a resource may not be cached before
         // the tree attempts to render it.
         getItem={getItem}
-        emptyContent={emptyContent}
+        emptyContent={answered ? emptyContent : null}
         onContextMenu={menuProps.open}
       >
         {itemRenderProp}

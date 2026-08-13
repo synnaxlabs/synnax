@@ -11,8 +11,8 @@ import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
 import { Rack } from "@/feature/rack";
 import { Task } from "@/feature/task";
-import { Version } from "@/feature/version";
 import { Notifications } from "@/platform/notifications";
+import { Version } from "@/platform/version";
 
 const NOTIFICATIONS: Notifications.Notification[] = [
   ...Cluster.NOTIFICATIONS,

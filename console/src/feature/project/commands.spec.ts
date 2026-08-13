@@ -15,14 +15,11 @@ import { renderPalette } from "@/feature/command/testutil";
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
 import {
-  installPickedDirectory,
+  captureBrowserDownloads,
   interceptFilePicker,
   removeFilePickers,
-  stubGeometry,
   uniqueName,
 } from "@/testutil";
-
-stubGeometry();
 
 const client = createTestClient();
 
@@ -60,9 +57,9 @@ describe("Project Commands", () => {
     picker.cancel();
   });
 
-  it("should export the current project to the picked directory", async () => {
+  it("should export the current project as a zip download", async () => {
     const p = await client.projects.create({ name: uniqueName("proj"), layout: {} });
-    const writes = installPickedDirectory({ exists: false });
+    const downloads = captureBrowserDownloads();
     const { openCommandPalette, selectCommand } = await renderPalette({
       commands: Project.COMMANDS,
       client,
@@ -72,6 +69,7 @@ describe("Project Commands", () => {
     });
     await openCommandPalette();
     await selectCommand("Export current project");
-    await waitFor(() => expect(writes.has(Project.PANELS_FILE_NAME)).toBe(true));
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    expect(downloads.anchors[0].download).toBe(`${p.name}.zip`);
   });
 });

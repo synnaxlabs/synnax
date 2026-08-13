@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { device, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Form as PForm } from "@synnaxlabs/pluto";
-import { screen, waitFor } from "@testing-library/react";
+import { Form as PForm, Icon } from "@synnaxlabs/pluto";
+import { TimeStamp } from "@synnaxlabs/x";
+import { act, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -55,6 +56,7 @@ const createRenderer = ({
 }: MakeRendererParams = {}) =>
   Task.wrapForm<typeof schemas>({
     Form,
+    Icon: Icon.Task,
     schemas,
     type: "test_task",
     getInitialValues: () => ({
@@ -107,14 +109,68 @@ describe("wrapForm", () => {
     });
 
     it("should derive it from the task key when no rackKey arg is given", async () => {
-      const taskKey = ((7n << 32n) | 1n).toString();
-      await renderProbe({ taskKey });
-      await waitFor(() => expect(screen.getByText("rack-key:7")).toBeTruthy());
+      const client = createTestClient();
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const tsk = await rack.createTask({
+        name: uniqueName("task"),
+        type: "test_task",
+        config: { device: "", channels: [] },
+      });
+      await renderProbe({ taskKey: tsk.key });
+      await waitFor(() =>
+        expect(screen.getByText(`rack-key:${rack.key}`)).toBeTruthy(),
+      );
     });
 
     it("should default to zero when neither rackKey nor taskKey is given", async () => {
       await renderProbe();
       await waitFor(() => expect(screen.getByText("rack-key:0")).toBeTruthy());
+    });
+  });
+
+  describe("device rack sync", () => {
+    it("should not re-render the form when the device's status changes", async () => {
+      const client = createTestClient();
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const deviceKey = uniqueName("dev");
+      await client.devices.create({
+        key: deviceKey,
+        rack: rack.key,
+        location: "dev",
+        name: uniqueName("device"),
+        make: "ni",
+        model: "test",
+        properties: {},
+      });
+      let renders = 0;
+      const CountingForm: FC<Task.FormProps<typeof schemas>> = () => {
+        renders++;
+        return <div>{`rack-key:${PForm.useFieldValue<number>("rackKey")}`}</div>;
+      };
+      CountingForm.displayName = "CountingForm";
+      const Renderer = createRenderer({ Form: CountingForm });
+      await renderTaskFormTab(Renderer, "test_task", { params: { deviceKey } });
+      await waitFor(() =>
+        expect(screen.getByText(`rack-key:${rack.key}`)).toBeTruthy(),
+      );
+      const seen = vi.fn();
+      const off = client.devices.onChange(
+        { key: deviceKey, includeStatus: true },
+        seen,
+      );
+      const before = renders;
+      await client.statuses.set({
+        key: device.statusKey(deviceKey),
+        name: "",
+        variant: "warning",
+        message: "device degraded",
+        time: TimeStamp.now(),
+        details: { rack: rack.key, device: deviceKey },
+      });
+      await waitFor(() => expect(seen).toHaveBeenCalled());
+      await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));
+      expect(renders).toBe(before);
+      off();
     });
   });
 

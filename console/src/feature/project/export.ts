@@ -9,7 +9,6 @@
 
 import { DisconnectedError, type project } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { filename } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
@@ -33,7 +32,8 @@ export const useExport = (): ((key: project.Key | null) => void) => {
         name = proj.name;
         await Runtime.downloadStream({
           stream: await client.projects.export(proj.key),
-          name: filename.sanitize(name, ".zip"),
+          name,
+          extension: "zip",
           addStatus,
         });
       }, `Failed to export ${name}`);

@@ -230,20 +230,25 @@ describe("Runtime files", () => {
       await expect(Runtime.pickDirectory()).resolves.toBeNull();
     });
 
-    it("should collect only the files in the directory", async () => {
+    it("should collect files recursively with relative paths", async () => {
       openMock.mockResolvedValue("/tmp/project");
-      readDirMock.mockResolvedValue([
-        { name: "a.json", isFile: true, isDirectory: false, isSymlink: false },
-        { name: "nested", isFile: false, isDirectory: true, isSymlink: false },
-        { name: "b.json", isFile: true, isDirectory: false, isSymlink: false },
-      ]);
+      readDirMock.mockImplementation(async (path) =>
+        path === "/tmp/project"
+          ? [
+              { name: "a.json", isFile: true, isDirectory: false, isSymlink: false },
+              { name: "nested", isFile: false, isDirectory: true, isSymlink: false },
+            ]
+          : [{ name: "b.json", isFile: true, isDirectory: false, isSymlink: false }],
+      );
       readTextFileMock.mockResolvedValue("data");
       const result = await Runtime.pickDirectory();
       assertDefined(result);
       expect(result.name).toBe("project");
-      expect(result.files.map((f) => f.name)).toEqual(["a.json", "b.json"]);
+      expect(result.files.map((f) => f.path)).toEqual(["a.json", "nested/b.json"]);
       await result.files[0].read();
       expect(readTextFileMock).toHaveBeenCalledWith("/tmp/project/a.json");
+      await result.files[1].read();
+      expect(readTextFileMock).toHaveBeenCalledWith("/tmp/project/nested/b.json");
     });
   });
 

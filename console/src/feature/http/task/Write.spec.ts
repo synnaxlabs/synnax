@@ -26,11 +26,8 @@ import {
   awaitTextEditingElement,
   commitTextEdit,
   getHeaderIconButton,
-  stubGeometry,
   uniqueName,
 } from "@/testutil";
-
-stubGeometry();
 
 const renderWrite = async (
   options: { client?: Synnax | null; params?: Task.FormViewParams } = {},
