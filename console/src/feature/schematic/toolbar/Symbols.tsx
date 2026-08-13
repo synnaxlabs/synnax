@@ -407,7 +407,7 @@ const Actions = ({ symbolGroupID, selectedGroup }: ActionsProps): ReactElement =
 };
 
 export interface GroupListProps extends Input.Control<group.Key> {
-  symbolGroupID: ontology.ID;
+  symbolGroupID?: ontology.ID;
 }
 
 const GroupListContextMenu = ({
@@ -570,15 +570,15 @@ export const Symbols = (): ReactElement => {
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
 
   const [searchTerm, setSearchTerm] = useState("");
-  const symbolGroup = Schematic.Symbol.useGroup({});
+  const { data: symbolGroup } = Schematic.Symbol.useResultGroup({});
   const searchMode = searchTerm.length > 0;
   let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
   if (isRemoteGroup)
     symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
   else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
   const symbolGroupID = useMemo(
-    () => group.ontologyID(symbolGroup.key),
-    [symbolGroup.key],
+    () => (symbolGroup == null ? undefined : group.ontologyID(symbolGroup.key)),
+    [symbolGroup?.key],
   );
   return (
     <Flex.Box y empty className={CSS.BE("schematic", "symbols")}>
@@ -596,7 +596,9 @@ export const Symbols = (): ReactElement => {
           onChange={setGroupKey}
           symbolGroupID={symbolGroupID}
         />
-        <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
+        {symbolGroupID != null && (
+          <Actions symbolGroupID={symbolGroupID} selectedGroup={groupKey} />
+        )}
       </Flex.Box>
       {symbolList}
     </Flex.Box>
