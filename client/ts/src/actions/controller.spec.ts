@@ -299,6 +299,18 @@ describe("actions.Controller", () => {
       });
     });
 
+    it("marks a merged entry stale when a remote touch lands mid-merge", () => {
+      const { docs, controller } = setupStore({ coalesceWindow: TimeSpan.SECOND });
+      prime(docs, "k", { a: 0 });
+      push(controller, "k", "a", 1, "move");
+      controller.markRemoteTouched("k", ["a"]);
+      push(controller, "k", "a", 2, "move");
+      // Undoing the merged entry would restore "a" to 0, wiping the remote
+      // edit that landed between the two pushes.
+      expect(controller.prepareUndo("k")).toBeNull();
+      expect(controller.hasUndo("k")).toBe(false);
+    });
+
     it("trims to stackCap by dropping the oldest", () => {
       const clock = createFakeClock();
       const { docs, controller } = setupStore({

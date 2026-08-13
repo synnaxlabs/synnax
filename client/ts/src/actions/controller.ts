@@ -31,7 +31,7 @@ export interface StackEntry<Action> {
   kind: string;
   /** Wall-clock push time, used only for coalescing. */
   ts: TimeStamp;
-  /** Controller tick at push, used to order the entry against remote touches. */
+  /** Tick of the earliest push, used to order the entry against remote touches. */
   tick: number;
   targets: readonly string[];
 }
@@ -61,7 +61,7 @@ const pushOnto = <A>(
           inverse: [...next.inverse, ...top.inverse],
           kind: next.kind,
           ts: next.ts,
-          tick: next.tick,
+          tick: top.tick,
           targets: top.targets,
         }
       : null;
