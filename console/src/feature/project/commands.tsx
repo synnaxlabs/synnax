@@ -11,7 +11,7 @@ import { project } from "@synnaxlabs/client";
 import { Access, Project as PProject, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { useExport } from "@/feature/project/export";
+import { useExportSelectedProject } from "@/feature/project/export";
 import { import_ } from "@/feature/project/import";
 import { Command } from "@/platform/command";
 import { Import } from "@/platform/import";
@@ -51,16 +51,11 @@ const ImportProjectCommand = Command.create({
   sortOrder: -1,
 });
 
-const useExportCurrentProject = (): (() => void) => {
-  const handleExport = useExport();
-  return useCallback(() => handleExport(null), [handleExport]);
-};
-
 const ExportProjectCommand = Command.create({
   key: "project_export",
   name: "Export current project",
   icon: <PProject.ExportIcon />,
-  useOnSelect: useExportCurrentProject,
+  useOnSelect: useExportSelectedProject,
   useVisible: useViewVisible,
   sortOrder: -1,
 });

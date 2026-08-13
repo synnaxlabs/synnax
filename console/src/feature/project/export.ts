@@ -17,18 +17,16 @@ import { Session } from "@/session";
 // The Core owns membership, document serialization, file naming, and the manifest, and
 // the bundle travels as an archive, so the Console streams the response straight to the
 // file the user picks without ever holding it in memory.
-export const useExport = (): ((key: project.Key | null) => void) => {
+export const useExport = (): ((key: project.Key) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
-  const store = Session.useStore();
   return useCallback(
-    (key: project.Key | null) => {
+    (key: project.Key) => {
       let name = "project"; // default name for error message
       handleError(async () => {
-        const targetKey = key ?? Session.Project.selectSelected(store.getState());
         if (client == null) throw new DisconnectedError();
-        const proj = await client.projects.retrieve(targetKey);
+        const proj = await client.projects.retrieve(key);
         name = proj.name;
         await Runtime.downloadStream({
           stream: await client.projects.export(proj.key),
@@ -38,6 +36,15 @@ export const useExport = (): ((key: project.Key | null) => void) => {
         });
       }, `Failed to export ${name}`);
     },
-    [client, handleError, addStatus, store],
+    [client, handleError, addStatus],
+  );
+};
+
+export const useExportSelectedProject = (): (() => void) => {
+  const handleExport = useExport();
+  const store = Session.useStore();
+  return useCallback(
+    () => handleExport(Session.Project.selectSelected(store.getState())),
+    [handleExport, store],
   );
 };
