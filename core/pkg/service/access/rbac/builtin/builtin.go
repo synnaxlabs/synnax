@@ -16,36 +16,31 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
-// allObjects returns every object type the built-in roles cover: the static resource
-// types plus the task config record types the caller derives from the config
-// registry.
-func allObjects(taskConfigObjects []ontology.ID) []ontology.ID {
-	return append([]ontology.ID{
-		{Type: ontology.ResourceTypeLabel},
-		{Type: ontology.ResourceTypeLog},
-		{Type: ontology.ResourceTypeNode},
-		{Type: ontology.ResourceTypeChannel},
-		{Type: ontology.ResourceTypeGroup},
-		{Type: ontology.ResourceTypeRange},
-		{Type: ontology.ResourceTypeFramer},
-		{Type: ontology.ResourceTypeRangeAlias},
-		{Type: ontology.ResourceTypeUser},
-		{Type: ontology.ResourceTypeProject},
-		{Type: ontology.ResourceTypePanel},
-		{Type: ontology.ResourceTypeSchematic},
-		{Type: ontology.ResourceTypeLineplot},
-		{Type: ontology.ResourceTypeRack},
-		{Type: ontology.ResourceTypeDevice},
-		{Type: ontology.ResourceTypeTask},
-		{Type: ontology.ResourceTypeTable},
-		{Type: ontology.ResourceTypeArc},
-		{Type: ontology.ResourceTypeSchematicSymbol},
-		{Type: ontology.ResourceTypeStatus},
-		{Type: ontology.ResourceTypeRole},
-		{Type: ontology.ResourceTypePolicy},
-		{Type: ontology.ResourceTypeBuiltin},
-		{Type: ontology.ResourceTypeView},
-	}, taskConfigObjects...)
+var allObjects = []ontology.ID{
+	{Type: ontology.ResourceTypeLabel},
+	{Type: ontology.ResourceTypeLog},
+	{Type: ontology.ResourceTypeNode},
+	{Type: ontology.ResourceTypeChannel},
+	{Type: ontology.ResourceTypeGroup},
+	{Type: ontology.ResourceTypeRange},
+	{Type: ontology.ResourceTypeFramer},
+	{Type: ontology.ResourceTypeRangeAlias},
+	{Type: ontology.ResourceTypeUser},
+	{Type: ontology.ResourceTypeProject},
+	{Type: ontology.ResourceTypePanel},
+	{Type: ontology.ResourceTypeSchematic},
+	{Type: ontology.ResourceTypeLineplot},
+	{Type: ontology.ResourceTypeRack},
+	{Type: ontology.ResourceTypeDevice},
+	{Type: ontology.ResourceTypeTask},
+	{Type: ontology.ResourceTypeTable},
+	{Type: ontology.ResourceTypeArc},
+	{Type: ontology.ResourceTypeSchematicSymbol},
+	{Type: ontology.ResourceTypeStatus},
+	{Type: ontology.ResourceTypeRole},
+	{Type: ontology.ResourceTypePolicy},
+	{Type: ontology.ResourceTypeBuiltin},
+	{Type: ontology.ResourceTypeView},
 }
 
 var (
@@ -55,16 +50,13 @@ var (
 		Description: "Full control of deployment, including user registration and security.",
 		Internal:    true,
 	}
-)
-
-func ownerPolicy(taskConfigObjects []ontology.ID) policy.Policy {
-	return policy.Policy{
+	ownerPolicy = policy.Policy{
 		Name:     ownerRoleName,
-		Objects:  allObjects(taskConfigObjects),
+		Objects:  allObjects,
 		Actions:  access.AllActions,
 		Internal: true,
 	}
-}
+)
 
 var (
 	engineerRoleName = "Engineer"
@@ -73,13 +65,10 @@ var (
 		Description: "Full access to system configuration, except for user management.",
 		Internal:    true,
 	}
-)
-
-func engineerPolicies(taskConfigObjects []ontology.ID) []policy.Policy {
-	return []policy.Policy{
+	engineerPolicies = []policy.Policy{
 		{
 			Name: "Engineer Edit Access",
-			Objects: append([]ontology.ID{
+			Objects: []ontology.ID{
 				{Type: ontology.ResourceTypeLabel},
 				{Type: ontology.ResourceTypeLog},
 				{Type: ontology.ResourceTypeNode},
@@ -100,7 +89,7 @@ func engineerPolicies(taskConfigObjects []ontology.ID) []policy.Policy {
 				{Type: ontology.ResourceTypeSchematicSymbol},
 				{Type: ontology.ResourceTypeStatus},
 				{Type: ontology.ResourceTypeView},
-			}, taskConfigObjects...),
+			},
 			Actions:  access.AllActions,
 			Internal: true,
 		},
@@ -116,7 +105,7 @@ func engineerPolicies(taskConfigObjects []ontology.ID) []policy.Policy {
 			Internal: true,
 		},
 	}
-}
+)
 
 var (
 	hostRoleName = "Host"
@@ -125,20 +114,17 @@ var (
 		Description: "For machines running the Synnax driver. Full access to hardware and task configuration.",
 		Internal:    true,
 	}
-)
-
-func hostPolicies(taskConfigObjects []ontology.ID) []policy.Policy {
-	return []policy.Policy{
+	hostPolicies = []policy.Policy{
 		{
 			Name: "Host Edit Access",
-			Objects: append([]ontology.ID{
+			Objects: []ontology.ID{
 				{Type: ontology.ResourceTypeRange},
 				{Type: ontology.ResourceTypeRack},
 				{Type: ontology.ResourceTypeDevice},
 				{Type: ontology.ResourceTypeTask},
 				{Type: ontology.ResourceTypeArc},
 				{Type: ontology.ResourceTypeStatus},
-			}, taskConfigObjects...),
+			},
 			Actions:  access.AllActions,
 			Internal: true,
 		},
@@ -158,7 +144,7 @@ func hostPolicies(taskConfigObjects []ontology.ID) []policy.Policy {
 			Internal: true,
 		},
 	}
-}
+)
 
 var (
 	operatorRoleName = "Operator"
@@ -167,10 +153,7 @@ var (
 		Description: "Can view projects and visualizations, control hardware and data acquisition tasks. Cannot modify system configuration.",
 		Internal:    true,
 	}
-)
-
-func operatorPolicies(taskConfigObjects []ontology.ID) []policy.Policy {
-	return []policy.Policy{
+	operatorPolicies = []policy.Policy{
 		{
 			Name: "Operator Edit Access",
 			Objects: []ontology.ID{
@@ -182,12 +165,12 @@ func operatorPolicies(taskConfigObjects []ontology.ID) []policy.Policy {
 		},
 		{
 			Name:     "Operator View Access",
-			Objects:  allObjects(taskConfigObjects),
+			Objects:  allObjects,
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
 		},
 	}
-}
+)
 
 var (
 	viewerRoleName = "Viewer"
@@ -196,13 +179,10 @@ var (
 		Description: "View access to all resources.",
 		Internal:    true,
 	}
-)
-
-func viewerPolicy(taskConfigObjects []ontology.ID) policy.Policy {
-	return policy.Policy{
+	viewerPolicy = policy.Policy{
 		Name:     viewerRoleName,
-		Objects:  allObjects(taskConfigObjects),
+		Objects:  allObjects,
 		Actions:  []access.Action{access.ActionRetrieve},
 		Internal: true,
 	}
-}
+)

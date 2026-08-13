@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
@@ -60,8 +61,12 @@ var _ = Describe("Legacy Permission Migration", func() {
 	It(
 		"Should migrate users with legacy policies to correct roles",
 		func(ctx SpecContext) {
-			// Set up a fresh DB with legacy data pre-seeded
-			db := DeferClose(gorp.Wrap(memkv.New()))
+			// Set up a fresh DB with legacy data pre-seeded. Legacy policies are
+			// written through legacyDB (plain MessagePack over the same store), the
+			// format pre-Orc servers persisted.
+			kvDB := DeferClose(memkv.New())
+			db := gorp.Wrap(kvDB)
+			legacyDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			searchIdx := MustOpen(search.OpenIndex())
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -109,10 +114,10 @@ var _ = Describe("Legacy Permission Migration", func() {
 				Objects:  []ontology.ID{{Type: "schematic"}},
 				Actions:  []access.Action{"all"},
 			}
-			writer := gorp.WrapWriter[uuid.UUID, policyv0.Policy](tx)
+			Expect(tx.Commit(ctx)).To(Succeed())
+			writer := gorp.WrapWriter[uuid.UUID, policyv0.Policy](legacyDB)
 			Expect(writer.Set(ctx, adminPolicy)).To(Succeed())
 			Expect(writer.Set(ctx, schematicPolicy)).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
 
 			policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 				DB:       db,
@@ -125,9 +130,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 				Group:    groupSvc,
 				Search:   searchIdx,
 			}))
-			builtinRoles := MustSucceed(
-				builtin.Provision(ctx, db, policySvc, roleSvc, nil),
-			)
+			builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:        db,
 				Namespace: "RBAC",
@@ -252,7 +255,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			Search:   searchIdx,
 		}))
 		run := func() error {
-			builtinRoles, err := builtin.Provision(ctx, db, policySvc, roleSvc, nil)
+			builtinRoles, err := builtin.Provision(ctx, db, policySvc, roleSvc)
 			if err != nil {
 				return err
 			}

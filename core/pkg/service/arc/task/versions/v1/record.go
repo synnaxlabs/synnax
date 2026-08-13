@@ -11,4 +11,4 @@ package v1
 
 // CustomTypeName gives Config records a table prefix that cannot collide with the
 // identically named config types of other integrations.
-func (Config) CustomTypeName() string { return "arc_task_config" }
+func (Config) CustomTypeName() string { return "arc_config" }

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "client/cpp/task/common/json.gen.h"
+#include "client/cpp/task/config/json.gen.h"
 
 #include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
@@ -23,10 +23,10 @@ namespace driver::common {
 /// @brief common write task configuration shared across hardware control tasks.
 /// Wraps the schema-generated write config (auto_start, data_saving_disabled,
 /// device) so the field set has a single definition in the oracle schema.
-struct BaseWriteTaskConfig : ::synnax::task::common::BaseWriteConfig {
+struct BaseWriteTaskConfig : ::synnax::task::config::BaseWrite {
     explicit BaseWriteTaskConfig(x::json::Parser &cfg):
-        ::synnax::task::common::BaseWriteConfig(
-            ::synnax::task::common::BaseWriteConfig::parse(cfg)
+        ::synnax::task::config::BaseWrite(
+            ::synnax::task::config::BaseWrite::parse(cfg)
         ) {
         if (this->device.empty()) cfg.field_err("device", "this field is required");
     }

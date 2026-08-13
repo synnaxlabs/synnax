@@ -42,7 +42,7 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 		Exec(ctx, nil); err != nil {
 		return imex.Envelope{}, err
 	}
-	store, ok := s.cfg.Configs.Store(ontology.ResourceType(t.Type))
+	store, ok := s.cfg.Configs.Store(t.Type)
 	if !ok {
 		return imex.Envelope{}, errors.Newf(
 			"no config store registered for task type %q", t.Type,
@@ -82,7 +82,7 @@ func (s *Service) Import(
 	env imex.Envelope,
 	_ imex.ImportOptions,
 ) (ontology.ID, error) {
-	store, ok := s.cfg.Configs.Store(ontology.ResourceType(env.Type))
+	store, ok := s.cfg.Configs.Store(env.Type)
 	if !ok {
 		return ontology.ID{}, errors.Wrapf(
 			validate.ErrValidation, "unknown task type %q", env.Type,

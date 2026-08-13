@@ -15,11 +15,10 @@ import (
 	"fmt"
 
 	"github.com/cespare/xxhash/v2"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -31,10 +30,10 @@ import (
 
 // MigrationConfig is the configuration for NewMigration.
 type MigrationConfig struct {
-	// Ontology defines the config record relationships the migration creates.
+	// Ontology defines the task resources the migration creates and removes.
 	Ontology *ontology.Ontology
 	// Configs routes each task type to the store that owns its config records.
-	Configs common.ConfigRegistry
+	Configs config.Registry
 }
 
 // QuarantineKVPrefix is the KV key prefix under which the migration stages task rows
@@ -48,11 +47,8 @@ func QuarantineKVKey(key v2.Key) []byte {
 	return []byte(QuarantineKVPrefix + key.String())
 }
 
-// typeRenames maps legacy task type strings to their ontology-safe replacements.
-var typeRenames = map[string]string{
-	"arc":         "arc_task",
-	"Rack Status": "rack_status",
-}
+// typeRenames maps legacy task type strings to their replacements.
+var typeRenames = map[string]string{"Rack Status": "rack_status"}
 
 // retiredTypes are task types released builds created that have no successor: the Lua
 // sequence task and the pre-cutover heartbeat and OPC scanner tasks. Their rows are
@@ -85,9 +81,9 @@ func configContent(config msgpack.EncodedJSON) msgpack.EncodedJSON {
 }
 
 // NewMigration returns the v3 migration, which moves every task's inline config into
-// its type's config record store, parents the record to the task, and recomputes the
-// config hash from the canonical stored form. Rows it cannot convert are quarantined
-// under QuarantineKVPrefix and removed from service.
+// its type's config record store under the task's key and recomputes the config hash
+// from the canonical stored form. Rows it cannot convert are quarantined under
+// QuarantineKVPrefix and removed from service.
 func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"v57_task_config_records",
@@ -124,7 +120,7 @@ func migrateConfigsToRecords(
 		if renamed, ok := typeRenames[t.Type]; ok {
 			newType = renamed
 		}
-		store, ok := cfg.Configs.Store(ontology.ResourceType(newType))
+		store, ok := cfg.Configs.Store(newType)
 		if !ok {
 			if err := quarantine(
 				ctx, tx, ins, otgW, t, "unknown task type "+t.Type,
@@ -142,9 +138,8 @@ func migrateConfigsToRecords(
 			}
 			continue
 		}
-		recordKey := uuid.New()
-		if err := store.Write(ctx, tx, recordKey, converted); err != nil {
-			if err := store.Delete(ctx, tx, recordKey); err != nil {
+		if err := store.Write(ctx, tx, t.Key, converted); err != nil {
+			if err := store.Delete(ctx, tx, t.Key); err != nil {
 				return err
 			}
 			if err := quarantine(ctx, tx, ins, otgW, t, err.Error()); err != nil {
@@ -152,7 +147,7 @@ func migrateConfigsToRecords(
 			}
 			continue
 		}
-		canonical, err := store.Read(ctx, tx, recordKey)
+		canonical, err := store.Read(ctx, tx, t.Key)
 		if err != nil {
 			return err
 		}
@@ -169,17 +164,6 @@ func migrateConfigsToRecords(
 			Key:  t.Key.String(),
 		}
 		if err := otgW.DefineResources(ctx, taskID); err != nil {
-			return err
-		}
-		if err := otgW.DefineRelationships(
-			ctx,
-			ontology.ID{
-				Type: ontology.ResourceType(newType),
-				Key:  recordKey.String(),
-			},
-			ontology.RelationshipTypeParentOf,
-			taskID,
-		); err != nil {
 			return err
 		}
 	}

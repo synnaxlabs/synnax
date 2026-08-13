@@ -14,7 +14,7 @@ package legacy
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common/legacy"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 )
 
 // LastVersion is the newest legacy OPC UA shape. The typed shape sits directly

@@ -29,7 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	taskcommon "github.com/synnaxlabs/synnax/pkg/service/task/common"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -102,11 +102,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		HostProvider: node.Cluster,
 	}))
-	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-	}))
-	configs := MustSucceed(taskcommon.NewConfigRegistry(pd.Stores()...))
+	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: node.DB}))
+	configs := MustSucceed(taskconfig.NewRegistry(pd.Stores()...))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,

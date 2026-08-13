@@ -164,17 +164,14 @@ var _ = Describe("Provision", func() {
 					Entry(&p).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(p.Actions).To(ConsistOf(access.AllActions))
-				Expect(p.Objects).To(ConsistOf(append(
-					[]ontology.ID{
-						{Type: ontology.ResourceTypeRange},
-						{Type: ontology.ResourceTypeRack},
-						{Type: ontology.ResourceTypeDevice},
-						{Type: ontology.ResourceTypeTask},
-						{Type: ontology.ResourceTypeArc},
-						{Type: ontology.ResourceTypeStatus},
-					},
-					taskConfigObjects...,
-				)))
+				Expect(p.Objects).To(ConsistOf(
+					ontology.ID{Type: ontology.ResourceTypeRange},
+					ontology.ID{Type: ontology.ResourceTypeRack},
+					ontology.ID{Type: ontology.ResourceTypeDevice},
+					ontology.ID{Type: ontology.ResourceTypeTask},
+					ontology.ID{Type: ontology.ResourceTypeArc},
+					ontology.ID{Type: ontology.ResourceTypeStatus},
+				))
 			},
 		)
 	})
@@ -192,12 +189,11 @@ var _ = Describe("Provision", func() {
 				).To(Succeed())
 
 				svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-					DB:                db,
-					Ontology:          otg,
-					Group:             groupSvc,
-					Search:            searchIdx,
-					User:              userSvc,
-					TaskConfigObjects: taskConfigObjects,
+					DB:       db,
+					Ontology: otg,
+					Group:    groupSvc,
+					Search:   searchIdx,
+					User:     userSvc,
 				}))
 
 				var ownerAfter role.Role
@@ -236,12 +232,11 @@ var _ = Describe("Provision", func() {
 
 				// Re-open service, which re-provisions
 				svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-					DB:                db,
-					Ontology:          otg,
-					Group:             groupSvc,
-					Search:            searchIdx,
-					User:              userSvc,
-					TaskConfigObjects: taskConfigObjects,
+					DB:       db,
+					Ontology: otg,
+					Group:    groupSvc,
+					Search:   searchIdx,
+					User:     userSvc,
 				}))
 
 				var updated policy.Policy

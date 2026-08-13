@@ -18,43 +18,19 @@ type ResourceType string
 
 const (
 	ResourceTypeArc             ResourceType = "arc"
-	ResourceTypeArcTask         ResourceType = "arc_task"
 	ResourceTypeBuiltin         ResourceType = "builtin"
 	ResourceTypeChannel         ResourceType = "channel"
 	ResourceTypeDevice          ResourceType = "device"
-	ResourceTypeEthercatRead    ResourceType = "ethercat_read"
-	ResourceTypeEthercatScan    ResourceType = "ethercat_scan"
-	ResourceTypeEthercatWrite   ResourceType = "ethercat_write"
 	ResourceTypeFramer          ResourceType = "framer"
 	ResourceTypeGroup           ResourceType = "group"
-	ResourceTypeHTTPRead        ResourceType = "http_read"
-	ResourceTypeHTTPScan        ResourceType = "http_scan"
-	ResourceTypeHTTPWrite       ResourceType = "http_write"
 	ResourceTypeLabel           ResourceType = "label"
-	ResourceTypeLabjackRead     ResourceType = "labjack_read"
-	ResourceTypeLabjackScan     ResourceType = "labjack_scan"
-	ResourceTypeLabjackWrite    ResourceType = "labjack_write"
 	ResourceTypeLineplot        ResourceType = "lineplot"
 	ResourceTypeLog             ResourceType = "log"
-	ResourceTypeModbusRead      ResourceType = "modbus_read"
-	ResourceTypeModbusScan      ResourceType = "modbus_scan"
-	ResourceTypeModbusWrite     ResourceType = "modbus_write"
-	ResourceTypeNiAnalogRead    ResourceType = "ni_analog_read"
-	ResourceTypeNiAnalogWrite   ResourceType = "ni_analog_write"
-	ResourceTypeNiCounterRead   ResourceType = "ni_counter_read"
-	ResourceTypeNiDigitalRead   ResourceType = "ni_digital_read"
-	ResourceTypeNiDigitalWrite  ResourceType = "ni_digital_write"
-	ResourceTypeNiScanner       ResourceType = "ni_scanner"
 	ResourceTypeNode            ResourceType = "node"
-	ResourceTypeOpcRead         ResourceType = "opc_read"
-	ResourceTypeOpcScan         ResourceType = "opc_scan"
-	ResourceTypeOpcWrite        ResourceType = "opc_write"
-	ResourceTypePagerdutyAlert  ResourceType = "pagerduty_alert"
 	ResourceTypePanel           ResourceType = "panel"
 	ResourceTypePolicy          ResourceType = "policy"
 	ResourceTypeProject         ResourceType = "project"
 	ResourceTypeRack            ResourceType = "rack"
-	ResourceTypeRackStatus      ResourceType = "rack_status"
 	ResourceTypeRange           ResourceType = "range"
 	ResourceTypeRangeAlias      ResourceType = "range-alias"
 	ResourceTypeRole            ResourceType = "role"
@@ -71,7 +47,7 @@ const (
 // values.
 func (r ResourceType) IsValid() bool {
 	switch r {
-	case ResourceTypeArc, ResourceTypeArcTask, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeEthercatRead, ResourceTypeEthercatScan, ResourceTypeEthercatWrite, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeHTTPRead, ResourceTypeHTTPScan, ResourceTypeHTTPWrite, ResourceTypeLabel, ResourceTypeLabjackRead, ResourceTypeLabjackScan, ResourceTypeLabjackWrite, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeModbusRead, ResourceTypeModbusScan, ResourceTypeModbusWrite, ResourceTypeNiAnalogRead, ResourceTypeNiAnalogWrite, ResourceTypeNiCounterRead, ResourceTypeNiDigitalRead, ResourceTypeNiDigitalWrite, ResourceTypeNiScanner, ResourceTypeNode, ResourceTypeOpcRead, ResourceTypeOpcScan, ResourceTypeOpcWrite, ResourceTypePagerdutyAlert, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRackStatus, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
+	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
 		return true
 	default:
 		return false

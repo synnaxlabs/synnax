@@ -12,7 +12,7 @@ package versions
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task/common"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
@@ -24,11 +24,11 @@ import (
 type MigrationsConfig struct {
 	// Status backfills unknown statuses for tasks missing them.
 	Status *status.Service
-	// Ontology defines the config record relationships the config-record migration
-	// creates.
+	// Ontology defines the task resources the config-record migration creates and
+	// removes.
 	Ontology *ontology.Ontology
 	// Configs routes each task type to the store that owns its config records.
-	Configs common.ConfigRegistry
+	Configs config.Registry
 }
 
 // NewMigrations returns the ordered migration chain for stored tasks.
