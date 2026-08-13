@@ -58,7 +58,7 @@ const PREFERENCES: position.LocationPreference[] = [
 
 const OFFSET = 6;
 const CLOSE_DURATION = TimeSpan.milliseconds(150);
-const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
 /**
  * A tooltip that appears when the user hovers or keyboard-focuses an element.
