@@ -37,8 +37,9 @@ export interface DownloadParams {
    * form names the file.
    */
   name: string;
-  /** The extension of the file to download, without the leading dot. */
+  /** The extension of the file to download. */
   extension: DownloadExtension;
+  /** A callback to invoke when the download starts. */
   onDownloadStart?: () => void;
 }
 
