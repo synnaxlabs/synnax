@@ -21,9 +21,7 @@ import (
 type Status = status.Status[types.Nil]
 
 // StatusKey returns the status key for the given channel key.
-func StatusKey(key channel.Key) status.Key {
-	return channel.OntologyID(key).String()
-}
+func StatusKey(key channel.Key) status.Key { return channel.OntologyID(key).String() }
 
 // StatusFromError builds an error status for a calculated channel.
 func StatusFromError(key channel.Key, name, msg string, err error) *Status {

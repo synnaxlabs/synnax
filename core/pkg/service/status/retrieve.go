@@ -30,14 +30,14 @@ type Retrieve[D any] struct {
 	searchTerm string
 }
 
-// Filter is a per-service filter that is bound to the Retrieve when passed to
-// Where. Pure filters ignore the Retrieve argument; service-bound filters read
-// from it (e.g. r.label) to evaluate. Use Match to construct one from a closure.
+// Filter is a per-service filter that is bound to the Retrieve when passed to Where.
+// Pure filters ignore the Retrieve argument; service-bound filters read from it (e.g.
+// r.label) to evaluate. Use Match to construct one from a closure.
 type Filter[D any] func(r Retrieve[D]) gorp.Filter[Key, Status[D]]
 
 // Match wraps a closure that needs the Retrieve into a Filter.
 func Match[D any](
-	f func(ctx gorp.Context, r Retrieve[D], s *Status[D]) (bool, error),
+	f func(gorp.Context, Retrieve[D], *Status[D]) (bool, error),
 ) Filter[D] {
 	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
 		return gorp.Match(func(ctx gorp.Context, s *Status[D]) (bool, error) {

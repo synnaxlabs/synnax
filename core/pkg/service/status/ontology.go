@@ -25,9 +25,7 @@ import (
 )
 
 // OntologyID returns the unique ID to identify the status within the Synnax ontology.
-func OntologyID(
-	k Key,
-) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeStatus, Key: k}
 }
 

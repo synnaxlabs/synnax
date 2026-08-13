@@ -115,10 +115,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ctx,
 		"Statuses",
 		ontology.RootID,
-	); !ok(
-		err,
-		nil,
-	) {
+	); !ok(err, nil) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)

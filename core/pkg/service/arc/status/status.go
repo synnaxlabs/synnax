@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/runtime/node"
-	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
@@ -37,12 +37,12 @@ const (
 	moduleName    = "status"
 )
 
-// allowedVariantsList is the human-readable list used in compile-time and
-// runtime diagnostics. Variant.IsValid is the source of truth for membership.
+// allowedVariantsList is the human-readable list used in compile-time and runtime
+// diagnostics. Variant.IsValid is the source of truth for membership.
 const allowedVariantsList = "success, info, warning, error, loading, disabled"
 
-// memberDoc is the LSP hover body for status.set. The renderer prepends the
-// title from the symbol name and kind, so it is omitted here.
+// memberDoc is the LSP hover body for status.set. The renderer prepends the title from
+// the symbol name and kind, so it is omitted here.
 var memberDoc = doc.New(
 	doc.Paragraph(
 		"Sets a status notification on the cluster. Used to report alarms, warnings, or operational state.",
@@ -67,8 +67,8 @@ var moduleDoc = doc.New(
 	),
 )
 
-// newSetSymbolType returns a fresh function type for status.set per call so
-// analysis never mutates a shared symbol. Empty defaults keep inputs optional.
+// newSetSymbolType returns a fresh function type for status.set per call so analysis
+// never mutates a shared symbol. Empty defaults keep inputs optional.
 func newSetSymbolType() types.Type {
 	params := types.Params{
 		{Name: "key_or_name", Type: types.String(), Value: ""},
@@ -106,7 +106,7 @@ type module struct {
 // ModuleConfig wires the Arc `status` module into a wazero runtime.
 type ModuleConfig struct {
 	Status   *status.Service
-	Strings  *stlstrings.ProgramState
+	Strings  *strings.ProgramState
 	Runtime  wazero.Runtime
 	Reporter taskreporter.Reporter
 }
@@ -177,13 +177,13 @@ func (s *setNode) Next(ctx node.Context) {
 	key := dispatchSet(ctx, s.stat, s.report,
 		s.StringInput("key_or_name"), s.StringInput("message"),
 		s.StringInput("variant"))
-	*s.Output(0) = telem.NewSeriesV[string](key)
-	*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
+	*s.Output(0) = telem.NewSeriesV(key)
+	*s.OutputTime(0) = telem.NewSeriesV(telem.Now())
 	ctx.MarkChanged(0)
 }
 
-// dispatchSet upserts a status by key, by name, or creates a fresh row when
-// neither matches. Failures use VariantWarning so the task continues running.
+// dispatchSet upserts a status by key, by name, or creates a fresh row when neither
+// matches. Failures use VariantWarning so the task continues running.
 func dispatchSet(
 	ctx context.Context,
 	stat *status.Service,
@@ -206,8 +206,8 @@ func dispatchSet(
 
 const variantIndex = 2
 
-// analyzeStatusSetArguments validates the variant argument across both call
-// forms: it binds by name ("variant") or, when positional, by index.
+// analyzeStatusSetArguments validates the variant argument across both call forms: it
+// binds by name ("variant") or, when positional, by index.
 func analyzeStatusSetArguments(diags *diagnostics.Diagnostics, args []symbol.Argument) {
 	for _, arg := range args {
 		if arg.Name == "variant" || (arg.Name == "" && arg.Index == variantIndex) {
