@@ -26,13 +26,13 @@ interface IndicatorPosition {
 // because Astro's heading metadata flattens inline code to plain text.
 const parseHeading = (el: HTMLElement): Segment[] =>
   Array.from(el.childNodes)
-    .filter(
-      (n) => !(n instanceof HTMLElement && n.classList.contains("heading-anchor")),
-    )
-    .map((n) => ({
-      text: n.textContent ?? "",
-      code: n instanceof HTMLElement && n.tagName === "CODE",
-    }))
+    .flatMap((n): Segment[] => {
+      if (!(n instanceof HTMLElement))
+        return [{ text: n.textContent ?? "", code: false }];
+      if (n.classList.contains("heading-anchor")) return [];
+      if (n.tagName === "CODE") return [{ text: n.textContent ?? "", code: true }];
+      return parseHeading(n);
+    })
     .filter(({ text }) => text.length > 0);
 
 export interface OnThisPageProps {
