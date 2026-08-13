@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label } from "@synnaxlabs/client";
+import { type label, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -18,7 +19,12 @@ import { z } from "zod";
 import { Label } from "@/platform/label";
 import { View } from "@/platform/view";
 import { enableEditing } from "@/platform/view/testutil";
-import { createConsoleWrapper, findTagCloseButton, uniqueName } from "@/testutil";
+import {
+  awaitGranted,
+  createConsoleWrapper,
+  findTagCloseButton,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -51,15 +57,20 @@ describe("Label.Filter.Chips", () => {
       name: uniqueName("removed"),
       color: "#00F000",
     });
+    // Warm the subject's policy and role caches so the edit affordance's permission
+    // check does not wait on the network mid-test.
+    await awaitGranted(client, view.ontologyID(uuid.create()), "update");
     const { wrapper } = await createConsoleWrapper({ client });
     render(<Fixture hasLabels={[kept.key, removed.key]} />, { wrapper });
     await waitFor(() => expect(screen.getByText(removed.name)).toBeTruthy());
     await enableEditing();
     const close = await waitFor(() => findTagCloseButton(removed.name));
     fireEvent.click(close);
-    await waitFor(() => expect(screen.getByText(`value:${kept.key}`)).toBeTruthy());
-    await waitFor(() => expect(screen.queryByText(removed.name)).toBeNull());
-    expect(screen.getByText(kept.name)).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText(`value:${kept.key}`)).toBeTruthy();
+      expect(screen.queryByText(removed.name)).toBeNull();
+      expect(screen.getByText(kept.name)).toBeTruthy();
+    });
   });
 
   it("should render nothing when no labels are selected", async () => {

@@ -15,9 +15,6 @@ import { clickConnectionBadge, hoverConnectionBadge } from "@/feature/cluster/te
 import { CONNECTION_PARAMS } from "@/session/cluster/testutil";
 import { createConnectedConsoleWrapper, renderWithConsole } from "@/testutil";
 
-// The tooltip closes itself when its anchor measures zero area, which is jsdom's
-// default, so the hover assertions need real geometry.
-
 describe("ConnectionBadge", () => {
   it("should report disconnected when no cluster connection exists", async () => {
     const { container } = await renderWithConsole(<Cluster.ConnectionBadge />);

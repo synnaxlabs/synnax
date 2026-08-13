@@ -29,14 +29,17 @@ export interface StackEntry<Action> {
   forward: Action[];
   inverse: Action[];
   kind: string;
+  /** Wall-clock push time, used only for coalescing. */
   ts: TimeStamp;
+  /** Tick of the earliest push, used to order the entry against remote touches. */
+  tick: number;
   targets: readonly string[];
 }
 
 interface UndoState<Action> {
   undo: StackEntry<Action>[];
   redo: StackEntry<Action>[];
-  remoteTouched: Record<string, TimeStamp>;
+  remoteTouched: Record<string, number>;
 }
 
 const ZERO_UNDO = <A>(): UndoState<A> => ({ undo: [], redo: [], remoteTouched: {} });
@@ -58,6 +61,7 @@ const pushOnto = <A>(
           inverse: [...next.inverse, ...top.inverse],
           kind: next.kind,
           ts: next.ts,
+          tick: top.tick,
           targets: top.targets,
         }
       : null;
@@ -181,6 +185,8 @@ export interface ControllerParams<
   createOf?: (action: Action) => State | undefined;
   coalesceWindow?: TimeSpan;
   stackCap?: number;
+  /** Clock stamping entries for the coalesce window. Defaults to TimeStamp.now. */
+  now?: () => TimeStamp;
 }
 
 /**
@@ -212,6 +218,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     Key,
     Map<string, { disturbed: boolean }>
   >();
+  // Monotonic counter ordering entry pushes against remote touches. Program
+  // order is the ground truth here; the wall clock ties within a millisecond
+  // and steps on sleep/wake or NTP resync, so it cannot be trusted for this.
+  private tick = 0;
 
   constructor(opts: ControllerParams<Key, State, Action>) {
     this.params = {
@@ -223,6 +233,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       createOf: opts.createOf ?? (() => undefined),
       coalesceWindow: opts.coalesceWindow ?? DEFAULT_COALESCE_WINDOW,
       stackCap: opts.stackCap ?? DEFAULT_STACK_CAP,
+      now: opts.now ?? (() => TimeStamp.now()),
     };
     this.docs = opts.store;
     // Undo states are rebuilt objects on every update; comparing them would
@@ -295,7 +306,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       forward: undoableForward,
       inverse,
       kind: kindOverride ?? this.params.kindOf(forward),
-      ts: TimeStamp.now(),
+      ts: this.params.now(),
+      tick: ++this.tick,
       targets,
     };
     return this.updateUndo(key, (s) => ({
@@ -306,7 +318,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   // Walks the chosen stack from the top, skipping entries whose targets were
-  // remote-touched after the entry's push ts. Caps the walk at
+  // remote-touched after the entry was pushed. Caps the walk at
   // STALE_AUTO_ADVANCE_CAP and drops a fully stale tail. On hit, returns the
   // entry's reversal actions (inverse for undo, forward for redo) and a
   // commit that moves the entry to the opposite stack.
@@ -319,7 +331,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     let idx = -1;
     for (let i = stack.length - 1; i >= 0; i--) {
       const e = stack[i];
-      if (e.targets.some((t) => state.remoteTouched[t]?.after(e.ts))) {
+      if (e.targets.some((t) => (state.remoteTouched[t] ?? 0) > e.tick)) {
         stale++;
         if (stale >= STALE_AUTO_ADVANCE_CAP) break;
       } else {
@@ -493,15 +505,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     };
   }
 
-  markRemoteTouched(
-    key: Key,
-    targets: readonly string[],
-    ts: TimeStamp = TimeStamp.now(),
-  ): destructor.Destructor {
+  markRemoteTouched(key: Key, targets: readonly string[]): destructor.Destructor {
     if (targets.length === 0) return destructor.NOOP;
+    const tick = ++this.tick;
     return this.updateUndo(key, (s) => {
       const remoteTouched = { ...s.remoteTouched };
-      for (const t of targets) remoteTouched[t] = ts;
+      for (const t of targets) remoteTouched[t] = tick;
       return { ...s, remoteTouched };
     });
   }

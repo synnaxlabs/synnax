@@ -9,8 +9,8 @@
 
 import { assert, describe, expect, it, vi } from "vitest";
 
-// The full-width top bar is macOS only, so pin the OS to keep the engine the sole
-// variable across host platforms (Linux CI included).
+// The full-width top bar is macOS only, so the engine stays the sole variable
+// across host platforms, Linux CI included.
 await vi.hoisted(async () => {
   const { pinOS } = await import("@/testutil/pinOS");
   pinOS("macOS");
@@ -56,8 +56,7 @@ const renderPrimary = async (engine: "web" | "tauri"): Promise<HTMLElement> => {
 };
 
 describe("app/window/Primary", () => {
-  // The rail's inset comes from the workspace grid, so a rail placed anywhere else
-  // silently loses it. Both engines must hand the grid the same children.
+  // A rail placed outside the grid silently loses its inset.
   it.each(["web", "tauri"] as const)(
     "should mount the top bar and the rail as workspace grid items on %s",
     async (engine) => {

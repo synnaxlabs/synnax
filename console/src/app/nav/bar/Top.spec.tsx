@@ -36,7 +36,7 @@ describe("app/nav/bar/Top", () => {
     it("should not render the project selector", async () => {
       const { container } = await renderBar(<Bar.Top secondary />, withActiveProject());
       expect(await screen.findByText("Controls", {})).toBeDefined();
-      expect(container.querySelector(".console-trigger")).toBeNull();
+      expect(container.querySelector(".console-project-selector__trigger")).toBeNull();
     });
 
     it("should render the controls toggle button", async () => {

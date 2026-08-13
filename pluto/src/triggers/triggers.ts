@@ -424,3 +424,4 @@ export const purgeMouse = (triggers: Trigger[]): Trigger[] =>
 
 export const UNDO: Trigger = ["Control", "Z"];
 export const REDO: Trigger = ["Control", "Shift", "Z"];
+export const ESCAPE: Trigger = ["Escape"];
