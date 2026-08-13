@@ -113,6 +113,41 @@ describe("Tree.Tree", () => {
     expect(screen.getByText(grandchild.name)).toBeTruthy();
   });
 
+  it("should keep every expanded parent live", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const containerID = group.ontologyID(container.key);
+    const first = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("first"),
+    });
+    const firstID = group.ontologyID(first.key);
+    const second = await client.groups.create({
+      parent: containerID,
+      name: uniqueName("second"),
+    });
+    const secondID = group.ontologyID(second.key);
+    await client.groups.create({ parent: firstID, name: uniqueName("seed") });
+    await client.groups.create({ parent: secondID, name: uniqueName("seed") });
+    await renderTree(containerID);
+    await screen.findByText(first.name);
+    expandTreeRow(first.name);
+    expandTreeRow(second.name);
+    // Expanding the second parent must not cost the first one its subscription.
+    const lateUnderFirst = await client.groups.create({
+      parent: firstID,
+      name: uniqueName("late-first"),
+    });
+    const lateUnderSecond = await client.groups.create({
+      parent: secondID,
+      name: uniqueName("late-second"),
+    });
+    await screen.findByText(lateUnderFirst.name);
+    await screen.findByText(lateUnderSecond.name);
+  });
+
   it("should keep loaded children when the root id is rebuilt on every render", async () => {
     const container = await client.groups.create({
       parent: ontology.ROOT_ID,

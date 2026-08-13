@@ -203,6 +203,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (parent: ontology.ID, resources: ontology.Resource[]) => {
       const next = toNodes(resources, resolveItem);
       const nextKeys = new Set(next.map(({ key }) => key));
+      // A placeholder stands in only until the cluster delivers the real resource,
+      // which the answer carries.
+      const settled = ontology
+        .idToString(resources.map(({ id }) => id))
+        .filter(placeholders.hasItem);
+      if (settled.length > 0) placeholders.deleteItem(settled);
       // The answer is the authority on its parent's membership. A node it omits
       // survives only while a placeholder backs it, since an optimistic row the
       // cluster has not heard about yet cannot be in any answer.
@@ -295,93 +301,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     return () => releaseChildren([...watchedRef.current.keys()]);
   }, [client, ontology.idToString(root)]);
 
-  const handleSyncResourceSet = useCallback(
-    (resource: ontology.Resource) => {
-      const hadPlaceholder = placeholders.hasItem(resource.key);
-      placeholders.deleteItem(resource.key);
-      // Nodes sort by resource name, so an in-tree resource change must rebuild
-      // node identity to re-sort. A foreign resource cannot affect this tree.
-      if (
-        !hadPlaceholder &&
-        Base.findNode({ tree: nodesRef.current, key: resource.key }) == null
-      )
-        return;
-      setNodes((prevNodes) => [...prevNodes]);
-    },
-    [setNodes, nodesRef, placeholders],
-  );
-  Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
-  const handleRelationshipDelete = useCallback(
-    (rel: ontology.Relationship) => {
-      if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
-      const removed = ontology.idToString(rel.to);
-      const node = Base.findNode({ tree: nodesRef.current, key: removed });
-      // Removal and selection cleanup are both no-ops for a node this tree does
-      // not hold; return before paying for the tree copy.
-      if (node == null) return;
-      setNodes((prevNodes) => {
-        const parent = ontology.idsEqual(rel.from, root)
-          ? null
-          : ontology.idToString(rel.from);
-        const nextNodes = [
-          ...Base.removeNode({
-            parent,
-            keys: removed,
-            tree: Base.deepCopy(prevNodes),
-          }),
-        ];
-        return nextNodes;
-      });
-      // A deleted node must leave the selection with its subtree. Selection drives
-      // the context menu, and a key with no node poisons every later right-click.
-      const gone = new Set(
-        node == null ? [removed] : Base.getDescendants(node).map(({ key }) => key),
-      );
-      setSelected((prev) =>
-        prev.some((key) => gone.has(key)) ? prev.filter((key) => !gone.has(key)) : prev,
-      );
-    },
-    [setNodes, setSelected, nodesRef, root],
-  );
-  Ontology.useRelationshipDeleteSynchronizer(handleRelationshipDelete);
-  const handleRelationshipSet = useCallback(
-    (rel: ontology.Relationship) => {
-      if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
-      const { from, to } = rel;
-      setNodes((prevNodes) => {
-        let destination: string | null = ontology.idToString(from);
-        if (ontology.idsEqual(from, root)) destination = null;
-        // setNode no-ops when the destination is not in this tree; keep the
-        // previous identity so foreign events do not re-render the tree.
-        if (
-          destination != null &&
-          Base.findNode({ tree: prevNodes, key: destination }) == null
-        )
-          return prevNodes;
-        const tree = Base.deepCopy(prevNodes);
-        const key = ontology.idToString(to);
-        const existing = Base.findNode({ tree, key });
-        const nextNodes = [
-          ...Base.setNode({
-            tree,
-            destination,
-            additions: [
-              {
-                key,
-                children:
-                  existing?.children ??
-                  (resolveItem(to.type).hasChildren ? [] : undefined),
-              },
-            ],
-            throwOnMissing: false,
-          }),
-        ];
-        return nextNodes;
-      });
-    },
-    [setNodes, root, resolveItem],
-  );
-  Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
+  // Selection drives the context menu, and a key with no node poisons every later
+  // right-click, so a node that leaves the tree leaves the selection with it.
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = prev.filter((key) => Base.findNode({ tree: nodes, key }) != null);
+      return next.length === prev.length ? prev : next;
+    });
+  }, [nodes, setSelected]);
 
   const handleExpand = useCallback(
     ({ action, clicked }: Base.HandleExpandProps) => {
