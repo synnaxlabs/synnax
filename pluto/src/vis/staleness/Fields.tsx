@@ -46,6 +46,7 @@ export const Fields = (): ReactElement => {
         padHelpText={false}
         defaultValue={staleness.DEFAULT_TIMEOUT}
         inputProps={INPUT_PROPS}
+        style={{ width: "20rem" }}
       />
     </>
   );
