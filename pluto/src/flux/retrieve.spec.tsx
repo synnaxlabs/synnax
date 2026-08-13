@@ -688,6 +688,7 @@ describe("use", () => {
           return () => {};
         },
         getCached: () => cached,
+        awaitCreation: true,
       });
 
       const Display = (): ReactElement => {
@@ -770,6 +771,7 @@ describe("use", () => {
         retrieve,
         onChange: () => () => {},
         getCached: () => cached,
+        awaitCreation: true,
       });
       const Display = (): ReactElement => (
         <div data-testid="value">{use({ key: "invalidate" })}</div>
@@ -876,6 +878,7 @@ describe("use", () => {
           return disconnect;
         },
         getCached: () => cached,
+        awaitCreation: true,
       });
 
       const Display = (): ReactElement => {
@@ -913,10 +916,53 @@ describe("use", () => {
         name: "Number",
         retrieve,
         getCached: () => undefined,
+        awaitCreation: true,
       });
 
       const Display = (): ReactElement => {
         const value = use({ key: "nf-unsubscribed" });
+        return <div>{value}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary
+              loading={<div>waiting</div>}
+              FallbackComponent={({ error }) => (
+                <div data-testid="error">{error.message}</div>
+              )}
+            >
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(utils.queryByTestId("error")?.textContent).toBe(
+        "Failed to retrieve Number",
+      );
+      expect(retrieve).toHaveBeenCalledTimes(1);
+    });
+
+    it("settles a not-found immediately when the query does not await creation", async () => {
+      const retrieve = vi.fn(async (): Promise<number> => {
+        throw new NotFoundError("no such number");
+      });
+      const { use } = Flux.createRetrieve<{ key: string }, number>({
+        name: "Number",
+        retrieve,
+        onChange: () => () => {},
+        getCached: () => undefined,
+      });
+
+      const Display = (): ReactElement => {
+        const value = use({ key: "nf-no-await" });
         return <div>{value}</div>;
       };
 
@@ -1532,6 +1578,7 @@ describe("useResult", () => {
   const createHarness = (
     initial?: query.Cached<Data>,
     retrieveImpl?: () => Promise<Data>,
+    awaitCreation?: boolean,
   ): Harness => {
     let cached = initial;
     const handlers = new Set<query.ChangeHandler<Data>>();
@@ -1546,6 +1593,7 @@ describe("useResult", () => {
         return () => handlers.delete(h);
       },
       getCached: () => cached,
+      awaitCreation,
     });
     return {
       retrieve,
@@ -1728,9 +1776,13 @@ describe("useResult", () => {
   });
 
   it("serves a record created after a not-found fetch without logging", async () => {
-    const harness = createHarness(undefined, async () => {
-      throw new NotFoundError("nope");
-    });
+    const harness = createHarness(
+      undefined,
+      async () => {
+        throw new NotFoundError("nope");
+      },
+      true,
+    );
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       const { result } = renderHook(() => harness.useResult({ key: "a" }), {

@@ -34,6 +34,7 @@ export const { use, useEnsure, useInvalidate, useResult, createSelector } =
     retrieve: async ({ client, query }) => await client.panels.retrieve(query),
     onChange: ({ client, query }, handler) => client.panels.onChange(query, handler),
     getCached: ({ client, query }) => client.panels.getCached(query),
+    awaitCreation: true,
   });
 
 export type RetrieveKeysByProjectQuery = { project: project.Key };
