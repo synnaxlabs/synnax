@@ -22,6 +22,7 @@ import { Flux } from "@/flux";
 
 const RESOURCE_NAME = "schematic symbol";
 const PLURAL_RESOURCE_NAME = "schematic symbols";
+const GROUP_RESOURCE_NAME = "schematic symbol group";
 
 export type RetrieveQuery = {
   key: string;
@@ -176,7 +177,10 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   },
 });
 
-export const { use: useGroup } = Flux.createRetrieve<{}, group.Group>({
-  name: RESOURCE_NAME,
+export const { use: useGroup, useResult: useResultGroup } = Flux.createRetrieve<
+  {},
+  group.Group
+>({
+  name: GROUP_RESOURCE_NAME,
   retrieve: async ({ client }) => await client.schematics.symbols.retrieveGroup(),
 });
