@@ -14,7 +14,6 @@ import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
@@ -23,16 +22,16 @@ const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
 export const TaskControls = () => {
   const key = Arc.useKey();
   const name = Arc.useName();
-  const { running, taskRack, taskStatus, onDeploy, onStop } = PlatformArc.useTask(
+  const { running, taskRack, taskStatus, onStart, onStop } = Arc.useTaskControls(
     key,
     name,
   );
-  const drifted = PlatformArc.useDrifted(key);
-  const { update: deploy } = Arc.useDeploy();
+  const drifted = Arc.useDrifted({ arcKey: key });
+  const { update: setRack } = Arc.useSetRack();
 
   const handleRackChange = useCallback(
-    (rackKey: rack.Key | undefined) => deploy({ key, rack: rackKey ?? 0 }),
-    [deploy, key],
+    (rackKey: rack.Key | undefined) => setRack({ key, rack: rackKey ?? 0 }),
+    [setRack, key],
   );
 
   return (
@@ -42,7 +41,7 @@ export const TaskControls = () => {
       running={running}
       drifted={drifted}
       disabled={!primitive.isNonZero(taskRack)}
-      onDeploy={onDeploy}
+      onDeploy={onStart}
       onStop={onStop}
       extraActions={
         <Rack.SelectSingle

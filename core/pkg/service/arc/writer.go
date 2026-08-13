@@ -38,7 +38,7 @@ type Writer struct {
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
-	task       task.Writer
+	tasks      *task.Service
 	status     *status.Service
 	table      *gorp.Table[Key, Arc]
 	dispatcher actions.Dispatcher[Key, Action]
@@ -75,6 +75,8 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		if err = w.otgWriter.DefineResources(ctx, a.OntologyID()); err != nil {
 			return err
 		}
+	} else if err = w.syncTask(ctx, *a); err != nil {
+		return err
 	}
 	// Notify last: a create rejected by ontology validation must not be broadcast.
 	w.dispatcher.Notify(
@@ -111,7 +113,10 @@ func (w Writer) Dispatch(
 	dispatchKey string,
 	actions []Action,
 ) error {
-	var sweep []Action
+	var (
+		sweep   []Action
+		updated Arc
+	)
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
 		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
 			sweep = nil
@@ -132,8 +137,12 @@ func (w Writer) Dispatch(
 			if containsTextEdit(actions) {
 				w.sweeper.recordEdit(key)
 			}
+			updated = a
 			return a, nil
 		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if err := w.syncTask(ctx, updated); err != nil {
 		return err
 	}
 	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
@@ -170,8 +179,9 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 	if err != nil {
 		return err
 	}
+	tw := w.tasks.NewWriter(w.tx)
 	for _, taskKey := range taskKeys {
-		if err = w.task.Delete(ctx, taskKey, false); err != nil {
+		if err = tw.Delete(ctx, taskKey, false); err != nil {
 			return err
 		}
 	}
@@ -195,12 +205,11 @@ func (w Writer) childTaskKeys(ctx context.Context, key Key) ([]task.Key, error) 
 	return task.KeysFromOntologyIDs(ontology.ResourceIDs(children))
 }
 
-// Deploy binds the arc with the given key to rackKey by creating its task on that
-// rack, or moving the existing one, stamping the arc's current semantic hash into the
-// task config. A zero rackKey undeploys: the task is deleted, stopping it on its rack.
-// It returns the deployed task, or nil after an undeploy. It returns an error wrapping
-// validate.ErrValidation when undeploying a running task.
-func (w Writer) Deploy(
+// SetRack binds the arc with the given key to rackKey by creating its task on that
+// rack, or moving the existing one. A zero rackKey unbinds: the task is deleted,
+// stopping it on its rack. It returns the task, or nil after an unbind. It returns an
+// error wrapping validate.ErrValidation when unbinding a running task.
+func (w Writer) SetRack(
 	ctx context.Context,
 	key Key,
 	rackKey rack.Key,
@@ -210,7 +219,7 @@ func (w Writer) Deploy(
 		return nil, err
 	}
 	if rackKey == 0 {
-		return nil, w.undeploy(ctx, existing)
+		return nil, w.clearRack(ctx, existing)
 	}
 	var a Arc
 	if err = w.table.NewRetrieve().
@@ -223,22 +232,36 @@ func (w Writer) Deploy(
 	if err != nil {
 		return nil, err
 	}
+	return w.writeTask(ctx, a, rackKey, existing, hash)
+}
+
+// writeTask creates or overwrites the arc's task on rackKey. hash is the arc's
+// semantic hash, stamped into the config so the task's config hash tracks the arc's
+// content and the task drift mechanism reports arc content drift with no extra
+// machinery.
+func (w Writer) writeTask(
+	ctx context.Context,
+	a Arc,
+	rackKey rack.Key,
+	existing []task.Key,
+	hash string,
+) (*task.Task, error) {
 	tsk := task.Task{
 		Rack:   rackKey,
 		Name:   a.Name,
 		Type:   TaskType,
-		Config: msgpack.EncodedJSON{"arc_key": key.String(), "hash": hash},
+		Config: msgpack.EncodedJSON{"arc_key": a.Key.String(), "hash": hash},
 	}
 	if len(existing) > 0 {
 		tsk.Key = existing[0]
 	}
-	if err = w.task.Create(ctx, &tsk); err != nil {
+	if err := w.tasks.NewWriter(w.tx).Create(ctx, &tsk); err != nil {
 		return nil, err
 	}
 	if len(existing) == 0 {
-		if err = w.otgWriter.DefineRelationships(
+		if err := w.otgWriter.DefineRelationships(
 			ctx,
-			OntologyID(key),
+			OntologyID(a.Key),
 			ontology.RelationshipTypeParentOf,
 			tsk.OntologyID(),
 		); err != nil {
@@ -248,7 +271,30 @@ func (w Writer) Deploy(
 	return &tsk, nil
 }
 
-func (w Writer) undeploy(ctx context.Context, taskKeys []task.Key) error {
+// syncTask rewrites the arc's task in place when an edit changed the arc's semantic
+// hash, keeping the task config in step with the arc's content. A no-op for arcs with
+// no rack bound and for edits, like graph layout moves, that hash equally.
+func (w Writer) syncTask(ctx context.Context, a Arc) error {
+	existing, err := w.childTaskKeys(ctx, a.Key)
+	if err != nil || len(existing) == 0 {
+		return err
+	}
+	var tsk task.Task
+	if err = w.tasks.NewRetrieve().
+		Where(task.MatchKeys(existing[0])).
+		Entry(&tsk).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	hash, err := Hash(a)
+	if err != nil || tsk.Config["hash"] == hash {
+		return err
+	}
+	_, err = w.writeTask(ctx, a, tsk.Rack, existing, hash)
+	return err
+}
+
+func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
 	for _, taskKey := range taskKeys {
 		var stat task.Status
 		err := status.NewRetrieve[task.StatusDetails](w.status).
@@ -261,10 +307,10 @@ func (w Writer) undeploy(ctx context.Context, taskKeys []task.Key) error {
 		if err == nil && stat.Details.Running {
 			return errors.Wrap(
 				validate.ErrValidation,
-				"cannot undeploy a running arc; stop it first",
+				"cannot clear the rack of a running arc; stop it first",
 			)
 		}
-		if err = w.task.Delete(ctx, taskKey, false); err != nil {
+		if err = w.tasks.NewWriter(w.tx).Delete(ctx, taskKey, false); err != nil {
 			return err
 		}
 	}

@@ -26,23 +26,7 @@ import (
 
 var _ = Describe("Service", func() {
 	Describe("OpenService", func() {
-		It("Should create a service with minimal configuration", func(ctx SpecContext) {
-			testDB := DeferClose(gorp.Wrap(memkv.New()))
-			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{
-				DB: testDB,
-			}))
-			testSearchIdx := MustOpen(search.OpenIndex())
-
-			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-				DB:       testDB,
-				Ontology: testOtg,
-				Search:   testSearchIdx,
-				ImEx:     imex.NewService(),
-			}))
-			Expect(testSvc).ToNot(BeNil())
-		})
-
-		It("Should create a service with group configuration", func(ctx SpecContext) {
+		It("Should create a service and its permanent group", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
 			testSearchIdx := MustOpen(search.OpenIndex())
@@ -64,22 +48,29 @@ var _ = Describe("Service", func() {
 			Expect(testSvc.Group().Name).To(Equal("Schematic Symbols"))
 		})
 
-		It("Should fail with invalid configuration", func(ctx SpecContext) {
-			Expect(symbol.OpenService(ctx, symbol.ServiceConfig{DB: nil})).
-				Error().To(MatchError(ContainSubstring("db: must be non-nil")))
-
-			Expect(symbol.OpenService(ctx, symbol.ServiceConfig{Ontology: otg})).
-				Error().To(MatchError(ContainSubstring("db")))
-		})
+		DescribeTable("Should fail with invalid configuration",
+			func(ctx SpecContext, cfg symbol.ServiceConfig, missing string) {
+				Expect(symbol.OpenService(ctx, cfg)).Error().
+					To(MatchError(ContainSubstring(missing + ": must be non-nil")))
+			},
+			Entry("no db", symbol.ServiceConfig{DB: nil}, "db"),
+			Entry("no group", symbol.ServiceConfig{Ontology: otg}, "group"),
+		)
 
 		It("Should apply later configurations as overrides", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
 			testSearchIdx := MustOpen(search.OpenIndex())
+			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       testDB,
+				Ontology: testOtg,
+				Search:   testSearchIdx,
+			}))
 			// cfg1 omits the DB; cfg2 supplies it. OpenService merges later configs
 			// over earlier ones, so the service opens only because cfg2 fills the gap.
 			cfg1 := symbol.ServiceConfig{
 				Ontology: testOtg,
+				Group:    testGroup,
 				Search:   testSearchIdx,
 				ImEx:     imex.NewService(),
 			}
@@ -114,10 +105,16 @@ var _ = Describe("Service", func() {
 				DB: testDB,
 			}))
 			testSearchIdx := MustOpen(search.OpenIndex())
+			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+				DB:       testDB,
+				Ontology: testOtg,
+				Search:   testSearchIdx,
+			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
+				Group:    testGroup,
 				Search:   testSearchIdx,
 				ImEx:     imex.NewService(),
 			}))

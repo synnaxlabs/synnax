@@ -88,9 +88,8 @@ const singleQueryZ = z.union([
   keyZ.transform((key) => ({ key })),
 ]);
 
-const deployReqZ = z.object({ key: keyZ, rack: rack.keyZ });
-const deployResZ = z.object({ task: task.payloadZ().nullish() });
-const dispatchResZ = z.object({ hash: z.string() });
+const setRackReqZ = z.object({ key: keyZ, rack: rack.keyZ });
+const setRackResZ = z.object({ task: task.payloadZ().nullish() });
 
 /**
  * Client-side matching for a request: key and name sets. Server-computed
@@ -259,18 +258,21 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Deploys the arc to the given rack, creating its task there or moving the
-   * existing one. The arc's current semantic hash is stamped into the task
-   * config. A zero rack undeploys the arc. Returns the task, or null after an
-   * undeploy.
-   * @throws {ValidationError} when undeploying while the task is running.
+   * Binds the arc to the given rack, creating its task there or moving the
+   * existing one. A zero rack unbinds the arc, deleting its task. Returns the
+   * task, or null after an unbind.
+   * @throws {ValidationError} when unbinding while the task is running.
    */
-  async deploy(key: Key, rackKey: rack.Key): Promise<task.Task | null> {
+  async setRack(key: Key, rackKey: rack.Key): Promise<task.Task | null> {
+    if (rackKey === 0) {
+      await this.clearRack(key);
+      return null;
+    }
     const res = await this.cfg.unary.send(
-      "/arc/deploy",
+      "/arc/set-rack",
       { key, rack: rackKey },
-      deployReqZ,
-      deployResZ,
+      setRackReqZ,
+      setRackResZ,
     );
     if (res.task == null) return null;
     const tsk = this.cfg.tasks.sugar(res.task);
@@ -278,13 +280,16 @@ export class Client extends query.Retriever<
     return tsk;
   }
 
-  /**
-   * Undeploys the arc, deleting its task and stopping it on its rack.
-   * @throws {ValidationError} when the task is running.
-   */
-  async undeploy(key: Key): Promise<void> {
+  // clearRack drops the deleted task from the cache so it is not served until
+  // the delete signal lands.
+  private async clearRack(key: Key): Promise<void> {
     const tsk = await this.retrieveTask(key);
-    await this.deploy(key, 0);
+    await this.cfg.unary.send(
+      "/arc/set-rack",
+      { key, rack: 0 },
+      setRackReqZ,
+      setRackResZ,
+    );
     if (tsk != null) this.cfg.tasks.dropCached(tsk.key);
   }
 
@@ -411,13 +416,12 @@ export class Client extends query.Retriever<
     dispatchKey: string,
     actions: Action[],
   ): Promise<void> {
-    const res = await this.cfg.unary.send(
+    await this.cfg.unary.send(
       "/arc/dispatch",
       { key, dispatchKey, actions },
       dispatchReqZ,
-      dispatchResZ,
+      emptyResZ,
     );
-    query.partialUpdate(this.store, key, { hash: res.hash });
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {

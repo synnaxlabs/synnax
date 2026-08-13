@@ -60,15 +60,18 @@
         border-bottom: var(--pluto-border);
 
         /* A group tab is inset like the chip it replaced, tighter than the strip's
-           document-tab padding. Its label is a bare string, so that textless
-           padding applies and the icon rides on it instead of adding a leading
-           margin of its own. */
+           document-tab padding. The label sheds the document-tab text margins,
+           whose trailing half would pack the icon and label off center. */
         .pluto-tabs__selector .pluto-tabs__tab {
             padding: 0 1.5rem;
 
             & > .pluto-icon {
                 margin-left: 0;
                 margin-right: 1rem;
+            }
+
+            .pluto-text {
+                margin: 0;
             }
         }
     }

@@ -68,7 +68,7 @@ const setRunning = async (tsk: task.Task): Promise<void> => {
 };
 
 describe("TaskControls", () => {
-  it("should deploy the arc when a rack is picked", async () => {
+  it("should bind the rack when one is picked", async () => {
     const rck = await createArcRack();
     const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
     const { container } = await renderControls(a.key);
@@ -89,10 +89,10 @@ describe("TaskControls", () => {
     );
   });
 
-  it("should redeploy and start the arc from the play button", async () => {
+  it("should start the arc from the play button", async () => {
     const rck = await createArcRack();
     const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
-    const tsk = await client.arcs.deploy(a.key, rck.key);
+    const tsk = await client.arcs.setRack(a.key, rck.key);
     if (tsk == null) throw new Error("expected a deployment task");
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     try {
@@ -110,10 +110,10 @@ describe("TaskControls", () => {
     }
   });
 
-  it("should offer a redeploy that restamps and starts when the arc drifts", async () => {
+  it("should offer a start that picks up the synced config when the arc drifts", async () => {
     const rck = await createArcRack();
     const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
-    const tsk = await client.arcs.deploy(a.key, rck.key);
+    const tsk = await client.arcs.setRack(a.key, rck.key);
     if (tsk == null) throw new Error("expected a deployment task");
     await setRunning(tsk);
     const gen = new crdt.Text(2);

@@ -16,49 +16,38 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/errors"
 )
 
-// Codec is a gob implementation of the encoding.Codec interface.
-var Codec = &codec{}
+// Codec is a gob implementation of encoding.Codec.
+var Codec encoding.Codec = &codec{}
 
 type codec struct{}
 
-// Encode implements the encoding.Encoder interface.
-func (e *codec) Encode(_ context.Context, value any) ([]byte, error) {
-	var (
-		buff bytes.Buffer
-		err  = gob.NewEncoder(&buff).Encode(value)
-		b    = buff.Bytes()
-	)
-	if err != nil {
-		return nil, encoding.SugarEncodingErr(value, err)
-	}
-	return b, nil
+func (c *codec) Decode(ctx context.Context, data []byte, value any) error {
+	return c.DecodeStream(ctx, bytes.NewReader(data), value)
 }
 
-// EncodeStream implements the encoding.Encoder interface.
-func (e *codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
+func (*codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
+	if err := gob.NewDecoder(r).Decode(value); err != nil {
+		data, ioErr := io.ReadAll(r)
+		return encoding.SugarDecodingError(data, value, errors.Combine(err, ioErr))
+	}
+	return nil
+}
+
+func (c *codec) Encode(ctx context.Context, value any) ([]byte, error) {
+	var buf bytes.Buffer
+	if err := c.EncodeStream(ctx, &buf, value); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (*codec) EncodeStream(_ context.Context, w io.Writer, value any) error {
 	err := gob.NewEncoder(w).Encode(value)
 	if err != nil {
-		return encoding.SugarEncodingErr(value, err)
-	}
-	return nil
-}
-
-// Decode implements the encoding.Decoder interface.
-func (e *codec) Decode(ctx context.Context, data []byte, value any) error {
-	err := e.DecodeStream(ctx, bytes.NewReader(data), value)
-	if err != nil {
-		return encoding.SugarDecodingErr(data, value, err)
-	}
-	return nil
-}
-
-// DecodeStream implements the encoding.Decoder interface.
-func (e *codec) DecodeStream(_ context.Context, r io.Reader, value any) error {
-	if err := gob.NewDecoder(r).Decode(value); err != nil {
-		data, _ := io.ReadAll(r)
-		return encoding.SugarDecodingErr(data, value, err)
+		return encoding.SugarEncodingError(value, err)
 	}
 	return nil
 }
