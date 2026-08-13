@@ -9,7 +9,7 @@
 
 import { actions, query, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { array, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { array, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
@@ -330,10 +330,10 @@ describe("Flux.createDispatch", () => {
         });
       });
       await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
-      // Stamp n1 strictly after the entry's ts so the only entry is stale;
-      // undo should drop it without sending.
+      // Touch n1 after the entry so the only entry is stale; undo should
+      // drop it without sending.
       act(() => {
-        controller.markRemoteTouched(key, ["n1"], TimeStamp.now().add(TimeSpan.SECOND));
+        controller.markRemoteTouched(key, ["n1"]);
       });
       act(() => result.current.undo.undo());
       await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
@@ -412,10 +412,10 @@ describe("Flux.createDispatch", () => {
       });
       act(() => result.current.undo.undo());
       await waitFor(() => expect(result.current.redo.canRedo).toBe(true));
-      // Stamp n1 strictly after the entry's ts so the only redo entry is
-      // stale; redo should drop it without sending.
+      // Touch n1 after the entry so the only redo entry is stale; redo
+      // should drop it without sending.
       act(() => {
-        controller.markRemoteTouched(key, ["n1"], TimeStamp.now().add(TimeSpan.SECOND));
+        controller.markRemoteTouched(key, ["n1"]);
       });
       const callsBefore = send.mock.calls.length;
       act(() => result.current.redo.redo());

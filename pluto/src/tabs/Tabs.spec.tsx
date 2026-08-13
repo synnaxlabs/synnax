@@ -550,6 +550,31 @@ describe("Tabs", () => {
       rerender(<SplitTabs value="b" />);
       expect(scrolled()).toEqual([tab("Tab B")]);
     });
+
+    // Two strips each holding a selection, the shape a split Panel.Mosaic renders.
+    const SplitSelection = ({ value }: { value: string[] }): ReactElement => (
+      <Select.Context value={value}>
+        <Tabs.Frame>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="a1">Tab A1</Tabs.Tab>
+            <Tabs.Tab itemKey="a2">Tab A2</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>
+        <Tabs.Frame>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="b1">Tab B1</Tabs.Tab>
+            <Tabs.Tab itemKey="b2">Tab B2</Tabs.Tab>
+          </Tabs.Selector>
+        </Tabs.Frame>
+      </Select.Context>
+    );
+
+    it("should leave a strip alone when a sibling's selection changes", () => {
+      const { rerender } = render(<SplitSelection value={["a1", "b1"]} />);
+      scrollIntoView.mockClear();
+      rerender(<SplitSelection value={["a2", "b1"]} />);
+      expect(scrolled()).toEqual([tab("Tab A2")]);
+    });
   });
 
   describe("wheel scrolling", () => {

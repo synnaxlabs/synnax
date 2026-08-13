@@ -232,7 +232,7 @@ const OverlaidLeaf = ({
         }
       >
         <Icon.Collapse />
-        Exit Focus
+        Exit focus
       </Button.Button>
     </Tabs.Selector>
     <Tabs.Content grow>
@@ -241,7 +241,8 @@ const OverlaidLeaf = ({
   </Tabs.Frame>
 );
 
-const CLOSE_TRIGGER: Triggers.Trigger = ["Control", "W"];
+/** Closes the focused tab. Bound by the embedding app; shown on the close menu item. */
+export const CLOSE_TRIGGER: Triggers.Trigger = ["Control", "W"];
 
 /** CloseTabMenuItem closes the context menu's tab. Must render inside the tab
  * context menu passed to {@link Mosaic}. */

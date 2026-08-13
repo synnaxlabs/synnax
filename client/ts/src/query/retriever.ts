@@ -182,6 +182,7 @@ export abstract class Retriever<
         return records.map((r) => r.key);
       },
       compose: (records, q) => records.map((r) => compose(r, q)),
+      keysOf: (query) => keysOnly(query) as K[] | null,
       matches,
       serverFields,
       watch,
