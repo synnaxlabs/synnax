@@ -272,8 +272,7 @@ func extractRetrieveInfo(
 	r *resolver.Resolver,
 	ctx *resolver.Context,
 ) *retrieveInfo {
-	form, ok := typ.Form.(resolution.StructForm)
-	if !ok {
+	if _, ok := typ.Form.(resolution.StructForm); !ok {
 		return nil
 	}
 
@@ -296,9 +295,10 @@ func extractRetrieveInfo(
 		keyPrimitive = key.ResolvePrimitive(keyRef, table)
 	} else {
 		var keyField *resolution.Field
-		for i := range form.Fields {
-			if plugindomain.HasDomainFromField(form.Fields[i], "key") {
-				keyField = &form.Fields[i]
+		fields := resolution.UnifiedFields(typ, table)
+		for i := range fields {
+			if plugindomain.HasDomainFromField(fields[i], "key") {
+				keyField = &fields[i]
 				break
 			}
 		}

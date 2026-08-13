@@ -55,21 +55,21 @@ var _ = Describe("Codec", func() {
 								{
 									Name:  "test_15",
 									Type:  types.Type{},
-									Value: map[string]interface{}{"key_17": "value_17"},
+									Value: any(map[string]any{"key_17": "value_17"}),
 								},
 							},
 							Inputs: []types.Param{
 								{
 									Name:  "test_19",
 									Type:  types.Type{},
-									Value: map[string]interface{}{"key_21": "value_21"},
+									Value: any(map[string]any{"key_21": "value_21"}),
 								},
 							},
 							Outputs: []types.Param{
 								{
 									Name:  "test_23",
 									Type:  types.Type{},
-									Value: map[string]interface{}{"key_25": "value_25"},
+									Value: any(map[string]any{"key_25": "value_25"}),
 								},
 							},
 							Channels: types.Channels{
@@ -127,21 +127,21 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 						{
 							Name:  "test_15",
 							Type:  types.Type{},
-							Value: map[string]interface{}{"key_17": "value_17"},
+							Value: any(map[string]any{"key_17": "value_17"}),
 						},
 					},
 					Inputs: []types.Param{
 						{
 							Name:  "test_19",
 							Type:  types.Type{},
-							Value: map[string]interface{}{"key_21": "value_21"},
+							Value: any(map[string]any{"key_21": "value_21"}),
 						},
 					},
 					Outputs: []types.Param{
 						{
 							Name:  "test_23",
 							Type:  types.Type{},
-							Value: map[string]interface{}{"key_25": "value_25"},
+							Value: any(map[string]any{"key_25": "value_25"}),
 						},
 					},
 					Channels: types.Channels{
@@ -199,21 +199,21 @@ func FuzzDecodeArc(f *testing.F) {
 							{
 								Name:  "test_15",
 								Type:  types.Type{},
-								Value: map[string]interface{}{"key_17": "value_17"},
+								Value: any(map[string]any{"key_17": "value_17"}),
 							},
 						},
 						Inputs: []types.Param{
 							{
 								Name:  "test_19",
 								Type:  types.Type{},
-								Value: map[string]interface{}{"key_21": "value_21"},
+								Value: any(map[string]any{"key_21": "value_21"}),
 							},
 						},
 						Outputs: []types.Param{
 							{
 								Name:  "test_23",
 								Type:  types.Type{},
-								Value: map[string]interface{}{"key_25": "value_25"},
+								Value: any(map[string]any{"key_25": "value_25"}),
 							},
 						},
 						Channels: types.Channels{

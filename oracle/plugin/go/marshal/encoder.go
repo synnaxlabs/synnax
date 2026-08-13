@@ -985,7 +985,7 @@ func (b *encoderBuilder) processLeaf(
 				ind+fmt.Sprintf("w.String(string(%s))", valPath))
 			b.decodeLine(
 				ind + fmt.Sprintf(
-					"{ v, err := r.String(); if err != nil { return err }; %s = %s(v) }",
+					"{ rawV, err := r.String(); if err != nil { return err }; %s = %s(rawV) }",
 					setPath,
 					goTypeCast,
 				),
@@ -1135,7 +1135,7 @@ func (b *encoderBuilder) addIntLeaf(
 	if goTypeCast != "" {
 		b.decodeLine(
 			ind + fmt.Sprintf(
-				"{ v, err := r.%s(); if err != nil { return err }; %s = %s(v) }",
+				"{ rawV, err := r.%s(); if err != nil { return err }; %s = %s(rawV) }",
 				writerMethod,
 				setPath,
 				cast,

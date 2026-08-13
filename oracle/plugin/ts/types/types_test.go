@@ -464,7 +464,7 @@ var _ = Describe("TS Types Plugin", func() {
 				`
 					resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
 					ExpectContent(resp, "types.gen.ts").
-						ToContain(`export const nameZ = z.string().or(z.number().transform(String))`)
+						ToContain(`export const nameZ = z.union([z.string(), z.number()]).transform(String)`)
 				},
 			)
 		})

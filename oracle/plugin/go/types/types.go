@@ -1302,6 +1302,11 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
+{{- range $vt.DefaultFills}}
+	if {{$vt.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
+		{{$vt.Receiver}}.{{.GoName}} = {{.Expr}}
+	}
+{{- end}}
 {{- range $vt.DefaultRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
 	{{$vt.Receiver}}.{{.GoName}}.ApplyDefaults()
@@ -1328,6 +1333,24 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 // schema constraints.
 func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v := validate.New("{{$vt.TypeName}}")
+{{- range $vt.EnumChecks}}
+	v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$vt.Receiver}}.{{.GoName}})
+{{- end}}
+{{- range $vt.ConstraintChecks}}
+{{- if eq .Kind "non_empty_string"}}
+	validate.NotEmptyString(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
+{{- else if eq .Kind "non_zero"}}
+	validate.NonZero(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
+{{- else if eq .Kind "min_len"}}
+	v.Ternaryf("{{.FieldName}}", len({{$vt.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+{{- else if eq .Kind "max_len"}}
+	v.Ternaryf("{{.FieldName}}", len({{$vt.Receiver}}.{{.GoName}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+{{- else if eq .Kind "ge"}}
+	validate.GreaterThanEq(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
+{{- else if eq .Kind "le"}}
+	validate.LessThanEq(v, "{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
+{{- end}}
+{{- end}}
 {{- range $vt.ValidateRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
 {{- if .JSONName}}

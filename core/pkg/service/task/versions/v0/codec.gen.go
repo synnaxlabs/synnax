@@ -49,11 +49,11 @@ func (t Task) EncodeOrc(w *orc.Writer) error {
 func (t *Task) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
-		v, err := r.Uint64()
+		rawV, err := r.Uint64()
 		if err != nil {
 			return err
 		}
-		t.Key = Key(v)
+		t.Key = Key(rawV)
 	}
 	if t.Name, err = r.String(); err != nil {
 		return err

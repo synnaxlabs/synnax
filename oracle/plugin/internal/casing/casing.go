@@ -115,6 +115,20 @@ func VariantTypeName(unionName, variantValue string) string {
 	return unionName + variant
 }
 
+// QualifiedVariantTypeName is VariantTypeName for a union name that may carry a
+// language qualifier (Go "ni.AIChannel", C++ "::ni::AIChannel"). The acronym rules
+// read the leading characters of the name, so they must see the bare name: applying
+// them to a qualified one silently skips the collapse and yields a variant name that
+// disagrees with the union's own declaration. sep is the qualifier separator.
+func QualifiedVariantTypeName(unionName, variantValue, sep string) string {
+	idx := strings.LastIndex(unionName, sep)
+	if idx < 0 {
+		return VariantTypeName(unionName, variantValue)
+	}
+	split := idx + len(sep)
+	return unionName[:split] + VariantTypeName(unionName[split:], variantValue)
+}
+
 // leadingAcronym returns the run of leading uppercase letters of s that form an
 // acronym, excluding the final uppercase letter when it begins the next PascalCase word
 // ("AIChannel" -> "AI", "RTDConfig" -> "RTD", "Scale" -> "").

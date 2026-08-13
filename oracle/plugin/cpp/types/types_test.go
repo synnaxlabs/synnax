@@ -1451,6 +1451,93 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 		})
 
+		Describe("Explicit @cpp include", func() {
+			It(
+				"Should include the declared header for a cross-namespace distinct type",
+				func(ctx SpecContext) {
+					loader.Add("schemas/rack", `
+					@cpp output "client/cpp/rack"
+
+					Key uint32 {
+						@cpp include "client/cpp/rack/key.h"
+					}
+				`)
+
+					source := `
+					import "schemas/rack"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						rack rack.Key
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`#include "client/cpp/rack/key.h"`).
+						ToNotContain(`#include "client/cpp/rack/types.gen.h"`)
+				},
+			)
+
+			It(
+				"Should include the declared header for a cross-namespace alias",
+				func(ctx SpecContext) {
+					loader.Add("schemas/status", `
+					@cpp output "client/cpp/status"
+
+					Detail struct {
+						message string
+					}
+
+					Summary = Detail {
+						@cpp include "client/cpp/status/summary.h"
+					}
+				`)
+
+					source := `
+					import "schemas/status"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						summary status.Summary
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`#include "client/cpp/status/summary.h"`).
+						ToNotContain(`#include "client/cpp/status/types.gen.h"`)
+				},
+			)
+
+			It(
+				"Should fall back to types.gen.h when no header is declared",
+				func(ctx SpecContext) {
+					loader.Add("schemas/rack", `
+					@cpp output "client/cpp/rack"
+
+					Key uint32
+				`)
+
+					source := `
+					import "schemas/rack"
+
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						rack rack.Key
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+
+					ExpectContent(resp, "types.gen.h").
+						ToContain(`#include "client/cpp/rack/types.gen.h"`)
+				},
+			)
+		})
+
 		Describe("Array Wrapper Generation", func() {
 			It(
 				"Should generate wrapper struct for array distinct types",
@@ -1719,10 +1806,72 @@ var _ = Describe("C++ Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
 					ExpectContent(resp, "out/types.gen.h").
 						ToContain(
-							`duration = x::telem::TimeSpan(0);`,
-							`start = x::telem::TimeStamp(5);`,
-							`sample_rate = x::telem::Rate(10);`,
-							`stream_rate = x::telem::Rate(2.500000);`,
+							`duration = ::x::telem::TimeSpan(0);`,
+							`start = ::x::telem::TimeStamp(5);`,
+							`sample_rate = ::x::telem::Rate(10);`,
+							`stream_rate = ::x::telem::Rate(2.500000);`,
+						)
+				},
+			)
+
+			It(
+				"Should wrap string defaults in the distinct type's constructor",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					DataType string {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						data_type telem.DataType = "float32"
+						label     string = "dflt"
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain(
+							`data_type = ::x::telem::DataType("float32");`,
+							`std::string label = "dflt";`,
+						)
+				},
+			)
+
+			It(
+				"Should wrap numeric defaults on distinct types outside x::telem",
+				func(ctx SpecContext) {
+					loader.Add("schemas/units", `
+					@cpp output "x/cpp/units"
+
+					Voltage float64 {
+						@cpp hand
+					}
+
+					Count uint32 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/units"
+
+					@cpp output "out"
+
+					Config struct {
+						limit   units.Voltage = 5.5
+						retries units.Count = 3
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain(
+							`limit = ::x::units::Voltage(5.500000);`,
+							`retries = ::x::units::Count(3);`,
 						)
 				},
 			)
@@ -1992,6 +2141,30 @@ var _ = Describe("C++ Union Generation", func() {
 				ToContain(`Scale custom_scale;`)
 		},
 	)
+
+	It(
+		"Should initialize a union-typed field with its defaulted variant",
+		func(ctx SpecContext) {
+			source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 = 1 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale = none
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(`Scale custom_scale = ScaleNone{};`)
+		},
+	)
 })
 
 var _ = Describe("C++ Union Variant Doc Coverage", func() {
@@ -2074,10 +2247,13 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 		`
 			resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
 			taskContent := ExpectContent(resp, "client/cpp/task/types.gen.h")
-			taskContent.ToContain("struct Task {")
+			taskContent.ToContain("namespace synnax::task {", "struct Task {")
 			taskContent.ToNotContain("struct BaseConfig {")
 			commonContent := ExpectContent(resp, "client/cpp/task/common/types.gen.h")
-			commonContent.ToContain("struct BaseConfig {")
+			commonContent.ToContain(
+				"namespace synnax::task::common {",
+				"struct BaseConfig {",
+			)
 			commonContent.ToNotContain("struct Task {")
 		},
 	)
