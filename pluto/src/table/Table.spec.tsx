@@ -160,9 +160,9 @@ describe("Table centering", () => {
   };
 
   // The value cell clips its canvas draw to its own box, so the latest scissor
-  // call on the lower2d canvas carries the box the cell last drew at.
+  // call on the upper2d canvas carries the box the cell last drew at.
   const lastCellBox = (): box.Box => {
-    const scissor = recorder.lower2d.calls.findLast((c) => c.op === "scissor");
+    const scissor = recorder.upper2d.calls.findLast((c) => c.op === "scissor");
     if (scissor == null) throw new Error("no cell draw was recorded");
     return scissor.args[0] as box.Box;
   };
