@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestMsgpack(t *testing.T) {
+func TestMessagePack(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Encoding MsgPack Suite")
+	RunSpecs(t, "Encoding MessagePack Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

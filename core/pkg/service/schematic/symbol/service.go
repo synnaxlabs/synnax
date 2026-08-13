@@ -43,9 +43,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Group is used to create and manage the permanent group for symbols.
+	// Group is used to create and manage the permanent group for symbols, and to delete
+	// the groups that hold them.
 	//
-	// [OPTIONAL]
+	// [REQUIRED]
 	Group *group.Service
 	// Signals is used to propagate changes to symbols throughout the cluster.
 	//
@@ -81,6 +82,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("symbol")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "search", c.Search)
 	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
@@ -112,17 +114,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if cfg.Group != nil {
-		if s.group, err = cfg.Group.CreateOrRetrieve(
-			ctx,
-			"Schematic Symbols",
-			ontology.RootID,
-		); !ok(
-			err,
-			nil,
-		) {
-			return nil, err
-		}
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx,
+		"Schematic Symbols",
+		ontology.RootID,
+	); !ok(err, nil) {
+		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)

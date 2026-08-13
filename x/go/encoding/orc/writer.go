@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 // Package orc implements the oracle binary encoding format. Oracle is the code
-// generation framework used by Synnax to produce high-performance binary codecs for
-// Go structs. The format is positional, untagged, and big-endian: fixed-size
-// primitives are written directly, while variable-length types (strings, byte slices,
-// nested records) are prefixed with a 4-byte big-endian length.
+// generation framework used by Synnax to produce high-performance binary codecs for Go
+// structs. The format is positional, untagged, and big-endian: fixed-size primitives
+// are written directly, while variable-length types (strings, byte slices, nested
+// records) are prefixed with a 4-byte big-endian length.
 package orc
 
 import (
@@ -21,17 +21,15 @@ import (
 
 var order = binary.BigEndian
 
-// Writer encodes primitive data types into a growable byte buffer using big-endian
-// byte order. Methods append to the internal buffer, which grows as needed. Use
-// Reset to reuse the buffer across operations and Resize to pre-allocate capacity.
+// Writer encodes primitive data types into a growable byte buffer using big-endian byte
+// order. Methods append to the internal buffer, which grows as needed. Use Reset to
+// reuse the buffer across operations and Resize to pre-allocate capacity.
 type Writer struct {
 	buf []byte
 }
 
 // NewWriter creates a new Writer with the given initial capacity.
-func NewWriter(cap int) *Writer {
-	return &Writer{buf: make([]byte, 0, cap)}
-}
+func NewWriter(cap int) *Writer { return &Writer{buf: make([]byte, 0, cap)} }
 
 // Reset clears the buffer for reuse without releasing the underlying memory.
 func (w *Writer) Reset() { w.buf = w.buf[:0] }
@@ -90,8 +88,8 @@ func (w *Writer) Bool(v bool) {
 	}
 }
 
-// String appends a length-prefixed string (4-byte length + raw bytes). Panics
-// if the string length exceeds math.MaxUint32.
+// String appends a length-prefixed string (4-byte length + raw bytes). Panics if the
+// string length exceeds math.MaxUint32.
 func (w *Writer) String(v string) {
 	if len(v) > math.MaxUint32 {
 		panic("orc: string length exceeds maximum encodable size")
@@ -103,8 +101,8 @@ func (w *Writer) String(v string) {
 // Write appends raw bytes without any length prefix.
 func (w *Writer) Write(data []byte) { w.buf = append(w.buf, data...) }
 
-// WriteWithLen appends a length-prefixed byte slice (4-byte length + raw bytes).
-// Panics if the slice length exceeds math.MaxUint32.
+// WriteWithLen appends a length-prefixed byte slice (4-byte length + raw bytes). Panics
+// if the slice length exceeds math.MaxUint32.
 func (w *Writer) WriteWithLen(data []byte) {
 	if len(data) > math.MaxUint32 {
 		panic("orc: bytes length exceeds maximum encodable size")
@@ -113,8 +111,8 @@ func (w *Writer) WriteWithLen(data []byte) {
 	w.buf = append(w.buf, data...)
 }
 
-// Bytes returns the encoded bytes. The returned slice is only valid until the
-// next call to Reset or any write method that triggers growth.
+// Bytes returns the encoded bytes. The returned slice is only valid until the next call
+// to Reset or any write method that triggers growth.
 func (w *Writer) Bytes() []byte { return w.buf }
 
 // Len returns the number of bytes written so far.

@@ -79,7 +79,7 @@ export const MissingForm = (): ReactElement => {
             disabled={createGroupKey == null}
           >
             <Icon.Add />
-            Create New Symbol
+            Create symbol
           </Button.Button>
         </Flex.Box>
       </Flex.Box>
