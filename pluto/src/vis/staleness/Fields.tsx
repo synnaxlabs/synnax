@@ -46,7 +46,6 @@ export const Fields = (): ReactElement => {
         padHelpText={false}
         defaultValue={staleness.DEFAULT_TIMEOUT}
         inputProps={INPUT_PROPS}
-        style={{ width: "20rem" }}
       />
     </>
   );
@@ -55,4 +54,5 @@ export const Fields = (): ReactElement => {
 const INPUT_PROPS: Form.NumericFieldProps["inputProps"] = {
   bounds: { lower: 1, upper: Infinity },
   endContent: "s",
+  style: { maxWidth: "18rem" },
 };
