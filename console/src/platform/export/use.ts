@@ -13,7 +13,7 @@ import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
-export interface UseParams {
+export interface Params {
   id: ontology.ID;
   /** The resource name. It names the exported file. */
   name: string;
@@ -23,12 +23,12 @@ export interface UseParams {
  * Returns a callback that exports the resource identified by the given ontology ID,
  * streaming its Core-serialized envelope to a file the user picks.
  */
-export const use = (): (({ id, name }: UseParams) => void) => {
+export const use = (): (({ id, name }: Params) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const download = Runtime.useDownload();
   return useCallback(
-    ({ id, name }: UseParams) => {
+    ({ id, name }: Params) => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         await download({
