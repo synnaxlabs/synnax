@@ -474,12 +474,7 @@ const GroupList = ({
     >
       <Menu.ContextMenu {...menuProps} menu={groupListContextMenu}>
         <Tabs.Frame x align="center" grow>
-          <Tabs.Selector
-            size="small"
-            sizing="content"
-            overflow="fade"
-            onContextMenu={menuProps.open}
-          >
+          <Tabs.Selector size="small" sizing="content" onContextMenu={menuProps.open}>
             {listProps.data.map((key) => (
               <GroupTab key={key} itemKey={key} />
             ))}
