@@ -16,9 +16,9 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 )
 
-// OpenMsgpackDB returns a gorp.DB over a fresh in-memory key-value store that encodes
-// entries with MessagePack, so entry types do not need to implement orc.SelfCodec. The
-// caller must close the returned DB.
-func OpenMsgpackDB() *gorp.DB {
+// OpenGorpMsgpackDB returns a gorp.DB over a fresh in-memory key-value store that
+// encodes entries with MessagePack, so entry types do not need to implement
+// orc.SelfCodec. The caller must close the returned DB.
+func OpenGorpMsgpackDB() *gorp.DB {
 	return gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
 }

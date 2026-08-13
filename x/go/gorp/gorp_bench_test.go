@@ -54,7 +54,7 @@ func (e benchLargeEntry) SetOptions() []any { return nil }
 
 func setupBenchDB(b *testing.B) *gorp.DB {
 	b.Helper()
-	db := OpenMsgpackDB()
+	db := OpenGorpMsgpackDB()
 	b.Cleanup(func() {
 		if err := db.Close(); err != nil {
 			b.Fatal(err)

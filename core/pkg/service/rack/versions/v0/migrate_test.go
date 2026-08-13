@@ -166,7 +166,7 @@ var _ = Describe("Status backfill", func() {
 	It(
 		"Should read a status whose rack key was stored as float64",
 		func(ctx SpecContext) {
-			db := DeferClose(OpenMsgpackDB())
+			db := DeferClose(OpenGorpMsgpackDB())
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			searchIdx := MustOpen(search.OpenIndex())
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{

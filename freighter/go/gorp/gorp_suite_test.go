@@ -28,7 +28,7 @@ var db *gorp.DB
 
 var _ = BeforeSuite(func() {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(OpenMsgpackDB())
+	db = DeferClose(OpenGorpMsgpackDB())
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

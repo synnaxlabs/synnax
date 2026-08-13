@@ -402,7 +402,7 @@ var _ = Describe("KeyCodec", func() {
 	Describe("Observe with non-int32 keys", func() {
 		var notifyDB *gorp.DB
 		BeforeEach(func() {
-			notifyDB = DeferClose(OpenMsgpackDB())
+			notifyDB = DeferClose(OpenGorpMsgpackDB())
 			tx = DeferClose(notifyDB.OpenTx())
 		})
 

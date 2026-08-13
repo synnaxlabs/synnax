@@ -25,11 +25,11 @@ type entry struct {
 func (e entry) GorpKey() int32    { return e.ID }
 func (e entry) SetOptions() []any { return nil }
 
-var _ = Describe("OpenMsgpackDB", func() {
+var _ = Describe("OpenGorpMsgpackDB", func() {
 	It(
 		"Should store entries that do not implement orc.SelfCodec",
 		func(ctx SpecContext) {
-			db := OpenMsgpackDB()
+			db := OpenGorpMsgpackDB()
 			defer func() { Expect(db.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entry](db)
 			Expect(w.Set(ctx, entry{ID: 1, Data: "one"})).To(Succeed())

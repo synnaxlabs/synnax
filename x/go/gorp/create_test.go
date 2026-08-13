@@ -54,7 +54,7 @@ var _ = Describe("Create", Ordered, func() {
 	)
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		db = DeferClose(OpenMsgpackDB())
+		db = DeferClose(OpenGorpMsgpackDB())
 	})
 	BeforeEach(func() {
 		tx = DeferClose(db.OpenTx())

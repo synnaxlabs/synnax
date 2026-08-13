@@ -27,7 +27,7 @@ var _ = Describe("Observe", func() {
 		grapeTable *gorp.Table[int32, grape]
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = DeferClose(OpenMsgpackDB())
+		db = DeferClose(OpenGorpMsgpackDB())
 		entryTable = MustOpen(
 			gorp.OpenTable(ctx, gorp.TableConfig[int32, entry]{DB: db}),
 		)

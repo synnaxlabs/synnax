@@ -112,7 +112,7 @@ func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) 
 var _ = Describe("Index", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
-		idxDB = OpenMsgpackDB()
+		idxDB = OpenGorpMsgpackDB()
 	})
 	AfterEach(func() {
 		Expect(idxDB.Close()).To(Succeed())
@@ -1015,7 +1015,7 @@ var _ = Describe("Index", func() {
 var _ = Describe("Composite-string-keyed Lookup", func() {
 	var idxDB *gorp.DB
 	BeforeEach(func() {
-		idxDB = OpenMsgpackDB()
+		idxDB = OpenGorpMsgpackDB()
 	})
 	AfterEach(func() {
 		Expect(idxDB.Close()).To(Succeed())
