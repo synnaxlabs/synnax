@@ -104,7 +104,7 @@ const [InternalContext, useInternalContext] = context.create<InternalContextValu
 
 export { useInternalContext };
 
-const ESCAPE_TRIGGERS: Triggers.Trigger[] = [["Escape"]];
+const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
 
 const positionsEqual = (
   variant: Variant,

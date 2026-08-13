@@ -317,20 +317,20 @@ describe("Panel.Mosaic overlay", () => {
       );
       store.dispatch(Session.Panel.startOverlaying({}));
     });
-    await waitFor(() => expect(screen.getByText("Exit Focus")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Exit focus")).toBeTruthy());
     // Only the overlaid tab stays in the document; the other leaf's content
     // detaches but its React tree stays mounted.
     expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();
     expect(screen.queryByText(`tab-content-${tabB.key}`)).toBeNull();
     expect(tabUnmounts).toHaveLength(0);
 
-    fireEvent.click(screen.getByText("Exit Focus"));
+    fireEvent.click(screen.getByText("Exit focus"));
     await waitFor(() => {
       expect(screen.getByText(`tab-content-${tabA.key}`)).toBeTruthy();
       expect(screen.getByText(`tab-content-${tabB.key}`)).toBeTruthy();
     });
     // Reattached, not remounted.
-    expect(screen.queryByText("Exit Focus")).toBeNull();
+    expect(screen.queryByText("Exit focus")).toBeNull();
     expect(tabMountCount(tabA.key)).toBe(1);
     expect(tabMountCount(tabB.key)).toBe(1);
     expect(tabUnmounts).toHaveLength(0);
@@ -369,7 +369,7 @@ describe("Panel.Mosaic overlay", () => {
       );
       store.dispatch(Session.Panel.startOverlaying({}));
     });
-    await waitFor(() => expect(screen.getByText("Exit Focus")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Exit focus")).toBeTruthy());
 
     // Overlay is window-level: the newly selected panel shows its own focused
     // tab overlaid, while the background panel detaches without unmounting.
@@ -379,7 +379,7 @@ describe("Panel.Mosaic overlay", () => {
     await waitFor(() =>
       expect(screen.getByText(`tab-content-${tabB.key}`)).toBeTruthy(),
     );
-    await waitFor(() => expect(screen.getByText("Exit Focus")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Exit focus")).toBeTruthy());
     expect(screen.queryByText(`tab-content-${tabA.key}`)).toBeNull();
     expect(tabUnmounts).toHaveLength(0);
   });
