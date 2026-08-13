@@ -180,8 +180,12 @@ export const StateOverrideForm = (): ReactElement => {
     },
     [form],
   );
-  const symbol = Symbol.use({ key: specKey });
-  useEffect(() => applySymbol(symbol), [symbol, applySymbol]);
+  // A dangling spec key must not throw here: the owner renders a repair form for it.
+  const { symbol } = Symbol.useResolved(specKey);
+  useEffect(() => {
+    if (symbol == null) return;
+    applySymbol(symbol);
+  }, [symbol, applySymbol]);
 
   const resetRegion = useCallback(
     (path: string) => {

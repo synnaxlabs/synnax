@@ -75,7 +75,7 @@ const Content = () => {
   const openTab = Panel.useOpenTab();
   const openSelector = useOpenSelector();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  const { data, getItem, subscribe, retrieve } = Task.useList({
+  const { data, getItem, subscribe, retrieve, answered } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
   });
@@ -182,7 +182,7 @@ const Content = () => {
           >
             <List.Items<task.Key, task.Task>
               full="y"
-              emptyContent={<EmptyContent />}
+              emptyContent={answered && <EmptyContent />}
               onContextMenu={menuProps.open}
             >
               {({ key, ...p }) => (
