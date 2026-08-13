@@ -34,4 +34,14 @@ describe("Connection", () => {
     render(<Shell.Connection cluster={{ ...CLUSTER, secure: true }} />, { wrapper });
     expect(await screen.findByText("Unreachable")).toBeTruthy();
   });
+
+  it("should stay nominal when the Core rejects the credentials", async () => {
+    const { wrapper } = await createConnectedConsoleWrapper({
+      client: null,
+      connParams: { ...CONNECTION_PARAMS, password: "not-seldon" },
+    });
+    render(<Shell.Connection cluster={CLUSTER} />, { wrapper });
+    expect(await screen.findByText("Connected")).toBeTruthy();
+    expect(screen.queryByText("Unreachable")).toBeNull();
+  });
 });
