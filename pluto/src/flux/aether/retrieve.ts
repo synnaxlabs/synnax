@@ -96,14 +96,14 @@ export class Retrieve<Query extends query.Params, Data extends query.Data> {
     void this.fetch(params);
   }
 
-  /** Refetches the current query, bypassing the deduplication guard. */
+  /** Refetches the current query, superseding any fetch in flight. */
   refetch(): void {
     if (this.client == null || this.query == null) return;
     void this.fetch({ client: this.client, query: this.query });
   }
 
   private async fetch(params: RetrieveParams<Query>): Promise<void> {
-    const generation = this.generation;
+    const generation = ++this.generation;
     try {
       const value = await this.definition.retrieve(params);
       if (generation !== this.generation) return;

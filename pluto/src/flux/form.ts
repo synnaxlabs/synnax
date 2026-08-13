@@ -8,8 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type query, type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, state } from "@synnaxlabs/x";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type destructor, state, TimeSpan } from "@synnaxlabs/x";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { type z } from "zod";
 
 import {
@@ -30,7 +37,7 @@ import {
 } from "@/flux/suspend";
 import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
-import { useDestructors } from "@/hooks";
+import { useDebouncedCallback, useDestructors, useSyncedRef } from "@/hooks";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
@@ -136,6 +143,8 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
   notifyOnChange: false,
 };
 
+const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(500);
+
 export const createForm = <
   Query extends query.Params,
   Schema extends z.ZodType<query.Data>,
@@ -195,7 +204,7 @@ export const createForm = <
       values,
       onChange: ({ path }) => {
         // Don't save if the path is empty to prevent infinite save loops.
-        if (autoSave && path !== "") save();
+        if (autoSave && path !== "") debouncedSave();
       },
       sync,
       onHasTouched,
@@ -212,7 +221,7 @@ export const createForm = <
     const readQuery = useRef(memoQuery);
     const valuesRef = useRef(values);
     valuesRef.current = values;
-    useEffect(() => {
+    useLayoutEffect(() => {
       if (readQuery.current === memoQuery) return;
       readQuery.current = memoQuery;
       form.reset(valuesRef.current);
@@ -272,6 +281,14 @@ export const createForm = <
       (opts?: query.FetchOptions) => void saveAsync(opts),
       [saveAsync],
     );
+
+    const saveRef = useSyncedRef(save);
+    const debouncedSave = useDebouncedCallback(
+      () => saveRef.current(),
+      AUTO_SAVE_DEBOUNCE,
+      [],
+    );
+    useEffect(() => () => debouncedSave.flush(), [debouncedSave]);
 
     return { form, save, saveAsync, ...result };
   };

@@ -18,7 +18,7 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Form as PForm, Panel as PlutoPanel, type Status } from "@synnaxlabs/pluto";
-import { id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {
   fireEvent,
   type RenderResult,
@@ -131,6 +131,7 @@ export const DEFAULT_TASK_FORM_VALUES: TaskFormValues = {
   name: "Test Task",
   rack: 0,
   snapshot: false,
+  configHash: "",
   status: createTaskStatus({
     variant: "disabled",
     message: "Test Task has not been deployed",
@@ -444,18 +445,33 @@ export const getLabeledInput = (label: string): HTMLInputElement => {
 
 /**
  * Reads command-channel frames until one carries a command for taskKey, so parallel
- * suites writing their own task commands cannot interfere.
+ * suites writing their own task commands cannot interfere. Rejects after 10 seconds so
+ * a command that never arrives names itself instead of hitting the test timeout.
  */
 export const awaitCommand = async (
   streamer: framer.Streamer,
   taskKey: task.Key,
 ): Promise<task.Command> => {
-  for (;;) {
-    const frame = await streamer.read();
-    for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
-      const cmd = task.commandZ.parse(sample);
-      if (cmd.task === taskKey) return cmd;
+  const read = async (): Promise<task.Command> => {
+    for (;;) {
+      const frame = await streamer.read();
+      for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
+        const cmd = task.commandZ.parse(sample);
+        if (cmd.task === taskKey) return cmd;
+      }
     }
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`no command for task ${taskKey} received within 10s`)),
+      TimeSpan.seconds(10).milliseconds,
+    );
+  });
+  try {
+    return await Promise.race([read(), deadline]);
+  } finally {
+    clearTimeout(timer);
   }
 };
 

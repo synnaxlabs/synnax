@@ -28,7 +28,7 @@ export interface NavProps {
  */
 export const Nav = ({ connection }: NavProps): ReactElement => {
   const os = OS.use();
-  const chrome = Session.Runtime.ENGINE !== "web" && Session.Runtime.isMainWindow();
+  const chrome = Session.Runtime.ENGINE === "tauri" && Session.Runtime.isMainWindow();
   return (
     <Flex.Box x justify="between" align="start" className={CSS.BE("shell", "islands")}>
       <Flex.Box x align="center" gap="medium">

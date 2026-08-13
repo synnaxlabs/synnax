@@ -82,7 +82,8 @@ export const use = ({
   const memoTriggers = useMemoCompare<Trigger[] | undefined, [Trigger[] | undefined]>(
     () => baseTriggers,
     ([a], [b]) => {
-      if (a == null && b == null) return true;
+      // Load-bearing: lets call sites that hoist their triggers skip the compare.
+      if (a === b) return true;
       if (a == null || b == null) return false;
       return compare.primitiveArrays(a.flat(), b.flat()) === compare.EQUAL;
     },

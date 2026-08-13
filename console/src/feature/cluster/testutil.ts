@@ -12,9 +12,8 @@ import { fireEvent } from "@testing-library/react";
 import { getBySelector } from "@/testutil";
 
 /**
- * Hovers the rendered ConnectionBadge's trigger to open its tooltip. The badge
- * renders an icon-only button with no accessible handle, so the structural selector
- * lives here. The tooltip opens on pointerover and ignores touch pointers.
+ * Hovers the rendered ConnectionBadge's trigger to open its tooltip. The badge is
+ * icon-only with no accessible handle, so the structural selector lives here.
  */
 export const hoverConnectionBadge = (container: HTMLElement): void => {
   fireEvent.pointerOver(getBySelector(container, "button"), { pointerType: "mouse" });

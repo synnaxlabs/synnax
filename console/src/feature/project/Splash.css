@@ -13,9 +13,8 @@
     padding: 2.5rem 3rem;
 }
 
-/* Chromeless search line: the card frames it, so the input sheds its own box
-   and a hairline seats it above the list. Padding lands the search icon on the
-   header's 3rem gutter. */
+/* The card already frames it, so the input sheds its own box. The padding lands
+   the search icon on the header's 3rem gutter. */
 .pluto-input.console-project-splash__search.console-project-splash__search {
     background: transparent;
     border: none;
@@ -25,7 +24,6 @@
     flex-shrink: 0;
 }
 
-/* The scroll region; keeps the create row pinned below it. */
 .console-project-splash__items.console-project-splash__items {
     overflow-y: auto;
     min-height: 0;
