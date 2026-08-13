@@ -21,8 +21,8 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -166,7 +166,7 @@ var _ = Describe("Status backfill", func() {
 	It(
 		"Should read a status whose rack key was stored as float64",
 		func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
+			db := DeferClose(OpenMsgpackDB())
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			searchIdx := MustOpen(search.OpenIndex())
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{

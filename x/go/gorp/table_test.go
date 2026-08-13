@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/gorp/testutil"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
@@ -134,7 +135,7 @@ var _ = Describe("Table", func() {
 		It(
 			"Should run key re-encoding only when no migrations are provided",
 			func(ctx SpecContext) {
-				testDB := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
+				testDB := OpenMsgpackDB()
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				w := gorp.WrapWriter[int32, entry](testDB)
 				Expect(w.Set(ctx, entry{ID: 1, Data: "no_migration"})).To(Succeed())
@@ -151,7 +152,7 @@ var _ = Describe("Table", func() {
 		It(
 			"Should run key re-encoding even when versioned migrations are at latest",
 			func(ctx SpecContext) {
-				testDB := gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec))
+				testDB := OpenMsgpackDB()
 				defer func() { Expect(testDB.Close()).To(Succeed()) }()
 				migration := gorp.NewMigration(
 					"noop",
