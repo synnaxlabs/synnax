@@ -128,9 +128,7 @@ func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 	projects := make([]Project, len(stale))
 	keys := make([]Key, len(stale))
 	for i, ws := range stale {
-		if projects[i], err = autoMigrateProject(ctx, ws); err != nil {
-			return err
-		}
+		projects[i] = Project{Key: ws.Key, Name: ws.Name, Layout: ws.Layout}
 		keys[i] = ws.Key
 	}
 	if err := gorp.WrapWriter[Key, Project](tx).Set(ctx, projects...); err != nil {
@@ -280,14 +278,4 @@ func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
 		layoutsToStagingMigration,
 		removeAuthorRelationshipsMigration(cfg.Ontology),
 	}
-}
-
-// autoMigrateProject carries the rename from the v0 Workspace entry; renamed
-// entries have no generated counterpart.
-func autoMigrateProject(_ context.Context, old v0.Workspace) (Project, error) {
-	return Project{
-		Key:    old.Key,
-		Name:   old.Name,
-		Layout: old.Layout,
-	}, nil
 }
