@@ -26,6 +26,13 @@ var _ = Describe("Service", func() {
 		}))
 	})
 
+	Describe("OpenService", func() {
+		It("Should reject a config missing the DB", func(ctx SpecContext) {
+			Expect(opc.OpenService(ctx, opc.ServiceConfig{})).Error().
+				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+	})
+
 	Describe("Stores", func() {
 		It("Should expose one store per OPC UA task type", func() {
 			types := []string{}
@@ -58,6 +65,39 @@ var _ = Describe("Service", func() {
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
+		})
+
+		It("Should apply read config schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
+			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
+			Expect(data["array_size"]).To(BeNumerically("==", 1))
+		})
+
+		It("Should apply write channel schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"key": "chan-1"}},
+			})).To(Succeed())
+			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			Expect(data["channels"]).To(HaveExactElements(
+				HaveKeyWithValue("data_type", "float32"),
+			))
+		})
+
+		It("Should apply scan config schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 	})
 })

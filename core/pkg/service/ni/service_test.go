@@ -26,6 +26,13 @@ var _ = Describe("Service", func() {
 		}))
 	})
 
+	Describe("OpenService", func() {
+		It("Should reject a config missing the DB", func(ctx SpecContext) {
+			Expect(ni.OpenService(ctx, ni.ServiceConfig{})).Error().
+				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+	})
+
 	Describe("Stores", func() {
 		It("Should expose one store per NI task type", func() {
 			types := []string{}
@@ -58,5 +65,108 @@ var _ = Describe("Service", func() {
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
 		})
+
+		It("Should apply analog read schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.AnalogRead.Write(ctx, nil, key, msgpack.EncodedJSON{})).
+				To(Succeed())
+			data := MustSucceed(svc.AnalogRead.Read(ctx, nil, key))
+			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
+			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
+		})
+
+		It("Should apply analog write schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.AnalogWrite.Write(ctx, nil, key, msgpack.EncodedJSON{})).
+				To(Succeed())
+			data := MustSucceed(svc.AnalogWrite.Read(ctx, nil, key))
+			Expect(data["state_rate"]).To(BeNumerically("==", 10))
+		})
+
+		It("Should apply counter read schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.CounterRead.Write(ctx, nil, key, msgpack.EncodedJSON{})).
+				To(Succeed())
+			data := MustSucceed(svc.CounterRead.Read(ctx, nil, key))
+			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
+		})
+
+		It("Should apply digital read schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.DigitalRead.Write(ctx, nil, key, msgpack.EncodedJSON{})).
+				To(Succeed())
+			data := MustSucceed(svc.DigitalRead.Read(ctx, nil, key))
+			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
+		})
+
+		It("Should apply digital write schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.DigitalWrite.Write(ctx, nil, key, msgpack.EncodedJSON{})).
+				To(Succeed())
+			data := MustSucceed(svc.DigitalWrite.Read(ctx, nil, key))
+			Expect(data["state_rate"]).To(BeNumerically("==", 10))
+		})
+
+		It("Should apply scanner schema defaults to absent fields", func(
+			ctx SpecContext,
+		) {
+			key := uuid.New()
+			Expect(svc.Scanner.Write(ctx, nil, key, msgpack.EncodedJSON{})).
+				To(Succeed())
+			data := MustSucceed(svc.Scanner.Read(ctx, nil, key))
+			Expect(data["rate"]).To(BeNumerically("==", 0.2))
+		})
+
+		It(
+			"Should return the analog read validation error for an invalid channel",
+			func(
+				ctx SpecContext,
+			) {
+				Expect(svc.AnalogRead.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":  "ai_voltage",
+						"units": "BOGUS",
+					}},
+				})).To(MatchError(ContainSubstring("invalid units: BOGUS")))
+			},
+		)
+
+		It(
+			"Should return the analog write validation error for an invalid channel",
+			func(
+				ctx SpecContext,
+			) {
+				Expect(svc.AnalogWrite.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":  "ao_voltage",
+						"units": "BOGUS",
+					}},
+				})).To(MatchError(ContainSubstring("invalid units: BOGUS")))
+			},
+		)
+
+		It(
+			"Should return the counter read validation error for an invalid channel",
+			func(
+				ctx SpecContext,
+			) {
+				Expect(svc.CounterRead.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":  "ci_frequency",
+						"units": "BOGUS",
+					}},
+				})).To(MatchError(ContainSubstring("invalid units: BOGUS")))
+			},
+		)
 	})
 })
