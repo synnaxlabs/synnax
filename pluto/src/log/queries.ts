@@ -27,6 +27,7 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   retrieve: async ({ client, query }) => await client.logs.retrieve(query),
   onChange: ({ client, query }, handler) => client.logs.onChange(query, handler),
   getCached: ({ client, query }) => client.logs.getCached(query),
+  awaitCreation: true,
 });
 
 export interface KeyParams {
